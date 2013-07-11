@@ -190,6 +190,18 @@ static ti_twl6030_vsel_t millis_to_vsel(int millis)
     }
 }
 
+
+/*static void ti_twl6030_vmmc_sleep(void) 
+{
+    // turn off
+    ti_twl6030_cfg_state_w_t st = ti_twl6030_cfg_state_w_default;
+    st = ti_twl6030_cfg_state_w_grp_app_insert(st, 0x11);
+    st = ti_twl6030_cfg_state_w_grp_con_insert(st, 0x11);
+    st = ti_twl6030_cfg_state_w_grp_mod_insert(st, 0x11);
+    st = ti_twl6030_cfg_state_w_state_insert(st, ti_twl6030_pwr_sleep);
+    ti_twl6030_vmmc_cfg_state_w_wr(&twl, st);
+}*/
+
 void ti_twl6030_vmmc_off(void) 
 {
     // turn off
@@ -197,8 +209,9 @@ void ti_twl6030_vmmc_off(void)
     st = ti_twl6030_cfg_state_w_grp_app_insert(st, 0x0);
     st = ti_twl6030_cfg_state_w_grp_con_insert(st, 0x0);
     st = ti_twl6030_cfg_state_w_grp_mod_insert(st, 0x0);
-    st = ti_twl6030_cfg_state_w_state_insert(st, ti_twl6030_pwr_on);
-    ti_twl6030_vmmc_cfg_state_w_wr(&twl, st);
+    st = ti_twl6030_cfg_state_w_state_insert(st, 0x0);
+    
+    ti_twl6030_vmmc_cfg_state_w_rawwr(&twl, st);
 }
 
 void ti_twl6030_vmmc_on(void)
@@ -210,24 +223,29 @@ void ti_twl6030_vmmc_on(void)
     st = ti_twl6030_cfg_state_w_grp_mod_insert(st, 0x1);
     st = ti_twl6030_cfg_state_w_state_insert(st, ti_twl6030_pwr_on);
     ti_twl6030_vmmc_cfg_state_w_wr(&twl, st);
-
-
 }
 
 
 errval_t ti_twl6030_set_vmmc_vsel(int millis)
 {
     printf("ti_twl6030_vmmc_vsel\n");
-    ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);   
+    //ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);
     ti_twl6030_mmcctrl_sw_fc_wrf(&twl, 0x1);
-
+    
+    //ti_twl6030_vmmc_off();
+    //ti_twl6030_vmmc_sleep();
     ti_twl6030_vmmc_pr();
-
 
     ti_twl6030_vsel_t vsel = millis_to_vsel(millis);
     // set regulator to application mode
-    ti_twl6030_vmmc_cfg_grp_grp_app_wrf(&twl, 0x1);
+    //ti_twl6030_vmmc_cfg_grp_grp_app_wrf(&twl, 0x1);
+    //ti_twl6030_vmmc_cfg_grp_grp_mod_wrf(&twl, 0x1);
+    //ti_twl6030_vmmc_cfg_grp_grp_con_wrf(&twl, 0x1);
+
     ti_twl6030_vmmc_cfg_voltage_vsel_wrf(&twl, vsel);
+
+    ti_twl6030_vmmc_on();
+    //ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);
 
     ti_twl6030_vmmc_pr();
 

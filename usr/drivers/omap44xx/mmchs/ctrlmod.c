@@ -80,7 +80,7 @@ void sdmmc1_enable_power(void)
     // controller TODO? -- assuming 3.0V for now, manual says reset value is
     // 3.0V -SG
     // controller (3.0V)
-    ti_twl6030_vmmc_off();
+    //ti_twl6030_vmmc_off();
     err = ti_twl6030_set_vmmc_vsel(3000);
     assert(err_is_ok(err));
 
@@ -90,14 +90,20 @@ void sdmmc1_enable_power(void)
 
     // Step 5: wait for SDMMC1_VDDS voltage to stabilize TODO
     // might already be stable after reset? -SG
-    ti_twl6030_vmmc_pr();
+    //ti_twl6030_vmmc_pr();
+    //mmchs_wait_msec(1000);
 
     // Step 6: Disable PWRDNZ mode for MMC1_PBIAS and MMC1 I/O cell
     printf("%s: Step 6\n", __FUNCTION__);
     omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_pwrdnz_wrf(&ctrlmod, 0x1);
     omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pwrdnz_wrf(&ctrlmod, 0x1);
 
-    ti_twl6030_vmmc_on();
+    //ti_twl6030_vmmc_on();
+
+    printf("%s:%d: wait until supply_hi_out is 0x1\n", __FUNCTION__, __LINE__);
+    while(omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_supply_hi_out_rdf(&ctrlmod)
+          != 0x1) {}
+    printf("%s:%d: done waiting for suply hi out\n", __FUNCTION__, __LINE__);
 
     // Step 7: Store SUPPLY_HI_OUT bit
     uint8_t supply_hi_out = 
@@ -107,10 +113,10 @@ void sdmmc1_enable_power(void)
             omap44xx_sysctrl_padconf_core_control_pbiaslite_mmc1_pbiaslite_vmode_error_rdf(&ctrlmod));
 
     // Wait for Interrupt
-    printf("Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
-    while(!pbias_got_irq) {
-        event_dispatch(get_default_waitset());
-    }
+    //printf("Waiting for pbias Interrupt (id=%d)\n", PBIAS_IRQ);
+    //while(!pbias_got_irq) {
+    //    event_dispatch(get_default_waitset());
+    //}
 
     printf("%s: Step 8\n", __FUNCTION__);
 
@@ -134,13 +140,18 @@ void sdmmc1_enable_power(void)
 
     // Step 12: clear PBIAS IRQ
     pbias_got_irq = 0;
+
+    char buf[2048];
+    omap44xx_sysctrl_padconf_core_control_pbiaslite_pr(buf, 2047, &ctrlmod);
+    printf("%s:%d: %s\n", __FUNCTION__, __LINE__, buf);
+
+    ti_twl6030_vmmc_pr();
 }
 
 void pbias_handle_irq(void *args)
 {
-    printf("got pbias interrupt");
-
-    // set got-irq flag   
+    printf("got pbias interrupt\n");
+    // set got-irq flag
     pbias_got_irq = true;
 }
 
