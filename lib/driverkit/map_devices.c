@@ -28,25 +28,32 @@
  */
 errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_address)
 {
-    //debug_printf("%s:%d: address=0x%x size=%u\n", __FUNCTION__, __LINE__, address, size);
-
+    errval_t err;
     struct capref argcn = {
         .cnode = cnode_root,
-        .slot = 10
+        .slot = TASKCN_SLOT_ARGSPAGE
     };
-    //debug_cspace(argcn);
 
     size_t bits = 8; // TODO(gz): How do I figure this value out on the fly?
     struct capref device_cap_iter = {
         .cnode = build_cnoderef(argcn, bits),
         .slot = 0
     };
-    //walk_cspace(build_cnoderef(argcn, bits), 0);
 
+    for (; device_cap_iter.slot < (((capaddr_t)1) << device_cap_iter.cnode.size_bits); 
+         device_cap_iter.slot++) {
+        // Get cap data
+        struct capability cap;
+        err = debug_cap_identify(device_cap_iter, &cap);
+        // If cap type was Null, kernel returns error
+        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
+            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            continue;
+        }
 
-    for (size_t i = 0; i<12; i++) {
         struct frame_identity fid;
-        errval_t err = invoke_frame_identify(device_cap_iter, &fid);
+        err = invoke_frame_identify(device_cap_iter, &fid);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failure in invoke_frame_identify");
             return err;
@@ -69,8 +76,6 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
             }
             return err;
         }
-
-        device_cap_iter.slot += 1;
     }
 
     return DRIVERKIT_NO_CAP_FOUND;
