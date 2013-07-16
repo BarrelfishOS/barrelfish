@@ -12,6 +12,7 @@
 
 extern char **environ;
 
+#ifdef __x86__
 errval_t default_start_function(coreid_t where, struct module_info* mi,
         char* record)
 {
@@ -33,6 +34,7 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
 
     return err;
 }
+#endif
 
 errval_t start_networking(coreid_t core, struct module_info* driver,
         char* record)

@@ -10,6 +10,4 @@
 #ifndef OMAP_STARTUP_H
 #define OMAP_STARTUP_H
  
-errval_t start_omap(coreid_t, struct module_info*, char*);
- 
 #endif // OMAP_STARTUP_H

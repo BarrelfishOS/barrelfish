@@ -25,6 +25,8 @@
 
 extern char **environ;
 
+#ifdef __pandaboard__
+
 struct allowed_registers
 {
     char* binary;
@@ -92,7 +94,7 @@ static struct allowed_registers* omap44xx[10] = {
  * 
  * Makes sure we get the device register capabilities.
  */
-errval_t start_omap(coreid_t where, struct module_info* driver,
+errval_t default_start_function(coreid_t where, struct module_info* driver,
         char* record)
 {
     assert(driver != NULL);
@@ -161,3 +163,5 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
 
     return SYS_ERR_OK;
 }
+
+#endif

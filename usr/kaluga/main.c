@@ -44,11 +44,6 @@ static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
-
-    // OMAP4 drivers
-    set_start_function("fdif", start_omap);
-    set_start_function("mmchs", start_omap);
-    set_start_function("prcm", start_omap);
 }
 
 static void parse_arguments(int argc, char** argv)
@@ -134,8 +129,9 @@ int main(int argc, char** argv)
     // It might be better to get rid of this completely
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
-#else
-    printf("Kaluga running on ARM.\n");
+#elif __pandaboard__
+    printf("Kaluga running on Pandaboard.\n");
+    
     err = init_cap_manager();
     assert(err_is_ok(err));
 
@@ -159,6 +155,3 @@ int main(int argc, char** argv)
     THCFinish();
     return EXIT_SUCCESS;
 }
-
-
-
