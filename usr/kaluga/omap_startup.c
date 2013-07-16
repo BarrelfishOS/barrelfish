@@ -50,22 +50,32 @@ static struct allowed_registers mmchs = {
         {OMAP44XX_CM2,        0x1000},
         {OMAP44XX_CLKGEN_CM2, 0x1000},
         {OMAP44XX_L4PER_CM2,  0x1000},
-
-        // i2c stuff
-        {0x48070000, 0x1000},
-        {0x48072000, 0x1000},
-        {0x48060000, 0x1000},
-        {0x48350000, 0x1000},
-
+        // i2c
+        {OMAP44XX_I2C1, 0x1000},
+        {OMAP44XX_I2C2, 0x1000},
+        {OMAP44XX_I2C3, 0x1000},
+        {OMAP44XX_I2C4, 0x1000},
         // ctrlmodules
-        {0x4a002000u, 0X1000},
-        {0x4a30c000u, 0X1000},
-        {0x4a100000u, 0X1000},
-        {0x4a31e000u, 0X1000},
-
+        {OMAP44XX_SYSCTRL_GENERAL_CORE, 0X1000},
+        {OMAP44XX_SYSCTRL_GENERAL_WAKEUP, 0X1000},
+        {OMAP44XX_SYSCTRL_PADCONF_CORE, 0X1000},
+        {OMAP44XX_SYSCTRL_PADCONF_WAKEUP, 0X1000},
         // MMCHS
-        {0x4809C000, 0x1000},
+        {OMAP44XX_MMCHS1, 0x1000},
+        {0x0, 0x0}
+    }
+};
 
+static struct allowed_registers prcm = {
+    .binary = "hw.arm.omap44xx.prcm",
+    .registers =
+    {
+        {OMAP44XX_INTRCONN_SOCKET_PRM, 0x1000},
+        {OMAP44XX_DEVICE_PRM, 0x1000},
+        {OMAP44XX_I2C1, 0x1000},
+        {OMAP44XX_I2C2, 0x1000},
+        {OMAP44XX_I2C3, 0x1000},
+        {OMAP44XX_I2C4, 0x1000},
         {0x0, 0x0}
     }
 };
@@ -73,6 +83,7 @@ static struct allowed_registers mmchs = {
 static struct allowed_registers* omap44xx[10] = {
     &fdif,
     &mmchs,
+    &prcm,
     NULL,
 };
 

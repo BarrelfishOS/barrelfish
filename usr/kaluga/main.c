@@ -48,6 +48,7 @@ static void add_start_function_overrides(void)
     // OMAP4 drivers
     set_start_function("fdif", start_omap);
     set_start_function("mmchs", start_omap);
+    set_start_function("prcm", start_omap);
 }
 
 static void parse_arguments(int argc, char** argv)
@@ -146,6 +147,11 @@ int main(int argc, char** argv)
     mi = find_module("mmchs");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("prcm");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
         assert(err_is_ok(err));
     }
 #endif
