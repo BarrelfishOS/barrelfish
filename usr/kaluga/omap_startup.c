@@ -119,7 +119,7 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
     char* name;
     err = oct_read(record, "%s", &name);
     assert(err_is_ok(err));
-    printf("%s:%d: Starting driver for %s\n", __FUNCTION__, __LINE__, name);
+    KALUGA_DEBUG("%s:%d: Starting driver for %s\n", __FUNCTION__, __LINE__, name);
     for (size_t i=0; omap44xx[i] != NULL; i++) {
 
         if(strcmp(name, omap44xx[i]->binary) != 0) {
@@ -130,7 +130,7 @@ errval_t start_omap(coreid_t where, struct module_info* driver,
         // put them all in a single cnode
         for (size_t j=0; omap44xx[i]->registers[j][0] != 0x0; j++) {
             struct capref device_frame;
-            printf("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__, 
+            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__, 
                    omap44xx[i]->registers[j][0], omap44xx[i]->registers[j][1]);
 
             lpaddr_t base = omap44xx[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
