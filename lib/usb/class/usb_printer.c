@@ -1,3 +1,10 @@
+/**
+ * \brief This file contains class specific functions printer devices
+ *
+ *        USB Device Class 0x07
+ * ===========================================================================
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -8,11 +15,5 @@
  */
 
 
-/*
- * ===========================================================================
- * This file contains class specific functions printer devices
- *
- * USB Device Class 0x07
- * ===========================================================================
- */
+
 

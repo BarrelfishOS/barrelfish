@@ -1,19 +1,18 @@
 /*
+ * \brief This file contains class specific functions for human interface
+ *        devices such as keyboard and mouse
+ *
+ *        USB Device Class 0x03
+ * ===========================================================================
+ */
+
+/*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
- */
-
-/*
- * ===========================================================================
- * This file contains class specific functions for human interface devices
- * such as keyboard and mouse
- *
- * USB Device Class 0x03
- * ===========================================================================
  */
 
 #include <stdlib.h>
@@ -23,7 +22,6 @@
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
-#include <usb/usb_descriptor.h>
 #include <usb/usb_device.h>
 #include <usb/usb_parse.h>
 #include <usb/class/usb_hid.h>
@@ -48,11 +46,12 @@ static void usb_hid_item_clear_local(struct usb_hid_item *c)
 }
 
 /**
- * \brief
+ * \brief this function switches the report ID of an hid item with the
+ *        new value
  *
- * \param
- * \param
- * \param
+ * \param s the current HID data
+ * \param c the current HID item
+ * \param next_rID the report id to set
  */
 static void usb_hid_switch_reportid(struct usb_hid_data *s,
         struct usb_hid_item *c, int32_t next_rID)
@@ -587,7 +586,7 @@ int32_t usb_hid_locate(const void *desc, uint32_t size, uint32_t usage,
 
     d = usb_hid_start_parse(desc, size, 1 << k);
 
-    while(usb_hid_get_item(d, &h)) {
+    while (usb_hid_get_item(d, &h)) {
         if (h.kind == k && !(h.flags & USB_HID_IO_CONST) && h.usage == usage) {
             if (repindex--)
                 continue;
@@ -657,7 +656,7 @@ static uint32_t usb_hid_get_data_generic(const uint8_t *buf, uint32_t len,
     /* Mask and sign extend in one */
     if (is_signed != 0) {
         data = (int32_t) ((int32_t) data << n) >> n;
-    }    else {
+    } else {
         data = (uint32_t) ((uint32_t) data << n) >> n;
     }
 
@@ -801,8 +800,9 @@ struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
 /*
  * \brief get the HID descriptor from the usb device using a USB request
  *
- *
- *
+ * \param ret_desc the returned descriptor
+ * \param ret_size the returned size of the descriptor
+ * \param iface the interface number to get the idescriptor of
  */
 usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         uint16_t *ret_size, uint8_t iface)
@@ -811,7 +811,6 @@ usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
 
     struct usb_config_descriptor *cfg_desc = usb_device_get_cfg_desc();
 
-    /* TODO */
     hid = usb_hid_get_descriptor_from_usb(cfg_desc,
             (struct usb_interface_descriptor *) (cfg_desc + 1));
 
@@ -829,8 +828,7 @@ usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         return (USB_ERR_NOMEM);
     }
 
-    usb_error_t err = usb_hid_get_report_descriptor(ret_desc, *ret_size,
-            iface);
+    usb_error_t err = usb_hid_get_report_descriptor(ret_desc, *ret_size, iface);
 
     if (err) {
         *ret_desc = NULL;
@@ -840,6 +838,13 @@ usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
     return (USB_ERR_OK);
 }
 
+/**
+ * \brief gets the report descriptor from the HID device
+ *
+ * \param d pointer to the report descriptror
+ * \param size the expected size of the report descriptor
+ * \param iface the interface we want to get the report of
+ */
 usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
         uint16_t size, uint8_t iface)
 {
@@ -857,7 +862,7 @@ usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
 
     uint16_t ret_data_length;
 
-    usb_error_t err = usb_do_request_read(&req, &ret_data_length, (void **)d);
+    usb_error_t err = usb_do_request_read(&req, &ret_data_length, (void **) d);
 
     if (err != USB_ERR_OK) {
         *d = NULL;
@@ -874,6 +879,13 @@ usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
 
 }
 
+/**
+ * \brief this function sets the idlerate of the HID device
+ *
+ * \param iface the interface to set the idle rate for
+ * \param duration the interval in 2 ms setps
+ * \param id the id of the report
+ */
 usb_error_t usb_hid_set_idle(uint8_t iface, uint8_t duration, uint8_t id)
 {
     struct usb_device_request req;

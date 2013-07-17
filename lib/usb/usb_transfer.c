@@ -1,3 +1,7 @@
+/**
+ * \brief this function contains functions to manage USB transfers
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -40,8 +44,6 @@ struct usb_xfer_state {
 
 /// stores the created transfer
 static struct usb_xfer_state *xfers = NULL;
-
-
 
 
 /*
@@ -88,8 +90,6 @@ static void usb_xfer_state_deq(struct usb_xfer_state *state)
 }
 
 
-
-
 /**
  * \brief   gets the xfer state struct to a corresponding transfer id
  *
@@ -116,6 +116,10 @@ static struct usb_xfer_state *usb_xfer_get_state(usb_xfer_id_t tid)
 }
 
 
+/**
+ * \brief this function is part of the USB driver interface and gets called
+ *        when an USB transfer is completed.
+ */
 void usb_driver_rx_done_notify(struct usb_driver_binding *b,
         uint32_t tid, uint32_t error, uint8_t *data, size_t length)
 {
@@ -130,11 +134,11 @@ void usb_driver_rx_done_notify(struct usb_driver_binding *b,
 
     st->done_cb(error, data, length);
 
+    /* XXX: this may be better done in the callback, since the data may need
+     *      be to be present afterwards...
+     */
     free(data);
 }
-
-
-
 
 
 /*

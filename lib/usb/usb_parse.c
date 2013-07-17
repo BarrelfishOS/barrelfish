@@ -12,7 +12,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_descriptor.h>
 #include <usb/usb_parse.h>
 
 
@@ -66,35 +65,44 @@ struct usb_descriptor *usb_parse_next_descriptor(
     return ((struct usb_descriptor *) desc);
 }
 
-
-/*------------------------------------------------------------------------*
- *  usb_idesc_foreach
+/**
+ * \brief this function will lookup the next interface descriptor in an
+ *        configuration descriptor
  *
- * This function will iterate the interface descriptors in the config
- * descriptor. The parse state structure should be zeroed before
- * calling this function the first time.
+ * \param cd  the configuration descriptor
+ * \param ps  the parse state which interface descriptor will be next
  *
- * Return values:
- *   NULL: End of descriptors
- *   Else: A valid interface descriptor
- *------------------------------------------------------------------------*/
+ * \return  NULL: there are no more descriptors
+ *          Else: the next interface descriptor
+ */
 struct usb_interface_descriptor *usb_parse_next_iface(
         struct usb_config_descriptor *cd, struct usb_iface_parse_state *ps)
 {
     USB_DEBUG_TR_ENTER;
+
     struct usb_interface_descriptor *id;
     uint8_t new_iface;
 
     /* retrieve current descriptor */
     id = (struct usb_interface_descriptor *) ps->desc;
+
     /* default is to start a new interface */
     new_iface = 1;
 
     while (1) {
+        /*
+         * loop over the remaining descriptors and check if it is of type
+         * interface descriptor
+         */
         id = (struct usb_interface_descriptor *) usb_parse_next_descriptor(cd,
                 (struct usb_descriptor *) id);
-        if (id == NULL)
+
+        if (id == NULL) {
+            /* no more left, stop */
             break;
+        }
+
+        /* compare descriptor type */
         if ((id->bDescriptorType == USB_DESCRIPTOR_TYPE_INTERFACE)
                 && (id->bLength >= sizeof(*id))) {
             if (ps->iface_no_last == id->bInterfaceNumber)
@@ -121,30 +129,31 @@ struct usb_interface_descriptor *usb_parse_next_iface(
 }
 
 
-/*------------------------------------------------------------------------*
- *  usb_edesc_foreach
+/**
+ * \brief this function will lookup the next endpoint descriptor in an
+ *        configuration descriptor
  *
- * This function will iterate all the endpoint descriptors within an
- * interface descriptor. Starting value for the "ped" argument should
- * be a valid interface descriptor.
+ * \param cd  the configuration descriptor
+ * \param ped  a pointer to an interface descriptor
  *
- * Return values:
- *   NULL: End of descriptors
- *   Else: A valid endpoint descriptor
- *------------------------------------------------------------------------*/
-struct usb_endpoint_descriptor *
-usb_parse_next_edesc(struct usb_config_descriptor *cd,
-        struct usb_endpoint_descriptor *ped)
+ * \return  NULL: there are no more descriptors
+ *          Else: the next descriptor after "desc"
+ */
+struct usb_endpoint_descriptor *usb_parse_next_edesc(
+        struct usb_config_descriptor *cd, struct usb_endpoint_descriptor *ped)
 {
     USB_DEBUG_TR_ENTER;
     struct usb_descriptor *desc;
 
     desc = ((struct usb_descriptor *) ped);
 
+    /* loop over the descritpors */
     while ((desc = usb_parse_next_descriptor(cd, desc))) {
+        /* if the type is configuration we are finish, no more descriptors */
         if (desc->bDescriptorType == USB_DESCRIPTOR_TYPE_CONFIG) {
             break;
         }
+        /* this is an endpoint descriptor, check for the size */
         if (desc->bDescriptorType == USB_DESCRIPTOR_TYPE_ENDPOINT) {
             if (desc->bLength < sizeof(*ped)) {
                 /* endpoint descriptor is invalid */
@@ -155,101 +164,3 @@ usb_parse_next_edesc(struct usb_config_descriptor *cd,
     }
     return (NULL);
 }
-#if 0
-/*------------------------------------------------------------------------*
- *  usb_ed_comp_foreach
- *
- * This function will iterate all the endpoint companion descriptors
- * within an endpoint descriptor in an interface descriptor. Starting
- * value for the "ped" argument should be a valid endpoint companion
- * descriptor.
- *
- * Return values:
- *   NULL: End of descriptors
- *   Else: A valid endpoint companion descriptor
- *------------------------------------------------------------------------*/
-struct usb_endpoint_ss_comp_descriptor *
-usb_ed_comp_foreach(struct usb_config_descriptor *cd,
-        struct usb_endpoint_ss_comp_descriptor *ped)
-{
-    struct usb_descriptor *desc;
-
-    desc = ((struct usb_descriptor *) ped);
-
-    while ((desc = usb_desc_foreach(cd, desc))) {
-        if (desc->bDescriptorType == UDESC_INTERFACE)
-            break;
-        if (desc->bDescriptorType == UDESC_ENDPOINT)
-            break;
-        if (desc->bDescriptorType == UDESC_ENDPOINT_SS_COMP) {
-            if (desc->bLength < sizeof(*ped)) {
-                /* endpoint companion descriptor is invalid */
-                break;
-            }
-            return ((struct usb_endpoint_ss_comp_descriptor *) desc);
-        }
-    }
-    return (NULL);
-}
-
-/*------------------------------------------------------------------------*
- *  usbd_get_no_descriptors
- *
- * This function will count the total number of descriptors in the
- * configuration descriptor of type "type".
- *------------------------------------------------------------------------*/
-uint8_t usbd_get_no_descriptors(struct usb_config_descriptor *cd, uint8_t type)
-{
-    struct usb_descriptor *desc = NULL;
-    uint8_t count = 0;
-
-    while ((desc = usb_desc_foreach(cd, desc))) {
-        if (desc->bDescriptorType == type) {
-            count++;
-            if (count == 0xFF)
-                break; /* crazy */
-        }
-    }
-    return (count);
-}
-
-/*------------------------------------------------------------------------*
- *  usbd_get_no_alts
- *
- * Return value:
- *   Number of alternate settings for the given interface descriptor
- *   pointer. If the USB descriptor is corrupt, the returned value can
- *   be greater than the actual number of alternate settings.
- *------------------------------------------------------------------------*/
-uint8_t usbd_get_no_alts(struct usb_config_descriptor *cd,
-        struct usb_interface_descriptor *id)
-{
-    struct usb_descriptor *desc;
-    uint8_t n;
-    uint8_t ifaceno;
-
-    /* Reset interface count */
-
-    n = 0;
-
-    /* Get the interface number */
-
-    ifaceno = id->bInterfaceNumber;
-
-    /* Iterate all the USB descriptors */
-
-    desc = NULL;
-    while ((desc = usb_desc_foreach(cd, desc))) {
-        if ((desc->bDescriptorType == UDESC_INTERFACE)
-                && (desc->bLength >= sizeof(*id))) {
-            id = (struct usb_interface_descriptor *) desc;
-            if (id->bInterfaceNumber == ifaceno) {
-                n++;
-                if (n == 0xFF)
-                    break; /* crazy */
-            }
-        }
-    }
-    return (n);
-}
-#endif

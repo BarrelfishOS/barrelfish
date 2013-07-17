@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains functions to setup the different xfers
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -122,15 +126,16 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
     }
 
     if (!xfer->flags_internal.transferring && !xfer->flags_internal.started) {
-        /* command wrapper */
+        /* the transfer is not transferring and not started nothing to do */
         return;
     }
 
     if ((!xfer->flags_internal.pipe_open)
             && (!xfer->flags_internal.transfer_closed)) {
+        /* check if the pipe was opened and close it */
         xfer->endpoint->pipe_fn->close(xfer);
         xfer->flags_internal.transfer_closed = 1;
-        /* return 1 */
+
     }
 
     // update error condition
@@ -142,25 +147,30 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
 
     /*
      * the transfer was enqueued and is waiting on the interrupt queue
-     * so we have to dequeue it...
+     * so we have to dequeue it
      */
 
     usb_xfer_dequeue(xfer);
 
+    /*
+     * check the number of actual frames this should not be bigger than
+     * the maximum number of frames
+     */
     if (xfer->actual_frames > xfer->num_frames) {
         if (xfer->error == USB_ERR_OK) {
-            USER_PANIC("WARNING: actual frames biggar than num frames! PANIC!");
+            USER_PANIC("WARNING: actual frames bigger than num frames! PANIC!");
         } else {
             xfer->actual_frames = xfer->num_frames;
         }
     }
 
-    uint32_t frame = 0;
+    /* calculate the actual size of the transferred data */uint32_t frame = 0;
     xfer->actual_bytes = 0;
     for (frame = 0; frame < xfer->actual_frames; frame++) {
         xfer->actual_bytes += xfer->frame_lengths[frame];
     }
 
+    /* set frame length of the unused frames to be zero */
     while (frame < xfer->num_frames) {
         xfer->frame_lengths[frame] = 0;
         frame++;
@@ -174,62 +184,61 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
         }
     }
 
+    /* clear the flags */
     xfer->flags_internal.ctrl_active = 0;
-
-    /* clear the transferring flag */
     xfer->flags_internal.transferring = 0;
 
-    if (xfer->xfer_done_cb && xfer->flags_internal.notify
-            && xfer->host_controller->done_queue.current != xfer) {
-        // usb_xfer_enqueue(&xfer->host_controller->done_queue, xfer);
-    }
-
     /*
-     * if the transfer was the current one being served on the endpoint
-     * we have to update the current transfer pointer
+     * start the next transfer on this endpoint if there is any
      */
     struct usb_endpoint *ep = xfer->endpoint;
     struct usb_xfer_queue *q = &ep->transfers;
 
     if (q->current == xfer || q->current == NULL) {
-        USB_DEBUG_XFER("usb_xfer_done()->remove the xfer from ep list..\n");
-        /* TODO: start next one if any*/
         q->current = NULL;
         if (!q->recurse_1) {
             q->recurse_1 = 1;
-            struct usb_xfer *next_xfer = ((&q->head)->first);
+            /* get the first transfer of the queue */
+            struct usb_xfer *next_xfer = q->head.first;
+
             if (next_xfer) {
-                if (((next_xfer->wait_entry.next)) != NULL) {
-                    (*(next_xfer->wait_entry.prev_next))->wait_entry.prev_next =
+                /* dequeue it */
+                if (next_xfer->wait_entry.next != NULL) {
+                    (*next_xfer->wait_entry.prev_next)->wait_entry.prev_next =
                             next_xfer->wait_entry.prev_next;
-                    *(next_xfer)->wait_entry.prev_next = next_xfer->wait_entry
+                    *next_xfer->wait_entry.prev_next = next_xfer->wait_entry
                             .next;
                 } else {
-                    (&q->head)->last_next = &(q->head.first);  //next_xfer->wait_entry.prev_next;
-                    (&q->head)->first = NULL;  //&q->head.first;
+                    q->head.last_next = &(q->head.first);
+                    q->head.first = NULL;
                 }
-
-                (next_xfer)->wait_queue = NULL;
+                /* the transfer is not on a wait queue anymore */
+                next_xfer->wait_queue = NULL;
                 q->current = next_xfer;
+
                 USB_DEBUG_XFER(
                         "rem2: [%x, q=%p, &f=%p, ln=%p, wn=%p, &wn=%p, pn=%p\n",
                         xfer->xfer_id, q, &q->head.first, q->head.last_next,
                         xfer->wait_entry.next, &xfer->wait_entry.next,
                         xfer->wait_entry.prev_next);
+
+                /* start the transfer */
                 (q->command)(q);
+
             } else {
-                (&q->head)->last_next = &q->head.first;  //next_xfer->wait_entry.prev_next;
-                (&q->head)->first = NULL;  //&q->head.first;
+                /* reset the queue */
+                (&q->head)->last_next = &q->head.first;
+                (&q->head)->first = NULL;
             }
             q->recurse_1 = 0;
         }
-        if (!(ep->transfers.current || ((&ep->transfers.head)->first))) {
+        if (!(ep->transfers.current || ep->transfers.head.first)) {
             xfer->endpoint->is_sync = 0;
         }
 
     }
 
-    //todo: send message to driver that transfer is completed
+    /* send the transfer done notification */
     if (xfer->xfer_done_cb && xfer->flags_internal.notify) {
         xfer->flags_internal.notify = 0;
         (xfer->xfer_done_cb)(xfer, err);
@@ -239,6 +248,7 @@ void usb_xfer_done(struct usb_xfer *xfer, usb_error_t err)
     return;
 }
 
+/// struct for the packet sizes
 struct usb_std_packet_size {
     struct {
         uint16_t min; /* inclusive */
@@ -248,9 +258,18 @@ struct usb_std_packet_size {
     uint16_t fixed[4];
 };
 
+/**
+ * \brief checks the standard packet sizes according to the transfer speed
+ *        and the endpoint type
+ *
+ * \param ptr pointer to the memory location to store the size information
+ * \param type the type of the endpoint
+ * \param speed the endpoint speed
+ */
 static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
         uint8_t type, enum usb_speed speed)
 {
+    /* interrupt type */
     static const uint16_t intr_range_max[USB_SPEED_MAX] = {
         [USB_SPEED_LOW] = 8,
         [USB_SPEED_FULL] = 64,
@@ -259,6 +278,7 @@ static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
         [USB_SPEED_SUPER] = 1024,
     };
 
+    /* isochronus type */
     static const uint16_t isoc_range_max[USB_SPEED_MAX] = {
         [USB_SPEED_LOW] = 0, /* invalid */
         [USB_SPEED_FULL] = 1023,
@@ -267,6 +287,7 @@ static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
         [USB_SPEED_SUPER] = 1024,
     };
 
+    /* control type */
     static const uint16_t control_min[USB_SPEED_MAX] = {
         [USB_SPEED_LOW] = 8,
         [USB_SPEED_FULL] = 8,
@@ -275,6 +296,7 @@ static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
         [USB_SPEED_SUPER] = 512,
     };
 
+    /* bulk type */
     static const uint16_t bulk_min[USB_SPEED_MAX] = {
         [USB_SPEED_LOW] = 8,
         [USB_SPEED_FULL] = 8,
@@ -285,6 +307,7 @@ static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
 
     uint16_t temp;
 
+    /* reset the fields */
     memset(ptr, 0, sizeof(*ptr));
 
     switch (type) {
@@ -298,17 +321,14 @@ static void usb_xfer_get_packet_size(struct usb_std_packet_size *ptr,
             if (type == USB_ENDPOINT_TYPE_BULK)
                 temp = bulk_min[speed];
             else
-                /* UE_CONTROL */
                 temp = control_min[speed];
 
-            /* default is fixed */
             ptr->fixed[0] = temp;
             ptr->fixed[1] = temp;
             ptr->fixed[2] = temp;
             ptr->fixed[3] = temp;
 
             if (speed == USB_SPEED_FULL) {
-                /* multiple sizes */
                 ptr->fixed[1] = 16;
                 ptr->fixed[2] = 32;
                 ptr->fixed[3] = 64;
@@ -331,6 +351,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     struct usb_xfer *xfer = param->curr_xfer;
 
+    /* do a parameter check */
     if ((param->hc_max_packet_size == 0) || (param->hc_max_packet_count == 0)
             || (param->hc_max_frame_size == 0)) {
         USB_DEBUG("WARNING: Invaid setup parameter\n");
@@ -348,6 +369,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     const struct usb_xfer_config *setup_config = param->xfer_setup;
     struct usb_endpoint_descriptor *ep_desc = xfer->endpoint->descriptor;
+
     assert(setup_config);
     assert(ep_desc);
 
@@ -360,6 +382,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     xfer->max_packet_count = 1;
 
+    /* adjust maximum packet count and size */
     switch (ep_speed) {
         case USB_SPEED_HIGH:
             if (type == USB_ENDPOINT_TYPE_ISOCHR
@@ -381,6 +404,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     uint32_t num_frlengths;
     uint32_t num_frbuffers;
+
+    /* setup some values of the xfer struct */
     xfer->flags = setup_config->flags;
     xfer->num_frames = setup_config->frames;
     xfer->timeout = setup_config->timeout;
@@ -389,20 +414,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     xfer->flags_internal.usb_mode = param->device->flags.usb_mode;
 
-    /*
-     * range checks and filter values according to the host controller
-     * values. Maximum packet size and count must not be bigger than supported
-     * by the host controller.
-     */
-
-    if (xfer->max_packet_count > param->hc_max_packet_count) {
-        xfer->max_packet_count = param->hc_max_packet_count;
-    }
-
-    if ((xfer->max_packet_size > param->hc_max_packet_size)
-            || (xfer->max_packet_size == 0)) {
-        xfer->max_packet_size = param->hc_max_packet_size;
-    }
 
     struct usb_std_packet_size size;
     usb_xfer_get_packet_size(&size, type, param->speed);
@@ -428,18 +439,36 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
     }
 
     /*
+     * range checks and filter values according to the host controller
+     * values. Maximum packet size and count must not be bigger than supported
+     * by the host controller.
+     */
+
+    if (xfer->max_packet_count > param->hc_max_packet_count) {
+        xfer->max_packet_count = param->hc_max_packet_count;
+    }
+
+    if ((xfer->max_packet_size > param->hc_max_packet_size)
+            || (xfer->max_packet_size == 0)) {
+        xfer->max_packet_size = param->hc_max_packet_size;
+    }
+
+    /*
      * compute the maximum frame size as the maximum number of packets
      * multiplied by the maximum packet size
      */
     xfer->max_frame_size = xfer->max_packet_size * xfer->max_packet_count;
 
+    /*
+     * isochronus and interrupt transfer need to be checked very INTERVALL ms
+     * so we need to setup the interval for this to transfer types
+     */
     switch (type) {
         case USB_TYPE_ISOC:
             /* TODO: ISOCHRONUS IMPLEMENTATION */
             assert(!"NYI: isochronus support not yet implemented");
             break;
         case USB_TYPE_INTR:
-            /* handling of interrupt transfers */
             if (xfer->interval == 0) {
                 /* interval is not set, get it from the endpoint descriptor */
                 xfer->interval = ep_desc->bInterval;
@@ -463,18 +492,17 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                 }
             }
 
-            // ensure that the interval is at least 1
+            /* ensure that the interval is at least 1 */
             xfer->interval += (xfer->interval ? 0 : 1);
 
-            /*
-             * calculate the frame down shift value
-             */
+            /* calculate the frame down shift value */
             xfer->frame_shift = 0;
             uint32_t tmp = 1;
             while ((tmp != 0) && (tmp < xfer->interval)) {
                 xfer->frame_shift++;
                 tmp *= 2;
             }
+
             if (param->speed != USB_SPEED_FULL
                     && param->speed != USB_SPEED_LOW) {
                 xfer->frame_shift += 3;
@@ -491,9 +519,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
         max_length_zero = 1;
 
-        /*
-         * check for minimum packet size
-         */
+        /* check for minimum packet size */
         if ((param->bufsize <= 8) && (type != USB_TYPE_CTRL)
                 && (type != USB_TYPE_BULK)) {
             xfer->max_packet_size = 8;
@@ -555,6 +581,7 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
 
     xfer->max_data_length = param->bufsize;
 
+    /* calculate the number of required frames depending on the transfer type */
     switch (type) {
         case USB_TYPE_ISOC:
             num_frlengths = xfer->num_frames;
@@ -562,7 +589,15 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
             break;
 
         case USB_TYPE_CTRL:
-            /* set the control transfer flag */
+            /*
+             * control transfers are special, since they may have a data stage
+             * or not, the number of frames depends on this.
+             *
+             * If the buffer size is 8 bytes, this is just the size of the
+             * device request and thus there is no data stage.
+             *
+             * Set the flag indicating that this is a control transfer
+             */
 
             xfer->flags_internal.ctrl_xfer = 1;
 
@@ -575,6 +610,8 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                     xfer->num_frames = 2;
                 }
             }
+
+
             num_frlengths = xfer->num_frames;
             num_frbuffers = xfer->num_frames;
 
@@ -591,16 +628,22 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
                 USB_DEBUG_TR_RETURN;
                 return;
             }
+
+            /* subtract the request size */
+
             xfer->max_data_length -= 8;
             break;
 
         default:
+            /* the num frames is at least one */
             xfer->num_frames = (xfer->num_frames) ? (xfer->num_frames) : 1;
             num_frlengths = xfer->num_frames;
             num_frbuffers = xfer->num_frames;
             break;
     }
 
+
+    /* allocate the frame buffers and the frame length array */
     xfer->max_frame_count = xfer->num_frames;
 
     xfer->frame_lengths = malloc(2 * xfer->num_frames * sizeof(uint32_t));
@@ -612,12 +655,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
         xfer->frame_buffers[i] = usb_mem_dma_alloc(
                 param->num_pages * USB_PAGE_SIZE, USB_PAGE_SIZE);
     }
-
-    /*
-     if (!xfer->flags.ext_buffer) {
-     assert(!"NYI: allocating a local buffer");
-     }
-     */
 
     /*
      * we expect to have no data stage, so set it to the correct value
@@ -646,11 +683,6 @@ void usb_xfer_setup_struct(struct usb_xfer_setup_params *param)
         USB_DEBUG_TR_RETURN;
         return;
     }
-
-    /*
-     if (param->buf) {
-     assert(!"NYI: initialize frame buffers");
-     }*/
 
     USB_DEBUG_TR_RETURN;
 }

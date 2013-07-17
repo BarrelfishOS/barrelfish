@@ -1,4 +1,10 @@
 /*
+ * \brief This file contains class specific functions for USB hub devices
+ *
+ *        USB Device Class 0x09
+ */
+
+/*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
@@ -8,11 +14,10 @@
  */
 
 /*
- * ===========================================================================
- * This file contains class specific functions for USB hub devices
- *
- * USB Device Class 0x09
- * ===========================================================================
+ * ==========================================================================
+ * XXX: This is currently unused, since the hub driver is inside the USB
+ *      Manager!
+ * ==========================================================================
  */
 
 #include <stdlib.h>
@@ -37,8 +42,7 @@
  *
  * The behavior if the hub is not configured is undefined
  */
-usb_error_t
-usb_hub_clear_hub_feature(uint16_t feature)
+usb_error_t usb_hub_clear_hub_feature(uint16_t feature)
 {
     struct usb_device_request req;
 
@@ -46,8 +50,7 @@ usb_hub_clear_hub_feature(uint16_t feature)
     req.bType.type = USB_REQUEST_TYPE_CLASS;
     req.bType.recipient = USB_REQUEST_RECIPIENT_DEVICE;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
-    switch (feature)
-        {
+    switch (feature) {
         // only these two features are allowed to be cleared by this request
         case USB_HUB_FEATURE_C_HUB_LOCAL_POWER:
         case USB_HUB_FEATURE_C_HUB_OVER_CURRENT:
@@ -56,12 +59,11 @@ usb_hub_clear_hub_feature(uint16_t feature)
         default:
             return USB_ERR_BAD_REQUEST;
             break;
-        }
+    }
     req.wIndex = 0;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    return (usb_do_request(&req));
 }
 
 /**
@@ -91,8 +93,8 @@ usb_hub_clear_hub_feature(uint16_t feature)
  *
  * The behavior if the hub is not configured is undefined
  */
-usb_error_t
-usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
+usb_error_t usb_hub_clear_port_feature(uint16_t feature, uint8_t sel,
+        uint8_t port)
 {
     struct usb_device_request req;
 
@@ -101,8 +103,7 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_CLEAR_FEATURE;
     req.wIndex = (0x00FF & port);
-    switch (feature)
-        {
+    switch (feature) {
         // only these features are supported by this request
         case USB_HUB_FEATURE_PORT_ENABLE:
         case USB_HUB_FEATURE_PORT_SUSPEND:
@@ -116,18 +117,16 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
             req.wValue = feature;
             break;
         default:
-            return USB_ERR_BAD_REQUEST;
+            return (USB_ERR_BAD_REQUEST);
             break;
-        }
+    }
     req.wLength = 0;
 
-    if (feature == USB_HUB_FEATURE_PORT_INDICATOR)
-        {
-            req.wIndex = req.wIndex | (0xFF00 & (sel << 8));
-        }
+    if (feature == USB_HUB_FEATURE_PORT_INDICATOR) {
+        req.wIndex = req.wIndex | (0xFF00 & (sel << 8));
+    }
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 }
 
 /**
@@ -148,9 +147,8 @@ usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port)
  * The behavior if the hub is not configured or applied to a periodic endpoint
  * is undefined.
  */
-usb_error_t
-usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
-        uint8_t direction, uint16_t tt_port)
+usb_error_t usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num,
+        uint8_t ep_type, uint8_t direction, uint16_t tt_port)
 {
     struct usb_device_request req;
 
@@ -171,28 +169,26 @@ usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
     req.wIndex = tt_port;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; // usb_do_request(&req);
+    return (usb_do_request(&req));;
 }
 
 /**
- * \brief     This request returns the hub descriptor. For other descriptors
- *             than hub descriptors use the standard usb_hub_get_descriptor().
+ * \brief    This request returns the hub descriptor. For other descriptors
+ *           than hub descriptors use the standard usb_hub_get_descriptor().
  *
- * \param     ret_desc    the returned hub descriptor
+ * \param    ret_desc    the returned hub descriptor
  * \param    num_ports    the number of ports of the hub
  *
- * \return    USB_ERR_OK on success
- *             USB_ERR_* on failure
+ * \return   USB_ERR_OK on success
+ *           USB_ERR_* on failure
  *
  * All hubs are required to implement one hub descriptor, with descriptor
  * index zero.
  *
  * If the hub is not configured, the response to this request is undefined.
  */
-usb_error_t
-usb_hub_get_hub_descriptor(uint16_t num_ports,
-        struct usb_hub_descriptor *ret_desc)
+usb_error_t usb_hub_get_hub_descriptor(uint16_t num_ports,
+        struct usb_hub_descriptor **ret_desc)
 {
     struct usb_device_request req;
 
@@ -208,8 +204,23 @@ usb_hub_get_hub_descriptor(uint16_t num_ports,
     req.wIndex = 0;
     req.wLength = len;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    uint16_t ret_length;
+    void *ret_data;
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != sizeof(struct usb_hub_descriptor)) {
+        return (USB_ERR_INVAL);
+    }
+
+    if (ret_desc != NULL) {
+        *ret_desc = (struct usb_hub_descriptor *) ret_data;
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -223,8 +234,7 @@ usb_hub_get_hub_descriptor(uint16_t num_ports,
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_get_hub_status(struct usb_hub_status *ret_status)
+usb_error_t usb_hub_get_hub_status(struct usb_hub_status *ret_status)
 {
     struct usb_device_request req;
 
@@ -236,8 +246,23 @@ usb_hub_get_hub_status(struct usb_hub_status *ret_status)
     req.wIndex = 0;
     req.wLength = 4;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    uint16_t ret_length;
+    void *ret_data;
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != 4) {
+        return (USB_ERR_INVAL);
+    }
+
+    if (ret_status != NULL) {
+        *ret_status = *((struct usb_hub_status *) ret_data);
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -254,8 +279,8 @@ usb_hub_get_hub_status(struct usb_hub_status *ret_status)
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
+usb_error_t usb_hub_get_port_status(uint16_t port,
+        struct usb_hub_port_status *ret_status)
 {
     struct usb_device_request req;
 
@@ -267,8 +292,23 @@ usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
     req.wIndex = port;
     req.wLength = 4;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    uint16_t ret_length;
+    void *ret_data;
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != 4) {
+        return (USB_ERR_INVAL);
+    }
+
+    if (ret_status != NULL) {
+        *ret_status = *((struct usb_hub_port_status *) ret_data);
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -290,8 +330,7 @@ usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status)
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_reset_tt(uint16_t port)
+usb_error_t usb_hub_reset_tt(uint16_t port)
 {
     struct usb_device_request req;
 
@@ -303,8 +342,7 @@ usb_hub_reset_tt(uint16_t port)
     req.wIndex = port;
     req.wLength = 0;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    return (usb_do_request(&req));
 }
 
 /**
@@ -321,8 +359,7 @@ usb_hub_reset_tt(uint16_t port)
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_set_hub_descriptor(uint16_t desc_length,
+usb_error_t usb_hub_set_hub_descriptor(uint16_t desc_length,
         struct usb_hub_descriptor *desc)
 {
     struct usb_device_request req;
@@ -336,7 +373,7 @@ usb_hub_set_hub_descriptor(uint16_t desc_length,
     req.wLength = desc_length;
 
     // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    return (usb_do_request_write(&req, desc_length, desc));
 }
 
 /**
@@ -352,8 +389,7 @@ usb_hub_set_hub_descriptor(uint16_t desc_length,
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_set_hub_feature(uint16_t feature)
+usb_error_t usb_hub_set_hub_feature(uint16_t feature)
 {
     struct usb_device_request req;
 
@@ -366,7 +402,7 @@ usb_hub_set_hub_feature(uint16_t feature)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    return (usb_do_request(&req));
 }
 
 /**
@@ -386,8 +422,8 @@ usb_hub_set_hub_feature(uint16_t feature)
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
+usb_error_t usb_hub_set_port_feature(uint16_t feature, uint8_t selector,
+        uint8_t port)
 {
     struct usb_device_request req;
 
@@ -396,8 +432,7 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
     req.bType.recipient = USB_REQUEST_RECIPIENT_OTHER;
     req.bRequest = USB_HUB_REQ_SET_FEATURE;
 
-    switch (feature)
-        {
+    switch (feature) {
         case USB_HUB_FEATURE_PORT_RESET:
         case USB_HUB_FEATURE_PORT_SUSPEND:
         case USB_HUB_FEATURE_PORT_POWER:
@@ -412,17 +447,16 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
             break;
         default:
             return USB_ERR_BAD_REQUEST;
-        };
+    };
 
     req.wIndex = (0x00FF & port);
-    if (feature == USB_HUB_FEATURE_PORT_TEST)
-        {
-            req.wIndex |= ((0x00FF & selector) << 8);
-        }
+    if (feature == USB_HUB_FEATURE_PORT_TEST) {
+        req.wIndex |= ((0x00FF & selector) << 8);
+    }
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req);
+    return (usb_do_request(&req));
 }
 
 /**
@@ -448,9 +482,8 @@ usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port)
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
-        uint16_t ret_length, void *ret_state)
+usb_error_t usb_hub_get_tt_state(uint16_t flags, uint16_t port,
+        uint16_t max_length, uint16_t ret_length, void **ret_state)
 {
     struct usb_device_request req;
 
@@ -462,8 +495,22 @@ usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
     req.wIndex = port;
     req.wLength = max_length;
 
-    // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    void *ret_data;
+    usb_error_t err = usb_do_request_read(&req, &ret_length, &ret_data);
+
+    if (err != USB_ERR_OK) {
+        return (err);
+    }
+
+    if (ret_length != 4) {
+        return (USB_ERR_INVAL);
+    }
+
+    if (ret_state != NULL) {
+        *ret_state = ret_data;
+    }
+
+    return (USB_ERR_OK);
 }
 
 /**
@@ -486,8 +533,7 @@ usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
  *
  * If the hub is not configured, the hub’s response to this request is undefined.
  */
-usb_error_t
-usb_hub_stop_tt(uint16_t port)
+usb_error_t usb_hub_stop_tt(uint16_t port)
 {
     struct usb_device_request req;
 
@@ -500,5 +546,5 @@ usb_hub_stop_tt(uint16_t port)
     req.wLength = 0;
 
     // TODO: FLOUNDER CALL
-    return USB_ERR_OK; //usb_do_request(&req)
+    return (usb_do_request(&req));
 }

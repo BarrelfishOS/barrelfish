@@ -1,3 +1,8 @@
+/**
+ * \brief this file contains functions for handling the different transfers
+ *        as well as handling different flounder requests
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -26,30 +31,37 @@
 #include <usb_pipe.h>
 #include <usb_memory.h>
 
+/**
+ * this struct contains the default setup information for the control transfers
+ */
 static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX] =
         {
-
-            /* This transfer is used for generic control endpoint transfers */
-
+            /*
+             * setup information for the default control endpoint
+             * This endpoint is used for device requests
+             *
+             */
             [0] = {
                 .type = USB_TYPE_CTRL,
-                .endpoint = 0x00, /* Control endpoint */
-                .direction = 0xFF,
-                .bufsize = 1024, /* bytes */
+                .endpoint = USB_ENDPOINT_CONTROL,
+                .direction = USB_ENDPOINT_DIRECTION_ANY,
+                .bufsize = 1024,
                 .flags = {
                     .ext_buffer = 1,
                 },
                 .usb_mode = USB_MODE_DUAL,
                 .usb_type = USB_TYPE_CTRL,
-            /* both modes */
             },
 
-            /* This transfer is used for generic clear stall only */
+            /*
+             * this is the setup information for the clear stall requests
+             * TODO: clearing up stalls is NYI.
+             */
 
             [1] = {
                 .type = USB_TYPE_CTRL,
-                .endpoint = 0x00, /* Control pipe */
-                .direction = 0xFF,
+                .endpoint = USB_ENDPOINT_CONTROL, /* Control pipe */
+                .direction = USB_ENDPOINT_DIRECTION_ANY,
                 .bufsize = sizeof(struct usb_device_request),
                 .timeout = 1000, /* 1 second */
                 .interval = 50, /* 50ms */
@@ -58,17 +70,31 @@ static const struct usb_xfer_config usb_control_ep_cfg[USB_DEVICE_CTRL_XFER_MAX]
             },
         };
 
+/*
+ * --------------------------------------------------------------------------
+ * transfer done notification
+ */
+
+/// struct containing the transfer done state
 struct usb_tdone_state {
     struct usb_driver_binding *bind;
     struct usb_xfer *xfer;
     void *buf;
 };
 
+/**
+ * \brief transfer complete callback that frees up the state
+ */
 static void usb_transfer_complete_cb(void *a)
 {
     free(a);
 }
 
+/**
+ * \brief handles the transmission of the transfer done notification
+ *
+ * \param a pointer to the transfer done state
+ */
 static void usb_transfer_complete_tx(void *a)
 {
     struct usb_tdone_state *st = a;
@@ -83,6 +109,15 @@ static void usb_transfer_complete_tx(void *a)
     USB_TX_TRANSER_ERR(usb_transfer_complete_tx);
 }
 
+/**
+ * \brief callback function that initiates the sending the transfer done msg
+ *
+ * \param xfer the transfer that was done
+ * \param err the outcome of the transfer
+ *
+ * NOTE: this function sends xfer done notification to the device driver
+ *       interrupt transfers may automatically be restarted
+ */
 static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
 {
     uint32_t data_length = xfer->actual_bytes;
@@ -101,7 +136,8 @@ static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
                 usb_transfer_complete_tx(st);
 
             }
-            if (xfer->flags.auto_restart && err == USB_ERR_OK) {
+            /* autorestart if the transfer completed successfully */
+            if (xfer->flags.auto_restart && (err == USB_ERR_OK)) {
                 usb_transfer_start(xfer);
             }
             break;
@@ -109,15 +145,23 @@ static void usb_transfer_complete_notify(struct usb_xfer *xfer, usb_error_t err)
             /* noop */
             break;
     }
-
 }
 
+/*
+ * transfer done notification
+ * --------------------------------------------------------------------------
+ */
+
+/**
+ * \brief handles the start of a control transfer
+ */
 static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
 
     uint16_t length;
 
+    /* check if the control transfer ended up in a stalled state while active */
     if (xfer->flags.pipe_stalled && xfer->flags_internal.ctrl_active) {
         xfer->flags_internal.ctrl_stall = 1;
         xfer->flags_internal.ctrl_active = 0;
@@ -131,34 +175,32 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
         return (1);
     }
 
+    /* if the ctrl transfer is already active the header was sent, so reset
+     * the control header flag
+     */
     if (xfer->flags_internal.ctrl_active) {
         if (xfer->flags_internal.ctrl_header) {
             xfer->flags_internal.ctrl_header = 0;
-
-            if (xfer->flags_internal.usb_mode == USB_MODE_DEVICE) {
-                assert(!"NYI: device mode");
-            }
         }
-
         length = xfer->sum_bytes;
     } else {
         if (xfer->frame_lengths[0] != sizeof(struct usb_device_request)) {
-            USB_DEBUG(
-                    "ERROR: wrong frame length: %u / %u", xfer->frame_lengths[0], sizeof(struct usb_device_request));
+            /*
+             * the first frame must be of size device request, otherwise
+             * this is an error
+             */
+            USB_DEBUG("ERROR: wrong frame length: %u / %u",
+                   xfer->frame_lengths[0], sizeof(struct usb_device_request));
             USB_DEBUG_TR_RETURN;
             return (1);
         }
 
-        if (xfer->flags_internal.usb_mode == USB_MODE_DEVICE) {
-            assert(!"NYI: device mode");
-        } else {
-            struct usb_device_request req;
+        /* get the device request to have access to the length information */
+        struct usb_device_request req;
 
-            usb_mem_copy_out(xfer->frame_buffers[0], 0, &req, sizeof(req));
+        usb_mem_copy_out(xfer->frame_buffers[0], 0, &req, sizeof(req));
 
-            xfer->flags_internal.remaining_bytes = req.wLength;
-
-        }
+        xfer->flags_internal.remaining_bytes = req.wLength;
 
         xfer->flags_internal.ctrl_header = 1;
 
@@ -172,6 +214,7 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
         return (1);
     }
 
+    /* check for short transfers i.e. too less data than expected */
     if (xfer->flags.short_xfer_forced) {
         xfer->flags_internal.remaining_bytes = 0;
     } else {
@@ -198,6 +241,7 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
         xfer->flags_internal.ctrl_active = 0;
     }
 
+    /* all fine */
     return (0);
 }
 
@@ -303,14 +347,11 @@ void usb_transfer_start(struct usb_xfer *xfer)
         return;
     }
 
-   /* struct usb_xfer_queue *queue = &(xfer->host_controller->done_queue);
+    /* struct usb_xfer_queue *queue = &(xfer->host_controller->done_queue);
 
-    if (queue->current != xfer) {
-        usb_xfer_enqueue(queue, xfer);
-    }*/
-
-
-
+     if (queue->current != xfer) {
+     usb_xfer_enqueue(queue, xfer);
+     }*/
 
     /*
      * submitting the transfer to start the USB hardware for the given
@@ -328,9 +369,9 @@ void usb_transfer_start(struct usb_xfer *xfer)
     /*
      * check if the transfer is waiting on a queue, and dequeue it
      */
-   /* if (xfer->wait_queue) {
-        usb_xfer_dequeue(xfer);
-    }*/
+    /* if (xfer->wait_queue) {
+     usb_xfer_dequeue(xfer);
+     }*/
 
     // clear the closed flag
     xfer->flags_internal.transfer_closed = 0;
@@ -475,11 +516,10 @@ void usb_transfer_stop(struct usb_xfer *xfer)
                         (xfer->wait_entry.next)->wait_entry.prev_next = xfer
                                 ->wait_entry.prev_next;
                         *(xfer)->wait_entry.prev_next = (xfer->wait_entry.next);
-                }
-                    else {
+                    } else {
                         (&queue->head)->last_next = &(&queue->head)->first;
-                                            (&queue->head)->first = NULL;
-                       // (&queue->head)->last_next = xfer->wait_entry.prev_next;
+                        (&queue->head)->first = NULL;
+                        // (&queue->head)->last_next = xfer->wait_entry.prev_next;
                     }
 
                     xfer->wait_queue = NULL;

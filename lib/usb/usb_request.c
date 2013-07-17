@@ -1,3 +1,8 @@
+/**
+ * \brief This file contains the standard device requests from the USB
+ * Specification Rev. 2.0 Section 9.4
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -7,12 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-/**
- * =======================================================================
- * This file contains the standard device requests from the USB
- * Specification Rev. 2.0 Section 9.4
- * =======================================================================
- */
+
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
@@ -50,7 +50,6 @@ usb_error_t usb_clear_feature(uint8_t recipient, uint8_t recipient_index,
         req.wIndex = recipient_index;
     }
     req.wLength = 0;
-
 
     return (usb_do_request(&req));
 }
@@ -193,28 +192,36 @@ usb_error_t usb_get_descriptor(uint8_t desc_type, uint8_t desc_index,
 
 }
 
+/* XXX: The following functions serve as an easier way to get a specific
+ *      descriptor. In fact they are not really needed and the functionality
+ *      can be done using the generic get_descriptor request
+ */
 usb_error_t usb_get_config_descriptor(uint8_t config_index,
         struct usb_config_descriptor *ret_desc)
 {
-    return USB_ERR_BAD_REQUEST;
+    assert(!"NYI: usb_get_config_descriptor");
+    return (USB_ERR_BAD_REQUEST);
 }
 
 usb_error_t usb_get_iface_descriptor(uint8_t iface_index,
         struct usb_config_descriptor *ret_desc)
 {
-    return USB_ERR_BAD_REQUEST;
+    assert(!"NYI: usb_get_iface_descriptor");
+    return (USB_ERR_BAD_REQUEST);
 }
 
 usb_error_t usb_get_ep_descriptor(uint8_t ep_index,
         struct usb_endpoint_descriptor *ret_desc)
 {
-    return USB_ERR_BAD_REQUEST;
+    assert(!"NYI: usb_get_ep_descriptor");
+    return (USB_ERR_BAD_REQUEST);
 }
 
 usb_error_t usb_get_string_descriptor(uint16_t lang_id, uint8_t string_index,
         void *ret_desc)
 {
-    return USB_ERR_BAD_REQUEST;
+    assert(!"NYI: usb_get_string_descriptor");
+    return (USB_ERR_BAD_REQUEST);
 }
 
 /**
@@ -580,9 +587,9 @@ usb_error_t usb_synch_frame(uint8_t endpoint, uint16_t *ret_frame)
 }
 
 /**
- * \brief
+ * \brief this function executes a device request without a data stage
  *
- * \return
+ * \return USB_ERR_OK on success, error code otherwise
  */
 usb_error_t usb_do_request(struct usb_device_request *req)
 {
@@ -605,9 +612,9 @@ usb_error_t usb_do_request(struct usb_device_request *req)
 }
 
 /**
- * \brief
+ * \brief this function executes a device request with a write a data stage
  *
- * \return
+ * \return USB_ERR_OK on success, error code otherwise
  */
 usb_error_t usb_do_request_write(struct usb_device_request *req,
         uint16_t length, void *data)
@@ -631,9 +638,9 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
 }
 
 /**
- * \brief
+ * \brief this function executes a device request with a read a data stage
  *
- * \return
+ * \return USB_ERR_OK on success, error code otherwise
  */
 usb_error_t usb_do_request_read(struct usb_device_request *req,
         uint16_t *ret_length, void **ret_data)

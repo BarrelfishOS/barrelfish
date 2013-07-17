@@ -309,13 +309,13 @@ usb_error_t
 usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port);
 usb_error_t
 usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
-        uint16_t ret_length, void *ret_state);
+        uint16_t ret_length, void **ret_state);
 usb_error_t
 usb_hub_stop_tt(uint16_t port);
 
 usb_error_t
 usb_hub_get_hub_descriptor(uint16_t max_length,
-        struct usb_hub_descriptor *ret_desc);
+        struct usb_hub_descriptor **ret_desc);
 usb_error_t
 usb_hub_set_hub_descriptor(uint16_t desc_length,
         struct usb_hub_descriptor *desc);

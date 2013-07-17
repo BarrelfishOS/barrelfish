@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains the error specifications of the USB
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -9,9 +13,8 @@
 
 #include <usb/usb_error.h>
 
-/*
- * USB error number to string table
- *
+/**
+ * USB error code to string translation table
  */
 static const char* usb_errstr_table[USB_ERR_MAX] = {
     [USB_ERR_OK] = "USB_ERR_NORMAL_COMPLETION",
@@ -46,11 +49,19 @@ static const char* usb_errstr_table[USB_ERR_MAX] = {
     [USB_ERR_BAD_REQUEST] = "USB_ERR_BAD_REQUEST",
 };
 
+
+/**
+ * \brief translates the error code to an error string
+ *
+ * \param errno the error code to translate
+ *
+ * \return char array containint the error string.
+ */
 const char* usb_get_error_string(usb_error_t errno)
 {
     if (errno > USB_ERR_MAX) {
-        return "USB_ERROR_UNKNOWN";
+        return ("USB_ERROR_UNKNOWN");
     } else {
-        return usb_errstr_table[errno];
+        return (usb_errstr_table[errno]);
     }
 }
