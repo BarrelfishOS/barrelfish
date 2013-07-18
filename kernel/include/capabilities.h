@@ -19,7 +19,6 @@
 #include <mdb/mdb.h>
 #include <offsets.h>
 #include <cap_predicates.h>
-#include <distcaps.h>
 #include <paging_generic.h>
 
 #if 0
@@ -36,7 +35,7 @@ struct delete_list {
 };
 
 STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
-               + sizeof(struct distcap_info) + sizeof(struct apping_info))
+               + sizeof(struct delete_list) + sizeof(struct mapping_info))
                <= (1UL << OBJBITS_CTE),
               "cap+mdbnode fit in cte");
 
@@ -50,13 +49,13 @@ STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
 struct cte {
     struct capability   cap;            ///< The capability
     struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
-    struct distcap_info distcap;        ///< State for distributed cap operations
+    struct delete_list  delete_node;    ///< State for in-progress delete cascades
     struct mapping_info mapping_info;   ///< Mapping info for mapped pmem capabilities
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
                  - sizeof(struct capability) - sizeof(struct mdbnode)
-                 - sizeof(struct distcap_info) - sizeof(struct mapping_info)];
+                 - sizeof(struct delete_list) - sizeof(struct mapping_info)];
 };
 
 static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
