@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains definitions for parsing the USB descriptors
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -26,19 +30,4 @@ struct usb_interface_descriptor *usb_parse_next_iface(
 struct usb_endpoint_descriptor *usb_parse_next_edesc(
         struct usb_config_descriptor *cd, struct usb_endpoint_descriptor *ped);
 
-
-#if 0
-
-struct usb_endpoint_descriptor *
-usb_edesc_foreach(struct usb_config_descriptor *cd,
-        struct usb_endpoint_descriptor *ped);
-/*struct usb_endpoint_ss_comp_descriptor *
- usb_ed_comp_foreach(struct usb_config_descriptor *cd,
- struct usb_endpoint_ss_comp_descriptor *ped);*/
-uint8_t usbd_get_no_descriptors(struct usb_config_descriptor *cd, uint8_t type);
-
-uint8_t
-usbd_get_no_alts(struct usb_config_descriptor *cd,
-        struct usb_interface_descriptor *id);
-#endif
 #endif /* USB_PARSE_H_ */

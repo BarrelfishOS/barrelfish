@@ -21,7 +21,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_descriptor.h>
 
 #include <usb/usb_request.h>
 

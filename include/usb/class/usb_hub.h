@@ -1,3 +1,8 @@
+/**
+ * \brief This file contains all the device driver related information and
+ *        function prototypes for the USB hub class.
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -9,9 +14,6 @@
 
 /**
  * ==========================================================================
- * This file contains all the device driver related information and
- * function prototypes for the USB hub class.
- *
  * Note: This mirrors the usb_hub.h in the USB manager, without the direct
  * references to the transfers and devices, but with the identifiers
  * instead
@@ -40,8 +42,8 @@ struct usb_hub_characteristics {
     uint8_t _reserved;          ///< reserved, should be zero
     uint8_t port_indicator :1;  ///< are port indicators allowed
     uint8_t tt_think_time :2;   ///< transaction translator think time
-    uint8_t protection_mode :2;  ///< over current protection mode
-    uint8_t compound_device :1;  ///< flag indicating if it is a compund device
+    uint8_t protection_mode :2; ///< over current protection mode
+    uint8_t compound_device :1; ///< flag indicating if it is a compund device
     uint8_t power_mode :2;      ///< logical power switching modes
 };
 
@@ -208,6 +210,7 @@ struct usb_hub_schedule {
 };
 
 
+/// type definition for the different hub protocols
 typedef enum usb_hub_protocol {
     USB_HUB_FSHUB,
     USB_HUB_HSHUB_SINGLE_TT,
@@ -219,7 +222,8 @@ typedef enum usb_hub_protocol {
 #define USB_HUB_MAX_UFRAMES 8
 
 /**
- *
+ * Struct containing all the relevant information for an USB hub
+ * The a usb_device sets its hub field if it is a hub.
  */
 struct usb_hub {
     usb_hub_status_t status;
@@ -238,8 +242,8 @@ struct usb_hub {
 /*
  * device class codes
  */
-#define USB_HUB_CLASS_CODE  0x09
-#define USB_HUB_SUBCLASS_CODE 0x00
+#define USB_HUB_CLASS_CODE           0x09
+#define USB_HUB_SUBCLASS_CODE        0x00
 #define USB_HUB_PROTOCOL_FSHUB       0x00
 #define USB_HUB_PROTOCOL_HSHUBSTT    0x01
 #define USB_HUB_PROTOCOL_HSHUBMTT    0x02
@@ -248,11 +252,11 @@ struct usb_hub {
 /*
  * interface class code
  */
-#define USB_HUB_IFACE_CLASS_CODE     0x09
-#define USB_HUB_IFACE_SUBCLASS_CODE      0
-#define USB_HUB_IFACE_PROTOCOL_FSHUB       0
-#define USB_HUB_IFACE_PROTOCOL_HSHUBSTT    0   /* Yes, same as previous */
-#define USB_HUB_IFACE_PROTOCOL_HSHUBMTT    1
+#define USB_HUB_IFACE_CLASS_CODE        0x09
+#define USB_HUB_IFACE_SUBCLASS_CODE     0x00
+#define USB_HUB_IFACE_PROTOCOL_FSHUB    0x00
+#define USB_HUB_IFACE_PROTOCOL_HSHUBSTT 0x00   /* Yes, same as previous */
+#define USB_HUB_IFACE_PROTOCOL_HSHUBMTT 0x01
 
 /*
  * USB Hub Class Specific Request Codes
@@ -289,51 +293,35 @@ struct usb_hub {
 #define USB_HUB_FEATURE_PORT_TEST			21
 #define USB_HUB_FEATURE_PORT_INDICATOR		22
 
-usb_error_t
-usb_hub_clear_hub_feature(uint16_t feature);
-usb_error_t
-usb_hub_clear_port_feature(uint16_t feature, uint8_t sel, uint8_t port);
-usb_error_t
-usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num, uint8_t ep_type,
-        uint8_t direction, uint16_t tt_port);
-usb_error_t
-usb_hub_get_hub_status(struct usb_hub_status *ret_status);
-usb_error_t
-usb_hub_get_port_status(uint16_t port, struct usb_hub_port_status *ret_status);
-usb_error_t
-usb_hub_reset_tt(uint16_t port);
+usb_error_t usb_hub_clear_hub_feature(uint16_t feature);
 
-usb_error_t
-usb_hub_set_hub_feature(uint16_t feature);
-usb_error_t
-usb_hub_set_port_feature(uint16_t feature, uint8_t selector, uint8_t port);
-usb_error_t
-usb_hub_get_tt_state(uint16_t flags, uint16_t port, uint16_t max_length,
-        uint16_t ret_length, void **ret_state);
-usb_error_t
-usb_hub_stop_tt(uint16_t port);
+usb_error_t usb_hub_clear_port_feature(uint16_t feature, uint8_t sel,
+        uint8_t port);
 
-usb_error_t
-usb_hub_get_hub_descriptor(uint16_t max_length,
+usb_error_t usb_hub_clear_tt_buffer(uint8_t dev_addr, uint8_t ep_num,
+        uint8_t ep_type,uint8_t direction, uint16_t tt_port);
+
+usb_error_t usb_hub_get_hub_status(struct usb_hub_status *ret_status);
+
+usb_error_t usb_hub_get_port_status(uint16_t port,
+        struct usb_hub_port_status *ret_status);
+
+usb_error_t usb_hub_reset_tt(uint16_t port);
+
+usb_error_t usb_hub_set_hub_feature(uint16_t feature);
+
+usb_error_t usb_hub_set_port_feature(uint16_t feature, uint8_t selector,
+        uint8_t port);
+
+usb_error_t usb_hub_get_tt_state(uint16_t flags, uint16_t port,
+        uint16_t max_length, uint16_t ret_length, void **ret_state);
+
+usb_error_t usb_hub_stop_tt(uint16_t port);
+
+usb_error_t usb_hub_get_hub_descriptor(uint16_t max_length,
         struct usb_hub_descriptor **ret_desc);
-usb_error_t
-usb_hub_set_hub_descriptor(uint16_t desc_length,
+
+usb_error_t usb_hub_set_hub_descriptor(uint16_t desc_length,
         struct usb_hub_descriptor *desc);
 
-/*
- * void usb_hs_bandwidth_alloc(struct usb_xfer *xfer);
- void    usb_hs_bandwidth_free(struct usb_xfer *xfer);
- void    usbd_fs_isoc_schedule_init_all(struct usb_fs_isoc_schedule *fss);
- void    usb_bus_port_set_device(struct usb_bus *bus, struct usb_port *up,
- struct usb_device *udev, uint8_t device_index);
- struct usb_device *usb_bus_port_get_device(struct usb_bus *bus,
- struct usb_port *up);
- void    usb_needs_explore(struct usb_bus *bus, uint8_t do_probe);
- void    usb_needs_explore_all(void);
- void    usb_bus_power_update(struct usb_bus *bus);
- void    usb_bus_powerd(struct usb_bus *bus);
- void    uhub_root_intr(struct usb_bus *, const uint8_t *, uint8_t);
- usb_error_t uhub_query_info(struct usb_device *, uint8_t *, uint8_t *);
- *
- */
 #endif

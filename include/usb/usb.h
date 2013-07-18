@@ -1,5 +1,8 @@
-/*
-/ * Copyright (c) 2007-2013 ETH Zurich.
+/**
+ * \brief this file contains general declarations for the USB
+ */
+
+/* Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,16 +17,17 @@
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
 
-
+/// definition for the USB
 #define USB_MANAGER_SERVICE "usb_manager_service_name"
 
 /**
- *
+ * enumeration of the differente USB modes.
+ * Currently only the HOST mode is supported
  */
 typedef enum usb_mode  {
-    USB_MODE_HOST, /* initiates transfers */
-    USB_MODE_DEVICE, /* bus transfer target */
-    USB_MODE_DUAL /* can be host or device */
+    USB_MODE_HOST,
+    USB_MODE_DEVICE,
+    USB_MODE_DUAL
 } usb_mode_t;
 #define USB_MODE_MAX    (USB_MODE_DUAL+1)
 
@@ -42,6 +46,7 @@ typedef enum usb_speed {
 
 #define USB_SPEED_MAX (USB_SPEED_SUPER+1)
 
+/// typedef for the host controller versions
 typedef enum usb_hc_version {
     USB_UHCI=0x0100,
     USB_OHCI=0x0110,
@@ -49,6 +54,7 @@ typedef enum usb_hc_version {
     USB_XHCI=0x0300
 } usb_hc_version_t;
 
+/// typedef for the different USB revisions
 typedef enum usb_revision {
     USB_REV_UNKNOWN,
     USB_REV_PRE_1_0,
@@ -59,9 +65,7 @@ typedef enum usb_revision {
     USB_REV_3_0
 } usb_revision_t;
 
-/**
- *
- */
+/// typedef for the different usb transfer / endpoint types
 typedef enum usb_type {
     USB_TYPE_CTRL = 0,
     USB_TYPE_ISOC,
@@ -70,6 +74,7 @@ typedef enum usb_type {
 } usb_type_t;
 
 
+/// typedef for the different power modes of an usb device
 typedef enum usb_power {
     USB_POWER_MODE_OFF = 0,
     USB_POWER_MODE_ON = 1,
@@ -84,17 +89,16 @@ typedef enum usb_power {
 /// the minimum power requirements in mA
 #define USB_POWER_MIN 100
 
-/*
- * definition of the usb physical address type
- */
+/// the USB physical address type
 typedef volatile uintptr_t usb_paddr_t;
 
+/// definition for the default configuration value
 #define USB_CONFIGURATION_DEFAULT 1
+
+/// definition if the USB
 #define USB_CONFIGURATION_UNCONFIGURED 0xFF
 
-/**
- *
- */
+/// generic usb status
 struct usb_status {
     uint16_t wStatus;
 };
@@ -105,7 +109,7 @@ typedef struct usb_status usb_status_t;
 #define USB_STATUS_EP_HALT          0x0001;
 
 /*
- * some delays
+ * Specific delays
  */
 #define USB_DELAY_PORT_RESET 10
 #define USB_DELAY_PORT_ROOT_RESET 50
@@ -121,7 +125,10 @@ typedef struct usb_status usb_status_t;
     for (uint32_t wait_i = 0; wait_i < 4*(ms); wait_i++) {printf("%c", 0xE);};
 
 
-/* some debug vars */
+/*
+ * debug message control
+ */
+
 #define USB_DEBUG(x...) debug_printf(x)
 //#define USB_DEBUG(x...)
 

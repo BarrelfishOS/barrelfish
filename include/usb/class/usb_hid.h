@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains definitions for the the USB HID class
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -47,13 +51,19 @@
 #define USB_HID_REQUEST_GET_DESCRIPTOR 0x06
 #define USB_HID_REQUEST_SET_DESCRIPTOR 0x07
 
+/**
+ * struct definition for a HID descriptor type
+ * XXX: the length cannot be an uint16, because of alignment issues
+ */
 struct usb_hid_dtype {
-    uint8_t bDescriptorType;   ///< the type of the optional descriptor
-    uint8_t wDescriptorLength[2];  ///< the size of the optional descriptor
+    uint8_t bDescriptorType;        ///< the type of the optional descriptor
+    uint8_t wDescriptorLength[2];   ///< the size of the optional descriptor
 }__attribute__((packed));
 
+/// type definition of the HID descriptor type
 typedef struct usb_hid_dtype usb_hid_dtype_t;
 
+/// makro definition for getting the length of a descriptor type
 #define USB_HID_DTYPE_GET_LEN(_d) \
     ((_d)->wDescriptorLength[0] | ((uint16_t)((_d)->wDescriptorLength[1] << 8)))
 
@@ -66,12 +76,12 @@ typedef struct usb_hid_dtype usb_hid_dtype_t;
  *       descriptor)
  */
 struct usb_hid_descriptor {
-    uint8_t bLength;               ///< the total size in bytes of this descr
-    uint8_t bDescriptorType;       ///< constant, specifying the HID descr type
-    uint16_t bcdHID;               ///< HID class specific release version
-    uint8_t bCountryCode;          ///< country code for localized hardware
-    uint8_t bNumDescriptors;       ///< the number of class descriptors > 1
-    usb_hid_dtype_t descriptors[1];       ///< subordinate descriptors
+    uint8_t bLength;                ///< the total size in bytes of this descr
+    uint8_t bDescriptorType;        ///< constant, specifying the HID descr type
+    uint16_t bcdHID;                ///< HID class specific release version
+    uint8_t bCountryCode;           ///< country code for localized hardware
+    uint8_t bNumDescriptors;        ///< the number of class descriptors > 1
+    usb_hid_dtype_t descriptors[1];  ///< subordinate descriptors
 }__attribute__((packed));
 
 /// USB HID descriptor type
@@ -103,37 +113,29 @@ typedef struct usb_hid_descriptor usb_hid_descriptor_t;
 #define USB_HID_IO_VOLATILE    0x080
 #define USB_HID_IO_BUFBYTES    0x100
 
-/**
- *
- */
+/// enumeration representing the type of the report item
 enum usb_hid_kind {
-    USB_HID_KIND_INPUT = 0,         ///<
-    USB_HID_KIND_OUTPUT = 1,        ///<
-    USB_HID_KIND_FEATURE = 2,       ///<
-    USB_HID_KIND_COLLECTION = 3,    ///<
-    USB_HID_KIND_ENDCOLLECTION = 4,  ///<
+    USB_HID_KIND_INPUT = 0,         ///< input report
+    USB_HID_KIND_OUTPUT = 1,        ///< output report
+    USB_HID_KIND_FEATURE = 2,       ///< feature report
+    USB_HID_KIND_COLLECTION = 3,    ///< collection start
+    USB_HID_KIND_ENDCOLLECTION = 4,  ///< collection end
 };
 
-/**
- *
- */
+/// struct definition for report id - position association
 struct usb_hid_pos_data {
     int32_t rid;        ///< report id
     uint32_t position;  ///< position
 };
 
-/**
- *
- */
+/// struct definition for storing information about the HID item in an report
 struct usb_hid_location {
-    uint32_t size;      ///<
-    uint32_t count;     ///<
-    uint32_t position;  ///<
+    uint32_t size;      ///< the size of one item element
+    uint32_t count;     ///< the number of elements in this location
+    uint32_t position;  ///< the position within the report
 };
 
-/**
- * This struct represents an item in a USB report
- */
+/// This struct represents an item in a USB report
 struct usb_hid_item {
     /* Global */
     int32_t _usage_page;         ///<
@@ -197,16 +199,6 @@ struct usb_hid_data {
     uint8_t susage; /* usage set flags */
 };
 
-struct usb_hid_request {
-    uint8_t bmRequestType :8;   // characteristics of the request
-    uint8_t bRequest :8;        // a specific request
-    uint16_t wValue :16;         // numeric experssion
-    uint16_t wIndex :16;         // index or offset
-    uint16_t wLength :16;         // number of bytes in the data phase
-    uint8_t data :8;
-    /*data*/
-};
-
 #define USB_HID_REQUEST_TYPE_WRITE 0xA1
 #define USB_HID_REQUEST_TYPE_READ 0x21
 
@@ -263,12 +255,11 @@ struct usb_hid_request {
  * USB HID Physical Designator Values
  *
  * This defines specify which part of the human body
- * triggered the inpug.
+ * triggered the input.
  *
  * e.g. the hand or finger
  * -------------------------------------------------------------------------
  */
-
 #define USB_HID_DESIGNATOR_NONE      0x00
 #define USB_HID_DESIGNATOR_HAND      0x01
 #define USB_HID_DESIGNATOR_EYEBALL   0x02
@@ -321,7 +312,6 @@ struct usb_hid_request {
  * e.g. right or left hand
  * -------------------------------------------------------------------------
  */
-
 #define USB_HID_PHYSICAL_QUALIFIER_NONE       0x0
 #define USB_HID_PHYSICAL_QUALIFIER_RIGHT      0x1
 #define USB_HID_PHYSICAL_QUALIFIER_LEFT       0x2
@@ -336,112 +326,113 @@ struct usb_hid_request {
  * USB HID Usages
  * -------------------------------------------------------------------------
  */
-/* Usage pages */
-#define USB_HID_USAGE_UNDEFINED       0x0000
-#define USB_HID_USAGE_GENERIC_DESKTOP 0x0001
-#define USB_HID_USAGE_SIMULATION      0x0002
-#define USB_HID_USAGE_VR_CONTROLS     0x0003idle
-#define USB_HID_USAGE_SPORTS_CONTROLS 0x0004
-#define USB_HID_USAGE_GAMING_CONTROLS 0x0005
-#define USB_HID_USAGE_KEYBOARD        0x0007
-#define USB_HID_USAGE_LEDS        0x0008
-#define USB_HID_USAGE_BUTTON      0x0009
-#define USB_HID_USAGE_ORDINALS        0x000a
-#define USB_HID_USAGE_TELEPHONY       0x000b
-#define USB_HID_USAGE_CONSUMER        0x000c
-#define USB_HID_USAGE_DIGITIZERS      0x000d
-#define USB_HID_USAGE_PHYSICAL_IFACE  0x000e
-#define USB_HID_USAGE_UNICODE     0x0010
-#define USB_HID_USAGE_ALPHANUM_DISPLAY    0x0014
-#define USB_HID_USAGE_MONITOR     0x0080
-#define USB_HID_USAGE_MONITOR_ENUM_VAL    0x0081
-#define USB_HID_USAGE_VESA_VC     0x0082
-#define USB_HID_USAGE_VESA_CMD        0x0083
-#define USB_HID_USAGE_POWER       0x0084
-#define USB_HID_USAGE_BATTERY_SYSTEM  0x0085
-#define USB_HID_USAGE_BARCODE_SCANNER 0x008b
-#define USB_HID_USAGE_SCALE       0x008c
-#define USB_HID_USAGE_CAMERA_CONTROL  0x0090
-#define USB_HID_USAGE_ARCADE      0x0091
-#define USB_HID_USAGE_MICROSOFT       0xff00
+#define USB_HID_USAGE_UNDEFINED         0x0000
+#define USB_HID_USAGE_GENERIC_DESKTOP   0x0001
+#define USB_HID_USAGE_SIMULATION        0x0002
+#define USB_HID_USAGE_VR_CONTROLS       0x0003
+#define USB_HID_USAGE_SPORTS_CONTROLS   0x0004
+#define USB_HID_USAGE_GAMING_CONTROLS   0x0005
+#define USB_HID_USAGE_KEYBOARD          0x0007
+#define USB_HID_USAGE_LEDS              0x0008
+#define USB_HID_USAGE_BUTTON            0x0009
+#define USB_HID_USAGE_ORDINALS          0x000a
+#define USB_HID_USAGE_TELEPHONY         0x000b
+#define USB_HID_USAGE_CONSUMER          0x000c
+#define USB_HID_USAGE_DIGITIZERS        0x000d
+#define USB_HID_USAGE_PHYSICAL_IFACE    0x000e
+#define USB_HID_USAGE_UNICODE           0x0010
+#define USB_HID_USAGE_ALPHANUM_DISPLAY  0x0014
+#define USB_HID_USAGE_MONITOR           0x0080
+#define USB_HID_USAGE_MONITOR_ENUM_VAL  0x0081
+#define USB_HID_USAGE_VESA_VC           0x0082
+#define USB_HID_USAGE_VESA_CMD          0x0083
+#define USB_HID_USAGE_POWER             0x0084
+#define USB_HID_USAGE_BATTERY_SYSTEM    0x0085
+#define USB_HID_USAGE_BARCODE_SCANNER   0x008b
+#define USB_HID_USAGE_SCALE             0x008c
+#define USB_HID_USAGE_CAMERA_CONTROL    0x0090
+#define USB_HID_USAGE_ARCADE            0x0091
+#define USB_HID_USAGE_MICROSOFT         0xff00
 
 /* Usages, generic desktop */
-#define USB_HID_USAGE_POINTER     0x0001
-#define USB_HID_USAGE_MOUSE       0x0002
-#define USB_HID_USAGE_JOYSTICK        0x0004
-#define USB_HID_USAGE_GAME_PAD        0x0005
-#define USB_HID_USAGE_DKEYBOARD        0x0006
-#define USB_HID_USAGE_KEYPAD      0x0007
-#define USB_HID_USAGE_X           0x0030
-#define USB_HID_USAGE_Y           0x0031
-#define USB_HID_USAGE_Z           0x0032
-#define USB_HID_USAGE_RX          0x0033
-#define USB_HID_USAGE_RY          0x0034
-#define USB_HID_USAGE_RZ          0x0035
-#define USB_HID_USAGE_SLIDER      0x0036
-#define USB_HID_USAGE_DIAL        0x0037
-#define USB_HID_USAGE_WHEEL       0x0038
-#define USB_HID_USAGE_HAT_SWITCH      0x0039
-#define USB_HID_USAGE_COUNTED_BUFFER  0x003a
-#define USB_HID_USAGE_BYTE_COUNT      0x003b
-#define USB_HID_USAGE_MOTION_WAKEUP   0x003c
-#define USB_HID_USAGE_VX          0x0040
-#define USB_HID_USAGE_VY          0x0041
-#define USB_HID_USAGE_VZ          0x0042
-#define USB_HID_USAGE_VBRX        0x0043
-#define USB_HID_USAGE_VBRY        0x0044
-#define USB_HID_USAGE_VBRZ        0x0045
-#define USB_HID_USAGE_VNO         0x0046
-#define USB_HID_USAGE_TWHEEL      0x0048  /* M$ Wireless Intellimouse Wheel */
-#define USB_HID_USAGE_SYSTEM_CONTROL  0x0080
-#define USB_HID_USAGE_SYSTEM_POWER_DOWN   0x0081
-#define USB_HID_USAGE_SYSTEM_SLEEP    0x0082
-#define USB_HID_USAGE_SYSTEM_WAKEUP   0x0083
+#define USB_HID_USAGE_POINTER           0x0001
+#define USB_HID_USAGE_MOUSE             0x0002
+#define USB_HID_USAGE_JOYSTICK          0x0004
+#define USB_HID_USAGE_GAME_PAD          0x0005
+#define USB_HID_USAGE_DKEYBOARD         0x0006
+#define USB_HID_USAGE_KEYPAD            0x0007
+#define USB_HID_USAGE_X                 0x0030
+#define USB_HID_USAGE_Y                 0x0031
+#define USB_HID_USAGE_Z                 0x0032
+#define USB_HID_USAGE_RX                0x0033
+#define USB_HID_USAGE_RY                0x0034
+#define USB_HID_USAGE_RZ                0x0035
+#define USB_HID_USAGE_SLIDER            0x0036
+#define USB_HID_USAGE_DIAL              0x0037
+#define USB_HID_USAGE_WHEEL             0x0038
+#define USB_HID_USAGE_HAT_SWITCH        0x0039
+#define USB_HID_USAGE_COUNTED_BUFFER    0x003a
+#define USB_HID_USAGE_BYTE_COUNT        0x003b
+#define USB_HID_USAGE_MOTION_WAKEUP     0x003c
+#define USB_HID_USAGE_VX                0x0040
+#define USB_HID_USAGE_VY                0x0041
+#define USB_HID_USAGE_VZ                0x0042
+#define USB_HID_USAGE_VBRX              0x0043
+#define USB_HID_USAGE_VBRY              0x0044
+#define USB_HID_USAGE_VBRZ              0x0045
+#define USB_HID_USAGE_VNO               0x0046
+#define USB_HID_USAGE_TWHEEL            0x0048
+#define USB_HID_USAGE_SYSTEM_CONTROL    0x0080
+#define USB_HID_USAGE_SYSTEM_POWER_DOWN 0x0081
+#define USB_HID_USAGE_SYSTEM_SLEEP      0x0082
+#define USB_HID_USAGE_SYSTEM_WAKEUP     0x0083
 #define USB_HID_USAGE_SYSTEM_CONTEXT_MENU 0x0084
-#define USB_HID_USAGE_SYSTEM_MAIN_MENU    0x0085
-#define USB_HID_USAGE_SYSTEM_APP_MENU 0x0086
-#define USB_HID_USAGE_SYSTEM_MENU_HELP    0x0087
-#define USB_HID_USAGE_SYSTEM_MENU_EXIT    0x0088
-#define USB_HID_USAGE_SYSTEM_MENU_SELECT  0x0089
-#define USB_HID_USAGE_SYSTEM_MENU_RIGHT   0x008a
-#define USB_HID_USAGE_SYSTEM_MENU_LEFT    0x008b
-#define USB_HID_USAGE_SYSTEM_MENU_UP  0x008c
-#define USB_HID_USAGE_SYSTEM_MENU_DOWN    0x008d
-#define USB_HID_USAGE_APPLE_EJECT     0x00b8
+#define USB_HID_USAGE_SYSTEM_MAIN_MENU  0x0085
+#define USB_HID_USAGE_SYSTEM_APP_MENU   0x0086
+#define USB_HID_USAGE_SYSTEM_MENU_HELP  0x0087
+#define USB_HID_USAGE_SYSTEM_MENU_EXIT  0x0088
+#define USB_HID_USAGE_SYSTEM_MENU_SELECT 0x0089
+#define USB_HID_USAGE_SYSTEM_MENU_RIGHT 0x008a
+#define USB_HID_USAGE_SYSTEM_MENU_LEFT  0x008b
+#define USB_HID_USAGE_SYSTEM_MENU_UP    0x008c
+#define USB_HID_USAGE_SYSTEM_MENU_DOWN  0x008d
+#define USB_HID_USAGE_APPLE_EJECT       0x00b8
 
 /* Usages Digitizers */
-#define USB_HID_USAGE_UNDEFINED       0x0000
-#define USB_HID_USAGE_TIP_PRESSURE    0x0030
-#define USB_HID_USAGE_BARREL_PRESSURE 0x0031
-#define USB_HID_USAGE_IN_RANGE        0x0032
-#define USB_HID_USAGE_TOUCH       0x0033
-#define USB_HID_USAGE_UNTOUCH     0x0034
-#define USB_HID_USAGE_TAP         0x0035
-#define USB_HID_USAGE_QUALITY     0x0036
-#define USB_HID_USAGE_DATA_VALID      0x0037
-#define USB_HID_USAGE_TRANSDUCER_INDEX    0x0038
-#define USB_HID_USAGE_TABLET_FKEYS    0x0039
+#define USB_HID_USAGE_UNDEFINED         0x0000
+#define USB_HID_USAGE_TIP_PRESSURE      0x0030
+#define USB_HID_USAGE_BARREL_PRESSURE   0x0031
+#define USB_HID_USAGE_IN_RANGE          0x0032
+#define USB_HID_USAGE_TOUCH             0x0033
+#define USB_HID_USAGE_UNTOUCH           0x0034
+#define USB_HID_USAGE_TAP               0x0035
+#define USB_HID_USAGE_QUALITY           0x0036
+#define USB_HID_USAGE_DATA_VALID        0x0037
+#define USB_HID_USAGE_TRANSDUCER_INDEX  0x0038
+#define USB_HID_USAGE_TABLET_FKEYS      0x0039
 #define USB_HID_USAGE_PROGRAM_CHANGE_KEYS 0x003a
-#define USB_HID_USAGE_BATTERY_STRENGTH    0x003b
-#define USB_HID_USAGE_INVERT      0x003c
-#define USB_HID_USAGE_X_TILT      0x003d
-#define USB_HID_USAGE_Y_TILT      0x003e
-#define USB_HID_USAGE_AZIMUTH     0x003f
-#define USB_HID_USAGE_ALTITUDE        0x0040
-#define USB_HID_USAGE_TWIST       0x0041
-#define USB_HID_USAGE_TIP_SWITCH      0x0042
-#define USB_HID_USAGE_SEC_TIP_SWITCH  0x0043
-#define USB_HID_USAGE_BARREL_SWITCH   0x0044
-#define USB_HID_USAGE_ERASER      0x0045
-#define USB_HID_USAGE_TABLET_PICK     0x0046
+#define USB_HID_USAGE_BATTERY_STRENGTH  0x003b
+#define USB_HID_USAGE_INVERT            0x003c
+#define USB_HID_USAGE_X_TILT            0x003d
+#define USB_HID_USAGE_Y_TILT            0x003e
+#define USB_HID_USAGE_AZIMUTH           0x003f
+#define USB_HID_USAGE_ALTITUDE          0x0040
+#define USB_HID_USAGE_TWIST             0x0041
+#define USB_HID_USAGE_TIP_SWITCH        0x0042
+#define USB_HID_USAGE_SEC_TIP_SWITCH    0x0043
+#define USB_HID_USAGE_BARREL_SWITCH     0x0044
+#define USB_HID_USAGE_ERASER            0x0045
+#define USB_HID_USAGE_TABLET_PICK       0x0046
 
 /* Usages, Consumer */
 #define USB_HID_USAGE_AC_PAN      0x0238
 
+/// Macro for combining two usages
 #define USB_HID_USAGE_COMBINE(x,y) (((x) << 16) | (y))
 
 struct usb_hid_data *usb_hid_start_parse(const void *d, uint32_t len,
         int32_t kindset);
+
 void usb_hid_end_parse(struct usb_hid_data *s);
 
 int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h);
@@ -469,8 +460,11 @@ struct usb_hid_descriptor *usb_hid_get_descriptor_from_usb(
 
 usb_error_t usb_hid_get_hid_descriptor(struct usb_hid_descriptor **ret_desc,
         uint16_t *ret_size, uint8_t iface_index);
+
 usb_error_t usb_hid_get_report_descriptor(struct usb_hid_descriptor **d,
         uint16_t size, uint8_t iface);
+
 usb_error_t usb_hid_set_idle(uint8_t iface, uint8_t duration, uint8_t id);
+
 #endif /* LIBUSB_CLASS_HID_H_ */
 

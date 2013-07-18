@@ -1,3 +1,7 @@
+/**
+ * \brief this file contains definitions for handling US xfers
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -10,38 +14,25 @@
 #ifndef LIBUSB_XFER_H_
 #define LIBUSB_XFER_H_
 
-/*
+/**
  * ------------------------------------------------------------------------
  * USB Transfer Flags
  * ------------------------------------------------------------------------
- * This data structure represents a set of flags that are used internally
- * for keeping track of the transfer state
- *
- * Fields:
- *  - short_xfer_forced     force a short transmit transfer on last packet
- *  - short_xfer_ok         allow short transfers (small packets)
- *  - short_frames_ok       allow short frames
- *  - pipe_on_falure        block pipe had a failure condition
- *  - buf_size_frame        buffer size shall be multiple of frame size
- *  - ext_buffer            use external DMA buffer
- *  - manual_status         disables automatic status stage on ctrl transfers
- *  - pipe_none_ok          ingore USB_ERR_NO_PIPE errors
- *  - pipe_stalled          stall the endpoint before starting the transfer
- *  - prescale              prescale to frames for isochr transfers
+ * This struct is used then a client driver wants to set up a new transfer.
  */
 struct usb_xfer_flags {
     uint8_t _unused : 5;            ///< unused bits to fill up the 2 bytes
-    uint8_t auto_restart:1;
-    uint8_t short_xfer_forced :1;
-    uint8_t short_xfer_ok :1;
-    uint8_t short_frames_ok :1;
-    uint8_t pipe_on_falure :1;
-    uint8_t buf_size_frame :1;
-    uint8_t ext_buffer :1;
-    uint8_t manual_status :1;
-    uint8_t pipe_none_ok :1;
-    uint8_t pipe_stalled :1;
-    uint8_t prescale :1;
+    uint8_t auto_restart:1;         ///< auto restart interrupt transfers
+    uint8_t short_xfer_forced :1;   ///< force a short transmit transfer on last
+    uint8_t short_xfer_ok :1;       ///< allow short transfers (small packets)
+    uint8_t short_frames_ok :1;     ///< allow short frames
+    uint8_t pipe_on_falure :1;      ///< block pipe had a failure condition
+    uint8_t buf_size_frame :1;      ///< buffer size shall be multiple of frame
+    uint8_t ext_buffer :1;          ///< use external DMA buffer
+    uint8_t manual_status :1;       ///< disables automatic status stage on ctrl
+    uint8_t pipe_none_ok :1;        ///< ingore USB_ERR_NO_PIPE errors
+    uint8_t pipe_stalled :1;        ///< stall the endpoint before starting
+    uint8_t prescale :1;            ///< prescale to frames for isochr transfers
 };
 
 

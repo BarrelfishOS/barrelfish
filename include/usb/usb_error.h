@@ -1,3 +1,6 @@
+/**
+ * \brief this file contains the USB error codes
+ */
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
