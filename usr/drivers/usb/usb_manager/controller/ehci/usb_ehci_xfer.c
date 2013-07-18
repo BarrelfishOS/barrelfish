@@ -466,15 +466,10 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                 /* update the remaining length to process */
                 setup->length -= length_avg;
 
-                /* TODO: Revice */
-
                 uint32_t buf_offset = 0;
                 memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
-                td->qtd_bp[0].address = (setup->pages->phys_addr) & (~0xFFF);
 
-                assert(!((setup->pages->phys_addr) & (0xFFF)));
-
-                uint8_t pages_count = 1;
+                uint8_t pages_count = 0;
 
                 /* fill in the buffer pointers */
                 while (length_avg > USB_EHCI_BUFFER_SIZE) {
@@ -492,7 +487,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                 /* the last remainder < USB_EHCI_BUFFER_SIZE */
                 buf_offset += length_avg;
                 td->qtd_bp[pages_count].address = (setup->pages->phys_addr
-                        + buf_offset - 1) & (~0xFFF);
+                        + buf_offset) & (~0xFFF);
             }
 
             if (td_next) {
