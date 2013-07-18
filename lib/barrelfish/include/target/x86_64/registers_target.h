@@ -20,16 +20,6 @@
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
 #include "threads_priv.h"
 
-static inline bool
-registers_x86_64_check_stack_bounds(struct dispatcher_generic *disp_gen,
-                                    arch_registers_state_t *archregs)
-{
-    struct registers_x86_64 *regs = archregs;
-
-    return regs->rsp > (lvaddr_t)disp_gen->current->stack ||
-        regs->rsp <= (lvaddr_t)disp_gen->current->stack_top;
-}
-
 static inline void
 registers_x86_64_set_initial(struct registers_x86_64 *regs, struct thread *thread,
                              lvaddr_t entry, lvaddr_t stack, uint64_t arg1,

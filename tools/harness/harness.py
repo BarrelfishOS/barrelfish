@@ -1,16 +1,21 @@
-##########################################################################
+#
 # Copyright (c) 2009-2011, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
-##########################################################################
+#
 
-import os, types, string, errno, datetime
+import os
+import types
+import string
+import datetime
 import debug
 
 RAW_FILE_NAME = 'raw.txt'
+BOOT_FILE_NAME = 'bootlog.txt'
+
 
 def run_test(build, machine, test, path):
     # Open files for raw output from the victim and log data from the test
@@ -28,7 +33,7 @@ def run_test(build, machine, test, path):
             # timedelta for the time this line was emitted from the start of the run
             timestamp = datetime.datetime.now() - starttime
             # format as string, discarding sub-second precision
-            timestr = str(timestamp).split('.',1)[0]
+            timestr = str(timestamp).split('.', 1)[0]
             # filter output line of control characters
             filtered_out = filter(lambda c: c in string.printable, out.rstrip())
             # debug filtered output along with timestamp
@@ -45,6 +50,7 @@ def run_test(build, machine, test, path):
         debug.verbose('harness: cleanup test')
         test.cleanup(machine)
 
+
 def process_results(test, path):
     # open raw file for input processing
     raw_file_name = os.path.join(path, RAW_FILE_NAME)
@@ -57,9 +63,27 @@ def process_results(test, path):
         raw_file.close()
     if not results:
         debug.verbose('no results')
-        return True # no results, assume success
+        return True  # no results, assume success
 
-    retval = True # everything OK
+    retval = True  # everything OK
+
+    # Process raw.txt and make a bootlog.txt that begins with grubs
+    # output, avoids having encoding issues when viewing logfiles
+    boot_file_name = os.path.join(path, BOOT_FILE_NAME)
+    if os.path.exists(raw_file_name):
+        idx = 0
+        with open(raw_file_name, 'r') as rf:
+            lines = rf.readlines()
+            for idx, line in enumerate(lines):
+                if line.strip() == "root (nd)":
+                    break
+        if idx > 0:
+            with open(boot_file_name, 'w') as wf:
+                wf.writelines(lines[idx:])
+        else:
+            debug.verbose('Magic string root (nd) not found, do not write bootlog.txt')
+    else:
+        debug.verbose('No file named %s exists. Do not create bootlog.txt.' % raw_file_name)
 
     # if a single result, turn it into a list
     if not isinstance(results, types.ListType):

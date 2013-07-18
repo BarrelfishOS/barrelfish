@@ -69,6 +69,9 @@
 #define NETDB_H
 
 #include <lwip/netdb.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /*
  * Flag values for getaddrinfo()
@@ -97,5 +100,7 @@ int getaddrinfo(const char *nodename,
                 struct addrinfo **res);
 void freeaddrinfo(struct addrinfo *ai);
 const char *gai_strerror(int ecode);
+
+__END_DECLS
 
 #endif

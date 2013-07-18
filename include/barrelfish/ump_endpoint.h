@@ -15,8 +15,12 @@
 #ifndef LIBBARRELFISH_UMP_ENDPOINT_H
 #define LIBBARRELFISH_UMP_ENDPOINT_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/waitset.h>
 #include <barrelfish/ump_impl.h>
+
+__BEGIN_DECLS
 
 /// Incoming UMP endpoint
 struct ump_endpoint {
@@ -59,5 +63,7 @@ static inline errval_t ump_endpoint_recv(struct ump_endpoint *ep,
         return LIB_ERR_NO_UMP_MSG;
     }
 }
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_UMP_ENDPOINT_H

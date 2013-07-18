@@ -18,6 +18,9 @@
 
 #include <barrelfish/barrelfish.h>
 #include <stdio.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #if 0
 #define CONVERT_TO_SEC
@@ -91,5 +94,7 @@ void netbench_print_all_stats(struct netbench_details *nbp);
 // Utility functions
 uint64_t my_avg(uint64_t sum, uint64_t n);
 float in_seconds(uint64_t cycles);
+
+__END_DECLS
 
 #endif // CONTMNG_H_

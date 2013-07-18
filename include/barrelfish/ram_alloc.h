@@ -18,6 +18,9 @@
 
 #include <stdint.h>
 #include <errors/errno.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct capref;
 
@@ -32,5 +35,7 @@ errval_t ram_alloc_set(ram_alloc_func_t local_allocator);
 void ram_set_affinity(uint64_t minbase, uint64_t maxlimit);
 void ram_get_affinity(uint64_t *minbase, uint64_t *maxlimit);
 void ram_alloc_init(void);
+
+__END_DECLS
 
 #endif // BARRELFISH_RAM_ALLOC_H

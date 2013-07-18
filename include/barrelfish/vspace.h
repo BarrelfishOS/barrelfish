@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_VSPACE_H
 #define LIBBARRELFISH_VSPACE_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct vspace {
     struct pmap *pmap;           ///< Pmap associated with the vspace
     struct vspace_layout layout; ///< The layout of the address space
@@ -40,5 +44,7 @@ errval_t vspace_destroy(struct vspace* vspace);
 struct vregion* vspace_get_region(struct vspace* vspace, const void *addr);
 errval_t vspace_pagefault_handler(struct vspace* vspace, lvaddr_t addr,
                                   vm_fault_type_t type);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_VSPACE_H

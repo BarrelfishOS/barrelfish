@@ -15,6 +15,10 @@
 #ifndef LIBBARRELFISH_CORESET_H
 #define LIBBARRELFISH_CORESET_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 typedef coreid_t coreset_token_t;
 
 #define CORESET_INIT_TOKEN 0
@@ -45,5 +49,7 @@ errval_t coreset_to_coremask(struct coreset *set, coremask_t *mask);
 errval_t coreset_from_coremask(coremask_t mask, struct coreset **set);
 
 coreid_t coreset_count(struct coreset *set);
+
+__END_DECLS
 
 #endif

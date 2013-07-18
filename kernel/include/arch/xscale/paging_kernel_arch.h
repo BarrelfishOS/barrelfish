@@ -19,6 +19,7 @@
 #include <capabilities.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/paging_arch.h>
+#include <cp15.h>
 
 /**
  * Setup bootstrap page table with direct and relocated mappings for kernel.
@@ -69,4 +70,30 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 #define ARM_L2_SMALL_USR_RO             0xaa0
 #define ARM_L2_SMALL_USR_RW             0xff0
 
+static inline bool is_root_pt(enum objtype type) {
+    return type == ObjType_VNode_ARM_l1;
+}
+
+static inline size_t get_pte_size(void) {
+    // both l1_entry and l2_entry are 4 bytes
+    return 4;
+}
+#define PTABLE_ENTRY_SIZE get_pte_size()
+
+static inline void do_one_tlb_flush(genvaddr_t vaddr)
+{
+    // TODO: figure out selective flushing for ARM
+    cp15_invalidate_tlb();
+}
+
+static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
+{
+    // TODO: figure out selective flushing for ARM
+    cp15_invalidate_tlb();
+}
+
+static inline void do_full_tlb_flush(void)
+{
+    cp15_invalidate_tlb();
+}
 #endif // KERNEL_ARCH_ARM_PAGING_H

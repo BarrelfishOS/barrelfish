@@ -105,7 +105,9 @@
 #define TASKCN_SLOT_SESSIONID   12  ///< Session ID domain belongs to
 #define TASKCN_SLOT_FDSPAGE     13  ///< cap for inherited file descriptors
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
-#define TASKCN_SLOTS_USER       15  ///< First free slot in taskcn for user
+#define TASKCN_SLOT_DISPFRAME2  15  ///< Copy of dispatcher frame cap (mapped into spawn vspace)
+#define TASKCN_SLOT_ARGSPAGE2   16  ///< Copy of environment cap (mapped into spawn vspace)
+#define TASKCN_SLOTS_USER       17  ///< First free slot in taskcn for user
 
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)

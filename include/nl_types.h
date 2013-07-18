@@ -16,6 +16,10 @@
 #ifndef _NL_TYPES_H_
 #define _NL_TYPES_H_
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define	NL_SETD		0
 #define	NL_CAT_LOCALE	1
 
@@ -26,5 +30,7 @@ typedef void    *nl_catd;
 nl_catd  catopen(const char *, int);
 char    *catgets(nl_catd, int, int, const char *);
 int	 catclose(nl_catd);
+
+__END_DECLS
 
 #endif

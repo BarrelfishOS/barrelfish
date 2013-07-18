@@ -100,9 +100,10 @@ listFilesR path = let
     isDODD :: String -> Bool
     isDODD f = not $ (isSuffixOf "/." f) 
                   || (isSuffixOf "/.." f) 
-                  || (isSuffixOf "/.hg" f)
                   || (isSuffixOf "CMakeFiles" f)
-                  || (isPrefixOf "./build" f)
+                  || (isPrefixOf (path ++ "/.hg") f)
+                  || (isPrefixOf (path ++ "/build") f)
+                  || (isPrefixOf (path ++ "/.git") f)
 
     listDirs :: [FilePath] -> IO [FilePath]
     listDirs = filterM doesDirectoryExist 
@@ -357,7 +358,7 @@ evalHakeFiles :: Opts -> [String] -> [(String,String)]
               -> IO [(String,HRule)]
 evalHakeFiles o allfiles hakefiles = 
     let imports = [ "Hakefiles"]
-        all_imports = imports
+        all_imports = ("Prelude":"HakeTypes":imports)
         moddirs = [ (opt_installdir o) ./. "hake", 
                     ".", 
                     (opt_bfsourcedir o) ./. "hake" ]
@@ -374,8 +375,7 @@ evalHakeFiles o allfiles hakefiles =
            targets <- mapM (\m -> guessTarget m Nothing) imports
            setTargets targets
            load LoadAllTargets
-           modlist <- mapM (\m -> findModule (mkModuleName m) Nothing) all_imports
-           setContext [IIModule m | m <- modlist]
+           setContext [(IIDecl . simpleImportDecl) (mkModuleName m) | m <- (all_imports)]
            val <- dynCompileExpr "Hakefiles.hf :: [(String, HRule)]" 
            return (fromDyn val [("failed",Error "failed")])
 

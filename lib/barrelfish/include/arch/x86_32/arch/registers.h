@@ -19,13 +19,6 @@
 #include <barrelfish_kpi/registers_arch.h>
 #include <target/x86_32/registers_target.h>
 
-static inline bool
-registers_is_stack_invalid(struct dispatcher_generic *disp_gen,
-                             arch_registers_state_t *archregs)
-{
-    return registers_x86_32_check_stack_bounds(disp_gen, archregs);
-}
-
 static inline void
 registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
                       lvaddr_t entry, lvaddr_t stack, uint32_t arg1,

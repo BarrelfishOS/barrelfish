@@ -37,12 +37,8 @@ static void spawnd_up_event(octopus_mode_t mode, char* spawnd_record, void* st)
 
     // Pass the iref as state, this tells pci_change_event that we
     // don't need to look again for the spawnd iref
-#if defined(__i386__)
     // XXX: Pointer
-    pci_change_event(OCT_ON_SET, st, (void*)(uint32_t)iref);
-#else
-    pci_change_event(OCT_ON_SET, st, (void*)iref);
-#endif
+    pci_change_event(OCT_ON_SET, st, (void*)(uintptr_t)iref);
     free(spawnd_record);
 }
 

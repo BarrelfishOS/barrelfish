@@ -51,6 +51,8 @@
 #include <sys/_types.h>
 #include <sys/_sigset.h>
 
+__BEGIN_DECLS
+
 #define SIGHUP          1       /* hangup */
 #define SIGINT          2       /* interrupt */
 #define SIGQUIT         3       /* quit */
@@ -124,5 +126,7 @@ int sigdelset(sigset_t *set, int signo);
 int sigemptyset(sigset_t *set);
 int sigfillset(sigset_t *set);
 int sigismember(const sigset_t *set, int signo);
+
+__END_DECLS
 
 #endif // BARRELFISH_SIGNAL_H_

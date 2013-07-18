@@ -15,6 +15,10 @@
 #ifndef BARRELFISH_DOMAIN_H
 #define BARRELFISH_DOMAIN_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 typedef void (*domain_spanned_callback_t)(void *arg, errval_t err);
 
 struct mem_rpc_client;
@@ -68,5 +72,7 @@ errval_t domain_wakeup_on_disabled(dispatcher_handle_t disp,
                                    struct thread *thread,
                                    dispatcher_handle_t mydisp);
 errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id);
+
+__END_DECLS
 
 #endif

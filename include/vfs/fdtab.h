@@ -10,6 +10,10 @@
 #ifndef _FDTAB_H
 #define _FDTAB_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 #define MIN_FD  0
 #define MAX_FD  132
 
@@ -38,5 +42,7 @@ int fdtab_search(struct fdtab_entry *h);
 int fdtab_search_alloc(struct fdtab_entry *h);
 struct fdtab_entry *fdtab_get(int fd);
 void fdtab_free(int fd);
+
+__END_DECLS
 
 #endif // _FDTAB_H

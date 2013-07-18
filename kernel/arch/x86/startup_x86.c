@@ -315,10 +315,6 @@ void kernel_startup(void)
         init_dcb = spawn_app_init(core_data, APP_INIT_PROG_NAME, app_alloc_phys);
     }
 
-    // Add to tracing
-    init_dcb->next_all = dcbs_list;
-    dcbs_list = init_dcb;
-
     // Should not return
     dispatch(init_dcb);
     panic("Error spawning init!");

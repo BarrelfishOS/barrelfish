@@ -15,8 +15,12 @@
 #ifndef BARRELFISH_EVENT_MUTEX_H
 #define BARRELFISH_EVENT_MUTEX_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/event_queue.h>
 #include <barrelfish/threads.h>
+
+__BEGIN_DECLS
 
 struct event_mutex {
     struct thread_mutex tmutex;
@@ -31,5 +35,7 @@ bool event_mutex_enqueue_lock(struct event_mutex *em,
                               struct event_closure lockcont);
 void event_mutex_threaded_lock(struct event_mutex *em);
 void event_mutex_unlock(struct event_mutex *em);
+
+__END_DECLS
 
 #endif // BARRELFISH_EVENT_MUTEX_H

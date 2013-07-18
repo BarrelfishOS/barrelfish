@@ -52,6 +52,12 @@ struct thread_sem {
     struct thread               *queue;
     spinlock_t                  lock;
 };
-#define THREAD_SEM_INITIALIZER          { .value = 0, .queue = NULL, .lock = 0 }
+#ifndef __cplusplus
+#       define THREAD_SEM_INITIALIZER \
+    { .value = 0, .queue = NULL, .lock = 0 }
+#else
+#       define THREAD_SEM_INITIALIZER \
+    { 0, (struct thread *)NULL, 0 }
+#endif
 
 #endif

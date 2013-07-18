@@ -47,7 +47,6 @@ struct dcb {
     bool                is_vm_guest;
     struct guest        guest_desc;     ///< Descriptor of the VM Guest
     uint64_t            domain_id;      ///< ID of dispatcher's domain
-    struct dcb          *next_all;      ///< Next DCB in list of all DCBs (for tracing)
     systime_t           wakeup_time;    ///< Time to wakeup this dispatcher
     struct dcb          *wakeup_prev, *wakeup_next; ///< Next/prev in timeout queue
 

@@ -27,11 +27,11 @@
 /// User-space endpoints awaiting notifications
 static struct cte endpoints[MAX_CHANIDS];
 
-#define NOTIFY_FIFO_SIZE        8
-#define NOTIFY_FIFO_BYTES       (8 * sizeof(uint64_t))
+#define NOTIFY_FIFO_SIZE        64
+#define NOTIFY_FIFO_BYTES       (NOTIFY_FIFO_SIZE * sizeof(uint64_t))
 
 /// Page used for notify FIFOs
-static char my_notify_page[BASE_PAGE_SIZE];
+static char my_notify_page[NOTIFY_FIFO_BYTES * MAX_COREID];
 
 // Private head/tail pointers for notify FIFOs
 static uint64_t notifyhead[MAX_COREID]; 

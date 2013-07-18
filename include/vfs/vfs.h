@@ -10,7 +10,9 @@
 #ifndef VFS_H
 #define VFS_H
 
+#include <errors/errno.h> // for errval_t
 #include <stddef.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 
 typedef void *vfs_handle_t;
@@ -50,6 +52,8 @@ struct vfs_fileinfo {
     size_t size;            ///< Size of the object (in bytes, for a regular file)
 };
 
+__BEGIN_DECLS
+
 // initialization
 void vfs_init(void);
 
@@ -79,5 +83,7 @@ errval_t vfs_closedir(vfs_handle_t dhandle);
 // manipulation of VFS mounts
 errval_t vfs_mount(const char *mountpoint, const char *uri);
 errval_t vfs_unmount(const char *mountpoint);
+
+__END_DECLS
 
 #endif

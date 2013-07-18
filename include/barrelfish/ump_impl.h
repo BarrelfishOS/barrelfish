@@ -18,6 +18,9 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /**
  * UMP message size is fixed to cache-line size (64 bytes on x86_64).
@@ -204,5 +207,7 @@ static inline volatile struct ump_message *ump_impl_get_next(
 
     return msg;
 }
+
+__END_DECLS
 
 #endif // UMP_IMPL_H

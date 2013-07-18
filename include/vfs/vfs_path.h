@@ -10,6 +10,10 @@
 #ifndef VFS_PATH_H
 #define VFS_PATH_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 /// path separator used by the VFS
 #define VFS_PATH_SEP        '/'
 /// path separator used by the VFS, as a string constant
@@ -18,5 +22,7 @@
 void vfs_path_normalise(char *path);
 char *vfs_path_mkabsolute(const char *cwd, const char *path);
 char *vfs_path_mkabs(const char *path);
+
+__END_DECLS
 
 #endif

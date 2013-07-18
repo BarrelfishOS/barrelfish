@@ -10,7 +10,10 @@
 #ifndef VFS_FD_H
 #define VFS_FD_H
 
+#include <sys/cdefs.h> /* for __BEGIN_DECLS, __END_DECLS */
 #include <sys/types.h> /* for off_t */
+
+__BEGIN_DECLS
 
 int   vfsfd_open(const char *pathname, int flags);
 int   vfsfd_read(int fd, void *buf, size_t len);
@@ -18,5 +21,6 @@ int   vfsfd_write(int fd, const void *buf, size_t len);
 int   vfsfd_close(int fd);
 off_t vfsfd_lseek(int fd, off_t off, int whence);
 
+__END_DECLS
 
 #endif /* VFS_FD_H */

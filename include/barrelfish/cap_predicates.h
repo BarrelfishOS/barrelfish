@@ -15,7 +15,11 @@
 #ifndef CAP_PREDICATES_H
 #define CAP_PREDICATES_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/debug.h>
+
+__BEGIN_DECLS
 
 struct capability;
 enum objtype;
@@ -35,6 +39,8 @@ static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
     USER_PANIC("NYI");
     return 0;
 }
+
+__END_DECLS
 
 #endif
 

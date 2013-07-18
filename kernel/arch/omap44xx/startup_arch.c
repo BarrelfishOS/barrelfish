@@ -109,7 +109,8 @@ static lpaddr_t bsp_init_alloc_addr = PHYS_MEMORY_START;
  *
  * \return Base physical address of memory region.
  */
-static lpaddr_t bsp_alloc_phys(size_t size)
+lpaddr_t bsp_alloc_phys(size_t);
+lpaddr_t bsp_alloc_phys(size_t size)
 {
     // round to base page size
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
@@ -534,6 +535,16 @@ static struct dcb *spawn_init_common(const char *name,
                    INIT_PERM_RW);
 
 
+    /*
+     * we create the capability to the devices at this stage and store it
+     * in the TASKCN_SLOT_IO, where on x86 the IO capability is stored for
+     * device access on PCI. PCI is not available on the pandaboard so this
+     * should not be a problem.
+     */
+    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
+    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, iocap);
+        assert(err_is_ok(err));
+
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm
@@ -684,6 +695,8 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
 
     return init_dcb;
 }
+
+void play_with_fdif(void);
 
 void arm_kernel_startup(void)
 {

@@ -23,6 +23,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #include "memtest_trace.h"
 

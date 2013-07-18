@@ -58,7 +58,7 @@ int main(int argc, char**argv)
 
 	// make sure, that dlsym has the right table to the statically compiled-in
 	// shared libraries...
-    dlopen_set_params(&funcs, sizeof(funcs)/sizeof(struct function_entry));
+    dlopen_set_params(funcs, sizeof(funcs) / sizeof(*funcs));
 
 	// now set the right values for the eclipse-clp engine
     ec_set_option_int(EC_OPTION_IO, MEMORY_IO);

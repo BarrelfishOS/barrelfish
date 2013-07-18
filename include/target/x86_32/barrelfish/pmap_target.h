@@ -17,6 +17,23 @@
 
 #include <target/x86/barrelfish/pmap_target.h>
 
+struct pmap_dump_info {
+#ifdef CONFIG_PAE
+    size_t pdpt_index;
+#endif
+    size_t pdir_index, pt_index;
+    vregion_flags_t flags;
+    struct capref cap;
+    genvaddr_t offset;
+};
+#ifdef CONFIG_PAE
+#define PRIfmtPTIDX "%zd.%zd.%zd"
+#define GET_PTIDX(dump_info) (dump_info)->pdpt_index, (dump_info)->pdir_index, (dump_info)->pt_index
+#else
+#define PRIfmtPTIDX "%zd.%zd"
+#define GET_PTIDX(dump_info) (dump_info)->pdir_index, (dump_info)->pt_index
+#endif
+
 errval_t pmap_x86_32_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc);

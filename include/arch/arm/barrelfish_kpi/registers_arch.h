@@ -18,6 +18,7 @@
 #ifndef __ASSEMBLER__
 #include<stddef.h> // for offsetof
 #include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
+#include <barrelfish_kpi/types.h> // for lvaddr_t
 #endif
 
 //
@@ -121,6 +122,12 @@ static inline uint32_t
 registers_get_ip(arch_registers_state_t *regs)
 {
     return regs->named.pc;
+}
+
+static inline uint32_t
+registers_get_sp(arch_registers_state_t *regs)
+{
+    return regs->named.stack;
 }
 
 #endif // __ASSEMBLER__

@@ -33,6 +33,7 @@
 #ifndef SOCKET_H
 #define SOCKET_H
 
+#include <sys/cdefs.h>
 #include <lwip/sockets.h>
 
 #if __BSD_VISIBLE
@@ -48,6 +49,7 @@ typedef __sa_family_t	sa_family_t;
 #define _SA_FAMILY_T_DECLARED
 #endif
 
+__BEGIN_DECLS
 ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
                  struct sockaddr *src_addr, socklen_t *addrlen);
@@ -67,5 +69,6 @@ int getsockname(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int getpeername(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 int shutdown(int sockfd, int how);
 int socketpair(int domain, int type, int protocol, int sockfd[2]);
+__END_DECLS
 
 #endif

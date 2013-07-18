@@ -15,10 +15,14 @@
 #ifndef LIBBARRELFISH_LMP_ENDPOINTS_H
 #define LIBBARRELFISH_LMP_ENDPOINTS_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/waitset.h>
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
+
+__BEGIN_DECLS
 
 /// In-endpoint size of a maximum-sized LMP message plus header
 #define LMP_RECV_LENGTH         (LMP_MSG_LENGTH + LMP_RECV_HEADER_LENGTH)
@@ -79,5 +83,7 @@ void lmp_endpoint_store_lrpc_disabled(struct lmp_endpoint *ep, uint32_t bufpos,
                                       uintptr_t arg1, uintptr_t arg2,
                                       uintptr_t arg3, uintptr_t arg4);
 void lmp_endpoint_init(void);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_LMP_ENDPOINTS_H

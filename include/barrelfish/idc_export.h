@@ -15,7 +15,10 @@
 #ifndef LIBBARRELFISH_IDC_EXPORT_H
 #define LIBBARRELFISH_IDC_EXPORT_H
 
+#include <sys/cdefs.h>
 #include <barrelfish/idc.h>
+
+__BEGIN_DECLS
 
 typedef void idc_export_callback_fn(void *st, errval_t err, iref_t iref);
 
@@ -59,5 +62,7 @@ struct idc_export {
 
 errval_t idc_export_service(struct idc_export *e);
 void idc_export_init(void);
+
+__END_DECLS
 
 #endif

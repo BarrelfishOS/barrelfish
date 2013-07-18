@@ -20,7 +20,8 @@
 
 #include <octopus/definitions.h>
 
-#define NOP_TRIGGER     (octopus_trigger_t){ .in_case = 0, .m = 0, .trigger = 0, .st = 0 }
+#define NOP_TRIGGER (octopus_trigger_t){ /*in_case*/ 0, /*send_to*/ 0, \
+                                         /*m*/ 0, /*trigger*/ 0, /*st*/ 0 }
 
 typedef void(*trigger_handler_fn)(octopus_mode_t mode, char* record, void* state);
 octopus_trigger_t oct_mktrigger(errval_t, octopus_binding_type_t, octopus_mode_t,

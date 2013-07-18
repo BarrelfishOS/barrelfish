@@ -10,10 +10,14 @@
 #ifndef LIBMDB_MDB_H
 #define LIBMDB_MDB_H
 
+#include <sys/cdefs.h>
+
 #include <barrelfish/types.h>
 #include <errors/errno.h> // For errval_t
 #include <barrelfish_kpi/capabilities.h>
 #include <mdb/types.h>
+
+__BEGIN_DECLS
 
 struct capability;
 struct cte;
@@ -27,5 +31,7 @@ void remove_mapping(struct cte *cte);
 errval_t mdb_get_copy(struct capability *cap, struct capability **ret);
 bool mdb_is_sane(void);
 void mdb_set_relations(struct cte *cte, uint8_t relations, uint8_t mask);
+
+__END_DECLS
 
 #endif // LIBMDB_MDB_H

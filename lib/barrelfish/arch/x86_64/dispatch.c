@@ -138,7 +138,7 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
 // registers. Have to think about how to circumvent this without needing
 // -O2.
 void
-#if defined(__GNUC__) && !defined(__ICC)
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__ICC)
 __attribute__((optimize(2)))
 #endif
 disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
@@ -211,7 +211,7 @@ disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
 // registers. Have to think about how to circumvent this without needing
 // -O2.
 void
-#if defined(__GNUC__) && !defined(__ICC)
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__ICC)
 __attribute__((optimize(2)))
 #endif
 disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,

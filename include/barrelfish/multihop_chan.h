@@ -15,9 +15,13 @@
 #ifndef BARRELFISH_MULTIHOP_CHAN_H
 #define BARRELFISH_MULTIHOP_CHAN_H
 
+#include <sys/cdefs.h>
+
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/waitset.h>
 #include <flounder/flounder_support_caps.h>
-#include <barrelfish/monitor_client.h>
+
+__BEGIN_DECLS
 
 // turn on / off debugging of the multi-hop interconnect driver
 #define MULTIHOP_DEBUG_ENABLED 0
@@ -183,5 +187,7 @@ errval_t multihop_send_message(struct multihop_chan *mc,
 errval_t multihop_send_capability(struct multihop_chan *mc,
         struct event_closure _continuation,
         struct flounder_cap_state *cap_state, struct capref cap);
+
+__END_DECLS
 
 #endif // BARRELFISH_MULTIHOP_CHAN_H

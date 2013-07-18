@@ -43,6 +43,7 @@
 #define __BF_UNISTD_H
 
 #include <stddef.h>
+#include <sys/cdefs.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <fcntl.h> // for pid_t
@@ -204,6 +205,7 @@
 struct stat;
 extern char **environ;
 
+__BEGIN_DECLS
 #if (__XSI_VISIBLE && __XSI_VISIBLE <= 500) || __BSD_VISIBLE
 int          chroot(const char *path);
 #endif
@@ -211,7 +213,6 @@ int          chroot(const char *path);
 int          access(const char*pathname,int mode);
 unsigned int alarm(unsigned int seconds);
 int          chdir(const char*pathname);
-int          chmod(const char *path, mode_t mode);
 int          chown(const char *path, uid_t owner, gid_t group);
 int          close(int fd);
 int          dup(int oldfd);
@@ -235,7 +236,6 @@ int          initgroups(const char *username, gid_t group);
 int          isatty(int fd);
 int          link(const char *oldpath, const char *newpath);
 off_t        lseek(int fd, off_t offset, int whence);
-int          mkdir(const char *pathname, int mode);
 int          pipe(int pipefd[2]);
 int          read(int fd, void *buf, size_t len);
 ssize_t      readlink(const char *path, char *buf, size_t bufsize);
@@ -253,5 +253,6 @@ int          symlink(const char *oldpath, const char *newpath);
 long         sysconf(int name);
 int          unlink(const char*pathname);
 int          write(int fd, const void *buf, size_t len);
+__END_DECLS
 
 #endif // __BF_UNISTD_H

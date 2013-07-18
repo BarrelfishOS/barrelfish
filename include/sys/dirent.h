@@ -10,6 +10,8 @@
 #ifndef DIRENT_H_
 #define DIRENT_H_
 
+#include <sys/cdefs.h>
+
 #define NAME_MAX 512
 
 struct dirent {
@@ -24,8 +26,10 @@ typedef struct {
     void *vh; // really a vfs_handle_t
 } DIR;
 
+__BEGIN_DECLS
 DIR *opendir(const char *pathname);
 struct dirent *readdir(DIR* dir);
 int closedir(DIR *dir);
+__END_DECLS
 
 #endif

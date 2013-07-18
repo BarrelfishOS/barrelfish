@@ -239,7 +239,7 @@ errval_t multi_slot_alloc_init_raw(struct multi_slot_allocator *ret,
 
     /* Slab */
     size_t allocation_unit = sizeof(struct slot_allocator_list) +
-        sizeof(struct cnode_meta) * nslots / 2;
+                             SINGLE_SLOT_ALLOC_BUFLEN(nslots);
     slab_init(&ret->slab, allocation_unit, NULL);
 
     return SYS_ERR_OK;
@@ -253,7 +253,7 @@ errval_t multi_slot_alloc_init(struct multi_slot_allocator *ret,
 {
     errval_t err;
     nslots = ROUND_UP(nslots, DEFAULT_CNODE_SLOTS);
-    size_t bufsize = sizeof(struct cnode_meta) * nslots / 2; // XXX: ?
+    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(nslots); // XXX?
 
     ret->top = malloc(sizeof(struct single_slot_allocator));
     if (!ret->top) {

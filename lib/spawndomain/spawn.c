@@ -167,7 +167,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     /* Init pagecn's slot allocator */
 
     // XXX: satisfy a peculiarity of the single_slot_alloc_init_raw API
-    size_t bufsize = sizeof(struct cnode_meta) * PAGE_CNODE_SLOTS / 2;
+    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(PAGE_CNODE_SLOTS);
     void *buf = malloc(bufsize);
     assert(buf != NULL);
 
@@ -290,7 +290,15 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Create dispatcher frame (in taskcn) */
     si->dispframe.cnode = si->taskcn;
     si->dispframe.slot  = TASKCN_SLOT_DISPFRAME;
+    struct capref spawn_dispframe = {
+        .cnode = si->taskcn,
+        .slot  = TASKCN_SLOT_DISPFRAME2,
+    };
     err = frame_create(si->dispframe, (1 << DISPATCHER_FRAME_BITS), NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
+    }
+    err = cap_copy(spawn_dispframe, si->dispframe);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
@@ -303,7 +311,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_SELF);
     }
     genvaddr_t spawn_dispatcher_base;
-    err = spawn_vspace_map_one_frame(si, &spawn_dispatcher_base, si->dispframe,
+    err = spawn_vspace_map_one_frame(si, &spawn_dispatcher_base, spawn_dispframe,
                                      1UL << DISPATCHER_FRAME_BITS);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
@@ -452,14 +460,22 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     // Create frame (actually multiple pages) for arguments
     si->argspg.cnode = si->taskcn;
     si->argspg.slot  = TASKCN_SLOT_ARGSPAGE;
+    struct capref spawn_argspg = {
+        .cnode = si->taskcn,
+        .slot  = TASKCN_SLOT_ARGSPAGE2,
+    };
     err = frame_create(si->argspg, ARGS_SIZE, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
+    }
+    err = cap_copy(spawn_argspg, si->argspg);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
     }
 
     /* Map in args frame */
     genvaddr_t spawn_args_base;
-    err = spawn_vspace_map_one_frame(si, &spawn_args_base, si->argspg, ARGS_SIZE);
+    err = spawn_vspace_map_one_frame(si, &spawn_args_base, spawn_argspg, ARGS_SIZE);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_NEW);
     }
@@ -891,6 +907,9 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
         return err_push(err, SPAWN_ERR_SETUP_ENV);
     }
     free(multiboot_args);
+
+    // unmap bootinfo module pages
+    spawn_unmap_module(binary);
 
     return SYS_ERR_OK;
 }

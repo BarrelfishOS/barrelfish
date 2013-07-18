@@ -1,0 +1,129 @@
+/*
+ * Copyright (c) 2012, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ */
+
+/*
+ * omap44xx_mmchs.dev
+ *
+ * DESCRIPTION: MMC host controller for TI devices (PandaBoard)
+ *
+ * See:
+ * OMAP4430 Multimedia Device Silicon Revision 2.x 
+ *          Technical Reference Manual (Rev. 0)
+ * SD Card Association - Physical Layer Simplified Specification Version 3.01 
+ *          (referred to as PLS)
+ * devices/sdhc.dev: the rest of this device. 
+ * 
+ * This specification holds the OMAP44xx-specific part of the device;
+ * the rest (from offset 0x200 up) is mostly a standard SDHC adaptor,
+ * for which see the separate file sdhc.dev.   The main exception is
+ * the additional use of the sdhc arg1 register at 0x208 covered in
+ * this file. 
+ *
+ */
+ 
+ device omap44xx_mmchs msbfirst (addr base) "TI MMC host controller" {
+        
+     register HL_REV ro addr(base, 0x0) "revision identifier" 
+         type(uint32);
+     
+     register HL_HWINFO ro addr(base, 0x4) "hardware configuration" {
+         _              25 mbz;
+         RETMODE        1       "Retention Mode";
+         MEM_SIZE       4       "FIFO buffer size";
+         MERGE_MEM      1       "merged FIFO buffer";
+         MADMA_EN       1       "DMA master enabled";
+     };
+
+     // table 24-56, page 5144
+     register HL_SYSCONFIG rw addr(base, 0x10) "Clock management config" {
+         _              26 mbz;
+         STANDBYMODE    2       "Local initiator state mgmt mode conf";
+         IDLEMODE       2       "Local target state mgmt mode conf";
+         FREEEMU        1       "Sensitivity to emulation input signal";
+         SOFTRESET      1       "Software reset (optional)";
+     };
+
+     // table 24-66, page 5145
+     register SYSCONFIG rw addr(base, 0x110) "System config" {
+         _              18 mbz;
+         STANDBYMODE    2       "Master interface power management";
+         _              2 mbz;
+         CLOCKACTIVITY  2       "Clock activity during wake up period";
+         _              3 mbz;
+         SIDLEMODE      2       "Power management";
+         ENAWAKEUP      1       "Wakeup feature control";
+         SOFTRESET      1       "Software reset";
+         AUTOIDLE       1       "Internal Clock gating strategy";
+     };
+
+     // table 24-68, page 5147
+     register SYSSTATUS ro addr(base, 0x114) "Status information" {
+         _              31 mbz;
+         RESETDONE      1       "Internal reset monitoring";
+     };
+
+
+     // table 24-71
+     register CSRE rw addr(base, 0x124) "Card status response error"
+         type(uint32);
+     
+     // table 24-73
+     register SYSTEST addr(base, 0x128) "System test" {
+         _              15 mbz;
+         OBI            1 rw    "Out-Of-Band Interrupt (OBI)";
+         SDCD           1 ro    "Card detect input signal (SDCD)";
+         SDWP           1 ro    "Write protect input signal (SDWP)";
+         WAKD           1 rw    "Wake request output signal";
+         SSB            1 rw    "Set status bit";
+         D7D            1 rw    "DAT7 i/o signal";
+         D6D            1 rw    "DAT6 i/o signal";
+         D5D            1 rw    "DAT5 i/o signal";
+         D4D            1 rw    "DAT4 i/o signal";
+         D3D            1 rw    "DAT3 i/o signal";
+         D2D            1 rw    "DAT2 i/o signal";
+         D1D            1 rw    "DAT1 i/o signal";
+         D0D            1 rw    "DAT0 i/o signal";
+         DDIR           1 rw    "DAT[7:0] pins direction";
+         CDAT           1 rw    "CMD input/output signal";
+         CDIR           1 rw    "CMD pin direction";
+         MCKD           1 rw    "Clock output signal";
+     };
+
+     // table 24-74, page 5152
+     register CON rw addr(base, 0x12c) "Configuration" {
+         _              10 mbz;
+         SDMA_LNE       1       "Slave DMA/Edge Request";
+         DMA_MNS        1       "DMA Master or Slave selection";
+         DDR            1       "Dual Data Rate mode";
+         BOOT_CF0       1       "Boot status supported";
+         BOOT_ACK       1       "Book acknowledge received";
+         CLKEXTFREE     1       "External clock free running";
+         PADEN          1       "Control Power for MMC Lines";
+         OBIE           1       "Out-of-Band Interrupt Enable";
+         OBIP           1       "Out-of-Band Interrupt Polarity";
+         CEATA          1       "CE-ATA control mode";
+         CTPL           1       "Control power for DAT[1] line";
+         DVAL           2       "Debounce filter value";
+         WPP            1       "Write protect polarity";
+         CDP            1       "Card detect polarity";
+         MIT            1       "MMC interrupt command";
+         DW8            1       "8-bit mode MMC select";
+         MODE           1       "Mode select";
+         STR            1       "Stream command";
+         HR             1       "Broadcast host response";
+         INIT           1       "Send init stream";
+         OD             1       "Card open drain mode";
+     };
+
+     // table 24-77
+     register PWRCNT rw addr(base, 0x130) "Power control" {
+         _              16 mbz;
+         VAL            16      "Power counter value";
+     };
+   
+ };

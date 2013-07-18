@@ -16,6 +16,7 @@
 #ifndef ARCH_X86_32_BARRELFISH_KPI_REGISTERS_H
 #define ARCH_X86_32_BARRELFISH_KPI_REGISTERS_H
 
+#include <barrelfish_kpi/types.h> // for lvaddr_t
 #include <target/x86_32/barrelfish_kpi/registers_target.h>
 
 ///< Opaque handle for the register state
@@ -46,6 +47,12 @@ static inline uint32_t
 registers_get_ip(arch_registers_state_t *regs)
 {
     return registers_x86_32_get_ip(regs);
+}
+
+static inline uint32_t
+registers_get_sp(arch_registers_state_t *regs)
+{
+    return registers_x86_32_get_sp(regs);
 }
 
 #endif // ARCH_X86_32_BARRELFISH_KPI_REGISTERS_H

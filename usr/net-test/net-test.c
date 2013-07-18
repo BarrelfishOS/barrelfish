@@ -75,10 +75,10 @@ static void debug_uipaddr_print(u32_t addr)
 {
 
     debug_printf("%"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
-                 (u16_t)(ntohl(addr) >> 24) & 0xff,
-                 (u16_t)(ntohl(addr) >> 16) & 0xff,
-                 (u16_t)(ntohl(addr) >> 8) & 0xff,
-                 (u16_t)ntohl(addr) & 0xff);
+                 (u16_t)((ntohl(addr) >> 24) & 0xff),
+                 (u16_t)((ntohl(addr) >> 16) & 0xff),
+                 (u16_t)((ntohl(addr) >> 8) & 0xff),
+                 (u16_t)(ntohl(addr) & 0xff));
 }
 
 

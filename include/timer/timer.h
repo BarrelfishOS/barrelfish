@@ -17,6 +17,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct timer;
 
@@ -81,5 +84,7 @@ static inline struct timer *timer_create(uint64_t duration, bool periodic,
 
     return newtimer;
 }
+
+__END_DECLS
 
 #endif

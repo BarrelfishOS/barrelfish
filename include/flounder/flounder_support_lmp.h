@@ -15,6 +15,10 @@
 #ifndef __FLOUNDER_SUPPORT_LMP_H
 #define __FLOUNDER_SUPPORT_LMP_H
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
+
 struct lmp_chan;
 struct lmp_recv_msg;
 
@@ -30,5 +34,7 @@ errval_t flounder_stub_lmp_send_buf(struct lmp_chan *chan,
                                     size_t len, size_t *pos);
 errval_t flounder_stub_lmp_recv_buf(struct lmp_recv_msg *msg, void **buf,
                                     size_t *len, size_t *pos);
+
+__END_DECLS
 
 #endif // __FLOUNDER_SUPPORT_LMP_H

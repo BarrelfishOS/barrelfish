@@ -17,6 +17,11 @@
 
 /* Proper Barrelfish system calls */
 
+#include <sys/cdefs.h>    /* for __BEGIN_DECLS, __END_DECLS */
+#include <errors/errno.h> /* for errval_t */
+
+__BEGIN_DECLS
+
 /**
  * \brief Yield the CPU.
  *
@@ -46,5 +51,7 @@ errval_t sys_reboot(void);
  * \return Syscall error code (#SYS_ERR_OK on success).
  */
 errval_t sys_print(const char *string, size_t length);
+
+__END_DECLS
 
 #endif //LIBBARRELFISH_SYSCALL_H

@@ -16,6 +16,7 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/dispatcher_arch.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include "threads_priv.h"
 
 #ifndef TRACE_THREADS
@@ -49,7 +50,7 @@ void thread_cond_wait(struct thread_cond *cond, struct thread_mutex *mutex)
 {
     dispatcher_handle_t disp = disp_disable();
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_COND_WAIT_ENTER,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_COND_WAIT_ENTER,
                 (uintptr_t)cond);
 
     acquire_spinlock(&cond->lock);
@@ -72,7 +73,7 @@ void thread_cond_wait(struct thread_cond *cond, struct thread_mutex *mutex)
         thread_mutex_lock(mutex);
     }
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_COND_WAIT_LEAVE,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_COND_WAIT_LEAVE,
                 (uintptr_t)cond);
 }
 
@@ -89,7 +90,7 @@ void thread_cond_signal(struct thread_cond *cond)
     struct thread *wakeup = NULL;
     errval_t err = SYS_ERR_OK;
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_COND_SIGNAL,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_COND_SIGNAL,
                 (uintptr_t)cond);
 
     // Wakeup one waiting thread
@@ -127,7 +128,7 @@ void thread_cond_broadcast(struct thread_cond *cond)
     struct thread *wakeupq = NULL;
     bool foreignwakeup = false;
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_COND_BROADCAST,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_COND_BROADCAST,
                 (uintptr_t)cond);
 
     // Wakeup all waiting threads
@@ -179,7 +180,7 @@ void thread_mutex_lock(struct thread_mutex *mutex)
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_LOCK_ENTER,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_ENTER,
                 (uintptr_t)mutex);
 
     acquire_spinlock(&mutex->lock);
@@ -193,7 +194,7 @@ void thread_mutex_lock(struct thread_mutex *mutex)
         disp_enable(handle);
     }
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_LOCK_LEAVE,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_LEAVE,
                 (uintptr_t)mutex);
 }
 
@@ -209,7 +210,7 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
     dispatcher_handle_t handle = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_LOCK_NESTED_ENTER,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_NESTED_ENTER,
                 (uintptr_t)mutex);
 
     acquire_spinlock(&mutex->lock);
@@ -224,7 +225,7 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
         disp_enable(handle);
     }
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_LOCK_NESTED_LEAVE,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_NESTED_LEAVE,
                 (uintptr_t)mutex);
 }
 
@@ -240,7 +241,7 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
  */
 bool thread_mutex_trylock(struct thread_mutex *mutex)
 {
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_TRYLOCK,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_TRYLOCK,
                 (uintptr_t)mutex);
 
     // Try first to avoid contention
@@ -281,7 +282,7 @@ struct thread *thread_mutex_unlock_disabled(dispatcher_handle_t handle,
 {
     struct thread *ft = NULL;
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_MUTEX_UNLOCK,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_UNLOCK,
                 (uintptr_t)mutex);
 
     acquire_spinlock(&mutex->lock);
@@ -346,7 +347,7 @@ void thread_sem_wait(struct thread_sem *sem)
 {
     assert(sem != NULL);
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_SEM_WAIT_ENTER,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SEM_WAIT_ENTER,
                 (uintptr_t)sem);
 
     dispatcher_handle_t disp = disp_disable();
@@ -362,7 +363,7 @@ void thread_sem_wait(struct thread_sem *sem)
         disp_enable(disp);
     }
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_SEM_WAIT_LEAVE,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SEM_WAIT_LEAVE,
                 (uintptr_t)sem);
 }
 
@@ -371,7 +372,7 @@ bool thread_sem_trywait(struct thread_sem *sem)
     assert(sem != NULL);
     bool ret = false;
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_SEM_TRYWAIT,
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SEM_TRYWAIT,
                 (uintptr_t)sem);
 
     dispatcher_handle_t disp = disp_disable();
@@ -393,7 +394,7 @@ void thread_sem_post(struct thread_sem *sem)
 {
     assert(sem != NULL);
 
-    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_SEM_POST, (uintptr_t)sem);
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SEM_POST, (uintptr_t)sem);
 
     dispatcher_handle_t disp = disp_disable();
     struct thread *wakeup = NULL;

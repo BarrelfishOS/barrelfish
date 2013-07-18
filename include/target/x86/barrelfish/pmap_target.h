@@ -31,6 +31,7 @@ struct vnode { // NB: misnomer :)
             struct capref cap;         ///< Frame cap
             genvaddr_t    offset;      ///< Offset within mapped frame cap
             vregion_flags_t flags;     ///< Flags for mapping
+            size_t        pte_count;   ///< number of mapped PTEs in this mapping
         } frame; // for leaf node (maps an actual page)
     } u;
 };

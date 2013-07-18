@@ -16,6 +16,9 @@
 #define LIBBARRELFISH_VSPACE_MMU_AWARE_H
 
 #include <barrelfish/vregion.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct vspace_mmu_vregion_list {
     struct vregion vregion;
@@ -38,5 +41,7 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
                               void **retbuf, size_t *retsize);
 errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
                                 lvaddr_t base, size_t bytes);
+
+__END_DECLS
 
 #endif // LIBBARRELFISH_VSPACE_MMU_AWARE_H

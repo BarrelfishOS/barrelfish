@@ -122,6 +122,7 @@ static int caller(int a, ...)
     fprintf(stderr, "Finished cancellation at outer level\n");
   }
 
+  fprintf(stderr, "Done!\n");
   return 0;
 }
 

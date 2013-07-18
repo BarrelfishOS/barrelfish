@@ -118,9 +118,21 @@ static errval_t bootstrap(int argc, char *argv[])
     /* Initialize tracing */
     err = trace_init();
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error initialising trace buffer");
+        DEBUG_ERR(err, "error initializing trace buffer");
         printf("Warning: tracing not available\n");
     }
+    #if defined(CONFIG_TRACE)
+    err = trace_my_setup();
+    if (err_is_fail(err)) {
+		DEBUG_ERR(err, "error setting up tracing in init");
+		printf("Warning: tracing not available\n");
+	} else {
+		// Initialize the pointers
+		trace_reset_all();
+		// Enable all subsystems by default.
+		trace_set_all_subsys_enabled(true);
+	}
+    #endif
 
     /* Load mem_serv */
     printf("Spawning memory server (%s)...\n", MEM_SERV_NAME);
@@ -151,6 +163,13 @@ static errval_t bootstrap(int argc, char *argv[])
     err = spawn_load_with_bootinfo(&monitor_si, bi, MONITOR_NAME, my_core_id);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_SPAWN_MONITOR);
+    }
+
+    /* unmap bootinfo mem */
+    err = multiboot_cleanup_mapping();
+    if (err_is_fail(err)) {
+        //return err_push(err, INIT_ERR_UNMAP_BOOTINFO);
+        return err;
     }
 
     /* Initialize monitor */

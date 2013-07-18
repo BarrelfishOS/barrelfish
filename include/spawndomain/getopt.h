@@ -16,8 +16,11 @@
 #define SPAWN_GETOPT_H
 
 #include <stddef.h>
+#include <sys/cdefs.h>
 
+__BEGIN_DECLS
 const char *getopt(const char **optstring, char *buf, size_t buflen,
                    size_t *optlen);
+__END_DECLS
 
 #endif // SPAWN_GETOPT_H

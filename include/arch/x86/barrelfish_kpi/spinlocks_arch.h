@@ -15,6 +15,8 @@
 #ifndef ARCH_X86_BARRELFISH_KPI_SPINLOCKS_H
 #define ARCH_X86_BARRELFISH_KPI_SPINLOCKS_H
 
+#include <stdint.h> // for uint32_t
+
 /** \brief spinlock */
 typedef volatile uint32_t spinlock_t;
 

@@ -33,7 +33,8 @@ ourCommonFlags = [ Str "-m32",
                    Str "-fPIE",
                    Str "-fno-stack-protector", 
 		   Str "-Wno-unused-but-set-variable", 
-                   Str "-Wno-packed-bitfield-compat" ]
+                   Str "-Wno-packed-bitfield-compat",
+                   Str "-D__x86__" ]
 
 cFlags = ArchDefaults.commonCFlags
          ++ ArchDefaults.commonFlags

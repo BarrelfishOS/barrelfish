@@ -21,6 +21,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/lmp.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include <barrelfish_kpi/registers_arch.h>
@@ -220,7 +221,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
 //#else
         trace_event(TRACE_SUBSYS_KERNEL,
-                    TRACE_EVENT_CSWITCH,
+                    TRACE_EVENT_KERNEL_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
 //#endif // TRACE_N_BM
 #endif // TRACE_CSWITCH

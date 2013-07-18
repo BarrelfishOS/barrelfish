@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #define PERIOD          2500000000UL
 #define ITERATIONS	10
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
           trace_event(TRACE_SUBSYS_BOMP, TRACE_EVENT_BOMP_STOP, 0);
 
           char *buf = malloc(4096*4096);
-          trace_dump(buf, 4096*4096);
+          trace_dump(buf, 4096*4096, NULL);
           printf("%s\n", buf);
           abort();
 #endif

@@ -36,6 +36,10 @@ class BootModules(object):
             return modulespec == modulename.rsplit('/',1)[-1]
 
     def add_module(self, module, args=None):
+
+        # Support for build targets with / in their name (e.g. examples/xmpl-spawn)
+        module = module.replace('$BUILD', os.path.dirname(self.kernel[0]))
+
         # XXX: workaround for backwards compatibility: prepend default path
         if not '/' in module:
             assert self.kernel
@@ -84,6 +88,8 @@ class BootModules(object):
             
         if self.machine.get_bootarch() == "arm_gem5":
         	ret.append('arm_gem5_harness_kernel')
+        elif self.machine.get_bootarch() == "armv7_gem5_2":
+            ret.append('arm_gem5_image')
 
         return ret
 
@@ -99,11 +105,17 @@ def default_bootmodules(build, machine):
         m.set_kernel("%s/sbin/elver" % a, machine.get_kernel_args())
     elif a == "armv5":
         m.set_kernel("%s/sbin/cpu.bin" % a, machine.get_kernel_args())
+    elif a == "armv7":
+        m.set_kernel("%s/sbin/cpu_arm_gem5" % a, machine.get_kernel_args())
     else:
         m.set_kernel("%s/sbin/cpu" % a, machine.get_kernel_args())
-
     # default for all barrelfish archs
-    m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
+    # hack: cpu driver is not called "cpu" for ARMv7 builds
+    if a == "armv7":
+        m.add_module("%s/sbin/cpu_arm_gem5" % a, machine.get_kernel_args())
+        m.add_module("/arm_gem5_image")
+    else:
+        m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
     m.add_module("%s/sbin/init" % a)
     m.add_module("%s/sbin/mem_serv" % a)
     m.add_module("%s/sbin/monitor" % a)
@@ -130,5 +142,4 @@ def default_bootmodules(build, machine):
     		m.add_module_arg("spawnd", "bootarm=1")
     	elif machine.get_ncores() == 4:
     		m.add_module_arg("spawnd", "bootarm=1-3")
-
     return m

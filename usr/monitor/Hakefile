@@ -18,7 +18,15 @@
      arch_dirs "scc"    = [ arch_dir, "arch/x86" ]
      arch_dirs _        = [ arch_dir ]
 
-     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
+     rcap_db = case Config.rcap_db of
+                        Config.RCAP_DB_NULL   -> "rcap_db_null.c"
+                        Config.RCAP_DB_CENTRAL-> "rcap_db_central.c"
+                        Config.RCAP_DB_TWOPC  -> "rcap_db_twopc.c"
+     rcap_db_libs = case Config.rcap_db of
+                        Config.RCAP_DB_NULL   -> []
+                        Config.RCAP_DB_CENTRAL-> [ "collections" ]
+                        Config.RCAP_DB_TWOPC  -> [ "collections", "cap_predicates" ]
+     common_srcs = [ "trace_support.c", "bfscope_support.c", "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
                      "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
                      "resource_ctrl.c", "timing.c", "send_cap.c",

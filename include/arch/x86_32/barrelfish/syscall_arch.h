@@ -51,7 +51,7 @@ struct sysret syscall(uintptr_t arg0, uintptr_t arg1,
                    : "+a" (a3_ret1), "+d" (a2_ret2), "+r" (a6)
                    : "r" (a0), "r" (a1), "r" (a4), [arg5] "m" (arg5));
 
-    return (struct sysret){.error = a3_ret1, .value = a2_ret2};
+    return (struct sysret){/*error*/ a3_ret1, /*value*/ a2_ret2};
 }
 
 #define syscall7(_a, _b, _c, _d, _e, _f, _g)    \

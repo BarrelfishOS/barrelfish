@@ -47,7 +47,7 @@ void     gic_cpu_interface_init(void);
 void     gic_cpu_interface_enable(void);
 void     gic_cpu_interface_disable(void);
 void     gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-                              uint8_t edge_triggered, uint8_t one_to_n);
+                              bool edge_triggered, bool one_to_n);
 void     gic_disable_all_irqs(void);
 uint32_t gic_get_active_irq(void);
 void     gic_ack_irq(uint32_t irq);

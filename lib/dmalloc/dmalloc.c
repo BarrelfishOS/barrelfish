@@ -4235,8 +4235,8 @@ static size_t release_unused_segments(mstate m) {
     sp = next;
   }
   /* Reset check counter */
-  m->release_checks = ((nsegs > MAX_RELEASE_CHECK_RATE)?
-                       nsegs : MAX_RELEASE_CHECK_RATE);
+  m->release_checks = (((size_t) nsegs > (size_t) MAX_RELEASE_CHECK_RATE)?
+                       (size_t) nsegs : (size_t) MAX_RELEASE_CHECK_RATE);
   return released;
 }
 

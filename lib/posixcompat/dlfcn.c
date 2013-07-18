@@ -12,12 +12,12 @@
 #include <string.h>
 #include "posixcompat.h"
 
-static struct function_entry (*ftable)[] = 0;
+static struct function_entry *ftable = 0;
 static int nr_entries = 0;
 
-void dlopen_set_params(struct function_entry (*fk)[], int nrk)
+void dlopen_set_params(struct function_entry *fk, int nrk)
 {
-    ftable =fk;
+    ftable = fk;
     nr_entries = nrk;
 }
 
@@ -31,12 +31,12 @@ void *dlopen(const char *filename, int flags)
 void *dlsym(void *handle, const char *symbol)
 {
     int i;
-    if ((*ftable) == 0) {
+    if (ftable == 0) {
         return (0);
     }
     for (i = 0; i < nr_entries; i++) {
-        if (strcmp(symbol, (*ftable)[i].name) == 0) {
-            return ((*ftable)[i].f);
+        if (strcmp(symbol, ftable[i].name) == 0) {
+            return (ftable[i].f);
         }
     }
     return (0);

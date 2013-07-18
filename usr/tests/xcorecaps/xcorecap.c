@@ -14,6 +14,7 @@
 #include <if/xcorecap_defs.h>
 #include <barrelfish/nameservice_client.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include "xcorecap.h"
 
 /* --- Binding handlers --- */
@@ -60,7 +61,7 @@ static void send_cap(struct xcorecap_binding *b)
 {
     create_ram_cap(&ram_cap);
 
-    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 1);
+    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
 
     /* send cap */
     errval_t err = b->tx_vtbl.send_cap(b, NOP_CONT, ram_cap);

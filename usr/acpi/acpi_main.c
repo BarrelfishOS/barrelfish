@@ -52,28 +52,26 @@ static errval_t copy_bios_mem(void) {
                        1UL << BIOS_BITS, &bioscap, NULL);
     assert(err_is_ok(err));
 
-    /*err = devframe_type(&biosframe, bioscap, BIOS_BITS);
-    //DEBUG_ERR(err, "devframe type\n");
-    assert(err_is_ok(err));*/
-
     void *origbios;
+    struct vregion *origbios_vregion;
     err = vspace_map_one_frame(&origbios, 1 << BIOS_BITS, bioscap,
-                             NULL, NULL);
+                               NULL, &origbios_vregion);
     assert(err_is_ok(err));
 
     err = frame_alloc(&biosmem, 1 << BIOS_BITS, NULL);
     assert(err_is_ok(err));
 
     void *newbios;
-    err = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem, NULL, NULL);
+    struct vregion *newbios_vregion;
+    err = vspace_map_one_frame(&newbios, 1 << BIOS_BITS, biosmem,
+                               NULL, &newbios_vregion);
     assert(err_is_ok(err));
 
     memcpy(newbios, origbios, 1 << BIOS_BITS);
 
-    // TODO: Unmap both vspace regions again
-
-    /*err = cap_delete(biosframe);
-    assert(err_is_ok(err));*/
+    // Unmap both vspace regions again
+    vregion_destroy(origbios_vregion);
+    vregion_destroy(newbios_vregion);
 
     // TODO: Implement mm_free()
 
@@ -158,7 +156,7 @@ static errval_t init_allocators(void)
     for (int i = 0; i < bootinfo->regions_length; i++) {
 		struct mem_region *mrp = &bootinfo->regions[i];
 		if (mrp->mr_type == RegionType_Module) {
-			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+			skb_add_fact("memory_region(%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
 						mrp->mr_base,
 						0,
 						mrp->mrmod_size,
@@ -166,7 +164,7 @@ static errval_t init_allocators(void)
 						mrp->mrmod_data);
 		}
 		else {
-			skb_add_fact("memory_region(%" PRIuGENPADDR ",%u,%zu,%u,%tu).",
+			skb_add_fact("memory_region(%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
 						mrp->mr_base,
 						mrp->mr_bits,
 						((size_t)1) << mrp->mr_bits,
@@ -176,7 +174,7 @@ static errval_t init_allocators(void)
 
         if (mrp->mr_type == RegionType_PhyAddr ||
             mrp->mr_type == RegionType_PlatformData) {
-            ACPI_DEBUG("Region %d: %"PRIuGENPADDR" - %"PRIuGENPADDR" %s\n",
+            ACPI_DEBUG("Region %d: %"PRIxGENPADDR" - %"PRIxGENPADDR" %s\n",
                        i, mrp->mr_base,
                        mrp->mr_base + (((size_t)1)<<mrp->mr_bits),
                        mrp->mr_type == RegionType_PhyAddr ?

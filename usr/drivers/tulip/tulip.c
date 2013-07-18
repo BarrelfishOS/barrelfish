@@ -14,10 +14,12 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <barrelfish/barrelfish.h>
-#include "tulip_dev.h"
+#include <dev/tulip_dev.h>
 #include <pci/pci.h>
-//#include <ethernet/ethernet.h>
+#include <net_queue_manager/net_queue_manager.h>
+#include <ipv4/lwip/inet.h>
 
 #include "tulip.h"
 
@@ -26,16 +28,11 @@
 
 #define REGISTER_SIZE uint32_t
 REGISTER_SIZE * volatile pciconfig;
-// XXX Mackerel PCI doesn't work yet:  static struct pci_hdr0_t config;
+// XXX Should use Mackerel PCI:  static struct pci_hdr0_t config;
 
 static struct tulip_t csrs;
 static uint8_t mac_address[6];
 
-// Upcall interface to the IP stack
-static InputPacket handler;
-static void *handler_data;
-
-#define BYTES_PER_DESCRIPTOR 16
 #define BYTES_PER_FRAME      1536
 
 // XXX PBAR FIXME!
@@ -43,26 +40,29 @@ static void *handler_data;
 #define RX_FRAGMENTS  1
 #define TX_FRAGMENTS  1
 
-#define RX_BUFSIZE 4096 // (RX_FRAGMENTS * (BYTES_PER_DESCRIPTOR+BYTES_PER_FRAME))
-#define TX_BUFSIZE 4096 // (TX_FRAGMENTS * (BYTES_PER_DESCRIPTOR+BYTES_PER_FRAME))
+#define RX_BUFSIZE 4096 // (RX_FRAGMENTS * (tulip_TDES_size+BYTES_PER_FRAME))
+#define TX_BUFSIZE 4096 // (TX_FRAGMENTS * (tulip_TDES_size+BYTES_PER_FRAME))
 
-#define DESCRIPTOR_OFFSET(d) ((d)*BYTES_PER_DESCRIPTOR)
-#define BUFFER_OFFSET(b,n) (((n)*BYTES_PER_DESCRIPTOR + (b)*BYTES_PER_FRAME))
+#define DESCRIPTOR_OFFSET(d) ((d)*tulip_TDES_size)
+#define BUFFER_OFFSET(b,n) (((n)*tulip_TDES_size + (b)*BYTES_PER_FRAME))
 
 struct capref rxcap, txcap;
 static uint8_t *volatile rxbufs;
 static uint8_t *volatile txbufs;
 
+#define RXDESC_AT(_o) ((tulip_RDES_t)(rxbufs + ((_o)*tulip_RDES_size)))
+#define TXDESC_AT(_o) ((tulip_TDES_t)(txbufs + ((_o)*tulip_TDES_size)))
+
 #ifdef TULIP_TU_DEBUG
 static void print_csrs(void)
 {
-    printf("CSR0:%08x  CSR3:%08x  CSR4:%08x\n", 
-        tulip_CSR0_rd(&csrs),tulip_CSR3_rd(&csrs),tulip_CSR4_rd(&csrs));
-    printf("CSR5:%08x\n", tulip_CSR5_rd(&csrs));
-    printf("CSR6:%08x  CSR7:%08x  CSR8:%08x\n", 
-        tulip_CSR6_rd(&csrs),tulip_CSR7_rd(&csrs),tulip_CSR8_rd(&csrs));
-    printf("CSR11:%08x  CSR12:%08x  CSR15:%08x\n", 
-        tulip_CSR11_rd(&csrs),tulip_CSR12_rd(&csrs),tulip_CSR15_rd(&csrs));
+    char buf[4096];
+    if (tulip_pr(buf, 4095, &csrs) < 4095) {
+	printf("Not enough buffer to print registers: edit %s line %d", 
+	       __FILE__, __LINE__ -2);
+    } else {
+	printf("%s\n", buf);
+    }
 }
 static void dump_pkt(uint8_t *pkt, uint32_t len)
 {
@@ -72,7 +72,6 @@ static void dump_pkt(uint8_t *pkt, uint32_t len)
     printf("\n");
 }
 #endif
-
 
 //
 // SROM related methods
@@ -90,12 +89,10 @@ static uint8_t srom_read_preamble[] = {
 static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
 {
     int i;
-    tulip_CSR9_t csr9 = {
-        .DATA = 0,
-        .SR   = 1,
-        .RD   = 1
-        
-    };
+    tulip_CSR9_t csr9 = tulip_CSR9_initial;
+    csr9 = tulip_CSR9_DATA_insert(csr9, 0);
+    csr9 = tulip_CSR9_SR_insert(csr9, 1);
+    csr9 = tulip_CSR9_RD_insert(csr9, 1);
 
     // This is taken from section 7-8 in 21140A reference manual. We
     // deliberately make all delays as 3 ticks since we don't have
@@ -110,10 +107,12 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
     for (i = 0; i < sizeof(srom_read_preamble); i++)
     {
         uint8_t b = srom_read_preamble[i];
-        csr9.DATA = b >> 4;
-        tulip_CSR9_wr(&csrs, csr9); // srom_base_cmd | (uint32_t)(b >> 4));    delay(3);
-        csr9.DATA = b & 0x0f;
-        tulip_CSR9_wr(&csrs, csr9); // srom_base_cmd | (uint32_t)(b & 0x0f));  delay(3);
+	// srom_base_cmd | (uint32_t)(b >> 4));    delay(3);
+	csr9 = tulip_CSR9_DATA_insert(csr9, b >> 4);
+        tulip_CSR9_wr(&csrs, csr9); 
+	// srom_base_cmd | (uint32_t)(b & 0x0f));  delay(3);
+	csr9 = tulip_CSR9_DATA_insert(csr9, b & 0x0f);
+        tulip_CSR9_wr(&csrs, csr9); 
     }
 
     // Write address to be read
@@ -122,13 +121,13 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
         uint32_t bit = (addr >> i) & 0x01;
         bit <<= 2;
         
-        csr9.DATA = bit | 0x01;
+	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x01);
         tulip_CSR9_wr(&csrs, csr9); // srom_base_cmd | bit | 0x01);        
         delay(3);
-        csr9.DATA = bit | 0x03;
+	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x03);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x03);        
         delay(3);
-        csr9.DATA = bit | 0x01;
+	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x01);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x01);        
         delay(3);
     }
@@ -137,12 +136,12 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
     uint32_t r = 0;
     for (i = 7; i >= 0; --i)
     {
-        csr9.DATA = 0x03;
+	csr9 = tulip_CSR9_DATA_insert(csr9, 0x03);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);              
         delay(3);
-        r |= ((tulip_CSR9_rd(&csrs).DATA & 0x08) >> 3) << i;         
+        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;         
         delay(3);
-        csr9.DATA = 0x01;
+	csr9 = tulip_CSR9_DATA_insert(csr9, 0x01);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);              
         delay(3);
     }
@@ -150,18 +149,18 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
     // Get msb
     for (i = 15; i >= 8; --i)
     {
-        csr9.DATA = 0x03;
+	csr9 = tulip_CSR9_DATA_insert(csr9, 0x03);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);              
         delay(3);
-        r |= ((tulip_CSR9_rd(&csrs).DATA & 0x08) >> 3) << i;         
+        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;         
         delay(3);
-        csr9.DATA = 0x01;
+	csr9 = tulip_CSR9_DATA_insert(csr9, 0x01);
         tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);              
         delay(3);
     }
 
     // Finish up
-    csr9.DATA = 0;
+    csr9 = tulip_CSR9_DATA_insert(csr9, 0x00);
     tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd);                         
     delay(3);
 
@@ -203,57 +202,35 @@ static uint8_t *read_srom(void)
     return b;
 }
 
-// XXX PBAR move into Mackerel
-#define TDES1_TCH (1u<<24)
-#define RDES0_OWN (1u<<31)
-#define TDES0_OWN (1u << 31)
-#define TDES1_LS  (1u << 30)
-#define TDES1_FS  (1u << 29)
-
-static void build_chain(uint8_t  *buffer,
-                        paddr_t    pa,
-                        uint32_t   bufferCount,
-                        uint32_t   des0Flags,
-                        uint32_t   des1Flags)
-{
-    uint32_t *des;
-    int i;
-
-    for (i = 0; i < bufferCount; i++) {
-        des = (uint32_t*)(buffer + DESCRIPTOR_OFFSET(i));
-        des[0] = des0Flags;
-        des[1] = des1Flags | TDES1_TCH | (BYTES_PER_FRAME & 0x7ff);
-        des[2] = pa + BUFFER_OFFSET(i, bufferCount);
-        des[3] = pa + DESCRIPTOR_OFFSET((i + 1) % bufferCount);
-    }
-}
-
-static void *contig_alloc(size_t bufsize, paddr_t *pa)
+static void *contig_alloc(size_t bufsize, lpaddr_t *pa)
 {
     struct capref frame;
-    struct frame_identity phys = { .base = 0, .bits = 0 };
+    errval_t r;
+    void *va;
 
     // Allocate
-    if (frame_alloc(&frame, bufsize, &bufsize) != 0) {
+    r = frame_alloc(&frame, bufsize, &bufsize);
+    if (err_is_fail(r)) {
+        TU_DEBUG(r, "frame_alloc");
         return NULL;
     }
-
-    int r = invoke_frame_identify(frame, &phys);
-    assert(r == 0);
-    *pa = phys.base;
-
-    // Map it to vspace
-    // XXX: simpeter: I suppose this has to be mapped non-cacheable??
-    return vspace_map_attr(frame, 0, bufsize,
-                           PTABLE_ACCESS_DEFAULT | PTABLE_CACHE_DISABLED,
-                           NULL, NULL);
+    
+    r = vspace_map_one_frame_attr(&va, bufsize, frame, 
+				  VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (err_is_fail(r)) {
+        TU_DEBUG(r, "vspace_map_one_frame_attr");
+        return NULL;
+    }
+    return va;
 }
+
 
 static void init_chains(int rxFragments, int txFragments)
 {
-  // struct capref frame_ci;
-  // int rc;
-    paddr_t pa = 0;
+    // struct capref frame_ci;
+    /// int rc;
+    int i;
+    lpaddr_t pa = 0;
 
     TU_DEBUG("\nXXXXXXXXXXXXXXXXXXXXXXXX\n");
     TU_DEBUG("InitChains(rx = %d, tx = %d)\n",
@@ -261,7 +238,9 @@ static void init_chains(int rxFragments, int txFragments)
 
     // Turn off receive and transmit
     tulip_CSR6_t mode = tulip_CSR6_rd(&csrs);
-    mode.SR = 0; mode.ST = 0; //mode &= ~(CSR6.SR | CSR6.ST);
+    mode = tulip_CSR6_SR_insert(mode, 0);
+    mode = tulip_CSR6_ST_insert(mode, 0);
+    //mode &= ~(CSR6.SR | CSR6.ST);
     tulip_CSR6_wr(&csrs, mode);
 
     // XXX PBAR This allocation code doesn't deal with >1 page properly!
@@ -271,7 +250,15 @@ static void init_chains(int rxFragments, int txFragments)
 
     TU_DEBUG("PA=%lx\n", pa);
 
-    build_chain((uint8_t*)rxbufs, pa, RX_FRAGMENTS, RDES0_OWN, 0);
+    for( i=0; i < RX_FRAGMENTS; i++) {
+	tulip_RDES_t des = RXDESC_AT(i);
+	memset(des, 0, tulip_RDES_size);
+	tulip_RDES_OWN_insert(des, 0);
+	tulip_RDES_RCH_insert(des, 1);
+	tulip_RDES_RBS1_insert(des, BYTES_PER_FRAME);
+	tulip_RDES_RBA1_insert(des, pa + BUFFER_OFFSET(i, RX_FRAGMENTS));
+	tulip_RDES_RBA2_insert(des, pa + DESCRIPTOR_OFFSET((i + 1) % RX_FRAGMENTS));
+    }
     
     tulip_CSR3_wr(&csrs, (uint32_t)pa);
     tulip_CSR2_wr(&csrs, 1);   // Receive poll demand
@@ -281,7 +268,17 @@ static void init_chains(int rxFragments, int txFragments)
 
     TU_DEBUG("PA=%lx\n", pa);
 
-    build_chain((uint8_t*)txbufs, pa, TX_FRAGMENTS, 0, TDES1_FS| TDES1_LS);
+    for( i=0; i < TX_FRAGMENTS; i++) {
+	tulip_TDES_t des = TXDESC_AT(i);
+	memset(des, 0, tulip_TDES_size);
+	tulip_TDES_OWN_insert(des, 0);
+	tulip_TDES_FS_insert(des, 1);
+	tulip_TDES_LS_insert(des, 1);
+	tulip_TDES_TCH_insert(des, 1);
+	tulip_TDES_TBS1_insert(des, BYTES_PER_FRAME);
+	tulip_TDES_TBA1_insert(des, pa + BUFFER_OFFSET(i, TX_FRAGMENTS));
+	tulip_TDES_TBA2_insert(des, pa + DESCRIPTOR_OFFSET((i + 1) % TX_FRAGMENTS));
+    }
     tulip_CSR4_wr(&csrs, (uint32_t)pa);
     tulip_CSR1_wr(&csrs, 1);    // Transmit poll demand
 
@@ -289,13 +286,12 @@ static void init_chains(int rxFragments, int txFragments)
 
 static void start_io(void)
 {
-    tulip_CSR6_t csr6 = {
-        .HBD = 1,
-        .PS  = 1,
-        .TR  = 3,
-        .ST  = 1, // XXX NOT YET  1,
-        .SR  = 1
-    };
+    tulip_CSR6_t csr6 = tulip_CSR6_initial;
+    csr6 = tulip_CSR6_HBD_insert(csr6, 1);
+    csr6 = tulip_CSR6_PS_insert(csr6, 1);
+    csr6 = tulip_CSR6_TR_insert(csr6, 3);
+    csr6 = tulip_CSR6_ST_insert(csr6, 1);
+    csr6 = tulip_CSR6_SR_insert(csr6, 1);
 
     TU_DEBUG("start_io\n");
     
@@ -321,63 +317,13 @@ static void start_io(void)
 static void enable_irq(void)
 {
     // Enable interrupts
-    // csr7.Write32(CSR7.AI | CSR7.RI | CSR7.TI);
     TU_DEBUG("enable_irq\n");
-    tulip_CSR7_wr_raw(&csrs, (1<<16) | (1<<6));
+    tulip_CSR7_t csr7 = tulip_CSR7_initial;
+    csr7 = tulip_CSR7_RI_insert(csr7, 1);
+    csr7 = tulip_CSR7_TI_insert(csr7, 1);
+    csr7 = tulip_CSR7_AI_insert(csr7, 1);
+    tulip_CSR7_wr(&csrs, csr7);
 
-}
-
-static void tulip_handle_interrupt(struct idc_msg *msg, struct capref cap)
-{
-    tulip_CSR5_t csr5 = tulip_CSR5_rd(&csrs);
-    TU_DEBUG("tulip: interrupt\n");
-    do {
-        // Clear interrupts on card (interrupt bits are "write 1 to clear")
-        tulip_CSR5_wr(&csrs, csr5);
-        //print_csrs();
-    
-        if (csr5.RI) {
-            TU_DEBUG("RI\n");
-            uint32_t * volatile rdes0 = (uint32_t*)(rxbufs + DESCRIPTOR_OFFSET(0));
-            if ((*rdes0 & RDES0_OWN) == 0) {
-#if 0
-                uint32_t len = *rdes0 >>16 & 0x3FFF;
-                uint8_t * volatile rxpkt = rxbufs + BUFFER_OFFSET(0, 1);
-                dump_pkt(rxpkt, len);
-#endif            
-                handler(handler_data); // Notify IP stack
-                // Give the buffer back to the NIC
-                //*rdes0 = RDES0_OWN;
-            }
-        }
-        if (csr5.TI) {
-            TU_DEBUG("TI\n");
-        }
-        
-        csr5 = tulip_CSR5_rd(&csrs);
-    } while(csr5.NIS);    
-    
-    //print_csrs();
-
-}
-
-static int register_irq(uint32_t irq)
-{
-    // Register interrupt handler
-    uint64_t badge = idc_handler_register(tulip_handle_interrupt);
-    struct capref ep;
-
-    TU_DEBUG("tulip: register_irq %d\n", irq);
-    if (endpoint_create(badge, &ep) != SYS_ERR_OK) {
-        assert(!"async_endpoint_create failed");
-        return -1;
-    }
-    if (irq_handle(irq, ep) != SYS_ERR_OK) {
-        assert(!"Registering IRQ failed");
-        return -1;
-    }
-
-    return 0;
 }
 
 /**
@@ -385,17 +331,10 @@ static int register_irq(uint32_t irq)
  *
  * \param mac   Pointer to 6 byte array to hold MAC address.
  */
-void ethernet_get_mac_address(uint8_t *mac)
+static void ethernet_get_mac_address(uint8_t *mac)
 {
     TU_DEBUG("tulip: get_mac_address\n");
     memcpy(mac, mac_address, 6);
-}
-
-void ethernet_register_handler(InputPacket input, void *data)
-{
-    TU_DEBUG("tulip: register_handler\n");
-    handler = input;
-    handler_data = data;
 }
 
 /**
@@ -410,67 +349,125 @@ void ethernet_register_handler(InputPacket input, void *data)
  * \param packet        Pointer to packet buffer.
  * \param size          Size in bytes of packet.
  */
-void ethernet_send_packet(struct pbuf *p)
+static errval_t ethernet_send_packets(struct client_closure* cl)
 {
+    assert("ethernet_send_packet for tulip is not yet (re)implemented");
+#if 0
+    // What is all this?  The next three lines pull information out of
+    // the client closure, and are part of the *new* networking design
+    // (as of 3/2013). 
+    struct shared_pool_private *spp = cl->spp_ptr;
+    struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
+    uint64_t rtpbuf = sld->no_pbufs;
+
+    // This is the legacy code, which dealt directly with pbufs.  This
+    // needs to be converted. 
     TU_DEBUG("tulip: send_packet %d called\n", p->tot_len);
-    uint32_t * volatile tdes = (uint32_t*)(txbufs + DESCRIPTOR_OFFSET(0));
+    tulip_TDES_t volatile tdes = TXDESC_AT(0);
     uint8_t * volatile txpkt = txbufs + BUFFER_OFFSET(0, 1);
     for (; p != NULL; p = p->next) {
         memcpy(txpkt, p->payload, p->len);
         txpkt += p->len;
     }
-    tdes[1] = /*TDES1_IC |*/ TDES1_LS | TDES1_TCH | (p->tot_len & 0x7ff);
-    tdes[0] |= TDES0_OWN;
+    //tulip_TDES_IC_insert(tdes, 1);
+    tulip_TDES_LS_insert(tdes, 1);
+    tulip_TDES_TCH_insert(tdes, 1);
+    tulip_TDES_TBS1_insert(tdes, p->tot_len);
+    tulip_TDES_OWN_insert(tdes, 1);
     tulip_CSR1_wr(&csrs, 1);    // Transmit poll demand
-    while (tdes[0] & TDES0_OWN) {
-        TU_DEBUG("tdes[0] = %x\n", tdes[0]);
+    while (tulip_TDES_OWN_extract(tdes)) {
+#ifdef TULIP_TU_DEBUG
+	char buf[1024];
+	tulip_TDES_prtval(buf, 1023, tdes);
+	TU_DEBUG("Transmit: %s\n", buf);
+#endif // TULIP_TU_DEBUG
         thread_yield();
     }
     TU_DEBUG("tulip: send complete\n");
+#endif 
+    return SYS_ERR_OK;
 }
 
 /**
  * \brief Receive Ethernet packet.
  *
  */
-uint16_t ethernet_get_next_packet(uint8_t *packet)
+static uint16_t ethernet_get_next_packet(uint8_t *packet)
 {
-    uint32_t * volatile rdes0 = (uint32_t*)(rxbufs + DESCRIPTOR_OFFSET(0));
-    uint32_t len = *rdes0 >>16 & 0x3FFF;
+    tulip_RDES_t volatile rdes0 = RXDESC_AT(0);
+    uint32_t len = tulip_RDES_FL_extract(rdes0);
     uint8_t * volatile rxpkt = rxbufs + BUFFER_OFFSET(0, 1);
     TU_DEBUG("tulip: get_next_packet %d\n", len);
     //dump_pkt(rxpkt, len);
     memcpy(packet, rxpkt, len);
     // Give the buffer back to the NIC
-    *rdes0 = RDES0_OWN;
+    tulip_RDES_OWN_insert(rdes0, 1);
     //tulip_CSR2_wr(&csrs, 1);    // receive poll demand (just in case)
     return len;
 }
+
+/**
+ * \brief Return the number of free TX slots
+ *
+ */
+static uint64_t ethernet_tx_slots_count(void)
+{
+    return 1; // Probably not what you want for a real application!
+}
+
+static bool ethernet_handle_free_tx_slot(void)
+{
+    TU_DEBUG("tulip: handle_free_tx_slot not implemented.\n");
+    return false; // FIXME!
+}
+
+static void tulip_handle_interrupt(void *arg)
+{
+    tulip_CSR5_t csr5 = tulip_CSR5_rd(&csrs);
+    TU_DEBUG("tulip: interrupt\n");
+    do {
+        // Clear interrupts on card (interrupt bits are "write 1 to clear")
+        tulip_CSR5_wr(&csrs, csr5);
+        //print_csrs();
+	
+        if (tulip_CSR5_RI_extract(csr5)) {
+            TU_DEBUG("RI\n");
+	    tulip_RDES_t volatile rdes0 = RXDESC_AT(0);
+            if (tulip_RDES_OWN_extract(rdes0) == 0) {
+
+                uint8_t * volatile rxpkt = rxbufs + BUFFER_OFFSET(0, 1);
+#if 0
+                dump_pkt(rxpkt, tulip_RDES_FL_extract(rdes0));
+#endif            
+        	/* Ensures that netd is up and running */
+        	if(waiting_for_netd()){
+		    TU_DEBUG("still waiting for netd to reg buf\n");
+		    return;
+        	}
+		ethernet_get_next_packet(rxpkt);
+	    }
+	}
+	if (tulip_CSR5_TI_extract(csr5)) {
+	    TU_DEBUG("TI\n");
+        }
+        
+        csr5 = tulip_CSR5_rd(&csrs);
+    } while(tulip_CSR5_NIS_extract(csr5));    
+    
+    //print_csrs();
+}
+
+
 /**
  * \brief Initialize network interface.
  *
  */
-int tulip_initialize_card(struct pci_address *net_card_address)
+static void tulip_init(void)
 {
-    uint32_t cbio, cfit;
     uint8_t * srom;
-    uint32_t irq;
     
     TU_DEBUG("tulip: Initialize() called\n");
-
-    // Set up IO base address 
-    cbio = pci_read_conf_header(net_card_address, BAR_OFFSET);    
-    TU_DEBUG("CBIO=%08x\n", cbio);
-    pci_write_conf_header(net_card_address, BAR_OFFSET, PORTBASE | 0x1);    
-    cbio = pci_read_conf_header(net_card_address, BAR_OFFSET);    
-    TU_DEBUG("CBIO=%08x\n", cbio);
-
-    cfit = pci_read_conf_header(net_card_address, PCI_CONFIG_HDR_CFIT/4);    
-    TU_DEBUG("CFIT=%08x\n", cfit);
-    irq = cfit & 0xff;
-    TU_DEBUG("Tulip IRQ=%d\n", irq);
     
-    tulip_initialize(&csrs, PORTBASE);
 #ifdef TULIP_TU_DEBUG
     // Dump config registers
     TU_DEBUG("Initial CSR values...\n");
@@ -478,9 +475,7 @@ int tulip_initialize_card(struct pci_address *net_card_address)
 #endif
 
     TU_DEBUG("Reset...\n");
-    tulip_CSR0_t csr0 = tulip_CSR0_rd(&csrs);
-    csr0.SWR = 1;
-    tulip_CSR0_wr(&csrs, csr0);
+    tulip_CSR0_SWR_wrf(&csrs, 1);
 
 #ifdef TULIP_TU_DEBUG
     TU_DEBUG("New CSR values...\n");
@@ -497,8 +492,7 @@ int tulip_initialize_card(struct pci_address *net_card_address)
     // Build the transmit and receive descriptors
     init_chains(1, 1);
 
-    // Register the interrupt handler and enable IRQs
-    register_irq(irq);
+    // Enable IRQs
     enable_irq();
 
     // Clear interrupts
@@ -509,19 +503,18 @@ int tulip_initialize_card(struct pci_address *net_card_address)
 
 #if 0
     // Poll for receive packets
-    uint32_t * volatile rdes0 = (uint32_t*)(rxbufs + DESCRIPTOR_OFFSET(0));
+    tulip_RDES_t volatile rdes0 = RXDESC_AT(0);
     uint8_t * volatile rxpkt = rxbufs + BUFFER_OFFSET(0, 1);
     memset(rxpkt, 0xaa, BYTES_PER_FRAME);
 
     while(1) {
-        //TU_DEBUG("%08x\n", *rdes0);
-        if ((*rdes0 & RDES0_OWN) == 0) {
-            uint32_t len = *rdes0 >>16 & 0x3FFF;
+        if (tulip_RDES_OWN_extract(rdes0) == 0) {
+            uint32_t len = tulip_RDES_FL_extract(rdes0);
             TU_DEBUG("Got a packet len %d!\n", len);
             dump_pkt(rxpkt, len);
             print_csrs();
             // Give the buffer back to the NIC
-            *rdes0 = RDES0_OWN;
+            tulip_RDES_OWN_insert(rdes0, 1);
 
             // Clear pending interrupts
             tulip_CSR5_wr(&csrs, tulip_CSR5_rd(&csrs));
@@ -531,7 +524,58 @@ int tulip_initialize_card(struct pci_address *net_card_address)
         
     }
 #endif
-    
-    return 0;
+    ethersrv_init("tulip", 
+		  0, // assumed queue id
+		  ethernet_get_mac_address,
+		  ethernet_send_packets,
+		  ethernet_tx_slots_count, 
+		  ethernet_handle_free_tx_slot);
+}
+
+
+/**
+ * \brief Initialize tulip as a legacy driver.
+ *
+ *
+ */
+static errval_t legacy_tulip_driver_init(void)
+{
+	/* FIXME: pci_client_connect returns int and not errval_t.
+	 * So, change the pci_client_connect() */
+    errval_t err = pci_client_connect();
+    if (err_is_fail(err)) {
+	return err;
+    }
+    TU_DEBUG("connected to pci\n");
+
+    return pci_register_legacy_driver_irq(tulip_init, 
+					  TULIP_PORTBASE,
+					  TULIP_PORTEND, 
+					  TULIP_IRQ,
+					  tulip_handle_interrupt, 
+					  NULL);
+}
+
+
+int main(int argc, char *argv[])
+{
+    struct waitset *ws = get_default_waitset();
+    errval_t err;
+
+    TU_DEBUG("Starting tulip standalone driver.....\n");
+    // Initialize driver
+    err = legacy_tulip_driver_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "legacy_tulip_driver_init\n");
+    }
+    TU_DEBUG("registered driver\n");
+
+    while (1) {
+        err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in event_dispatch");
+            break;
+        }
+    }
 }
 

@@ -27,6 +27,7 @@
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
 
 /// Ignore remote capabilities if this is defined
@@ -384,6 +385,15 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     /* Set the type specific fields and insert into #dest_caps */
     switch(type) {
     case ObjType_Frame:
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        // XXX: SCC hack, while we don't have a devframe allocator
+        if(lpaddr + ((lpaddr_t)1 << bits) < PADDR_SPACE_LIMIT) {
+            memset((void*)lvaddr, 0, (lvaddr_t)1 << bits);
+        } else {
+            printk(LOG_WARN, "Allocating RAM at 0x%" PRIxLPADDR
+                   " uninitialized\n", lpaddr);
+        }
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.frame.base = genpaddr + dest_i * ((genpaddr_t)1 << objbits);
@@ -437,6 +447,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -458,6 +471,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_ARM_l1:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -488,6 +505,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.vnode_arm_l2.base =
@@ -506,6 +527,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.vnode_x86_32_ptable.base =
@@ -523,6 +548,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_32_pdir:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -547,6 +576,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_32_pdpt:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -573,6 +606,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.vnode_x86_64_ptable.base =
@@ -590,6 +627,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_64_pdir:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -609,6 +650,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.vnode_x86_64_pdpt.base =
@@ -626,6 +671,10 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_VNode_x86_64_pml4:
     {
         size_t objbits_vnode = vnode_objbits(type);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -651,6 +700,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_Dispatcher:
         assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
 
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
@@ -1197,4 +1249,199 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         // Unhandled source type for mint
         return SYS_ERR_INVALID_SOURCE_TYPE;
     }
+
+}
+
+/// Handle deletion of a cnode or dcb cap
+static void delete_cnode_or_dcb(struct capability *cap, bool from_monitor)
+{
+    assert(cap != NULL);
+    assert((cap->type == ObjType_CNode) || (cap->type == ObjType_Dispatcher));
+
+    if(cap->type == ObjType_CNode) {
+        // Number of slots in the cnode
+        cslot_t max_slots = 1UL << cap->u.cnode.bits;
+
+        // Delete each non Null slot
+        for (cslot_t slot_no = 0; slot_no < max_slots; slot_no++) {
+            struct cte *cte_in_cnode =
+                caps_locate_slot(cap->u.cnode.cnode, slot_no);
+            if (cte_in_cnode->cap.type != ObjType_Null) {
+                caps_delete(cte_in_cnode, from_monitor);
+            }
+        }
+    } else {
+        struct dcb *dcb = cap->u.dispatcher.dcb;
+        // Delete each slot in dispatcher
+        if (dcb->cspace.cap.type != ObjType_Null) {
+            caps_delete(&dcb->cspace, from_monitor);
+        }
+        if (dcb->disp_cte.cap.type != ObjType_Null) {
+            caps_delete(&dcb->disp_cte, from_monitor);
+        }
+
+        // Remove from queue
+        scheduler_remove(dcb);
+        // Reset curent if it was deleted
+        if (dcb_current == dcb) {
+            dcb_current = NULL;
+        }
+
+        // Remove from wakeup queue
+        wakeup_remove(dcb);
+
+        // Notify monitor
+        if (monitor_ep.u.endpoint.listener == dcb) {
+            printk(LOG_ERR, "monitor terminated; expect badness!\n");
+            monitor_ep.u.endpoint.listener = NULL;
+        } else if (monitor_ep.u.endpoint.listener != NULL) {
+            errval_t err;
+            uintptr_t payload = dcb->domain_id;
+            err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false);
+            assert(err_is_ok(err));
+        }
+    }
+}
+
+/**
+ * \brief Delete a capability from a table entry.
+ *
+ * Deletes the capability from the table entry pointed to by
+ * 'cte'.
+ *
+ * \param cte   Pointer to table entry to delete cap from.
+ *
+ * \bug If deleting the last copy of a cnode or dispatcher, recursively delete
+ */
+errval_t caps_delete(struct cte *cte, bool from_monitor)
+{
+    assert(cte != NULL);
+
+#ifndef RCAPDB_NULL
+    if (!from_monitor && is_cap_remote(cte) && !has_copies(cte)) {
+        // delete on the last copy of a remote cap, do this through the monitor
+        // so we can inform other cores
+        return SYS_ERR_RETRY_THROUGH_MONITOR;
+    }
+#endif
+
+    struct capability *cap = &cte->cap;
+    // special handling for last copy of cnode and dispatcher types
+    if ((cap->type == ObjType_CNode) || (cap->type == ObjType_Dispatcher)) {
+        if (!has_copies(cte)) {
+            delete_cnode_or_dcb(cap, from_monitor);
+        }
+    }
+
+    // If this was the last reference to an object, we might have to
+    // resurrect the RAM and send it back to the monitor
+    if(!has_copies(cte) && !has_descendants(cte) && !has_ancestors(cte)
+       && !is_cap_remote(cte) && monitor_ep.u.endpoint.listener != NULL) {
+        errval_t err;
+        struct RAM ram = { .bits = 0 };
+        size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
+
+        // List all RAM-backed capabilities here
+        // NB: ObjType_PhysAddr and ObjType_DevFrame caps are *not* RAM-backed!
+        switch(cap->type) {
+        case ObjType_RAM:
+            ram.base = cap->u.ram.base;
+            ram.bits = cap->u.ram.bits;
+            break;
+
+        case ObjType_Frame:
+            ram.base = cap->u.frame.base;
+            ram.bits = cap->u.frame.bits;
+            break;
+
+        case ObjType_CNode:
+            ram.base = cap->u.cnode.cnode;
+            ram.bits = cap->u.cnode.bits + OBJBITS_CTE;
+            break;
+
+        case ObjType_Dispatcher:
+            // Convert to genpaddr
+            ram.base = local_phys_to_gen_phys(mem_to_local_phys((lvaddr_t)cap->u.dispatcher.dcb));
+            ram.bits = OBJBITS_DISPATCHER;
+            break;
+
+        default:
+            // Handle VNodes here
+            if(type_is_vnode(cap->type)) {
+                ram.base = get_address(cap);
+                ram.bits = vnode_objbits(cap->type);
+            }
+            break;
+        }
+
+        if(ram.bits > 0) {
+            // Send back as RAM cap to monitor
+            // XXX: This looks pretty ugly. We need an interface.
+            err = lmp_deliver_payload(&monitor_ep, NULL,
+                                      (uintptr_t *)&ram,
+                                      len, false);
+            //assert(err_is_ok(err));
+        }
+    }
+
+    // unmap if mapped
+    if (type_is_vnode(cap->type) || cap->type == ObjType_Frame || cap->type == ObjType_DevFrame) {
+        unmap_capability(cte);
+    }
+
+    // Remove from mapping database
+    remove_mapping(cte);
+    // Initialize the cap
+    memset(cte, 0, sizeof(struct cte));
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Revoke a cap
+ *
+ * Find all copies and descendants and delete them.
+ * When seeing a capability with no relations, stop traversing.
+ */
+errval_t caps_revoke(struct cte *cte, bool from_monitor)
+{
+    assert(cte != NULL);
+
+#ifndef RCAPDB_NULL
+    if (!from_monitor && is_cap_remote(cte)) {
+        return SYS_ERR_RETRY_THROUGH_MONITOR;
+    }
+#endif
+
+    struct cte *walk;
+    errval_t err = SYS_ERR_OK;
+    // Traverse forward
+    walk = mdb_successor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *next = mdb_successor(walk);
+        if (is_ancestor(&walk->cap, &cte->cap)) {
+            err = caps_delete(walk, from_monitor);
+        } else if(is_copy(&walk->cap, &cte->cap)) {
+            err = caps_delete(walk, from_monitor);
+        } else {
+            break;
+        }
+        walk = next;
+    }
+
+    // Traverse backwards
+    walk = mdb_predecessor(cte);
+    while(walk && walk != cte && err_is_ok(err)) {
+        struct cte *prev = mdb_predecessor(walk);
+        if (is_ancestor(&walk->cap, &cte->cap)) {
+            err = caps_delete(walk, from_monitor);
+        } else if(is_copy(&walk->cap, &cte->cap)) {
+            err = caps_delete(walk, from_monitor);
+        } else {
+            break;
+        }
+        walk = prev;
+    }
+
+    return err;
 }

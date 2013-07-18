@@ -18,9 +18,14 @@
 #ifndef INCLUDEBARRELFISH_CADDR_H
 #define INCLUDEBARRELFISH_CADDR_H
 
+#include <stdbool.h>
+#include <sys/cdefs.h>
+
 #include <barrelfish_kpi/types.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+__BEGIN_DECLS
 
 /**
  * \brief User-level representation of a CNode, its CSpace address and size
@@ -32,8 +37,8 @@ struct cnoderef {
     uint8_t guard_size;     ///< Guard size of the CNode
 } __attribute__((packed));
 
-#define NULL_CNODE (struct cnoderef){ .address = 0, .address_bits = 0, \
-                                      .size_bits = 0, .guard_size = 0 }
+#define NULL_CNODE (struct cnoderef){ /*address*/ 0, /*address_bits*/ 0, \
+                                      /*size_bits*/ 0, /*guard_size*/ 0 }
 
 /**
  * \brief User-level representation of a capability and its CSpace address
@@ -44,7 +49,7 @@ struct capref {
     capaddr_t slot;               ///< Slot number within CNode
 };
 
-#define NULL_CAP (struct capref){ .cnode = NULL_CNODE, .slot = 0 }
+#define NULL_CAP (struct capref){ /*cnode*/ NULL_CNODE, /*slot*/ 0 }
 
 static inline bool capref_is_null(struct capref capref)
 {
@@ -151,5 +156,7 @@ static inline struct cnoderef build_cnoderef(struct capref cap,
     ret.guard_size   = 0; // XXX
     return ret;
 }
+
+__END_DECLS
 
 #endif

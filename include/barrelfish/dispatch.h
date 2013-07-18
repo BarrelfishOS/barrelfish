@@ -21,9 +21,12 @@
 
 #ifndef __ASSEMBLER__
 
+#include <sys/cdefs.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
 #include <barrelfish_kpi/registers_arch.h>
 #include <barrelfish_kpi/types.h>
+
+__BEGIN_DECLS
 
 #ifdef  NDEBUG
 #define assert_disabled(e)      ((void)sizeof(e))
@@ -110,6 +113,8 @@ void disp_assert_fail(const char *exp, const char *file, const char *func,
 
 void disp_warn_fail(const char *exp, const char *file, const char *func,
 		    const char *line);
+
+__END_DECLS
 
 #endif //__ASSEMBLER__
 

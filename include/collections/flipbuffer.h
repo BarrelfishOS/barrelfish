@@ -17,6 +17,9 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 struct collections_fbuf {
     void *front;        /// < front buffer (currently active buffer)
@@ -45,5 +48,7 @@ void   collections_fbuf_other_free(struct collections_fbuf *fbuf);
 bool   collections_fbuf_other_is_empty(struct collections_fbuf *fbuf);
 
 void   collections_fbuf_release(struct collections_fbuf *fbuf);
+
+__END_DECLS
 
 #endif // _COLLECTIONS_FLIPBUFFER_H_
