@@ -19,10 +19,16 @@
 #include <usb_xfer.h>
 #include <usb_pipe.h>
 
+
+/**
+ * \brief this function handles the start of a new transfer when it is on the
+ *        endpoint queue
+ */
 void usb_pipe_start(struct usb_xfer_queue *queue)
 {
     USB_DEBUG_TR_ENTER;
 
+    /* get the xfer from the queue */
     struct usb_xfer *xfer = queue->current;
 
     assert(xfer != NULL);
@@ -32,7 +38,9 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
     uint8_t type;
 
     if (ep->is_stalled) {
-        USB_DEBUG_XFER("NOTICE: endpoint is already stalled...\n"); USB_DEBUG_TR_RETURN;
+        USB_DEBUG_XFER("NOTICE: endpoint is already stalled...\n");
+
+        USB_DEBUG_TR_RETURN;
         return;
     }
 
@@ -54,12 +62,7 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
         switch (type) {
             case USB_ENDPOINT_TYPE_BULK:
             case USB_ENDPOINT_TYPE_CONTROL:
-                /* delay the transfer start...
-                 * usbd_transfer_timeout_ms(xfer,
-                 &usbd_transfer_start_cb,
-                 xfer->interval);
-                 *
-                 * */
+               /* TODO: Delay the transfer start... */
                 assert(!"NYI: delayed start");
                 return;
                 break;
@@ -71,18 +74,21 @@ void usb_pipe_start(struct usb_xfer_queue *queue)
 
     if (xfer->error == USB_ERR_OK) {
         xfer->flags_internal.notify = 1;
+        /* call the start function */
         ep->pipe_fn->start(xfer);
     }
 
     xfer->flags_internal.cancellable = 1;
 
     if (xfer->error != USB_ERR_OK) {
+        /* there was an error while starting, cancel the transfer */
         usb_xfer_done(xfer, 0);
     }
 
 }
 
 /**
+ * \brief this function handles the event when a new transfer enters the system
  *
  */
 void usb_pipe_enter(struct usb_xfer *xfer)
@@ -93,6 +99,7 @@ void usb_pipe_enter(struct usb_xfer *xfer)
 
     struct usb_endpoint *ep = xfer->endpoint;
 
+    /* call the enter function of the pipe */
     (ep->pipe_fn->enter)(xfer);
 
     xfer->flags_internal.cancellable = 1;
@@ -105,8 +112,8 @@ void usb_pipe_enter(struct usb_xfer *xfer)
     }
 
     if (ep->transfers.current != xfer) {
+        /* there is already a transfer happening, so enqueue it on the endpoint */
         usb_xfer_enqueue(&ep->transfers, xfer);
-
 
         if (ep->transfers.current != NULL) {
             USB_DEBUG_XFER("Some thing is already processing...\n");
@@ -133,11 +140,15 @@ void usb_pipe_enter(struct usb_xfer *xfer)
                     xfer->wait_entry.prev_next = &xfer->wait_entry.next;
                 }
                 xfer->wait_queue = NULL;
+                /* set the current xfer to be handled in the queue */
                 ep->transfers.current = xfer;
                 USB_DEBUG_XFER("ep->transfers.command\n");
+                /* execute the start command on the new xfer on the endpoint */
                 (ep->transfers.command)(&ep->transfers);
             }
             ep->transfers.recurse_1 = 0;
         }
-    } USB_DEBUG_TR_RETURN;
+    }
+
+    USB_DEBUG_TR_RETURN;
 }

@@ -85,11 +85,9 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
         return (qh);
     }
 
-    /*
-     * we have to populate our free queue head list
-     */
     struct usb_page *page;
 
+    /* get a free page or allocate a new one*/
     if (free_pages == NULL) {
         page = usb_mem_page_alloc();
     } else {
@@ -100,6 +98,7 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
     uint32_t size_qh = sizeof(struct usb_ehci_qh);
     uint32_t num_qh = page->free.size / size_qh;
 
+    /* initiate the variables with the start addresses */
     qh = page->free.buffer;
     usb_paddr_t qh_self = page->free.phys_addr;
 
@@ -107,8 +106,13 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
         assert(!(qh_self % USB_EHCI_QH_ALIGN));
         USB_DEBUG_MEM(" Allocating QH: vaddr=%p, phys=%p (%x) [%x] (%u of %u)\n", qh,
                 qh_self, qh_self % USB_EHCI_QH_ALIGN, size_qh, i, num_qh);
+        /* reset memory */
         memset(qh, 0, size_qh);
+
+        /* set the physical address */
         qh->qh_self = qh_self;
+
+        /* put it into the free list */
         qh->obj_next = free_qh;
         free_qh = qh;
 
@@ -116,13 +120,16 @@ struct usb_ehci_qh *usb_ehci_qh_alloc(void)
         qh_self += size_qh;
     }
 
+    /* update free information */
     page->free.size -= (num_qh * size_qh);
     page->free.buffer += (num_qh * size_qh);
     page->free.phys_addr += (num_qh * size_qh);
 
+    /* put page into free list */
     page->next = used_pages;
     used_pages = page;
 
+    /* return a fresh qh */
     qh = free_qh;
     free_qh = qh->obj_next;
 
@@ -414,7 +421,7 @@ usb_paddr_t usb_ehci_buffer_page_alloc(void)
     page->next = used_pages;
     used_pages = page;
 
-    return (page->page.phys_addr);;
+    return (page->page.phys_addr);
 }
 
 void usb_ehci_buffer_page_free(usb_paddr_t buf)

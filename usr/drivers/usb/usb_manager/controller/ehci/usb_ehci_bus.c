@@ -126,7 +126,7 @@ struct usb_hcdi_bus_fn *usb_ehci_get_bus_fn(void)
  */
 void usb_ehci_sleep(struct usb_host_controller *hc, uint32_t state)
 {
-    assert(hc->hc_type = USB_EHCI);
+    assert(hc->hc_type == USB_EHCI);
 
     usb_ehci_hc_t *ehci_hc = hc->hc_control;
 

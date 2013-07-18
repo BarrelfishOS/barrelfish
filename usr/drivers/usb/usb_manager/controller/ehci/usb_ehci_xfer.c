@@ -1,3 +1,8 @@
+/**
+ * \brief this file contains functions for dealing the the EHCI specific
+ *        management of xfers
+ */
+
 /*
  * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
@@ -13,7 +18,6 @@
 #include <barrelfish/barrelfish.h>
 
 #include <usb/usb.h>
-#include <usb/usb_error.h>
 
 #include <usb_controller.h>
 #include <usb_device.h>
@@ -25,16 +29,28 @@
 #include "usb_ehci_memory.h"
 #include "usb_ehci_queue.h"
 
+
+/**
+ * \brief this function sets up an usb_xfer structure according to the parameters
+ *
+ * \param param the setup parameters for the xfer to set up
+ *
+ * NOTE: the xfer is also supplied with the setup parameters
+ */
 void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 {
     USB_DEBUG_TR_ENTER;
+
+    /* get the xfer to set up */
     struct usb_xfer *xfer = param->curr_xfer;
 
+    /* variables for counting how many queue elements we have to allocate */
     uint32_t num_qtd = 0;
     uint32_t num_qh = 0;
     uint32_t num_sitd = 0;
     uint32_t num_itd = 0;
 
+    /* settig some standard values */
     param->hc_max_packet_size = 0x400;
     param->hc_max_packet_count = 1;
     param->hc_max_frame_size = USB_EHCI_QTD_MAX_BYTES;
@@ -42,28 +58,43 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
     /*
      * calculate the number of needed descriptors
      */
-
     switch (param->type) {
         case USB_TYPE_CTRL:
+            /*
+             *  Control Transfer:
+             *      1 QH
+             *      x qTD (depending on the data phase)
+             */
             param->num_pages = 5;
             usb_xfer_setup_struct(param);
             num_qh = 1;
             num_qtd = ((2 * xfer->num_frames) + 1 + /* status phase */
             (xfer->max_data_length / xfer->max_hc_frame_size));
             break;
+
         case USB_TYPE_BULK:
+            /*
+             *  Bulk Transfer
+             *      1 QH
+             *      x qTD (depending on the data phase)
+             */
             param->num_pages = 5;
             usb_xfer_setup_struct(param);
-
             num_qh = 1;
             num_qtd = ((2 * xfer->num_frames)
                     + (xfer->max_data_length / xfer->max_hc_frame_size));
             break;
+
         case USB_TYPE_ISOC:
+            /*
+             * Isochronus Transfers
+             *      x itd or sitd (depending on the size or the speed)
+             */
             if (xfer->device->speed == USB_SPEED_HIGH) {
                 param->hc_max_frame_size = 0xC00;
                 param->hc_max_packet_count = 3;
                 param->num_pages = 7;
+
                 usb_xfer_setup_struct(param);
 
                 num_itd = ((xfer->num_frames + 7) / 8) << xfer->frame_shift;
@@ -78,8 +109,14 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
                 num_sitd = xfer->num_frames;
             }
             break;
+
         case USB_TYPE_INTR:
             switch (param->speed) {
+                /*
+                 * Interrupt Transfers
+                 *     1 QH
+                 *     x qTD depending on the data stage
+                 */
                 case USB_SPEED_HIGH:
                     param->num_pages = 7;
                     param->hc_max_packet_count = 3;
@@ -105,24 +142,26 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
             param->hc_max_frame_size = 0x400;
             break;
     }
+
     uint8_t alloc_dma_set;
 
     USB_DEBUG_XFER_HC("usb_ehci_xfer_setup() Start Allocating queue...\n");
 
+    /*
+     * allocate the number of queue elements as determined above
+     */
     do {
         alloc_dma_set = 0;
+
         if (param->err != USB_ERR_OK) {
             debug_printf("Error while setting up usb transfer \n");
             return;
         }
 
-        /*
-         * allocate the queue heads and transfer descriptors
-         * according to the number we calculated abote
-         */
         void *obj_last = NULL;
         uint32_t td_alloc;
 
+        /* isochronus transfer descriptors */
         USB_DEBUG_XFER_HC("Allocating %u iTDs...\n", num_itd);
         for (td_alloc = 0; td_alloc < num_itd; td_alloc++) {
             usb_ehci_itd_t *itd = usb_ehci_itd_alloc();
@@ -143,6 +182,7 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
             obj_last = itd;
         }
 
+        /* split isochronus transfer descriptors */
         USB_DEBUG_XFER_HC("Allocating %u siTDs...\n", num_sitd);
         for (td_alloc = 0; td_alloc < num_sitd; td_alloc++) {
             usb_ehci_sitd_t *sitd = usb_ehci_sitd_alloc();
@@ -162,6 +202,8 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
 
             obj_last = sitd;
         }
+
+        /* queue element transfer descriptors */
         USB_DEBUG_XFER_HC("Allocating %u qTDs...\n", num_qtd);
         for (td_alloc = 0; td_alloc < num_qtd; td_alloc++) {
             usb_ehci_qtd_t *qtd = usb_ehci_qtd_alloc();
@@ -181,10 +223,12 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
             obj_last = qtd;
         }
 
+        /* set the transfer descriptor start field in the xfer */
         xfer->hcd_td_start[xfer->flags_internal.curr_dma_set] = obj_last;
 
         obj_last = NULL;
 
+        /* allocate the queue heads */
         USB_DEBUG_XFER_HC("usb_ehci_xfer_setup() Allocating %u QHs...\n", num_qh);
         for (td_alloc = 0; td_alloc < num_qh; td_alloc++) {
             usb_ehci_qh_t *qh = usb_ehci_qh_alloc();
@@ -202,6 +246,7 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
             obj_last = qh;
         }
 
+        /* set the queue head start field */
         xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set] = obj_last;
 
         if (!xfer->flags_internal.curr_dma_set) {
@@ -213,41 +258,62 @@ void usb_ehci_xfer_setup(struct usb_xfer_setup_params *param)
     USB_DEBUG_TR_RETURN;
 }
 
-static uint8_t unsetup_shown = 0;
 
+/**
+ * \brief this function frees up the resources when a transfer is unsetup
+ *
+ * \param xfer the xfer to un setup
+ */
 void usb_ehci_xfer_unsetup(struct usb_xfer *xfer)
 {
-    if (unsetup_shown) {
-        return;
-    }
-    unsetup_shown =1;
-    USB_DEBUG("TODO: freeing up the resources is nyi!\n");
     /*
      * TODO: Free up resources
      */
+    switch(xfer->type) {
+        case USB_TYPE_CTRL:
+        case USB_TYPE_INTR:
+        case USB_TYPE_BULK:
+            /* free the qtd with the allocated frame buffers */
+            /* free the qh */
+            break;
+        case USB_TYPE_ISOC:
+            assert("!NYI: isochronus transfers");
+            break;
+    }
     return;
 }
 
+/**
+ * \brief this function handles the removal of the xfer from their correspondin
+ *        queues on the host controller
+ *
+ * \param xfer the xfer to remove from the queues
+ * \param error the outcome of the transfer
+ */
 void usb_ehci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
 {
-
     USB_DEBUG_TR_ENTER;
+
     // get the host controller of this transfer
     usb_ehci_hc_t *hc = (usb_ehci_hc_t *) xfer->host_controller->hc_control;
 
     switch (xfer->type) {
         case USB_TYPE_BULK:
         case USB_TYPE_CTRL:
+            /* remove from the async queue */
             usb_ehci_deq_qh(
                     xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set],
                     hc->qh_async_last);
             break;
         case USB_TYPE_INTR:
+            /* remove from the host controller interrupt queue */
             usb_ehci_deq_qh(
                     xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set],
                     hc->qh_intr_last[xfer->intr_qh_pos]);
             break;
+
         case USB_TYPE_ISOC:
+            /* isochronus transfers need special handling here */
             if (xfer->hcd_td_first && xfer->hcd_td_last) {
                 switch (xfer->device->speed) {
                     case USB_SPEED_HIGH:
@@ -274,20 +340,24 @@ void usb_ehci_xfer_remove(struct usb_xfer *xfer, usb_error_t error)
     USB_DEBUG_TR_RETURN;
 }
 
+/**
+ * this structure contains the setup parameters for setting up the queue
+ * element transfer descriptors (qTD) of an transfer
+ */
 struct usb_ehci_qtd_setup_param {
-    usb_ehci_hc_t *hc;
-    usb_ehci_qtd_t *td;
-    usb_ehci_qtd_t *td_next;
-    usb_ehci_qtd_token_t qtd_token;
-    uint32_t length_avg;
-    uint32_t length;
-    uint16_t max_frame_size;
-    uint8_t shortpkt;
-    uint8_t auto_data_toggle;
-    uint8_t setup_alt_next;
-    uint8_t last_frame;
-    struct usb_dma_page *pages;
-    uint16_t num_pages;
+    usb_ehci_hc_t *hc;              ///< the host controller
+    usb_ehci_qtd_t *td;             ///< the current qtd
+    usb_ehci_qtd_t *td_next;        ///< pointer tot he next qtd
+    usb_ehci_qtd_token_t qtd_token; ///< the qtd token flags
+    uint32_t length_avg;            ///< the average length
+    uint32_t length;                ///< the length of data for this qutd
+    uint16_t max_frame_size;        ///< the maximum frame size of the hc
+    uint8_t shortpkt;               ///< flag to tell if we have a short packet
+    uint8_t auto_data_toggle;       ///< flag to set the data togle bit
+    uint8_t setup_alt_next;         ///< flag indicating to set up the alt next
+    uint8_t last_frame;             ///< flag indicating if it is the last frame
+    struct usb_dma_page *pages;     ///< pointer to a set of dma pages
+    uint16_t num_pages;             ///< the number of dma pages that are needed
 };
 
 /**
@@ -299,6 +369,7 @@ struct usb_ehci_qtd_setup_param {
 static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 {
     USB_DEBUG_TR_ENTER;
+
     /* pointers to the terminated queue head */
     usb_paddr_t terminate = setup->hc->qh_terminate->qh_self;
     usb_paddr_t qtd_alt_next = setup->hc->qh_terminate->qh_self;
@@ -314,6 +385,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
     uint8_t shortpkt_old = setup->shortpkt;
 
+    /* first we are precomputing, then we fill in the structs */
     uint8_t precompute = 1;
 
     do {
@@ -368,7 +440,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
 
             /* we are not precomputing anymore so fill out the qTD */
             td->qtd_token = setup->qtd_token;
-            td->qtd_token.ioc = 1;
+            // TODO: TEST... td->qtd_token.ioc = 1;
             td->qtd_token.bytes = length_avg;
 
             if (length_avg == 0) {
@@ -394,9 +466,11 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                 /* update the remaining length to process */
                 setup->length -= length_avg;
 
+                /* TODO: Revice */
+
                 uint32_t buf_offset = 0;
                 memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
-                td->qtd_bp[0].address = (setup->pages->phys_addr) & (~0xFFF);  //usb_ehci_buffer_page_alloc();
+                td->qtd_bp[0].address = (setup->pages->phys_addr) & (~0xFFF);
 
                 assert(!((setup->pages->phys_addr) & (0xFFF)));
 
@@ -448,8 +522,6 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
             setup->length = length_old;
         } else {
             /* break the loop */
-
-            //precompute = 1;
             break;
         }
 
@@ -461,6 +533,13 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
     USB_DEBUG_TR_RETURN;
 }
 
+
+/**
+ * \brief this function sets up the standard queue chains for an xfer
+ *
+ * \param xfer the transfer to set up
+ * \param qh_last the last queue head in the queue
+ */
 void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
         usb_ehci_qh_t **qh_last)
 {
@@ -468,7 +547,10 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
 
     usb_ehci_qh_t *qh;
 
-    // toggle the DMA set
+    /*
+     * there are two different queues that are associated with each transfer
+     * every time we start the new one, the
+     */
     xfer->flags_internal.curr_dma_set ^= 1;
 
     usb_ehci_qtd_t *td = xfer->hcd_td_start[xfer->flags_internal.curr_dma_set];
@@ -616,6 +698,9 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     td->qtd_next = USB_EHCI_LINK_TERMINATE;
     td->qtd_alt_next = USB_EHCI_LINK_TERMINATE;
 
+    /* Last qtD rises interrupt */
+    td->qtd_token.ioc = 1;
+
     xfer->hcd_td_last = td;
 
     /* get the qh */
@@ -688,15 +773,29 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     USB_DEBUG_TR_RETURN;
 }
 
+/**
+ * \brief this function handles the completition of FS isochronus transfers
+ */
 void usb_ehci_xfer_fs_isoc_done(struct usb_xfer *xfer)
 {
     assert(!"NYI: Full speed isochronous done handling!");
 }
+
+/**
+ * \brief this function handles the completition of HS isochronus transfers
+ */
 void usb_ehci_xfer_hs_isoc_done(struct usb_xfer *xfer)
 {
     assert(!"NYI: High speed isochronous done handling!");
 }
 
+/**
+ * \brief this function updates the data toggle bit of the xfer endpoint
+ *
+ * \param xfer the transfer
+ * \param actual_length the current length of the xfer
+ * \param xfer_length   the total bytes to transfer
+ */
 static void usb_ehci_update_dt(struct usb_xfer *xfer, uint16_t actual_length,
         uint16_t xfer_length)
 {
@@ -715,7 +814,13 @@ static void usb_ehci_update_dt(struct usb_xfer *xfer, uint16_t actual_length,
 }
 
 /**
- * \brief   this function is
+ * \brief   this function processes the frames of an usb xfer and resets the
+ *          frame length and checks if the transfer was sucessful
+ *
+ * \param xfer the xfer to check
+ *
+ * \return USB_ERR_OK when the transfer is successful
+ *         USB_ERR_STALLED when there was an error condition
  */
 static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
 {
@@ -805,14 +910,6 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
             qtd = qtd->obj_next;
         }
         USB_DEBUG_XFER_HC("NOTICE: status = %x\n", status);
-        USB_DEBUG_XFER_HC(
-                "---babble detected = %u\n", (status & USB_EHCI_QTD_STATUS_BABBLE) > 0);
-        USB_DEBUG_XFER_HC(
-                "---transfer error = %u\n", (status & USB_EHCI_QTD_STATUS_TRANS_ERR) > 0);
-        USB_DEBUG_XFER_HC(
-                "---buffer error = %u\n", (status & USB_EHCI_QTD_STATUS_DATA_ERR) > 0);
-        USB_DEBUG_XFER_HC(
-                "---missed micro frame= %u\n", (status & USB_EHCI_QTD_STATUS_MISS) > 0);
 
         USB_DEBUG_TR_RETURN;
 
@@ -825,7 +922,7 @@ static usb_error_t usb_ehci_xfer_done_process_frames(struct usb_xfer *xfer)
 }
 
 /**
- * \brief   handles the completition of non-isochronus transfers
+ * \brief   handles the competition of non-isochronus transfers
  *
  * \param   xfer the usb transfer to be removed
  */
@@ -876,6 +973,7 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
         err = usb_ehci_xfer_done_process_frames(xfer);
     }
 
+    /* remove the xfer from the list */
     usb_ehci_xfer_remove(xfer, err);
 
     USB_DEBUG_TR_RETURN;
@@ -892,8 +990,6 @@ void usb_ehci_xfer_done(struct usb_xfer *xfer)
 uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
-
-
 
     assert(xfer != NULL);
 
@@ -912,7 +1008,9 @@ uint8_t usb_ehci_xfer_is_finished(struct usb_xfer *xfer)
     /*
      * non isochronus transfer
      */
-    usb_ehci_qtd_t *qtd = ((xfer->hcd_td_cache != NULL) ? xfer->hcd_td_cache : xfer->hcd_td_first);
+    usb_ehci_qtd_t *qtd = ((xfer->hcd_td_cache != NULL) ?
+                                xfer->hcd_td_cache : xfer->hcd_td_first);
+
     usb_ehci_qh_t *qh = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
 
     if (qtd == NULL) {

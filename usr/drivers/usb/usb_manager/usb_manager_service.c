@@ -21,6 +21,13 @@ static struct usb_manager_thc_service_binding_t service;
 static struct usb_manager_binding *binding;
 static iref_t service_iref;
 
+
+/**
+ * \brief this function initalizes the USB Manager service
+ *        using THC
+ *
+ *        XXX: Currently this is not used.
+ */
 errval_t usb_manager_service_init(void)
 {
     errval_t err;

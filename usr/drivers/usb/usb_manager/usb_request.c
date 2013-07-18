@@ -26,7 +26,8 @@
 #include <usb_xfer.h>
 
 /**
- * \brief   this function handles the USB requests
+ * \brief   this function handles the USB requests and executes them either
+ *          on the device or calls the root hub emulation function
  */
 usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         struct usb_device_request *req, struct usb_request_state *req_state,
@@ -567,9 +568,10 @@ void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
 }
 
 /*
- * --------------------------------------------------------------------------
- *  Functions needed for new devices
- * --------------------------------------------------------------------------
+ * ==========================================================================
+ *  The following functions are needed to handle the configuration of new
+ *  devices
+ * ==========================================================================
  */
 
 /**
@@ -602,7 +604,7 @@ usb_error_t usb_req_set_address(struct usb_device *dev, uint16_t addr)
 }
 
 /**
- *
+ * \brief this function executs a get descriptor request on a USB device
  */
 usb_error_t usb_req_get_descriptor(struct usb_device *dev,
         uint16_t *actual_length, void *desc, uint16_t min_length,
@@ -675,6 +677,10 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
     return (err);
 }
 
+
+/**
+ * \brief this function gets the device descriptor from a device
+ */
 usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
         struct usb_device_descriptor *desc)
 {
@@ -693,6 +699,9 @@ usb_error_t usb_req_get_device_descriptor(struct usb_device *dev,
     return (err);
 }
 
+/**
+ * \brief this function gets the configuration descriptor from a device
+ */
 usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         struct usb_config_descriptor **cdesc, uint8_t cindex)
 {
@@ -712,6 +721,7 @@ usb_error_t usb_req_get_config_descriptor(struct usb_device *dev,
         return (USB_ERR_INVAL);
     }
 
+    /* the configuration descriptor is of arbitrary size so allocate memory */
     *cdesc = malloc(cd.wTotalLength);
 
     if (*cdesc == NULL) {
@@ -741,6 +751,10 @@ usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
             USB_DESCRIPTOR_TYPE_STRING, string_index, 0));
 }
 
+
+/**
+ * \brief updates the configuration with the new configuration value
+ */
 usb_error_t usb_req_set_config(struct usb_device *dev, uint8_t config)
 {
     USB_DEBUG_TR_ENTER;

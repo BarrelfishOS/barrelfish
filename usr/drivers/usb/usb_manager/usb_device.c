@@ -685,7 +685,7 @@ static void usb_device_detach_notify(void *a)
 }
 
 /**
- * \brief
+ * \brief this function frees the allocated memory for a device
  */
 void usb_device_free(struct usb_device * device, uint8_t flag)
 {

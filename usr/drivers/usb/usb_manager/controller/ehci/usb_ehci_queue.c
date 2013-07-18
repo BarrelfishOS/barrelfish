@@ -21,6 +21,11 @@
 #include "usb_ehci_xfer.h"
 #include "usb_ehci_queue.h"
 
+
+/**
+ * \brief this function enqueues a transfer on the interrupt queue
+ *        transfers on this queue are to be scheduled by the host controller
+ */
 void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
 {
     USB_DEBUG_TR_ENTER;
@@ -39,9 +44,11 @@ void usb_ehci_enqueue_xfer_intrq(struct usb_xfer *xfer)
     usb_xfer_enqueue(&xfer->host_controller->intr_queue, xfer);
 
     /*
-     * TODO: start timeout handler
+     * TODO: start timeout handler, if the transfer takes too long to be executed
+     *       then it should be removed with a timeout condition
+     *
      * if (xfer->timeout != 0) {
-     *   usbd_transfer_timeout_ms(xfer, &ehci_timeout, xfer->timeout);
+     *
      * }
      */
 }

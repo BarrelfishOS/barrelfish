@@ -112,6 +112,10 @@ struct usb_page *usb_mem_page_alloc(void)
     return ret;
 }
 
+
+/**
+ * \brief frees an USB page for later reuse
+ */
 void usb_mem_page_free(struct usb_page *mem)
 {
     if (free_pages != NULL) {
@@ -122,6 +126,9 @@ void usb_mem_page_free(struct usb_page *mem)
     free_pages = mem;
 }
 
+/**
+ * \brief allocates a new memory page for DMA access
+ */
 struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
 {
     struct usb_dma_page *ret, *prev;
@@ -176,6 +183,9 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
     return (ret);
 }
 
+/**
+ * \brief frees up an usb dma page for later reuse
+ */
 void usb_mem_dma_free(struct usb_dma_page *page)
 {
     if (free_dma_buffers != NULL) {
@@ -186,6 +196,10 @@ void usb_mem_dma_free(struct usb_dma_page *page)
     free_dma_buffers = page;
 }
 
+
+/**
+ * \brief copies data into the DMA memory
+ */
 void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data,
         uint32_t length)
 {
@@ -205,6 +219,9 @@ void usb_mem_copy_in(struct usb_dma_page *pg, uint32_t offset, const void *data,
     return;
 }
 
+/**
+ * \brief copies data from the DMA memory region out to a buffer.
+ */
 void usb_mem_copy_out(struct usb_dma_page *pg, uint32_t offset, void *data,
         uint32_t length)
 {
