@@ -27,25 +27,26 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    // construct additional command line arguments containing pci-id
-    // we need one extra entry for the new argument, but discard the binary
-    // name for some reason
+    // Construct additional command line arguments containing pci-id.
+    // We need one extra entry for the new argument.
     uint64_t vendor_id, device_id;
     char **argv = mi->argv;
     bool cleanup = false;
     err = oct_read(record, "_ { vendor: %d, device_id: %d }",
             &vendor_id, &device_id);
     if (err_is_ok(err)) {
-        // we assume that we're starting a device if the query above succeeds
+        // We assume that we're starting a device if the query above succeeds
         // and therefore append the pci vendor and device id to the argument
         // list.
         argv = malloc((mi->argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, mi->argc * sizeof(char *));
         char *pci_id  = malloc(10);
+        // Make sure pci vendor and device id fit into our argument
+        assert(vendor_id < 0x9999 && device_id < 0x9999);
         snprintf(pci_id, 10, "%04"PRIx64":%04"PRIx64, vendor_id, device_id);
-        printf("pci-id arg: %s\n", pci_id);
         argv[mi->argc] = pci_id;
         mi->argc += 1;
+        argv[mi->argc] = NULL;
         cleanup = true;
     }
     err = spawn_program(where, mi->path, argv,
@@ -54,7 +55,8 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
     }
     if (cleanup) {
-        free(argv[0]);
+        // alloc'd string is the last of our array
+        free(argv[mi->argc-1]);
         free(argv);
     }
 
