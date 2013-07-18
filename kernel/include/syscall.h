@@ -53,6 +53,7 @@ sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t epp, capaddr_t vnodep,
                             capaddr_t vmcbp, capaddr_t ctrlp);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
+struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
 
 /*
  * Monitor syscalls
@@ -101,7 +102,5 @@ struct sysret sys_monitor_delete_step(capaddr_t ret_cn_addr,
 struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
                                      uint8_t ret_cn_bits,
                                      cslot_t ret_slot);
-struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
-struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
 
 #endif

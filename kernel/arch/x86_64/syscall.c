@@ -155,15 +155,6 @@ static struct sysret handle_copy(struct capability *root,
     return copy_or_mint(root, args, false);
 }
 
-static struct sysret handle_delete_common(struct capability *root,
-                                   uintptr_t *args,
-                                   bool from_monitor)
-{
-    capaddr_t cptr = args[0];
-    int bits     = args[1];
-    return sys_delete(root, cptr, bits, from_monitor);
-}
-
 static struct sysret handle_delete(struct capability *root,
                                    int cmd, uintptr_t *args)
 {

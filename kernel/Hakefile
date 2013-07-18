@@ -29,10 +29,12 @@ let
       Config.RBED -> "schedule_rbed.c"
   common_c = [ "gdb_stub.c", 
                "capabilities.c", 
+               "cap_delete.c",
                "dispatch.c",
                scheduler, 
                "memset.c", 
                "memmove.c", 
+               "monitor.c",
                "paging_generic.c",
                "printf.c",
                "startup.c", 
