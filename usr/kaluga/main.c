@@ -135,7 +135,6 @@ int main(int argc, char** argv)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 #elif __pandaboard__
-    start_usb_manager();
     printf("Kaluga running on Pandaboard.\n");
     
     err = init_cap_manager();
@@ -154,6 +153,12 @@ int main(int argc, char** argv)
     mi = find_module("prcm");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("usb_manager");
+    if (mi != NULL) {
+        // XXX Use customized start function or add to module info
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
         assert(err_is_ok(err));
     }
 #endif

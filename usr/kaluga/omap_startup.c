@@ -33,6 +33,15 @@ struct allowed_registers
     lpaddr_t registers[][2];
 };
 
+static struct allowed_registers usb = {
+    .binary = "hw.arm.omap44xx.usb",
+    .registers = 
+    {
+        // XXX Add registers
+        {0x0, 0x0}
+    }
+};
+
 static struct allowed_registers fdif = {
     .binary = "hw.arm.omap44xx.fdif",
     .registers =
@@ -83,6 +92,7 @@ static struct allowed_registers prcm = {
 };
 
 static struct allowed_registers* omap44xx[10] = {
+    &usb,
     &fdif,
     &mmchs,
     &prcm,

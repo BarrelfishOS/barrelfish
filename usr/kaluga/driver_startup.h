@@ -8,6 +8,4 @@
 errval_t default_start_function(coreid_t, struct module_info*, char*);
 errval_t start_networking(coreid_t, struct module_info*, char*);
 
-errval_t start_usb_manager(void);
-
 #endif /* DRIVER_STARTUP_H_ */
