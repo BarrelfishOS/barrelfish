@@ -65,8 +65,8 @@ support_qemu_networking  = False
 -- armv7 platform to build for
 -- Currently available: gem5, pandaboard
 armv7_platform :: String
---armv7_platform = "gem5"
-armv7_platform = "pandaboard"
+armv7_platform = "gem5"
+--armv7_platform = "pandaboard"
 
 -- enable network tracing
 trace_network_subsystem :: Bool

@@ -108,13 +108,6 @@ int main(int argc, char** argv)
     // time in order to start-up properly.
     char* record = NULL;
     err = oct_barrier_enter("barrier.acpi", &record, 2);
-#endif
-
-#ifdef __arm__
-    debug_printf("Kaluga running on ARM. Skipping cores(), pci_root_bridge(), ...\n");
-
-    start_usb_manager();
-#else
 
     err = watch_for_cores();
     if (err_is_fail(err)) {
@@ -142,6 +135,7 @@ int main(int argc, char** argv)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 #elif __pandaboard__
+    start_usb_manager();
     printf("Kaluga running on Pandaboard.\n");
     
     err = init_cap_manager();

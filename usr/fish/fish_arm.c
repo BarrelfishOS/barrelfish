@@ -27,7 +27,6 @@
 #include <barrelfish/terminal.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
-#include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
@@ -53,8 +52,6 @@ struct cmd {
 };
 
 static char *cwd;
-
-/*static bool acpi_connected = false;*/
 
 static int help(int argc, char *argv[]);
 
