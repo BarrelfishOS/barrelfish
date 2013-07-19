@@ -11,9 +11,39 @@
 
 #include <dev/pl130_gic_dev.h>
 #include <arm_hal.h>
+#include <gic.h>
 
 extern pl130_gic_t gic;
 extern uint32_t it_num_lines;
+
+enum IrqType {
+    IrqType_SGI,
+    IrqType_PPI,
+    IrqType_SPI
+};
+
+
+/**
+ * \brief Returns the IRQ type based on the interrupt ID
+ *
+ * We have three types of interrupts
+ * 1) Software generated Interrupts (SGI): IDs 0-15
+ * 2) Private Peripheral Interrupts (PPI): IDs 16-31
+ * 3) Shared Peripheral Interrups (SPI): IDs 32-
+ * 
+ * \return The type of the interrupt.
+ */
+static enum IrqType get_irq_type(uint32_t int_id)
+{
+    if (int_id < 16) {
+        return IrqType_SGI;
+    } else if (int_id < 32) {
+        return IrqType_PPI;
+    } else {
+        return IrqType_SPI;
+    }
+}
+
 
 void  __attribute__((noreturn)) gic_disable_all_irqs(void)
 {
@@ -30,69 +60,44 @@ void  __attribute__((noreturn)) gic_disable_all_irqs(void)
     /* } */
 }
 
-
-// Helpers for enabling interrupts
-#define GIC_IRQ_PRIO_LOWEST       (0xF)
-#define GIC_IRQ_CPU_TRG_ALL       (0x3) // For two cores on the PandaBoard
-#define GIC_IRQ_CPU_TRG_BSP       (0x1)
-#define GIC_IRQ_EDGE_TRIGGERED    (0x1)
-#define GIC_IRQ_LEVEL_SENSITIVE   (0x0)
-#define GIC_IRQ_1_TO_N            (0x1)
-#define GIC_IRQ_N_TO_N            (0x0)
-
-/*
+/**
  * \brief Enable an interrupt
  *
- * See ARM Generic Interrupt Controller Architecture Specification v1.0
+ * \see ARM Generic Interrupt Controller Architecture Specification v1.0
  *
+ * \param int_id
+ * \param cpu_targets 8 Bit mask. One bit for each core in the system.
+ *    (chapter 4.3.11)
  * \param prio Priority of the interrupt (lower is higher). We allow 0..15.
  *    The number of priority bits is implementation specific, but at least 16
  *    (using bits [7:4] of the priority field, chapter 3.3)
- * \param cpu_targets 8 Bit mask. One bit for each core in the system. 
- *    (chapter 4.3.11)
  * \param 0 is level-sensitive, 1 is edge-triggered
  * \param 0 is N-to-N, 1 is 1-N
  */
 void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
-                          uint8_t edge_triggered, uint8_t one_to_n)
+                          bool edge_triggered, bool one_to_n)
 {
     // Set Interrupt Set-Enable Register
     uint32_t ind = int_id / 32;
     uint32_t bit_mask = (1U << (int_id % 32));
     uint32_t regval;
 
-    // Interrupt type
-    // XXX: shouldn't this be somewhere else? -SG
-    enum {
-        SGI,
-        SPI,
-        PPI
-    } irq_type;
-
-    /*
-     * There are three types of interrupts
-     * 1) Software generated Interrupts (SGI) - IDs 0-15
-     * 2) Private Peripheral Interrupts (PPI) - IDs 16-31
-     * 3) Shared Peripheral Interrups (SPI) - IDs 32...
-     */
-    if (int_id<16) {
-        irq_type = SGI;
-    } else if (int_id<32) {
-        irq_type = PPI;
-    } else {
-        irq_type = SPI;
-    }
-
     printf("gic_enable_interrupt for id=0x%"PRIx32", "
            "offset=0x%"PRIx32", index=0x%"PRIx32"\n",
            int_id, bit_mask, ind);
+    
+    enum IrqType irq_type = get_irq_type(int_id);
 
     // Set the Interrupt Set Enable register to enable the interupt
     // See ARM GIC TRM
-    if (irq_type==SGI)
-        return; // Do nothing for SGI interrupts
+    if (irq_type == IrqType_SGI) {
+        printf("Unhandled SGI IRQ %d\n", int_id);
+        return;    // Do nothing for SGI interrupts
+    }
+    
     // XXX: check what we need to do if int_id > it_num_lines
     //  -SG, 2012/12/13
+    assert(int_id <= it_num_lines);
 
     // Enable
     // 1 Bit per interrupt
@@ -127,7 +132,7 @@ void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     // Target processors (only SPIs)
     // 8 Bit per interrupt
     ind = int_id/4;
-    if (irq_type==SPI) { // rest is ro
+    if (irq_type == IrqType_SPI) { // rest is ro
         switch (int_id % 4) {
         case 0:
             pl130_gic_ICDIPTR_targets_off0_wrf(&gic, ind, cpu_targets);

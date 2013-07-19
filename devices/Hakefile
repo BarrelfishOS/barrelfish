@@ -57,6 +57,9 @@
            "sp804_pit",
            "cortex_a9_pit",
            "a9scu",
+           "ti_i2c",
+           "ti_twl6030",
+           "sdhc",
            "omap/omap_uart",
            "omap/omap44xx_emif",
            "omap/omap44xx_gpio",
@@ -65,6 +68,17 @@
            "omap/omap44xx_mmu",
            "omap/ohci",
            "omap/ehci"
+           "omap/omap44xx_ctrlmod",
+           "omap/omap44xx_cam_prm",
+           "omap/omap44xx_cam_cm2",
+           "omap/omap44xx_fdif",
+           "omap/omap44xx_sr_mpu",
+           "omap/omap44xx_device_prm",
+           "omap/omap44xx_mmchs",
+           "omap/omap44xx_l3init_cm2",
+           "omap/omap44xx_ckgen_cm2",
+           "omap/omap44xx_l4per_cm2",
+           "omap/omap44xx_sysctrl_padconf_core"
          ], arch <- allArchitectures
 ] ++
 

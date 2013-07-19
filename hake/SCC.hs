@@ -34,6 +34,7 @@ ourCommonFlags = [ Str "-m32",
                    Str "-fPIE",
                    Str "-fno-stack-protector",
                    Str "-D__scc__",
+                   Str "_D__x86__",
                    Str "-Wno-unused-but-set-variable",
                    Str "-march=pentium" ]
 

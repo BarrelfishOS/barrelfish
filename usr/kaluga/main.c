@@ -71,29 +71,8 @@ int main(int argc, char** argv)
 
     errval_t err;
 
-    coreid_t my_core_id = disp_get_core_id();
+    my_core_id = disp_get_core_id();
     parse_arguments(argc, argv);
-
-    // We need to run on core 0
-    // (we are responsible for booting all the other cores)
-    assert(my_core_id == BSP_CORE_ID);
-    printf("Kaluga running.\n");
-#ifdef __arm__
-    debug_printf("Kaluga running on ARM. Skipping skb_client_connect()...\n");
-#else
-
-    err = skb_client_connect();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Connect to SKB.");
-    }
-
-    // Make sure the driver db is loaded
-    err = skb_execute("[device_db].");
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Device DB not loaded.");
-    }
-#endif
-    printf("Kaluga: intializing octopus\n");
 
     err = oct_init();
     if (err_is_fail(err)) {
@@ -107,9 +86,23 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Parse boot modules.");
     }
     add_start_function_overrides();
-#ifdef __arm__
-    debug_printf("Kaluga running on ARM. Skipping oct_barrier_enter()...\n");
-#else
+#ifdef __x86__
+    // We need to run on core 0
+    // (we are responsible for booting all the other cores)
+    assert(my_core_id == BSP_CORE_ID);
+    printf("Kaluga running on x86.\n");
+
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    // Make sure the driver db is loaded
+    err = skb_execute("[device_db].");
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Device DB not loaded.");
+    }
+
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
@@ -148,8 +141,28 @@ int main(int argc, char** argv)
     // It might be better to get rid of this completely
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
+#elif __pandaboard__
+    printf("Kaluga running on Pandaboard.\n");
+    
+    err = init_cap_manager();
+    assert(err_is_ok(err));
+
+    struct module_info* mi = find_module("fdif");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("mmchs");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("prcm");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
+        assert(err_is_ok(err));
+    }
 #endif
-    printf("Kaluga: THC_Finish()\n");
 
     THCFinish();
     return EXIT_SUCCESS;

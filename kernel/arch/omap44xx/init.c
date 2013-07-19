@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009,2012, ETH Zurich. All rights reserved.
+ * Copyright (c) 2009-2013, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -687,7 +687,6 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     printf("Using MMU, %s", buf);
 
     gic_init();
-    //gic_init();
     printf("gic_init done\n");
 
     if (hal_cpu_is_bsp()) {
