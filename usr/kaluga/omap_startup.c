@@ -35,9 +35,9 @@ struct allowed_registers
 
 static struct allowed_registers usb = {
     .binary = "hw.arm.omap44xx.usb",
-    .registers = 
+    .registers =
     {
-        // XXX Add registers
+        {OMAP44XX_HSUSB_EHCI, 1024},
         {0x0, 0x0}
     }
 };
@@ -101,7 +101,7 @@ static struct allowed_registers* omap44xx[10] = {
 
 /**
  * \brief Startup function for OMAP drivers.
- * 
+ *
  * Makes sure we get the device register capabilities.
  */
 errval_t default_start_function(coreid_t where, struct module_info* driver,
@@ -137,12 +137,12 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
         // put them all in a single cnode
         for (size_t j=0; omap44xx[i]->registers[j][0] != 0x0; j++) {
             struct capref device_frame;
-            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__, 
+            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__,
                    omap44xx[i]->registers[j][0], omap44xx[i]->registers[j][1]);
 
             lpaddr_t base = omap44xx[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
             err = get_device_cap(base,
-                                 omap44xx[i]->registers[j][1], 
+                                 omap44xx[i]->registers[j][1],
                                  &device_frame);
             assert(err_is_ok(err));
 

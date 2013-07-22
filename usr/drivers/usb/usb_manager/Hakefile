@@ -46,7 +46,7 @@
                       mackerelDevices = [ "ohci", "omap/ohci", 
                                           "ehci", "omap/ehci"],
                       addIncludes = [ "include"],
-                      addLibraries = ["usb"],
+                      addLibraries = ["usb", "driverkit"],
                       architectures = allArchitectures
                     }
 ]

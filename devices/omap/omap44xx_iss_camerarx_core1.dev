@@ -32,8 +32,8 @@ device omap44xx_iss_camerarx_core1 msbfirst ( addr base ) "" {
         _ 7 mbz;
         hsclockconfig 1 rw "Disable clock missing detector";
         _ 8 mbz;
-        ths_term 8 rw "THS_TERM timing parameter in multiples of DDR clock Effective time for enabling of termination = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1–2)* DDRCLK + THS-TERM + ~ (1 –15) ns Programmed value = ceil(12.5 / DDR clock period) –1";
-        ths_settle 8 rw "THS_SETTLE timing parameter in multiples of DDR clock frequency Effective THS_SETTLE seen on line (starting to look for sync pattern) = synchronizer delay + timer delay + LPRX delay + combinational routing delay – pipeline delay in HS data path. ~ (1–2)* DDRCLK + THS-SETTLE + ~ (1–15) ns –1*DDRCLK Programmed value = ceil(90 ns / DDR clock period) + 3";
+        ths_term 8 rw "THS_TERM timing parameter in multiples of DDR clock Effective time for enabling of termination = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1-2)* DDRCLK + THS-TERM + ~ (1 -15) ns Programmed value = ceil(12.5 / DDR clock period) -1";
+        ths_settle 8 rw "THS_SETTLE timing parameter in multiples of DDR clock frequency Effective THS_SETTLE seen on line (starting to look for sync pattern) = synchronizer delay + timer delay + LPRX delay + combinational routing delay - pipeline delay in HS data path. ~ (1-2)* DDRCLK + THS-SETTLE + ~ (1-15) ns -1*DDRCLK Programmed value = ceil(90 ns / DDR clock period) + 3";
     };
 
     constants reset_done_status_status width(2) "" {
@@ -50,10 +50,10 @@ device omap44xx_iss_camerarx_core1 msbfirst ( addr base ) "" {
         reset_done_status 2 ro type(reset_done_status_status) "Reset done read bits.";
         _ 2 mbz;
         clock_miss_detector_status 1 ro type(clock_miss_detector_status_status) "1: Error in clock missing detector.";
-        tclk_term 7 rw "TCLK_TERM timing parameter in multiples of CTRLCLK Effective time for enabling of termination = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1–2)* CTRLCLK + TCLK_TERM + ~ (1–15) ns Programmed value = ceil(9.5 / CTRLCLK period) – 1";
+        tclk_term 7 rw "TCLK_TERM timing parameter in multiples of CTRLCLK Effective time for enabling of termination = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1-2)* CTRLCLK + TCLK_TERM + ~ (1-15) ns Programmed value = ceil(9.5 / CTRLCLK period) - 1";
         dphy_hs_sync_pattern 8 rw "DPHY mode HS sync pattern in byte order (reverse of received order) See,";
         ctrlclk_div_factor 2 rw "Divide factor for CTRLCLK for CLKMISS detector";
-        tclk_settle 8 rw "TCLK_SETTLE timing parameter in multiples of CTRLCLK Clock Effective TCLK_SETTLE = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1–2)* CTRLCLK + Tclk-settle + ~ (1 –15) ns Programmed value = max[3, ceil(155 ns/CTRLCLK period) –1]";
+        tclk_settle 8 rw "TCLK_SETTLE timing parameter in multiples of CTRLCLK Clock Effective TCLK_SETTLE = synchronizer delay + timer delay + LPRX delay + combinational routing delay ~ (1-2)* CTRLCLK + Tclk-settle + ~ (1 -15) ns Programmed value = max[3, ceil(155 ns/CTRLCLK period) -1]";
     };
     
     register register2 addr(base, 0x8) "Third register" {

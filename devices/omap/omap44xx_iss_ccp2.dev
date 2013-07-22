@@ -776,6 +776,6 @@ device omap44xx_iss_ccp2 msbfirst ( addr base ) "" {
         _ 14 mbz;
         en_hist_rd 1 rw type(dbg_en_status) "Enable DPCM history read";
         en_hist_wr 1 rw type(dbg_en_status) "Enable DPCM history write";
-        hist_export 16 rw "Defines the horizontal position at which DPCM history information is written. The first decoded sample of a line has position 0 The last decoded sample has position SKIP+COUNT–1 Valid range [3..SKIP+COUNT–1]";
+        hist_export 16 rw "Defines the horizontal position at which DPCM history information is written. The first decoded sample of a line has position 0 The last decoded sample has position SKIP+COUNT-1 Valid range [3..SKIP+COUNT-1]";
     };
 };

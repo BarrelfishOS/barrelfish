@@ -87,7 +87,7 @@ device omap44xx_ehci msbfirst ( addr base ) "" {
     };
 
     constants hird_status width(4) "" {
-        HIRD_0 = 0 "50 μs";
+        HIRD_0 = 0 "50 us";
     };
 
     constants itc_status width(8) "" {
@@ -138,7 +138,7 @@ device omap44xx_ehci msbfirst ( addr base ) "" {
     
     register usbcmd addr(base, 0x10) "USB command" {
         _ 4 mbz;
-        hird 4 rw type(hird_status) "Host-initiated resume duration.If LPM is enabled, this field is RW; otherwise, it is R. . The minimum for K-state during resume from LPM: . Each increment adds 75 μs. .";
+        hird 4 rw type(hird_status) "Host-initiated resume duration.If LPM is enabled, this field is RW; otherwise, it is R. . The minimum for K-state during resume from LPM: . Each increment adds 75 us. .";
         itc 8 rw type(itc_status) "Interrupt threshold controlThis field is used by the system software to select the maximum rate at which the host controller issues interrupts. The only valid values are defined below. If software writes an invalid value to this register, the results are undefined. . Others: Undefined .";
         _ 4 mbz;
         aspme 1 rw type(aspme_status) "Asynchronous schedule park mode enable";
@@ -296,7 +296,7 @@ device omap44xx_ehci msbfirst ( addr base ) "" {
         pic 2 ro "Port indicator control (not implemented)";
         po 1 rw type(po_status) "Port ownerThis bit unconditionally goes to 0x0 when the USBHOST.[0] CF bit makes a transition from 0 to 1. This bit unconditionally goes to 0 whenever the USBHOST.[0] CF bit is 0. .";
         pp 1 rw "Port powerThe function of this bit depends on the value of the USBHOST.[4] PPC bit. The behavior is as follows: . PPC PP Operation . 0x0 0x0 Forbidden . 0x0 0x1 Host controller does not have port power. control switches. Each port is hardwired to power. . 0x1 0x0 Host controller has port power control switches. Current switch state is off. . 0x1 0x1 Host controller has port power control switches. Current switch state is on. . When an overcurrent condition is detected on a powered port and the USBHOST.[4] PPC bit is a 1, the PP bit in each affected port may be transitioned by the host controller from 1 to 0. .";
-        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D– (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
+        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D- (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
         suspendl1 1 rw type(suspendl1_status) "When this bit is set to 1, an LPM token is generated.";
         pr 1 rw type(pr_status) "Port resetThis field is 0 if the PP bit is 0. . Write 0x1 when at 0x0: The bus reset sequence is started. .";
         sus 1 rw type(sus_status) "SuspendThis field is 0 if the PP bit is 0. . 0x0 when PED = 0x1: Port enabled . 0x1 when PED = 0x1: Port in suspend state .";
@@ -318,7 +318,7 @@ device omap44xx_ehci msbfirst ( addr base ) "" {
         pic 2 ro "Port indicator control (not implemented)";
         po 1 rw type(po_status) "Port ownerThis bit unconditionally goes to 0x0 when the USBHOST.[0] CF bit makes a transition from 0 to 1. This bit unconditionally goes to 0 whenever the USBHOST.[0] CF bit is 0. .";
         pp 1 rw "Port powerThe function of this bit depends on the value of the USBHOST.[4] PPC bit. The behavior is as follows: . PPC PP Operation . 0x0 0x0 Forbidden . 0x0 0x1 Host controller does not have port power. control switches. Each port is hardwired to power. . 0x1 0x0 Host controller has port power control switches. Current switch state is off. . 0x1 0x1 Host controller has port power control switches. Current switch state is on. . When an overcurrent condition is detected on a powered port and the USBHOST.[4] PPC bit is a 1, the PP bit in each affected port may be transitioned by the host controller from 1 to 0. .";
-        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D– (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
+        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D- (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
         suspendl1 1 rw type(suspendl1_status) "When this bit is set to 1, an LPM token is generated.";
         pr 1 rw type(pr_status) "Port resetThis field is 0 if the PP bit is 0. . Write 0x1 when at 0x0: The bus reset sequence is started. .";
         sus 1 rw type(sus_status) "SuspendThis field is 0 if the PP bit is 0. . 0x0 when PED = 0x1: Port enabled . 0x1 when PED = 0x1: Port in suspend state .";
@@ -340,7 +340,7 @@ device omap44xx_ehci msbfirst ( addr base ) "" {
         pic 2 ro "Port indicator control (not implemented)";
         po 1 rw type(po_status) "Port ownerThis bit unconditionally goes to 0x0 when the USBHOST.[0] CF bit makes a transition from 0 to 1. This bit unconditionally goes to 0 whenever the USBHOST.[0] CF bit is 0. .";
         pp 1 rw "Port powerThe function of this bit depends on the value of the USBHOST.[4] PPC bit. The behavior is as follows: . PPC PP Operation . 0x0 0x0 Forbidden . 0x0 0x1 Host controller does not have port power. control switches. Each port is hardwired to power. . 0x1 0x0 Host controller has port power control switches. Current switch state is off. . 0x1 0x1 Host controller has port power control switches. Current switch state is on. . When an overcurrent condition is detected on a powered port and the USBHOST.[4] PPC bit is a 1, the PP bit in each affected port may be transitioned by the host controller from 1 to 0. .";
-        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D– (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
+        ls 2 ro "Line statusThese bits reflect the current logical levels of the D+ (bit 11) and D- (bit 10) signal lines. This field is valid only when the port enable bit is 0 and the current connect status bit is set to 1. The encoding of the bits is: . Bits[11:10] USB State Interpretation . 0x0 SE0 Not low-speed device, perform EHCI reset. . 0x2 J-state Not low-speed device, perform EHCI reset. . 0x1 K-state Low-speed device, release ownership of port. . 0x3 Undefined Not low-speed device, perform EHCI reset. .";
         suspendl1 1 rw type(suspendl1_status) "When this bit is set to 1, an LPM token is generated.";
         pr 1 rw type(pr_status) "Port resetThis field is 0 if the PP bit is 0. . Write 0x1 when at 0x0: The bus reset sequence is started. .";
         sus 1 rw type(sus_status) "SuspendThis field is 0 if the PP bit is 0. . 0x0 when PED = 0x1: Port enabled . 0x1 when PED = 0x1: Port in suspend state .";

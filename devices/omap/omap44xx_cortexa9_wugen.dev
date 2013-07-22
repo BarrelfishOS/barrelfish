@@ -336,7 +336,7 @@ device omap44xx_cortexa9_wugen msbfirst ( addr base ) "" {
     
     register aux_core_boot_0 addr(base, 0x800) "This register is used by the ROM code and OS during SMP boot. It is used to indicate the boot status to CPU1." {
         _ 28 mbz;
-        cpu1_status 2 rw "CPU1 boot status. If ≠ 0x0, branch at the address specified inAUX_CORE_BOOT_1.";
+        cpu1_status 2 rw "CPU1 boot status. If != 0x0, branch at the address specified inAUX_CORE_BOOT_1.";
         _ 2 mbz;
     };
     

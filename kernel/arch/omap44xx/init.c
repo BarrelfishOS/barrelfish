@@ -36,6 +36,12 @@
 #include <dev/omap/omap44xx_id_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_gpio_dev.h>
+#include <dev/omap/omap44xx_hsusbhost_dev.h>
+#include <dev/omap/omap44xx_usbconf_dev.h>
+#include <dev/omap/omap44xx_usbtllhs_config_dev.h>
+#include <dev/omap/omap44xx_scrm_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_wkup_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -198,11 +204,28 @@ void kernel_startup_early(void)
 
 #define KERNEL_DEBUG_USB 0
 
+
+#define OMAP44XX_USBTLLHS_CONFIG 0x4A062000
+#define OMAP44XX_HSUSBHOST  0x4A064000
+#define OMAP44XX_SCRM 0x4A30A000
+#define OMAP44XX_SYSCTRL_PADCONF_WKUP 0x4A31E000
+#define OMAP44XX_SYSCTRL_PADCONF_CORE 0x4A100000
+
+
+
+static omap44xx_hsusbhost_t hsusbhost_base;
+static omap44xx_usbtllhs_config_t usbtllhs_config_base;
+static omap44xx_scrm_t srcm_base;
+static omap44xx_sysctrl_padconf_wkup_t sysctrl_padconf_wkup_base;
+static omap44xx_sysctrl_padconf_core_t sysctrl_padconf_core_base;
+static omap44xx_gpio_t gpio_1_base;
+static omap44xx_gpio_t gpio_2_base;
 /*
  * initialize the USB functionality of the pandaboard
  */
 static void hsusb_init(void)
 {
+
     printf("  > hsusb_init()...\n");
 
     /*
@@ -300,15 +323,10 @@ static void usb_power_on(void)
 {
     printf("usb_power_on()... \n");
 
-    // mackerel device state variables
-    omap44xx_gpio_t g1;
-    omap44xx_gpio_t g2;
-
     /*
      * mackerel device intialization for GPIO1 and GPIO2
      */
-    omap44xx_gpio_initialize(&g1, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
-    omap44xx_gpio_initialize(&g2, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
+
 
     printf("  > forward the AUXCLK3 to GPIO_WK31\n");
     /*
@@ -319,8 +337,11 @@ static void usb_power_on(void)
      * Bit  8: is the enable bit
      * Bit 16: is the divider bit (here for two)
      */
-    *((volatile uint32_t*) (SCRM_AUXCLK3)) = (uint32_t) ((1 << 16) | (1 << 8));
-
+    //*((volatile uint32_t*) (SCRM_AUXCLK3)) = (uint32_t) ((1 << 16) | (1 << 8));
+    omap44xx_scrm_auxclk3_t auxclk3 = 0x0;
+    omap44xx_scrm_auxclk3_enable_insert(auxclk3, omap44xx_scrm_ENABLE_EXT_1);
+    omap44xx_scrm_auxclk3_clkdiv_insert(auxclk3, omap44xx_scrm_MODE_1 );
+    omap44xx_scrm_auxclk3_wr(&srcm_base, auxclk3);
     /*
      * Forward the clock to the GPIO_WK31 pin
      *  - muxmode = fref_clk3_out (0x0)
@@ -330,16 +351,18 @@ static void usb_power_on(void)
      */
     *((volatile uint32_t*) (PAD0_FREF_CLK3_OUT)) = (uint32_t) (0x0000);
 
+    //omap44xx_sysctrl_padconf_wkup_t sysctrl_padconf_wkup_base;
+
     printf("  > reset external USB hub and PHY\n");
 
     /*
      * Perform a reset on the USB hub i.e. drive the GPIO_1 pin to low
      * and enable the dataout for the this pin in GPIO
-     */uint32_t gpoi_1_oe = omap44xx_gpio_oe_rd(&g1)
+     */uint32_t gpoi_1_oe = omap44xx_gpio_oe_rd(&gpio_1_base)
             & (~(1UL << HSUSB_HUB_POWER));
-    omap44xx_gpio_oe_wr(&g1, gpoi_1_oe);
+    omap44xx_gpio_oe_wr(&gpio_1_base, gpoi_1_oe);
 
-    omap44xx_gpio_cleardataout_wr(&g1, (1UL << HSUSB_HUB_POWER));
+    omap44xx_gpio_cleardataout_wr(&gpio_1_base, (1UL << HSUSB_HUB_POWER));
 
     /*
      * forward the data outline to the USB hub by muxing the
@@ -351,11 +374,11 @@ static void usb_power_on(void)
      * Perform a reset on the USB phy i.e. drive GPIO_62 to low
      *
      * HSUSB_HUB_RESET: 0 = Hub & Phy held in reset     1 = Normal operation.
-     */uint32_t gpoi_2_oe = omap44xx_gpio_oe_rd(&g2)
+     */uint32_t gpoi_2_oe = omap44xx_gpio_oe_rd(&gpio_2_base)
             & (~(1UL << HSUSB_HUB_RESET));
-    omap44xx_gpio_oe_wr(&g2, gpoi_2_oe);
+    omap44xx_gpio_oe_wr(&gpio_2_base, gpoi_2_oe);
 
-    omap44xx_gpio_cleardataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
+    omap44xx_gpio_cleardataout_wr(&gpio_2_base, (1UL << HSUSB_HUB_RESET));
 
     /*
      * forward the data on gpio_62 pin to the output by muxing
@@ -378,11 +401,11 @@ static void usb_power_on(void)
     printf("  > enable the external USB hub and PHY\n");
 
     /* power on the USB subsystem */
-    omap44xx_gpio_setdataout_wr(&g1, (1UL << HSUSB_HUB_POWER));
+    omap44xx_gpio_setdataout_wr(&gpio_1_base, (1UL << HSUSB_HUB_POWER));
 
 
     /* enable the USB HUB */
-    omap44xx_gpio_setdataout_wr(&g2, (1UL << HSUSB_HUB_RESET));
+    omap44xx_gpio_setdataout_wr(&gpio_2_base, (1UL << HSUSB_HUB_RESET));
 
     for (int j = 0; j < 4000; j++) {
             printf("%c", 0xE);
@@ -847,9 +870,19 @@ void arch_init(void *pointer)
 
         memset(&global->locks, 0, sizeof(global->locks));
 
+
         /*
          * pandaboard related USB setup
          */
+        omap44xx_hsusbhost_initialize(&hsusbhost_base, (mackerel_addr_t) OMAP44XX_HSUSBHOST);
+        omap44xx_usbtllhs_config_initialize(&usbtllhs_config_base, (mackerel_addr_t) OMAP44XX_USBTLLHS_CONFIG);
+        omap44xx_scrm_initialize(&srcm_base, (mackerel_addr_t) OMAP44XX_SCRM);
+        omap44xx_sysctrl_padconf_wkup_initialize(&sysctrl_padconf_wkup_base, (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
+        omap44xx_sysctrl_padconf_core_initialize(&sysctrl_padconf_core_base, (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
+        omap44xx_gpio_initialize(&gpio_1_base, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
+        omap44xx_gpio_initialize(&gpio_2_base, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
+
+
         prcm_init();
         set_muxconf_regs();
         usb_power_on();

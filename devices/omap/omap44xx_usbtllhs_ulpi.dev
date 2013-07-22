@@ -78,7 +78,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status) "Active low PHY suspend: puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(reset_status) "Active high UTMI transceiver reset. Auto-cleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(opmode_status) "Select the required bit encoding style during transmit";
-        termselect 1 rw type(termselect_status) "Controls the internal 1.5-kΩ HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(termselect_status) "Controls the internal 1.5-kohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(xcvrselect_status) "Select the required transceiver speed.";
     };
     
@@ -87,7 +87,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status) "Active low PHY suspend: puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(reset_status) "Active high UTMI transceiver reset. Auto-cleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(opmode_status) "Select the required bit encoding style during transmit";
-        termselect 1 rw type(termselect_status) "Controls the internal 1.5-kΩ HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(termselect_status) "Controls the internal 1.5-kohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(xcvrselect_status) "Select the required transceiver speed.";
     };
 
@@ -101,7 +101,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status1) "Active low PHY suspend: Puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(suspendm_status1) "Active high UTMI transceiver reset. Autocleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(suspendm_status1) "Select the required bit encoding style during transmit.";
-        termselect 1 rw type(suspendm_status1) "Controls the internal 1.5-kΩ pullup resistor and 45-Ω HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(suspendm_status1) "Controls the internal 1.5-kohm pullup resistor and 45-ohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(suspendm_status1) "Select the required transceiver speed.";
     };
     
@@ -110,7 +110,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status1) "Active low PHY suspend: Puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(suspendm_status1) "Active high UTMI transceiver reset. Autocleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(suspendm_status1) "Select the required bit encoding style during transmit.";
-        termselect 1 rw type(suspendm_status1) "Controls the internal 1.5-kΩ pullup resistor and 45-Ω HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(suspendm_status1) "Controls the internal 1.5-kohm pullup resistor and 45-ohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(suspendm_status1) "Select the required transceiver speed.";
     };
 
@@ -124,7 +124,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status2) "Active low PHY suspend: Puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(suspendm_status2) "Active high UTMI transceiver reset. Autocleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(suspendm_status2) "Select the required bit encoding style during transmit";
-        termselect 1 rw type(suspendm_status2) "Controls the internal 1.5-kΩ pull-up resistor and 45-Ω HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(suspendm_status2) "Controls the internal 1.5-kohm pull-up resistor and 45-ohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(suspendm_status2) "Select the required transceiver speed.";
     };
     
@@ -133,7 +133,7 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         suspendm 1 rw type(suspendm_status2) "Active low PHY suspend: Puts the ULPI bus in low-power mode. Automatically set back to 1 upon low-power mode exit.";
         reset 1 rw type(suspendm_status2) "Active high UTMI transceiver reset. Autocleared. Does not reset the ULPI interface or ULPI register set.";
         opmode 2 rw type(suspendm_status2) "Select the required bit encoding style during transmit";
-        termselect 1 rw type(suspendm_status2) "Controls the internal 1.5-kΩ pull-up resistor and 45-Ω HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
+        termselect 1 rw type(suspendm_status2) "Controls the internal 1.5-kohm pull-up resistor and 45-ohm HS terminations. Control over bus resistors changes depending on XcvrSelect, OpMode, DpPulldown and DmPulldown.";
         xcvrselect 2 rw type(suspendm_status2) "Select the required transceiver speed.";
     };
 
@@ -238,8 +238,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
     };
 
     constants dmpulldown_status width(1) "" {
-        DMPULLDOWN_0 = 0 "Pulldown resistor not connected to D–";
-        DMPULLDOWN_1 = 1 "Pulldown resistor connected to D–";
+        DMPULLDOWN_0 = 0 "Pulldown resistor not connected to D-";
+        DMPULLDOWN_1 = 1 "Pulldown resistor connected to D-";
     };
 
     constants dppulldown_status width(1) "" {
@@ -257,8 +257,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(drvvbus_status) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(chrgvbus_status) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(dischrgvbus_status) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(dmpulldown_status) "Enables the 15-kΩ pulldown resistor on D–";
-        dppulldown 1 rw type(dppulldown_status) "Enables the 15-kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(dmpulldown_status) "Enables the 15-kohm pulldown resistor on D-";
+        dppulldown 1 rw type(dppulldown_status) "Enables the 15-kohm pulldown resistor on D+";
         idpullup 1 rw type(idpullup_status) "Pullup to the (OTG) ID line to allow its sampling";
     };
     
@@ -267,8 +267,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(drvvbus_status) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(chrgvbus_status) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(dischrgvbus_status) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(dmpulldown_status) "Enables the 15-kΩ pulldown resistor on D–";
-        dppulldown 1 rw type(dppulldown_status) "Enables the 15-kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(dmpulldown_status) "Enables the 15-kohm pulldown resistor on D-";
+        dppulldown 1 rw type(dppulldown_status) "Enables the 15-kohm pulldown resistor on D+";
         idpullup 1 rw type(idpullup_status) "Pullup to the (OTG) ID line to allow its sampling";
     };
     
@@ -277,8 +277,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(suspendm_status1) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(suspendm_status1) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(suspendm_status1) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(suspendm_status1) "Enables the 15-kΩ pulldown resistor on D–";
-        dppulldown 1 rw type(suspendm_status1) "Enables the 15-kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(suspendm_status1) "Enables the 15-kohm pulldown resistor on D-";
+        dppulldown 1 rw type(suspendm_status1) "Enables the 15-kohm pulldown resistor on D+";
         idpullup 1 rw type(suspendm_status1) "Pullup to the (OTG) ID line to allow its sampling";
     };
     
@@ -287,8 +287,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(suspendm_status1) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(suspendm_status1) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(suspendm_status1) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(suspendm_status1) "Enables the 15-kΩ pulldown resistor on D–";
-        dppulldown 1 rw type(suspendm_status1) "Enables the 15-kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(suspendm_status1) "Enables the 15-kohm pulldown resistor on D-";
+        dppulldown 1 rw type(suspendm_status1) "Enables the 15-kohm pulldown resistor on D+";
         idpullup 1 rw type(suspendm_status1) "Pullup to the (OTG) ID line to allow its sampling";
     };
     
@@ -297,8 +297,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(suspendm_status2) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(suspendm_status2) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(suspendm_status2) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(suspendm_status2) "Enables the 15k pulldown resistor on D–";
-        dppulldown 1 rw type(suspendm_status2) "Enables the 15kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(suspendm_status2) "Enables the 15k pulldown resistor on D-";
+        dppulldown 1 rw type(suspendm_status2) "Enables the 15kohm pulldown resistor on D+";
         idpullup 1 rw type(suspendm_status2) "Pullup to the (OTG) ID line to allow its sampling";
     };
     
@@ -307,8 +307,8 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
         drvvbus 1 rw type(suspendm_status2) "Drive 5 V on VBUS";
         chrgvbus 1 rw type(suspendm_status2) "Charge VBUS through a resistor for VBUS-pulsing SRP.";
         dischrgvbus 1 rw type(suspendm_status2) "Discharge VBUS through a resistor, until the session-end VBUS state is reached.";
-        dmpulldown 1 rw type(suspendm_status2) "Enables the 15k pulldown resistor on D–";
-        dppulldown 1 rw type(suspendm_status2) "Enables the 15kΩ pulldown resistor on D+";
+        dmpulldown 1 rw type(suspendm_status2) "Enables the 15k pulldown resistor on D-";
+        dppulldown 1 rw type(suspendm_status2) "Enables the 15kohm pulldown resistor on D+";
         idpullup 1 rw type(suspendm_status2) "Pullup to the (OTG) ID line to allow its sampling";
     };
 
@@ -495,12 +495,12 @@ device omap44xx_usbtllhs_ulpi msbfirst ( addr base ) "" {
     
     register debug_i_0 addr(base, 0x15) "Indicates the current value of various signals useful for debugging." {
         _ 6 mbz;
-        line_state 2 ro type(line_state_status) "Current state of the USB line: D+ (bit 0) and D– (bit 1).";
+        line_state 2 ro type(line_state_status) "Current state of the USB line: D+ (bit 0) and D- (bit 1).";
     };
     
     register debug_i_1 addr(base, 0x115) "Indicates the current value of various signals useful for debugging." {
         _ 6 mbz;
-        line_state 2 ro type(line_state_status) "Current state of the USB line: D+ (bit 0) and D– (bit 1).";
+        line_state 2 ro type(line_state_status) "Current state of the USB line: D+ (bit 0) and D- (bit 1).";
     };
     
     register scratch_register_i_0 rw addr(base, 0x16) "Register byte for register access testing purposes. Value has no functional effect on PHY. Read/write address." type(uint8);

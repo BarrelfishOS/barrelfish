@@ -273,7 +273,7 @@ device omap44xx_iss_resizer msbfirst ( addr base ) "" {
     
     register rza_i_vps addr(base, 0x84) "RESIZER A - INPUT VERTICAL START REGISTER The height of the image after the second-level crop must be 2 or larger." {
         _ 19 mbz;
-        vps 13 rw "Input Vertical Position Sets the vertical start position of the input image within the global frame. It enables to crop data into the global frame. After SRC_VPS, the Vps'th line is processed as the first line in each image. After the second-level crop, the height of the image area must be two lines or larger, that is, a one-line image is not allowed. (RSZ_SRC_VSZ – RZA_I_VPS &amp;gt; 0).";
+        vps 13 rw "Input Vertical Position Sets the vertical start position of the input image within the global frame. It enables to crop data into the global frame. After SRC_VPS, the Vps'th line is processed as the first line in each image. After the second-level crop, the height of the image area must be two lines or larger, that is, a one-line image is not allowed. (RSZ_SRC_VSZ - RZA_I_VPS &amp;gt; 0).";
     };
     
     register rza_i_hps addr(base, 0x88) "RESIZER A - INPUT HORIZONTAL START REGISTER" {

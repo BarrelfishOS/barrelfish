@@ -34,11 +34,10 @@
 
 #include "kaluga.h"
 
-coreid_t my_core_id = 0; // Core ID
-uint32_t my_arch_id = 0; // APIC ID
+coreid_t my_core_id = 0;  // Core ID
+uint32_t my_arch_id = 0;  // APIC ID
 
 extern char **environ;
-
 
 static void add_start_function_overrides(void)
 {
@@ -51,8 +50,7 @@ static void parse_arguments(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {
             my_arch_id = strtol(argv[i] + sizeof("apicid"), NULL, 10);
-        }
-        else if(strcmp(argv[i], "boot") == 0) {
+        } else if (strcmp(argv[i], "boot") == 0) {
             // ignored
         }
     }
@@ -136,7 +134,7 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 #elif __pandaboard__
     printf("Kaluga running on Pandaboard.\n");
-    
+
     err = init_cap_manager();
     assert(err_is_ok(err));
 
@@ -157,6 +155,21 @@ int main(int argc, char** argv)
     }
     mi = find_module("usb_manager");
     if (mi != NULL) {
+#define USB_ARM_EHCI_IRQ 109
+        char *buf = malloc(255);
+        uint8_t offset = 0;
+        mi->cmdargs = buf;
+        mi->argc = 3;
+        mi->argv[0] = mi->cmdargs + 0;
+
+        snprintf(buf + offset, 255 - offset, "ehci\0");
+        offset += strlen(mi->argv[0]) + 1;
+        mi->argv[1] = mi->cmdargs + offset;
+        snprintf(buf + offset, 255 - offset, "%u\0", 0);
+        offset += strlen(mi->argv[1]) + 1;
+        mi->argv[2] = mi->cmdargs + offset;
+        snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);
+
         // XXX Use customized start function or add to module info
         err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
         assert(err_is_ok(err));
@@ -166,6 +179,4 @@ int main(int argc, char** argv)
     THCFinish();
     return EXIT_SUCCESS;
 }
-
-
 

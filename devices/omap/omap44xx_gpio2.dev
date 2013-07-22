@@ -127,12 +127,12 @@ device omap44xx_gpio2 msbfirst ( addr base ) "" {
     
     register gpio_debouncingtime addr(base, 0x154) "Debouncing value register" {
         _ 24 mbz;
-        debouncetime 8 rw "8-bit values specifying the debouncing time in 31 µs steps";
+        debouncetime 8 rw "8-bit values specifying the debouncing time in 31 us steps";
     };
     
-    register gpio_clearwkupena rw addr(base, 0x180) "Clear wake-up-enable register – legacy register" type(uint32);
+    register gpio_clearwkupena rw addr(base, 0x180) "Clear wake-up-enable register - legacy register" type(uint32);
     
-    register gpio_setwkuena rw addr(base, 0x184) "Set wake-up-enable register – legacy register" type(uint32);
+    register gpio_setwkuena rw addr(base, 0x184) "Set wake-up-enable register - legacy register" type(uint32);
     
     register gpio_cleardataout rw addr(base, 0x190) "Clear data output register" type(uint32);
     
