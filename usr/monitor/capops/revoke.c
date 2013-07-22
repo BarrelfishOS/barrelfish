@@ -204,6 +204,7 @@ revoke_mark__rx(struct intermon_binding *b,
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // found no copies or descendants of capability on this core,
         // do nothing. -SG
+        printf("no copies on core %d\n", disp_get_core_id());
     } else if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "marking revoke");
     }

@@ -411,7 +411,7 @@ static void cleanup_cap(struct capref cap)
     }
     err = cap_destroy(cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_revoke");
+        DEBUG_ERR(err, "cap_destroy");
     }
 }
 
