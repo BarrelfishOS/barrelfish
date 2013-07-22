@@ -6,6 +6,7 @@
 
 static struct event_queue trigger_queue;
 static bool triggered;
+static bool enqueued;
 static int suspended;
 static struct event_queue_node trigger_qn;
 static struct event_closure step_closure;
@@ -26,6 +27,7 @@ delete_steps_init(struct waitset *ws)
 
     event_queue_init(&trigger_queue, ws, EVENT_QUEUE_CONTINUOUS);
     triggered = false;
+    enqueued = false;
     suspended = 0;
     step_closure = MKCLOSURE(delete_steps_cont, NULL);
 
@@ -46,8 +48,9 @@ delete_steps_trigger(void)
 {
     if (!triggered) {
         triggered = true;
-        if (!suspended) {
+        if (!suspended && !enqueued) {
             event_queue_add(&trigger_queue, &trigger_qn, step_closure);
+            enqueued = true;
         }
     }
 }
@@ -65,6 +68,7 @@ delete_steps_resume(void)
     suspended--;
     if (!suspended) {
         event_queue_add(&trigger_queue, &trigger_qn, step_closure);
+        enqueued = true;
     }
 }
 
@@ -80,6 +84,8 @@ delete_steps_cont(void *st)
 {
     errval_t err;
     assert(triggered);
+    assert(enqueued);
+    enqueued = false;
     if (suspended) {
         return;
     }
@@ -105,7 +111,10 @@ delete_steps_cont(void *st)
         if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
             send_new_ram_cap(delcap);
         }
-        event_queue_add(&trigger_queue, &trigger_qn, step_closure);
+        if (!enqueued) {
+            event_queue_add(&trigger_queue, &trigger_qn, step_closure);
+            enqueued = true;
+        }
     }
 }
 
@@ -145,6 +154,7 @@ delete_queue_wait(struct delete_queue_node *qn, struct event_closure cont)
         pending_tail = qn;
         qn->next = NULL;
     }
+    qn->cont = cont;
 
     // trigger "stepping" mode of the delete/revoke state machine
     delete_steps_trigger();

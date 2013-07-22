@@ -180,6 +180,7 @@ revoke_mark__rx(struct intermon_binding *b,
     PANIC_IF_ERR(err, "allocating revoke slave state");
 
     rvk_st->from = inter_st->core_id;
+    rvk_st->st = st;
     caprep_to_capability(&caprep, &rvk_st->rawcap);
 
     if (!slaves_head) {
@@ -200,7 +201,12 @@ revoke_mark__rx(struct intermon_binding *b,
     // XXX: this invocation could create a scheduling hole that could be
     // problematic in RT systems and should probably be done in a loop.
     err = monitor_revoke_mark_relations(&rvk_st->rawcap);
-    PANIC_IF_ERR(err, "marking revoke");
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        // found no copies or descendants of capability on this core,
+        // do nothing. -SG
+    } else if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "marking revoke");
+    }
 
     rvk_st->im_qn.cont = revoke_ready__send;
     err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
