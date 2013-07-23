@@ -430,6 +430,7 @@ static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
     cleanup_cap(ps->dcb);       // Deschedule dispatcher (do this first!)
     cleanup_cap(ps->rootcn_cap);
 
+    // XXX: why only when waiters exist? -SG
     if(ps->waiters != NULL) {
         // Cleanup local data structures and inform waiters
         cleanup_domain(domainid);
