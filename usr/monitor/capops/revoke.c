@@ -286,6 +286,41 @@ revoke_slave_steps__fin(void *st)
     PANIC_IF_ERR(err, "enqueueing revoke_done");
 }
 
+inline static void
+remove_slave_from_list(struct revoke_slave_st *rvk_st)
+{
+    // remove from slave list
+    if (slaves_head == slaves_tail) {
+        // only one element in list
+        if (rvk_st == slaves_head) {
+            // we're only, clear list
+            slaves_head = slaves_tail = 0;
+        } else {
+            // we're not the element in list??
+            printf("rvk_st: %p; head&tail: %p\n", rvk_st, slaves_head);
+        }
+    } else {
+        // more than one element in list
+        if (rvk_st == slaves_head) {
+            // we're first, remove from head of list
+            slaves_head=slaves_head->next;
+        } else {
+            // we're non-first
+            // find prev
+            struct revoke_slave_st *p = slaves_head;
+            for (;p&&p->next!=rvk_st;p=p->next);
+            // make sure we found prev of us
+            assert(p&&p->next==rvk_st);
+            // remove us
+            p->next = rvk_st->next;
+            if (rvk_st == slaves_tail) {
+                // we were last, set last to prev
+                slaves_tail = p;
+            }
+        }
+    }
+}
+
 static void
 revoke_done__send(struct intermon_binding *b,
                   struct intermon_msg_queue_elem *e)
@@ -294,6 +329,7 @@ revoke_done__send(struct intermon_binding *b,
     struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
     err = intermon_capops_revoke_done__tx(b, NOP_CONT, rvk_st->st);
     PANIC_IF_ERR(err, "sending revoke_done");
+    remove_slave_from_list(rvk_st);
     free(rvk_st);
 }
 
