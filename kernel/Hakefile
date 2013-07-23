@@ -371,7 +371,11 @@ let
                          "omap/omap44xx_sysctrl_padconf_wkup",
                          "omap/omap44xx_hsusbhost",
                          "omap/omap44xx_usbtllhs_config",
-                         "omap/omap44xx_scrm"
+                         "omap/omap44xx_scrm",
+                         "omap/omap44xx_ehci",
+                         "omap/omap44xx_ckgen_prm", 
+                         "omap/omap44xx_l4per_cm2", 
+                         "omap/omap44xx_l3init_cm2"
                          ],
      addLibraries = [ "elf", "cpio" ]
      }                            

@@ -37,11 +37,14 @@
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_gpio_dev.h>
 #include <dev/omap/omap44xx_hsusbhost_dev.h>
-#include <dev/omap/omap44xx_usbconf_dev.h>
 #include <dev/omap/omap44xx_usbtllhs_config_dev.h>
 #include <dev/omap/omap44xx_scrm_dev.h>
 #include <dev/omap/omap44xx_sysctrl_padconf_wkup_dev.h>
 #include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
+#include <dev/omap/omap44xx_ehci_dev.h>
+#include <omap/omap44xx_ckgen_prm_dev.h>
+#include <omap/omap44xx_l4per_cm2_dev.h>
+#include <omap/omap44xx_l3init_cm2_dev.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -210,7 +213,10 @@ void kernel_startup_early(void)
 #define OMAP44XX_SCRM 0x4A30A000
 #define OMAP44XX_SYSCTRL_PADCONF_WKUP 0x4A31E000
 #define OMAP44XX_SYSCTRL_PADCONF_CORE 0x4A100000
-
+#define OMAP44XX_EHCI 0x4A064C00
+#define OMAP44XX_CKGEN_PRM 0x4A306100
+#define OMAP44XX_L4PER_CM2 0x4A009400
+#define OMAP44XX_L3INIT_CM2 0x4A009300
 
 
 static omap44xx_hsusbhost_t hsusbhost_base;
@@ -220,6 +226,10 @@ static omap44xx_sysctrl_padconf_wkup_t sysctrl_padconf_wkup_base;
 static omap44xx_sysctrl_padconf_core_t sysctrl_padconf_core_base;
 static omap44xx_gpio_t gpio_1_base;
 static omap44xx_gpio_t gpio_2_base;
+static omap44xx_ehci_t ehci_base;
+static omap44xx_ckgen_prm_t ckgen_base;
+static omap44xx_l4per_cm2_t l4per_base;
+static omap44xx_l3init_cm2_t l3init_base;
 /*
  * initialize the USB functionality of the pandaboard
  */
@@ -237,22 +247,33 @@ static void hsusb_init(void)
      * Reset USBTTL
      * USBTLL_SYSCONFIG = 0x2
      */
-    *((volatile uint32_t*) (0x4A062010)) = (uint32_t) (0x1 << 1);
+    //*((volatile uint32_t*) (0x4A062010)) = (uint32_t) (0x1 << 1);
+
+    omap44xx_usbtllhs_config_usbtll_sysconfig_softreset_wrf(&usbtllhs_config_base, 0x1);
 
     /*
      * wait till reset is done
      */
-    while (!((*((volatile uint32_t*) (0x4A062014))) & 0x1)) {
-        printf("%c", 0xE);
-    }
+    while(!omap44xx_usbtllhs_config_usbtll_sysstatus_resetdone_rdf(&usbtllhs_config_base));
+    //while (!((*((volatile uint32_t*) (0x4A062014))) & 0x1)) {
+    //    printf("%c", 0xE);
+    //}
+
+
     /*
      * USBTLL_SYSCONFIG
      *  - Setting ENAWAKEUP
      *  - Setting SIDLEMODE
      *  - Setting CLOCKACTIVITY
      */
-    *((volatile uint32_t*) (0x4A062010)) = (uint32_t) ((0x1 << 2) | (0x1 << 3)
-            | (0x1 << 8));
+   // *((volatile uint32_t*) (0x4A062010)) = (uint32_t) ((0x1 << 2) | (0x1 << 3)
+    //        | (0x1 << 8));
+
+    omap44xx_usbtllhs_config_usbtll_sysconfig_t sysconf = 0x0;
+    sysconf = omap44xx_usbtllhs_config_usbtll_sysconfig_clockactivity_insert(sysconf, 0x1);
+    sysconf = omap44xx_usbtllhs_config_usbtll_sysconfig_enawakeup_insert(sysconf, 0x1);
+    sysconf = omap44xx_usbtllhs_config_usbtll_sysconfig_sidlemode_insert(sysconf, 0x1);
+    omap44xx_usbtllhs_config_usbtll_sysconfig_wr(&usbtllhs_config_base, sysconf);
 
     printf("OK\n");
 
@@ -261,7 +282,11 @@ static void hsusb_init(void)
      *  - all interrupts
      */
     *((volatile uint32_t*) (0x4A06201C)) = (uint32_t) (0x7);
-
+    omap44xx_usbtllhs_config_usbtll_irqenable_t irqena = omap44xx_usbtllhs_config_usbtll_irqenable_default;
+    irqena = omap44xx_usbtllhs_config_usbtll_irqenable_fclk_start_en_insert(irqena, 0x1);
+    irqena = omap44xx_usbtllhs_config_usbtll_irqenable_fclk_end_en_insert(irqena, 0x1);
+    irqena = omap44xx_usbtllhs_config_usbtll_irqenable_access_error_en_insert(irqena, 0x1);
+    omap44xx_usbtllhs_config_usbtll_irqenable_wr(&usbtllhs_config_base, irqena);
     printf("  >  > USB host controller reset...");
 
     /*
@@ -270,22 +295,36 @@ static void hsusb_init(void)
      *
      * UHH_SYSCONFIG = 0x1
      */
-    *((volatile uint32_t*) (0x4A064010)) = (uint32_t) (0x1);
+    //*((volatile uint32_t*) (0x4A064010)) = (uint32_t) (0x1);
+    omap44xx_hsusbhost_uhh_sysconfig_softreset_wrf(&hsusbhost_base, 0x1);
 
     /*
-     * wait till reset is done
-     * UHH_SYSSTATUS = 0x6
-     */
-    while (((*((volatile uint32_t*) (0x4A064014))) & 0x6) != 0x6) {
-        printf("%c", 0xE);
-    }
+        * wait till reset is done
+        * UHH_SYSSTATUS = 0x6
+        */
+    omap44xx_hsusbhost_uhh_sysstatus_t uhh_sysstat;
+    uint8_t ehci_done;
+    uint8_t ohci_done;
+    do {
+        uhh_sysstat = omap44xx_hsusbhost_uhh_sysstatus_rd(&hsusbhost_base);
+        ehci_done = omap44xx_hsusbhost_uhh_sysstatus_ehci_resetdone_extract(uhh_sysstat);
+        ohci_done = omap44xx_hsusbhost_uhh_sysstatus_ohci_resetdone_extract(uhh_sysstat);
+    } while(!(ehci_done & ohci_done));
+
+
+   // while (((*((volatile uint32_t*) (0x4A064014))) & 0x6) != 0x6) {
+    //    printf("%c", 0xE);
+    //}
 
     /* enable some USB host features
      * UHH_SYSCONFIG
      *  - STANDBYMODE
      *  - IDLEMODE
      */
-    *((volatile uint32_t*) (0x4A064010)) = (uint32_t) ((0x1 << 2) | (0x1 << 4));
+   // *((volatile uint32_t*) (0x4A064010)) = (uint32_t) ((0x1 << 2) | (0x1 << 4));
+    omap44xx_hsusbhost_uhh_sysconfig_standbymode_wrf(&hsusbhost_base, 0x1);
+    omap44xx_hsusbhost_uhh_sysconfig_idlemode_wrf(&hsusbhost_base, 0x1);
+
 
     printf("OK\n");
 
@@ -299,8 +338,14 @@ static void hsusb_init(void)
      *  - APP_START_CLK
      *  - ENAINCR_x
      */
-    *((volatile uint32_t*) (0x4A064040)) =
-            (uint32_t) ((0x7 << 2) | (0x1 << 31));
+    // *((volatile uint32_t*) (0x4A064040)) =
+     //       (uint32_t) ((0x7 << 2) | (0x1 << 31));
+    omap44xx_hsusbhost_uhh_hostconfig_t hcfg = omap44xx_hsusbhost_uhh_hostconfig_default;
+    hcfg =omap44xx_hsusbhost_uhh_hostconfig_app_start_clk_insert(hcfg, 0x1);
+    hcfg =omap44xx_hsusbhost_uhh_hostconfig_ena_incr4_insert(hcfg, 0x1);
+    hcfg =omap44xx_hsusbhost_uhh_hostconfig_ena_incr8_insert(hcfg, 0x1);
+    hcfg =omap44xx_hsusbhost_uhh_hostconfig_ena_incr16_insert(hcfg, 0x1);
+    omap44xx_hsusbhost_uhh_hostconfig_wr(&hsusbhost_base, hcfg);
 
     printf("OK\n");
 
@@ -337,11 +382,13 @@ static void usb_power_on(void)
      * Bit  8: is the enable bit
      * Bit 16: is the divider bit (here for two)
      */
-    //*((volatile uint32_t*) (SCRM_AUXCLK3)) = (uint32_t) ((1 << 16) | (1 << 8));
-    omap44xx_scrm_auxclk3_t auxclk3 = 0x0;
-    omap44xx_scrm_auxclk3_enable_insert(auxclk3, omap44xx_scrm_ENABLE_EXT_1);
-    omap44xx_scrm_auxclk3_clkdiv_insert(auxclk3, omap44xx_scrm_MODE_1 );
+
+    omap44xx_scrm_auxclk3_t auxclk3 = omap44xx_scrm_auxclk3_default;
+    auxclk3 = omap44xx_scrm_auxclk3_enable_insert(auxclk3, omap44xx_scrm_ENABLE_EXT_1);
+    auxclk3 = omap44xx_scrm_auxclk3_clkdiv_insert(auxclk3, omap44xx_scrm_MODE_1 );
     omap44xx_scrm_auxclk3_wr(&srcm_base, auxclk3);
+    //*((volatile uint32_t*) (SCRM_AUXCLK3)) = (uint32_t) ((1 << 16) | (1 << 8));
+
     /*
      * Forward the clock to the GPIO_WK31 pin
      *  - muxmode = fref_clk3_out (0x0)
@@ -349,10 +396,16 @@ static void usb_power_on(void)
      *  - no input buffer (0x0)
      *  - no wake up (0x0)
      */
-    *((volatile uint32_t*) (PAD0_FREF_CLK3_OUT)) = (uint32_t) (0x0000);
-
-    //omap44xx_sysctrl_padconf_wkup_t sysctrl_padconf_wkup_base;
-
+    omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_t clk3_out;
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_rd(&sysctrl_padconf_wkup_base);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_muxmode_insert(clk3_out, 0x0);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_pulludenable_insert(clk3_out, 0x0);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_pulltypeselect_insert(clk3_out, 0x0);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_inputenable_insert(clk3_out, 0x0);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_wakeupenable_insert(clk3_out, 0x0);
+    clk3_out = omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_fref_clk3_out_wakeupevent_insert(clk3_out, 0x0);
+    omap44xx_sysctrl_padconf_wkup_control_wkup_pad0_fref_clk3_out_pad1_fref_clk4_req_wr(&sysctrl_padconf_wkup_base, clk3_out);
+    //*((volatile uint32_t*) (PAD0_FREF_CLK3_OUT)) = (uint32_t) (0x0000);
     printf("  > reset external USB hub and PHY\n");
 
     /*
@@ -368,8 +421,12 @@ static void usb_power_on(void)
      * forward the data outline to the USB hub by muxing the
      * CONTROL_CORE_PAD0_KPD_COL1_PAD1_KPD_COL2 into mode 3 (gpio_1)
      */
-    *((volatile uint32_t*) (PAD1_KPD_COL2)) = (uint32_t) (0x0003 << 16);
 
+    omap44xx_sysctrl_padconf_core_control_core_pad0_kpd_col1_pad1_kpd_col2_t gpio1_mux;
+    gpio1_mux = omap44xx_sysctrl_padconf_core_control_core_pad0_kpd_col1_pad1_kpd_col2_rd(&sysctrl_padconf_core_base) & 0x0000FFFF;
+    gpio1_mux = omap44xx_sysctrl_padconf_core_control_core_pad0_kpd_col1_pad1_kpd_col2_kpd_col2_muxmode_insert(gpio1_mux, 0x3);
+    omap44xx_sysctrl_padconf_core_control_core_pad0_kpd_col1_pad1_kpd_col2_wr(&sysctrl_padconf_core_base, gpio1_mux);
+    //*((volatile uint32_t*) (PAD1_KPD_COL2)) = (uint32_t) (0x0003 << 16);
     /*
      * Perform a reset on the USB phy i.e. drive GPIO_62 to low
      *
@@ -384,17 +441,22 @@ static void usb_power_on(void)
      * forward the data on gpio_62 pin to the output by muxing
      *  CONTROL_CORE_PAD0_GPMC_WAIT1_PAD1_GPMC_WAIT2 to mode 0x3
      */
-    *((volatile uint32_t*) (PAD0_GPMC_WAIT1)) = (uint32_t) (0x0003);
+    omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_t gpio62_mux;
+    gpio62_mux = (omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_rd(&sysctrl_padconf_core_base) & 0xFFFF0000);
+    gpio62_mux = omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_gpmc_wait1_muxmode_insert(gpio62_mux, 0x3);
+    omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_wr(&sysctrl_padconf_core_base, gpio62_mux);
+    omap44xx_sysctrl_padconf_core_control_core_pad0_gpmc_wait1_pad1_gpmc_wait2_wr(&sysctrl_padconf_core_base, gpio62_mux);
+    //*((volatile uint32_t*) (PAD0_GPMC_WAIT1)) = (uint32_t) (0x0003);
 
     /* delay to give the hardware time to reset TODO: propper delay*/
     for (int j = 0; j < 4000; j++) {
         printf("%c", 0xE);
     }
 
-    assert((*((volatile uint32_t*)(PAD0_GPMC_WAIT1))) == (uint32_t)(0x0003));
-    assert(
-            (*((volatile uint32_t*)(PAD1_KPD_COL2))) == (uint32_t)((0x0003)<<16));
-    assert((*((volatile uint32_t*)(PAD0_FREF_CLK3_OUT))) == (uint32_t)(0x0000));
+
+    assert((0xFFFF & (*((volatile uint32_t*)(PAD0_GPMC_WAIT1)))) == (uint32_t)(0x0003));
+    assert((0xFFFF0000 & (*((volatile uint32_t*)(PAD1_KPD_COL2)))) == (uint32_t)((0x0003)<<16));
+    assert((0xFFFF &(*((volatile uint32_t*)(PAD0_FREF_CLK3_OUT)))) == (uint32_t)(0x0000));
 
     hsusb_init();
 
@@ -416,26 +478,57 @@ static void usb_power_on(void)
     assert(!(0x2 & (*((volatile uint32_t*)(0x4A310134)))));
     assert((0x2 & (*((volatile uint32_t*)(0x4A31013C)))));
 
+    omap44xx_ehci_insnreg05_ulpi_t ulpi = omap44xx_ehci_insnreg05_ulpi_default;
+    ulpi = omap44xx_ehci_insnreg05_ulpi_control_insert(ulpi, omap44xx_ehci_CONTROL_1);
+    ulpi = omap44xx_ehci_insnreg05_ulpi_portsel_insert(ulpi, omap44xx_ehci_PORTSEL_1);
+    ulpi = omap44xx_ehci_insnreg05_ulpi_opsel_insert(ulpi, omap44xx_ehci_OPSEL_2);
+    ulpi = omap44xx_ehci_insnreg05_ulpi_regadd_insert(ulpi, 0x5); //ctrl reg
+    ulpi = omap44xx_ehci_insnreg05_ulpi_rdwrdata_insert(ulpi, (0x1 << 5));
+
+    omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
+        printf("ulpi = %p\n", ulpi);
+    while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
+            printf("%c", 0xE);
+        }
+
     /* soft reset the pyh */
-    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x1 << 5) | (0x5 << 16)
-            | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
-    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
-        printf("%c", 0xE);
-    }
+   // *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x1 << 5) | (0x5 << 16)
+   //         | (0x2 << 22) | (0x1 << 24) | (0x1 << 31));
+    //while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+    //    printf("%c", 0xE);
+    //}
 
     try_again:
     /* wait till reset is done */
-    *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x5 << 16)
-                | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
-        while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
-            printf("%c", 0xE);
-        }
-        if (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31) & (0x1<<5)) {
-            /* reset is not done */
-            goto try_again;
-        }
+    ulpi = omap44xx_ehci_insnreg05_ulpi_opsel_insert(ulpi, omap44xx_ehci_OPSEL_3);
+    ulpi = omap44xx_ehci_insnreg05_ulpi_rdwrdata_insert(ulpi, 0x0);
+    omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
+
+
+    while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
+               printf("%c", 0xE);
+           }
+    if (omap44xx_ehci_insnreg05_ulpi_rdwrdata_rdf(&ehci_base) & (0x1<<5)) {
+        goto try_again;
+    }
+
+  //  *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x5 << 16)
+   //             | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
+    //    while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
+     //       printf("%c", 0xE);
+     //   }
+     //   if (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31) & (0x1<<5)) {
+     //       /* reset is not done */
+     //       goto try_again;
+     //   }
 
     /* read the debug register */
+    ulpi = omap44xx_ehci_insnreg05_ulpi_regadd_insert(ulpi, 0x15);
+    omap44xx_ehci_insnreg05_ulpi_wr(&ehci_base, ulpi);
+
+       while (omap44xx_ehci_insnreg05_ulpi_control_rdf(&ehci_base)) {
+                  printf("%c", 0xE);
+              }
     *((volatile uint32_t*) (0x4A064CA4)) = (uint32_t) ((0x15 << 16)
             | (0x3 << 22) | (0x1 << 24) | (0x1 << 31));
     while (*((volatile uint32_t*) (0x4A064CA4)) & (1 << 31)) {
@@ -444,7 +537,7 @@ static void usb_power_on(void)
     }
 
     printf("  > ULPI line state = %s\n",
-            (*((volatile uint32_t*) (0x4A064CA4))) & 0x1 ?
+            omap44xx_ehci_insnreg05_ulpi_rdwrdata_rdf(&ehci_base) & 0x1 ?
                     "Connected" : "Disconnected");
 
     /*
@@ -470,35 +563,52 @@ static void prcm_init(void)
      * Set the system clock to 38.4 MHz
      * CM_SYS_CLKSEL = 0x7
      */
-    *((volatile uint32_t*) (0x4A306110)) = (uint32_t) (0x7);
 
-    if (!(*((volatile uint32_t*) (0x4A306110)))) {
+    omap44xx_ckgen_prm_cm_sys_clksel_wr(&ckgen_base, omap44xx_ckgen_prm_SYS_CLKSEL_7);
+    //*((volatile uint32_t*) (0x4A306110)) = (uint32_t) (0x7);
+
+
+    //if (!(*((volatile uint32_t*) (0x4A306110)))) {
+    if (!omap44xx_ckgen_prm_cm_sys_clksel_rd(&ckgen_base)) {
         printf("WARNING: Could not set SYS_CLK\n");
         return;
     }
 
-    /* ALTCLKSRC */
-    *((volatile uint32_t*) (0x4A30A110)) = (uint32_t) (0x1 | (0x3 << 2));
+    /* ALTCLKSRC in SRCM*/
+    //*((volatile uint32_t*) (0x4A30A110)) = (uint32_t) (0x1 | (0x3 << 2));
+    omap44xx_scrm_altclksrc_t altclk = omap44xx_scrm_altclksrc_default;
+    altclk = omap44xx_scrm_altclksrc_mode_insert(altclk, omap44xx_scrm_MODE_1);
+    altclk = omap44xx_scrm_altclksrc_enable_int_insert(altclk, 0x1);
+    altclk = omap44xx_scrm_altclksrc_enable_ext_insert(altclk, 0x1);
+    omap44xx_scrm_altclksrc_wr(&srcm_base, altclk);
+
 
     printf("  > Enabling L4PER interconnect clock\n");
     /* CM_L4PER_CLKSTCTRL */
-    *((volatile uint32_t*) (0x4A009400)) = (uint32_t) (0x2);
+    //*((volatile uint32_t*) (0x4A009400)) = (uint32_t) (0x2);
+    omap44xx_l4per_cm2_cm_l4per_clkstctrl_clktrctrl_wrf(&l4per_base, 0x2);
 
     printf("  > Enabling GPIOi clocks\n");
     /* CM_L4PER_GPIO2_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009460)) = (uint32_t) (0x1);
+    // *((volatile uint32_t*) (0x4A009460)) = (uint32_t) (0x1);
+    omap44xx_l4per_cm2_cm_l4per_gpio2_clkctrl_modulemode_wrf(&l4per_base, 0x1);
     /* CM_L4PER_GPIO3_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009468)) = (uint32_t) ((0x1 << 8) | (0x1));
+    // *((volatile uint32_t*) (0x4A009468)) = (uint32_t) ((0x1 << 8) | (0x1));
+    omap44xx_l4per_cm2_cm_l4per_gpio3_clkctrl_modulemode_wrf(&l4per_base, 0x1);
     /* CM_L4PER_GPIO4_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009470)) = (uint32_t) (0x1);
+    // *((volatile uint32_t*) (0x4A009470)) = (uint32_t) (0x1);
+    omap44xx_l4per_cm2_cm_l4per_gpio4_clkctrl_modulemode_wrf(&l4per_base, 0x1);
     /* CM_L4PER_GPIO5_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009478)) = (uint32_t) (0x1);
+    // *((volatile uint32_t*) (0x4A009478)) = (uint32_t) (0x1);
+    omap44xx_l4per_cm2_cm_l4per_gpio5_clkctrl_modulemode_wrf(&l4per_base, 0x1);
     /* CM_L4PER_GPIO6_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009480)) = (uint32_t) (0x1);
+    //*((volatile uint32_t*) (0x4A009480)) = (uint32_t) (0x1);
+    omap44xx_l4per_cm2_cm_l4per_gpio6_clkctrl_modulemode_wrf(&l4per_base, 0x1);
     /* CM_L4PER_HDQ1W_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009488)) = (uint32_t) (0x2);
+    //*((volatile uint32_t*) (0x4A009488)) = (uint32_t) (0x2);
+    omap44xx_l4per_cm2_cm_l4per_hdq1w_clkctrl_modulemode_wrf(&l4per_base, 0x2);
     /* CM_WKUP_GPIO1_CLKCTRL */
-    *((volatile uint32_t*) (0x4A008E00)) = (uint32_t) (0x1);
+    //*((volatile uint32_t*) (0x4A008E00)) = (uint32_t) (0x1);
 #if KERNEL_DEBUG_USB
     printf("/* CM_L4PER_PIO2_CLKCTRL */ %p \n",
             *((volatile uint32_t*) (0x4A009460)));
@@ -517,19 +627,38 @@ static void prcm_init(void)
 #endif
     printf("  > Enabling L3INIT USB clocks\n");
     /* CM_L3INIT_HSI_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009338)) = (uint32_t) (0x1);
+    //*((volatile uint32_t*) (0x4A009338)) = (uint32_t) (0x1);
+    omap44xx_l3init_cm2_cm_l3init_hsi_clkctrl_modulemode_wrf(&l3init_base, 0x1);
+
     /* CM_L3INIT_HSUSBHOST_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009358)) = (uint32_t) (0x2 | (0xFF00)
-            | 0x3 << 24);
+    omap44xx_l3init_cm2_cm_l3init_hsusbhost_clkctrl_t hsusb_cm = 0x0;
+    hsusb_cm = omap44xx_l3init_cm2_cm_l3init_hsusbhost_clkctrl_clksel_utmi_p1_insert(hsusb_cm, 0x3);
+    hsusb_cm = omap44xx_l3init_cm2_cm_l3init_hsusbhost_clkctrl_modulemode_insert(hsusb_cm, 0x2);
+    hsusb_cm |= 0xFF00; // all clocks
+    omap44xx_l3init_cm2_cm_l3init_hsusbhost_clkctrl_wr(&l3init_base, hsusb_cm);
+    //*((volatile uint32_t*) (0x4A009358)) = (uint32_t) (0x2 | (0xFF00)
+    //        | 0x3 << 24);
+
     /* CM_L3INIT_HSUSBOTG_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009360)) = (uint32_t) (0x1);
+    //*((volatile uint32_t*) (0x4A009360)) = (uint32_t) (0x1);
+    omap44xx_l3init_cm2_cm_l3init_hsusbotg_clkctrl_modulemode_wrf(&l3init_base, 0x1);
+
     /* CM_L3INIT_HSUSBTLL_CLKCTRL */
-    *((volatile uint32_t*) (0x4A009368)) = (uint32_t) ((0x1 << 8) | (0x1 << 9)
-            | 0x1);
+    //*((volatile uint32_t*) (0x4A009368)) = (uint32_t) ((0x1 << 8) | (0x1 << 9)
+    //        | 0x1);
+    omap44xx_l3init_cm2_cm_l3init_hsusbtll_clkctrl_t usbtll_cm = 0x0;
+    usbtll_cm = omap44xx_l3init_cm2_cm_l3init_hsusbtll_clkctrl_modulemode_insert(usbtll_cm, 0x1);
+    usbtll_cm = omap44xx_l3init_cm2_cm_l3init_hsusbtll_clkctrl_optfclken_usb_ch0_clk_insert(usbtll_cm, 0x1);
+    usbtll_cm = omap44xx_l3init_cm2_cm_l3init_hsusbtll_clkctrl_optfclken_usb_ch1_clk_insert(usbtll_cm, 0x1);
+    omap44xx_l3init_cm2_cm_l3init_hsusbtll_clkctrl_wr(&l3init_base, usbtll_cm);
+
     /* CM_L3INIT_FSUSB_CLKCTRL */
-    *((volatile uint32_t*) (0x4A0093D0)) = (uint32_t) (0x2);
+    //*((volatile uint32_t*) (0x4A0093D0)) = (uint32_t) (0x2);
+    omap44xx_l3init_cm2_cm_l3init_fsusb_clkctrl_modulemode_wrf(&l3init_base, 0x2);
     /* CM_L3INIT_USBPHY_CLKCTRL */
-    *((volatile uint32_t*) (0x4A0093E0)) = (uint32_t) (0x301);
+    //*((volatile uint32_t*) (0x4A0093E0)) = (uint32_t) (0x301);
+    omap44xx_l3init_cm2_cm_l3init_usbphy_clkctrl_wr(&l3init_base, 0x301);
+
 #if KERNEL_DEBUG_USB
     printf("/* CM_L3INIT_HSI_CLKCTRL */%p \n",
             *((volatile uint32_t*) (0x4A009338)));
@@ -562,13 +691,18 @@ static void set_muxconf_regs(void)
     uint16_t mux_1, mux_2;
 
     /* CONTROL_PADCONF_CORE_SYSCONFIG */
-    *((volatile uint32_t*) (0x4A100010)) = (uint32_t) (0x1 << 2);
+    //*((volatile uint32_t*) (0x4A100010)) = (uint32_t) (0x1 << 2);
+    omap44xx_sysctrl_padconf_core_control_padconf_core_sysconfig_ip_sysconfig_idlemode_wrf(&sysctrl_padconf_core_base, 0x1);
+
     /* CONTROL_PADCONF_WKUP_SYSCONFIG */
     *((volatile uint32_t*) (0x4A31E010)) = (uint32_t) (0x1 << 2);
+    omap44xx_sysctrl_padconf_wkup_control_padconf_wkup_sysconfig_ip_sysconfig_idlemode_wrf(&sysctrl_padconf_wkup_base, 0x1);
     /* CONTROL_GEN_CORE_SYSCONFIG */
     *((volatile uint32_t*) (0x4A002010)) = (uint32_t) (0x1 << 2);
     /* CONTROL_GEN_WKUP_SYSCONFIG */
     *((volatile uint32_t*) (0x4A30C010)) = (uint32_t) (0x1 << 2);
+
+    //omap44xx_sysctrl_padconf_core_control_core_pad0_cam_globalreset_pad1_usbb1_ulpitll_clk
 
     /* USBB1_ULPITLL_CLK */
     mux_1 = OMAP_PIN_INPUT_PULLDOWN | M4;
@@ -878,11 +1012,14 @@ void arch_init(void *pointer)
         omap44xx_usbtllhs_config_initialize(&usbtllhs_config_base, (mackerel_addr_t) OMAP44XX_USBTLLHS_CONFIG);
         omap44xx_scrm_initialize(&srcm_base, (mackerel_addr_t) OMAP44XX_SCRM);
         omap44xx_sysctrl_padconf_wkup_initialize(&sysctrl_padconf_wkup_base, (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
-        omap44xx_sysctrl_padconf_core_initialize(&sysctrl_padconf_core_base, (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
+        omap44xx_sysctrl_padconf_core_initialize(&sysctrl_padconf_core_base, (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_CORE);
         omap44xx_gpio_initialize(&gpio_1_base, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
         omap44xx_gpio_initialize(&gpio_2_base, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
+        omap44xx_ehci_initialize(&ehci_base, (mackerel_addr_t) OMAP44XX_EHCI);
 
-
+        omap44xx_ckgen_prm_initialize(&ckgen_base,(mackerel_addr_t) OMAP44XX_CKGEN_PRM);
+        omap44xx_l4per_cm2_initialize(&l4per_base, (mackerel_addr_t) OMAP44XX_L4PER_CM2);
+        omap44xx_l3init_cm2_initialize(&l3init_base, (mackerel_addr_t)OMAP44XX_L3INIT_CM2);
         prcm_init();
         set_muxconf_regs();
         usb_power_on();
@@ -903,7 +1040,7 @@ void arch_init(void *pointer)
     printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR"\n",
             local_phys_to_mem((uint32_t) &kernel_first_byte));
 
-
+    while(1);
 
     print_system_identification();
     size_ram();
