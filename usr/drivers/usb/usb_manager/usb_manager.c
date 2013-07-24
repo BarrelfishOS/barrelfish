@@ -5,6 +5,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/inthandler.h>
+#include <driverkit/driverkit.h>
 
 #include <usb/usb.h>
 
@@ -234,6 +235,7 @@ static void service_exported_cb(void *st, errval_t err, iref_t iref)
 
 }
 
+#if 0
 /**
  * \brief this function maps the supplied device capability in our memory
  *
@@ -274,16 +276,16 @@ static uintptr_t map_device_cap(void)
 
     return ((uintptr_t) ret_addr);
 }
-
+#endif
 /*
  * =========================================================================
  * ARM and PandaBoard specific functions
  * =========================================================================
  */
-#if __arm__
+#if __pandaboard__
 
 // the offset into the supplied capability
-#define USB_CAPABILITY_OFFSET (0x00002C00 + 0x00062000)
+#define USB_CAPABILITY_OFFSET (0x00000C00)
 
 // the EHCI interrupt number on the pandaboard
 #define USB_ARM_EHCI_IRQ 109
@@ -332,6 +334,7 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
      */
 
     uint32_t tmp = USB_CAPABILITY_OFFSET + (uint32_t) base;
+    printf("address of ehci base = %p\n", tmp);
 
     /*
      * This request reads the debug register of the ULPI receiver. The values
@@ -412,7 +415,10 @@ int main(int argc, char *argv[])
     }
 
     /* map de device capability into our address space */
-    uintptr_t base = map_device_cap();
+    uintptr_t base; // = map_device_cap();
+    // TODO: Change when new API is ready!
+    err = map_device_register(0x4A064000, 0x1000, &base);
+    assert(err_is_ok(err));
 
     if (base == 0) {
         USER_PANIC("failed to map the device capability");

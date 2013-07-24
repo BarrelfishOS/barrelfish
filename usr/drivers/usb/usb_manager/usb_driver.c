@@ -399,7 +399,8 @@ void usb_driver_start(struct usb_device *device)
     if (device->device_desc.bDeviceClass == USB_HUB_CLASS_CODE
             && device->device_desc.bDeviceSubClass == USB_HUB_SUBCLASS_CODE) {
 
-        USB_DEBUG_DRIVER("New Hub device. Starting internal driver.\n");
+        USB_DEBUG_DRIVER("Hub device. [%s, %s]\n", device->manifacturer, device->product);
+        USB_DEBUG_DRIVER("Starting internal driver...\n");
 
         err = usb_hub_init(device);
 
@@ -411,6 +412,7 @@ void usb_driver_start(struct usb_device *device)
 
     /* otherwise: look up driver binary */
     char *path = usb_driver_lookup(device);
+    USB_DEBUG_DRIVER("Vendor: [%s], Product: [%s]\n", device->manifacturer, device->product);
 
     if (path == NULL) {
         USB_DEBUG("WARNING: no suitable usb device driver found!\n");

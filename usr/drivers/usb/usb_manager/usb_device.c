@@ -8,6 +8,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
@@ -53,8 +54,6 @@ static void usb_device_free_config(struct usb_device *device)
     device->endpoints = NULL;
     device->ep_max = 0;
 }
-
-
 
 /**
  * \brief this functions parses the configuration descriptor and allocates
@@ -212,8 +211,7 @@ static usb_error_t usb_device_parse_config(struct usb_device *device,
 
             if (do_init) {
                 /* initialize it if the memory is allocated */
-                usb_endpoint_init(device, iface_ps.iface_index, edesc,
-                        ep);
+                usb_endpoint_init(device, iface_ps.iface_index, edesc, ep);
             }
 
             ep_tmp++;
@@ -285,6 +283,7 @@ static usb_error_t usb_device_initialize_descriptor(struct usb_device *device)
              */
             err = usb_req_get_descriptor(device, NULL, &device->device_desc, 8,
                     8, 0, USB_DESCRIPTOR_TYPE_DEVICE, 0, 0);
+
             if (err != USB_ERR_OK) {
                 USB_DEBUG("ERROR: Failed to get device descriptor\n");
                 USB_DEBUG_TR_RETURN;
@@ -296,15 +295,15 @@ static usb_error_t usb_device_initialize_descriptor(struct usb_device *device)
              * for high and super speed devices we have a maximum packet size
              * of at least 64 bytes
              */
-            err = usb_req_get_device_descriptor(device, &device->device_desc);
-            if (err != USB_ERR_OK) {
-                /* retry once more */
-                USB_DEBUG("NOTICE: getting descriptor failed. retry.\n");
-                err = usb_req_get_device_descriptor(device,
-                        &device->device_desc);
-            }
-
             break;
+    }
+
+    err = usb_req_get_device_descriptor(device, &device->device_desc);
+
+    if (err != USB_ERR_OK) {
+        /* retry once more */
+        USB_DEBUG("NOTICE: getting descriptor failed. retry.\n");
+        err = usb_req_get_device_descriptor(device, &device->device_desc);
     }
 
     return (err);
@@ -413,11 +412,24 @@ usb_error_t usb_device_set_configuration(struct usb_device *device,
 
 static void usb_device_setup_strings(struct usb_device *device)
 {
-    if (device->flags.no_strings == 0) {
-        debug_printf("language id %x\n", device->language_id);
+    char buf[255];
+
+    usb_req_get_string(device, buf, 255, device->device_desc.iSerialNumber);
+    device->serial_number = strdup(buf);
+
+    usb_req_get_string(device, buf, 255, device->device_desc.iManufacturer);
+    if (buf[0] == 0) {
+        snprintf(buf, 255, "vendor 0x%04x", device->device_desc.idVendor);
     }
-    //debug_printf("TODO: GET STRING DESCRIPTORS!\n");
-    /// TODO...
+    device->manifacturer = strdup(buf);
+
+    usb_req_get_string(device, buf, 255, device->device_desc.iProduct);
+    if (buf[0] == 0) {
+        snprintf(buf, 255, "product 0x%04x", device->device_desc.idProduct);
+        device->product = strdup(buf);
+    }
+    device->product = strdup(buf);
+
 }
 
 /**
@@ -522,8 +534,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     }
 
     /* initialize the control endpoint */
-    usb_endpoint_init(device, 0, &device->ctrl_ep_desc,
-            &device->ctrl_ep);
+    usb_endpoint_init(device, 0, &device->ctrl_ep_desc, &device->ctrl_ep);
 
     device->device_index = device_index;
 
@@ -591,11 +602,11 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
         device->language_id = langid;
     }
 
-    /* TODO: check for the real power needs */
-    device->power_needed = USB_POWER_MIN;
-
     /* setup the string descriptors by reading out the string descriptors */
     usb_device_setup_strings(device);
+
+    /* TODO: check for the real power needs */
+    device->power_needed = USB_POWER_MIN;
 
     /* finally set the configuration */
     err = usb_device_set_configuration(device, 0);
@@ -630,7 +641,6 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
 
     return (device);
 }
-
 
 /// state variable for the device detached
 static volatile uint8_t usb_device_detached = 0;

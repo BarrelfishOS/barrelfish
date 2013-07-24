@@ -165,7 +165,7 @@ int main(int argc, char** argv)
         snprintf(buf + offset, 255 - offset, "ehci\0");
         offset += strlen(mi->argv[0]) + 1;
         mi->argv[1] = mi->cmdargs + offset;
-        snprintf(buf + offset, 255 - offset, "%u\0", 0);
+        snprintf(buf + offset, 255 - offset, "%u\0", 0xC00);
         offset += strlen(mi->argv[1]) + 1;
         mi->argv[2] = mi->cmdargs + offset;
         snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);

@@ -9,6 +9,8 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
+#include <string.h>
 #include <barrelfish/barrelfish.h>
 
 #include <if/usb_manager_defs.h>
@@ -16,7 +18,6 @@
 
 #include <usb/usb.h>
 #include <usb/usb_request.h>
-
 
 #include <usb_device.h>
 #include <usb_controller.h>
@@ -40,12 +41,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     uint16_t length = req->wLength;
     uint16_t actual_length = 0;
 
-
-    USB_DEBUG_REQ("bmRequestType = %x\n", *((uint8_t *)(&req->bType)));
-    USB_DEBUG_REQ("bRequest  = %x\n", *((uint8_t *)(&req->bRequest)));
-    USB_DEBUG_REQ("wValue = %x\n", *((uint16_t *)(&req->wValue)));
-    USB_DEBUG_REQ("wIndex = %x\n", *((uint16_t *)(&req->wIndex)));
-    USB_DEBUG_REQ("wLength= %x\n", *((uint16_t *)(&req->wLength)));
+    USB_DEBUG_REQ("bmRequestType = %x\n", *((uint8_t *)(&req->bType)));USB_DEBUG_REQ("bRequest  = %x\n", *((uint8_t *)(&req->bRequest)));USB_DEBUG_REQ("wValue = %x\n", *((uint16_t *)(&req->wValue)));USB_DEBUG_REQ("wIndex = %x\n", *((uint16_t *)(&req->wIndex)));USB_DEBUG_REQ("wLength= %x\n", *((uint16_t *)(&req->wLength)));
 
     /*
      * check if the device is in the correct state to handle requests
@@ -102,7 +98,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
             if (req_state) {
                 req_state->error = err;
                 req_state->callback(req_state->bind);
-            } USB_DEBUG_TR_RETURN;
+            }USB_DEBUG_TR_RETURN;
             return (err);
         }
 
@@ -116,7 +112,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
                 if (req_state) {
                     req_state->error = USB_ERR_SHORT_XFER;
                     req_state->callback(req_state->bind);
-                } USB_DEBUG_TR_RETURN;
+                }USB_DEBUG_TR_RETURN;
                 return (USB_ERR_SHORT_XFER);
             }
 
@@ -192,8 +188,8 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
     while (1) {
         current_data_length = length;
         if (current_data_length > xfer->max_data_length) {
-            USB_DEBUG("NOTICE: current_data_length (%u)> xfer->max_data_length (%u)\n",
-                    current_data_length, xfer->max_data_length);
+            USB_DEBUG(
+                    "NOTICE: current_data_length (%u)> xfer->max_data_length (%u)\n", current_data_length, xfer->max_data_length);
             current_data_length = xfer->max_data_length;
         }
         // set the frame length of the data stage
@@ -458,7 +454,6 @@ void usb_rx_request_write_call(struct usb_manager_binding *binding,
 
     struct usb_device_request *req = (struct usb_device_request *) request;
 
-
     /* check if we have received the correct amount of data */
     if ((req_length != sizeof(struct usb_device_request))
             || (req->wLength != data_length)) {
@@ -665,6 +660,8 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
         while (min_length > max_length) {
             buf[--min_length] = 0;
         }
+
+        min_length = max_length;
     }
 
     if (actual_length != NULL) {
@@ -673,10 +670,11 @@ usb_error_t usb_req_get_descriptor(struct usb_device *dev,
         } else {
             *actual_length = min_length;
         }
-    } USB_DEBUG_TR_RETURN;
+    }
+
+    USB_DEBUG_TR_RETURN;
     return (err);
 }
-
 
 /**
  * \brief this function gets the device descriptor from a device
@@ -747,10 +745,74 @@ usb_error_t usb_req_get_string_desc(struct usb_device *dev, void *sdesc,
 {
     //return (USB_ERR_IOERROR);
     /* TODO: change min_length = 2 */
-    return (usb_req_get_descriptor(dev, NULL, sdesc, max_len, max_len, lang_id,
+    return (usb_req_get_descriptor(dev, NULL, sdesc, 2, max_len, lang_id,
             USB_DESCRIPTOR_TYPE_STRING, string_index, 0));
 }
 
+usb_error_t usb_req_get_string(struct usb_device *dev, char *buf, uint16_t len,
+        uint8_t string_index)
+{
+
+    if (len == 0) {
+        return (USB_ERR_OK);
+    }
+
+    if (string_index == 0) {
+        buf[0] = 0;
+        return (USB_ERR_INVAL);
+    }
+
+    if (dev->flags.no_strings) {
+        buf[0] = 0;
+        return (USB_ERR_STALLED);
+    }
+
+    usb_error_t err = usb_req_get_string_desc(dev, buf, len, dev->language_id,
+            string_index);
+
+    if (err != USB_ERR_OK) {
+        buf[0] = 0;
+        return (err);
+    }
+    uint8_t *val = (uint8_t *) buf;
+    if (val[0]<2) {
+        buf[0] = 0;
+        return (USB_ERR_INVAL);
+    }
+    len--;
+
+    char *str = buf;
+    uint8_t swap;
+    uint16_t num = (val[0] / 2) - 1;
+
+    if (num > len) {
+        num = len;
+    }
+
+    val += 2;
+    swap = 3;
+    uint16_t c;
+    for (uint16_t i = 0; i < num; i++) {
+        c = (uint16_t) ((val + (2 * i))[0] | ((val + (2 * i))[1] << 8));
+        if (((c & 0xff00) == 0) && (swap & 1)) {
+            *str = c;
+            swap = 1;
+        } else if (((c & 0x00FF) == 0) && (swap & 2)) {
+            *str = c >> 8;
+            swap = 2;
+        } else {
+            continue;
+        }
+
+        if (isalpha((uint8_t)*str) || isdigit((uint8_t)*str) || *str == '-' || *str == '+'
+                || *str == ' ' || *str == '.' || *str == ',') {
+            str++;
+        }
+    }
+    *str = 0;
+
+    return (USB_ERR_OK);
+}
 
 /**
  * \brief updates the configuration with the new configuration value

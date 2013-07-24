@@ -37,7 +37,7 @@ static struct allowed_registers usb = {
     .binary = "hw.arm.omap44xx.usb",
     .registers =
     {
-        {OMAP44XX_HSUSB_EHCI, 1024},
+        {OMAP44XX_HSUSBHOST, 0x1000},
         {0x0, 0x0}
     }
 };

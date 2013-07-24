@@ -611,7 +611,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
 static uint8_t usb_hub_find_slot(uint16_t *ptr, uint8_t start, uint8_t end,
         uint8_t mask)
 {
-    uint16_t min = 0 - 1;
+    uint16_t min = (uint16_t)-1;
     uint8_t slot = 0;
     for (uint8_t cs = start; cs < end; cs++) {
         uint16_t sum = 0;
@@ -641,8 +641,9 @@ uint8_t usb_hub_bandwidth_adjust(struct usb_device *dev, uint16_t length,
     switch (dev->speed) {
         case USB_SPEED_LOW:
         case USB_SPEED_FULL:
-            length *= dev->speed == USB_SPEED_LOW ? 8 : 1;
-
+            if (dev->speed == USB_SPEED_LOW) {
+                length *=  8;
+            }
             assert(dev->parent_hs_hub != NULL);
             struct usb_hub *hub = dev->parent_hs_hub->hub;
             assert(hub != NULL);
@@ -752,9 +753,9 @@ void usb_hub_bandwidth_free(struct usb_xfer *xfer)
 
             slot = xfer->endpoint->hs_uframe;
             mask = xfer->endpoint->hs_smask;
-            ;
 
-            usb_hub_bandwidth_adjust(dev, -xfer->max_frame_size, slot,
+
+            usb_hub_bandwidth_adjust(dev, -(xfer->max_frame_size), slot,
                     mask >> slot);
 
             xfer->endpoint->hs_uframe = 0;

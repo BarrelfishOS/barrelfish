@@ -443,6 +443,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
             // TODO: TEST... td->qtd_token.ioc = 1;
             td->qtd_token.bytes = length_avg;
 
+            memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
             if (length_avg == 0) {
                 if (setup->auto_data_toggle == 0) {
                     /* update the data toggle for the last, zero length packet */
@@ -467,7 +468,7 @@ static void usb_ehci_xfer_qtd_setup(struct usb_ehci_qtd_setup_param *setup)
                 setup->length -= length_avg;
 
                 uint32_t buf_offset = 0;
-                memset(td->qtd_bp, 0, sizeof(td->qtd_bp));
+
 
                 uint8_t pages_count = 0;
 
@@ -701,7 +702,14 @@ void usb_ehci_xfer_standard_setup(struct usb_xfer *xfer,
     /* get the qh */
     qh = xfer->hcd_qh_start[xfer->flags_internal.curr_dma_set];
 
+    qh->qh_curr_qtd = 0;
+    qh->qh_next_qtd = 0;
+    qh->qh_alt_next_qtd = 0;
+    memset(&qh->qh_status, 0, sizeof(usb_ehci_qh_status_t));
+    memset(qh->bp_list, 0, sizeof(qh->bp_list));
+
     qh->qh_ep.device_address = xfer->device_address;
+    qh->qh_ep.inactive  = 0;
     qh->qh_ep.ep_number = xfer->endpoint_number;
     qh->qh_ep.max_packet_size = xfer->max_packet_size;
 

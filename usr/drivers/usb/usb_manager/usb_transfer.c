@@ -778,7 +778,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
 
     switch ((usb_type_t) type) {
         case USB_TYPE_BULK:
-            USB_DEBUG("received usb_rx_transfer_setup_call [bulk type]\n");
+            USB_DEBUG_IDC("received usb_rx_transfer_setup_call [bulk type]\n");
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_BULK;
             st->error = USB_ERR_OK;
@@ -787,7 +787,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             st->tid = 123;
             break;
         case USB_TYPE_CTRL:
-            USB_DEBUG("received usb_rx_transfer_setup_call [ctrl type]\n");
+            USB_DEBUG_IDC("received usb_rx_transfer_setup_call [ctrl type]\n");
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_CTRL;
             st->error = USB_ERR_OK;
@@ -796,7 +796,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             st->tid = 234;
             break;
         case USB_TYPE_ISOC:
-            USB_DEBUG("received usb_rx_transfer_setup_call [isoc type]\n");
+            USB_DEBUG_IDC("received usb_rx_transfer_setup_call [isoc type]\n");
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_ISOC;
             st->error = USB_ERR_OK;
@@ -805,7 +805,7 @@ void usb_rx_transfer_setup_call(struct usb_manager_binding *bind, uint8_t type,
             st->tid = 345;
             break;
         case USB_TYPE_INTR:
-            USB_DEBUG("received usb_rx_transfer_setup_call [intr type]\n");
+            USB_DEBUG_IDC("received usb_rx_transfer_setup_call [intr type]\n");
             /* TODO: Handle transfer setup */
             setup.usb_type = USB_TYPE_INTR;
             st->error = usb_transfer_setup(dev, params.iface, &xfer, &setup);
