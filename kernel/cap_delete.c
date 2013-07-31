@@ -230,9 +230,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         default:
             // Handle VNodes here
             if(type_is_vnode(cap->type)) {
-                // XXX: Assumes that all VNodes store base as first
-                // parameter and that it's a genpaddr_t
-                ram.base = cap->u.vnode_x86_64_pml4.base;
+                ram.base = get_address(cap);
                 ram.bits = vnode_objbits(cap->type);
             }
             break;
