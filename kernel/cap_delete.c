@@ -152,10 +152,15 @@ cleanup_copy(struct cte *cte)
 {
     errval_t err;
 
+    TRACE_CAP_MSG("cleaning up copy", cte);
+
     struct capability *cap = &cte->cap;
 
-    if (type_is_vnode(cap->type) || cap->type == ObjType_Frame || cap->type == ObjType_DevFrame) {
-        // XXX: unmap if mapped
+    if (type_is_vnode(cap->type) ||
+        cap->type == ObjType_Frame ||
+        cap->type == ObjType_DevFrame)
+    {
+        unmap_capability(cte);
     }
 
     if (distcap_is_foreign(cte)) {
