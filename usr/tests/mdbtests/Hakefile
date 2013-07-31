@@ -21,5 +21,9 @@
   build application { target = "mdbtest_addr_zero",
                       cFiles = [ "test_addr_zero.c" ],
                       addLibraries = [ "mdb", "cap_predicates" ]
+                    },
+  build application { target = "mdbtest_ops_with_root",
+                      cFiles = [ "test_ops_with_root.c" ],
+                      addLibraries = [ "mdb", "cap_predicates" ]
                     }
 ]
