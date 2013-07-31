@@ -139,6 +139,17 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Kernel:
         return snprintf(buf, len, "Kernel cap");
 
+    case ObjType_ID:
+        return snprintf(buf, len, "ID capability (coreid 0x%" PRIxCOREID
+                        " core_local_id 0x%" PRIx32 ")", cap->u.id.coreid,
+                        cap->u.id.core_local_id);
+
+    case ObjType_PerfMon:
+        return snprintf(buf, len, "PerfMon cap");
+
+    case ObjType_Null:
+        return snprintf(buf, len, "Null capability (empty slot)");
+
     default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
     }
