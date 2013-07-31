@@ -186,6 +186,31 @@ data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
 rcap_db :: Rcap_db
 rcap_db = RCAP_DB_NULL
 
+-- Mapping Database configuration options (this affects lib/mdb/)
+-- enable extensive tracing of mapping db implementation
+mdb_trace :: Bool
+mdb_trace = False
+
+-- fail on invariant violaitions
+mdb_fail_invariants :: Bool
+mdb_fail_invariants = True
+
+-- recheck invariants at each tracing point
+mdb_recheck_invariants :: Bool
+mdb_recheck_invariants = True
+
+-- enable extensive tracing of mapping db implementation (userspace version)
+mdb_trace_user :: Bool
+mdb_trace_user = False
+
+-- fail on invariant violaitions
+mdb_fail_invariants_user :: Bool
+mdb_fail_invariants_user = True
+
+-- recheck invariants at each tracing point
+mdb_recheck_invariants_user :: Bool
+mdb_recheck_invariants_user = True
+
 -- Select scheduler
 data Scheduler = RBED | RR deriving (Show,Eq)
 scheduler :: Scheduler
