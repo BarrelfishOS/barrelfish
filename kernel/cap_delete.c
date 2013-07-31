@@ -82,8 +82,10 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 
     // try simple delete
     // XXX: this really should always fail, enforce that? -MN
+    // XXX: this is probably not the way we should enforce/check this -SG
     err = caps_try_delete(cte);
-    if (err_no(err) != SYS_ERR_DELETE_LAST_OWNED) {
+    if (err_no(err) != SYS_ERR_DELETE_LAST_OWNED &&
+        err_no(err) != SYS_ERR_CAP_LOCKED) {
         return err;
     }
 
@@ -271,7 +273,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         assert(err_is_ok(err));
     }
 
-    return SYS_ERR_OK;
+    return err;
 }
 
 /*
@@ -454,6 +456,11 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
 
 static void clear_list_append(struct cte *cte)
 {
+    // make sure we don't break delete list by inserting cte again
+    if (distcap_is_in_delete(cte)) {
+        return;
+    }
+
     if (!clear_tail) {
         assert(!clear_head);
         clear_head = clear_tail = cte;
@@ -473,6 +480,7 @@ errval_t caps_delete_step(struct cte *ret_next)
     assert(ret_next->cap.type == ObjType_Null);
 
     if (!delete_head) {
+        assert(!delete_tail);
         return SYS_ERR_CAP_NOT_FOUND;
     }
     assert(delete_head->mdbnode.in_delete);
@@ -487,7 +495,11 @@ errval_t caps_delete_step(struct cte *ret_next)
     else if (cte->mdbnode.remote_copies) {
         err = caps_copyout_last(cte, ret_next);
         if (err_is_ok(err)) {
-            delete_head = next;
+            if (next) {
+                delete_head = next;
+            } else {
+                delete_head = delete_tail = NULL;
+            }
             err = SYS_ERR_DELETE_LAST_OWNED;
         }
     }
@@ -496,7 +508,11 @@ errval_t caps_delete_step(struct cte *ret_next)
     }
 
     if (err_is_ok(err)) {
-        delete_head = next;
+        if (next) {
+            delete_head = next;
+        } else {
+            delete_head = delete_tail = NULL;
+        }
     }
     return err;
 }

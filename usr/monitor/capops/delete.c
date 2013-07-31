@@ -76,8 +76,9 @@ send_new_ram_cap(struct capref cap)
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
-    err = cap_delete(cap);
-    assert(err_is_ok(err));
+    // XXX: this seems to happen during the lmp transfer anyway -SG
+    //err = cap_delete(cap);
+    //assert(err_is_ok(err));
 }
 
 static void delete_wait__fin(void *st_)
@@ -390,7 +391,7 @@ delete_trylock_cont(void *st)
     GOTO_IF_ERR(err, report_error);
 
     if (!(relations && RRELS_COPY_BIT)) {
-        // no remote relations, procede with final delete
+        // no remote relations, proceed with final delete
         delete_last(del_st);
     }
     else if (distcap_is_moveable(del_st->cap.type)) {
