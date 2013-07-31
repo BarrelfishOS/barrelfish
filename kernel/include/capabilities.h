@@ -21,10 +21,10 @@
 #include <cap_predicates.h>
 #include <paging_generic.h>
 
-#if 0
-#define TRACE_PMEM_CAPS
-#define TRACE_PMEM_BEGIN 0x0
-#define TRACE_PMEM_SIZE  (~(uint32_t)0)
+#ifdef TRACE_PMEM_CAPS
+#define TRACE_PMEM_ENABLED_INITIAL false
+#define TRACE_PMEM_BEGIN_INITIAL   0x0
+#define TRACE_PMEM_SIZE_INITIAL    (~(uint32_t)0)
 #endif
 
 struct cte;
@@ -120,8 +120,15 @@ errval_t caps_revoke(struct cte *cte);
  */
 
 #ifdef TRACE_PMEM_CAPS
+extern bool trace_pmem_enabled;
+extern genpaddr_t TRACE_PMEM_BEGIN;
+extern gensize_t TRACE_PMEM_SIZE;
+void caps_trace_ctrl(bool enable, genpaddr_t start, gensize_t size);
 static inline bool caps_should_trace(struct capability *cap)
 {
+    if (!trace_pmem_enabled) {
+        return false;
+    }
     genpaddr_t begin = get_address(cap);
     gensize_t size = get_size(cap);
     genpaddr_t end = begin+size;

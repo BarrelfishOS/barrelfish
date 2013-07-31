@@ -81,6 +81,15 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     return msgerr;
 }
 
+errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size)
+{
+    if (enable) {
+        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR"\n",
+                start_addr, start_addr+size);
+    }
+    return sys_debug_cap_trace_ctrl(enable, start_addr, size);
+}
+
 errval_t debug_dump_hw_ptables(void)
 {
     errval_t err;

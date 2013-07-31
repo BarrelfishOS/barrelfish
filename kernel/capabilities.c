@@ -36,6 +36,23 @@
 /// Sets the specified number of low-order bits to 1
 #define MASK(bits)      ((1UL << bits) - 1)
 
+#ifdef TRACE_PMEM_CAPS
+bool       trace_pmem_enabled = TRACE_PMEM_ENABLED_INITIAL;
+genpaddr_t TRACE_PMEM_BEGIN   = TRACE_PMEM_BEGIN_INITIAL;
+gensize_t  TRACE_PMEM_SIZE    = TRACE_PMEM_SIZE_INITIAL;
+
+void caps_trace_ctrl(bool enable, genpaddr_t start, gensize_t size)
+{
+    if (enable) {
+        trace_pmem_enabled = enable;
+        TRACE_PMEM_BEGIN = start;
+        TRACE_PMEM_SIZE = size;
+    } else {
+        trace_pmem_enabled = false;
+    }
+}
+#endif
+
 struct capability monitor_ep;
 
 int sprint_cap(char *buf, size_t len, struct capability *cap)

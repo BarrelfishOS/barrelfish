@@ -47,6 +47,8 @@ errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,
                                    uint8_t bits);
 #endif
 
+errval_t sys_debug_cap_trace_ctrl(bool enable, genpaddr_t start, gensize_t size);
+
 __END_DECLS
 
 #endif //BARRELFISH_SYS_DEBUG_H

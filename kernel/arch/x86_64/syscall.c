@@ -1135,6 +1135,17 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             retval.value = timing_get_apic_ticks_per_sec();
             break;
 
+        case DEBUG_TRACE_PMEM_CTRL:
+            if (arg1) {
+                caps_trace_ctrl(arg1, args[0], args[1]);
+            } else {
+                caps_trace_ctrl(arg1, 0, 0);
+            }
+            retval.value = 0;
+            retval.error = SYS_ERR_OK;
+            break;
+
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type\n");
         }

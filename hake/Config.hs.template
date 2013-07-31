@@ -186,6 +186,10 @@ data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
 rcap_db :: Rcap_db
 rcap_db = RCAP_DB_NULL
 
+-- Enable capability tracing debug facility
+caps_trace :: Bool
+caps_trace = False
+
 -- Mapping Database configuration options (this affects lib/mdb/)
 -- enable extensive tracing of mapping db implementation
 mdb_trace :: Bool
@@ -277,7 +281,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
-             if use_kaluga_dvm then "USE_KALUGA_DVM" else ""
+             if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
+             if caps_trace then "TRACE_PMEM_CAPS" else ""
              ], d /= "" ]
 
 -- Sets the include path for the libc
