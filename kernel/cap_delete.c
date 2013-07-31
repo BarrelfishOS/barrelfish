@@ -46,6 +46,7 @@ static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
  */
 static errval_t caps_try_delete(struct cte *cte)
 {
+    TRACE_CAP_MSG("trying simple delete", cte);
     if (distcap_is_in_delete(cte) || cte->mdbnode.locked) {
         // locked or already in process of being deleted
         return SYS_ERR_CAP_LOCKED;
@@ -96,6 +97,7 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     // deletion, which only happens when the clear lists are empty.
 
     if (cte->cap.type == ObjType_CNode) {
+        debug(SUBSYS_CAPS, "deleting last copy of cnode: %p\n", cte);
         // Mark all non-Null slots for deletion
         for (cslot_t i = 0; i < (1<<cte->cap.u.cnode.bits); i++) {
             struct cte *slot = caps_locate_slot(cte->cap.u.cnode.cnode, i);
@@ -108,6 +110,7 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
     }
     else if (cte->cap.type == ObjType_Dispatcher)
     {
+        debug(SUBSYS_CAPS, "deleting last copy of dispatcher: %p\n", cte);
         struct capability *cap = &cte->cap;
         struct dcb *dcb = cap->u.dispatcher.dcb;
 
@@ -188,6 +191,8 @@ static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {
     errval_t err;
+
+    TRACE_CAP_MSG("cleaning up last copy", cte);
     struct capability *cap = &cte->cap;
 
     assert(!has_copies(cte));
@@ -305,6 +310,8 @@ static void caps_mark_revoke_generic(struct cte *cte)
         return;
     }
 
+    TRACE_CAP_MSG("marking for revoke", cte);
+
     err = caps_try_delete(cte);
     if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED)
     {
@@ -323,6 +330,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
             delete_tail->delete_node.next = cte;
             delete_tail = cte;
         }
+        TRACE_CAP_MSG("inserted into delete list", cte);
 
         // because the monitors will perform a 2PC that deletes all foreign
         // copies before starting the delete steps, and because the in_delete
@@ -473,6 +481,7 @@ static void clear_list_append(struct cte *cte)
         clear_tail = clear_tail->delete_node.next = cte;
     }
     cte->delete_node.next = NULL;
+    TRACE_CAP_MSG("inserted into clear list", cte);
 }
 
 errval_t caps_delete_step(struct cte *ret_next)
