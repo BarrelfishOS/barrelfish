@@ -32,14 +32,25 @@ errval_t monitor_cap_identify(struct capref cap, struct capability *out)
 {
     // If it's a NULL cap reference, return a fabricated Null cap
     if(capref_is_null(cap)) {
-        memset(out, 0, sizeof(struct capability));
-        out->type = ObjType_Null;
-        return SYS_ERR_OK;
+        goto nullcap;
     }
 
     uint8_t vbits = get_cap_valid_bits(cap);
     capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
-    return invoke_monitor_identify_cap(caddr, vbits, out);
+    errval_t err = invoke_monitor_identify_cap(caddr, vbits, out);
+    if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP &&
+        err_no(err>>10) == SYS_ERR_CAP_NOT_FOUND)
+    {
+        // XXX: is it ok to return a fabricated null cap when doing cap
+        // identify on an empty slot? -SG, 2013-07-31
+        goto nullcap;
+    }
+    return err;
+
+nullcap:
+    memset(out, 0, sizeof(struct capability));
+    out->type = ObjType_Null;
+    return SYS_ERR_OK;
 }
 
 
