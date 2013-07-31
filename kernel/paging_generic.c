@@ -36,6 +36,9 @@ static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
                    " mdb_find_range: 0x%"PRIxERRV"\n", err);
             return err;
         }
+        if (!type_is_vnode((*next)->cap.type)) {
+                return SYS_ERR_VNODE_LOOKUP_NEXT;
+        }
         return SYS_ERR_OK;
     }
     else {
