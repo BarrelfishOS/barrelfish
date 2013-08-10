@@ -65,6 +65,7 @@ static void check_and_handle_other_events(void)
     if (lwip_mutex == NULL) { // single-threaded
         while (true) {
             errval_t err = event_dispatch_non_block(lwip_waitset);
+            //errval_t err = event_dispatch(lwip_waitset);
             if (err == LIB_ERR_NO_EVENT) {
                 return;
             }

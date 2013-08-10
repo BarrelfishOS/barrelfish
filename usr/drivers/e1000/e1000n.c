@@ -500,12 +500,12 @@ static void polling_loop(void)
         ++poll_count;
 
         ts = rdtsc();
-//        do_pending_work_for_all();
+        do_pending_work_for_all();
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
         struct waitset *ws = get_default_waitset();
-//        err = event_dispatch(ws); // blocking // doesn't work correctly
-        err = event_dispatch_non_block(ws); // nonblocking
+        err = event_dispatch(ws); // blocking // doesn't work correctly
+//        err = event_dispatch_non_block(ws); // nonblocking for polling mode
         if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);

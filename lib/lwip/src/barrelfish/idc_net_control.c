@@ -247,7 +247,7 @@ void idc_get_ip(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
-    LWIPBF_DEBUG("client: owner has the IP address %d.%d.%d.%d\n",
+    LWIPBF_DEBUG("client1: owner has the IP address %d.%d.%d.%d\n",
                  ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
                  ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }
@@ -345,8 +345,8 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
        purpose */
     errval_t err, msgerr;
 
-    //LWIPBF_DEBUG
-    printf
+    //printf
+    LWIPBF_DEBUG
         ("idc_new_port: ################################### called\n");
 
     // antoinek: FIXME: Need to figure out how to deal with this
@@ -364,8 +364,8 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
 
-    //LWIPBF_DEBUG
-    printf
+    //printf
+    LWIPBF_DEBUG
         ("idc_new_port: ################################### terminated\n");
     return msgerr;
 }

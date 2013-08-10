@@ -57,6 +57,7 @@ size_t buffer_count = BUFFER_COUNT;
 
 errval_t buffer_tx_add(size_t idx, size_t offset, size_t len, size_t more_chunks)
 {
+
     errval_t err = SYS_ERR_OK;
     err = idc_raw_add_buffer(binding_tx, idx * BUFFER_SIZE + offset, len,
             (uint64_t)more_chunks);

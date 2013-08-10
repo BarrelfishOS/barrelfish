@@ -622,7 +622,7 @@ err_t udp_bind(struct udp_pcb * pcb, struct ip_addr * ipaddr, u16_t port)
     LWIP_DEBUGF(UDP_DEBUG | LWIP_DBG_TRACE | 3, ("udp_bind: starting %u\n",
                                                  port));
 
-    printf("udp_bind:called............................ \n");
+    //printf("udp_bind:called............................ \n");
     /* Following modifications are part of DEMUX : PS */
     if (port == 0) {
         err = idc_udp_new_port(&port);

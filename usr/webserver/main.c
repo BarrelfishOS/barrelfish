@@ -51,23 +51,26 @@ int main(int argc, char**argv)
     serverpath = argv[3];
 
     // Boot up
-    SERVER_DEBUG("init start\n");
+    DEBUGPRINT("init start\n");
 
-    SERVER_DEBUG("lwip_demo: lwip setup\n");
+    DEBUGPRINT("lwip_demo: lwip setup\n");
+    printf("webserver:%u: initializing networking \n", disp_get_core_id());
     if (lwip_init_auto() == false) {
         printf("ERROR: lwip_init_auto failed!\n");
         return 1;
     }
+    printf("webserver:%u: networking initialized\n", disp_get_core_id());
 
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     http_server_init(serverip, serverpath);
 
-    SERVER_DEBUG("Init finished.\n");
+    DEBUGPRINT("Init finished.\n");
 
     struct waitset *ws = get_default_waitset();
     while (1) {
         // check for any event without blocking
-        err = event_dispatch_non_block(ws);
+        //err = event_dispatch_non_block(ws);
+        err = event_dispatch(ws);
         if (err != LIB_ERR_NO_EVENT) {
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "in event_dispatch");

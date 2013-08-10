@@ -819,6 +819,7 @@ errors lwip LWIP_ERR_ {
     failure IF           "Low-level netif error",
     failure ISCONN       "Already connected.",
     failure INPROGRESS   "Operation in progress",
+    failure TXFULL       "TX capacity is full, try again later",
 };
 
 // DIST library errors

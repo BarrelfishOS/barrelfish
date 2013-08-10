@@ -500,7 +500,7 @@ static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
 
         if (passed_events > 5) {
             cont_queue_show_queue(ccl->q);
-            printf("########### queue full, can't go further ############\n");
+            printf("## queue full, dropping raw_xmit_done notification\n");
             // USER_PANIC("queue full, can't go further\n");
             return CONT_ERR_NO_MORE_SLOTS;
         }

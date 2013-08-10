@@ -364,8 +364,8 @@ static void call_tcp_tmr(void)
 bool lwip_init_ex(const char *card_name, uint64_t queueid,
                   struct waitset *opt_waitset, struct thread_mutex *opt_mutex)
 {
+    printf("lwip_init_ex: starting......................\n");
     DEBUGPRINTPS("LWIP_other: Inside lwip_init\n");
-    printf("LWIP: in lwip_init\n");
     static bool run_once;
 
     if (run_once) {
@@ -447,6 +447,7 @@ bool lwip_init_ex(const char *card_name, uint64_t queueid,
     extern bool lwip_init_done;
     lwip_init_done = true;
 
+    printf("lwip_init_ex: done......................\n");
     return true;
 }
 
