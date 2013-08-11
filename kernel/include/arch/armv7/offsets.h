@@ -134,7 +134,7 @@
 /*
  * Device offset to map devices in high memory.
  */
-#define DEVICE_OFFSET			0xfff00000
+#define DEVICE_OFFSET			0xff000000
 
 /**
  * Kernel stack size -- 16KB

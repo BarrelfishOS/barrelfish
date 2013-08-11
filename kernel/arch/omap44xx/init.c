@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009,2012, ETH Zurich. All rights reserved.
+ * Copyright (c) 2009-2013, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -232,25 +232,23 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     omap44xx_id_code_pr(buf,200,&id);
     printf("Using MMU, %s", buf);
 
-
     gic_init();
-    //gic_init();
     printf("gic_init done\n");
 
     if (hal_cpu_is_bsp()) {
 
-	scu_initialize();
-	uint32_t omap_num_cores = scu_get_core_count();
-	printf("Number of cores in system: %"PRIu32"\n", omap_num_cores);
+        scu_initialize();
+        uint32_t omap_num_cores = scu_get_core_count();
+        printf("Number of cores in system: %"PRIu32"\n", omap_num_cores);
 
-	// ARM Cortex A9 TRM section 2.1
+        // ARM Cortex A9 TRM section 2.1
         if (omap_num_cores > 4)
             panic("ARM SCU doesn't support more than 4 cores!");
 
         // init SCU if more than one core present
         if (omap_num_cores > 1) {
             scu_enable();
-	}
+        }
     }
 
     tsc_init();
