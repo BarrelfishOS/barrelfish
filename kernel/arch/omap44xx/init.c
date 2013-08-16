@@ -9,7 +9,7 @@
 
 /**
  * \file
- * \brief CPU driver init code for the OMAP44xx series SoCs. 
+ * \brief CPU driver init code for the OMAP44xx series SoCs.
  * interface found in /kernel/include/serial.h
  */
 
@@ -226,11 +226,9 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
            paging_map_kernel_section);
 
     errval = serial_debug_init();
-    if (err_is_fail(errval))
-        {
-            printf("Failed to initialize debug port: %d",
-                   serial_debug_port);
-        }
+    if (err_is_fail(errval)) {
+            printf("Failed to initialize debug port: %d", serial_debug_port);
+    }
 
     my_core_id = hal_get_cpu_id();
     printf("cpu id %d\n", my_core_id);
@@ -304,25 +302,28 @@ static size_t bank_size(int bank, lpaddr_t base)
     int rowsize;
     omap44xx_emif_t emif;
     omap44xx_emif_initialize(&emif, (mackerel_addr_t)base);
-    if (omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
-	rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
-	colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
-	rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
-	printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n", 
-	       bank, rowbits, colbits, 1<<rowsize);
-	return (1 << (rowbits + colbits + rowsize));
-    } else {
-	printf("EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
-	return 0;
+
+    if (!omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
+        printf("EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
+        return 0;
     }
+
+    rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
+    colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
+    rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
+
+    printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n",
+            bank, rowbits, colbits, 1<<rowsize);
+
+    return (1 << (rowbits + colbits + rowsize));
 }
 
 static void size_ram(void)
 {
-    size_t sz = 0; 
+    size_t sz = 0;
     sz = bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
-    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n", 
-	   sz, sz == 0x40000000 ? "about right" : "unexpected" );
+    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n",
+            sz, sz == 0x40000000 ? "about right" : "unexpected" );
 }
 
 /*
@@ -330,8 +331,8 @@ static void size_ram(void)
  */
 static void set_leds(void)
 {
-    omap44xx_gpio_t g;
     uint32_t r, nr;
+    omap44xx_gpio_t g;
     //char buf[8001];
 
     omap44xx_gpio_initialize(&g, (mackerel_addr_t)OMAP44XX_MAP_L4_WKUP_GPIO1);
@@ -372,9 +373,6 @@ static void set_leds(void)
 	}
     }
 }
-    
-    
-
 
 /**
  * Entry point called from boot.S for bootstrap processor.
