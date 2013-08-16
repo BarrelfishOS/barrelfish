@@ -54,23 +54,6 @@
 uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)]
 __attribute__ ((aligned(8)));
 
-/**
- * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
- */
-//XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
-static union arm_l1_entry boot_l1_low[2*ARM_L1_MAX_ENTRIES]
-__attribute__ ((aligned(ARM_L1_ALIGN)));
-static union arm_l1_entry * aligned_boot_l1_low;
-/**
- * Boot-up L1 page table for addresses >=2GB (translated by TTBR1)
- */
-//XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
-static union arm_l1_entry boot_l1_high[2*ARM_L1_MAX_ENTRIES]
-__attribute__ ((aligned(ARM_L1_ALIGN)));
-static union arm_l1_entry * aligned_boot_l1_high;
-
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define CONSTRAIN(x, a, b) MIN(MAX(x, a), b)
@@ -119,38 +102,71 @@ static void enable_cycle_counter_user_access(void)
 
 extern void paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa);
 
+/**
+ * Create initial (temporary) page tables.
+ *
+ * We use 1MB (ARM_L1_SECTION_BYTES) pages (sections) with a single-level table.
+ * This allows 1MB*4k (ARM_L1_MAX_ENTRIES) = 4G per pagetable.
+ *
+ * Hardware details can be found in:
+ * ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition
+ *   B3: Virtual Memory System Architecture (VMSA)
+ */
 static void paging_init(void)
 {
-    // configure system to use TTBR1 for VAs >= 2GB
-    uint32_t ttbcr;
-    ttbcr = cp15_read_ttbcr();
-    ttbcr |= 1;
+    /*
+     * page tables:
+     *  l1_low  for addresses  < 2GB  (translated by TTBR0)
+     *  l1_high for addresses  >= 2GB (translated by TTBR1)
+     *
+     * XXX: We reserve double the space needed to be able to align the
+     * pagetable to 16K after relocation.
+     */
+     static union arm_l1_entry l1_low[2*ARM_L1_MAX_ENTRIES];
+     static union arm_l1_entry l1_high[2*ARM_L1_MAX_ENTRIES];
+
+    /**
+     * TTBCR: Translation Table Base Control register.
+     *  TTBCR.N is bits[2:0]
+     * In a TLB miss TTBCR.N determines whether TTBR0 or TTBR1 is used as the
+     * base address for the translation table walk in memory:
+     *  N == 0 -> always use TTBR0
+     *  N >  0 -> if VA[31:32-N] > 0 use TTBR1 else use TTBR0
+     *
+     * TTBR0 is typically used for processes-specific addresses
+     * TTBR1 is typically used for OS addresses that do not change on context
+     *       switch
+     *
+     * set TTBCR.N = 1 to use TTBR1 for VAs >= MEMORY_OFFSET (=2GB)
+     */
+    #define TTBCR_N 1
+    uint32_t ttbcr = cp15_read_ttbcr();
+    ttbcr =  (ttbcr & ~7) | TTBCR_N;
     cp15_write_ttbcr(ttbcr);
+    STATIC_ASSERT(1UL<<(32-TTBCR_N) == MEMORY_OFFSET, "");
+    #undef TTBCR_N
 
-    // make sure pagetables are aligned to 16K
-    aligned_boot_l1_low = 
-	(union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-    aligned_boot_l1_high = 
-	(union arm_l1_entry *)ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
 
+    /**
+     * in omap44xx, physical memory (PHYS_MEMORY_START) is the same with the the
+     * offset of mapped physical memory within virtual address space
+     * (PHYS_MEMORY_START), so we just create identity mappings.
+     */
+    STATIC_ASSERT(MEMORY_OFFSET == PHYS_MEMORY_START, "");
+    uintptr_t l1_low_aligned = ROUND_UP((uintptr_t)l1_low, ARM_L1_ALIGN);
+    uintptr_t l1_high_aligned = ROUND_UP((uintptr_t)l1_high, ARM_L1_ALIGN);
     lvaddr_t vbase = MEMORY_OFFSET, base =  0;
+    for (size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++) {
+	    paging_map_device_section(l1_low_aligned, base, base);
+	    paging_map_device_section(l1_high_aligned, vbase, vbase);
 
-    for(size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++,
-	    base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES) {
-	// create 1:1 mapping
-	//		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
-	paging_map_device_section((uintptr_t)aligned_boot_l1_low, base, base);
-
-	// Alias the same region at MEMORY_OFFSET (gem5 code)
-	// create 1:1 mapping for pandaboard
-	//		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
-	/* if(vbase < 0xc0000000) */
-	paging_map_device_section((uintptr_t)aligned_boot_l1_high, vbase, vbase);
+        base += ARM_L1_SECTION_BYTES;
+        vbase += ARM_L1_SECTION_BYTES;
     }
 
     // Activate new page tables
-    cp15_write_ttbr1((lpaddr_t)aligned_boot_l1_high);
-    cp15_write_ttbr0((lpaddr_t)aligned_boot_l1_low);
+    cp15_write_ttbr1(l1_high_aligned);
+    cp15_write_ttbr0(l1_low_aligned);
 }
 
 void kernel_startup_early(void)
