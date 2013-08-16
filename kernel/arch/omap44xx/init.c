@@ -198,24 +198,21 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
             local_phys_to_mem(glbl_core_data->mmap_addr);
 
         paging_arm_reset(mmap->base_addr, mmap->length);
-        printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n",
-               mmap->base_addr, mmap->length);
+        //printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n", mmap->base_addr, mmap->length);
     } else {
         panic("need multiboot MMAP\n");
     }
 
     exceptions_init();
 
-    printf("invalidate cache\n");
+    //printf("invalidate cache\n");
     cp15_invalidate_i_and_d_caches_fast();
-
-    printf("invalidate TLB\n");
+    //printf("invalidate TLB\n");
     cp15_invalidate_tlb();
 
-    printf("startup_early\n");
-
+    //printf("startup_early\n");
     kernel_startup_early();
-    printf("kernel_startup_early done!\n");
+    //printf("kernel_startup_early done!\n");
 
     //initialize console
     serial_init(serial_console_port);
@@ -230,8 +227,10 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
             printf("Failed to initialize debug port: %d", serial_debug_port);
     }
 
-    my_core_id = hal_get_cpu_id();
-    printf("cpu id %d\n", my_core_id);
+    if (my_core_id != hal_get_cpu_id()) {
+        printf("** setting my_core_id (="PRIuCOREID") to match hal_get_cpu_id() (=%u)\n");
+        my_core_id = hal_get_cpu_id();
+    }
 
     // Test MMU by remapping the device identifier and reading it using a
     // virtual address
@@ -416,14 +415,16 @@ void arch_init(void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR"\n", 
-	   local_phys_to_mem((uint32_t)&kernel_first_byte));
+    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
+            local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
 
-    print_system_identification();
-    size_ram();
-    
-    if (1) {
-	set_leds();
+    if (hal_cpu_is_bsp()) {
+        print_system_identification();
+        size_ram();
+    }
+
+    if (0) {
+        set_leds();
     }
 
     paging_init();

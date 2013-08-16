@@ -130,9 +130,9 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
-            "0x%"PRIxLPADDR".\n",
-            (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
+    //printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
+    //        "0x%"PRIxLPADDR".\n",
+    //        (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
     paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
             device_base);
