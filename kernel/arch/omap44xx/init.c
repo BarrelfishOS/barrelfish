@@ -31,6 +31,7 @@
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
+#include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -191,16 +192,16 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 {
     errval_t errval;
 
-    // Map-out low memory
-    if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
-
+    if ((glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)) {
+        // BSP core: set final page tables
         struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
             local_phys_to_mem(glbl_core_data->mmap_addr);
-
         paging_arm_reset(mmap->base_addr, mmap->length);
         //printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n", mmap->base_addr, mmap->length);
     } else {
-        panic("need multiboot MMAP\n");
+        // AP core
+        //  FIXME: Not sure what to do, so map the whole memory for now
+        paging_arm_reset(PHYS_MEMORY_START, 0x40000000);
     }
 
     exceptions_init();
@@ -270,10 +271,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     enable_cycle_counter_user_access();
     reset_cycle_counter();
 #endif
-
-    // tell BSP that we are started up
-    // XXX NYI: See Section 27.4.4 in the OMAP44xx manual for how this
-    // should work. 
 
     arm_kernel_startup();
 }
@@ -380,19 +377,16 @@ static void set_leds(void)
  */
 void arch_init(void *pointer)
 {
-    struct arm_coredata_elf *elf = NULL;
 
     serial_early_init(serial_console_port);
 
-    if(hal_cpu_is_bsp())
-    {
-        struct multiboot_info *mb = (struct multiboot_info *)pointer;
-        elf = (struct arm_coredata_elf *)&mb->syms.elf;
-    	memset(glbl_core_data, 0, sizeof(struct arm_core_data));
-    	glbl_core_data->start_free_ram =
-    	                ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte),
-    	                         BASE_PAGE_SIZE);
+    if (hal_cpu_is_bsp()) {
+        struct multiboot_info *mb = pointer;
 
+        memset(glbl_core_data, 0, sizeof(struct arm_core_data));
+
+        size_t max_addr = max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte);
+        glbl_core_data->start_free_ram = ROUND_UP(max_addr, BASE_PAGE_SIZE);
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;
         glbl_core_data->cmdline = mb->cmdline;
@@ -401,17 +395,28 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
-    }
-    else
-    {
-    	global = (struct global *)GLOBAL_VBASE;
-    	memset(&global->locks, 0, sizeof(global->locks));
-    	struct arm_core_data *core_data =
-    			(struct arm_core_data*)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
-    	glbl_core_data = core_data;
-    	glbl_core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
-    	my_core_id = core_data->dst_core_id;
-    	elf = &core_data->elf;
+    } else {
+        global = (struct global *)GLOBAL_VBASE;
+        // zeroing locks for the app core seems bogus to me --AKK
+        //memset(&global->locks, 0, sizeof(global->locks));
+
+        // our core data (struct arm_core_data) is placed one page before the
+        // first byte of the kernel image
+        glbl_core_data = (struct arm_core_data *)
+                            ((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+        glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
+        my_core_id = glbl_core_data->dst_core_id;
+
+        // tell BSP that we are started up
+        // See Section 27.4.4 in the OMAP44xx manual for how this should work.
+        // we do this early, to avoid having to map the registers
+        lpaddr_t aux_core_boot_0 = AUX_CORE_BOOT_0;
+        lpaddr_t ap_wait = AP_WAIT_PHYS;
+
+        *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
+        //__sync_synchronize();
+        *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
+
     }
 
     // XXX: print kernel address for debugging with gdb
