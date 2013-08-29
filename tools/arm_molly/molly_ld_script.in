@@ -56,7 +56,13 @@ SECTIONS {
                . = ALIGN(4k);
                *(.rodata16); 
         }
-
+        . = ALIGN(4k);
+        //address will be put into molly_init, if heteropanda option has been specified
+        _start_slave = .;
+        .slave_image . : {//heteropanda_slave image, for running on a cortex-m3
+               *(.rodata_thumb);
+        }
+        
         .bss . :
         {
                 *(.bss);

@@ -22,6 +22,7 @@ MAKEFLAGS=r
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
+ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -564,11 +565,11 @@ arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
 #######################################################################
 #
 # Pandaboard build for the armv7-M slave image (to be used in conjunction with a master image)
-# (basically a normap pandaboard_image, but compiled for the cortex-m3)
+# (basically a normal pandaboard_image, but compiled for the cortex-m3)
 #
 #######################################################################
 
-HETEROPANDA_MODULES=\
+HETEROPANDA_SLAVE_MODULES=\
 	armv7-m/sbin/cpu_omap44xx \
 	armv7-m/sbin/init \
 	armv7-m/sbin/mem_serv \
@@ -582,7 +583,7 @@ HETEROPANDA_MODULES=\
 menu.lst.armv7-m: $(SRCDIR)/hake/menu.lst.armv7-m
 	cp $< $@
 
-heteropanda_slave: $(HETEROPANDA_MODULES) \
+heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 		tools/bin/arm_molly \
 		menu.lst.armv7-m
 	# Translate each of the binary files we need
@@ -612,3 +613,57 @@ heteropanda_slave: $(HETEROPANDA_MODULES) \
 		-o heteropanda_slave
 	@echo "OK - heteropanda slave image is built."
 	@echo "you can now use this image to link into a regular pandaboard image"
+
+
+
+
+#######################################################################
+#
+# Pandaboard build for the heteropanda_master:
+# basically a regular pandaboard_image, except that it contains
+# a heteropanda_slave image, and arm_molly is called with -DHETEROPANDA
+#
+#######################################################################
+
+	
+
+heteropanda_master_image: $(PANDABOARD_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.pandaboard \
+		heteropanda_slave \
+		$(SRCDIR)/tools/arm_molly/molly_ld_script.in
+	# Translate each of the binary files we need
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
+	# Generate appropriate linker script
+	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
+		molly_panda/molly_ld_script
+		
+	# HETEROPANDA: convert slave image into a form we can insert in our image
+	$(ARM_OBJCOPY) -I binary -O elf32-littlearm -B arm --rename-section \
+	    .data=.rodata_thumb,alloc,load,readonly,data,contents heteropanda_slave \
+	    molly_panda/heteropanda_slave
+
+	# Build a C file to link into a single image for the 2nd-stage
+	# bootloader
+	tools/bin/arm_molly menu.lst.pandaboard panda_mbi.c
+	# Compile the complete boot image into a single executable
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+		-nostdlib -march=armv7-a -mcpu=cortex-a9 -mapcs -fno-unwind-tables \
+		-Tmolly_panda/molly_ld_script \
+		-I$(SRCDIR)/include \
+		-I$(SRCDIR)/include/arch/arm \
+		-I./armv7/include \
+		-I$(SRCDIR)/include/oldc \
+		-I$(SRCDIR)/include/c \
+		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
+		$(SRCDIR)/tools/arm_molly/molly_boot.S \
+		$(SRCDIR)/tools/arm_molly/molly_init.c \
+		$(SRCDIR)/tools/arm_molly/lib.c \
+		./panda_mbi.c \
+		$(SRCDIR)/lib/elf/elf32.c \
+		./molly_panda/* \
+		-DHETEROPANDA \
+		-o heteropanda_master_image
+	@echo "OK - heteropanda_master_image is built."
+	@echo "If your boot environment is correctly set up, you can now:"
+	@echo "$ usbboot ./heteropanda_master_image"

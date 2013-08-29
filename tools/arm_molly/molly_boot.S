@@ -24,7 +24,7 @@
  * r4 GIC address
  * r5 flag register address
  */
-
+    .syntax unified
 	.text
 //	.arm    //interferes with thumb code
 	.globl	molly_start, molly_to_kernel_transition
@@ -36,8 +36,8 @@
         // C entry point in molly_init.c
 molly_start:
 	ldr		r6, =molly_kernel_stack
-	addw	r6, r6, #2048//done in two steps to make sure it is thumb-compatible
-	addw    r6, r6, #2048
+	add	    r6, r6, #2048//done in two steps to make sure it is thumb-compatible
+	add     r6, r6, #2048
 	mov     sp, r6
 	b		molly_init
 

@@ -357,6 +357,7 @@ let
                 "arch/omap44xx/omap_uart.c", 
                 "arch/omap44xx/start_aps.c",
                 "arch/omap44xx/spinlock.c", 
+                "arch/omap44xx/cortexm3_heteropanda.c", --will be empty if heteropanda = False
                 "arch/armv7/kputchar.c"],
      mackerelDevices = [ "arm", 
                          "arm_icp_pit", 
@@ -368,6 +369,7 @@ let
                          "omap/omap44xx_id", 
                          "omap/omap44xx_emif",
                          "omap/omap44xx_spinlock",
+                         "omap/omap44xx_mmu",
                          "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
      },                            
