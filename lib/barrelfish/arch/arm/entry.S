@@ -19,39 +19,71 @@
 #include <barrelfish/dispatch.h>
 #include <asmoffsets.h>
 
+    .syntax unified
 	.text
+	.extern disp_run, disp_pagefault, disp_pagefault_disabled, disp_trap
 	.globl run_entry, pagefault_entry, disabled_pagefault_entry, trap_entry
 
+/*
+heteropanda: since thumb2 has a shorter branch range, I had to do long calls.
+   for some reason, putting the branches in a macro did not compile, so 
+   I put in case distinctions every time we branch (which is admittedly ugly)
+*/
+
 .macro init_sp offset
+#ifndef __thumb2__
+//normal arm operations
         ldr     r12, =(OFFSETOF_DISP_GENERIC +\offset)
         add     sp, THREAD_REGISTER, r12
+#else
+//XXX: this assumes we are allowed to clobber r3!
+        ldr     r3, =(OFFSETOF_DISP_GENERIC +\offset)
+        add     r3, THREAD_REGISTER, r3
+        mov     sp, r3
+#endif        
 .endm
+
+//since thumb2 has a shorter branch range, we have to do long calls
+.macro branch target
+#ifndef __thumb2__
+//normal arm operations
+        b   \target
+#else
+        ldr     r3, =(\target)
+        bx      r3
+#endif  
+.endm
+        
         
 //
 // void run_entry(struct disp_priv* p)
 //        
 run_entry:
-        init_sp OFFSETOF_DISP_PRIV_STACK_LIMIT
-        mov     r0, r9
-        b       disp_run
+        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
+        mov          r0, r9
+        branch       disp_run
+
 
 //
 // void pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
 //
 pagefault_entry:
-        init_sp OFFSETOF_DISP_PRIV_STACK_LIMIT
-        b       disp_pagefault
+        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
+        branch       disp_pagefault
+
 
 //
 // void disabled_pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
 //
 disabled_pagefault_entry:
-        init_sp OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
-        b       disp_pagefault_disabled
+        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+        branch       disp_pagefault_disabled
+
 
 //
 // void trap_entry(disp ptr, uintptr_t irq, uintptr_t error, vaddr_t pc)
 //
 trap_entry:
-        init_sp OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
-        b       disp_trap
+        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+        branch       disp_trap
+

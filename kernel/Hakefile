@@ -370,6 +370,42 @@ let
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
-     }                            
-  
+     },                            
+  --
+  -- Broadcom OMAP44xx-series dual-core Cortex-M3 Coprocessor,
+  -- used to run a heterogenous system on the pandaboard 
+  --
+
+  cpuDriver {
+     target = "omap44xx",
+     architectures = [ "armv7-m" ],
+     assemblyFiles = [ "arch/armv7-m/boot.S",
+                       "arch/armv7-m/exceptions.S" ],
+     cFiles = [ 
+                "arch/armv7-m/exec.c", 
+                "arch/arm/misc.c", 
+                "arch/armv7-m/exn.c", 
+                "arch/arm/phys_mmap.c",
+                "arch/armv7/kludges.c", 
+                "arch/armv7/multiboot.c", 
+                "arch/armv7/syscall.c", 
+                "arch/armv7-m/init.c", 
+                "arch/armv7-m/omap.c", 
+                "arch/armv7-m/paging.c", 
+                "arch/omap44xx/startup_arch.c", 
+                "arch/omap44xx/omap_uart.c", 
+--                "arch/omap44xx/start_aps.c", 
+                "arch/armv7/kputchar.c", 
+                "arch/omap44xx/spinlock.c"
+                ],
+     mackerelDevices = [ "arm", 
+                         "omap/omap44xx_cortex_m3_nvic", 
+                         "omap/omap_uart", 
+                         "omap/omap44xx_id", 
+                         "omap/omap44xx_emif",
+                         "omap/omap44xx_gpio",
+                         "omap/omap44xx_mmu",
+                         "omap/omap44xx_spinlock"],
+     addLibraries = [ "elf", "cpio" ]
+     }
   ]

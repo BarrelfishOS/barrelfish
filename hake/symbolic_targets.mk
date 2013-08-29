@@ -560,3 +560,55 @@ arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(ARM_FLAGS) --cpu-type=arm_detailed
 
 .PHONY: arm_gem5_mc arm_gem5 arm_gem5_detailed arm_gem5_detailed
+
+#######################################################################
+#
+# Pandaboard build for the armv7-M slave image (to be used in conjunction with a master image)
+# (basically a normap pandaboard_image, but compiled for the cortex-m3)
+#
+#######################################################################
+
+HETEROPANDA_MODULES=\
+	armv7-m/sbin/cpu_omap44xx \
+	armv7-m/sbin/init \
+	armv7-m/sbin/mem_serv \
+	armv7-m/sbin/monitor \
+	armv7-m/sbin/ramfsd \
+	armv7-m/sbin/spawnd \
+	armv7-m/sbin/startd \
+	armv7-m/sbin/skb \
+	armv7-m/sbin/memtest
+
+menu.lst.armv7-m: $(SRCDIR)/hake/menu.lst.armv7-m
+	cp $< $@
+
+heteropanda_slave: $(HETEROPANDA_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.armv7-m
+	# Translate each of the binary files we need
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.armv7-m molly_panda
+	# Generate appropriate linker script
+	cpp -P -DBASE_ADDR=0x0 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
+		molly_panda/molly_ld_script
+	# Build a C file to link into a single image for the 2nd-stage
+	# bootloader
+	tools/bin/arm_molly menu.lst.armv7-m panda_mbi.c
+	# Compile the complete boot image into a single executable
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+		-nostdlib -march=armv7-m -mcpu=cortex-m3 -mthumb -mapcs -fno-unwind-tables \
+		-Tmolly_panda/molly_ld_script \
+		-I$(SRCDIR)/include \
+		-I$(SRCDIR)/include/arch/arm \
+		-I./armv7-m/include \
+		-I$(SRCDIR)/include/oldc \
+		-I$(SRCDIR)/include/c \
+		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
+		$(SRCDIR)/tools/arm_molly/molly_boot.S \
+		$(SRCDIR)/tools/arm_molly/molly_init.c \
+		$(SRCDIR)/tools/arm_molly/lib.c \
+		./panda_mbi.c \
+		$(SRCDIR)/lib/elf/elf32.c \
+		./molly_panda/* \
+		-o heteropanda_slave
+	@echo "OK - heteropanda slave image is built."
+	@echo "you can now use this image to link into a regular pandaboard image"

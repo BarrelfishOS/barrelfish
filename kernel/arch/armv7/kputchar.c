@@ -15,7 +15,7 @@
 
 #include <serial.h>
 #include <kputchar.h>
-#include <arch/armv7/global.h>
+#include <global.h>
 
 #ifdef __pandaboard__   //use the spinlock module
 #include <spinlock.h>

@@ -21,6 +21,8 @@
 #include <target/arm/barrelfish_kpi/paging_arm_v5.h>
 #elif defined(__ARM_ARCH_7A__)
 #include <target/arm/barrelfish_kpi/paging_arm_v7.h>
+#elif defined(__ARM_ARCH_7M__)
+#include <target/arm/barrelfish_kpi/paging_arm_v7m.h>
 #else
 #error "Missing ARM Paging header file"
 #endif

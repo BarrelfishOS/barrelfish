@@ -40,6 +40,9 @@ void sys_syscall_kernel(void)
 struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                                      genvaddr_t entry)
 {
+#ifdef __ARM_ARCH_7M__
+printf("armv7-m can not spawn new cores yet");
+#else
 	int r;
 	switch(cpu_type) {
 	case CPU_ARM:
@@ -54,7 +57,7 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
         return SYSRET(SYS_ERR_CORE_NOT_FOUND);
         break;
 	}
-
+#endif //defined(__ARM_ARCH_7M__)
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -467,19 +470,30 @@ static struct sysret handle_irq_table_set( struct capability* to,
         int argc
         )
 {
+#ifdef __ARM_ARCH_7M__
+    printf("armv7-m can not handle userspace IRQs yet\n");
+    return SYSRET(SYS_ERR_IRQ_INVALID);
+#else
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     return SYSRET(irq_table_set(sa->arg2, sa->arg3));
+#endif
 }
+
 
 static struct sysret handle_irq_table_delete( struct capability* to,
         arch_registers_state_t* context,
         int argc
         )
 {
+#ifdef __ARM_ARCH_7M__
+    printf("armv7-m can not handle userspace IRQs yet\n");
+    return SYSRET(SYS_ERR_IRQ_INVALID);
+#else
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     return SYSRET(irq_table_delete(sa->arg2));
+#endif
 }
 
 
