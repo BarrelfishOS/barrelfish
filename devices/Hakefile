@@ -77,7 +77,8 @@
            "omap/omap44xx_ckgen_cm2",
            "omap/omap44xx_l4per_cm2",
            "omap/omap44xx_sysctrl_padconf_core",
-           "omap/omap44xx_spinlock"
+           "omap/omap44xx_spinlock",
+           "omap/omap44xx_cortex_m3_nvic"
          ], arch <- allArchitectures
 ] ++
 
