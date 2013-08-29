@@ -17,6 +17,11 @@
 #include <kputchar.h>
 #include <arch/armv7/global.h>
 
+#ifdef __pandaboard__   //use the spinlock module
+#include <spinlock.h>
+#endif
+
+
 #define KPBUFSZ 256
 static char kputbuf[KPBUFSZ];
 static int kcount = 0;
@@ -30,7 +35,11 @@ static void kflush(void)
 
 void kprintf_begin(void)
 {
+#ifdef __pandaboard__   //use hardware spinlock module
+    spinlock_aquire(PRINTF_LOCK);
+#else
 	//acquire_spinlock(&global->locks.print);
+#endif	
 	kcount = 0;
 }
 
@@ -45,7 +54,11 @@ int kputchar(int c)
 void kprintf_end(void)
 {
     kflush();
+#ifdef __pandaboard__   //use hardware spinlock module
+    spinlock_release(PRINTF_LOCK);
+#else
     //release_spinlock(&global->locks.print);
+#endif
 }
 
 // End

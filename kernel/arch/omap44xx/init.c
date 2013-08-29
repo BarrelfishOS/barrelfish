@@ -22,6 +22,7 @@
 #include <paging_kernel_arch.h>
 #include <phys_mmap.h>
 #include <serial.h>
+#include <spinlock.h>
 #include <stdio.h>
 #include <arm_hal.h>
 #include <getopt/getopt.h>
@@ -217,6 +218,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
 
     //initialize console
     serial_init(serial_console_port);
+    spinlock_init();
 
     printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
            " Board id 0x%08"PRIx32"\n", hal_get_board_id());
@@ -379,6 +381,7 @@ void arch_init(void *pointer)
 {
 
     serial_early_init(serial_console_port);
+    spinlock_early_init();//from here on we can safely use printf
 
     if (hal_cpu_is_bsp()) {
         struct multiboot_info *mb = pointer;

@@ -355,7 +355,8 @@ let
                 "arch/omap44xx/paging.c", 
                 "arch/omap44xx/startup_arch.c", 
                 "arch/omap44xx/omap_uart.c", 
-                "arch/omap44xx/start_aps.c", 
+                "arch/omap44xx/start_aps.c",
+                "arch/omap44xx/spinlock.c", 
                 "arch/armv7/kputchar.c"],
      mackerelDevices = [ "arm", 
                          "arm_icp_pit", 
@@ -366,6 +367,7 @@ let
                          "omap/omap_uart", 
                          "omap/omap44xx_id", 
                          "omap/omap44xx_emif",
+                         "omap/omap44xx_spinlock",
                          "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
      }                            
