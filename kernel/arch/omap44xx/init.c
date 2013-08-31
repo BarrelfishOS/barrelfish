@@ -409,8 +409,8 @@ void arch_init(void *pointer)
         //just write the address into multiboot_info->mem_lower (which is otherwise unused)
         void* start_slave = (void*) (mb->mem_lower);
         prepare_and_start_m3(start_slave);    
-        printf("entering endless loop so the M3 can work unhindered.\n");
-        while(1){}
+        //printf("entering endless loop so the M3 can work unhindered.\n");
+        //while(1){}
 #endif  //HETEROPANDA
 
     } else {

@@ -625,15 +625,16 @@ heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 #
 #######################################################################
 
-	
+menu.lst.heteropanda_master: $(SRCDIR)/hake/menu.lst.heteropanda_master
+	cp $< $@	
 
 heteropanda_master_image: $(PANDABOARD_MODULES) \
 		tools/bin/arm_molly \
-		menu.lst.pandaboard \
+		menu.lst.heteropanda_master \
 		heteropanda_slave \
 		$(SRCDIR)/tools/arm_molly/molly_ld_script.in
 	# Translate each of the binary files we need
-	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.pandaboard molly_panda
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.heteropanda_master molly_panda
 	# Generate appropriate linker script
 	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_panda/molly_ld_script
@@ -645,7 +646,7 @@ heteropanda_master_image: $(PANDABOARD_MODULES) \
 
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
-	tools/bin/arm_molly menu.lst.pandaboard panda_mbi.c
+	tools/bin/arm_molly menu.lst.heteropanda_master panda_mbi.c
 	# Compile the complete boot image into a single executable
 	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-a -mcpu=cortex-a9 -mapcs -fno-unwind-tables \

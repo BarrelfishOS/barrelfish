@@ -28,5 +28,5 @@ module /armv7-m/sbin/startd boot
 
 module /armv7-m/sbin/memtest
 
-# For pandaboard, use following values.
-mmap map 0x80000000 0x40000000 1
+# start at 0x90000000, because 0xA0000000 is statically marked as no-execute
+mmap map 0x90000000 0x30000000 1
