@@ -587,17 +587,17 @@ heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 		tools/bin/arm_molly \
 		menu.lst.armv7-m
 	# Translate each of the binary files we need
-	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.armv7-m molly_panda
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.armv7-m molly_panda_slave
 	# Generate appropriate linker script
 	cpp -P -DBASE_ADDR=0x0 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
-		molly_panda/molly_ld_script
+		molly_panda_slave/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
-	tools/bin/arm_molly menu.lst.armv7-m panda_mbi.c
+	tools/bin/arm_molly menu.lst.armv7-m panda_mbi_slave.c
 	# Compile the complete boot image into a single executable
 	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-m -mcpu=cortex-m3 -mthumb -mapcs -fno-unwind-tables \
-		-Tmolly_panda/molly_ld_script \
+		-Tmolly_panda_slave/molly_ld_script \
 		-I$(SRCDIR)/include \
 		-I$(SRCDIR)/include/arch/arm \
 		-I./armv7-m/include \
@@ -607,9 +607,9 @@ heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 		$(SRCDIR)/tools/arm_molly/molly_boot.S \
 		$(SRCDIR)/tools/arm_molly/molly_init.c \
 		$(SRCDIR)/tools/arm_molly/lib.c \
-		./panda_mbi.c \
+		./panda_mbi_slave.c \
 		$(SRCDIR)/lib/elf/elf32.c \
-		./molly_panda/* \
+		./molly_panda_slave/* \
 		-o heteropanda_slave
 	@echo "OK - heteropanda slave image is built."
 	@echo "you can now use this image to link into a regular pandaboard image"
