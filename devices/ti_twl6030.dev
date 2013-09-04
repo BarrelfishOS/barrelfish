@@ -114,6 +114,12 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         vsel 5 type(vsel) "Voltage to apply";
     };
 
+    regtype cfg_voltage2 "Voltage configuration" {
+        wr_s 1 type(wr) "Warm reset sensitivity";
+        _    1 rsvd;
+        vsel 6 "Voltage to apply";
+    };
+
     register mmcctrl id1(0xEE) "MMCCTRL" {
         _               4 rsvd;
         vmmc_auto_off   1 "Is the regulator turned off automatically in case card is extracted?";
@@ -127,6 +133,8 @@ device ti_twl6030 msbfirst (addr b) "TI TWL6030 Power Companion (via I2C)" {
         mins_deb        4 "Card insertion debouncing time";
         mext_deb        3 "Card extraction debouncing time";
     };
+
+    register vcore_cfg_voltage id1(0x62) "VCORE3 Config Voltage" type(cfg_voltage2);
 
     // VMMC registers
     // Table 152
