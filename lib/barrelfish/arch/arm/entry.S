@@ -24,11 +24,8 @@
 	.extern disp_run, disp_pagefault, disp_pagefault_disabled, disp_trap
 	.globl run_entry, pagefault_entry, disabled_pagefault_entry, trap_entry
 
-/*
-heteropanda: since thumb2 has a shorter branch range, I had to do long calls.
-   for some reason, putting the branches in a macro did not compile, so 
-   I put in case distinctions every time we branch (which is admittedly ugly)
-*/
+//since thumb2 has a shorter branch range and can not directly load values into
+//high registers, we have to clobber one of the registers for that. 
 
 .macro init_sp offset
 #ifndef __thumb2__

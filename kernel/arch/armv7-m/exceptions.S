@@ -76,7 +76,7 @@ got_for_handler_mode:
         //
 exceptions_early_init:
         //use SVcall, because this is always enabled and can be triggered by a single instruction
-        //XXX: HACK using the fact that whatever vector table we are currently using, 
+        //XXX: using the fact that whatever vector table we are currently using, 
         //it will be mapped to address 0
         mov		r2, #0			            // base of vectortable, where the handler will be stored
         mov     r0, # ARM_7M_EVECTOR_SVCALL
@@ -114,16 +114,16 @@ exceptions_init:
         ldr     r1, =vectortable
 $exceptions_install_handlers:
         mov     r0, # ARM_7M_EVECTOR_MEM
-        ldr     r1, =generic_irq_handler                //needs work
+        ldr     r1, =pagefault_handler
         bl      exceptions_install_handler
         mov     r0, # ARM_7M_EVECTOR_BUS
-        ldr     r1, =generic_irq_handler               //needs work
+        ldr     r1, =pagefault_handler
         bl      exceptions_install_handler
         mov     r0, # ARM_7M_EVECTOR_SYSTICK
         ldr     r1, =generic_irq_handler
         bl      exceptions_install_handler
         mov     r0, # ARM_7M_EVECTOR_USAGE
-        ldr     r1, =generic_irq_handler              
+        ldr     r1, =usagefault_handler              
         bl      exceptions_install_handler
         mov     r0, # ARM_7M_EVECTOR_SVCALL
         ldr     r1, =swi_handler
@@ -257,13 +257,13 @@ null_handler:
 /*
  * void generic_irq_handler(void)
  *
- * handler for pretty much any IRQ we get, except system calls (as those take arguments)
+ * handler for pretty much any IRQ we get, except system calls (as those take arguments),
+ * and traps (or rather, what the dispatcher would see as traps -- pagefaults, usage faults)
  * checks if we interrupted userspace or kernelspace,
  * reads out IRQ number,
  * calls a handler that does the case distinction in C
  */
 generic_irq_handler:
-    mrs     r0, IPSR            //what IRQ are we currently handling
     and     r1, lr, #8          // r1 is now 0 if we come from handler mode
     cbnz    r1, generic_irq_handler_user //compares without changing condition flags
     
@@ -281,15 +281,75 @@ generic_irq_handler_user:
     cmp     r1, #0
     ITe     eq    
     addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    addne   r1, r2, #OFFSETOF_DISP_DISABLED_AREA
     save_context r1, r3, r2                     // r1 = save area
     init_handler_pic_register     //only set after saving context
+    mrs     r0, IPSR            //what IRQ are we currently handling
     ldr     r3, =handle_irq
     bx      r3
 
-
-
+/*
+ * void pagefault_handler(void)
+ *
+ * handler just for pagefaults (which in this case are bus faults or mem faults)
+ */
+pagefault_handler:
+    and     r1, lr, #8          // r1 is now 0 if we come from handler mode
+    cbnz    r1, pagefault_handler_user //compares without changing condition flags
     
+pagefault_handler_kernel:
+    mov     r2, sp          //place where pushed registers start
+    ldr     r1, [sp, #(PC_REG_PUSHED * 4)]   //this should be where the pushed pc ends up
+    ldr     r3, =fatal_kernel_fault
+    bx      r3
+pagefault_handler_user:
+    init_handler_stack
+    get_dispatcher_shared_arm r2
+    mrs     r0, PSP
+    ldr     r0, [r0, #(PC_REG_PUSHED*4)]    // r0 = faulting pc
+    disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
+    cmp     r1, #0
+    ITe     eq    
+    addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
+    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    save_context r1, r3, r2                     // r1 = save area
+    mov     r0, r1                 //save area must be first argument
+    init_handler_pic_register     //only set after saving context
+    ldr     r3, =handle_user_page_fault
+    bx      r3
+
+/*
+ * void usagefault_handler(void)
+ *
+ * handler just for usagefaults, which can be:
+ *      undefined instruction
+ *      unaligned access
+ *      division by 0
+ */
+usagefault_handler:
+    and     r1, lr, #8          // r1 is now 0 if we come from handler mode
+    cbnz    r1, usagefault_handler_user //compares without changing condition flags
+    
+usagefault_handler_kernel:
+    mov     r2, sp          //place where pushed registers start
+    ldr     r1, [sp, #(PC_REG_PUSHED * 4)]   //this should be where the pushed pc ends up
+    ldr     r3, =fatal_kernel_fault
+    bx      r3
+usagefault_handler_user:
+    init_handler_stack
+    get_dispatcher_shared_arm r2
+    mrs     r0, PSP
+    ldr     r0, [r0, #(PC_REG_PUSHED*4)]    // r0 = faulting pc
+    disp_is_disabled r2, r0, r1             // r1 = 1 if disabled, else 0
+    cmp     r1, #0
+    ITe     eq    
+    addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
+    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    save_context r1, r3, r2                     // r1 = save area
+    mov     r0, r1                 //save area must be first argument
+    init_handler_pic_register     //only set after saving context
+    ldr     r3, =handle_user_undef
+    bx      r3 
     
         //
         // void swi_handler(void)
@@ -325,7 +385,7 @@ swi_user:   //much like generic_irq_handler, but the save area is in r0
     cmp     r1, #0
     ITe     eq    
     addeq   r1, r2, #OFFSETOF_DISP_ENABLED_AREA
-    addne   r1, r2, #OFFSETOF_DISP_TRAP_AREA
+    addne   r1, r2, #OFFSETOF_DISP_DISABLED_AREA
     save_context r1, r3, r2                     // r1 = save area
     mov     r0, r1                              //sys_syscall expects the context to be in r0
     init_handler_pic_register     //only set this after saving context!

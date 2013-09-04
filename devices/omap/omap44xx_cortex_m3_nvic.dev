@@ -39,7 +39,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
     //SysTick registers
     register SYSTICK_CTRL rw addr(base, 0x10) "SysTick control and status register"{
         _               15;
-        countflag       1       "Reads 1 if timer counted to 0 since last read. Clears on read.";
+        countflag       1  rc   "Reads 1 if timer counted to 0 since last read. Clears on read.";
         _               13;
         clksource       1       "clock source: 1 = core clock, 0 = external reference clock";
         tickint         1       "interrupt on counting to 0";
@@ -55,7 +55,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
 
     register SYSTICK_CRTV rw addr(base, 0x18) "SysTick current value register"{
         _               8;
-        current         24       "current counter value, clears on write";
+        current         24  rwc "current counter value, clears on write";
     };
 
 
@@ -63,7 +63,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
         noref           1       "no reference clock provided";
         skew            1       "calibration value not exactly 10ms because of clock frequency";
         _               6;
-        tenms           24       "reload value for 10ms timing. 0 = value not known";
+        tenms           24      "reload value for 10ms timing. 0 = value not known";
     };
     
     
@@ -186,7 +186,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
     }; 
 
 
-   register CFSR rw addr(base, 0xD28) "Configurable Fault Status register"{//write-1-to-clear
+   register CFSR rwc addr(base, 0xD28) "Configurable Fault Status register"{
         _               6;
         divbyzero       1       "attempted division by 0 while div_by_zero enabled.";
         unaligned       1       "attempted unaligned access while unaligned_trp enabled";
@@ -211,7 +211,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
         iaccviol        1       "instruction access violation (such as trying to execute from a XN region). does not set MMAR";
     }; 
 
-   register HFSR rw addr(base, 0xD2C) "Hard Fault Status register"{//write-1-to-clear
+   register HFSR rwc addr(base, 0xD2C) "Hard Fault Status register"{
         debugevt        1       "debug related fault";
         forced          1       "configurable fault triggered but disabled or too low priority";
         _               28;
@@ -219,7 +219,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
         _               1;
     }; 
     
-   register DFSR rw addr(base, 0xD30) "Debug Fault Status register"{//write-1-to-clear
+   register DFSR rwc addr(base, 0xD30) "Debug Fault Status register"{
         _               27;
         external        1       "external debug request flag";
         vcatch          1       "vector catch flag";
@@ -237,7 +237,7 @@ device omap44xx_cortex_m3_nvic msbfirst (addr base)
     }; 
     
     
-   register AFSR rw addr(base, 0xD3C) "Auxiliary Fault Status register"{//write-1-to-clear
+   register AFSR rwc addr(base, 0xD3C) "Auxiliary Fault Status register"{
         impdef          32      "implementation defined. maps directly to AUXFAULT input signals";
     }; 
     

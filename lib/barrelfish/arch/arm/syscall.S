@@ -65,7 +65,7 @@ swi_done:
         str     r1, [r3, #4]
         pop {r11}
 
-        pop {r3} // Using r3 to tempararily hold the value of sp register
+        pop {r3} // Using r3 to temporarily hold the value of sp register
                  // Warning: Assuming that clobbering r3 is OK!
         pop {lr} // Return address where we have to return
         mov sp, r3  // Restoring sp from r3 now.

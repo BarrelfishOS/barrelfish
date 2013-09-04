@@ -48,15 +48,13 @@ void exceptions_init(void);
 /**
  * Handle page fault in user-mode process.
  */
-void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* saved_context)
+void handle_user_page_fault(arch_registers_state_t* saved_context)
     __attribute__((noreturn));
 
 /**
  * Handle undefined instruction fault in user-mode process.
  */
-void handle_user_undef(lvaddr_t                fault_address,
-                       arch_registers_state_t* saved_context)
+void handle_user_undef(arch_registers_state_t* saved_context)
     __attribute__((noreturn));
 
 /**

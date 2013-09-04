@@ -23,9 +23,82 @@
 
 //TODO: heteropanda: actually handle the interrupts, instead of aborting
 
-void handle_user_page_fault(lvaddr_t                fault_address,
-                            arch_registers_state_t* save_area)
+/*
+ * Try to find out what address generated page fault, and then tell the dispatcher what
+ * happened. Some faults will not be recoverable (e.g. stack faults), because the 
+ * context has already been lost
+ */
+void handle_user_page_fault(arch_registers_state_t* save_area)
 {
+    lvaddr_t fault_address;//not passed as argument, because there is not just one place to look
+ /*   
+    //print out registers for debugging
+    printf("page fault. registers:\n");
+    for(uint32_t i = 0; i<NUM_REGS; i++){
+        printf("0x%x\n", save_area->regs[i]);
+    }
+    uint32_t regval;
+    __asm volatile ("mrs %[regval], xpsr" : [regval] "=r"(regval));
+    printf("current XPSR register: 0x%x\n", regval);
+    
+    printf("M3 MMU address: 0x%x\n", *((uint32_t*) &mmu));
+    printf("M3 MMU_FAULT_AD register: 0x%x\n", omap44xx_mmu_fault_ad_rd(&mmu));
+    printf("M3 MMU_FAULT_STATUS register: 0x%x\n", omap44xx_mmu_fault_status_rd(&mmu));
+    printf("M3 MMU_FAULT_PC register: 0x%x\n", omap44xx_mmu_fault_pc_rd(&mmu));
+    printf("M3 MMU_IRQSTATUS register: 0x%x\n", omap44xx_mmu_irqstatus_rd(&mmu));
+    
+    printf("ICTR: 0x%x\n", omap44xx_cortex_m3_nvic_ICTR_rd(&nvic));
+    printf("CPUID_BASE: 0x%x\n", omap44xx_cortex_m3_nvic_CPUID_BASE_rd(&nvic));
+    printf("ICSR: 0x%x\n", omap44xx_cortex_m3_nvic_ICSR_rd(&nvic));
+    printf("VTOR: 0x%x\n", omap44xx_cortex_m3_nvic_VTOR_rd(&nvic));
+    printf("AIRCR: 0x%x\n", omap44xx_cortex_m3_nvic_AIRCR_rd(&nvic));
+    printf("CCR: 0x%x\n", omap44xx_cortex_m3_nvic_CCR_rd(&nvic));
+    printf("SHCSR: 0x%x\n", omap44xx_cortex_m3_nvic_SHCSR_rd(&nvic));
+    printf("CFSR: 0x%x\n", omap44xx_cortex_m3_nvic_CFSR_rd(&nvic));
+    printf("BFAR: 0x%x\n", omap44xx_cortex_m3_nvic_BFAR_rd(&nvic));
+    printf("SYSTICK_CTRL: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CTRL_rd(&nvic));
+    printf("SYSTICK_CALV: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CALV_rd(&nvic));
+  */ 
+    if (omap44xx_cortex_m3_nvic_SHCSR_busfaultact_rdf(&nvic)){
+        //triggered by bus fault    
+        if (omap44xx_mmu_irqstatus_rd(&mmu)){
+            //L2 MMU triggered fault: either no valid mapping, or two mappings in TLB
+            //XXX: cachemarker: once we have chaching enabled, this is the place to
+            //look at table entry for special permission bits.
+            
+            //XXX: MMU_FAULT_ADDR register seems to just contain the last address that was
+            //requested. By this time this is probably just a kernelspace address.
+            //I am not sure if the M3 can actually find out what the faulting address really was
+            fault_address = omap44xx_mmu_fault_ad_rd(&mmu);
+        }
+        else{
+            //"regular" bus fault -> look in NVIC entries
+            if (omap44xx_cortex_m3_nvic_CFSR_bfarvalid_rdf(&nvic)){
+                //bus fault address register valid
+                fault_address = omap44xx_cortex_m3_nvic_BFAR_rd(&nvic);
+            }
+            else{
+                //one of the bus faults that do not write the BFAR -> faulting address
+                //literally unknown to system
+                printk(LOG_WARN, "user bus fault with unknown faulting address\n");
+                fault_address = (lvaddr_t) NULL;
+            }
+        }
+    }
+    else{
+        //memory management fault (probably access violation)
+        if (omap44xx_cortex_m3_nvic_CFSR_mmarvalid_rdf(&nvic)){
+            //MMAR contains faulting address
+            fault_address = omap44xx_cortex_m3_nvic_MMAR_rd(&nvic);
+        }
+        else{
+            //MMAR not written. probably executing in noexecute region
+            assert(omap44xx_cortex_m3_nvic_CFSR_iaccviol_rdf(&nvic));
+            //so we can assume the pc caused the fault
+            fault_address = save_area->named.pc;
+        }
+    }
+    
     lvaddr_t handler;
     struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
     uintptr_t saved_pc = save_area->named.pc;
@@ -58,21 +131,17 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         dispatch(schedule());
     }
     else {
-        //
         // Upcall to dispatcher
-        //
-        // NB System might be cleaner with a prototype
-        // dispatch context that has R0-R3 to be overwritten
-        // plus initial stack, thread, and gic registers. Could do
-        // a faster resume_for_upcall().
-        //
+
 
         struct dispatcher_shared_generic *disp_gen =
             get_dispatcher_shared_generic(dcb_current->disp);
 
         union registers_arm resume_area;
 
-        //resume_area.named.xpsr = ?? //since the mode is not encoded in here, we can probably just ignore this
+        //make sure we do not accidentaly create an IT block when upcalling
+        resume_area.named.cpsr = 0; 
+
         resume_area.named.pc   = handler;
         resume_area.named.r0   = disp_gen->udisp;
         resume_area.named.r1   = fault_address;
@@ -80,8 +149,11 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         resume_area.named.r3   = saved_pc;
         resume_area.named.rtls = disp_gen->udisp;
         resume_area.named.r10  = disp->got_base;
-
-        // SP is set by handler routine.
+        
+        //we need some temporary stack to exit handler mode. memory in userspace would be
+        //better, but for the moment we can use this temporary region
+        resume_area.named.stack   = (uint32_t) &irq_save_pushed_area_top;
+        
 
         // Upcall user to save area
         disp->d.disabled = true;
@@ -89,9 +161,13 @@ void handle_user_page_fault(lvaddr_t                fault_address,
     }
 }
 
-void handle_user_undef(lvaddr_t fault_address,
-                       arch_registers_state_t* save_area)
+
+/*
+ * \brief handles undefined instructions, unaligned accesses and division by 0
+ */
+void handle_user_undef(arch_registers_state_t* save_area)
 {
+    lvaddr_t fault_address = save_area->named.pc;//not passed as argument
     union registers_arm resume_area;
 
     struct dispatcher_shared_arm *disp = get_dispatcher_shared_arm(dcb_current->disp);
@@ -101,20 +177,22 @@ void handle_user_undef(lvaddr_t fault_address,
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
     if (disabled) {
-        //        assert(save_area == &disp->trap_save_area);
+        assert(save_area == &disp->trap_save_area);
     }
     else {
         assert(save_area == &disp->enabled_save_area);
     }
 
-    printk(LOG_WARN, "user undef fault%s in '%.*s': IP %" PRIuPTR "\n",
+    printk(LOG_WARN, "user usage fault%s in '%.*s': IP %" PRIuPTR "\n",
            disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
 
     struct dispatcher_shared_generic *disp_gen =
         get_dispatcher_shared_generic(dcb_current->disp);
-
-    //resume_area.named.xpsr = ?? //since the mode is not encoded in here, we can probably just ignore this
+        
+        
+    //make sure we do not accidentaly create an IT block when upcalling
+    resume_area.named.cpsr = 0;
     resume_area.named.pc   = disp->d.dispatcher_trap;
     resume_area.named.r0   = disp_gen->udisp;
     resume_area.named.r1   = ARM_7M_EVECTOR_USAGE;
@@ -122,6 +200,10 @@ void handle_user_undef(lvaddr_t fault_address,
     resume_area.named.r3   = fault_address;
     resume_area.named.rtls = disp_gen->udisp;
     resume_area.named.r10  = disp->got_base;
+
+    //we need some temporary stack to exit handler mode. memory in userspace would be
+    //better, but for the moment we can use this temporary region
+    resume_area.named.stack   = (uint32_t) &irq_save_pushed_area_top;
 
     // Upcall user to save area
     disp->d.disabled = true;
@@ -149,6 +231,7 @@ static int32_t bkpt_decode(lvaddr_t fault_address)
 void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state_t* save_area
     )
 {
+//TODO: heteropanda: clean this up and print something sensible here
     int i;
     printk(LOG_PANIC, "Kernel fault at %08"PRIxLVADDR
                       " vector %08"PRIx32"\n\n", address, evector);
@@ -185,23 +268,23 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
            local_phys_to_mem((uint32_t)&kernel_first_byte) + 0x100000);
 
 
-    printf("Error registers:\n");
-    printf("M3 MMU address: 0x%x\n", *((uint32_t*) &mmu));
-    printf("M3 MMU_FAULT_AD register: 0x%x\n", omap44xx_mmu_fault_ad_rd(&mmu));
-    printf("M3 MMU_FAULT_STATUS register: 0x%x\n", omap44xx_mmu_fault_status_rd(&mmu));
-    printf("M3 MMU_IRQSTATUS register: 0x%x\n", omap44xx_mmu_irqstatus_rd(&mmu));
+    printk(LOG_PANIC,"Error registers:\n");
+    printk(LOG_PANIC,"M3 MMU address: 0x%x\n", *((uint32_t*) &mmu));
+    printk(LOG_PANIC,"M3 MMU_FAULT_AD register: 0x%x\n", omap44xx_mmu_fault_ad_rd(&mmu));
+    printk(LOG_PANIC,"M3 MMU_FAULT_STATUS register: 0x%x\n", omap44xx_mmu_fault_status_rd(&mmu));
+    printk(LOG_PANIC,"M3 MMU_IRQSTATUS register: 0x%x\n", omap44xx_mmu_irqstatus_rd(&mmu));
     
-    printf("ICTR: 0x%x\n", omap44xx_cortex_m3_nvic_ICTR_rd(&nvic));
-    printf("CPUID_BASE: 0x%x\n", omap44xx_cortex_m3_nvic_CPUID_BASE_rd(&nvic));
-    printf("ICSR: 0x%x\n", omap44xx_cortex_m3_nvic_ICSR_rd(&nvic));
-    printf("VTOR: 0x%x\n", omap44xx_cortex_m3_nvic_VTOR_rd(&nvic));
-    printf("AIRCR: 0x%x\n", omap44xx_cortex_m3_nvic_AIRCR_rd(&nvic));
-    printf("CCR: 0x%x\n", omap44xx_cortex_m3_nvic_CCR_rd(&nvic));
-    printf("SHCSR: 0x%x\n", omap44xx_cortex_m3_nvic_SHCSR_rd(&nvic));
-    printf("CFSR: 0x%x\n", omap44xx_cortex_m3_nvic_CFSR_rd(&nvic));
-    printf("BFAR: 0x%x\n", omap44xx_cortex_m3_nvic_BFAR_rd(&nvic));
-    printf("SYSTICK_CTRL: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CTRL_rd(&nvic));
-    printf("SYSTICK_CALV: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CALV_rd(&nvic));
+    printk(LOG_PANIC,"ICTR: 0x%x\n", omap44xx_cortex_m3_nvic_ICTR_rd(&nvic));
+    printk(LOG_PANIC,"CPUID_BASE: 0x%x\n", omap44xx_cortex_m3_nvic_CPUID_BASE_rd(&nvic));
+    printk(LOG_PANIC,"ICSR: 0x%x\n", omap44xx_cortex_m3_nvic_ICSR_rd(&nvic));
+    printk(LOG_PANIC,"VTOR: 0x%x\n", omap44xx_cortex_m3_nvic_VTOR_rd(&nvic));
+    printk(LOG_PANIC,"AIRCR: 0x%x\n", omap44xx_cortex_m3_nvic_AIRCR_rd(&nvic));
+    printk(LOG_PANIC,"CCR: 0x%x\n", omap44xx_cortex_m3_nvic_CCR_rd(&nvic));
+    printk(LOG_PANIC,"SHCSR: 0x%x\n", omap44xx_cortex_m3_nvic_SHCSR_rd(&nvic));
+    printk(LOG_PANIC,"CFSR: 0x%x\n", omap44xx_cortex_m3_nvic_CFSR_rd(&nvic));
+    printk(LOG_PANIC,"BFAR: 0x%x\n", omap44xx_cortex_m3_nvic_BFAR_rd(&nvic));
+    printk(LOG_PANIC,"SYSTICK_CTRL: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CTRL_rd(&nvic));
+    printk(LOG_PANIC,"SYSTICK_CALV: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CALV_rd(&nvic));
 
     switch (evector) {
         case ARM_7M_EVECTOR_USAGE:
@@ -228,12 +311,13 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
  */
 void handle_irq(uint32_t irq, arch_registers_state_t* save_area)
 {
+    /*
     printf("handle_irq: registers:\n");//dump content for debugging reasons
     for(uint32_t i = 0; i<NUM_REGS; i++){
         printf("0x%x\n", save_area->regs[i]);
-    }
-    uintptr_t fault_pc = save_area->named.pc;//read faulting pc from pushed context
+    }*/
     
+  /*  
     uint32_t regval;
     __asm volatile ("mrs %[regval], xpsr" : [regval] "=r"(regval));
     printf("current XPSR register: 0x%x\n", regval);
@@ -255,6 +339,8 @@ void handle_irq(uint32_t irq, arch_registers_state_t* save_area)
     printf("BFAR: 0x%x\n", omap44xx_cortex_m3_nvic_BFAR_rd(&nvic));
     printf("SYSTICK_CTRL: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CTRL_rd(&nvic));
     printf("SYSTICK_CALV: 0x%x\n", omap44xx_cortex_m3_nvic_SYSTICK_CALV_rd(&nvic));
+    */
+    uintptr_t fault_pc = save_area->named.pc;//read faulting pc from pushed context
     
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
@@ -279,11 +365,12 @@ void handle_irq(uint32_t irq, arch_registers_state_t* save_area)
     //TODO: heteropanda: make a case distinction on the type of interrupt, and  
     //actually handle it
 
-    if (0) {//TODO: heteropanda: should be "if timer interrupt"
-        // Timer interrupt, pit_handle_irq acks it at the timer.
+    if (irq == ARM_7M_EVECTOR_SYSTICK) {
+        // Timer interrupt
         assert(kernel_ticks_enabled);
         kernel_now += kernel_timeslice;
         wakeup_check(kernel_now);
+        printf(".");//to see how many we get & their distribution, without spamming lines
         dispatch(schedule());
     }
     else {

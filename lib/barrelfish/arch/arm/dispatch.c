@@ -18,6 +18,7 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish/static_assert.h>
 #include "threads_priv.h"
+#include <stdio.h>//for debugging printf
 
 #include <asmoffsets.h>
 #ifndef OFFSETOF_DISP_DISABLED
@@ -68,17 +69,35 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
         "    mov     r0, r0          ; nop                              \n\t"
                   );
 #else       //use pure thumb2
-//we can not use ldm in quite the same way,
-//so we have to restore some registers one by one
 
-//to restore both a general-purpose register AND the pc, we need them to be adjacent in memory
-//since this is normally not the case and we can not 
-//change the data structure we are reading from,
-//we first push them on the restored stack
+#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
+    //if the context is an interrupted IT-block, we can not restore that ourselves
+    //(because we can not change the epsr)
+    //so we have to ask the kernel to do it for us.
+    //can only happen if the context had originally been saved by the kernel
+    if (regs[CPSR_REG] & 0x0600FC00){//the IPI/IT bits are set
+        //ask the kernel to resume the context for us
+        sys_resume_context((arch_registers_state_t*) regs);
+        printf("disp_resume_context is returning\n");
+        return;//do not resume it a second time in assembly!
+    }
+#endif //__ARM_ARCH_7M__
+
+    //we can not use ldm in quite the same way,
+    //so we have to restore some registers one by one
+
+    //to restore both a general-purpose register AND the pc, we need them to be adjacent
+    //in memory since this is normally not the case and we can not 
+    //change the data structure we are reading from,
+    //we first push them on the restored stack
     __asm volatile(
-        /* Re-enable dispatcher */
-        "    mov     r2, #0                                             \n\t"
-        "    str     r2, [r0, # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
+        /* push the regs pointer, because we can not guarantee that it will not be clobbered*/
+        "    push    {%[regs]}                                           \n\t"
+        /* Re-enable dispatcher (using regs as temp, because we know it is not disp) */
+        "    mov     %[regs], #0                                         \n\t"
+        "    str     %[regs], [%[disp], # " XTR(OFFSETOF_DISP_DISABLED)"]\n\t"
+        //put regs into r1, so it mirrors the function parameter order
+        "    pop     {r1}                                               \n\t"
         //restore sp and lr first, because they can not be used with ldr and need a temp
         "    ldr     r0,  [r1, #(" XTR(SP_REG) "*4)]                    \n\t"//read sp
         "    mov     sp,  r0                                            \n\t"
@@ -110,9 +129,10 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
         "    pop     {r1, pc}                                           \n\t"
         "disp_resume_context_epilog:                                    \n\t"
         "    nop                                                        \n\t"
-        );
+        :: [disp] "r" (disp), [regs] "r" (regs));
 #endif //defined(__thumb2__)
 }
+
 
 static void __attribute__((naked))
 disp_save_context(uint32_t *regs)

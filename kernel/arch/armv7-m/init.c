@@ -121,8 +121,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
         paging_arm_reset(PHYS_MEMORY_START, 0x40000000);
     }
 
-    exceptions_init();
-
 
     //printf("startup_early\n");
     kernel_startup_early();
@@ -163,7 +161,10 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     
     nvic_init();
     printf("nvic_init done\n");
-    systick_init(0x10000);//TODO: heteropanda: find out what cycle count to use here
+    //XXX: cachemarker: these counts are intended for no caching, adjust if we have caching
+    //systick_init(0xFFFFFF);//maximum value
+    //systick_init(0x0AC000);//absolute minimum for -O2: very little progress and much thrashing
+    systick_init(0x0C0000);//reasonable: many interrupts, no thrashing (with -O2)
     printf("systick_init done\n");
     
 
@@ -196,7 +197,8 @@ void  __attribute__ ((noinline,noreturn)) text_init_continued(void){
     
     exceptions_init();//set up proper exception handlers in the relocated vectortable
     
-    
+    printf("starting SysTick timer\n");
+    systick_start();
     arm_kernel_startup();
 }
 

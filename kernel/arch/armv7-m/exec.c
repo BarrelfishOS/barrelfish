@@ -22,12 +22,12 @@
 #include <misc.h>
 #include <barrelfish_kpi/registers_pushed_arm_v7m.h>//for autopushed register access
 
-static arch_registers_state_t upcall_state;
+static arch_registers_state_t upcall_state;//XXX: is this even used??
 
 extern uint32_t ctr;
 
 /*
- * On armv7-m, the registers r0-r3,r12,lr,pc,apsr are popped from the stack
+ * On armv7-m, the registers r0-r3,r12,lr,pc,xpsr are popped from the stack
  * whenever an exception returns -> we copy those values onto the thread mode stack after
  * restoring the others
  */
@@ -61,6 +61,7 @@ void do_resume(uint32_t *regs)
         //should only actually happen when we first execute a new process
     }
     
+
     __asm volatile(
         "mov    r0, %[regs]                         \n\t"  //address where the regs are
         "ldr    r1, [r0, #56]                       \n\t"  //stored stack pointer
@@ -144,7 +145,9 @@ uint32_t ctr=0;
 void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 {
     ctr++;
+
     state->named.rtls = arch_get_thread_register();
+
     ensure_user_mode_policy(state);
 
     /*
@@ -158,8 +161,21 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 
 void wait_for_interrupt(void)
 {
-    // REVIEW: Timer interrupt could be masked here.
-
+/*XXX: WARNING: the way this is currently implemented, we will probably never wake up
+ *  we are already in handler mode, and the interrupt we are waiting for does not have
+ *  a higher priority, so it will only be taken when we exit -- which is never (I think)
+ *  (was not able to test it with IPIs, but we do stop servicing timer interrupts)
+ *
+ *  Solution: in this function, first increase the priority of IPIs to the maximum
+ *  write a separate handler for IPIs, that first checks where it came from.
+ *      if it came from handler mode, it must have interrupted this wait 
+ *          -> set priority back down again and then handle the interrupt normally 
+ *              (no context save necessary)
+ *      if it came from thread mode, treat it as any other interrupt (context save etc.)
+ *
+ *  always setting the the priority back down will ensure we never interrupt the kernel
+ *  while it is doing actual work
+ */
     __asm volatile(
         "0:                                             \n\t"
         "wfi                                            \n\t"
