@@ -10,6 +10,7 @@
 #include <string.h>
 #include <barrelfish/types.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <vfs/vfs_path.h>
 #include <errors/errno.h>
 #include <dev/fat_bpb_dev.h>
@@ -1020,6 +1021,7 @@ struct vfs_ops fat_ops = {
     .rmdir = rmdir,
 };
 
+#if defined(__x86_64__) || defined(__i386__)
 static void
 ahci_init_cb(void *st, errval_t err, struct ahci_binding *b)
 {
@@ -1039,6 +1041,28 @@ ahci_close_cb(void *arg)
 {
     *(bool *)arg = true;
 }
+
+#elif defined(__pandaboard__)
+
+static void 
+bind_cb(void *st, errval_t err, struct ata_rw28_binding *b)
+{
+    printf("%s:%d\n", __FUNCTION__, __LINE__);
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    struct fat_mount *mount = (struct fat_mount*) st;
+    
+    err = ata_rw28_rpc_client_init(&mount->ata_rw28_rpc, b);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "RPC initialization failed");
+    }
+
+    mount->ata_rw28_binding = b;
+}
+#endif
 
 errval_t
 vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
@@ -1091,6 +1115,9 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
     mount->fat_type = type;
     mount->startblock = startblock;
 
+    // TODO(gz): We should probably decouple the FAT implementation from
+    // all ATA related stuff to avoid these preprocessor hacks
+#if defined(__x86_64__) || defined(__i386__)
     err = ahci_init(port, ahci_init_cb, mount, get_default_waitset());
     if (err_is_fail(err)) {
         goto ahci_init_failed;
@@ -1120,6 +1147,28 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
         goto ata_rw28_init_failed;
     }
     FAT_DEBUG("ata_rw28_rpc_client_init completed");
+#elif defined(__pandaboard__)
+    FAT_DEBUG("wait for mmchs service\n");
+    iref_t iref;
+    err = nameservice_blocking_lookup("mmchs", &iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
+    }
+    err = ata_rw28_bind(iref,
+                     bind_cb,
+                     mount,
+                     get_default_waitset(),
+                     IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    while(mount->ata_rw28_binding == NULL) {
+        event_dispatch(get_default_waitset());
+    }
+
+    FAT_DEBUG("ata_rw28 initialized.\n");
+#endif
 
     // read data from fat boot sector
     uint8_t *data;
@@ -1154,7 +1203,7 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
         goto fs_check_failed;
     }
 
-    fat_bpb_initialize(&mount->bpb, (char*)&mount->bootsec_data);
+    fat_bpb_initialize(&mount->bpb, (mackerel_addr_t)&mount->bootsec_data);
     mount->block_size = fat_bpb_bps_rd(&mount->bpb);
     mount->cluster_size = fat_bpb_spc_rd(&mount->bpb);
     mount->fat_start = mount->startblock + fat_bpb_rsvs_rd(&mount->bpb);
@@ -1296,6 +1345,7 @@ bootsec_read_failed:
     }
     data = NULL;
 
+#if defined(__x86_64__) || defined(__i386__)
 ata_rw28_init_failed:
     free(ahci_ata_rw28_binding);
     bool closed = false;
@@ -1309,6 +1359,7 @@ ata_rw28_init_failed:
 
 ahci_init_failed:
     free(mount);
+#endif
 
     return err;
 
