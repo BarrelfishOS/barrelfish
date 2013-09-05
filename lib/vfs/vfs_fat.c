@@ -26,6 +26,7 @@
 #include "vfs_ops.h"
 #include "vfs_cache.h"
 
+//#define FAT_DEBUG 1
 #if defined(FAT_DEBUG) || defined(VFS_DEBUG) || defined(GLOBAL_DEBUG)
 #   define FAT_DEBUG_ENABLED
 
@@ -247,7 +248,7 @@ next_cluster(struct fat_mount *mount, uint32_t cluster, uint32_t *rescluster)
     errval_t err;
 
     // calculate block and offset
-    size_t cluster_fat_block = fat_block_for_cluster(cluster, mount);
+    size_t cluster_fat_block = fat_block_for_cluster(cluster, mount)+mount->fat_start;
     size_t cluster_fat_offset = fat_offset_for_cluster(cluster, mount);
     FAT_DEBUG_F("cluster %"PRIu32" is at fat block %zu + %zu",
             cluster, cluster_fat_block, cluster_fat_offset);
