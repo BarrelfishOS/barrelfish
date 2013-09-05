@@ -315,7 +315,7 @@ dos2unixfn(const unsigned char *dosfn, unsigned char *buf, size_t buflen)
     if (len > buflen) {
         return 1;
     }
-    printf("utf8 len = %zd\n", len);
+    //printf("utf8 len = %zd\n", len);
 
     int bufindex = 0;
     // copy name
