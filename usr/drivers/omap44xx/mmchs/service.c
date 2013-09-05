@@ -33,14 +33,15 @@
 static void read_dma(struct ata_rw28_thc_service_binding_t *sv,
                      uint32_t read_size, uint32_t start_lba)
 {
-    MMCHS_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     size_t buffer_size = SECTION_ROUND_UP(read_size);
+    MMCHS_DEBUG("%s:%d read_size=%d buffer_size=%d\n", __FUNCTION__, __LINE__, read_size, buffer_size);
     void *buffer = malloc(buffer_size);
     assert(buffer != NULL);
 
     uint8_t *bufptr = (uint8_t *)buffer;
     for (size_t i = 0; i < (buffer_size / SECTION_SIZE); i++) {
-        errval_t err = mmchs_read_block(start_lba, bufptr);
+        MMCHS_DEBUG("%s:%d: i=%d start_lba=%d\n", __FUNCTION__, __LINE__, i, start_lba);
+        errval_t err = mmchs_read_block(start_lba+i, bufptr);
         assert(err_is_ok(err));
         bufptr += SECTION_SIZE;
     }
