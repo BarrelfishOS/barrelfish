@@ -22,7 +22,8 @@
                cp15_invalidate_i_and_d_caches,\
                cp15_invalidate_i_and_d_caches_fast, \
 	       cp15_invalidate_tlb_fn, \
-	       cp15_enable_mmu
+	       cp15_enable_mmu, \
+           cp15_enable_alignment
 
 /* Based on algorithm from ARM Architecture Reference Manual */
 cp15_invalidate_d_cache:
@@ -215,5 +216,10 @@ cp15_enable_mmu:
 
 	bx	lr
 
+cp15_enable_alignment:
+    mrc  p15, 0, r0, c1, c0, 0
+    bic  r0, r0, #2
+    mcr  p15, 0, r0, c1, c0, 0 
 
+    bx lr
 	

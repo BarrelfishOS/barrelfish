@@ -91,6 +91,7 @@ extern void cp15_invalidate_i_and_d_caches(void);
 extern void cp15_invalidate_i_and_d_caches_fast(void);
 extern void cp15_invalidate_tlb_fn(void);
 extern void cp15_enable_mmu(void);
+extern void cp15_enable_alignment(void);
 
 static inline uint32_t cp15_read_cache_status(void){
     uint32_t cache;

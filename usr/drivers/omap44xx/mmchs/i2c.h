@@ -9,6 +9,9 @@
 #ifndef __TI_I2C_H__
 #define __TI_I2C_H__
 
+#include <barrelfish/types.h>
+#include <errors/errno.h>
+
 enum i2c_flags {
     I2C_RD     = 0x1,
     I2C_WR     = 0x2,

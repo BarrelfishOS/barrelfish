@@ -130,9 +130,9 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
-            "0x%"PRIxLPADDR".\n",
-            (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
+    //printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
+    //        "0x%"PRIxLPADDR".\n",
+    //        (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
     paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
             device_base);
@@ -447,6 +447,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
+
+    if (src_cte->mapping_info.pte) {
+        return SYS_ERR_VM_ALREADY_MAPPED;
+    }
 
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         //printf("caps_map_l1: %zu\n", (size_t)pte_count);

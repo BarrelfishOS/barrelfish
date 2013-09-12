@@ -31,6 +31,7 @@
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
+#include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -60,21 +61,6 @@
  * This is the one and only kernel stack for a kernel instance.
  */
 uintptr_t kernel_stack[KERNEL_STACK_SIZE / sizeof(uintptr_t)] __attribute__ ((aligned(8)));
-
-/**
- * Boot-up L1 page table for addresses up to 2GB (translated by TTBR0)
- */
-//XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
-static union arm_l1_entry boot_l1_low[2 * ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-static union arm_l1_entry * aligned_boot_l1_low;
-/**
- * Boot-up L1 page table for addresses >=2GB (translated by TTBR1)
- */
-//XXX: We reserve double the space needed to be able to align the pagetable
-//	   to 16K after relocation
-static union arm_l1_entry boot_l1_high[2 * ARM_L1_MAX_ENTRIES] __attribute__ ((aligned(ARM_L1_ALIGN)));
-static union arm_l1_entry * aligned_boot_l1_high;
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -161,37 +147,69 @@ static void enable_cycle_counter_user_access(void)
 extern void paging_map_device_section(uintptr_t ttbase, lvaddr_t va,
         lpaddr_t pa);
 
+/**
+ * Create initial (temporary) page tables.
+ *
+ * We use 1MB (ARM_L1_SECTION_BYTES) pages (sections) with a single-level table.
+ * This allows 1MB*4k (ARM_L1_MAX_ENTRIES) = 4G per pagetable.
+ *
+ * Hardware details can be found in:
+ * ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition
+ *   B3: Virtual Memory System Architecture (VMSA)
+ */
 static void paging_init(void)
 {
-    // configure system to use TTBR1 for VAs >= 2GB
-    uint32_t ttbcr;
-    ttbcr = cp15_read_ttbcr();
-    ttbcr |= 1;
+    /*
+     * page tables:
+     *  l1_low  for addresses  < 2GB  (translated by TTBR0)
+     *  l1_high for addresses  >= 2GB (translated by TTBR1)
+     *
+     * XXX: We reserve double the space needed to be able to align the
+     * pagetable to 16K after relocation.
+     */
+     static union arm_l1_entry l1_low[2*ARM_L1_MAX_ENTRIES];
+     static union arm_l1_entry l1_high[2*ARM_L1_MAX_ENTRIES];
+
+    /**
+     * TTBCR: Translation Table Base Control register.
+     *  TTBCR.N is bits[2:0]
+     * In a TLB miss TTBCR.N determines whether TTBR0 or TTBR1 is used as the
+     * base address for the translation table walk in memory:
+     *  N == 0 -> always use TTBR0
+     *  N >  0 -> if VA[31:32-N] > 0 use TTBR1 else use TTBR0
+     *
+     * TTBR0 is typically used for processes-specific addresses
+     * TTBR1 is typically used for OS addresses that do not change on context
+     *       switch
+     *
+     * set TTBCR.N = 1 to use TTBR1 for VAs >= MEMORY_OFFSET (=2GB)
+     */
+    #define TTBCR_N 1
+    uint32_t ttbcr = cp15_read_ttbcr();
+    ttbcr =  (ttbcr & ~7) | TTBCR_N;
     cp15_write_ttbcr(ttbcr);
+    STATIC_ASSERT(1UL<<(32-TTBCR_N) == MEMORY_OFFSET, "");
+    #undef TTBCR_N
 
-    // make sure pagetables are aligned to 16K
-    aligned_boot_l1_low = (union arm_l1_entry *) ROUND_UP((uintptr_t)boot_l1_low, ARM_L1_ALIGN);
-    aligned_boot_l1_high = (union arm_l1_entry *) ROUND_UP((uintptr_t)boot_l1_high, ARM_L1_ALIGN);
-
-    lvaddr_t vbase = MEMORY_OFFSET, base = 0;
-
-    for (size_t i = 0; i < ARM_L1_MAX_ENTRIES / 2;
-            i++, base += ARM_L1_SECTION_BYTES, vbase += ARM_L1_SECTION_BYTES) {
-        // create 1:1 mapping
-        //		paging_map_kernel_section((uintptr_t)aligned_boot_l1_low, base, base);
-        paging_map_device_section((uintptr_t) aligned_boot_l1_low, base, base);
-
-        // Alias the same region at MEMORY_OFFSET (gem5 code)
-        // create 1:1 mapping for pandaboard
-        //		paging_map_device_section((uintptr_t)boot_l1_high, vbase, vbase);
-        /* if(vbase < 0xc0000000) */
-        paging_map_device_section((uintptr_t) aligned_boot_l1_high, vbase,
-                vbase);
+    /**
+     * in omap44xx, physical memory (PHYS_MEMORY_START) is the same with the the
+     * offset of mapped physical memory within virtual address space
+     * (PHYS_MEMORY_START), so we just create identity mappings.
+     */
+    STATIC_ASSERT(MEMORY_OFFSET == PHYS_MEMORY_START, "");
+    uintptr_t l1_low_aligned = ROUND_UP((uintptr_t)l1_low, ARM_L1_ALIGN);
+    uintptr_t l1_high_aligned = ROUND_UP((uintptr_t)l1_high, ARM_L1_ALIGN);
+    lvaddr_t vbase = MEMORY_OFFSET, base =  0;
+    for (size_t i=0; i < ARM_L1_MAX_ENTRIES/2; i++) {
+	    paging_map_device_section(l1_low_aligned, base, base);
+	    paging_map_device_section(l1_high_aligned, vbase, vbase);
+        base += ARM_L1_SECTION_BYTES;
+        vbase += ARM_L1_SECTION_BYTES;
     }
 
     // Activate new page tables
-    cp15_write_ttbr1((lpaddr_t) aligned_boot_l1_high);
-    cp15_write_ttbr0((lpaddr_t) aligned_boot_l1_low);
+    cp15_write_ttbr1(l1_high_aligned);
+    cp15_write_ttbr0(l1_low_aligned);
 }
 
 void kernel_startup_early(void)
@@ -697,31 +715,28 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
 {
     errval_t errval;
 
-    // Map-out low memory
-    if (glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
-
-        struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *) local_phys_to_mem(
-                glbl_core_data->mmap_addr);
-
+    if ((glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)) {
+        // BSP core: set final page tables
+        struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
+            local_phys_to_mem(glbl_core_data->mmap_addr);
         paging_arm_reset(mmap->base_addr, mmap->length);
-        printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n",
-                mmap->base_addr, mmap->length);
+        //printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n", mmap->base_addr, mmap->length);
     } else {
-        panic("need multiboot MMAP\n");
+        // AP core
+        //  FIXME: Not sure what to do, so map the whole memory for now
+        paging_arm_reset(PHYS_MEMORY_START, 0x40000000);
     }
 
     exceptions_init();
 
-    printf("invalidate cache\n");
+    //printf("invalidate cache\n");
     cp15_invalidate_i_and_d_caches_fast();
-
-    printf("invalidate TLB\n");
+    //printf("invalidate TLB\n");
     cp15_invalidate_tlb();
 
-    printf("startup_early\n");
-
+    //printf("startup_early\n");
     kernel_startup_early();
-    printf("kernel_startup_early done!\n");
+    //printf("kernel_startup_early done!\n");
 
     //initialize console
     serial_init(serial_console_port);
@@ -736,8 +751,10 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
         printf("Failed to initialize debug port: %d", serial_debug_port);
     }
 
-    my_core_id = hal_get_cpu_id();
-    printf("cpu id %d\n", my_core_id);
+    if (my_core_id != hal_get_cpu_id()) {
+        printf("** setting my_core_id (="PRIuCOREID") to match hal_get_cpu_id() (=%u)\n");
+        my_core_id = hal_get_cpu_id();
+    }
 
     // Test MMU by remapping the device identifier and reading it using a
     // virtual address
@@ -781,10 +798,6 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     reset_cycle_counter();
 #endif
 
-    // tell BSP that we are started up
-    // XXX NYI: See Section 27.4.4 in the OMAP44xx manual for how this
-    // should work.
-
     arm_kernel_startup();
 }
 
@@ -810,26 +823,29 @@ static size_t bank_size(int bank, lpaddr_t base)
     int colbits;
     int rowsize;
     omap44xx_emif_t emif;
-    omap44xx_emif_initialize(&emif, (mackerel_addr_t) base);
-    if (omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
-        rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
-        colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
-        rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
-        printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n",
-                bank, rowbits, colbits, 1 << rowsize);
-        return (1 << (rowbits + colbits + rowsize));
-    } else {
+    omap44xx_emif_initialize(&emif, (mackerel_addr_t)base);
+
+    if (!omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
         printf("EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
         return 0;
     }
+
+    rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
+    colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
+    rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
+
+    printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n",
+            bank, rowbits, colbits, 1<<rowsize);
+
+    return (1 << (rowbits + colbits + rowsize));
 }
 
 static void size_ram(void)
 {
     size_t sz = 0;
     sz = bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
-    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n", sz,
-            sz == 0x40000000 ? "about right" : "unexpected");
+    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n",
+            sz, sz == 0x40000000 ? "about right" : "unexpected" );
 }
 
 /*
@@ -837,8 +853,9 @@ static void size_ram(void)
  */
 static void set_leds(void)
 {
-    omap44xx_gpio_t g;
     uint32_t r, nr;
+    omap44xx_gpio_t g;
+    //char buf[8001];
 
     printf("Flashing LEDs\n");
 
@@ -893,17 +910,16 @@ static void set_leds(void)
  */
 void arch_init(void *pointer)
 {
-    struct arm_coredata_elf *elf = NULL;
 
     serial_early_init(serial_console_port);
 
     if (hal_cpu_is_bsp()) {
-        struct multiboot_info *mb = (struct multiboot_info *) pointer;
-        elf = (struct arm_coredata_elf *) &mb->syms.elf;
-        memset(glbl_core_data, 0, sizeof(struct arm_core_data));
-        glbl_core_data->start_free_ram = ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte),
-                BASE_PAGE_SIZE);
+        struct multiboot_info *mb = pointer;
 
+        memset(glbl_core_data, 0, sizeof(struct arm_core_data));
+
+        size_t max_addr = max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte);
+        glbl_core_data->start_free_ram = ROUND_UP(max_addr, BASE_PAGE_SIZE);
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;
         glbl_core_data->cmdline = mb->cmdline;
@@ -912,28 +928,38 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
-
     } else {
-        global = (struct global *) GLOBAL_VBASE;
-        memset(&global->locks, 0, sizeof(global->locks));
-        struct arm_core_data *core_data = (struct arm_core_data*) ((lvaddr_t) &kernel_first_byte
-                - BASE_PAGE_SIZE);
-        glbl_core_data = core_data;
-        glbl_core_data->cmdline = (lpaddr_t) &core_data->kernel_cmdline;
-        my_core_id = core_data->dst_core_id;
-        elf = &core_data->elf;
+        global = (struct global *)GLOBAL_VBASE;
+        // zeroing locks for the app core seems bogus to me --AKK
+        //memset(&global->locks, 0, sizeof(global->locks));
+
+        // our core data (struct arm_core_data) is placed one page before the
+        // first byte of the kernel image
+        glbl_core_data = (struct arm_core_data *)
+                            ((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+        glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
+        my_core_id = glbl_core_data->dst_core_id;
+
+        // tell BSP that we are started up
+        // See Section 27.4.4 in the OMAP44xx manual for how this should work.
+        // we do this early, to avoid having to map the registers
+        lpaddr_t aux_core_boot_0 = AUX_CORE_BOOT_0;
+        lpaddr_t ap_wait = AP_WAIT_PHYS;
+
+        *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
+        //__sync_synchronize();
+        *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR"\n",
-            local_phys_to_mem((uint32_t) &kernel_first_byte));
+    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
+            local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
 
-    print_system_identification();
-    size_ram();
-
-    if (1) {
-        set_leds();
+    if (hal_cpu_is_bsp()) {
+        print_system_identification();
+        size_ram();
     }
+
 
     /*
      * pandaboard related USB setup
@@ -967,8 +993,13 @@ void arch_init(void *pointer)
         printf("-------------------------\n");
     }
 
+    if (0) {
+        set_leds();
+    }
+
     paging_init();
     cp15_enable_mmu();
+    cp15_enable_alignment();
     printf("MMU enabled\n");
 
     text_init();

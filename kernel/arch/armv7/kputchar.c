@@ -30,7 +30,7 @@ static void kflush(void)
 
 void kprintf_begin(void)
 {
-	acquire_spinlock(&global->locks.print);
+	//acquire_spinlock(&global->locks.print);
 	kcount = 0;
 }
 
@@ -45,7 +45,7 @@ int kputchar(int c)
 void kprintf_end(void)
 {
     kflush();
-    release_spinlock(&global->locks.print);
+    //release_spinlock(&global->locks.print);
 }
 
 // End

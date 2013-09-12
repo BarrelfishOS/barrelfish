@@ -45,8 +45,6 @@ static size_t uart_size[NUM_PORTS] = {
     OMAP44XX_MAP_L4_PER_UART4_SIZE
 };
 
-static bool uart_initialized[NUM_PORTS];
-
 /*
  * Initialzie OMAP UART
  * UART TRM 23.3
@@ -76,20 +74,23 @@ static void omap_uart_init(omap_uart_t *uart, lvaddr_t base)
 
 errval_t serial_init(unsigned port)
 {
-    if (port >= NUM_PORTS) { 
+    static bool uart_initialized[NUM_PORTS];
+
+    if (port >= NUM_PORTS) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
+
     if (uart_initialized[port]) {
-	printf("omap serial_init[%d]: already initialized; skipping.\n", port);
-	return SYS_ERR_OK;
+        printf("omap serial_init[%d]: already initialized; skipping.\n", port);
+        return SYS_ERR_OK;
     }
-    
+
     lvaddr_t base = paging_map_device(uart_base[port],uart_size[port]);
     // paging_map_device returns an address pointing to the beginning of
     // a section, need to add the offset for within the section again
     uint32_t offset = (uart_base[port] & ARM_L1_SECTION_MASK);
     printf("omap serial_init[%d]: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
-	   port, base, base + offset);
+            port, base, base + offset);
     omap_uart_init(&ports[port], base + offset);
     uart_initialized[port] = true;
     printf("omap serial_init[%d]: done.\n", port);
@@ -107,7 +108,6 @@ errval_t serial_early_init(unsigned port)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 }
-
 
 /**
  * \brief Prints a single character to a serial port. 

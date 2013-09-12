@@ -148,6 +148,11 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
         assert(err_is_ok(err));
     }
+    mi = find_module("mmchs2");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        assert(err_is_ok(err));
+    }
     mi = find_module("prcm");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");

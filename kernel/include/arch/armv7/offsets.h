@@ -158,8 +158,9 @@
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
-    // On the PandaBoard, this is a nop, because the physical memory is mapped 
+    // On the PandaBoard, this is a nop, because the physical memory is mapped
     // at the same address in virtual memory
+    // i.e., MEMORY_OFFSET == PHYS_MEMORY_START
     if(PADDR_SPACE_LIMIT - PHYS_MEMORY_START > 0) {
         assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
     }
