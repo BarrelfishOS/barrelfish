@@ -9,13 +9,13 @@
 #ifndef __TI_TWL6030_H__
 #define __TI_TWL6030_H__
 
-#include <barrelfish/types.h> 
+#include <barrelfish/types.h>
 #include <errors/errno.h>
 
 void ti_twl6030_init(void);
-void ti_twl6030_scan(void);
-void ti_twl6030_vmmc_pr(void);
 errval_t ti_twl6030_set_vmmc_vsel(int millis);
+
+void ti_twl6030_vmmc_pr(void);
 
 void ti_twl6030_vmmc_on(void);
 void ti_twl6030_vmmc_off(void);

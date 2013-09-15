@@ -12,23 +12,26 @@
 
 [
     build application { target = "mmchs",
-                    cFiles = (find withSuffices [".c"]),
-                    mackerelDevices = [
-                        "ti_i2c",
-                        "ti_twl6030",
-                        "sdhc",
-                        "omap/omap44xx_mmchs",
-                        "omap/omap44xx_sysctrl_padconf_core",
-                        "omap/omap44xx_l3init_cm2",
-                        "omap/omap44xx_ckgen_cm2",
-                        "omap/omap44xx_l4per_cm2"
-                    ],
-                    addLibraries = ["driverkit"],
-                    addCFlags = [ "-DIN_KERNEL" ],
-                    addIncludes = [
-                        "../../../../kernel/include/",
-                        "../../../../kernel/include/arch/armv7/"
-                    ],
-                    architectures = ["armv7"]
-                  }
+                        cFiles = [
+                            "main.c", "cm2.c", "ctrlmod.c", 
+                            "i2c.c", "mmchs.c", "twl6030.c",
+                            "service.c"
+                        ],
+                        mackerelDevices = [
+                            "ti_i2c",
+                            "ti_twl6030",
+                            "omap/omap44xx_mmchs1",
+                            "omap/omap44xx_sysctrl_padconf_core",
+                            "omap/omap44xx_l3init_cm2",
+                            "omap/omap44xx_ckgen_cm2",
+                            "omap/omap44xx_l4per_cm2"
+                        ],
+
+                        flounderDefs = [ "ata_rw28" ],
+                        flounderBindings = [ "ata_rw28" ],
+                        flounderTHCStubs = [ "ata_rw28" ],
+
+                        addLibraries = [ "driverkit", "thc" ],
+                        architectures = ["armv7"]
+    }
 ]

@@ -64,6 +64,10 @@ static struct allowed_registers mmchs = {
         {OMAP44XX_SYSCTRL_PADCONF_WAKEUP, 0X1000},
         // MMCHS
         {OMAP44XX_MMCHS1, 0x1000},
+        {OMAP44XX_MMCHS2, 0x1000},
+        {OMAP44XX_MMCHS3, 0x1000},
+        {OMAP44XX_MMCHS4, 0x1000},
+        {OMAP44XX_MMCHS5, 0x1000},
         {0x0, 0x0}
     }
 };

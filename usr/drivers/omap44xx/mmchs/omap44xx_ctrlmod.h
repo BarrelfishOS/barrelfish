@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
  */
 
-#ifndef __ARM_CTRLMOD_H__
-#define __ARM_CTRLMOD_H__
+#ifndef __OMAP44XX_CTRLMOD_H__
+#define __OMAP44XX_CTRLMOD_H__
 
 #include <barrelfish/barrelfish.h>
 #include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
@@ -24,4 +24,4 @@ void sdmmc1_enable_power(void);
 
 void pbias_handle_irq(void *args);
 
-#endif /* __ARM_CTRLMOD_H__ */
+#endif /* __OMAP44XX_CTRLMOD_H__ */

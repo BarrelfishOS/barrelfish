@@ -73,6 +73,7 @@
                "ping_pong",
                "mem",
                "xmplthc",
-               "octopus" ],
+               "octopus",
+               "ata_rw28" ],
              arch <- allArchitectures
 ]

@@ -452,6 +452,7 @@ void arch_init(void *pointer)
 
     paging_init();
     cp15_enable_mmu();
+    cp15_enable_alignment();
     printf("MMU enabled\n");
     text_init();
 }

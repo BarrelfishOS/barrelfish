@@ -10,19 +10,8 @@
 /*
  * omap44xx_fdif.dev
  *
- * DESCRIPTION: 
+ * DESCRIPTION: Mackerel file for OMAP4 FDIF module.
  *
- * NOTE: This file has been automatically generated based on the
- * XML files extracted from the TI RDT v1.0.0.4p Tool.
- * Download from here: http://www.ti.com/product/omap4460
- * This means that the file might not be optimal in terms of naming
- * conventions for constants and registers (duplicated
- * namespaces in register and device name etc.).
- * Also, because of the underlying structure from the original XML
- * it's possible that some constants appear multiple times (if they
- * have slightly different descriptions for example).
- *
- * You want to clean that up before using the files for the first time!
  */
  
 device omap44xx_fdif msbfirst ( addr base ) "" {
@@ -50,8 +39,8 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     };
 
     constants softreset_status width(1) "" {
-        SOFTRESET_0_r = 0 "Reset done, no pending action";
-        SOFTRESET_1_r = 1 "Reset (software or other) ongoing";
+        SOFTRESET_DONE = 0 "Reset done, no pending action";
+        SOFTRESET_ONGOING = 1 "Reset (software or other) ongoing";
     };
     
     register fdif_sysconfig addr(base, 0x10) "Clock management configuration" {
@@ -63,8 +52,8 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     };
 
     constants finish_irq_status width(1) "" {
-        FINISH_IRQ_0_r = 0 "No event pending";
-        FINISH_IRQ_1_r = 1 "Event pending";
+        FINISH_IRQ_0 = 0 "No event pending";
+        FINISH_IRQ_1 = 1 "Event pending";
     };
     
     regarray fdif_irqstatus_raw addr(base, 0x24)[3;0x10] "Per-event raw interrupt status vector, line #n. Raw status is set even if event is not enabled. Write 1 to set the (raw) status, mostly for debug." {
@@ -74,28 +63,24 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
         err_irq 1 rw type(finish_irq_status) "Error received by the L3 port.";
     };
     
-    constants finish_irq_status1 width(1) "" {
-        FINISH_IRQ_0_r_3 = 0 "No (enabled) event pending";
-        FINISH_IRQ_1_r_3 = 1 "Event pending";
-    };
     
     regarray fdif_irqstatus addr(base, 0x28)[3;0x10] "Per-event 'enabled' interrupt status vector, line #n. Enabled status is not set unless event is enabled. Write 1 to clear the status after interrupt has been serviced (raw status gets cleared, that is, even if not enabled)." {
         _ 23 mbz;
-        finish_irq 1 rw1c type(finish_irq_status1) "Face detection processing done.";
+        finish_irq 1 rw1c type(finish_irq_status) "Face detection processing done.";
         _ 7 mbz;
-        err_irq 1 rw1c type(finish_irq_status1) "Error received by the L3 port.";
+        err_irq 1 rw1c type(finish_irq_status) "Error received by the L3 port.";
     };
     
-    constants finish_irq_status2 width(1) "" {
-        FINISH_IRQ_0_r_6 = 0 "Interrupt disabled (masked)";
-        FINISH_IRQ_1_r_6 = 1 "Interrupt enabled";
+    constants finish_irqenable_status width(1) "" {
+        FINISH_IRQ_MASKED = 0 "Interrupt disabled (masked)";
+        FINISH_IRQ_ENABLED = 1 "Interrupt enabled";
     };
     
     regarray fdif_irqenable_set addr(base, 0x2C)[3;0x10] "Per-event interrupt enable bit vector, line #n. Write 1 to set (enable interrupt). Readout equal to corresponding _CLR register." {
         _ 23 mbz;
-        finish_irq 1 rw type(finish_irq_status2) "Face detection processing done.";
+        finish_irq 1 rw type(finish_irqenable_status) "Face detection processing done.";
         _ 7 mbz;
-        err_irq 1 rw type(finish_irq_status2) "Error received by the L3 port.";
+        err_irq 1 rw type(finish_irqenable_status) "Error received by the L3 port.";
     };
     
     constants finish_irq_status3 width(1) "" {
@@ -105,16 +90,16 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     
     regarray fdif_irqenable_clr addr(base, 0x30)[3;0x10] "Per-event interrupt enable bit vector, line #n. Write 1 to clear (disable interrupt). Readout equal to corresponding _SET register." {
         _ 23 mbz;
-        finish_irq 1 rw1c type(finish_irq_status3) "Face detection processing done.";
+        finish_irq 1 rw1c type(finish_irqenable_status) "Face detection processing done.";
         _ 7 mbz;
-        err_irq 1 rw1c type(finish_irq_status3) "Error received by the L3 port.";
+        err_irq 1 rw1c type(finish_irqenable_status) "Error received by the L3 port.";
     };
 
     register fdif_picaddr addr(base, 0x60) "Picture data store address. The 5 least significant bits are forced to 0." type(uint32);
 
     constants mstandby_hdshk_status width(1) "" {
-        MSTANDBY_HDSHK_0_r = 0 "Handshaking not completed. Do not initiate traffic on L3.";
-        MSTANDBY_HDSHK_1_r = 1 "Handshaking completed. Can safely use the FDIF module.";
+        MSTANDBY_HDSHK_COMPLETE = 0 "Handshaking not completed. Do not initiate traffic on L3.";
+        MSTANDBY_HDSHK_INCOMPLETE = 1 "Handshaking completed. Can safely use the FDIF module.";
     };
 
     constants mstandby_status width(1) "" {
@@ -138,8 +123,8 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     register fdif_wkaddr addr(base, 0x68) "Work area address. The 5 least significant bits are forced to 0." type(uint32);
 
     constants finish_status width(1) "" {
-        FINISH_0 = 0 "Write: Disable Read: Process incomplete";
-        FINISH_1 = 1 "Write: Process complete flag clear Read: Process complete";
+        FINISH_INCOMPLETE = 0 "Write: Disable Read: Process incomplete";
+        FINISH_COMPLETE = 1 "Write: Process complete flag clear Read: Process complete";
     };
 
     constants run_status width(1) "" {
@@ -148,8 +133,8 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     };
 
     constants srst_status width(1) "" {
-        SRST_0 = 0 "Write: Disable Read: Reset cancel";
-        SRST_1 = 1 "Write: Reset Read: Under reset";
+        SRST_CANCEL = 0 "Write: Disable Read: Reset cancel";
+        SRST_UNDER_RESET = 1 "Write: Reset Read: Under reset";
     };
     
     register fd_ctrl addr(base, 0x80) "Control register Don't set more than 2 bits to '1' at the same time. Otherwise, operations cannot be guaranteed." {
@@ -165,17 +150,17 @@ device omap44xx_fdif msbfirst ( addr base ) "" {
     };
 
     constants dir_status width(2) "" {
-        DIR_0 = 0 "Executes only for UP";
-        DIR_1 = 1 "Executes only for RIGHT";
-        DIR_2 = 2 "Executes only for LEFT";
+        DIR_UP = 0 "Executes only for UP";
+        DIR_RIGHT = 1 "Executes only for RIGHT";
+        DIR_LEFT = 2 "Executes only for LEFT";
         DIR_3 = 3 "Reserved";
     };
 
     constants min_status width(2) "" {
-        MIN_0 = 0 "Set the min face size to 20 pixels";
-        MIN_1 = 1 "Set the min face size to 25 pixels";
-        MIN_2 = 2 "Set the min face size to 32 pixels";
-        MIN_3 = 3 "Set the min face size to 40 pixels";
+        MIN_20 = 0 "Set the min face size to 20 pixels";
+        MIN_25 = 1 "Set the min face size to 25 pixels";
+        MIN_32 = 2 "Set the min face size to 32 pixels";
+        MIN_40 = 3 "Set the min face size to 40 pixels";
     };
     
     register fd_dcond addr(base, 0x88) "Detection Condition Setting Register" {
