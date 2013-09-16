@@ -28,7 +28,7 @@
 device omap44xx_spinlock msbfirst ( addr base ) "" {
     
     
-    register spinlock_revision ro addr(base, 0x0) "This register contains the IP revision code" type(uint32);
+    register revision ro addr(base, 0x0) "This register contains the IP revision code" type(uint32);
 
     constants clockactivity_status width(1) "" {
         CLOCKACTIVITY_0_r = 0 "Interface clock is not required by the module during IDLE mode and may be switched off.";
@@ -57,7 +57,7 @@ device omap44xx_spinlock msbfirst ( addr base ) "" {
         AUTOGATING_1_r = 1 "Automatic internal interface clock gating strategy is applied, based on the L4-CFG interface activity.";
     };
     
-    register spinlock_sysconfig addr(base, 0x10) "This register controls the various parameters of the L4-CFG interface. Note that most fields are read-only." {
+    register sysconfig addr(base, 0x10) "This register controls the various parameters of the L4-CFG interface. Note that most fields are read-only." {
         _ 23 mbz;
         clockactivity 1 ro type(clockactivity_status) "Indicates whether the module requires the interface clock when in IDLE mode.";
         _ 3 mbz;
@@ -84,7 +84,7 @@ device omap44xx_spinlock msbfirst ( addr base ) "" {
         RESETDONE_1_r = 1 "Reset is completed.";
     };
     
-    register spinlock_systatus addr(base, 0x14) "This register provides status information about this instance of the Spinlock module." {
+    register systatus addr(base, 0x14) "This register provides status information about this instance of the Spinlock module." {
         numlocks 8 ro type(numlocks_status) "Number of lock registers implemeted.";
         _ 8 mbz;
         iu7 1 ro "In-Use flag 7. Reads always return 0.";
@@ -99,170 +99,19 @@ device omap44xx_spinlock msbfirst ( addr base ) "" {
         resetdone 1 ro type(resetdone_status) "Reset done status.";
     };
 
+//XXX:commented out repeated values, since the compiler would complain about duplicate case values
     constants taken_status width(1) "" {
         TAKEN_0_r = 0 "Lock was previously Not Taken (free). The requester is granted the lock.";
-        TAKEN_0_w = 0 "Set the lock to Not Taken (free).";
+//        TAKEN_0_w = 0 "Set the lock to Not Taken (free).";
         TAKEN_1_r = 1 "Lock was previously Taken. The requester is not granted the lock and must retry.";
-        TAKEN_1_w = 1 "No update to the lock value.";
+//        TAKEN_1_w = 1 "No update to the lock value.";
     };
-    
-    register spinlock_lock_reg_i_0 addr(base, 0x800) "This register contains the state of one lock." {
+
+//changed individual register definitions to a regarray
+
+    regarray lock_reg_i addr(base, 0x800)[32] "This register contains the state of one lock."{
         _ 31 mbz;
         taken 1 rw type(taken_status) "Lock State";
     };
     
-    register spinlock_lock_reg_i_1 addr(base, 0x804) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_2 addr(base, 0x808) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_3 addr(base, 0x80C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_4 addr(base, 0x810) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_5 addr(base, 0x814) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_6 addr(base, 0x818) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_7 addr(base, 0x81C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_8 addr(base, 0x820) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_9 addr(base, 0x824) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_10 addr(base, 0x828) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_11 addr(base, 0x82C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_12 addr(base, 0x830) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_13 addr(base, 0x834) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_14 addr(base, 0x838) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_15 addr(base, 0x83C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_16 addr(base, 0x840) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_17 addr(base, 0x844) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_18 addr(base, 0x848) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_19 addr(base, 0x84C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_20 addr(base, 0x850) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_21 addr(base, 0x854) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_22 addr(base, 0x858) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_23 addr(base, 0x85C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_24 addr(base, 0x860) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_25 addr(base, 0x864) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_26 addr(base, 0x868) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_27 addr(base, 0x86C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_28 addr(base, 0x870) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_29 addr(base, 0x874) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_30 addr(base, 0x878) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
-    
-    register spinlock_lock_reg_i_31 addr(base, 0x87C) "This register contains the state of one lock." {
-        _ 31 mbz;
-        taken 1 rw type(taken_status) "Lock State";
-    };
 };

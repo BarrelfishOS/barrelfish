@@ -15,7 +15,7 @@
 #include "monitor.h"
 #include <inttypes.h>
 #include <elf/elf.h>
-#include <target/arm/barrelfish_kpi/paging_arm_v7.h>
+#include <barrelfish_kpi/paging_arch.h>
 #include <target/arm/barrelfish_kpi/arm_core_data.h>
 
 /// Round up n to the next multiple of size

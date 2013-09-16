@@ -17,7 +17,7 @@
 
 #ifndef __ASSEMBLER__
 
-#ifdef __ARM_ARCH_7A__
+#if defined (__ARM_ARCH_7A__) || defined(__ARM_ARCH_7M__)
 
 static inline void dmb(void)
 {

@@ -18,6 +18,7 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish/static_assert.h>
 #include "threads_priv.h"
+#include <stdio.h>//for debugging printf
 
 #include <asmoffsets.h>
 #ifndef OFFSETOF_DISP_DISABLED
@@ -43,9 +44,18 @@ STATIC_ASSERT(CPSR_REG == 0,  "broken context assumption");
 STATIC_ASSERT(NUM_REGS == 17, "broken context assumption");
 STATIC_ASSERT(PC_REG   == 16, "broken context assumption");
 
+
+/*
+ * XXX: there is no guarantee that the context has been set up by
+ * disp_save_context, so we can not cut corners by not restoring registers
+ * clobbered in disp_save_context.
+ * e.g. when a new thread is created, it is started using this function, with r0 and r1
+ * being arguments.
+ */
 static void __attribute__((naked)) __attribute__((noinline))
 disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
 {
+#ifndef __thumb2__  //use normal ARM assembly
     __asm volatile(
         /* Re-enable dispatcher */
         "    mov     r2, #0                                             \n\t"
@@ -58,11 +68,77 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
         "disp_resume_context_epilog:                                    \n\t"
         "    mov     r0, r0          ; nop                              \n\t"
                   );
+#else       //use pure thumb2
+
+#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
+    //if the context is an interrupted IT-block, we can not restore that ourselves
+    //(because we can not change the epsr)
+    //so we have to ask the kernel to do it for us.
+    //can only happen if the context had originally been saved by the kernel
+    if (regs[CPSR_REG] & 0x0600FC00){//the IPI/IT bits are set
+        //ask the kernel to resume the context for us
+        sys_resume_context((arch_registers_state_t*) regs);
+        printf("disp_resume_context is returning\n");
+        return;//do not resume it a second time in assembly!
+    }
+#endif //__ARM_ARCH_7M__
+
+    //we can not use ldm in quite the same way,
+    //so we have to restore some registers one by one
+
+    //to restore both a general-purpose register AND the pc, we need them to be adjacent
+    //in memory since this is normally not the case and we can not 
+    //change the data structure we are reading from,
+    //we first push them on the restored stack
+    __asm volatile(
+        /* push the regs pointer, because we can not guarantee that it will not be clobbered*/
+        "    push    {%[regs]}                                           \n\t"
+        /* Re-enable dispatcher (using regs as temp, because we know it is not disp) */
+        "    mov     %[regs], #0                                         \n\t"
+        "    str     %[regs], [%[disp], # " XTR(OFFSETOF_DISP_DISABLED)"]\n\t"
+        //put regs into r1, so it mirrors the function parameter order
+        "    pop     {r1}                                               \n\t"
+        //restore sp and lr first, because they can not be used with ldr and need a temp
+        "    ldr     r0,  [r1, #(" XTR(SP_REG) "*4)]                    \n\t"//read sp
+        "    mov     sp,  r0                                            \n\t"
+        "    ldr     r0,  [r1, #(" XTR(LR_REG) "*4)]                    \n\t"//read lr
+        "    mov     lr,  r0                                            \n\t"
+        /* Restore apsr condition bits  */
+        "    ldr     r0, [r1, #(" XTR(CPSR_REG) "*4)]                   \n\t"
+        "    msr     apsr, r0                                           \n\t"
+        //read pc and r1 values and push them on stack
+        "    ldr     r2,  [r1, #(" XTR(R1_REG) "*4)]                    \n\t"//read r1
+        "    ldr     r3,  [r1, #(" XTR(PC_REG) "*4)]                    \n\t"//read pc
+        //make sure lsb is one (force thumb mode)
+        "    orr     r3,  #1                                            \n\t"
+        "    push    {r2, r3}                                           \n\t"
+        /* Restore registers */
+        "    ldr     r0,  [r1, #(" XTR(R0_REG) "*4)]                    \n\t"
+        "    ldr     r2,  [r1, #(" XTR(R2_REG) "*4)]                    \n\t"
+        "    ldr     r3,  [r1, #(" XTR(R3_REG) "*4)]                    \n\t"
+        "    ldr     r4,  [r1, #(" XTR(R4_REG) "*4)]                    \n\t"
+        "    ldr     r5,  [r1, #(" XTR(R5_REG) "*4)]                    \n\t"
+        "    ldr     r6,  [r1, #(" XTR(R6_REG) "*4)]                    \n\t"
+        "    ldr     r7,  [r1, #(" XTR(R7_REG) "*4)]                    \n\t"
+        "    ldr     r8,  [r1, #(" XTR(R8_REG) "*4)]                    \n\t"
+        "    ldr     r9,  [r1, #(" XTR(R9_REG) "*4)]                    \n\t"
+        "    ldr     r10, [r1, #(" XTR(R10_REG) "*4)]                   \n\t"
+        "    ldr     r11, [r1, #(" XTR(R11_REG) "*4)]                   \n\t"
+        "    ldr     r12, [r1, #(" XTR(R12_REG) "*4)]                   \n\t"
+        //pop r1 and pc, leaving no register clobbered
+        "    pop     {r1, pc}                                           \n\t"
+        "disp_resume_context_epilog:                                    \n\t"
+        "    nop                                                        \n\t"
+        :: [disp] "r" (disp), [regs] "r" (regs));
+#endif //defined(__thumb2__)
 }
+
 
 static void __attribute__((naked))
 disp_save_context(uint32_t *regs)
 {
+#ifndef __thumb2__
+//use normal arm assembly
     __asm volatile(
         "    mrs     r1, cpsr                                           \n\t"
         "    adr     r2, disp_save_context_resume                       \n\t"
@@ -72,6 +148,22 @@ disp_save_context(uint32_t *regs)
         "disp_save_context_resume:                                      \n\t"
         "    bx      lr                                                 \n\t"
                   );
+#else   //use pure thumb2
+//stm can not store some combinations of registers, so we will have to store some one-by-one
+//also, we do not really need to store the already clobbered registers
+    __asm volatile(
+        "    mrs     r1, apsr                                           \n\t"
+        "    adr     r2, disp_save_context_resume                       \n\t"
+        "    str     r1,  [r0]                                          \n\t"//save apsr
+        "    add     r0,  #8                                            \n\t"//point to r1
+        "    stmia   r0!, {r1-r12}                                      \n\t"//save most registers
+        "    str     sp,  [r0], #4                                      \n\t"//save sp
+        "    str     lr,  [r0], #4                                      \n\t"//save lr
+        "    str     r2,  [r0]                                          \n\t"//set saved pc to resume label
+        "disp_save_context_resume:                                      \n\t"
+        "    bx      lr                                                 \n\t"
+                  );
+#endif  //defined(__thumb2__)
 }
 
 ///////////////////////////////////////////////////////////////////////////////

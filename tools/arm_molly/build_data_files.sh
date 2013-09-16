@@ -37,7 +37,9 @@ BINS=$(awk '/^kernel/ || /^module/ {print $2}' $MENU_LST)
 # IDX is a counter incremented for each binary.  
 IDX=1
 for BIN in $BINS; do
-  SLASH=${BIN////_}
+  #was SLASH=${BIN////_}, which only replaced slashes, but we need to replace "-" for armv7-m
+  UNDERSCORED=${BIN//-/_}
+  SLASH=${UNDERSCORED////_}
   BIN_OUT="$OUTPUT_PREFIX/${FILE_PREFIX}_$SLASH"
   OBJCOPY=$(which arm-none-linux-gnueabi-objcopy || which arm-linux-gnueabi-objcopy)
   echo $BIN '->' $BIN_OUT

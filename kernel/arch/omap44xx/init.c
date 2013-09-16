@@ -22,6 +22,7 @@
 #include <paging_kernel_arch.h>
 #include <phys_mmap.h>
 #include <serial.h>
+#include <spinlock.h>
 #include <stdio.h>
 #include <arm_hal.h>
 #include <getopt/getopt.h>
@@ -32,6 +33,7 @@
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
+#include <cortexm3_heteropanda.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -740,6 +742,7 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
 
     //initialize console
     serial_init(serial_console_port);
+    spinlock_init();
 
     printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
             " Board id 0x%08"PRIx32"\n", hal_get_board_id());
@@ -912,6 +915,7 @@ void arch_init(void *pointer)
 {
 
     serial_early_init(serial_console_port);
+    spinlock_early_init();//from here on we can safely use printf
 
     if (hal_cpu_is_bsp()) {
         struct multiboot_info *mb = pointer;
@@ -928,6 +932,20 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
+        
+#ifdef HETEROPANDA
+        //boot up a cortex-m3 core
+        
+        cortex_m3_early_init();
+        //set up and run heteropanda_slave image on cortex-m3
+        //XXX: HACK: to find out where the heteropanda_slave image starts, molly will
+        //just write the address into multiboot_info->mem_lower (which is otherwise unused)
+        void* start_slave = (void*) (mb->mem_lower);
+        prepare_and_start_m3(start_slave);    
+        //printf("entering endless loop so the M3 can work unhindered.\n");
+        //while(1){}
+#endif  //HETEROPANDA
+
     } else {
         global = (struct global *)GLOBAL_VBASE;
         // zeroing locks for the app core seems bogus to me --AKK

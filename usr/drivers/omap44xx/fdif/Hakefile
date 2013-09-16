@@ -19,6 +19,6 @@
                         "omap/omap44xx_fdif",
                         "omap/omap44xx_device_prm" ],
                     addLibraries = ["driverkit"],
-                    architectures = ["armv7"]
+                    architectures = ["armv7", "armv7-m"]
                   }
 ]

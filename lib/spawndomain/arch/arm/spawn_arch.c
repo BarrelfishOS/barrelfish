@@ -223,8 +223,10 @@ void spawn_arch_set_registers(void *arch_load_info,
     disp_arm->got_base = got_base;
 
     enabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
-    enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
-
     disabled_area->regs[REG_OFFSET(PIC_REGISTER)] = got_base;
+    
+#ifndef __ARM_ARCH_7M__ //armv7-m does not support these flags
+    enabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
     disabled_area->named.cpsr = CPSR_F_MASK | ARM_MODE_USR;
+#endif
 }
