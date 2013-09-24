@@ -638,6 +638,9 @@ uint8_t usb_hub_bandwidth_adjust(struct usb_device *dev, uint16_t length,
         uint8_t slot, uint8_t mask)
 {
     struct usb_host_controller *hc = dev->controller;
+    struct usb_hub *hub = dev->parent_hs_hub->hub;
+    assert(hub != NULL);
+
     switch (dev->speed) {
         case USB_SPEED_LOW:
         case USB_SPEED_FULL:
@@ -645,8 +648,6 @@ uint8_t usb_hub_bandwidth_adjust(struct usb_device *dev, uint16_t length,
                 length *=  8;
             }
             assert(dev->parent_hs_hub != NULL);
-            struct usb_hub *hub = dev->parent_hs_hub->hub;
-            assert(hub != NULL);
 
             if (slot >= 8) {
                 slot = usb_hub_find_slot(hub->uframe_usage, 4, 6, mask);
