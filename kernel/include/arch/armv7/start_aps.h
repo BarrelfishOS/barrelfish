@@ -47,6 +47,6 @@
     #error "Unknown ARM arch"
 #endif
 
-int start_aps_arm_start(uint8_t core_id, lvaddr_t entry);
+int start_aps_arm_start(coreid_t core_id, genvaddr_t entry);
 
 #endif // START_APS_H_

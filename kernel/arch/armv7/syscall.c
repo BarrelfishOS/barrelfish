@@ -21,7 +21,6 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
-#include <armv7_syscall.h>
 #include <start_aps.h>
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
@@ -31,33 +30,6 @@ __attribute__((noreturn))
 void sys_syscall_kernel(void)
 {
     panic("Why is the kernel making a system call?");
-}
-
-/**
- * \brief Spawn a new core
- */
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry)
-{
-#ifdef __ARM_ARCH_7M__
-printf("armv7-m can not spawn new cores yet");
-#else
-	int r;
-	switch(cpu_type) {
-	case CPU_ARM:
-		r = start_aps_arm_start(core_id, (lvaddr_t)entry);
-		if(r != 0)
-		{
-			return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-		}
-		break;
-	default:
-        assert(!"Architecture not supported");
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        break;
-	}
-#endif //defined(__ARM_ARCH_7M__)
-    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret

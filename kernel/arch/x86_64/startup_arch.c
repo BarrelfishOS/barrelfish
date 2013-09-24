@@ -31,6 +31,7 @@
 #include <kputchar.h>
 #include <startup.h>
 #include <arch/x86/startup_x86.h>
+#include <arch/x86/start_aps.h>
 
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     (cte)->cap.u.cnode.cnode

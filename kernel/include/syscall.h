@@ -18,6 +18,7 @@
 #include <kernel.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
+#include <barrelfish_kpi/types.h>
 #include <capabilities.h>
 
 errval_t sys_print(const char *str, size_t length);
@@ -61,5 +62,8 @@ sys_dispatcher_setup_guest (struct capability *to,
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
 struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
+struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry);
+
 
 #endif

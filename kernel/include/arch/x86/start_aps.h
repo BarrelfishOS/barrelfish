@@ -18,10 +18,15 @@
 #ifndef START_APS_H_
 #define START_APS_H_
 
+#include <stdint.h>
+#include <barrelfish_kpi/types.h>
+
 #define AP_STARTING_UP 1
 #define AP_STARTED     2
 
-int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry);
-int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry);
+#define STARTUP_TIMEOUT         0xffffff
+
+int start_aps_x86_64_start(coreid_t core_id, genvaddr_t entry);
+int start_aps_x86_32_start(coreid_t core_id, genvaddr_t entry);
 
 #endif // START_APS_H_

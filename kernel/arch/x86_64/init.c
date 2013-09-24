@@ -35,9 +35,11 @@
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/startup_x86.h>
+#include <arch/x86/start_aps.h>
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
+#include <coreboot.h>
 
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
@@ -526,6 +528,9 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Check/Enable MONITOR/MWAIT opcodes
     enable_monitor_mwait();
+
+    // Register start handler for other cores in the system
+    coreboot_set_spawn_handler(CPU_X86_64, start_aps_x86_64_start);
 
     // Call main kernel startup function -- this should never return
     kernel_startup();

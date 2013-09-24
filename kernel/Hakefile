@@ -42,7 +42,8 @@ let
                "string.c", 
                "syscall.c",
                "wakeup.c", 
-               "useraccess.c" ]
+               "useraccess.c",
+               "coreboot.c" ]
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
@@ -91,8 +92,7 @@ let
      architectures = [ "x86_64" ],
      assemblyFiles = [ "arch/x86_64/boot.S", 
                        "arch/x86_64/entry.S", 
-                       "arch/x86/init_ap_x86_64.S", 
-                       "arch/x86/init_ap_x86_32.S" ],
+                       "arch/x86_64/init_ap_x86_64.S" ],
      cFiles = [ "arch/x86_64/debug.c", 
                 "arch/x86_64/gdb_arch.c", 
                 "arch/x86_64/init.c", 
@@ -103,9 +103,9 @@ let
                 "arch/x86_64/paging.c",
                 "arch/x86_64/vmkit.c" , 
                 "arch/x86_64/page_mappings_arch.c",
+                "arch/x86_64/start_aps.c",
                 "arch/x86/apic.c", 
                 "arch/x86/pic.c", 
-                "arch/x86/start_aps.c", 
                 "arch/x86/cmos.c", 
                 "arch/x86/misc.c",
                 "arch/x86/serial.c", 
@@ -140,8 +140,7 @@ let
      assemblyFiles = [ "arch/x86_32/boot.S", 
                        "arch/x86_32/entry.S", 
                        "arch/x86_32/pic.S",
-                       "arch/x86/init_ap_x86_64.S", 
-                       "arch/x86/init_ap_x86_32.S" ],
+                       "arch/x86_32/init_ap_x86_32.S" ],
      cFiles = [ "arch/x86_32/debug.c", 
                 "arch/x86_32/gdb_arch.c", 
                 "arch/x86_32/init.c", 
@@ -151,9 +150,9 @@ let
                 "arch/x86_32/syscall.c", 
                 "arch/x86_32/paging.c",
                 "arch/x86_32/page_mappings_arch.c",
+                "arch/x86_32/start_aps.c",
                 "arch/x86/apic.c", 
                 "arch/x86/pic.c", 
-                "arch/x86/start_aps.c", 
                 "arch/x86/cmos.c", 
                 "arch/x86/misc.c",
                 "arch/x86/serial.c", 

@@ -19,6 +19,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
+#include <coreboot.h>
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <wakeup.h>
@@ -537,6 +538,47 @@ struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id)
 
     idcap_id_t coreid = (idcap_id_t) cap->u.id.coreid;
     *id = coreid << 32 | cap->u.id.core_local_id;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+/**
+ * Calls correct handler function to spawn an app core.
+ *
+ * At the moment spawn_core_handlers is set-up per 
+ * architecture inside text_init() usually found in init.c.
+ * 
+ * \note Generally the x86 terms of BSP and APP core are used
+ * throughout Barrelfish to distinguish between bootstrap core (BSP)
+ * and application cores (APP).
+ * 
+ * \param  core_id  Identifier of the core which we want to boot
+ * \param  cpu_type Architecture of the core.
+ * \param  entry    Entry point for code to start execution.
+ * 
+ * \retval SYS_ERR_OK Core successfully booted.
+ * \retval SYS_ERR_ARCHITECTURE_NOT_SUPPORTED No handler registered for
+ *     the specified cpu_type.
+ * \retval SYS_ERR_CORE_NOT_FOUND Core failed to boot.
+ */
+struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry)
+{
+    assert(cpu_type < CPU_TYPE_NUM);
+    // TODO(gz): assert core_id valid
+    // TODO(gz): assert entry range?
+
+    if (cpu_type < CPU_TYPE_NUM &&
+        coreboot_get_spawn_handler(cpu_type) == NULL) {
+        assert(!"Architecture not supported -- " \
+               "or you failed to register spawn handler?");
+        return SYSRET(SYS_ERR_ARCHITECTURE_NOT_SUPPORTED);
+    }
+
+    int r = (coreboot_get_spawn_handler(cpu_type))(core_id, entry);
+    if (r != 0) {
+        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+    }
 
     return SYSRET(SYS_ERR_OK);
 }
