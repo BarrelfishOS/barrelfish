@@ -34,6 +34,17 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                        entry).error;
 }
 
+/**
+ * \brief Stop the current core
+ */
+static inline errval_t
+invoke_monitor_stop_core(void)
+{
+    printf("%s:%d\n", __FUNCTION__, __LINE__);
+    return cap_invoke1(cap_kernel, KernelCmd_Stop_core).error;
+}
+
+
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {

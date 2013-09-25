@@ -286,6 +286,16 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
     return sys_monitor_spawn_core(core_id, cpu_type, entry);
 }
 
+/**
+ * \brief Request to stop the current core
+ */
+static struct sysret monitor_stop_core(struct capability *kernel_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printk(LOG_ERR, "monitor_stop_core id=%d\n", my_core_id);
+    halt();
+}
+
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
@@ -771,6 +781,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
+        [KernelCmd_Stop_core]    = monitor_stop_core,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
