@@ -140,6 +140,21 @@ interface monitor "The monitor to client Interface" {
         errval err,
         uintptr domain_id);
 
+    /**
+     * \brief Migrates a dispatcher to a distant core
+     *
+     * \note Currently in a proof concept stage. We just migrate
+     * and hope for the best, no reply that talks about the success.
+     * 
+     * \param core_id Destination core id
+     * \param vroot Address space capability
+     * \param disp Dispatcher Capability
+     */
+    message migrate_dispatcher_request(
+        uint8 core_id,
+        cap vroot,
+        cap disp);
+
     /* TODO: move to monitor_blocking as RPC? */
     call num_cores_request();
     response num_cores_reply(uint8 num);

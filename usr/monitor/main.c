@@ -197,8 +197,8 @@ static errval_t boot_app_core(int argc, char *argv[])
         return err_push(err, MON_ERR_SEND_REMOTE_MSG);
     }
 
-    printf("%s:%d: Shutting it down again\n", __FUNCTION__, __LINE__);
-    invoke_monitor_stop_core();
+    //printf("%s:%d: Shutting it down again\n", __FUNCTION__, __LINE__);
+    //invoke_monitor_stop_core();
 
     return SYS_ERR_OK;
 }

@@ -949,6 +949,14 @@ static void span_domain_request(struct monitor_binding *mb,
     }
 }
 
+static void migrate_dispatcher_request(struct monitor_binding *b,
+                                  coreid_t coreid, struct capref vroot, 
+                                  struct capref disp)
+{
+   printf("%s:%d\n", __FUNCTION__, __LINE__);
+
+}
+
 static void num_cores_request(struct monitor_binding *b)
 {
     /* XXX: This is deprecated and shouldn't be used: there's nothing useful you
@@ -991,6 +999,8 @@ struct monitor_rx_vtbl the_table = {
     .span_domain_request    = span_domain_request,
 
     .num_cores_request  = num_cores_request,
+
+    .migrate_dispatcher_request = migrate_dispatcher_request,
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)
