@@ -851,34 +851,6 @@ static void cap_send_request_2(uintptr_t my_mon_id, struct capref cap,
     }
 }
 
-#if 0
-struct capref domains[MAX_DOMAINS];
-
-static void assign_domain_id_request(struct monitor_binding *b, uintptr_t ust,
-                                     struct capref disp, struct capref ep)
-{
-    for(domainid_t id = 1; id < MAX_DOMAINS; id++) {
-        if(domains[id].cnode.address_bits == 0) {
-            domains[id] = ep;
-            errval_t err = invoke_domain_id(disp, id);
-            assert(err_is_ok(err));
-
-            err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, id);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "assign domain ID failed\n");
-            }
-            return;
-        }
-    }
-
-    // Return error
-    errval_t err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, 0);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "assign domain ID failed\n");
-    }
-}
-#endif
-
 static void span_domain_request(struct monitor_binding *mb,
                                 uintptr_t domain_id, uint8_t core_id,
                                 struct capref vroot, struct capref disp)
@@ -1019,8 +991,6 @@ struct monitor_rx_vtbl the_table = {
     .span_domain_request    = span_domain_request,
 
     .num_cores_request  = num_cores_request,
-
-    //.assign_domain_id_request = assign_domain_id_request,
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)
