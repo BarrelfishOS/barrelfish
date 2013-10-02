@@ -22,18 +22,34 @@
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-static void domain_spanned(void *arg, errval_t err) {
-    printf("%s:%d: domain spanned! err=%s\n", 
-           __FILE__, __LINE__, err_getstring(err));
-
+static int start_thread(void* arg) 
+{
+    errval_t err;
+    printf("%s:%d: thread started, moving to core 0 we're on %d\n", 
+           __FILE__, __LINE__, disp_get_core_id());
     err = domain_thread_move_to(thread_self(), 0);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "domain_thread_move_to failed!");
     }
     assert(err_is_ok(err));
 
+    printf("%s:%d: do some waiting...\n", __FILE__, __LINE__);
+    while (1) {
+        for (volatile int i=0; i<0xFFFFFF; i++);
+        printf("%s:%d: waiting...core=%d\n", 
+               __FILE__, __LINE__, disp_get_core_id());
+    }
+
+    return 0;
+}
+
+static void domain_spanned(void *arg, errval_t err) {
+    printf("%s:%d: domain spanned! err=%s\n", 
+           __FILE__, __LINE__, err_getstring(err));
     printf("%s:%d: migrated away from disp_get_core_id=%d\n", 
            __FILE__, __LINE__, disp_get_core_id());
+
+    thread_create(start_thread, NULL);
 
 }
 
@@ -56,8 +72,8 @@ int main(int argc, char *argv[])
     //err = mb->tx_vtbl.migrate_dispatcher_request(mb, NOP_CONT, 0, NULL_CAP, NULL_CAP);
     //assert(err_is_ok(err));
 
-    printf("%s:%d: do some waiting...\n", __FILE__, __LINE__);
-    for (volatile int i=0; i<0xFFFFFF; i++);
+    //printf("%s:%d: do some waiting...\n", __FILE__, __LINE__);
+    //for (volatile int i=0; i<0xFFFFFF; i++);
 
     messages_handler_loop();
 
