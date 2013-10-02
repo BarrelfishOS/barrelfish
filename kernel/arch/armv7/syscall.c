@@ -496,14 +496,33 @@ static struct sysret handle_irq_table_delete( struct capability* to,
 }
 
 
+static struct sysret dispatcher_dump_ptables(
+    struct capability* to,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(to->type == ObjType_Dispatcher);
+    assert(2 == argc);
+
+    printf("kernel_dump_ptables\n");
+
+    struct dcb *dispatcher = to->u.dispatcher.dcb;
+
+    paging_dump_tables(dispatcher);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Dispatcher] = {
-        [DispatcherCmd_Setup]      = handle_dispatcher_setup,
-        [DispatcherCmd_Properties] = handle_dispatcher_properties,
-        [DispatcherCmd_PerfMon]    = handle_dispatcher_perfmon
+        [DispatcherCmd_Setup]       = handle_dispatcher_setup,
+        [DispatcherCmd_Properties]  = handle_dispatcher_properties,
+        [DispatcherCmd_PerfMon]     = handle_dispatcher_perfmon,
+        [DispatcherCmd_DumpPTables] = dispatcher_dump_ptables,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
