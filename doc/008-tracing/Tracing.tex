@@ -88,7 +88,7 @@ work with the tracing system (e.g.~tools that have been developed analyzing
 trace logs) we decided to change as little as possible on the interface of the
 tracing framework. In the end the structure of the trace logs that are generated
 did not change, but only some mappings between constants in code and their
-interpretation. 
+interpretation.
 
 In this section we want to look at the part of the tracing framework that is
 implemented in Barrelfish, i.e.~the actual functionality that developers use in
@@ -226,14 +226,14 @@ subsystem kernel {
 
 	event CSWITCH               "Context Switch",
 	event BZERO                 "Buffer zeroing",
-	event TIMER                 "", 
-	event TIMER_SYNC            "", 
+	event TIMER                 "",
+	event TIMER_SYNC            "",
 
 };
 
 subsystem memserv {
 
-	event ALLOC	             "", 
+	event ALLOC	             "",
 };
 \end{lstlisting}
 \end{code}
@@ -279,7 +279,7 @@ are logged. See Section \ref{sec:enabling-disabling} for detailed information.
 \begin{code}
 \begin{lstlisting}[frame=single, caption={A header file that has been generated
 	based on the pleco file shown in Listing \ref{lst:pleco-file}.}, label={lst:headerfile}]
-#ifndef TRACE_DEFS_BARRELFISH__                                                          
+#ifndef TRACE_DEFS_BARRELFISH__
 #define TRACE_DEFS_BARRELFISH__
 
 #define TRACE_SUBSYS_KERNEL 0
@@ -294,7 +294,7 @@ are logged. See Section \ref{sec:enabling-disabling} for detailed information.
 
 #define TRACE_NUM_SUBSYSTEMS    2
 
-#endif // TRACE_DEFS_BARRELFISH__ 
+#endif // TRACE_DEFS_BARRELFISH__
 
 \end{lstlisting}
 \end{code}
@@ -310,21 +310,21 @@ be seen in Listing \ref{lst:jsonfile}.
 \begin{lstlisting}[frame=single, caption={A JSON file that has been generated
 	based on the pleco file shown in Listing \ref{lst:pleco-file}. This file can
 be used by Aquarium to decode log traces.}, label={lst:jsonfile}]
-{                                                                                        
-0 : { 
+{
+0 : {
     "name" : "kernel",
-    "events" : { 
+    "events" : {
         0 : "Context Switch",
         1 : "Buffer zeroing",
         2 : "TIMER",
         3 : "TIMER_SYNC"
-    }   
+    }
 },
-1 : { 
+1 : {
     "name" : "memserv",
-    "events" : { 
+    "events" : {
         0 : "ALLOC"
-    }   
+    }
 }
 }
 \end{lstlisting}
@@ -357,7 +357,7 @@ different cycle counters will not be synchronized anymore.
 
 The cycle counter offsets are all measured relative to core $0$. To measure the
 offset between a core $i$ and core $0$, we execute the Network Time Protocol
-clock synchronization algorithm 
+clock synchronization algorithm
 between the two cores. Figure \ref{fig:ntp} illustrates the steps of the clock
 synchronization between two cores. Four time measurements are performed and the
 estimated offset $\theta$ between the two cores is calculated as follows:
@@ -520,7 +520,7 @@ event) might not be very interesting, but the duration of the entire
 construction of the packet (an Activity) is what is actually very interesting.
 Thinking about Activities, it becomes immediately clear that the different types
 of Activities must be flexibly definable. We achieved this by allowing
-developers to create their own scripts that decode Activities. 
+developers to create their own scripts that decode Activities.
 
 \begin{figure}[htb]
 	\includegraphics[width=1\textwidth]{images/classdiag-input.png}
@@ -725,13 +725,13 @@ int main(..) {
   trace_event(TRACE_SUBSYS_XXX, TRACE_EVENT_XXX_AAA, _payload);
 
   execute_something_useful();
-  
+
   // fire the event that triggers end of recording
   trace_event(TRACE_SUBSYS_XXX, TRACE_EVENT_XXX_BBB, _payload);
 
   // Flush the buffer
   trace_flush(MKCLOSURE(..));
-}  
+}
 \end{lstlisting}
 \end{code}
 
