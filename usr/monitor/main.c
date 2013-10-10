@@ -98,7 +98,7 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     }
 
     /* initialise rcap_db */
-    err = rcap_db_init(); 
+    err = rcap_db_init();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "monitor rcap_db init failed");
         return err;

@@ -26,6 +26,7 @@
 #include <arch/x86/kputchar.h>
 #include "xapic_dev.h"
 #include <target/x86_64/offsets_target.h>
+#include <trace/trace.h>
 
 /**
  * start_ap and start_ap_end mark the start end the end point of the assembler
@@ -55,6 +56,9 @@ extern uint64_t x86_64_init_ap_global;
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
+    trace_event(TRACE_SUBSYS_KERNEL,
+                TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
+
     /* Copy the startup code to the real-mode address */
     uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
@@ -123,6 +127,9 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     apic_send_start_up(core_id, xapic_none,
                        X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
 
+    trace_event(TRACE_SUBSYS_KERNEL,
+                TRACE_EVENT_KERNEL_CORE_START_REQUEST_DONE, core_id);
+
     //give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
         if (*ap_lock != 0) {
@@ -134,6 +141,8 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     //a core with this APIC ID doesn't exist.
     if (*ap_lock != 0) {
         while (*ap_wait != AP_STARTED);
+        trace_event(TRACE_SUBSYS_KERNEL,
+                    TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
         *ap_lock = 0;
         debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
         return 0;

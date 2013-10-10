@@ -164,7 +164,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
             struct mon_msg_state* mms = NULL;
             err = new_mon_msg(&mms, send_boot_core_request);
             assert(err_is_ok(err));
-           
+
             mms->core_id = core_counter;
             mms->arch_id = arch_id;
             mms->send(mb, mms);

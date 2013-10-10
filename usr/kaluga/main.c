@@ -32,6 +32,9 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
+#include <trace/trace.h>
+
+
 #include "kaluga.h"
 
 coreid_t my_core_id = 0;  // Core ID
