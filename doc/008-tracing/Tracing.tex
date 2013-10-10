@@ -714,7 +714,13 @@ int main(..) {
   trace_prepare(..); // do clock synchronization
 
   // tell the framework when to start recording
-  err = trace_control(TRACE_EVENT_XXX_AAA, TRACE_EVENT_XXX_BBB, _duration);
+  err = trace_control(TRACE_EVENT(TRACE_SUBSYS_<A>,
+                                  TRACE_EVENT_<START>,
+                                  arg),
+                      TRACE_EVENT(TRACE_SUBSYS_<B>,
+                                  TRACE_EVENT_<END>,
+                                  arg),
+                      _duration);
 
   // enable the subsystems that should be traced
   trace_set_subsys_enabled(TRACE_SUBSYS_XXX, true);
