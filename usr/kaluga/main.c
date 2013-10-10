@@ -70,11 +70,12 @@ int main(int argc, char** argv)
 
     errval_t err;
 
-    trace_reset_all();
-    trace_set_autoflush(true);
-    err = trace_control (TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST, 0);
+    err = trace_set_all_subsys_enabled(true);
+    err = trace_control (TRACE_EVENT(TRACE_SUBSYS_KERNEL,
+                                     TRACE_EVENT_KERNEL_CORE_START_REQUEST, 1),
+                         TRACE_EVENT(TRACE_SUBSYS_KERNEL,
+                                     TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, 0), 0);
     assert(err_is_ok(err));
-    trace_set_all_subsys_enabled(true);
 
     my_core_id = disp_get_core_id();
     parse_arguments(argc, argv);

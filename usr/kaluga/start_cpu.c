@@ -24,6 +24,7 @@
 
 #include <octopus/octopus.h>
 #include <skb/skb.h>
+#include <trace/trace.h>
 
 #include "kaluga.h"
 
@@ -84,6 +85,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         assert(err_is_ok(err));
 
         KALUGA_DEBUG("before boot send...\n");
+        trace_flush(NOP_CONT);
         mms->send(mb, mms);
     }
     else {
