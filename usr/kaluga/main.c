@@ -71,10 +71,14 @@ int main(int argc, char** argv)
     errval_t err;
 
     err = trace_set_all_subsys_enabled(true);
-    err = trace_control (TRACE_EVENT(TRACE_SUBSYS_KERNEL,
-                                     TRACE_EVENT_KERNEL_CORE_START_REQUEST, 1),
-                         TRACE_EVENT(TRACE_SUBSYS_KERNEL,
-                                     TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, 0), 0);
+    err = trace_set_subsys_enabled(TRACE_SUBSYS_CORES, true);
+    err = trace_set_subsys_enabled(TRACE_SUBSYS_KERNEL, true);
+    err = trace_set_subsys_enabled(TRACE_SUBSYS_MONITOR, true);
+    err = trace_set_subsys_enabled(TRACE_SUBSYS_ACPI, true);
+    err = trace_control (TRACE_EVENT(TRACE_SUBSYS_ACPI,
+                                     TRACE_EVENT_ACPI_APIC_ADDED, 1),
+                         TRACE_EVENT(TRACE_SUBSYS_CORES,
+                                     TRACE_EVENT_CORES_ALL_UP, 0), 0);
     assert(err_is_ok(err));
 
     my_core_id = disp_get_core_id();
