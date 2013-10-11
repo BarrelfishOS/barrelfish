@@ -177,7 +177,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 {
-    lpaddr_t pend  = paging_round_down(paddr + bytes, BYTES_PER_SECTION);
+    lpaddr_t pend  = paging_round_up(paddr + bytes, BYTES_PER_SECTION);
     while (paddr < pend) {
         paging_map_kernel_section(0, paddr + MEMORY_OFFSET, paddr);
         paddr += BYTES_PER_SECTION;
