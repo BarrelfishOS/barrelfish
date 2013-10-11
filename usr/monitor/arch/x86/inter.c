@@ -60,10 +60,11 @@ static void send_bind_monitor_reply(struct intermon_binding *b, errval_t err)
  * with another newly booted monitor from a third monitor
  */
 static void bind_monitor_request(struct intermon_binding *b,
-                                 coreid_t core_id, 
+                                 coreid_t core_id,
                                  intermon_caprep_t caprep)
 {
     errval_t err;
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BIND_MONITOR_REQUEST, core_id);
 
     /* Create the cap */
     struct capability cap_raw;
@@ -132,6 +133,7 @@ static void bind_monitor_reply(struct intermon_binding *closure,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Got error in bind monitor reply");
     }
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BIND_MONITOR_REPLY, 0);
     seen_connections++;
 }
 

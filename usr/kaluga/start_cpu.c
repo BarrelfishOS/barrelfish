@@ -53,6 +53,7 @@ static void send_boot_initialize_request(struct monitor_binding* b,
 {
     errval_t err;
 
+    trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_BOOT_INITIALIZE_USER, 0);
     err = b->tx_vtbl.boot_initialize_request(b,
             MKCONT(free, mm));
 
@@ -76,6 +77,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
             core_boot_replies+1, cores_on_boot);
 
     if (++core_boot_replies == cores_on_boot) {
+        trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_ALL_UP, 0);
         struct monitor_binding *mb = get_monitor_binding();
         struct mon_msg_state *mms = NULL;
         errval_t err = new_mon_msg(&mms, send_boot_initialize_request);
@@ -103,6 +105,7 @@ static void send_boot_core_request(struct monitor_binding* b,
     errval_t err;
 
     struct module_info* mi = find_module("cpu");
+    trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_USER_REQUEST, mm->core_id);
     err = b->tx_vtbl.boot_core_request(b, MKCONT(free, mm), mm->core_id,
             mm->arch_id, CURRENT_CPU_TYPE, mi->complete_line);
 

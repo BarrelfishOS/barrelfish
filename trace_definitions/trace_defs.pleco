@@ -49,9 +49,10 @@ subsystem kernel {
 	event SCHED_SCHEDULE 		"",
 	event SCHED_CURRENT 		"",
 
-    event CORE_START_REQUEST      "Requested start of a new core.",
-    event CORE_START_REQUEST_DONE "Request is sent, waiting for core to come up.",
-    event CORE_START_REQUEST_ACK  "Core is online.",
+    event START_CORE_REQUEST "Received (monitor -> kernel) [in kernel].",
+    event CORE_START_IPI_SENT      "Request sent, waiting for core to appear.",
+    event CORE_IS_UP        "New kernel is online.",
+
 };
 
 subsystem threads {
@@ -102,21 +103,25 @@ subsystem memtest {
 
 
 subsystem monitor {
- event SPAN0					"",
- event SPAN1					"",
- event SPAN						"",
- event PCREQ					"",
- event PCREP					"",
- event PCREQ_INTER				"",
- event PCREPLY_INTER			"",
- event URPC_BLOCK				"",
- event URPC_UNBLOCK				"",
- event REMOTE_CAP_RETYPE		"",
- event REMOTE_CAP_RETYPE_RETRY	"",
- event REMOTE_CAP_RETYPE_MSG	"",
- event REMOTE_CAP_RETYPE_END	"",
- event POLLING					"",
-
+    event SPAN0					"",
+    event SPAN1					"",
+    event SPAN						"",
+    event PCREQ					"",
+    event PCREP					"",
+    event PCREQ_INTER				"",
+    event PCREPLY_INTER			"",
+    event URPC_BLOCK				"",
+    event URPC_UNBLOCK				"",
+    event REMOTE_CAP_RETYPE		"",
+    event REMOTE_CAP_RETYPE_RETRY	"",
+    event REMOTE_CAP_RETYPE_MSG	"",
+    event REMOTE_CAP_RETYPE_END	"",
+    event POLLING					"",
+    event BIND_MONITOR_REPLY "Bind monitor reply",
+    event BIND_MONITOR_REQUEST "Request to setup connection with new monitor",
+    event BOOT_CORE_REQUEST "Received request from (user -> monitor) [in monitor].",
+    event BOOT_INITIALIZE_REQUEST "Monitor got boot initialize request",
+    event INVOKE_SPAWN "Monitor requests boot-up from kernel (monitor -> kernel).",
 };
 
 subsystem chips {
@@ -312,3 +317,13 @@ subsystem xmpl {
 
 };
 
+subsystem acpi {
+    event APIC_ADDED     "ACPI added fact about new core to SKB",
+};
+
+// Use to trace the core booting system
+subsystem cores {
+    event USER_REQUEST     "Kaluga requests boot-up of new CPU user -> monitor.",
+    event ALL_UP           "Everything has booted",
+    event BOOT_INITIALIZE_USER "User sends boot initialize to monitor",
+};

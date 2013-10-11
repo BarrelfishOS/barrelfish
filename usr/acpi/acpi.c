@@ -25,6 +25,7 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include <trace/trace.h>
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -168,7 +169,7 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
     case ACPI_RESOURCE_TYPE_ADDRESS64:
         printf("length = %"PRIu32", gran = %lx, min = %lx, max = %lx, transoff "
                "= %lx, addrlen = %lx, index = %hhu, strlen = %hu, string = %s",
-               res->Length, res->Data.Address64.Granularity, 
+               res->Length, res->Data.Address64.Granularity,
                res->Data.Address64.Minimum,
                res->Data.Address64.Maximum,
                res->Data.Address64.TranslationOffset,

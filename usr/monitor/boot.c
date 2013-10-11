@@ -53,6 +53,8 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
     enum cpu_type cpu_type = (enum cpu_type)int_cpu_type;
     struct intermon_binding *new_binding = NULL;
 
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BOOT_CORE_REQUEST, id);
+
     if (id == my_core_id) {
         err = MON_ERR_SAME_CORE;
         goto out;
@@ -107,6 +109,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
 void boot_initialize_request(struct monitor_binding *st)
 {
     errval_t err;
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BOOT_INITIALIZE_REQUEST, 0);
 
     /* Wait for all monitors to initialize. */
     int num_connections = get_num_connections(num_monitors);

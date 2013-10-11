@@ -19,6 +19,7 @@
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
+#include <trace/trace.h>
 
 #include "ioapic.h"
 #include "acpi_debug.h"
@@ -83,7 +84,7 @@ static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
     assert(ioapic_nr < IOAPIC_MAX);
 
     // allocate memory backing IOAPIC
-    err = mm_realloc_range(&pci_mm_physaddr, IOAPIC_PAGE_BITS, 
+    err = mm_realloc_range(&pci_mm_physaddr, IOAPIC_PAGE_BITS,
                            s->Address, &devmem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate I/O APIC register page at 0x%x\n",
@@ -186,6 +187,7 @@ int init_all_apics(void)
                 ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %d\n",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
+                trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
                 errval_t err = oct_set("hw.apic.%d { cpu_id: %d, id: %d, enabled: %d }",
                                          s->Id, s->ProcessorId, s->Id,
