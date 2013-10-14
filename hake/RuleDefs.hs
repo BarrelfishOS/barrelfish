@@ -21,7 +21,6 @@ import qualified ARMv5
 import qualified ARM11MP
 import qualified XScale
 import qualified ARMv7
-import qualified ARMv7_M
 import HakeTypes
 import qualified Args
 import qualified Config
@@ -84,7 +83,6 @@ options "armv5" = ARMv5.options
 options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
 options "armv7" = ARMv7.options
-options "armv7-m" = ARMv7_M.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
@@ -93,7 +91,6 @@ kernelCFlags "armv5" = ARMv5.kernelCFlags
 kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
-kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
@@ -102,7 +99,6 @@ kernelLdFlags "armv5" = ARMv5.kernelLdFlags
 kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
-kernelLdFlags "armv7-m" = ARMv7_M.kernelLdFlags
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)
@@ -138,8 +134,8 @@ kernelOptions arch = Options {
             optIncludes = kernelIncludes arch,
             optDependencies =
                 [ Dep InstallTree arch "/include/errors/errno.h",
-                  Dep InstallTree arch "/include/barrelfish_kpi/capbits.h",
-                  Dep InstallTree arch "/include/asmoffsets.h" ],
+                  Dep InstallTree arch "/include/asmoffsets.h",
+                  Dep InstallTree arch "/include/trace_definitions/trace_defs.h" ],
             optLdFlags = kernelLdFlags arch,
             optLdCxxFlags = [],
             optLibs = [],
@@ -176,7 +172,6 @@ cCompiler opts phase src obj
     | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
     | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
-    | optArch opts == "armv7-m" = ARMv7_M.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
@@ -211,8 +206,6 @@ makeDepend opts phase src obj depfile
         XScale.makeDepend opts phase src obj depfile
     | optArch opts == "armv7" = 
         ARMv7.makeDepend opts phase src obj depfile
-    | optArch opts == "armv7-m" = 
-        ARMv7_M.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -230,7 +223,6 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "armv7-m" = ARMv7_M.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 --
@@ -245,7 +237,6 @@ assembler opts src obj
     | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | optArch opts == "armv7" = ARMv7.assembler opts src obj
-    | optArch opts == "armv7-m" = ARMv7_M.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
@@ -257,7 +248,6 @@ archive opts objs libs name libname
     | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
-    | optArch opts == "armv7-m" = ARMv7_M.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -269,7 +259,6 @@ linker opts objs libs bin
     | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
     | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
-    | optArch opts == "armv7-m" = ARMv7_M.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -750,7 +739,6 @@ linkKernel opts name objs libs
     | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
-    | optArch opts == "armv7-m" = ARMv7_M.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
