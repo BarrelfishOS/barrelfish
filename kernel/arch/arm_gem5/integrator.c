@@ -22,6 +22,7 @@
 #include <arm_hal.h>
 #include <cp15.h>
 #include <io.h>
+#include <gic.h>
 
 //hardcoded bc gem5 doesn't set board id in ID_Register
 #define VEXPRESS_ELT_BOARD_ID		0x8e0
@@ -48,100 +49,15 @@ static uint32_t tsc_hz = 1000000000;
 // Interrupt controller
 //
 
-#define PIC_BASE    0x2C000000
+#define GIC_BASE    0x2C000000
 #define DIST_OFFSET 0x1000
 #define CPU_OFFSET  0x2000
 
-pl130_gic_t gic;
-static pl130_gic_ICDICTR_t gic_config;
-
-uint32_t it_num_lines;
-static uint8_t cpu_number;
-static uint8_t sec_extn_implemented;
-
-void gic_init(void)
+void gic_map_and_init(pl130_gic_t *gic)
 {
-    lvaddr_t gic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
-    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_base + DIST_OFFSET,
+    lvaddr_t gic_base = paging_map_device(GIC_BASE, ARM_L1_SECTION_BYTES);
+    pl130_gic_initialize(gic, (mackerel_addr_t)gic_base + DIST_OFFSET,
             (mackerel_addr_t)gic_base + CPU_OFFSET);
-
-    //read GIC configuration
-    gic_config = pl130_gic_ICDICTR_rd(&gic);
-    it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
-    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
-    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
-
-    gic_cpu_interface_init();
-
-    if(hal_cpu_is_bsp())
-    {
-        gic_distributor_init();
-    }
-}
-
-void gic_distributor_init(void)
-{
-    //gic_disable_all_irqs();
-
-    //enable interrupt forwarding from distributor to cpu interface
-    pl130_gic_ICDDCR_wr(&gic, 0x1);
-}
-
-//config cpu interface
-void gic_cpu_interface_init(void)
-{
-    //set priority mask of cpu interface, currently set to lowest priority
-    //to accept all interrupts
-    pl130_gic_ICCPMR_wr(&gic, 0xff);
-
-    //set binary point to define split of group- and subpriority
-    //currently we allow for 8 subpriorities
-    pl130_gic_ICCBPR_wr(&gic, 0x2);
-}
-
-//enable interrupt forwarding to processor
-void gic_cpu_interface_enable(void)
-{
-    pl130_gic_ICCICR_wr(&gic, 0x1);
-}
-
-//disable interrupt forwarding to processor
-void gic_cpu_interface_disable(void)
-{
-    pl130_gic_ICCICR_wr(&gic, 0x0);
-}
-
-uint32_t gic_get_active_irq(void)
-{
-	uint32_t regval = pl130_gic_ICCIAR_rd(&gic);
-
-	return regval;
-}
-
-void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
-{
-	uint32_t regval = (cpumask << 16) | irq;
-	pl130_gic_ICDSGIR_rawwr(&gic, regval);
-}
-
-/*
-uint32_t gic_get_active_irq(void)
-{
-    uint32_t status = arm_icp_pic0_PIC_IRQ_STATUS_rd_raw(&pic);
-    uint32_t irq;
-
-    for (irq = 0; irq < 32; irq++) {
-        if (0 != (status & (1u << irq))) {
-            return irq;
-        }
-    }
-    return ~0ul;
-}
-*/
-
-void gic_ack_irq(uint32_t irq)
-{
-    pl130_gic_ICCEOIR_rawwr(&gic, irq);
 }
 
 //

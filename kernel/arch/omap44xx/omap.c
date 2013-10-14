@@ -18,6 +18,7 @@
 
 #include <arm_hal.h>
 #include <cp15.h>
+#include <gic.h>
 
 //hardcoded bc gem5 doesn't set board id in ID_Register
 //XXX: change so it makes sense for the pandaboard -SG
@@ -46,13 +47,6 @@ static uint32_t tsc_hz = 2000000000;
 //
 #define DIST_OFFSET     0x1000 // Interrupt Distributor
 #define CPU_OFFSET 	0x0100 // Interrupt controller interface
-
-pl130_gic_t gic;
-static pl130_gic_ICDICTR_t gic_config;
-
-uint32_t it_num_lines;
-static uint8_t cpu_number;
-static uint8_t sec_extn_implemented;
 
 /*
  * This is the private memory region, which starts at address PERIPHBASE.
@@ -97,83 +91,13 @@ void map_private_memory_region(void)
     private_mem_test();
 }
 
-/*
- * There are three types of interrupts
- * 1) Software generated Interrupts (SGI) - IDs 0-15
- * 2) Private Peripheral Interrupts (PPI) - IDs 16-31
- * 3) Shared Peripheral Interrups (SPI) - IDs 32...
- */
-void gic_init(void)
+void gic_map_and_init(pl130_gic_t *gic)
 {
     map_private_memory_region();
 
-    pl130_gic_initialize(&gic,
-                         (mackerel_addr_t) private_memory_region + DIST_OFFSET,
-                         (mackerel_addr_t) private_memory_region + CPU_OFFSET);
-
-    // read GIC configuration
-    gic_config = pl130_gic_ICDICTR_rd(&gic);
-
-    // ARM GIC TRM, 3.1.2
-    // This is the number of ICDISERs, i.e. #SPIs
-    // Number of SIGs (0-15) and PPIs (16-31) is fixed
-    // XXX: Why (x+1)*32?
-    uint32_t it_num_lines_tmp = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
-    it_num_lines = 32*(it_num_lines_tmp + 1);
-
-    printf("GIC: %d interrupt lines detected\n", it_num_lines_tmp);
-
-    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
-    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
-
-    // set priority mask of cpu interface, currently set to lowest priority
-    // to accept all interrupts
-    pl130_gic_ICCPMR_wr(&gic, 0xff);
-
-    // set binary point to define split of group- and subpriority
-    // currently we allow for 8 subpriorities
-    pl130_gic_ICCBPR_wr(&gic, 0x2);
-
-    // enable interrupt forwarding to processor
-    pl130_gic_ICCICR_enable_wrf(&gic, 0x1);
-
-    // Distributor:
-    // enable interrupt forwarding from distributor to cpu interface
-    pl130_gic_ICDDCR_enable_wrf(&gic, 0x1);
-    printf("gic_init: done\n");
-}
-
-uint32_t gic_get_active_irq(void)
-{
-	uint32_t regval = pl130_gic_ICCIAR_rd(&gic);
-
-	return regval;
-}
-
-void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
-{
-	uint32_t regval = (cpumask << 16) | irq;
-	pl130_gic_ICDSGIR_wr(&gic, regval);
-}
-
-/*
-uint32_t gic_get_active_irq(void)
-{
-    uint32_t status = arm_icp_gic0_PIC_IRQ_STATUS_rd_raw(&gic);
-    uint32_t irq;
-
-    for (irq = 0; irq < 32; irq++) {
-        if (0 != (status & (1u << irq))) {
-            return irq;
-        }
-    }
-    return ~0ul;
-}
-*/
-
-void gic_ack_irq(uint32_t irq)
-{
-    pl130_gic_ICCEOIR_rawwr(&gic, irq);
+    pl130_gic_initialize(gic,
+            (mackerel_addr_t) private_memory_region + DIST_OFFSET,
+            (mackerel_addr_t) private_memory_region + CPU_OFFSET);
 }
 
 //
