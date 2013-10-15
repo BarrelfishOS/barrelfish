@@ -56,8 +56,12 @@ static void send_bind_monitor_reply(struct intermon_binding *b, errval_t err)
 }
 
 /**
- * \brief A monitor receives request to setup a connection
- * with another newly booted monitor from a third monitor
+ * A monitor newly booted monitor receives
+ * request to setup a connection with another monitor
+ * from a third monitor.
+ *
+ * \param core_id Originating core id
+ * \param caprep Endpoint capability
  */
 static void bind_monitor_request(struct intermon_binding *b,
                                  coreid_t core_id,
@@ -124,8 +128,12 @@ error:
 }
 
 /**
- * \brief The monitor that proxied the request for one monitor to
- * setup a connection with another monitor gets the reply
+ * The monitor that proxied the request for one monitor to
+ * setup a connection with another monitor gets the reply.
+ *
+ * In the current set-up this happens to be the BSP monitor.
+ *
+ * \param err Error status of bind request.
  */
 static void bind_monitor_reply(struct intermon_binding *closure,
                                errval_t err)

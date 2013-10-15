@@ -36,8 +36,6 @@ interface intermon "The Interface between monitors" {
     message spawnd_image_request();
     message spawnd_image_reply(genpaddr base, uint32 bytes);
 
-    message monitor_initialized();
-
     message trace_caps_request();
     message trace_caps_reply(caprep cap);
 
@@ -53,9 +51,19 @@ interface intermon "The Interface between monitors" {
     message monitor_mem_iref_request();
     message monitor_mem_iref_reply(iref iref);
 
-    message bind_monitor_request(coreid_t core_id, caprep cap);
-    message bind_monitor_reply(errval err);
+    /**
+     * New monitor communication set-up.
+     *  1. monitor_initialized (new monitor -> bsp)
+     *  2. new_monitor_nofity (monitor.0 -> <all available monitors>)
+     *  3. bind_monitor_proxy (<all available monitors> -> monitor.0)
+     *  4. bind_monitor_request (monitor.0 -> new monitor)
+     *  5. bind_monitor_reply (new monitor -> monitor.0)
+     */
+    message monitor_initialized();
+    message new_monitor_notify(coreid_t core_id);
     message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
+    call bind_monitor_request(coreid_t core_id, caprep cap);
+    response bind_monitor_reply(errval err);
 
     message bind_monitor_request_scc(coreid_t core_id,
                                      caprep cap,
@@ -78,8 +86,6 @@ interface intermon "The Interface between monitors" {
     message bind_monitor_proxy_bmp(coreid_t dst_core_id,
                                    chanid_t chan_id,
                                    coreid_t core_id);
-
-    message new_monitor_notify(coreid_t core_id);
 
     message bind_ump_request(iref iref,
                              mon_id_t mon_id,
