@@ -105,13 +105,13 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
  * \brief XXX: This is a hack. Currently, we must know when all cores
  * are booted so that the monitors can initialize with each other,
  * setup routing tables and synchronize clocks.
- */
+
 void boot_initialize_request(struct monitor_binding *st)
 {
     errval_t err;
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BOOT_INITIALIZE_REQUEST, 0);
 
-    /* Wait for all monitors to initialize. */
+    // Wait for all monitors to initialize.
     int num_connections = get_num_connections(num_monitors);
     while(num_connections > seen_connections) {
         // This waiting is fine, boot_manager will not send another msg
@@ -137,3 +137,4 @@ void boot_initialize_request(struct monitor_binding *st)
         USER_PANIC_ERR(err, "boot_initialize_reply failed");
     }
 }
+*/

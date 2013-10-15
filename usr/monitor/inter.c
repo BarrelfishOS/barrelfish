@@ -135,6 +135,16 @@ static void monitor_initialized(struct intermon_binding *b)
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
     }
 
+    // New plan, do timing sync for every time a monitor has come up...
+    if(num_monitors > 1) {
+        printf("monitor: synchronizing clocks\n");
+        err = timing_sync_timer();
+        assert(err_is_ok(err) || err_no(err) == SYS_ERR_SYNC_MISS);
+        if(err_no(err) == SYS_ERR_SYNC_MISS) {
+            printf("monitor: failed to sync clocks. Bad reference clock?\n");
+        }
+    }
+
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
     boot_core_reply_cont(client, err);
@@ -229,8 +239,8 @@ static void cap_send_request(struct intermon_binding *b,
                              mon_id_t my_mon_id, uint32_t capid,
                              intermon_caprep_t caprep, errval_t msgerr,
                              bool give_away, bool remote_has_desc,
-                             intermon_coremask_t on_cores, 
-                             bool null_cap) 
+                             intermon_coremask_t on_cores,
+                             bool null_cap)
 {
     errval_t err, err2;
 
@@ -271,14 +281,14 @@ static void cap_send_request(struct intermon_binding *b,
                     err = err_push(err, MON_ERR_CAP_REMOTE);
                     goto cleanup2;
                 }
-                // if this assert fires, then something wierd has happened 
-                // where our kernel knows this cap has descendents, but the 
+                // if this assert fires, then something wierd has happened
+                // where our kernel knows this cap has descendents, but the
                 // sending core didn't
                 assert(!kern_has_desc || remote_has_desc);
-            
+
                 coremask_t mask;
                 memcpy(mask.bits, on_cores, sizeof(intermon_coremask_t));
-                rcap_db_update_on_recv (capability, remote_has_desc, mask, 
+                rcap_db_update_on_recv (capability, remote_has_desc, mask,
                                         core_id);
                 if (err_is_fail(err)) {
                     // cleanup
@@ -298,7 +308,7 @@ static void cap_send_request(struct intermon_binding *b,
                 goto cleanup2;
             }
 
-            // TODO, do something if this cap already has descendents to ensure 
+            // TODO, do something if this cap already has descendents to ensure
             // that it cannot be retyped on this core
         }
 
@@ -725,13 +735,13 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
     err = arch_intermon_init(b);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "arch_intermon_init failed");       
+        USER_PANIC_ERR(err, "arch_intermon_init failed");
         return err;
     }
 
     err = intermon_binding_set(st);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "intermon_binding_set failed");       
+        USER_PANIC_ERR(err, "intermon_binding_set failed");
         return err;
     }
 
