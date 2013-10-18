@@ -138,6 +138,7 @@ kernelOptions arch = Options {
             optIncludes = kernelIncludes arch,
             optDependencies =
                 [ Dep InstallTree arch "/include/errors/errno.h",
+                  Dep InstallTree arch "/include/barrelfish_kpi/capbits.h",
                   Dep InstallTree arch "/include/asmoffsets.h",
                   Dep InstallTree arch "/include/trace_definitions/trace_defs.h" ],
             optLdFlags = kernelLdFlags arch,
