@@ -44,6 +44,7 @@ static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
+    set_start_function("x86boot", start_boot_driver);
 }
 
 static void parse_arguments(int argc, char** argv)
@@ -69,17 +70,6 @@ int main(int argc, char** argv)
     init_environ();
 
     errval_t err;
-
-    err = trace_set_all_subsys_enabled(true);
-    err = trace_set_subsys_enabled(TRACE_SUBSYS_CORES, true);
-    err = trace_set_subsys_enabled(TRACE_SUBSYS_KERNEL, true);
-    err = trace_set_subsys_enabled(TRACE_SUBSYS_MONITOR, true);
-    err = trace_set_subsys_enabled(TRACE_SUBSYS_ACPI, true);
-    err = trace_control (TRACE_EVENT(TRACE_SUBSYS_ACPI,
-                                     TRACE_EVENT_ACPI_APIC_ADDED, 1),
-                         TRACE_EVENT(TRACE_SUBSYS_CORES,
-                                     TRACE_EVENT_CORES_ALL_UP, 0), 0);
-    assert(err_is_ok(err));
 
     my_core_id = disp_get_core_id();
     parse_arguments(argc, argv);
@@ -136,6 +126,13 @@ int main(int argc, char** argv)
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI devices.");
+    }
+
+    struct module_info* mi = find_module("x86boot");
+    if (mi != NULL) {
+        printf("%s:%d: spawn x86boot\n", __FILE__, __LINE__);
+        err = mi->start_function(0, mi, "hw.apic.1 { cpu_id: 1, enabled: 1, id: 1 }");
+        assert(err_is_ok(err));
     }
 
     // XXX: This is a bit silly, I add this record
