@@ -48,6 +48,17 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
+    if (!strcmp(name, "kaluga")) {
+        src = cap_kernel;
+        dest.cnode = si->taskcn,
+        dest.slot  = TASKCN_SLOT_KERNELCAP;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not give kernel cap to kaluga");
+            return err_push(err, SPAWN_ERR_COPY_KERNEL_CAP);
+        }
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -225,7 +236,7 @@ errval_t spawn_all_domains(void)
         }
 
         // Pass the local arch-specific core ID to the PCI and spawnd domains
-        if(strcmp(short_name, "pci") == 0 
+        if(strcmp(short_name, "pci") == 0
            || strcmp(short_name, "spawnd") == 0
            || strcmp(short_name, "kaluga") == 0
            || strcmp(short_name, "acpi") == 0

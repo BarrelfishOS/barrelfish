@@ -25,6 +25,7 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 #include <trace/trace.h>
+#include <barrelfish/spawn_client.h>
 
 #include "kaluga.h"
 
@@ -85,7 +86,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         assert(err_is_ok(err));
 
         KALUGA_DEBUG("before boot send...\n");
-        trace_flush(NOP_CONT);
+        //trace_flush(NOP_CONT);
         mms->send(mb, mms);
     }
     else {
@@ -237,6 +238,77 @@ errval_t watch_for_cores(void)
     oct_free_names(apic_record_names, cores_on_boot);
     return err;
 }
+
+errval_t start_boot_driver(coreid_t where, struct module_info* mi,
+        char* record)
+{
+    assert(mi != NULL);
+    errval_t err = SYS_ERR_OK;
+
+    if (!is_auto_driver(mi)) {
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+    // Construct additional command line arguments containing pci-id.
+    // We need one extra entry for the new argument.
+    uint64_t cpu_id, id;
+    char **argv = mi->argv;
+    bool cleanup = false;
+    err = oct_read(record, "_ { cpu_id: %d, id: %d }",
+            &cpu_id, &id);
+    if (err_is_ok(err)) {
+        argv = malloc((mi->argc+1) * sizeof(char *));
+        memcpy(argv, mi->argv, mi->argc * sizeof(char *));
+        char *cpu_id_s  = malloc(10);
+        char *id_s  = malloc(10);
+        snprintf(cpu_id_s, 10, "%"PRIx64"", cpu_id);
+        snprintf(id_s, 10, "%"PRIx64"", id);
+
+        argv[mi->argc] = cpu_id_s;
+        mi->argc += 1;
+        argv[mi->argc] = id_s;
+        mi->argc += 1;
+        argv[mi->argc] = NULL;
+
+        cleanup = true;
+    }
+
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+
+    struct capability info;
+    err = debug_cap_identify(task_cap_kernel, &info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can not identify the capability.");
+    }
+    char buffer[1024];
+    debug_print_cap(buffer, 1024, &info);
+    printf("%s:%d: capability=%s\n", __FILE__, __LINE__, buffer);
+
+    struct capref inheritcn_cap;
+    err = alloc_inheritcn_with_caps(&inheritcn_cap,
+                                    NULL_CAP, NULL_CAP, task_cap_kernel);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "alloc_inheritcn_with_kernelcap failed.");
+    }
+
+    err = spawn_program_with_caps(where, mi->path, argv,
+            environ, inheritcn_cap, NULL_CAP, 0, &mi->did);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Spawning %s failed.", mi->path);
+    }
+    if (cleanup) {
+        free(argv[mi->argc-1]);
+        free(argv[mi->argc-2]);
+        free(argv);
+    }
+
+    return err;
+}
+
+
 /*
 static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
 {
