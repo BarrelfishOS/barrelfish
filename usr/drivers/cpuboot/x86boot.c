@@ -60,7 +60,21 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
-    return cap_invoke4(cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
+
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+
+    struct capability info;
+    errval_t err = debug_cap_identify(task_cap_kernel, &info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can not identify the capability.");
+    }
+    char buffer[1024];
+    debug_print_cap(buffer, 1024, &info);
+    printf("%s:%d: capability=%s\n", __FILE__, __LINE__, buffer);
+
+    return cap_invoke4(task_cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
                        entry).error;
 }
 
@@ -169,11 +183,9 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     *ret_binding = &ump_binding->b;
 
-    printf("%s:%d: \n", __FILE__, __LINE__);
     // Identify UMP frame for tracing
     struct frame_identity umpid;
     err = invoke_frame_identify(frame, &umpid);
-    printf("%s:%d: \n", __FILE__, __LINE__);
     assert(err_is_ok(err));
     ump_binding->ump_state.chan.recvid = (uintptr_t)umpid.base;
     ump_binding->ump_state.chan.sendid =
@@ -183,6 +195,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     /* Look up modules */
     struct mem_region *cpu_region = multiboot_find_module(bi, cpuname);
     if (cpu_region == NULL) {
+        assert(cpu_region != NULL);
         return SPAWN_ERR_FIND_MODULE;
     }
     printf("%s:%d: \n", __FILE__, __LINE__);
@@ -365,6 +378,7 @@ done:
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
+    printf("%s:%d: \n", __FILE__, __LINE__);
     genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
                                  + frameid.base + arch_page_size;
 
@@ -374,7 +388,7 @@ done:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_identify failed");
     }
-
+    printf("%s:%d: \n", __FILE__, __LINE__);
     /* Compute entry point in the foreign address space */
     // XXX: Confusion address translation about l/gen/addr
     forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
@@ -396,6 +410,7 @@ done:
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
+    printf("%s:%d: \n", __FILE__, __LINE__);
     core_data->module_start = cpu_binary_phys;
     core_data->module_end   = cpu_binary_phys + cpu_binary_size;
     core_data->urpc_frame_base = urpc_frame_id.base;
@@ -418,14 +433,15 @@ done:
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
     }
-
+    printf("%s:%d: \n", __FILE__, __LINE__);
     /* Invoke kernel capability to boot new core */
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_INVOKE_SPAWN, hwid);
     err = invoke_monitor_spawn_core(hwid, cpu_type, foreign_cpu_reloc_entry);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
     }
-
+    printf("%s:%d: \n", __FILE__, __LINE__);
     /* Clean up */ // XXX: Should not delete the remote cap
     err = cap_destroy(spawn_memory_cap);
     if (err_is_fail(err)) {
@@ -439,7 +455,7 @@ done:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }
-
+    printf("%s:%d: \n", __FILE__, __LINE__);
     return SYS_ERR_OK;
 }
 
@@ -451,7 +467,8 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
 
     // All multiboot caps received
     if (err_is_fail(msgerr)) {
-        DEBUG_ERR(msgerr, "multiboot_cap_reply");
+
+        printf("%s:%d: all the caps...\n", __FILE__, __LINE__);
         // Request bootinfo frame
         //struct bootinfo *bi;
         //err = map_bootinfo(&bi);
@@ -468,7 +485,7 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
         //assert(err_is_ok(err));
 
         struct intermon_binding *new_binding = NULL;
-        spawn_xcore_monitor(1, 1, 1, "", &new_binding);
+        spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
 
         return;
     }
@@ -478,14 +495,15 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
         .cnode = cnode_module,
         .slot  = multiboot_slots++,
     };
+
     err = cap_copy(dest, cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_copy");
+        USER_PANIC_ERR(err, "cap_copy failed, can not recover");
     }
-    assert(err_is_ok(err));
-
     err = cap_destroy(cap);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap destroy failed.");
+    }
 
     err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, multiboot_slots);
     assert(err_is_ok(err));
@@ -493,7 +511,9 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
 
 int main(int argc, char** argv)
 {
-    printf("%s:%d\n", __FILE__, __LINE__);
+    for (size_t i = 0; i < argc; i++) {
+        printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
+    }
 
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     struct capref bootinfo_frame;
@@ -523,6 +543,20 @@ int main(int argc, char** argv)
     Failure: (         kernel) Capability not found (empty slot encountered) [SYS_ERR_CAP_NOT_FOUND]
     Failure: (         kernel) Capability not found (empty slot encountered) [SYS_ERR_CAP_NOT_FOUND]
 */
+
+    /* Create the module cnode */
+    struct capref modulecn_cap = {
+        .cnode = cnode_root,
+        .slot  = ROOTCN_SLOT_MODULECN,
+    };
+    err = cnode_create_raw(modulecn_cap, NULL,
+                           ((cslot_t)1 << MODULECN_SIZE_BITS), NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cnode_create_raw failed");
+        abort();
+    }
+
+
     //multiboot_find_module() (that calls multiboot_module_rawstring()
     //which expects the caps to be in cnode_module
     struct monitor_binding *st = get_monitor_binding();
