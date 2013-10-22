@@ -63,7 +63,7 @@ static errval_t bind_client(coreid_t coreid)
             return err;
         }
 
-       // initiate bind
+        // initiate bind
         struct spawn_bind_retst bindst = { .present = false };
         err = spawn_bind(iref, spawn_bind_cont, &bindst, get_default_waitset(),
                          IDC_BIND_FLAGS_DEFAULT);
@@ -77,7 +77,7 @@ static errval_t bind_client(coreid_t coreid)
             messages_wait_and_handle_next();
         }
 
-        if(err_is_fail(bindst.err)) {
+        if (err_is_fail(bindst.err)) {
             return bindst.err;
         }
 
@@ -92,7 +92,7 @@ static errval_t bind_client(coreid_t coreid)
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "spawn_rpc_client_init failed");
             return err;
-       }
+        }
 
         set_spawn_rpc_client(coreid, cl);
     }
@@ -160,7 +160,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
             messages_wait_and_handle_next();
         }
 
-        if(err_is_fail(bindst.err)) {
+        if (err_is_fail(bindst.err)) {
             USER_PANIC_ERR(bindst.err, "asynchronous error during spawn_bind");
         }
         assert(bindst.b != NULL);
@@ -263,12 +263,12 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
  * \bug flags are currently ignored
  */
 errval_t spawn_program(coreid_t coreid, const char *path,
-                             char *const argv[], char *const envp[],
-                             spawn_flags_t flags, domainid_t *ret_domainid)
+                       char *const argv[], char *const envp[],
+                       spawn_flags_t flags, domainid_t *ret_domainid)
 {
     return spawn_program_with_caps(coreid, path, argv, envp, NULL_CAP,
                                    NULL_CAP, flags, ret_domainid);
-}    
+}
 
 
 
@@ -334,7 +334,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
 errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client)
 {
     errval_t err = bind_client(coreid);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -357,7 +357,7 @@ errval_t spawn_kill(domainid_t domainid)
     assert(cl != NULL);
 
     err = cl->vtbl.kill(cl, domainid, &reterr);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -379,7 +379,7 @@ errval_t spawn_exit(uint8_t exitcode)
     assert(cl != NULL);
 
     err = cl->vtbl.exit(cl, disp_get_domain_id(), exitcode);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -389,7 +389,8 @@ errval_t spawn_exit(uint8_t exitcode)
 /**
  * \brief Wait for spawned proccess to exit on core.
  */
-errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang)
+errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid,
+                           uint8_t *exitcode, bool nohang)
 {
     errval_t err, reterr;
 
@@ -401,7 +402,7 @@ errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitco
     assert(cl != NULL);
 
     err = cl->vtbl.wait(cl, domainid, nohang, exitcode, &reterr);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 
@@ -425,13 +426,13 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
 
     struct spawn_rpc_client *cl;
     err = spawn_rpc_client(disp_get_core_id(), &cl);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn_rpc_client");
     }
     assert(cl != NULL);
 
     err = cl->vtbl.get_domainlist(cl, domains, len);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_domainlist");
     }
 
@@ -448,13 +449,14 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
 
     struct spawn_rpc_client *cl;
     err = spawn_rpc_client(disp_get_core_id(), &cl);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn_rpc_client");
     }
     assert(cl != NULL);
 
-    err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t*)pse, argbuf, arglen, reterr);
-    if(err_is_fail(err)) {
+    err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t *)pse, argbuf, arglen,
+                          reterr);
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "status");
     }
 
@@ -462,73 +464,67 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
 }
 
 /**
- * \brief Utility function to create an inherit cnode and copy fdcap into it.
+ * \brief Utility function to create an inherit cnode
+ * and copy caps into it.
  *
  * \param inheritcn_capp Pointer to capref, filled-in with location of inheritcn
  *                       capability.
  * \param fdcap          fdcap to copy into inherit cnode.
- */
-errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
-                                    struct capref fdcap)
-{
-    errval_t err;
-
-    // construct inherit CNode
-    struct cnoderef inheritcn;
-    err = cnode_create(inheritcn_capp, &inheritcn, DEFAULT_CNODE_SLOTS, NULL);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    if (capref_is_null(fdcap)) {
-        return SYS_ERR_OK;
-    }
-
-    // copy fdcap to inherit Cnode
-    struct capref dest = {
-        .cnode = inheritcn,
-        .slot  = INHERITCN_SLOT_FDSPAGE
-    };
-    err = cap_copy(dest, fdcap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief Utility function to create an inherit cnode and copy session
- *        capability into it.
- *
- * \param inheritcn_capp Pointer to capref, filled-in with location of inheritcn
- *                       capability.
  * \param sidcap         sidcap to copy into inherit cnode.
+ * \param kernelcap      kernelcap to copy into inherit cnode.
+ *
+ * \retval SYS_ERR_OK inherticn_capp is allocated and contains copies of the
+ * provided caps.
  */
-errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
-                                    struct capref sidcap)
+errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,
+                                   struct capref fdcap,
+                                   struct capref sidcap,
+                                   struct capref kernelcap)
 {
     errval_t err;
 
     // construct inherit CNode
     struct cnoderef inheritcn;
-    err = cnode_create(inheritcn_capp, &inheritcn, DEFAULT_CNODE_SLOTS, NULL);
+    err = cnode_create(inheritcn_capp, &inheritcn,
+                       DEFAULT_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if (capref_is_null(sidcap)) {
-        return SYS_ERR_OK;
+    if (!capref_is_null(fdcap)) {
+        // copy fdcap to inherit Cnode
+        struct capref dest = {
+            .cnode = inheritcn,
+            .slot  = INHERITCN_SLOT_FDSPAGE
+        };
+        err = cap_copy(dest, fdcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
-    // copy fdcap to inherit Cnode
-    struct capref dest = {
-        .cnode = inheritcn,
-        .slot  = INHERITCN_SLOT_SESSIONID
-    };
-    err = cap_copy(dest, sidcap);
-    if (err_is_fail(err)) {
-        return err;
+    if (!capref_is_null(sidcap)) {
+        // copy fdcap to inherit Cnode
+        struct capref dest = {
+            .cnode = inheritcn,
+            .slot  = INHERITCN_SLOT_SESSIONID
+        };
+        err = cap_copy(dest, sidcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    if (!capref_is_null(kernelcap)) {
+        // copy fdcap to inherit Cnode
+        struct capref dest = {
+            .cnode = inheritcn,
+            .slot  = INHERITCN_SLOT_KERNELCAP
+        };
+        err = cap_copy(dest, kernelcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     return SYS_ERR_OK;

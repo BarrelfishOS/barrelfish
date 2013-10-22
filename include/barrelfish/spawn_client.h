@@ -51,10 +51,10 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
 errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr);
 
-errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
-                                    struct capref fdcap);
-errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
-                                     struct capref sidcap);
+errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,
+                                   struct capref fdcap,
+                                   struct capref sidcap,
+                                   struct capref kernelcap);
 
 __END_DECLS
 

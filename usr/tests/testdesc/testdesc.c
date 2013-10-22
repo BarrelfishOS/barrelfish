@@ -25,17 +25,17 @@
 /* Copying the actual handles is hard.
  * We could try a deep copy, but really we should come up with a serialised
  * format for each type.  It also involves implementing the underlying
- * resources such that the descriptors can actually be used in the new 
+ * resources such that the descriptors can actually be used in the new
  * dispatcher.
  */
 
 static size_t copy_file_fd(void *dest, genpaddr_t offset, struct fd_store *fds)
-{ 
+{
     size_t size = sizeof(void *);
 
     printf("FILE\n\thandle: %p\n", fds->handle);
 
-    /* This following isn't correct at all - we're just copying the value of 
+    /* This following isn't correct at all - we're just copying the value of
      * the pointer, which is useless in the new dispatcher */
 
     printf("copying %zu bytes from %p to %p\n", size, &fds->handle, dest);
@@ -47,7 +47,7 @@ static size_t copy_file_fd(void *dest, genpaddr_t offset, struct fd_store *fds)
 }
 
 
-static size_t copy_unixsock_fd(void *dest, genpaddr_t offset, 
+static size_t copy_unixsock_fd(void *dest, genpaddr_t offset,
                                  struct fd_store *fds)
 {
     // shallow copy. doesn't really help us.
@@ -94,14 +94,14 @@ static errval_t spawn_setup_fds(struct capref *frame)
     /* Layout of FD page:
      * int num_fds
      * struct fd_store fdtab[num_fds]
-     * uint8_t buf[] // store of actual handle data.  entries in fdtab above 
+     * uint8_t buf[] // store of actual handle data.  entries in fdtab above
      *               // point here (relative offset from the beginning of buf).
      * TODO: add the actual handle data!
      */
     int *num_fds = (int *)fdspg;
     *num_fds = 0;
     struct fd_store *fdtab = (struct fd_store *)(num_fds + 1);
-    
+
     /* first copy all the fd table entries */
     struct fdtab_entry *fde;
     struct fd_store *fds;
@@ -115,7 +115,7 @@ static errval_t spawn_setup_fds(struct capref *frame)
             fds->handle = fde->handle;
             printf("added fd %d to fdtabs[%d]: %p as fd_store (%p: num: %d, "
                     "type: %d, (unfixed)handle: %p)\n",
-                    i, *num_fds, &fdtab[*num_fds], fds, fds->num, fds->type, 
+                    i, *num_fds, &fdtab[*num_fds], fds, fds->num, fds->type,
                     fds->handle);
             (*num_fds)++;
         }
@@ -131,7 +131,7 @@ static errval_t spawn_setup_fds(struct capref *frame)
         offset = (genpaddr_t)(dest - buf);
         switch (fds->type) {
         case FDTAB_TYPE_FILE:
-            size = copy_file_fd(dest, offset, fds); 
+            size = copy_file_fd(dest, offset, fds);
             break;
         case FDTAB_TYPE_UNIX_SOCKET:
             size = copy_unixsock_fd(dest, offset, fds);
@@ -164,11 +164,12 @@ static errval_t spawn_child(struct capref fdcap)
 
     // allocate inheritcn
     struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_fdcap(&inheritcn_cap, fdcap);
-    
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, fdcap,
+                                    NULL_CAP, NULL_CAP);
+
     err = spawn_program_with_caps(core, argv[0], argv, NULL, inheritcn_cap,
                                   NULL_CAP, SPAWN_NEW_DOMAIN, &new_domain);
-            
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawn on core %d", core);
         return err;
@@ -178,7 +179,7 @@ static errval_t spawn_child(struct capref fdcap)
 
 }
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     errval_t err;
 
@@ -189,7 +190,7 @@ int main(int argc, char *argv[])
     printf("opened a file with fd: %d\n", fd);
 
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    printf("opened a socket with fd: %d\n", fd);    
+    printf("opened a socket with fd: %d\n", fd);
 
     struct capref fdcap;
     err = spawn_setup_fds(&fdcap);
@@ -197,12 +198,12 @@ int main(int argc, char *argv[])
         DEBUG_ERR(err, "could not setup fds!\n");
         return EXIT_FAILURE;
     }
-            
+
     err = spawn_child(fdcap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not spawn child!\n");
         return EXIT_FAILURE;
     }
-        
+
     return EXIT_SUCCESS;
 }
