@@ -105,7 +105,7 @@ static void boot_initialize_reply(struct monitor_binding *st)
 static void send_boot_core_request(struct monitor_binding* b,
         struct mon_msg_state* mm)
 {
-    errval_t err;
+    /*errval_t err;
 
     struct module_info* mi = find_module("cpu");
     trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_USER_REQUEST, mm->core_id);
@@ -118,7 +118,7 @@ static void send_boot_core_request(struct monitor_binding* b,
             return;
         }
         USER_PANIC_ERR(err, "device_manager: sending %s failed!", __FUNCTION__);
-    }
+    }*/
 }
 
 static inline void configure_monitor_binding(void)
