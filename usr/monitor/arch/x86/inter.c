@@ -245,11 +245,11 @@ static void new_monitor_notify(struct intermon_binding *st,
                             buf, MON_URPC_CHANNEL_LEN,
                             (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
-    assert(err_is_ok(err));
-    /* if (err_is_fail(err)) { */
-    /*     cap_destroy(frame); */
-    /*     return err_push(err, LIB_ERR_UMP_CHAN_BIND); */
-    /* } */
+    if (err_is_fail(err)) {
+        cap_destroy(frame);
+        USER_PANIC_ERR(err, "intermonitor channel initialization");
+        // TODO(gz): Recover from this
+    }
 
     // Identify UMP frame for tracing
     struct frame_identity umpid = { .base = 0, .bits = 0 };
