@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "spawnd",
-  		      cFiles = [ "main.c", "bsp_bootup.c", "service.c", "ps.c" ],
+  		      cFiles = [ "main.c", "service.c", "ps.c" ],
 		      addLibraries = libDeps [ "spawndomain", "elf", "trace", "skb",
                                        "dist", "vfs" ],
   		      flounderDefs = [ "monitor", "monitor_blocking" ],
