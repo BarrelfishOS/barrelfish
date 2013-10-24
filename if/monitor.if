@@ -20,7 +20,7 @@ interface monitor "The monitor to client Interface" {
         errval err);
 
     /* TODO: move to monitor_blocking as RPC? */
-    call boot_core_request(uint8 id, int hwid, int type, string cmdline);
+    call boot_core_request(uint8 id, cap frame);
     response boot_core_reply(errval err);
 
     /* TODO: move to monitor_blocking as RPC? */
@@ -145,7 +145,7 @@ interface monitor "The monitor to client Interface" {
      *
      * \note Currently in a proof concept stage. We just migrate
      * and hope for the best, no reply that talks about the success.
-     * 
+     *
      * \param core_id Destination core id
      * \param vroot Address space capability
      * \param disp Dispatcher Capability
@@ -164,7 +164,7 @@ interface monitor "The monitor to client Interface" {
     // Send routing table
     // First message, which describes the set of valid core IDs
     call multihop_routing_table_new(coreid max_coreid, coreid nentries);
-    // Subsequent messages (repeated) which each contain 
+    // Subsequent messages (repeated) which each contain
     // a portion of the routing table from a single core
     call multihop_routing_table_set(coreid from, coreid to[len]);
 

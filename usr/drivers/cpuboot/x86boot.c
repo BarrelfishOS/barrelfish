@@ -34,6 +34,8 @@
 
 struct bootinfo *bi;
 
+static struct capref frame;
+
 struct monitor_allocate_state {
     void          *vbase;
     genvaddr_t     elfbase;
@@ -107,20 +109,10 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
 
-    // Setup new inter-monitor connection to ourselves
-#ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
-    struct intermon_ump_ipi_binding *ump_binding = malloc(sizeof(
-                struct intermon_ump_ipi_binding));
-#else
-    struct intermon_ump_binding *ump_binding = malloc(sizeof(
-                struct intermon_ump_binding));
-#endif
-    assert(ump_binding != NULL);
 
     // compute size of frame needed and allocate it
-    struct capref frame;
-    size_t framesize = MON_URPC_CHANNEL_LEN * 2;
-    err = frame_alloc(&frame, framesize, &framesize);
+    size_t framesize;
+    err = frame_alloc(&frame, MON_URPC_SIZE, &framesize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
@@ -134,62 +126,6 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         return err;
     }*/
 
-    // map it in
-    void *buf;
-    err = vspace_map_one_frame(&buf, framesize, frame, NULL, NULL);
-    if (err_is_fail(err)) {
-        cap_destroy(frame);
-        return err_push(err, LIB_ERR_VSPACE_MAP);
-    }
-
-#ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
-    // Get my arch ID
-    uintptr_t my_arch_id = 0;
-    err = invoke_monitor_get_arch_id(&my_arch_id);
-    assert(err == SYS_ERR_OK);
-
-    // Bootee's notify channel ID is always 1
-    struct capref notify_cap;
-    err = notification_create_cap(1, hwid, &notify_cap);
-    assert(err == SYS_ERR_OK);
-
-    // Allocate my own notification caps
-    struct capref ep, my_notify_cap;
-    struct lmp_endpoint *iep;
-    int chanid;
-    err = endpoint_create(LMP_RECV_LENGTH, &ep, &iep);
-    assert(err_is_ok(err));
-    err = notification_allocate(ep, &chanid);
-    assert(err == SYS_ERR_OK);
-    err = notification_create_cap(chanid, my_arch_id, &my_notify_cap);
-    assert(err == SYS_ERR_OK);
-
-    // init our end of the binding and channel
-    err = intermon_ump_ipi_init(ump_binding, get_default_waitset(),
-                                buf, MON_URPC_CHANNEL_LEN,
-                                buf + MON_URPC_CHANNEL_LEN,
-                                MON_URPC_CHANNEL_LEN, notify_cap,
-                                my_notify_cap, ep, iep);
-#else
-    err = intermon_ump_init(ump_binding, get_default_waitset(),
-                            buf, MON_URPC_CHANNEL_LEN,
-                            (char *)buf + MON_URPC_CHANNEL_LEN,
-                            MON_URPC_CHANNEL_LEN);
-#endif
-    if (err_is_fail(err)) {
-        cap_destroy(frame);
-        return err_push(err, LIB_ERR_UMP_CHAN_BIND);
-    }
-
-    *ret_binding = &ump_binding->b;
-
-    // Identify UMP frame for tracing
-    struct frame_identity umpid;
-    err = invoke_frame_identify(frame, &umpid);
-    assert(err_is_ok(err));
-    ump_binding->ump_state.chan.recvid = (uintptr_t)umpid.base;
-    ump_binding->ump_state.chan.sendid =
-        (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
 
     printf("%s:%d: \n", __FILE__, __LINE__);
     /* Look up modules */
@@ -486,6 +422,9 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
 
         struct intermon_binding *new_binding = NULL;
         spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
+
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, 1, frame);
 
         return;
     }

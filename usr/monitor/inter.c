@@ -98,6 +98,7 @@ static void
 boot_core_reply_cont(struct monitor_binding *domain_binding,
                      errval_t error_code)
 {
+    assert(domain_binding != NULL);
     errval_t err;
     err = domain_binding->tx_vtbl.
             boot_core_reply(domain_binding, NOP_CONT, error_code);
