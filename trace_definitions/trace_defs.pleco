@@ -49,10 +49,9 @@ subsystem kernel {
 	event SCHED_SCHEDULE 		"",
 	event SCHED_CURRENT 		"",
 
-    event START_CORE_REQUEST "Received (monitor -> kernel) [in kernel].",
-    event CORE_START_IPI_SENT      "Request sent, waiting for core to appear.",
-    event CORE_IS_UP        "New kernel is online.",
-
+    event CORE_START_REQUEST      "Requested start of a new core.",
+    event CORE_START_REQUEST_DONE "Request is sent, waiting for core to come up.",
+    event CORE_START_REQUEST_ACK  "Core is online.",
 };
 
 subsystem threads {

@@ -57,7 +57,7 @@ extern uint64_t x86_64_init_ap_global;
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
     trace_event(TRACE_SUBSYS_KERNEL,
-                TRACE_EVENT_KERNEL_START_CORE_REQUEST, core_id);
+                TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
     /* Copy the startup code to the real-mode address */
     uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
@@ -127,8 +127,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     apic_send_start_up(core_id, xapic_none,
                        X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
 
-    trace_event(TRACE_SUBSYS_KERNEL,
-                TRACE_EVENT_KERNEL_CORE_START_IPI_SENT, core_id);
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
     //give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
@@ -141,8 +140,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     //a core with this APIC ID doesn't exist.
     if (*ap_lock != 0) {
         while (*ap_wait != AP_STARTED);
-        trace_event(TRACE_SUBSYS_KERNEL,
-                    TRACE_EVENT_KERNEL_CORE_IS_UP, core_id);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
         *ap_lock = 0;
         debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
         return 0;
