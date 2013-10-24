@@ -23,8 +23,6 @@
 
 #include "kaluga.h"
 
-extern char **environ;
-
 #ifdef __pandaboard__
 
 struct allowed_registers

@@ -40,8 +40,6 @@
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 
-extern char **environ;
-
 static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);

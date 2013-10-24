@@ -14,8 +14,6 @@
 
 #define MAX_DRIVER_MODULES 128
 
-extern char **environ;
-
 static struct module_info modules[MAX_DRIVER_MODULES];
 
 inline bool is_auto_driver(struct module_info* mi) {

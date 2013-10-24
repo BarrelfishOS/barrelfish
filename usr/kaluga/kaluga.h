@@ -12,6 +12,7 @@
 
 extern coreid_t my_core_id;
 extern uint32_t my_arch_id;
+extern char **environ;
 
 errval_t trigger_existing_and_watch(const char*,
         trigger_handler_fn, void*,  octopus_trigger_id_t*);
