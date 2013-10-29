@@ -26,8 +26,19 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <spawndomain/spawndomain.h>
 #include <if/intermon_defs.h>
+#include <acpi_client/acpi_client.h>
 
 #include <barrelfish/invocations_arch.h>
+
+// From kernels start_aps.c
+#include <kernel.h>
+#include <arch/x86/apic.h>
+#include <arch/x86/start_aps.h>
+#include <x86.h>
+#include <arch/x86/cmos.h>
+#include <init.h>
+#include <dev/xapic_dev.h>
+#include <target/x86_64/offsets_target.h>
 
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
@@ -50,6 +61,156 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
     *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
+
+
+/**
+ * start_ap and start_ap_end mark the start end the end point of the assembler
+ * startup code to be copied
+ */
+extern uint64_t x86_64_start_ap;
+extern uint64_t x86_64_start_ap_end;
+extern uint64_t x86_64_init_ap_absolute_entry;
+extern uint64_t x86_64_init_ap_wait;
+extern uint64_t x86_64_init_ap_lock;
+extern uint64_t x86_64_start;
+extern uint64_t x86_64_init_ap_global;
+
+/**
+ * \brief Boot a app core of x86_64 type
+ *
+ * The processors are started by a sequency of INIT and STARTUP IPIs
+ * which are sent by this function.
+ * CMOS writes to the shutdown status byte are used to execute
+ * different memory locations.
+ *
+ * \param core_id   APIC ID of the core to try booting
+ * \param entry     Entry address for new kernel in the destination
+ *                  architecture's lvaddr_t given in genvaddr_t
+ *
+ * \returns Zero on successful boot, non-zero (error code) on failure
+ */
+int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
+{
+    printf("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
+    trace_event(TRACE_SUBSYS_KERNEL,
+                TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
+
+    /* Copy the startup code to the real-mode address */
+    uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
+    uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
+    uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
+
+    struct capref bootcap;
+    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    errval_t error_code;
+    errval_t err = acl->vtbl.mm_alloc_range_proxy(acl, 12, 0x6000,
+            0x6000 + (1UL << 12), &bootcap, &error_code);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
+    }
+    if (err_is_fail(error_code)) {
+        USER_PANIC_ERR(error_code, "mm_alloc_range_proxy return failed.");
+    }
+
+
+    printf("%s:%d: X86_64_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_64_REAL_MODE_LINEAR_OFFSET);
+    printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
+    printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
+    printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
+    printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
+
+    memcpy(real_dest, real_src, real_end - real_src);
+
+    /* Pointer to the entry point called from init_ap.S */
+    volatile uint64_t *absolute_entry_ptr = (volatile uint64_t *)
+                                            local_phys_to_mem(
+                                                    (lpaddr_t) &x86_64_init_ap_absolute_entry -
+                                                    ((lpaddr_t) &x86_64_start_ap) +
+                                                    X86_64_REAL_MODE_LINEAR_OFFSET);
+    //copy the address of the function start (in boot.S) to the long-mode
+    //assembler code to be able to perform an absolute jump
+    *absolute_entry_ptr = entry;
+
+    /* pointer to the pseudo-lock used to detect boot up of new core */
+    volatile uint32_t *ap_wait = (volatile uint32_t *)
+                                 local_phys_to_mem((lpaddr_t) &x86_64_init_ap_wait -
+                                         ((lpaddr_t) &x86_64_start_ap) +
+                                         X86_64_REAL_MODE_LINEAR_OFFSET);
+
+    /* Pointer to the lock variable in the realmode code */
+    volatile uint8_t *ap_lock = (volatile uint8_t *)
+                                local_phys_to_mem((lpaddr_t) &x86_64_init_ap_lock -
+                                        ((lpaddr_t) &x86_64_start_ap) +
+                                        X86_64_REAL_MODE_LINEAR_OFFSET);
+
+    /* pointer to the shared global variable amongst all kernels */
+    // TODO(gz): removed because what does it do?
+    // don't have global in boot driver
+    //volatile uint64_t *ap_global = (volatile uint64_t *)
+    //                               local_phys_to_mem((lpaddr_t) &x86_64_init_ap_global -
+    //                                       ((lpaddr_t) &x86_64_start_ap) +
+    //                                       X86_64_REAL_MODE_LINEAR_OFFSET);
+    //*ap_global = (uint64_t)mem_to_local_phys((lvaddr_t)global);
+
+    lvaddr_t *init_vector;
+    init_vector = (lvaddr_t *)local_phys_to_mem(CMOS_RAM_BIOS_WARM_START_INIT_VECTOR);
+
+    *ap_wait = AP_STARTING_UP;
+
+    // This is the code that we don't do for M5, why?
+    // set shutdown status to WARM_SHUTDOWN and set start-vector
+    // TODO(gz): cmos_write not found
+    //cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+    *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
+                   X86_64_REAL_MODE_OFFSET);
+
+    //INIT 1 assert
+    // TODO(gz): need apic access in kernel?
+    //apic_send_init_assert(core_id, xapic_none);
+
+    //set shutdown status to WARM_SHUTDOWN and set start-vector
+    // TODO(gz): cmos_write not found
+    //cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+    *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
+                   X86_64_REAL_MODE_OFFSET);
+
+    //INIT 2 de-assert
+    // TODO(gz): fun not found
+    //apic_send_init_deassert();
+    // end of stuff m5 is not doing
+
+
+    //SIPI1
+    // TODO(gz): function not found
+    //apic_send_start_up(core_id, xapic_none,
+    //                   X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
+
+    //SIPI2
+    // TODO(gz): function not found
+    //apic_send_start_up(core_id, xapic_none,
+    //                   X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
+
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
+
+    //give the new core a bit time to start-up and set the lock
+    for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
+        if (*ap_lock != 0) {
+            break;
+        }
+    }
+
+    //if the lock is set, the core has been started, otherwise assume, that
+    //a core with this APIC ID doesn't exist.
+    if (*ap_lock != 0) {
+        while (*ap_wait != AP_STARTED);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
+        *ap_lock = 0;
+        printf("booted CPU%hhu\n", core_id);
+        return 0;
+    }
+    return -1;
+}
+
 
 /**
  * \brief Spawn a new core.
@@ -371,6 +532,9 @@ done:
     }
     printf("%s:%d: \n", __FILE__, __LINE__);
     /* Invoke kernel capability to boot new core */
+
+    start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
+
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_INVOKE_SPAWN, hwid);
     err = invoke_monitor_spawn_core(hwid, cpu_type, foreign_cpu_reloc_entry);
     if (err_is_fail(err)) {
@@ -448,6 +612,15 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
     assert(err_is_ok(err));
 }
 
+
+static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
+{
+    if (err_is_fail(msgerr)) {
+        USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
+    }
+    printf("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
+}
+
 int main(int argc, char** argv)
 {
     for (size_t i = 0; i < argc; i++) {
@@ -500,6 +673,8 @@ int main(int argc, char** argv)
     //which expects the caps to be in cnode_module
     struct monitor_binding *st = get_monitor_binding();
     st->rx_vtbl.multiboot_cap_reply = multiboot_cap_reply;
+    st->rx_vtbl.boot_core_reply = boot_core_reply;
+
     // Make first multiboot cap request
     // when we're done we send boot core request inside the handler
     err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, 0);

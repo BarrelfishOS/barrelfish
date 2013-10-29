@@ -19,7 +19,7 @@
 
 /**
  * Size of bootinfo mapping.
- */ 
+ */
 #define BOOTINFO_SIZEBITS       (BASE_PAGE_BITS + 2)
 #define BOOTINFO_SIZE           (1UL << BOOTINFO_SIZEBITS)
 
@@ -107,7 +107,8 @@
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOT_DISPFRAME2  15  ///< Copy of dispatcher frame cap (mapped into spawn vspace)
 #define TASKCN_SLOT_ARGSPAGE2   16  ///< Copy of environment cap (mapped into spawn vspace)
-#define TASKCN_SLOTS_USER       17  ///< First free slot in taskcn for user
+#define TASKCN_SLOT_COREBOOT    17  ///< Copy of realmode section used to bootstrap a core
+#define TASKCN_SLOTS_USER       18  ///< First free slot in taskcn for user
 
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)

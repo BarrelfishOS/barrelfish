@@ -56,6 +56,7 @@ extern uint64_t x86_64_init_ap_global;
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
+    printf("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
     trace_event(TRACE_SUBSYS_KERNEL,
                 TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
@@ -64,6 +65,11 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
     uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
     memcpy(real_dest, real_src, real_end - real_src);
+
+    printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
+    printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
+    printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
+    printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
 
     /* Pointer to the entry point called from init_ap.S */
     volatile uint64_t *absolute_entry_ptr = (volatile uint64_t *)
@@ -92,7 +98,9 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                                    local_phys_to_mem((lpaddr_t) &x86_64_init_ap_global -
                                            ((lpaddr_t) &x86_64_start_ap) +
                                            X86_64_REAL_MODE_LINEAR_OFFSET);
+    printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
     *ap_global = (uint64_t)mem_to_local_phys((lvaddr_t)global);
+    printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
 
     lvaddr_t *init_vector;
     init_vector = (lvaddr_t *)local_phys_to_mem(CMOS_RAM_BIOS_WARM_START_INIT_VECTOR);
