@@ -623,14 +623,20 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 int main(int argc, char** argv)
 {
+    errval_t err, errval;
+
     for (size_t i = 0; i < argc; i++) {
         printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
+    }
+
+    err = connect_to_acpi();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "connect to acpi failed.");
     }
 
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     struct capref bootinfo_frame;
     size_t bootinfo_size = 0;
-    errval_t err, errval;
 
     err = mc->vtbl.get_bootinfo(mc, &errval,
                                 &bootinfo_frame,
