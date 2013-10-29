@@ -22,6 +22,8 @@
 #include "acpi_debug.h"
 #include "ioapic.h"
 
+extern bool mm_debug;
+
 // XXX: proper cap handling (del etc.)
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
@@ -29,11 +31,15 @@ static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebit
     ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%"PRIxGENPADDR" maxlimit: 0x%"PRIxGENPADDR"\n",
                sizebits, minbase, maxlimit);
 
+    mm_debug = true;
+
     struct capref devframe = NULL_CAP;
     errval_t err = mm_alloc_range(&pci_mm_physaddr, sizebits, minbase, maxlimit, &devframe, NULL);
     if (err_is_fail(err)) {
     	DEBUG_ERR(err, "mm alloc range failed...\n");
     }
+
+    mm_debug = false;
 
     err = b->tx_vtbl.mm_alloc_range_proxy_response(b, NOP_CONT, devframe, err);
     assert(err_is_ok(err));
