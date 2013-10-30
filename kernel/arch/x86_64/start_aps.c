@@ -64,48 +64,27 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
     uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
-    memcpy(real_dest, real_src, real_end - real_src);
+    //memcpy(real_dest, real_src, real_end - real_src);
 
     printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
     printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
     printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
     printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
 
-    /* Pointer to the entry point called from init_ap.S */
-    volatile uint64_t *absolute_entry_ptr = (volatile uint64_t *)
-                                            local_phys_to_mem(
-                                                    (lpaddr_t) &x86_64_init_ap_absolute_entry -
-                                                    ((lpaddr_t) &x86_64_start_ap) +
-                                                    X86_64_REAL_MODE_LINEAR_OFFSET);
-    //copy the address of the function start (in boot.S) to the long-mode
-    //assembler code to be able to perform an absolute jump
-    *absolute_entry_ptr = entry;
-
-    /* pointer to the pseudo-lock used to detect boot up of new core */
-    volatile uint32_t *ap_wait = (volatile uint32_t *)
-                                 local_phys_to_mem((lpaddr_t) &x86_64_init_ap_wait -
-                                         ((lpaddr_t) &x86_64_start_ap) +
-                                         X86_64_REAL_MODE_LINEAR_OFFSET);
-
-    /* Pointer to the lock variable in the realmode code */
-    volatile uint8_t *ap_lock = (volatile uint8_t *)
-                                local_phys_to_mem((lpaddr_t) &x86_64_init_ap_lock -
-                                        ((lpaddr_t) &x86_64_start_ap) +
-                                        X86_64_REAL_MODE_LINEAR_OFFSET);
-
-    /* pointer to the shared global variable amongst all kernels */
+    // pointer to the shared global variable amongst all kernels
     volatile uint64_t *ap_global = (volatile uint64_t *)
                                    local_phys_to_mem((lpaddr_t) &x86_64_init_ap_global -
                                            ((lpaddr_t) &x86_64_start_ap) +
                                            X86_64_REAL_MODE_LINEAR_OFFSET);
     printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
+    printf("%s:%d: *ap_global=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, *ap_global);
     *ap_global = (uint64_t)mem_to_local_phys((lvaddr_t)global);
     printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
+    printf("%s:%d: *ap_global=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, *ap_global);
 
     lvaddr_t *init_vector;
     init_vector = (lvaddr_t *)local_phys_to_mem(CMOS_RAM_BIOS_WARM_START_INIT_VECTOR);
 
-    *ap_wait = AP_STARTING_UP;
 
     if (CPU_IS_M5_SIMULATOR) {
         printk(LOG_WARN, "Warning: skipping shutdown/init of APs on M5\n");
@@ -138,7 +117,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
     //give the new core a bit time to start-up and set the lock
-    for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
+    /*for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
         if (*ap_lock != 0) {
             break;
         }
@@ -152,7 +131,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         *ap_lock = 0;
         debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
         return 0;
-    }
-    return -1;
+    }*/
+    return 0;
 }
 
