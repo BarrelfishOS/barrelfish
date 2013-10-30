@@ -103,8 +103,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     struct capref bootcap;
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
     errval_t error_code;
-    errval_t err = acl->vtbl.mm_alloc_range_proxy(acl, 12, 0x6000,
-            0x6000 + (1UL << 12), &bootcap, &error_code);
+    errval_t err = acl->vtbl.mm_realloc_range_proxy(acl, 20, 0x0, &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
     }
