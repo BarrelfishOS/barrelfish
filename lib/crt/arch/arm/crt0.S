@@ -13,7 +13,7 @@
  */
 
 #include <asmoffsets.h>
-
+    .syntax unified
 	.text
 	.globl  _start, _start_init
 
@@ -25,8 +25,8 @@ _start:
 
 _start_generic:
         ldr     sp, =crt0_temp_stack
-	// Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
-	b	barrelfish_init_disabled
+	    // Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
+	    b	barrelfish_init_disabled
 
 _start_init:
         // Entry for the init process

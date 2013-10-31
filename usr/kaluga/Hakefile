@@ -14,6 +14,7 @@
                       cFiles = (find withSuffices [".c"]),
           	          flounderDefs = [ "monitor" ],
                       flounderBindings = [ "octopus" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderTHCStubs = [ "octopus" ],
                       addLibraries = libDeps [ "skb", "octopus", "vfs", 
                                                "spawndomain", "elf", "mm" ],

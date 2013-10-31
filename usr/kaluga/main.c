@@ -34,11 +34,10 @@
 
 #include "kaluga.h"
 
-coreid_t my_core_id = 0; // Core ID
-uint32_t my_arch_id = 0; // APIC ID
+coreid_t my_core_id = 0;  // Core ID
+uint32_t my_arch_id = 0;  // APIC ID
 
 extern char **environ;
-
 
 static void add_start_function_overrides(void)
 {
@@ -51,8 +50,7 @@ static void parse_arguments(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {
             my_arch_id = strtol(argv[i] + sizeof("apicid"), NULL, 10);
-        }
-        else if(strcmp(argv[i], "boot") == 0) {
+        } else if (strcmp(argv[i], "boot") == 0) {
             // ignored
         }
     }
@@ -79,12 +77,13 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Initialize octopus service.");
     }
 
+    printf("Kaluga: parse boot modules...\n");
+
     err = init_boot_modules();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Parse boot modules.");
     }
     add_start_function_overrides();
-
 #ifdef __x86__
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
@@ -113,10 +112,14 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching cores.");
     }
 
+    printf("Kaluga: pci_root_bridge\n");
+
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI root bridges.");
     }
+
+    printf("Kaluga: pci_devices\n");
 
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
@@ -131,7 +134,7 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 #elif __pandaboard__
     printf("Kaluga running on Pandaboard.\n");
-    
+
     err = init_cap_manager();
     assert(err_is_ok(err));
 
@@ -145,9 +148,35 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
         assert(err_is_ok(err));
     }
+    mi = find_module("mmchs2");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}");
+        assert(err_is_ok(err));
+    }
     mi = find_module("prcm");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}");
+        assert(err_is_ok(err));
+    }
+    mi = find_module("usb_manager");
+    if (mi != NULL) {
+#define USB_ARM_EHCI_IRQ 109
+        char *buf = malloc(255);
+        uint8_t offset = 0;
+        mi->cmdargs = buf;
+        mi->argc = 3;
+        mi->argv[0] = mi->cmdargs + 0;
+
+        snprintf(buf + offset, 255 - offset, "ehci\0");
+        offset += strlen(mi->argv[0]) + 1;
+        mi->argv[1] = mi->cmdargs + offset;
+        snprintf(buf + offset, 255 - offset, "%u\0", 0xC00);
+        offset += strlen(mi->argv[1]) + 1;
+        mi->argv[2] = mi->cmdargs + offset;
+        snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ);
+
+        // XXX Use customized start function or add to module info
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
         assert(err_is_ok(err));
     }
 #endif
@@ -155,3 +184,4 @@ int main(int argc, char** argv)
     THCFinish();
     return EXIT_SUCCESS;
 }
+

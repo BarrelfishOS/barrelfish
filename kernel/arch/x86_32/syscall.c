@@ -696,29 +696,14 @@ static struct sysret handle_ipi_notify_send(struct capability *cap,
 }
 #endif
 
-static struct sysret kernel_dump_ptables(struct capability *cap,
-                                         int cmd, uintptr_t *args)
+static struct sysret dispatcher_dump_ptables(struct capability *cap,
+                                             int cmd, uintptr_t *args)
 {
-    assert(cap->type == ObjType_Kernel);
+    assert(cap->type == ObjType_Dispatcher);
 
     printf("kernel_dump_ptables\n");
 
-    capaddr_t dispcaddr = args[0];
-
-    struct cte *dispcte;
-    errval_t err = caps_lookup_slot(&dcb_current->cspace.cap, dispcaddr, CPTR_BITS,
-                           &dispcte, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        printf("failed to lookup dispatcher cap\n");
-        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME));
-    }
-    struct capability *dispcap = &dispcte->cap;
-    if (dispcap->type != ObjType_Dispatcher) {
-        printf("dispcap is not dispatcher cap\n");
-        return SYSRET(err_push(err, SYS_ERR_DISP_FRAME_INVALID));
-    }
-
-    struct dcb *dispatcher = dispcap->u.dispatcher.dcb;
+    struct dcb *dispatcher = cap->u.dispatcher.dcb;
 
     paging_dump_tables(dispatcher);
 
@@ -730,9 +715,10 @@ typedef struct sysret (*invocation_handler_t)(struct capability *to,
 
 static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Dispatcher] = {
-        [DispatcherCmd_Setup] = handle_dispatcher_setup,
-        [DispatcherCmd_Properties] = handle_dispatcher_properties,
-        [DispatcherCmd_PerfMon] = handle_dispatcher_perfmon
+        [DispatcherCmd_Setup]        = handle_dispatcher_setup,
+        [DispatcherCmd_Properties]   = handle_dispatcher_properties,
+        [DispatcherCmd_PerfMon]      = handle_dispatcher_perfmon,
+        [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -795,7 +781,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
 #endif
-        [KernelCmd_DumpPTables]  = kernel_dump_ptables,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

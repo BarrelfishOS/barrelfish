@@ -37,6 +37,7 @@
      arch_srcs "armv5"   = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs "xscale"  = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs "armv7"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
+     arch_srcs "armv7-m"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
      arch_srcs _         = []
 
      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch

@@ -35,6 +35,9 @@ static char *get_symbol_name_prefix(char *original) {
     if (r[i] == '/') {
       r[i] = '_';
     }
+    if (r[i] == '-') {//needed for armv7-m
+      r[i] = '_';
+    }
   }
   return r;
 }

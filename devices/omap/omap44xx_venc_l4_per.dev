@@ -325,7 +325,7 @@ device omap44xx_venc_l4_per msbfirst ( addr base ) "" {
         _ 6 mbz;
         ln21_runin 10 rw "The two Bytes of the closed caption runin code position from the HSYNC";
         _ 11 mbz;
-        sline 5 rw "Selects the line where closed caption or extended service data are encoded.PAL mode: Because there is a one-line offset, program the desired line number – 1. . NTSC mode: Because there is a four-line offset, program the desired line number – 4. .";
+        sline 5 rw "Selects the line where closed caption or extended service data are encoded.PAL mode: Because there is a one-line offset, program the desired line number - 1. . NTSC mode: Because there is a four-line offset, program the desired line number - 4. .";
     };
 
     constants inv_status width(1) "" {
@@ -351,7 +351,7 @@ device omap44xx_venc_l4_per msbfirst ( addr base ) "" {
         _ 16 mbz;
         inv 1 rw type(inv_status) "WSS inverter";
         even_odd_en 2 rw type(even_odd_en_status) "This bit controls the WSS encoding.";
-        line 5 rw "Selects the line where WSS data are encoded.PAL mode: Because there is a one-line offset, program the desired line number – 1. . NTSC mode: Because there is a four-line offset, program the desired line number – 4. .";
+        line 5 rw "Selects the line where WSS data are encoded.PAL mode: Because there is a one-line offset, program the desired line number - 1. . NTSC mode: Because there is a four-line offset, program the desired line number - 4. .";
         _ 6 mbz;
         l21en 2 rw type(l21en_status) "Those bits controls the Line21 closed caption encoding according to the mode.";
     };

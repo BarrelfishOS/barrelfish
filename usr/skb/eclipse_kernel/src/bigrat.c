@@ -112,6 +112,13 @@ static void _pw_from_long_long(pword *pw, long long ll)
 static int
 _big_from_string(char *s, pword *result, int base)
 {
+    /* From strtol(3):
+     * ``Since  strtol()  can  legitimately  return  0,  LONG_MAX,  or  LONG_MIN
+     *   (LLONG_MAX or LLONG_MIN for strtoll()) on both success and failure, the
+     *   calling program should set errno to 0 before the call, and then deter‐
+     *   mine if an error occurred by checking whether errno has a nonzero value
+     *   after the call'' */
+    errno = 0;
     long long mpi = strtoll(s, NULL, base);
     assert(errno != ERANGE);
     assert(errno != EINVAL);

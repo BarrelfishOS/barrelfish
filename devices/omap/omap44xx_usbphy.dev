@@ -34,7 +34,7 @@ device omap44xx_usbphy msbfirst ( addr base ) "" {
         _ 6 rsvd;
         use_rterm_rmx_reg 1 rw "Override termination resistor trim code with RTERM_RMX from this register";
         rterm_rmx 7 rw "When read, this field returns the current termination resistor trim code. Read value is valid only if VDDLDO is on. The value written to this field is used as termination resistor trim code if USE_RTERM_RMX_REG is set to 1";
-        hs_code_sel 3 rw "HS Code selection control. A higher positive value (for example, 0x3 (+3)) reduces the termination resistance and improves the vertical eye opening.HS_CODE_SEL Offset Value Termination Calibrated Value . 0x0 0 ~1.5% . 0x1 +1 (default) 0% . 0x2 +2 ~–1.5% . 0x3 +3 ~–3% . 0x4 –1 3% . 0x5 –2 4.5% . 0x6 –3 6% . 0x7 –4 7.5% .";
+        hs_code_sel 3 rw "HS Code selection control. A higher positive value (for example, 0x3 (+3)) reduces the termination resistance and improves the vertical eye opening.HS_CODE_SEL Offset Value Termination Calibrated Value . 0x0 0 ~1.5% . 0x1 +1 (default) 0% . 0x2 +2 ~-1.5% . 0x3 +3 ~-3% . 0x4 -1 3% . 0x5 -2 4.5% . 0x6 -3 6% . 0x7 -4 7.5% .";
         _ 1 mbz;
         _ 10 mbz;
     };

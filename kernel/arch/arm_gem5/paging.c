@@ -86,7 +86,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 {
-    lpaddr_t pend  = paging_round_down(paddr + bytes, BYTES_PER_SECTION);
+    lpaddr_t pend  = paging_round_up(paddr + bytes, BYTES_PER_SECTION);
     while (paddr < pend) {
         paging_map_kernel_section(ttbase, paddr + MEMORY_OFFSET, paddr);
         paddr += BYTES_PER_SECTION;
@@ -405,6 +405,11 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
+
+    if (src_cte->mapping_info.pte) {
+        return SYS_ERR_VM_ALREADY_MAPPED;
+    }
+
 
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         //printf("caps_map_l1: %zu\n", (size_t)pte_count);

@@ -33,6 +33,15 @@ struct allowed_registers
     lpaddr_t registers[][2];
 };
 
+static struct allowed_registers usb = {
+    .binary = "hw.arm.omap44xx.usb",
+    .registers =
+    {
+        {OMAP44XX_HSUSBHOST, 0x1000},
+        {0x0, 0x0}
+    }
+};
+
 static struct allowed_registers fdif = {
     .binary = "hw.arm.omap44xx.fdif",
     .registers =
@@ -64,6 +73,10 @@ static struct allowed_registers mmchs = {
         {OMAP44XX_SYSCTRL_PADCONF_WAKEUP, 0X1000},
         // MMCHS
         {OMAP44XX_MMCHS1, 0x1000},
+        {OMAP44XX_MMCHS2, 0x1000},
+        {OMAP44XX_MMCHS3, 0x1000},
+        {OMAP44XX_MMCHS4, 0x1000},
+        {OMAP44XX_MMCHS5, 0x1000},
         {0x0, 0x0}
     }
 };
@@ -83,6 +96,7 @@ static struct allowed_registers prcm = {
 };
 
 static struct allowed_registers* omap44xx[10] = {
+    &usb,
     &fdif,
     &mmchs,
     &prcm,
@@ -91,7 +105,7 @@ static struct allowed_registers* omap44xx[10] = {
 
 /**
  * \brief Startup function for OMAP drivers.
- * 
+ *
  * Makes sure we get the device register capabilities.
  */
 errval_t default_start_function(coreid_t where, struct module_info* driver,
@@ -127,12 +141,12 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
         // put them all in a single cnode
         for (size_t j=0; omap44xx[i]->registers[j][0] != 0x0; j++) {
             struct capref device_frame;
-            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__, 
+            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__,
                    omap44xx[i]->registers[j][0], omap44xx[i]->registers[j][1]);
 
             lpaddr_t base = omap44xx[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
             err = get_device_cap(base,
-                                 omap44xx[i]->registers[j][1], 
+                                 omap44xx[i]->registers[j][1],
                                  &device_frame);
             assert(err_is_ok(err));
 

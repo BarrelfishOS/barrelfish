@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2010, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,40 +7,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-/*
- * This files contain generic USB driver interface that 
- * every driver has to implement. 
- */
 
-interface usb_driver "Generic USB driver interface" {
-    typedef struct {
-        uint8 llb;
-        uint8 size;
-        uint8 usb_add;
-        uint8 valid;
-    } scsi_dev;
-
-
-    call probe(uint8 dev, uint8 class, uint8 subclass, uint8 protocol);
-    response probe_done(uint8 resp, uint8 address);
-
-    call disconnect(uint8 dev);
-    response disconnect_done(uint8 resp);
-
-    call get_scsi_dev();
-    response send_dev(scsi_dev dev);
-
-    call read_scsi(scsi_dev dev, uint32 start, uint16 num,
-                   uint32 buff, uint8 cache);
-    response resp_read_scsi(uint8 resp);
-
-
-    call write_scsi(scsi_dev dev, uint32 start, uint16 num,
-                    uint32 buff, uint8 cache);
-    response resp_write_scsi(uint8 resp);
-
-    call sync_cache(scsi_dev dev, uint32 start, uint16 num);
-    response resp_sync(uint8 resp);
-
-
+interface usb_driver "USB Drive Interface" {
+    
+    message device_detach_notify();
+    message transfer_done_notify(uint32 tid, uint32 error, uint8 data[length]);
 };

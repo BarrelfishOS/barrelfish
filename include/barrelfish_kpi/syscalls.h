@@ -47,7 +47,14 @@ struct sysret {
 
 /* Architecture-specific syscalls 
  * FIXME: shouldn't these be in an arch-specific header? -AB */
+#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
+//overwrite unused syscall instead of creating yet another global one
+#define SYSCALL_RESUME_CONTEXT      7     ///< Resume a context that the dispatcher can't
+#else
 #define SYSCALL_X86_FPU_TRAP_ON     7     ///< Turn FPU trap on (x86)
+#endif  //__ARM_ARCH_7M__
+
+
 #define SYSCALL_X86_RELOAD_LDT      8     ///< Reload the LDT register (x86_64)
 
 #define SYSCALL_COUNT               9     ///< Number of syscalls [0..SYSCALL_COUNT - 1]

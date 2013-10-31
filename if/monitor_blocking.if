@@ -58,7 +58,4 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
         /* Retrieve local arch-specific core ID (e.g. APIC ID on x86)*/
         rpc get_arch_core_id(out uintptr id);
-
-        /* dump kernel page tables for dispatcher */
-        rpc dump_hw_ptables(in cap dispatcher);
 };

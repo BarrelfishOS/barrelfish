@@ -191,7 +191,7 @@ device omap44xx_usbtllhs_config msbfirst ( addr base ) "" {
     };
 
     constants tllfullspeed_status width(1) "" {
-        TLLFULLSPEED_0 = 0 "Connect is Low-speed: D– pullup";
+        TLLFULLSPEED_0 = 0 "Connect is Low-speed: D- pullup";
         TLLFULLSPEED_1 = 1 "Connect is Full-Speed: D+ pullup";
     };
 
@@ -224,7 +224,7 @@ device omap44xx_usbtllhs_config msbfirst ( addr base ) "" {
     
     register tll_channel_conf_i_0 addr(base, 0x40) "Control and Status register for channel i." {
         _ 2 mbz;
-        fslslinestate 2 ro type(fslslinestate_status) "Line state for Full/low speed serial modes Bit 1 = D–/ Bit0 = D+";
+        fslslinestate 2 ro type(fslslinestate_status) "Line state for Full/low speed serial modes Bit 1 = D-/ Bit0 = D+";
         fslsmode 4 rw type(fslsmode_status) "Multiple-mode serial interface's mode select. Only when main channel mode is serial. No effect in other main modes.";
         _ 3 mbz;
         testtxse0 1 rw type(testtxse0_status) "Force-Se0 transmit override value for serial mode test Don't care if TestEn = 0 (functional mode) or = TestTxen = 1 (TX = hiz)";
@@ -240,7 +240,7 @@ device omap44xx_usbtllhs_config msbfirst ( addr base ) "" {
         _ 1 mbz;
         ulpioutclkmode 1 ro type(ulpioutclkmode_status) "ULPI clocking mode select for ULPI TLL ChanMode. Hardcoded, for legacy only.";
         tllfullspeed 1 rw type(tllfullspeed_status) "Sets PHY speed emulation in TLL (full/slow), which determines the line to pull up upon connect. The two connect source controls are: input m(N)_tllpuen, register field TllConnect.";
-        tllconnect 1 rw type(tllconnect_status) "Emulation of Full/Low-Speed connect (that is, D+ resp D– pullup) for serial TLL modes. Speed is determined by field TllSpeed.";
+        tllconnect 1 rw type(tllconnect_status) "Emulation of Full/Low-Speed connect (that is, D+ resp D- pullup) for serial TLL modes. Speed is determined by field TllSpeed.";
         tllattach 1 rw type(tllattach_status) "Emulates cable attach/detach for all serial TLL modes: * ChanMode = serial, in TLL mode (FsLsMode) * ChanMode = ULPI, in serial mode (6pin/3pin TLL)";
         utmiisadev 1 rw type(utmiisadev_status) "Select the cable end 'seen' by UTMI side of TLL, i.e. the emulated USB cable's orientation. The host must always be on A-side, peripheral on B-side. Reset value depends on generic DEFUTMIISHOST.";
         chanmode 2 rw type(chanmode_status) "Main channel mode selection";
@@ -249,7 +249,7 @@ device omap44xx_usbtllhs_config msbfirst ( addr base ) "" {
     
     register tll_channel_conf_i_1 addr(base, 0x44) "Control and Status register for channel i." {
         _ 2 mbz;
-        fslslinestate 2 ro type(fslslinestate_status) "Line state for Full/low speed serial modes Bit 1 = D–/ Bit0 = D+";
+        fslslinestate 2 ro type(fslslinestate_status) "Line state for Full/low speed serial modes Bit 1 = D-/ Bit0 = D+";
         fslsmode 4 rw type(fslsmode_status) "Multiple-mode serial interface's mode select. Only when main channel mode is serial. No effect in other main modes.";
         _ 3 mbz;
         testtxse0 1 rw type(testtxse0_status) "Force-Se0 transmit override value for serial mode test Don't care if TestEn = 0 (functional mode) or = TestTxen = 1 (TX = hiz)";
@@ -265,7 +265,7 @@ device omap44xx_usbtllhs_config msbfirst ( addr base ) "" {
         _ 1 mbz;
         ulpioutclkmode 1 ro type(ulpioutclkmode_status) "ULPI clocking mode select for ULPI TLL ChanMode. Hardcoded, for legacy only.";
         tllfullspeed 1 rw type(tllfullspeed_status) "Sets PHY speed emulation in TLL (full/slow), which determines the line to pull up upon connect. The two connect source controls are: input m(N)_tllpuen, register field TllConnect.";
-        tllconnect 1 rw type(tllconnect_status) "Emulation of Full/Low-Speed connect (that is, D+ resp D– pullup) for serial TLL modes. Speed is determined by field TllSpeed.";
+        tllconnect 1 rw type(tllconnect_status) "Emulation of Full/Low-Speed connect (that is, D+ resp D- pullup) for serial TLL modes. Speed is determined by field TllSpeed.";
         tllattach 1 rw type(tllattach_status) "Emulates cable attach/detach for all serial TLL modes: * ChanMode = serial, in TLL mode (FsLsMode) * ChanMode = ULPI, in serial mode (6pin/3pin TLL)";
         utmiisadev 1 rw type(utmiisadev_status) "Select the cable end 'seen' by UTMI side of TLL, i.e. the emulated USB cable's orientation. The host must always be on A-side, peripheral on B-side. Reset value depends on generic DEFUTMIISHOST.";
         chanmode 2 rw type(chanmode_status) "Main channel mode selection";
