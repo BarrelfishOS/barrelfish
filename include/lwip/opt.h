@@ -1759,6 +1759,7 @@
  * UDP_DEBUG: Enable debugging in UDP.
  */
 #ifndef UDP_DEBUG
+//#define UDP_DEBUG                       LWIP_DBG_ON
 #define UDP_DEBUG                       LWIP_DBG_OFF
 #endif
 

@@ -448,7 +448,7 @@ void make_runnable(struct dcb *dcb)
         break;
 
     case TASK_TYPE_SOFT_REALTIME:
-        //        u_srt += 
+        //        u_srt +=
         panic("Unimplemented!");
         break;
 

@@ -529,7 +529,7 @@ static __attribute__ ((used,noreturn))
     assert(vec < NEXCEPTIONS);
 
     printk(LOG_PANIC, "exception %d (error code 0x%lx): ", (int)vec, error);
-    
+
     if (vec == ia32_vec_pf) {
         printf("%s page fault due to %s%s, while in %s mode%s\n",
                error & ERR_PF_READ_WRITE ? "write" : "read",
@@ -552,32 +552,32 @@ static __attribute__ ((used,noreturn))
     // Print faulting instruction pointer
     uintptr_t rip = gdb_save_frame[GDB_X86_64_RIP_REG];
     printf("Faulting instruction pointer (or next instruction): 0x%lx\n", rip);
-    printf("  => i.e. unrelocated kernel address 0x%lx\n", 
+    printf("  => i.e. unrelocated kernel address 0x%lx\n",
            rip - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS);
-    
+
     printf("Registers:\n");
-    printf(" rax: 0x%016lx  r8 : 0x%016lx\n", 
+    printf(" rax: 0x%016lx  r8 : 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RAX_REG],
            gdb_save_frame[GDB_X86_64_R8_REG]);
-    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n", 
+    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RBX_REG],
            gdb_save_frame[GDB_X86_64_R9_REG]);
-    printf(" rcx: 0x%016lx  r10: 0x%016lx\n", 
+    printf(" rcx: 0x%016lx  r10: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RCX_REG],
            gdb_save_frame[GDB_X86_64_R10_REG]);
-    printf(" rdx: 0x%016lx  r11: 0x%016lx\n", 
+    printf(" rdx: 0x%016lx  r11: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RDX_REG],
            gdb_save_frame[GDB_X86_64_R11_REG]);
-    printf(" rsp: 0x%016lx  r12: 0x%016lx\n", 
+    printf(" rsp: 0x%016lx  r12: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RSP_REG],
            gdb_save_frame[GDB_X86_64_R12_REG]);
-    printf(" rdi: 0x%016lx  r13: 0x%016lx\n", 
+    printf(" rdi: 0x%016lx  r13: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RDI_REG],
            gdb_save_frame[GDB_X86_64_R13_REG]);
-    printf(" rsi: 0x%016lx  r14: 0x%016lx\n", 
+    printf(" rsi: 0x%016lx  r14: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RSI_REG],
            gdb_save_frame[GDB_X86_64_R14_REG]);
-    printf(" rip: 0x%016lx  r15: 0x%016lx\n", 
+    printf(" rip: 0x%016lx  r15: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RIP_REG],
            gdb_save_frame[GDB_X86_64_R15_REG]);
 
@@ -740,6 +740,7 @@ static __attribute__ ((used))
             if (vec == IDT_DB) { // debug exception: just continue
                 resume(dispatcher_get_trap_save_area(handle));
             } else {
+
                 // can't handle a trap while disabled: nowhere safe to deliver it
                 scheduler_remove(dcb_current);
                 dispatch(schedule());

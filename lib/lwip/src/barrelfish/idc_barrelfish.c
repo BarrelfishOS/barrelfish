@@ -135,7 +135,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPTX, 0);
 #endif // TRACE_ONLY_LLNET
 
-    LWIPBF_DEBUG("idc_send_packet_to_network_driver: called\n");
+    LWIPBF_DEBUG("%s: idc_send_packet_to_network_driver: called\n", disp_name());
 
     size_t pbuf_chain_len = pbuf_clen(p);
     struct waitset *ws = get_default_waitset();

@@ -139,9 +139,14 @@ static err_t portmap_lookup(struct nfs_client *client, u_int prog, u_int vers)
         .prot = IPPROTO_UDP,
         .port = 0 /* ignored */
     };
-    return rpc_call(&client->rpc_client, PMAP_PORT, PMAP_PROG, PMAP_VERS,
+
+    NFSDEBUGPRINT("portmap_lookup: portmap_lookup calling rpc_call\n");
+    err_t err = rpc_call(&client->rpc_client, PMAP_PORT, PMAP_PROG, PMAP_VERS,
                     PMAPPROC_GETPORT, (xdrproc_t) xdr_mapping, &mount_map,
                     sizeof(mount_map), mount_reply_handler, NULL, NULL);
+    NFSDEBUGPRINT("portmap_lookup: portmap_lookup done with rpc_call returned %d \n",
+            err);
+    return  err;
 }
 
 /** \brief Initiate an NFS mount operation
@@ -164,18 +169,22 @@ struct nfs_client *nfs_mount(struct ip_addr server, const char *path,
     if (client == NULL) {
         return NULL;
     }
+    NFSDEBUGPRINT("nfs_mount: calling rpc_init\n");
     err_t r = rpc_init(&client->rpc_client, server);
     if (r != ERR_OK) {
         free(client);
         return NULL;
     }
 
+    NFSDEBUGPRINT("nfs_mount: rpc_init done\n");
     client->mount_path = path;
     client->mount_state = NFS_INIT_GETPORT_MOUNT;
     client->mount_callback = callback;
     client->mount_cbarg = cbarg;
 
+    NFSDEBUGPRINT("nfs_mount: calling portmap_lookup\n");
     r = portmap_lookup(client, MOUNT_PROGRAM, MOUNT_V3);
+    NFSDEBUGPRINT("nfs_mount: portmap_lookup done \n");
     if (r != ERR_OK) {
         nfs_destroy(client);
         return NULL;

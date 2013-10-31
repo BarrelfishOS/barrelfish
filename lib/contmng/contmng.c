@@ -70,6 +70,20 @@ struct cont_queue *create_cont_q(char *name)
 
 
 
+// Tells how many slots are actually used
+int queue_used_slots(struct cont_queue *q)
+{
+    uint64_t nhead = q->head % MAX_QUEUE_SIZE;
+    uint64_t ntail = q->tail % MAX_QUEUE_SIZE;
+    if ( nhead >= ntail) {
+        return (nhead - ntail);
+    } else {
+        return (ntail + (MAX_QUEUE_SIZE - nhead));
+    }
+} // end function: queue_used_slots
+
+
+
 /* Tells if queue has enough space to add more events,
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
@@ -196,8 +210,8 @@ void cont_queue_show_queue(struct cont_queue *q)
 
     int len = 0;
     len = q->head - q->tail;
-    printf("Showing the cont queue status for queue[%s]\n", q->name);
-    printf("queue len [%d]==> head [%d] - tail [%d]\n", len, q->head, q->tail);
+    printf("queue [%s] len [%d]==> head [%d] - tail [%d]\n",
+            q->name, len, q->head, q->tail);
 
     /*
     int i = 0;

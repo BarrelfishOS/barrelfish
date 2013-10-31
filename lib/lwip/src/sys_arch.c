@@ -9,6 +9,7 @@
 
 #include <lwip/sys.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 
 /*
  * TODO:

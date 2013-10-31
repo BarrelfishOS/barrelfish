@@ -26,6 +26,10 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include "threads_priv.h"
 
+
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
 # include <barrelfish/lmp_chan.h>
 #endif
@@ -189,6 +193,7 @@ void disp_yield_disabled(dispatcher_handle_t handle)
     disp->yieldcount++;
 #endif
 
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD, 2);
     sys_yield(CPTR_NULL);
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);

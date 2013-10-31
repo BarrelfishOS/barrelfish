@@ -135,7 +135,6 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
         pbuf_ref(tmpp);
         ++numpbuf;
     }
-
 #if ETH_PAD_SIZE
     pbuf_header(p, -ETH_PAD_SIZE);      /* drop the padding word */
 #endif
@@ -250,7 +249,6 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
     uint64_t ts = rdtsc();
     struct pbuf *replaced_pbuf = mem_barrelfish_replace_pbuf(pbuf_id);
     if (replaced_pbuf == NULL) {
-        printf("\n");
         assert(replaced_pbuf != NULL);
         USER_PANIC("Can't replace received pbuf in RX ring\n");
     }

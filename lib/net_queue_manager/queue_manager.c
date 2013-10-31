@@ -791,7 +791,6 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
     paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
     vaddr = (void*) ((uintptr_t) buffer->va + offset);
 
-
     if (buffer->role == TX_BUFFER_ID) {
         // Make sure that there is opaque slot available (isfull)
         assert(buffer->txq.buffer_state_used < (buffer->txq.buffer_state_size - 1));
@@ -813,6 +812,8 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
         cl->driver_buff_list[cl->chunk_counter].len = length;
         ++cl->chunk_counter;
         if (more == 0) {
+            // ETHERSRV_DEBUG
+//            printf("sending out packet\n");
             err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list, cl->chunk_counter, opaque);
             assert(err_is_ok(err));
             cl->chunk_counter = 0;
@@ -847,6 +848,9 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
             assert(length == rx_buffer_size);
             rx_register_buffer_fn_ptr(paddr, vaddr, opaque);
         }
+
+        // FIXME: send a message back acking receiving of message.
+
     } // end else: RX_BUFFER_ID
 } // end function: raw_add_buffer
 

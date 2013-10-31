@@ -68,28 +68,6 @@
 #include <trace_definitions/trace_defs.h>
 
 
-/* Constant for low-level networking trace */
-#define TRACE_SUBSYS_LLNET                  0xD000
-#define TRACE_EVENT_LLNET_START             0x0001
-#define TRACE_EVENT_LLNET_STOP              0x0002
-#define TRACE_EVENT_LLNET_IRQ               0x0003
-#define TRACE_EVENT_LLNET_LMPDISP           0x0004
-
-#define TRACE_EVENT_LLNET_DRVIRQ            0x0010
-#define TRACE_EVENT_LLNET_DRVRX             0x0011
-#define TRACE_EVENT_LLNET_DRVTXADD          0x0012
-#define TRACE_EVENT_LLNET_DRVTXDONE         0x0013
-
-#define TRACE_EVENT_LLNET_LWIPPBA1          0x0020
-#define TRACE_EVENT_LLNET_LWIPPBA2          0x0021
-#define TRACE_EVENT_LLNET_LWIPPBF1          0x0022
-#define TRACE_EVENT_LLNET_LWIPPBF2          0x0023
-#define TRACE_EVENT_LLNET_LWIPRX            0x0024
-#define TRACE_EVENT_LLNET_LWIPTX            0x0025
-
-#define TRACE_EVENT_LLNET_APPRX             0x0030
-#define TRACE_EVENT_LLNET_APPTX             0x0031
-
 
 
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
@@ -420,7 +398,19 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 {
 #ifdef TRACING_EXISTS
     dispatcher_handle_t handle = curdispatcher();
+
+    if (((uintptr_t)handle) == ((uintptr_t)NULL)) {
+        // FIXME: should return TRACE_ERR_NOT_VALID_HANDLE
+        return TRACE_ERR_NO_BUFFER;
+    }
+
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
+
+    if (disp == NULL) {
+        // FIXME: should return TRACE_ERR_NOT_VALID_DISP
+        return TRACE_ERR_NO_BUFFER;
+    }
+
     struct trace_buffer *trace_buf = disp->trace_buf;
 
     if (trace_buf == NULL) {
@@ -492,6 +482,7 @@ static inline errval_t trace_event_raw(uint64_t raw)
 }
 
 #ifdef TRACING_EXISTS
+#include <stdio.h>
 /// Is the subsystem enabled, i.e. should we log events for it?
 static inline bool trace_is_subsys_enabled(uint16_t subsys)
 {

@@ -15,6 +15,8 @@
  * Debug printer:
  *****************************************************************/
 
+//#define NFS_CLIENT_DEBUG 1
+
 #if defined(NFS_CLIENT_DEBUG) || defined(GLOBAL_DEBUG)
 #define NFSDEBUGPRINT(arg...) printf("nfs: " arg)
 #else

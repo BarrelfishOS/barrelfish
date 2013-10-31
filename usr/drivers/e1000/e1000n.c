@@ -307,7 +307,7 @@ static bool handle_free_TX_slot_fn(void)
     /* Actual place where packet is sent.  Adding trace_event here */
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NO_S,
-                (uint32_t)client_data);
+                (uint32_t)ether_transmit_index);
 #endif
 
     return 0;
@@ -334,7 +334,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
     }
 
     if (count > 1) {
-        printf("Sending %zx chunks\n", count);
+        E1000_DEBUG("Sending %zx chunks\n", count);
     }
     for (int i = 0; i < count; i++) {
         errval_t r = transmit_pbuf(buffers[i].pa, buffers[i].len,

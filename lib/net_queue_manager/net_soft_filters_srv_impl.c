@@ -1312,18 +1312,23 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {
-        ETHERSRV_DEBUG("application specific packet.. len %"PRIu64"\n", pkt_len);
+        ETHERSRV_DEBUG
+//          printf
+          ("application specific packet.. len %"PRIu64"\n", pkt_len);
         goto out;
     }
 
     // check for ARP packet
      if (handle_arp_packet(pkt_data, pkt_len)) {
-        ETHERSRV_DEBUG("ARP packet..\n");
+        ETHERSRV_DEBUG
+//        printf
+            ("ARP packet..\n");
         goto out;
     }
 
     // last resort: send packet to netd
 
+    ETHERSRV_DEBUG("orphan packet, goes to netd..\n");
     handle_netd_packet(pkt_data, pkt_len);
 
 out:

@@ -233,7 +233,7 @@ void handle_data_arrived(char *payload, size_t data_len)
 
 #if TRACE_ONLY_LLNET
             trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_STOP, 0);
-            size_t trsz = trace_dump(trbuf, sizeof(trbuf) - 1);
+            size_t trsz = trace_dump(trbuf, sizeof(trbuf) - 1, NULL);
             trbuf[trsz] = 0;
             printf("\n\n\n\nTrace results:\n%s\n\n\n", trbuf);
 #endif // TRACE_ONLY_LLNET

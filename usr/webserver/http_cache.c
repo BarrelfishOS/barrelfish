@@ -613,7 +613,8 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     struct timer *cache_timer;      /* timer for triggering cache timeouts */
     init_callback = callback;
 
-    /* FIXME: Start the trace */
+
+    // FIXME: Start the trace
 #if ENABLE_WEB_TRACING
     printf("Starting tracing\n");
 
@@ -629,11 +630,27 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     printf("Tracing not enabled\n");
 #endif // ENABLE_WEB_TRACING
 
+    DEBUGPRINT ("nfs_mount calling.\n");
     my_nfs_client = nfs_mount(server, path, mount_callback, NULL);
+    DEBUGPRINT ("nfs_mount calling done.\n");
+
+    /* FIXME: stop the trace. */
+#if ENABLE_WEB_TRACING
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+
+    char *buf = malloc(4096*4096);
+    trace_dump(buf, 4096*4096, NULL);
+    printf("%s\n", buf);
+    printf("exiting the webserver for debugging purposes\n");
+    USER_PANIC("aborting execution for debugging purposes\n");
+
+#endif // ENABLE_WEB_TRACING
+
     assert(my_nfs_client != NULL);
     /* creating the empty cache */
     cache_table = NULL;
     create_404_page_cache();
+
 
     cache_timer = timer_create(MAX_STALENESS, true, cache_timeout_event,
             cache_table);

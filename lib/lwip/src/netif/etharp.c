@@ -858,6 +858,7 @@ err_t etharp_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr)
 {
     struct eth_addr *dest, mcastaddr;
 
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, "etharp_output : called\n");
     /* make room for Ethernet header - should not fail */
     if (pbuf_header(q, sizeof(struct eth_hdr)) != 0) {
         /* bail out */
@@ -901,6 +902,8 @@ err_t etharp_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr)
                 return ERR_RTE;
             }
         }
+        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+            ("%s:etharp_output : queue for etharp_query\n", disp_name()));
         /* queue on destination Ethernet address belonging to ipaddr */
         return etharp_query(netif, ipaddr, q);
     }
@@ -908,6 +911,8 @@ err_t etharp_output(struct netif *netif, struct pbuf *q, struct ip_addr *ipaddr)
     /* continuation for multicast/broadcast destinations */
     /* obtain source Ethernet address of the given interface */
     /* send packet directly on the link */
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+        ("%s:etharp_output : send packet directly on link\n", disp_name()));
     return etharp_send_ip(netif, q, (struct eth_addr *) (netif->hwaddr), dest);
 }
 
@@ -971,6 +976,9 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
     err_t result = ERR_MEM;
     s8_t i;                     /* ARP entry index */
 
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+        ("%s:etharp_query: called\n", disp_name()));
+
     /* non-unicast address? */
     if (ip_addr_isbroadcast(ipaddr, netif) ||
         ip_addr_ismulticast(ipaddr) || ip_addr_isany(ipaddr)) {
@@ -995,6 +1003,8 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
                         ("etharp_query: packet dropped\n"));
             ETHARP_STATS_INC(etharp.memerr);
         }
+        LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+            ("%s:etharp_query: error: could not find/create entry\n", disp_name()));
         return (err_t) i;
     }
 
@@ -1025,7 +1035,11 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
             }
         } else {
             // This is a ARP client
+            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+                ("%s:etharp_query: this is ARP client\n", disp_name()));
             arp_table[i].ethaddr = etharp_request_via_ARP_srv(netif, ipaddr);
+            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+                ("%s:etharp_query: ARP client got reply\n", disp_name()));
             arp_table[i].state = ETHARP_STATE_STABLE;
         } // end else: not a special app
     } // end if: ARP table state pending
@@ -1094,21 +1108,21 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
                         arp_table[i].q = new_entry;
                     }
                     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                                ("etharp_query: queued packet %p on ARP entry %"
+                        ("etharp_query: queued packet %p on ARP entry %"
                                  S16_F "\n", (void *) q, (s16_t) i));
                     result = ERR_OK;
                 } else {
                     /* the pool MEMP_ARP_QUEUE is empty */
                     pbuf_free(p);
                     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                                ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n",
+                        ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n",
                                  (void *) q));
                     /* { result == ERR_MEM } through initialization */
                 }
             } else {
                 ETHARP_STATS_INC(etharp.memerr);
                 LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                            ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n",
+                    ("etharp_query: could not queue a copy of PBUF_REF packet %p (out of memory)\n",
                              (void *) q));
                 /* { result == ERR_MEM } through initialization */
             }
@@ -1116,7 +1130,7 @@ etharp_query(struct netif * netif, struct ip_addr * ipaddr, struct pbuf * q)
             /* q && state == PENDING && ARP_QUEUEING == 0 => result = ERR_MEM */
             /* { result == ERR_MEM } through initialization */
             LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                        ("etharp_query: Ethernet destination address unknown, queueing disabled, packet %p dropped\n",
+                ("etharp_query: Ethernet destination address unknown, queueing disabled, packet %p dropped\n",
                          (void *) q));
 #endif
         }
@@ -1213,6 +1227,8 @@ etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
 
     hdr->ethhdr.type = htons(ETHTYPE_ARP);
     /* send ARP query */
+    LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
+        ("%s: etharp_raw\n", disp_name()));
     result = netif->linkoutput(netif, p);
     ETHARP_STATS_INC(etharp.xmit);
     /* free ARP query packet */
@@ -1282,9 +1298,9 @@ err_t ethernet_input(struct pbuf *p, struct netif *netif)
             /* skip Ethernet header */
             if (pbuf_header(p, -(s16_t) sizeof(struct eth_hdr))) {
 //        LWIP_ASSERT("Can't move over header in packet", 0);
-                printf
+            LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
                   ("ethernet_input: Can't move over header in packet %d, %p\n",
-                   p->len, p->next);
+                   p->len, p->next));
                 pbuf_free(p);
                 p = NULL;
             } else {
@@ -1360,16 +1376,15 @@ static struct eth_addr etharp_request_via_ARP_srv(struct netif * netif,
         struct ip_addr * ipaddr)
 {
     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                ("etharp_request_via_ARP_srv: sending ARP request.\n"));
+        ("etharp_request_via_ARP_srv: sending ARP request.\n" ));
     LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE,
-                ("etharp_request_via_ARP_srv: sending ARP request:"
+            ("etharp_request_via_ARP_srv: sending ARP request:"
                  "%" U16_F ".%" U16_F ".%" U16_F ".%" U16_F "\n",
                  ip4_addr1(ipaddr), ip4_addr2(ipaddr), ip4_addr3(ipaddr),
                  ip4_addr4(ipaddr)));
 
     uint64_t found_mac = idc_ARP_lookup(ipaddr->addr);
     if (found_mac == 0) {
-        printf("could not find MAC with ARP_lookup service\n");
         abort();
     }
     return (convert_uint64_to_eth_addr(found_mac));

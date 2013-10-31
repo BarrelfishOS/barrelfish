@@ -603,7 +603,6 @@ err_t ip_output_if_opt(struct pbuf * p, struct ip_addr * src,
 
             IP_STATS_INC(ip.err);
             snmp_inc_ipoutdiscards();
-            printf("netif->output() %d\n", __LINE__);
             return ERR_BUF;
         }
 

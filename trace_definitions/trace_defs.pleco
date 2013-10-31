@@ -19,7 +19,7 @@
  * Example:
  *
  * The subystem:
- * 
+ *
  * subsystem mysubsystem {
  * 		event myevent "",
  * }
@@ -71,7 +71,9 @@ subsystem threads {
     event SEM_WAIT_ENTER 			"",
     event SEM_WAIT_LEAVE 			"",
     event SEM_TRYWAIT 				"",
-    event SEM_POST 					"",
+    event SEM_POST                              "",
+    event SYS_YIELD                             "Calling sys_yield for co-op scheduling",
+    event C_DISP_SAVE                           "calling disp_save",
 };
 
 subsystem memserv {
@@ -297,6 +299,32 @@ subsystem nnet {
  event TX_MEMP_D           "tx pbuf memp done",
 
 };
+
+
+subsystem llnet {
+/* Constant for low-level networking trace */
+ event START             "",
+ event STOP              "",
+ event IRQ              "",
+ event LMPDISP          "",
+
+ event DRVIRQ           "",
+ event DRVRX            "",
+ event DRVTXADD         "",
+ event DRVTXDONE        "",
+
+ event LWIPPBA1         "",
+ event LWIPPBA2         "",
+ event LWIPPBF1         "",
+ event LWIPPBF2         "",
+ event LWIPRX           "",
+ event LWIPTX           "",
+
+ event APPRX            "",
+ event APPTX            "",
+
+};
+
 
 /* The example subsystem is used to demonstrate how the tracing framework
  * works. It is used by the program in "examples/xmpl-trace". */
