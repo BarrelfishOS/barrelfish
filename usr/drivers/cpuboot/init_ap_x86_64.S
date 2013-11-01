@@ -80,8 +80,7 @@ start_ap_pm:
         // acquire start-up lock
         mov $(x86_64_init_ap_lock - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET),%esi
 start_ap_spin:
-        xor %ax,%ax
-        lock bts %ax,(%esi)
+        lock bts $0,(%esi)
         jc start_ap_spin
 
         // set up stack
