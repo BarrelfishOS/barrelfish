@@ -60,17 +60,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     trace_event(TRACE_SUBSYS_KERNEL,
                 TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
-    /* Copy the startup code to the real-mode address */
-    uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
-    uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
-    uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
-    //memcpy(real_dest, real_src, real_end - real_src);
-
-    printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
-    printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
-    printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
-    printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
-
     // pointer to the shared global variable amongst all kernels
     volatile uint64_t *ap_global = (volatile uint64_t *)
                                    local_phys_to_mem((lpaddr_t) &x86_64_init_ap_global -
@@ -116,22 +105,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
-    //give the new core a bit time to start-up and set the lock
-    /*for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
-        if (*ap_lock != 0) {
-            break;
-        }
-    }
-
-    //if the lock is set, the core has been started, otherwise assume, that
-    //a core with this APIC ID doesn't exist.
-    if (*ap_lock != 0) {
-        while (*ap_wait != AP_STARTED);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
-        *ap_lock = 0;
-        debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
-        return 0;
-    }*/
     return 0;
 }
 

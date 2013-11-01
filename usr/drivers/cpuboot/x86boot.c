@@ -194,17 +194,16 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     }
     printf("%s:%d: \n", __FILE__, __LINE__);
 
-    //if the lock is set, the core has been started, otherwise assume, that
-    //a core with this APIC ID doesn't exist.
+    // If the lock is set, the core has been started, otherwise assume, that
+    // a core with this APIC ID doesn't exist.
     if (*ap_lock != 0) {
         while (*ap_wait != AP_STARTED);
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
         *ap_lock = 0;
-        printf("booted CPU%hhu\n", core_id);
         return 0;
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
 
+    assert(!"badness");
     return -1;
 }
 
