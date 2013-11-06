@@ -32,6 +32,7 @@ struct event_closure {
 #define MKCLOSURE(h,a)  (struct event_closure){ /*handler*/ (h), /*arg*/ (a) }
 #define NOP_CLOSURE     MKCLOSURE(NULL, NULL)
 
+
 /**
  * \brief Channel type
  *
@@ -94,6 +95,7 @@ errval_t waitset_destroy(struct waitset *ws);
 errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t event_dispatch(struct waitset *ws);
+errval_t event_dispatch_debug(struct waitset *ws);
 errval_t event_dispatch_non_block(struct waitset *ws);
 
 __END_DECLS

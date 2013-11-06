@@ -28,6 +28,11 @@
 #include "netd_debug.h"
 #include "netd.h"
 
+/* Enable tracing only when it is globally enabled */
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define ENABLE_WEB_TRACING 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 static struct periodic_event dhcp_fine_timer; // fine-grain timer for DHCP
 static struct periodic_event dhcp_coarse_timer; // coarse-grain timer for DHCP
@@ -43,9 +48,9 @@ static bool dhcp_completed = false;
 static void timer_callback(void *data)
 {
 
-//    NETD_DEBUG("timer_callback: called\n");
     void (*lwip_callback) (void) = data;
-
+    NETD_DEBUG("timer_callback: triggering %p\n", lwip_callback);
+//    wrapper_perform_lwip_work();
     lwip_callback();
 
 //    NETD_DEBUG("timer_callback: terminated\n");
@@ -92,7 +97,8 @@ static void link_status_change(struct netif *nf)
         }
     } else {
         // warning: some regression tests depend upon the format of this message
-        printf("##########################################\n");
+        printf("%s:##########################################\n",
+                disp_name());
         printf("Interface up! IP address %d.%d.%d.%d\n",
                ip4_addr1(&nf->ip_addr), ip4_addr2(&nf->ip_addr),
                ip4_addr3(&nf->ip_addr), ip4_addr4(&nf->ip_addr));
@@ -107,7 +113,9 @@ static void link_status_change(struct netif *nf)
                 nf->hwaddr[0], nf->hwaddr[1], nf->hwaddr[2],
                 nf->hwaddr[3], nf->hwaddr[4], nf->hwaddr[5]);
         printf("##########################################\n");
-    }
+
+
+    } // end else:
 
     local_ip = nf->ip_addr;
     netif_set_default(nf);
@@ -132,6 +140,7 @@ static void link_status_change(struct netif *nf)
 
 static void get_ip_from_dhcp(struct netif *nf_ptr)
 {
+
 
     NETD_DEBUG("get_ip_from_dhcp: starting dhcp\n");
     setup_dhcp_timer();
@@ -164,6 +173,27 @@ void startlwip(char *card_name, uint64_t queueid)
     assert(netif_ptr != NULL);
     netif_set_status_callback(netif_ptr, link_status_change);
 
+#if 0
+#if ENABLE_WEB_TRACING
+        printf("Starting tracing\n");
+
+//        errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_NET,
+        errval_t errt = trace_control_fixed_events_counter(TRACE_EVENT(TRACE_SUBSYS_NET,
+                    TRACE_EVENT_NET_START, 0),
+                TRACE_EVENT(TRACE_SUBSYS_NET,
+                    TRACE_EVENT_NET_STOP, 0), 0,
+                //2000);
+                2000);
+        set_cond_termination(trace_conditional_termination);
+
+        if(err_is_fail(errt)) {
+            USER_PANIC_ERR(errt, "trace_control failed");
+        }
+        trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_START, 0);
+#else // ENABLE_WEB_TRACING
+        printf("Tracing not enabled\n");
+#endif // ENABLE_WEB_TRACING
+#endif // 0
     if (do_dhcp) {
         get_ip_from_dhcp(netif_ptr);
 

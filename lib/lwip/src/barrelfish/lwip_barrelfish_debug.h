@@ -19,18 +19,9 @@
 
 #if defined(LWIP_BARRELFISH_DEBUG) || defined(GLOBAL_DEBUG)
 
-/*
-#define MAX_DEBUG_MSG_LEN   256
-char lwip_debug_buffer[MAX_DEBUG_MSG_LEN];
-char lwip_debug_info[MAX_DEBUG_MSG_LEN] = "testing--:";
-#define LWIPBF_DEBUG(x...) do { \
-            snprintf(lwip_debug_buffer, MAX_DEBUG_MSG_LEN, x); \
-            printf("lwip_barrelfish: %s: %s", lwip_debug_info, lwip_debug_buffer); \
-        } while (0)
-*/
-
-#define LWIPBF_DEBUG(x...) do { \
-            printf("lwip_barrelfish: " x); \
+#define LWIPBF_DEBUG(x...) do { printf("lwipBF:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
         } while (0)
 #else
 #define LWIPBF_DEBUG(x...) ((void)0)

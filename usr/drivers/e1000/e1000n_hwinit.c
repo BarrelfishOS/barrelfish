@@ -503,7 +503,7 @@ static void e1000_set_rxbsize(e1000_device_t *dev, e1000_rx_bsize_t rx_bsize)
     rctl = e1000_rctl_bsex_insert(rctl, bsex);
     rctl = e1000_rctl_bam_insert(rctl, 1);
     e1000_rctl_wr(dev->device, rctl);
-    
+
     e1000_rctl_en_wrf(dev->device, 1);
 }
 
@@ -817,12 +817,15 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
      *
      * The optimal performance setting for this register is very system and
      * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
+     * The value 0 will disable interrupt throttling
      */
     if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
         e1000_eitr_interval_wrf(dev->device, 0, 5580);
-    }  
+        //e1000_eitr_interval_wrf(dev->device, 0, 0);
+    }
     else {
         e1000_itr_interval_wrf(dev->device, 5580);
+        //e1000_itr_interval_wrf(dev->device, 0);
     }
 
     /* Enable interrupts */

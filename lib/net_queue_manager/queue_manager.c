@@ -399,7 +399,7 @@ static void report_register_buffer_result(struct net_queue_manager_binding *cc,
             USER_PANIC("queue full, can go further\n");
             //return CONT_ERR_NO_MORE_SLOTS;
         }
-        event_dispatch(ws);
+        event_dispatch_debug(ws);
         ++passed_events;
     }
 
@@ -479,6 +479,31 @@ static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
     }
 }
 
+static __attribute__((unused))  void
+handle_single_event_nonblock(struct waitset *ws)
+{
+    errval_t err;
+
+    while (1) {
+
+        do_pending_work_for_all();
+
+        err = event_dispatch_non_block(ws); // nonblocking for polling mode
+        if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
+            ETHERSRV_DEBUG("Error in event_dispatch_non_block, returned %d\n",
+                        (unsigned int)err);
+            // There should be a serious panic and failure here
+            USER_PANIC_ERR(err, "event_dispatch_non_block failed in handle_single_event\n");
+            break;
+        } else {
+            // Successfully handled the event
+           return;
+        }
+    } // end while: infinite
+} // end function: handle_single_event_nonblock
+
+
+
 static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
                                uint64_t offset, uint64_t length)
 {
@@ -504,13 +529,27 @@ static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
             // USER_PANIC("queue full, can't go further\n");
             return CONT_ERR_NO_MORE_SLOTS;
         }
-        event_dispatch(ws);
+
+//        errval_t err = handle_single_event_nonblock(ws);
+        errval_t err = event_dispatch_debug(ws);
+        if (err_is_fail(err)) {
+            ETHERSRV_DEBUG("Error in event_dispatch, returned %d\n",
+                        (unsigned int)err);
+            // There should be a serious panic and failure here
+            USER_PANIC_ERR(err, "event_dispatch_non_block failed in handle_single_event\n");
+            break;
+        }
+
         ++passed_events;
     }
 
     enqueue_cont_q(ccl->q, &entry);
     return SYS_ERR_OK;
 } // end function: send_raw_xmit_done
+
+
+
+
 
 
 // *********** Interface: get_mac_address ****************
@@ -571,7 +610,7 @@ static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
             USER_PANIC("queue full, can go further\n");
            // return CONT_ERR_NO_MORE_SLOTS;
         }
-        event_dispatch(ws);
+        event_dispatch_debug(ws);
         ++passed_events;
     }
 
@@ -720,9 +759,25 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 
     if (!is_enough_space_in_queue(cl->q)) {
 
+    /* FIXME: stop the trace. */
+#if TRACE_ETHERSRV_MODE
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+	char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
+	assert(trace_buf_area);
+       size_t used_bytes = 0;
+        trace_dump_core(trace_buf_area, CONSOLE_DUMP_BUFLEN, &used_bytes, NULL,
+                disp_get_core_id(),  true, true);
+        printf("The lenght of the dump is %zu\n", used_bytes);
+//        trace_dump(trace_buf_area, CONSOLE_DUMP_BUFLEN, NULL);
+        printf("\n%s\n", "dump trac buffers: Start");
+	printf("\n%s\n", trace_buf_area);
+        printf("\n%s\n", "dump trac buffers: Stop");
+        trace_reset_all();
+#endif // TRACE_ETHERSRV_MODE
+
         printf("[%s] Dropping packet as app [%d] is not processing packets"
-                "fast enough.  Cont queue is almost full [%d]\n",
-                disp_name(), cl->cl_no, queue_free_slots(cl->q));
+                "fast enough.  Cont queue is almost full [%d], pkt count [%"PRIu64"]\n",
+                disp_name(), cl->cl_no, queue_free_slots(cl->q), sent_packets);
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }

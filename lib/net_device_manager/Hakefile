@@ -15,7 +15,7 @@
                   "soft_filt_cl_impl.c", "e10k_filt_cl_impl.c", "portalloc.c" ],
                   flounderBindings = [ "net_soft_filters", "net_ports",
                                        "e10k" ],
-                  addLibraries = [ "contmng", "bfdmuxtools"
+                  addLibraries = [ "contmng", "bfdmuxtools", "trace"
 -- try to get rid of "lwip" as it is only used for hton[s/l]
                     , "lwip"
                   ]

@@ -42,7 +42,7 @@ def add_test(t):
     all_tests.append(t)
     return t
 
-import memtest, webserver, rpctests, splash_bomp, echoserver, \
+import memtest, webserver, basicNetwork, rpctests, splash_bomp, echoserver, \
     skew, tsctests, vmkit, nfscat, mdbbench, \
     rcce, bulktests, tracing, buildall, bomp_sidebyside, \
     monitortest, phases, clockdrift, channel_cost, fputest, TimerTest, \

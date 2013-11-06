@@ -37,14 +37,17 @@ char *dns_str = NULL; // ip address of DNS name server
 static void netd_event_polling_loop(void)
 {
     errval_t err;
-    printf("Starting event polling loop!!!\n");
+    NETD_DEBUG("Starting event polling loop!!!\n");
     struct waitset *ws = get_default_waitset();
+    uint32_t ecounter = 0;
     while (1) {
-        err = event_dispatch(ws);
+        err = event_dispatch_debug(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
+//        NETD_DEBUG("event %"PRIu32" handled\n", ecounter);
+        ecounter++;
     }
 }
 

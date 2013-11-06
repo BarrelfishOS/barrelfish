@@ -396,7 +396,7 @@ static struct cte irq_dispatch[NDISPATCH];
  *
  * \param irq   IRQ# to send in notification.
  */
-static uint32_t interrupt_count = 0;
+static uint32_t pkt_interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
@@ -409,15 +409,15 @@ static void send_user_interrupt(int irq)
     }
 
     if (irq == 0) {
-//    	printf("packet interrupt\n");
-        ++interrupt_count;
+//    	printf("packet interrupt: %d: count %"PRIu32"\n", irq, pkt_interrupt_count);
+        ++pkt_interrupt_count;
 #if TRACE_N_BM
 #include<trace/trace.h>
-    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, interrupt_count);
+    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, pkt_interrupt_count);
 #endif // TRACE_N_BM
 /*
-        if (interrupt_count >= 60){
-            printf("interrupt number %"PRIu32"\n", interrupt_count);
+        if (pkt_interrupt_count >= 60){
+            printf("interrupt number %"PRIu32"\n", pkt_interrupt_count);
         }
 */
     }

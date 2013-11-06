@@ -15,6 +15,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/waitset_chan.h>
+#include <stdio.h>
 
 // FIXME: why do I need quite so many dispatcher headers?
 #include <barrelfish/dispatch.h>
@@ -144,8 +145,10 @@ static void periodic_event_handler(void *arg)
 
     // re-register (first, in case the handler wishes to cancel it)
     errval_t err = deferred_event_register(&e->de, e->waitset, e->period,
-                                           MKCLOSURE(periodic_event_handler, e));
+                           MKCLOSURE(periodic_event_handler, e));
     assert(err_is_ok(err));
+
+    //printf("%s:%s: periodic handler %p\n", disp_name(), __func__, e->cl.handler);
 
     // run handler
     e->cl.handler(e->cl.arg);

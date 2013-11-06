@@ -30,6 +30,11 @@
 static struct ip_addr serverip;
 static const char *serverpath;
 
+/* Enable tracing only when it is globally enabled */
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define ENABLE_WEB_TRACING 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 int main(int argc, char**argv)
 {
@@ -87,6 +92,11 @@ int main(int argc, char**argv)
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
-    }
+
+#if ENABLE_WEB_TRACING
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+#endif // ENABLE_WEB_TRACING
+
+    } // end while: infinite
 
 }

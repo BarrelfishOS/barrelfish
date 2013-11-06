@@ -116,6 +116,7 @@ static uint8_t mac_address[MAC_ADDRESS_LEN]; /* buffers the card's MAC address u
  *****************************************************************/
 static bool user_mac_address; /* True if the user specified the MAC address */
 static bool use_interrupt = true; /* don't use card polling mode */
+//static bool use_interrupt = false; /* don't use card polling mode */
 static bool use_force = false; /* don't attempt to find card force load */
 
 /*****************************************************************
@@ -377,8 +378,8 @@ static bool handle_next_received_packet(void)
             ) {
 
 //      valid packet received
-//      E1000_DEBUG ("Potential packet receive [%"PRIu32"]!\n",
-//            receive_bufptr);
+      E1000_DEBUG ("Potential packet receive [%"PRIu32"]!\n",
+            receive_bufptr);
         new_packet = true;
         len = rxd->rx_read_format.info.length;
         total_rx_datasize += len;
@@ -491,7 +492,7 @@ static void polling_loop(void)
 {
     uint64_t poll_count = 0;
     uint64_t ts;
-    uint8_t jobless_iterations = 0;
+//    uint8_t jobless_iterations = 0;
     errval_t err;
     bool no_work = true;
 
@@ -504,8 +505,15 @@ static void polling_loop(void)
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
         struct waitset *ws = get_default_waitset();
-        err = event_dispatch(ws); // blocking // doesn't work correctly
+
+/*        if (use_interrupt) {
+            err = event_dispatch_debug(ws); // blocking // doesn't work correctly
+        } else {
+            err = event_dispatch_non_block(ws); // nonblocking for polling mode
+        }
+*/
 //        err = event_dispatch_non_block(ws); // nonblocking for polling mode
+        err = event_dispatch(ws); // nonblocking for polling mode
         if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);
@@ -522,7 +530,16 @@ static void polling_loop(void)
             no_work = false;
         }
 
-        if (no_work) {
+
+        err = event_dispatch_debug(ws); // blocking // doesn't work correctly
+        if (err_is_fail(err)) {
+            E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
+                        (unsigned int)err);
+            break;
+        }
+
+
+ /*       if (no_work) {
             ++jobless_iterations;
             if (jobless_iterations == 10) {
                 if (use_interrupt) {
@@ -531,7 +548,8 @@ static void polling_loop(void)
                 }
             }
         }
-    }
+*/
+    } // end while
 }
 
 /*****************************************************************
@@ -625,6 +643,8 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
 
     setup_internal_memory();
 
+
+
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  NULL,
                   transmit_pbuf_list_fn,
@@ -633,6 +653,11 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                   receive_buffer_size,
                   rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
+
+
+#if TRACE_ETHERSRV_MODE
+    set_cond_termination(trace_conditional_termination);
+#endif
 }
 
 
@@ -646,9 +671,10 @@ static void e1000_interrupt_handler_fn(void *arg)
     e1000_intreg_t icr = e1000_icr_rd(e1000_device.device);
 
 #if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_I, 0);
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_I, interrupt_counter);
 #endif
 
+//    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
 
 #if TRACE_N_BM
@@ -667,6 +693,7 @@ static void e1000_interrupt_handler_fn(void *arg)
         return;
     }
 
+    E1000_DEBUG("e1000 interrupt came in\n");
     handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
 }
 
@@ -874,6 +901,17 @@ int main(int argc, char **argv)
         E1000_DEBUG("Setting service name to %s\n", service_name);
     }
 
+
+    // There is a bug which breaks the interrupt handling if driver runs
+    // on core zero.  So, trying to avoid that situation
+    if(use_interrupt) {
+        if(disp_get_core_id() == 0) {
+            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled, please choose different core\n",
+                    disp_name());
+            abort();
+        }
+    }
+
     E1000_DEBUG("Starting standalone driver.\n");
 
     /*
@@ -928,14 +966,17 @@ int main(int argc, char **argv)
     err = pci_client_connect();
     assert(err_is_ok(err));
 
-    if (use_interrupt)
+    if (use_interrupt) {
+
         err = pci_register_driver_irq(e1000_init_fn, class, subclass, program_interface,
                                       vendor, deviceid, bus, device, function,
                                       e1000_interrupt_handler_fn, NULL);
-
-    else
+        printf("########### Driver with interrupts ###########\n");
+    } else {
         err = pci_register_driver_noirq(e1000_init_fn, class, subclass, program_interface,
                                         vendor, deviceid, bus, device, function);
+        printf("########### Driver without interrupts ###########\n");
+    }
 
     if (err_is_fail(err)) {
         E1000_PRINT_ERROR("Error: %u, pci_register_driver failed\n", (unsigned int)err);

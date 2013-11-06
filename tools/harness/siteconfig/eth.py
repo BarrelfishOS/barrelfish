@@ -17,6 +17,7 @@ class ETH(siteconfig.BaseSite):
     WEBSERVER_NFS_HOST = 'emmentaler.in.barrelfish.org'
     NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
     WEBSERVER_NFS_PATH = '/local/nfs/barrelfish_website'
+    WEBSERVER_NFS_TEST_PATH = '/local/nfs/pravin/website/bftest_crash'
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH
     HTTPERF_PATH = '/home/netos/tools/i686-pc-linux-gnu/bin/httperf'
     HTTPERF_MAXCLIENTS = len(LOADGEN_HOSTS * 2) # max number of load generators

@@ -494,6 +494,13 @@ struct sysret sys_yield(capaddr_t target)
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
                 151);
 
+    /*
+        if (disp->name[0] == 'e' && disp->name[1] == '1' ) {
+            printk(LOG_ERR, "%s has been removed from scheduler queue\n",
+                disp->name);
+        }
+*/
+
         scheduler_remove(dcb_current);
         if (wakeup != 0) {
             wakeup_set(dcb_current, wakeup);

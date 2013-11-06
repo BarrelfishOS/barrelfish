@@ -24,7 +24,6 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#define CONSOLE_DUMP_BUFLEN (2<<20)
 
 /**
  * \brief Reset the trace buffer on the current core.
@@ -54,6 +53,8 @@ void trace_reset_buffer(void)
  */
 void trace_reset_all(void)
 {
+    struct trace_buffer *master = (struct trace_buffer*)trace_buffer_master;
+    master->event_counter = 0;
     for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
         struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
         tbuf->head_index = 1;
@@ -71,6 +72,15 @@ errval_t trace_control(uint64_t start_trigger,
                        uint64_t stop_trigger,
                        uint64_t duration)
 {
+    return trace_control_fixed_events_counter(start_trigger, stop_trigger,
+            duration, 0);
+}
+
+errval_t trace_control_fixed_events_counter(uint64_t start_trigger,
+                       uint64_t stop_trigger,
+                       uint64_t duration,
+                       uint64_t event_counter)
+{
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
     struct trace_buffer *buf = disp->trace_buf;
@@ -83,6 +93,7 @@ errval_t trace_control(uint64_t start_trigger,
     master->running = false;
     master->stop_trigger = stop_trigger;
     master->duration = duration;
+    master->event_counter = event_counter;
     master->stop_time = 0xFFFFFFFFFFFFFFFFULL; // Updated on start trigger
     master->start_trigger = start_trigger;
 
@@ -120,6 +131,52 @@ errval_t trace_wait(void)
  */
 size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
 {
+    bool isfirst = true;
+    bool isOnlyOne = false;
+    size_t total_buflen = 0;
+    size_t buf_pos = 0;
+    size_t retval_total = 0;
+    size_t ev_dumped_total = 0;
+
+    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
+        total_buflen = total_buflen - buf_pos;
+        int ev_dumped = 0;
+        size_t used_bytes = 0;
+        size_t retval = trace_dump_core(buf, total_buflen, &used_bytes,
+                &ev_dumped, core, isfirst, isOnlyOne);
+//        assert(used_bytes != 0);
+//        assert(ev_dumped != 0);
+        retval_total += retval; // adding up the return value
+        ev_dumped_total += ev_dumped; // adding up the ptr argument
+        buf = buf +  used_bytes;
+        isfirst = false;
+    }
+
+    if (number_of_events_dumped != NULL) {
+        *number_of_events_dumped = ev_dumped_total;
+    }
+
+    return retval_total;
+}
+
+size_t trace_get_event_count(coreid_t specified_core)
+{
+    struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(specified_core);
+
+    size_t num_events;
+    if (tbuf->head_index > tbuf->tail_index) {
+        num_events = tbuf->head_index - tbuf->tail_index - 1;
+    } else {
+        num_events = (TRACE_MAX_EVENTS - tbuf->tail_index) + tbuf->head_index - 1;
+    }
+    return num_events;
+}
+
+
+size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
+        int *number_of_events_dumped, coreid_t specified_core,
+        bool first_dump, bool isOnlyOne)
+{
     if (buf == NULL) return TRACE_ERR_NO_BUFFER;
 
     struct trace_buffer *master = (struct trace_buffer*)trace_buffer_master;
@@ -129,53 +186,64 @@ size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
     size_t totlen = 0;
     size_t len;
 
-    len = snprintf(ptr, buflen-totlen,
-                   "# Start %" PRIu64 " Duration %" PRIu64 " Stop %" PRIu64
-                   "\n",
-                   master->t0, master->duration, master->stop_time);
-    ptr += len; totlen += len;
-
     if (number_of_events_dumped != NULL) {
         *number_of_events_dumped = 0;
     }
 
-    // Determine the minimum timestamp for which an event has been recorded.
-    uint64_t min_timestamp = 0xFFFFFFFFFFFFFFFFULL;
-    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
-        struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
 
-        int num_events;
-        if (tbuf->head_index > tbuf->tail_index) {
-            num_events = tbuf->head_index - tbuf->tail_index - 1;
-        } else {
-            num_events = (TRACE_MAX_EVENTS - tbuf->tail_index) + tbuf->head_index - 1;
-        }
+    if (first_dump) {
+        len = snprintf(ptr, buflen-totlen,
+              "# Start %" PRIu64 " Duration %" PRIu64 " Stop %" PRIu64 "\n",
+                   master->t0, master->duration, master->stop_time);
+        ptr += len; totlen += len;
 
-        if (num_events == 0) {
-            // Ringbuffer is empty.
-            continue;
-        }
+        // Determine the minimum timestamp for which an event has been recorded.
+        uint64_t min_timestamp = 0xFFFFFFFFFFFFFFFFULL;
+        for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
 
-        // Get the first event
-        int idx = tbuf->tail_index + 1;
-        if (idx == TRACE_MAX_EVENTS) {
-            idx = 0;
-        }
+            if (isOnlyOne) {
+                if (core != specified_core) {
+                    // We want minimum time only for this core
+                    continue;
+                }
+            }
+            struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
 
-        uint64_t timestamp = tbuf->events[idx].timestamp;
-        if (timestamp <= min_timestamp) {
-            min_timestamp = timestamp;
-        }
+            int num_events;
+            if (tbuf->head_index > tbuf->tail_index) {
+                num_events = tbuf->head_index - tbuf->tail_index - 1;
+            } else {
+                num_events = (TRACE_MAX_EVENTS - tbuf->tail_index) + tbuf->head_index - 1;
+            }
 
-    }
+            if (num_events == 0) {
+                // Ringbuffer is empty.
+                continue;
+            }
 
-    len = snprintf(ptr, buflen-totlen,
+            // Get the first event
+            int idx = tbuf->tail_index + 1;
+            if (idx == TRACE_MAX_EVENTS) {
+                idx = 0;
+            }
+
+            uint64_t timestamp = tbuf->events[idx].timestamp;
+            if (timestamp <= min_timestamp) {
+                min_timestamp = timestamp;
+            }
+
+        } // end for: for each core
+
+        len = snprintf(ptr, buflen-totlen,
                                        "# Min_timestamp %" PRIu64 "\n",
                                        min_timestamp);
-    ptr += len; totlen += len;
+        ptr += len; totlen += len;
+    } // end if: if this is first core
 
+    coreid_t core = specified_core;
     // Create dumps for each core.
-    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
+//    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
+
         struct trace_buffer *tbuf = (struct trace_buffer *)compute_trace_buf_addr(core);
 
         int num_events;
@@ -187,57 +255,103 @@ size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
             //printf("< , head %ld tail %ld num_events %d\n", tbuf->head_index, tbuf->tail_index, num_events);
         }
 
-        if (num_events == 0) {
+        if (num_events > 0) {
             // Ringbuffer is empty.
-            continue;
-        }
-
-        len = snprintf(ptr, buflen-totlen,
-                       "# Core %d LOG DUMP ==================================================\n", core);
-        ptr += len; totlen += len;
-
-        // Print the core time offset relative to core 0
-        len = snprintf(ptr, buflen-totlen,
-                                   "# Offset %d %" PRIi64 "\n",
-                                   core, tbuf->t_offset);
-
-        ptr += len; totlen += len;
-
-        // Print all application names
-        for(int app_index = 0; app_index < tbuf->num_applications; app_index++ ) {
 
             len = snprintf(ptr, buflen-totlen,
-                           "# DCB %d %" PRIx64 " %.*s\n",
-                           core, tbuf->applications[app_index].dcb,
-                           8, (char*)&tbuf->applications[app_index].name);
-
+                    "# Core %d LOG DUMP ==================================================\n", core);
             ptr += len; totlen += len;
-        }
 
-        for (int i = 0; i < num_events; i++) {
-
-            tbuf->tail_index++;
-            if (tbuf->tail_index == TRACE_MAX_EVENTS) {
-                tbuf->tail_index = 0;
-            }
-
+            // Print the core time offset relative to core 0
             len = snprintf(ptr, buflen-totlen,
-                           "%d %" PRIu64 " %" PRIx64 "\n",
-                           core, tbuf->events[tbuf->tail_index].timestamp,
-                           //core, tbuf->events[tbuf->tail_index].timestamp - t0,
-                           tbuf->events[tbuf->tail_index].u.raw);
+                    "# Offset %d %" PRIi64 "\n",
+                    core, tbuf->t_offset);
 
             ptr += len; totlen += len;
 
-            if(number_of_events_dumped != NULL) {
-                (*number_of_events_dumped)++;
+            // Print all application names
+            for(int app_index = 0; app_index < tbuf->num_applications; app_index++ ) {
+
+                len = snprintf(ptr, buflen-totlen,
+                        "# DCB %d %" PRIx64 " %.*s\n",
+                        core, tbuf->applications[app_index].dcb,
+                        8, (char*)&tbuf->applications[app_index].name);
+
+                ptr += len; totlen += len;
             }
 
-        }
-    }
+            for (int i = 0; i < num_events; i++) {
 
+                tbuf->tail_index++;
+                if (tbuf->tail_index == TRACE_MAX_EVENTS) {
+                    tbuf->tail_index = 0;
+                }
+
+                len = snprintf(ptr, buflen-totlen,
+                        "%d %" PRIu64 " %" PRIx64 "\n",
+                        core, tbuf->events[tbuf->tail_index].timestamp,
+                        //core, tbuf->events[tbuf->tail_index].timestamp - t0,
+                        tbuf->events[tbuf->tail_index].u.raw);
+
+                ptr += len; totlen += len;
+
+                if(number_of_events_dumped != NULL) {
+                    (*number_of_events_dumped)++;
+                }
+            } // end for:
+        } // end if: no. of events > 0
+
+//    } // end for: for each core
+    *usedBytes = totlen;
     return totlen;
 }
+
+//------------------------------------------------------------------------------
+// Conditional termination
+//------------------------------------------------------------------------------
+
+
+errval_t trace_conditional_termination(bool forced)
+{
+#ifdef TRACING_EXISTS
+
+//    printf("tracing going in conditional eval\n");
+    struct trace_buffer *master = (struct trace_buffer*)trace_buffer_master;
+    if (master == NULL) {
+        return TRACE_ERR_NO_BUFFER;
+    }
+
+    uint64_t curr_event_counts = trace_get_event_count(disp_get_core_id());
+
+//    printf("%s:tracing going in conditional eval %"PRIu64"\n",
+//           disp_name(), curr_event_counts);
+
+    // If there are enough events then we can dump them
+    if (((master->event_counter > 0) &&
+        (master->event_counter < curr_event_counts)) ||
+            forced) {
+
+        printf("tracing: there are enough events  %"PRIu64"\n",
+                curr_event_counts);
+
+	char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
+	assert(trace_buf_area);
+        size_t used_bytes = 0;
+        trace_dump_core(trace_buf_area, CONSOLE_DUMP_BUFLEN, &used_bytes, NULL,
+                disp_get_core_id(),  true, true);
+        master->event_counter = 0;
+        printf("\n%s\n", "dump trac buffers: Start");
+	printf("\n%s\n", trace_buf_area);
+        printf("\n%s\n", "dump trac buffers: Stop");
+        trace_reset_all();
+        abort();
+    }
+
+#endif // TRACING_EXISTS
+
+    return SYS_ERR_OK;
+} // end function: trace_conditional_termination
+
 
 //------------------------------------------------------------------------------
 // Flushing functionality

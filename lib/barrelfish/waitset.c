@@ -24,6 +24,8 @@
 #include <barrelfish/dispatch.h>
 #include "threads_priv.h"
 #include "waitset_chan_priv.h"
+#include <stdio.h>
+#include <string.h>
 
 #ifdef CONFIG_INTERCONNECT_DRIVER_UMP
 #  include <barrelfish/ump_endpoint.h>
@@ -57,7 +59,7 @@ static inline cycles_t cyclecount(void)
 #endif
 
 // FIXME: bogus default value. need to measure this at boot time
-#define WAITSET_POLL_CYCLES_DEFAULT 2000 
+#define WAITSET_POLL_CYCLES_DEFAULT 2000
 
 /// Maximum number of cycles to spend polling channels before yielding CPU
 cycles_t waitset_poll_cycles = WAITSET_POLL_CYCLES_DEFAULT;
@@ -198,7 +200,7 @@ static void poll_channel(struct waitset_chanstate *chan)
 	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline, unused))
 #else
-static inline 
+static inline
 #endif
 cycles_t pollcycles_reset(void)
 {
@@ -218,7 +220,7 @@ cycles_t pollcycles_reset(void)
 	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline, unused))
 #else
-static inline 
+static inline
 #endif
 cycles_t pollcycles_update(cycles_t pollcycles)
 {
@@ -233,7 +235,7 @@ cycles_t pollcycles_update(cycles_t pollcycles)
 	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 3
 static __attribute__((noinline, unused))
 #else
-static inline 
+static inline
 #endif
 bool pollcycles_expired(cycles_t pollcycles)
 {
@@ -248,17 +250,8 @@ bool pollcycles_expired(cycles_t pollcycles)
     return ret;
 }
 
-/**
- * \brief Wait for (block) and return next event on given waitset
- *
- * Wait until something happens, either activity on some channel, or a deferred
- * call, and then return the corresponding closure. This is the core of the
- * event-handling system.
- *
- * \param ws Waitset
- * \param retclosure Pointer to storage space for returned event closure
- */
-errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
+static errval_t get_next_event_debug(struct waitset *ws,
+        struct event_closure *retclosure, bool debug)
 {
     struct waitset_chanstate *chan;
     bool was_polling = false;
@@ -294,6 +287,18 @@ polling_loop:
             pollcycles = pollcycles_update(pollcycles);
             // yield the thread if we exceed the cycle count limit
             if (ws->pending == NULL && pollcycles_expired(pollcycles)) {
+                if (debug) {
+                if (strcmp(disp_name(), "netd") != 0) {
+                    // Print the callback trace so that we know which call is leading
+                    // the schedule removal and
+                    printf("%s: callstack: %p %p %p %p\n", disp_name(),
+                            __builtin_return_address(0),
+                            __builtin_return_address(1),
+                            __builtin_return_address(2),
+                            __builtin_return_address(3));
+                }
+
+                }
                 thread_yield();
                 pollcycles = pollcycles_reset();
             }
@@ -356,6 +361,23 @@ check_for_events: ;
 }
 
 /**
+ * \brief Wait for (block) and return next event on given waitset
+ *
+ * Wait until something happens, either activity on some channel, or a deferred
+ * call, and then return the corresponding closure. This is the core of the
+ * event-handling system.
+ *
+ * \param ws Waitset
+ * \param retclosure Pointer to storage space for returned event closure
+ */
+errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
+{
+    return get_next_event_debug(ws, retclosure, false);
+}
+
+
+
+/**
  * \brief Return next event on given waitset, if one is already pending
  *
  * This is essentially a non-blocking variant of get_next_event(). It should be
@@ -412,6 +434,7 @@ errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure)
  *
  * \param ws Waitset
  */
+
 errval_t event_dispatch(struct waitset *ws)
 {
     struct event_closure closure;
@@ -421,6 +444,22 @@ errval_t event_dispatch(struct waitset *ws)
     }
 
     assert(closure.handler != NULL);
+    closure.handler(closure.arg);
+    return SYS_ERR_OK;
+}
+
+errval_t event_dispatch_debug(struct waitset *ws)
+{
+    struct event_closure closure;
+    errval_t err = get_next_event_debug(ws, &closure, false);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert(closure.handler != NULL);
+//    printf("%s: event_dispatch: %p: \n", disp_name(), closure.handler);
+
+
     closure.handler(closure.arg);
     return SYS_ERR_OK;
 }

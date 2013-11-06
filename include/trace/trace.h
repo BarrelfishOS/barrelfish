@@ -33,6 +33,7 @@
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h> // struct event_closure
 
+#include <stdio.h>
 #include <string.h> // memcpy
 
 /*
@@ -46,7 +47,7 @@
  * This will reduce the amount of events recorded, and hence allows
  * recording for longer time. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
-//#define TRACE_ONLY_SUB_NET 1
+#define TRACE_ONLY_SUB_NET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
@@ -58,6 +59,7 @@
 #endif // CONFIG_TRACE && NETWORK_LLSTACK_TRACE
 
 
+#define CONSOLE_DUMP_BUFLEN (2<<20)
 
 /**
  * The constants for the subsystems and events are generated from the file
@@ -186,6 +188,7 @@ struct trace_buffer {
     int64_t           t_offset;           // Time offset relative to core 0
     uint64_t          t0;              // Start time of trace
     uint64_t          duration;        // Max trace duration
+    uint64_t          event_counter;        // Max number of events in trace
 
     // ... events ...
     struct trace_event events[TRACE_MAX_EVENTS];
@@ -194,6 +197,11 @@ struct trace_buffer {
     volatile uint8_t num_applications;
     struct trace_application applications[TRACE_MAX_APPLICATIONS];
 };
+
+typedef errval_t (* trace_conditional_termination_t)(bool forced);
+
+static __attribute__((unused)) trace_conditional_termination_t
+    cond_termination = NULL;
 
 #ifndef IN_KERNEL
 
@@ -211,8 +219,17 @@ errval_t trace_setup_child(struct cnoderef taskcn,
 errval_t trace_control(uint64_t start_trigger,
                        uint64_t stop_trigger,
                        uint64_t duration);
+errval_t trace_control_fixed_events_counter(uint64_t start_trigger,
+                       uint64_t stop_trigger,
+                       uint64_t duration,
+                       uint64_t event_counter);
 errval_t trace_wait(void);
+size_t trace_get_event_count(coreid_t specified_core);
+errval_t trace_conditional_termination(bool forced);
 size_t trace_dump(char *buf, size_t buflen, int *number_of_events);
+size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
+        int *number_of_events_dumped, coreid_t specified_core,
+        bool first_dump, bool isOnlyOne);
 void trace_flush(struct event_closure callback);
 void trace_set_autoflush(bool enabled);
 errval_t trace_prepare(struct event_closure callback);
@@ -220,6 +237,8 @@ errval_t trace_my_setup(void);
 
 errval_t trace_set_subsys_enabled(uint16_t subsys, bool enabled);
 errval_t trace_set_all_subsys_enabled(bool enabled);
+
+
 
 /**
  * \brief Compute fixed trace buffer address according to
@@ -240,7 +259,13 @@ static inline lvaddr_t compute_trace_buf_addr(uint8_t core_id)
     return addr;
 }
 
-#endif
+
+static inline void set_cond_termination(trace_conditional_termination_t f_ptr)
+{
+    cond_termination  = f_ptr;
+}
+
+#endif // NOT IN_KERNEL
 
 void trace_init_disp(void);
 
@@ -287,6 +312,15 @@ trace_reserve_and_fill_slot(struct trace_event *ev,
  * The per-core buffer must have already been initialized by
  * the monitor (by calling trace_setup_on_core).
  */
+
+#ifndef IN_KERNEL
+
+static inline coreid_t get_my_core_id(void)
+{
+    return disp_get_core_id();
+}
+#endif // IN_KERNEL
+
 
 #ifdef IN_KERNEL
 
@@ -447,6 +481,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
         master->stop_trigger = 0;
         master->running = false;
     }
+
 #endif // TRACING_EXISTS
 
     return SYS_ERR_OK;
@@ -468,7 +503,7 @@ static inline errval_t trace_event_raw(uint64_t raw)
 
 #if TRACE_ONLY_SUB_NET
     /* we do not want the stats about actual messages sent */
-    return SYS_ERR_OK;
+//    return SYS_ERR_OK;
 #endif // TRACE_ONLY_SUB_NET
 
 
@@ -510,9 +545,17 @@ static inline bool trace_is_subsys_enabled(uint16_t subsys)
 }
 #endif // TRACING_EXISTS
 
+
+
+
 static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg)
 {
 #ifdef CONFIG_TRACE
+
+       //Recording the events only on the core 1
+       if (get_my_core_id() != 1) {
+            return SYS_ERR_OK;
+       }
 
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
@@ -525,21 +568,10 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
     ev.u.ev.event     = event;
     ev.u.ev.arg       = arg;
 
-#if TRACE_ONLY_SUB_NET
-    /* NOTE: This will ensure that only network related messages are logged. PS */
-    if (subsys != TRACE_SUBSYS_NET) {
-        return SYS_ERR_OK;
-    }
-#endif // TRACE_ONLY_SUB_NET
 
-#if TRACE_ONLY_SUB_BNET
-    /*
-       Recording the events only on the core where I are interested
-       if (get_my_core_id() != 1) {
-       return SYS_ERR_OK;
-       }
-     */
-#endif // TRACE_ONLY_SUB_NET
+    if (cond_termination != NULL) {
+        cond_termination(false);
+   }
 
     return trace_write_event(&ev);
 #else

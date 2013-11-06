@@ -1000,6 +1000,10 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     // Set libc function pointers
     barrelfish_libc_glue_init();
 
+    if (params == NULL) {
+        printf("%s: error in creating a thread, NULL parameters given\n",
+                disp_name());
+    }
     assert(params != NULL);
 
     // Do we have TLS data?

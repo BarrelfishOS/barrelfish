@@ -35,11 +35,11 @@
 
 /* Enable tracing only when it is globally enabled */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
-//#define ENABLE_WEB_TRACING 1
+#define ENABLE_WEB_TRACING 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 //#define MAX_NFS_READ       14000
-#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid breakage of lwip*/
+#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid packet reassembly inside driver */
 
 /* Maximum staleness allowed */
 #define MAX_STALENESS ((cycles_t)9000000)
@@ -556,21 +556,29 @@ static void handle_cache_load_done(void)
     DEBUGPRINT("initial_cache_load: entire cache loaded done\n");
     cache_loading_phase = false;
 
-    /* FIXME: stop the trace. */
-#if ENABLE_WEB_TRACING
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
-
-    char *buf = malloc(4096*4096);
-    trace_dump(buf, 4096*4096, NULL);
-    printf("%s\n", buf);
-
-#endif // ENABLE_WEB_TRACING
-
-
     // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
     // Report the cache loading time
     printf("Cache loading time %"PU"\n", in_seconds(rdtsc() - last_ts));
 //    lwip_print_interesting_stats();
+
+    /* stop the trace. */
+#if ENABLE_WEB_TRACING
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+
+    char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
+    assert(trace_buf_area);
+    size_t used_bytes = 0;
+    trace_dump_core(trace_buf_area, CONSOLE_DUMP_BUFLEN, &used_bytes, NULL,
+            disp_get_core_id(),  true, true);
+
+    printf("\n%s\n", "dump trac buffers: Start");
+    printf("\n%s\n", trace_buf_area);
+    printf("\n%s\n", "dump trac buffers: Stop");
+    trace_reset_all();
+//    abort();
+
+#endif // ENABLE_WEB_TRACING
+
 
     /* continue with the web-server initialization. */
     init_callback(); /* do remaining initialization! */
@@ -633,18 +641,6 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     DEBUGPRINT ("nfs_mount calling.\n");
     my_nfs_client = nfs_mount(server, path, mount_callback, NULL);
     DEBUGPRINT ("nfs_mount calling done.\n");
-
-    /* FIXME: stop the trace. */
-#if ENABLE_WEB_TRACING
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
-
-    char *buf = malloc(4096*4096);
-    trace_dump(buf, 4096*4096, NULL);
-    printf("%s\n", buf);
-    printf("exiting the webserver for debugging purposes\n");
-    USER_PANIC("aborting execution for debugging purposes\n");
-
-#endif // ENABLE_WEB_TRACING
 
     assert(my_nfs_client != NULL);
     /* creating the empty cache */
