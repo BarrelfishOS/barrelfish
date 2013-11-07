@@ -922,17 +922,11 @@ void disp_set_core_id(coreid_t core_id)
 }
 
 
-void *ret_addrs[4] = {NULL, NULL, NULL, NULL} ;
-
 /**
  * \brief returns the core_id stored in disp_priv struct
  */
 coreid_t disp_get_core_id(void)
 {
-             ret_addrs[0] = __builtin_return_address(0);
-             ret_addrs[1] = __builtin_return_address(1);
-             ret_addrs[2] = __builtin_return_address(2);
-
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return disp->core_id;

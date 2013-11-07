@@ -272,8 +272,11 @@ class HTTPerfTest(WebCommon):
                 ret.connrefused = int(m.group(3))
                 ret.connreset = int(m.group(4))
 
-        assert(matches == 6) # otherwise we have an invalid log
+        if matches != 6 : # otherwise we have an invalid log
+            print "Instead of 6, only %d matches found\n" % (matches )
+
         return ret
+
 
     def _process_run(self, nrun):
         nameglob = 'httperf_run%02d_*.txt' % nrun

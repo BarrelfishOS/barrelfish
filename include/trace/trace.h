@@ -316,6 +316,11 @@ trace_reserve_and_fill_slot(struct trace_event *ev,
 
 static inline coreid_t get_my_core_id(void)
 {
+    // FIXME: This call is not safe.  Figure out better way to do this
+    // WARNING: Be very careful about using get_my_core_id function
+    // as this function depends on working of disp pointers and they dont work
+    // in thread disabled mode when you are about to return to kernel with
+    // sys_yield.
     return disp_get_core_id();
 }
 #endif // IN_KERNEL
@@ -551,25 +556,29 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 {
 #ifdef CONFIG_TRACE
 
-    // Only record network and kernel subsystem
-    if (subsys != TRACE_SUBSYS_NNET && subsys != TRACE_SUBSYS_KERNEL) {
+    // Quick hack: Only record network and kernel subsystem.
+    // FIXME: This is not atall generic.  Figure out how to use following
+    //  trace_is_subsys_enabled call.
+/*    if (subsys != TRACE_SUBSYS_NNET && subsys != TRACE_SUBSYS_KERNEL) {
         return SYS_ERR_OK;
     }
+*/
 
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
         return SYS_ERR_OK;
     }
 
-
     //Recording the events only on the core 1
     // WARNING: Be very careful about using get_my_core_id function
     // as this function depends on working of disp pointers and they dont work
     // in thread disabled mode when you are about to return to kernel with
     // sys_yield.
-    if (get_my_core_id() != 1) {
-        return SYS_ERR_OK;
-    }
+    // FIXME: You can't hardcode the receiving core id.  It needs to be
+    // configurable.
+//    if (get_my_core_id() != 1) {
+//        return SYS_ERR_OK;
+//    }
 
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();

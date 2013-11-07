@@ -603,7 +603,6 @@ static void copy_cpu_frame_to_dispatcher(
     disp_save_area->rip = cpu_save_area[X86_SAVE_RIP];
 }
 
-extern uint64_t dispatch_counter;
 /**
  * \brief Handles user-mode exceptions
  *
@@ -673,10 +672,6 @@ static __attribute__ ((used))
                          "error 0x%lx\n",
                disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
                disp->name, fault_address, rip, rsp, error);
-
-        printk(LOG_WARN, "user page fault after dispatch %"PRIu64" \n",
-                dispatch_counter);
-
 
         /* sanity-check that the trap handler saved in the right place */
         assert((disabled && disp_save_area == dispatcher_get_trap_save_area(handle))
