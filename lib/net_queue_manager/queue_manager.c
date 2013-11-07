@@ -759,22 +759,6 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 
     if (!is_enough_space_in_queue(cl->q)) {
 
-    /* FIXME: stop the trace. */
-#if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
-	char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
-	assert(trace_buf_area);
-       size_t used_bytes = 0;
-        trace_dump_core(trace_buf_area, CONSOLE_DUMP_BUFLEN, &used_bytes, NULL,
-                disp_get_core_id(),  true, true);
-        printf("The lenght of the dump is %zu\n", used_bytes);
-//        trace_dump(trace_buf_area, CONSOLE_DUMP_BUFLEN, NULL);
-        printf("\n%s\n", "dump trac buffers: Start");
-	printf("\n%s\n", trace_buf_area);
-        printf("\n%s\n", "dump trac buffers: Stop");
-        trace_reset_all();
-#endif // TRACE_ETHERSRV_MODE
-
         printf("[%s] Dropping packet as app [%d] is not processing packets"
                 "fast enough.  Cont queue is almost full [%d], pkt count [%"PRIu64"]\n",
                 disp_name(), cl->cl_no, queue_free_slots(cl->q), sent_packets);
@@ -810,7 +794,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) data);
 
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_PKT_CPY, pkt_location);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NI_PKT_CPY, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface

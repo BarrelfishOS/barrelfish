@@ -384,10 +384,6 @@ static struct cte irq_dispatch[NDISPATCH];
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
-#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-#define TRACE_N_BM 1
-#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -411,10 +407,9 @@ static void send_user_interrupt(int irq)
     if (irq == 0) {
 //    	printf("packet interrupt: %d: count %"PRIu32"\n", irq, pkt_interrupt_count);
         ++pkt_interrupt_count;
-#if TRACE_N_BM
-#include<trace/trace.h>
-    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, pkt_interrupt_count);
-#endif // TRACE_N_BM
+#if NETWORK_STACK_TRACE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_UIRQ, pkt_interrupt_count);
+#endif // NETWORK_STACK_TRACE
 /*
         if (pkt_interrupt_count >= 60){
             printf("interrupt number %"PRIu32"\n", pkt_interrupt_count);
@@ -608,6 +603,7 @@ static void copy_cpu_frame_to_dispatcher(
     disp_save_area->rip = cpu_save_area[X86_SAVE_RIP];
 }
 
+extern uint64_t dispatch_counter;
 /**
  * \brief Handles user-mode exceptions
  *
@@ -677,6 +673,10 @@ static __attribute__ ((used))
                          "error 0x%lx\n",
                disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
                disp->name, fault_address, rip, rsp, error);
+
+        printk(LOG_WARN, "user page fault after dispatch %"PRIu64" \n",
+                dispatch_counter);
+
 
         /* sanity-check that the trap handler saved in the right place */
         assert((disabled && disp_save_area == dispatcher_get_trap_save_area(handle))
@@ -816,9 +816,9 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_unmask_timer();
     }
 
-#if TRACE_ONLY_LLNET
-    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_IRQ, vector);
-#endif // TRACE_ONLY_LLNET
+#if TRACE_ETHERSRV_MODE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_IRQ, vector);
+#endif // TRACE_ETHERSRV_MODE
 
     // APIC timer interrupt: handle in kernel and reschedule
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {

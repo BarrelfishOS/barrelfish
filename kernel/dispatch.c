@@ -179,6 +179,7 @@ struct dcb *run_next = NULL;
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
 
+uint64_t dispatch_counter = 0;
 
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
@@ -246,20 +247,35 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     assert(disp != NULL);
     disp->systime = kernel_now;
-
+    dispatch_counter++;
     if (dcb->disabled) {
+/*
+        if (disp->name[0] == 'w' && disp->name[1] == 'e') {
+            printk(LOG_WARN, "resume %.*s at 0x%" PRIx64 ", counter %"PRIu64"\n",
+                    DISP_NAME_LEN, disp->name,
+                    (uint64_t)registers_get_ip(disabled_area), dispatch_counter);
+        }
+*/
         debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
         resume(disabled_area);
     } else {
-        debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
+            debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
+/*
+        if (disp->name[0] == 'w' && disp->name[1] == 'e') {
+            uintptr_t arg = get_dispatcher_shared_generic(dcb_current->disp)->udisp;
+            printk(LOG_WARN, "dispatch %.*s, %"PRIxLVADDR", handle %"PRIxPTR", counter %"PRIu64"\n",
+                    DISP_NAME_LEN, disp->name, disp->dispatcher_run, arg,
+                    dispatch_counter);
+        }
+*/
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
         execute(disp->dispatcher_run);
     }
-}
+} // end function: dispatch
 
 /**
  * \brief Transfer cap from 'send' to 'ep', according to 'msg'.

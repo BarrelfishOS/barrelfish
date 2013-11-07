@@ -52,10 +52,6 @@
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
-#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-#define TRACE_N_BM 1
-#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-
 #define MAX_ALLOWED_PKT_PER_ITERATION   (0xff)  // working value
 /* Transmit and receive buffers must be multiples of 8 */
 #define DRIVER_RECEIVE_BUFFERS      (1024 * 8)
@@ -307,7 +303,7 @@ static bool handle_free_TX_slot_fn(void)
 
     /* Actual place where packet is sent.  Adding trace_event here */
 #if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NO_S,
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NO_S,
                 (uint32_t)ether_transmit_index);
 #endif
 
@@ -420,12 +416,12 @@ static void print_rx_bm_stats(bool stop_trace)
 
     cts = rdtsc();
 
-#if TRACE_N_BM
+#if TRACE_ETHERSRV_MODE
     if (stop_trace) {
         /* stopping the tracing */
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_STOP, 0);
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
     }
-#endif
+#endif // TRACE_ETHERSRV_MODE
 
     running_time = cts - g_cl->start_ts;
     E1000_PRINT("D:I:%u: RX speed = [%"PRIu64"] packets "
@@ -456,10 +452,10 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
     while (handle_next_received_packet()) {
         ++total_rx_p_count;
 
-#if TRACE_N_BM
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_SEE,
+#if TRACE_ETHERSRV_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_SEE,
                     total_rx_p_count);
-#endif
+#endif // TRACE_ETHERSRV_MODE
 
         if (total_rx_datasize > PACKET_SIZE_LIMIT) {
             if (!benchmark_complete) {
@@ -522,9 +518,9 @@ static void polling_loop(void)
             no_work = false;
         }
 
-#if TRACE_N_BM
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_POLL, poll_count);
-#endif
+#if TRACE_ETHERSRV_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_POLL, poll_count);
+#endif // TRACE_ETHERSRV_MODE
 
         if (handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION) > 0) {
             no_work = false;
@@ -671,16 +667,12 @@ static void e1000_interrupt_handler_fn(void *arg)
     e1000_intreg_t icr = e1000_icr_rd(e1000_device.device);
 
 #if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_I, interrupt_counter);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NI_I, interrupt_counter);
 #endif
 
 //    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
 
-#if TRACE_N_BM
-    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_DRV_INT,
-                interrupt_counter);
-#endif
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(&e1000_device)) {
             e1000_auto_negotiate_link(&e1000_device);

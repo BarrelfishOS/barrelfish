@@ -79,6 +79,14 @@
 #include <string.h>
 #include <assert.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
+
+/* Enable tracing based on the global settings. */
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define LWIP_TRACE_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 
 #define SIZEOF_STRUCT_PBUF        LWIP_MEM_ALIGN_SIZE(sizeof(struct pbuf))
@@ -206,10 +214,6 @@ uint16_t free_pbuf_pool_count(void)
  */
 struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 {
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBA1, 0);
-#endif // TRACE_ONLY_LLNET
-
     struct pbuf *p, *q, *r;
     u16_t offset;
     s32_t rem_len;              /* remaining length */
@@ -384,9 +388,9 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 /*
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc(length=%"U16_F") == %p\n", length, (void *)p));
 */
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBA2, 0);
-#endif // TRACE_ONLY_LLNET
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPPBA2, (uint32_t)(uintptr_t)p);
+#endif // LWIP_TRACE_MODE
 
     return p;
 }
@@ -613,13 +617,10 @@ u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
  */
 u8_t pbuf_free(struct pbuf * p)
 {
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBF1, 0);
-#endif // TRACE_ONLY_LLNET
-
     u16_t type;
     struct pbuf *q;
     u8_t count;
+    struct pbuf *p_bak = p;
 
     if (p == NULL) {
         LWIP_ASSERT("p != NULL", p != NULL);
@@ -716,9 +717,9 @@ u8_t pbuf_free(struct pbuf * p)
     /* return number of de-allocated pbufs */
 //    printf("pbuf_free: finished with [%p] and count %"PRIu8"\n", p, count);
 
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPPBF2, 0);
-#endif // TRACE_ONLY_LLNET
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPPBF2, (uint32_t)(uintptr_t)p_bak);
+#endif // LWIP_TRACE_MODE
 
     return count;
 }

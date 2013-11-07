@@ -69,7 +69,8 @@ void debug_call_chain(arch_registers_state_t *archregs)
  */
 void debug_print_save_area(arch_registers_state_t *state)
 {
-#define P(x) debug_printf("%16lx "#x"\n", (uintptr_t)state->x);
+//#define P(x) debug_printf("%16lx "#x"\n", (uintptr_t)state->x);
+#define P(x) printf("%16lx "#x"\n", (uintptr_t)state->x);
 
     P(rip);
     P(rsp);
@@ -97,9 +98,9 @@ void debug_print_save_area(arch_registers_state_t *state)
 
 void debug_return_addresses(void)
 {
-    debug_printf("return address = %p\n", __builtin_return_address(0));
-    debug_printf("return address = %p\n", __builtin_return_address(1));
-    debug_printf("return address = %p\n", __builtin_return_address(2));
-    debug_printf("return address = %p\n", __builtin_return_address(3));
-    debug_printf("return address = %p\n", __builtin_return_address(4));
+    printf("return address = %p\n", __builtin_return_address(0));
+    printf("return address = %p\n", __builtin_return_address(1));
+    printf("return address = %p\n", __builtin_return_address(2));
+    printf("return address = %p\n", __builtin_return_address(3));
+    printf("return address = %p\n", __builtin_return_address(4));
 }

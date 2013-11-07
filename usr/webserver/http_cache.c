@@ -35,7 +35,7 @@
 
 /* Enable tracing only when it is globally enabled */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
-#define ENABLE_WEB_TRACING 1
+//#define ENABLE_WEB_TRACING 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 //#define MAX_NFS_READ       14000
@@ -488,6 +488,23 @@ static void readdir_callback(void *arg, struct nfs_client *client,
 
     // FIXME: start here the measurement of file loading time
 
+    // FIXME: Start the trace
+#if ENABLE_WEB_TRACING
+    printf("Starting tracing\n");
+
+    errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                    TRACE_EVENT_NNET_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                    TRACE_EVENT_NNET_STOP, 0), 0);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trace_control failed");
+    }
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
+#else // ENABLE_WEB_TRACING
+    printf("Tracing not enabled\n");
+#endif // ENABLE_WEB_TRACING
+
+
     last_ts = rdtsc();
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     // initiate a lookup for every entry
@@ -557,13 +574,18 @@ static void handle_cache_load_done(void)
     cache_loading_phase = false;
 
     // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+    //
     // Report the cache loading time
-    printf("Cache loading time %"PU"\n", in_seconds(rdtsc() - last_ts));
+
+    uint64_t total_loading_time = rdtsc() - last_ts;
+    printf("Cache loading time %"PU", %"PRIu64"\n",
+            in_seconds(total_loading_time), total_loading_time);
+
 //    lwip_print_interesting_stats();
 
     /* stop the trace. */
 #if ENABLE_WEB_TRACING
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
 
     char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
     assert(trace_buf_area);
@@ -576,6 +598,9 @@ static void handle_cache_load_done(void)
     printf("\n%s\n", "dump trac buffers: Stop");
     trace_reset_all();
 //    abort();
+
+    printf("Cache loading time %"PU", %"PRIu64"\n",
+            in_seconds(total_loading_time), total_loading_time);
 
 #endif // ENABLE_WEB_TRACING
 
@@ -620,23 +645,6 @@ err_t http_cache_init(struct ip_addr server, const char *path,
 {
     struct timer *cache_timer;      /* timer for triggering cache timeouts */
     init_callback = callback;
-
-
-    // FIXME: Start the trace
-#if ENABLE_WEB_TRACING
-    printf("Starting tracing\n");
-
-    errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_NET,
-                                    TRACE_EVENT_NET_START, 0),
-                        TRACE_EVENT(TRACE_SUBSYS_NET,
-                                    TRACE_EVENT_NET_STOP, 0), 0);
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "trace_control failed");
-    }
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_START, 0);
-#else // ENABLE_WEB_TRACING
-    printf("Tracing not enabled\n");
-#endif // ENABLE_WEB_TRACING
 
     DEBUGPRINT ("nfs_mount calling.\n");
     my_nfs_client = nfs_mount(server, path, mount_callback, NULL);

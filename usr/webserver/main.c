@@ -23,6 +23,8 @@
 #include <lwip/tcp.h>
 #include <netif/bfeth.h>
 #include <contmng/netbench.h>
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #include "webserver_network.h"
 #include "webserver_debug.h"
@@ -71,6 +73,7 @@ int main(int argc, char**argv)
 
     DEBUGPRINT("Init finished.\n");
 
+    uint32_t eventcount = 0;
     struct waitset *ws = get_default_waitset();
     while (1) {
         // check for any event without blocking
@@ -92,9 +95,9 @@ int main(int argc, char**argv)
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
-
+        eventcount++;
 #if ENABLE_WEB_TRACING
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_WEBEVENTLOOP, eventcount);
 #endif // ENABLE_WEB_TRACING
 
     } // end while: infinite

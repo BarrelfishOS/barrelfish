@@ -1100,7 +1100,7 @@ static bool handle_application_packet(void *packet, size_t len)
         total_processing_time = 0;
         total_rx_datasize = 0;
         g_cl = cl;
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
     }
 
     if (filter->paused) {
@@ -1273,7 +1273,6 @@ out:
 } // end function: sf_process_received_packet_lo
 
 
-
 void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 {
     void *pkt_data;
@@ -1317,7 +1316,8 @@ void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG
-          ("application specific packet.. len %"PRIu64"\n", pkt_len);
+        //printf
+            ("application specific packet.. len %"PRIu64"\n", pkt_len);
         goto out;
     }
 

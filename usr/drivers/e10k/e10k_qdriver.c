@@ -44,6 +44,10 @@
 // Enable Debugging for intialization code
 #define INITDEBUG_ENABLE 0
 
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 
 
@@ -217,9 +221,9 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
     }
 
     e10k_queue_bump_txtail(q);
-#if TRACE_ONLY_LLNET
-    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVTXADD, 0);
-#endif // TRACE_ONLY_LLNET
+#if TRACE_ETHERSRV_MODE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_SEE, 0);
+#endif // TRACE_ETHERSRV_MODE
 
     return SYS_ERR_OK;
 }
@@ -243,9 +247,9 @@ static bool handle_free_tx_slot_fn(void)
 
     //stats_dump();
 
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVTXDONE, 0);
-#endif // TRACE_ONLY_LLNET
+#if TRACE_ETHERSRV_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRVTXDONE, 0);
+#endif // TRACE_ETHERSRV_MODE
 
     handle_tx_done(op);
 
@@ -299,9 +303,9 @@ static size_t check_for_new_packets(void)
     // arrive faster than they can be processed.
     count = 0;
     while (e10k_queue_get_rxbuf(q, &op, &len, &last) == 0) {
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVRX, 0);
-#endif // TRACE_ONLY_LLNET
+#if TRACE_ETHERSRV_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRVRX, 0);
+#endif // TRACE_ETHERSRV_MODE
 
         DEBUG("New packet (q=%d)\n", qi);
 
@@ -643,9 +647,9 @@ void qd_interrupt(bool is_rx, bool is_tx)
 {
     size_t count;
 
-#if TRACE_ONLY_LLNET
-    trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_DRVIRQ, 0);
-#endif // TRACE_ONLY_LLNET
+#if TRACE_ETHERSRV_MODE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NI_I, 0);
+#endif // TRACE_ETHERSRV_MODE
 
     if (is_rx) {
         count = check_for_new_packets();

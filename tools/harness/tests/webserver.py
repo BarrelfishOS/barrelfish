@@ -14,6 +14,10 @@ from results import ResultsBase, PassFailResult, RowResults
 
 
 WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'barrelfish_sosp09.pdf']
+WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'nevill-master-capabilities.pdf']
+#        'nevill-master-capabilities.pdf']
+#'razavi-master-performanceisolation.pdf']
+
 WEBSERVER_TIMEOUT=5 # seconds
 TEST_LOG_NAME = 'testlog.txt'
 
@@ -45,15 +49,16 @@ class WebCommon(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[0]]) # 1
-        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[0], #2
+        modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[1]]) # 1
+        modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[1], #2
                                     "cardname=%s"%cardName])
-        modules.add_module("netd", ["core=%d" % machine.get_coreids()[0], #2
+        modules.add_module("netd", ["core=%d" % machine.get_coreids()[1], #2
                                    "cardname=%s"%cardName])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[1], #2
 				cardName, nfsip,
                                          siteconfig.get('WEBSERVER_NFS_PATH')])
+#                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
         return modules
 
     def process_line(self, line):

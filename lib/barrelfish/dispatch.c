@@ -336,6 +336,8 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     thread_run_disabled(handle);
 }
 
+extern void *ret_addrs[4];
+
 /**
  * \brief Disabled page fault entry point
  *
@@ -361,13 +363,33 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     if(fault_address == 0) {
         assert_print("NULL pointer dereferenced!\n");
     }
+    static char str1[1024];
+    snprintf(str1, 1024, " %.*s: my returns ret0 %p, ret1 %p, ret2 %p \n",
+             DISP_NAME_LEN, disp->name
+             , ret_addrs[0], ret_addrs[1], ret_addrs[2] );
 
+    assert_print(str1);
+
+    snprintf(str1, 1024, " %.*s: ret0 %p, ret1 %p, ret2 %p ret3 %p \n",
+             DISP_NAME_LEN, disp->name
+             , __builtin_return_address(0)
+             , __builtin_return_address(1)
+             , __builtin_return_address(2)
+             , __builtin_return_address(3) );
+
+
+
+    assert_print(str1);
+    assert_print("testing if print works with assert_print\n");
+    printf("testing if print works with printf\n");
     assert_disabled(disp->disabled);
+
 
     debug_print_save_area(regs);
 
     // disabled by AB, because we can get into a loop of disabled pagefaults
-    // debug_dump(regs);
+    debug_dump(regs);
+    debug_return_addresses();
     for(;;);
 }
 

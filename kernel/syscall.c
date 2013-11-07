@@ -491,7 +491,10 @@ struct sysret sys_yield(capaddr_t target)
     if (!disp->haswork && disp->lmp_delivered == disp->lmp_seen
         && (wakeup == 0 || wakeup > kernel_now)) {
 
-    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
+         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
+            (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
+
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
                 151);
 
     /*
@@ -520,7 +523,7 @@ struct sysret sys_yield(capaddr_t target)
             panic("invalid type in yield cap");
         }
 
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_YIELD,
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_YIELD,
             (uint32_t)(lvaddr_t)target_dcb & 0xFFFFFFFF);
         make_runnable(target_dcb);
         dispatch(target_dcb);

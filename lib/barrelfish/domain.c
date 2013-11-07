@@ -885,11 +885,11 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
     } else {
         struct domain_state *domain_state = get_domain_state();
         errval_t err;
-    
+
         if (domain_state->b[core_id] == NULL) {
             return LIB_ERR_NO_SPANNED_DISP;
         }
-    
+
         struct interdisp_binding *b = domain_state->b[core_id];
         err = b->tx_vtbl.create_thread(b, NOP_CONT,
                                        (genvaddr_t)(uintptr_t)start_func,
@@ -898,7 +898,7 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
         if (err_is_fail(err)) {
             return err;
         }
-    
+
         return SYS_ERR_OK;
     }
 }
@@ -921,11 +921,18 @@ void disp_set_core_id(coreid_t core_id)
     disp->core_id = core_id;
 }
 
+
+void *ret_addrs[4] = {NULL, NULL, NULL, NULL} ;
+
 /**
  * \brief returns the core_id stored in disp_priv struct
  */
 coreid_t disp_get_core_id(void)
 {
+             ret_addrs[0] = __builtin_return_address(0);
+             ret_addrs[1] = __builtin_return_address(1);
+             ret_addrs[2] = __builtin_return_address(2);
+
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return disp->core_id;
@@ -989,7 +996,7 @@ void set_monitor_blocking_rpc_client(struct monitor_blocking_rpc_client *st)
 }
 
 /**
- * \brief Returns the blocking rpc monitor client binding on the 
+ * \brief Returns the blocking rpc monitor client binding on the
  * dispatcher priv
  */
 struct monitor_blocking_rpc_client *get_monitor_blocking_rpc_client(void)

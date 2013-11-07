@@ -41,7 +41,7 @@
  */
 #define TRACE_THREADS
 #define TRACE_CSWITCH
-#define NETWORK_LLSTACK_TRACE 1
+//#define NETWORK_LLSTACK_TRACE 1
 
 /* Trace only network related events
  * This will reduce the amount of events recorded, and hence allows
@@ -49,10 +49,6 @@
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ONLY_SUB_NET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
-
-#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-#define TRACE_ONLY_SUB_BNET 1
-#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
 #if CONFIG_TRACE && NETWORK_LLSTACK_TRACE
 #define TRACE_ONLY_LLNET 1
@@ -78,12 +74,15 @@
  * for every possible core ID, but this is now too large for sanity, so I've
  * limited it here. -AB 20111229
  */
-#define TRACE_COREID_LIMIT        64
+
+struct trace_buffer;
+
+#define TRACE_COREID_LIMIT        4
 #define TRACE_EVENT_SIZE          16
-#define TRACE_MAX_EVENTS          8000        // max number of events
+#define TRACE_MAX_EVENTS          30000        // max number of events
 #define TRACE_MAX_APPLICATIONS    128
-#define TRACE_PERCORE_BUF_SIZE    0x1ff00
-// (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
+//#define TRACE_PERCORE_BUF_SIZE    0x1ff00
+#define TRACE_PERCORE_BUF_SIZE    (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer)))
 
 #define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)    // Size of all trace buffers
 
@@ -552,13 +551,23 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 {
 #ifdef CONFIG_TRACE
 
-       //Recording the events only on the core 1
-       if (get_my_core_id() != 1) {
-            return SYS_ERR_OK;
-       }
+    // Only record network and kernel subsystem
+    if (subsys != TRACE_SUBSYS_NNET && subsys != TRACE_SUBSYS_KERNEL) {
+        return SYS_ERR_OK;
+    }
 
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
+        return SYS_ERR_OK;
+    }
+
+
+    //Recording the events only on the core 1
+    // WARNING: Be very careful about using get_my_core_id function
+    // as this function depends on working of disp pointers and they dont work
+    // in thread disabled mode when you are about to return to kernel with
+    // sys_yield.
+    if (get_my_core_id() != 1) {
         return SYS_ERR_OK;
     }
 

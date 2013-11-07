@@ -131,9 +131,9 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
     perform_lwip_work();
 
 
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPTX, 0);
-#endif // TRACE_ONLY_LLNET
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPTX, 0);
+#endif // LWIP_TRACE_MODE
 
     LWIPBF_DEBUG("%s: idc_send_packet_to_network_driver: called\n", disp_name());
 
@@ -295,15 +295,20 @@ uint8_t get_driver_benchmark_state(int direction,
 // antoinek: Might need to reenable this when we enable multi threaded lwip
 // again
 //bool lwip_in_packet_received = false;
-
+static uint64_t incoming_packet_count = 0;
 static void handle_incoming(size_t idx, size_t len)
 {
     struct pbuf *p;
 
-#if TRACE_ONLY_LLNET
-        trace_event(TRACE_SUBSYS_LLNET, TRACE_EVENT_LLNET_LWIPRX, 0);
-#endif // TRACE_ONLY_LLNET
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPRX, 0);
+#endif // LWIP_TRACE_MODE
 
+    ++incoming_packet_count;
+    LWIPBF_DEBUG
+    //printf
+        ("%s:handle_incoming: incoming packet no %"PRIu64": len %"PRIu64"\n",
+            disp_name(), incoming_packet_count, len);
 
     // Get the pbuf for this index
     p = mem_barrelfish_get_pbuf(idx);
