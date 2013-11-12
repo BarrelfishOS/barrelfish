@@ -40,17 +40,28 @@
 #include <dev/xapic_dev.h>
 #include <target/x86_64/offsets_target.h>
 
-
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
-struct bootinfo *bi;
-
-static struct capref frame;
-
 struct monitor_allocate_state {
-    void          *vbase;
-    genvaddr_t     elfbase;
+    void *vbase;
+    genvaddr_t elfbase;
 };
+
+
+/**
+ * Start_ap and start_ap_end mark the start end the
+ * end point of the assembler startup code to be copied
+ */
+extern uint64_t x86_64_start_ap;
+extern uint64_t x86_64_start_ap_end;
+extern uint64_t x86_64_init_ap_absolute_entry;
+extern uint64_t x86_64_init_ap_wait;
+extern uint64_t x86_64_init_ap_lock;
+extern uint64_t x86_64_start;
+extern uint64_t x86_64_init_ap_global;
+
+static struct bootinfo *bi;
+static struct capref frame; ///< Frame that contains bootstrap code
 
 static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
@@ -61,19 +72,6 @@ static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
     *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
 }
-
-
-/**
- * start_ap and start_ap_end mark the start end the end point of the assembler
- * startup code to be copied
- */
-extern uint64_t x86_64_start_ap;
-extern uint64_t x86_64_start_ap_end;
-extern uint64_t x86_64_init_ap_absolute_entry;
-extern uint64_t x86_64_init_ap_wait;
-extern uint64_t x86_64_init_ap_lock;
-extern uint64_t x86_64_start;
-extern uint64_t x86_64_init_ap_global;
 
 /**
  * \brief Spawn a new core.
