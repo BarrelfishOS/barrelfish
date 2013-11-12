@@ -42,11 +42,10 @@
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
-struct monitor_allocate_state {
+struct elf_allocate_state {
     void *vbase;
     genvaddr_t elfbase;
 };
-
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -61,13 +60,13 @@ extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 
 static struct bootinfo *bi;
-static struct capref frame; ///< Frame that contains bootstrap code
+static struct capref frame; ///< URPC frame
 
-static errval_t monitor_elfload_allocate(void *state, genvaddr_t base,
+static errval_t elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
                                          void **retbase)
 {
-    struct monitor_allocate_state *s = state;
+    struct elf_allocate_state *s = state;
 
     *retbase = (char *)s->vbase + base - s->elfbase;
     return SYS_ERR_OK;
@@ -205,114 +204,105 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     return -1;
 }
 
-
-static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
-                                 enum cpu_type cpu_type,
-                                 const char *cmdline,
-                                 struct intermon_binding **ret_binding)
+static errval_t get_architecture_config(enum cpu_type type,
+                                        genpaddr_t* arch_page_size,
+                                        const char** monitor_binary,
+                                        const char** cpu_binary)
 {
-    printf("%s:%d:\n", __FILE__, __LINE__);
-
-    const char *monitorname = NULL, *cpuname = NULL;
-    genpaddr_t arch_page_size;
-    errval_t err;
-
-    switch (cpu_type) {
+    switch (type) {
     case CPU_X86_64:
-        arch_page_size = X86_64_BASE_PAGE_SIZE;
-        monitorname = "x86_64/sbin/monitor";
-        cpuname = "x86_64/sbin/cpu";
+        *arch_page_size = X86_64_BASE_PAGE_SIZE;
+        *monitor_binary = "x86_64/sbin/monitor";
+        *cpu_binary = "x86_64/sbin/cpu";
         break;
 
     case CPU_X86_32:
-        arch_page_size = X86_32_BASE_PAGE_SIZE;
-        monitorname = "x86_32/sbin/monitor";
-        cpuname = "x86_32/sbin/cpu";
+        *arch_page_size = X86_32_BASE_PAGE_SIZE;
+        *monitor_binary = "x86_32/sbin/monitor";
+        *cpu_binary = "x86_32/sbin/cpu";
         break;
 
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
 
+    return SYS_ERR_OK;
+}
 
-    // compute size of frame needed and allocate it
-    size_t framesize;
-    err = frame_alloc(&frame, MON_URPC_SIZE, &framesize);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-
-    // Mark it remote
+static errval_t cap_mark_remote(struct capref cf)
+{
     // TODO(gz): Re-enable, this does not much right now but
-    // will be interesting with marks libmdb
-    /*bool has_descendants;
-    err = monitor_cap_remote(frame, true, &has_descendants);
+    // will be interesting with Mark nevills libmdb
+#if 0
+    bool has_descendants;
+    err = monitor_cap_remote(cf, true, &has_descendants);
     if (err_is_fail(err)) {
         return err;
-    }*/
+    }
+#endif
 
+    return SYS_ERR_OK;
+}
 
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    /* Look up modules */
-    struct mem_region *cpu_region = multiboot_find_module(bi, cpuname);
-    if (cpu_region == NULL) {
-        assert(cpu_region != NULL);
+static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
+                              genpaddr_t* binary_phys, size_t* binary_size)
+{
+    struct mem_region *module_region = multiboot_find_module(bi, module_name);
+    if (module_region == NULL) {
+        USER_PANIC("multiboot module not found?");
         return SPAWN_ERR_FIND_MODULE;
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    // XXX: Caching these for now, until we have unmap
-    static size_t cpu_binary_size;
-    static lvaddr_t cpu_binary = 0;
-    static genpaddr_t cpu_binary_phys;
-    static struct mem_region *cached_cpu_region;
-    if (cpu_binary == 0) {
-        cached_cpu_region = cpu_region;
-        err = spawn_map_module(cpu_region, &cpu_binary_size, &cpu_binary,
-                               &cpu_binary_phys);
-        if (err_is_fail(err)) {
-            return err_push(err, SPAWN_ERR_MAP_MODULE);
-        }
-    } else {
-        assert(cpu_region == cached_cpu_region);
-    }
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    struct mem_region *monitor_region = multiboot_find_module(bi, monitorname);
-    if (monitor_region == NULL) {
-        return SPAWN_ERR_FIND_MODULE;
-    }
-    // XXX: Caching these for now, until we have unmap
-    static size_t monitor_binary_size;
-    static lvaddr_t monitor_binary = 0;
-    static genpaddr_t monitor_binary_phys;
-    static struct mem_region *cached_monitor_region;
-    if (monitor_binary == 0) {
-        cached_monitor_region = monitor_region;
-        err = spawn_map_module(monitor_region, &monitor_binary_size, &monitor_binary,
-                               &monitor_binary_phys);
-        if (err_is_fail(err)) {
-            return err_push(err, SPAWN_ERR_MAP_MODULE);
-        }
-    } else {
-        assert(monitor_region == cached_monitor_region);
-    }
-    printf("%s:%d: \n", __FILE__, __LINE__);
 
-    /* Memory for cpu */
+    errval_t err = spawn_map_module(module_region, binary_size, binary_virt,
+                           binary_phys);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_MAP_MODULE);
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Same as frame_alloc but also identify the capability.
+ */
+static errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
+                                     size_t *retbytes, struct frame_identity* id)
+{
+    errval_t err = frame_alloc(dest, bytes, retbytes);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (id != NULL) {
+        err = invoke_frame_identify(*dest, id);
+    }
+
+    return err;
+}
+
+/**
+ * Allocates memory for kernel binary.
+ *
+ * For x86, the app kernel can only be loaded in the first 4GB
+ * of memory. Further, it must not overlap the integer
+ * boundaries, i.e. 0-1, 1-2, 2-3, or 3-4.
+ *
+ * Probably because we identity map this region during boot-phase
+ * so we can't access anything higher. Not sure about overlap tough.
+ */
+static errval_t allocate_kernel_memory(lvaddr_t cpu_binary, genpaddr_t page_size,
+                                       struct capref* cpu_memory_cap, size_t* cpu_memory,
+                                       struct frame_identity* id)
+{
+    errval_t err;
 #ifdef __scc__
-    size_t cpu_memory = X86_32_BASE_PAGE_SIZE;
-    struct capref cpu_memory_cap;
-    err = frame_alloc(&cpu_memory_cap, cpu_memory, &cpu_memory);
+    *cpu_memory = X86_32_BASE_PAGE_SIZE;
+    err = frame_alloc_identify(cpu_memory_cap, *cpu_memory, cpu_memory, id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
 #else
-    size_t cpu_memory = elf_virtual_size(cpu_binary) + arch_page_size;
-    struct capref cpu_memory_cap;
-
-    /* Currently, the app kernel can only be loaded in the first 4GB
-       of memory. Further, it must not overlap the integer
-       boundaries, i.e. 0-1, 1-2, 2-3, or 3-4. */
+    *cpu_memory = elf_virtual_size(cpu_binary) + page_size;
 
     uint64_t old_minbase;
     uint64_t old_maxlimit;
@@ -323,7 +313,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
             minbase += (uint64_t)1 << 30, maxlimit += (uint64_t)1 << 30) {
 
         ram_set_affinity(minbase, maxlimit);
-        err = frame_alloc(&cpu_memory_cap, cpu_memory, &cpu_memory);
+        err = frame_alloc_identify(cpu_memory_cap, *cpu_memory, cpu_memory, id);
         if (err_is_fail(err)) {
             continue;
         } else {
@@ -337,63 +327,15 @@ done:
     ram_set_affinity(old_minbase, old_maxlimit);
 #endif
 
-    // Mark memory as remote
-    // TODO(gz): Re-enable, this does not much right now but
-    // will be interesting with marks libmdb
-    /*
-    err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
-    if (err_is_fail(err)) {
-        return err;
-    }*/
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    void *cpu_buf_memory;
-    err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap, NULL,
-                               NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VSPACE_MAP);
-    }
+    return SYS_ERR_OK;
+}
 
-    /* Chunk of memory to load monitor on the app core */
-    struct capref spawn_memory_cap;
-    err = frame_alloc(&spawn_memory_cap, X86_CORE_DATA_PAGES * arch_page_size,
-                      NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-    // Mark memory as remote
-    // TODO(gz): Re-enable, this does not much right now but
-    // will be interesting with marks libmdb
-    /*
-    err = monitor_cap_remote(spawn_memory_cap, true, &has_descendants);
-    if (err_is_fail(err)) {
-        return err;
-    }*/
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    struct frame_identity spawn_memory_identity;
-    err = invoke_frame_identify(spawn_memory_cap, &spawn_memory_identity);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_identify failed");
-    }
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    /* Load cpu */
-    struct monitor_allocate_state state;
-    state.vbase = (char *)cpu_buf_memory + arch_page_size;
-    assert(sizeof(struct x86_core_data) <= arch_page_size);
-    state.elfbase = elf_virtual_base(cpu_binary);
-    genvaddr_t cpu_entry;
-    err = elf_load(cpu_head->e_machine, monitor_elfload_allocate, &state,
-                   cpu_binary, cpu_binary_size, &cpu_entry);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    // Relocate cpu to new physical base address
-    struct frame_identity frameid;
-    err = invoke_frame_identify(cpu_memory_cap, &frameid);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
-    }
-    printf("%s:%d: \n", __FILE__, __LINE__);
+static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
+                                    struct Elf64_Ehdr *cpu_head,
+                                    struct elf_allocate_state state,
+                                    struct frame_identity frameid,
+                                    genpaddr_t arch_page_size)
+{
     switch (cpu_head->e_machine) {
     case EM_X86_64: {
         struct Elf64_Shdr *rela, *symtab, *symhead =
@@ -429,35 +371,148 @@ done:
                        (struct Elf32_Sym *)(uintptr_t)(cpu_binary + symtab->sh_offset),
                        symtab->sh_size,
                        state.elfbase, state.vbase);
-
-        // XXX: QEMU hack to be able to boot there
-        /* #ifdef __scc__ */
-        /*         entry += 0x5b; */
-        /* #endif */
         break;
     }
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
+
+    return SYS_ERR_OK;
+}
+
+static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
+                                    enum cpu_type cpu_type,
+                                    const char *cmdline,
+                                    struct intermon_binding **ret_binding)
+{
+    const char *monitorname = NULL, *cpuname = NULL;
+    genpaddr_t arch_page_size;
+    errval_t err;
+
+    err = get_architecture_config(cpu_type, &arch_page_size,
+                                  &monitorname, &cpuname);
+    assert(err_is_ok(err));
+
+    // compute size of frame needed and allocate it
+    struct frame_identity urpc_frame_id;
+    size_t framesize;
+    err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    err = cap_mark_remote(frame);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    static size_t cpu_binary_size;
+    static lvaddr_t cpu_binary = 0;
+    static genpaddr_t cpu_binary_phys;
+    static const char* cached_cpuname = NULL;
+    if (cpu_binary == 0) {
+        cached_cpuname = cpuname;
+        // XXX: Caching these for now, until we have unmap
+        err = lookup_module(cpuname, &cpu_binary, &cpu_binary_phys,
+                            &cpu_binary_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not lookup module");
+            return err;
+        }
+    }
+    // Ensure caching actually works and we're
+    // always loading same binary. If this starts to fail, get rid of caching.
+    assert (strcmp(cached_cpuname, cpuname) == 0);
+
+    static size_t monitor_binary_size;
+    static lvaddr_t monitor_binary = 0;
+    static genpaddr_t monitor_binary_phys;
+    static const char* cached_monitorname = NULL;
+    if (monitor_binary == 0) {
+        cached_monitorname = monitorname;
+        // XXX: Caching these for now, until we have unmap
+        err = lookup_module(monitorname, &monitor_binary,
+                            &monitor_binary_phys, &monitor_binary_size);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not lookup module");
+            return err;
+        }
+    }
+    // Again, ensure caching actually worked (see above)
+    assert (strcmp(cached_monitorname, monitorname) == 0);
+
+    struct capref cpu_memory_cap;
+    struct frame_identity frameid;
+    size_t cpu_memory;
+    err = allocate_kernel_memory(cpu_binary, arch_page_size,
+                                 &cpu_memory_cap, &cpu_memory, &frameid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not allocate space for new app kernel.");
+        return err;
+    }
+
+    err = cap_mark_remote(cpu_memory_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    void *cpu_buf_memory;
+    err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap,
+                               NULL, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    /* Chunk of memory to load monitor on the app core */
+    struct capref spawn_memory_cap;
+    struct frame_identity spawn_memory_identity;
+
+    err = frame_alloc_identify(&spawn_memory_cap,
+                               X86_CORE_DATA_PAGES * arch_page_size,
+                               NULL, &spawn_memory_identity);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    err = cap_mark_remote(spawn_memory_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    /* Load cpu */
+    struct elf_allocate_state state;
+    state.vbase = (char *)cpu_buf_memory + arch_page_size;
+    assert(sizeof(struct x86_core_data) <= arch_page_size);
+    state.elfbase = elf_virtual_base(cpu_binary);
+
+    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
+    genvaddr_t cpu_entry;
+
+    err = elf_load(cpu_head->e_machine, elfload_allocate, &state,
+                   cpu_binary, cpu_binary_size, &cpu_entry);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = relocate_cpu_binary(cpu_binary, cpu_head, state, frameid, arch_page_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not relocate new kernel.");
+        return err;
+    }
+
     genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
                                  + frameid.base + arch_page_size;
 
-    /* Look up information on the urpc_frame cap */
-    struct frame_identity urpc_frame_id;
-    err = invoke_frame_identify(frame, &urpc_frame_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_identify failed");
-    }
-    printf("%s:%d: \n", __FILE__, __LINE__);
     /* Compute entry point in the foreign address space */
-    // XXX: Confusion address translation about l/gen/addr
     forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
 
     /* Setup the core_data struct in the new kernel */
     struct x86_core_data *core_data = (struct x86_core_data *)cpu_buf_memory;
     switch (cpu_head->e_machine) {
-    case EM_X86_64: // XXX: Confusion address translation about gen/l/addrs
+    case EM_X86_64:
         core_data->elf.size = sizeof(struct Elf64_Shdr);
         core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;
         core_data->elf.num  = cpu_head->e_shnum;
@@ -471,7 +526,6 @@ done:
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
     core_data->module_start = cpu_binary_phys;
     core_data->module_end   = cpu_binary_phys + cpu_binary_size;
     core_data->urpc_frame_base = urpc_frame_id.base;
@@ -480,7 +534,7 @@ done:
     core_data->monitor_binary_size = monitor_binary_size;
     core_data->memory_base_start = spawn_memory_identity.base;
     core_data->memory_bits       = spawn_memory_identity.bits;
-    core_data->src_core_id       = 0; // TODO(gz): was my_core_id
+    core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = 0; // TODO(gz): was my_arch_id
     core_data->dst_core_id       = coreid;
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
@@ -494,13 +548,12 @@ done:
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    /* Invoke kernel capability to boot new core */
 
+    /* Invoke kernel capability to boot new core */
     start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
 
-    printf("%s:%d: \n", __FILE__, __LINE__);
-    /* Clean up */ // XXX: Should not delete the remote cap
+    /* Clean up */
+    // XXX: Should not delete the remote cap
     err = cap_destroy(spawn_memory_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
@@ -513,7 +566,7 @@ done:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
+
     return SYS_ERR_OK;
 }
 
@@ -631,7 +684,6 @@ int main(int argc, char** argv)
         DEBUG_ERR(err, "cnode_create_raw failed");
         abort();
     }
-
 
     //multiboot_find_module() (that calls multiboot_module_rawstring()
     //which expects the caps to be in cnode_module
