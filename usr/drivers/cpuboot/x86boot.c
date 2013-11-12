@@ -80,22 +80,13 @@ static errval_t elfload_allocate(void *state, genvaddr_t base,
  * \param entry      Kernel entry point in physical memory
  */
 static inline errval_t
-invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                          forvaddr_t entry)
+invoke_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                  forvaddr_t entry)
 {
 
     struct capref task_cap_kernel;
     task_cap_kernel.cnode = cnode_task;
     task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
-
-    struct capability info;
-    errval_t err = debug_cap_identify(task_cap_kernel, &info);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not identify the capability.");
-    }
-    char buffer[1024];
-    debug_print_cap(buffer, 1024, &info);
-    printf("%s:%d: capability=%s\n", __FILE__, __LINE__, buffer);
 
     return cap_invoke4(task_cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
                        entry).error;
@@ -176,7 +167,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
     //trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_INVOKE_SPAWN, hwid);
-    err = invoke_monitor_spawn_core(1, CPU_X86_64, entry);
+    err = invoke_spawn_core(1, CPU_X86_64, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
