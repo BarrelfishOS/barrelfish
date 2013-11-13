@@ -27,6 +27,7 @@
 #include <spawndomain/spawndomain.h>
 #include <if/intermon_defs.h>
 #include <acpi_client/acpi_client.h>
+#include <vfs/vfs.h>
 
 #include <barrelfish/invocations_arch.h>
 
@@ -59,7 +60,7 @@ extern uint64_t x86_64_init_ap_lock;
 extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 
-static struct bootinfo *bi;
+//static struct bootinfo *bi;
 static struct capref frame; ///< URPC frame
 
 static errval_t elfload_allocate(void *state, genvaddr_t base,
@@ -203,8 +204,8 @@ static errval_t get_architecture_config(enum cpu_type type,
     switch (type) {
     case CPU_X86_64:
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
-        *monitor_binary = "x86_64/sbin/monitor";
-        *cpu_binary = "x86_64/sbin/cpu";
+        *monitor_binary = "/x86_64/sbin/monitor";
+        *cpu_binary = "/x86_64/sbin/cpu";
         break;
 
     case CPU_X86_32:
@@ -235,24 +236,6 @@ static errval_t cap_mark_remote(struct capref cf)
     return SYS_ERR_OK;
 }
 
-static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
-                              genpaddr_t* binary_phys, size_t* binary_size)
-{
-    struct mem_region *module_region = multiboot_find_module(bi, module_name);
-    if (module_region == NULL) {
-        USER_PANIC("multiboot module not found?");
-        return SPAWN_ERR_FIND_MODULE;
-    }
-
-    errval_t err = spawn_map_module(module_region, binary_size, binary_virt,
-                           binary_phys);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_MAP_MODULE);
-    }
-
-    return SYS_ERR_OK;
-}
-
 /**
  * \brief Same as frame_alloc but also identify the capability.
  */
@@ -269,6 +252,60 @@ static errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
     }
 
     return err;
+}
+
+static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
+                              genpaddr_t* binary_phys, size_t* binary_size)
+{
+    /*struct mem_region *module_region = multiboot_find_module(bi, module_name);
+    if (module_region == NULL) {
+        USER_PANIC("multiboot module not found?");
+        return SPAWN_ERR_FIND_MODULE;
+    }*/
+
+    vfs_handle_t handle;
+    struct vfs_fileinfo info;
+
+    errval_t err = vfs_open(module_name, &handle);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vfs_open could not open module?");
+        return err;
+    }
+
+    err = vfs_stat(handle, &info);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vfs_stat for binary failed.");
+        return err;
+    }
+    *binary_size = info.size;
+
+    struct capref binary_image_cap;
+    struct frame_identity id;
+    err = frame_alloc_identify(&binary_image_cap, info.size, NULL, &id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not allocate space for binary");
+        return err;
+    }
+    *binary_phys = id.base;
+    printf("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+
+    err = vspace_map_one_frame((void**)binary_virt, info.size, binary_image_cap,
+                               NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not map frame");
+        return err;
+    }
+
+    size_t bytes_read = 0;
+    err = vfs_read(handle, (void*)*binary_virt, info.size, &bytes_read);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not read binary from vfs");
+        return err;
+    }
+    assert(bytes_read == info.size); // TODO(gz): If this fails, need to loop vfs_read
+
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -496,7 +533,6 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
                                  + frameid.base + arch_page_size;
-
     /* Compute entry point in the foreign address space */
     forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
 
@@ -544,7 +580,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
 
     /* Clean up */
-    // XXX: Should not delete the remote cap
+    // XXX: Should not delete the remote caps?
     err = cap_destroy(spawn_memory_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
@@ -561,7 +597,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     return SYS_ERR_OK;
 }
 
-static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
+/*static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
                                 errval_t msgerr)
 {
     errval_t err;
@@ -586,11 +622,6 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
         //err = start_service(root);
         //assert(err_is_ok(err));
 
-        struct intermon_binding *new_binding = NULL;
-        spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, 1, frame);
 
         return;
     }
@@ -612,7 +643,7 @@ static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
 
     err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, multiboot_slots);
     assert(err_is_ok(err));
-}
+}*/
 
 
 static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
@@ -625,7 +656,8 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 int main(int argc, char** argv)
 {
-    errval_t err, errval;
+    errval_t err;//, errval;
+    vfs_init();
 
     for (size_t i = 0; i < argc; i++) {
         printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
@@ -636,7 +668,7 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "connect to acpi failed.");
     }
 
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+/*    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     struct capref bootinfo_frame;
     size_t bootinfo_size = 0;
 
@@ -648,7 +680,7 @@ int main(int argc, char** argv)
 
     err = vspace_map_one_frame((void**)&bi, bootinfo_size,
                                bootinfo_frame, NULL, NULL);
-    assert(err_is_ok(err));
+    assert(err_is_ok(err));*/
 
     // Get caps for multiboot regions
     // We need this because
@@ -665,7 +697,7 @@ int main(int argc, char** argv)
 */
 
     /* Create the module cnode */
-    struct capref modulecn_cap = {
+    /*struct capref modulecn_cap = {
         .cnode = cnode_root,
         .slot  = ROOTCN_SLOT_MODULECN,
     };
@@ -674,18 +706,24 @@ int main(int argc, char** argv)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cnode_create_raw failed");
         abort();
-    }
+    }*/
 
     //multiboot_find_module() (that calls multiboot_module_rawstring()
     //which expects the caps to be in cnode_module
     struct monitor_binding *st = get_monitor_binding();
-    st->rx_vtbl.multiboot_cap_reply = multiboot_cap_reply;
+    //st->rx_vtbl.multiboot_cap_reply = multiboot_cap_reply;
     st->rx_vtbl.boot_core_reply = boot_core_reply;
 
     // Make first multiboot cap request
     // when we're done we send boot core request inside the handler
-    err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, 0);
-    assert(err_is_ok(err));
+    //err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, 0);
+    //assert(err_is_ok(err));
+
+    struct intermon_binding *new_binding = NULL;
+    spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
+
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, 1, frame);
 
     messages_handler_loop();
     return 0;
