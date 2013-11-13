@@ -41,7 +41,7 @@ errval_t trace_init(void)
         .slot = TASKCN_SLOT_TRACEBUF
     };
 
-    err = frame_create(cap, TRACE_BUF_SIZE, &bytes);
+    err = frame_create(cap, TRACE_ALLOC_SIZE, &bytes);
     if (err_is_fail(err)) {
         return err_push(err, TRACE_ERR_CREATE_CAP);
     }

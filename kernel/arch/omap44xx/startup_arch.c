@@ -19,10 +19,9 @@
 #include <arm_hal.h>
 #include <paging_kernel_arch.h>
 #include <exceptions.h>
-#include <cp15.h>
 #include <cpiobin.h>
 #include <init.h>
-#include <barrelfish_kpi/paging_arm_v7.h>
+#include <barrelfish_kpi/paging_arch.h>
 #include <arm_core_data.h>
 #include <kernel_multiboot.h>
 #include <offsets.h>
@@ -35,9 +34,13 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
+#ifdef __ARM_ARCH_7M__//armv7-M : cortex-M3 processor on pandaboard
+#define BSP_INIT_MODULE_NAME    "armv7-m/sbin/init"
+#define APP_INIT_MODULE_NAME	"armv7-m/sbin/monitor"
+#else//"normal" armv7-A
 #define BSP_INIT_MODULE_NAME    "armv7/sbin/init"
 #define APP_INIT_MODULE_NAME	"armv7/sbin/monitor"
-
+#endif
 
 
 //static phys_mmap_t* g_phys_mmap;        // Physical memory map
@@ -109,7 +112,8 @@ static lpaddr_t bsp_init_alloc_addr = PHYS_MEMORY_START;
  *
  * \return Base physical address of memory region.
  */
-static lpaddr_t bsp_alloc_phys(size_t size)
+lpaddr_t bsp_alloc_phys(size_t);
+lpaddr_t bsp_alloc_phys(size_t size)
 {
     // round to base page size
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
@@ -165,6 +169,10 @@ spawn_init_map(union arm_l2_entry* l2_table,
 
 static uint32_t elf_to_l2_flags(uint32_t eflags)
 {
+#ifdef __ARM_ARCH_7M__//the cortex-m3 does not actually understand these flags yet
+//XXX: if we ever allow all these flags, then remove the ifdef again
+    return 0; 
+#else   //normal case, __ARM_ARCH_7A__
     switch (eflags & (PF_W|PF_R))
     {
       case PF_W|PF_R:
@@ -178,6 +186,7 @@ static uint32_t elf_to_l2_flags(uint32_t eflags)
       default:
         panic("Unknown ELF flags combination.");
     }
+#endif
 }
 
 struct startup_l2_info
@@ -534,6 +543,16 @@ static struct dcb *spawn_init_common(const char *name,
                    INIT_PERM_RW);
 
 
+    /*
+     * we create the capability to the devices at this stage and store it
+     * in the TASKCN_SLOT_IO, where on x86 the IO capability is stored for
+     * device access on PCI. PCI is not available on the pandaboard so this
+     * should not be a problem.
+     */
+    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
+    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, iocap);
+        assert(err_is_ok(err));
+
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm
@@ -547,7 +566,9 @@ static struct dcb *spawn_init_common(const char *name,
     disp->udisp = INIT_DISPATCHER_VBASE;
 
     disp_arm->enabled_save_area.named.r0   = paramaddr;
+#ifndef __ARM_ARCH_7M__ //the armv7-m profile does not have such a mode field
     disp_arm->enabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+#endif
     disp_arm->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
     disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
 
@@ -591,7 +612,9 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     disp_arm->got_base = got_base;
 
     disp_arm->disabled_save_area.named.pc   = init_ep;
+#ifndef __ARM_ARCH_7M__ //the armv7-m profile does not have such a mode field
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+#endif
     disp_arm->disabled_save_area.named.r10  = got_base;
 
     /* Create caps for init to use */
@@ -678,27 +701,23 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     disp_arm->got_base = got_base;
 
     disp_arm->disabled_save_area.named.pc   = entry_point;
+#ifndef __ARM_ARCH_7M__ //the armv7-m profile does not have such a mode field
     disp_arm->disabled_save_area.named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+#endif
     disp_arm->disabled_save_area.named.r10  = got_base;
     //disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
 
     return init_dcb;
 }
 
+void play_with_fdif(void);
+
 void arm_kernel_startup(void)
 {
     printf("arm_kernel_startup entered \n");
-
-    /* Initialize the core_data */
-    /* Used when bringing up other cores, must be at consistent global address
-     * seen by all cores */
-    struct arm_core_data *core_data
-        = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
-
     struct dcb *init_dcb;
 
-    if(hal_cpu_is_bsp())
-    {
+    if (hal_cpu_is_bsp()) {
         printf("Doing BSP related bootup \n");
 
     	/* Initialize the location to allocate phys memory from */
@@ -709,22 +728,20 @@ void arm_kernel_startup(void)
 
         // Not available on PandaBoard?        pit_start(0);
 
-    }
-    else
-    {
+    } else {
         printf("Doing non-BSP related bootup \n");
 
-    	my_core_id = core_data->dst_core_id;
+        /* Initialize the allocator with the information passed to us */
+        app_alloc_phys_start = glbl_core_data->memory_base_start;
+        app_alloc_phys_end   = app_alloc_phys_start
+                               + ((lpaddr_t)1 <<glbl_core_data->memory_bits);
 
-    	/* Initialize the allocator */
-    	app_alloc_phys_start = core_data->memory_base_start;
-    	app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
-    			app_alloc_phys_start;
+        init_dcb = spawn_app_init(glbl_core_data, APP_INIT_MODULE_NAME, app_alloc_phys);
 
-    	init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME, app_alloc_phys);
-
+#ifndef __ARM_ARCH_7M__ //armv7-m does not use a gic and can not acknowledge interrupts
     	uint32_t irq = gic_get_active_irq();
     	gic_ack_irq(irq);
+#endif
     }
 
     /* printf("Trying to enable interrupts\n"); */

@@ -26,7 +26,7 @@
                         Config.RCAP_DB_NULL   -> []
                         Config.RCAP_DB_CENTRAL-> [ "collections" ]
                         Config.RCAP_DB_TWOPC  -> [ "collections", "cap_predicates" ]
-     common_srcs = [ "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
+     common_srcs = [ "trace_support.c", "bfscope_support.c", "ram_alloc.c", "inter.c", "spawn.c", "invocations.c", "iref.c",
                      "main.c", "monitor_server.c", "monitor_rpc_server.c",
 		     "boot.c", "queue.c", "domain.c", "intermon_bindings.c",
 		     "rcap_db_common.c", "resource_ctrl.c", "timing.c", rcap_db ]
@@ -37,6 +37,7 @@
      arch_srcs "armv5"   = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs "xscale"  = [ "arch/arm/boot.c", "arch/arm/inter.c", "arch/arm/monitor_server.c" ]
      arch_srcs "armv7"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
+     arch_srcs "armv7-m"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
      arch_srcs _         = []
 
      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch

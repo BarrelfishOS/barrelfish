@@ -11,11 +11,14 @@
  *
  * DESCRIPTION: DEC Tulip Ethernet controller
  *
- * This is derived from http://www.intel.com/design/network/manuals/21140ahm.pdf 
+ * Section numbers in this file refer to the DIGITAL Semiconductor
+ * 21140A PCI Fast Ethernet LAN Controller Hardware Reference Manual,
+ * available at http://www.intel.com/design/network/manuals/21140ahm.pdf 
  */
 
 device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
-  
+
+    // 3.2.2.1
     register CSR0 rw io ( base, 0x00 ) "Bus mode" {
 	SWR     1 "Software reset";
 	BAR     1 "Bus arbitration";
@@ -32,12 +35,18 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	WIE     1 "Write and invalidation enable";
 	_       7 mbz;
     };
-
+    
+    // 3.2.2.2
     register CSR1 wo io( base, 0x08 ) "Transmit poll demand" type(uint32);
+
+    // 3.2.2.3
     register CSR2 wo io( base, 0x10 ) "Receive poll demand" type(uint32);
+
+    // 3.2.2.4
     register CSR3 rw io( base, 0x18 ) "Receive list base address" type(uint32);
     register CSR4 rw io( base, 0x20 ) "Transmit list base address" type(uint32);
-    
+
+    // 3.2.2.5
     constants FBEBITS "Fatal bus error bits" {
 	parity = 0b000 "Parity error";
 	mabrt  = 0b001 "Master abort";
@@ -86,6 +95,7 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	_	6 mbz;
     } ;
 
+    // 3.2.2.6
     register CSR6 rw io( base, 0x30 ) "Operating mode" {
 	HP	1 "Hash/perfect recieve filtering mode";
 	SR	1 "Start/stop receive";
@@ -116,6 +126,7 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	SC	1 "Special capture effect enable";
     };
 
+    // 3.2.2.7
     register CSR7 rw io( base, 0x38 ) "Interrupt enable" {
 	TI	1 "Transmit interrupt enable";
 	TS	1 "Transmit stopped enable";
@@ -137,6 +148,7 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	_	15 mbz;
     };
 
+    // 3.2.2.8
     register CSR8 ro io( base, 0x40 ) "Missed frames and overflow counter" {
 	MFC	16 "Missed frame counter";
 	MFO	1 "Missed frame overflow";
@@ -145,6 +157,7 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	_	3 mbz;
     };
 
+    // 3.2.2.9
     register CSR9 rw io( base, 0x48 ) "Boot ROM Management" {
 	DATA	8 "Boot ROM data or serial ROM control";
 	_	2 mbz;
@@ -159,25 +172,29 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	MII	1 "MII management operation mode";
 	MDI	1 "MII management data_in";
 	_	12 mbz;
-	};
+    };
 
+    // 3.2.2.10
     register CSR10 rw io( base, 0x50 ) "Boot ROM programming address" {
 	VAL	18 "Boot ROM address";
 	_	14 mbz;
     };
 
+    // 3.2.2.11
     register CSR11 rw io( base, 0x58 ) "General-purpose timer" {
 	VAL	16 "Timer value";
 	CON	1 "Continuous mode";
 	_	15 mbz;
     };
 
+    // 3.2.2.12
     register CSR12 rw io( base, 0x60 ) "General purpose port" {
 	MD	8 "General-purpose mode and data";
 	GPC	1 "General-purpose control";
 	_	23 mbz;
     };
-    
+
+    // 3.2.2.13
     register CSR15 rw io( base, 0x78 ) "Watchdog timer" {
 	JBD	1 "Jabber disable";
 	HUJ	1 "Host unjab";
@@ -187,4 +204,87 @@ device tulip lsbfirst ( io base ) "Tulip Ethernet Controller" {
 	RWR	1 "Receive watchdog release";
 	_	26;
     };
+
+    // 4.2.1
+    constants FRAMEDTYPE width(2) "Frame data type" {
+	sr = 0b00	"Serial received frame";
+	il = 0b01	"Internal loopback frame";
+	el = 0b10	"External loopback or serial received frame";
+    };
+    datatype RDES msbfirst(32) "Receive descriptor" {
+	// RDES0
+	OWN	1 "Own bit";
+	FF	1 "Filtering fail";
+	FL	14 "Frame length";
+	ES	1 "Error summary";
+	DE	1 "Descriptor error";
+	DT	2 type(FRAMEDTYPE) "Data type";
+	RF	1 "Runt Frame";
+	MF	1 "Muticast frame";
+	FS	1 "First descriptor";
+	LS	1 "Last descriptor";
+	TL	1 "Frame too long";
+	CS	1 "Collision seen";
+	FT	1 "Frame type";
+	RW	1 "Receive watchdog";
+	RE	1 "Report on MII error";
+	DB	1 "Dribbling bit";
+	CE	1 "CRC error";
+	ZERO	1 "Zero";
+	// RDES1
+	_	6;
+	RER	1 "Receive end of ring";
+	RCH	1 "Second address chained";
+	_	2;
+	RBS2	11 "Buffer 2 size";
+	RBS1	11 "Buffer 1 size";
+	// RDES2-3
+	RBA1	32 "Buffer address 1";
+	RBA2	32 "Buffer address 2";
+    };
+
+    // 4.2.2
+    datatype TDES msbfirst(32) "Transmit descriptor" {
+	// TDES0
+	OWN	1 "Own bit";
+	_	15;
+	ES	1 "Error summary";
+	TO	1 "Transmit jabber timeout";
+	_	2;
+	LO	1 "Loss of Carrier";
+	NC	1 "No Carrier";
+	LC	1 "Late Collision";
+	EC	1 "Excessive Collisions";
+	HF	1 "Heartbeat Fail";
+	CC	4 "Collision Count";
+	LF	1 "Link Fail Report";
+	UF	1 "Underflow Error";
+	DE	1 "Deferred";
+	// TDES1
+	IC	1 "Interrupt on Completion";
+	LS	1 "Last Segment";
+	FS	1 "First Segment";
+	FT1	1 "Filtering Type";
+	SET	1 "Setup Packet";
+	AC	1 "Add CRC Disable";
+	TER	1 "Transmit End of Ring";
+	TCH	1 "Second Address Chained";
+	DPD	1 "Disabled Padding";
+	FT0	1 "Filtering Type";
+	TBS2	11 "Buffer 2 Size";
+	TBS1	11 "Buffer 1 Size";
+	// TDES2-3
+	TBA1	32 "Buffer address 1";
+	TBA2	32 "Buffer address 2";
+    };
+    // Table 4-8: This value is split between FT0 and FT1 above.
+    // Unfortunately (unlike Devil) Mackerel can't express this
+    // cleanly (yet). 
+    constants FILTERTYPE width(2) "Filtering type" {
+	PF = 0b00	"Perfect filtering";
+	HF = 0b01	"Hash-based filtering";
+	IF = 0b10	"Inverse filtering";
+	HOF = 0b11	"Hash-only filtering";
+    };
+
 };

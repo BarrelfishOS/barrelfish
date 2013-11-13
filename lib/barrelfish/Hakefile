@@ -67,6 +67,7 @@
       arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
+      arch_assembly "armv7-m" = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
       arch_assembly _         = []
 
   in

@@ -139,4 +139,29 @@ interface intermon "The Interface between monitors" {
 
     message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
     message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
+
+    /* Tracing Framework */
+
+    // Notify a core that it should prepare the tracing state. The origin core
+    // is the one who initiated the preparation request.
+    message trace_prepare(coreid origin_core);
+
+    // Notify the core who initiated the preparation that it is finished.
+    message trace_prepare_finished();
+
+    // Notify core 0 that you want to make a time measurement (Network Time
+    // Protocol). The origin core is the one who initiated the trace preparation.
+    call trace_measure(coreid_t origin_core, uint64 t0);
+
+    // The response to a measurement call from a core.
+    response trace_measure_ack(coreid origin_core, uint64 t0, uint64 t1, uint64 t2);
+
+    /* bfscope - the tracing server */
+
+    // Forward a trace-flush command to the monitor on the core on which bfscope
+    // is running.
+    call bfscope_flush_send_forward(iref iref);
+
+    // This message is sent, once bfscope has finished flushing.
+    response bfscope_flush_ack_forward();
 };

@@ -59,7 +59,7 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 #define ARM_L2_SMALL_USR_RW             0xff0
 
 static inline bool is_root_pt(enum objtype type) {
-    return type == ObjType_VNode_ARM_l2;
+    return type == ObjType_VNode_ARM_l1;
 }
 
 static inline size_t get_pte_size(void) {

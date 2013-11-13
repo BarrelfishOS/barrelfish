@@ -27,6 +27,7 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/terminal.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
 #include <vfs/vfs.h>
@@ -275,7 +276,7 @@ static int demo(int argc, char *argv[])
 
         // Repeat each frame a few times to slow down scrolling!
         for (int f = 0; f < frames; f++) {
-        trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 1);
+        trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
         for(int i = 0; i < RENDER_WIDTH; i++) {
             
             int xpos = (x + i)%width;
@@ -302,7 +303,7 @@ static int demo(int argc, char *argv[])
             while (rdtsc() - now < pixwidth) ;
         }
 
-        trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0);
+        trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 0);
         }
     }
     return EXIT_SUCCESS;

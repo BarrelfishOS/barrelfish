@@ -206,9 +206,38 @@ errval_t set_record(struct ast_object* ast, uint64_t mode,
     return OCT_ERR_NO_RECORD;
 }
 
-errval_t del_record(struct ast_object* ast, struct oct_query_state* dqs)
+errval_t del_record(struct ast_object* ast, struct oct_query_state* sqs)
 {
-    assert(!"NYI");
+    assert(ast != NULL);
+    assert(sqs != NULL);
+
+    for (size_t i = 0; i < MAX_RECORDS; i++) {
+        struct record* entry = &record_storage[i];
+        if (entry->name == NULL) {
+            continue;
+        }
+
+        if (strcmp(RECORD_NAME(ast), entry->name) == 0) {
+            assert(entry->record != NULL);
+
+            free(entry->name);
+            entry->name = NULL;
+            free_ast(entry->record);
+            entry->record = NULL;
+
+            // Free the waiting list, this should be NULL anyways I guess
+            struct wait_queue* cur = entry->waiting_parties;
+            while (cur != NULL) {
+                struct wait_queue* next = cur->next;
+                free(cur);
+                cur = next;
+            }
+            entry->waiting_parties = NULL;
+
+            return SYS_ERR_OK;
+        }
+    }
+
     return OCT_ERR_NO_RECORD;
 }
 

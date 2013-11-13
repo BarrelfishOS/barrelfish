@@ -16,6 +16,7 @@
 #include <string.h>
 #include <barrelfish/dispatch.h>
 #include "trace/trace.h"
+#include <trace_definitions/trace_defs.h>
 
 /** Array of worker descriptors */
 static struct worker_desc * workers;
@@ -215,10 +216,10 @@ static inline tweed_task_func_t steal_task(struct generic_task_desc * task,
 /** Initializes _tweed_top_ to start of this worker's task block
  */
 struct generic_task_desc * set_top(void) {
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_LOCKING, 0);       
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_LOCKING, 0);
     struct worker_desc * tls = (struct worker_desc *) thread_get_tls(); 
     LOCK(tls->lock); 
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_LOCKING_END, 0);
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_LOCKING_END, 0);
     tls->bot = workers[tls->id].task_desc_stack; 
     UNLOCK(tls->lock);    
     return workers[tls->id].task_desc_stack;   
@@ -229,10 +230,10 @@ struct generic_task_desc * set_top(void) {
  *  workers can steal tasks from it.
  */
 static inline void set_bot(struct generic_task_desc * val) {
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_LOCKING, 0);              
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_LOCKING, 0);
     struct worker_desc * tls = (struct worker_desc *) thread_get_tls();  
     LOCK(tls->lock);
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_LOCKING_END, 0);    
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_LOCKING_END, 0);
     tls->bot = val;
     UNLOCK(tls->lock);     
 }
@@ -276,9 +277,9 @@ static int steal(struct generic_task_desc * _tweed_top_,
             UNLOCK(victim->lock);
 
             // and run task
-            trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_STEAL, victim->core_id);
+            trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_STEAL, victim->core_id);
             func(_tweed_top_, stolenTask);
-            trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_STEAL_END,
+            trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_STEAL_END,
                         victim->core_id);
             
             // signal task completion
@@ -326,7 +327,7 @@ static inline int waiting(struct generic_task_desc * _tweed_top_) {
 
 /** Handle stolen task */
 int handle_stolen_task(struct generic_task_desc * _tweed_top_) {
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_WAIT, 
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_WAIT,
                 GET_THIEF(_tweed_top_)->core_id);        
 
     while ((_tweed_top_->balarm & TWEED_TASK_COMPLETE) == 0) {
@@ -334,7 +335,7 @@ int handle_stolen_task(struct generic_task_desc * _tweed_top_) {
             thread_yield();
         }
     }
-    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_WAIT_END, 
+    trace_event(TRACE_SUBSYS_TWEED, TRACE_EVENT_TWEED_WAIT_END,
                 GET_THIEF(_tweed_top_)->core_id); ; 
 
     // update bot

@@ -15,8 +15,15 @@
 # Disable built-in implicit rules. GNU make adds environment's MAKEFLAGS too.
 MAKEFLAGS=r
 
+# Explicitly disable the flex and bison implicit rules
+%.c : %.y
+
+%.c : %.l
+
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
+ARM_GCC?=arm-none-linux-gnueabi-gcc
+ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -158,6 +165,7 @@ MODULES_x86_64= \
 	sbin/testdesc-child \
 	sbin/angler \
 	sbin/sshd \
+	sbin/lshw \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -232,7 +240,12 @@ MODULES_xscale=\
 # ARMv7-specific modules to build by default
 # XXX: figure out armv7 default
 MODULES_armv7=\
-	sbin/cpu_omap44xx
+	sbin/cpu_omap44xx \
+	sbin/usb_manager \
+	sbin/usb_keyboard \
+	sbin/kaluga \
+	armv7/sbin/fish \
+	sbin/examples/xmplspawn
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -278,17 +291,17 @@ DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
 ifeq ($(ARCH),x86_64)
-	QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
-        QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),scc)
-        QEMU_CMD=qemu-system-i386 -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),armv5)
-	ARM_QEMU_CMD=qemu-system-arm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
+	ARM_QEMU_CMD=qemu-system-arm -no-kvm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
 	GDB=xterm -e arm-linux-gnueabi-gdb
 simulate: $(MODULES) armv5/romfs.cpio
 	$(ARM_QEMU_CMD)
@@ -301,7 +314,7 @@ debugsim: $(MODULES) armv5/romfs.cpio armv5/tools/debug.arm.gdb
 	$(SRCDIR)/tools/debug.sh "$(ARM_QEMU_CMD) -initrd armv5/romfs.cpio" "$(GDB)" "-s $(ARCH)/sbin/cpu -x armv5/tools/debug.arm.gdb $(GDB_ARGS)"
 .PHONY : debugsim
 else ifeq ($(ARCH),arm11mp)
-	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
+	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
 endif
 
@@ -313,17 +326,10 @@ simulate: $(MODULES)
 	$(QEMU_CMD)
 .PHONY : simulate
 
-debugsim: $(MODULES) $(ARCH)/debug.gdb
+debugsim: $(MODULES)
 	$(CLEAN_HD)
-	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(ARCH)/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
+	$(SRCDIR)/tools/debug.sh "$(QEMU_CMD)" "$(GDB)" "-x $(SRCDIR)/tools/debug.gdb $(GDB_ARGS)" "file:/dev/stdout"
 .PHONY : debugsim
-
-debugsimvga: $(MODULES)
-	$(CLEAN_HD)
-	$(QEMU_CMD) -s -S &
-	while [ ! `netstat -nlp 2>/dev/null | grep qemu` ]; do sleep 1; done
-	$(GDB) -x $(SRCDIR)/debug.gdb.in
-.PHONY : debugsimvga
 
 endif
 
@@ -356,6 +362,7 @@ arm:
 
 # Builds a dummy romfs_size.h
 $(ARCH)/include/romfs_size.h:
+	mkdir -p $(shell dirname $@)
 	echo "size_t romfs_cpio_archive_size = 0; //should not see this" > $@
 
 arminstall:
@@ -465,7 +472,11 @@ PANDABOARD_MODULES=\
 	armv7/sbin/spawnd \
 	armv7/sbin/startd \
 	armv7/sbin/skb \
-	armv7/sbin/memtest
+	armv7/sbin/memtest \
+	armv7/sbin/kaluga \
+	armv7/sbin/fish \
+	armv7/sbin/usb_manager \
+	armv7/sbin/usb_keyboard \
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
@@ -482,7 +493,7 @@ pandaboard_image: $(PANDABOARD_MODULES) \
 	# bootloader
 	tools/bin/arm_molly menu.lst.pandaboard panda_mbi.c
 	# Compile the complete boot image into a single executable
-	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-a -mapcs -fno-unwind-tables \
 		-Tmolly_panda/molly_ld_script \
 		-I$(SRCDIR)/include \
@@ -538,7 +549,7 @@ arm_gem5_image: $(GEM5_MODULES) \
 	# bootloader
 	tools/bin/arm_molly menu.lst.arm_gem5 arm_mbi.c
 	# Compile the complete boot image into a single executable
-	$(ARM_PREFIX)gcc -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-a -mapcs -fno-unwind-tables \
 		-Tmolly_gem5/molly_ld_script \
 		-I$(SRCDIR)/include \
@@ -556,7 +567,6 @@ arm_gem5_image: $(GEM5_MODULES) \
 		-o arm_gem5_image
 
 # ARM GEM5 Simulation Targets
-ARM_PREFIX=arm-none-linux-gnueabi-
 ARM_FLAGS=$(SRCDIR)/tools/arm_gem5/gem5script.py --caches --l2cache --n=2 --kernel=arm_gem5_image
 
 arm_gem5: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
@@ -566,3 +576,110 @@ arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(ARM_FLAGS) --cpu-type=arm_detailed
 
 .PHONY: arm_gem5_mc arm_gem5 arm_gem5_detailed arm_gem5_detailed
+
+#######################################################################
+#
+# Pandaboard build for the armv7-M slave image (to be used in conjunction with a master image)
+# (basically a normal pandaboard_image, but compiled for the cortex-m3)
+#
+#######################################################################
+
+HETEROPANDA_SLAVE_MODULES=\
+	armv7-m/sbin/cpu_omap44xx \
+	armv7-m/sbin/init \
+	armv7-m/sbin/mem_serv \
+	armv7-m/sbin/monitor \
+	armv7-m/sbin/ramfsd \
+	armv7-m/sbin/spawnd \
+	armv7-m/sbin/startd \
+	armv7-m/sbin/skb \
+	armv7-m/sbin/memtest
+
+menu.lst.armv7-m: $(SRCDIR)/hake/menu.lst.armv7-m
+	cp $< $@
+
+heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.armv7-m
+	# Translate each of the binary files we need
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.armv7-m molly_panda_slave
+	# Generate appropriate linker script
+	cpp -P -DBASE_ADDR=0x0 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
+		molly_panda_slave/molly_ld_script
+	# Build a C file to link into a single image for the 2nd-stage
+	# bootloader
+	tools/bin/arm_molly menu.lst.armv7-m panda_mbi_slave.c
+	# Compile the complete boot image into a single executable
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+		-nostdlib -march=armv7-m -mcpu=cortex-m3 -mthumb -mapcs -fno-unwind-tables \
+		-Tmolly_panda_slave/molly_ld_script \
+		-I$(SRCDIR)/include \
+		-I$(SRCDIR)/include/arch/arm \
+		-I./armv7-m/include \
+		-I$(SRCDIR)/include/oldc \
+		-I$(SRCDIR)/include/c \
+		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
+		$(SRCDIR)/tools/arm_molly/molly_boot.S \
+		$(SRCDIR)/tools/arm_molly/molly_init.c \
+		$(SRCDIR)/tools/arm_molly/lib.c \
+		./panda_mbi_slave.c \
+		$(SRCDIR)/lib/elf/elf32.c \
+		./molly_panda_slave/* \
+		-o heteropanda_slave
+	@echo "OK - heteropanda slave image is built."
+	@echo "you can now use this image to link into a regular pandaboard image"
+
+
+
+
+#######################################################################
+#
+# Pandaboard build for the heteropanda_master:
+# basically a regular pandaboard_image, except that it contains
+# a heteropanda_slave image, and arm_molly is called with -DHETEROPANDA
+#
+#######################################################################
+
+menu.lst.heteropanda_master: $(SRCDIR)/hake/menu.lst.heteropanda_master
+	cp $< $@	
+
+heteropanda_master_image: $(PANDABOARD_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.heteropanda_master \
+		heteropanda_slave \
+		$(SRCDIR)/tools/arm_molly/molly_ld_script.in
+	# Translate each of the binary files we need
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.heteropanda_master molly_panda
+	# Generate appropriate linker script
+	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
+		molly_panda/molly_ld_script
+		
+	# HETEROPANDA: convert slave image into a form we can insert in our image
+	$(ARM_OBJCOPY) -I binary -O elf32-littlearm -B arm --rename-section \
+	    .data=.rodata_thumb,alloc,load,readonly,data,contents heteropanda_slave \
+	    molly_panda/heteropanda_slave
+
+	# Build a C file to link into a single image for the 2nd-stage
+	# bootloader
+	tools/bin/arm_molly menu.lst.heteropanda_master panda_mbi.c
+	# Compile the complete boot image into a single executable
+	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
+		-nostdlib -march=armv7-a -mcpu=cortex-a9 -mapcs -fno-unwind-tables \
+		-Tmolly_panda/molly_ld_script \
+		-I$(SRCDIR)/include \
+		-I$(SRCDIR)/include/arch/arm \
+		-I./armv7/include \
+		-I$(SRCDIR)/include/oldc \
+		-I$(SRCDIR)/include/c \
+		-imacros $(SRCDIR)/include/deputy/nodeputy.h \
+		$(SRCDIR)/tools/arm_molly/molly_boot.S \
+		$(SRCDIR)/tools/arm_molly/molly_init.c \
+		$(SRCDIR)/tools/arm_molly/lib.c \
+		./panda_mbi.c \
+		$(SRCDIR)/lib/elf/elf32.c \
+		./molly_panda/* \
+		-DHETEROPANDA \
+		-o heteropanda_master_image
+	@echo "OK - heteropanda_master_image is built."
+	@echo "If your boot environment is correctly set up, you can now:"
+	@echo "$ usbboot ./heteropanda_master_image"

@@ -78,17 +78,12 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     return msgerr;
 }
 
+/**
+ * \brief Dump own hw page tables
+ */
 errval_t debug_dump_hw_ptables(void)
 {
-    errval_t err;
-
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
-    err = r->vtbl.dump_hw_ptables(r, cap_dispatcher);
-    if (err_is_fail(err)){
-        return err;
-    }
-
-    return err;
+    return invoke_dispatcher_dump_ptables(cap_dispatcher);
 }
 
 void debug_printf(const char *fmt, ...)

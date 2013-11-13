@@ -16,6 +16,7 @@ module Config where
 import HakeTypes
 import Data.Char
 import qualified Args
+import Data.List
 
 -- path to source and install directories; these are automatically set by hake.sh at setup time 
 source_dir :: String
@@ -62,15 +63,16 @@ trace = False
 support_qemu_networking :: Bool
 support_qemu_networking  = False
 
--- Enable GEM5 emulation for ARMv7 (needs special handling of caching)
-enable_gem5 :: Bool
-enable_gem5 = False
-
 -- armv7 platform to build for
 -- Currently available: gem5, pandaboard
 armv7_platform :: String
-armv7_platform = "gem5"
--- armv7_platform = "pandaboard"
+--armv7_platform = "gem5"
+armv7_platform = "pandaboard"
+
+-- on pandaboard, build a heterogenous image and let the cortex-A9 set up and start the
+-- cortex-M3 processor (build targets "heteropanda_slave" and "heteropanda_master_image")
+heteropanda :: Bool
+heteropanda = False
 
 -- enable network tracing
 trace_network_subsystem :: Bool
@@ -188,7 +190,8 @@ memserv_percore = False
 
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
-lazy_thc = True
+lazy_thc | elem "armv7" architectures  = False
+         | otherwise                   = True
 
 -- Select remote cap database implementation
 data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
@@ -263,7 +266,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
-             if use_kaluga_dvm then "USE_KALUGA_DVM" else ""
+             if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
+             if heteropanda then "HETEROPANDA" else ""
              ], d /= "" ]
 
 -- Sets the include path for the libc

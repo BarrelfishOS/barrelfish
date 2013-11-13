@@ -400,7 +400,8 @@
 /*
  * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
  */
-
+#define OMAP44XX_MAP_M3_L2MMU                           0x55082000
+#define OMAP44XX_MAP_M3_L2MMU_SIZE                      0x1000
 /*
  * 2.5 DSP Subsystem Memory Space Mapping
  */

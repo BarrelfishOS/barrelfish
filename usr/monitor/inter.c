@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include "monitor.h"
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #define MIN(x,y) ((x<y) ? (x) : (y))
 #define MAX(x,y) ((x>y) ? (x) : (y))
@@ -348,7 +349,7 @@ static void span_domain_request(struct intermon_binding *b,
     struct intermon_state *st = b->st;
     coreid_t core_id = st->core_id;
 
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_SPAN, disp_get_core_id());
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN, disp_get_core_id());
 
     /* Contruct vroot */
     struct capability vnode_cap = {
@@ -704,6 +705,20 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     err = multihop_intermon_init(b);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "multihop_intermon_init failed");
+        return err;
+    }
+#endif
+
+#if CONFIG_TRACE
+    err = trace_intermon_init(b);
+	if (err_is_fail(err)) {
+		USER_PANIC_ERR(err, "trace_intermon_init failed");
+		return err;
+	}
+
+    err = bfscope_intermon_init(b);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bfscope_intermon_init failed");
         return err;
     }
 #endif

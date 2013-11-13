@@ -96,7 +96,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 {
-    lpaddr_t pend  = paging_round_down(paddr + bytes, BYTES_PER_SECTION);
+    lpaddr_t pend  = paging_round_up(paddr + bytes, BYTES_PER_SECTION);
     while (paddr < pend) {
         paging_map_kernel_section(ttbase, paddr, paddr);
         paddr += BYTES_PER_SECTION;
@@ -130,9 +130,9 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
-            "0x%"PRIxLPADDR".\n",
-            (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
+    //printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
+    //        "0x%"PRIxLPADDR".\n",
+    //        (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
     paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
             device_base);
@@ -381,19 +381,19 @@ caps_map_l2(struct capability* dest,
     // ARM L2 has 256 entries, but we treat a 4K page as a consecutive
     // region of L2 with a single index. 4K == 4 * 1K
     if (slot >= (256 * 4)) {
-        panic("oops");
+        panic("oops: slot >= (256 * 4)");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
-        panic("oops");
+        panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     // check offset within frame
-    if ((offset + BYTES_PER_PAGE > ((genpaddr_t)1 << src->u.frame.bits)) ||
+    if ((offset + BYTES_PER_PAGE > get_size(src)) ||
         ((offset % BYTES_PER_PAGE) != 0)) {
-        panic("oops");
+        panic("oops: frame offset invalid");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -411,7 +411,7 @@ caps_map_l2(struct capability* dest,
         panic("Remapping valid page.");
     }
 
-    lpaddr_t src_lpaddr = gen_phys_to_local_phys(src->u.frame.base + offset);
+    lpaddr_t src_lpaddr = gen_phys_to_local_phys(get_address(src) + offset);
     if ((src_lpaddr & (BASE_PAGE_SIZE - 1))) {
         panic("Invalid target");
     }
@@ -447,6 +447,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
+
+    if (src_cte->mapping_info.pte) {
+        return SYS_ERR_VM_ALREADY_MAPPED;
+    }
 
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         //printf("caps_map_l1: %zu\n", (size_t)pte_count);

@@ -219,14 +219,16 @@ bool handle_fragmented_packet(void *packet, size_t len)
 
     if (is_fragmented(packet, len)) {
         if (has_headers(packet, len)) {
+            struct filter *ret_filter;
             E_IPFRAG_DEBUG("IP_FRAG: first fragment %lu\n", ip_id);
-            buffer = execute_filters(packet, len)->buffer;
-            if (buffer == NULL) {
+            ret_filter = execute_filters(packet, len);
+            if (ret_filter == NULL || ret_filter->buffer == NULL) {
                 E_IPFRAG_DEBUG("IP_FRAG: ERROR: issues with filter %lu\n",
                                ip_id);
                 return true;    // we do not want to process this packet anymore
             }
 
+            buffer = ret_filter->buffer;
             add_fragment_filter(ip_id, buffer);
             if (copy_packet_to_user(buffer, packet, len)) {
 //                              send_packet_received_notification(buffer);

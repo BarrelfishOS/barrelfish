@@ -68,8 +68,10 @@ defaultArgs = Args {
       architectures = allArchitectures
 }
 
-allArchitectures = [ "x86_64", "x86_32", "armv5", "arm11mp", "scc", "xscale", "armv7" ]
+allArchitectures = [ "x86_64", "x86_32", "armv5", "arm11mp", "scc", "xscale", "armv7", "armv7-m" ]
 allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "scc" ]
+-- architectures that currently support THC
+thcArchitectures = ["x86_64", "x86_32", "scc"]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends

@@ -34,7 +34,9 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
                       lvaddr_t entry, lvaddr_t stack, uint32_t arg1,
                       uint32_t arg2, uint32_t arg3, uint32_t arg4)
 {
+#ifndef __ARM_ARCH_7M__ //the armv7-m profile does not have such a mode field
     regs->named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
+#endif
     regs->named.r0 = arg1;
     regs->named.r1 = arg2;
     regs->named.r2 = arg3;

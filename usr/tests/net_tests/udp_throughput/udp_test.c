@@ -17,6 +17,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <stdio.h>
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>

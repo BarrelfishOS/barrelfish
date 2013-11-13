@@ -22,6 +22,7 @@
 #include <barrelfish/dispatch.h>
 #include <mm/mm.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <barrelfish/morecore.h>
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/spawn_client.h>
@@ -348,7 +349,7 @@ errval_t percore_allocate_handler_common(uint8_t bits,
 
     // debug_printf("percore alloc request: bits: %d\n", bits);
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC, bits);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC, bits);
 
     // refill slot allocator if needed 
     err = do_slot_prealloc_refill(mm_slots->slot_alloc_inst);
@@ -381,7 +382,7 @@ errval_t percore_allocate_handler_common(uint8_t bits,
         try_steal(&ret, &cap, bits, minbase, maxlimit);
     }
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC_COMPLETE, bits);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC_COMPLETE, bits);
 
     *retcap = cap;
     return ret;
@@ -621,7 +622,7 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     mem_avail = 0;
     mem_total = 0;
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_INIT, 0);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_INIT, 0);
 
     err = init_slot_allocator(&percore_slot_alloc, mm_slots);
     if (err_is_fail(err)) {
@@ -726,7 +727,7 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
                  mem_avail / 1024 / 1024, mem_total / 1024 / 1024);
 
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_INIT, 9);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_INIT, 9);
 
     return SYS_ERR_OK;
 }

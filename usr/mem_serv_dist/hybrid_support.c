@@ -21,6 +21,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/nameservice_client.h>
@@ -237,7 +238,7 @@ static void percore_steal_handler(struct mem_binding *b,
         }
     }
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC_COMPLETE, 0);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC_COMPLETE, 0);
 }
 
 static void percore_allocate_handler(struct mem_binding *b,
@@ -267,7 +268,7 @@ static void percore_allocate_handler(struct mem_binding *b,
         }
     }
 
-    trace_event(TRACE_SUBSYS_PERCORE_MEMSERV, TRACE_EVENT_ALLOC_COMPLETE, 0);
+    trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC_COMPLETE, 0);
 }
 
 

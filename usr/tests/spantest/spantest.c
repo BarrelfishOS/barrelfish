@@ -17,6 +17,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 
 #define LOCKDEC(x)    spinlock_t x;
@@ -343,7 +344,7 @@ int main(int argc, char *argv[])
     uint64_t before = rdtsc();
     times[0] = before;
 
-    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 1);
+    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
     for (int i = 1; i < cores; i++) {
         err = domain_new_dispatcher(i + disp_get_core_id(), 
                                     domain_spanned_callback, 
@@ -358,10 +359,10 @@ int main(int argc, char *argv[])
     }
     uint64_t finish = rdtsc();
 
-    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_PCBENCH, 0);
+    trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 0);
 
     //sys_print("\nDone\n", 6);
-    printf("Done in %ld cycles\n", finish-before);
+    printf("spantest: Done in %ld cycles\n", finish-before);
 
     //trace_dump();
 

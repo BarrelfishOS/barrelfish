@@ -57,6 +57,7 @@
 #       include <kernel.h>
 #       include <dispatch.h>
 #       include <trace/trace.h>
+#       include <trace_definitions/trace_defs.h>
 #       include <timer.h> // update_sched_timer
 #endif
 
@@ -369,12 +370,12 @@ struct dcb *schedule(void)
         // If nothing changed, run whatever ran last (task might have
         // yielded to another), unless it is blocked
         if(lastdisp == todisp && dcb_current != NULL && in_queue(dcb_current)) {
-            /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_SCHED_CURRENT, */
+            /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_CURRENT, */
             /*             (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF); */
             return dcb_current;
         }
 
-        /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_SCHED_SCHEDULE, */
+        /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_SCHEDULE, */
         /*             (uint32_t)(lvaddr_t)todisp & 0xFFFFFFFF); */
 
         // Remember who we run next
@@ -424,7 +425,7 @@ void make_runnable(struct dcb *dcb)
         return;
     }
 
-    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_SCHED_MAKE_RUNNABLE,
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_MAKE_RUNNABLE,
                 (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
 
     // Keep counters up to date
@@ -493,7 +494,7 @@ void scheduler_remove(struct dcb *dcb)
 
     queue_remove(dcb);
 
-    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_SCHED_REMOVE,
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
                 (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
 
     // Update counters
@@ -531,7 +532,7 @@ void scheduler_yield(struct dcb *dcb)
         return;
     }
 
-    /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_SCHED_YIELD, */
+    /* trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_YIELD, */
     /*             (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF); */
 
     queue_remove(dcb);
@@ -553,7 +554,7 @@ void scheduler_yield(struct dcb *dcb)
 
 void scheduler_reset_time(void)
 {
-    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_TIMER_SYNC, 0);
+    trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER_SYNC, 0);
     kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now

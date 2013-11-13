@@ -18,6 +18,7 @@
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 #include <inttypes.h>
 
 #define STACK_SIZE      (64 * 1024)
@@ -61,7 +62,7 @@ int main(int argc, char *argv[])
 
 #if CONFIG_TRACE
         char *buf = malloc(4096*4096);
-        trace_dump(buf, 4096*4096);
+        trace_dump(buf, 4096*4096, NULL);
         printf("%s\n", buf);
 #endif
 

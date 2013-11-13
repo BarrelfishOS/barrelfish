@@ -16,6 +16,7 @@
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #include "e10k.h"
 

@@ -71,6 +71,10 @@ struct range_slot_allocator {
     struct thread_mutex mutex;   ///< Mutex for thread safety
 };
 
+// single_slot_alloc_init_raw() requires a specific buflen
+#define SINGLE_SLOT_ALLOC_BUFLEN(nslots) \
+    (SLAB_STATIC_SIZE(nslots / 2, sizeof(struct cnode_meta)))
+
 errval_t single_slot_alloc_init(struct single_slot_allocator *ret,
                                 cslot_t nslots, cslot_t *retslots);
 errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,

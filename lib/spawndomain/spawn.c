@@ -167,7 +167,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
     /* Init pagecn's slot allocator */
 
     // XXX: satisfy a peculiarity of the single_slot_alloc_init_raw API
-    size_t bufsize = sizeof(struct cnode_meta) * PAGE_CNODE_SLOTS / 2;
+    size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(PAGE_CNODE_SLOTS);
     void *buf = malloc(bufsize);
     assert(buf != NULL);
 

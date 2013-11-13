@@ -11,12 +11,12 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "kaluga",
-                      cFiles = [ "main.c", "queue.c", "boot_modules.c", "common.c",
-                                 "start_cpu.c", "start_pci.c", "driver_startup.c" ],
+                      cFiles = (find withSuffices [".c"]),
           	          flounderDefs = [ "monitor" ],
                       flounderBindings = [ "octopus" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderTHCStubs = [ "octopus" ],
                       addLibraries = libDeps [ "skb", "octopus", "vfs", 
-                                               "spawndomain", "elf" ],
-                      architectures = [ "x86_64", "x86_32" ] }
+                                               "spawndomain", "elf", "mm" ],
+                      architectures = [ "x86_64", "x86_32", "armv7" ] }
 ]

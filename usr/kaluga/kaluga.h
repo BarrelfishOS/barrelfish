@@ -21,5 +21,7 @@ errval_t trigger_existing_and_watch(const char*,
 #include "start_pci.h"
 #include "start_cpu.h"
 #include "driver_startup.h"
+#include "device_caps.h"
+#include "omap_startup.h"
 
 #endif /* KALUGA_H_ */

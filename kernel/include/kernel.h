@@ -180,11 +180,6 @@ extern lvaddr_t kernel_trace_buf;
 
 extern struct capability monitor_ep;
 
-/// Keep track of all DCBs for tracing snapshot
-/// XXX this is never garbage-collected at the moment
-extern struct dcb *dcbs_list;
-void trace_snapshot(void);
-
 /*
  * Variant based on Padraig Brady's implementation
  * http://www.pixelbeat.org/programming/gcc/static_assert.html

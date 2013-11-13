@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-machines = {
+machines = dict({
     'nos1'   : {'ncores'      : 8,
                 'machine_name' : 'nos1',
                 'bootarch' : 'x86_64',
@@ -269,4 +269,29 @@ machines = {
                  'perfcount_type': 'intel',
                  'tickrate'    : 2394,
                  'boot_timeout': 360},
-    }
+    
+    # SK: For Python 2.7
+    # }.items() + { 
+    #     'brie%s' % b: {
+    #         'ncores' : 4,
+    #         'machine_name' : ('brie%s' % b),
+    #         'bootarch' : 'x86_64',
+    #         'buildarchs' : ['x86_64', 'x86_32'],
+    #         'cores_per_socket' : 2,
+    #         'tickrate' : 2193,
+    #         'boot_timeout' : 360,
+    #         } for b in range(1, 17) if b != 11 }.items()
+
+    # SK: For Python 2.6, which is what the current toolchain is ATM
+    }.items() +
+        dict(('brie%s' % b, {
+                'ncores' : 4,
+                'machine_name' : ('brie%s' % b),
+                'bootarch' : 'x86_64',
+                'buildarchs' : ['x86_64', 'x86_32'],
+                'cores_per_socket' : 2,
+                'tickrate' : 2193,
+                'boot_timeout' : 360,
+                }) for b in range(1, 17) if b != 11 ).items()
+
+)

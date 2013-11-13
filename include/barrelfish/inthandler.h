@@ -18,6 +18,8 @@ typedef void (*interrupt_handler_fn)(void *);
 
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
                           uint32_t *ret_vector);
+errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
+        uint32_t irq);
 
 __END_DECLS
 

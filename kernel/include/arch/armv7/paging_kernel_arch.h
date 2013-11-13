@@ -69,7 +69,7 @@ void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
 static inline bool is_root_pt(enum objtype type) {
-    return type == ObjType_VNode_ARM_l2;
+    return type == ObjType_VNode_ARM_l1;
 }
 
 static inline size_t get_pte_size(void) {

@@ -24,6 +24,7 @@
 #include <barrelfish/inthandler.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 
 #include "eMAC_dev.h"

@@ -87,9 +87,11 @@ class Gem5MachineBase(Machine):
 	def shutdown(self):
 		debug.verbose('gem5:shutdown requested');
 		debug.verbose('terminating gem5')
-		self.child.terminate()
+		if not self.child is None:
+                        self.child.terminate()
 		debug.verbose('terminating telnet')
-		self.telnet.terminate()
+		if not self.telnet is None:
+                        self.telnet.terminate()
 		# try to cleanup tftp tree if needed
 		if self.tftp_dir and os.path.isdir(self.tftp_dir):
 			shutil.rmtree(self.tftp_dir, ignore_errors=True)
@@ -110,7 +112,7 @@ class Gem5MachineARM(Gem5MachineBase):
 	def set_bootmodules(self, modules):
 		# store path to kernel for _get_cmdline to use
 		tftp_dir = self.get_tftp_dir()
-		self.kernel_img = os.path.join(self.options.buildbase, 'release', 'arm_gem5_image')
+		self.kernel_img = os.path.join(self.options.buildbase, self.options.builds[0].name, 'arm_gem5_image')
 		
 		#write menu.lst
 		path = os.path.join(self.get_tftp_dir(), 'menu.lst')

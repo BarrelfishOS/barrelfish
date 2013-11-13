@@ -17,6 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
 
 #include "memtest_trace.h"
 
@@ -71,7 +72,7 @@ void dump_trace(void)
     if (buf == NULL) {
         prepare_dump();
     }
-    size_t len = trace_dump(buf, TRACE_SIZE);
+    size_t len = trace_dump(buf, TRACE_SIZE, NULL);
     printf("%s\n", buf);
     debug_printf("dump finished. len: %d\n", (int)len);
     free(buf);

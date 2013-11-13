@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##########################################################################
 # Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
@@ -15,6 +15,7 @@ QEMU_CMD=$1
 GDB=$2
 GDB_ARGS=$3
 SERIAL_OUTPUT=$4
+PORT=$((10000 + UID))
 
 if [ "${SERIAL_OUTPUT}" = "" ] ; then
     # Assuming session is interactive. Use terminal for serial output because
@@ -23,7 +24,7 @@ if [ "${SERIAL_OUTPUT}" = "" ] ; then
     SERIAL_OUTPUT=`tty`
 fi
 
-PIDFILE=/tmp/qemu_debugsim_${USER}_1234.pid
+PIDFILE=/tmp/qemu_debugsim_${USER}_${PORT}.pid
 if test -f $PIDFILE; then
     if ps `cat $PIDFILE` >/dev/null; then
 	echo "Another QEMU already running (PID: `cat $PIDFILE` PIDFILE: $PIDFILE)"
@@ -34,11 +35,19 @@ if test -f $PIDFILE; then
     fi
 fi
 
-QEMU_INVOCATION="${QEMU_CMD} -serial $SERIAL_OUTPUT -s -S -daemonize -pidfile $PIDFILE"
+echo args = $GDB_ARGS
+
+cat > barrelfish_debug.gdb <<EOF
+# Connect to QEMU instance
+target remote localhost:$PORT
+EOF
+
+QEMU_INVOCATION="${QEMU_CMD} -serial $SERIAL_OUTPUT -gdb tcp::$PORT -S -daemonize -pidfile $PIDFILE"
 ${QEMU_INVOCATION}
 if [ $? -eq 0 ] ; then 
     stty sane
-    ${GDB} ${GDB_ARGS}
+    trap '' SIGINT
+    ${GDB} -x barrelfish_debug.gdb ${GDB_ARGS}
     PID=`cat ${PIDFILE}`
     kill ${PID} > /dev/null || true
     rm -f $PIDFILE
@@ -46,5 +55,3 @@ else
     echo Failed to launch qemu with:
     echo "   ${QEMU_INVOCATION}"
 fi
-
-
