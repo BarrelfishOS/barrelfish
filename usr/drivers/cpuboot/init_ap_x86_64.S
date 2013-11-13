@@ -91,13 +91,13 @@ start_ap_spin:
         // Fill the four page tables with identity map
         // eax = page table index, ebx = page table entry
         mov $0, %ecx
-        mov $PAGE_BITS, %ebx
+        mov $PAGE_BITS, %ebx // P, R/R, U/S & PS bit set
 rep_fill:
         mov %ebx, init_ap_pdir - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET(%ecx)
         movl $0, init_ap_pdir - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET + 4(%ecx)
-        add $0x200000, %ebx
+        add $0x200000, %ebx // 0x200000 is two megabytes
         add $8, %ecx
-        cmp $4096 * 4, %ecx
+        cmp $4096 * 4, %ecx // 4*4096 / 8 = 2048, 2048*2 = 4GB
         jne rep_fill
 
         // enable page address extension
