@@ -354,7 +354,7 @@ relocate_stack(lvaddr_t offset)
 static inline void enable_fast_syscalls(void)
 {
     // Segment selector bases for both kernel- and user-space for fast
-    // system calls 
+    // system calls
     ia32_star_t star = ia32_star_rd(NULL);
     star = ia32_star_call_insert(star, GSEL(KCODE_SEL,  SEL_KPL));
     star = ia32_star_ret_insert( star, GSEL(KSTACK_SEL, SEL_UPL));
@@ -646,8 +646,8 @@ void arch_init(uint64_t magic, void *pointer)
         core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
 
-        if (core_data->module_end > 4ul * (1ul << 20)) {
-            panic("The cpu module is outside the initial 4MB mapping."
+        if (core_data->module_end > 4ul * (1ul << 30)) {
+            panic("The cpu module is outside the initial 4GB mapping."
                   " Either move the module or increase initial mapping.");
         }
     }
