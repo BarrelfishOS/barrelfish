@@ -10,7 +10,7 @@
 import getpass
 import siteconfig
 
-LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(2,8)]
+LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(3,8)]
 
 class ETH(siteconfig.BaseSite):
     # site-specific configuration variables for ETH
