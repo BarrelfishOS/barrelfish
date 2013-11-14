@@ -246,7 +246,7 @@ enum notify_cmd {
  */
 enum perfmon_cmd {
     PerfmonCmd_Activate,    ///< Activate performance counters
-    PerfmonCmd_Deactivate,  ///< Deactivate performance counters 
+    PerfmonCmd_Deactivate,  ///< Deactivate performance counters
     PerfmonCmd_Write        ///< Read current performance counter values
 };
 

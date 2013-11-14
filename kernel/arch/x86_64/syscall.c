@@ -180,7 +180,7 @@ static struct sysret handle_revoke_common(struct capability *root,
 }
 
 static struct sysret handle_revoke(struct capability *root,
-                                   int cmd, uintptr_t *args) 
+                                   int cmd, uintptr_t *args)
 {
     return handle_revoke_common(root, args, false);
 }
@@ -651,9 +651,9 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Activate performance monitoring
- * 
+ *
  * Activates performance monitoring.
  * \param xargs Expected parameters in args:
  * - performance monitoring type
@@ -665,7 +665,7 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
  *   to deactivate the usage of APIC.
  * - Endpoint capability to be invoked when the counter overflows.
  *   The buffer associated with the endpoint needs to be large enough
- *   to hold several overflow notifications depending on the overflow 
+ *   to hold several overflow notifications depending on the overflow
  *   frequency.
  */
 static struct sysret performance_counter_activate(struct capability *cap,
@@ -682,27 +682,27 @@ static struct sysret performance_counter_activate(struct capability *cap,
     struct capability *ep;
     extern struct capability perfmon_callback_ep;
 
-    // Make sure that 
+    // Make sure that
     assert(ep_addr!=0 || counter_value==0);
 
     perfmon_init();
     perfmon_measure_start(event, umask, counter_id, kernel, counter_value);
 
     if(ep_addr!=0) {
-        
+
         err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, CPTR_BITS, &ep,
                                CAPRIGHTS_READ);
         if(err_is_fail(err)) {
             return SYSRET(err);
         }
-        
-        perfmon_callback_ep = *ep; 
+
+        perfmon_callback_ep = *ep;
     }
 
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Write counter values.
  */
 static struct sysret performance_counter_write(struct capability *cap,
@@ -715,7 +715,7 @@ static struct sysret performance_counter_write(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Deactivate performance counters again.
  */
 static struct sysret performance_counter_deactivate(struct capability *cap,
