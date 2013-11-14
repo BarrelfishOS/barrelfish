@@ -60,8 +60,8 @@ extern uint64_t x86_64_init_ap_lock;
 extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 
-//static struct bootinfo *bi;
 static struct capref frame; ///< URPC frame
+static coreid_t my_arch_id;
 
 static errval_t elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
@@ -562,7 +562,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->memory_base_start = spawn_memory_identity.base;
     core_data->memory_bits       = spawn_memory_identity.bits;
     core_data->src_core_id       = disp_get_core_id();
-    core_data->src_arch_id       = 0; // TODO(gz): was my_arch_id
+    core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id           = chanid;
@@ -668,56 +668,15 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "connect to acpi failed.");
     }
 
-/*    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    struct capref bootinfo_frame;
-    size_t bootinfo_size = 0;
-
-    err = mc->vtbl.get_bootinfo(mc, &errval,
-                                &bootinfo_frame,
-                                &bootinfo_size);
-    assert(err_is_ok(errval));
-    assert(err_is_ok(err));
-
-    err = vspace_map_one_frame((void**)&bi, bootinfo_size,
-                               bootinfo_frame, NULL, NULL);
-    assert(err_is_ok(err));*/
-
-    // Get caps for multiboot regions
-    // We need this because
-    // otherwise we run into problems when trying to load the kernel:
-/*    vnode_unmap returned error: Capability not found (empty slot encountered) (25)
-    ERROR: x86boot.0 in vspace_map_one_frame_attr() ../lib/barrelfish/vspace/utils.c:390
-    ERROR: vregion_destroy failed
-    Failure: (  libbarrelfish) Failure in memobj_unmap_region() [LIB_ERR_MEMOBJ_UNMAP_REGION]
-    Failure: (  libbarrelfish) Failure in pmap_unmap() [LIB_ERR_PMAP_UNMAP]
-    Failure: (  libbarrelfish) Failure in pmap_unmap() [LIB_ERR_PMAP_UNMAP]
-    Failure: (  libbarrelfish) Failure in vnode_unmap() [LIB_ERR_VNODE_UNMAP]
-    Failure: (         kernel) Capability not found (empty slot encountered) [SYS_ERR_CAP_NOT_FOUND]
-    Failure: (         kernel) Capability not found (empty slot encountered) [SYS_ERR_CAP_NOT_FOUND]
-*/
-
-    /* Create the module cnode */
-    /*struct capref modulecn_cap = {
-        .cnode = cnode_root,
-        .slot  = ROOTCN_SLOT_MODULECN,
-    };
-    err = cnode_create_raw(modulecn_cap, NULL,
-                           ((cslot_t)1 << MODULECN_SIZE_BITS), NULL);
+    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    err = mc->vtbl.get_arch_core_id(mc, (uintptr_t*)&my_arch_id);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cnode_create_raw failed");
-        abort();
-    }*/
+        USER_PANIC_ERR(err, "get_arch_core_id failed.");
+    }
+    printf("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
 
-    //multiboot_find_module() (that calls multiboot_module_rawstring()
-    //which expects the caps to be in cnode_module
     struct monitor_binding *st = get_monitor_binding();
-    //st->rx_vtbl.multiboot_cap_reply = multiboot_cap_reply;
     st->rx_vtbl.boot_core_reply = boot_core_reply;
-
-    // Make first multiboot cap request
-    // when we're done we send boot core request inside the handler
-    //err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, 0);
-    //assert(err_is_ok(err));
 
     struct intermon_binding *new_binding = NULL;
     spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
