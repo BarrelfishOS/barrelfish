@@ -597,55 +597,6 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     return SYS_ERR_OK;
 }
 
-/*static void multiboot_cap_reply(struct monitor_binding *st, struct capref cap,
-                                errval_t msgerr)
-{
-    errval_t err;
-    static cslot_t multiboot_slots = 0;
-
-    // All multiboot caps received
-    if (err_is_fail(msgerr)) {
-
-        printf("%s:%d: all the caps...\n", __FILE__, __LINE__);
-        // Request bootinfo frame
-        //struct bootinfo *bi;
-        //err = map_bootinfo(&bi);
-        //assert(err_is_ok(err));
-
-        // Init ramfs
-        //struct dirent *root = ramfs_init();
-
-        // Populate it with contents of multiboot
-        //populate_multiboot(root, bi);
-
-        // Start the service
-        //err = start_service(root);
-        //assert(err_is_ok(err));
-
-
-        return;
-    }
-
-    // Move the cap into the multiboot cnode
-    struct capref dest = {
-        .cnode = cnode_module,
-        .slot  = multiboot_slots++,
-    };
-
-    err = cap_copy(dest, cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cap_copy failed, can not recover");
-    }
-    err = cap_destroy(cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cap destroy failed.");
-    }
-
-    err = st->tx_vtbl.multiboot_cap_request(st, NOP_CONT, multiboot_slots);
-    assert(err_is_ok(err));
-}*/
-
-
 static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 {
     if (err_is_fail(msgerr)) {
@@ -656,7 +607,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 int main(int argc, char** argv)
 {
-    errval_t err;//, errval;
+    errval_t err;
     vfs_init();
 
     for (size_t i = 0; i < argc; i++) {
