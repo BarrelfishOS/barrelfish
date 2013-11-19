@@ -56,20 +56,17 @@ extern uint64_t x86_64_init_ap_global;
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
-    printf("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
     trace_event(TRACE_SUBSYS_KERNEL,
                 TRACE_EVENT_KERNEL_CORE_START_REQUEST, core_id);
 
     // pointer to the shared global variable amongst all kernels
     volatile uint64_t *ap_global = (volatile uint64_t *)
                                    local_phys_to_mem((lpaddr_t) &x86_64_init_ap_global -
-                                           ((lpaddr_t) &x86_64_start_ap) +
-                                           X86_64_REAL_MODE_LINEAR_OFFSET);
-    printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
-    printf("%s:%d: *ap_global=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, *ap_global);
+                                   ((lpaddr_t) &x86_64_start_ap) +
+                                    X86_64_REAL_MODE_LINEAR_OFFSET);
+    printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__,(void*) ap_global);
     *ap_global = (uint64_t)mem_to_local_phys((lvaddr_t)global);
-    printf("%s:%d: ap_global=%p\n", __FILE__, __LINE__, ap_global);
-    printf("%s:%d: *ap_global=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, *ap_global);
+    printf("%s:%d: *ap_global=%p\n", __FILE__, __LINE__, (void*)mem_to_local_phys((lvaddr_t)global));
 
     lvaddr_t *init_vector;
     init_vector = (lvaddr_t *)local_phys_to_mem(CMOS_RAM_BIOS_WARM_START_INIT_VECTOR);
@@ -79,23 +76,27 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         printk(LOG_WARN, "Warning: skipping shutdown/init of APs on M5\n");
     } else {
         // set shutdown status to WARM_SHUTDOWN and set start-vector
-        cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+        /*cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
-                       X86_64_REAL_MODE_OFFSET);
+                       X86_64_REAL_MODE_OFFSET);*/
 
         //INIT 1 assert
-        apic_send_init_assert(core_id, xapic_none);
+        printf("%s:%d: core_id=%"PRIuCOREID"\n", __FILE__, __LINE__, core_id);
+        //apic_send_init_assert(core_id, xapic_none);
 
         //set shutdown status to WARM_SHUTDOWN and set start-vector
-        cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+        /*cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
-                       X86_64_REAL_MODE_OFFSET);
+                       X86_64_REAL_MODE_OFFSET);*/
 
         //INIT 2 de-assert
-        apic_send_init_deassert();
+        printf("%s:%d: \n", __FILE__, __LINE__);
+        //apic_send_init_deassert();
     }
 
     //SIPI1
+    printf("%s:%d: core_id=%"PRIuCOREID", start_vector=%x\n",
+           __FILE__, __LINE__, core_id, X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
     apic_send_start_up(core_id, xapic_none,
                        X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
 

@@ -738,30 +738,42 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     return sysret;
 }
 
-static struct sysret handle_send_init_ipi(struct capability *cap, int cmd,
+static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
-    printf("%s:%d: \n", __FILE__, __LINE__);
     coreid_t destination = args[0];
+    printf("%s:%d: destination=%"PRIuCOREID" \n", __FILE__, __LINE__, destination);
 
     apic_send_init_assert(destination, xapic_none);
-    // Sleep for a bit?
     apic_send_init_deassert();
 
     return SYSRET(SYS_ERR_OK);
 }
 
-static struct sysret handle_send_start_ipi(struct capability *cap,
+static struct sysret kernel_send_start_ipi(struct capability *cap,
                                            int cmd,
                                            uintptr_t *args)
 {
-    printf("%s:%d: \n", __FILE__, __LINE__);
     coreid_t destination = args[0];
-    genvaddr_t start_vector = X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(args[1]);
+    genvaddr_t start_vector = X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT);
+    printf("%s:%d: destination=%"PRIuCOREID" start_vector=%"PRIxGENVADDR"\n",
+           __FILE__, __LINE__, destination, start_vector);
 
     apic_send_start_up(destination, xapic_none, start_vector);
 
     return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_get_global_phys(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+
+    struct sysret sysret;
+    sysret.value = mem_to_local_phys((lvaddr_t)global);
+    sysret.error = SYS_ERR_OK;
+
+    return sysret;
 }
 
 typedef struct sysret (*invocation_handler_t)(struct capability *to,
@@ -826,8 +838,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
-        [KernelCmd_Start_IPI_Send]   = handle_send_start_ipi,
-        [KernelCmd_Init_IPI_Send]   = handle_send_init_ipi
+        [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
+        [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
+        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

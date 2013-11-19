@@ -93,6 +93,39 @@ invoke_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                        entry).error;
 }
 
+static inline errval_t invoke_send_init_ipi(coreid_t core_id)
+{
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+
+    return cap_invoke2(task_cap_kernel, KernelCmd_Init_IPI_Send,
+                       core_id).error;
+}
+
+static inline errval_t invoke_send_start_ipi(coreid_t core_id, forvaddr_t entry)
+{
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+
+    return cap_invoke3(task_cap_kernel, KernelCmd_Start_IPI_Send,
+                       core_id, entry).error;
+}
+
+static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
+{
+    struct capref task_cap_kernel;
+    task_cap_kernel.cnode = cnode_task;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+
+    struct sysret sr = cap_invoke1(task_cap_kernel, KernelCmd_GetGlobalPhys);
+    if (err_is_ok(sr.error)) {
+        *global = sr.value;
+    }
+
+    return sr.error;
+}
 
 /**
  * \brief Boot a app core of x86_64 type
@@ -112,8 +145,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
     printf("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
 
-    /* Copy the startup code to the real-mode address */
-    //uint8_t *real_dest = (uint8_t *) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
+    // Copy the startup code to the real-mode address
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
     uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
 
@@ -133,11 +165,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     err = vspace_map_one_frame(&real_base, 1<<16, bootcap, NULL, NULL);
     uint8_t* real_dest = (uint8_t*)real_base + X86_64_REAL_MODE_LINEAR_OFFSET;
 
+/*
     printf("%s:%d: X86_64_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_64_REAL_MODE_LINEAR_OFFSET);
     printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
     printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
     printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
     printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
+*/
 
     memcpy(real_dest, real_src, real_end - real_src);
 
@@ -153,6 +187,26 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     //assembler code to be able to perform an absolute jump
     *absolute_entry_ptr = entry;
 
+    // pointer to the shared global variable amongst all kernels
+    volatile uint64_t *ap_global = (volatile uint64_t *)
+                                   ((
+                                    (lpaddr_t) &x86_64_init_ap_global -
+                                    (lpaddr_t) &x86_64_start_ap
+                                   )
+                                   + real_dest);
+
+
+    genpaddr_t global;
+    err = invoke_get_global_paddr(&global);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke spawn core");
+        return err_push(err, MON_ERR_SPAWN_CORE);
+    }
+    printf("%s:%d: set ap_global to = %"PRIxGENPADDR"\n",
+           __FILE__, __LINE__, global);
+    *ap_global = (uint64_t)(genpaddr_t)global;
+
+
     /* pointer to the pseudo-lock used to detect boot up of new core */
     volatile uint32_t *ap_wait = (volatile uint32_t *)
                                          ((lpaddr_t) &x86_64_init_ap_wait -
@@ -167,12 +221,25 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
     *ap_wait = AP_STARTING_UP;
 
-    //trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_INVOKE_SPAWN, hwid);
-    err = invoke_spawn_core(1, CPU_X86_64, entry);
+
+    err = invoke_send_init_ipi(1);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "invoke spawn core");
-        return err_push(err, MON_ERR_SPAWN_CORE);
+        DEBUG_ERR(err, "invoke send init ipi");
+        return err;
     }
+
+    err = invoke_send_start_ipi(1, entry);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke sipi");
+        return err;
+    }
+
+    err = invoke_send_start_ipi(1, entry);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke sipi");
+        return err;
+    }
+
 
     printf("%s:%d: \n", __FILE__, __LINE__);
     //give the new core a bit time to start-up and set the lock
