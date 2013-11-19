@@ -202,18 +202,15 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
     }
-    printf("%s:%d: set ap_global to = %"PRIxGENPADDR"\n",
-           __FILE__, __LINE__, global);
     *ap_global = (uint64_t)(genpaddr_t)global;
 
-
-    /* pointer to the pseudo-lock used to detect boot up of new core */
+    // pointer to the pseudo-lock used to detect boot up of new core
     volatile uint32_t *ap_wait = (volatile uint32_t *)
                                          ((lpaddr_t) &x86_64_init_ap_wait -
                                          ((lpaddr_t) &x86_64_start_ap) +
                                          real_dest);
 
-    /* Pointer to the lock variable in the realmode code */
+    // Pointer to the lock variable in the realmode code
     volatile uint8_t *ap_lock = (volatile uint8_t *)
                                         ((lpaddr_t) &x86_64_init_ap_lock -
                                         ((lpaddr_t) &x86_64_start_ap) +
