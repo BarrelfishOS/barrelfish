@@ -820,12 +820,12 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
      * The value 0 will disable interrupt throttling
      */
     if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
-        e1000_eitr_interval_wrf(dev->device, 0, 5580);
-        //e1000_eitr_interval_wrf(dev->device, 0, 10);
+        //e1000_eitr_interval_wrf(dev->device, 0, 5580);
+        e1000_eitr_interval_wrf(dev->device, 0, 10);
     }
     else {
-        e1000_itr_interval_wrf(dev->device, 5580);
-        //e1000_itr_interval_wrf(dev->device, 10);
+        //e1000_itr_interval_wrf(dev->device, 5580);
+        e1000_itr_interval_wrf(dev->device, 10);
     }
 
     /* Enable interrupts */

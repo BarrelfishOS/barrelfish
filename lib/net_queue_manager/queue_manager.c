@@ -765,6 +765,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
         if (cl->debug_state == 4) {
             ++cl->in_dropped_app_buf_full;
         }
+//        abort(); // FIXME: temparary halt to simplify debugging
         return false;
     }
 
@@ -849,10 +850,17 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
         cl->driver_buff_list[cl->chunk_counter].va = vaddr;
         cl->driver_buff_list[cl->chunk_counter].pa = paddr;
         cl->driver_buff_list[cl->chunk_counter].len = length;
+        cl->driver_buff_list[cl->chunk_counter].opaque = opaque;
         ++cl->chunk_counter;
         if (more == 0) {
             // ETHERSRV_DEBUG
 //            printf("sending out packet\n");
+            if (cl->chunk_counter > 1) {
+                ETHERSRV_DEBUG
+                //printf
+                    ("%s:%s: handle=%p\n", disp_name(), __func__,
+                        opaque);
+            }
             err = ether_transmit_pbuf_list_ptr(cl->driver_buff_list, cl->chunk_counter, opaque);
             assert(err_is_ok(err));
             cl->chunk_counter = 0;

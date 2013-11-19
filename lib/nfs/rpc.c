@@ -241,8 +241,10 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
 
 out:
 //    ts = rdtsc();
-    pbuf_free(pbuf);
+    pbuf_free(pbuf); // freeing the pbuf from RX packet
     if (call != NULL) {
+        // We got reply, so there is not need for keeping TX packet saved
+        // here for retransmission.  Lets free it up.
         pbuf_free(call->pbuf);
         free(call);
     }

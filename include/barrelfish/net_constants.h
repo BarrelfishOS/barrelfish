@@ -135,7 +135,7 @@ enum buffer_memory_types {
 
 /// Number of PBUF buffers available
 #ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE         (16384)
+#define PBUF_POOL_SIZE         (20000)
 //#define PBUF_POOL_SIZE          4096
 #endif // PBUF_POOL_SIZE
 
@@ -149,6 +149,7 @@ enum buffer_memory_types {
 
 /// the size of the elements in the pool
 #ifndef PBUF_POOL_BUFSIZE
+//#define PBUF_POOL_BUFSIZE       (1600)
 #define PBUF_POOL_BUFSIZE       (2048)
 #endif // PBUF_POOL_BUFSIZE
 

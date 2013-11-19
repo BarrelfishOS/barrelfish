@@ -46,11 +46,14 @@
 
 /// Number of simultaneously active TCP connections
 #define MEMP_NUM_TCP_PCB        200
+//#define MEMP_NUM_TCP_PCB        512
 
 
 
 /// Number of TCP segments
 #define MEMP_NUM_TCP_SEG        512
+//#define MEMP_NUM_TCP_SEG        1024
+//#define MEMP_NUM_TCP_SEG            4096
 
 /// TCP window size
 #define TCP_WND                 11680

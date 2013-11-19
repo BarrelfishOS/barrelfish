@@ -12,13 +12,16 @@ import siteconfig
 
 # FIXME: Check why exactly ikq03 does not want to run httperf
 LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(4,8)]
+#LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(4,5)]
 
 class ETH(siteconfig.BaseSite):
     # site-specific configuration variables for ETH
     WEBSERVER_NFS_HOST = 'emmentaler.in.barrelfish.org'
     NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
-    WEBSERVER_NFS_PATH = '/local/nfs/barrelfish_website'
+    WEBSERVER_NFS_PATH_FULL = '/local/nfs/barrelfish_website'
     WEBSERVER_NFS_TEST_PATH = '/local/nfs/pravin/website/bftest_crash'
+#    WEBSERVER_NFS_PATH = WEBSERVER_NFS_TEST_PATH
+    WEBSERVER_NFS_PATH = WEBSERVER_NFS_PATH_FULL
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH
     HTTPERF_PATH = '/home/netos/tools/i686-pc-linux-gnu/bin/httperf'
     HTTPERF_MAXCLIENTS = len(LOADGEN_HOSTS * 2) # max number of load generators

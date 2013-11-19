@@ -14,8 +14,10 @@ from results import ResultsBase, PassFailResult, RowResults
 
 
 WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'barrelfish_sosp09.pdf']
-WEBSERVER_TEST_FILES=['index.html', 'barrelfish.gif', 'nevill-master-capabilities.pdf']
-#        'nevill-master-capabilities.pdf']
+WEBSERVER_TEST_FILES=['index.html', 'bigfile.bz2', 'bigfile.2.bz2', 'nevill-master-capabilities.pdf']
+WEBSERVER_TEST_FILES=['nevill-master-capabilities.pdf']
+WEBSERVER_TEST_FILES=['index.html']
+
 #'razavi-master-performanceisolation.pdf']
 
 WEBSERVER_TIMEOUT=5 # seconds
@@ -34,8 +36,8 @@ HTTPERF_SLEEPTIME = 20
 HTTPERF_TIMEOUT = datetime.timedelta(seconds=(HTTPERF_DURATION + 30))
 
 # connection rates across all client machines
-HTTPERF_STARTRATE = 1000 # initial rate
-HTTPERF_RATEINCREMENT = 1000 # amount to increment by for each new run
+HTTPERF_STARTRATE = 1000  # initial rate
+HTTPERF_RATEINCREMENT = 1000  # amount to increment by for each new run
 
 
 class WebCommon(TestCommon):
@@ -55,7 +57,7 @@ class WebCommon(TestCommon):
         modules.add_module("netd", ["core=%d" % machine.get_coreids()[1], #2
                                    "cardname=%s"%cardName])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
-        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[1], #2
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[2], #2
 				cardName, nfsip,
                                          siteconfig.get('WEBSERVER_NFS_PATH')])
 #                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
@@ -82,6 +84,36 @@ class WebserverTest(WebCommon):
         super(WebserverTest, self).setup(*args)
         self.testlog = None
 
+    def getpage_stress(self, server, page, count):
+        debug.verbose('requesting http://%s/%s' % (server, page))
+        failure_count = 0;
+        #c = httplib.HTTPConnection(server, timeout=WEBSERVER_TIMEOUT)
+        for i in range(count):
+            try:
+                c = httplib.HTTPConnection(server, timeout=WEBSERVER_TIMEOUT)
+                c.request('GET', '/' + page)
+                r = c.getresponse()
+                if (r.status / 100) != 2 :
+                    print "HTTP request failed for %d" % (i)
+                assert((r.status / 100) == 2) # check for success response
+
+                # Reset failure count after sucessful retrival
+                failure_count = 0
+                c.close()
+            except:
+                print "HTTP request failed for %d, (failure count %d)" % (i,
+                        failure_count)
+                failure_count = failure_count + 1
+                if failure_count >= 3:
+                    print "HTTP request failed for 3 successive times."
+                    print "Giving up for %d, (failure count %d)" % (i,
+                        failure_count)
+                    raise
+
+            #c.close()
+        debug.verbose('server replied %s %s for %d times' % (r.status, r.reason, count))
+
+
     def getpage(self, server, page):
         debug.verbose('requesting http://%s/%s' % (server, page))
         c = httplib.HTTPConnection(server, timeout=WEBSERVER_TIMEOUT)
@@ -104,10 +136,17 @@ class WebserverTest(WebCommon):
             while True:
                 remote_data = r.read(CHUNKSIZE)
                 local_data = l.read(CHUNKSIZE)
+                if remote_data != local_data:
+                    print "Remote and local data did not match:"
+                    print "Remote data\n"
+                    print remote_data
+                    print "Local data\n"
+                    print local_data
                 assert(remote_data == local_data)
                 if len(local_data) < CHUNKSIZE:
                     break
 
+            debug.verbose('contents matched for %s' % local)
         c.close()
 
     def dotest(self, func, args):
@@ -129,9 +168,14 @@ class WebserverTest(WebCommon):
         return r
 
     def runtests(self, server):
+        stress_counter = 50000
+        #stress_counter = 2
         self.testlog = open(os.path.join(self.testdir, TEST_LOG_NAME), 'w')
         for f in WEBSERVER_TEST_FILES:
             self.dotest(self.getpage, (server, f))
+            debug.verbose("Running stresstest: (%d GET %s)" %
+                    (stress_counter, str(f)))
+            self.dotest(self.getpage_stress, (server, f, stress_counter))
         self.testlog.close()
 
     def process_data(self, testdir, rawiter):
@@ -273,7 +317,7 @@ class HTTPerfTest(WebCommon):
                 ret.connreset = int(m.group(4))
 
         if matches != 6 : # otherwise we have an invalid log
-            print "Instead of 6, only %d matches found\n" % (matches )
+            print "Instead of 6, only %d matches found\n" % (matches)
 
         return ret
 

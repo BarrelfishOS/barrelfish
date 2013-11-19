@@ -336,7 +336,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
     for (int i = 0; i < count; i++) {
         errval_t r = transmit_pbuf(buffers[i].pa, buffers[i].len,
                     i == (count - 1), //last?
-                    opaque);
+                    buffers[i].opaque);
         if(err_is_fail(r)) {
             //E1000_DEBUG("ERROR:transmit_pbuf failed\n");
             printf("ERROR:transmit_pbuf failed\n");

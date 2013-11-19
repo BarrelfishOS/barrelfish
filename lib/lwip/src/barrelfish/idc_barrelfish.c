@@ -50,6 +50,11 @@ static int inflight_tx_requests = 0;
 static int inflight_tx_limit = 127;
 static int MAX_TRIES_TX = 200;
 
+uint64_t incoming_packet_count = 0;
+uint64_t incoming_tx_done_count = 0;
+uint64_t outgoing_packet_count = 0;
+uint64_t chained_pbuf_count = 0;
+
 
 /*************************************************************
  * \defGroup LocalStates Local states
@@ -123,7 +128,6 @@ uint64_t perform_lwip_work(void)
     return ec;
 }
 
-
 uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 {
     size_t idx;
@@ -166,7 +170,8 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
         // need to increment the reference count seperately, since lwip only
         // incremented the first pbuf's reference counter
         if (pkt_count != 0) {
-            pbuf_ref(p);
+//            pbuf_ref(p);
+            ++chained_pbuf_count;
         }
 
         more_chunks = (p->next != NULL);
@@ -183,10 +188,25 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
             LWIPBF_DEBUG("idc_send_packet_to_network_driver: failed\n");
             return 0;
         }
+        if (pbuf_chain_len > 1) {
+            LWIPBF_DEBUG
+            //printf
+                ("%s:chained pbuf %"PRIu64" (idx %"PRIu64"): "
+                    "chain elem %"PRIu64" pbuf_ref = %"PRIu16" \n",
+                   disp_name(), outgoing_packet_count, idx, pkt_count, p->ref);
+       } else {
+            LWIPBF_DEBUG
+            //printf
+                ("%s:Packet pbuf %"PRIu64" (idx %"PRIu64"): "
+                    "chain elem %"PRIu64" pbuf_ref = %"PRIu16" \n",
+                   disp_name(), outgoing_packet_count, idx, pkt_count, p->ref);
+       }
+
 
         LWIPBF_DEBUG("idc_send_packet_to_network_driver: terminated\n");
         ++pkt_count;
         p = p->next;
+        outgoing_packet_count++;
     }
     return pkt_count;
 } // end function: idc_send_packet_to_network_driver
@@ -295,7 +315,6 @@ uint8_t get_driver_benchmark_state(int direction,
 // antoinek: Might need to reenable this when we enable multi threaded lwip
 // again
 //bool lwip_in_packet_received = false;
-static uint64_t incoming_packet_count = 0;
 static void handle_incoming(size_t idx, size_t len)
 {
     struct pbuf *p;
@@ -324,9 +343,16 @@ static void handle_tx_done(size_t idx)
 
     // this TX request is finished, so reduce the number of inflight TX requests
     --inflight_tx_requests;
-
+    ++incoming_tx_done_count;
     struct pbuf *p = mem_barrelfish_get_pbuf(idx);
     assert(p != NULL);
+
+    LWIPBF_DEBUG
+    //printf
+        ("%s:%s:TX_done %"PRIu64": for outgoing packet no %"PRIu64" "
+            "(idx=%"PRIu64"): pbuf_ref = %"PRIu16" \n",
+            disp_name(), __func__,  incoming_tx_done_count,
+            outgoing_packet_count, idx, p->ref);
     lwip_free_handler(p);
 }
 

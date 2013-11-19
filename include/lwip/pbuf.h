@@ -104,13 +104,23 @@ extern "C" {
 /* Initializes the pbuf module. This call is empty for now, but may not be in future. */
 #define pbuf_init()
 
+//#define pbuf_free(a)    do{ pbuf_free_tagged((a));  } while(0)
+#define pbuf_free(a)    pbuf_free_tagged((a), (__func__), (__LINE__))
+#define pbuf_ref(a)    pbuf_ref_tagged((a), (__func__), (__LINE__))
+#define pbuf_alloc(l, len, t)    pbuf_alloc_tagged((l), (len), (t), (__func__), (__LINE__))
+
+    void pbuf_ref_tagged(struct pbuf *p, const char *func_name, int line_no);
+    struct pbuf *pbuf_alloc_tagged(pbuf_layer layer, u16_t length, pbuf_type type,
+       const char *func_name, int line_no);
+//    u8_t pbuf_free(struct pbuf *p);
+    u8_t pbuf_free_tagged(struct pbuf * p, const char *func_name, int line_no);
+
     uint16_t free_pbuf_pool_count(void);
-    struct pbuf *pbuf_alloc(pbuf_layer l, u16_t size, pbuf_type type);
     void pbuf_realloc(struct pbuf *p, u16_t size);
     u8_t pbuf_header(struct pbuf *p, s16_t header_size);
-    void pbuf_ref(struct pbuf *p);
+//    void pbuf_ref(struct pbuf *p);
     void pbuf_ref_chain(struct pbuf *p);
-    u8_t pbuf_free(struct pbuf *p);
+//    u8_t pbuf_free(struct pbuf *p);
     u8_t pbuf_clen(struct pbuf *p);
     void pbuf_cat(struct pbuf *head, struct pbuf *tail);
     void pbuf_chain(struct pbuf *head, struct pbuf *tail);

@@ -65,18 +65,42 @@ struct pbuf_desc {
 static struct pbuf_desc *pbufs;
 
 
+uint64_t pbuf_alloc_RX_packets_2 = 0;
 
-
-/** Add a pbuf to the rx ring. */
-// Return NULL when it can't add
-static struct pbuf *add_pbuf_to_rx_ring(void)
+struct pbuf * get_pbuf_for_packet(void)
 {
     struct pbuf *p;
-    ptrdiff_t offset;
-    size_t idx;
-
     // We allocate a pbuf chain of pbufs from the pool.
     p = pbuf_alloc(PBUF_RAW, RECEIVE_PBUF_SIZE, PBUF_POOL);
+
+    if (p == NULL) {
+        return NULL;
+    }
+
+    ++pbuf_alloc_RX_packets_2;
+    // Some sanity checks on the pbuf
+    assert(p != NULL);
+    assert(p->next == NULL);   //make sure there is no chain for now...
+    assert(p->tot_len == RECEIVE_PBUF_SIZE);
+    assert(p->len == RECEIVE_PBUF_SIZE);
+    return p;
+}
+
+/** Add a pbuf to the rx ring. */
+static errval_t add_pbuf_to_rx_ring(struct pbuf *p)
+{
+    ptrdiff_t offset;
+    size_t idx;
+    errval_t err = 1; // FIXME: assuming 1 is for failure
+
+    // We allocate a pbuf chain of pbufs from the pool.
+    //p = get_pbuf_for_packet();
+
+    if (p == NULL) {
+        USER_PANIC("NULL pbuf given for insertion\n");
+        abort();
+        return err;
+    }
 
     // Some sanity checks on the pbuf
     assert(p != NULL);
@@ -91,14 +115,14 @@ static struct pbuf *add_pbuf_to_rx_ring(void)
     assert(offset < buffer_count * buffer_size);
 
     idx = mem_barrelfish_put_pbuf(p);
-    errval_t err = buffer_rx_add(idx);
+    err = buffer_rx_add(idx);
 
+    // FIXME: shouldn't this be done by calling function?
     if (err != SYS_ERR_OK) {
         pbuf_free(p);
         p = NULL;
- //       return NULL;
     }
-    return p;
+    return err;
 }
 
 /** Populate RX ring initially with pbufs. */
@@ -113,12 +137,21 @@ static void rx_populate_ring(void)
     struct pbuf *added_pbuf = NULL;
     // Fill ring
     for (i = 0; i < RECEIVE_BUFFERS; i++) {
-        added_pbuf = add_pbuf_to_rx_ring();
+
+        added_pbuf = get_pbuf_for_packet();
         if (added_pbuf == NULL) {
             // FIXME: Here, maybe application should just for some other events
-            USER_PANIC("Can't do initial population of RX_ring \n");
+            USER_PANIC("Not enough pbufs to initialize the ring with %d pbufs.\n"
+                    "Only %zu inserted till now\n", RECEIVE_BUFFERS, i);
             abort();
         }
+        errval_t err =  add_pbuf_to_rx_ring(added_pbuf);
+        if (err != SYS_ERR_OK) {
+            pbuf_free(added_pbuf);
+            USER_PANIC("Could not push pbuf (%zu) into driver\n", i);
+            abort();
+        }
+
     } // end for:  for every slot
 } // end rx_populate_ring
 
@@ -192,9 +225,9 @@ uint8_t *mem_barrelfish_register_buf(uint8_t binding_index, uint32_t size)
  * Add a new pbuf to the rx ring to replace an existing one, in which a packet
  * has been received.
  */
-struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx)
+errval_t mem_barrelfish_replace_pbuf(struct pbuf *p)
 {
-    return add_pbuf_to_rx_ring();
+    return add_pbuf_to_rx_ring(p);
 }
 
 /**
