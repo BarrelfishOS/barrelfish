@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2010, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -64,6 +64,7 @@ size_t terminal_read(char *data, size_t count)
          * device.
          */
         assert(!"Daemons can't read from a terminal.");
+        return 0;
     }
 }
 
