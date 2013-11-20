@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -484,6 +484,15 @@ invoke_dispatcher_properties(
                     invoke_cptr,
                     (type << 16) | weight,
                     deadline, wcet, period, release).error;
+}
+
+static inline errval_t
+invoke_idcap_identify(
+    struct capref idcap,
+    idcap_id_t *id
+                      )
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 #endif
