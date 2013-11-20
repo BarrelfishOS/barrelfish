@@ -554,14 +554,14 @@ static void get_ramfs_iref_request(struct monitor_binding *b, uintptr_t st)
     }
 }
 
-static void set_mem_iref_request(struct monitor_binding *b, 
+static void set_mem_iref_request(struct monitor_binding *b,
                                  iref_t iref)
 {
     mem_serv_iref = iref;
     update_ram_alloc_binding = true;
 }
 
-static void get_monitor_rpc_iref_request(struct monitor_binding *b, 
+static void get_monitor_rpc_iref_request(struct monitor_binding *b,
                                          uintptr_t st_arg)
 {
     errval_t err;
@@ -589,7 +589,7 @@ void set_monitor_rpc_iref(iref_t iref)
 }
 
 
-static void set_name_iref_request(struct monitor_binding *b, 
+static void set_name_iref_request(struct monitor_binding *b,
                                   iref_t iref)
 {
     if (name_serv_iref != 0) {
@@ -742,7 +742,7 @@ struct cap_send_request_state {
     uint8_t give_away;
     bool has_descendants;
     coremask_t on_cores;
-    bool null_cap; 
+    bool null_cap;
 };
 
 static void cap_send_request_2_handler(struct intermon_binding *b,
@@ -754,7 +754,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
     err = b->tx_vtbl.cap_send_request(b, NOP_CONT, st->your_mon_id, st->capid,
                                       st->caprep, st->msgerr, st->give_away,
                                       st->has_descendants, st->on_cores.bits,
-                                      st->null_cap); 
+                                      st->null_cap);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct intermon_state *intermon_state = b->st;
@@ -769,7 +769,7 @@ static void cap_send_request_2_handler(struct intermon_binding *b,
             ms->give_away = st->give_away;
             ms->has_descendants = st->has_descendants;
             ms->on_cores = st->on_cores;
-            ms->null_cap = st->null_cap; 
+            ms->null_cap = st->null_cap;
             ms->elem.cont = cap_send_request_2_handler;
 
             errval_t err1 = intermon_enqueue_send(b, &intermon_state->queue,
@@ -858,7 +858,7 @@ static void span_domain_request(struct monitor_binding *mb,
     errval_t err, err2;
 
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN0, core_id);
-    
+
     struct span_state *state;
     uintptr_t state_id;
 
@@ -950,11 +950,29 @@ static void span_domain_request(struct monitor_binding *mb,
 }
 
 static void migrate_dispatcher_request(struct monitor_binding *b,
-                                  coreid_t coreid, struct capref vroot, 
+                                  coreid_t coreid, struct capref vroot,
                                   struct capref disp)
 {
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 
+}
+
+static void power_down_request(struct monitor_binding *b,
+                               coreid_t target)
+{
+   printf("%s:%d\n", __FUNCTION__, __LINE__);
+   errval_t err;
+
+   struct intermon_binding *intermon_binding;
+   err = intermon_binding_get(target, &intermon_binding);
+   if (err_is_fail(err)) {
+       USER_PANIC_ERR(err, "can not find binding for core failed.");
+   }
+
+   err = intermon_binding->tx_vtbl.power_down(intermon_binding, NOP_CONT);
+   if (err_is_fail(err)) {
+       USER_PANIC_ERR(err, "power_down to intermon failed.");
+   }
 }
 
 static void num_cores_request(struct monitor_binding *b)
@@ -1001,6 +1019,7 @@ struct monitor_rx_vtbl the_table = {
     .num_cores_request  = num_cores_request,
 
     .migrate_dispatcher_request = migrate_dispatcher_request,
+    .power_down = power_down_request,
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)
@@ -1040,7 +1059,7 @@ errval_t monitor_client_setup(struct spawninfo *si)
     err = cap_copy(dest, src);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_PERF_MON);
-    }    
+    }
 
     // copy our receive vtable to the binding
     monitor_server_init(&b->b);

@@ -660,6 +660,19 @@ static void spawnd_image_request(struct intermon_binding *b)
     assert(err_is_ok(err));
 }
 
+static void power_down_request(struct intermon_binding *b)
+{
+   printf("%s:%d\n", __FUNCTION__, __LINE__);
+
+   errval_t err = invoke_monitor_stop_core();
+   if (err_is_fail(err)) {
+       DEBUG_ERR(err, "Can not stop the core.");
+   }
+
+   printf("%s:%d: \n", __FILE__, __LINE__);
+}
+
+
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -687,6 +700,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_timer_sync_reply     = inter_rsrc_timer_sync_reply,
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
+
+    .power_down = power_down_request,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)

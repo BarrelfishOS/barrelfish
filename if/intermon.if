@@ -164,4 +164,6 @@ interface intermon "The Interface between monitors" {
 
     // This message is sent, once bfscope has finished flushing.
     response bfscope_flush_ack_forward();
+
+    message power_down();
 };

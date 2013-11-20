@@ -667,6 +667,12 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     printf("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
+    printf("%s:%d: Power it down...\n", __FILE__, __LINE__);
+
+    errval_t err = st->tx_vtbl.power_down(st, NOP_CONT, 1);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "power_down failed.");
+    }
 }
 
 int main(int argc, char** argv)
