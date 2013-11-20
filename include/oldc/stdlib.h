@@ -162,6 +162,10 @@ void srandom(unsigned long x);
 char *initstate(unsigned long seed, char *arg_state, long n);
 char *setstate(char *arg_state);
 long random(void);
+int  posix_openpt(int oflag);
+int unlockpt(int fd);
+int grantpt(int fd);
+char *ptsname(int fd);
 
 /* 7.20.3 Memory management functions */
 

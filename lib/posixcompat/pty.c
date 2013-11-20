@@ -19,6 +19,7 @@
  * Attn: Systems Group.
  */
 
+#define _USE_XOPEN
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/waitset.h>
