@@ -73,7 +73,7 @@ errval_t vregion_map_aligned(struct vregion *vregion, struct vspace* vspace,
  * \param vspace   The vspace to associate with the vregion
  * \param memobj   The memory object to associate with the region
  * \param offset   Offset into the memory object
- * \param size     Size of the memoryg object to use
+ * \param size     Size of the memory object to use
  * \param flags    Vregion specific flags
  */
 errval_t vregion_map(struct vregion *vregion, struct vspace *vspace,

@@ -128,6 +128,7 @@ size_t strlen(const char *);
 /* Extra POSIX defined thigns that aren't part of the C standard */
 #ifdef _USE_XOPEN
 char *strdup(const char *);
+char *strndup(const char *, size_t);
 #endif
 
 #endif				/* _STRING_H_ */

@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -331,6 +331,77 @@ errval_t oct_set_get(oct_mode_t mode, char** record, const char* query, ...)
     octopus_trigger_id_t tid;
     err = cl->call_seq.set(cl, buf, mode, NOP_TRIGGER, true, record,
             &tid, &error_code);
+    if (err_is_ok(err)) {
+        err = error_code;
+    }
+
+    free(buf);
+    return err;
+}
+
+/**
+ * \brief Gets one record using the ID capability as the key/name.
+ *
+ * \param[out] data Record returned by the server.
+ * \param[in] idcap ID capability used as the key/name of the record.
+ *
+ * \retval SYS_ERR_OK
+ * \retval OCT_ERR_NO_RECORD
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
+ */
+errval_t oct_get_with_idcap(char **data, struct capref idcap)
+{
+    assert(!capref_is_null(idcap));
+    errval_t error_code;
+    errval_t err = SYS_ERR_OK;
+    octopus_trigger_id_t tid;
+
+    struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
+    assert(cl != NULL);
+    err = cl->call_seq.get_with_idcap(cl, idcap, NOP_TRIGGER, data, &tid,
+                                      &error_code);
+
+    if (err_is_ok(err)) {
+        err = error_code;
+    }
+
+    return err;
+}
+
+/**
+ * \brief Sets a record using the ID capability as the name/key of the record.
+ *
+ * \param idcap      ID capability used as the name/key of the record.
+ * \param attributes Attributes of the record.
+ * \param ...        Additional arguments to format the attributes using
+ *                   vsprintf.
+ *
+ * \retval SYS_ERR_OK
+ * \retval OCT_ERR_NO_RECORD_NAME
+ * \retval OCT_ERR_PARSER_FAIL
+ * \retval OCT_ERR_ENGINE_FAIL
+ */
+errval_t oct_set_with_idcap(struct capref idcap, const char *attributes, ...)
+{
+    assert(!capref_is_null(idcap));
+    assert(attributes != NULL);
+    errval_t err = SYS_ERR_OK;
+    va_list args;
+
+    char *buf = NULL;
+    FORMAT_QUERY(attributes, args, buf);
+
+    // Send to Server
+    struct octopus_thc_client_binding_t *cl = oct_get_thc_client();
+
+    char *record = NULL;
+    errval_t error_code;
+    octopus_trigger_id_t tid;
+    err = cl->call_seq.set_with_idcap(cl, idcap, buf, SET_DEFAULT, NOP_TRIGGER,
+                                      false, &record, &tid, &error_code);
+    assert(record == NULL);
+
     if (err_is_ok(err)) {
         err = error_code;
     }

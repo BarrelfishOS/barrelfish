@@ -4,7 +4,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 /*-
@@ -241,8 +242,6 @@ int          read(int fd, void *buf, size_t len);
 ssize_t      readlink(const char *path, char *buf, size_t bufsize);
 int          rmdir(const char*pathname);
 void        *sbrk(intptr_t increment);
-int          select(int nfds, fd_set *readfds, fd_set *writefds,
-                    fd_set *exceptfds, struct timeval *timeout);
 int          setgid(gid_t gid);
 int          setgroups(int size, gid_t grouplist[]);
 int          setegid(gid_t gid);
@@ -251,6 +250,7 @@ int          setuid(uid_t uid);
 pid_t        setsid(void);
 int          symlink(const char *oldpath, const char *newpath);
 long         sysconf(int name);
+char        *ttyname(int fd);
 int          unlink(const char*pathname);
 int          write(int fd, const void *buf, size_t len);
 __END_DECLS

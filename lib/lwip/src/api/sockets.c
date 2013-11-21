@@ -53,6 +53,14 @@
 #include "lwip/tcpip.h"
 #include "lwip/sock_serialise.h"
 
+#ifdef BF_LWIP_CHAN_SUPPORT
+# include "lwip/sock_chan_support.h"
+
+# include <barrelfish/barrelfish.h>
+# include <barrelfish/waitset.h>
+# include <barrelfish/waitset_chan.h>
+#endif /* BF_LWIP_CHAN_SUPPORT */
+
 #include <string.h>
 
 #define NUM_SOCKETS MEMP_NUM_NETCONN
@@ -75,6 +83,12 @@ struct lwip_socket {
     u16_t flags;
   /** last error that occurred on this socket */
     int err;
+#ifdef BF_LWIP_CHAN_SUPPORT
+    /** Channel used to signal, when data is ready for reading. */
+    struct waitset_chanstate recv_chanstate;
+    /** Channel used to signal, when data is ready for writing. */
+    struct waitset_chanstate send_chanstate;
+#endif /* BF_LWIP_CHAN_SUPPORT */
 };
 
 /** Description for a task waiting in select */
@@ -231,6 +245,12 @@ static int alloc_socket(struct netconn *newconn)
             sockets[i].flags = 0;
             sockets[i].err = 0;
             sys_sem_signal(socksem);
+#ifdef BF_LWIP_CHAN_SUPPORT
+            waitset_chanstate_init(&sockets[i].recv_chanstate,
+                                   CHANTYPE_LWIP_SOCKET);
+            waitset_chanstate_init(&sockets[i].send_chanstate,
+                                   CHANTYPE_LWIP_SOCKET);
+#endif /* BF_LWIP_CHAN_SUPPORT */
             return i;
         }
     }
@@ -1093,6 +1113,10 @@ event_callback(struct netconn *conn, enum netconn_evt evt, u16_t len)
     struct lwip_socket *sock;
     struct lwip_select_cb *scb;
 
+#ifdef BF_LWIP_CHAN_SUPPORT
+    errval_t err;
+#endif /* BF_LWIP_CHAN_SUPPORT */
+
     LWIP_UNUSED_ARG(len);
 
     /* Get socket */
@@ -1128,6 +1152,14 @@ event_callback(struct netconn *conn, enum netconn_evt evt, u16_t len)
     switch (evt) {
         case NETCONN_EVT_RCVPLUS:
             sock->rcvevent++;
+#ifdef BF_LWIP_CHAN_SUPPORT
+            /* If the recv channel is associated with a waitset, trigger an
+             * event. */
+            if (waitset_chan_is_registered(&sock->recv_chanstate)) {
+                err = waitset_chan_trigger(&sock->recv_chanstate);
+                assert(err_is_ok(err));
+            }
+#endif /* BF_LWIP_CHAN_SUPPORT */
             break;
         case NETCONN_EVT_RCVMINUS:
             sock->rcvevent--;
@@ -1137,6 +1169,14 @@ event_callback(struct netconn *conn, enum netconn_evt evt, u16_t len)
             break;
         case NETCONN_EVT_SENDMINUS:
             sock->sendevent = 0;
+#ifdef BF_LWIP_CHAN_SUPPORT
+            /* If the send channel is associated with a waitset, trigger an
+             * event. */
+            if (waitset_chan_is_registered(&sock->send_chanstate)) {
+                err = waitset_chan_trigger(&sock->send_chanstate);
+                assert(err_is_ok(err));
+            }
+#endif /* BF_LWIP_CHAN_SUPPORT */
             break;
         default:
             LWIP_ASSERT("unknown event", 0);
@@ -2198,7 +2238,175 @@ int lwip_deserialise_sock(int s, struct lwip_sockinfo *si)
     return 0;
 }
 
+#ifdef BF_LWIP_CHAN_SUPPORT
+/**
+ * \brief Check if a read on the socket would not block.
+ *
+ * \param socket    Socket to check.
+ * \return          Whether or not the socket is ready.
+ */
+bool lwip_sock_ready_read(int socket)
+{
+    bool is_ready = false;
+    struct lwip_socket *p_sock;
 
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
 
+    if (p_sock && (p_sock->lastdata || (p_sock->rcvevent > 0))) {
+        is_ready = true;
+    }
+
+    return is_ready;
+}
+
+/**
+ * \brief Check if a write on the socket would not block.
+ *
+ * \param socket    Socket to check.
+ * \return          Whether or not the socket is ready.
+ */
+bool lwip_sock_ready_write(int socket)
+{
+    bool is_ready = false;
+    struct lwip_socket *p_sock;
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    if (p_sock && p_sock->sendevent) {
+        is_ready = true;
+    }
+
+    return is_ready;
+}
+
+static void do_nothing(void *arg)
+{
+    return;
+}
+
+/**
+ * \brief Deregister previously registered waitset on which an event is delivered
+ *        when the socket is ready for reading.
+ */
+errval_t lwip_sock_waitset_deregister_read(int socket)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    err = waitset_chan_deregister(&p_sock->recv_chanstate);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Register a waitset on which an event is delivered when the socket is
+ *        ready for reading.
+ *
+ * The event is triggered ONCE, when the socket becomes ready for reading. If
+ * the socket is already ready, the event is triggered right away.
+ *
+ * \param socket    Socket
+ * \param ws        Waitset
+ */
+errval_t lwip_sock_waitset_register_read(int socket, struct waitset *ws)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    assert(ws != NULL);
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    waitset_chanstate_init(&p_sock->recv_chanstate, CHANTYPE_LWIP_SOCKET);
+
+    err = waitset_chan_register(ws, &p_sock->recv_chanstate,
+                                MKCLOSURE(do_nothing, NULL));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Error register recv channel on waitset.");
+        return err;
+    }
+
+    /* if socket is ready, trigger event right away */
+    if (lwip_sock_ready_read(socket)) {
+        err = waitset_chan_trigger(&p_sock->recv_chanstate);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Error trigger event on recv channel.");
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Deregister previously registered waitset on which an event is delivered
+ *        when the socket is ready for writing.
+ */
+errval_t lwip_sock_waitset_deregister_write(int socket)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    err = waitset_chan_deregister(&p_sock->send_chanstate);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Register a waitset on which an event is delivered when the socket is
+ *        ready for writing.
+ *
+ * The event is triggered ONCE, when the socket becomes ready for writing. If
+ * the socket is already ready, the event is triggered right away.
+ *
+ * \param socket    Socket
+ * \param ws        Waitset
+ */
+errval_t lwip_sock_waitset_register_write(int socket, struct waitset *ws)
+{
+    errval_t err;
+    struct lwip_socket *p_sock;
+
+    assert(ws != NULL);
+
+    p_sock = get_socket(socket);
+    assert(p_sock != NULL);
+
+    waitset_chanstate_init(&p_sock->send_chanstate, CHANTYPE_LWIP_SOCKET);
+
+    err = waitset_chan_register(ws, &p_sock->send_chanstate,
+                                MKCLOSURE(do_nothing, NULL));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Error register send channel on waitset.");
+        return err;
+    }
+
+    /* if socket is ready, trigger event right away */
+    if (lwip_sock_ready_write(socket)) {
+        err = waitset_chan_trigger(&p_sock->send_chanstate);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Error trigger event on send channel.");
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+#endif /* BF_LWIP_CHAN_SUPPORT */
 
 #endif                          /* LWIP_SOCKET */

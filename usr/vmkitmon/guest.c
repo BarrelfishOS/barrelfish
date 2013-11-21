@@ -36,6 +36,8 @@
 
 #define APIC_BASE       0xfee00000
 
+#define SERIAL_DRIVER   "serial0.raw"
+
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
 lvaddr_t guest_offset = 0;
@@ -600,7 +602,7 @@ guest_setup (struct guest *g)
         DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
     }
 
-    // allocate memory fot the msrpm
+    // allocate memory for the msrpm
     err = frame_alloc(&g->msrpm_cap, MSRPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
     err = invoke_frame_identify(g->msrpm_cap, &fi);
@@ -634,7 +636,11 @@ guest_setup (struct guest *g)
     }
     g->console = console_new();
     g->serial_ports[0] = pc16550d_new(0x3f8, 4, g->lpc);
-    pc16550d_attach_to_console(g->serial_ports[0]);
+
+    // FIXME: Which virtual uart port is connected to which host port
+    //        should be adjustable from the command line or a configuration
+    //        file.
+    pc16550d_attach_to_host_uart(g->serial_ports[0], SERIAL_DRIVER);
     g->serial_ports[1] = pc16550d_new(0x2f8, 3, g->lpc);
     g->serial_ports[2] = pc16550d_new(0x3e8, 4, g->lpc);
     g->serial_ports[3] = pc16550d_new(0x2e8, 3, g->lpc);

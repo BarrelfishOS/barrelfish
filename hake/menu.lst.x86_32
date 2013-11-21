@@ -35,4 +35,5 @@ module /x86_32/sbin/pci auto
 
 # General user domains
 module	/x86_32/sbin/serial
-module	/x86_32/sbin/fish
+module  /x86_32/sbin/fish nospawn
+module	/x86_32/sbin/angler serial0.terminal xterm

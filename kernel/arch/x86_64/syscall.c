@@ -479,7 +479,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // 0. Enable VM extensions
     err = vmkit_enable_virtualization();
-    if(err != SYS_ERR_OK) {
+    if (err != SYS_ERR_OK) {
         return SYSRET(err);
     }
 

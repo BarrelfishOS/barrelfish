@@ -9,7 +9,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -43,6 +44,12 @@ void libc_exit(int);
 
 void libc_exit(int status)
 {
+    errval_t err;
+
+    if (!init_domain) {
+        terminal_exit();
+    }
+
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
         errval_t err = cap_revoke(cap_dispatcher);
@@ -55,7 +62,7 @@ void libc_exit(int status)
 
         // XXX: Leak all other domain allocations
     } else {
-        errval_t err = spawn_exit(status);
+        err = spawn_exit(status);
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "spawn_exit");
         }

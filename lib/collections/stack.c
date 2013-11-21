@@ -37,6 +37,7 @@ void collections_stack_create(struct collections_stack **stack)
     (*stack)->num_elements = 0;
 
     // create a linked list to hold the elements of the stack
+    collections_list_create(&(*stack)->elements, NULL);
 
     return;
 }

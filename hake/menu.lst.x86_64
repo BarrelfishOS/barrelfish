@@ -48,4 +48,5 @@ module /x86_64/sbin/netd auto
 
 # General user domains
 module	/x86_64/sbin/serial
-module	/x86_64/sbin/fish
+module  /x86_64/sbin/fish nospawn
+module	/x86_64/sbin/angler serial0.terminal xterm

@@ -138,6 +138,12 @@ struct capref cap_initep = {
     .slot  = TASKCN_SLOT_INITEP
 };
 
+/// Session ID
+struct capref cap_sessionid = {
+    .cnode = TASK_CNODE_INIT,
+    .slot = TASKCN_SLOT_SESSIONID
+};
+
 static inline bool backoff(int count)
 {
     // very crude exponential backoff based upon core id
