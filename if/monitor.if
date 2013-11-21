@@ -205,5 +205,6 @@ interface monitor "The monitor to client Interface" {
 
     message migrate_dispatcher(uintptr domain_id);
 
-    message power_down(coreid target);
+    call power_down(coreid target);
+    response power_down_response(coreid target);
 };

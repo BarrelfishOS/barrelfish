@@ -957,11 +957,15 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
 
 }
 
+struct monitor_binding* cpuboot_driver;
+
 static void power_down_request(struct monitor_binding *b,
                                coreid_t target)
 {
    printf("%s:%d\n", __FUNCTION__, __LINE__);
    errval_t err;
+
+   cpuboot_driver = b;
 
    struct intermon_binding *intermon_binding;
    err = intermon_binding_get(target, &intermon_binding);
@@ -969,7 +973,7 @@ static void power_down_request(struct monitor_binding *b,
        USER_PANIC_ERR(err, "can not find binding for core failed.");
    }
 
-   err = intermon_binding->tx_vtbl.power_down(intermon_binding, NOP_CONT);
+   err = intermon_binding->tx_vtbl.power_down_request(intermon_binding, NOP_CONT);
    if (err_is_fail(err)) {
        USER_PANIC_ERR(err, "power_down to intermon failed.");
    }

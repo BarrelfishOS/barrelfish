@@ -662,14 +662,33 @@ static void spawnd_image_request(struct intermon_binding *b)
 
 static void power_down_request(struct intermon_binding *b)
 {
-   printf("%s:%d\n", __FUNCTION__, __LINE__);
+   errval_t err;
+   printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
 
-   errval_t err = invoke_monitor_stop_core();
+   err = b->tx_vtbl.power_down_reponse(b, NOP_CONT);
+   if (err_is_fail(err)) {
+       USER_PANIC_ERR(err, "Sending response failed.");
+   }
+
+   err = invoke_monitor_stop_core();
    if (err_is_fail(err)) {
        DEBUG_ERR(err, "Can not stop the core.");
    }
 
-   printf("%s:%d: \n", __FILE__, __LINE__);
+   printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+}
+
+extern struct monitor_binding* cpuboot_driver;
+
+static void power_down_response(struct intermon_binding* b)
+{
+    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    err = cpuboot_driver->tx_vtbl.power_down_response(cpuboot_driver, NOP_CONT, 1);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cpuboot driver failed.");
+    }
+
+    return SYS_ERR_OK;
 }
 
 
@@ -701,7 +720,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
 
-    .power_down = power_down_request,
+    .power_down_request = power_down_request,
+    .power_down_response = power_down_response,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
