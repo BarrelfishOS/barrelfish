@@ -14,7 +14,7 @@ from results import PassFailResult
 
 NUM_SPAWNS = 4
 NUM_CORES = 2
-MATCH = 'xmpl-spawn.*Finished'
+MATCH = '.*xmpl-spawn.*Finished'
 
 @tests.add_test
 class SpawnTest(TestCommon):
