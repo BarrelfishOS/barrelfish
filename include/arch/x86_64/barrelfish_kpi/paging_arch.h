@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef ARCH_X86_64_BARRELFISH_KPI_PAGING_H
@@ -29,6 +29,11 @@
 #define LARGE_PAGE_SIZE      X86_64_LARGE_PAGE_SIZE
 #define LARGE_PAGE_MASK      X86_64_LARGE_PAGE_MASK
 #define LARGE_PAGE_OFFSET    X86_64_LARGE_PAGE_OFFSET
+
+#define HUGE_PAGE_BITS      X86_64_HUGE_PAGE_BITS
+#define HUGE_PAGE_SIZE      X86_64_HUGE_PAGE_SIZE
+#define HUGE_PAGE_MASK      X86_64_HUGE_PAGE_MASK
+#define HUGE_PAGE_OFFSET    X86_64_HUGE_PAGE_OFFSET
 
 /**
  * Bits within the various page directories and tables.

@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef KERNEL_TARGET_X86_64_PAGING_H
@@ -71,6 +71,24 @@ union x86_64_pdir_entry {
  */
 union x86_64_ptable_entry {
     uint64_t raw;
+    struct {
+        uint64_t        present         :1;
+        uint64_t        read_write      :1;
+        uint64_t        user_supervisor :1;
+        uint64_t        write_through   :1;
+        uint64_t        cache_disabled  :1;
+        uint64_t        accessed        :1;
+        uint64_t        dirty           :1;
+        uint64_t        always1         :1;
+        uint64_t        global          :1;
+        uint64_t        available       :3;
+        uint64_t        attr_index      :1;
+        uint64_t        reserved        :17;
+        uint64_t        base_addr       :10;
+        uint64_t        reserved2       :12;
+        uint64_t        available2      :11;
+        uint64_t        execute_disable :1;
+    } huge;
     struct {
         uint64_t        present         :1;
         uint64_t        read_write      :1;
@@ -161,6 +179,36 @@ static inline void paging_x86_64_map_table(union x86_64_pdir_entry *entry,
 }
 
 /**
+ * \brief Maps a huge page.
+ *
+ * From huge page table entry, pointed to by 'entry', maps physical address
+ * 'base' with page attribute bitmap 'bitmap'.
+ *
+ * \param entry         Pointer to page table entry to map from.
+ * \param base          Physical address to map to (will be page-aligned).
+ * \param bitmap        Bitmap to apply to page attributes.
+ */
+static inline void paging_x86_64_map_huge(union x86_64_ptable_entry *entry,
+                                           lpaddr_t base, uint64_t bitmap)
+{
+    union x86_64_ptable_entry tmp;
+    tmp.raw = X86_64_PTABLE_CLEAR;
+
+    tmp.huge.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.huge.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.huge.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.huge.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
+    tmp.huge.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
+    tmp.huge.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+    tmp.huge.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+    tmp.huge.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.huge.always1 = 1;
+    tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
+    
+    *entry = tmp;
+}
+
+/**
  * \brief Maps a large page.
  *
  * From large page table entry, pointed to by 'entry', maps physical address
@@ -186,7 +234,7 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
     tmp.large.base_addr = base >> 21;
-
+    
     *entry = tmp;
 }
 

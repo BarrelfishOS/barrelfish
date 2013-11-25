@@ -16,12 +16,12 @@
  */
 
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -29,10 +29,15 @@
 #include <stdio.h>
 #include "target/x86/pmap_x86.h"
 
+
 // Location and size of virtual address space reserved for mapping
 // frames backing refill_slabs
 #define META_DATA_RESERVED_BASE ((lvaddr_t)1UL*1024*1024*1024)
 #define META_DATA_RESERVED_SIZE (X86_32_BASE_PAGE_SIZE * 1200)
+
+//TODO better name/condition
+#define FLAGS_LARGE 0x0100
+#define FLAGS_UNMAP 0x01
 
 /**
  * \brief Translate generic vregion flags to architecture specific pmap flags
@@ -66,6 +71,16 @@ static paging_x86_32_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 static inline bool is_same_pdir(genvaddr_t va1, genvaddr_t va2)
 {
     return (va1>>X86_32_LARGE_PAGE_BITS) == (va2>>X86_32_LARGE_PAGE_BITS);
+}
+static inline bool is_same_pdpt(genvaddr_t va1, genvaddr_t va2)
+{
+#ifdef CONFIG_PAE
+    // PDPT in PAE has 4 entries, uses the topmost two bits
+    return (va1>>30) == (va2>>30);
+#else
+    // since there is no PDPT in 32bit, trivially true
+    return true;
+#endif
 }
 static inline genvaddr_t get_addr_prefix(genvaddr_t va)
 {
@@ -232,6 +247,31 @@ static errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
 
     return SYS_ERR_OK;
 }
+/**
+ * \brief Returns the vnode for the page directory mapping a given vspace address
+ */
+static errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
+                           struct vnode **pdir)
+{
+#ifdef CONFIG_PAE
+    struct vnode *root = &pmap->root;
+    assert(root != NULL);
+
+    // PDPTE mapping
+    if((*pdir = find_vnode(root, X86_32_PDPTE_BASE(base))) == NULL) {
+        errval_t err = alloc_vnode(pmap, root, ObjType_VNode_x86_32_pdir,
+                          X86_32_PDPTE_BASE(base), pdir);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+    }
+#else
+    *pdir = &pmap->root;
+#endif
+
+    return SYS_ERR_OK;
+}
+
 
 static struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
 {
@@ -256,18 +296,30 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_
                               struct capref frame, size_t offset, size_t pte_count,
                               vregion_flags_t flags)
 {
+    //printf("[do_single_map] vaddr = 0x%"PRIxGENVADDR"\n", vaddr);
     // translate flags
-    paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+    paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags &~(FLAGS_LARGE));
 
-    // Get the page table
+    // Get the page table and do mapping specific alterations
     struct vnode *ptable;
-    errval_t err = get_ptable(pmap, vaddr, &ptable);
+    errval_t err;
+    size_t base;
+    if (flags&FLAGS_LARGE) {
+        printf("pmap_single_map: large\n");
+        //4M/2M(PAE) mapping
+        err = get_pdir(pmap, vaddr, &ptable);
+        base = X86_32_PDIR_BASE(vaddr);
+    } else {
+        //4k mapping
+        err = get_ptable(pmap, vaddr, &ptable);
+        base = X86_32_PTABLE_BASE(vaddr);
+    }    
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
-
+    
     // check if there is an overlapping mapping
-    if (has_vnode(ptable, X86_32_PTABLE_BASE(vaddr), pte_count)) {
+    if (has_vnode(ptable, base, pte_count)) {
         printf("page already exists in 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
         return LIB_ERR_PMAP_EXISTING_MAPPING;
     }
@@ -276,7 +328,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_
     struct vnode *page = slab_alloc(&pmap->slab);
     assert(page);
     page->is_vnode = false;
-    page->entry = X86_32_PTABLE_BASE(vaddr);
+    page->entry = base;
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
     page->u.frame.cap = frame;
@@ -285,9 +337,10 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_
     page->u.frame.pte_count = pte_count;
 
     // do map
-    err = vnode_map(ptable->u.vnode.cap, frame, X86_32_PTABLE_BASE(vaddr),
+    err = vnode_map(ptable->u.vnode.cap, frame, base,
                     pmap_flags, offset, pte_count);
     if (err_is_fail(err)) {
+        printf("error in do_single_map: vnode_map failed\n");
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
@@ -301,12 +354,29 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     //printf("[do_map] vaddr = 0x%"PRIxGENVADDR", size = %zd\n", vaddr, size);
     errval_t err;
 
-    size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
-    size_t pte_count = DIVIDE_ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+    size_t page_size;
+    size_t base;
+
+    if(flags&FLAGS_LARGE) {
+        printf("pmap_do_map: large\n");
+        //4M/2M (PAE) pages
+        page_size = X86_32_LARGE_PAGE_SIZE;
+        base = X86_32_PDIR_BASE(vaddr);
+        //printf("pmap_do_map: large: pte: %i\n", DIVIDE_ROUND_UP(size, page_size));
+        //printf("pmap_do_map: large: same_pdpt: %i\n", is_same_pdpt(vaddr, vaddr+size));
+    } else {
+        //4k mapping
+        page_size = X86_32_BASE_PAGE_SIZE;
+        base = X86_32_PTABLE_BASE(vaddr);
+    }
+
+    size = ROUND_UP(size, page_size);
+    size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
-    if (is_same_pdir(vaddr, vend)) {
+    if (is_same_pdir(vaddr, vend) || (is_same_pdpt(vaddr, vend) && flags&FLAGS_LARGE)) {
         // fast path
+        //printf("pmap_do_map: fast path, pte_count: %i, %i\n", pte_count, DIVIDE_ROUND_UP(size, page_size));
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -314,8 +384,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
     else { // multiple leaf page tables
         // first leaf
-        uint32_t c = X86_32_PTABLE_SIZE - X86_32_PTABLE_BASE(vaddr);
-        genvaddr_t temp_end = vaddr + c * X86_32_BASE_PAGE_SIZE;
+        uint32_t c = X86_32_PTABLE_SIZE - base;
+        genvaddr_t temp_end = vaddr + c * page_size;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -325,8 +395,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         while (get_addr_prefix(temp_end) < get_addr_prefix(vend)) {
             // update vars
             vaddr = temp_end;
-            temp_end = vaddr + X86_32_PTABLE_SIZE * X86_32_BASE_PAGE_SIZE;
-            offset += c * X86_32_BASE_PAGE_SIZE;
+            temp_end = vaddr + X86_32_PTABLE_SIZE * page_size;
+            offset += c * page_size;
             c = X86_32_PTABLE_SIZE;
             // copy cap
             struct capref next;
@@ -348,8 +418,14 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
 
         // map remaining part
-        offset += c * X86_32_BASE_PAGE_SIZE;
-        c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(temp_end);
+        offset += c * page_size;
+        if(flags&FLAGS_LARGE) {
+            // 4M/2M (PAE) mapping
+            c = X86_32_PDIR_BASE(vend) - X86_32_PDIR_BASE(temp_end);
+        } else {
+            // 4K mapping
+            c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(temp_end);
+        }
         if (c) {
             // copy cap
             struct capref next;
@@ -391,6 +467,17 @@ static size_t max_slabs_for_mapping(size_t bytes)
     size_t max_pdpt   = 0;
 #endif
     return max_pages + max_ptable + max_pdir + max_pdpt;
+}
+static size_t max_slabs_for_mapping_large(size_t bytes)
+{
+    size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_32_LARGE_PAGE_SIZE);
+    size_t max_pdir   = DIVIDE_ROUND_UP(max_pages, X86_32_PTABLE_SIZE) + 1;
+#ifdef CONFIG_PAE
+    size_t max_pdpt   = DIVIDE_ROUND_UP(max_pdir, X86_32_PTABLE_SIZE) + 1;
+#else
+    size_t max_pdpt   = 0;
+#endif
+    return max_pages + max_pdir + max_pdpt;
 }
 
 /**
@@ -478,17 +565,30 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
                     size_t offset, size_t size, vregion_flags_t flags,
                     size_t *retoff, size_t *retsize)
 {
+    //printf("[map] vaddr = 0x%"PRIxGENVADDR", size = %zd\n", vaddr, size);
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
+    
+    size_t max_slabs;
 
     // Adjust the parameters to page boundaries
-    size   += X86_32_BASE_PAGE_OFFSET(offset);
-    size    = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
-    offset -= X86_32_BASE_PAGE_OFFSET(offset);
+    if(flags&FLAGS_LARGE) {
+        // 4M pages/2M pages(PAE)
+        printf("map: large path\n");
+        size   += X86_32_LARGE_PAGE_OFFSET(offset);
+        size    = ROUND_UP(size, X86_32_LARGE_PAGE_SIZE);
+        offset -= X86_32_LARGE_PAGE_OFFSET(offset);
+        max_slabs = max_slabs_for_mapping_large(size);
+    } else {
+        // 4K pages
+        size   += X86_32_BASE_PAGE_OFFSET(offset);
+        size    = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+        offset -= X86_32_BASE_PAGE_OFFSET(offset);
+        max_slabs = max_slabs_for_mapping(size);
+    }
 
     // Refill slab allocator if necessary
     size_t slabs_free = slab_freecount(&x86->slab);
-    size_t max_slabs = max_slabs_for_mapping(size);
     max_slabs += 4; // minimum amount required to map a page
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
@@ -508,7 +608,12 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
         }
     }
 
+    //printf("[map call do_map] vaddr = 0x%"PRIxGENVADDR", flag = %x\n", vaddr, (int)flags);
     err = do_map(x86, vaddr, frame, offset, size, flags, retoff, retsize);
+    if(flags&FLAGS_LARGE)
+    {
+        printf("map: large map complete\n");
+    }
     return err;
 }
 
@@ -772,8 +877,64 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
     return SYS_ERR_OK;
 }
 
+static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
+                                   size_t alignment, genvaddr_t *retvaddr)
+{
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+
+    struct vnode *walk_pdir = x86->root.u.vnode.children;
+    assert(walk_pdir != NULL); // assume there's always at least one existing entry
+
+    if (alignment == 0) {
+        alignment = BASE_PAGE_SIZE;
+    } else {
+        alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
+    }
+    size = ROUND_UP(size, alignment);
+
+    size_t free_count = DIVIDE_ROUND_UP(size, LARGE_PAGE_SIZE);
+    debug_printf("need %zu contiguous free pdirs\n", free_count);
+
+    // compile pdir free list
+    bool f[1024];
+    for (int i = 0; i < 1024; i++) {
+        f[i] = true;
+    }
+    f[walk_pdir->entry] = false;
+    while (walk_pdir) {
+        assert(walk_pdir->is_vnode);
+        f[walk_pdir->entry] = false;
+        walk_pdir = walk_pdir->next;
+    }
+    genvaddr_t first_free = 384;
+    // XXX: breaks for PAE
+    for (; first_free < 512; first_free++) {
+        if (f[first_free]) {
+            for (int i = 1; i < free_count; i++) {
+                if (!f[first_free + i]) {
+                    // advance pointer
+                    first_free = first_free+i;
+                    goto next;
+                }
+            }
+            break;
+        }
+next:
+        assert(1 == 1);// make compiler shut up about label
+    }
+    printf("first free: %li\n", (uint32_t)first_free);
+    if (first_free + free_count <= 512) {
+        *retvaddr = first_free << 22;
+        return SYS_ERR_OK;
+    } else {
+        return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
+    }
+}
+
+
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = pmap_x86_determine_addr,
+    .determine_addr_raw = determine_addr_raw,
     .map = map,
     .unmap = unmap,
     .modify_flags = modify_flags,

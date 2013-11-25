@@ -171,6 +171,7 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
+	sbin/vnode_map_test \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

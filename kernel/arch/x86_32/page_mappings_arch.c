@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -75,12 +75,12 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
                             struct capability * src, uintptr_t flags,
                             uintptr_t offset, uintptr_t pte_count)
 {
+    //printf("x86_32_pdir\n");
     if (slot >= X86_32_PTABLE_SIZE) { // Slot within page table
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (pte_count > 1) { // disallow more than one page at a time
-        // XXX: this prevents mapping multiple superpages at a time
+    if (slot + pte_count > X86_32_PTABLE_SIZE) { // disallow more than one page at a time
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -90,7 +90,79 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
     }
 #endif
 
+    //TODO large page code
+    size_t page_size = X86_32_LARGE_PAGE_SIZE;
+    if(dest->type == ObjType_VNode_x86_32_pdir &&
+       src->type != ObjType_VNode_x86_32_ptable)
+    {
+        printf("\tlarge page\n");
+        cslot_t last_slot = slot + pte_count;
+
+        if (src->type != ObjType_Frame &&
+            src->type != ObjType_DevFrame) { // Right mapping
+            printf("\tlarge page wrong mapping\n");
+            return SYS_ERR_WRONG_MAPPING;
+        }
+
+        // check offset within frame
+        if (offset + pte_count * page_size > get_size(src)) {
+            printf("\tlarge page wrong offset\n");
+            return SYS_ERR_FRAME_OFFSET_INVALID;
+        }
+
+        printf("calc new flags\n");
+        /* Calculate page access protection flags */
+        // Get frame cap rights
+        paging_x86_32_flags_t flags_large =
+            paging_x86_32_cap_to_page_flags(src->rights);
+        // Mask with provided access rights mask
+        flags_large = paging_x86_32_mask_attrs(flags_large, X86_32_PTABLE_ACCESS(flags));
+        // Add additional arch-specific flags
+        flags_large |= X86_32_PTABLE_FLAGS(flags);
+        // Unconditionally mark the page present
+        flags_large |= X86_32_PTABLE_PRESENT;
+    
+        printf("calc addrs\n");
+        // Convert destination base address
+        genpaddr_t dest_gp   = get_address(dest);
+        lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
+        lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+        // Convert source base address
+        genpaddr_t src_gp   = get_address(src);
+        lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
+        // Set metadata
+        printf("set metadata\n");
+        struct cte *src_cte = cte_for_cap(src);
+        src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_32_ptable_entry);
+        src_cte->mapping_info.pte_count = pte_count;
+        src_cte->mapping_info.offset = offset;
+    
+
+        printf("start looping\n");
+        for (; slot < last_slot; slot++, offset += page_size) {
+            printf("looping\n");
+            union x86_32_ptable_entry *entry =
+                (union x86_32_ptable_entry *)dest_lv + slot;
+                
+            /* FIXME: Flush TLB if the page is already present
+             * in the meantime, since we don't do this, we just assert that
+             * we never reuse a VA mapping */
+            if (X86_32_IS_PRESENT(entry)) {
+                printf("Trying to map into an already present page NYI.\n");
+                return SYS_ERR_VNODE_SLOT_INUSE;
+            }
+            
+            printf("map it\n");
+            // Carry out the page mapping
+            paging_x86_32_map_large(entry, src_lp + offset, flags_large);
+        }
+
+        printf("mapping complete\n");
+        return SYS_ERR_OK;
+    }
+
     if (src->type != ObjType_VNode_x86_32_ptable) { // Right mapping
+        printf("error4\n");
         return SYS_ERR_WRONG_MAPPING;
     }
 
@@ -122,6 +194,7 @@ static errval_t x86_32_ptable(struct capability *dest, cslot_t slot,
                               struct capability * src, uintptr_t uflags,
                               uintptr_t offset, uintptr_t pte_count)
 {
+    //printf("x86_32_ptable\n");
     if (slot >= X86_32_PTABLE_SIZE) { // Slot within page table
         return SYS_ERR_VNODE_SLOT_INVALID;
     }

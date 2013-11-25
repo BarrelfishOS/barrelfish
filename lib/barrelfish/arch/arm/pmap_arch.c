@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /*
@@ -18,7 +18,7 @@
  * resource bootstrapping. The bootstrap ram allocator allocates pages.
  *
  *
- * The natural division of bits is 12/10/12, corresponding to 4K
+ * The natural division of bits is 12/8/12, corresponding to 4K
  * L1 entries in the L1 table and 256 L2 entries per L2
  * table. Unfortunately 256 entries consumes 1KB rather than a
  * page (4KB) so we pretend here and in the kernel caps page
@@ -83,6 +83,9 @@
 // in hardware we use 12 bits for L1 and 8 bits for L2.
 #define ARM_USER_L1_OFFSET(addr) ((uintptr_t)(addr >> 22) & 0x3ffu)
 #define ARM_USER_L2_OFFSET(addr) ((uintptr_t)(addr >> 12) & 0x3ffu)
+
+//flag for large page mapping
+#define FLAGS_LARGE 0x0100
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -267,6 +270,42 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
 
     return SYS_ERR_OK;
 }
+/**
+ * \brief Returns the vnode for the TODO pdir mapping a given vspace address
+ */
+static errval_t get_pdir(struct pmap_arm  *pmap,
+                           genvaddr_t        vaddr,
+                           struct vnode    **ptable)
+{
+    // NB Strictly there are 12 bits in the ARM L1, but allocations unit
+    // of L2 is 1 page of L2 entries (4 tables) so we use 10 bits for the L1
+    // index here
+    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
+    if ((*ptable = find_vnode(&pmap->root, index)) == NULL)
+    {
+        // L1 table entries point to L2 tables so allocate an L2
+        // table for this L1 entry.
+
+        struct vnode *tmp = NULL; // Tmp variable for passing to alloc_vnode
+
+        errval_t err = alloc_vnode(pmap, &pmap->root, ObjType_VNode_ARM_l2,
+                                   index, &tmp);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "alloc_vnode");
+            return err;
+        }
+        assert(tmp != NULL);
+        *ptable = tmp; // Set argument to received value
+
+
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
 
 static struct vnode *find_ptable(struct pmap_arm  *pmap,
                                  genvaddr_t vaddr)
@@ -283,7 +322,18 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
 {
     // Get the page table
     struct vnode *ptable;
-    errval_t err = get_ptable(pmap, vaddr, &ptable);
+    errval_t err;
+    if (flags&FLAGS_LARGE)
+    {
+        //large page mapping
+        err = get_pdir(pmap, vaddr, &ptable);
+        flags &= ~(FLAGS_LARGE);
+    }
+    else
+    {
+        //normal 4k mapping
+        err = get_ptable(pmap, vaddr, &ptable);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
@@ -319,9 +369,21 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+    
+    size_t page_size;
+    if (flags&FLAGS_LARGE)
+    {
+        //L2 mapping
+//        page_size = LARGE_PAGE_SIZE;
+    }
+    else
+    {
+        //normal 4k mapping
+        page_size = BASE_PAGE_SIZE;
+    }
+    size = ROUND_UP(size, page_size);
+    size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
 
-    size = ROUND_UP(size, BASE_PAGE_SIZE);
-    size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
     genvaddr_t vend = vaddr + size;
 
     if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
@@ -334,7 +396,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
     } else { // multiple leaf page tables
         // first leaf
         uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
-        genvaddr_t temp_end = vaddr + c * BASE_PAGE_SIZE;
+        genvaddr_t temp_end = vaddr + c * page_size;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -343,8 +405,8 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         // map full leaves
         while (ARM_L1_OFFSET(temp_end) < ARM_L1_OFFSET(vend)) { // update vars
             vaddr = temp_end;
-            temp_end = vaddr + ARM_L2_MAX_ENTRIES * BASE_PAGE_SIZE;
-            offset += c * BASE_PAGE_SIZE;
+            temp_end = vaddr + ARM_L2_MAX_ENTRIES * page_size;
+            offset += c * page_size;
             c = ARM_L2_MAX_ENTRIES;
             // copy cap
             struct capref next;
@@ -366,7 +428,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         }
 
         // map remaining part
-        offset += c * BASE_PAGE_SIZE;
+        offset += c * page_size;
         c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(temp_end);
         if (c) {
             // copy cap
@@ -516,10 +578,21 @@ map(struct pmap     *pmap,
 {
     struct pmap_arm *pmap_arm = (struct pmap_arm *)pmap;
 
-    size   += BASE_PAGE_OFFSET(offset);
-    size    = ROUND_UP(size, BASE_PAGE_SIZE);
-    offset -= BASE_PAGE_OFFSET(offset);
-
+    if(flags&FLAGS_LARGE)
+    {
+        //large page mapping
+        //size += LARGE_PAGE_OFFSET(offset);
+        //size = ROUND_UP(size, LARGE_PAGE_SIZE);
+        //offset -= LARGE_PAGE_OFFSET(offset);
+    }
+    else
+    {
+        //4k mapping
+        size   += BASE_PAGE_OFFSET(offset);
+        size    = ROUND_UP(size, BASE_PAGE_SIZE);
+        offset -= BASE_PAGE_OFFSET(offset);
+    }
+    
     const size_t slabs_reserve = 3; // == max_slabs_required(1)
     uint64_t  slabs_free       = slab_freecount(&pmap_arm->slab);
     size_t    slabs_required   = max_slabs_required(size) + slabs_reserve;

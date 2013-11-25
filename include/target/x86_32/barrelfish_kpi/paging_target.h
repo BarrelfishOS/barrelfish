@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef TARGET_X86_32_BARRELFISH_KPI_PAGING_H
@@ -71,6 +71,8 @@ typedef uint32_t paging_x86_32_flags_t;
 #define X86_32_PDPTE_SIZE              4
 #define X86_32_PDPTE_MASK              3
 #define X86_32_PDPTE_CLEAR             0
+
+#define X86_32_PDIR_SIZE           512
 
 #define X86_32_PTABLE_SIZE         512     /**< Page directory/table size */
 #define X86_32_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */

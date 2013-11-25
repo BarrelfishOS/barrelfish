@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -119,9 +119,9 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
                     + X86_32_PDIR_BASE(vaddr) * X86_32_PTABLE_SIZE
                     + X86_32_PTABLE_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%x, base = 0x%x, "
-              "PDPTE_BASE = %u, PDIR_BASE = %u, "
-              "PTABLE_BASE = %u -- ", vaddr, base, X86_32_PDPTE_BASE(vaddr),
+        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%"PRIxLVADDR", base = 0x%"PRIxLPADDR", "
+              "PDPTE_BASE = %"PRIuLPADDR", PDIR_BASE = %"PRIuLPADDR", "
+              "PTABLE_BASE = %"PRIuLPADDR" -- ", vaddr, base, X86_32_PDPTE_BASE(vaddr),
               X86_32_PDIR_BASE(vaddr), X86_32_PTABLE_BASE(vaddr));
 #else
         union x86_32_ptable_entry *ptable_base = &init_ptable[

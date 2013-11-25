@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -165,7 +165,7 @@ static int paging_x86_32_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
         union x86_32_ptable_entry *pdir_base =
             &mem_pdir[X86_32_PDPTE_BASE(addr)][X86_32_PDIR_BASE(vaddr)];
 #else
-        union x86_32_pdir_entry *pdir_base = &pdir[X86_32_PDIR_BASE(vaddr)];
+        union x86_32_pdir_entry *pdir_base = (union x86_32_pdir_entry*) &pdir[X86_32_PDIR_BASE(vaddr)];
 #       ifndef CONFIG_PSE
         union x86_32_ptable_entry *ptable_base =
             &mem_ptable[X86_32_PDIR_BASE(addr)][X86_32_PTABLE_BASE(vaddr)];
@@ -179,16 +179,16 @@ static int paging_x86_32_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
         }
 
 #ifdef CONFIG_PAE
-        debug(SUBSYS_PAGING, "Mapping 2M page: vaddr = 0x%x, addr = 0x%x, "
-              "PDPTE_BASE = %u, PDIR_BASE = %u -- ", vaddr,
+        debug(SUBSYS_PAGING, "Mapping 2M page: vaddr = 0x%"PRIxLVADDR", addr = 0x%"PRIxLVADDR", "
+              "PDPTE_BASE = %"PRIuLPADDR", PDIR_BASE = %"PRIuLPADDR" -- ", vaddr,
               addr, X86_32_PDPTE_BASE(vaddr), X86_32_PDIR_BASE(vaddr));
         mapit(pdpte_base, pdir_base, addr, bitmap);
 #else
 #       ifdef CONFIG_PSE
-        debug(SUBSYS_PAGING, "Mapping 4M page: vaddr = 0x%x, addr = 0x%x, "
-              "PDIR_BASE = %u -- ", vaddr,
+        debug(SUBSYS_PAGING, "Mapping 4M page: vaddr = 0x%"PRIxLVADDR", addr = 0x%"PRIxLVADDR", "
+              "PDIR_BASE = %"PRIuLPADDR" -- ", vaddr,
               addr, X86_32_PDIR_BASE(vaddr));
-        mapit(pdir_base, addr, bitmap);
+        mapit((union x86_32_ptable_entry*)pdir_base, addr, bitmap);
 #       else
         debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%"PRIxLVADDR", "
               "addr = 0x%"PRIxLVADDR", "
@@ -236,16 +236,16 @@ lvaddr_t paging_x86_32_map_special(lpaddr_t base, size_t size, uint64_t bitmap)
         union x86_32_ptable_entry *pdir_base =
             &mem_pdir[X86_32_PDPTE_BASE(mem_to_local_phys(vaddr))][X86_32_PDIR_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 2M device page: vaddr = 0x%x, addr = 0x%x, "
-              "PDPTE_BASE = %u, PDIR_BASE = %u -- ", vaddr,
+        debug(SUBSYS_PAGING, "Mapping 2M device page: vaddr = 0x%"PRIxLPADDR", addr = 0x%"PRIxLPADDR", "
+              "PDPTE_BASE = %"PRIxLPADDR", PDIR_BASE = %"PRIxLPADDR" -- ", vaddr,
               addr, X86_32_PDPTE_BASE(vaddr), X86_32_PDIR_BASE(vaddr));
         mapit(pdpte_base, pdir_base, addr, bitmap);
 #else
 #       ifdef CONFIG_PSE
         union x86_32_ptable_entry *pdir_base = &pdir[X86_32_PDIR_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 4M device page: vaddr = 0x%x, addr = 0x%x, "
-              "PDIR_BASE = %u -- ", vaddr, addr, X86_32_PDIR_BASE(vaddr));
+        debug(SUBSYS_PAGING, "Mapping 4M device page: vaddr = 0x%"PRIxLPADDR", addr = 0x%"PRIxLPADDR", "
+              "PDIR_BASE = %"PRIxLPADDR" -- ", vaddr, addr, X86_32_PDIR_BASE(vaddr));
         mapit(pdir_base, addr, bitmap);
 #       else
         union x86_32_pdir_entry *pdir_base = &pdir[X86_32_PDIR_BASE(vaddr)];
@@ -320,7 +320,7 @@ void paging_x86_32_make_good_pdpte(lpaddr_t base)
         (union x86_32_pdpte_entry *)local_phys_to_mem(base);
     int                 i;
 
-    debug(SUBSYS_PAGING, "Is now a PDPTE: table = 0x%x\n", base);
+    debug(SUBSYS_PAGING, "Is now a PDPTE: table = 0x%"PRIuLPADDR"\n", base);
     // Map memory
     for(i = X86_32_PDPTE_BASE(X86_32_MEMORY_OFFSET); i < X86_32_PDPTE_SIZE; i++) {
         newpdpte[i] = pdpte[i];
