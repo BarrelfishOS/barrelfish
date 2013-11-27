@@ -264,6 +264,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         snprintf(cpu_id_s, 10, "%"PRIx64"", cpu_id);
         snprintf(id_s, 10, "%"PRIx64"", id);
 
+        argv[mi->argc] = "up";
+        mi->argc += 1;
         argv[mi->argc] = cpu_id_s;
         mi->argc += 1;
         argv[mi->argc] = id_s;

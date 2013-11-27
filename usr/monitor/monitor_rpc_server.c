@@ -676,6 +676,17 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
 
 /* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
 
+// TODO(gz): HACK remove before coreboot goes public.
+static void get_kernel_cap(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+
+    err = b->tx_vtbl.get_kernel_cap_response(b, NOP_CONT, cap_kernel);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending kernel_cap failed.");
+    }
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -698,6 +709,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
+    .get_kernel_cap_call = get_kernel_cap,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

@@ -17,6 +17,7 @@
 #include <assert.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/spawn_client.h>
 #include <elf/elf.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
@@ -43,10 +44,14 @@
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
+#pragma GCC diagnostic ignored "-Wunused-function"
+
 struct elf_allocate_state {
     void *vbase;
     genvaddr_t elfbase;
 };
+
+static bool done = false;
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -60,8 +65,8 @@ extern uint64_t x86_64_init_ap_lock;
 extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 
-static struct capref frame; ///< URPC frame
 static coreid_t my_arch_id;
+static struct capref kernel_cap;
 
 static errval_t elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
@@ -85,41 +90,29 @@ invoke_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                   forvaddr_t entry)
 {
 
-    struct capref task_cap_kernel;
+    /*struct capref task_cap_kernel;
     task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;*/
 
-    return cap_invoke4(task_cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
+    return cap_invoke4(kernel_cap, KernelCmd_Spawn_core, core_id, cpu_type,
                        entry).error;
 }
 
 static inline errval_t invoke_send_init_ipi(coreid_t core_id)
 {
-    struct capref task_cap_kernel;
-    task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
-
-    return cap_invoke2(task_cap_kernel, KernelCmd_Init_IPI_Send,
+    return cap_invoke2(kernel_cap, KernelCmd_Init_IPI_Send,
                        core_id).error;
 }
 
 static inline errval_t invoke_send_start_ipi(coreid_t core_id, forvaddr_t entry)
 {
-    struct capref task_cap_kernel;
-    task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
-
-    return cap_invoke3(task_cap_kernel, KernelCmd_Start_IPI_Send,
+    return cap_invoke3(kernel_cap, KernelCmd_Start_IPI_Send,
                        core_id, entry).error;
 }
 
 static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
 {
-    struct capref task_cap_kernel;
-    task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
-
-    struct sysret sr = cap_invoke1(task_cap_kernel, KernelCmd_GetGlobalPhys);
+    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
     if (err_is_ok(sr.error)) {
         *global = sr.value;
     }
@@ -285,19 +278,28 @@ static errval_t get_architecture_config(enum cpu_type type,
     return SYS_ERR_OK;
 }
 
-static errval_t cap_mark_remote(struct capref cf)
+static inline errval_t
+invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
+                          bool * has_descendents)
+{
+    struct sysret r = cap_invoke4(kernel_cap, KernelCmd_Remote_cap, cap, bits,
+                                  is_remote);
+    if (err_is_ok(r.error)) {
+        *has_descendents = r.value;
+    }
+    return r.error;
+}
+
+static errval_t cap_mark_remote(struct capref cap)
 {
     // TODO(gz): Re-enable, this does not much right now but
     // will be interesting with Mark nevills libmdb
-#if 0
-    bool has_descendants;
-    err = monitor_cap_remote(cf, true, &has_descendants);
-    if (err_is_fail(err)) {
-        return err;
-    }
-#endif
 
-    return SYS_ERR_OK;
+    bool has_descendants;
+
+    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    return invoke_monitor_cap_remote(caddr, vbits, true, &has_descendants);
 }
 
 /**
@@ -308,6 +310,7 @@ static errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
 {
     errval_t err = frame_alloc(dest, bytes, retbytes);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_alloc failed.");
         return err;
     }
 
@@ -475,7 +478,8 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
 static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                                     enum cpu_type cpu_type,
                                     const char *cmdline,
-                                    struct intermon_binding **ret_binding)
+                                    struct intermon_binding **ret_binding,
+                                    struct capref* frame)
 {
     const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
@@ -486,14 +490,18 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     assert(err_is_ok(err));
 
     // compute size of frame needed and allocate it
-    struct frame_identity urpc_frame_id;
+    struct frame_identity urpc_frame_id = {.base = 0, .bits = 0};
     size_t framesize;
-    err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+    err = frame_alloc_identify(frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
+    printf("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
+    printf("%s:%s:%d: urpc_frame_id.size=%d\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
 
-    err = cap_mark_remote(frame);
+    err = cap_mark_remote(*frame);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not mark cap remote.");
         return err;
@@ -667,22 +675,30 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     printf("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-    printf("%s:%d: Power it down...\n", __FILE__, __LINE__);
+    done = true;
+}
 
-    errval_t err = st->tx_vtbl.power_down(st, NOP_CONT, 1);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "power_down failed.");
-    }
+static void power_down_response(struct monitor_binding *st, coreid_t target)
+{
+    printf("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
+    printf("%s:%s:%d: Is the core really down now?\n", __FILE__, __FUNCTION__, __LINE__);
+
+    done = true;
 }
 
 int main(int argc, char** argv)
 {
     errval_t err;
+    if (argc < 4) {
+        printf("%s:%s:%d: Not enough arguments\n", __FILE__, __FUNCTION__, __LINE__);
+        return 1;
+    }
+
     vfs_init();
 
-    for (size_t i = 0; i < argc; i++) {
-        printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
-    }
+    struct monitor_binding *st = get_monitor_binding();
+    st->rx_vtbl.boot_core_reply = boot_core_reply;
+    st->rx_vtbl.power_down_response = power_down_response;
 
     err = connect_to_acpi();
     if (err_is_fail(err)) {
@@ -696,15 +712,48 @@ int main(int argc, char** argv)
     }
     printf("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
 
-    struct monitor_binding *st = get_monitor_binding();
-    st->rx_vtbl.boot_core_reply = boot_core_reply;
+    err = mc->vtbl.get_kernel_cap(mc, &kernel_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_kernel_cap failed.");
+    }
 
-    struct intermon_binding *new_binding = NULL;
-    spawn_xcore_monitor(1, 1, CPU_X86_64, "", &new_binding);
+    for (size_t i = 0; i < argc; i++) {
+        printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
+    }
+    assert(!strcmp(argv[2], "up") || !strcmp(argv[2], "down"));
 
-    struct monitor_binding *mb = get_monitor_binding();
-    err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, 1, frame);
+    coreid_t destination = (coreid_t) atoi(argv[3]);
+    assert(destination < MAX_COREID);
+    //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
+    //assert(type < CPU_TYPE_NUM);
 
-    messages_handler_loop();
+    if (!strcmp(argv[2], "up")) {
+        struct intermon_binding *new_binding = NULL;
+        struct capref frame;
+        err = spawn_xcore_monitor(destination, destination, CPU_X86_64, "", &new_binding, &frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, destination, frame);
+    }
+    else if (!strcmp(argv[2], "down")) {
+        printf("%s:%d: Power it down...\n", __FILE__, __LINE__);
+        err = st->tx_vtbl.power_down(st, NOP_CONT, destination);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "power_down failed.");
+        }
+    }
+
+    while(!done) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "error in event_dispatch");
+        }
+    }
+
+    printf("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
+
     return 0;
 }

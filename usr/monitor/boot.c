@@ -143,6 +143,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id,
 cleanup:
     if (err_is_fail(err)) {
         // Cleanup
+        DEBUG_ERR(err, "Failed to register intermon binding.");
         cap_destroy(frame);
         free(ump_binding);
     }
