@@ -3,10 +3,10 @@
  * \brief Startup daemon for Barrelfish.
  * At boot, after spawnd has started, startd decides which domains to spawn.
  * There are two phases to service startup.
- * 1) startup distributed services.  This proceeds in lockstep, with 
+ * 1) startup distributed services.  This proceeds in lockstep, with
  *    each service being fully started before the next is started.
- * 2) startup applications. After all distributed services are started then 
- *    the applications are started.  Here the startd does not wait for a 
+ * 2) startup applications. After all distributed services are started then
+ *    the applications are started.  Here the startd does not wait for a
  *    previous domain to be started before continuing with the next one.
  */
 
@@ -81,7 +81,7 @@ static void get_bootmodules(void)
 
     char *bootmodules = malloc(info.size + 1);
     if (bootmodules == NULL) {
-        USER_PANIC_ERR(LIB_ERR_MALLOC_FAIL, 
+        USER_PANIC_ERR(LIB_ERR_MALLOC_FAIL,
                        "failed to allocate memory for bootmodules");
     }
 
@@ -107,12 +107,13 @@ int main(int argc, const char *argv[])
     errval_t err;
 
     vfs_init();
-    
+    printf("%s:%s:%d startd\n", __FILE__, __FUNCTION__, __LINE__);
+
     my_core_id = disp_get_core_id();
 
     // read in the bootmodules file so that we know what to start
     get_bootmodules();
-    
+
     // construct sane inital environment
     init_environ();
 

@@ -13,6 +13,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 #include <inttypes.h>
 #include "monitor.h"
@@ -122,29 +123,30 @@ static void boot_core_reply_handler(struct monitor_binding *b,
 
 static void monitor_initialized(struct intermon_binding *b)
 {
+    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (monitor_ready == NULL) {
         monitor_ready = calloc(MAX_COREID, sizeof(bool));
     }
 
     struct intermon_state *st = b->st;
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
     /* Inform other monitors of this new monitor */
-    monitor_ready[st->core_id] = true;
+    /*monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
-    }
+    }*/
 
     // New plan, do timing sync for every time a monitor has come up...
-    if(num_monitors > 1) {
+    /*if(num_monitors > 1) {
         printf("monitor: synchronizing clocks\n");
         err = timing_sync_timer();
         assert(err_is_ok(err) || err_no(err) == SYS_ERR_SYNC_MISS);
         if(err_no(err) == SYS_ERR_SYNC_MISS) {
             printf("monitor: failed to sync clocks. Bad reference clock?\n");
         }
-    }
+    }*/
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
@@ -665,7 +667,7 @@ static void power_down_request(struct intermon_binding *b)
    errval_t err;
    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
 
-   err = b->tx_vtbl.power_down_reponse(b, NOP_CONT);
+   err = b->tx_vtbl.power_down_response(b, NOP_CONT);
    if (err_is_fail(err)) {
        USER_PANIC_ERR(err, "Sending response failed.");
    }
@@ -683,12 +685,12 @@ extern struct monitor_binding* cpuboot_driver;
 static void power_down_response(struct intermon_binding* b)
 {
     printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    errval_t err;
     err = cpuboot_driver->tx_vtbl.power_down_response(cpuboot_driver, NOP_CONT, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cpuboot driver failed.");
     }
 
-    return SYS_ERR_OK;
 }
 
 
