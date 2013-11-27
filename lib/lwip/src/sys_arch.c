@@ -157,6 +157,7 @@ u32_t sys_jiffies(void)
 {
     /* since power up. */
     assert(!"NYI");
+    return 0;
 }
 
 /* Mailbox functions. */

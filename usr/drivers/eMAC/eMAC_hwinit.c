@@ -63,7 +63,6 @@ static struct capref RX_capframe;
 static void *RX_internal_memory_pa = NULL;
 static void *RX_internal_memory_va = NULL;
 static uint32_t volatile RX_read_index = 0;
-static uint32_t RX_max_slots = SLOTS - 1;
 
 static struct capref TX_capframe;
 static void *TX_internal_memory_pa = NULL;
@@ -271,7 +270,7 @@ static void receive_frame_data(void)
 
         EMAC_DEBUG("Following pkt received\n");
         show_packet(pkt_to_upload, copied);
-        process_received_packet(pkt_to_upload, copied);
+        process_received_packet(pkt_to_upload, copied, true);
 
     } while (RX_read_index != wid);
 
@@ -426,6 +425,9 @@ errval_t transmit_pbuf_list(struct client_closure *cl)
     uint16_t read_offset = 0;
     int rest = 0;
     int packets = 0;
+
+    assert(!"Using older version of communication library\n");
+    abort();
     struct shared_pool_private *spp = cl->spp_ptr;
     struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
     uint64_t rtpbuf = sld->no_pbufs;
@@ -575,7 +577,11 @@ again:
 
     // Tell the client we sent them!!!
     for (int i = 0; i < rtpbuf; i++) {
-        handle_tx_done(cl->app_connection, (cl->tx_index + i));
+        assert(!"FIXME: handle_tx_done should send back the opaque pointer");
+        abort();
+        // associated with buffer sent.
+        //handle_tx_done(cl->app_connection, (cl->tx_index + i));
+        handle_tx_done(NULL);
     } // end for:
 
 
@@ -1312,6 +1318,9 @@ void eMAC_hwinit(uint8_t phy_id)
 {
     errval_t r;
 //    void *emac_base = NULL;
+
+    RX_max_slots = SLOTS - 1;  // initializing the value
+
 
     core_id = disp_get_core_id();
     eMAC_PHY_id = phy_id;

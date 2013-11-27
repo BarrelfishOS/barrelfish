@@ -26,6 +26,10 @@ TEST_LOG_NAME = 'testlog.txt'
 HTTPERF_BASE_ARGS='--hog --close-with-reset --timeout 2 '
 HTTPERF_URI = '/index.html'
 
+# Webserver stress test, It will download index page repeatedly for following
+#       number of times
+WEBSERVER_STRESS_COUNTER = 3000
+
 # desired duration of an httperf test run (seconds)
 HTTPERF_DURATION = 20
 
@@ -168,8 +172,7 @@ class WebserverTest(WebCommon):
         return r
 
     def runtests(self, server):
-        stress_counter = 50000
-        #stress_counter = 2
+        stress_counter = WEBSERVER_STRESS_COUNTER
         self.testlog = open(os.path.join(self.testdir, TEST_LOG_NAME), 'w')
         for f in WEBSERVER_TEST_FILES:
             self.dotest(self.getpage, (server, f))

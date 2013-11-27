@@ -23,18 +23,22 @@
 
 #include <contmng/contmng.h>
 
-/* QUEUE_DEBUG enables the debug statements */
-#define QUEUE_DEBUG 1
+/* QUEUE_DEBUG enables the debug statements
+ * NOTE: This option does not compile for all architecture/machine due to
+ * dependance on disp_name and dispatch.h
+ */
+//#define QUEUE_DEBUG 1
 
 static void cont_queue_send_next_message(struct cont_queue *q);
 
 
 #ifdef QUEUE_DEBUG
+#include <dispatch.h>
 static void qprintf_mac(struct cont_queue *q, char *msg)
 {
     if (q->debug) {
-        printf("CQ: %s [%s.%d:%.*s] [%d] [%d] [%d] qqqqqq\n",
-                msg, disp_name(), disp_get_core_id(),
+        printf("CQ: %s [%d:%.*s] [%d] [%d] [%d] qqqqqq\n",
+                msg, disp_get_core_id(),
                 64, q->name, q->head, q->tail, q->running);
     }
 }
@@ -126,13 +130,17 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
     {
         qprintf(q, "ERROR: Queue full");
         printf("ERROR:  Queue [%s] is full\n", q->name);
-        printf("ERROR: %.*s:%.*s\n", DISP_NAME_LEN, disp_name(), 64, q->name);
+        printf("ERROR: %.*s\n", 64, q->name);
         printf("ERROR: CQ: head [%d], tail [%d] qqqqqq\n", q->head, q->tail);
+        /* __builtin_return_address is not supported in ARM toolchain */
+
+#ifdef QUEUE_DEBUG
         printf("callstack: %p %p %p %p\n",
 	     __builtin_return_address(0),
 	     __builtin_return_address(1),
 	     __builtin_return_address(2),
 	     __builtin_return_address(3));
+#endif // QUEUE_DEBUG
 
         // Following two lines are there to force the seg-fault of the domain
         // as abort was showing some strange behaviour

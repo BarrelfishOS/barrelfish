@@ -746,7 +746,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 
         printf("[%s] Dropping packet as no space in userspace "
                 "2cp pkt buf [%" PRIu64 "]: "
-                "size[%"PRIu64"] used[%"PRIu64"], after [%"PRIu64"] sent"
+                "size[%zu] used[%zu], after [%"PRIu64"] sent"
                 " added [%"PRIu64"] \n", disp_name(),
                 buffer->buffer_id, buffer->rxq.buffer_state_size,
                 buffer->rxq.buffer_state_used, sent_packets, rx_added);
@@ -828,8 +828,8 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
     uint64_t paddr;
     void *vaddr, *opaque;
 
-    paddr = (uint64_t) (uintptr_t) buffer->pa + offset;
-    vaddr = (void*) ((uintptr_t) buffer->va + offset);
+    paddr = ((uint64_t)(uintptr_t) buffer->pa) + offset;
+    vaddr = (void*) ((uintptr_t) buffer->va + (size_t)offset);
 
     if (buffer->role == TX_BUFFER_ID) {
         // Make sure that there is opaque slot available (isfull)

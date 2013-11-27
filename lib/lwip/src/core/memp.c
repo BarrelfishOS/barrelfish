@@ -142,12 +142,12 @@ static const u16_t memp_num[MEMP_MAX] = {
 
 
 /** This array holds a textual description of each pool. */
-//#ifdef LWIP_DEBUG
+#ifdef LWIP_DEBUG
 static const char *memp_desc[MEMP_MAX] = {
 #define LWIP_MEMPOOL(name,num,size,desc)  (desc),
 #include "lwip/memp_std.h"
 };
-//#endif                          /* LWIP_DEBUG */
+#endif                          /* LWIP_DEBUG */
 
 #if 0
 static u8_t memp_memory_orig[MEM_ALIGNMENT - 1
@@ -388,12 +388,7 @@ void memp_initialize_pbuf_list(void)
     for (k = 0; k < MEMP_MAX; ++k) {
         i = memp_sorted[k];
         memp_tab[i] = NULL;
-/*      printf("memp_init: %" PRIu16 "(%s) size %" PRIu16 " num %" PRIu16 "\n",
-               i, memp_desc[i], memp_sizes[i], memp_num[i]);
 
-        printf("pool %i: %p  PBUF_POOL_BUFSIZE=%i\n", i, memp,
-                    PBUF_POOL_BUFSIZE);
-*/
 
         // Align memp to element size
         uimemp = (uintptr_t) memp;
@@ -676,10 +671,6 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
         // NOTE: no prints here because its OK to fail in allocation.
         // Higher levels will deal with failure.
         // Use prints here only for debugging.
-//        printf("memp_malloc: failed type:%" PRIu16 ", -> %s, #elems= %"PRIu16","
-//                " size = %"PRIu16"\n",
-//                type, memp_desc[type], memp_num[type], memp_sizes[type]);
-
         if (type == 13) {
             printf("memp_malloc: failed type: %" PRIu16 ", count: %"PRIu16
                 ", memp_called: %"PRIu64", free_counter: %"PRIu64", currently free: %"PRIu16" \n",

@@ -791,7 +791,9 @@ u8_t pbuf_free_tagged(struct pbuf * p, const char *func_name, int line_no)
     u16_t type;
     struct pbuf *q;
     u8_t count;
+#if LWIP_TRACE_MODE
     struct pbuf *p_bak = p;
+#endif // LWIP_TRACE_MODE
 
     if (p == NULL) {
         LWIP_ASSERT("p != NULL", p != NULL);

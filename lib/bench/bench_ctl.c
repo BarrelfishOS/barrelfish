@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-
+#include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 
 bench_ctl_t *bench_ctl_init(enum bench_ctl_mode mode,
@@ -65,7 +65,7 @@ bool bench_ctl_add_run(bench_ctl_t *ctl,
 
 void bench_ctl_dump_csv(bench_ctl_t *ctl,
                         const char  *prefix,
-                        cycles_t tscperus)
+                        uint64_t tscperus)
 {
     size_t i, j;
     cycles_t *v;
@@ -125,7 +125,7 @@ static cycles_t *do_bincounting(bench_ctl_t *ctl,
                                 cycles_t min,
                                 cycles_t max)
 {
-    size_t *bins;
+    cycles_t *bins;
     size_t i;
     cycles_t *v;
 
@@ -221,18 +221,18 @@ void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
                                     const char *prefix,
                                     cycles_t tscperus)
 {
-    size_t *bins;
+    cycles_t *bins;
     size_t i;
     cycles_t val;
 
     bins = do_bincounting(ctl, dimension, bin_count, min, max);
 
-    printf("%sbellow,%"PRIu64"\n", prefix, bins[bin_count]);
-    printf("%sabove,%"PRIu64"\n", prefix, bins[bin_count+1]);
+    printf("%sbellow,%"PRIuCYCLES"\n", prefix, bins[bin_count]);
+    printf("%sabove,%"PRIuCYCLES"\n", prefix, bins[bin_count+1]);
     for (i = 0; i < bin_count; i++) {
         if (bins[i] > 0) {
             val = bin2val(bin_count, min, max, i);
-            printf("%s%"PRIu64",%"PRIu64", %f\n", prefix, val, bins[i],
+            printf("%s%"PRIu64",%"PRIuCYCLES", %f\n", prefix, val, bins[i],
                    val/ (float)tscperus);
         }
     }
