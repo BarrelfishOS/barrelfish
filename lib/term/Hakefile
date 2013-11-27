@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2012, ETH Zurich.
+-- Copyright (c) 2012, 2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,8 @@
                     cFiles = [ "server/server.c" ],
                     flounderBindings = [ "terminal",
                                          "terminal_config",
-                                         "terminal_session" ]
+                                         "terminal_session" ],
+                    flounderDefs = [ "monitor" ]
                   },
 
     build library { target = "term_client",
