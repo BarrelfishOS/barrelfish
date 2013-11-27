@@ -76,7 +76,7 @@ void bench_ctl_dump_csv(bench_ctl_t *ctl,
 
         v = ctl->data + i * dim;
         for (j = 0; j < dim; j++) {
-            printf("%"PRIu64", %f", v[j], v[j]/(float)tscperus);
+            printf("%"PRIuCYCLES", %f", v[j], v[j]/(float)tscperus);
             if (j != dim - 1) {
                 printf(",");
             }
@@ -232,7 +232,7 @@ void bench_ctl_dump_csv_bincounting(bench_ctl_t *ctl,
     for (i = 0; i < bin_count; i++) {
         if (bins[i] > 0) {
             val = bin2val(bin_count, min, max, i);
-            printf("%s%"PRIu64",%"PRIuCYCLES", %f\n", prefix, val, bins[i],
+            printf("%s%"PRIuCYCLES",%"PRIuCYCLES", %f\n", prefix, val, bins[i],
                    val/ (float)tscperus);
         }
     }

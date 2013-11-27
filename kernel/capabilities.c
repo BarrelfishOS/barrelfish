@@ -1036,7 +1036,6 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
     // resurrect the RAM and send it back to the monitor
     if(!has_copies(cte) && !has_descendants(cte) && !has_ancestors(cte)
        && !is_cap_remote(cte) && monitor_ep.u.endpoint.listener != NULL) {
-        errval_t err;
         struct RAM ram = { .bits = 0 };
         size_t len = sizeof(struct RAM) / sizeof(uintptr_t) + 1;
 
@@ -1076,7 +1075,9 @@ errval_t caps_delete(struct cte *cte, bool from_monitor)
         if(ram.bits > 0) {
             // Send back as RAM cap to monitor
             // XXX: This looks pretty ugly. We need an interface.
-            err = lmp_deliver_payload(&monitor_ep, NULL,
+            // FIXME: why exactly the return value of this call is ignored?
+            //errval_t err =
+                lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
                                       len, false);
             //assert(err_is_ok(err));

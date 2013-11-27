@@ -7,14 +7,12 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/e10k
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "e10k_queue",
                       cFiles = [ "e10k_qdriver.c", "helper.c"],
-                      flounderBindings = [ "net_queue_manager",
-                                           "net_soft_filters",
-                                           "e10k" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "netQmng", "trace" ]
                     },
@@ -33,7 +31,8 @@
 
   build application { target = "e10k",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c"],
-                      flounderBindings = [ "e10k"],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
+                      --flounderBindings = [ "e10k"],
                       mackerelDevices = [ "e10k" ],
                       addLibraries = [ "pci", "contmng", "net_device_manager",
                                        "bench", "trace" ]
@@ -41,7 +40,8 @@
 
   build application { target = "e10k_queue_elb",
                       cFiles = [ "e10k_qdriver.c", "helper.c" ],
-                      flounderBindings = [ "e10k" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
+                      --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps ["ethernet_latency_benchmark", "bench",
                                               "trace" ] },
@@ -49,8 +49,8 @@
   build application { target = "e10k_mono_elb",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
-                      flounderBindings = [ "net_queue_manager",
-                                           "e10k" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
+                      --flounderBindings = [ "net_queue_manager", "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "ethernet_latency_benchmark",
                                                "pci", "contmng", "trace",
@@ -59,7 +59,8 @@
 
   build application { target = "e10k_queue_tlb",
                       cFiles = [ "e10k_qdriver.c", "helper.c"],
-                      flounderBindings = [ "e10k" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
+                      --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = [ "tcp_latency_benchmark", "trace", "bench",
                                        "lwip" ]

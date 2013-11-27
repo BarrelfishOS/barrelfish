@@ -6,7 +6,7 @@
  *
  * The allocator maintains a list of single cnode allocators
  * and one single cnode allocator in reserve.
- * When the last slot in the list is allocated, 
+ * When the last slot in the list is allocated,
  * reserve is added to the list and a new reserve is created.
  *
  * Creating a new reserve requires additional slots and virtual address space.
@@ -50,13 +50,13 @@ errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret)
 
     /* Try allocating from the list of single slot allocators */
     struct slot_allocator_list *walk = mca->head;
-    struct slot_allocator_list *prev = NULL;
+    //struct slot_allocator_list *prev = NULL;
     while(walk != NULL) {
         err = walk->a.a.alloc(&walk->a.a, ret);
         if (err_no(err) != LIB_ERR_SLOT_ALLOC_NO_SPACE) {
             break;
         }
-        prev = walk;
+        //prev = walk;
         walk = walk->next;
     }
     if (err_is_fail(err)) {

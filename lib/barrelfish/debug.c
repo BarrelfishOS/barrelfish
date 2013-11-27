@@ -36,14 +36,15 @@ void user_panic_fn(const char *file, const char *func, int line,
 {
     va_list ap;
     char msg_str[128];
-    int msg_str_cc;
+    //int msg_str_cc;
     va_start(ap, msg);
-    msg_str_cc = vsnprintf(msg_str, sizeof(msg_str), msg, ap);
+    //msg_str_cc =
+        vsnprintf(msg_str, sizeof(msg_str), msg, ap);
     va_end(ap);
 
     char str[256];
-    int strcc;
-    strcc = snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
+    //int strcc =
+        snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
                      DISP_NAME_LEN, disp_name(), disp_get_core_id(),
                      func, file, line, msg_str);
     sys_print(str, sizeof(str));
@@ -366,16 +367,17 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
     va_list ap;
 
     char str[256];
-    int strcc;
     char *leader = (err == 0) ? "SUCCESS" : "ERROR";
-    strcc = snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
+    //int strcc =
+        snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
                      leader, DISP_NAME_LEN, disp_name(), disp_get_core_id(),
                      func, file, line, leader);
     sys_print(str, sizeof(str));
 
     if (msg != NULL) {
         va_start(ap, msg);
-        strcc = vsnprintf(str, sizeof(str), msg, ap);
+        //int strcc2 =
+            vsnprintf(str, sizeof(str), msg, ap);
         va_end(ap);
         sys_print(str, sizeof(str));
     }
