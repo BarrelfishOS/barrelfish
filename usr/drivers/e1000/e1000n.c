@@ -502,14 +502,13 @@ static void polling_loop(void)
 
         struct waitset *ws = get_default_waitset();
 
-/*        if (use_interrupt) {
+        if (use_interrupt) {
             err = event_dispatch_debug(ws); // blocking // doesn't work correctly
         } else {
             err = event_dispatch_non_block(ws); // nonblocking for polling mode
         }
-*/
 //        err = event_dispatch_non_block(ws); // nonblocking for polling mode
-        err = event_dispatch(ws); // nonblocking for polling mode
+//        err = event_dispatch(ws); // nonblocking for polling mode
         if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);
@@ -526,14 +525,14 @@ static void polling_loop(void)
             no_work = false;
         }
 
-
+/*
         err = event_dispatch_debug(ws); // blocking // doesn't work correctly
         if (err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);
             break;
         }
-
+*/
 
  /*       if (no_work) {
             ++jobless_iterations;
@@ -982,6 +981,9 @@ int main(int argc, char **argv)
     e1000_print_link_status(&e1000_device);
 
     E1000_DEBUG("#### starting polling.\n");
+    // FIXME: hack to force the driver in polling mode, as interrupts are
+    // not reliably working
+    use_interrupt = false;
     polling_loop();
 
     return 1;
