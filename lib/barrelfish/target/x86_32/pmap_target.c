@@ -35,9 +35,8 @@
 #define META_DATA_RESERVED_BASE ((lvaddr_t)1UL*1024*1024*1024)
 #define META_DATA_RESERVED_SIZE (X86_32_BASE_PAGE_SIZE * 1200)
 
-//TODO better name/condition
+// flags for large pages
 #define FLAGS_LARGE 0x0100
-#define FLAGS_UNMAP 0x01
 
 /**
  * \brief Translate generic vregion flags to architecture specific pmap flags
@@ -292,6 +291,19 @@ static struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
     return find_vnode(pdir, X86_32_PDIR_BASE(base));
 }
 
+static struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
+{
+    struct vnode *root = &pmap->root;
+    assert(root != NULL);
+
+#ifdef CONFIG_PAE
+    // PDPT mapping
+    return find_vnode(root, X86_32_PDPT_BASE(base));
+#else
+    return root;
+#endif
+}
+
 static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_t vend,
                               struct capref frame, size_t offset, size_t pte_count,
                               vregion_flags_t flags)
@@ -305,7 +317,6 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr, genvaddr_
     errval_t err;
     size_t base;
     if (flags&FLAGS_LARGE) {
-        printf("pmap_single_map: large\n");
         //4M/2M(PAE) mapping
         err = get_pdir(pmap, vaddr, &ptable);
         base = X86_32_PDIR_BASE(vaddr);
@@ -357,13 +368,11 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t page_size;
     size_t base;
 
+    // mapping specific parts
     if(flags&FLAGS_LARGE) {
-        printf("pmap_do_map: large\n");
         //4M/2M (PAE) pages
         page_size = X86_32_LARGE_PAGE_SIZE;
         base = X86_32_PDIR_BASE(vaddr);
-        //printf("pmap_do_map: large: pte: %i\n", DIVIDE_ROUND_UP(size, page_size));
-        //printf("pmap_do_map: large: same_pdpt: %i\n", is_same_pdpt(vaddr, vaddr+size));
     } else {
         //4k mapping
         page_size = X86_32_BASE_PAGE_SIZE;
@@ -376,7 +385,6 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     if (is_same_pdir(vaddr, vend) || (is_same_pdpt(vaddr, vend) && flags&FLAGS_LARGE)) {
         // fast path
-        //printf("pmap_do_map: fast path, pte_count: %i, %i\n", pte_count, DIVIDE_ROUND_UP(size, page_size));
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -455,7 +463,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     return SYS_ERR_OK;
 }
 
-/// Computer upper limit on number of slabs required to perform a mapping
+/// Compute upper limit on number of slabs required to perform a mapping
 static size_t max_slabs_for_mapping(size_t bytes)
 {
     size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_32_BASE_PAGE_SIZE);
@@ -574,7 +582,6 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     // Adjust the parameters to page boundaries
     if(flags&FLAGS_LARGE) {
         // 4M pages/2M pages(PAE)
-        printf("map: large path\n");
         size   += X86_32_LARGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, X86_32_LARGE_PAGE_SIZE);
         offset -= X86_32_LARGE_PAGE_OFFSET(offset);
@@ -610,19 +617,36 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
 
     //printf("[map call do_map] vaddr = 0x%"PRIxGENVADDR", flag = %x\n", vaddr, (int)flags);
     err = do_map(x86, vaddr, frame, offset, size, flags, retoff, retsize);
-    if(flags&FLAGS_LARGE)
-    {
-        printf("map: large map complete\n");
-    }
     return err;
 }
 
 static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t pte_count, bool delete_cap)
 {
     errval_t err;
-    struct vnode *pt = find_ptable(pmap, vaddr);
+    bool large_flag = false;
+    struct vnode *page;
+    //determine if we unmap a large page
+    if ((page = find_pdir(pmap, vaddr)) != NULL) {
+#ifdef CONFIG_PAE        
+        if ((page = find_vnode(page, X86_32_PDPT_BASE(vaddr))) != NULL) {
+#else
+        if ((page = find_vnode(page, X86_32_PDIR_BASE(vaddr))) != NULL) {
+#endif
+            large_flag = page->u.frame.flags&FLAGS_LARGE;
+        }
+    }
+    
+    struct vnode *pt;
+    size_t base;
+    if (large_flag) {
+        pt = find_pdir(pmap, vaddr);
+        base = X86_32_PDIR_BASE(vaddr);
+    } else {
+        pt = find_ptable(pmap, vaddr);
+        base = X86_32_PTABLE_BASE(vaddr);
+    }
     if (pt) {
-        struct vnode *page = find_vnode(pt, X86_32_PTABLE_BASE(vaddr));
+        page = find_vnode(pt, base);
         if (page && page->u.frame.pte_count == pte_count) {
             err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, page->u.frame.pte_count);
             if (err_is_fail(err)) {
@@ -641,6 +665,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
             slab_free(&pmap->slab, page);
         }
         else {
+            printf("couldn't find vnode\n");
             return LIB_ERR_PMAP_FIND_VNODE;
         }
     }
@@ -662,12 +687,32 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     //printf("[unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, size);
     errval_t err, ret = SYS_ERR_OK;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
-    size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+    
+    //determine if we unmap a larger page
+    struct vnode* page = NULL;
+    bool large_flag = false;
+    //find table, then entry
+    if ((page = find_pdir(x86, vaddr)) != NULL) {
+#ifdef CONFIG_PAE        
+        if ((page = find_vnode(page, X86_32_PDPT_BASE(vaddr))) != NULL) {
+#else
+        if ((page = find_vnode(page, X86_32_PDIR_BASE(vaddr))) != NULL) {
+#endif
+            large_flag = page->u.frame.flags&FLAGS_LARGE;
+        }
+    }
+    size_t page_size = X86_32_BASE_PAGE_SIZE;
+    if (large_flag) {
+        //large 2M page
+        page_size = X86_32_LARGE_PAGE_SIZE;
+    }
+    
+    size = ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
-    if (is_same_pdir(vaddr, vend)) {
+    if (is_same_pdir(vaddr, vend) || (is_same_pdpt(vaddr, vend) && large_flag)) {
         // fast path
-        err = do_single_unmap(x86, vaddr, size / X86_32_BASE_PAGE_SIZE, false);
+        err = do_single_unmap(x86, vaddr, size / page_size, false);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -681,14 +726,14 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         }
 
         // unmap full leaves
-        vaddr += c * X86_32_BASE_PAGE_SIZE;
+        vaddr += c * page_size;
         while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_32_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_32_PTABLE_SIZE, true);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
-            vaddr += c * X86_32_BASE_PAGE_SIZE;
+            vaddr += c * page_size;
         }
 
         // unmap remaining part
@@ -877,6 +922,9 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
     return SYS_ERR_OK;
 }
 
+/** \brief Retrieves an address that can currently be used for large mappings
+  *
+  */
 static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
                                    size_t alignment, genvaddr_t *retvaddr)
 {
@@ -893,7 +941,7 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
     size = ROUND_UP(size, alignment);
 
     size_t free_count = DIVIDE_ROUND_UP(size, LARGE_PAGE_SIZE);
-    debug_printf("need %zu contiguous free pdirs\n", free_count);
+    //debug_printf("need %zu contiguous free pdirs\n", free_count);
 
     // compile pdir free list
     bool f[1024];
@@ -922,7 +970,7 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
 next:
         assert(1 == 1);// make compiler shut up about label
     }
-    printf("first free: %li\n", (uint32_t)first_free);
+    //printf("first free: %li\n", (uint32_t)first_free);
     if (first_free + free_count <= 512) {
         *retvaddr = first_free << 22;
         return SYS_ERR_OK;

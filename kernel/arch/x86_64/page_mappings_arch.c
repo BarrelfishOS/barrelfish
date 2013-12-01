@@ -60,7 +60,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             }
             break;
         case ObjType_VNode_x86_64_pdpt:
-            // TODO: huge page support, set page_size to HUGE_PAGE_SIZE
+            // huge page support
             if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
                 // TODO: check if the system allows 1GB mappings
                 page_size = X86_64_HUGE_PAGE_SIZE;
@@ -84,11 +84,9 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             }
             break;
         case ObjType_VNode_x86_64_pdir:
-            // superpage support, set page_size to LARGE_PAGE_SIZE
+            // superpage support
             if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
-                printf("2m page ------\n");
-                page_size = X86_64_LARGE_PAGE_SIZE;
-                
+                page_size = X86_64_LARGE_PAGE_SIZE;               
                                 
                 // check offset within frame
                 genpaddr_t off = offset;
@@ -139,6 +137,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             printf("slot in use\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
+        
+        // determine if we map a large/huge page or a normal entry
         if (page_size == X86_64_LARGE_PAGE_SIZE)
         {  
             //a large page is mapped
