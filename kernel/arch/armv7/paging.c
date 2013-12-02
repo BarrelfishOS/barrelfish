@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2009 - 2012 ETH Zurich.
+ * Copyright (c) 2009 - 2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -85,7 +85,73 @@ caps_map_l1(struct capability* dest,
     }
 
     if (src->type != ObjType_VNode_ARM_l2) {
-        panic("oops: wrong src type");
+        //large page mapping goes here
+        printf("kernel large page\n");
+        //panic("oops: wrong src type");
+        assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
+
+        // ARM L1 has 4K entries, but we treat it as if it had 1K
+        if (slot >= (256 * 4)) {
+            panic("oops: slot >= (256 * 4)");
+            return SYS_ERR_VNODE_SLOT_INVALID;
+        }
+
+        if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
+            panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
+            return SYS_ERR_WRONG_MAPPING;
+        }
+
+        // check offset within frame
+        if ((offset + BYTES_PER_SECTION > get_size(src)) ||
+            ((offset % BYTES_PER_SECTION) != 0)) {
+            panic("oops: frame offset invalid");
+            return SYS_ERR_FRAME_OFFSET_INVALID;
+        }
+
+        // check mapping does not overlap leaf page table
+        if (slot + pte_count > (256 * 4)) {
+            return SYS_ERR_VM_MAP_SIZE;
+        }
+
+        // Destination
+        lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
+        lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
+
+        union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + slot;
+        if (entry->invalid.type != L1_TYPE_INVALID_ENTRY) {
+            panic("Remapping valid page.");
+        }
+
+        lpaddr_t src_lpaddr = gen_phys_to_local_phys(get_address(src) + offset);
+        if ((src_lpaddr & (LARGE_PAGE_SIZE - 1))) {
+            panic("Invalid target");
+        }
+
+        struct cte *src_cte = cte_for_cap(src);
+        src_cte->mapping_info.pte_count = pte_count;
+        src_cte->mapping_info.pte = dest_lpaddr;
+        src_cte->mapping_info.offset = offset;
+
+        for (int i = 0; i < pte_count; i++) {
+            entry->raw = 0;
+
+            entry->section.type = L1_TYPE_SECTION_ENTRY;
+            entry->section.bufferable = 1;
+            entry->section.cacheable = (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE)? 0: 1;
+            entry->section.ap10 = (kpi_paging_flags & KPI_PAGING_FLAGS_READ)? 2:0;
+            entry->section.ap10 |= (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)? 3:0;
+            entry->section.ap2 = 0;
+            entry->section.base_address = (src_lpaddr + i * BYTES_PER_SECTION) >> 12;
+
+            entry++;
+
+            debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
+                   dest_lvaddr, slot, entry, entry->raw);
+        }
+
+        // Flush TLB if remapping.
+        cp15_invalidate_tlb();
+        return SYS_ERR_OK;
         return SYS_ERR_WRONG_MAPPING;
     }
 
