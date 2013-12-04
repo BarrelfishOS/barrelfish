@@ -165,10 +165,6 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
     lpaddr_t addr = ETABLE_PHYS_BASE + core_id * BASE_PAGE_SIZE;
     paging_set_l2_entry((uintptr_t *)&aligned_low_l2_table[ARM_L2_OFFSET(ETABLE_ADDR)], addr, l2_flags);
 
-
-    //map section containing sysflag registers 1:1
-    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, sysflagset_base, sysflagset_base);
-
     cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
 
     cp15_invalidate_tlb();

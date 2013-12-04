@@ -78,8 +78,6 @@ int  scu_get_core_count(void);
 
 void write_sysflags_reg(uint32_t regval);
 
-extern lpaddr_t sysflagset_base;
-
 /* [2009-11-17 orion] TODO: device enumeration */
 
 #endif // __ARM_HAL_H__
