@@ -104,7 +104,6 @@ static inline int bitaddralign(size_t n, lpaddr_t base_addr)
 #define SUBSYS_CAPS             (1 << 6)        ///< Capabilities
 #define SUBSYS_DISPATCH         (1 << 7)        ///< Scheduling and dispatch
 #define SUBSYS_IO               (1 << 8)        ///< Low-level IO operations
-#define SUBSYS_BMP              (1 << 9)        ///< BMP operations
 
 /**
  * Kernel message loglevels.
