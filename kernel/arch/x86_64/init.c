@@ -403,6 +403,9 @@ static inline void enable_monitor_mwait(void)
               "min size %u bytes, max %u bytes. %s %s\n",
               eax, ebx, (ecx & 2) ? "IBE" : "", (ecx & 1) ? "EMX" : "");
     }
+    else {
+        debug(SUBSYS_STARTUP, "MONITOR/MWAIT are not supported.\n");
+    }
 }
 
 /**
