@@ -272,6 +272,8 @@ void kernel_startup_early(void)
     assert(glbl_core_data != NULL);
     cmdline = MBADDR_ASSTRING(glbl_core_data->cmdline);
     parse_commandline(cmdline, cmdargs);
+    kernel_log_subsystem_mask = 0x7;
+    kernel_loglevel = 5;
 }
 
 /**
@@ -316,6 +318,8 @@ void kernel_startup(void)
     }
 
     // Should not return
+    //if (apic_is_bsp()) {
     dispatch(init_dcb);
+    //}
     panic("Error spawning init!");
 }
