@@ -1,0 +1,103 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2013, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,twoside]{report} % for a report (default)
+
+\usepackage{bftn} % You need this
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{color}
+
+\title{Barrelfish on ARMv7}   % title of report
+\author{Simon Gerber \and Stefan Kaestle \and Timothy Roscoe \and
+  Pravin Shinde \and Gerd Zellweger}
+\tnnumber{017}  % give the number of the tech report
+\tnkey{ARMv7} % Short title, will appear in footer
+
+% \date{Month Year} % Not needed - will be taken from version history
+
+\newcommand{\todo}[1]{\note{\textbf{TODO:} #1}}
+
+\begin{document}
+\maketitle
+
+%
+% Include version history first
+%
+\begin{versionhistory}
+\vhEntry{0.1}{05.12.2013}{SK}{Initial version}
+\end{versionhistory}
+
+% \intro{Abstract}		% Insert abstract here
+% \intro{Acknowledgements}	% Uncomment (if needed) for acknowledgements
+% \tableofcontents		% Uncomment (if needed) for final draft
+% \listoffigures		% Uncomment (if needed) for final draft
+% \listoftables			% Uncomment (if needed) for final draft
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+}
+
+\newcommand{\eclipse}{ECL\textsuperscript{i}PS\textsuperscript{e}\xspace}
+\newcommand{\codesize}{\scriptsize}
+\newcommand{\note}[1]{[\textcolor{red}{\emph{#1}}]}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction}
+
+This document describes the state of the ARM port of
+Barrelfish~\cite{barrelfish:sosp09}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Barrelfish implementation on ARM}\label{chap:impl}
+
+\section{CPU driver}
+
+\section{Compilation}
+
+\section{Boot process: first (bootstrap) core}
+
+\section{Boot process: subsequent cores}
+
+\section{Physical address space}
+
+\section{Virtual address space}
+
+\section{Memory allocation}
+
+\section{Interconnect driver}\label{sec:interconnect}
+
+\section{Message passing stubs}
+
+\section{Bulk transfer}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Hardware measurements}\label{chap:bench}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Evaluation of the implementation}\label{chap:eval}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Reflections on ARM as a platform}\label{chap:refl}
+
+\section{Build environment}
+
+\section{Debugging}~\label{debugging}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv} 
+\bibliography{defs,barrelfish}
+
+\end{document}
+
+\end{document}
