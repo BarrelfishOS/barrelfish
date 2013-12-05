@@ -58,41 +58,77 @@
 This document describes the state of the ARM port of
 Barrelfish~\cite{barrelfish:sosp09}.
 
+\todo{Explain architectures and platforms}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Barrelfish implementation on ARM}\label{chap:impl}
 
-\section{CPU driver}
+\todo{Explain that we have several: ARMv5, OMAP4460 A9, OMAP4460 M3
+  and the VExpress\_EMM emulated by gem5}
 
-\section{Compilation}
+\section{ARM specifics}
+
+%--------------------------------------------------
+\section{OMAP4460 specifics}
+
+Dual core A9 with two M3 accelerators.
+
+\subsection{Compilation}
+
+\todo{Get from public Barrelfish wiki}
 
 \section{Boot process: first (bootstrap) core}
 
+\todo{From AOS writeup?}
+
 \section{Boot process: subsequent cores}
+
+\todo{From AOS writeup?} 
+
+\todo{Kornilios did a clean implementation, he should know}
 
 \section{Physical address space}
 
-\section{Virtual address space}
-
-\section{Memory allocation}
+Partitioned in half. Independent mem-server on every core, which work
+independently.
 
 \section{Interconnect driver}\label{sec:interconnect}
 
-\section{Message passing stubs}
+Mention that there is a mailbox. I don't think we have a driver for it
+in the tree, but Claudio might have one.
 
-\section{Bulk transfer}
+\section{M3 cores}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Hardware measurements}\label{chap:bench}
+Get from Claudio's thesis.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Evaluation of the implementation}\label{chap:eval}
+%--------------------------------------------------
+\section{gem5 specifics}
+
+\section{Compilation}
+
+\todo{Get from Samuel's README file}
+
+\section{Boot process: first (bootstrap) core}
+
+\todo{Get from Samuel's thesis, 4.1.1}
+
+\section{Boot process: subsequent cores}
+
+Write start address of second core in SYSFLAGS register and raise
+SWI.
+
+\todo{Samuel, 4.2.2}
+
+\section{Memory}
+
+\todo{From Samuel's thesis, 4.1.2}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Reflections on ARM as a platform}\label{chap:refl}
 
-\section{Build environment}
-
 \section{Debugging}~\label{debugging}
+
+Experience with JTAG?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{abbrv} 
