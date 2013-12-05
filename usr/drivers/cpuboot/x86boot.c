@@ -745,6 +745,13 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "power_down failed.");
         }
     }
+    else if (!strcmp(argv[2], "resume")) {
+        printf("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
+        /*err = st->tx_vtbl.power_down(st, NOP_CONT, destination);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "resume failed.");
+        }*/
+    }
 
     while(!done) {
         err = event_dispatch(get_default_waitset());
