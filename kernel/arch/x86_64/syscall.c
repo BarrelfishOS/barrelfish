@@ -286,14 +286,52 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
     return sys_monitor_spawn_core(core_id, cpu_type, entry);
 }
 
+static inline void __monitor(const void *eax, unsigned long ecx,
+                 unsigned long edx)
+{
+    /* "monitor %eax, %ecx, %edx;" */
+    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc8;"
+                          :: "a" (eax), "c" (ecx), "d"(edx));
+}
+
+static inline void __mwait(unsigned long eax, unsigned long ecx)
+{
+    /* "mwait %eax, %ecx;" */
+    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc9;"
+                          :: "a" (eax), "c" (ecx));
+}
+
 /**
  * \brief Request to stop the current core
  */
+#include "startup.h"
+#include <barrelfish_kpi/init.h>
+#define CNODE(cte)     (cte)->cap.u.cnode.cnode
 static struct sysret monitor_stop_core(struct capability *kernel_cap,
                                        int cmd, uintptr_t *args)
 {
     printk(LOG_ERR, "monitor_stop_core id=%d\n", my_core_id);
-    halt();
+
+    extern struct spawn_state spawn_state;
+    struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
+                                                  TASKCN_SLOT_MON_URPC);
+    //lpaddr_t urpc_ptr = gen_phys_to_local_phys();
+
+    printf("%s:%s:%d: waiting on urpc 0x%"PRIxGENPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base);
+
+    __monitor((void*)urpc_frame_cte->cap.u.frame.base, 0, 0);
+    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    __mwait(0, 0);
+
+    /**
+     * This means we reenable on an IRQ an jump in irq handler
+     * in irq.c, after that we segfault in the kernel
+     */
+    //__asm__ __volatile__ ("sti");
+    //halt();
+
+    return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
 }
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,

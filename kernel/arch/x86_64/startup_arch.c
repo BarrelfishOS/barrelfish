@@ -47,7 +47,7 @@
 /// Pointer to bootinfo structure for init
 static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
 
-static struct spawn_state spawn_state;
+struct spawn_state spawn_state;
 
 /**
  * Page map level 4 table for init user address space.
@@ -645,7 +645,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     snprintf(bootinfochar, sizeof(bootinfochar), "%lu", BOOTINFO_BASE);
     const char *argv[] = { "init", bootinfochar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              bootinfo_phys, alloc_phys);
 
@@ -720,7 +720,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     const char *argv[] = { name, coreidchar, chanidchar, archidchar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              0, alloc_phys);
 
