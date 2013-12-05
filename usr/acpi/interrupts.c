@@ -382,7 +382,7 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
     int inti = gsi_mapped - i->irqbase;
     ioapic_route_inti(i, inti, vector, dest_apicid);
 
-    ACPI_DEBUG("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
+    printf("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
               "vector %d\n", gsi, gsi_mapped, inti, dest_apicid, dest, vector);
 
     /* enable */
