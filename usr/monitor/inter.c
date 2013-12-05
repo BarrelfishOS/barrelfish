@@ -678,6 +678,7 @@ static void power_down_request(struct intermon_binding *b)
    }
 
    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+   USER_PANIC("Return from power down request?");
 }
 
 extern struct monitor_binding* cpuboot_driver;
