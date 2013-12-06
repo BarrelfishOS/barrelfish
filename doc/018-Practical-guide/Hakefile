@@ -11,6 +11,6 @@
 ----------------------------------------------------------------------
 
 [ buildTechNote "PracticalGuide.tex" "TN-018-PracticalGuide.pdf" False False
-                    [ "helloWorldArch" ]
+                    [ "helloWorld2" ]
 ]
 
