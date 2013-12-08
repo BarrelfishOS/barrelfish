@@ -1,17 +1,22 @@
 #!/bin/bash
 set -e
 set -x
-README="./README.rst"
+README="../../README"
 CONVERTER="rst2latex"
+
+# Create couple of temparaty files to store intermediate files
+CLEANEDREADME=`mktemp --tmpdir="./" tmp.XXXXXX`
+CONVERTEDTEX=`mktemp --tmpdir="./" tmp.XXXXXX`
+
+# cleanup unwanted text from the readme file
+./cleanREADME.awk ${README} > ${CLEANEDREADME}
+
 # Generate html from restructured text (assuming docutils are installed)
-${CONVERTER} ${README} tmp.tex
+${CONVERTER} ${CLEANEDREADME} ${CONVERTEDTEX}
 
-# Replace class="title" attribute from H1 tag as it was clashing with something
-# in Drupal
-#sed -i 's/<h1 class="title">/<h1>/g' tmp.tex
+# Remove all the unwanted sections still remaining in readme.tex file.
+./cleanTex.awk ${CONVERTEDTEX} > readme.tex
 
-# Remove all lines before <body> tag and after </body> tag.
-./cleanTex.awk tmp.tex > readme.tex
-
-rm tmp.tex
+# remove the temp files created to store intermediate contents
+rm -f ${CONVERTEDTEX} ${CLEANEDREADME}
 

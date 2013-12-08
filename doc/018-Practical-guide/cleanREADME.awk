@@ -4,12 +4,12 @@ BEGIN {
     pr = 0
 }
 
-/KNOWN ISSUES/ {
+/LIKELY FAQs/ {
     pr = 0
 }
 
 /SUPPORTED HARDWARE/ {
-    pr = 1
+   pr = 1
 }
 
 {
