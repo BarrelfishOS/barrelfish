@@ -190,7 +190,7 @@ from successful completion of export:
 
 
 \begin{verbatim}
-const char *service_name = "hello_service";
+const static char *service_name = "hello_service";
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
@@ -317,7 +317,7 @@ static void run_client(void *arg)
     /* Creating a continuation which will call run_client */
     struct event_closure txcont = MKCONT(run_client, myst);
 
-    errval_t err = b->tx_vtbl.hello_msg(b, txcont, "Hello World");
+    err = b->tx_vtbl.hello_msg(b, txcont, "Hello World");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending message %d\n", myst->count);
     }
@@ -333,6 +333,27 @@ and a callback that will be triggered when message is successfully.
 
 As you can notice, callback function is calling \texttt{run\_client} again,
 leading an infinite loop of sending messages.
+
+\subsubsection{Include files}
+
+Following is a typical set of include files that you will need to add
+in your code.
+
+\begin{verbatim}
+#include <stdio.h>
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <if/hello_defs.h>
+\end{verbatim}
+
+The \texttt{barrelfish.h} file contains declaration of
+functionalities related to Barrelfish OS (eg: system calls, capability
+system related functionalities, etc.)
+\texttt{nameservice\_client.h} file provides declarations for functions related
+to registering and looking up services.  The \texttt{hello\_defs.h} file
+includes the declarations for automatically generated code to support
+\texttt{if/hello.if} interface.
+
 
 \subsection{Building and running the application}
 
@@ -428,8 +449,40 @@ $ make sim
 
 At this moment, you should be able see Barrelfish booting and starting your
 applications which are then able to communicate by sending "Hello World"
-message in infinite loop.
+message in infinite loop.  Following is a sample output that you may expect
+while running this setup.
 
-
+\begin{verbatim}
+...
+...
+...
+startd.0: starting app /x86_64/sbin/hello-cs on core 0
+spawnd.0: spawning /x86_64/sbin/hello-cs on core 0
+startd.0: starting app /x86_64/sbin/hello-cs on core 1
+skb.0: waiting for: spawn.1
+skb.0: waiting for: pci
+spawnd.0: spawning /x86_64/sbin/ahcid on core 0
+kernel: 0: installing handler for IRQ 1
+kernel: 0: installing handler for IRQ 2
+pci_client.c: got vector 2
+ahcid: registered device 8086:2922
+spawnd.1: spawning /x86_64/sbin/hello-cs on core 1
+No bootscript
+server: received hello_msg:
+        Hello World
+server: received hello_msg:
+        Hello World
+server: received hello_msg:
+        Hello World
+server: received hello_msg:
+        Hello World
+server: received hello_msg:
+        Hello World
+server: received hello_msg:
+        Hello World
+...
+...
+...
+\end{verbatim}
 
 
