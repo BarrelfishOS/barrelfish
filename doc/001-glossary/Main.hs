@@ -362,6 +362,15 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "A tool used to build a boot image in the proprietary Intel \
              \``32.obj'' format, for booting on the Single-chip Cloud \
              \Computer.",
+ 
+             Entry "Pleco" []
+
+             "The Domain Specific Language used in Barrelfish to specify \
+             \constants for the tracing infrastructure.  The Pleco \
+             \compiler takes such description and outputs a \
+             \C header file containing the definitions, a C source \
+             \file with the constants, and a JSON file to be used by \
+             \host visualization tools.",
 
              Entry "ZZZ terms yet to be added" []
 
