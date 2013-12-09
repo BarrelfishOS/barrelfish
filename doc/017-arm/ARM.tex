@@ -227,11 +227,40 @@ the page tables it sets up.
 %--------------------------------------------------
 \section{gem5 specifics}
 
+The Gem5~\cite{gem5:sigarch11} simulator combines the best aspects of
+the M5~\cite{m5:micro06} and GEMS~\cite{gems:sigarch05}
+simulators. With its flexible and highly modular design, Gem5 allows
+the simulation of a wide range of systems. Gem5 supports a wide range
+of ISAs like x86, SPARC, Alpha and, in our case most importantly,
+ARM. In the following we will list some features of Gem5.
+
+Gem5 supports four different CPU models: AtomicSimple, TimingSimple,
+In-Order and O3. The first two are simple one-cycle-per-instruction
+CPU models. The difference between the two lies in the way they handle
+memory accesses. The AtomicSimple model completes all memory accesses
+immediately, whereas the TimingSimple CPU models the timing of memory
+accesses. Due to their simplicity, the simulation speed is far above
+the other two models.  The InOrder CPU models an in-order pipeline and
+focuses on timing and simulation accuracy. The pipeline can be
+configured to model different numbers of stages and hardware threads.
+The O3 CPU models a pipelined, out-of-order and possibly superscalar
+CPU model. It simulates dependencies between instructions, memory
+accesses, pipeline stages and functional units. With a load/store
+queue and reorder buffer its possible to simulate superscalar
+architectures as well as multiple hardware threads.
+
+The Gem5 simulator provides a tight integration of Python into the
+simulator. Python is mainly used for system configuration. Every
+simulated building block of a system is implemented in C++ but are
+also reflected as a Python class and derive from a single superclass
+SimObject. This provides a very flexible way of system construction
+and allows to tailor nearly every aspect of the system to our needs.
+Python is also used to control the simulation, taking and restoring
+snapshots as well as all the command line processing.
+
 \subsection{Compilation}
 
 % Source: Get from Samuel's README file
-\pravin{FIXME: Add details of why GEM5}
-\pravin{FIXME: Link to GEM5 documentation.}
 \pravin{FIXME: Add details of simulated board architecture}
 
 % TODO:
