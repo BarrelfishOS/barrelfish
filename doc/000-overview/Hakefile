@@ -10,9 +10,11 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Overview.tex" "TN-000-Overview.pdf" False False
-                    [ "cap_heirarchy", "cap_translation",
-                      "dcb", "LMP", "os-arch", "UMP" ] 
+[ buildTechNote "Overview.tex" "TN-000-Overview.pdf" True False
+                    [ "cap_heirarchy", 
+                      "cap_translation",
+                      "dcb", 
+                      "os-arch" ] 
 ]
 
 
