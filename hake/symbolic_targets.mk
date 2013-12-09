@@ -544,15 +544,15 @@ GEM5_MODULES=\
 
 arm_gem5_image: $(GEM5_MODULES) \
 		tools/bin/arm_molly \
-		menu.lst.arm_gem5
+		menu.lst.arm_gem5_mc
 	# Translate each of the binary files we need
-	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5 molly_gem5
+	$(SRCDIR)/tools/arm_molly/build_data_files.sh menu.lst.arm_gem5_mc molly_gem5
 	# Generate appropriate linker script
 	cpp -P -DBASE_ADDR=0x00100000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_gem5/molly_ld_script
 	# Build a C file to link into a single image for the 2nd-stage
 	# bootloader
-	tools/bin/arm_molly menu.lst.arm_gem5 arm_mbi.c
+	tools/bin/arm_molly menu.lst.arm_gem5_mc arm_mbi.c
 	# Compile the complete boot image into a single executable
 	$(ARM_GCC) -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
 		-nostdlib -march=armv7-a -mapcs -fno-unwind-tables \
@@ -580,7 +580,7 @@ arm_gem5: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
 arm_gem5_detailed: arm_gem5_image $(SRCDIR)/tools/arm_gem5/gem5script.py
 	gem5.fast $(ARM_FLAGS) --cpu-type=arm_detailed
 
-.PHONY: arm_gem5_mc arm_gem5 arm_gem5_detailed arm_gem5_detailed
+.PHONY: arm_gem5 arm_gem5_detailed
 
 #######################################################################
 #
@@ -658,7 +658,7 @@ heteropanda_master_image: $(PANDABOARD_MODULES) \
 	# Generate appropriate linker script
 	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_panda/molly_ld_script
-		
+
 	# HETEROPANDA: convert slave image into a form we can insert in our image
 	$(ARM_OBJCOPY) -I binary -O elf32-littlearm -B arm --rename-section \
 	    .data=.rodata_thumb,alloc,load,readonly,data,contents heteropanda_slave \

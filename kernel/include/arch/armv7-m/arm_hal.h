@@ -63,9 +63,6 @@ void     systick_stop(void);
 //XXX: does this even exist for the cortex-m3 ??
 void write_sysflags_reg(uint32_t regval);
 
-extern lpaddr_t sysflagset_base;
-
-
 //pure dummy functions - just so I do not have to do case distinctions in pure debug code
 uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);

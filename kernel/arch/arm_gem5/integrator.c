@@ -49,9 +49,10 @@ static uint32_t tsc_hz = 1000000000;
 // Interrupt controller
 //
 
-#define GIC_BASE    0x2C000000
-#define DIST_OFFSET 0x1000
-#define CPU_OFFSET  0x2000
+// RealView.py l342
+#define GIC_BASE    0x2C000000 // l342
+#define DIST_OFFSET 0x1000 // l342
+#define CPU_OFFSET  0x2000 // l342
 
 void gic_map_and_init(pl130_gic_t *gic)
 {
@@ -64,16 +65,18 @@ void gic_map_and_init(pl130_gic_t *gic)
 // Kernel timer and tsc
 //
 
-#define PIT_BASE 	0x1C100000
-#define PIT0_OFFSET	0x10000
-#define PIT_DIFF	0x10000
 
-#define PIT0_IRQ	34
-#define PIT1_IRQ	35
+#define PIT_BASE    0x1C100000 // RealView.py l344
+#define PIT0_OFFSET 0x10000 // RealView.py l344f
 
-#define PIT0_ID		0
-#define PIT1_ID		1
+// difference between two PITs
+#define PIT_DIFF    0x10000 // from gem5/src/dev/arm/RealView.py l344 f
 
+#define PIT0_IRQ    34 // from gem5/src/dev/arm/RealView.py l344
+#define PIT1_IRQ    35 // from gem5/src/dev/arm/RealView.py l345
+
+#define PIT0_ID     0
+#define PIT1_ID     1
 
 static sp804_pit_t pit0;
 static sp804_pit_t pit1;
@@ -274,10 +277,25 @@ int scu_get_core_count(void)
 // Sys Flag Register
 //
 
-#define SYSFLAGSET_BASE		0x1C010030
+// RealView.py: realview_io.pio_addr = 0x1C010000 l341
+// gem5script.py: flags_addr is set to +0x30 in l141
+#define SYSFLAGSET_BASE         0x1C000000 // needs to be section aligned
+#define SYSFLAGSET_OFFSET       0x00010030
 
-lpaddr_t sysflagset_base = SYSFLAGSET_BASE;
+static lvaddr_t sysflagset_base = 0;
 void write_sysflags_reg(uint32_t regval)
 {
-	writel(regval, (char *)SYSFLAGSET_BASE);
+    if (sysflagset_base == 0) {
+
+        printf("SYSFLAGSET_BASE is at 0x%x\n", SYSFLAGSET_BASE);
+        sysflagset_base = paging_map_device(SYSFLAGSET_BASE,
+                                            ARM_L1_SECTION_BYTES);
+
+        printf(".. mapped to 0x%"PRIxLVADDR"\n", sysflagset_base);
+    }
+
+    lvaddr_t sysflags = sysflagset_base + SYSFLAGSET_OFFSET;
+    printf(".. using address 0x%p\n", sysflags);
+
+    writel(regval, (char *) sysflags);
 }
