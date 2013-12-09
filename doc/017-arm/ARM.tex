@@ -258,12 +258,14 @@ and allows to tailor nearly every aspect of the system to our needs.
 Python is also used to control the simulation, taking and restoring
 snapshots as well as all the command line processing.
 
+We use a VExpress\_EMM based system to run Barrelfish. The number of
+cores can be passed as an argument to the gem5 script. Cores are
+clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
+
 \subsection{Compilation}
 
 % Source: Get from Samuel's README file
-\pravin{FIXME: Add details of simulated board architecture}
 
-% TODO:
 In addition to the steps described in Section~\ref{sec:armcompile} you
 will need a supported version of gem5.
 
@@ -397,19 +399,25 @@ to the kernel, leads to a pagefault. Since many mappings can point to
 the same physical memory, memory usage is not increased by this
 technique.
 
-%\includegraphics[width=\linewidth]{figures/memory_layout}
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=\linewidth]{figures/memory_layout.png}
+  \caption{Barrelfish memory layout for ARMv7 on gem5}
+  \label{fig:memory_layout}
+\end{figure}
 
-Figure 1 shows the memory layout of the single-core ARMv7-a port of
-Barrelfish. We have a memory split at 2GB, where everything upwards is
-only accessible in privileged mode and the lower 2GB of memory is
-accessible for user space programs. The position of the kernel in the
-virtual space is hard- coded. The L1 page table of the kernel address
-space is located right after the kernel and aligned to 16KB. We map
-the whole available physical memory into the kernel’s virtual address
-space. The locations for the 64KB kernel stack, the ramdisk aswell as
-the section for memory mapped devices are hardcoded.  Overall the
-memory layout is very static and turned out to be problematic with
-regard to multicore support, which will be explained in section 4.2.
+Figure~\ref{fig:memory_layout} shows the memory layout of the
+single-core ARMv7-a port of Barrelfish. We have a memory split at 2GB,
+where everything upwards is only accessible in privileged mode and the
+lower 2GB of memory is accessible for user space programs. The
+position of the kernel in the virtual space is hard- coded. The L1
+page table of the kernel address space is located right after the
+kernel and aligned to 16KB. We map the whole available physical memory
+into the kernel’s virtual address space. The locations for the 64KB
+kernel stack, the ramdisk aswell as the section for memory mapped
+devices are hardcoded.  Overall the memory layout is very static and
+turned out to be problematic with regard to multicore support, which
+will be explained in section 4.2.
 
 
 We still implement a memory split the same way we did in the
