@@ -230,7 +230,11 @@ the page tables it sets up.
 \subsection{Compilation}
 
 % Source: Get from Samuel's README file
+\pravin{FIXME: Add details of why GEM5}
+\pravin{FIXME: Link to GEM5 documentation.}
+\pravin{FIXME: Add details of simulated board architecture}
 
+% TODO:
 In addition to the steps described in Section~\ref{sec:armcompile} you
 will need a supported version of gem5.
 
@@ -261,7 +265,7 @@ To get the output of Barrelfish you can use \code{telnet localhost
   3456}
 
 NOTE 1: You can print the supported options of the gem5 script with
-\code{gem5.fast ../tools/gem5/gem5script.py -h} 
+\code{gem5.fast ../tools/gem5/gem5script.py -h}
 
 NOTE 2: If you use \code{--cpu-type=arm_detailed} (use \code{make
 arm_gem5_detailed}), the simulation takes a long time (depending on
@@ -362,7 +366,7 @@ Even though the kernel is mapped to each virtual address space, it is
 invisible for the user space program. Accessing memory, which belongs
 to the kernel, leads to a pagefault. Since many mappings can point to
 the same physical memory, memory usage is not increased by this
-technique. 
+technique.
 
 %\includegraphics[width=\linewidth]{figures/memory_layout}
 
@@ -405,7 +409,7 @@ reserved the first MB of physical memory for this purpose.
 Experience with JTAG?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\bibliographystyle{abbrv} 
+\bibliographystyle{abbrv}
 \bibliography{defs,barrelfish}
 
 \end{document}
