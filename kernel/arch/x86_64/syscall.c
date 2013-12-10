@@ -312,18 +312,30 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
 {
     printk(LOG_ERR, "monitor_stop_core id=%d\n", my_core_id);
 
-    extern struct spawn_state spawn_state;
+    /*extern struct spawn_state spawn_state;
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
                                                   TASKCN_SLOT_MON_URPC);
-    //lpaddr_t urpc_ptr = gen_phys_to_local_phys();
+    int  err = paging_x86_64_map_memory(urpc_frame_cte->cap.u.frame.base, 4096);
+    assert (err == 0);
+    lpaddr_t urpc_ptr = local_phys_to_mem(urpc_frame_cte->cap.u.frame.base);
+    printf("%s:%s:%d: waiting on urpc 0x%"PRIxGENPADDR" 0x%"PRIxLPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base, urpc_ptr);*/
 
-    printf("%s:%s:%d: waiting on urpc 0x%"PRIxGENPADDR"\n",
-           __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base);
+    printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
 
-    __monitor((void*)urpc_frame_cte->cap.u.frame.base, 0, 0);
-    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
-    __mwait(0, 0);
+    global->wait[0] = 0x1;
+    while(1) {
+        __monitor((void*)global->wait, 0, 0);
+        __mwait(0, 0);
+        if (global->wait[0] == 0x0) {
+            break;
+        }
+        else {
+            printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+        }
+    }
 
+    printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     /**
      * This means we reenable on an IRQ an jump in irq handler
      * in irq.c, after that we segfault in the kernel
@@ -332,6 +344,14 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
     //halt();
 
     return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
+}
+
+static struct sysret kernel_start_core(struct capability *kernel_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printf("%s:%s:%d %"PRIu64"\n", __FILE__, __FUNCTION__, __LINE__, global->wait[0]);
+    global->wait[0] = 0x0;
+    return (struct sysret){.error = SYS_ERR_OK, .value = 0x0};
 }
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
@@ -878,7 +898,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
         [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
         [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
-        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys
+        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
+        [KernelCmd_StartCore] = kernel_start_core,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

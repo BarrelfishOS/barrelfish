@@ -30,6 +30,9 @@ struct global {
 
     uint32_t tickspersec;
 
+    uint64_t padding[64];
+    volatile uint64_t wait[8];
+
     genpaddr_t notify[MAX_COREID];
 };
 

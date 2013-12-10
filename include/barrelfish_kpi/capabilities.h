@@ -190,6 +190,7 @@ enum kernel_cmd {
     KernelCmd_Start_IPI_Send,     ///< Send Startup IPI to a destination core
     KernelCmd_Init_IPI_Send,      ///< Send Init IPI to a destination core
     KernelCmd_GetGlobalPhys,      ///< Get physical address of kernel variable struct global;
+    KernelCmd_StartCore,          ///<
     KernelCmd_Count
 };
 

@@ -120,6 +120,12 @@ static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
     return sr.error;
 }
 
+static inline errval_t invoke_start_core(void)
+{
+    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_StartCore);
+    return sr.error;
+}
+
 /**
  * \brief Boot a app core of x86_64 type
  *
@@ -720,7 +726,7 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < argc; i++) {
         printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
     }
-    assert(!strcmp(argv[2], "up") || !strcmp(argv[2], "down"));
+    assert(!strcmp(argv[2], "up") || !strcmp(argv[2], "down") || !strcmp(argv[2], "resume"));
 
     coreid_t destination = (coreid_t) atoi(argv[3]);
     assert(destination < MAX_COREID);
@@ -747,10 +753,11 @@ int main(int argc, char** argv)
     }
     else if (!strcmp(argv[2], "resume")) {
         printf("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
-        /*err = st->tx_vtbl.power_down(st, NOP_CONT, destination);
+        err = invoke_start_core();
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "resume failed.");
-        }*/
+            USER_PANIC_ERR(err, "resume core failed.");
+        }
+        done = true;
     }
 
     while(!done) {
