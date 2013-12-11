@@ -52,5 +52,6 @@ void apic_timer_set_divide(xapic_divide_t divide);
 void apic_mask_timer(void);
 void apic_unmask_timer(void);
 xapic_esr_t apic_get_esr(void);
+void apic_disable(void);
 
 #endif // APIC_H_

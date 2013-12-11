@@ -331,7 +331,7 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
             break;
         }
         else {
-            printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+            // printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
         }
     }
 

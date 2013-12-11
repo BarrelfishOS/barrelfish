@@ -32,6 +32,7 @@ struct global {
 
     uint64_t padding[64];
     volatile uint64_t wait[8];
+    bool started_once;
 
     genpaddr_t notify[MAX_COREID];
 };

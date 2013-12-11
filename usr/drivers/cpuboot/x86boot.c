@@ -726,7 +726,6 @@ int main(int argc, char** argv)
     for (size_t i = 0; i < argc; i++) {
         printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
     }
-    assert(!strcmp(argv[2], "up") || !strcmp(argv[2], "down") || !strcmp(argv[2], "resume"));
 
     coreid_t destination = (coreid_t) atoi(argv[3]);
     assert(destination < MAX_COREID);
@@ -758,6 +757,32 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "resume core failed.");
         }
         done = true;
+    }
+    else if (!strcmp(argv[2], "ipi")) {
+
+        lpaddr_t entry = 0x0;
+        err = invoke_send_init_ipi(1);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "invoke send init ipi");
+            return err;
+        }
+
+        err = invoke_send_start_ipi(1, entry);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "invoke sipi");
+            return err;
+        }
+
+        err = invoke_send_start_ipi(1, entry);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "invoke sipi");
+            return err;
+        }
+        done = true;
+    }
+    else {
+        printf("%s:%s:%d: unknown cmd = %s\n",
+               __FILE__, __FUNCTION__, __LINE__, argv[2]);
     }
 
     while(!done) {

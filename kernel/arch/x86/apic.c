@@ -156,7 +156,7 @@ void apic_init(void)
     // initialize spurious interrupt register
     // no focus, software enabled
     {
-	xapic_svr_t t = xapic_svr_initial; 
+	xapic_svr_t t = xapic_svr_initial;
 	t = xapic_svr_vector_insert(t, APIC_SPURIOUS_INTERRUPT_VECTOR);
 	t = xapic_svr_enable_insert(t, 1);
 	t = xapic_svr_focus_insert( t, 1);
@@ -276,6 +276,9 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 {
     //clear the previous error, if nobody was interested before.
     //otherwise it isn't possible to send another IPI
+    char buf[1024];
+    xapic_esr_pr(buf, 1024, &apic);
+    printf("%s:%s:%d:\n%s", __FILE__, __FUNCTION__, __LINE__, buf);
     xapic_esr_rawwr(&apic,0);
     xapic_esr_rawwr(&apic,0);
 
@@ -287,6 +290,7 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 
     // Wait for delivery
     while( wait && xapic_icr_lo_dlv_stat_rdf(&apic) );
+    printf("%s:%s:%d: delivered\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 /** \brief Send an INIT IPI (assert mode)
@@ -423,4 +427,10 @@ xapic_esr_t apic_get_esr(void)
     // 10.5.3: Have to write to ESR before reading it
     xapic_esr_rawwr(&apic, 0);
     return xapic_esr_rd(&apic);
+}
+
+void apic_disable(void) {
+    ia32_apic_base_t apic_base_msr;
+    apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 0);
+    ia32_apic_base_wr(NULL, apic_base_msr);
 }
