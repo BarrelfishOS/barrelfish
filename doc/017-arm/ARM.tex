@@ -100,7 +100,7 @@ as follows:
 
 The main systems we target at present are:
 \begin{itemize}
-\item The Texas Instruments OMAP4460 SoC used in the PandaBoard ES
+\item The Texas Instruments OMAP4460 SoC used in the Pandaboard ES
   platform. 
 \item The ARM VExpress\_EMM board, under emulation in the GEM5
   simulator. 
@@ -115,20 +115,20 @@ Barrelfish tree for:
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Implementations}\label{chap:impl}
-
-\section{ARM in general}
-
-\subsection{Compilation}
+\chapter{General ARM compilation}
 \label{sec:armcompile}
 
+We now describe the OMAP4460 and GEM5 Barrelfish implementation issues
+and build steps. 
+
 This section assumes a properly set up toolchain for Barrelfish as
-described in \stefan{XXX}.
+described in the latest README file.
 
-For cross-compiling Barrelfish for arm, we also require Mentor /
-codesourcery toolchain (v 2012.03). You can check that the toolchain
-is set up properly:
-
+Compiling ARM support in Barrelfish requires a cross-compilation
+toolchain on the programmers \texttt{PATH}.  For ARMv7 support we use
+the MentorGraphics codesourcery toolchain, at time of writing the
+release version of 2012.03.  To check that the toolchain is set up
+correctly: 
 \begin{lstlisting}
 @\shell@ arm-linux-gnueabi-gcc --version
 arm-linux-gnueabi-gcc (Sourcery CodeBench Lite 2012.03-57) 4.6.3
@@ -138,7 +138,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 \end{lstlisting}
 
 %--------------------------------------------------
-\section{OMAP4460 specifics}
+\chapter{OMAP4460 specifics}
 
 % Source: Claudio 3.1
 
@@ -165,11 +165,10 @@ processors and hence are constrained to run in the same virtual
 address at all times.  They are also not cache-coherent with the
 Cortex-A9 cores. 
 
-\subsection{Compilation}
+\section{Compiling and booting}
 
-To compile Barrelfish for the PandaBoard, first, make sure to
-configure your toolchain as described in
-Section~\ref{sec:armcompile}. Then execute:
+To compile Barrelfish for the Pandaboard, first configure your
+toolchain as described in Section~\ref{sec:armcompile}. Then execute: 
 
 \begin{lstlisting}
 cd @\shell@SRC
@@ -179,11 +178,11 @@ cd build
 make pandaboard_image
 \end{lstlisting}
 
-\subsection{Boot process: first (bootstrap) core}
+The resulting image can be booted on the Pandaboard over the USB OTG
+connector using the standard \texttt{usbboot} utility.  It will
+generate console output on the Pandaboard's serial connector.
 
-\todo{From AOS writeup?}
-
-\subsection{Boot process: subsequent cores}
+\section{Booting the second OMAP A9 core}
 
 % source: AOS m6
 
@@ -213,16 +212,19 @@ is responsible for starting the rest of the processors (the APP
 processors). Although it works somewhat differently on 
 ARM, the naming convention is applicable here as well.
 
-Note that the second core will start working with the MMU disabled, so
-is running in physical address space.  The bootstrapping code sets up a
-stack, initial page tables and an initial Barrelfish dispatcher. 
+Note also that the second core will start working with the MMU
+disabled, so is running in physical address space.  The bootstrapping
+code sets up a stack, initial page tables and an initial Barrelfish
+dispatcher.
 
-\subsection{Physical address space}
+\section{Physical address space}
 
-Partitioned in half. Independent mem-server on every core, which work
-independently.
+At present, a temporary limitation in the core boot protocol means
+that running Barrelfish on both A9 cores requires static partitioning of
+the available RAM into two halves, with an independent memory server
+running on each core.   This is will fixed in a subsequent release. 
 
-\subsection{Interconnect driver}\label{sec:interconnect}
+\section{Interconnect driver}\label{sec:interconnect}
 
 Communication between A9 cores on the OMAP processor is performed
 using a variant of the CC-UMP interconnect driver, modified for the
@@ -233,7 +235,7 @@ The OMAP4460 also has mailbox hardware which can be used by both the
 A9 and M3 cores.  Barrelfish support for this hardware is in
 progress. 
 
-\subsection{M3 cores}
+\section{M3 cores}
 
 Barrelfish also has rudimentary support for running on both the A9 and
 M3 cores.  This is limited by the requirement that the M3 cores must
@@ -241,12 +243,10 @@ run in the same virtual address space, and do not have a way to
 automatically change address space on a kernel trap.  For this reason,
 we only execute on a single M3 core at present. 
 
-\subsubsection{Booting M3 cores}
-
 Before the Cortex-M3 can start executing code, the following steps
 have to be taken by the Cortex-A9:
 
-\begin{itemize}
+\begin{enumerate}
 \item Power on the Cortex-M3 subsystem
 \item Activate the Cortex-M3 subsystem clock
 \item Load the image to be executed into memory
@@ -256,7 +256,7 @@ have to be taken by the Cortex-A9:
 \item Write the first two entries of the vectortable (initial sp and
   reset vector)
 \item Take the Cortex-M3 out of reset
-\end{itemize}
+\end{enumerate}
 
 It is important to note that the Cortex-M3 is in a virtual address
 space from the very beginning, reading the vector table at virtual
@@ -266,16 +266,16 @@ once it is running, because it needs to know the physical address of
 the page tables it sets up.
 
 %--------------------------------------------------
-\section{gem5 specifics}
+\chapter{GEM5 specifics}
 
-The Gem5~\cite{gem5:sigarch11} simulator combines the best aspects of
+The GEM5~\cite{gem5:sigarch11} simulator combines the best aspects of
 the M5~\cite{m5:micro06} and GEMS~\cite{gems:sigarch05}
-simulators. With its flexible and highly modular design, Gem5 allows
-the simulation of a wide range of systems. Gem5 supports a wide range
+simulators. With its flexible and highly modular design, GEM5 allows
+the simulation of a wide range of systems. GEM5 supports a wide range
 of ISAs like x86, SPARC, Alpha and, in our case most importantly,
-ARM. In the following we will list some features of Gem5.
+ARM. In the following we will list some features of GEM5.
 
-Gem5 supports four different CPU models: AtomicSimple, TimingSimple,
+GEM5 supports four different CPU models: AtomicSimple, TimingSimple,
 In-Order and O3. The first two are simple one-cycle-per-instruction
 CPU models. The difference between the two lies in the way they handle
 memory accesses. The AtomicSimple model completes all memory accesses
@@ -290,7 +290,7 @@ accesses, pipeline stages and functional units. With a load/store
 queue and reorder buffer its possible to simulate superscalar
 architectures as well as multiple hardware threads.
 
-The Gem5 simulator provides a tight integration of Python into the
+The GEM5 simulator provides a tight integration of Python into the
 simulator. Python is mainly used for system configuration. Every
 simulated building block of a system is implemented in C++ but are
 also reflected as a Python class and derive from a single superclass
@@ -300,19 +300,21 @@ Python is also used to control the simulation, taking and restoring
 snapshots as well as all the command line processing.
 
 We use a VExpress\_EMM based system to run Barrelfish. The number of
-cores can be passed as an argument to the gem5 script. Cores are
+cores can be passed as an argument to the GEM5 script. Cores are
 clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
 
-\subsection{Compilation}
+\section{Compilation}
 
 In addition to the steps described in Section~\ref{sec:armcompile} you
-will need a supported version of gem5.
+will need a supported version of GEM5.  Unfortunately, different
+versions of GEM5 manifest different subtle bugs when emulating ARM
+systems.  We recommend the following revision of GEM5 at present:
 
 \begin{lstlisting}
 hg clone http://repo.gem5.org/gem5 -r 0fea324c832c gem5
 scons build/ARM/gem5.fast
 \end{lstlisting}
-After the compilation of gem5 is finished, add the binary to your PATH.
+After the compilation of GEM5 is finished, add the binary to your PATH.
 
 Now, build Barrelfish like this:
 \begin{lstlisting}
@@ -324,8 +326,8 @@ cd build
 
 Be sure to set \code{armv7_platform} in
 \file{<build_dir>/hake/Config.hs} to \texttt{gem5} in order to enable
-the cache quirk workarounds for gem5 and proper offsets for the
-platform simulated by gem5.
+the cache quirk workarounds for GEM5 and proper offsets for the
+platform simulated by GEM5.
 
 \begin{lstlisting}
 make arm_gem5
@@ -334,14 +336,14 @@ make arm_gem5
 To get the output of Barrelfish you can use \code{telnet localhost
   3456}
 
-NOTE 1: You can print the supported options of the gem5 script with
+NOTE 1: You can print the supported options of the GEM5 script with
 \code{gem5.fast ../tools/gem5/gem5script.py -h}
 
 NOTE 2: If you use \code{--cpu-type=arm_detailed} (use \code{make
 arm_gem5_detailed}), the simulation takes a long time (depending on
 your machine up to an hour just to boot Barrelfish)
 
-\subsection{Boot process: first (bootstrap) core}
+\section{Boot process: first (bootstrap) core}
 
 % Source: Samuel's thesis, 4.1.1
 
@@ -350,7 +352,7 @@ Barrelfish
 kernel on ARMv7-a. In subsequent sections we will go more into details
 involved
 in the single steps.
-\begin{itemize}
+\begin{enumerate}
 \item Setup kernel stack and ensure privileged mode
 \item Allocate L1 page table for kernel
 \item Create necessary mappings for address translation
@@ -371,9 +373,9 @@ in the single steps.
 \item Schedule init and switch to user space
 \item init brings up the monitor and mem serv
 \item monitor spawns ramfsd, skb and all the other modules
-\end{itemize}
+\end{enumerate}
 
-\subsection{Boot process: subsequent cores}
+\section{Boot process: subsequent cores}
 
 % Source: Samuel, 4.2.2
 
@@ -383,7 +385,7 @@ therefore include this revised overview here. The first core is called
 the bootstrap processor and every subsequent core is called an
 application processor On bootstrap processor:
 
-\begin{itemize}
+\begin{enumerate}
 \item Pass argument from bootloader to first C-function arch
   init 18
 \item Make multiboot information passed by bootloader globally
@@ -414,9 +416,9 @@ application processor On bootstrap processor:
 \item Kernel raises software interrupt to start new core
 \item Kernel spins on pseudo-lock until other kernel releases it
 \item repeat steps 15 to 23 for each application processor
-\end{itemize}
+\end{enumerate}
 
-\subsection{Memory}
+\section{Memory layout}
 
 Like many other popular operating systems, Barrelfish employs a memory
 split. The idea behind a memory split is to separate kernel code from
@@ -440,7 +442,7 @@ technique.
 \begin{figure}[htb]
   \centering
   \includegraphics[width=\linewidth]{figures/memory_layout.png}
-  \caption{Barrelfish memory layout for ARMv7 on gem5}
+  \caption{Barrelfish memory layout for ARMv7 on GEM5}
   \label{fig:memory_layout}
 \end{figure}
 
