@@ -80,16 +80,42 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
 
-This document describes the state of the ARM port of
-Barrelfish~\cite{barrelfish:sosp09}.
+This document describes the state of support for ARM processors
+in Barrelfish.
 
-\todo{Explain architectures and platforms}
+ARM hardware is highly diverse, and has evolved over time.  As a
+research OS, Barrelfish focusses ARM support on a small number of
+platforms based on wide availability, ease of maintenance, and
+research interest.  
+
+The principal processors with ARM support in Barrelfish at present are
+as follows: 
+
+\begin{itemize}
+\item ARMv7a (Cortex A-series), in particular the Cortex A9. 
+\item ARMv7m (Cortex M-series), in particular the Cortex M3. 
+\item ARMv5 processors, in particular the Intel iXP2800 network
+  processor (which uses an XScale core). 
+\end{itemize}
+
+The main systems we target at present are:
+\begin{itemize}
+\item The Texas Instruments OMAP4460 SoC used in the PandaBoard ES
+  platform. 
+\item The ARM VExpress\_EMM board, under emulation in the GEM5
+  simulator. 
+\end{itemize}
+
+In addition there is limited (and not tested) support in the
+Barrelfish tree for:
+\begin{itemize}
+\item The Netronome i8000 card, incorporating a single Intel iXP2800
+  processor. 
+\end{itemize}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Barrelfish implementation on ARM}\label{chap:impl}
-
-\todo{Explain that we have several: ARMv5, OMAP4460 A9, OMAP4460 M3
-  and the VExpress\_EMM emulated by gem5}
+\chapter{Implementations}\label{chap:impl}
 
 \section{ARM in general}
 
@@ -132,6 +158,13 @@ The intention is that the Cortex-A9 will be running a general purpose
 operating system, while the Cortex-M3 processors will only be running
 a real-time operating system to control the imaging subsystem.
 
+The processor configuration in the OMAP4460 is somewhat
+unconventional; for example, the Cortex-M3 processors share a
+custom MMU with page faults handled by code running on the Cortex-A9
+processors and hence are constrained to run in the same virtual
+address at all times.  They are also not cache-coherent with the
+Cortex-A9 cores. 
+
 \subsection{Compilation}
 
 To compile Barrelfish for the PandaBoard, first, make sure to
@@ -159,34 +192,30 @@ works: it waits for a signal from the BSP core (an interrupt), and when this
 signal is received, the application core will read an address from a well-
 defined register and start executing the code from this address.
 
-So, you can give some work to the other core by simply writing the address of
-a function to the register and sending the signal. Following are few pointers
-to the documentation to help you to understand the bootstrapping process
-in more details.
+To boot the second core, one can write the address of
+a function to the register and send the inter-processor
+interrupt. Following are some pointers to the documentation to help
+understand the bootstrapping process in more detail:
 
 \begin{itemize}
 \item Section 27.4.4 in the OMAP44xx manual talks about the boot process for
-  application cores
-\item Pages 1144f in the OMAP44xx manual have the register layout for the
-  registers that are used in the boot process of the second core.
+  application cores.
+\item Pages 1144 \textit{ff.} in the OMAP44xx manual have the register
+  layout for the registers that are used in the boot process of the
+  second core. 
 \end{itemize}
 
 Note that the Barrelfish codebase distinguishes between the BSP (bootstrap)
 processor and APP (application) processors. This distinction and naming
-originates from Intels x86 where the BIOS will choose a distinguished BSP processor
-for you at start-up and the OS programmer is responsible to start the rest
-of the processors (the APP processors). Altough it works a bit different on
+originates from Intel x86 support where the BIOS will choose a
+distinguished BSP processor at start-up and the OS 
+is responsible for starting the rest of the processors (the APP
+processors). Although it works somewhat differently on 
 ARM, the naming convention is applicable here as well.
 
-Remember that second core will start working with the MMU disabled, so
-it only understands physical addresses at this time.  As the second
-core will be doing function calls of it's own, it will need it's own
-stack and some assembly code to setup stack and CPU state. As we just
-want to get the second core up, you may want to setup and execute a
-function on the second core in a very early stage of boot-up before
-things become complicated with MMU, caching and interrupts.
-
-\stefan{Are we booting the second core from user-level in our tree?}
+Note that the second core will start working with the MMU disabled, so
+is running in physical address space.  The bootstrapping code sets up a
+stack, initial page tables and an initial Barrelfish dispatcher. 
 
 \subsection{Physical address space}
 
@@ -195,10 +224,22 @@ independently.
 
 \subsection{Interconnect driver}\label{sec:interconnect}
 
-Mention that there is a mailbox. I don't think we have a driver for it
-in the tree, but Claudio might have one.
+Communication between A9 cores on the OMAP processor is performed
+using a variant of the CC-UMP interconnect driver, modified for the
+32-byte cache line size of the ARMv7 architecture.  A notification
+driver for inter-processor interrupts exists. 
+
+The OMAP4460 also has mailbox hardware which can be used by both the
+A9 and M3 cores.  Barrelfish support for this hardware is in
+progress. 
 
 \subsection{M3 cores}
+
+Barrelfish also has rudimentary support for running on both the A9 and
+M3 cores.  This is limited by the requirement that the M3 cores must
+run in the same virtual address space, and do not have a way to
+automatically change address space on a kernel trap.  For this reason,
+we only execute on a single M3 core at present. 
 
 \subsubsection{Booting M3 cores}
 
@@ -264,8 +305,6 @@ clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
 
 \subsection{Compilation}
 
-% Source: Get from Samuel's README file
-
 In addition to the steps described in Section~\ref{sec:armcompile} you
 will need a supported version of gem5.
 
@@ -301,7 +340,6 @@ NOTE 1: You can print the supported options of the gem5 script with
 NOTE 2: If you use \code{--cpu-type=arm_detailed} (use \code{make
 arm_gem5_detailed}), the simulation takes a long time (depending on
 your machine up to an hour just to boot Barrelfish)
-
 
 \subsection{Boot process: first (bootstrap) core}
 
@@ -437,13 +475,6 @@ desired memory layout. To simplify global shared data between kernels
 at boot up, i.e. before the message passing has been set up, we
 reserved the first MB of physical memory for this purpose.
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Reflections on ARM as a platform}\label{chap:refl}
-
-\section{Debugging}~\label{debugging}
-
-Experience with JTAG?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \bibliographystyle{abbrv}

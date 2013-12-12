@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "DeviceDriver.tex" "TN-019-DeviceDriver.pdf" False False [] ]
+[ buildTechNote "DeviceDriver.tex" "TN-019-DeviceDriver.pdf" True False [] ]
