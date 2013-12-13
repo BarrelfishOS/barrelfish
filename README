@@ -19,15 +19,22 @@ Barrelfish currently runs on:
    - AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
      (2220, 8350, 8374, 8380, 8431, 6174)
    - QEMU simulator
+
  * Intel Single-Chip Cloud Computer (SCC), both Copper Ridge and Rocky Lake
    are known to work.
- * ARM Platform
-   - ARMv7 and ARMv5 architectures
-   - GEM5 simulator
-   - Pandaboard System On Chip platform
 
-This README file documents instructions for x86 architecture.  For other
-architectures, please refer to the corresponding technote documentations.
+ * ARM CPUs, specifically ARMv7 and ARMv5. The following platforms are known to work:
+
+   - The Texas Instruments OMAP4460 Pandaboard ES SoC
+     (Barrelfish runs on both the A9 and the M3 cores)
+   - The ARM VExpress EMM board as simulated by GEM5
+   - There is also limited support for the Netronome i8000 card, incorporating
+     a single Intel iXP2800 processor
+
+This README file provides instructions for the x86 architecture. For other
+architectures, please refer to the architecture-specific technical notes (e.g.,
+see TN 06 for the SCC, and TN 17 for ARM).
+
 You can either generate the latest documentation from this source-code
 (instructions at end of this file), or visit the Barrelfish_ website
 to download them.
