@@ -470,7 +470,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init();
+    serial_console_init(false);
 
     // Setup IDT
     setup_default_idt();
@@ -571,11 +571,11 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
-    apic_bsp = (magic == MULTIBOOT_INFO_MAGIC);
-
     // Sanitize the screen
     conio_cls();
-    serial_console_init();
+    // Initialize serial, only initialize HW if we are
+    // the first kernel
+    serial_console_init((magic == MULTIBOOT_INFO_MAGIC));
 
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);

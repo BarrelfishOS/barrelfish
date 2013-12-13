@@ -1,7 +1,7 @@
 /**
  * \file
  * \brief Architecture-independent interface to the kernel serial port
- * subsystem.  
+ * subsystem.
  */
 /*
  * Copyright (c) 2007-2012 ETH Zurich.
@@ -9,7 +9,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaestr. 6, CH-8092 Zurich. 
+ * ETH Zurich D-INFK, CAB F.78, Universitaestr. 6, CH-8092 Zurich.
  * Attn: Systems Group.
  */
 
@@ -27,7 +27,7 @@ extern const unsigned serial_num_physical_ports;
 /*
  * Initialize a physical serial port
  */
-extern errval_t serial_init(unsigned port);
+extern errval_t serial_init(unsigned port, bool initialize_hw);
 extern errval_t serial_early_init(unsigned port);
 
 /*
@@ -42,9 +42,9 @@ extern char serial_getchar(unsigned port);
  */
 extern unsigned serial_console_port;
 
-static inline errval_t serial_console_init(void)
+static inline errval_t serial_console_init(bool hwinit)
 {
-    return serial_init(serial_console_port);
+    return serial_init(serial_console_port, hwinit);
 }
 static inline void serial_console_putchar(char c)
 {
@@ -66,7 +66,7 @@ extern unsigned serial_debug_port;
 
 static inline errval_t serial_debug_init(void)
 {
-    return serial_init(serial_debug_port);
+    return serial_init(serial_debug_port, true);
 }
 static inline void serial_debug_putchar(char c)
 {
