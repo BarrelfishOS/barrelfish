@@ -1,11 +1,58 @@
-\section{Supported x86 hardware%
-  \label{supported-hardware}%
+\section{Barrelfish Overview%
+  \label{barrelfish-overview}%
 }
 
 Barrelfish currently runs on:
+%
+\begin{quote}
+%
 \begin{itemize}
-\item x86 CPUs in either IA-32 or AMD64 mode. The following systems
-  are known to work: 
+
+\item x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
+%
+\begin{itemize}
+
+\item Intel Xeon Clovertown, Gainestown, Beckton (X5355, E5520, X7560, L5520,
+L7555)
+
+\item AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
+(2220, 8350, 8374, 8380, 8431, 6174)
+
+\item QEMU simulator
+
+\end{itemize}
+
+\item Intel Single-Chip Cloud Computer (SCC), both Copper Ridge and Rocky Lake
+are known to work.
+
+\item ARM Platform
+- ARMv7 and ARMv5 architectures
+- GEM5 simulator
+- Pandaboard System On Chip platform
+
+\end{itemize}
+
+\end{quote}
+
+This README file documents instructions for x86 architecture.  For other
+architectures, please refer to the corresponding technote documentations.
+You can either generate the latest documentation from this source-code
+(instructions at end of this file), or visit the \href{http://www.barrelfish.org/}{Barrelfish} website
+to download them.
+
+
+\section{Supported PC hardware%
+  \label{supported-pc-hardware}%
+}
+
+Barrelfish supports following PC hardware :
+%
+\begin{quote}
+%
+\begin{itemize}
+
+\item x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
+%
 \begin{itemize}
 
 \item Intel Xeon Clovertown, Gainestown, Beckton (X5355, E5520, X7560, L5520,
@@ -15,9 +62,6 @@ L7555)
 (2220, 8350, 8374, 8380, 8431, 6174)
 
 \end{itemize}
-
-\item Intel Single-Chip Cloud Computer (SCC), both Copper Ridge and Rocky Lake
-are known to work.
 
 \end{itemize}
 
@@ -51,10 +95,6 @@ on each new machine we test. The following systems are known to work:
 
 \end{quote}
 
-In addition, a port to the ARM architectures is in progress. This is
-less complete than the x86 and SCC ports, and not described in this
-document, but feel free to ask for help on the mailing list.
-
 The e1000n driver should work with most recent Intel gigabit ethernet
 controllers (see the list in devices/e1000.dev). We've mostly used the
 82572EI (PCI device ID 0x1082).
@@ -63,7 +103,7 @@ You should also be able to boot Barrelfish on a recent version of QEMU (0.14);
 note that the e1000 device emulated by QEMU is not supported by our driver.
 
 
-\section{REQUIRED TOOLS%
+\section{Required Tools%
   \label{required-tools}%
 }
 
@@ -103,7 +143,7 @@ Our build system may not be very portable; if in doubt, try building on a
 recent Debian or Ubuntu system, as these are what we use.
 
 
-\section{BUILDING%
+\section{Building%
   \label{building}%
 }
 \newcounter{listcnt0}
@@ -125,7 +165,7 @@ recent Debian or Ubuntu system, as these are what we use.
 architecture(s)
 %
 \begin{quote}{\ttfamily \raggedright \noindent
-\$~../hake/hake.sh~..~x86\_64
+\$~../hake/hake.sh~-s~../~-a~x86\_64
 }
 \end{quote}
 
@@ -152,13 +192,13 @@ run \texttt{make rehake} to apply them.
 \item If everything worked, you should now be able to run Barrelfish inside QEMU
 %
 \begin{quote}{\ttfamily \raggedright \noindent
-\$~make~sim~ARCH=x86\_64
+\$~make~sim
 }
 \end{quote}
 \end{list}
 
 
-\section{INSTALLING AND BOOTING%
+\section{Installing and Booting%
   \label{installing-and-booting}%
 }
 

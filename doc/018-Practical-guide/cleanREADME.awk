@@ -4,11 +4,11 @@ BEGIN {
     pr = 0
 }
 
-/LIKELY FAQs/ {
+/Known Issues/ {
     pr = 0
 }
 
-/SUPPORTED HARDWARE/ {
+/Barrelfish Overview/ {
    pr = 1
 }
 

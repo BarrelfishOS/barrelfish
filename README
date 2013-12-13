@@ -1,5 +1,5 @@
 ##########################################################################
-Copyright (c) 2009-2012, ETH Zurich.
+Copyright (c) 2009-2013, ETH Zurich.
 All rights reserved.
 
 This file is distributed under the terms in the attached LICENSE file.
@@ -7,7 +7,7 @@ If you do not find this file, copies can be found by writing to:
 ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-Supported hardware
+Barrelfish Overview
 --------------------------------
 
 Barrelfish currently runs on:
@@ -18,8 +18,33 @@ Barrelfish currently runs on:
      L7555)
    - AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
      (2220, 8350, 8374, 8380, 8431, 6174)
+   - QEMU simulator
  * Intel Single-Chip Cloud Computer (SCC), both Copper Ridge and Rocky Lake
    are known to work.
+ * ARM Platform
+   - ARMv7 and ARMv5 architectures
+   - GEM5 simulator
+   - Pandaboard System On Chip platform
+
+This README file documents instructions for x86 architecture.  For other
+architectures, please refer to the corresponding technote documentations.
+You can either generate the latest documentation from this source-code
+(instructions at end of this file), or visit the Barrelfish_ website
+to download them.
+
+.. _Barrelfish: http://www.barrelfish.org/
+
+Supported PC hardware
+--------------------------------
+
+Barrelfish supports following PC hardware :
+
+ * x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
+
+   - Intel Xeon Clovertown, Gainestown, Beckton (X5355, E5520, X7560, L5520,
+     L7555)
+   - AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
+     (2220, 8350, 8374, 8380, 8431, 6174)
 
 The biggest compatibility problems are likely to be in the PCI/ACPI code. We
 usually discover new quirks (or missing functionality in the ACPI glue code)
@@ -34,10 +59,6 @@ on each new machine we test. The following systems are known to work:
  * Lenovo X200 and X301 laptops
  * ASUS Eee PC 1015PEM netbooks
 
-In addition, a port to the ARM architectures is in progress. This is
-less complete than the x86 and SCC ports, and not described in this
-document, but feel free to ask for help on the mailing list.
-
 The e1000n driver should work with most recent Intel gigabit ethernet
 controllers (see the list in devices/e1000.dev). We've mostly used the
 82572EI (PCI device ID 0x1082).
@@ -45,8 +66,7 @@ controllers (see the list in devices/e1000.dev). We've mostly used the
 You should also be able to boot Barrelfish on a recent version of QEMU (0.14);
 note that the e1000 device emulated by QEMU is not supported by our driver.
 
-
-REQUIRED TOOLS
+Required Tools
 --------------------------------
 
 The following are required to build Barrelfish and its tools:
@@ -70,7 +90,7 @@ recent Debian or Ubuntu system, as these are what we use.
 
 .. _CodeSourcery: http://www.codesourcery.com/sgpp/lite/arm
 
-BUILDING
+Building
 --------------------------------
 
 1. Assuming you have already unpacked the sources, create a build directory ::
@@ -80,7 +100,7 @@ BUILDING
 1. Run ``hake.sh``, giving it the path to the source directory and target
 architecture(s) ::
 
-    $ ../hake/hake.sh .. x86_64
+    $ ../hake/hake.sh -s ../ -a x86_64
 
 This will configure the build directory and use GHC to compile and then run
 hake, a tool used to generate the ``Makefile``.
@@ -94,10 +114,10 @@ run ``make rehake`` to apply them.
 
 5. If everything worked, you should now be able to run Barrelfish inside QEMU ::
 
-    $ make sim ARCH=x86_64
+    $ make sim
 
 
-INSTALLING AND BOOTING
+Installing and Booting
 --------------------------------
 
 Barrelfish requires a Multiboot-compliant bootloader that is capable of loading
@@ -147,7 +167,22 @@ examples). To start a program on a core other than the BSP core, pass
 
 If things work, you should see output on both the VGA console and COM1.
 
-KNOWN ISSUES
+Generating Documentation
+--------------------------------
+
+Barrelfish documentation can be found on Barrelfish website
+(http://www.barrelfish.org/). And it can be also generated from the code tree.
+For documentation generation, you will need ``latex`` packages installed,
+including support for ``pdflatex``.  Following are the instructions for
+generating the documentation assuming you have already unpacked the sources ::
+
+    $ mkdir build && cd build
+    $ ../hake/hake.sh -s ../
+    $ make docs
+
+You will find all the technotes in ``docs/`` directory.
+
+Known Issues
 --------------------------------
 
 There are many. Those you're likely to encounter include:
@@ -156,8 +191,7 @@ There are many. Those you're likely to encounter include:
  * Some drivers and user programs are known not to build, and are
    not included in the default set of targets (MODULES) in the Makefile.
 
-
-LIKELY FAQs
+Likely FAQs
 --------------------------------
 
 Q: How do I run a program?
@@ -191,6 +225,7 @@ A: Maybe. There are two options at the moment:
 
 Q: Where can I find more information, including papers and new releases?
 A: http://www.barrelfish.org/
+   http://wiki.barrelfish.org/
 
 Q: Can I contribute?
 A: We'd certainly like to hear from you. Please send us mail.
