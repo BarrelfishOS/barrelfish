@@ -769,30 +769,6 @@ int main(int argc, char** argv)
         }
         done = true;
     }
-    else if (!strcmp(argv[2], "ipi")) {
-
-        //lpaddr_t entry = 0x0;
-        err = invoke_send_init_ipi(1);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "invoke send init ipi");
-            return err;
-        }
-
-        for (volatile int i=0; i<0xFFFFFFF; i++);
-        /*
-        err = invoke_send_start_ipi(1, entry);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "invoke sipi");
-            return err;
-        }*/
-
-        err = invoke_send_start_ipi(1, 0x0);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "invoke sipi");
-            return err;
-        }
-        done = true;
-    }
     else {
         printf("%s:%s:%d: unknown cmd = %s\n",
                __FILE__, __FUNCTION__, __LINE__, argv[2]);
