@@ -8,7 +8,7 @@ BEGIN {
     pr = 0
 }
 
-/Barrelfish Overview/ {
+/Supported PC hardware/ {
     pr = 1
 }
 
