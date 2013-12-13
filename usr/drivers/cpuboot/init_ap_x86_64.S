@@ -135,7 +135,6 @@ rep_fill:
 
         .code64
 start_ap_64:
-
         // initialize bootup stack for the 64bit long mode
         lea (start_ap_stack)(%rip), %rsp
         // lea (kernel_stack + KERNEL_STACK_SIZE)(%rip), %rsp

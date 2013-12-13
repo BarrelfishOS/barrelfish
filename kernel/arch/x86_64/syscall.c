@@ -323,7 +323,10 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
 
     printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
 
-    global->wait[0] = 0x1;
+    //apic_mask_timer();
+    //apic_disable();
+
+    /*global->wait[0] = 0x1;
     while(1) {
         __monitor((void*)global->wait, 0, 0);
         __mwait(0, 0);
@@ -333,7 +336,10 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
         else {
             // printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
         }
-    }
+    }*/
+
+    printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+    halt();
 
     printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     /**
@@ -800,7 +806,8 @@ static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
     coreid_t destination = args[0];
-    printf("%s:%d: destination=%"PRIuCOREID" \n", __FILE__, __LINE__, destination);
+    printf("%s:%s:%d: destination=%"PRIuCOREID" \n",
+           __FILE__, __FUNCTION__, __LINE__, destination);
 
     apic_send_init_assert(destination, xapic_none);
     apic_send_init_deassert();

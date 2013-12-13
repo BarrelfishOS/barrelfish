@@ -52,6 +52,7 @@ struct elf_allocate_state {
 };
 
 static bool done = false;
+static bool do_reboot = false;
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -230,11 +231,11 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         return err;
     }
 
-    err = invoke_send_start_ipi(1, entry);
+    /*err = invoke_send_start_ipi(1, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
-    }
+    }*/
 
 
     printf("%s:%d: \n", __FILE__, __LINE__);
@@ -729,6 +730,16 @@ int main(int argc, char** argv)
 
     coreid_t destination = (coreid_t) atoi(argv[3]);
     assert(destination < MAX_COREID);
+
+    if(!strcmp(argv[3], "again")) {
+        printf("%s:%s:%d: we're doing a reboot\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        do_reboot = true;
+    } else {
+        printf("%s:%s:%d: we're not doing a reboot\n",
+               __FILE__, __FUNCTION__, __LINE__);
+    }
+
     //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
     //assert(type < CPU_TYPE_NUM);
 
@@ -760,20 +771,22 @@ int main(int argc, char** argv)
     }
     else if (!strcmp(argv[2], "ipi")) {
 
-        lpaddr_t entry = 0x0;
+        //lpaddr_t entry = 0x0;
         err = invoke_send_init_ipi(1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "invoke send init ipi");
             return err;
         }
 
+        for (volatile int i=0; i<0xFFFFFFF; i++);
+        /*
         err = invoke_send_start_ipi(1, entry);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "invoke sipi");
             return err;
-        }
+        }*/
 
-        err = invoke_send_start_ipi(1, entry);
+        err = invoke_send_start_ipi(1, 0x0);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "invoke sipi");
             return err;
@@ -783,6 +796,7 @@ int main(int argc, char** argv)
     else {
         printf("%s:%s:%d: unknown cmd = %s\n",
                __FILE__, __FUNCTION__, __LINE__, argv[2]);
+        done = true;
     }
 
     while(!done) {

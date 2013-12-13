@@ -571,6 +571,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
+    apic_bsp = (magic == MULTIBOOT_INFO_MAGIC);
+
     // Sanitize the screen
     conio_cls();
     serial_console_init();

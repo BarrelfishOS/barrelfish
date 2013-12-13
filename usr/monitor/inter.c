@@ -662,23 +662,28 @@ static void spawnd_image_request(struct intermon_binding *b)
     assert(err_is_ok(err));
 }
 
+static void stop_core(void* arg)
+{
+    printf("%s:%s:%d: execute stop core\n",
+           __FILE__, __FUNCTION__, __LINE__);
+    errval_t err = invoke_monitor_stop_core();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not stop the core.");
+    }
+}
+
 static void power_down_request(struct intermon_binding *b)
 {
-   errval_t err;
-   printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    errval_t err;
+    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
 
-   err = b->tx_vtbl.power_down_response(b, NOP_CONT);
-   if (err_is_fail(err)) {
-       USER_PANIC_ERR(err, "Sending response failed.");
-   }
+    err = b->tx_vtbl.power_down_response(b, MKCONT(stop_core, NULL));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Sending response failed.");
+    }
 
-   err = invoke_monitor_stop_core();
-   if (err_is_fail(err)) {
-       DEBUG_ERR(err, "Can not stop the core.");
-   }
-
-   printf("%s:%s:%d woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
-   //USER_PANIC("Return from power down request?");
+    printf("%s:%s:%d woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+    //USER_PANIC("Return from power down request?");
 }
 
 extern struct monitor_binding* cpuboot_driver;

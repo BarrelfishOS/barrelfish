@@ -289,6 +289,7 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
     xapic_icr_lo_rawwr(&apic, cmd);
 
     // Wait for delivery
+    printf("%s:%s:%d: delivery check\n", __FILE__, __FUNCTION__, __LINE__);
     while( wait && xapic_icr_lo_dlv_stat_rdf(&apic) );
     printf("%s:%s:%d: delivered\n", __FILE__, __FUNCTION__, __LINE__);
 }
@@ -430,7 +431,7 @@ xapic_esr_t apic_get_esr(void)
 }
 
 void apic_disable(void) {
-    ia32_apic_base_t apic_base_msr;
+    ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
     apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 0);
     ia32_apic_base_wr(NULL, apic_base_msr);
 }
