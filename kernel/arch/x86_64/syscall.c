@@ -322,11 +322,9 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base, urpc_ptr);*/
 
     printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
-
     //apic_mask_timer();
     //apic_disable();
-
-    /*global->wait[0] = 0x1;
+    global->wait[0] = 0x1;
     while(1) {
         __monitor((void*)global->wait, 0, 0);
         __mwait(0, 0);
@@ -336,10 +334,10 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
         else {
             // printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
         }
-    }*/
+    }
 
-    printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
-    halt();
+    /*printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+    halt();*/
 
     printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     /**
