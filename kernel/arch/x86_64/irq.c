@@ -388,6 +388,22 @@ static struct cte irq_dispatch[NDISPATCH];
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
+
+/**
+ * Saves the IRQ state in the kernel control block.
+ * Two entities we need to save: The IDT itself,
+ * and the IRQ dispatch array (routing table of
+ * IRQ to dispatchers).
+ *
+ * \param  kcb Kernel control block
+ * \retval SYS_ERR_OK
+ */
+static save_irq_state(struct kcb* kcb)
+{
+    memcpy(kcb->idt, irq_dispatch, sizeof(struct cte)*NDISPATCH);
+    memcpy(kcb->irq_dispatch, irq_dispatch, sizeof(struct cte)*NDISPATCH);
+}
+
 /**
  * \brief Send interrupt notification to user-space listener.
  *
