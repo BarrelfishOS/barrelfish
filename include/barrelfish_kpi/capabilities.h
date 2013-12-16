@@ -23,6 +23,9 @@
 // Size of dispatcher
 #define OBJBITS_DISPATCHER     10
 
+// Size of kernel control block
+#define OBJBITS_KCB            12
+
 #ifndef __ASSEMBLER__
 
 #define CAPRIGHTS_READ          (1 << 0)
@@ -47,7 +50,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -71,7 +74,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -103,7 +106,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||

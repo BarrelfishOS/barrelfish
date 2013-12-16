@@ -22,6 +22,7 @@
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
+#include <kcb.h>
 #include <paging_kernel_arch.h>
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
@@ -80,7 +81,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(26 == ObjType_Num, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -127,6 +128,13 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
             return 1UL << (bits - OBJBITS_DISPATCHER);
         }
 
+    case ObjType_KernelControlBlock:
+        if (bits < OBJBITS_KCB) {
+            return 0;
+        } else {
+            return 1UL << (bits - OBJBITS_KCB);
+        }
+
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_IO:
@@ -165,7 +173,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(26 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs,
@@ -569,6 +577,24 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
         // Insert the capability
         return set_cap(&dest_caps->cap, &src_cap);
+
+    case ObjType_KernelControlBlock:
+        assert((1UL << OBJBITS_KCB) >= sizeof(struct dcb));
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+
+        for(size_t i = 0; i < numobjs; i++) {
+            // Initialize type specific fields
+            src_cap.u.kernelcontrolblock.kcb = (struct kcb *)
+                (lvaddr + i * (1UL << OBJBITS_DISPATCHER));
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &src_cap);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        return SYS_ERR_OK;
 
     default:
         panic("Unhandled capability type or capability of this type cannot"
