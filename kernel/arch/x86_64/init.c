@@ -40,6 +40,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
 #include <coreboot.h>
+#include <kcb.h>
 
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
@@ -457,6 +458,11 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         panic("error while mapping physical memory!");
     }
 
+    kcb = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb);
+    printf("%s:%s:%d: kcb->is_valid = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kcb->is_valid);
+
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT
@@ -640,6 +646,9 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->cmdline = mb->cmdline;
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
+
+        extern struct kcb bspkcb;
+        kcb = &bspkcb;
     } else { /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =
             (struct x86_core_data*)(dest - BASE_PAGE_SIZE);
@@ -649,6 +658,7 @@ void arch_init(uint64_t magic, void *pointer)
         core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
 
+        kcb = (struct kcb*) glbl_core_data->kcb;
         if (core_data->module_end > 4ul * (1ul << 30)) {
             panic("The cpu module is outside the initial 4GB mapping."
                   " Either move the module or increase initial mapping.");

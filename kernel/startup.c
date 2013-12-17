@@ -22,6 +22,10 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <trace/trace.h>
+#include <kcb.h>
+
+struct kcb bspkcb; ///< HACK! Remove and don't reference this, kcb points here in case we're bsp
+struct kcb* kcb;
 
 coreid_t my_core_id;
 
