@@ -150,6 +150,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     // different kernel but want to restore the state
     struct cte *rootcn = &kcb->init_rootcn;
     mdb_init(kcb);
+    kcb->is_valid = true;
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
                         BASE_PAGE_BITS, DEFAULT_CNODE_BITS, rootcn);
     assert(err_is_ok(err));

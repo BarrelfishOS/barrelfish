@@ -309,7 +309,7 @@ void kernel_startup(void)
         bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
         /* spawn init */
-        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
+    init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
         // if we have a kernel control block, use it
         if (kcb && kcb->is_valid) {
@@ -321,8 +321,18 @@ void kernel_startup(void)
                 panic("couldn't restore mdb");
             }
             // scheduler & irq state used directly from kcb
-            debug(SUBSYS_STARTUP, "scheduling a process from restored state\n");
-            dispatch(schedule());
+            printf("%s:%s:%d: kcb->queue_head = %p\n",
+                   __FILE__, __FUNCTION__, __LINE__, kcb->queue_head);
+
+            struct dcb *next = schedule();
+            assert (next != NULL);
+            assert (next->disp);
+            struct dispatcher_shared_generic *dst =
+                get_dispatcher_shared_generic(next->disp);
+
+            debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
+                  dst->name);
+            dispatch(next);
             panic("should not get here!");
         }
         my_core_id = core_data->dst_core_id;
