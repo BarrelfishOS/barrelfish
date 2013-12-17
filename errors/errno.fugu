@@ -143,6 +143,11 @@ errors libcaps CAPS_ERR_ {
     // general errors
     failure INVALID_ARGS        "Invalid arguments",
 
+    // restore errors
+    failure MDB_ALREADY_INITIALIZED "MDB not emtpy during restore",
+    failure MDB_INVALID_STATE       "MDB not in valid state after restore",
+    failure MDB_INVARIANT_VIOLATION "MDB invariant violated",
+
     // mdb operation errors
     failure MDB_DUPLICATE_ENTRY "Inserted entry already present",
     failure MDB_ENTRY_NOTFOUND  "Removed entry not found",

@@ -21,25 +21,41 @@ __BEGIN_DECLS
 struct capability;
 struct cte;
 
-enum {
-    // All checked invariants hold
-    MDB_INVARIANT_OK = 0,
-    // A node with level > 0 must have both children
-    MDB_INVARIANT_BOTHCHILDREN,
-    // The level of a node's left child must be lt the node's level
-    MDB_INVARIANT_LEFT_LEVEL_LESS,
-    // The level of a node's right child must be leq the node's level
-    MDB_INVARIANT_RIGHT_LEVEL_LEQ,
-    // The level of a node's right grandchildren must bt lt the node's level
-    MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS,
-    MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS,
-    // The node's "end" value must be the maximum of the subtree's ends
-    MDB_INVARIANT_END_IS_MAX,
-    // The left child of a node must be earlier in the ordering
-    MDB_INVARIANT_LEFT_SMALLER,
-    // The right child of a node must be later in the ordering
-    MDB_INVARIANT_RIGHT_GREATER,
+#define mdb_invariants(f) \
+    /* All checked invariants hold*/\
+    f(MDB_INVARIANT_OK) \
+    /* A node with level > 0 must have both children*/\
+    f(MDB_INVARIANT_BOTHCHILDREN) \
+    /* The level of a node's left child must be lt the node's level*/\
+    f(MDB_INVARIANT_LEFT_LEVEL_LESS) \
+    /* The level of a node's right child must be leq the node's level*/\
+    f(MDB_INVARIANT_RIGHT_LEVEL_LEQ) \
+    /* The level of a node's right grandchildren must bt lt the node's level*/\
+    f(MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS) \
+    f(MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS) \
+    /* The node's "end" value must be the maximum of the subtree's ends*/\
+    f(MDB_INVARIANT_END_IS_MAX) \
+    /* The left child of a node must be earlier in the ordering*/\
+    f(MDB_INVARIANT_LEFT_SMALLER) \
+    /* The right child of a node must be later in the ordering*/\
+    f(MDB_INVARIANT_RIGHT_GREATER)
+
+#define f_enum(x) x,
+enum mdb_invariant {
+    mdb_invariants(f_enum)
 };
+#undef f_enum
+
+#define f_str(x) #x,
+static const char *mdb_invariant_str[] = { mdb_invariants(f_str) };
+#undef f_str
+
+#undef mdb_invariants
+
+static inline const char *mdb_invariant_to_str(enum mdb_invariant i)
+{
+    return mdb_invariant_str[i];
+}
 
 enum {
     // No cap was found covering the specified region
@@ -51,6 +67,11 @@ enum {
     // A cap was found that overlaps with one of the specified region's ends
     MDB_RANGE_FOUND_PARTIAL = 3,
 };
+
+// Restore mdb state by passing in the address of the root node
+// requires: mdb not initialized
+// ensures: mdb_check_invariants() && mdb_is_sane()
+errval_t mdb_init(lvaddr_t root_node);
 
 // Print the specified subtree
 void mdb_dump(struct cte *cte, int indent);

@@ -76,6 +76,34 @@ mdb_dump_and_fail(struct cte *cte, int failure)
 struct cte *mdb_root = NULL;
 
 /*
+ * (re)initialization
+ */
+errval_t
+mdb_init(lvaddr_t root_node)
+{
+    if (mdb_root) {
+        printf("mdb already has root node, aborting\n");
+        return CAPS_ERR_MDB_ALREADY_INITIALIZED;
+    }
+    // set root
+    mdb_root = (struct cte *)root_node;
+    // check tree
+    if (!mdb_is_sane()) {
+        printf("restored mdb not in valid state\n");
+        mdb_root = NULL;
+        return CAPS_ERR_MDB_INVALID_STATE;
+    }
+    // always check invariants here
+    int i = mdb_check_invariants();
+    if (i) {
+        printf("mdb invariant %s violated\n", mdb_invariant_to_str(i));
+        mdb_root = NULL;
+        return CAPS_ERR_MDB_INVARIANT_VIOLATION;
+    }
+    return SYS_ERR_OK;
+}
+
+/*
  * Debug printing.
  */
 
