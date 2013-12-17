@@ -395,9 +395,7 @@ static inline void enable_monitor_mwait(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
-    cpuid(1, &eax, &ebx, &ecx, &edx);
-
-    if (ecx & (1 << 3)) {
+    if (has_monitor_mwait()) {
         cpuid(5, &eax, &ebx, &ecx, &edx);
         debug(SUBSYS_STARTUP, "MONITOR/MWAIT supported: "
               "min size %u bytes, max %u bytes. %s %s\n",

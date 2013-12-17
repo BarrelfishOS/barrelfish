@@ -20,6 +20,7 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
+#include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
 #include <arch/x86/perfmon.h>
@@ -324,20 +325,16 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
     printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
     //apic_mask_timer();
     //apic_disable();
-    global->wait[0] = 0x1;
-    while(1) {
-        __monitor((void*)global->wait, 0, 0);
-        __mwait(0, 0);
-        if (global->wait[0] == 0x0) {
-            break;
-        }
-        else {
-            // printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
-        }
-    }
 
-    /*printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
-    halt();*/
+    global->wait[0] = 0x1;
+    if (has_monitor_mwait()) {
+        printf("%s:%s:%d: before monitor/mwait\n", __FILE__, __FUNCTION__, __LINE__);
+        monitor_mwait((lvaddr_t)&(global->wait[0]), 0x1, 0, 0);
+    }
+    else {
+        printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+        halt();
+    }
 
     printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     /**
