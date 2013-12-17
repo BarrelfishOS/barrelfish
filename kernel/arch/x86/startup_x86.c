@@ -321,7 +321,9 @@ void kernel_startup(void)
                 panic("couldn't restore mdb");
             }
             // scheduler & irq state used directly from kcb
+            debug(SUBSYS_STARTUP, "scheduling a process from restored state\n");
             dispatch(schedule());
+            panic("should not get here!");
         }
         my_core_id = core_data->dst_core_id;
 
