@@ -117,6 +117,13 @@ struct  gate_descriptor {
  */
 #define NIDT    256             /* 32 reserved, 16 h/w, 0 s/w, linux's 0x80 */
 
+/// Number of (reserved) hardware exceptions
+#define NEXCEPTIONS             32
+
+/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
+#define NDISPATCH               (NIDT - NEXCEPTIONS)
+
+
 /*
  * Entries in the Global Descriptor Table (GDT)
  */

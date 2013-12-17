@@ -15,6 +15,7 @@
 #ifndef KCB_H
 #define KCB_H
 
+#include <irq.h>
 #include <dispatch.h>
 struct dcb;
 
@@ -26,13 +27,27 @@ struct dcb;
 struct kcb {
     // mdb root node
     lvaddr_t mdb_root;
+
+#if defined(CONFIG_SCHEDULER_RR)
     // RR scheduler state
     struct dcb *ring_current;
+#elif defined(CONFIG_SCHEDULER_RBED)
     // RBED scheduler state
     struct dcb *queue_head, *queue_tail;
     struct dcb *last_disp;
-    // TODO: figure out core-local state that we need to remember
+#else
+# error Must define a kernel scheduling policy!
+#endif
+
+#if defined(__x86_64__)
+    bool idt_initialized; ///< iff true, IDT is initialized and exceptions can be caught
+    struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
+    struct cte irq_dispatch[NDISPATCH];
+#endif
     // TODO: maybe add a shared part which can replace struct core_data?
 };
+
+///< The kernel control block
+extern struct kcb *kcb;
 
 #endif
