@@ -16,7 +16,7 @@
 #define KCB_H
 
 #include <irq.h>
-#include <dispatch.h>
+struct cte;
 struct dcb;
 
 /**

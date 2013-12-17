@@ -5,6 +5,9 @@
 #include <capabilities.h>
 #include <assert.h>
 #include <stdio.h>
+#if IN_KERNEL
+#include <kcb.h>
+#endif
 
 #ifndef MIN
 #define MIN(a, b) ((a)<(b)?(a):(b))
@@ -73,20 +76,38 @@ mdb_dump_and_fail(struct cte *cte, int failure)
 } while (0)
 #endif
 
-struct cte *mdb_root = NULL;
+static struct cte *mdb_root = NULL;
+#if IN_KERNEL
+struct kcb *my_kcb = NULL;
+#endif
+static void set_root(struct cte *new_root)
+{
+    mdb_root = new_root;
+#if IN_KERNEL
+    if (my_kcb) my_kcb->mdb_root = (lvaddr_t) new_root;
+#endif
+}
 
 /*
  * (re)initialization
  */
 errval_t
-mdb_init(lvaddr_t root_node)
+mdb_init(struct kcb *k)
 {
-    if (mdb_root) {
-        printf("mdb already has root node, aborting\n");
+#if IN_KERNEL
+    if (my_kcb) {
+        printf("MDB has non-null kcb.\n");
         return CAPS_ERR_MDB_ALREADY_INITIALIZED;
     }
+    my_kcb = k;
+    if (!my_kcb->is_valid) {
+        // empty kcb, do nothing
+        return SYS_ERR_OK;
+    }
+#endif
     // set root
-    mdb_root = (struct cte *)root_node;
+    mdb_root = (struct cte *)k->mdb_root;
+
     // check tree
     if (!mdb_is_sane()) {
         printf("restored mdb not in valid state\n");
@@ -333,7 +354,7 @@ mdb_skew(struct cte *node)
         mdb_update_end(left);
         // need to update mdb_root
         if (mdb_root == node) {
-            mdb_root = left;
+            set_root(left);
         }
         return left;
     }
@@ -374,7 +395,7 @@ mdb_split(struct cte *node)
         mdb_update_end(right);
         // need to update mdb_root
         if (mdb_root == node) {
-            mdb_root = right;
+            set_root(right);
         }
         return right;
     }
@@ -504,7 +525,7 @@ mdb_exchange_child(struct cte *first, struct cte *first_parent,
     assert(mdb_is_child(first, first_parent));
 
     if (!first_parent) {
-        mdb_root = second;
+        set_root(second);
     }
     else if (N(first_parent)->left == first) {
         N(first_parent)->left = second;

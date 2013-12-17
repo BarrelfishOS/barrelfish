@@ -196,7 +196,9 @@ static void dump_ranges(struct cte *ranges, size_t count)
     }
 }
 
-extern struct cte *mdb_root;
+struct kcb clear = {
+    .mdb_root = 0
+};
 int main(int argc, char *argv[])
 {
     for (int run = 0; run < RUNS; run++) {
@@ -242,7 +244,7 @@ int main(int argc, char *argv[])
         }
         // empty tree
         memset(ranges, 0, count * sizeof(struct cte));
-        mdb_root = NULL;
+        mdb_init(&clear);
     }
     return 0;
 }

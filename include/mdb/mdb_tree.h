@@ -68,10 +68,20 @@ enum {
     MDB_RANGE_FOUND_PARTIAL = 3,
 };
 
+#if IN_KERNEL
+// kcb defined else-where
+struct kcb;
+#else
+// create mini kcb that can be used to set root node in user space mdb
+struct kcb {
+    lvaddr_t mdb_root;
+};
+#endif
+
 // Restore mdb state by passing in the address of the root node
 // requires: mdb not initialized
 // ensures: mdb_check_invariants() && mdb_is_sane()
-errval_t mdb_init(lvaddr_t root_node);
+errval_t mdb_init(struct kcb *k);
 
 // Print the specified subtree
 void mdb_dump(struct cte *cte, int indent);
