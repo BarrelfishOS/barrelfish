@@ -84,7 +84,7 @@ static void set_root(struct cte *new_root)
 {
     mdb_root = new_root;
 #if IN_KERNEL
-    if (my_kcb) my_kcb->mdb_root = (lvaddr_t) new_root;
+    my_kcb->mdb_root = (lvaddr_t) new_root;
 #endif
 }
 
