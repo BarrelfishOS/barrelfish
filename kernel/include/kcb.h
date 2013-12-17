@@ -28,19 +28,15 @@ struct kcb {
     // mdb root node
     lvaddr_t mdb_root;
 
-#if defined(CONFIG_SCHEDULER_RR)
     // RR scheduler state
     struct dcb *ring_current;
-#elif defined(CONFIG_SCHEDULER_RBED)
     // RBED scheduler state
     struct dcb *queue_head, *queue_tail;
     struct dcb *last_disp;
-#else
-# error Must define a kernel scheduling policy!
-#endif
 
 #if defined(__x86_64__)
-    bool idt_initialized; ///< iff true, IDT is initialized and exceptions can be caught
+    bool idt_initialized; ///< iff true, IDT is loaded and exceptions can be caught
+    bool idt_table_setup; ///< iff true, struct idt and irq dispatch do not need to be initialized
     struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
     struct cte irq_dispatch[NDISPATCH];
 #endif
