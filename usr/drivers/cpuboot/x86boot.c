@@ -647,6 +647,14 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
+
+
+    struct frame_identity fid;
+    invoke_frame_identify(kcb, &fid);
+    printf("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, fid.base);
+    core_data->kcb = (genpaddr_t) fid.base;
+
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id           = chanid;
 #endif
