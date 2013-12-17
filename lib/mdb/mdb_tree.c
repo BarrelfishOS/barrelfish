@@ -303,6 +303,10 @@ mdb_skew(struct cte *node)
         N(left)->right = node;
         mdb_update_end(node);
         mdb_update_end(left);
+        // need to update mdb_root
+        if (mdb_root == node) {
+            mdb_root = left;
+        }
         return left;
     }
     else {
@@ -340,6 +344,10 @@ mdb_split(struct cte *node)
         N(right)->level += 1;
         mdb_update_end(node);
         mdb_update_end(right);
+        // need to update mdb_root
+        if (mdb_root == node) {
+            mdb_root = right;
+        }
         return right;
     }
     else {
