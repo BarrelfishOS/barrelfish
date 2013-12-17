@@ -31,6 +31,8 @@
 #include <vfs/vfs.h>
 
 #include <barrelfish/invocations_arch.h>
+#include <octopus/octopus.h>
+#include <octopus/capability_storage.h>
 
 // From kernels start_aps.c
 #include <kernel.h>
@@ -53,6 +55,8 @@ struct elf_allocate_state {
 
 static bool done = false;
 static bool do_reboot = false;
+
+static struct capref kcb;
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -693,6 +697,58 @@ static void power_down_response(struct monitor_binding *st, coreid_t target)
     done = true;
 }
 
+static errval_t create_or_get_kcb_cap(coreid_t coreid)
+{
+    errval_t err;
+    struct capref kcb_mem;
+
+    printf("%s:%s:%d: get capability\n",
+           __FILE__, __FUNCTION__, __LINE__);
+
+    err = oct_get_capability("corexxx", &kcb);
+    if (err_is_ok(err)) {
+        printf("%s:%s:%d: kcb cap was cached\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        return err;
+    }
+    else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
+        printf("%s:%s:%d: did not find the kcb in cap storage\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        return err;
+    }
+    printf("%s:%s:%d: Create a new kcb\n",
+           __FILE__, __FUNCTION__, __LINE__);
+
+    err = ram_alloc(&kcb_mem, X86_64_BASE_PAGE_BITS);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame alloc");
+        return err;
+    }
+
+    err = slot_alloc(&kcb);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failure in slot_alloc.");
+        return err;
+    }
+
+    err = cap_retype(kcb, kcb_mem,
+                     ObjType_KernelControlBlock,
+                     X86_64_BASE_PAGE_BITS);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failure in cap_retype.");
+    }
+
+    printf("%s:%s:%d: Store the kcb.\n",
+           __FILE__, __FUNCTION__, __LINE__);
+    err = oct_put_capability("corexxx", kcb);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "can not save the capability.");
+    }
+
+    return err;
+}
+
+
 int main(int argc, char** argv)
 {
     errval_t err;
@@ -738,6 +794,16 @@ int main(int argc, char** argv)
     } else {
         printf("%s:%s:%d: we're not doing a reboot\n",
                __FILE__, __FUNCTION__, __LINE__);
+    }
+
+    err = oct_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Octopus initialization failed.");
+    }
+
+    err = create_or_get_kcb_cap(destination);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can not get kcb.");
     }
 
     //enum cpu_type type = (enum cpu_type) atoi(argv[4]);

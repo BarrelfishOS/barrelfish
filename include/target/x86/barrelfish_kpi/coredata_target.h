@@ -69,6 +69,8 @@ struct x86_core_data {
 
     uint32_t    chan_id;
 
+    struct kcb* kcb; ///< The kernel control block, this should fully replace x86_core_data at some point
+
 #ifdef __scc__
     struct x86_coredata_modinfo    modinfo[10];
     struct x86_coredata_mmap       mmap[20];
