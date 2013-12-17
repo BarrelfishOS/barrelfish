@@ -12,12 +12,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /**
@@ -60,6 +60,7 @@
 #       include <trace_definitions/trace_defs.h>
 #       include <timer.h> // update_sched_timer
 #endif
+#include <kcb.h>
 
 #define SPECTRUM        1000000
 
@@ -127,7 +128,7 @@ static void queue_insert(struct dcb *dcb)
     // Empty queue case
     if(queue_head == NULL) {
         assert(queue_tail == NULL);
-        queue_head = queue_tail = dcb;
+        kcb->queue_head = queue_head = kcb->queue_tail = queue_tail = dcb;
         return;
     }
 
@@ -156,7 +157,7 @@ static void queue_insert(struct dcb *dcb)
 
         dcb->next = i;
         if(prev == NULL) {      // Insert before head
-            queue_head = dcb;
+            kcb->queue_head = queue_head = dcb;
         } else {                // Insert inside queue
             prev->next = dcb;
         }
@@ -166,7 +167,7 @@ static void queue_insert(struct dcb *dcb)
 
     // Insert after queue tail
     queue_tail->next = dcb;
-    queue_tail = dcb;
+    kcb->queue_tail = queue_tail = dcb;
 }
 
 /**
@@ -186,9 +187,9 @@ static void queue_remove(struct dcb *dcb)
     }
 
     if(dcb == queue_head) {
-        queue_head = dcb->next;
+        kcb->queue_head = queue_head = dcb->next;
         if(queue_head == NULL) {
-            queue_tail = NULL;
+            kcb->queue_tail = queue_tail = NULL;
         }
 
         goto out;
@@ -198,7 +199,7 @@ static void queue_remove(struct dcb *dcb)
         if(i->next == dcb) {
             i->next = i->next->next;
             if(queue_tail == dcb) {
-                queue_tail = i;
+                kcb->queue_tail = queue_tail = i;
             }
             break;
         }
@@ -336,7 +337,7 @@ struct dcb *schedule(void)
 
     // nothing to dispatch
     if(todisp == NULL) {
-        lastdisp = NULL;
+        kcb->lastdisp = lastdisp = NULL;
         return NULL;
     }
 
@@ -379,7 +380,7 @@ struct dcb *schedule(void)
         /*             (uint32_t)(lvaddr_t)todisp & 0xFFFFFFFF); */
 
         // Remember who we run next
-        lastdisp = todisp;
+        kcb->lastdisp = lastdisp = todisp;
         #ifdef CONFIG_ONESHOT_TIMER
         // we might be able to do better than that...
         // (e.g., check if there is only one task in the queue)
@@ -413,7 +414,7 @@ struct dcb *schedule(void)
     }
     dcb->etime = 0;
     queue_insert(dcb);
-    lastdisp = NULL;
+    kcb->lastdisp = lastdisp = NULL;
 
     goto start_over;
 }
@@ -548,7 +549,7 @@ void scheduler_yield(struct dcb *dcb)
         break;
     }
     dcb->etime = 0;
-    lastdisp = NULL;    // Don't account for us anymore
+    kcb->lastdisp = lastdisp = NULL;    // Don't account for us anymore
     queue_insert(dcb);
 }
 
@@ -565,5 +566,5 @@ void scheduler_reset_time(void)
     }
 
     // Forget all accounting information
-    lastdisp = NULL;
+    kcb->lastdisp = lastdisp = NULL;
 }

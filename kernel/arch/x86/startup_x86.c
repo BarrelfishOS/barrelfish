@@ -4,35 +4,38 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
-#include <string.h>
-#include <paging_kernel_arch.h>
+
+#include <dispatch.h>
 #include <elf/elf.h>
+#include <exec.h>
+#include <init.h>
+#include <getopt/getopt.h>
+#include <kcb.h>
 #include <kernel_multiboot.h>
+#include <irq.h>
+#include <kputchar.h>
+#include <mdb/mdb_tree.h>
 #ifdef CONFIG_MICROBENCHMARKS
 #include <microbenchmarks.h>
 #endif
-#include <irq.h>
-#include <init.h>
+#include <paging_kernel_arch.h>
+#include <startup.h>
+#include <string.h>
 #include <barrelfish_kpi/cpu.h>
-#include <exec.h>
-#include <getopt/getopt.h>
-#include <dispatch.h>
 #include <barrelfish_kpi/init.h>
-#include <arch/x86/apic.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/syscalls.h>
+#include <arch/x86/apic.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
-#include <kputchar.h>
-#include <startup.h>
 #include <arch/x86/startup_x86.h>
 #ifdef __scc__
 #       include <rck.h>
@@ -296,6 +299,7 @@ void kernel_startup(void)
 
     struct dcb *init_dcb;
 
+
     if (apic_is_bsp()) {
         if (bsp_coreid != 0) {
             my_core_id = bsp_coreid;
@@ -307,6 +311,18 @@ void kernel_startup(void)
         /* spawn init */
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
+        // if we have a kernel control block, use it
+        if (kcb && kcb->is_valid) {
+            debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
+            errval_t err;
+            // restore mdb
+            err = mdb_init(kcb);
+            if (err_is_fail(err)) {
+                panic("couldn't restore mdb");
+            }
+            // scheduler & irq state used directly from kcb
+            dispatch(schedule());
+        }
         my_core_id = core_data->dst_core_id;
 
         /* Initialize the allocator */

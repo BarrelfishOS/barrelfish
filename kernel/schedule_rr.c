@@ -4,20 +4,21 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
 #include <dispatch.h>
+#include <kcb.h>
 
 #include <timer.h> // update_sched_timer
 
-static struct dcb *ring_current = NULL;
+//static struct dcb *ring_current = NULL;
 
 /**
  * \brief Scheduler policy.
@@ -26,6 +27,7 @@ static struct dcb *ring_current = NULL;
  */
 struct dcb *schedule(void)
 {
+    struct dcb *ring_current = kcb->ring_current;
     // empty ring
     if(ring_current == NULL) {
         return NULL;
@@ -34,7 +36,7 @@ struct dcb *schedule(void)
     assert(ring_current->next != NULL);
     assert(ring_current->prev != NULL);
 
-    ring_current = ring_current->next;
+    ring_current = kcb->ring_current = ring_current->next;
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif
@@ -72,6 +74,7 @@ void make_runnable(struct dcb *dcb)
  */
 void scheduler_remove(struct dcb *dcb)
 {
+    struct dcb *ring_current = kcb->ring_current;
     // No-op if not in scheduler ring
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -89,10 +92,10 @@ void scheduler_remove(struct dcb *dcb)
     if(dcb == ring_current) {
         if(dcb == next) {
             // Only guy in the ring
-            ring_current = NULL;
+            kcb->ring_current = ring_current = NULL;
         } else {
             // Advance ring_current
-            ring_current = next;
+            kcb->ring_current = ring_current = next;
         }
     }
 }
