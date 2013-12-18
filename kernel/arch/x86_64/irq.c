@@ -397,7 +397,7 @@ static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability   *cap = &(kcb->irq_dispatch)[irq].cap;
+    struct capability   *cap = &kcb->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
@@ -475,7 +475,7 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         if (kcb->irq_dispatch[nidt].cap.type != ObjType_Null) {
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
-        err = caps_copy_to_cte(&(kcb->irq_dispatch)[nidt], recv, false, 0, 0);
+        err = caps_copy_to_cte(&kcb->irq_dispatch[nidt], recv, false, 0, 0);
 
         printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
 #if 0

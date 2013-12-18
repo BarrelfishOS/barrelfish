@@ -648,7 +648,6 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
-    core_data->kernel_cmdline    = "loglevel=5 logmask=129";
 
 
     struct frame_identity fid;
@@ -667,6 +666,8 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                 sizeof(core_data->kernel_cmdline));
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
+
+        printf("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
 
     /* Invoke kernel capability to boot new core */
@@ -822,7 +823,8 @@ int main(int argc, char** argv)
     if (!strcmp(argv[2], "up")) {
         struct intermon_binding *new_binding = NULL;
         struct capref frame;
-        err = spawn_xcore_monitor(destination, destination, CPU_X86_64, "", &new_binding, &frame);
+        err = spawn_xcore_monitor(destination, destination, CPU_X86_64,
+                                  "loglevel=5 logmask=129", &new_binding, &frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }

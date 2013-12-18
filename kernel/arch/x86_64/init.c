@@ -586,6 +586,8 @@ void arch_init(uint64_t magic, void *pointer)
     struct Elf64_Shdr *rela, *symtab;
     struct multiboot_info *mb = NULL;
 
+    apic_bsp = magic == MULTIBOOT_INFO_MAGIC;
+
     /*
      * If this is the boot image, make Multiboot information structure globally
      * known. Otherwise the passed value should equal the original structure.

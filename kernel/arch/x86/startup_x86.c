@@ -275,9 +275,23 @@ void kernel_startup_early(void)
     const char *cmdline;
     assert(glbl_core_data != NULL);
     cmdline = MBADDR_ASSTRING(glbl_core_data->cmdline);
+    printf("%s:%s:%d: cmdline = %s\n",
+           __FILE__, __FUNCTION__, __LINE__, cmdline);
+    printf("%s:%s:%d: kernel_log_subsystem_mask = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kernel_log_subsystem_mask);
+    printf("%s:%s:%d: kernel_loglevel = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kernel_loglevel);
+
     parse_commandline(cmdline, cmdargs);
-    kernel_log_subsystem_mask = 0x7;
-    kernel_loglevel = 5;
+
+    printf("%s:%s:%d: kernel_log_subsystem_mask = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kernel_log_subsystem_mask);
+    printf("%s:%s:%d: kernel_loglevel = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kernel_loglevel);
+    if (!apic_bsp) {
+        kernel_loglevel = 5;
+    }
+
 }
 
 /**
@@ -330,6 +344,8 @@ void kernel_startup(void)
                    __FILE__, __FUNCTION__, __LINE__, kcb->wakeup_queue_head);
             wakeup_set_queue_head(kcb->wakeup_queue_head);
 
+            printf("%s:%s:%d: dcb_current = %p\n",
+                   __FILE__, __FUNCTION__, __LINE__, dcb_current);
             struct dcb *next = schedule();
             debug(SUBSYS_STARTUP, "next = %p\n", next);
             if (next != NULL) {
