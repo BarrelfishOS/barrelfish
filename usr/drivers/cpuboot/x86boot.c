@@ -30,6 +30,7 @@
 #include <acpi_client/acpi_client.h>
 #include <vfs/vfs.h>
 
+#include <barrelfish_kpi/capabilities.h>
 #include <barrelfish/invocations_arch.h>
 #include <octopus/octopus.h>
 #include <octopus/capability_storage.h>
@@ -727,7 +728,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
     printf("%s:%s:%d: Create a new kcb\n",
            __FILE__, __FUNCTION__, __LINE__);
 
-    err = ram_alloc(&kcb_mem, X86_64_BASE_PAGE_BITS);
+    err = ram_alloc(&kcb_mem, OBJBITS_KCB);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "frame alloc");
         return err;
@@ -741,7 +742,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
 
     err = cap_retype(kcb, kcb_mem,
                      ObjType_KernelControlBlock,
-                     X86_64_BASE_PAGE_BITS);
+                     OBJBITS_KCB);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failure in cap_retype.");
     }

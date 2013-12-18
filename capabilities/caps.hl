@@ -27,7 +27,7 @@ define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
 define vnode_size 12; /* BASE_PAGE_BITS */
 /* size of a kernel control block */
-define kcb_size 12;
+define kcb_size 13;
 
 /**
     The capabilities of the whole system are listed thereafter.
