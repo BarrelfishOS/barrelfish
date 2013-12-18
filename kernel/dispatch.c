@@ -180,6 +180,7 @@ struct dcb *run_next = NULL;
 
 
 
+bool verbose_dispatch = false;
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
 #ifdef FPU_LAZY_CONTEXT_SWITCH
@@ -215,6 +216,9 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     // Don't context switch if we are current already
     if (dcb_current != dcb) {
+        if (verbose_dispatch) {
+            printf("doing context switch to %s\n", get_disp_name(dcb));
+        }
 
 #ifdef TRACE_CSWITCH
 //#if TRACE_N_BM
@@ -228,6 +232,11 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
         context_switch(dcb);
         dcb_current = dcb;
+    } else {
+        if (verbose_dispatch) {
+            printf("not ctx switching as dcb_current == dcb(%p, %p)\n",
+                    dcb_current, dcb);
+        }
     }
 
     assert(dcb != NULL);

@@ -331,12 +331,16 @@ struct dcb *schedule(void)
 
 #define PRINT_NAME(d) \
     do { \
-        if (!(d) || !(d)->disp) break; \
+        if (!(d) || !(d)->disp) { \
+            debug(SUBSYS_DISPATCH, "todisp == NULL\n"); \
+            break; \
+        } \
         struct dispatcher_shared_generic *dst = \
             get_dispatcher_shared_generic(d->disp); \
-        debug(SUBSYS_STARTUP, "looking at '%s', releaste_time=%zu, kernel_now=%zu\n", \
+        debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%zu, kernel_now=%zu\n", \
                 dst->name, d->release_time, kernel_now); \
     }while(0)
+
     // Skip over all tasks released in the future, they're technically not
     // in the schedule yet. We just have them to reduce book-keeping.
     while(todisp != NULL && todisp->release_time > kernel_now) {
@@ -347,6 +351,7 @@ struct dcb *schedule(void)
 
     // nothing to dispatch
     if(todisp == NULL) {
+        debug(SUBSYS_DISPATCH, "schedule: no dcb runnable\n");
         kcb->lastdisp = lastdisp = NULL;
         return NULL;
     }

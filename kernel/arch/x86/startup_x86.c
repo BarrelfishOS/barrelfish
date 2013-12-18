@@ -285,6 +285,7 @@ void kernel_startup_early(void)
  *
  * This function never returns.
  */
+extern bool verbose_dispatch;
 void kernel_startup(void)
 {
 #ifdef CONFIG_MICROBENCHMARKS
@@ -340,6 +341,7 @@ void kernel_startup(void)
             }
             // interrupt state should be fine, as it's used directly from the
             // kcb.
+            verbose_dispatch = true;
             dispatch(next);
             panic("should not get here!");
         }
