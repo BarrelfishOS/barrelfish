@@ -666,10 +666,12 @@ static void stop_core(void* arg)
 {
     printf("%s:%s:%d: execute stop core\n",
            __FILE__, __FUNCTION__, __LINE__);
-    errval_t err = invoke_monitor_stop_core();
-    if (err_is_fail(err)) {
+    //errval_t err = invoke_monitor_stop_core();
+    /*if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not stop the core.");
-    }
+    }*/
+    void disp_save_suspend(void);
+    disp_save_suspend();
 }
 
 static void power_down_request(struct intermon_binding *b)

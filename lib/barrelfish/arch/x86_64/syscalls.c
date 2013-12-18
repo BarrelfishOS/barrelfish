@@ -25,6 +25,11 @@ errval_t sys_yield(capaddr_t target)
     return syscall2(SYSCALL_YIELD, target).error;
 }
 
+errval_t sys_suspend(capaddr_t target)
+{
+    return syscall1(SYSCALL_SUSPEND).error;
+}
+
 errval_t sys_print(const char *string, size_t length)
 {
     return syscall3(SYSCALL_PRINT, (uintptr_t)string, length).error;

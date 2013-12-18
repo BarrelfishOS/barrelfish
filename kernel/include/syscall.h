@@ -23,6 +23,7 @@
 
 errval_t sys_print(const char *str, size_t length);
 struct sysret sys_yield(capaddr_t target);
+struct sysret sys_suspend(void);
 struct sysret
 sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
                      capaddr_t vptr, capaddr_t dptr, bool run, capaddr_t odptr);

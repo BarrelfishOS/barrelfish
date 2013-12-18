@@ -326,6 +326,8 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
     //apic_mask_timer();
     //apic_disable();
 
+    //dcb_current->disabled = false;
+
     global->wait[0] = 0x1;
     if (has_monitor_mwait()) {
         printf("%s:%s:%d: before monitor/mwait\n", __FILE__, __FUNCTION__, __LINE__);
@@ -333,6 +335,7 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
     }
     else {
         printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+
         halt();
     }
 
@@ -1098,6 +1101,11 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
     case SYSCALL_X86_RELOAD_LDT:
         maybe_reload_ldt(dcb_current, true);
+        break;
+
+        // Temporarily suspend the CPU
+    case SYSCALL_SUSPEND:
+        retval = sys_suspend();
         break;
 
     case SYSCALL_DEBUG:

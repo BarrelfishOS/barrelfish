@@ -523,6 +523,30 @@ struct sysret sys_yield(capaddr_t target)
     panic("Yield returned!");
 }
 
+struct sysret sys_suspend(void)
+{
+    dispatcher_handle_t handle = dcb_current->disp;
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+
+    debug(SUBSYS_DISPATCH, "%.*s suspends%s\n", DISP_NAME_LEN, disp->name);
+
+    if (!disp->disabled) {
+        printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");
+        return SYSRET(SYS_ERR_CALLER_ENABLED);
+    }
+
+    disp->disabled = false;
+    dcb_current->disabled = false;
+
+    printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+    halt();
+    printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+
+    panic("Yield returned!");
+}
+
+
 /**
  * The format of the returned ID is:
  *
@@ -545,17 +569,17 @@ struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id)
 /**
  * Calls correct handler function to spawn an app core.
  *
- * At the moment spawn_core_handlers is set-up per 
+ * At the moment spawn_core_handlers is set-up per
  * architecture inside text_init() usually found in init.c.
- * 
+ *
  * \note Generally the x86 terms of BSP and APP core are used
  * throughout Barrelfish to distinguish between bootstrap core (BSP)
  * and application cores (APP).
- * 
+ *
  * \param  core_id  Identifier of the core which we want to boot
  * \param  cpu_type Architecture of the core.
  * \param  entry    Entry point for code to start execution.
- * 
+ *
  * \retval SYS_ERR_OK Core successfully booted.
  * \retval SYS_ERR_ARCHITECTURE_NOT_SUPPORTED No handler registered for
  *     the specified cpu_type.
