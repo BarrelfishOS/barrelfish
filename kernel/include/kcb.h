@@ -15,6 +15,7 @@
 #ifndef KCB_H
 #define KCB_H
 
+#include <capabilities.h>
 #include <irq.h>
 struct cte;
 struct dcb;
