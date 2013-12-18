@@ -329,11 +329,21 @@ struct dcb *schedule(void)
  start_over:
     todisp = queue_head;
 
+#define PRINT_NAME(d) \
+    do { \
+        if (!(d) || !(d)->disp) break; \
+        struct dispatcher_shared_generic *dst = \
+            get_dispatcher_shared_generic(d->disp); \
+        debug(SUBSYS_STARTUP, "looking at '%s', releaste_time=%zu, kernel_now=%zu\n", \
+                dst->name, d->release_time, kernel_now); \
+    }while(0)
     // Skip over all tasks released in the future, they're technically not
     // in the schedule yet. We just have them to reduce book-keeping.
     while(todisp != NULL && todisp->release_time > kernel_now) {
+        PRINT_NAME(todisp);
         todisp = todisp->next;
     }
+#undef PRINT_NAME
 
     // nothing to dispatch
     if(todisp == NULL) {
@@ -567,4 +577,11 @@ void scheduler_reset_time(void)
 
     // Forget all accounting information
     kcb->lastdisp = lastdisp = NULL;
+}
+
+void scheduler_restore_state(void)
+{
+    queue_head = kcb->queue_head;
+    queue_tail = kcb->queue_tail;
+    kernel_now = kcb->kernel_now;
 }

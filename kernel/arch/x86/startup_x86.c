@@ -320,19 +320,26 @@ void kernel_startup(void)
             if (err_is_fail(err)) {
                 panic("couldn't restore mdb");
             }
-            // scheduler & irq state used directly from kcb
+            // restore minimum amount of scheduler state
+#if defined(SCHEDULER_RR)
+#error NYI restoring RR sched state
+#elif defined(SCHEDULER_RBED)
             printf("%s:%s:%d: kcb->queue_head = %p\n",
                    __FILE__, __FUNCTION__, __LINE__, kcb->queue_head);
+            // set queue pointers and kernel_now
+            scheduler_restore_state();
 
+#endif
             struct dcb *next = schedule();
             if (next != NULL) {
-                assert (next != NULL);
                 assert (next->disp);
                 struct dispatcher_shared_generic *dst =
                     get_dispatcher_shared_generic(next->disp);
                 debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
                       dst->name);
             }
+            // interrupt state should be fine, as it's used directly from the
+            // kcb.
             dispatch(next);
             panic("should not get here!");
         }

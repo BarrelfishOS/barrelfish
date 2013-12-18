@@ -28,17 +28,20 @@ struct dcb;
 struct kcb {
     bool is_valid; ///< kcb has been initialized by a kernel before
 
-    // mdb root node
+    /// mdb root node
     lvaddr_t mdb_root;
     // XXX: need memory for a rootcn here because we can't have it static in
     // the kernel data section anymore
     struct cte init_rootcn;
 
-    // RR scheduler state
+    /// RR scheduler state
     struct dcb *ring_current;
-    // RBED scheduler state
+    /// RBED scheduler state
     struct dcb *queue_head, *queue_tail;
     struct dcb *lastdisp;
+    /// current time since kernel start in timeslices. This is necessary to
+    /// make the scheduler work correctly
+    size_t kernel_now;
 
 #if defined(__x86_64__)
     bool idt_initialized; ///< iff true, IDT is loaded and exceptions can be caught
