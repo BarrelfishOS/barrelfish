@@ -325,13 +325,14 @@ void kernel_startup(void)
                    __FILE__, __FUNCTION__, __LINE__, kcb->queue_head);
 
             struct dcb *next = schedule();
-            assert (next != NULL);
-            assert (next->disp);
-            struct dispatcher_shared_generic *dst =
-                get_dispatcher_shared_generic(next->disp);
-
-            debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
-                  dst->name);
+            if (next != NULL) {
+                assert (next != NULL);
+                assert (next->disp);
+                struct dispatcher_shared_generic *dst =
+                    get_dispatcher_shared_generic(next->disp);
+                debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
+                      dst->name);
+            }
             dispatch(next);
             panic("should not get here!");
         }
