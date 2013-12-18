@@ -30,6 +30,7 @@
 #include <paging_kernel_arch.h>
 #include <startup.h>
 #include <string.h>
+#include <wakeup.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/paging_arch.h>
@@ -314,23 +315,22 @@ void kernel_startup(void)
         // if we have a kernel control block, use it
         if (kcb && kcb->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
+            print_kcb();
             errval_t err;
             // restore mdb
             err = mdb_init(kcb);
             if (err_is_fail(err)) {
                 panic("couldn't restore mdb");
             }
-            // restore minimum amount of scheduler state
-#if defined(SCHEDULER_RR)
-#error NYI restoring RR sched state
-#elif defined(SCHEDULER_RBED)
-            printf("%s:%s:%d: kcb->queue_head = %p\n",
-                   __FILE__, __FUNCTION__, __LINE__, kcb->queue_head);
             // set queue pointers and kernel_now
             scheduler_restore_state();
+            // restore wakeup queue state
+            printf("%s:%s:%d: kcb->wakeup_queue_head = %p\n",
+                   __FILE__, __FUNCTION__, __LINE__, kcb->wakeup_queue_head);
+            wakeup_set_queue_head(kcb->wakeup_queue_head);
 
-#endif
             struct dcb *next = schedule();
+            debug(SUBSYS_STARTUP, "next = %p\n", next);
             if (next != NULL) {
                 assert (next->disp);
                 struct dispatcher_shared_generic *dst =

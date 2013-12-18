@@ -63,6 +63,13 @@ struct dcb {
 #endif
 };
 
+static inline const char *get_disp_name(struct dcb *dcb)
+{
+    struct dispatcher_shared_generic *dst =
+        get_dispatcher_shared_generic(dcb->disp);
+    return dst->name;
+}
+
 /// The currently running dispatcher and FPU dispatcher
 extern struct dcb *dcb_current, *fpu_dcb;
 

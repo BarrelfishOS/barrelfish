@@ -451,20 +451,20 @@ void make_runnable(struct dcb *dcb)
             dcb->weight = dcb->weight / 2 + 6;
 #endif
         }
-        w_be += dcb->weight;
-        n_be++;
+        kcb->w_be = (w_be += dcb->weight);
+        kcb->n_be = n_be++;
         dcb->deadline = dcb->period = n_be * kernel_timeslice;
         dcb->release_time = kernel_now;
         /* queue_sort(); */
         break;
 
     case TASK_TYPE_SOFT_REALTIME:
-        //        u_srt += 
+        //      kcb->u_srt = u_srt += 
         panic("Unimplemented!");
         break;
 
     case TASK_TYPE_HARD_REALTIME:
-        u_hrt += u_target(dcb);
+        kcb->u_hrt = (u_hrt += u_target(dcb));
         break;
 
     default:
@@ -566,7 +566,7 @@ void scheduler_yield(struct dcb *dcb)
 void scheduler_reset_time(void)
 {
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER_SYNC, 0);
-    kernel_now = 0;
+    kcb->kernel_now = kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now
     for(struct dcb *i = queue_head; i != NULL; i = i->next) {
@@ -584,4 +584,7 @@ void scheduler_restore_state(void)
     queue_head = kcb->queue_head;
     queue_tail = kcb->queue_tail;
     kernel_now = kcb->kernel_now;
+    u_hrt = kcb->u_hrt;
+    w_be = kcb->w_be;
+    n_be = kcb->n_be;
 }

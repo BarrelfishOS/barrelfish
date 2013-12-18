@@ -39,9 +39,12 @@ struct kcb {
     /// RBED scheduler state
     struct dcb *queue_head, *queue_tail;
     struct dcb *lastdisp;
+    unsigned int u_hrt, u_srt, w_be, n_be;
     /// current time since kernel start in timeslices. This is necessary to
     /// make the scheduler work correctly
     size_t kernel_now;
+    /// wakeup queue head
+    struct dcb *wakeup_queue_head;
 
 #if defined(__x86_64__)
     bool idt_initialized; ///< iff true, IDT is loaded and exceptions can be caught
@@ -53,5 +56,20 @@ struct kcb {
 
 ///< The kernel control block
 extern struct kcb *kcb;
+
+static inline void print_kcb(void)
+{
+    printf("kcb contents:\n");
+    printf("  mdb_root = 0x%"PRIxLVADDR"\n", kcb->mdb_root);
+    printf("  queue_head = %p\n", kcb->queue_head);
+    printf("  queue_tail = %p\n", kcb->queue_tail);
+    printf("  lastdisp = %p\n", kcb->lastdisp);
+    printf("  wakeup_queue_head = %p\n", kcb->wakeup_queue_head);
+    printf("  u_hrt = %u, u_srt = %u, w_be = %u, n_be = %u\n",
+            kcb->u_hrt, kcb->u_srt, kcb->w_be, kcb->n_be);
+    printf("  kernel_now = %zu\n", kcb->kernel_now);
+    // TODO interrupt state
+}
+
 
 #endif

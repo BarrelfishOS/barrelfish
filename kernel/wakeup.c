@@ -14,21 +14,26 @@
 
 #include <kernel.h>
 #include <dispatch.h>
-#include <wakeup.h>
+#include <kcb.h> // kcb->wakeup_queue_head
 #include <timer.h> // update_wakeup_timer()
+#include <wakeup.h>
 
 static struct dcb *wakeup_queue_head;
 
 /* wrapper to change the head, and update the next wakeup tick */
-static void set_queue_head(struct dcb *h)
+void wakeup_set_queue_head(struct dcb *h)
 {
-    wakeup_queue_head = h;
+    kcb->wakeup_queue_head = wakeup_queue_head = h;
     #ifdef CONFIG_ONESHOT_TIMER
     // we changed the first dcb in the wakeup queue, which means
     // that we need to update the next tick value
     systime_t next_wakeup = h ? h->wakeup_time : TIMER_INF;
     update_wakeup_timer(next_wakeup);
     #endif
+}
+static inline void set_queue_head(struct dcb *h)
+{
+    wakeup_set_queue_head(h);
 }
 
 void wakeup_remove(struct dcb *dcb)
