@@ -52,7 +52,6 @@
 #include <gdb_stub.h>
 #include <arch_gdb_stub.h>
 #include <x86.h>
-#include <kcb.h>
 #include <dispatch.h>
 #include <wakeup.h>
 #include <arch/x86/perfmon.h>
@@ -365,7 +364,7 @@ HW_EXCEPTION_NOERR(666);
  * \brief Interrupt Descriptor Table (IDT) for processor this kernel is running
  * on.
  */
-//static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
+static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 
 /**
  * \brief User-space IRQ dispatch table.
@@ -374,7 +373,7 @@ HW_EXCEPTION_NOERR(666);
  * entries to local endpoints of user-space applications listening to
  * the interrupts.
  */
-//static struct cte irq_dispatch[NDISPATCH];
+static struct cte irq_dispatch[NDISPATCH];
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
@@ -397,7 +396,7 @@ static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability   *cap = &kcb->irq_dispatch[irq].cap;
+    struct capability   *cap = &irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
@@ -472,10 +471,10 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 
     if(nidt < NDISPATCH) {
         // check that we don't overwrite someone else's handler
-        if (kcb->irq_dispatch[nidt].cap.type != ObjType_Null) {
+        if (irq_dispatch[nidt].cap.type != ObjType_Null) {
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
-        err = caps_copy_to_cte(&kcb->irq_dispatch[nidt], recv, false, 0, 0);
+        err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
 
         printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
 #if 0
@@ -495,7 +494,7 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 errval_t irq_table_delete(unsigned int nidt)
 {
     if(nidt < NDISPATCH) {
-        kcb->irq_dispatch[nidt].cap.type = ObjType_Null;
+        irq_dispatch[nidt].cap.type = ObjType_Null;
 #if 0
         pic_toggle_irq(nidt, false);
 #endif
@@ -968,92 +967,88 @@ static void setgd(struct gate_descriptor *gd, void (* handler)(void),
 void setup_default_idt(void)
 {
     struct region_descriptor region = {         // set default IDT
-        .rd_limit = NIDT * sizeof(kcb->idt[0]) - 1,
-        .rd_base = (uint64_t)&kcb->idt
+        .rd_limit = NIDT * sizeof(idt[0]) - 1,
+        .rd_base = (uint64_t)&idt
     };
+    int i;
 
-    // Create a new IDT in case we can not re-use the one in the kcb
-    if (!kcb->is_valid) {
-        int i;
+    // reset IDT
+    memset((void *)&idt, 0, NIDT * sizeof(idt[0]));
 
-        // reset IDT
-        memset((void *)&kcb->idt, 0, NIDT * sizeof(kcb->idt[0]));
+    // initialize IDT with default generic handlers
+    for (i = 0; i < NIDT; i++)
+        setgd(&idt[i], hwexc_666, 0, SDT_SYSIGT, SEL_KPL,
+              GSEL(KCODE_SEL, SEL_KPL));
 
-        // initialize IDT with default generic handlers
-        for (i = 0; i < NIDT; i++)
-            setgd(&kcb->idt[i], hwexc_666, 0, SDT_SYSIGT, SEL_KPL,
-                  GSEL(KCODE_SEL, SEL_KPL));
+    /* Setup exception handlers */
+    setgd(&idt[0], hwexc_0, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[1], hwexc_1, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[2], hwexc_2, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[3], hwexc_3, 0, SDT_SYSIGT, SEL_UPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[4], hwexc_4, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[5], hwexc_5, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[6], hwexc_6, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[7], hwexc_7, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[8], hwexc_8, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[9], hwexc_9, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[10], hwexc_10, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[11], hwexc_11, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[12], hwexc_12, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[13], hwexc_13, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[14], hwexc_14, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    // Interrupt 15 is undefined
+    setgd(&idt[16], hwexc_16, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[17], hwexc_17, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[18], hwexc_18, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[19], hwexc_19, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    // Interrupts 20 - 31 are reserved
 
-        /* Setup exception handlers */
-        setgd(&kcb->idt[0], hwexc_0, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[1], hwexc_1, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[2], hwexc_2, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[3], hwexc_3, 0, SDT_SYSIGT, SEL_UPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[4], hwexc_4, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[5], hwexc_5, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[6], hwexc_6, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[7], hwexc_7, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[8], hwexc_8, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[9], hwexc_9, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[10], hwexc_10, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[11], hwexc_11, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[12], hwexc_12, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[13], hwexc_13, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[14], hwexc_14, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        // Interrupt 15 is undefined
-        setgd(&kcb->idt[16], hwexc_16, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[17], hwexc_17, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[18], hwexc_18, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[19], hwexc_19, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        // Interrupts 20 - 31 are reserved
+    /* Setup classic PIC interrupt handlers */
+    setgd(&idt[32], hwirq_32, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[33], hwirq_33, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[34], hwirq_34, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[35], hwirq_35, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[36], hwirq_36, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[37], hwirq_37, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[38], hwirq_38, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[39], hwirq_39, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[40], hwirq_40, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[41], hwirq_41, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[42], hwirq_42, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[43], hwirq_43, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[44], hwirq_44, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[45], hwirq_45, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[46], hwirq_46, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[47], hwirq_47, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
-        /* Setup classic PIC interrupt handlers */
-        setgd(&kcb->idt[32], hwirq_32, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[33], hwirq_33, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[34], hwirq_34, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[35], hwirq_35, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[36], hwirq_36, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[37], hwirq_37, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[38], hwirq_38, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[39], hwirq_39, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[40], hwirq_40, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[41], hwirq_41, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[42], hwirq_42, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[43], hwirq_43, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[44], hwirq_44, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[45], hwirq_45, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[46], hwirq_46, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[47], hwirq_47, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    // Setup generic interrupt handlers
+    setgd(&idt[48], hwirq_48, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[49], hwirq_49, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[50], hwirq_50, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[50], hwirq_50, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[51], hwirq_51, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[52], hwirq_52, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[53], hwirq_53, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[54], hwirq_54, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[55], hwirq_55, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[56], hwirq_56, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[57], hwirq_57, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[58], hwirq_58, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[59], hwirq_59, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[60], hwirq_60, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[61], hwirq_61, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
-        // Setup generic interrupt handlers
-        setgd(&kcb->idt[48], hwirq_48, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[49], hwirq_49, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[50], hwirq_50, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[50], hwirq_50, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[51], hwirq_51, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[52], hwirq_52, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[53], hwirq_53, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[54], hwirq_54, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[55], hwirq_55, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[56], hwirq_56, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[57], hwirq_57, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[58], hwirq_58, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[59], hwirq_59, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[60], hwirq_60, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[61], hwirq_61, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    // XXX Interrupts used for TRACE IPIs
+    setgd(&idt[62], hwirq_62, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[63], hwirq_63, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
-        // XXX Interrupts used for TRACE IPIs
-        setgd(&kcb->idt[62], hwirq_62, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[63], hwirq_63, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-
-        // Setup local APIC interrupt handlers
-        setgd(&kcb->idt[249], hwirq_249, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[250], hwirq_250, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[251], hwirq_251, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[252], hwirq_252, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[253], hwirq_253, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-        setgd(&kcb->idt[254], hwirq_254, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
-    }
+    // Setup local APIC interrupt handlers
+    setgd(&idt[249], hwirq_249, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[250], hwirq_250, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[251], hwirq_251, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[252], hwirq_252, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[253], hwirq_253, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
+    setgd(&idt[254], hwirq_254, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
     /* Load IDT register */
     __asm volatile("lidt %0" :: "m" (region));
