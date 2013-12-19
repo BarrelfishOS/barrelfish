@@ -36,7 +36,7 @@ struct dcb *schedule(void)
     assert(ring_current->next != NULL);
     assert(ring_current->prev != NULL);
 
-    ring_current = kcb->ring_current = ring_current->next;
+    kcb->ring_current = ring_current = ring_current->next;
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif
@@ -45,13 +45,14 @@ struct dcb *schedule(void)
 
 void make_runnable(struct dcb *dcb)
 {
+    struct dcb *ring_current = kcb->ring_current;
     // Insert into schedule ring if not in there already
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
 
         // Ring empty
         if(ring_current == NULL) {
-            ring_current = dcb;
+            kcb->ring_current = ring_current = dcb;
             dcb->next = dcb;
         }
 
