@@ -529,7 +529,7 @@ struct sysret sys_suspend(void)
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
-    debug(SUBSYS_DISPATCH, "%.*s suspends%s\n", DISP_NAME_LEN, disp->name);
+    debug(SUBSYS_DISPATCH, "%.*s suspends\n", DISP_NAME_LEN, disp->name);
 
     if (!disp->disabled) {
         printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");

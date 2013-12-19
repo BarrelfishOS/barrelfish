@@ -670,8 +670,8 @@ static void stop_core(void* arg)
     /*if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not stop the core.");
     }*/
-    void disp_save_suspend(void);
     disp_save_suspend();
+    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 static void power_down_request(struct intermon_binding *b)

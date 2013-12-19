@@ -34,6 +34,9 @@ __BEGIN_DECLS
  */
 errval_t sys_yield(capaddr_t target);
 
+/** Suspend the current cpu */
+errval_t sys_suspend(void);
+
 /* Debug/Benchmarking system calls */
 errval_t sys_nop(void);
 errval_t sys_reboot(void);

@@ -99,6 +99,7 @@ void disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
 void disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
                bool yield, capaddr_t yield_to);
 
+void disp_save_suspend(void);
 
 void __attribute__((noreturn)) disp_yield_disabled(dispatcher_handle_t handle);
 dispatcher_handle_t disp_new(int core_id);
