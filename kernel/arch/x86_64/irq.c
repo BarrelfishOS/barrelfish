@@ -772,7 +772,7 @@ update_kernel_now(void)
     uint64_t tsc_now = rdtsc();
     #ifdef CONFIG_ONESHOT_TIMER
     uint64_t ticks = tsc_now - tsc_lasttime;
-    kcb->kernel_now = (kernel_now += ticks / timing_get_tsc_per_ms());
+    kernel_now += ticks / timing_get_tsc_per_ms();
     #else // !CONFIG_ONESHOT_TIMER
     // maintain compatibility with old behaviour. Not sure if it is
     // actually needed. -AKK
@@ -783,7 +783,7 @@ update_kernel_now(void)
     // APIC timer interrupt.
     if(tsc_now - tsc_lasttime >
        (kernel_timeslice * timing_get_tsc_per_ms()) / 2) {
-        kcb->kernel_now = (kernel_now += kernel_timeslice);
+        kernel_now += kernel_timeslice;
     }
     #endif // CONFIG_ONESHOT_TIMER
     tsc_lasttime = tsc_now;

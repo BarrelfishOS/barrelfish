@@ -356,7 +356,7 @@ struct dcb *schedule(void)
     // nothing to dispatch
     if(todisp == NULL) {
         debug(SUBSYS_DISPATCH, "schedule: no dcb runnable\n");
-        kcb->lastdisp = lastdisp = NULL;
+        lastdisp = NULL;
         return NULL;
     }
 
@@ -399,7 +399,7 @@ struct dcb *schedule(void)
         /*             (uint32_t)(lvaddr_t)todisp & 0xFFFFFFFF); */
 
         // Remember who we run next
-        kcb->lastdisp = lastdisp = todisp;
+        lastdisp = todisp;
         #ifdef CONFIG_ONESHOT_TIMER
         // we might be able to do better than that...
         // (e.g., check if there is only one task in the queue)
@@ -433,7 +433,7 @@ struct dcb *schedule(void)
     }
     dcb->etime = 0;
     queue_insert(dcb);
-    kcb->lastdisp = lastdisp = NULL;
+    lastdisp = NULL;
 
     goto start_over;
 }
@@ -568,14 +568,14 @@ void scheduler_yield(struct dcb *dcb)
         break;
     }
     dcb->etime = 0;
-    kcb->lastdisp = lastdisp = NULL;    // Don't account for us anymore
+    lastdisp = NULL;    // Don't account for us anymore
     queue_insert(dcb);
 }
 
 void scheduler_reset_time(void)
 {
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER_SYNC, 0);
-    kcb->kernel_now = kernel_now = 0;
+    kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now
     for(struct dcb *i = queue_head; i != NULL; i = i->next) {
@@ -585,15 +585,16 @@ void scheduler_reset_time(void)
     }
 
     // Forget all accounting information
-    kcb->lastdisp = lastdisp = NULL;
+    lastdisp = NULL;
 }
 
 void scheduler_restore_state(void)
 {
     queue_head = kcb->queue_head;
     queue_tail = kcb->queue_tail;
-    kernel_now = kcb->kernel_now;
     u_hrt = kcb->u_hrt;
     w_be = kcb->w_be;
     n_be = kcb->n_be;
+    // clear time slices
+    scheduler_reset_time();
 }
