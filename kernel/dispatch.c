@@ -221,14 +221,10 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         }
 
 #ifdef TRACE_CSWITCH
-//#if TRACE_N_BM
-
-//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_KERNEL_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
-//#endif // TRACE_N_BM
-#endif // TRACE_CSWITCH
+#endif
 
         context_switch(dcb);
         dcb_current = dcb;
