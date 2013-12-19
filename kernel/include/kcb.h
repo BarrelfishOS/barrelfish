@@ -47,8 +47,6 @@ struct kcb {
     struct dcb *wakeup_queue_head;
 
 #if defined(__x86_64__)
-    bool idt_initialized; ///< iff true, IDT is loaded and exceptions can be caught
-    struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
     struct cte irq_dispatch[NDISPATCH];
 #endif
     // TODO: maybe add a shared part which can replace struct core_data?
