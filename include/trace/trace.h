@@ -32,6 +32,7 @@
 
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h> // struct event_closure
+#include <barrelfish/domain.h>
 
 #include <stdio.h>
 #include <string.h> // memcpy

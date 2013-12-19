@@ -17,6 +17,7 @@
 #define BARRELFISH_DOMAIN_H
 
 #include <sys/cdefs.h>
+#include <barrelfish/threads.h>
 
 __BEGIN_DECLS
 
