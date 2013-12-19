@@ -314,7 +314,7 @@ void kernel_startup(void)
         // if we have a kernel control block, use it
         if (kcb && kcb->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
-            kernel_loglevel = 5;
+            //kernel_loglevel = 5;
 
             print_kcb();
             errval_t err;
@@ -343,7 +343,7 @@ void kernel_startup(void)
             }
             // interrupt state should be fine, as it's used directly from the
             // kcb.
-            verbose_dispatch = true;
+            //verbose_dispatch = true;
             dispatch(next);
             panic("should not get here!");
         }
