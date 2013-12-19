@@ -103,7 +103,7 @@ device omap44xx_mmu msbfirst ( addr base ) "OMAP44xx Memory Management Unit (MMU
 
     register fault_ad ro addr(base, 0x0048) "MMU Fault Address (virtual)" type(uint32);
 
-    register ttb ro addr(base, 0x004C) "Translation Table Base address" type(uint32);
+    register ttb rw addr(base, 0x004C) "Translation Table Base address" type(uint32);
 
     register lock rw addr(base, 0x0050) "Lock some TLB entries" {
     _               17;

@@ -34,3 +34,11 @@ errval_t sys_yield(capaddr_t target)
     STATIC_ASSERT_SIZEOF(target, sizeof(uintptr_t));
     return syscall2(SYSCALL_YIELD, (uintptr_t) target).error;
 }
+
+
+#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
+//add syscall for restoring a context that the dispatcher can not restore by itself
+errval_t sys_resume_context(arch_registers_state_t* registers){
+    return syscall2(SYSCALL_RESUME_CONTEXT, (uintptr_t) registers).error;
+}
+#endif

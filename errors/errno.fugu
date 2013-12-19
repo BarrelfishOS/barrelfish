@@ -4,9 +4,10 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
- 
+
 // Kernel/syscall errors
 errors kernel SYS_ERR_ {
     default success OK          "Success",
@@ -161,7 +162,7 @@ errors libbarrelfish LIB_ERR_ {
     failure WHILE_DELETING      "Error while deleting capability",
     failure WHILE_FREEING_SLOT  "Error while freeing capability slot",
     failure MALLOC_FAIL         "Malloc returned NULL",
-    failure SLAB_ALLOC_FAIL     "slab_alloc() returned NULL",   
+    failure SLAB_ALLOC_FAIL     "slab_alloc() returned NULL",
     failure SLAB_REFILL         "Refilling slab allocator failed",
     failure NOT_IMPLEMENTED     "functionality not implemented yet",
     failure SHOULD_NOT_GET_HERE "Should not get here",
@@ -326,9 +327,9 @@ errors libbarrelfish LIB_ERR_ {
 
     // multihop
     failure BIND_MULTIHOP_REQ   "Failed sending bind_multihop_request to monitor",
-    failure NO_MULTIHOP_BIND_HANDLER "MULTIHOP connection handler not registered for this service",    
+    failure NO_MULTIHOP_BIND_HANDLER "MULTIHOP connection handler not registered for this service",
     failure BIND_MULTIHOP_SAME_CORE "Cannot create a multihop channel to service on the same core",
-    
+
     // Bulk transfer
     failure BULK_UNKNOWN_ID	"Unknown bulk transfer block ID",
 
@@ -351,8 +352,6 @@ errors libbarrelfish LIB_ERR_ {
     failure GET_NAME_IREF          "Error while retrieving name service IREF from monitor",
     failure GET_RAMFS_IREF         "Error while retrieving ramfsd service IREF from monitor",
     failure NAMESERVICE_CLIENT_INIT "Failure initialising nameservice client",
-    failure SERIAL_BIND            "Failed binding to serial driver",
-    failure KBD_BIND            "Failed binding to keyboard driver",
 
     // Threads package
     failure THREAD_CREATE       "A version of thread create failed",
@@ -547,7 +546,7 @@ errors spawn SPAWN_ERR_ {
     failure MAP_ARGSPG_TO_SELF  "Failure mapping arguments page to parent",
     failure MAP_FDSPG_TO_NEW   "Failure mapping file descriptors page to new domain",
     failure MAP_FDSPG_TO_SELF  "Failure mapping file descriptors page to parent",
-    
+
     failure FILL_SMALLCN        "Failure filling smallcn of new domain",
     failure MAP_BOOTINFO        "Failure mapping bootinfo to new domain",
     failure FIND_MODULE         "Didn't find module to be spawned",
@@ -651,6 +650,13 @@ errors init INIT_ERR_ {
     failure NO_MATCHING_RAM_CAP "No suitably-sized RAM cap found when initialising local memory allocator",
 };
 
+//errors in continuation management
+errors filter CONT_ERR_ {
+    failure NO_MORE_SLOTS        "No free slots available",
+};
+
+
+
 //errors in ethersrv
 errors ethersrv ETHERSRV_ERR_ {
     failure TOO_MANY_BUFFERS    "ethersrv failed to allocate a new buffer descriptor in register_buffer",
@@ -673,6 +679,8 @@ errors filter PORT_ERR_ {
 };
 
 
+
+
 //errors in Filter management
 errors filter FILTER_ERR_ {
     failure NOT_ENOUGH_MEMORY   "Not enough memory to register filters",
@@ -681,12 +689,43 @@ errors filter FILTER_ERR_ {
     failure NO_NETD_MEM         "Netd memory for filter is not registered",
     failure FILTER_NOT_FOUND    "requested filter for de/re-registration not found",
     failure BUFFER_NOT_FOUND    "requested filter for re-registration not found",
-    
+
 };
 
 // errors generated in the terminal library
 errors term TERM_ERR_ {
-    failure REGISTER_HANDLER    "Failed to register the input handler",
+    failure TERMINAL_IN_USE             "Can not associate session with terminal, the terminal is already in use",
+    failure NOT_PART_OF_SESSION         "Domain is not part of a session",
+    failure EXPORT_SESSION_INTERFACE    "Failed to export terminal session interface",
+    failure REGISTER_SESSION_INTERFACE  "Failed to register terminal session interface at nameservice",
+    failure EXPORT_OUT_INTERFACE        "Failed to export terminal interface for outgoing characters",
+    failure EXPORT_IN_INTERFACE         "Failed to export terminal interface for incoming characters",
+    failure EXPORT_CONF_INTERFACE       "Failed to export terminal configuration interface for configuration messages",
+    failure ASSOCIATE_WITH_TERM_REPLY   "Failed to send session_associate_with_terminal_reply",
+    failure RECV_CHARS                  "Received characters at outgoing characters interface",
+    failure SEND_CHARS                  "Could not send characters to client",
+    failure RECV_CONFIGURATION          "Received a configuration message a the client",
+    failure FILTER_NOT_FOUND            "Could not find filter specified for removal",
+    failure TRIGGER_NOT_FOUND           "Could not find trigger specified for removal",
+    failure LOOKUP_SESSION_RECORD       "Error looking up session record at octopus",
+    failure PARSE_SESSION_RECORD        "Error parsing session record",
+    failure BIND_IN_INTERFACE           "Failed to bind to terminal interface for incoming characters",
+    failure BIND_OUT_INTERFACE          "Failed to bind to terminal interface for outgoing characters",
+    failure BIND_CONF_INTERFACE         "Failed to bind to terminal configuration interface",
+    failure IO                          "Terminal I/O error",
+    failure TX_BUSY                     "Failed to send message, terminal client is busy",
+    failure UNKNOWN_CONFIG_OPT          "Unknown configuration option",
+    failure CHANGE_WAITSET              "Failed to change the waitset",
+};
+
+// errors generated by libangler
+errors angler ANGLER_ERR_ {
+    failure LOOKUP_TERMINAL         "Error looking up iref of terminal session interface at nameservice",
+    failure CREATE_SESSIONID        "Error creating ID capability used to represent session",
+    failure BIND_TERMINAL           "Error binding to terminal session interface",
+    failure INIT_RPCCLIENT          "Error initializing rpc client for terminal session interface",
+    failure ASSOCIATE_WITH_TERMINAL "Error associating session with terminal",
+    failure STORE_SESSION_STATE     "Error storing session state at ocotpus",
 };
 
 // errors in trace
@@ -771,7 +810,7 @@ errors vfs VFS_ERR_ {
 errors nfs NFS_ERR_ {
     /* transport error */
     failure TRANSPORT "Unknown error in underlying NFS RPC transport.",
-    
+
     /* mount errors */
     failure MNT_PERM "Not owner",
     failure MNT_NOENT "No such file or directory",
@@ -830,6 +869,7 @@ errors lwip LWIP_ERR_ {
     failure IF           "Low-level netif error",
     failure ISCONN       "Already connected.",
     failure INPROGRESS   "Operation in progress",
+    failure TXFULL       "TX capacity is full, try again later",
 };
 
 // DIST library errors
@@ -851,10 +891,11 @@ errors octopus  OCT_ERR_ {
     failure ENGINE_FAIL         "Database error during query execution.",
     failure NO_SUBSCRIPTION     "No subscription found matching the query.",
     failure NO_SUBSCRIBERS      "No subscription found matching the query.",
-    failure MAX_SUBSCRIPTIONS   "Failed to register subscription. Try to increase MAX_SUBSCRIPTIONS.",  
+    failure MAX_SUBSCRIPTIONS   "Failed to register subscription. Try to increase MAX_SUBSCRIPTIONS.",
     failure INVALID_ID          "Invalid Trigger ID.",
     failure CAP_NAME_UNKNOWN    "Capability storage: Unknown name.",
     failure CAP_OVERWRITE       "Capability storage: Cap already exists.",
+    failure IDCAP_INVOKE        "Error invoking ID capability.",
 };
 
 // kaluga library errors
@@ -864,7 +905,7 @@ errors kaluga  KALUGA_ERR_ {
     failure DRIVER_ALREADY_STARTED "Driver for this type of device is already running.",
     failure DRIVER_NOT_AUTO        "Driver not declared as auto in menu.lst.",
 };
- 
+
 // errors generated by THC
 errors thc THC_ {
     failure CANCELED            "Operation canceled",
@@ -903,6 +944,12 @@ errors ahcid AHCI_ERR_ {
 
 errors sata SATA_ERR_ {
     failure INVALID_TYPE        "Unknown FIS type or invalid/unimplemented field for type",
+};
+
+errors mmchs MMC_ERR_ {
+    failure TRANSFER                "Error during card read/write operation.",
+    FAILURE READ_READY              "Card not ready for reading.",
+    FAILURE WRITE_READY             "Card not ready for writing.",
 };
 
 // errors generated by FAT

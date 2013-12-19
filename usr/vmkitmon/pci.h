@@ -13,8 +13,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef PCI_H
-#define PCI_H
+#ifndef _PCI_H
+#define _PCI_H
+
+#include "lpc.h"
 
 union pci_config_address_word {
     uint32_t raw;
@@ -39,9 +41,27 @@ typedef void (*pci_device_confspace_read)(struct pci_device *dev,
                                           union pci_config_address_word addr,
                                           enum opsize size, uint32_t *val);
 
+typedef void (*pci_device_mem_write)(struct pci_device *dev,
+                                           uint32_t addr, int bar, uint32_t val);
+
+typedef void (*pci_device_mem_read)(struct pci_device *dev,
+										  uint32_t addr,
+                                          int bar, uint32_t *val);
+
+struct bar_info {
+	void *vaddr;  // assigned by the device driver when calling map_device()
+	genpaddr_t paddr; // physical base address of device
+	size_t bytes;  //size of the bar
+};
+
 struct pci_device {
     pci_device_confspace_write  confspace_write;
     pci_device_confspace_read   confspace_read;
+    pci_device_mem_read			mem_read;
+    pci_device_mem_write		mem_write;
+    struct bar_info				bars[6];
+    uint8_t                     irq;
+    struct lpc                  *lpc;
     void                        *state;
 };
 

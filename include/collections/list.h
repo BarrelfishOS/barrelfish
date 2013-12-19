@@ -8,7 +8,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #ifndef _LIST_H_
@@ -45,7 +46,7 @@ typedef int32_t (*collections_list_predicate)(void *data, void *arg);
 typedef void (*collections_release_data)(void *data);
 
 /*
- * structure of each element in the 
+ * structure of each element in the
  * linked list.
  */
 struct          _collections_listnode;
@@ -67,8 +68,8 @@ typedef struct	_collections_listnode {
     void                         *data;
 } collections_listnode;
 
-/* 
- * a header to the linked list 
+/*
+ * a header to the linked list
  */
 typedef struct _collections_header_data {
     // total number of elements.
@@ -98,6 +99,9 @@ void     *collections_list_find_if(collections_listnode *start,
                                    collections_list_predicate p, void *arg);
 void     *collections_list_remove_if(collections_listnode *start,
                                      collections_list_predicate p, void *key);
+uint32_t  collections_list_remove_if_all(collections_listnode *start,
+                                         collections_list_predicate p,
+                                         void *key);
 void     *collections_list_remove_ith_item(collections_listnode *start,
                                            uint32_t index);
 uint32_t  collections_list_size(collections_listnode *start);
@@ -109,7 +113,7 @@ int32_t   collections_list_traverse_end(collections_listnode *start);
  * Visitor function. Should return non-zero to continue iteration.
  */
 typedef int (*collections_list_visitor_func)(void *data, void *arg);
-/* 
+/*
  * Visit elements in list with function f until f indicates stop or end of list
  * reached.
  * Return non-zero if end of list reached, 0 otherwise.

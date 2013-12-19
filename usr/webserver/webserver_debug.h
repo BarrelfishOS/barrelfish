@@ -16,12 +16,12 @@
  *****************************************************************/
 
 //#define WEBSERVER_DEBUG 1
-#if defined(WEBSERVER_DEBUG) || defined(GLOBAL_DEBUG)
-#define SERVER_DEBUG(x...) printf("webserver: " x)
-#else
-#define SERVER_DEBUG(x...) ((void)0)
-#endif
 
+#if defined(WEBSERVER_DEBUG) || defined(GLOBAL_DEBUG)
+#define DEBUGPRINT(arg...) printf("WEBSERVER: " arg)
+#else
+#define DEBUGPRINT(arg...) ((void)0)
+#endif // WEBSERVER_DEBUG
 
 uint64_t get_time_delta(uint64_t *last_ts);
 #endif // WEBSERVER_H_

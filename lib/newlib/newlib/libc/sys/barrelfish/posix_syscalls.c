@@ -17,7 +17,8 @@ typedef off_t fslseek_fn_t(int, off_t, int);
 
 #define FAIL_FN() \
 do { \
-    debug_printf("***** %s:%s() called. Something is probably wrong!\n", __FILE__,__FUNCTION__); \
+    debug_printf("***** %s:%s() called. Something is probably wrong! Maybe " \
+                 "you forgot to call vfs_init().\n", __FILE__,__FUNCTION__); \
     return -1; \
 } while (0)
 

@@ -61,7 +61,7 @@ device omap44xx_mcpdm_dsp msbfirst ( addr base ) "" {
     register mcpdm_irqstatus_raw addr(base, 0x24) "Interrupt request raw status register (for debug purpose)." {
         _ 20 mbz;
         up_irq_full 1 rw type(up_irq_full_status) "FIFO-uplink-full signal appears when a write access is performed and the FIFO uplink is already full.";
-        up_irq_alst_full 1 rw type(up_irq_full_status) "FIFO uplink almost-full signal appears when the FIFO uplink contains (FIFO uplink size – 1) elements.";
+        up_irq_alst_full 1 rw type(up_irq_full_status) "FIFO uplink almost-full signal appears when the FIFO uplink contains (FIFO uplink size - 1) elements.";
         up_irq_empty 1 rw type(up_irq_full_status) "FIFO uplink empty signal appears when a read access is done and FIFO uplink already empty.";
         up_irq 1 rw type(up_irq_full_status) "FIFO uplink interrupt appears when the number of data present in the FIFO uplink has reached the value of the FIFO uplink threshold.";
         _ 4 mbz;
@@ -81,7 +81,7 @@ device omap44xx_mcpdm_dsp msbfirst ( addr base ) "" {
     register mcpdm_irqstatus addr(base, 0x28) "Interrupt request status register." {
         _ 20 mbz;
         up_irq_full 1 rw type(up_irq_full_status1) "FIFO-uplink-full signal appears when a write access is performed and the FIFO uplink is already full.";
-        up_irq_alst_full 1 rw type(up_irq_full_status1) "FIFO uplink almost-full signal appears when the FIFO uplink contains (FIFO uplink size – 1) elements.";
+        up_irq_alst_full 1 rw type(up_irq_full_status1) "FIFO uplink almost-full signal appears when the FIFO uplink contains (FIFO uplink size - 1) elements.";
         up_irq_empty 1 rw type(up_irq_full_status1) "FIFO uplink empty signal appears when a read access is done and FIFO uplink already empty.";
         up_irq 1 rw type(up_irq_full_status1) "FIFO uplink interrupt appears when the number of data present in the FIFO uplink has reached the value of the FIFO uplink threshold.";
         _ 4 mbz;

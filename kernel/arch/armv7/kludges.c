@@ -13,7 +13,12 @@
 extern void dbg_break(void);
 void dbg_break(void)
 {
+#ifndef __thumb__ 
     __asm("bkpt #0xffff");
+#else
+    //heteropanda: smaller breakpoint immediate in pure thumb2
+    __asm("bkpt #0xff");
+#endif
 }
 
 extern void arch_benchmarks(void);

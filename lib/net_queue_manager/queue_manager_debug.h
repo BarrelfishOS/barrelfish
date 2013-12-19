@@ -20,7 +20,11 @@ void ethersrv_debug_printf(const char *fmt, ...);
 //#define ETHERSRV_SERVICE_DEBUG 1
 
 #if defined(ETHERSRV_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define ETHERSRV_DEBUG(x...) printf("NQM: " x)
+#define ETHERSRV_DEBUG(x...) do { printf("NQM:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+        } while (0)
+
 #else
 #define ETHERSRV_DEBUG(x...) ((void)0)
 #endif // defined(ETHERSRV_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)

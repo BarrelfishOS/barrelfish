@@ -34,11 +34,11 @@ static struct filters_tx_vtbl *lookup_filt_mng(uint8_t filt_mng_type)
         case 0: // software filter manager
                 return get_soft_filt_mng_sign();
                 break;
-/*
-        case 1: // e10K hardware filter manager
-                return NULL;
-                break;
 
+        case 1: // e10K hardware filter manager
+                return get_e10k_filt_mng_sign();
+                break;
+/*
         case 2: // Solarflare filter manager
                 return NULL;
                 break;
@@ -98,5 +98,5 @@ errval_t init_device_manager(char *dev_name, uint64_t valid_queues,
 
     return init_ports_service(dev_name);
 //    return SYS_ERR_OK;
-} // end function: init_ports_service
+} // end function: init_device_manager
 

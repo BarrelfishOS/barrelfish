@@ -46,7 +46,7 @@ run_latex () {
 	-file-line-error \
 	-output-directory "$WORKING_DIR" \
 	-jobname "$JOB_NAME" \
-	"$INPUT_TEX" || exit
+	"$INPUT_TEX" #|| exit
 }
 
 #

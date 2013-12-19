@@ -704,7 +704,7 @@ device omap44xx_uart1 msbfirst ( addr base ) "" {
 
     constants pulse_type_status width(1) "" {
         PULSE_TYPE_0 = 0 "3/16 of baud-rate pulse width";
-        PULSE_TYPE_1 = 1 "1.6 µs";
+        PULSE_TYPE_1 = 1 "1.6 us";
     };
 
     constants sd_mod_status width(1) "" {

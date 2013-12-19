@@ -43,6 +43,10 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
                               int *ret_vector);
 
 
+errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
+
+errval_t pci_write_conf_header(uint32_t dword, uint32_t val);
+
 errval_t pci_client_connect(void);
 
 #endif

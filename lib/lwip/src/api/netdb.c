@@ -290,6 +290,7 @@ lwip_getaddrinfo(const char *nodename, const char *servname,
 {
     err_t err;
     struct ip_addr addr;
+    u32_t ip = 0;
     struct addrinfo *ai;
     struct sockaddr_in *sa = NULL;
     int port_nr = 0;
@@ -312,10 +313,14 @@ lwip_getaddrinfo(const char *nodename, const char *servname,
     }
 
     if (nodename != NULL) {
-        /* service location specified, try to resolve */
-        err = netconn_gethostbyname(nodename, &addr);
-        if (err != ERR_OK) {
-            return EAI_FAIL;
+        /* service location specified, check if it's an IP */
+        if ((ip = inet_addr(nodename)) != INADDR_NONE) {
+            addr.addr = ip;
+        } else { /* try to resolve */
+            err = netconn_gethostbyname(nodename, &addr);
+            if (err != ERR_OK) {
+                return EAI_FAIL;
+            }
         }
     } else {
         /* service location specified, use loopback address */

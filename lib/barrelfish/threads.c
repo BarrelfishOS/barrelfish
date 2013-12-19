@@ -28,6 +28,8 @@
 #include <arch/registers.h>
 #include <trace/trace.h>
 
+#include <trace_definitions/trace_defs.h>
+
 #include "arch/threads.h"
 #include "threads_priv.h"
 #include "init.h"
@@ -615,6 +617,7 @@ void thread_yield(void)
     } else {
         assert_disabled(disp_gen->runq != NULL);
         assert_disabled(disp->haswork);
+        trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_C_DISP_SAVE, 3);
         disp_save(handle, enabled_area, true, CPTR_NULL);
     }
 }
@@ -638,6 +641,8 @@ void thread_yield_dispatcher(struct capref endpoint)
 
     assert_disabled(disp_gen->runq != NULL);
     assert_disabled(disp->haswork);
+
+    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_C_DISP_SAVE, 1);
     disp_save(handle, enabled_area, true, get_cap_addr(endpoint));
 }
 
@@ -845,6 +850,7 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
         assert_disabled(disp_gen->runq == NULL);
         disp_gen->current = NULL;
         disp->haswork = havework_disabled(handle);
+        trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_C_DISP_SAVE, 2);
         disp_save(handle, &me->regs, true, CPTR_NULL);
     }
 
@@ -994,6 +1000,10 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     // Set libc function pointers
     barrelfish_libc_glue_init();
 
+    if (params == NULL) {
+        printf("%s: error in creating a thread, NULL parameters given\n",
+                disp_name());
+    }
     assert(params != NULL);
 
     // Do we have TLS data?

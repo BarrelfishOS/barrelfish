@@ -16,5 +16,9 @@
   build application { target = "fscanf_test",
                       cFiles = [ "fscanf_test.c" ],
                       addLibraries = libDeps ["vfs"]
+                    },
+  build application { target = "fat_test",
+                      cFiles = [ "fat_test.c" ],
+                      addLibraries = libDeps ["vfs"]
                     }
   ]

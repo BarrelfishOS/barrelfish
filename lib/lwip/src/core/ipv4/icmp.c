@@ -108,12 +108,6 @@ void icmp_input(struct pbuf *p, struct netif *inp)
     ICMP_STATS_INC(icmp.recv);
     snmp_inc_icmpinmsgs();
 
-//  printf("ICMP packet came in\n");
-#if LWIP_TRACE_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AI_P,
-                (uint32_t) ((uint64_t) p));
-#endif // LWIP_TRACE_MODE
-
     iphdr = p->payload;
     hlen = IPH_HL(iphdr) * 4;
     if (pbuf_header(p, -hlen) || (p->tot_len < sizeof(u16_t) * 2)) {
@@ -256,11 +250,6 @@ void icmp_input(struct pbuf *p, struct netif *inp)
                 if (icmp_notifier != NULL) {
                     icmp_notifier(p);
                 }
-#if LWIP_TRACE_MODE
-                trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_AO_C,
-                            (uint32_t) ((uint64_t) p));
-#endif // LWIP_TRACE_MODE
-
                 ret = ip_output_if(p, &(iphdr->src), IP_HDRINCL,
                                    ICMP_TTL, 0, IP_PROTO_ICMP, inp);
                 if (ret != ERR_OK) {

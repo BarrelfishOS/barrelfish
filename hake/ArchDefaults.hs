@@ -84,6 +84,7 @@ ldCxxFlags arch =
 -- Libraries that are linked to all applications.
 stdLibs arch = 
     [ In InstallTree arch "/lib/libbarrelfish.a",
+      In InstallTree arch "/lib/libterm_client.a",
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/lib" ++ Config.libc ++ ".a"),
@@ -273,17 +274,17 @@ archive arch opts objs libs name libname =
     ++
     if libs == [] then []
                   else (
-      [ NL, Str ("rm -fr tmp-" ++ name ++ "; mkdir tmp-" ++ name) ]
+      [ NL, Str ("rm -fr tmp-" ++ arch ++ name ++ "; mkdir tmp-" ++ arch ++ name) ]
       ++
-      [ NL, Str ("cd tmp-" ++ name ++ "; for i in ") ]
+      [ NL, Str ("cd tmp-" ++ arch ++ name ++ "; for i in ") ]
       ++
       [ In BuildTree arch a | a <- libs ]
       ++
       [ Str "; do ar x ../$$i; done" ]
       ++
-      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ name ++ "/*.o") ]
+      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ arch ++ name ++ "/*.o") ]
       ++
-      [ NL, Str ("rm -fr tmp-" ++ name) ]
+      [ NL, Str ("rm -fr tmp-" ++ arch ++ name) ]
     )
     ++
     [ NL, Str "ranlib ", Out arch libname ]

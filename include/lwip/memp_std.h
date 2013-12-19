@@ -76,8 +76,8 @@ LWIP_MEMPOOL(RAW_PCB, MEMP_NUM_RAW_PCB, sizeof(struct raw_pcb), "RAW_PCB")
  *     This allocates enough space for the pbuf struct and a payload.
  *     (Example: pbuf_payload_size=0 allocates only size for the struct)
  */
-  LWIP_PBUF_MEMPOOL(PBUF, MEMP_NUM_PBUF, 0, "PBUF_REF/ROM")
-  LWIP_PBUF_MEMPOOL(PBUF_POOL, PBUF_POOL_SIZE, PBUF_POOL_BUFSIZE, "PBUF_POOL")
+  LWIP_PBUF_MEMPOOL(PBUF, MEMP_NUM_PBUF + PBUF_POOL_SIZE, 0, "PBUF_REF/ROM")
+  LWIP_MEMPOOL(PBUF_POOL, PBUF_POOL_SIZE, PBUF_POOL_BUFSIZE, "PBUF_POOL")
 
 
 /*

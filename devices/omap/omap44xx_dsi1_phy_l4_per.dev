@@ -29,7 +29,7 @@ device omap44xx_dsi1_phy_l4_per msbfirst ( addr base ) "" {
     
     
     register dsi_phy_register0 addr(base, 0x0) "Configuration register for HS mode timings" {
-        reg_thsprepare 8 rw "REG_THSPREPARE timing parameter in multiples of DDR clock period. DDR clock = CLKIN4DDR/4.D-PHY specification: 40 ns + 4 * UI ÷ 85 ns + 6 * UI. UI = Unit Interval, equal to the duration of any HS state on the clock lane. . Default value is programmed for 400 MHz. .";
+        reg_thsprepare 8 rw "REG_THSPREPARE timing parameter in multiples of DDR clock period. DDR clock = CLKIN4DDR/4.D-PHY specification: 40 ns + 4 * UI / 85 ns + 6 * UI. UI = Unit Interval, equal to the duration of any HS state on the clock lane. . Default value is programmed for 400 MHz. .";
         reg_thsprpr_thszero 8 rw "REG_THSPREPARE_THSZERO timing parameter in multiples of DDR clock period. DDR clock = CLKIN4DDR/4.D-PHY specification: &gt; 145 ns + 10 * UI. . Default value is programmed for 400 MHz. .";
         reg_thstrail 8 rw "REG_THSTRAIL timing parameter in multiples of DDR clock period. DDR clock = CLKIN4DDR/4.D-PHY specification: &gt; 60 ns + 4 * UI. . Default value is programmed for 400 MHz. .";
         reg_thsexit 8 rw "REG_THSEXIT timing parameter in multiples of DDR clock frequency. DDR clock = CLKIN4DDR/4.D-PHY specification: &gt; 100 ns. . Default value is programmed for 400 MHz. .";
@@ -89,7 +89,7 @@ device omap44xx_dsi1_phy_l4_per msbfirst ( addr base ) "" {
         ovrrdulpmtx 1 rw type(ovrrdulpmtx_status) "Global enable of the weak pulldown on the DSI lanes, configured through the [15:11] REGULPMTX bit field:";
         regulpmtx 5 rw type(regulpmtx_status) "Configuration of the weak pulldowns on the DSI lanes.For each bit, the following settings apply: . Bit [15]: DSI lane 4 (applies only to DSI1; reserved for DSI2) . Bit [14]: DSI lane 3 (applies only to DSI1; reserved for DSI2) . Bit [13]: DSI lane 2 (applies to DSI1 and DSI2) . Bit [12]: DSI lane 1 (applies to DSI1 and DSI2) . Bit [11]: DSI lane 0 (applies to DSI1 and DSI2) .";
         _ 3 mbz;
-        reg_tclkprepare 8 rw "TCLK-PREPARE timing parameter in multiples of DDR clock period.D-PHY specification: 38 ns ÷ 95 ns. . Default value is programmed for 400 MHz. .";
+        reg_tclkprepare 8 rw "TCLK-PREPARE timing parameter in multiples of DDR clock period.D-PHY specification: 38 ns / 95 ns. . Default value is programmed for 400 MHz. .";
     };
     
     register dsi_phy_register3 addr(base, 0xC) "Transmitted pattern" {

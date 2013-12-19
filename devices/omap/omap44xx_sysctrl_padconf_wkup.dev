@@ -516,20 +516,20 @@ device omap44xx_sysctrl_padconf_wkup msbfirst ( addr base ) "" {
     };
     
     register control_smart3nopmio_padconf_0 addr(base, 0x5B0) "SMART3 NOPM IO control 0 Access conditions. Read: unrestricted, Write: unrestricted" {
-        fref_dr1_mb 2 rw "50-Ω output buffer mode control for group fref_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr5_mb 2 rw "50-Ω output buffer mode control for group fref_dr5 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr6_mb 2 rw "50-Ω output buffer mode control for group fref_dr6 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr7_mb 2 rw "50-Ω output buffer mode control for group Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr4_mb 2 rw "50-Ω output buffer mode control for group fref_dr4 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr1_mb 2 rw "50-ohm output buffer mode control for group fref_dr1 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr5_mb 2 rw "50-ohm output buffer mode control for group fref_dr5 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr6_mb 2 rw "50-ohm output buffer mode control for group fref_dr6 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr7_mb 2 rw "50-ohm output buffer mode control for group Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr4_mb 2 rw "50-ohm output buffer mode control for group fref_dr4 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 22 mbz;
     };
     
     register control_smart3nopmio_padconf_1 addr(base, 0x5B4) "SMART3 NOPM IO control 1 Access conditions. Read: unrestricted, Write: unrestricted" {
-        fref_dr1_lb0 1 rw "50-Ω output buffer load control for group fref_dr1 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr5_lb0 1 rw "50-Ω output buffer load control for group fref_dr5 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr6_lb0 1 rw "50-Ω output buffer load control for group fref_dr6 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr7_lb0 1 rw "50-Ω output buffer load control for group fref_dr7 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
-        fref_dr4_lb0 1 rw "50-Ω output buffer load control for group fref_dr4 Refer to 50-Ω output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr1_lb0 1 rw "50-ohm output buffer load control for group fref_dr1 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr5_lb0 1 rw "50-ohm output buffer load control for group fref_dr5 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr6_lb0 1 rw "50-ohm output buffer load control for group fref_dr6 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr7_lb0 1 rw "50-ohm output buffer load control for group fref_dr7 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
+        fref_dr4_lb0 1 rw "50-ohm output buffer load control for group fref_dr4 Refer to 50-ohm output buffer I/Os with combined Mode and Load Settings for more details on mode settings.";
         _ 27 mbz;
     };
     
@@ -547,10 +547,10 @@ device omap44xx_sysctrl_padconf_wkup msbfirst ( addr base ) "" {
     };
 
     constants sr_sda_load_bits_status width(2) "" {
-        SR_SDA_LOAD_BITS_0 = 0 "4.5 kΩ (5-15 pF) / 1.66 kΩ (5-12 pF)";
-        SR_SDA_LOAD_BITS_1 = 1 "2.1 kΩ (15-50 pF) / 920 Ω (12-25 pF)";
-        SR_SDA_LOAD_BITS_2 = 2 "860 Ω (50-150 pF) / 500 Ω (25-50 pF)";
-        SR_SDA_LOAD_BITS_3 = 3 "N.A / 300 Ω (50-80 pF)";
+        SR_SDA_LOAD_BITS_0 = 0 "4.5 kohm (5-15 pF) / 1.66 kohm (5-12 pF)";
+        SR_SDA_LOAD_BITS_1 = 1 "2.1 kohm (15-50 pF) / 920 ohm (12-25 pF)";
+        SR_SDA_LOAD_BITS_2 = 2 "860 ohm (50-150 pF) / 500 ohm (25-50 pF)";
+        SR_SDA_LOAD_BITS_3 = 3 "N.A / 300 ohm (50-80 pF)";
     };
 
     constants sr_sda_pullupresx_status width(1) "" {

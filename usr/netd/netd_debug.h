@@ -16,7 +16,10 @@
  *****************************************************************/
 //#define NETD_SERVICE_DEBUG 1
 #if defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define NETD_DEBUG(x...) printf("netd: " x)
+#define NETD_DEBUG(x...) do { printf("NETD:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+            } while(0)
 #else
 #define NETD_DEBUG(x...) ((void)0)
 #endif // defined(NETD_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)

@@ -1,26 +1,35 @@
 /**
  * \file
+ * \brief Virtual 16550 UART controller.
+ *
+ * This represents a simple implementation of a 16550 uart controller. It
+ * neglects all timing issues, tranfer rate and error conditions. It declines to
+ * know about FIFOs (which make it to a 16450 controller in fact). In addition
+ * we are almost agnostic to the MCR and MSR register.
+ *
+ * The virtual UART controller can be attached to a host UART driver.
  */
 
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
-/* This represents a simple implementation of a 16550 uart controller. It
- * neglects all timing issues, tranfer rate and error conditions. It declines to
- * know about FIFOs (which make it to a 16450 controller in fact). In addition
- * we are almost agnostic to the MCR and MSR register. Everything is
- * forwarded directly to the terminal. */
+
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <if/monitor_defs.h>
+#include <if/serial_defs.h>
+
+#include <stdlib.h>
 
 #include "vmkitmon.h"
 #include "pc16550d.h"
-#include <stdlib.h>
-#include <barrelfish/terminal.h>
 
 #define FIFO_POS(x)     ((x) & PC16550D_FIFO_MASK)
 
@@ -36,6 +45,7 @@ pc16550d_new (uint16_t base_port, uint8_t irq, struct lpc *lpc)
     u->base_port = base_port;
     u->irq = irq;
     u->lpc = lpc;
+    u->forward_state = PC16550d_FORWARD_NONE;
 
     // initialize the LSR register to have an empty transmit buffer
     pc16550d_mem_lsr_thre_wrf(&u->dev, 1);
@@ -99,12 +109,40 @@ process_lsr_change (struct pc16550d *u)
 }
 
 static inline void
+output_handler (struct pc16550d *u, char c)
+{
+    switch (u->forward_state) {
+        case PC16550d_FORWARD_NONE:
+            break;
+
+        case PC16550d_FORWARD_UART:
+            {
+                errval_t err;
+                struct pc16550d_forward_uart *state = u->forward_uart_state;
+
+                err = state->binding->tx_vtbl.output(state->binding, NOP_CONT,
+                                                     &c, 1);
+                assert(err_is_ok(err));
+
+                // Wait until character is sent.
+                while (!state->binding->can_send(state->binding)) {
+                    err = event_dispatch(state->ws);
+                    assert(err_is_ok(err));
+                }
+            }
+            break;
+
+        default:
+            assert(!"NYI");
+    }
+}
+
+static inline void
 process_thr_change (struct pc16550d *u)
 {
     // put out the character
     char chr = pc16550d_mem_thr_rd_raw(&u->dev);
-    int r = terminal_write(&chr, 1);
-    assert(r == 1);
+    output_handler(u, chr);
 
     // writing the THR reg resets the THRE interrupt pending state
     if (pc16550d_mem_iir_rd(&u->dev).iid == pc16550d_mem_irq_thre) {
@@ -332,12 +370,63 @@ input_handler (void *user_data, const char *str, size_t size)
     process_interrupt_conditions(u);
 }
 
-void
-pc16550d_attach_to_console (struct pc16550d *u)
+static void serial_input_handler(struct serial_binding *b, char *data,
+                                 size_t size)
 {
-    assert(u != NULL);
+    struct pc16550d *state = b->st;
+
+    input_handler(state, data, size);
+}
+
+static void serial_bind_cb(void *st, errval_t err, struct serial_binding *b)
+{
+    assert(err_is_ok(err));
+    struct pc16550d *state = st;
+
+    state->forward_uart_state->binding = b;
+    state->forward_uart_state->connected = true;
+    b->st = state;
+    b->rx_vtbl.input = serial_input_handler;
+}
+
+/**
+ * \brief Connect the virtual serial port (UART) to a physical serial port
+ *        on the host.
+ *
+ * \param user_data PC16550d driver struct.
+ * \param host_uart Name of the host uart driver.
+ */
+void
+pc16550d_attach_to_host_uart (struct pc16550d *user_data, const char *host_uart)
+{
+    assert(user_data != NULL);
+    assert(host_uart != NULL);
 
     errval_t err;
-    err = terminal_register_input_handler(input_handler, u);
+    iref_t iref;
+
+    // Initialization
+    struct pc16550d_forward_uart *state =
+        malloc(sizeof(struct pc16550d_forward_uart));
+    assert(state != NULL);
+    state->connected = false;
+    state->ws = get_default_waitset();
+
+    // Adjust PC16550d state
+    user_data->forward_state = PC16550d_FORWARD_UART;
+    user_data->forward_uart_state = state;
+
+    // Bind to uart driver
+    err = nameservice_lookup(host_uart, &iref);
     assert(err_is_ok(err));
+    err = serial_bind(iref, serial_bind_cb, user_data, state->ws,
+                      IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));
+
+    // Dispatch the monitor binding until the bind completes.
+    struct monitor_binding *monitor_b = get_monitor_binding();
+    struct waitset *monitor_ws = monitor_b->waitset;
+    while (!state->connected) {
+        err = event_dispatch(monitor_ws);
+    }
 }

@@ -13,7 +13,7 @@
 [ build application { target = "netfile",
   		      cFiles = [ "netfile.c" ],
 		      addLibraries = [ "vfs", "nfs", "ahci", "lwip", "contmng",
-                                        "procon"],
+                                        "net_if_raw"],
 		      architectures = [ "x86_64" ]
                     }
 ]

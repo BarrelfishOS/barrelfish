@@ -26,6 +26,8 @@
 #include "lpc.h"
 #include "pci.h"
 #include "pci_host.h"
+#include "pci_devices.h"
+#include "pci_ethernet.h"
 
 #define VMCB_SIZE       0x1000      // 4KB
 #define IOPM_SIZE       0x3000      // 12KB
@@ -33,6 +35,8 @@
 #define RM_MEM_SIZE     (0x100000 + BASE_PAGE_SIZE)    // 1MB + A20 gate space
 
 #define APIC_BASE       0xfee00000
+
+#define SERIAL_DRIVER   "serial0.raw"
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
@@ -53,7 +57,7 @@ guest_slot_alloc(struct guest *g, struct capref *ret)
     return g->slot_alloc.a.alloc(&g->slot_alloc.a, ret);
 }
 
-static errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
+errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
                                          struct capref frame,  size_t size)
 {
     errval_t err;
@@ -157,7 +161,7 @@ static errval_t vspace_map_wrapper(lvaddr_t vaddr, struct capref frame,
 }
 // allocates some bytes of memory for the guest starting at a specific addr
 // also performs the mapping into the vspace of the monitor
-static errval_t
+errval_t
 alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 {
     errval_t err;
@@ -170,6 +174,10 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     // Allocate frame
     struct capref cap;
     err = guest_slot_alloc(g, &cap);
+
+
+
+
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
@@ -200,6 +208,11 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     if (err_is_fail(err)) {
         return err;
     }
+
+	struct frame_identity frameid = { .base = 0, .bits = 0 };
+	errval_t r = invoke_frame_identify(cap, &frameid);
+	assert(err_is_ok(r));
+	VMKIT_PCI_DEBUG("alloc_guest_mem: frameid.base: 0x%lx, frameid.bits: %d, g->mem_low_va: 0x%lx, g->mem_high_va: 0x%lx\n",frameid.base, frameid.bits, g->mem_low_va, g->mem_high_va);
 
     return SYS_ERR_OK;
 }
@@ -589,7 +602,7 @@ guest_setup (struct guest *g)
         DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
     }
 
-    // allocate memory fot the msrpm
+    // allocate memory for the msrpm
     err = frame_alloc(&g->msrpm_cap, MSRPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
     err = invoke_frame_identify(g->msrpm_cap, &fi);
@@ -623,7 +636,11 @@ guest_setup (struct guest *g)
     }
     g->console = console_new();
     g->serial_ports[0] = pc16550d_new(0x3f8, 4, g->lpc);
-    pc16550d_attach_to_console(g->serial_ports[0]);
+
+    // FIXME: Which virtual uart port is connected to which host port
+    //        should be adjustable from the command line or a configuration
+    //        file.
+    pc16550d_attach_to_host_uart(g->serial_ports[0], SERIAL_DRIVER);
     g->serial_ports[1] = pc16550d_new(0x2f8, 3, g->lpc);
     g->serial_ports[2] = pc16550d_new(0x3e8, 4, g->lpc);
     g->serial_ports[3] = pc16550d_new(0x2e8, 3, g->lpc);
@@ -631,6 +648,14 @@ guest_setup (struct guest *g)
 
     g->pci = pci_new();
     init_host_devices(g->pci);
+    
+    struct pci_device *ethernet = pci_ethernet_new(g->lpc, g);
+    int r = pci_attach_device(g->pci, 0, 2, ethernet);
+	assert(r == 0);
+
+	struct pci_device *vmkitmon_eth = pci_vmkitmon_eth_new(g->lpc, g);
+	r = pci_attach_device(g->pci, 0, 3, vmkitmon_eth);
+	assert(r==0);
 
     // set up bios memory
     // FIXME: find a modular way to do this
@@ -860,6 +885,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
 static inline uint32_t
 lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
 {
+//	printf("lookup_paddr_legacy_mode enter\n");
     // PAE not supported
     guest_assert(g, amd_vmcb_cr4_rd(&g->vmcb).pae == 0);
 
@@ -890,6 +916,7 @@ static inline int
 get_instr_arr (struct guest *g, uint8_t **arr)
 {
     if (UNLIKELY(amd_vmcb_cr0_rd(&g->vmcb).pg == 0)) {
+    	//printf("Segmentation active!\n");
         // without paging
         // take segmentation into account
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
@@ -1881,7 +1908,7 @@ decode_mov_instr_length (struct guest *g, uint8_t *code)
     int len;
 
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // all non special MOV instructions use one byte as opcode and at least a
     // ModR/M byte
@@ -1936,8 +1963,23 @@ decode_mov_is_write (struct guest *g, uint8_t *code)
 static inline enum opsize
 decode_mov_op_size (struct guest *g, uint8_t *code)
 {
+    /*
+	printf("EFER: 0x%lx\n", amd_vmcb_efer_rd_raw(&g->vmcb));
+	printf("Code: 0x%lx\n", *((uint64_t *)code));
+	printf("Code[0]: 0x%x, Code[1]: 0x%x, Code[2]: 0x%x, Code[3]: 0x%x\n", code[0],code[1],code[2],code[3]);
+	printf("Guest EAX: 0x%x\n", guest_get_eax(g));
+	printf("Guest EBX: 0x%x\n", guest_get_ebx(g));
+	printf("Guest ECX: 0x%x\n", guest_get_ecx(g));
+
+	printf("Guest EDX: 0x%x\n", guest_get_edx(g));
+	printf("Guest RDI: 0x%lx\n", guest_get_rdi(g));
+	printf("Guest RSI: 0x%lx\n", guest_get_rsi(g));
+	printf("Guest RSP: 0x%lx\n", guest_get_rsp(g));
+	printf("Guest RBP: 0x%lx\n", guest_get_rbp(g));
+    */
+
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4 && code[0] & 0x48) {
@@ -1949,8 +1991,9 @@ decode_mov_op_size (struct guest *g, uint8_t *code)
 
 static inline uint64_t
 decode_mov_src_val (struct guest *g, uint8_t *code) {
+    
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4) {
@@ -1969,7 +2012,7 @@ static inline void
 decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
 {
     // we only support long mode for now
-    assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
+    //assert(amd_vmcb_efer_rd(&g->vmcb).lma == 1);
 
     // check for the REX prefix
     if ((code[0] >> 4) == 0x4) {
@@ -1982,6 +2025,34 @@ decode_mov_dest_val (struct guest *g, uint8_t *code, uint64_t val)
     union x86_modrm modrm = { .raw = code[1] };
     set_reg_val_by_reg_num(g, modrm.u.regop, val);
 }
+
+/**** e1000
+#define TDBAL_OFFSET 0x3800
+#define TDBAH_OFFSET 0x3804
+#define RDBAL_OFFSET 0x2800
+#define RDBAH_OFFSET 0x2804
+#define TDT_OFFSET 0x3818 //Transmit descriptor tail. Writes to this toggle transmission
+#define TCTL_OFFSET 0x400 //Transmission Control
+
+#define IMS_OFFSET 0xd0 // Interrupt Mask Set/Read Register
+#define ICS_OFFSET 0xc8 // Interrupt Cause Set Register
+
+static int register_needs_translation(uint64_t addr){
+	return (
+		addr == TDBAL_OFFSET ||
+		addr == TDBAH_OFFSET ||
+		addr == RDBAL_OFFSET ||
+		addr == RDBAH_OFFSET
+	);
+
+}
+
+**** e1000 */
+
+
+
+
+#define MMIO_MASK(bytes) (~(~(bytes) + 1)) // I think ~(-bytes) is also correct
 
 static int
 handle_vmexit_npf (struct guest *g) {
@@ -2028,7 +2099,45 @@ handle_vmexit_npf (struct guest *g) {
     }
     }
 
-    printf("vmkitmon: access to an unknown memory location: %lx\n", fault_addr);
+    //Check if this is a access to a pci device memory
+
+    for(int bus_i = 0; bus_i<256; bus_i++){
+    	for(int dev_i = 0; dev_i < 32; dev_i++){
+    		struct pci_bus *bus = g->pci->bus[bus_i];
+			if(bus) {
+				struct pci_device* dev = bus->device[dev_i];
+				if(dev){
+					for(int bar_i=0; bar_i<5; bar_i++){
+						struct bar_info *curbar = &dev->bars[bar_i];
+						if(curbar->paddr <= fault_addr && fault_addr < curbar->paddr + curbar->bytes){
+							if(decode_mov_is_write(g, code)){
+								uint64_t val = decode_mov_src_val(g, code);
+								if(dev->mem_write) {
+									dev->mem_write(dev, MMIO_MASK(curbar->bytes) & fault_addr, bar_i, val );
+								} else {
+									goto error;
+								}
+							} else {
+								uint64_t val;
+								if(dev->mem_read){
+									dev->mem_read(dev, MMIO_MASK(curbar->bytes) & fault_addr, bar_i, (uint32_t*)&val);
+									decode_mov_dest_val(g, code, val);
+								} else {
+									goto error;
+								}
+							}
+							amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
+							                        decode_mov_instr_length(g, code));
+							return HANDLER_ERR_OK;
+						}
+					}
+				}
+			}
+    	}
+    }
+
+    error:
+    printf("vmkitmon: access to an unknown memory location: %lx", fault_addr);
     return handle_vmexit_unhandeled(g);
 }
 
@@ -2050,6 +2159,8 @@ static vmexit_handler vmexit_handlers[0x8c] = {
 
 void
 guest_handle_vmexit (struct guest *g) {
+	//struct pci_ethernet * eth = (struct pci_ethernet * ) g->pci->bus[0]->device[2]->state;//
+	//printf("guest_handle_vmexit\n");
     uint64_t exitcode = amd_vmcb_exitcode_rd(&g->vmcb);
 
     vmexit_handler handler;

@@ -28,7 +28,7 @@ module /armv7/sbin/startd boot
 #module	/armv7/sbin/serial
 #module	/armv7/sbin/fish
 
-#module /armv7/sbin/memtest
+module /armv7/sbin/memtest core=1
 
 
 # Phyiscal memory at 0MB up to 512MB 

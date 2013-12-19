@@ -391,6 +391,15 @@ errval_t spawn_exit(uint8_t exitcode)
  */
 errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang)
 {
+    return spawn_wait_core(disp_get_core_id(), domainid, exitcode, nohang);
+}
+
+/**
+ * \brief Wait for the termination of a domain on a remote core.
+ */
+errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
+                         uint8_t *exitcode, bool nohang)
+{
     errval_t err, reterr;
 
     err = bind_client(coreid);

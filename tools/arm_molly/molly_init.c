@@ -27,6 +27,12 @@
 #define BASE_PAGE_SIZE                  0x1000
 #define ALIGNMENT                       0x10000
 
+#if defined(HETEROPANDA) && defined(__ARM_ARCH_7A__)
+//this is code for a cortex-A9 image that will boot up a cortex-m3 core
+
+//symbol declared by linker script: start of heteropanda_slave image
+extern void *_start_slave;
+#endif
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
@@ -108,6 +114,14 @@ void molly_init(void)
     mbi->syms.elf.size = cpu_head->e_shentsize;
     mbi->syms.elf.addr = (uint32_t)kernel+ cpu_head->e_shoff;
     mbi->syms.elf.shndx = cpu_head->e_shstrndx;
+
+#if defined(HETEROPANDA) && defined(__ARM_ARCH_7A__)
+//this is code for a cortex-A9 image that will boot up a cortex-m3 core
+
+//XXX: HACK: put the address of the slave image into mbi->mem_lower (which is otherwise unused)
+//so the kernel will know where to find it
+    mbi->mem_lower= (uint32_t) &_start_slave;
+#endif  
 
     molly_to_kernel_transition((uintptr_t)kernel_entry,
                                mbi

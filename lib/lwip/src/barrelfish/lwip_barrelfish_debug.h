@@ -18,7 +18,11 @@
 //#define LWIP_BARRELFISH_DEBUG  1
 
 #if defined(LWIP_BARRELFISH_DEBUG) || defined(GLOBAL_DEBUG)
-#define LWIPBF_DEBUG(x...) printf("lwip_barrelfish: " x)
+
+#define LWIPBF_DEBUG(x...) do { printf("lwipBF:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+        } while (0)
 #else
 #define LWIPBF_DEBUG(x...) ((void)0)
 #endif // defined(LWIP_BARRELFISH_DEBUG) || defined(GLOBAL_DEBUG)

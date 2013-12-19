@@ -10,5 +10,7 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "IDC.tex" "TN-011-IDC.pdf" True False ["figures/ump_bind"]
+[ buildTechNote "IDC.tex" "TN-011-IDC.pdf" True False ["figures/ump_bind",
+                                                       "figures/UMP",
+                                                       "figures/LMP" ]
 ]

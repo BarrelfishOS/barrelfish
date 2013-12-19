@@ -350,7 +350,7 @@ device omap44xx_ckgen_cm1 msbfirst ( addr base ) "" {
     };
     
     register cm_clksel_dpll_mpu addr(base, 0x6C) "This register provides controls over the DPLL." {
-        dcc_count_max 8 rw "The value 'NbCycles' set in this field determines the duration of the clock ramp step during which the output frequency is Fdpll/(2*M2). The duration is computed as 32 x NbCycles of L4 clock cycles (100 MHz). Duration should be 2.5 µs to allow enough time for DCC to lock. This bit field is relevant only when DCC_EN = 1.";
+        dcc_count_max 8 rw "The value 'NbCycles' set in this field determines the duration of the clock ramp step during which the output frequency is Fdpll/(2*M2). The duration is computed as 32 x NbCycles of L4 clock cycles (100 MHz). Duration should be 2.5 us to allow enough time for DCC to lock. This bit field is relevant only when DCC_EN = 1.";
         dpll_byp_clksel 1 ro "Only CLKINPULOW bypass clock supported for this PLL";
         dcc_en 1 rw type(dcc_en_status) "Enable or disable duty cycle correction. Must be enabled only for frequency 1 GHz.When enabled, the CLKOUTHIF output of the DPLL is used after duty cycle correction instead of CLKOUT. The M3 divider is hard-wired to 1 so the lock frequency Fdpll is directly provided to MPU. .";
         _ 3 mbz;

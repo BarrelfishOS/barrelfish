@@ -446,7 +446,6 @@ udp_sendto_if(struct udp_pcb * pcb, struct pbuf * p,
     /* not enough space to add an UDP header to first pbuf in given p chain? */
     if (pbuf_header(p, UDP_HLEN)) {
         /* allocate header in a separate new pbuf */
-        printf("Not enough room in buffer for header!!\n");
         q = pbuf_alloc(PBUF_IP, UDP_HLEN, PBUF_RAM);
         /* new header pbuf could not be allocated? */
         if (q == NULL) {
@@ -717,8 +716,10 @@ err_t udp_connect(struct udp_pcb * pcb, struct ip_addr * ipaddr, u16_t port)
     if (pcb->local_port == 0) {
         err_t err = udp_bind(pcb, &pcb->local_ip, pcb->local_port);
 
-        if (err != ERR_OK)
+        if (err != ERR_OK) {
+            printf("udp_connect failed\n");
             return err;
+        }
     }
 
     ip_addr_set(&pcb->remote_ip, ipaddr);

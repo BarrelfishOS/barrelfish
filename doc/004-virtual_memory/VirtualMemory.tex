@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2011, 2012, ETH Zurich.
+% Copyright (c) 2011, 2012, 2013, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -13,7 +13,7 @@
 \usepackage{bftn} % You need this
 
 \title{Virtual Memory in Barrelfish}   % title of report
-\author{Akhilesh Singhania}	% author
+\author{Akhilesh Singhania, Simon Gerber}	% author
 \tnnumber{004}  % give the number of the tech report
 \tnkey{Virtual Memory} % Short title, will appear in footer
 
@@ -26,6 +26,7 @@
 % Include version history first
 %
 \begin{versionhistory}
+\vhEntry{2.0}{09.12.2013}{SG}{Updated with new kernel memory interface}
 \vhEntry{1.0}{08.02.2010}{AS}{Initial version}
 \end{versionhistory}
 
@@ -42,7 +43,8 @@ It tries to describe the setup and the design decisions made in the construction
 
 \chapter{Description}
 
-The virtual memory system is made up of four components:
+The virtual memory system is made up of four user space components listed
+below and utilizes the capability system to create hardware page tables.
 
 \begin{itemize}
 \item Vspace
@@ -53,6 +55,10 @@ The virtual memory system is made up of four components:
 
 Vspace, vregion, and memory object are designed to be architecture independent.
 All architecture specific implementation for manipulating page tables is contained in pmaps.
+
+The pmap code will invoke certain capability operations to create hardware
+page tables that match the user space vspace layout.
+
 Each are described in more detail below.
 
 \section{Vspace}
@@ -102,6 +108,27 @@ Since the vspace maintains the list of currently occupied regions, pmap may have
 
 For MMUs that do not offer address translation,
 pmap can simply inspect the memory object and return the address of the physical object itself.
+
+\section{Capability invocations}
+
+The pmap calls into the kernel using invocations on the page table capability
+types (namely \verb|VNode_Map|, \verb|VNode_Unmap|, and
+\verb|VNode_ModifyFlags|).  These invocations are implemented in an
+architecture specific manner and are used to install, remove and modify
+mappings respectively.
+
+In order for this system to make it possible to remove mappings when the
+underlying Frame capability is deleted each copy of a Frame capability knows
+if and where it is mapped in a page table.  This has a couple consequences,
+the most important one of these is that each copy of a Frame capability can
+only be mapped once (i.e. each copy of a Frame can only be supplied as an
+argument to \verb|VNode_Map| once unless there is an unmap invocation
+inbetween).
+
+On the other hand this issue has been minimized as it's possible to create
+multiple hardware page table entries using only one invocation.  Specifically
+it's possible to create a contiguous region of page table entries inside one
+page table frame using one invocation.
 
 \chapter{Known issues}
 Detail some of the known issues with the system.

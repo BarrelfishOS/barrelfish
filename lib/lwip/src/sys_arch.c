@@ -28,14 +28,14 @@ struct thread_wrapper {
 };
 
 
-// track threads and timeouts. 
+// track threads and timeouts.
 struct sys_timeouts lwip_system_timeouts = { .next = NULL }; // Default timeouts list for lwIP
 struct thread_wrapper *lwip_system_threads = NULL; // a list of all threads created by lwIP
 
 
 // wrapper for a condition variable with timeout
-static u32_t thread_cond_wait_timeout(struct thread_cond *cond, 
-                                      struct thread_mutex *mutex, 
+static u32_t thread_cond_wait_timeout(struct thread_cond *cond,
+                                      struct thread_mutex *mutex,
                                       u32_t timeout)
 {
     // TODO: implement timeout properly
@@ -93,6 +93,8 @@ void sys_init(void)
     // Nothing to do
 }
 
+
+
 // from example in http://lwip.wikia.com/wiki/Porting_for_an_OS
 struct sys_timeouts *sys_arch_timeouts(void) {
     struct thread_wrapper *thread = lwip_system_threads;
@@ -104,7 +106,7 @@ struct sys_timeouts *sys_arch_timeouts(void) {
             return &thread->timeouts;
         }
     }
-    
+
     // No match, so just return the system-wide default version
     return &lwip_system_timeouts;
 }
@@ -136,7 +138,7 @@ u32_t sys_arch_sem_wait(sys_sem_t sem, u32_t timeout)
     start = get_system_time();
 
     thread_sem_wait(sem);
-    
+
     end = get_system_time();
 
     return end - start;
@@ -147,10 +149,15 @@ void sys_sem_free(sys_sem_t sem)
     free(sem);
 }
 
+
+
+
+
 u32_t sys_jiffies(void)
 {
     /* since power up. */
     assert(!"NYI");
+    return 0;
 }
 
 /* Mailbox functions. */
@@ -173,7 +180,7 @@ sys_mbox_t sys_mbox_new(int size)
     thread_cond_init(&mbox->changed_cond);
 
 //    debug_printf("sys_mbox_new(%p): created of size %d\n", mbox, size);
-    return mbox;        
+    return mbox;
 }
 
 void sys_mbox_post(sys_mbox_t mbox, void *msg)
@@ -186,13 +193,13 @@ void sys_mbox_post(sys_mbox_t mbox, void *msg)
         if (mbox->empty) {
             mbox->msg = msg;
             mbox->empty = false;
-            thread_mutex_unlock(&mbox->mutex); 
+            thread_mutex_unlock(&mbox->mutex);
             thread_cond_signal(&mbox->changed_cond);
             break;
         } else {
             // wait until something changes
             thread_cond_wait(&mbox->changed_cond, &mbox->mutex);
-            thread_mutex_unlock(&mbox->mutex); 
+            thread_mutex_unlock(&mbox->mutex);
         }
     }
 
@@ -245,8 +252,8 @@ u32_t sys_arch_mbox_fetch(sys_mbox_t mbox, void **msg, u32_t timeout)
         } else {
             // wait until something changes
             if (timeout != 0) {
-                time_left -= thread_cond_wait_timeout(&mbox->changed_cond, 
-                                                      &mbox->mutex,  
+                time_left -= thread_cond_wait_timeout(&mbox->changed_cond,
+                                                      &mbox->mutex,
                                                       time_left);
             } else {
                 thread_cond_wait(&mbox->changed_cond, &mbox->mutex);
@@ -293,8 +300,8 @@ void sys_mbox_free(sys_mbox_t mbox)
 }
 
 // from example in http://lwip.wikia.com/wiki/Porting_for_an_OS
-sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg), 
-                            void *arg, int stacksize, int prio) 
+sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg),
+                            void *arg, int stacksize, int prio)
 {
     sys_thread_t newthread;
     SYS_ARCH_DECL_PROTECT(old_val);
@@ -302,13 +309,13 @@ sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg),
 //    debug_printf("sys_thread_new(%s, %p, %p)\n", name, thread, arg);
 
     // TODO: this has to get free'd when the thread terminates
-    newthread = (sys_thread_t)malloc(sizeof(struct thread_wrapper)); 
+    newthread = (sys_thread_t)malloc(sizeof(struct thread_wrapper));
     if (newthread == NULL) {
         return NULL;
     }
 
     // Need to protect this -- preemption here could be a problem!
-    SYS_ARCH_PROTECT(old_val); 
+    SYS_ARCH_PROTECT(old_val);
     newthread->next = lwip_system_threads;
     lwip_system_threads = newthread;
     SYS_ARCH_UNPROTECT(old_val);
@@ -318,7 +325,7 @@ sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg),
     // TODO: do something with the rest of the arguments (name, stacksize, prio)
     newthread->thread = thread_create((thread_func_t)thread, arg);
     if (newthread->thread == NULL) {
-        SYS_ARCH_PROTECT(old_val); 
+        SYS_ARCH_PROTECT(old_val);
         lwip_system_threads = newthread->next;
         SYS_ARCH_UNPROTECT(old_val);
         free(newthread);
@@ -326,5 +333,5 @@ sys_thread_t sys_thread_new(char *name, void (* thread)(void *arg),
     }
 
     return newthread;
-} 
-  
+}
+

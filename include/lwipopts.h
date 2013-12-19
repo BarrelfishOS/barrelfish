@@ -46,11 +46,14 @@
 
 /// Number of simultaneously active TCP connections
 #define MEMP_NUM_TCP_PCB        200
+//#define MEMP_NUM_TCP_PCB        512
 
 
 
 /// Number of TCP segments
 #define MEMP_NUM_TCP_SEG        512
+//#define MEMP_NUM_TCP_SEG        1024
+//#define MEMP_NUM_TCP_SEG            4096
 
 /// TCP window size
 #define TCP_WND                 11680
@@ -65,7 +68,7 @@
 #define TCP_SND_QUEUELEN       (16 * (TCP_SND_BUF/TCP_MSS))
 
 /// Enable debugging
-#define LWIP_DEBUG              1
+// #define LWIP_DEBUG              1
 
 /// Enable have loopif (localhost hostname translation)
 #define LWIP_HAVE_LOOPIF 1
@@ -74,7 +77,7 @@
  Enable debugging of these subsystems */
 
 #define ETHARP_DEBUG     LWIP_DBG_ON
-// #define NETIF_DEBUG      LWIP_DBG_ON
+#define NETIF_DEBUG      LWIP_DBG_ON
 // #define PBUF_DEBUG       LWIP_DBG_ON
 #define DHCP_DEBUG       LWIP_DBG_ON
 #define UDP_DEBUG        LWIP_DBG_ON
@@ -83,7 +86,7 @@
 // #define TCPIP_DEBUG      LWIP_DBG_ON
 // #define TCP_INPUT_DEBUG  LWIP_DBG_ON
 // #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
-// #define SOCKETS_DEBUG    LWIP_DBG_ON
+#define SOCKETS_DEBUG    LWIP_DBG_ON
 
 #ifndef CHECKSUM_GEN_IP
 #define CHECKSUM_GEN_IP                 1

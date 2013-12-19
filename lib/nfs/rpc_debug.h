@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-
+//#define RPC_DEBUG 1
 #if defined(RPC_DEBUG) || defined(GLOBAL_DEBUG)
 #define RPC_DEBUGP(x...) printf("RPC: " x)
 #else

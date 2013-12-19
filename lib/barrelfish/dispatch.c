@@ -26,6 +26,10 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include "threads_priv.h"
 
+
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
 # include <barrelfish/lmp_chan.h>
 #endif
@@ -189,6 +193,9 @@ void disp_yield_disabled(dispatcher_handle_t handle)
     disp->yieldcount++;
 #endif
 
+    // FIXME:  This perticular trace event is breaking as it is running
+    // into problems due to assumptions about segment register %fs
+//    trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD, 2);
     sys_yield(CPTR_NULL);
     assert_print("dispatcher PANIC: sys_yield returned");
     for (;;);
@@ -331,6 +338,7 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     thread_run_disabled(handle);
 }
 
+
 /**
  * \brief Disabled page fault entry point
  *
@@ -347,7 +355,6 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
 {
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
-    arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
     static char str[256];
     snprintf(str, 256, "%.*s: page fault WHILE DISABLED"
              " (error code 0x%" PRIxPTR ") on %" PRIxPTR " at IP %" PRIxPTR "\n",
@@ -357,12 +364,20 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
         assert_print("NULL pointer dereferenced!\n");
     }
 
+    // NOTE: Based on which code is is causing page fault, only assert_print
+    // is safe bet to print anything here.  Anything else would cause
+    // page fault in itself.
     assert_disabled(disp->disabled);
 
-    debug_print_save_area(regs);
+
+    // FIXME: Make sure that following are using assert_print to avoid
+    //  loop of disabled pagefaults
+    // arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
+    // debug_print_save_area(regs);
 
     // disabled by AB, because we can get into a loop of disabled pagefaults
-    // debug_dump(regs);
+    //    debug_dump(regs);
+    //    debug_return_addresses();
     for(;;);
 }
 

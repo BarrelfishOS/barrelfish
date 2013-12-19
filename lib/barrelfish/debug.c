@@ -36,14 +36,15 @@ void user_panic_fn(const char *file, const char *func, int line,
 {
     va_list ap;
     char msg_str[128];
-    int msg_str_cc;
+    //int msg_str_cc;
     va_start(ap, msg);
-    msg_str_cc = vsnprintf(msg_str, sizeof(msg_str), msg, ap);
+    //msg_str_cc =
+        vsnprintf(msg_str, sizeof(msg_str), msg, ap);
     va_end(ap);
 
     char str[256];
-    int strcc;
-    strcc = snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
+    //int strcc =
+        snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
                      DISP_NAME_LEN, disp_name(), disp_get_core_id(),
                      func, file, line, msg_str);
     sys_print(str, sizeof(str));
@@ -81,6 +82,10 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     return msgerr;
 }
 
+/**
+ * \brief Enable fine-grained tracing of cap operations on address range
+ * [start_addr, start_addr+size)
+ */
 errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size)
 {
     if (enable) {
@@ -90,17 +95,12 @@ errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size
     return sys_debug_cap_trace_ctrl(enable, start_addr, size);
 }
 
+/**
+ * \brief Dump own hw page tables
+ */
 errval_t debug_dump_hw_ptables(void)
 {
-    errval_t err;
-
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
-    err = r->vtbl.dump_hw_ptables(r, cap_dispatcher);
-    if (err_is_fail(err)){
-        return err;
-    }
-
-    return err;
+    return invoke_dispatcher_dump_ptables(cap_dispatcher);
 }
 
 void debug_printf(const char *fmt, ...)
@@ -109,7 +109,7 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "%.*s.%u: ", DISP_NAME_LEN, disp_name(),
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u\033[0m: ", DISP_NAME_LEN, disp_name(),
                    disp_get_core_id());
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
@@ -389,16 +389,17 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
     va_list ap;
 
     char str[256];
-    int strcc;
     char *leader = (err == 0) ? "SUCCESS" : "ERROR";
-    strcc = snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
+    //int strcc =
+        snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
                      leader, DISP_NAME_LEN, disp_name(), disp_get_core_id(),
                      func, file, line, leader);
     sys_print(str, sizeof(str));
 
     if (msg != NULL) {
         va_start(ap, msg);
-        strcc = vsnprintf(str, sizeof(str), msg, ap);
+        //int strcc2 =
+            vsnprintf(str, sizeof(str), msg, ap);
         va_end(ap);
         sys_print(str, sizeof(str));
     }

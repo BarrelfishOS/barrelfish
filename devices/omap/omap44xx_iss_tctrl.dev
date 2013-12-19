@@ -94,7 +94,7 @@ device omap44xx_iss_tctrl msbfirst ( addr base ) "" {
     constants insel_status width(2) "" {
         INSEL_0 = 0 "Synchronization event from camera 0";
         INSEL_1 = 1 "Synchronization event from camera 1";
-        INSEL_3 = 3 "GRESET – The CAM_GLOBAL_RESET input signal will trigger the SHUTTER, PRESTROBE and STROBE signals. In this mode, there are no frame counters. The delay counters start decrementing as soon as the GLOBAL_RESET signal is asserted. The polarity of the GLOBAL_RESET signal is set with .GRESETPOL.";
+        INSEL_3 = 3 "GRESET - The CAM_GLOBAL_RESET input signal will trigger the SHUTTER, PRESTROBE and STROBE signals. In this mode, there are no frame counters. The delay counters start decrementing as soon as the GLOBAL_RESET signal is asserted. The polarity of the GLOBAL_RESET signal is set with .GRESETPOL.";
         INSEL_2 = 2 "Synchronization event from camera 2 (serial interfaces muxed with the camera Parallel interface (CPI))";
     };
 
@@ -108,7 +108,7 @@ device omap44xx_iss_tctrl msbfirst ( addr base ) "" {
     };
     
     register tctrl_ctrl addr(base, 0x30) "TIMING CONTROL - CONTROL REGISTER" {
-        gresetdir 1 rw "Sets the direction of the GLOBAL_RESET signal. 0x0: INPUT – GLOBAL_RESET is an input to the TIMING CONTROL module. GLOBAL_RESET is externally generated. 0x1: OUTPUT – GLOBAL_RESET is an output of the TIMING CONTROL module. GLOBAL_RESET is internally generated. If GRESETEN is set to 1, the internally generated GLOBAL_RESET will trigger the generation of the PRESTROBE, STROBE and SHUTTER signals. The frame counters are ignored.";
+        gresetdir 1 rw "Sets the direction of the GLOBAL_RESET signal. 0x0: INPUT - GLOBAL_RESET is an input to the TIMING CONTROL module. GLOBAL_RESET is externally generated. 0x1: OUTPUT - GLOBAL_RESET is an output of the TIMING CONTROL module. GLOBAL_RESET is internally generated. If GRESETEN is set to 1, the internally generated GLOBAL_RESET will trigger the generation of the PRESTROBE, STROBE and SHUTTER signals. The frame counters are ignored.";
         gresetpol 1 rw "Sets the polarity of the global reset signal: CAM_GLOBAL_RESET. It applies whatever the direction of the GLOBAL_RESET signal: input or output. 0x0: active high 0x1: active low";
         greseten 1 rw "Triggers the generation of the CAM_GLOBAL_RESET signal. The signal is asserted immediately. If enabled, the CAM_GLOBAL_RESET signal will be asserted forTCTRL_GRESET_LENGTH cycles. After the signal assertion, the enable bit is automatically cleared to 0. The polarity of the GLOBAL_RESET signal is set with TCTRL_CTRL.GRESETPOL. Enabling this bit triggers the generation of the CAM_SHUTTER and CAM_STROBE signals (if previously enabled). The frame counters shall be set to 0 when this bit is set to 1 and GRESETDIR is set a OUTPUT.";
         insel 2 rw type(insel_status) "Sets the mode that will trigger the SHUTTER, PRESTROBE and STROBE signals.";

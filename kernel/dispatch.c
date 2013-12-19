@@ -179,7 +179,6 @@ struct dcb *run_next = NULL;
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 
 
-
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
 #ifdef FPU_LAZY_CONTEXT_SWITCH
@@ -246,7 +245,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
     assert(disp != NULL);
     disp->systime = kernel_now;
-
     if (dcb->disabled) {
         debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
               disp->name, (uint64_t)registers_get_ip(disabled_area));
@@ -259,7 +257,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         disp->disabled = 1;
         execute(disp->dispatcher_run);
     }
-}
+} // end function: dispatch
 
 /**
  * \brief Transfer cap from 'send' to 'ep', according to 'msg'.

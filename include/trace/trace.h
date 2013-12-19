@@ -33,6 +33,7 @@
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h> // struct event_closure
 
+#include <stdio.h>
 #include <string.h> // memcpy
 
 /*
@@ -40,21 +41,21 @@
  */
 #define TRACE_THREADS
 #define TRACE_CSWITCH
+//#define NETWORK_LLSTACK_TRACE 1
 
 /* Trace only network related events
  * This will reduce the amount of events recorded, and hence allows
  * recording for longer time. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
-//#define TRACE_ONLY_SUB_NET 1
+#define TRACE_ONLY_SUB_NET 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
-#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-#define TRACE_ONLY_SUB_BNET 1
-#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
+#if CONFIG_TRACE && NETWORK_LLSTACK_TRACE
+#define TRACE_ONLY_LLNET 1
+#endif // CONFIG_TRACE && NETWORK_LLSTACK_TRACE
 
-#if CONFIG_TRACE
-#define TRACE_ONLY_SUB_NNET 1
-#endif
+
+#define CONSOLE_DUMP_BUFLEN (2<<20)
 
 /**
  * The constants for the subsystems and events are generated from the file
@@ -64,18 +65,24 @@
  */
 #include <trace_definitions/trace_defs.h>
 
+
+
+
 #define TRACE_EVENT(s,e,a) ((uint64_t)(s)<<48|(uint64_t)(e)<<32|(a))
 
 /* XXX: this is a temp kludge. The tracing code wants to allocate a fixed buffer
  * for every possible core ID, but this is now too large for sanity, so I've
  * limited it here. -AB 20111229
  */
-#define TRACE_COREID_LIMIT        64
+
+struct trace_buffer;
+
+#define TRACE_COREID_LIMIT        4
 #define TRACE_EVENT_SIZE          16
-#define TRACE_MAX_EVENTS          8000        // max number of events
+#define TRACE_MAX_EVENTS          30000        // max number of events
 #define TRACE_MAX_APPLICATIONS    128
-#define TRACE_PERCORE_BUF_SIZE    0x1ff00
-// (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer flags)))
+//#define TRACE_PERCORE_BUF_SIZE    0x1ff00
+#define TRACE_PERCORE_BUF_SIZE    (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer)))
 
 #define TRACE_BUF_SIZE (TRACE_COREID_LIMIT*TRACE_PERCORE_BUF_SIZE)    // Size of all trace buffers
 
@@ -180,6 +187,7 @@ struct trace_buffer {
     int64_t           t_offset;           // Time offset relative to core 0
     uint64_t          t0;              // Start time of trace
     uint64_t          duration;        // Max trace duration
+    uint64_t          event_counter;        // Max number of events in trace
 
     // ... events ...
     struct trace_event events[TRACE_MAX_EVENTS];
@@ -188,6 +196,11 @@ struct trace_buffer {
     volatile uint8_t num_applications;
     struct trace_application applications[TRACE_MAX_APPLICATIONS];
 };
+
+typedef errval_t (* trace_conditional_termination_t)(bool forced);
+
+static __attribute__((unused)) trace_conditional_termination_t
+    cond_termination = NULL;
 
 #ifndef IN_KERNEL
 
@@ -205,8 +218,17 @@ errval_t trace_setup_child(struct cnoderef taskcn,
 errval_t trace_control(uint64_t start_trigger,
                        uint64_t stop_trigger,
                        uint64_t duration);
+errval_t trace_control_fixed_events_counter(uint64_t start_trigger,
+                       uint64_t stop_trigger,
+                       uint64_t duration,
+                       uint64_t event_counter);
 errval_t trace_wait(void);
+size_t trace_get_event_count(coreid_t specified_core);
+errval_t trace_conditional_termination(bool forced);
 size_t trace_dump(char *buf, size_t buflen, int *number_of_events);
+size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
+        int *number_of_events_dumped, coreid_t specified_core,
+        bool first_dump, bool isOnlyOne);
 void trace_flush(struct event_closure callback);
 void trace_set_autoflush(bool enabled);
 errval_t trace_prepare(struct event_closure callback);
@@ -214,6 +236,8 @@ errval_t trace_my_setup(void);
 
 errval_t trace_set_subsys_enabled(uint16_t subsys, bool enabled);
 errval_t trace_set_all_subsys_enabled(bool enabled);
+
+
 
 /**
  * \brief Compute fixed trace buffer address according to
@@ -234,7 +258,13 @@ static inline lvaddr_t compute_trace_buf_addr(uint8_t core_id)
     return addr;
 }
 
-#endif
+
+static inline void set_cond_termination(trace_conditional_termination_t f_ptr)
+{
+    cond_termination  = f_ptr;
+}
+
+#endif // NOT IN_KERNEL
 
 void trace_init_disp(void);
 
@@ -281,6 +311,20 @@ trace_reserve_and_fill_slot(struct trace_event *ev,
  * The per-core buffer must have already been initialized by
  * the monitor (by calling trace_setup_on_core).
  */
+
+#ifndef IN_KERNEL
+
+static inline coreid_t get_my_core_id(void)
+{
+    // FIXME: This call is not safe.  Figure out better way to do this
+    // WARNING: Be very careful about using get_my_core_id function
+    // as this function depends on working of disp pointers and they dont work
+    // in thread disabled mode when you are about to return to kernel with
+    // sys_yield.
+    return disp_get_core_id();
+}
+#endif // IN_KERNEL
+
 
 #ifdef IN_KERNEL
 
@@ -392,7 +436,19 @@ static inline errval_t trace_write_event(struct trace_event *ev)
 {
 #ifdef TRACING_EXISTS
     dispatcher_handle_t handle = curdispatcher();
+
+    if (((uintptr_t)handle) == ((uintptr_t)NULL)) {
+        // FIXME: should return TRACE_ERR_NOT_VALID_HANDLE
+        return TRACE_ERR_NO_BUFFER;
+    }
+
     struct dispatcher_generic *disp = get_dispatcher_generic(handle);
+
+    if (disp == NULL) {
+        // FIXME: should return TRACE_ERR_NOT_VALID_DISP
+        return TRACE_ERR_NO_BUFFER;
+    }
+
     struct trace_buffer *trace_buf = disp->trace_buf;
 
     if (trace_buf == NULL) {
@@ -429,6 +485,7 @@ static inline errval_t trace_write_event(struct trace_event *ev)
         master->stop_trigger = 0;
         master->running = false;
     }
+
 #endif // TRACING_EXISTS
 
     return SYS_ERR_OK;
@@ -450,7 +507,7 @@ static inline errval_t trace_event_raw(uint64_t raw)
 
 #if TRACE_ONLY_SUB_NET
     /* we do not want the stats about actual messages sent */
-    return SYS_ERR_OK;
+//    return SYS_ERR_OK;
 #endif // TRACE_ONLY_SUB_NET
 
 
@@ -464,6 +521,7 @@ static inline errval_t trace_event_raw(uint64_t raw)
 }
 
 #ifdef TRACING_EXISTS
+#include <stdio.h>
 /// Is the subsystem enabled, i.e. should we log events for it?
 static inline bool trace_is_subsys_enabled(uint16_t subsys)
 {
@@ -491,14 +549,36 @@ static inline bool trace_is_subsys_enabled(uint16_t subsys)
 }
 #endif // TRACING_EXISTS
 
+
+
+
 static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg)
 {
 #ifdef CONFIG_TRACE
+
+    // Quick hack: Only record network and kernel subsystem.
+    // FIXME: This is not atall generic.  Figure out how to use following
+    //  trace_is_subsys_enabled call.
+/*    if (subsys != TRACE_SUBSYS_NNET && subsys != TRACE_SUBSYS_KERNEL) {
+        return SYS_ERR_OK;
+    }
+*/
 
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
         return SYS_ERR_OK;
     }
+
+    //Recording the events only on the core 1
+    // WARNING: Be very careful about using get_my_core_id function
+    // as this function depends on working of disp pointers and they dont work
+    // in thread disabled mode when you are about to return to kernel with
+    // sys_yield.
+    // FIXME: You can't hardcode the receiving core id.  It needs to be
+    // configurable.
+//    if (get_my_core_id() != 1) {
+//        return SYS_ERR_OK;
+//    }
 
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();
@@ -506,21 +586,10 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
     ev.u.ev.event     = event;
     ev.u.ev.arg       = arg;
 
-#if TRACE_ONLY_SUB_NET
-    /* NOTE: This will ensure that only network related messages are logged. PS */
-    if (subsys != TRACE_SUBSYS_NET) {
-        return SYS_ERR_OK;
-    }
-#endif // TRACE_ONLY_SUB_NET
 
-#if TRACE_ONLY_SUB_BNET
-    /*
-       Recording the events only on the core where I are interested
-       if (get_my_core_id() != 1) {
-       return SYS_ERR_OK;
-       }
-     */
-#endif // TRACE_ONLY_SUB_NET
+    if (cond_termination != NULL) {
+        cond_termination(false);
+   }
 
     return trace_write_event(&ev);
 #else

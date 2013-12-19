@@ -40,11 +40,18 @@ uint64_t eMAC_mac;
  * by the card or the driver.
  *
  */
-/* FIXME: remove this function and directly call transmit_pbuf_list */
-static errval_t EMAC_send_ethernet_packet_fn(struct client_closure *cl)
+/* FIXME: Modify the transmit_pbuf_list function to work with driver_buffer
+ * datastructure instead of working with procon library.  */
+//static errval_t EMAC_send_ethernet_packet_fn(struct client_closure *cl)
+static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
+                                      size_t                count,
+                                      void                 *opaque)
+
 {
     EMAC_DEBUG("send pkt function called\n");
-    return (transmit_pbuf_list(cl));
+    assert(!"Older implementation, will not work without modification");
+    return (ETHERSRV_ERR_CANT_TRANSMIT);
+//    return (transmit_pbuf_list(cl));
 }
 
 
@@ -65,6 +72,15 @@ static bool handle_free_TX_slot_fn(void)
     return false;
 }
 
+static uint64_t rx_find_free_slot_count_fn(void)
+{
+    // FIXME: temparary hardcoded value for free slot count
+    return RX_max_slots - 100;
+}
+
+
+
+
 static void EMAC_init(uint8_t phy_id, char *service_name)
 {
 
@@ -74,8 +90,14 @@ static void EMAC_init(uint8_t phy_id, char *service_name)
     EMAC_DEBUG("Done with hardware init\n");
 
     ethersrv_init(service_name, assumed_queue_id, get_mac_address_fn,
-            EMAC_send_ethernet_packet_fn,
-            get_tx_free_slots_count, handle_free_TX_slot_fn);
+            NULL,
+            transmit_pbuf_list_fn,
+            get_tx_free_slots_count,
+            handle_free_TX_slot_fn,
+            RX_max_slots,   // from eMAC_hwinit.c file
+            NULL, // only needed when application owns the queue
+            rx_find_free_slot_count_fn
+            );
 }
 
 

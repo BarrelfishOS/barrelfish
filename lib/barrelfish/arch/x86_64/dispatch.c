@@ -248,6 +248,8 @@ disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
                     );
 
     if (yield) {
+//        trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SYS_YIELD, 1);
+
         sys_yield(yield_to);
         // may fail if target doesn't exist; if so, just fall through
     }

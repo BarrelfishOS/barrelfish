@@ -170,8 +170,12 @@ bool sp_read_peekable_index(struct shared_pool_private *spp, uint64_t idx)
 bool sp_validate_read_index(struct shared_pool_private *spp, uint64_t idx)
 {
     sp_reload_regs(spp);
-    uint64_t upper_limit = (spp->c_write_id + 1) % spp->c_size;
-    return sp_c_between(spp->c_read_id, idx, upper_limit, spp->c_size);
+    // Since sp_c_between only checks for value < end and we want <= end, we
+    // check this case manually here
+    if (idx == spp->c_write_id) {
+        return true;
+    }
+    return sp_c_between(spp->c_read_id, idx, spp->c_write_id, spp->c_size);
 }
 
 
@@ -572,8 +576,10 @@ uint64_t sp_is_slot_clear(struct shared_pool_private *spp, uint64_t id)
 */
         }
         if (!sp_c_between(spp->c_write_id, id, spp->c_read_id, spp->c_size)) {
-            printf("sp_c_between failed in sp_is_slot_clear\n");
-            abort();
+            printf("sp_is_slot_clear failed: "
+                    " (%"PRIu64", %"PRIu64", %"PRIu64") S %"PRIu64"\n",
+                    spp->c_write_id, id, spp->c_read_id, spp->c_size);
+//            abort();
         }
 
     }
@@ -792,6 +798,7 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
     // Incrementing read index
     if(!sp_set_read_index(spp, ((ri + 1) % spp->c_size))) {
         printf("sp_set_read_index failed\n");
+        sp_print_metadata(spp);
         abort();
     }
     return true;

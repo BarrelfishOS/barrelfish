@@ -8,7 +8,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -106,6 +107,12 @@ static errval_t get_inherited_fds(void)
             break;
         case FDTAB_TYPE_LWIP_SOCKET:
             s = "lwip socket";
+            break;
+        case FDTAB_TYPE_PTM:
+            s = "pseudo-terminal master";
+            break;
+        case FDTAB_TYPE_PTS:
+            s = "pseudo-terminal slave";
             break;
         }
         printf("fd_store %d: num: %d, type: %d:%s handle: %p\n", 

@@ -57,21 +57,21 @@ device omap44xx_usbconf msbfirst ( addr base ) "OMAP44xx USB host subsystem" {
     };
 
     register irqstat rw1c addr(base, 0x0018) "IRQ status" {
-	_		29 ro;
+	_		29 rsvd;
 	access_error	1 	"Access error to ULPI register over OCP";
 	fclk_end	1	"Functional clock no longer requested";
 	fclk_start	1	"Functional clock requested for USB clocking";
     };
 
     register irqenable rw addr(base, 0x001c) "IRQ enable" {
-	_		29 ro;
+	_		29 rsvd;
 	access_error	1 	"Access error to ULPI register over OCP";
 	fclk_end	1	"Functional clock no longer requested";
 	fclk_start	1	"Functional clock requested for USB clocking";
     };
 
     register shared_conf rw addr(base, 0x0030) "Shared configuration" {
-	_		30 ro;
+	_		30 rsvd;
 	fclk_req	1	"Functional clock request";
 	fclk_is_on	1	"Status of the functional clock input";
     };
@@ -104,21 +104,21 @@ device omap44xx_usbconf msbfirst ( addr base ) "OMAP44xx USB host subsystem" {
     };
 
     regarray channel_conf rw addr(base, 0x0040)[2] "Channel configuration" {
-	_		2 ro;
+	_		2 rsvd;
 	fslslinestate	2 type(line_state) "Line state for serial modes";
 	fslsmode	4 type(si_mode)	"Serial interface mode select";
-	_		3 ro;
+	_		3 rsvd;
 	testtxse0	1	"Force-Se0 tx override for mode test";
 	testtxdat	1	"Differential data tx override for mode test";
 	testtxen	1	"Differential data tx override for mode test";
 	testen		1	"Enable manual test override for Tx path";
 	drvvbus		1	"VBUS-drive for ChanMode = serial";
 	chrgvbus	1	"VBUS-charge for ChanMode = serial";
-	_		3 ro;
+	_		3 rsvd;
 	ulpinobitstuff	1	"Disable bitstuff emulation in ULPI TLL";
 	ulpiautoidle	1	"Allow ULPI output clock to idle";
 	utmiautoidle	1	"Allow UTMI clock to idle";
-	_		1 ro;
+	_		1 rsvd;
 	ulpioutclkmode	1 ro	"ULPI clocking mode select";
 	tllfullspeed	1	"PHY speed emul. in TLL (full/slow)";
 	tllconnect	1	"Emulate Full/Low-Speed connect";

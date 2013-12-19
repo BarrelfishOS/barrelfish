@@ -196,7 +196,7 @@ device omap44xx_iss_bte msbfirst ( addr base ) "" {
     register bte_ctrl addr(base, 0x30) "BTE control register" {
         bw_limiter 10 rw "Minimum number of OCP cycles between two consecutive buffer flushing or prefetch requests. Used to limit the bandwidth used to fill/empty buffers. 0: Maximum speed. Up to 1 request every 8 cycles (3.2GB @ 200 MHz) 1: Up to 1 request every 9 cycles. 1023: Minimum speed. Up to 1 request every 1031 cycles (24MB @ 200 MHz)";
         _ 10 mbz;
-        base 4 rw "Base address of the virtual space translated by the BTE. Start address = BASE*512MB End address = (BASE+1)*512MB – 1 For example: BASE=3 =&amp;gt; 0x 0 6000 0000 - 0x 0 7FFF FFFF";
+        base 4 rw "Base address of the virtual space translated by the BTE. Start address = BASE*512MB End address = (BASE+1)*512MB - 1 For example: BASE=3 =&amp;gt; 0x 0 6000 0000 - 0x 0 7FFF FFFF";
         _ 2 mbz;
         posted 1 rw type(posted_status) "Select among posted and nonposted writes for translated requests.";
         _ 1 mbz;

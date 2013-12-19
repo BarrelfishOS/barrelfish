@@ -98,8 +98,7 @@ static void init_net_ARP_connection(char *service_name)
 // In case of error, it will panic!!
 void idc_connect_ARP_lookup_service(char *service_name)
 {
-    //LWIPBF_DEBUG
-    printf("idc_c_ARP_lookup_srv: trying to [%s]\n", service_name);
+    LWIPBF_DEBUG("idc_c_ARP_lookup_srv: trying to [%s]\n", service_name);
 
     /* FIXME: decide if this is the best place to connect with net_ARP */
     init_net_ARP_connection(service_name);
@@ -114,8 +113,7 @@ void idc_connect_ARP_lookup_service(char *service_name)
             USER_PANIC_ERR(err, "in event_dispatch while binding ARP_service");
         }
     }
-    //LWIPBF_DEBUG
-    printf("idc_c_ARP_lookup_srv: success [%s]\n", service_name);
+    LWIPBF_DEBUG("idc_c_ARP_lookup_srv: success [%s]\n", service_name);
 }
 
 
@@ -154,8 +152,7 @@ void idc_get_ip_from_ARP_lookup(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
-    //LWIPBF_DEBUG
-    printf("client: owner has the IP address %d.%d.%d.%d\n",
+    LWIPBF_DEBUG("client: owner has the IP address %d.%d.%d.%d\n",
                  ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
                  ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }

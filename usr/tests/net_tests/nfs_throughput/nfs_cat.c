@@ -29,9 +29,6 @@
 
 #define MOUNT_DIR   "/nfs"
 
-//uint8_t buf[1024 * 1024];
-uint8_t buf[1024 * 128];
-
 // reads the file over nfs
 static int cat(char *path)
 {
@@ -46,23 +43,30 @@ static int cat(char *path)
         return 0;
     }
 
+    struct vfs_fileinfo info;
+    err = vfs_stat(vh, &info);
+    if(err_is_fail(err)){
+    	printf("Could not stat file %s\n", path);
+    }
+    printf("Reading %d bytes from %s.\n", (int)info.size, path);
+    void *buf = malloc(info.size);
+    assert(buf);
+
     uint64_t start = rdtsc();
     lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
-    do {
-        err = vfs_read(vh, buf, sizeof(buf), &size);
-        if (err_is_fail(err)) {
-            // XXX: Close any files that might be open
-            DEBUG_ERR(err, "error reading file");
-            return 0;
-        }
 
-        filesize += size;
-//      fwrite(buf, 1, size, stdout);
-    } while(size > 0);
+	err = vfs_read(vh, buf, info.size, &size);
+	if (err_is_fail(err)) {
+		// XXX: Close any files that might be open
+		DEBUG_ERR(err, "error reading file");
+		return 0;
+	}
+	assert(info.size == size);
+	filesize += size;
 
     // record stop time
     uint64_t stop = rdtsc();
-    printf("Everythin done\n");
+    printf("Everything done\n");
     lwip_print_interesting_stats();
     double speed = ((filesize/in_seconds(stop - start))/(1024 * 1024));
     if (speed < 50) {
@@ -76,12 +80,13 @@ static int cat(char *path)
     if (err_is_fail(err)) {
             DEBUG_ERR(err, "in vfs_close");
     }
-
+    free(buf);
     return filesize;
 }
 
 int main(int argc, char**argv)
 {
+    vfs_init();
 
     if(argc < 3) {
         printf("Usage: %s mount-URL filepath\n", argv[0]);
@@ -102,9 +107,15 @@ int main(int argc, char**argv)
     assert(err_is_ok(err));
     printf("mount done\n");
 
-    printf("reading file [%s]\n", argv[2]);
+    printf("reading file 1. time [%s]\n", argv[2]);
     cat(argv[2]);
-    printf("Benchmark done.\n");
+    printf("receive 1 done.\n");
+
+    /*
+    printf("reading file 2. time [%s]\n", argv[2]);
+	cat(argv[2]);
+	printf("receive 2 done.\n"); */
+	printf("All done.\n");
 
     struct waitset *ws = get_default_waitset();
     while (1) {

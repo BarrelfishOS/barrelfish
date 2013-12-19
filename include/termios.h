@@ -93,9 +93,13 @@ int	cfsetspeed(struct termios *, speed_t);
 #endif
 __END_DECLS
 
+#ifdef BARRELFISH
+void termios_fill_defaults(struct termios *);
+#endif /* BARRELFISH */
+
 #endif /* !_TERMIOS_H_ */
 
 #ifndef _POSIX_SOURCE
 #include <sys/ttycom.h>
-//#include <sys/ttydefaults.h>
+#include <sys/ttydefaults.h>
 #endif

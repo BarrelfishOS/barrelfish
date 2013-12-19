@@ -39,7 +39,7 @@
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 //#define MAX_NFS_READ       14000
-#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid breakage of lwip*/
+#define MAX_NFS_READ      1330 /* 14000 */ /* to avoid packet reassembly inside driver */
 
 /* Maximum staleness allowed */
 #define MAX_STALENESS ((cycles_t)9000000)
@@ -282,8 +282,8 @@ static void read_callback (void *arg, struct nfs_client *client,
     memcpy (e->hbuff->data + e->copied, res->data.data_val, res->data.data_len);
     e->copied += res->data.data_len;
 
-//    DEBUGPRINT ("got response of len %d, filesize %lu\n",
-//    			res->data.data_len, e->copied);
+    DEBUGPRINT ("got response of len %d, filesize %lu for file %s\n",
+    			res->data.data_len, e->copied, e->name);
 
     // free arguments
     xdr_READ3res(&xdr_free, result);
@@ -296,26 +296,25 @@ static void read_callback (void *arg, struct nfs_client *client,
         return;
     }
 
-	/* This is the end-of-file, so deal with it. */
-
+    /* This is the end-of-file, so deal with it. */
     e->valid = 1;
-	e->loading = 0;
-	decrement_buff_holder_ref (e->hbuff);
+    e->loading = 0;
+    decrement_buff_holder_ref (e->hbuff);
 
 #ifdef PRELOAD_WEB_CACHE
-	if (!cache_loading_phase) {
-		handle_pending_list (e); /* done! */
-		return;
-	}
+    if (!cache_loading_phase) {
+        handle_pending_list (e); /* done! */
+        return;
+    }
 
-	/* This is cache loading going on... */
-	printf("Copied %zu bytes for file [%s] of length: %zu\n",
-				e->copied, e->name, e->hbuff->len);
-	++cache_loaded_counter;
-	handle_cache_load_done();
+    /* This is cache loading going on... */
+    printf("Copied %zu bytes for file [%s] of length: %zu\n",
+            e->copied, e->name, e->hbuff->len);
+    ++cache_loaded_counter;
+    handle_cache_load_done();
 
 #else // PRELOAD_WEB_CACHE
-	handle_pending_list(e); /* done! */
+    handle_pending_list(e); /* done! */
 #endif // PRELOAD_WEB_CACHE
 }
 
@@ -387,9 +386,9 @@ static void lookup_callback (void *arg, struct nfs_client *client,
     }
 
     /*	as file does not exist, send all the http_conns to error page. */
-	error_cache->conn = e->conn;
-	error_cache->last = e->last;
-	handle_pending_list (error_cache); /* done! */
+    error_cache->conn = e->conn;
+    error_cache->last = e->last;
+    handle_pending_list (error_cache); /* done! */
 
     /* free this cache entry as it is pointing to invalid page */
     e->conn = NULL;
@@ -410,7 +409,7 @@ static err_t async_load_cache_entry(struct http_cache_entry *e)
 
     // FIXME: currently only works for files in root directory.
     // Do lookup for given filename in root dir
-    DEBUGPRINT ("pageloading starting\n");
+    DEBUGPRINT ("pageloading starting with nfs_lookup\n");
     r = nfs_lookup(my_nfs_client, nfs_root_fh, e->name,
                 lookup_callback, e);
     assert(r == ERR_OK);
@@ -489,10 +488,31 @@ static void readdir_callback(void *arg, struct nfs_client *client,
 
     // FIXME: start here the measurement of file loading time
 
+    // FIXME: Start the trace
+#if ENABLE_WEB_TRACING
+    printf("Starting tracing\n");
+
+    errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                    TRACE_EVENT_NNET_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_NNET,
+                                    TRACE_EVENT_NNET_STOP, 0), 0);
+    if(err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trace_control failed");
+    }
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
+#else // ENABLE_WEB_TRACING
+    printf("Tracing not enabled\n");
+#endif // ENABLE_WEB_TRACING
+
+
     last_ts = rdtsc();
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
     // initiate a lookup for every entry
     for (entry3 *e = resok->reply.entries; e != NULL; e = e->nextentry) {
+        if (strlen(e->name) < 3 ) {
+            printf("ignoring the file %s\n", e->name);
+            continue;
+        }
         ++cache_lookups_started;
         printf("Loading the file %s\n", e->name);
         ce = find_cacheline(e->name);
@@ -500,6 +520,24 @@ static void readdir_callback(void *arg, struct nfs_client *client,
         async_load_cache_entry(ce);
         e->name = NULL; // prevent freeing by XDR
         last = e;
+
+        // continue handling events till this page is not completly loaded.
+
+/*
+        struct waitset *ws = get_default_waitset();
+        errval_t err;
+
+        DEBUGPRINT ("looping for events inside loop of readdir_callback\n");
+        while (ce->valid != 1) {
+            err = event_dispatch(ws);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "in event_dispatch");
+                break;
+            }
+        }
+        DEBUGPRINT ("readdir_callback: %s file loaded\n", e->name);
+*/
+
     }
 
     /* more in the directory: repeat call */
@@ -535,21 +573,37 @@ static void handle_cache_load_done(void)
     DEBUGPRINT("initial_cache_load: entire cache loaded done\n");
     cache_loading_phase = false;
 
-    /* FIXME: stop the trace. */
-#if ENABLE_WEB_TRACING
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_STOP, 0);
+    // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
+    //
+    // Report the cache loading time
 
-    char *buf = malloc(4096*4096);
-    trace_dump(buf, 4096*4096, NULL);
-    printf("%s\n", buf);
+    uint64_t total_loading_time = rdtsc() - last_ts;
+    printf("Cache loading time %"PU", %"PRIu64"\n",
+            in_seconds(total_loading_time), total_loading_time);
+
+//    lwip_print_interesting_stats();
+
+    /* stop the trace. */
+#if ENABLE_WEB_TRACING
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_STOP, 0);
+
+    char *trace_buf_area = malloc(CONSOLE_DUMP_BUFLEN);
+    assert(trace_buf_area);
+    size_t used_bytes = 0;
+    trace_dump_core(trace_buf_area, CONSOLE_DUMP_BUFLEN, &used_bytes, NULL,
+            disp_get_core_id(),  true, true);
+
+    printf("\n%s\n", "dump trac buffers: Start");
+    printf("\n%s\n", trace_buf_area);
+    printf("\n%s\n", "dump trac buffers: Stop");
+    trace_reset_all();
+//    abort();
+
+    printf("Cache loading time %"PU", %"PRIu64"\n",
+            in_seconds(total_loading_time), total_loading_time);
 
 #endif // ENABLE_WEB_TRACING
 
-
-    // lwip_benchmark_control(1, BMS_STOP_REQUEST, 0, 0);
-    // Report the cache loading time
-    printf("Cache loading time %"PU"\n", in_seconds(rdtsc() - last_ts));
-//    lwip_print_interesting_stats();
 
     /* continue with the web-server initialization. */
     init_callback(); /* do remaining initialization! */
@@ -592,27 +646,15 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     struct timer *cache_timer;      /* timer for triggering cache timeouts */
     init_callback = callback;
 
-    /* FIXME: Start the trace */
-#if ENABLE_WEB_TRACING
-    printf("Starting tracing\n");
-
-    errval_t err = trace_control(TRACE_EVENT(TRACE_SUBSYS_NET,
-                                    TRACE_EVENT_NET_START, 0),
-                        TRACE_EVENT(TRACE_SUBSYS_NET,
-                                    TRACE_EVENT_NET_STOP, 0), 0);
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "trace_control failed");
-    }
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_START, 0);
-#else // ENABLE_WEB_TRACING
-    printf("Tracing not enabled\n");
-#endif // ENABLE_WEB_TRACING
-
+    DEBUGPRINT ("nfs_mount calling.\n");
     my_nfs_client = nfs_mount(server, path, mount_callback, NULL);
+    DEBUGPRINT ("nfs_mount calling done.\n");
+
     assert(my_nfs_client != NULL);
     /* creating the empty cache */
     cache_table = NULL;
     create_404_page_cache();
+
 
     cache_timer = timer_create(MAX_STALENESS, true, cache_timeout_event,
             cache_table);

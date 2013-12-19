@@ -6,7 +6,7 @@
  *
  * These functions are generally called in the order (ip_input() ->)
  * tcp_input() -> * tcp_process() -> tcp_receive() (-> application).
- * 
+ *
  */
 
 /*
@@ -926,6 +926,10 @@ static u8_t tcp_receive(struct tcp_pcb *pcb)
                 LWIP_DEBUGF(TCP_QLEN_DEBUG,
                             ("tcp_receive: queuelen %" U16_F " ... ",
                              (u16_t) pcb->snd_queuelen));
+                if (pcb->snd_queuelen < pbuf_clen(next->p)) {
+                    printf("snd_queuelen [%"PRIu16"] < pbuf_clen(next->p) [%"PRIu8"]\n",
+                            pcb->snd_queuelen, pbuf_clen(next->p));
+                }
                 LWIP_ASSERT("pcb->snd_queuelen >= pbuf_clen(next->p)",
                             (pcb->snd_queuelen >= pbuf_clen(next->p)));
                 pcb->snd_queuelen -= pbuf_clen(next->p);
@@ -1140,7 +1144,7 @@ static u8_t tcp_receive(struct tcp_pcb *pcb)
                                  U32_F "\n", seqno, tcplen,
                                  pcb->rcv_nxt + pcb->rcv_wnd));
                     if (TCPH_FLAGS(inseg.tcphdr) & TCP_FIN) {
-                        /* Must remove the FIN from the header as we're trimming 
+                        /* Must remove the FIN from the header as we're trimming
                          * that byte of sequence-space from the packet */
                         TCPH_FLAGS_SET(inseg.tcphdr,
                                        TCPH_FLAGS(inseg.tcphdr) & ~TCP_FIN);
@@ -1439,7 +1443,7 @@ static u8_t tcp_receive(struct tcp_pcb *pcb)
 }
 
 /**
- * Parses the options contained in the incoming segment. 
+ * Parses the options contained in the incoming segment.
  *
  * Called from tcp_listen_input() and tcp_process().
  * Currently, only the MSS option is supported!

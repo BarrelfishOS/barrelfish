@@ -606,7 +606,7 @@ netconn_join_leave_group(struct netconn * conn,
 err_t netconn_gethostbyname(const char *name, struct ip_addr * addr)
 {
     struct dns_api_msg msg;
-    err_t err;
+    err_t err, err2;
     sys_sem_t sem;
 
     LWIP_ERROR("netconn_gethostbyname: invalid name", (name != NULL),
@@ -626,7 +626,8 @@ err_t netconn_gethostbyname(const char *name, struct ip_addr * addr)
     msg.err = &err;
     msg.sem = sem;
 
-    tcpip_callback(do_gethostbyname, &msg);
+    err2 = tcpip_callback(do_gethostbyname, &msg);
+    assert(err2 == ERR_OK);
     sys_sem_wait(sem);
     sys_sem_free(sem);
 

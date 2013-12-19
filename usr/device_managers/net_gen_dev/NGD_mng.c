@@ -12,6 +12,7 @@
 #include <net_device_manager/net_device_manager.h>
 #include <barrelfish/nameservice_client.h>
 #include "NGD_mng_debug.h"
+#include <trace/trace.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -19,6 +20,12 @@
 /*
 #include <barrelfish/net_constants.h>
 */
+
+
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ETHERSRV_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 // handle events in infinite loop
 static void event_loop(void)
@@ -88,6 +95,11 @@ int main(int argc, char **argv)
     }
 
     NGKDM_DEBUG("done with most of things for device[%s]\n", card_name);
+
+#if TRACE_ETHERSRV_MODE
+    set_cond_termination(trace_conditional_termination);
+#endif
+
     event_loop();
 } // end function: main
 

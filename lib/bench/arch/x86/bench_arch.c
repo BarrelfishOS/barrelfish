@@ -42,3 +42,8 @@ uint64_t bench_tsc_to_ms(cycles_t tsc)
 {
     return tsc / tscperms;
 }
+
+uint64_t bench_tsc_to_us(cycles_t tsc);
+uint64_t bench_tsc_to_us(cycles_t tsc){
+	return tsc / (tscperms/1000);
+}

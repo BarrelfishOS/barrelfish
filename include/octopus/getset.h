@@ -34,6 +34,8 @@ void oct_free_names(char**, size_t);
 
 errval_t oct_get(char**, const char*, ...);
 errval_t oct_set(const char*, ...);
+errval_t oct_get_with_idcap(char**, struct capref);
+errval_t oct_set_with_idcap(struct capref, const char*, ...);
 errval_t oct_mset(oct_mode_t, const char*, ...);
 errval_t oct_set_get(oct_mode_t, char**, const char*, ...);
 errval_t oct_del(const char*, ...);

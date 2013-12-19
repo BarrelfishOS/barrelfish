@@ -45,8 +45,6 @@ static size_t uart_size[NUM_PORTS] = {
     OMAP44XX_MAP_L4_PER_UART4_SIZE
 };
 
-static bool uart_initialized[NUM_PORTS];
-
 /*
  * Initialzie OMAP UART
  * UART TRM 23.3
@@ -55,41 +53,48 @@ static void omap_uart_init(omap_uart_t *uart, lvaddr_t base)
 {
     omap_uart_initialize(uart, (mackerel_addr_t) base);
 
-    // Disable all interrupts
-    omap_uart_IER_t ier = omap_uart_IER_default;
-    omap_uart_IER_wr(uart, ier);
+    // do soft reset
+    omap_uart_SYSC_softreset_wrf(uart, 0x1);
+    while (!omap_uart_SYSS_resetdone_rdf(uart)); // poll for reset completion
 
-    // Enable FIFOs and select highest trigger levels
-    omap_uart_FCR_t fcr = omap_uart_FCR_default;
-    fcr = omap_uart_FCR_rx_fifo_trig_insert(fcr, 3);
-    fcr = omap_uart_FCR_tx_fifo_trig_insert(fcr, 3);
-    fcr = omap_uart_FCR_fifo_en_insert(fcr, 1);
-    omap_uart_FCR_wr(uart, fcr);
-
+    // disable UART access to DLL and DLH
+    omap_uart_MDR1_mode_select_wrf(uart, 0x7);
+    // register config mode B (according to 23.3.5.1.1.3, step 10-13)
+    omap_uart_LCR_wr(uart, 0xbf);
+    // 115200 baud
+    omap_uart_DLL_clock_lsb_wrf(uart, 0x1a);
+    omap_uart_DLH_clock_msb_wrf(uart, 0x0);
+    // no enhanced mode
+    omap_uart_EFR_enhanced_en_wrf(uart, 0);
     // Set line to 8N1
     omap_uart_LCR_t lcr = omap_uart_LCR_default;
     lcr = omap_uart_LCR_parity_en_insert(lcr, 0);       // No parity
     lcr = omap_uart_LCR_nb_stop_insert(lcr, 0);         // 1 stop bit
     lcr = omap_uart_LCR_char_length_insert(lcr, omap_uart_wl_8bits); // 8 data bits
-    omap_uart_LCR_wr(uart, lcr);
+    omap_uart_LCR_wr(uart, lcr); // this also sets register config mode 'operational'
+    // load UART mode (16x?)
+    omap_uart_MDR1_mode_select_wrf(uart, 0x0);
 }
 
 errval_t serial_init(unsigned port)
 {
-    if (port >= NUM_PORTS) { 
+    static bool uart_initialized[NUM_PORTS];
+
+    if (port >= NUM_PORTS) {
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
+
     if (uart_initialized[port]) {
-	printf("omap serial_init[%d]: already initialized; skipping.\n", port);
-	return SYS_ERR_OK;
+        printf("omap serial_init[%d]: already initialized; skipping.\n", port);
+        return SYS_ERR_OK;
     }
-    
+
     lvaddr_t base = paging_map_device(uart_base[port],uart_size[port]);
     // paging_map_device returns an address pointing to the beginning of
     // a section, need to add the offset for within the section again
     uint32_t offset = (uart_base[port] & ARM_L1_SECTION_MASK);
     printf("omap serial_init[%d]: base = 0x%"PRIxLVADDR" 0x%"PRIxLVADDR"\n",
-	   port, base, base + offset);
+            port, base, base + offset);
     omap_uart_init(&ports[port], base + offset);
     uart_initialized[port] = true;
     printf("omap serial_init[%d]: done.\n", port);
@@ -107,7 +112,6 @@ errval_t serial_early_init(unsigned port)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 }
-
 
 /**
  * \brief Prints a single character to a serial port. 

@@ -15,7 +15,8 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -885,11 +886,11 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
     } else {
         struct domain_state *domain_state = get_domain_state();
         errval_t err;
-    
+
         if (domain_state->b[core_id] == NULL) {
             return LIB_ERR_NO_SPANNED_DISP;
         }
-    
+
         struct interdisp_binding *b = domain_state->b[core_id];
         err = b->tx_vtbl.create_thread(b, NOP_CONT,
                                        (genvaddr_t)(uintptr_t)start_func,
@@ -898,7 +899,7 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
         if (err_is_fail(err)) {
             return err;
         }
-    
+
         return SYS_ERR_OK;
     }
 }
@@ -920,6 +921,7 @@ void disp_set_core_id(coreid_t core_id)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     disp->core_id = core_id;
 }
+
 
 /**
  * \brief returns the core_id stored in disp_priv struct
@@ -989,7 +991,7 @@ void set_monitor_blocking_rpc_client(struct monitor_blocking_rpc_client *st)
 }
 
 /**
- * \brief Returns the blocking rpc monitor client binding on the 
+ * \brief Returns the blocking rpc monitor client binding on the
  * dispatcher priv
  */
 struct monitor_blocking_rpc_client *get_monitor_blocking_rpc_client(void)
@@ -1080,23 +1082,23 @@ struct skb_state *get_skb_state(void)
 }
 
 /**
- * \brief Returns a pointer to the chips_context state on the dispatcher priv
+ * \brief Returns a pointer to the octopus rpc client on the dispatcher priv
  */
-struct octopus_rpc_client *get_nameservice_rpc_client(void)
+struct octopus_rpc_client *get_octopus_rpc_client(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return disp->core_state.c.nameservice_rpc_client;
+    return disp->core_state.c.octopus_rpc_client;
 }
 
 /**
- * \brief set the chips_context state on the dispatcher priv
+ * \brief Sets the octopus rpc client on the dispatcher priv
  */
-void set_nameservice_rpc_client(struct octopus_rpc_client *c)
+void set_octopus_rpc_client(struct octopus_rpc_client *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    disp->core_state.c.nameservice_rpc_client = c;
+    disp->core_state.c.octopus_rpc_client = c;
 }
 
 /**

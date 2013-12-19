@@ -26,18 +26,28 @@
 #include "netd.h"
 #include "netd_debug.h"
 
+bool do_dhcp = true; // flag to control use of dhcp
+// IP information for static configuration
+char *ip_addr_str = NULL; // IP address for this interface
+char *netmask_str = NULL; // netmask for this LAN
+char *gateway_str = NULL; // default gateway address
+char *dns_str = NULL; // ip address of DNS name server
+
 
 static void netd_event_polling_loop(void)
 {
     errval_t err;
-    printf("Starting event polling loop\n");
+    NETD_DEBUG("Starting event polling loop!!!\n");
     struct waitset *ws = get_default_waitset();
+    uint32_t ecounter = 0;
     while (1) {
-        err = event_dispatch(ws);
+        err = event_dispatch_debug(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
             break;
         }
+//        NETD_DEBUG("event %"PRIu32" handled\n", ecounter);
+        ecounter++;
     }
 }
 
@@ -71,7 +81,30 @@ int main(int argc, char **argv)
             card_name = argv[i] + strlen("cardname=");
             NETD_DEBUG("card name = %s\n", card_name);
         }
-    }
+        if (!strcmp(argv[i], "do_dhcp=0")) {
+            do_dhcp = false;
+            NETD_DEBUG("using static IP address\n");
+        }
+
+        if (strncmp(argv[i], "ip=", strlen("ip=") - 1) == 0) {
+            ip_addr_str = argv[i] + strlen("ip=");
+        }
+
+        if (strncmp(argv[i], "nm=", strlen("nm=") - 1) == 0) {
+            netmask_str = argv[i] + strlen("nm=");
+        }
+
+        if (strncmp(argv[i], "gw=", strlen("gw=") - 1) == 0) {
+            gateway_str = argv[i] + strlen("gw=");
+        }
+
+        if (strncmp(argv[i], "dns=", strlen("dns=") - 1) == 0) {
+            dns_str = argv[i] + strlen("dns=");
+            printf("Ignoring the argument [%s] as it is not supported yet!\n",
+                    argv[i]);
+        }
+
+    } // end for: for each argument
 
     if (card_name == NULL) {
         fprintf(stderr,
@@ -80,30 +113,33 @@ int main(int argc, char **argv)
         return 1;
     }
 
-#if 0
-    NETD_DEBUG("setting up timers for lwip\n");
+    if (!do_dhcp) {
+        // Making sure that we have enough info for static configuration
+        if ((ip_addr_str == NULL) || (netmask_str == NULL)
+                || (gateway_str == NULL)) {
+            USER_PANIC("Error, not enough information provided for static "
+                    "IP configuration IP[%s], NM[%s], GW[%s]",
+                    ip_addr_str, netmask_str, gateway_str);
+            return 1;
+        }
+    }
 
     // Set memory affinity if requested
     if ((minbase != -1) && (maxbase != -1)) {
         ram_set_affinity(minbase, maxbase);
     }
-    // Initialize Timer and LWIP
-/*
-    NETD_DEBUG("setting up timers for lwip\n");
-
-    run_timer(DHCP_FINE_TIMER_MSECS, dhcp_fine_tmr);
-    run_timer(DHCP_COARSE_TIMER_MSECS, dhcp_coarse_tmr);
-*/
-
-#endif // 0
 
     // FIXME: This has to be done for every card
-    // Connect to e1000 driver
+    // Connect to the driver for given card
     NETD_DEBUG("trying to connect to the %s:%"PRIu64" driver...\n",
             card_name, allocated_queue);
     startlwip(card_name, allocated_queue);
+
+    NETD_DEBUG("registering net_ARP service\n");
+    // register ARP service
     init_ARP_lookup_service(card_name);
 
     netd_event_polling_loop();
     return 0;
 }
+

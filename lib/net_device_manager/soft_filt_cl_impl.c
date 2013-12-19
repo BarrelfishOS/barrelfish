@@ -79,9 +79,10 @@ errval_t register_soft_filt_impl(uint16_t port,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
-                    appid_t appid);
+                    appid_t appid,
+                    qid_t qid);
 
-static void unregister_soft_filter(uint64_t filter_id);
+static void unregister_soft_filter(uint64_t filter_id, qid_t qid);
 
 static struct filters_tx_vtbl soft_filts_mng = {
     .type = "Soft_filters",
@@ -146,7 +147,8 @@ errval_t register_soft_filt_impl(uint16_t port,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
-                    appid_t appid)
+                    appid_t appid,
+                    qid_t qid)
 {
     int32_t len_rx, len_tx;
     /* NOTE: check if someone else is using the filter location */
@@ -559,7 +561,7 @@ static errval_t send_filterID_for_deregistration(struct q_entry e)
  * \brief sends the filterID for de-registration to network driver.
  *
  */
-static void unregister_soft_filter(uint64_t filter_id)
+static void unregister_soft_filter(uint64_t filter_id, qid_t qid)
 {
     struct q_entry entry;
 

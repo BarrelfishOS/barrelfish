@@ -19,7 +19,7 @@
  * Example:
  *
  * The subystem:
- * 
+ *
  * subsystem mysubsystem {
  * 		event myevent "",
  * }
@@ -71,7 +71,9 @@ subsystem threads {
     event SEM_WAIT_ENTER 			"",
     event SEM_WAIT_LEAVE 			"",
     event SEM_TRYWAIT 				"",
-    event SEM_POST 					"",
+    event SEM_POST                              "",
+    event SYS_YIELD                             "Calling sys_yield for co-op scheduling",
+    event C_DISP_SAVE                           "calling disp_save",
 };
 
 subsystem memserv {
@@ -197,75 +199,36 @@ subsystem barriers {
 
 };
 
-/* Following constants are used in network subsystem. */
-subsystem net {
-
- event START          	   "",
- event STOP          	   "",
- event NI_AI               "added, 0",
- event NI_I                "added, 0",
- event NI_A                "added, pkt data location",
- event NI_FILTER_FRAG      "added, pkt data location",
- event NI_FILTER_EX_1      "added, pkt data location",
- event NI_ARP              "added, pkt data location",
- event NI_FILTER_EX_2      "added, pkt data location",
- event NI_PKT_CPY_1        "added, pkt data location",
- event NI_PKT_CPY_2        "added, pkt data location",
- event NI_PKT_CPY_3        "added, pkt data location",
- event NI_PKT_CPY_4        "added, pkt data location",
-
- event NI_PKT_CPY          "added, pkt data location",
- event NI_P                "added, pbuf_id",
- event NI_S                "added, pbuf_id",
- event AI_A                "added, pbuf_id",
- event AI_P                "added, pbuf_addr",
- event AO_C                "added, pbuf_addr",
- event AO_Q                "added, pbuf_addr",
- event AO_S                "added, pbuf_addr (as client_data )",
- event NO_A                "added, client_data (pbuf_address in lwip)",
- event NO_S                "added, e1000n.c client_data (pbuf_address in lwip)",
-
-/* FIXME: Add the timings of when does NIC gets TX_done */
- event NO_TXD              "yet to add",
- event AIR_R               "added, pbuf_addr (TX DONE in app)",
-
-/* Response flow */
- event AOR_S               "added, pbuf_id ( register_pbuf from APP)",
- event NIR_REG_PBUF        "commented pbuf_id ( register_pbuf in NIC)",
-};
-
-subsystem multihop {
-
- event BENCH_START    		 "",
- event BENCH_STOP    		 "",
- event MESSAGE_SEND  		 "",
- event MESSAGE_RECEIVE		 "",
-
-};
-
-/* Following constants are used in network benchmark. */
-subsystem bnet {
-
- event START               "",
- event STOP                "",
- event DRV_SEE             "",
- event APP_SEE             "",
- event DRV_INT             "",
- event DRV_POLL            "",
- event YIELD               "",
- event I                   "",
-
-};
-
 /* Following constans are used for profiling modified stack */
 subsystem nnet {
 
  event START               "",
  event STOP                "",
+ event RXESVAPPFDONE       "Ethersrv app filtered",
+
  event RXDRVSEE            "Driver saw pkg (RX)",
  event RXESVSEE            "Ethersrv saw pkg",
  event RXESVFRGDONE        "Ethersrv checked frag",
- event RXESVAPPFDONE       "Ethersrv app filtered",
+ event LWIPTX              "LWIP idc_send_packet_to_network_driver",
+ event SCHED_REMOVE        "Process marked non-runnable",
+ event IRQ                 "interrupt in kernelspace",
+ event UIRQ                "interrupt in kernelspace for userspace",
+ event NO_S                "e1000 packet send",
+ event NI_I                "e1000 interrupt arrived",
+
+ event YIELD               "process yielded",
+
+ event LWIPPBF2            "LWIP pbuf freed",
+ event LWIPPBA2            "LWIP pbuf Allocated",
+
+ event NI_PKT_CPY          "Queue manager packet copy",
+event DRV_POLL             "e1000 polling",
+ event DRV_SEE             "handled packet",
+ event DRVTXDONE           "TX buffer reclamation",
+ event DRVRX               "checking for new packets",
+ event WEBEVENTLOOP        "Webserver event loop",
+
+
  event RXESVAPPCSTART      "Ethersrv app c2u started",
  event RXESVCOPIED         "Ethersrv copied pkg",
  event RXESVSPPDONE        "Ethersrv spp produce done",
@@ -273,6 +236,7 @@ subsystem nnet {
  event RXLWIINCOM          "LWIP handle_incoming_",
  event RXLWIRECH           "LWIP call rec_handler",
  event RXAPPRCV            "APP received",
+ event LWIPRX              "LWIP handle incoming",
 
  event TXAPPSNT            "APP sent",
  event TXLWISEE            "LWIP idc_send_packet",
@@ -296,7 +260,21 @@ subsystem nnet {
  event TX_MEMP             "tx pbuf memp start",
  event TX_MEMP_D           "tx pbuf memp done",
 
+
+
 };
+
+
+
+subsystem multihop {
+
+ event BENCH_START    		 "",
+ event BENCH_STOP    		 "",
+ event MESSAGE_SEND  		 "",
+ event MESSAGE_RECEIVE		 "",
+
+};
+
 
 /* The example subsystem is used to demonstrate how the tracing framework
  * works. It is used by the program in "examples/xmpl-trace". */

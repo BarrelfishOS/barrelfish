@@ -24,9 +24,9 @@
  * r4 GIC address
  * r5 flag register address
  */
-
+    .syntax unified
 	.text
-	.arm
+//	.arm    //interferes with thumb code
 	.globl	molly_start, molly_to_kernel_transition
 	//.extern cd, kernel_entry
 
@@ -35,8 +35,10 @@
         // Entry point.  Initialize a stack and branch to the
         // C entry point in molly_init.c
 molly_start:
-	ldr		sp, =molly_kernel_stack
-	add		sp, sp, #4096
+	ldr		r6, =molly_kernel_stack
+	add	    r6, r6, #2048//done in two steps to make sure it is thumb-compatible
+	add     r6, r6, #2048
+	mov     sp, r6
 	b		molly_init
 
         // Never reached
@@ -50,6 +52,11 @@ halt:
         // r0 value through which the kernel expects
         // the core_data info.
 molly_to_kernel_transition:
+#ifdef __thumb2__
+//in thumb, the lsb of the starting address must be 1
+        mov     r6, #1
+        orr     r0, r0, r6
+#endif
         mov     lr, r0
         mov     r0, r1
         bx		lr

@@ -523,6 +523,22 @@ static struct dcb *spawn_init_common(const char *name,
                    INIT_PERM_RW);
 
 
+    /*
+     * Create a capability that allows user-level applications to
+     * access device memory. This capability will be passed to Kaluga,
+     * split up into smaller pieces and distributed to among device
+     * drivers.
+     *
+     * For arm_gem5, this is currently a dummy capability. We do not
+     * have support for user-level device drivers in gem5 yet, so we
+     * do not allocate any memory as device memory. Some cap_copy
+     * operations in the bootup code fail if this capability is not
+     * present.
+     */
+    struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
+    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, iocap);
+    assert(err_is_ok(err));
+
     struct dispatcher_shared_generic *disp
         = get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_arm *disp_arm

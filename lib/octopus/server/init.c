@@ -6,7 +6,7 @@
  */
 
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -35,6 +35,8 @@ static const struct octopus_rx_vtbl rpc_rx_vtbl = {
         .get_names_call = get_names_handler,
         .get_call = get_handler,
         .set_call = set_handler,
+        .get_with_idcap_call = get_with_idcap_handler,
+        .set_with_idcap_call = set_with_idcap_handler,
         .del_call = del_handler,
         .exists_call = exists_handler,
         .wait_for_call = wait_for_handler,

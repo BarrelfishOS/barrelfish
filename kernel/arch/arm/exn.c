@@ -291,9 +291,14 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     	dispatch(schedule());
     }
     else {
+#if defined(__ARM_ARCH_7A__)
         gic_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
+#else
+        // SK: No support for user-level interrupts on ARMv5 and XScale
+        panic("Unhandled IRQ %"PRIu32". User-level IRQs only supported on ARMv7!\n", irq);
+#endif
     }
 
 }

@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #ifndef BARRELFISH_DOMAIN_H
@@ -44,8 +45,8 @@ struct vspace *get_current_vspace(void);
 struct pmap *get_current_pmap(void);
 struct morecore_state *get_morecore_state(void);
 struct ram_alloc_state *get_ram_alloc_state(void);
-void set_nameservice_rpc_client(struct octopus_rpc_client *st);
-struct octopus_rpc_client *get_nameservice_rpc_client(void);
+void set_octopus_rpc_client(struct octopus_rpc_client *st);
+struct octopus_rpc_client *get_octopus_rpc_client(void);
 void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *st);
 struct spawn_rpc_client *get_spawn_rpc_client(coreid_t core);
 struct terminal_state *get_terminal_state(void);

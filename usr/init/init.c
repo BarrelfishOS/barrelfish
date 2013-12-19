@@ -33,6 +33,9 @@ static coreid_t my_core_id;
 #elif defined(__ARM_ARCH_7A__)
 #       define MONITOR_NAME  "armv7/sbin/monitor"
 #       define MEM_SERV_NAME "armv7/sbin/mem_serv"
+#elif defined(__ARM_ARCH_7M__)
+#       define MONITOR_NAME  "armv7-m/sbin/monitor"
+#       define MEM_SERV_NAME "armv7-m/sbin/mem_serv"
 #elif defined(__arm__)
 #       define MONITOR_NAME  "armv5/sbin/monitor"
 #       define MEM_SERV_NAME "armv5/sbin/mem_serv"

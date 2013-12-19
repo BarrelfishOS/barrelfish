@@ -43,7 +43,7 @@ errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
         if (err_is_fail(err)) {
             return err;
         }
-
+        printf("pci_client.c: got vector %"PRIu32"\n", vector);
         assert(vector != INVALID_VECTOR);
     }
 
@@ -168,6 +168,21 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
 
     return msgerr;
 }
+
+errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
+{
+    errval_t err, msgerr;
+    err = pci_client->vtbl.read_conf_header(pci_client, dword, &msgerr, val);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
+{
+    errval_t err, msgerr;
+    err = pci_client->vtbl.write_conf_header(pci_client, dword, val, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
 
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {

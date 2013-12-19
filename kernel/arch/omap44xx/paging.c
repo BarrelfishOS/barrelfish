@@ -96,7 +96,7 @@ void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 {
-    lpaddr_t pend  = paging_round_down(paddr + bytes, BYTES_PER_SECTION);
+    lpaddr_t pend  = paging_round_up(paddr + bytes, BYTES_PER_SECTION);
     while (paddr < pend) {
         paging_map_kernel_section(ttbase, paddr, paddr);
         paddr += BYTES_PER_SECTION;
@@ -130,9 +130,9 @@ lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
     assert(device_bytes <= BYTES_PER_SECTION);
     dev_alloc -= BYTES_PER_SECTION;
 
-    printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
-            "0x%"PRIxLPADDR".\n",
-            (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
+    //printf("paging_map_device_section: 0x%"PRIxLVADDR", 0x%"PRIxLVADDR", "
+    //        "0x%"PRIxLPADDR".\n",
+    //        (uintptr_t)aligned_kernel_l1_table, dev_alloc, device_base);
 
     paging_map_device_section((uintptr_t)aligned_kernel_l1_table, dev_alloc,
             device_base);
@@ -208,10 +208,6 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes)
     int core_id = hal_get_cpu_id();
     lpaddr_t addr = ETABLE_PHYS_BASE + core_id * BASE_PAGE_SIZE;
     paging_set_l2_entry((uintptr_t *)&aligned_low_l2_table[ARM_L2_OFFSET(ETABLE_ADDR)], addr, l2_flags);
-
-
-    //map section containing sysflag registers 1:1
-    paging_map_device_section((uintptr_t)aligned_kernel_l1_table, sysflagset_base, sysflagset_base);
 
     cp15_write_ttbr1(mem_to_local_phys((uintptr_t)aligned_kernel_l1_table));
 
@@ -447,6 +443,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
+
+    if (src_cte->mapping_info.pte) {
+        return SYS_ERR_VM_ALREADY_MAPPED;
+    }
 
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         //printf("caps_map_l1: %zu\n", (size_t)pte_count);

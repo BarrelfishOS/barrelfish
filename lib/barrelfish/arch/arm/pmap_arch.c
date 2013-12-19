@@ -60,7 +60,17 @@
 #include <stdio.h>
 
 // Location of VSpace managed by this system.
-#define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024)
+#ifdef __ARM_ARCH_7M__
+//virtual section 0x40000000-0x40100000 can not be used as regular memory 
+//because of "bit-banding".
+//0x42000000-0x44000000 is also dangerous, so we start after that
+//XXX: there are more virtual regions we 
+//are not allowed to use -> find out where to reserve those
+#define VSPACE_BEGIN   ((lvaddr_t)(1UL*1024*1024*1024 + 64UL*1024*1024))    //0x44000000
+#else       //"normal" arm architectures
+#define VSPACE_BEGIN   ((lvaddr_t)1UL*1024*1024*1024)   //0x40000000
+#endif
+
 
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.

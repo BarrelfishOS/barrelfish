@@ -50,7 +50,7 @@ enum rpc_msg_type {
 
 //#define RPC_TIMER_PERIOD (5000 * 1000) ///< Time between RPC timer firings (us)
 #define RPC_TIMER_PERIOD (1000 * 1000) ///< Time between RPC timer firings (us)
-#define RPC_RETRANSMIT_AFTER 6   ///< Number of timer firings before a retransmit
+#define RPC_RETRANSMIT_AFTER 8   ///< Number of timer firings before a retransmit
 #define RPC_MAX_RETRANSMIT  60  ///< Max number of retransmissions before giving up
 
 /* XXX: hardcoded data for authentication info */
@@ -241,8 +241,10 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
 
 out:
 //    ts = rdtsc();
-    pbuf_free(pbuf);
+    pbuf_free(pbuf); // freeing the pbuf from RX packet
     if (call != NULL) {
+        // We got reply, so there is not need for keeping TX packet saved
+        // here for retransmission.  Lets free it up.
         pbuf_free(call->pbuf);
         free(call);
     }
@@ -403,7 +405,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     err_t r;
     bool rb;
     uint32_t xid;
-
+    RPC_DEBUGP("rpc_call: started, trying to get a lock\n");
     if (lwip_mutex != NULL) {
         if(thread_mutex_trylock(lwip_mutex)) {
            printf("rpc_call: thread_mutex_trylock failed\n");
@@ -411,6 +413,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
         }
     }
 
+    RPC_DEBUGP("rpc_call:  calling xdr_pbuf_create_send\n");
     rb = xdr_pbuf_create_send(&xdr, args_size + RPC_CALL_HEADER_LEN);
     if (!rb) {
         return ERR_MEM;
@@ -418,11 +421,13 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
 
     xid = client->nextxid++;
 
+    RPC_DEBUGP("rpc_call: calling rpc_call_init\n");
     r = rpc_call_init(&xdr, xid, prog, vers, proc);
     if (r != ERR_OK) {
         XDR_DESTROY(&xdr);
         return r;
     }
+    RPC_DEBUGP("rpc_call: rpc_call_init done\n");
 
     rb = args_xdrproc(&xdr, args);
     if (!rb) {
@@ -450,6 +455,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
         call->pbuf->tot_len -= ((struct pbuf *)xdr.x_base)->len - xdr.x_handy;
         ((struct pbuf *)xdr.x_base)->len = xdr.x_handy;
     }
+    RPC_DEBUGP("rpc_call: calling UPD_connect\n");
     r = udp_connect(client->pcb, &client->server, port);
     if (r != ERR_OK) {
         XDR_DESTROY(&xdr);
@@ -462,6 +468,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     call->next = client->call_hash[hid];
     client->call_hash[hid] = call;
 
+    RPC_DEBUGP("rpc_call: calling UPD_send\n");
     r = udp_send(client->pcb, call->pbuf);
     if (r != ERR_OK) {
         /* dequeue */
@@ -472,6 +479,7 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
         free(call);
     }
 
+    RPC_DEBUGP("rpc_call: rpc_call done\n");
     lwip_record_event_simple(RPC_CALL_T, ts);
     return r;
 }

@@ -87,7 +87,7 @@ static const char header_octet[] = HTTP_HEADER_200 HTTP_MIME_OCTET CRLF;
     _dursum += rdtsc() - _begin;                \
     _dur++;                                                     \
     if(_dur == MAX_DURATIONS) {                                 \
-        SERVER_DEBUG("%s: %lu\n", __func__, _dursum / MAX_DURATIONS);     \
+        DEBUGPRINT("%s: %lu\n", __func__, _dursum / MAX_DURATIONS);     \
         _dur = 0; _dursum = 0;                                      \
     }
 
@@ -172,7 +172,7 @@ static void http_server_err(void *arg, err_t err)
 {
     struct http_conn *conn = arg;
 
-    SERVER_DEBUG("http_server_err! %p %d\n", arg, err);
+    DEBUGPRINT("http_server_err! %p %d\n", arg, err);
     if(conn != NULL) {
         DEBUGPRINT("%d: http_server_err! %p %d\n", conn->request_no, arg, err);
         http_conn_invalidate (conn);
@@ -241,7 +241,7 @@ static void http_send_data(struct tcp_pcb *tpcb, struct http_conn *conn)
         len = conn->header_length - conn->header_pos;
         err = trysend(tpcb, data, &len, (conn->hbuff->data != NULL));
         if (err != ERR_OK) {
-            SERVER_DEBUG("http_send_data(): Error %d sending header\n", err);
+            DEBUGPRINT("http_send_data(): Error %d sending header\n", err);
             return; // will retry
         }
 
@@ -263,7 +263,7 @@ static void http_send_data(struct tcp_pcb *tpcb, struct http_conn *conn)
         len = conn->hbuff->len - conn->reply_pos;
         err = trysend(tpcb, data, &len, false);
         if (err != ERR_OK) {
-            SERVER_DEBUG("http_send_data(): Error %d sending payload\n", err);
+            DEBUGPRINT("http_send_data(): Error %d sending payload\n", err);
             return; // will retry
         }
         conn->reply_pos += len;
@@ -273,7 +273,7 @@ static void http_send_data(struct tcp_pcb *tpcb, struct http_conn *conn)
         break;
 
     default:
-        SERVER_DEBUG ("http_send_data(): Wrong state! (%d)\n", conn->state);
+        DEBUGPRINT ("http_send_data(): Wrong state! (%d)\n", conn->state);
         break;
     }
 }
@@ -310,7 +310,7 @@ static err_t http_poll(void *arg, struct tcp_pcb *tpcb)
         /* abort connections that sit open for too long without sending a
 request */
         if (++conn->retries == 60) {
-            SERVER_DEBUG("connection in state %d too long, aborted\n",
+            DEBUGPRINT("connection in state %d too long, aborted\n",
                          conn->state);
             DEBUGPRINT("connection in state %d too long, aborted\n",
                         conn->state);
@@ -352,7 +352,7 @@ static err_t http_server_sent(void *arg, struct tcp_pcb *tpcb, u16_t length)
         break;
 
     default:
-        SERVER_DEBUG("http_server_sent(): Wrong state! (%d)\n", conn->state);
+        DEBUGPRINT("http_server_sent(): Wrong state! (%d)\n", conn->state);
         break;
     }
 
@@ -395,7 +395,7 @@ static void send_response(struct http_conn *cs)
     if (cs->error) {
         DEBUGPRINT ("%d: BIGERROR Sending the response back of size %lu\n",
 					cs->request_no, cs->reply_pos);
-        SERVER_DEBUG("%s %s %s %hu.%hu.%hu.%hu\n", "500",
+        DEBUGPRINT("%s %s %s %hu.%hu.%hu.%hu\n", "500",
                cs->request, cs->filename,
                ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
                ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip));
@@ -406,7 +406,7 @@ static void send_response(struct http_conn *cs)
     } else {
         DEBUGPRINT ("%d: Sending the response back of size %lu\n",
                 cs->request_no, cs->reply_pos);
-        SERVER_DEBUG("%s %s %s %hu.%hu.%hu.%hu\n", cs->hbuff->data ?
+        DEBUGPRINT("%s %s %s %hu.%hu.%hu.%hu\n", cs->hbuff->data ?
                 "200" : "404", cs->request, cs->filename,
                ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
                ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip));
@@ -448,7 +448,7 @@ static err_t http_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
 
     DEBUGPRINT("%d, http_server_recv called\n", conn->request_no);
     if (err != ERR_OK) {
-        SERVER_DEBUG("http_server_recv called with err %d\n", err);
+        DEBUGPRINT("http_server_recv called with err %d\n", err);
         return ERR_OK;
     }
 
@@ -534,7 +534,7 @@ static err_t http_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
         break;
 
     default:
-        SERVER_DEBUG("http_server_recv(): data received in wrong state (%d)!\n",
+        DEBUGPRINT("http_server_recv(): data received in wrong state (%d)!\n",
                      conn->state);
         pbuf_free(p);
         conn->error = 1;
@@ -544,7 +544,7 @@ static err_t http_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p,
     return ERR_OK;
 
 invalid:
-    SERVER_DEBUG("invalid request: %s\n", conn->request);
+    DEBUGPRINT("invalid request: %s\n", conn->request);
     DEBUGPRINT("%d: invalid request: %s\n",conn->request_no, conn->request);
     conn->state = HTTP_STATE_CLOSING;
     http_server_close(tpcb, conn);
@@ -566,7 +566,7 @@ static err_t http_server_accept(void *arg, struct tcp_pcb *tpcb, err_t err)
         DEBUGPRINT("http_accept: Out of memory\n");
         return ERR_MEM;
     }
-    SERVER_DEBUG("accpet called: %s\n", conn->request);
+    DEBUGPRINT("accpet called: %s\n", conn->request);
     increment_http_conn_reference (conn);
     /* NOTE: This initial increment marks the basic assess and it will be
         decremented by http_server_invalidate */
@@ -594,7 +594,10 @@ static void realinit(void)
     tcp_arg(pcb, pcb);
     tcp_accept(pcb, http_server_accept);
     printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&ts)));
+    printf("#######################################################\n");
     printf("Starting webserver\n");
+    printf("#################### Starting webserver ##############\n");
+    printf("#######################################################\n");
 
 }
 

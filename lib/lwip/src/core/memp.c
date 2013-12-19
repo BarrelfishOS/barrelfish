@@ -122,9 +122,15 @@ static struct memp *memp_tab[MEMP_MAX];
 static
 #endif
 const u16_t memp_sizes[MEMP_MAX] = {
-#define LWIP_MEMPOOL(name,num,size,desc)  LWIP_MEM_ALIGN_SIZE(size),
+#define LWIP_MEMPOOL(name,num,size,desc)  MEMP_ALIGN_SIZE(size),
 #include "lwip/memp_std.h"
 };
+
+/**
+ * Array of indexes of pools, ordered by their element size in descending
+ * order.
+ */
+static size_t memp_sorted[MEMP_MAX];
 
 #if !MEMP_MEM_MALLOC            /* don't build if not configured for use in lwipopts.h */
 
@@ -151,10 +157,10 @@ static u8_t memp_memory_orig[MEM_ALIGNMENT - 1
 #endif
 
 /* This is the size of memory required by all the pools. */
-static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
+/*static const size_t memp_memory_size = (MEM_ALIGNMENT - 1
 #define LWIP_MEMPOOL(name,num,size,desc) + ( (num) * (MEMP_SIZE + MEMP_ALIGN_SIZE(size) ) )
 #include "lwip/memp_std.h"
-  );
+  );*/
 
 static u8_t *memp_memory = 0;
 u8_t *mem_barrelfish_alloc(uint8_t buf_index, uint32_t size);
@@ -266,6 +272,71 @@ static void memp_overflow_init(void)
 
 static u16_t pbuf_pool_counter = 0;
 
+
+#if MEMP_OVERFLOW_CHECK
+#error   "Overflow checking is not supported at the moment, as it screws up "\
+         "our alignment assumptions"
+#endif
+
+/**
+ * Comparator function for ordering pools in descending order of their element
+ * sizes.
+ */
+static int memp_size_comp(const void *a, const void *b)
+{
+    const size_t *as = a, *bs = b;
+    if (memp_sizes[*bs] < memp_sizes[*as]) {
+        return -1;
+    } else if (memp_sizes[*bs] == memp_sizes[*as]) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+/** Initialize memp_sorted */
+static void initialize_memp_sorted(void)
+{
+    size_t i;
+    for (i = 0; i < MEMP_MAX; i++) {
+        memp_sorted[i] = i;
+    }
+    qsort(memp_sorted, MEMP_MAX, sizeof(size_t), memp_size_comp);
+}
+
+/**
+ * Try and figure out how much memory is needed for the pool. This is not
+ * completly trivial as we try to align the pool elements to their size.
+ *
+ * @param max_el_size Pointer to location where maximal element size should be
+ *                    stored (first element size).
+ */
+static size_t memp_memory_needed(void)
+{
+    size_t memp_memory_size = 0;
+    size_t cursz, curtotal, i, idx;
+    size_t maxsz = 1;
+
+    for (i = 0; i < MEMP_MAX; ++i) {
+        idx = memp_sorted[i];
+        cursz = memp_sizes[idx];
+        curtotal = memp_num[idx];
+        if (memp_memory_size % cursz != 0) {
+            curtotal += cursz - (memp_memory_size % cursz);
+        }
+        memp_memory_size += curtotal;
+
+        if (cursz > maxsz) {
+            maxsz = cursz;
+        }
+    }
+
+    // Add a little more so we can align the buffer
+    memp_memory_size += maxsz;
+
+    return memp_memory_size;
+}
+
 /**
  * Initialize this module.
  *
@@ -273,17 +344,20 @@ static u16_t pbuf_pool_counter = 0;
  */
 void memp_init(void)
 {
-
+    size_t memp_memory_size;
 //    printf("memp_init: allocating %zx memory for index %d\n", memp_memory_size,
 //           RX_BUFFER_ID);
 
-    memp_memory = NULL;
+    initialize_memp_sorted();
+    memp_memory_size = memp_memory_needed();
+
     memp_memory =
       mem_barrelfish_alloc(RX_BUFFER_ID, memp_memory_size);
     if (memp_memory == 0) {
         fprintf(stderr, "could not allocate memory");
         abort();
     }
+
 //    printf("memp_init: allocated memory is at VA [%p]\n", memp_memory);
 
     memp_initialize_pbuf_list();
@@ -293,10 +367,10 @@ void memp_init(void)
 
 void memp_initialize_pbuf_list(void)
 {
-
     assert(memp_memory != NULL);
     struct memp *memp;
-    u16_t i, j;
+    uintptr_t uimemp;
+    u16_t k, i, j;
     for (i = 0; i < MEMP_MAX; ++i) {
         MEMP_STATS_AVAIL(used, i, 0);
         MEMP_STATS_AVAIL(max, i, 0);
@@ -311,21 +385,24 @@ void memp_initialize_pbuf_list(void)
 */
     memp->next = NULL;
     /* for every pool: */
-    for (i = 0; i < MEMP_MAX; ++i) {
+    for (k = 0; k < MEMP_MAX; ++k) {
+        i = memp_sorted[k];
         memp_tab[i] = NULL;
-/*      printf("memp_init: %" PRIu16 "(%s) size %" PRIu16 " num %" PRIu16 "\n",
-               i, memp_desc[i], memp_sizes[i], memp_num[i]);
-*/
+
+
+        // Align memp to element size
+        uimemp = (uintptr_t) memp;
+        if (uimemp % memp_sizes[i] > 0) {
+            uimemp += memp_sizes[i] - (uimemp % memp_sizes[i]);
+        }
+        memp = (struct memp *) uimemp;
+
         /* create a linked list of memp elements */
         for (j = 0; j < memp_num[i]; ++j) {
             memp->next = NULL;
             memp->next = memp_tab[i];
             memp_tab[i] = memp;
-            memp = (struct memp *) ((u8_t *) memp + MEMP_SIZE + memp_sizes[i]
-#if MEMP_OVERFLOW_CHECK
-                                    + MEMP_SANITY_REGION_AFTER_ALIGNED
-#endif
-              );
+            memp = (struct memp *) ((u8_t *) memp + memp_sizes[i]);
         }
     }
     // Set how many free pbuf_pools are there
@@ -346,6 +423,188 @@ u16_t memp_pbuf_peek(void)
     return (memp_num[MEMP_MAX - 1] - pbuf_pool_counter);
 }
 
+#define INSTRUMENT_PBUF_CALLS  1
+
+#if INSTRUMENT_PBUF_CALLS
+void show_pbuf_free_stats(void);
+void show_pbuf_alloc_stats(void);
+#endif // INSTRUMENT_PBUF_CALLS
+
+
+extern uint64_t chained_pbuf_count;
+extern uint64_t outgoing_packet_count;
+extern uint64_t incoming_packet_count;
+extern uint64_t pbuf_free_tx_done_counter;
+extern uint64_t pbuf_free_incoming_counter;
+extern uint64_t pbuf_realloc_called;
+extern uint64_t pbuf_free_called_all;
+
+
+extern uint64_t pbuf_alloc_all;
+extern uint64_t pbuf_alloc_pool;
+extern uint64_t pbuf_alloc_ram;
+extern uint64_t pbuf_free_all;
+extern uint64_t pbuf_free_pool;
+extern uint64_t pbuf_free_ram;
+extern uint64_t pbuf_free_all_called;
+extern uint64_t pbuf_free_pool_called;
+extern uint64_t pbuf_free_ram_called;
+
+
+extern uint64_t pbuf_free_RX_packets;
+extern uint64_t pbuf_free_TX_packets;
+extern uint64_t pbuf_alloc_RX_packets;
+extern uint64_t pbuf_alloc_RX_packets_2;
+extern uint64_t pbuf_alloc_TX_packets;
+
+static int64_t pbuf_pool_inuse_13 = 0;
+static uint64_t memp_called_counter_13 = 0;
+static uint64_t free_counter_13 = 0;
+static uint64_t free_counter = 0;
+static uint64_t memp_called_counter = 0;
+
+
+static __attribute__((unused)) void print_stats(void)
+{
+    int64_t memp_diff = memp_called_counter_13 - free_counter_13;
+        // This should be same as pbuf_pool_inuse_13,
+
+    int64_t pbuf_pool_diff = pbuf_alloc_pool - pbuf_free_pool;
+    int64_t pbuf_ram_diff = pbuf_alloc_ram - pbuf_free_ram;
+    int64_t pbuf_diff_all = pbuf_alloc_all - pbuf_free_all;
+
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "memp_diff", memp_diff,
+        "memp_alloc", memp_called_counter_13,
+        "memp_free", free_counter_13);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "pbuf_pool_diff", pbuf_pool_diff,
+        "pbuf_alloc_pool", pbuf_alloc_pool,
+        "pbuf_free_pool", pbuf_free_pool);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "RX_pkt_diff", (pbuf_alloc_RX_packets - pbuf_free_RX_packets),
+        "pbuf_alloc_RX_packets", pbuf_alloc_RX_packets,
+        "pbuf_free_RX_packets", pbuf_free_RX_packets);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "RX_pkt_diff", (pbuf_alloc_RX_packets_2 - pbuf_free_RX_packets),
+        "pbuf_alloc_RX_packets_2", pbuf_alloc_RX_packets_2,
+        "pbuf_free_RX_packets", pbuf_free_RX_packets);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "pbuf_ram_diff", pbuf_ram_diff,
+        "pbuf_alloc_ram", pbuf_alloc_ram,
+        "pbuf_free_ram", pbuf_free_ram);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "TX_pkt_diff", (pbuf_alloc_TX_packets - pbuf_free_TX_packets),
+        "pbuf_alloc_TX_packets", pbuf_alloc_TX_packets,
+        "pbuf_free_TX_packets", pbuf_free_TX_packets);
+
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] - %-15s [%-8"PRIu64"]\n",
+        "pbuf_diff_all", pbuf_diff_all,
+        "pbuf_alloc_all", pbuf_alloc_all,
+        "pbuf_free_all", pbuf_free_all);
+
+    printf("assert memp_diff  [%"PRId64"] ==  pbuf_diff_all [%"PRId64"] =="
+            " [%"PRId64"] (pbuf_pool_diff [%"PRId64"]  + pbuf_ram_diff  [%"PRId64"] )\n",
+            memp_diff, pbuf_diff_all,  (pbuf_pool_diff  + pbuf_ram_diff),
+            pbuf_pool_diff, pbuf_ram_diff);
+
+    printf("%-15s [%-8"PRId64"] = %-15s [%-8"PRIu64"] + %-15s [%-8"PRIu64"] ==  [%-8"PRIu64"]\n",
+        "pbuf_free_all_called", pbuf_free_all_called,
+        "pbuf_free_pool_called", pbuf_free_pool_called,
+        "pbuf_free_ram_called", pbuf_free_ram_called,
+        pbuf_free_pool_called + pbuf_free_ram_called);
+
+    printf("packet_accounting: allocations (incoming packets [%"PRIu64 "] + "
+            "outgoing packets [%"PRIu64"] = [%"PRIu64"]) - "
+            "free_counter_13 [%"PRIu64"] = unaccounted[%"PRId64"] \n",
+            incoming_packet_count, outgoing_packet_count,
+            (incoming_packet_count + outgoing_packet_count),
+            free_counter_13,
+            (free_counter_13 -
+             (incoming_packet_count + outgoing_packet_count))
+          );
+
+    printf("packet_accounting: (outgoing pbufs[%"PRIu64 "], "
+            "chained pbufs[%"PRIu64"]\n", outgoing_packet_count,
+            chained_pbuf_count);
+
+#if INSTRUMENT_PBUF_CALLS
+    show_pbuf_free_stats();
+    show_pbuf_alloc_stats();
+#endif // INSTRUMENT_PBUF_CALLS
+
+    // compare pbuf_diff_all with memp_diff
+    return;
+}
+
+#if 0
+static __attribute__((unused)) void print_stats_old(void)
+{
+
+    printf("memp_malloc: failed type: inUse_13: %"PRId64
+            ", allocations_13: %"PRIu64", free_counter_13: %"PRIu64"\n",
+            pbuf_pool_inuse_13, memp_called_counter_13,
+            free_counter_13);
+
+    printf("pbuf_free: pbuf_realloc [%"PRIu64"], "
+            "(pbuf_alloc [%"PRIu64 "] - "
+            "pbuf_free [%"PRIu64", (ALL: %"PRIu64")] = unaccounted [%"PRId64"]\n",
+            pbuf_realloc_called, pbuf_alloc_called,
+            pbuf_free_called, (pbuf_free_called_all) ,
+            (pbuf_free_called - (pbuf_alloc_called ))
+          );
+
+
+
+    printf("pbuf_free_all:  (pbuf_alloc [%"PRIu64 "] + pbuf_realloc [%"PRIu64"] = "
+            " [%"PRIu64"] ) -  pbuf_free_all [%"PRIu64", (called: %"PRIu64")] "
+            "= unaccounted [%"PRId64"]\n",
+            pbuf_alloc_called, pbuf_realloc_called,
+            (pbuf_alloc_called + pbuf_realloc_called),
+            (pbuf_free_called_all), pbuf_free_called,
+            (pbuf_free_called_all -
+             (pbuf_alloc_called + pbuf_realloc_called))
+          );
+
+    printf("memp_malloc: allocations (incoming packets [%"PRIu64 "] + "
+            "outgoing packets [%"PRIu64"] = [%"PRIu64"]) - "
+            "allcations_13 [%"PRIu64"] = unaccounted[%"PRId64"] \n",
+            incoming_packet_count, outgoing_packet_count,
+            (incoming_packet_count + outgoing_packet_count),
+            memp_called_counter_13,
+            (memp_called_counter_13 -
+             (incoming_packet_count + outgoing_packet_count))
+          );
+
+
+    printf("memp_malloc: frees ( TX_done_frees [%"PRIu64 "] + "
+            "incoming packets_frees [%"PRIu64"] = [%"PRIu64"]) - "
+            "free_calls [%"PRIu64"] = unaccounted[%"PRId64"] \n",
+            pbuf_free_tx_done_counter,
+            pbuf_free_incoming_counter,
+            (pbuf_free_tx_done_counter + pbuf_free_incoming_counter),
+            free_counter_13,
+            (free_counter_13 -
+             (pbuf_free_tx_done_counter + pbuf_free_incoming_counter))
+          );
+
+#if INSTRUMENT_PBUF_CALLS
+    show_pbuf_free_stats();
+#endif // INSTRUMENT_PBUF_CALLS
+
+
+}
+
+#endif // 0
+
+
 /**
  * Get an element from a specific pool.
  *
@@ -359,13 +618,14 @@ u16_t memp_pbuf_peek(void)
  */
 void *
 #if !MEMP_OVERFLOW_CHECK
+
 memp_malloc(memp_t type)
 #else
 memp_malloc_fn(memp_t type, const char *file, const int line)
 #endif
 {
     struct memp *memp;
-
+    memp_called_counter++;
     SYS_ARCH_DECL_PROTECT(old_level);
 
     LWIP_ERROR("memp_malloc: type < MEMP_MAX", (type < MEMP_MAX), return NULL;
@@ -381,6 +641,11 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
     if (memp != NULL) {
         memp_tab[type] = memp->next;
         ++pbuf_pool_counter;
+        if (type == 13) {
+            memp_called_counter_13++;
+            pbuf_pool_inuse_13++;
+        }
+
 //    printf("memp_malloc: %s %"PRIu16" %"PRIu16" \n",
 //            disp_name(), type, pbuf_pool_counter);
 #if MEMP_OVERFLOW_CHECK
@@ -400,15 +665,26 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
     }
 
     SYS_ARCH_UNPROTECT(old_level);
-/*
+
     if (memp == NULL) {
 #if !MEMP_OVERFLOW_CHECK
-        printf("memp_malloc: %" PRIu16 "\n", type);
+        // NOTE: no prints here because its OK to fail in allocation.
+        // Higher levels will deal with failure.
+        // Use prints here only for debugging.
+        if (type == 13) {
+            printf("memp_malloc: failed type: %" PRIu16 ", count: %"PRIu16
+                ", memp_called: %"PRIu64", free_counter: %"PRIu64", currently free: %"PRIu16" \n",
+                type, pbuf_pool_counter, memp_called_counter, free_counter, memp_pbuf_peek() );
+
+           // print_stats_old();
+            print_stats();
+            //abort();
+        }
 #else
-        printf("memp_malloc_fn:\n");
+        printf("memp_malloc_fn failed :\n");
 #endif
     }
-*/
+
     return memp;
 }
 
@@ -418,7 +694,6 @@ memp_malloc_fn(memp_t type, const char *file, const int line)
  * @param type the pool where to put mem
  * @param mem the memp element to free
  */
-static uint64_t free_counter = 0;
 void memp_free(memp_t type, void *mem)
 {
     ++free_counter;
@@ -444,7 +719,7 @@ void memp_free(memp_t type, void *mem)
 #if MEMP_OVERFLOW_CHECK >= 2
     memp_overflow_check_all();
 #else
-    memp_overflow_check_element(memp, memp_sizes[type]);
+    memp_overflow_check_element(memp, Nemp_sizes[type]);
 #endif                          /* MEMP_OVERFLOW_CHECK >= 2 */
 #endif                          /* MEMP_OVERFLOW_CHECK */
 
@@ -454,6 +729,11 @@ void memp_free(memp_t type, void *mem)
     memp_tab[type] = memp;
     assert(pbuf_pool_counter > 0);
     --pbuf_pool_counter;
+
+    if (type == 13) {
+        --pbuf_pool_inuse_13;
+        ++free_counter_13;
+    }
 
 #if MEMP_SANITY_CHECK
     LWIP_ASSERT("memp sanity", memp_sanity());

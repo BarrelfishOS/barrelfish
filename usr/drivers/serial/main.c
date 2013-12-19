@@ -4,145 +4,91 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
-#include <if/serial_defs.h>
+#include <barrelfish/waitset.h>
 #include "serial.h"
+#include "serial_debug.h"
 
-#define DEFAULT_PORTBASE    0x3f8   //< COM1 port
-#define DEFAULT_IRQ         4       //< COM1 IRQ
+#define DEFAULT_PORTBASE            0x3f8   //< COM1 port
+#define DEFAULT_IRQ                 4       //< COM1 IRQ
 
-static const char *service_name = "serial"; // default service name
+static char *driver_name = "serial0";       // default driver name
 
-/// current consumer of input
-static struct serial_binding *terminal;
+static struct serial_buffer buffer;
 
-/// input buffers, double-buffered for safety with async IDC sends
-static struct {
-    char *buf;
-    size_t len;
-} inbuf[2];
-static int ninbuf;
-
-static void tx_handler(void *arg)
-{
-    struct serial_binding *b = arg;
-    errval_t err;
-
-    // free previously-sent buffer, if there is one
-    if (inbuf[!ninbuf].buf != NULL) {
-        free(inbuf[!ninbuf].buf);
-        inbuf[!ninbuf].buf = NULL;
-    }
-
-    // do we have something to send? if not, bail out
-    if (inbuf[ninbuf].buf == NULL) {
-        return;
-    }
-
-    // try to send
-    err = b->tx_vtbl.input(b, MKCONT(tx_handler,b), inbuf[ninbuf].buf,
-                           inbuf[ninbuf].len);
-    if (err_is_ok(err)) {
-        // swing buffer pointer
-        ninbuf = !ninbuf;
-        assert(inbuf[ninbuf].buf == NULL);
-    } else if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending serial input to terminal");
-    }
-}
+static serial_input_fn_t *consumer_serial_input = NULL;
 
 void serial_input(char *data, size_t length)
 {
-    if (inbuf[ninbuf].buf == NULL) { // allocate a buffer
-        inbuf[ninbuf].buf = malloc(length);
-        assert(inbuf[ninbuf].buf != NULL);
-        memcpy(inbuf[ninbuf].buf, data, length);
-        inbuf[ninbuf].len = length;
-    } else { // append new data to existing buffer
-        inbuf[ninbuf].buf = realloc(inbuf[ninbuf].buf, inbuf[ninbuf].len + length);
-        assert(inbuf[ninbuf].buf != NULL);
-        memcpy(inbuf[ninbuf].buf + inbuf[ninbuf].len, data, length);
-        inbuf[ninbuf].len += length;
-    }
-
-    // try to send something, if we're not already doing so
-    if (terminal != NULL && inbuf[!ninbuf].buf == NULL) {
-        tx_handler(terminal);
-    }
-}
-
-static void output_handler(struct serial_binding *b, char *c, size_t len)
-{
-    serial_write(c, len);
-    free(c);
-}
-
-static void associate_stdin_handler(struct serial_binding *b)
-{
-    terminal = b;
-    // try to send something, if we have it ready
-    if (inbuf[ninbuf].buf != NULL) {
-        tx_handler(b);
+    if (consumer_serial_input != NULL) {
+        // There is a consumer (client) attached to either the basic service
+        // interface or the terminal service interface. Direct input directly
+        // to service.
+        consumer_serial_input(data, length);
+    } else {
+        // No consumer (client) attached. Buffer input.
+        if (buffer.buf == NULL) {
+            // Allocate a new buffer.
+            buffer.buf = (char *) malloc(length);
+            assert(buffer.buf != NULL);
+            memcpy(buffer.buf, data, length);
+            buffer.len = length;
+        } else {
+            // Append new data to existing buffer.
+            buffer.buf = realloc(buffer.buf, buffer.len + length);
+            assert(buffer.buf != NULL);
+            memcpy(buffer.buf + buffer.len, data, length);
+            buffer.len += length;
+        }
     }
 }
 
-static struct serial_rx_vtbl serial_rx_vtbl = {
-    .output = output_handler,
-    .associate_stdin = associate_stdin_handler,
-};
-
-static errval_t connect_cb(void *st, struct serial_binding *b)
+void set_new_input_consumer(serial_input_fn_t fn)
 {
-    b->rx_vtbl = serial_rx_vtbl;
-    return SYS_ERR_OK;
-}
+    SERIAL_DEBUG("New input consumer set.\n");
+    consumer_serial_input = fn;
 
-static void export_cb(void *st, errval_t err, iref_t iref)
-{
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "serial export failed");
-        abort();
-    }
-
-    err = nameservice_register(service_name, iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "nameservice register failed");
-        abort();
+    // Send previously buffered input to newly attached consumer.
+    if (buffer.buf != NULL) {
+        SERIAL_DEBUG("Previously buffered input sent to newly attached "
+                     "consumer.\n");
+        consumer_serial_input(buffer.buf, buffer.len);
+        free(buffer.buf);
+        buffer.buf = NULL;
     }
 }
 
 void start_service(void)
 {
-    errval_t err;
-    err = serial_export(NULL, export_cb, connect_cb, get_default_waitset(),
-                        IDC_EXPORT_FLAGS_DEFAULT);
-    assert(err_is_ok(err));
+    SERIAL_DEBUG("Starting services.\n");
+    start_terminal_service(driver_name);
+    start_basic_service(driver_name);
 }
-
 
 int main(int argc, char *argv[])
 {
-    int r;
+    errval_t err;
 
     uint16_t portbase = DEFAULT_PORTBASE;
-    int irq = DEFAULT_IRQ;
+    uint8_t irq = DEFAULT_IRQ;
 
     // Parse args
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "portbase=", sizeof("portbase=") - 1) == 0) {
-            unsigned long x = strtoul(argv[i] + sizeof("portbase=") - 1, NULL, 0);
+            unsigned long x = strtoul(argv[i] + sizeof("portbase=") - 1, NULL,
+                                      0);
             if (x == 0 || x > 65535) {
                 fprintf(stderr, "Error: invalid portbase 0x%lx\n", x);
                 goto usage;
@@ -154,9 +100,9 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Error: invalid IRQ %lu\n", x);
                 goto usage;
             }
-            irq = (int) x;
+            irq = (uint8_t) x;
         } else if (strncmp(argv[i], "name=", sizeof("name=") - 1) == 0) {
-             service_name = argv[i] + sizeof("name=") - 1;
+             driver_name = argv[i] + sizeof("name=") - 1;
         } else {
             fprintf(stderr, "Error: unknown option %s\n", argv[i]);
             goto usage;
@@ -164,18 +110,29 @@ int main(int argc, char *argv[])
     }
 
     if (argc > 1) {
-        printf("%s: using port base 0x%x and IRQ %d. Registering as '%s'.\n",
-               argv[0], portbase, irq, service_name);
+        printf("%s: using port base 0x%x and IRQ %d. Using name '%s'.\n",
+               argv[0], portbase, irq, driver_name);
     }
 
     // Initialize serial driver
-    r = serial_init(portbase, irq);
-    assert(r == 0);
+    err = serial_init(portbase, irq);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error initializing serial driver.");
+    }
+
+    SERIAL_DEBUG("Serial driver initialized at port base 0x%x, IRQ %d. "
+                 "Using driver name %s.\n", portbase, irq, driver_name);
 
     // Stick around waiting for input
-    messages_handler_loop();
+    struct waitset *ws = get_default_waitset();
+    while (1) {
+        err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Error dispatching events.");
+        }
+    }
 
-    return 0;
+    return EXIT_SUCCESS;
 
 usage:
     fprintf(stderr, "Usage: %s [portbase=PORT] [irq=IRQ] [name=NAME]\n", argv[0]);

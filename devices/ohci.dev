@@ -22,6 +22,7 @@
 
 device ohci lsbfirst ( io base ) "OHCI USB controller" {
 
+/*
     //
     // Data structures
     //
@@ -119,7 +120,7 @@ device ohci lsbfirst ( io base ) "OHCI USB controller" {
 	cc_nac	= 0b1110	"Not accessed";
 	cc_nac_	= 0b1111	"Not accessed (alternate)";
     };
-
+*/
     //
     // Registers
     //

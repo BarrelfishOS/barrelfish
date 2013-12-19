@@ -23,6 +23,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/param.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <net_queue_manager/net_queue_manager.h>
@@ -30,6 +31,12 @@
 #include <if/net_soft_filters_defs.h>
 #include "queue_manager_local.h"
 #include "queue_manager_debug.h"
+
+#define RX_RING_MAXMEM 512*1024
+
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define TRACE_ONLY_SUB_NNET 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
 /* This is client_closure for filter management */
 struct client_closure_FM {
@@ -80,6 +87,13 @@ uint64_t total_rx_datasize = 0;
  *****************************************************************/
 
 static char sf_srv_name[MAX_NET_SERVICE_NAME_LEN];
+
+
+// rx ring
+static size_t   rx_ring_size = 0;
+static size_t   rx_ring_bufsz = 0;
+static uint64_t rx_ring_phys = 0;
+static void*    rx_ring_virt = NULL;
 
 // filters state:
 static struct filter *rx_filters;
@@ -944,9 +958,9 @@ struct filter *execute_filters(void *data, size_t len)
             // Currently we just take the most recently added filter as
             // reflected by the order in the list.
             ETHERSRV_DEBUG("##### Filter_id [%" PRIu64 "] type[%" PRIu64
-                           "] matched giving buff [%" PRIu64 "]..\n",
+                           "] matched giving buff [%" PRIu64 "].., len [%" PRIu64 "]\n",
                            head->filter_id, head->filter_type,
-                           head->buffer->buffer_id);
+                           head->buffer->buffer_id, len);
             return head;
         }
         head = head->next;
@@ -955,11 +969,79 @@ struct filter *execute_filters(void *data, size_t len)
     return NULL;
 }
 
+/** Return virtual address for RX buffer. */
+static void* rx_ring_buffer(void *opaque)
+{
+    size_t idx = (size_t) opaque;
 
-void init_soft_filters_service(char *service_name, uint64_t qid)
+/*    printf("rx_ring_size %zd, idx %zd rx_ring_bufsz %zd\n",
+            rx_ring_size, idx, rx_ring_bufsz);
+*/
+
+    assert(idx < rx_ring_size);
+
+    return ((void*) ((uintptr_t) rx_ring_virt + idx * rx_ring_bufsz));
+}
+
+/** Register a RX buffer with the driver. */
+static void rx_ring_register_buffer(void *opaque)
+{
+    size_t offset;
+    size_t idx = (size_t) opaque;
+
+    offset = idx * rx_ring_bufsz;
+    rx_register_buffer_fn_ptr(rx_ring_phys + offset,
+        ((void*) ((uintptr_t) rx_ring_virt + offset)), opaque);
+}
+
+static void init_rx_ring(size_t rx_bufsz)
+{
+    struct capref frame;
+    errval_t r;
+    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    size_t capacity = rx_get_free_slots_fn_ptr();
+    size_t size;
+    size_t i;
+
+    rx_ring_bufsz = rx_bufsz;
+    rx_ring_size = MIN(RX_RING_MAXMEM / rx_bufsz, capacity);
+    ETHERSRV_DEBUG("rx_ring_size %zd %zd\n", rx_ring_size, capacity);
+    // TODO: Should I round up here to page size?
+    size = rx_ring_size * rx_bufsz;
+
+    r = frame_alloc(&frame, size, NULL);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Allocating RX buffers for SW filtering failed!");
+    }
+
+    r = invoke_frame_identify(frame, &frameid);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Identifying RX frame for SW filtering failed!");
+    }
+    rx_ring_phys = frameid.base;
+
+    r = vspace_map_one_frame_attr(&rx_ring_virt, size, frame,
+            VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    if (!err_is_ok(r)) {
+        USER_PANIC("Mapping RX frame for SW filtering failed!");
+    }
+    memset(rx_ring_virt, 0, size);
+
+
+    // Add buffers to RX ring
+    for (i = 0; i < rx_ring_size; i++) {
+        rx_ring_register_buffer((void*) i);
+    }
+}
+
+void init_soft_filters_service(char *service_name, uint64_t qid,
+                               size_t rx_bufsz)
 {
     // FIXME: do I need separate sf_srv_name for ether_netd services
     // exporting ether_netd interface
+
+    // Initialize receive buffers
+    init_rx_ring(rx_bufsz);
 
     filter_id_counter = 0;
     snprintf(sf_srv_name, sizeof(sf_srv_name), "%s_%"PRIu64"",
@@ -987,6 +1069,7 @@ static bool handle_application_packet(void *packet, size_t len)
         // No matching filter
         return false;
     }
+
 
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVAPPFDONE,
@@ -1017,7 +1100,7 @@ static bool handle_application_packet(void *packet, size_t len)
         total_processing_time = 0;
         total_rx_datasize = 0;
         g_cl = cl;
-        trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_START, 0);
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_START, 0);
     }
 
     if (filter->paused) {
@@ -1060,17 +1143,7 @@ static bool handle_application_packet(void *packet, size_t len)
         if (cl->debug_state == 4) {
             ++cl->in_filter_matched_f;
             netbench_record_event_simple(bm, RE_DROPPED, ts);
-/*
-            printf("[%d]no space in userspace 2cp pkt buf [%" PRIu64 "]: "
-                    "phead[%u] ptail[%u] notify[%"PRIu64"], FM[%"PRIu64"]\n",
-                       disp_get_domain_id(),
-                       buffer->buffer_id, buffer->pbuf_head_rx,
-                       buffer->pbuf_tail_rx,
-                       cl->spp_ptr->notify_other_side, cl->in_filter_matched);
-            sp_print_metadata(cl->spp_ptr);
-*/
         }
-
 //      printf("A: Copy packet to userspace failed\n");
     }
     return true;
@@ -1103,10 +1176,11 @@ static bool handle_arp_packet(void *packet, size_t len)
 static bool handle_netd_packet(void *packet, size_t len)
 {
     if(waiting_for_netd()){
+//        ETHERSRV_DEBUG("waiting for netd\n");
     	return false;
     }
 
-//  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
+  ETHERSRV_DEBUG("No client wants, giving it to netd\n");
     struct buffer_descriptor *buffer = ((struct client_closure *)
               (netd[RECEIVE_CONNECTION]->st))->buffer_ptr;
 
@@ -1119,7 +1193,38 @@ static bool handle_netd_packet(void *packet, size_t len)
 
     struct net_queue_manager_binding *b = buffer->con;
     if(b == NULL) {
-//        printf("netd buffer->con not present\n");
+        printf("netd buffer->con not present\n");
+        return false;
+    }
+
+    struct client_closure *cl = (struct client_closure *)b->st;
+    assert(cl != NULL);
+    if (copy_packet_to_user(buffer, packet, len) == false) {
+        ETHERSRV_DEBUG("Copy packet to userspace failed\n");
+    }
+    ETHERSRV_DEBUG("packet handled by netd\n");
+    return true;
+} // end function: handle_netd_packet
+
+// give this packet to netd
+static bool handle_loopback_packet(void *packet, size_t len, void *opaque)
+{
+
+    ETHERSRV_DEBUG("sending up the loopback packet\n");
+
+    // FIXME: get the receiver buffer
+    struct buffer_descriptor *buffer = get_lo_receiver(opaque);
+
+//    ETHERSRV_DEBUG("sending packet up.\n");
+    /* copy the packet to userspace */
+    if(buffer == NULL) {
+        printf("no loopback receiver found\n");
+        return false;
+    }
+
+    struct net_queue_manager_binding *b = buffer->con;
+    if(b == NULL) {
+        printf("destination buffer->con not present\n");
         return false;
     }
 
@@ -1129,11 +1234,22 @@ static bool handle_netd_packet(void *packet, size_t len)
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
     }
     return true;
-} // end function: handle_netd_packet
+} // end function: handle_loopback_packet
 
 
-void process_received_packet(void *pkt_data, size_t pkt_len)
+void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
+        size_t pkt_len, bool is_last)
 {
+    void *pkt_data;
+
+    ETHERSRV_DEBUG("pkt_len %zd and rx_ring_bufsz %zd\n", pkt_len,
+            rx_ring_bufsz);
+    assert(pkt_len <= rx_ring_bufsz);
+    // FIXME: allow packets to be distributed over multiple buffers
+    assert(is_last);
+
+    // Get the virtual address for this buffer
+    pkt_data = rx_ring_buffer(opaque_rx);
 
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
@@ -1144,12 +1260,52 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
                     (uint32_t) ((uintptr_t) pkt_data));
 #endif // TRACE_ONLY_SUB_NNET
 
+    if (is_loopback_device) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque_tx)) {
+            goto out;
+        } else {
+            USER_PANIC("handle_loopback_packet failed");
+        }
+    }
+
+out:
+     rx_ring_register_buffer(opaque_rx);
+} // end function: sf_process_received_packet_lo
+
+
+void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last)
+{
+    void *pkt_data;
+
+    assert(pkt_len <= rx_ring_bufsz);
+    // FIXME: allow packets to be distributed over multiple buffers
+    assert(is_last);
+
+    // Get the virtual address for this buffer
+    pkt_data = rx_ring_buffer(opaque);
+
+
+#if TRACE_ETHERSRV_MODE
+    uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, pkt_location);
+#endif // TRACE_ETHERSRV_MODE
+#if TRACE_ONLY_SUB_NNET
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSEE,
+                    (uint32_t) ((uintptr_t) pkt_data));
+#endif // TRACE_ONLY_SUB_NNET
+
+    if (is_loopback_device) {
+        if(handle_loopback_packet(pkt_data, pkt_len, opaque)) {
+            goto out;
+        } else {
+            USER_PANIC("handle_loopback_packet failed");
+        }
+    }
 
     // check for fragmented packet
     if (handle_fragmented_packet(pkt_data, pkt_len)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
-//        printf("fragmented packet..\n");
-        return;
+        goto out;
     }
 
 #if TRACE_ONLY_SUB_NNET
@@ -1159,19 +1315,26 @@ void process_received_packet(void *pkt_data, size_t pkt_len)
 
     // check for application specific packet
     if (handle_application_packet(pkt_data, pkt_len)) {
-        ETHERSRV_DEBUG("application specific packet..\n");
-        return;
+        ETHERSRV_DEBUG
+        //printf
+            ("application specific packet.. len %"PRIu64"\n", pkt_len);
+        goto out;
     }
 
     // check for ARP packet
      if (handle_arp_packet(pkt_data, pkt_len)) {
-        ETHERSRV_DEBUG("ARP packet..\n");
-        return;
+        ETHERSRV_DEBUG
+            ("ARP packet..\n");
+        goto out;
     }
 
-     // last resort: send packet to netd
-     handle_netd_packet(pkt_data, pkt_len);
+    // last resort: send packet to netd
 
+    ETHERSRV_DEBUG("orphan packet, goes to netd..\n");
+    handle_netd_packet(pkt_data, pkt_len);
+
+out:
+     rx_ring_register_buffer(opaque);
 } // end function: process_received_packet
 
 

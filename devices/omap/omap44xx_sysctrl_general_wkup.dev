@@ -91,7 +91,7 @@ device omap44xx_sysctrl_general_wkup msbfirst ( addr base ) "" {
         emif1_sdram_type 3 rw "SDRAM type selection:Set to 0x4 for LPDDR2-S4. . Set to 0x5 for LPDDR2-S2. . All other values are reserved. .";
         emif1_sdram_ibank_pos 2 rw "Internal bank position:Set to 0x0 to assign internal bank address bits from the L3 address as shown in, 64-Byte Linear Read Starting at Address 0x0, and , 64-Byte Linear Read Starting at Address 0x8 (LPDDR2-S2), in , Memory Subsystem. . Set to 0x1, 0x2, or 0x3 to assign internal bank address bits from the L3 address as shown in, 64-Byte Linear Read Starting at Address 0x8 (LPDDR2-S4), , 64-Byte Linear Read Starting at Address 0x10, and , 64-Byte Linear Read Starting at Address 0x18, in , Memory Subsystem. .";
         _ 3 mbz;
-        emif1_sdram_ddr2_ddqs 1 rw "DDR2 differential DQS enable:Set to 0 for single ended DQS. . Set to 1 for differential DQS. . This bit is only for DDR2 mode; because the device supports LPDDR2, this bit is don’t care. .";
+        emif1_sdram_ddr2_ddqs 1 rw "DDR2 differential DQS enable:Set to 0 for single ended DQS. . Set to 1 for differential DQS. . This bit is only for DDR2 mode; because the device supports LPDDR2, this bit is don't care. .";
         _ 2 mbz;
         emif1_sdram_ddr_disable_dll 1 rw "Disable DLL select:Set to 0x0 to enable DLL inside SDRAM. . Set to 0x1 to disable DLL inside SDRAM. .";
         _ 4 mbz;
@@ -116,7 +116,7 @@ device omap44xx_sysctrl_general_wkup msbfirst ( addr base ) "" {
         emif2_sdram_type 3 rw "SDRAM type selection:Set to 0x4 for LPDDR2-S4. . Set to 0x5 for LPDDR2-S2. . All other values are reserved. .";
         emif2_sdram_ibank_pos 2 rw "Internal bank position:Set to 0x0 to assign internal bank address bits from the L3 address as shown in, 64-Byte Linear Read Starting at Address 0x0, and , 64-Byte Linear Read Starting at Address 0x8 (LPDDR2-S2), in , Memory Subsystem. . Set to 0x1, 0x2, or 0x3 to assign internal bank address bits from the L3 address as shown in, 64-Byte Linear Read Starting at Address 0x8 (LPDDR2-S4), , 64-Byte Linear Read Starting at Address 0x10, and , 64-Byte Linear Read Starting at Address 0x18, in , Memory Subsystem. .";
         _ 3 mbz;
-        emif2_sdram_ddr2_ddqs 1 rw "DDR2 differential DQS enable:Set to 0 for single ended DQS. . Set to 1 for differential DQS. . This bit is only for DDR2 mode; because the device supports LPDDR2, this bit is don’t care. .";
+        emif2_sdram_ddr2_ddqs 1 rw "DDR2 differential DQS enable:Set to 0 for single ended DQS. . Set to 1 for differential DQS. . This bit is only for DDR2 mode; because the device supports LPDDR2, this bit is don't care. .";
         _ 2 mbz;
         emif2_sdram_ddr_disable_dll 1 rw "Disable DLL select:Set to 0x0 to enable DLL inside SDRAM. . Set to 0x1 to disable DLL inside SDRAM. .";
         _ 4 mbz;

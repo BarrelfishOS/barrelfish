@@ -135,7 +135,6 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
         pbuf_ref(tmpp);
         ++numpbuf;
     }
-
 #if ETH_PAD_SIZE
     pbuf_header(p, -ETH_PAD_SIZE);      /* drop the padding word */
 #endif
@@ -155,10 +154,12 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     return ERR_IF;
 }
 
+uint64_t pbuf_free_tx_done_counter = 0;
 static void bfeth_freeing_handler(struct pbuf *p)
 {
     assert(p != 0);
-    pbuf_free(p);
+    uint8_t freed_pbufs = pbuf_free(p);
+    pbuf_free_tx_done_counter += freed_pbufs;
 }
 
 typedef void (*packetfilter_func_t) (struct pbuf *, struct netif *, uint64_t);
@@ -170,6 +171,9 @@ void bfeth_register_packetfilter(packetfilter_func_t filter)
     packetfilter = filter;
 }
 
+
+
+uint64_t pbuf_free_incoming_counter = 0;
 /**
  * This function should be called when a packet is ready to be read
  * from the interface. It uses the function low_level_input() that
@@ -208,47 +212,75 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
     p->tot_len = packet_len;
     ethhdr = p->payload;
 
-    /* points to packet payload, which starts with an Ethernet header */
+    struct pbuf *replaced_pbuf = get_pbuf_for_packet();
+    if (replaced_pbuf == NULL) {
+       printf("%s:No free pbufs for replacement.  Assuming that packet is dropped\n", disp_name());
+        USER_PANIC("ERROR: No more free pbufs, aborting\n");
+        abort();
+        replaced_pbuf = p;
+//        printf("pbuf stats: total len = %"PRIu16", len = %"PRIu16", buf len = %"PRIu16", ref count = %"PRIu16", \n",
+//                p->tot_len, p->len, p->buff_len, p->ref);
+        replaced_pbuf->tot_len =  replaced_pbuf->buff_len;
+        replaced_pbuf->len =  replaced_pbuf->buff_len;
+        // Maybe I need to reset some pointers here!!
+    } else { // Now doing  packet processing
 
-    switch (htons(ethhdr->type)) {
+        /* points to packet payload, which starts with an Ethernet header */
+
+        switch (htons(ethhdr->type)) {
             /* IP or ARP packet? */
-        case ETHTYPE_IP:
-        case ETHTYPE_ARP:
+            case ETHTYPE_IP:
+            case ETHTYPE_ARP:
 #if PPPOE_SUPPORT
-            /* PPPoE packet? */
-        case ETHTYPE_PPPOEDISC:
-        case ETHTYPE_PPPOE:
+                /* PPPoE packet? */
+            case ETHTYPE_PPPOEDISC:
+            case ETHTYPE_PPPOE:
 #endif                          /* PPPOE_SUPPORT */
-            LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: consuming the packet\n"));
-            if (packetfilter != NULL) {
-                packetfilter(p, netif, pbuf_id);
-                return;
-            } else {
-                /* full packet send to tcpip_thread to process */
-                assert(netif->input != NULL);
-                if (netif->input(p, netif) != ERR_OK) {
-                    LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: IP input error\n"));
-                    pbuf_free(p);
-                    p = NULL;
+                LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: consuming the packet\n"));
+                if (packetfilter != NULL) {
+                    packetfilter(p, netif, pbuf_id);
+                    return;
+                } else {
+                    /* full packet send to tcpip_thread to process */
+                    assert(netif->input != NULL);
+                    if (netif->input(p, netif) != ERR_OK) {
+                        LWIP_DEBUGF(NETIF_DEBUG, ("bfeth_input: IP input error\n"));
+                        ++pbuf_free_incoming_counter;
+                        pbuf_free(p);
+                        p = NULL;
+                    }
                 }
-            }
-            break;
+                break;
 
-        default:
-            LWIP_DEBUGF(NETIF_DEBUG,
+            default:
+                LWIP_DEBUGF(NETIF_DEBUG,
                         ("unknown type %x!!!!!\n", htons(ethhdr->type)));
-            pbuf_free(p);
-            p = NULL;
-            break;
+                ++pbuf_free_incoming_counter;
+                pbuf_free(p);
+
+                p = NULL;
+                break;
+        }
+
     }
+
+    // Check if there is anything else that we should before sending back the
+    // ack that we consumed packet.
+
+    perform_lwip_work();
 
     //now we have consumed the preregistered pbuf containing a received packet
     //which was processed in this function. Therefore we have to register a new
     //free buffer for receiving packets. We can reuse the odl buffer's index
     //and the corresponding data structures (i.e. array entries)
-
     uint64_t ts = rdtsc();
-    mem_barrelfish_replace_pbuf(pbuf_id);
+    errval_t err = mem_barrelfish_replace_pbuf(replaced_pbuf);
+    if (err != SYS_ERR_OK) {
+        printf("Can't replace received pbuf in RX ring\n");
+        pbuf_free(replaced_pbuf);
+        USER_PANIC("Can't replace received pbuf in RX ring\n");
+    }
+
     netbench_record_event_simple(nb, RE_PBUF_REPLACE, ts);
 }
 

@@ -22,6 +22,7 @@
 #include <arm_hal.h>
 #include <cp15.h>
 #include <io.h>
+#include <gic.h>
 
 //hardcoded bc gem5 doesn't set board id in ID_Register
 #define VEXPRESS_ELT_BOARD_ID		0x8e0
@@ -48,116 +49,34 @@ static uint32_t tsc_hz = 1000000000;
 // Interrupt controller
 //
 
-#define PIC_BASE    0x2C000000
-#define DIST_OFFSET 0x1000
-#define CPU_OFFSET  0x2000
+// RealView.py l342
+#define GIC_BASE    0x2C000000 // l342
+#define DIST_OFFSET 0x1000 // l342
+#define CPU_OFFSET  0x2000 // l342
 
-pl130_gic_t gic;
-static pl130_gic_ICDICTR_t gic_config;
-
-uint32_t it_num_lines;
-static uint8_t cpu_number;
-static uint8_t sec_extn_implemented;
-
-void gic_init(void)
+void gic_map_and_init(pl130_gic_t *gic)
 {
-    lvaddr_t gic_base = paging_map_device(PIC_BASE, ARM_L1_SECTION_BYTES);
-    pl130_gic_initialize(&gic, (mackerel_addr_t)gic_base + DIST_OFFSET,
+    lvaddr_t gic_base = paging_map_device(GIC_BASE, ARM_L1_SECTION_BYTES);
+    pl130_gic_initialize(gic, (mackerel_addr_t)gic_base + DIST_OFFSET,
             (mackerel_addr_t)gic_base + CPU_OFFSET);
-
-    //read GIC configuration
-    gic_config = pl130_gic_ICDICTR_rd(&gic);
-    it_num_lines = pl130_gic_ICDICTR_it_lines_num_extract(gic_config);
-    cpu_number = pl130_gic_ICDICTR_cpu_number_extract(gic_config);
-    sec_extn_implemented = pl130_gic_ICDICTR_TZ_extract(gic_config);
-
-    gic_cpu_interface_init();
-
-    if(hal_cpu_is_bsp())
-    {
-        gic_distributor_init();
-    }
-}
-
-void gic_distributor_init(void)
-{
-    //gic_disable_all_irqs();
-
-    //enable interrupt forwarding from distributor to cpu interface
-    pl130_gic_ICDDCR_wr(&gic, 0x1);
-}
-
-//config cpu interface
-void gic_cpu_interface_init(void)
-{
-    //set priority mask of cpu interface, currently set to lowest priority
-    //to accept all interrupts
-    pl130_gic_ICCPMR_wr(&gic, 0xff);
-
-    //set binary point to define split of group- and subpriority
-    //currently we allow for 8 subpriorities
-    pl130_gic_ICCBPR_wr(&gic, 0x2);
-}
-
-//enable interrupt forwarding to processor
-void gic_cpu_interface_enable(void)
-{
-    pl130_gic_ICCICR_wr(&gic, 0x1);
-}
-
-//disable interrupt forwarding to processor
-void gic_cpu_interface_disable(void)
-{
-    pl130_gic_ICCICR_wr(&gic, 0x0);
-}
-
-uint32_t gic_get_active_irq(void)
-{
-	uint32_t regval = pl130_gic_ICCIAR_rd(&gic);
-
-	return regval;
-}
-
-void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
-{
-	uint32_t regval = (cpumask << 16) | irq;
-	pl130_gic_ICDSGIR_rawwr(&gic, regval);
-}
-
-/*
-uint32_t gic_get_active_irq(void)
-{
-    uint32_t status = arm_icp_pic0_PIC_IRQ_STATUS_rd_raw(&pic);
-    uint32_t irq;
-
-    for (irq = 0; irq < 32; irq++) {
-        if (0 != (status & (1u << irq))) {
-            return irq;
-        }
-    }
-    return ~0ul;
-}
-*/
-
-void gic_ack_irq(uint32_t irq)
-{
-    pl130_gic_ICCEOIR_rawwr(&gic, irq);
 }
 
 //
 // Kernel timer and tsc
 //
 
-#define PIT_BASE 	0x1C100000
-#define PIT0_OFFSET	0x10000
-#define PIT_DIFF	0x10000
 
-#define PIT0_IRQ	34
-#define PIT1_IRQ	35
+#define PIT_BASE    0x1C100000 // RealView.py l344
+#define PIT0_OFFSET 0x10000 // RealView.py l344f
 
-#define PIT0_ID		0
-#define PIT1_ID		1
+// difference between two PITs
+#define PIT_DIFF    0x10000 // from gem5/src/dev/arm/RealView.py l344 f
 
+#define PIT0_IRQ    34 // from gem5/src/dev/arm/RealView.py l344
+#define PIT1_IRQ    35 // from gem5/src/dev/arm/RealView.py l345
+
+#define PIT0_ID     0
+#define PIT1_ID     1
 
 static sp804_pit_t pit0;
 static sp804_pit_t pit1;
@@ -358,10 +277,25 @@ int scu_get_core_count(void)
 // Sys Flag Register
 //
 
-#define SYSFLAGSET_BASE		0x1C010030
+// RealView.py: realview_io.pio_addr = 0x1C010000 l341
+// gem5script.py: flags_addr is set to +0x30 in l141
+#define SYSFLAGSET_BASE         0x1C000000 // needs to be section aligned
+#define SYSFLAGSET_OFFSET       0x00010030
 
-lpaddr_t sysflagset_base = SYSFLAGSET_BASE;
+static lvaddr_t sysflagset_base = 0;
 void write_sysflags_reg(uint32_t regval)
 {
-	writel(regval, (char *)SYSFLAGSET_BASE);
+    if (sysflagset_base == 0) {
+
+        printf("SYSFLAGSET_BASE is at 0x%x\n", SYSFLAGSET_BASE);
+        sysflagset_base = paging_map_device(SYSFLAGSET_BASE,
+                                            ARM_L1_SECTION_BYTES);
+
+        printf(".. mapped to 0x%"PRIxLVADDR"\n", sysflagset_base);
+    }
+
+    lvaddr_t sysflags = sysflagset_base + SYSFLAGSET_OFFSET;
+    printf(".. using address 0x%p\n", sysflags);
+
+    writel(regval, (char *) sysflags);
 }

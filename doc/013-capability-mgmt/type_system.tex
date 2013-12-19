@@ -47,7 +47,7 @@ supported types in Barrelfish.
   representations: in the memory of each core on which it may appear,
   and in a canonical serialised representation used for transferring
   it in a message between cores. These are specified as
-  Hamlet\cite{hamlet} data types.
+  Hamlet\cite{dagand:fof:plos09} data types.
 
 \item[Invocations] Most capability types support one or more
   type-specific operations through the use of the invoke system call.
@@ -326,7 +326,7 @@ region of kernel-accessible memory.
 
 \subsection{Dispatcher}
 This capability type refers to the kernel object associated with a
-user-level dispatcher (see \ref{sec:dispatch}).
+user-level dispatcher.
 
 \begin{description}
 \item[Origin] Retyping from RAM capabilities.
@@ -412,7 +412,7 @@ is specified changed by minting an endpoint to another endpoint.
   
 \item[Invocation] Any invocation of an endpoint capability causes the
   entire message to be delivered to the dispatcher to which the
-  endpoint refers (see \ref{sec:IDC}).
+  endpoint refers.
   \end{description}
 
 \subsection{VNode}
@@ -421,7 +421,7 @@ manage a domain's virtual address space.  Frame and device frame
 capabilities can be copied or minted into them or deleted from them by
 invoking a CNode.  The architecture may impose limitations on the
 capabilities that may be copied into a VNode, or may allow extra
-attributes to be set when minting; see \ref{apx:arch_specific}.
+attributes to be set when minting.
 
 \begin{description}
 \item[Origin] Retyping from RAM type capabilities.
@@ -616,8 +616,8 @@ device interrupts.
 \end{invocation}
 This invocation sets the user-level handler endpoint that will receive
 a message when the given interrupt occurs.  While a handler is set,
-interrupts will be delivered as IDC messages, as described in
-\ref{sec:interrupts}.
+interrupts will be delivered as IDC messages.
+
 
 \begin{invocation}{Delete}
   \arg IRQ number

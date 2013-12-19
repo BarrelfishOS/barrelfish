@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2010, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,98 +7,90 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-/* This interface describes the services provided 
- * by usb_manager. Primary responsibilities include
- * device enumeration, state saving, pipe managment.
- *
- * July, 2009. 
- */
 
-interface usb_manager "USB manager" {
+interface usb_manager "USB Manager Interface" {
+    
+    /* transfer setup parameters, keep in sync with struct usb_transfer_setup */
     typedef struct {
-        uint8 dev;
-        uint8 ep_number;
-        uint8 ep_address;
-        uint8 ep_dir;
-        uint8 ep_type;
-        uint16 ep_psz;
-        uint8 multi;
-        int valid;
-    } pipe;
-    typedef struct {
-        uint8 bLength;
-        uint8 bDescriptorType;
-        uint16 wTotalLength;
-        uint8 bNumInterfaces;
-        uint8 bConfigurationValue;
-        uint8 iConfiguration;
-        uint8 bmAttributes;
-        uint8 bMaxPower;
-    } usb_config;
+ uint32 max_bytes;             ///< maximum bytes to to transfer
+    uint32 max_frames;            ///< the maximum bumber of frames
+    uint32 interval;              ///< the interval for interrupt / isochr
+    uint32 timeout;               ///< period till the transfer timeouts
+    uint16 flags;    ///< some specific transfer flags
+    uint8 type;                   ///< the type of the usb pipe
+    uint8 direction;              ///< the direction of the data transfer
+    uint8 endpoint;               ///< the associated endpoint of the transfer
+    uint8 iface;              ///< the itnerface to use
+    } setup_param;
+    
+    /* 
+     * ----------------------------------------------------------------------
+     * connecting to the USB manager
+     * ---------------------------------------------------------------------- 
+     */
+    
+    rpc connect(in iref driver_iref, in uint16 init_config, out uint32 ret_error, out uint8 ret_desc[length]);
 
-    typedef struct
-    {
-        uint8 bLength;
-        uint8 bDescriptorType;
-        uint8 bInterfaceNumber;
-        uint8 bAlternateSetting;
-        uint8 bNumEndpoints;
-        uint8 bInterfaceClass;
-        uint8 bInterfaceSubClass;
-        uint8 bInterfaceProtocol;
-        uint8 iInterface;
-    } usb_intf;
+    rpc device_disconnect_notify();
+    
 
-
-
-    /* Interface for EHCI Host Controller */
-    // A new deive is detected on port, resp = enumeration done
-    call device_connect(int port);
-    response notify_conn(int resp);
-
-    // Device detached, resp = OK, all stuff cleaned 
-    call device_disconnect(int port);
-    response notify_disconn(int ret);
-
-    /* Interface for USB client driver */
-    // Is particular type of pipe available, resp = {YES, NO}, address 
-    call pipe_req(uint8 dev, uint8 type, uint8 dir);
-    response pipe_resp(uint8 resp, pipe p);
-
-    /* Get current enabled configuration */
-    call get_curr_config(uint8 dev);
-    response get_curr_config_resp(int status, usb_config config);
-
-    /* Get total number of configurations */
-    call get_num_config(uint8 dev);
-    response get_num_config_resp(uint8 num);
-
-    /* Get configuration of index num */
-    call get_config(uint8 dev, uint8 num);
-    response get_config_resp(int status, usb_config config);
-
-    /* Set configuration of index num */
-    call set_config(uint8 dev, uint8 num);
-    response set_config_resp(int status);
-
-
- /*-----------------------------------------*/
-
-    /* Get current enabled interface */
-    call get_curr_intf(uint8 dev);
-    response get_curr_intf_resp(int status, usb_intf intf);
-
-    /* Get total number of interfaces */
-    call get_num_intf(uint8 dev);
-    response get_num_intf_resp(uint8 num);
-
-    /* Get interface of index num */
-    call get_intf(uint8 dev, uint8 num);
-    response get_intf_resp(int status, usb_intf intf);
-
-    /* Set interface of index num */
-    call set_intf(uint8 dev, uint8 num);
-    response set_intf_resp(int status);
-
-
+    /* 
+     * ----------------------------------------------------------------------
+     * Request handling
+     * ---------------------------------------------------------------------- 
+     */
+     
+    rpc request_read(in uint8 request[req_length], 
+                            out uint8 data[data_length], 
+                            out uint32 ret_status);
+                            
+    rpc request_write(in uint8 request[req_length], 
+                            in uint8 data[data_length],
+                            out uint32 ret_status);
+                            
+    rpc request(in uint8 request[req_length], out uint32 ret_status);
+    
+    
+    /* 
+     * ----------------------------------------------------------------------
+     * transfer management
+     * ---------------------------------------------------------------------- 
+     */
+        
+    rpc transfer_setup(in uint8 type, in setup_param params, 
+                       out uint32 ret_error, out uint32 ret_tid);  
+    
+    rpc transfer_unsetup(in uint32 tid, out uint32 ret_error);
+    
+    rpc transfer_start(in uint32 tid, out uint32 ret_error);
+    
+    rpc transfer_stop(in uint32 tid, out uint32 ret_error);
+      
+    rpc transfer_status(in uint32 tid, out uint32 ret_error, 
+                        out uint32 ret_actlen, out uint32 ret_length, 
+                        out uint32 ret_actframes, out uint32 ret_numframes);
+    
+    rpc transfer_state(in uint32 tid, out uint32 ret_error, out uint32 ret_state);
+    
+    rpc transfer_clear_stall(in uint32 tid, out uint32 ret_error);
+    
+    rpc transfer_done_notify(out uint32 tid, out uint32 error, out uint8 data[length]);
+    
+    /* 
+     * ----------------------------------------------------------------------
+     * device management
+     * ---------------------------------------------------------------------- 
+     */
+     
+     rpc device_get_speed(out uint8 ret_speed);
+     
+     rpc device_get_state(out uint8 ret_state);
+     
+     rpc device_suspend(out uint32 ret_error);
+     
+     rpc device_resume(out uint32 ret_error);
+     
+     rpc device_powersave(in uint8 powerstate, out uint32 ret_error);
+     
+     
 };

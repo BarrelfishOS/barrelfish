@@ -23,16 +23,23 @@
 
 #include <contmng/contmng.h>
 
-/* QUEUE_DEBUG enables the debug statements */
+/* QUEUE_DEBUG enables the debug statements
+ * NOTE: This option does not compile for all architecture/machine due to
+ * dependance on disp_name and dispatch.h
+ */
 //#define QUEUE_DEBUG 1
 
 static void cont_queue_send_next_message(struct cont_queue *q);
 
+
 #ifdef QUEUE_DEBUG
+#include <dispatch.h>
 static void qprintf_mac(struct cont_queue *q, char *msg)
 {
     if (q->debug) {
-        printf("CQ: %s [%d] [%d] qqqqqq\n", msg, q->head, q->tail);
+        printf("CQ: %s [%d:%.*s] [%d] [%d] [%d] qqqqqq\n",
+                msg, disp_get_core_id(),
+                64, q->name, q->head, q->tail, q->running);
     }
 }
 #define qprintf(x...) qprintf_mac(x)
@@ -41,10 +48,10 @@ static void qprintf_mac(struct cont_queue *q, char *msg)
 #define qprintf(x...) ((void)0)
 #endif /* QUEUE_DEBUG */
 
+
 //****************************************************************************
 /************** Generic continuation queue implementation *******************/
 /* WARN: use only when your responses contains only integers */
-
 
 
 /* allocates the memory for continuation queue
@@ -59,14 +66,33 @@ struct cont_queue *create_cont_q(char *name)
         /* FIXME: introduce new error and return the error */
     }
     memset(ptr, 0, sizeof(struct cont_queue));
+    if (name != NULL) {
+        strncpy(ptr->name, name, 63);
+    }
     return ptr;
 }/* end function: create_cont_q */
+
+
+
+// Tells how many slots are actually used
+int queue_used_slots(struct cont_queue *q)
+{
+    uint64_t nhead = q->head % MAX_QUEUE_SIZE;
+    uint64_t ntail = q->tail % MAX_QUEUE_SIZE;
+    if ( nhead >= ntail) {
+        return (nhead - ntail);
+    } else {
+        return (ntail + (MAX_QUEUE_SIZE - nhead));
+    }
+} // end function: queue_used_slots
+
 
 
 /* Tells if queue has enough space to add more events,
  * or if the producer should pause for a while */
 int queue_free_slots(struct cont_queue *q)
 {
+
     if (((q->head + 1) % MAX_QUEUE_SIZE) > q->tail) {
         return (MAX_QUEUE_SIZE -
                     (((q->head + 1) % MAX_QUEUE_SIZE) - q->tail)
@@ -77,26 +103,51 @@ int queue_free_slots(struct cont_queue *q)
 } // end function
 
 
+int is_enough_space_in_queue(struct cont_queue *q)
+{
+    if (queue_free_slots(q) > (MAX_QUEUE_SIZE/10)) {
+        return true;
+    } else {
+        return false;
+    }
+} // end function: is_enough_space_in_queue
+
+
+bool can_enqueue_cont_q(struct cont_queue *q)
+{
+    if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail) {
+        return false;
+    } else {
+        return true;
+    }
+} // end function: can_enqueue_cont_q
+
 /* Adds element to the queue */
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
 {
 
-    qprintf(q, "enqueue started");
     if (((q->head + 1) % MAX_QUEUE_SIZE) == q->tail)
     {
+        qprintf(q, "ERROR: Queue full");
         printf("ERROR:  Queue [%s] is full\n", q->name);
-/*
+        printf("ERROR: %.*s\n", 64, q->name);
+        printf("ERROR: CQ: head [%d], tail [%d] qqqqqq\n", q->head, q->tail);
+        /* __builtin_return_address is not supported in ARM toolchain */
+
+#ifdef QUEUE_DEBUG
         printf("callstack: %p %p %p %p\n",
 	     __builtin_return_address(0),
 	     __builtin_return_address(1),
 	     __builtin_return_address(2),
 	     __builtin_return_address(3));
-*/
+#endif // QUEUE_DEBUG
+
         // Following two lines are there to force the seg-fault of the domain
         // as abort was showing some strange behaviour
-        int *p = NULL;
-        *p = 43;
+//        int *p = NULL;
+//        *p = 43;
         abort();
+//        return CONT_ERR_NO_MORE_SLOTS;
     }
 
     /* Copying the structure */
@@ -111,11 +162,10 @@ void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry)
     }
 
     q->head = (q->head + 1) % MAX_QUEUE_SIZE;
-    qprintf(q, "enqueued");
 
     // If no continuations are running, then execute this one directly
-//    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
-    if (q->running == 0) {
+    if (((q->tail + 1) % MAX_QUEUE_SIZE) == q->head) {
+//    if (q->running == 0) {
         q->running = 1;
         qprintf(q, "directly-sending");
         cont_queue_send_next_message(q);
@@ -144,11 +194,11 @@ void cont_queue_callback(void *arg)
             complicated? huh.. :-P */
 void cont_queue_send_next_message(struct cont_queue *q)
 {
-    qprintf(q, "sending-msg");
+//    qprintf(q, "sending-msg");
 
     if(q->head == q->tail){
-        qprintf(q, "Queue-empty-Recursion-End!!");
         q->running = 0;
+        qprintf(q, "Queue-empty-Recursion-End!!");
         return;
     }
     errval_t err = q->qelist[q->tail].handler(q->qelist[q->tail]);
@@ -160,17 +210,20 @@ void cont_queue_send_next_message(struct cont_queue *q)
             USER_PANIC_ERR(err, "cont_queue_send_next_message ");
         }
     }
+    qprintf(q, "sending-msg done: ");
 } /* end function: cont_queue_send_next_message */
 
 void cont_queue_show_queue(struct cont_queue *q)
 {
-/*
-    int i = 0;
-    int idx = 0;
+
     int len = 0;
     len = q->head - q->tail;
-    printf("Showing the cont queue status for queue[%s]\n", q->name);
-    printf("queue len [%d]==> head [%d] - tail [%d]\n", len, q->head, q->tail);
+    printf("queue [%s] len [%d]==> head [%d] - tail [%d]\n",
+            q->name, len, q->head, q->tail);
+
+    /*
+    int i = 0;
+    int idx = 0;
     idx = q->tail;
     while (idx != q->head){
         printf("elem %d: [%s], state %u\n", idx, q->qelist[idx].fname,
@@ -188,7 +241,8 @@ void cont_queue_show_queue(struct cont_queue *q)
         printf("elem %d: [%s], state %d\n", idx, q->qelist[idx].fname,
                 q->qelist[idx].history);
     }
-*/
+    */
+
 } // end function: cont_queue_show_queue
 
 

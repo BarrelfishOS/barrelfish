@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -455,20 +455,14 @@ static inline errval_t invoke_kernel_get_core_id(struct capref kern_cap,
     return sysret.error;
 }
 
-static inline errval_t invoke_kernel_dump_ptables(struct capref kern_cap,
-                                                  struct capref dispcap)
+static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(kern_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kern_cap) >> (CPTR_BITS - invoke_bits);
+    uint8_t invoke_bits = get_cap_valid_bits(dispcap);
+    capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
 
-    capaddr_t dispcaddr = get_cap_addr(dispcap);
-
-    struct sysret sysret =
-        syscall3((invoke_bits << 16) | (KernelCmd_DumpPTables << 8) | SYSCALL_INVOKE,
-             invoke_cptr, dispcaddr);
-    return sysret.error;
+    return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpPTables << 8) |
+            SYSCALL_INVOKE, invoke_cptr).error;
 }
-
 
 static inline errval_t
 invoke_dispatcher_properties(
@@ -490,6 +484,15 @@ invoke_dispatcher_properties(
                     invoke_cptr,
                     (type << 16) | weight,
                     deadline, wcet, period, release).error;
+}
+
+static inline errval_t
+invoke_idcap_identify(
+    struct capref idcap,
+    idcap_id_t *id
+                      )
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 #endif

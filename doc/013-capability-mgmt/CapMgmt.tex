@@ -14,7 +14,7 @@
 \usepackage{color,listings,ctable}
 
 \title{Capability Management in Barrelfish}   % title of report
-\author{Akhilesh Singhania, Ihor Kuz}	% author
+\author{Akhilesh Singhania, Ihor Kuz, Mark Nevill}	% author
 \tnnumber{013}  % give the number of the tech report
 \tnkey{Capability Management} % Short title, will appear in footer
 
@@ -57,6 +57,9 @@
 %
 \begin{versionhistory}
 \vhEntry{1.0}{08.03.2011}{AS}{Initial version}
+\vhEntry{2.0}{27.1.2012}{MN}{New capability system design}
+\vhEntry{2.1}{8.7.2013}{SK}{Updates}
+\vhEntry{2.2}{1.12.2013}{TR}{Fixed missing references/citations}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -167,7 +170,7 @@ highlights issues not yet covered in this document.
 This chapter will cover how capabilities are stored and what happens
 on capability invocation.
 
-\section{Storage}
+\section{Storage}\label{sec:cspace}
 For security reasons, capabilities are stored in kernel-space and
 users are given pointers to them. Each capability is stored in two
 separate databases:
@@ -185,7 +188,7 @@ separate databases:
 	operations.
 \end{itemize}
 
-\section{Capability invocation}
+\section{Capability invocation}\label{sec:sys_invoke}
 When a dispatcher invokes a capability, it passes the kernel an
 address of the capability in the CSpace it wishes to invoke. The
 kernel locates the capability starting from the dispatcher's root

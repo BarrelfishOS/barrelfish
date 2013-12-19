@@ -22,7 +22,7 @@
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
                                     ],
-                  flounderBindings = [ "trivfs", "bcache", "ahci_mgmt" ],
+                  flounderBindings = [ "trivfs", "bcache", "ahci_mgmt", "ata_rw28" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
                                             ("bcache", ["rpcclient"]),
                                             ("ahci_mgmt", ["rpcclient"]),

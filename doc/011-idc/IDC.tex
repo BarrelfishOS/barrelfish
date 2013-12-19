@@ -977,12 +977,114 @@ The process of indirect transmission of capabilities is as follows:
 \section{LMP: local (intra-core) message passing}
 \label{sec:lmp_icd}
 
+IDC between dispatchers on the same core uses LMP (local message passing).  LMP
+uses endpoint capabilities for communication.  In this case the channel struct
+contains a reference to a remote endpoint cap (for the sender) and a local
+endpoint cap (for the receiver). It also contains a reference to an endpoint
+structure. This is a struct contained in the receiver's dispatcher and refers to
+a buffer that is used to store incoming messages. The dispatcher can have
+multiple such endpoint buffers.
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=0.5\columnwidth]{LMP.pdf}
+  \end{center}
+  \caption{Local Message Passing}
+  \label{fig:lmp}
+\end{figure}
+
+
+The sender's remote endpoint cap is derived from the receiver's dispatcher cap,
+and contains a pointer back to the DCB and an offset into the associated
+endpoint buffer.
+
+When a message is sent, the sender invokes the remote endpoint cap with the
+message to send. This causes the kernel to copy the message into the associated
+endpoint buffer and then make the receiver dispatcher runnable (which will cause
+it's \texttt{run()} upcall to be invoked when it is scheduled). The run function
+then finds the endpoint with a message in it and invokes the trigger on the
+appropriate waitset. The channel's event handler is responsible for getting the
+rest of the message out of the buffer and invoking appropriate user-defined
+handlers.
+
+Sender: \texttt{lmp\_deliver\_payload (dispatch.c)}
+
+Receiver: \texttt{disp\_run (dispatch.c)}
+          \texttt{lmp\_endpoints\_poll\_disabled (lmp\_endpoints.c)}
+
+Event handler: \texttt{myappif\_lmp\_rx\_handler (myappif\_flounder\_bindings.c)}
+
+\textbf{Binding:} The process of binding for LMP involves the sender creating
+the endpoint capability and appropriate buffers, then invoking
+\texttt{lmp\_bind\_request} on the monitor. The monitor sends the request to the
+receiver, where it sets up its own endpoint cap and buffer and binding struct,
+and returns the cap through the monitor to the sender.
+
+\textbf{Passing capabilities - LMP:} When a capability is sent in a message, then
+the kernel must additionally copy the cap to the receiver's cspace (a slot for
+this is setup in the endpoint). The receive handler must ensure that it copies
+the cap out of this cspace slot in order to free it for future transfers.
+
+
+
 \subsection{Messaging with the local Monitor}
 \label{sec:monitor}
 
 
 \section{UMP: user-level message passing with coherent shared memory}
 \label{sec:ump_icd}
+
+IDC between dispatchers on different cores uses UMP (user-level message passing)
+(on x86).
+
+\begin{figure}
+  \begin{center}
+    \includegraphics[width=0.5\columnwidth]{UMP.pdf}
+  \end{center}
+  \caption{User-level Message Passing}
+  \label{fig:ump}
+\end{figure}
+
+UMP uses shared memory and polling and inter-processor interrupts for
+communication. The shared memory is split into a send buffer and a receive
+buffer (Figure~\ref{fig:ump}), with each entry in the buffers being the size of
+a cache line. The sender writes into the send buffer, and the receiver reads
+from it. The receiver polls to determine whether new messages have been
+received.
+
+The binding struct for a UMP channel contains UMP specific channel structs
+(nested within various included structs) which contain a reference to the shared
+memory, as well as a counter specifying the current read or write position.
+
+In order to detect whether the write position has been reached when reading, the
+channel also contains an epoch flag. Every buffer entry has an epoch bit that is
+flipped every time a new entry is added. When reading a new entry the channels's
+epoch is compared to the epoch bit of the buffer slot to be read. If it is the
+same, then the entry is valid, if it is different then it is not valid. The
+channel's epoch flag is flipped every time the counter wraps around.
+
+The sender also has to know whether it is going to run up against the
+receivers's read position. Rather than flip epoch bits on a read (in order to
+avoid bouncing cache lines the buffer is kept write-only for the sender and
+read-only for the receiver) each message has a sequence id. When replying to the
+sender the receiver sends its latest read sequence id. The sender then knows how
+many messages are outstanding and together with knowledge of the buffer size,
+can avoid overwriting messages that haven't been read yet.
+
+\textbf{Binding:} The UMP binding process involves the source creating the
+channel buffers, then sending a cap to the buffer along with a bind request
+through LMP to the monitor. The monitor serialises the cap and sends it through
+to the destination monitor. The destination monitor recreates the cap, and sends
+it on to the receiver. This sets up its channel struct accordingly and finalises
+the binding.
+
+\textbf{Passing capabilities - UMP:} UMP messages containing capabilities must
+be sent in two phases. The non-cap message is sent as normal. The capability
+must be sent through the monitor as only the monitor is able to invoke a syscall
+to serialise and deserialise a capability. The sender sends the capability with
+a request to the monitor, the monitor serialises it and sends it to the
+destination monitor, where it is deserialised, and send through LMP to the
+destination.
 
 \section{RCK: message passing on the SCC}
 \label{sec:rck_icd}

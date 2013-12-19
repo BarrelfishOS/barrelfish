@@ -27,5 +27,7 @@ struct buffer_desc *mem_barrelfish_get_buffer_desc(void *p);
 
 //void mem_barrelfish_pbuf_init(void);
 struct pbuf *mem_barrelfish_get_pbuf(uint64_t pbuf_id);
-struct pbuf *mem_barrelfish_replace_pbuf(uint64_t idx);
+uint64_t mem_barrelfish_put_pbuf(struct pbuf *pbuf);
+errval_t mem_barrelfish_replace_pbuf(struct pbuf *p);
+struct pbuf * get_pbuf_for_packet(void);
 #endif // MEM_BARRELFISH_H_

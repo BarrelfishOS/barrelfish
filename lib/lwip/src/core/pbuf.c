@@ -61,6 +61,8 @@
  *
  */
 
+#include <barrelfish/barrelfish.h>
+
 #include "lwip/opt.h"
 
 #include "lwip/stats.h"
@@ -76,7 +78,15 @@
 
 #include <string.h>
 #include <assert.h>
-#include <barrelfish/barrelfish.h>
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
+
+/* Enable tracing based on the global settings. */
+#if CONFIG_TRACE && NETWORK_STACK_TRACE
+#define LWIP_TRACE_MODE 1
+#endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 
 #define SIZEOF_STRUCT_PBUF        LWIP_MEM_ALIGN_SIZE(sizeof(struct pbuf))
@@ -87,11 +97,163 @@
 #if TCP_QUEUE_OOSEQ
 #define ALLOC_POOL_PBUF(p) do { (p) = alloc_pool_pbuf(); } while (0)
 #else
-#define ALLOC_POOL_PBUF(p) do { (p) = memp_malloc(MEMP_PBUF_POOL); } while (0)
+#define ALLOC_POOL_PBUF(p) do { (p) = NULL } while (0)
 #endif
 
 
+uint64_t pbuf_free_RX_packets = 0;
+uint64_t pbuf_free_TX_packets = 0;
+uint64_t pbuf_alloc_RX_packets = 0;
+uint64_t pbuf_alloc_TX_packets = 0;
+
+
+#define INSTRUMENT_PBUF_CALLS  1
+
+#if INSTRUMENT_PBUF_CALLS
+
+#define MAX_INSTRUMENTED_CALLS  256
+#define MAX_INSTRUMENTED_STATS 8
+
+struct func_call_list {
+    char        func_name[256];
+    uint64_t    stats[MAX_INSTRUMENTED_STATS];
+};
+
+typedef struct func_call_list * func_call_list_t;
+
+struct func_call_list pbuf_free_calls[MAX_INSTRUMENTED_CALLS];
+struct func_call_list pbuf_alloc_calls[MAX_INSTRUMENTED_CALLS];
+
+static void show_list(func_call_list_t list_name)
+{
+    int i = 0, j = 0, k = 0;
+
+    for (i = 0; i < MAX_INSTRUMENTED_CALLS; ++i) {
+        if (i == 0 || list_name[i].stats[0] == 1 ) {
+            printf("%4d %-35s ",  i, (i == 0)? "TOTAL" :list_name[i].func_name);
+
+            for (j = 1; j < MAX_INSTRUMENTED_STATS; ++j  ) {
+                bool print_value = false;
+                if (list_name[i].stats[j] == 0) {
+                    for (k = j; k < MAX_INSTRUMENTED_STATS; ++k) {
+                        if (list_name[i].stats[k] != 0) {
+                            print_value = true;
+                            break;
+                        }
+                    }
+                } else {
+                    print_value = true;
+                }
+                if (print_value) {
+                    printf(" %7"PRIu64" ", list_name[i].stats[j]);
+                }
+            }
+            printf("\n");
+        }
+    }
+}
+
+void show_pbuf_alloc_stats(void);
+void show_pbuf_alloc_stats(void)
+{
+    func_call_list_t list_name = pbuf_alloc_calls;
+    pbuf_alloc_TX_packets = list_name[0].stats[3];
+    pbuf_alloc_RX_packets = list_name[0].stats[4];
+    printf("\n\n");
+    printf("%4s %-35s " " %7s "  " %7s " " %7s " " %7s \n" ,
+            "idx", "pbuf_alloc_stats", "pbfref", "RAM_T", "POOL_S", "RAM_S");
+
+    show_list(list_name);
+    printf("\n\n");
+}
+
+void show_pbuf_free_stats(void);
+void show_pbuf_free_stats(void)
+{
+    func_call_list_t list_name = pbuf_free_calls;
+    pbuf_free_TX_packets = list_name[0].stats[3];
+    pbuf_free_RX_packets = list_name[0].stats[4];
+    printf("\n\n");
+    printf("%4s %-35s " " %7s "  " %7s " " %7s " " %7s \n" ,
+            "idx", "pbuf_free stats", "POOL_T", "RAM_T", "POOL_S", "RAM_S");
+    show_list(list_name);
+    printf("\n\n");
+}
+
+static int locate_key(func_call_list_t list_name, char *key)
+{
+    int i = 0;
+    for (i = 1; i < MAX_INSTRUMENTED_CALLS; ++i) {
+        if (list_name[i].stats[0] != 1) {
+            continue;
+        }
+        if (strncmp(list_name[i].func_name, key, 256) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int add_key(func_call_list_t list_name, char *key)
+{
+    int i = 0;
+    for (i = 1; i < MAX_INSTRUMENTED_CALLS; ++i) {
+        if (list_name[i].stats[0] != 1) {
+            list_name[i].stats[0] = 1;
+            strncpy(list_name[i].func_name, key, 256);
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void increment_stats(func_call_list_t list_name, int idx, int type)
+{
+    assert(type < MAX_INSTRUMENTED_STATS);
+    list_name[idx].stats[type] =  list_name[idx].stats[type] + 1;
+
+    // Increasing total sum
+    list_name[0].stats[type] =  list_name[0].stats[type] + 1;
+}
+
+
+
+static void increment_calls(func_call_list_t list_name, int type,
+        const char *func_name, int line_no)
+{
+    char key[256];
+    snprintf(key, sizeof(key), "%s:%d", func_name, line_no);
+    int idx = locate_key(list_name, key);
+    if (idx == -1) {
+        idx = add_key(list_name, key);
+    }
+    if (idx == -1) {
+        USER_PANIC("Function call tracking table is full!, dropping key %s\n", key);
+        abort();
+    }
+    increment_stats(list_name, idx, type);
+}
+
+#endif // INSTRUMENT_PBUF_CALLS
+
+
+
+
 #if TCP_QUEUE_OOSEQ
+
+static bool try_free_segs(void)
+{
+    struct tcp_pcb *pcb;
+    for (pcb = tcp_active_pcbs; NULL != pcb; pcb = pcb->next) {
+        if (NULL != pcb->ooseq) {
+            tcp_segs_free(pcb->ooseq);
+            pcb->ooseq = NULL;
+            return true;
+        }
+    }
+    return false;
+}
+
 /**
  * Attempt to reclaim some memory from queued out-of-sequence TCP segments
  * if we run out of pool pbufs. It's better to give priority to new packets
@@ -101,20 +263,49 @@
  */
 static struct pbuf *alloc_pool_pbuf(void)
 {
-    struct tcp_pcb *pcb;
-    struct pbuf *p;
+    struct pbuf *p = NULL;
+    void *payload = NULL;
+    bool try_again = false;
+    bool alloc_failed = false;
 
-  retry:
-    p = memp_malloc(MEMP_PBUF_POOL);
-    if (NULL == p) {
-        for (pcb = tcp_active_pcbs; NULL != pcb; pcb = pcb->next) {
-            if (NULL != pcb->ooseq) {
-                tcp_segs_free(pcb->ooseq);
-                pcb->ooseq = NULL;
-                goto retry;
-            }
+
+    do {
+        if (payload == NULL) {
+            payload = memp_malloc(MEMP_PBUF_POOL);
+            assert((uintptr_t) payload % PBUF_POOL_BUFSIZE == 0);
         }
+        if (p == NULL) {
+            p = memp_malloc(MEMP_PBUF);
+        }
+
+        alloc_failed = (p == NULL || payload == NULL);
+
+        if (alloc_failed) {
+            if (p == NULL) {
+                printf("p = memp_malloc(MEMP_PBUF) failed\n");
+            }
+
+            if (payload == NULL) {
+                printf("payload = memp_malloc(MEMP_PBUF_POOL) failed\n");
+            }
+            try_again = try_free_segs();
+        }
+    } while (alloc_failed && try_again);
+
+    if (alloc_failed) {
+        if (p != NULL) {
+            memp_free(MEMP_PBUF, p);
+            p = NULL;
+        }
+        if (payload != NULL) {
+            memp_free(MEMP_PBUF_POOL, payload);
+        }
+        //USER_PANIC("alloc_pool_pbuf: failed!");
+        printf("alloc_pool_pbuf: failed!\n");
+        return NULL;
     }
+
+    p->payload = payload;
     return p;
 }
 #endif                          /* TCP_QUEUE_OOSEQ */
@@ -128,6 +319,19 @@ uint16_t free_pbuf_pool_count(void)
 
 #define PBUF_FIXED_SIZE		1
 /* FIXME: get rid of PBUF_FIXED_SIZE */
+
+uint64_t pbuf_alloc_all = 0;
+uint64_t pbuf_alloc_pool = 0;
+uint64_t pbuf_alloc_ram = 0;
+uint64_t pbuf_free_all = 0;
+uint64_t pbuf_free_pool = 0;
+uint64_t pbuf_free_ram = 0;
+uint64_t pbuf_free_all_called = 0;
+uint64_t pbuf_free_pool_called = 0;
+uint64_t pbuf_free_ram_called = 0;
+
+
+uint64_t pbuf_realloc_called = 0;
 
 /**
  * Allocates a pbuf of the given type (possibly a chain for PBUF_POOL type).
@@ -160,15 +364,17 @@ uint16_t free_pbuf_pool_count(void)
  * @return the allocated pbuf. If multiple pbufs where allocated, this
  * is the first pbuf of a pbuf chain.
  */
-struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
+//struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
+struct pbuf *pbuf_alloc_tagged(pbuf_layer layer, u16_t length, pbuf_type type,
+       const char *func_name, int line_no)
 {
-
     struct pbuf *p, *q, *r;
     u16_t offset;
     s32_t rem_len;              /* remaining length */
 
     LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3,
                 ("pbuf_alloc(length=%" U16_F ")\n", length));
+
 #ifdef PBUF_FIXED_SIZE
     //  printf("pbuf_alloc(length=%"U16_F")\n", length);
     assert(length <= PBUF_PKT_SIZE);    /* It is typically equal to 1514, but adding extra for safety */
@@ -204,15 +410,18 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
             LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3,
                         ("pbuf_alloc: allocated pbuf %p\n", (void *) p));
             if (p == NULL) {
+
                 printf("\npbuf_alloc(): no more memory available.\n");
                 return NULL;
             }
+#if INSTRUMENT_PBUF_CALLS
+            increment_calls(pbuf_alloc_calls, 3, func_name, line_no);
+#endif  // INSTRUMENT_PBUF_CALLS
             p->type = type;
             p->next = NULL;
             /* make the payload pointer point 'offset' bytes into pbuf data memory */
             p->payload =
-              LWIP_MEM_ALIGN((void *) ((u8_t *) p +
-                                       (SIZEOF_STRUCT_PBUF + offset)));
+              LWIP_MEM_ALIGN((void *) ((u8_t *) p->payload + offset));
             LWIP_ASSERT("pbuf_alloc: pbuf p->payload properly aligned",
                         ((mem_ptr_t) p->payload % MEM_ALIGNMENT) == 0);
             /* the total length of the pbuf chain is the requested size */
@@ -225,21 +434,23 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
               LWIP_MIN(length,
                        PBUF_POOL_BUFSIZE_ALIGNED - LWIP_MEM_ALIGN_SIZE(offset));
             LWIP_ASSERT("check p->payload + p->len does not overflow pbuf",
-                        ((u8_t *) p->payload + p->len <=
-                         (u8_t *) p + SIZEOF_STRUCT_PBUF +
-                         PBUF_POOL_BUFSIZE_ALIGNED));
+                        (offset + p->len <= PBUF_POOL_BUFSIZE_ALIGNED));
             LWIP_ASSERT("PBUF_POOL_BUFSIZE must be bigger than MEM_ALIGNMENT",
                         (PBUF_POOL_BUFSIZE_ALIGNED -
                          LWIP_MEM_ALIGN_SIZE(offset)) > 0);
             /* set reference count (needed here in case we fail) */
             p->ref = 1;
 
+            // stats about how many successfull allocs have happened
+            ++pbuf_alloc_pool;
+            ++pbuf_alloc_all;
             /* now allocate the tail of the pbuf chain */
 
             /* remember first pbuf for linkage in next iteration */
             r = p;
             /* remaining length to be allocated */
             rem_len = length - p->len;
+            assert(rem_len <= 0); // making sure that there is no fragmentation
             LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3,
                         ("pbuf_alloc: remaining length to be allocated %" PRIu32
                          "\n", rem_len));
@@ -266,7 +477,6 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
                 q->tot_len = (u16_t) rem_len;
                 /* this pbuf length is pool size, unless smaller sized tail */
                 q->len = LWIP_MIN((u16_t) rem_len, PBUF_POOL_BUFSIZE_ALIGNED);
-                q->payload = (void *) ((u8_t *) q + SIZEOF_STRUCT_PBUF);
                 LWIP_ASSERT("pbuf_alloc: pbuf q->payload properly aligned",
                             ((mem_ptr_t) q->payload % MEM_ALIGNMENT) == 0);
                 LWIP_ASSERT("check p->payload + p->len does not overflow pbuf",
@@ -286,10 +496,8 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
         case PBUF_RAM:
             /* If pbuf is to be allocated in RAM, allocate memory for it. */
 #ifdef PBUF_FIXED_SIZE
-            p =
-              (struct pbuf *)
-              mem_malloc(LWIP_MEM_ALIGN_SIZE(SIZEOF_STRUCT_PBUF + offset) +
-                         LWIP_MEM_ALIGN_SIZE(PBUF_PKT_SIZE));
+            assert(length + offset <= PBUF_POOL_BUFSIZE_ALIGNED);
+            p = alloc_pool_pbuf();
 #else                           // PBUF_FIXED_SIZE
             p =
               (struct pbuf *)
@@ -299,10 +507,13 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
             if (p == NULL) {
                 return NULL;
             }
+
+#if INSTRUMENT_PBUF_CALLS
+            increment_calls(pbuf_alloc_calls, 4, func_name, line_no);
+
+#endif // INSTRUMENT_PBUF_CALLS
             /* Set up internal structure of the pbuf. */
-            p->payload =
-              LWIP_MEM_ALIGN((void *) ((u8_t *) p + SIZEOF_STRUCT_PBUF +
-                                       offset));
+            p->payload = LWIP_MEM_ALIGN((u8_t *) p->payload + offset);
             p->len = p->tot_len = length;
             p->next = NULL;
             p->type = type;
@@ -311,6 +522,9 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 #else
             p->buff_len = length;
 #endif                          // PBUF_FIXED_SIZE
+
+            ++pbuf_alloc_ram;
+            ++pbuf_alloc_all;
 
             LWIP_ASSERT("pbuf_alloc: pbuf->payload properly aligned",
                         ((mem_ptr_t) p->payload % MEM_ALIGNMENT) == 0);
@@ -344,6 +558,10 @@ struct pbuf *pbuf_alloc(pbuf_layer layer, u16_t length, pbuf_type type)
 /*
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc(length=%"U16_F") == %p\n", length, (void *)p));
 */
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPPBA2, (uint32_t)(uintptr_t)p);
+#endif // LWIP_TRACE_MODE
+
     return p;
 }
 
@@ -422,7 +640,7 @@ void pbuf_realloc(struct pbuf *p, u16_t new_len)
     }
     /* q is last packet in chain */
     q->next = NULL;
-
+    ++pbuf_realloc_called;
 }
 
 /**
@@ -496,7 +714,9 @@ u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
         /* set new payload pointer */
         p->payload = (u8_t *) p->payload - header_size_increment;
         /* boundary check fails? */
-        if ((u8_t *) p->payload < (u8_t *) p + SIZEOF_STRUCT_PBUF) {
+        if ((uintptr_t) payload / PBUF_POOL_BUFSIZE !=
+            ((uintptr_t) p->payload) / PBUF_POOL_BUFSIZE)
+        {
             LWIP_DEBUGF(PBUF_DEBUG | 2,
                         ("pbuf_header: failed as %p < %p (not enough space for new header size)\n",
                          (void *) p->payload, (void *) (p + 1)));
@@ -565,12 +785,15 @@ u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
  * 1->1->1 becomes .......
  *
  */
-u8_t pbuf_free(struct pbuf * p)
+//u8_t pbuf_free(struct pbuf * p)
+u8_t pbuf_free_tagged(struct pbuf * p, const char *func_name, int line_no)
 {
-
     u16_t type;
     struct pbuf *q;
     u8_t count;
+#if LWIP_TRACE_MODE
+    struct pbuf *p_bak = p;
+#endif // LWIP_TRACE_MODE
 
     if (p == NULL) {
         LWIP_ASSERT("p != NULL", p != NULL);
@@ -587,6 +810,19 @@ u8_t pbuf_free(struct pbuf * p)
     LWIP_ASSERT("pbuf_free: sane type",
                 p->type == PBUF_RAM || p->type == PBUF_ROM ||
                 p->type == PBUF_REF || p->type == PBUF_POOL);
+
+#if INSTRUMENT_PBUF_CALLS
+    if (p->type == PBUF_POOL) {
+            ++pbuf_free_pool_called;
+            ++pbuf_free_all_called;
+        increment_calls(pbuf_free_calls, 1, func_name, line_no);
+    }
+    if (p->type == PBUF_RAM) {
+            ++pbuf_free_ram_called;
+            ++pbuf_free_all_called;
+        increment_calls(pbuf_free_calls, 2, func_name, line_no);
+    }
+#endif // INSTRUMENT_PBUF_CALLS
 
     count = 0;
     /* de-allocate all consecutive pbufs from the head of the chain that
@@ -631,17 +867,36 @@ u8_t pbuf_free(struct pbuf * p)
             type = p->type;
 //            printf("pbuf_free: deallocating %p\n", (void *) p);
             /* is this a pbuf from the pool? */
-            if (type == PBUF_POOL) {
+            if (type == PBUF_POOL || type == PBUF_RAM) {
 //                printf("pbuf_free: %p: PBUF_POOL\n", (void *) p);
-                memp_free(MEMP_PBUF_POOL, p);
+                // Is a bit hacky, but it should work as long as we allocate
+                // objects aligned to their size, is necessary because of the
+                // possible offset of the payload.
+//                assert(type == PBUF_POOL);
+                uintptr_t pl = (uintptr_t) p->payload;
+                pl -= pl % PBUF_POOL_BUFSIZE;
+
+                memp_free(MEMP_PBUF_POOL, (void*) pl);
+                memp_free(MEMP_PBUF, p);
+                ++pbuf_free_all;
+#if INSTRUMENT_PBUF_CALLS
+                if (p->type == PBUF_POOL) {
+                    ++pbuf_free_pool;
+                    increment_calls(pbuf_free_calls, 3, func_name, line_no);
+                }
+                if (p->type == PBUF_RAM) {
+                    ++pbuf_free_ram;
+                    increment_calls(pbuf_free_calls, 4, func_name, line_no);
+                }
+#endif // INSTRUMENT_PBUF_CALLS
+
                 /* is this a ROM or RAM referencing pbuf? */
             } else if (type == PBUF_ROM || type == PBUF_REF) {
 //                printf("pbuf_free: %p: PBUF_ROM || PBUF_REF\n", (void *) p);
                 memp_free(MEMP_PBUF, p);
                 /* type == PBUF_RAM */
             } else {
-//                printf("pbuf_free: %p: other\n", (void *) p);
-                mem_free(p);
+                assert(!"Should never be executed");
             }
             count++;
             /* proceed to next pbuf */
@@ -661,6 +916,11 @@ u8_t pbuf_free(struct pbuf * p)
     PERF_STOP("pbuf_free");
     /* return number of de-allocated pbufs */
 //    printf("pbuf_free: finished with [%p] and count %"PRIu8"\n", p, count);
+
+#if LWIP_TRACE_MODE
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPPBF2, (uint32_t)(uintptr_t)p_bak);
+#endif // LWIP_TRACE_MODE
+
     return count;
 }
 
@@ -689,13 +949,17 @@ u8_t pbuf_clen(struct pbuf * p)
  * @param p pbuf to increase reference counter of
  *
  */
-void pbuf_ref(struct pbuf *p)
+//void pbuf_ref(struct pbuf *p)
+void pbuf_ref_tagged(struct pbuf *p, const char *func_name, int line_no)
 {
     SYS_ARCH_DECL_PROTECT(old_level);
     /* pbuf given? */
     if (p != NULL) {
         SYS_ARCH_PROTECT(old_level);
         ++(p->ref);
+#if INSTRUMENT_PBUF_CALLS
+        increment_calls(pbuf_alloc_calls, 1, func_name, line_no);
+#endif // INSTRUMENT_PBUF_CALLS
         SYS_ARCH_UNPROTECT(old_level);
     }
 }

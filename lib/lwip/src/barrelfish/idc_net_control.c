@@ -17,6 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <net_interfaces/net_interfaces.h>
 #include <trace/trace.h>
 #include <netif/etharp.h>
 #include <netif/bfeth.h>
@@ -31,6 +32,10 @@
 #include "idc_barrelfish.h"
 
 #include "lwip_barrelfish_debug.h"
+
+// Can be used
+#define DISABLE_PORTMNG 1
+
 
 /*
  * If we are the owner of lwip stack, then we dont need rpc
@@ -51,7 +56,6 @@ static void (*close_port) (uint16_t port, net_ports_port_type_t type) = NULL;
 static struct net_ports_rpc_client net_ports_rpc;
 static bool net_ports_service_connected = false;
 
-static net_ports_qid_t qid_delete = 0;
 static net_ports_appid_t appid_delete = 0;
 
 static struct netif netif;
@@ -61,7 +65,7 @@ void thread_debug_regs(struct thread *t);
 
 // Variables shared with idc_barrelfish.c
 extern struct waitset *lwip_waitset;
-extern struct net_queue_manager_binding *driver_connection[2];
+extern uint64_t lwip_queue_id;
 
 /**
  * \brief handle msgs on the tx, rx and then the rest connections in that priority
@@ -243,7 +247,7 @@ void idc_get_ip(void)
     netif_set_default(&netif);
     netif_set_up(&netif);
 
-    LWIPBF_DEBUG("client: owner has the IP address %d.%d.%d.%d\n",
+    LWIPBF_DEBUG("client1: owner has the IP address %d.%d.%d.%d\n",
                  ip4_addr1(&netif.ip_addr), ip4_addr2(&netif.ip_addr),
                  ip4_addr3(&netif.ip_addr), ip4_addr4(&netif.ip_addr));
 }
@@ -266,7 +270,7 @@ static err_t idc_close_port(uint16_t port, int port_type)
     errval_t err, msgerr;
 
     err = net_ports_rpc.vtbl.close_port(&net_ports_rpc, port_type, port,
-                                  appid_delete, qid_delete,
+                                  appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -306,14 +310,10 @@ static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, port_type, port,
                                   /* buffer for RX */
-                                  ((struct client_closure_NC *)
-                                   driver_connection[RECEIVE_CONNECTION]->st)->
-                                  buff_ptr->buffer_id,
+                                   get_rx_bufferid(),
                                   /* buffer for TX */
-                                  ((struct client_closure_NC *)
-                                   driver_connection[TRANSMIT_CONNECTION]->st)->
-                                  buff_ptr->buffer_id,
-                                  appid_delete, qid_delete,
+                                   get_tx_bufferid(),
+                                  appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -345,26 +345,28 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
        purpose */
     errval_t err, msgerr;
 
-    LWIPBF_DEBUG("idc_new_port: called\n");
+    //printf
+    LWIPBF_DEBUG
+        ("idc_new_port: ################################### called\n");
 
+    // antoinek: FIXME: Need to figure out how to deal with this
+    //assert(!"NYI");
 
     /* getting the proper buffer id's here */
     err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, port_type,
                                  /* buffer for RX */
-                                 ((struct client_closure_NC *)
-                                  driver_connection[RECEIVE_CONNECTION]->st)->
-                                 buff_ptr->buffer_id,
+                                 get_rx_bufferid(),
                                  /* buffer for TX */
-                                 ((struct client_closure_NC *)
-                                  driver_connection[TRANSMIT_CONNECTION]->st)->
-                                 buff_ptr->buffer_id,
-                                 appid_delete, qid_delete,
+                                 get_tx_bufferid(),
+                                 appid_delete, lwip_queue_id,
                                  &msgerr, port_no);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
     }
 
-    LWIPBF_DEBUG("idc_new_tcp_port: terminated\n");
+    //printf
+    LWIPBF_DEBUG
+        ("idc_new_port: ################################### terminated\n");
     return msgerr;
 }
 
@@ -412,13 +414,10 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
       net_ports_rpc.vtbl.redirect(&net_ports_rpc, port_type, local_ip->addr, local_port,
                              remote_ip->addr, remote_port,
                              /* buffer for RX */
-                             ((struct client_closure_NC *)
-                              driver_connection[RECEIVE_CONNECTION]->st)->
-                             buff_ptr->buffer_id,
+                             get_rx_bufferid(),
                              /* buffer for TX */
-                             ((struct client_closure_NC *)
-                              driver_connection[TRANSMIT_CONNECTION]->st)->
-                             buff_ptr->buffer_id, &msgerr);
+                             get_tx_bufferid(),
+                             &msgerr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending redirect");
     }

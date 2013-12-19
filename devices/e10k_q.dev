@@ -45,9 +45,12 @@ device e10k_q lsbfirst () "Intel 82599 10 GbE Controller Queues" {
 
     vlan_tag    16 "VLAN Tag";
   };
-
-  // TODO: Advanced descriptor
-
+  
+  // 7.1.6
+  datatype rdesc_adv "Advanced Receive Descriptor" {
+  	buffer      	64 "Packet Buffer Address";
+  	hdr_buffer      64 "Header Buffer Address";
+  };
 
   /************************************
    * 7.2.3 Transmit Descriptors

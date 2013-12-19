@@ -13,13 +13,7 @@
 
 #include <nfs/nfs.h>
 
-//#define DEBUGWS 1
-
-#ifdef DEBUGWS
-#define DEBUGPRINT(arg...) printf(arg)
-#else
-#define DEBUGPRINT(arg...) ((void)0)
-#endif /* DEBUGWS */
+#include "webserver_debug.h"
 
 enum http_state {
     HTTP_STATE_CLOSED,              // dead connection

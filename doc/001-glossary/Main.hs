@@ -67,6 +67,17 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \which is implemented for every type of core and provide \
              \communication between dispatchers running on that core.",
 
+             Entry "notification driver" [ "ND" ]
+
+             "A partial abstraction of a low-level message passing \
+             \mechanism which performs notification (sending an \
+             \event), rather than transferring data per se.  In \
+             \Barrelfish these mechanisms are separated where \
+             \possible for flexibility and to further decouple \
+             \sender and receiver.  Notification drivers exist in \
+             \Barrelfish for sending inter-processor interrupts on \
+             \most architectures, for example.",
+
              Entry "Flounder" []
 
              "The Interface Definition Language used for \
@@ -145,6 +156,20 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \interrupt routing, and constructing routing trees for \
              \intra-machine multicast. The SKB runs as a system service \
              \accessed by message passing.",
+
+             Entry "Octopus" [] 
+
+             "A service built on (and colocated with) the SKB which \
+             \provides locking functionality inspired by Chubby and \
+             \Zookeeper, and publish/subscribe notification for \
+             \Barrelfish processes.",
+
+             Entry "Kaluga" []
+
+             "The Barrelfish device manager.  Kaluga is responsible \
+             \to starting and stopping device drivers in response to \
+             \hardware events, and based on configurable system \
+             \policies.",
 
              Entry "capability space" [ "cspace" ]
 
@@ -362,10 +387,35 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "A tool used to build a boot image in the proprietary Intel \
              \``32.obj'' format, for booting on the Single-chip Cloud \
              \Computer.",
+ 
+             Entry "Pleco" []
+
+             "The Domain Specific Language used in Barrelfish to specify \
+             \constants for the tracing infrastructure.  The Pleco \
+             \compiler takes such description and outputs a \
+             \C header file containing the definitions, a C source \
+             \file with the constants, and a JSON file to be used by \
+             \host visualization tools.",
+
+             Entry "Beehive" []
+
+             "Beehive was an experimental soft-core processor \
+             \designed by Chuck Thacker at Microsoft Research Silicon \
+             \Valley.  Beehive was implemented in a simulator and on \
+             \FPGAs, in particular the BEE3 processor emulation board \
+             \(which could run up to 15 Beehive cores at a time). \
+             \The architecture had a number of unusual features, in \
+             \particular, a ring interconnect for message passing, a \
+             \software-visible FIFO on each core for incoming messages, \
+             \and a memory system implemented using message passing \
+             \(loads and stores became RPCs to the memory system). \
+             \Barrelfish was ported to the Beehive processor but \
+             \support for the architecture was eventually dropped \
+             \after the Beehive project completed.", 
 
              Entry "ZZZ terms yet to be added" []
 
-             "cc-ump, init, Beehive, asmoffsets, retype, iref"
+             "asmoffsets, retype, iref"
 
            ]
 

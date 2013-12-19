@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+ * Attn: Systems Group.
  */
 
 #ifndef BARRELFISH_WAITSET_H
@@ -20,6 +21,10 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+
+#include <errors/errno.h>
+
+#include <stdbool.h>
 
 struct waitset;
 struct thread;
@@ -34,6 +39,7 @@ struct event_closure {
 #define MKCLOSURE(h,a)  (struct event_closure){ /*handler*/ (h), /*arg*/ (a) }
 #define NOP_CLOSURE     MKCLOSURE(NULL, NULL)
 
+
 /**
  * \brief Channel type
  *
@@ -47,6 +53,7 @@ enum ws_chantype {
     CHANTYPE_EVENT_QUEUE,
     CHANTYPE_FLOUNDER,
     CHANTYPE_AHCI,
+    CHANTYPE_LWIP_SOCKET,
     CHANTYPE_OTHER
 };
 
@@ -96,6 +103,7 @@ errval_t waitset_destroy(struct waitset *ws);
 errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t event_dispatch(struct waitset *ws);
+errval_t event_dispatch_debug(struct waitset *ws);
 errval_t event_dispatch_non_block(struct waitset *ws);
 
 __END_DECLS

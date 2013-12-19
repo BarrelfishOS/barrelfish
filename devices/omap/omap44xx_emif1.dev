@@ -43,7 +43,7 @@ device omap44xx_emif1 msbfirst ( addr base ) "" {
         reg_sdram_type 3 rw "SDRAM Type selection. Set to 4 for LPDDR2-S4, Set to 5 for LPDDR2-S2 All other value are reserved.";
         reg_ibank_pos 2 rw "Internal bank position. Set to 0 to assign internal bank address bits from L3 address as shown in and . Set to 1, 2, or 3 to assign internal bank address bits from L3 address as shown in , , and .";
         _ 3 mbz;
-        reg_ddr2_ddqs 1 rw "DDR2 differential DQS enable. Set to 0 for single-ended DQS. Set to 1 for differential DQS. This bit is only for DDR2 mode, because the device supports LPDDR2; this bit is don’t care.";
+        reg_ddr2_ddqs 1 rw "DDR2 differential DQS enable. Set to 0 for single-ended DQS. Set to 1 for differential DQS. This bit is only for DDR2 mode, because the device supports LPDDR2; this bit is don't care.";
         _ 2 rsvd;
         reg_ddr_disable_dll 1 rw "Disable DLL select. Set to 1 to disable DLL inside SDRAM.";
         _ 4 mbz;
@@ -69,7 +69,7 @@ device omap44xx_emif1 msbfirst ( addr base ) "" {
     register emif_sdram_ref_ctrl addr(base, 0x10) "SDRAM Refresh Control Register" {
         reg_initref_dis 1 rw "Initialization and Refresh disable. When set to 1, EMIF will disable SDRAM initialization and refreshes, but will carry out SDRAM write/read transactions.";
         _ 15 mbz;
-        reg_refresh_rate 16 rw "Refresh Rate. Value in this field is used to define the rate at which connected SDRAM devices will be refreshed. SDRAM refresh rate = DDR_PHY_CLK / REG_REFRESH_RATE. To avoid lock-up situations, the programmer must not program REG_REFRESH_RATE &amp;lt; (6 × REG_T_RFC). For DDR_PHY_CLK description, see, .";
+        reg_refresh_rate 16 rw "Refresh Rate. Value in this field is used to define the rate at which connected SDRAM devices will be refreshed. SDRAM refresh rate = DDR_PHY_CLK / REG_REFRESH_RATE. To avoid lock-up situations, the programmer must not program REG_REFRESH_RATE &amp;lt; (6 x REG_T_RFC). For DDR_PHY_CLK description, see, .";
     };
     
     register emif_sdram_ref_ctrl_shdw addr(base, 0x14) "SDRAM Refresh Control Shadow Register" {

@@ -384,10 +384,6 @@ static struct cte irq_dispatch[NDISPATCH];
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
 
-#if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-#define TRACE_N_BM 1
-#endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
-
 /**
  * \brief Send interrupt notification to user-space listener.
  *
@@ -396,7 +392,7 @@ static struct cte irq_dispatch[NDISPATCH];
  *
  * \param irq   IRQ# to send in notification.
  */
-static uint32_t interrupt_count = 0;
+static uint32_t pkt_interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
@@ -409,15 +405,14 @@ static void send_user_interrupt(int irq)
     }
 
     if (irq == 0) {
-//    	printf("packet interrupt\n");
-        ++interrupt_count;
-#if TRACE_N_BM
-#include<trace/trace.h>
-    trace_event(TRACE_SUBSYS_BNET, TRACE_EVENT_BNET_I, interrupt_count);
-#endif // TRACE_N_BM
+//    	printf("packet interrupt: %d: count %"PRIu32"\n", irq, pkt_interrupt_count);
+        ++pkt_interrupt_count;
+#if NETWORK_STACK_TRACE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_UIRQ, pkt_interrupt_count);
+#endif // NETWORK_STACK_TRACE
 /*
-        if (interrupt_count >= 60){
-            printf("interrupt number %"PRIu32"\n", interrupt_count);
+        if (pkt_interrupt_count >= 60){
+            printf("interrupt number %"PRIu32"\n", pkt_interrupt_count);
         }
 */
     }
@@ -529,7 +524,7 @@ static __attribute__ ((used,noreturn))
     assert(vec < NEXCEPTIONS);
 
     printk(LOG_PANIC, "exception %d (error code 0x%lx): ", (int)vec, error);
-    
+
     if (vec == ia32_vec_pf) {
         printf("%s page fault due to %s%s, while in %s mode%s\n",
                error & ERR_PF_READ_WRITE ? "write" : "read",
@@ -552,32 +547,32 @@ static __attribute__ ((used,noreturn))
     // Print faulting instruction pointer
     uintptr_t rip = gdb_save_frame[GDB_X86_64_RIP_REG];
     printf("Faulting instruction pointer (or next instruction): 0x%lx\n", rip);
-    printf("  => i.e. unrelocated kernel address 0x%lx\n", 
+    printf("  => i.e. unrelocated kernel address 0x%lx\n",
            rip - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS);
-    
+
     printf("Registers:\n");
-    printf(" rax: 0x%016lx  r8 : 0x%016lx\n", 
+    printf(" rax: 0x%016lx  r8 : 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RAX_REG],
            gdb_save_frame[GDB_X86_64_R8_REG]);
-    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n", 
+    printf(" rbx: 0x%016lx  r9 : 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RBX_REG],
            gdb_save_frame[GDB_X86_64_R9_REG]);
-    printf(" rcx: 0x%016lx  r10: 0x%016lx\n", 
+    printf(" rcx: 0x%016lx  r10: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RCX_REG],
            gdb_save_frame[GDB_X86_64_R10_REG]);
-    printf(" rdx: 0x%016lx  r11: 0x%016lx\n", 
+    printf(" rdx: 0x%016lx  r11: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RDX_REG],
            gdb_save_frame[GDB_X86_64_R11_REG]);
-    printf(" rsp: 0x%016lx  r12: 0x%016lx\n", 
+    printf(" rsp: 0x%016lx  r12: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RSP_REG],
            gdb_save_frame[GDB_X86_64_R12_REG]);
-    printf(" rdi: 0x%016lx  r13: 0x%016lx\n", 
+    printf(" rdi: 0x%016lx  r13: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RDI_REG],
            gdb_save_frame[GDB_X86_64_R13_REG]);
-    printf(" rsi: 0x%016lx  r14: 0x%016lx\n", 
+    printf(" rsi: 0x%016lx  r14: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RSI_REG],
            gdb_save_frame[GDB_X86_64_R14_REG]);
-    printf(" rip: 0x%016lx  r15: 0x%016lx\n", 
+    printf(" rip: 0x%016lx  r15: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RIP_REG],
            gdb_save_frame[GDB_X86_64_R15_REG]);
 
@@ -740,6 +735,7 @@ static __attribute__ ((used))
             if (vec == IDT_DB) { // debug exception: just continue
                 resume(dispatcher_get_trap_save_area(handle));
             } else {
+
                 // can't handle a trap while disabled: nowhere safe to deliver it
                 scheduler_remove(dcb_current);
                 dispatch(schedule());
@@ -814,6 +810,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
     if (dcb_current == NULL && kernel_ticks_enabled) {
         apic_unmask_timer();
     }
+
+#if TRACE_ETHERSRV_MODE
+    trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_IRQ, vector);
+#endif // TRACE_ETHERSRV_MODE
 
     // APIC timer interrupt: handle in kernel and reschedule
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {

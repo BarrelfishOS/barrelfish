@@ -43,6 +43,7 @@ struct q_entry {
     void *binding_ptr;
     uint64_t plist[MAX_PARAMS]; /* Assuming max parameters are MAX_PARAMS */
     struct capref cap;
+    struct capref cap2;
     errval_t (*handler)(struct q_entry entry);
     char *fname;
     int state;
@@ -60,10 +61,13 @@ struct cont_queue {
 /***** helper functions *****/
 /* create new queue */
 struct cont_queue *create_cont_q(char *name);
+bool can_enqueue_cont_q(struct cont_queue *q);
 void enqueue_cont_q(struct cont_queue *q, struct q_entry *entry);
 void cont_queue_callback(void *arg);
 void cont_queue_show_queue(struct cont_queue *q);
 int queue_free_slots(struct cont_queue *q);
+int queue_used_slots(struct cont_queue *q);
+int is_enough_space_in_queue(struct cont_queue *q);
 
 void show_binary_blob (void *data, int len);
 

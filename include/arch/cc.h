@@ -43,12 +43,12 @@ typedef uintptr_t       mem_ptr_t;
 /* Compiler hints for packing structures */
 #if __GNUC__ >= 4
 /* GCC 4.1 doesn't like '__attribute__((packed))' after a field declaration */
-#define PACK_STRUCT_FIELD(x) x 
+#define PACK_STRUCT_FIELD(x) x
 #define PACK_STRUCT_STRUCT __attribute__((packed))
 #define PACK_STRUCT_BEGIN
 #define PACK_STRUCT_END
 #else
-#define PACK_STRUCT_FIELD(x) x __attribute__((packed)) 
+#define PACK_STRUCT_FIELD(x) x __attribute__((packed))
 #define PACK_STRUCT_STRUCT __attribute__((packed))
 #define PACK_STRUCT_BEGIN
 #define PACK_STRUCT_END

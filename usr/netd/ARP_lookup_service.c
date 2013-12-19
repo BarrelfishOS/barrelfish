@@ -210,12 +210,14 @@ static uint64_t refresh_cache(uint32_t dst_ip_addr)
     dst_ip.addr = dst_ip_addr;
     netif = ip_route(&dst_ip);
 
+    NETD_DEBUG("refresh_cache: calling etharp_request\n");
     errval_t r = etharp_request(netif, &dst_ip);
     assert(err_is_ok(r));
 
     struct waitset *ws = NULL;
     ws = get_default_waitset();
    while (is_ip_present_in_arp_cache(&dst_ip) == false) {
+//        NETD_DEBUG("refresh_arp_cache: event dispatched\n");
         r = event_dispatch(ws);
         if (err_is_fail(r)) {
             DEBUG_ERR(r, "in event_dispatch");
@@ -234,6 +236,9 @@ static void ARP_resolve_request(struct net_ARP_binding *cc,
     uint64_t found_mac = refresh_cache(ip);
     assert(found_mac != 0);
 //    assert(!"NYI ARP resolve request");
+    NETD_DEBUG("ARP_resolve_request: MAC found for ARP request ip %"
+            PRIu32" over iface %"PRIu32" == %"PRIu64"\n",
+            ip, iface, found_mac);
     wrapper_ARP_lookup_response(cc, SYS_ERR_OK, found_mac);
 } // end function: ARP_resolve_request
 

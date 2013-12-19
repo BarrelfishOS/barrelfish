@@ -24,6 +24,7 @@
 #include <if/pci_defs.h>
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
+//#include "pci_confspace.h"
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -212,11 +213,46 @@ static void get_vbe_bios_cap(struct pci_binding *b)
     assert(err_is_ok(err));
 }*/
 
+static void read_conf_header_handler(struct pci_binding *b, uint32_t dword)
+{
+
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr = {
+        .bus= cc->bus,
+        .device=cc->dev,
+        .function=cc->fun,
+    };
+    PCI_DEBUG("Read config header from %u:%u:%u\n",addr.bus, addr.device, addr.function);
+    uint32_t val = pci_read_conf_header(&addr, dword);
+
+    errval_t err;
+    err = b->tx_vtbl.read_conf_header_response(b, NOP_CONT, SYS_ERR_OK, val);
+    assert(err_is_ok(err));
+}
+
+static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uint32_t val)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr = {
+        .bus= cc->bus,
+        .device=cc->dev,
+        .function=cc->fun,
+    };
+    PCI_DEBUG("Write config header from %u:%u:%u\n",addr.bus, addr.device, addr.function);
+    pci_write_conf_header(&addr, dword, val);
+
+    errval_t err;
+    err = b->tx_vtbl.write_conf_header_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_cap_call = get_cap_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
+    .read_conf_header_call = read_conf_header_handler,
+    .write_conf_header_call = write_conf_header_handler,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

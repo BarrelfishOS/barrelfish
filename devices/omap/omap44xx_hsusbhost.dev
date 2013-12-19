@@ -50,10 +50,8 @@ device omap44xx_hsusbhost msbfirst ( addr base ) "" {
     };
 
     constants softreset_status width(1) "" {
-        SOFTRESET_0_r = 0 "No reset pending";
-        SOFTRESET_0_w = 0 "No effect";
-        SOFTRESET_1_w = 1 "Starts softreset sequence.";
-        SOFTRESET_1_r = 1 "Reset (soft or other) is pending.";
+        SOFTRESET_0 = 0 "No reset pending";
+        SOFTRESET_1 = 1 "Starts softreset sequence / Reset is pending.";
     };
     
     register uhh_sysconfig addr(base, 0x10) "OCP standard system configuration register" {
@@ -138,7 +136,7 @@ device omap44xx_hsusbhost msbfirst ( addr base ) "" {
         _ 8 mbz;
         ochi_cntsel 1 rw type(standbymode_status) "Selection of a shorter '1 ms' counter in OHCI host, to speed up long USB phases such as reset, resume, etc. (used only for simulation)";
         ehci_simulation_mode 1 rw type(ehci_simulation_mode_status) "Sets the PHY to nondriving mode (used only for simulation)";
-        ehci_fladj 6 rw "EHCI host frame length adjust. Modify only when EHCI Bit FieldUSBSTS.HCHalted = 1 Field value + 59,488 = 60,000 by default = Number of 60-MHz UTMI/ULPI clock cycles per 1 ms USB frame = Number of 480-MHz HS bits per 125 µs HS USB microframe";
+        ehci_fladj 6 rw "EHCI host frame length adjust. Modify only when EHCI Bit FieldUSBSTS.HCHalted = 1 Field value + 59,488 = 60,000 by default = Number of 60-MHz UTMI/ULPI clock cycles per 1 ms USB frame = Number of 480-MHz HS bits per 125 us HS USB microframe";
     };
     
     register uhh_sar_cntx_i_0 rw addr(base, 0x100) "Save and restore context array. Array size is indicated in. When in SAR mode, read out to save and write to restore. Do not access when not in SAR mode." type(uint32);

@@ -24,6 +24,7 @@
 \vhEntry{1.01}{14.06.2010}{AS}{Added discussion of design and unresolved issues}
 \vhEntry{1.02}{23.07.2010}{AS}{More work on design and API}
 \vhEntry{2.0}{31.05.2011}{Alexander Grest}{Multi-hop messaging}
+\vhEntry{2.1}{01.12.2013}{TR}{Some explanation}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -34,7 +35,21 @@
 
 \chapter{Motivation}
 
-All inter-core communication in Barrelfish is performed using explicit messages, which are carried over ''Interconnect Drivers'' (ICDs), specialized messaging subsystems that carry data between cores. At present, all communication happens over direct point-to-point ICD links. However, there are multiple motivations for extending this. In this chapter, we motivate the introduction of a routing layer in Barrelfish.
+This technical note describes a set of design proposals (and prototype
+implementation) of multi-hop message routing in Barrelfish -- how to
+send messages between cores which do not have a direct connection
+between them.  This arises in, for example, Ethernet communication
+with a fully-distributed Barrelfish instance, or between multiple
+cores spread out over a PCIe bus (as is the case with Xeon Phi or
+Intel SCC). 
+
+All inter-core communication in Barrelfish is performed using explicit
+messages, which are carried over ''Interconnect Drivers'' (ICDs),
+specialized messaging subsystems that carry data between cores. At
+present, all communication happens over direct point-to-point ICD
+links. However, there are multiple motivations for extending this. In
+this note, we motivate the introduction of a routing layer in
+Barrelfish. 
 
 
 \section{Partial connectivity}
@@ -68,19 +83,20 @@ the number of messages in buffer.
 
 The more ICD links a core has, the more of its resources will be used for them. This is detrimental to a high-performance system. By limiting the number of links, we will limit the amount of resources required. One way to limit the number of links is to multiplex multiple channels over one ICD link and therefore not construct a fully connected network. 
 
-% Still valid?
-%\section{Heterogeneous IDC}
-%Barrelfish supports various IDC mechanisms.
-%Different mechanisms provide different semantics and guarantees such as maximum frame
-%size, notification mechanism, synchrony, etc.
 
-%An application can utilize multiple IDC mechanisms.
-%This can happen if a homogeneous machine supports multiple IDC mechanisms or if the
-%application runs on a heterogeneous machine.
-%To avoid the need for the application to understand the different semantics of all IDC,
-%it can conform to the semantics provided by the routing library.
+\section{Heterogeneous IDC}
+Barrelfish supports various IDC mechanisms.
+Different mechanisms provide different semantics and guarantees such
+as maximum frame size, notification mechanism, synchrony, etc.
 
-%The semantics provided by the routing layer are discussed in section \ref{sec:semantics}.
+An application can utilize multiple IDC mechanisms.  This can happen
+if a homogeneous machine supports multiple IDC mechanisms or if the
+application runs on a heterogeneous machine.  To avoid the need for
+the application to understand the different semantics of all IDC, it
+can conform to the semantics provided by the routing library.
+
+The semantics provided by the routing layer are discussed in section
+\ref{sec:semantics}.
 
 \section{Group communication}
 
@@ -94,8 +110,8 @@ also require communication among a group of nodes.
 A group of nodes that want to come to agreement on some value
 need to communicate with each other.
 
-\cite{nishtala:optimizing-collective:hotpar09, barrelfish:sosp09}
-showed that even in a fully connected 
+It has been shown \cite{nishtala:optimizing-collective:hotpar09,
+  barrelfish:sosp09} that even in a fully connected 
 machine, using some form of routing can improve the performance of group communication.
 The sender sends the message to a subset of nodes it wishes to communicate with.
 The subset will in turn forward it to the remaining set of nodes.
@@ -414,7 +430,7 @@ The set of semantics provided are as follows:
   Each message is eventually delivered and the contents are not corrupted.
 \item Causal ordering:
   If the delivery of message $m$ depends upon the delivery of message $m'$ as
-  per the \emph{happened before} relationship \cite{events-time},
+  per the \emph{happened before} relationship \cite{Lamport:1978:TCO:359545.359563},
   then $m$ is not delivered till $m'$ has been delivered.
 \item Failure:
   The routing library will not fail.
@@ -480,104 +496,99 @@ If such guarantees are required at all times in the application,
 the application must refrain from sending messages while
 group member is in flux.
 
-%\section{Flow control}
-%The IDC mechanisms that the routing library operates over are asynchronous.
-%When a message is sent over them,
-%it will eventually be delivered to the receiver.
-%Undelivered messages are maintained in a queue of fixed length.
-%If the sender tries to send messages too quickly the queue can fill up.
-%If the queue is full, the sender must wait
-%till the queue has room for more messages.
-%IDC mechanisms allow senders to register callbacks in such situations.
-%When a send fails with the transient error that
-%the queue is full, the sender can register
-%a callback which will be called when the next send should not fail.
-%While the sender waits for the callback, it has to handle the unsent message.
+\section{Flow control}
+The IDC mechanisms that the routing library operates over are asynchronous.
+When a message is sent over them,
+it will eventually be delivered to the receiver.
+Undelivered messages are maintained in a queue of fixed length.
+If the sender tries to send messages too quickly the queue can fill up.
+If the queue is full, the sender must wait
+till the queue has room for more messages.
+IDC mechanisms allow senders to register callbacks in such situations.
+When a send fails with the transient error that
+the queue is full, the sender can register
+a callback which will be called when the next send should not fail.
+While the sender waits for the callback, it has to handle the unsent message.
 
-%We discuss the simple scenario of two nodes and
-%then a more complex scenario of many nodes.
+We discuss the simple scenario of two nodes and
+then a more complex scenario of many nodes.
 
-%\subsection{Client-server model}
+\subsection{Client-server model}
 
-%\begin{figure}[t]
-% \includegraphics[width=\columnwidth]{client-server.pdf}
-% \caption{Client-server model}\label{fig:client-server}
-%\end{figure}
+\begin{figure}[t]
+ \includegraphics[width=\columnwidth]{client-server.pdf}
+ \caption{Client-server model}\label{fig:client-server}
+\end{figure}
 
-%Figure \ref{fig:client-server} shows a simple client-server model
-%of two nodes that are directly connected.
-%The weights on the edges is the length of the queue.
-%The client sends messages to the server, the server processes them
-%and sends replies to the client.
-%It is possible that link1 becomes full maybe because
-%the client has not been handling replies on it.
-%At this point the server has some options:%
+Figure \ref{fig:client-server} shows a simple client-server model
+of two nodes that are directly connected.
+The weights on the edges is the length of the queue.
+The client sends messages to the server, the server processes them
+and sends replies to the client.
+It is possible that link1 becomes full maybe because
+the client has not been handling replies on it.
+At this point the server has some options:%
 
-%\begin{itemize}
-%\item Drop the message.
-%  The server can simply drop the message if the queue is full.
-%  This will result in an unreliable channel.
-%\item Allocate some resources and queue the message up.
-%  This implies unbounded resource requirement.
-%\item Apply back pressure on the client.
-%  The server at this point can stop processing messages
-%  from the client till it is able to send messages to it again.
-%\end{itemize}
+\begin{itemize}
+\item Drop the message.
+  The server can simply drop the message if the queue is full.
+  This will result in an unreliable channel.
+\item Allocate some resources and queue the message up.
+  This implies unbounded resource requirement.
+\item Apply back pressure on the client.
+  The server at this point can stop processing messages
+  from the client till it is able to send messages to it again.
+\end{itemize}
 
-%In this model the last option works well as it will force the client
-%to slow down and process replies before sending more requests.
+In this model the last option works well as it will force the client
+to slow down and process replies before sending more requests.
 
-%\subsection{Multihop route}
+\subsection{Multihop route}
 
 \begin{figure}[t]
  \includegraphics[width=\columnwidth]{many-to-many.pdf}
  \caption{Example multihop route}\label{fig:many-to-many}
 \end{figure}
 
-%In this scenario the problem is more complex.
-%Figure \ref{fig:many-to-many} shows a group of 5 nodes,
-%the link weights specifies the queue length of the link.
-%If node1 and node2 are sending messages to node4,
-%link34 will fill up before link13 or link23 does.
-%Node3 cannot send additional messages to node4.
-%At this point, node3 has the following options:
+In this scenario the problem is more complex.
+Figure \ref{fig:many-to-many} shows a group of 5 nodes,
+the link weights specifies the queue length of the link.
+If node1 and node2 are sending messages to node4,
+link34 will fill up before link13 or link23 does.
+Node3 cannot send additional messages to node4.
+At this point, node3 has the following options:
 
-%\begin{itemize}
-%\item Continue to process incoming messages on link13 and link23.
-%  If they are destined for node4, drop them.
-%  This will result in an unreliable channel.
-%\item Continue to process incoming messages and if they are destined for node4,
-%  queue them up locally.
-%  This implies unbounded resource requirement.
-%\item Stop processing messages on link13 and link23.
-%  This will delay messages on those links that were not destined to node4.
-%  In literature, this is called \emph{Head of line blocking} \cite{cite}.
-%\end{itemize}
+\begin{itemize}
+\item Continue to process incoming messages on link13 and link23.
+  If they are destined for node4, drop them.
+  This will result in an unreliable channel.
+\item Continue to process incoming messages and if they are destined for node4,
+  queue them up locally.
+  This implies unbounded resource requirement.
+\item Stop processing messages on link13 and link23.
+  This will delay messages on those links that were not destined to node4.
+  In literature, this is called \emph{Head of line blocking} \cite{cite}.
+\end{itemize}
 
-%None of these solutions are particularly desirable.
-%Flow control in the context different types of networks has
-%been studied previously.
-%We should study the related work before we come up with our own designs.
+None of these solutions are particularly desirable.
+Flow control in the context different types of networks has
+been studied previously.
 
-%I summarize some existing work I am aware of here that we should look into:
-%\begin{itemize}
-%\item Credit based flow control:
-%  The endpoints dictate maximum number of messages in flight.
-%\item TCP flow control
-%\item Ethernet flow control
-%\item Datacenter ethernet flow control
-%\item Related work in routing between sockets on a machine
-%\item QoS (DiffServ and IntServ).
-%\end{itemize}
+Relevant existing work includes:
+\begin{itemize}
+\item Credit based flow control:
+  The endpoints dictate maximum number of messages in flight.
+\item TCP flow control
+\item Ethernet flow control
+\item Datacenter ethernet flow control
+\item Related work in routing between sockets on a machine
+\item QoS (DiffServ and IntServ).
+\end{itemize}
 
-%Some applications may not be willing to pay the cost of flow control.
-%Further, a flow control mechanism that guarantees reliability
-%may not scale well with  number of nodes.
-%This can be an interesting research topic for us.
-
-%We discuss some abstract ideas we have for flow control below.
-
-
+Some applications may not be willing to pay the cost of flow control.
+Further, a flow control mechanism that guarantees reliability
+may not scale well with  number of nodes.
+We discuss some abstract ideas we have for flow control below.
 
 \section{Open questions}
 Some open questions
@@ -656,7 +667,7 @@ Some benchmarks that validate the claims of above and show the performance of th
 \item Link state vs. distance vector routing
 \end{itemize}
 
-\bibliographystyle{abbrvnat}
+\bibliographystyle{abbrv}
 \bibliography{defs,barrelfish}
 
 \end{document}

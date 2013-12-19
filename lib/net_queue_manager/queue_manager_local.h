@@ -29,10 +29,21 @@ extern uint64_t total_rx_datasize;
 //struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 // Function prototypes for ether_control service
-void init_soft_filters_service(char *service_name, uint64_t qid);
+void init_soft_filters_service(char *service_name, uint64_t qid,
+                               size_t rx_bufsz);
+void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last);
+
 
 // To get the mac address from device
 uint64_t get_mac_addr_from_device(void);
+
+// Fn ptrs to manage receive buffers in queue
+extern ether_rx_register_buffer rx_register_buffer_fn_ptr;
+extern ether_rx_get_free_slots rx_get_free_slots_fn_ptr;
+
+// support for loopback device
+extern bool is_loopback_device;
+struct buffer_descriptor *get_lo_receiver(void *opaque);
 
 #endif // Queue_Manager_local_H_
 
