@@ -288,10 +288,6 @@ void kernel_startup_early(void)
            __FILE__, __FUNCTION__, __LINE__, kernel_log_subsystem_mask);
     printf("%s:%s:%d: kernel_loglevel = %d\n",
            __FILE__, __FUNCTION__, __LINE__, kernel_loglevel);
-    if (!apic_bsp) {
-        kernel_loglevel = 5;
-    }
-
 }
 
 /**
@@ -330,6 +326,8 @@ void kernel_startup(void)
         // if we have a kernel control block, use it
         if (kcb && kcb->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
+            kernel_loglevel = 5;
+
             print_kcb();
             errval_t err;
             // restore mdb
