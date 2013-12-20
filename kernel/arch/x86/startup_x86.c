@@ -275,19 +275,7 @@ void kernel_startup_early(void)
     const char *cmdline;
     assert(glbl_core_data != NULL);
     cmdline = MBADDR_ASSTRING(glbl_core_data->cmdline);
-    printf("%s:%s:%d: cmdline = %s\n",
-           __FILE__, __FUNCTION__, __LINE__, cmdline);
-    printf("%s:%s:%d: kernel_log_subsystem_mask = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kernel_log_subsystem_mask);
-    printf("%s:%s:%d: kernel_loglevel = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kernel_loglevel);
-
     parse_commandline(cmdline, cmdargs);
-
-    printf("%s:%s:%d: kernel_log_subsystem_mask = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kernel_log_subsystem_mask);
-    printf("%s:%s:%d: kernel_loglevel = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kernel_loglevel);
 }
 
 /**

@@ -662,8 +662,8 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit
-        strncpy(core_data->kernel_cmdline, cmdline,
-                sizeof(core_data->kernel_cmdline));
+        snprintf(core_data->kernel_cmdline, sizeof(core_data->kernel_cmdline),
+                "%s %s", cpuname, cmdline);
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
 
