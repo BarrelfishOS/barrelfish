@@ -181,7 +181,7 @@ uint64_t idc_send_packet_to_network_driver(struct pbuf *p)
 
         ++inflight_tx_requests;
         errval_t err = buffer_tx_add(idx, offset % buffer_size, p->len,
-                more_chunks);
+                more_chunks, p->nicflags);
         if (err != SYS_ERR_OK) {
             printf("idc_send_packet_to_network_driver: failed\n");
             USER_PANIC("idc_send_packet_to_network_driver: failed\n");
@@ -315,7 +315,7 @@ uint8_t get_driver_benchmark_state(int direction,
 // antoinek: Might need to reenable this when we enable multi threaded lwip
 // again
 //bool lwip_in_packet_received = false;
-static void handle_incoming(size_t idx, size_t len)
+static void handle_incoming(size_t idx, size_t len, uint64_t flags)
 {
     struct pbuf *p;
 
@@ -334,6 +334,7 @@ static void handle_incoming(size_t idx, size_t len)
     assert(p != NULL);
 
     LWIPBF_DEBUG("handle_incoming: incoming packet: len %"PRIu64"\n", len);
+    p->nicflags = flags;
     lwip_rec_handler(lwip_rec_data, idx, -1ULL, len, len, p);
 
 }
@@ -374,11 +375,11 @@ void idc_connect_to_driver(char *card_name, uint64_t queueid)
  * antoinek: FIXME: These should be renamed in some resonable manner
  */
 
-void benchmark_rx_done(size_t idx, size_t len)
+void benchmark_rx_done(size_t idx, size_t len, uint64_t flags)
 {
     LWIPBF_DEBUG("benchmark_rx_done(%"PRIu64", %"PRIu64")\n", idx, len);
     if (lwip_init_done) {
-        handle_incoming(idx, len);
+        handle_incoming(idx, len, flags);
     }
 }
 

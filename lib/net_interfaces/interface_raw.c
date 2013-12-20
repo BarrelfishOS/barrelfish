@@ -31,8 +31,8 @@ static void idc_register_buffer(struct net_queue_manager_binding *binding,
                                 uint64_t qid, uint64_t slots, uint8_t role);
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
-                               uint64_t offset, uint64_t len,
-                               uint64_t more_chunks, bool blocking);
+                     uint64_t offset, uint64_t len, uint64_t more_chunks,
+                     uint64_t flags);
 
 static void idc_get_mac_address(struct net_queue_manager_binding *binding,
                                 uint64_t qid);
@@ -56,12 +56,13 @@ size_t buffer_count = BUFFER_COUNT;
 /******************************************************************************/
 /* Buffer management */
 
-errval_t buffer_tx_add(size_t idx, size_t offset, size_t len, size_t more_chunks)
+errval_t buffer_tx_add(size_t idx, size_t offset, size_t len,
+                       size_t more_chunks, uint64_t flags)
 {
 
     errval_t err = SYS_ERR_OK;
     err = idc_raw_add_buffer(binding_tx, idx * BUFFER_SIZE + offset, len,
-            (uint64_t)more_chunks, 0);
+            (uint64_t)more_chunks, flags, 0);
     return err;
 }
 
@@ -69,7 +70,7 @@ errval_t buffer_rx_add(size_t idx)
 {
 
     errval_t err = SYS_ERR_OK;
-    err = idc_raw_add_buffer(binding_rx, idx * BUFFER_SIZE, BUFFER_SIZE, 0, 1);
+    err = idc_raw_add_buffer(binding_rx, idx * BUFFER_SIZE, BUFFER_SIZE, 0, 0, 1);
     return err;
 }
 
@@ -119,7 +120,8 @@ static errval_t send_raw_add_buffer(struct q_entry entry)
 
         errval_t err = b->tx_vtbl.raw_add_buffer(
                 b, MKCONT(cont_queue_callback, b->st),
-                   entry.plist[0], entry.plist[1], entry.plist[2]);
+                   entry.plist[0], entry.plist[1], entry.plist[2],
+                   entry.plist[3]);
         return err;
     } else {
         return FLOUNDER_ERR_TX_BUSY;
@@ -129,7 +131,7 @@ static errval_t send_raw_add_buffer(struct q_entry entry)
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
                                uint64_t offset, uint64_t len,
-                               uint64_t more_chunks, bool blocking)
+                               uint64_t more_chunks, uint64_t flags, bool blocking)
 {
 
     struct q_entry entry;
@@ -139,6 +141,7 @@ static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
     entry.plist[0] = offset;
     entry.plist[1] = len;
     entry.plist[2] = more_chunks;
+    entry.plist[3] = flags;
 
 
     struct waitset *ws = get_default_waitset();
@@ -254,12 +257,12 @@ uint64_t get_tx_bufferid(void)
 }
 
 static void raw_xmit_done(struct net_queue_manager_binding *st,
-                          uint64_t offset, uint64_t len)
+                          uint64_t offset, uint64_t len, uint64_t flags)
 {
     size_t idx = offset / BUFFER_SIZE;
 
     if (st == binding_rx) {
-        benchmark_rx_done(idx, len);
+        benchmark_rx_done(idx, len, flags);
     } else {
         benchmark_tx_done(idx);
     }

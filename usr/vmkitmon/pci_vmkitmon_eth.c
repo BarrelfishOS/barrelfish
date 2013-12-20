@@ -207,7 +207,7 @@ static void transmit_pending_packets(struct pci_vmkitmon_eth * h){
                 } else {
 					record_packet_transmit_to_bf();
                 }
-                process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true);
+                process_received_packet(rx_buffer_ring[receive_bufptr].opaque, cur_tx->len, true, 0);
                 /*
                 if(*(unsigned char *)hv_addr == 0xaa) {
                     //printf("packet %d delivered to barrelfish\n", ++global_packet_in_count);

@@ -36,6 +36,8 @@
 #include "lwip/opt.h"
 #include "lwip/err.h"
 
+#include <net_interfaces/flags.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -99,6 +101,7 @@ extern "C" {
         /* buff len is the size of buffer allocated to this pbuf */
         u16_t buff_len;
 
+        uint64_t nicflags;
     };
 
 /* Initializes the pbuf module. This call is empty for now, but may not be in future. */

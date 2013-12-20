@@ -67,7 +67,7 @@ static void register_buffer(struct net_queue_manager_binding *cc,
         uint64_t slots, uint8_t role);
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length,
-                           uint64_t more);
+                           uint64_t more, uint64_t flags);
 static void get_mac_addr_qm(struct net_queue_manager_binding *cc,
         uint64_t queueid);
 static void print_statistics_handler(struct net_queue_manager_binding *cc,
@@ -472,7 +472,7 @@ static errval_t wrapper_send_raw_xmit_done(struct q_entry e)
     if (b->can_send(b)) {
         errval_t err = b->tx_vtbl.raw_xmit_done(b,
                 MKCONT(cont_queue_callback, ccl->q),
-                e.plist[0], e.plist[1]);
+                e.plist[0], e.plist[1], e.plist[2]);
         return err;
     } else {
         return FLOUNDER_ERR_TX_BUSY;
@@ -505,7 +505,8 @@ handle_single_event_nonblock(struct waitset *ws)
 
 
 static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
-                               uint64_t offset, uint64_t length)
+                                   uint64_t offset, uint64_t length,
+                                   uint64_t flags)
 {
     struct client_closure *ccl = (struct client_closure *) b->st;
 
@@ -516,6 +517,7 @@ static errval_t send_raw_xmit_done(struct net_queue_manager_binding *b,
     entry.binding_ptr = b;
     entry.plist[0] = offset;
     entry.plist[1] = length;
+    entry.plist[2] = flags;
 
     struct waitset *ws = get_default_waitset();
     int passed_events = 0;
@@ -646,7 +648,8 @@ bool handle_tx_done(void *opaque)
     --buffer->txq.buffer_state_used;
 
     // Handle raw interface
-    errval_t err = send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0);
+    errval_t err = send_raw_xmit_done(bsm->binding, (uintptr_t)bsm->offset, 0,
+            0);
     if (err_is_ok(err)) {
         return true;
     } else {
@@ -684,11 +687,12 @@ void do_pending_work_for_all(void)
 /**
  * Called by driver when it receives a new packet.
  */
-void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
+void process_received_packet(void *opaque, size_t pkt_len, bool is_last,
+        uint64_t flags)
 {
     if (use_sf) {
         // FIXME: this is broken quite badly
-        sf_process_received_packet(opaque, pkt_len, is_last);
+        sf_process_received_packet(opaque, pkt_len, is_last, flags);
         return;
     }
     // If we do no software filtering we basically only have to tell the
@@ -704,7 +708,8 @@ void process_received_packet(void *opaque, size_t pkt_len, bool is_last)
 
         assert(is_last);
 
-        errval_t err = send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len);
+        errval_t err = send_raw_xmit_done(bsm->binding, bsm->offset, pkt_len,
+                flags);
         if (err_is_ok(err)) {
             --buf->rxq.buffer_state_used;
             return;
@@ -728,7 +733,7 @@ static uint64_t sent_packets = 0; // FIXME: remove this
  */
 // FIXME: why is this not in soft filter management?
 bool copy_packet_to_user(struct buffer_descriptor *buffer,
-                         void *data, uint64_t len)
+                         void *data, uint64_t len, uint64_t flags)
 {
     // Must only be called if we use software filtering
     assert(use_sf);
@@ -799,7 +804,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface
-    errval_t err = send_raw_xmit_done(b, offset, len);
+    errval_t err = send_raw_xmit_done(b, offset, len, flags);
     if (err_is_ok(err)) {
         return true;
     } else {
@@ -820,7 +825,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
  ****************************************************************/
 static void raw_add_buffer(struct net_queue_manager_binding *cc,
                            uint64_t offset, uint64_t length,
-                           uint64_t more)
+                           uint64_t more, uint64_t flags)
 {
     struct client_closure *cl = (struct client_closure *) cc->st;
     struct buffer_descriptor *buffer = cl->buffer_ptr;
@@ -851,6 +856,7 @@ static void raw_add_buffer(struct net_queue_manager_binding *cc,
         cl->driver_buff_list[cl->chunk_counter].pa = paddr;
         cl->driver_buff_list[cl->chunk_counter].len = length;
         cl->driver_buff_list[cl->chunk_counter].opaque = opaque;
+        cl->driver_buff_list[cl->chunk_counter].flags = flags;
         ++cl->chunk_counter;
         if (more == 0) {
             // ETHERSRV_DEBUG

@@ -101,7 +101,8 @@ static errval_t lo_send_ethernet_packet_fn(struct driver_buffer *buffers,
 
     // treat it as incoming packet and handle it!
 //    process_received_packet(rx_packet_opaque, pkt_len, true);
-    sf_process_received_packet_lo(rx_packet_opaque, tx_opaque, pkt_len, true);
+    sf_process_received_packet_lo(rx_packet_opaque, tx_opaque, pkt_len, true,
+            0);
 
     // Tell the client we sent them!!!
     handle_tx_done(tx_opaque);

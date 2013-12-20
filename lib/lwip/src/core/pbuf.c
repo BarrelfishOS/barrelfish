@@ -555,6 +555,7 @@ struct pbuf *pbuf_alloc_tagged(pbuf_layer layer, u16_t length, pbuf_type type,
     p->ref = 1;
     /* set flags */
     p->flags = 0;
+    p->nicflags = 0;
 /*
   LWIP_DEBUGF(PBUF_DEBUG | LWIP_DBG_TRACE | 3, ("pbuf_alloc(length=%"U16_F") == %p\n", length, (void *)p));
 */
@@ -865,6 +866,7 @@ u8_t pbuf_free_tagged(struct pbuf * p, const char *func_name, int line_no)
             LWIP_DEBUGF(PBUF_DEBUG | 2,
                         ("pbuf_free: deallocating %p\n", (void *) p));
             type = p->type;
+            p->nicflags = 0;
 //            printf("pbuf_free: deallocating %p\n", (void *) p);
             /* is this a pbuf from the pool? */
             if (type == PBUF_POOL || type == PBUF_RAM) {
