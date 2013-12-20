@@ -151,6 +151,13 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct cte *rootcn = &kcb->init_rootcn;
     mdb_init(kcb);
     kcb->is_valid = true;
+#if defined(CONFIG_SCHEDULER_RR)
+    kcb->sched = SCHED_RR;
+#elif defined(CONFIG_SCHEDULER_RBED)
+    kcb->sched = SCHED_RBED;
+#else
+#error invalid scheduler
+#endif
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
                         BASE_PAGE_BITS, DEFAULT_CNODE_BITS, rootcn);
     assert(err_is_ok(err));

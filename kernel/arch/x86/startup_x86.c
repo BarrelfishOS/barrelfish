@@ -323,7 +323,21 @@ void kernel_startup(void)
             if (err_is_fail(err)) {
                 panic("couldn't restore mdb");
             }
-            // set queue pointers and kernel_now
+            // figure out if we need to convert scheduler state
+#ifdef CONFIG_SCHEDULER_RR
+            if (kcb->sched != SCHED_RR) {
+                printf("converting scheduler state to RR\n");
+                scheduler_convert();
+            }
+#elif CONFIG_SCHEDULER_RBED
+            if (kcb->sched != SCHED_RBED) {
+                printf("converting scheduler state to RBED\n");
+                scheduler_convert();
+            }
+#else
+#error must define scheduler
+#endif
+            // set queue pointers
             scheduler_restore_state();
             // restore wakeup queue state
             printf("%s:%s:%d: kcb->wakeup_queue_head = %p\n",
@@ -343,7 +357,6 @@ void kernel_startup(void)
             }
             // interrupt state should be fine, as it's used directly from the
             // kcb.
-            //verbose_dispatch = true;
             dispatch(next);
             panic("should not get here!");
         }

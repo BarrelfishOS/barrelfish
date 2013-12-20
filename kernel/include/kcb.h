@@ -20,6 +20,11 @@
 struct cte;
 struct dcb;
 
+enum sched_state {
+    SCHED_RR,
+    SCHED_RBED,
+};
+
 /**
  * this is the memory layout of ObjType_KernelControlBlock
  * this struct should contain all the persistent state that belongs to a
@@ -34,6 +39,8 @@ struct kcb {
     // the kernel data section anymore
     struct cte init_rootcn;
 
+    /// which scheduler state is valid
+    enum sched_state sched;
     /// RR scheduler state
     struct dcb *ring_current;
     /// RBED scheduler state

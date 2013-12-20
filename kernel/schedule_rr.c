@@ -18,7 +18,7 @@
 
 #include <timer.h> // update_sched_timer
 
-//static struct dcb *ring_current = NULL;
+static struct dcb *ring_current = NULL;
 
 /**
  * \brief Scheduler policy.
@@ -27,7 +27,6 @@
  */
 struct dcb *schedule(void)
 {
-    struct dcb *ring_current = kcb->ring_current;
     // empty ring
     if(ring_current == NULL) {
         return NULL;
@@ -45,7 +44,6 @@ struct dcb *schedule(void)
 
 void make_runnable(struct dcb *dcb)
 {
-    struct dcb *ring_current = kcb->ring_current;
     // Insert into schedule ring if not in there already
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -75,7 +73,6 @@ void make_runnable(struct dcb *dcb)
  */
 void scheduler_remove(struct dcb *dcb)
 {
-    struct dcb *ring_current = kcb->ring_current;
     // No-op if not in scheduler ring
     if(dcb->prev == NULL || dcb->next == NULL) {
         assert(dcb->prev == NULL && dcb->next == NULL);
@@ -125,4 +122,42 @@ void scheduler_yield(struct dcb *dcb)
 void scheduler_reset_time(void)
 {
     // No-Op in RR scheduler
+}
+
+void scheduler_convert(void)
+{
+    enum sched_state from = kcb->sched;
+    switch (from) {
+        case SCHED_RBED:
+        {
+            // initialize RR ring
+            struct dcb *last = NULL;
+            for (struct dcb *i = kcb->queue_head; i; i = i->next)
+            {
+                i->prev = last;
+                last = i;
+            }
+            // at this point: we have a dll, but need to close the ring
+            kcb->queue_head->prev = kcb->queue_tail;
+            kcb->queue_tail->next = kcb->queue_head;
+            break;
+        }
+        case SCHED_RR:
+            // do nothing
+            break;
+        default:
+            printf("don't know how to convert %d to RBED state\n", from);
+            break;
+    }
+    kcb->ring_current = kcb->queue_head;
+    for (struct dcb *i = kcb->ring_current; i != kcb->ring_current; i=i->next) {
+        printf("dcb %p\n  prev=%p\n  next=%p\n", i, i->prev, i->next);
+    }
+}
+
+void scheduler_restore_state(void)
+{
+    ring_current = kcb->ring_current;
+    // No-Op in RR scheduler
+    // TODO: could implement similar to RBED
 }

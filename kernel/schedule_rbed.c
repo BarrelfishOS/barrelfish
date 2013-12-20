@@ -588,6 +588,47 @@ void scheduler_reset_time(void)
     lastdisp = NULL;
 }
 
+void scheduler_convert(void)
+{
+    enum sched_state from = kcb->sched;
+    switch (from) {
+        case SCHED_RBED:
+            // do nothing
+            break;
+        case SCHED_RR:
+        {
+            // initialize RBED fields
+            // make all tasks best effort
+            struct dcb *tmp = NULL;
+            printf("kcb: %p\n", kcb);
+            printf("kcb->ring_current: %p\n", kcb->ring_current);
+            printf("kcb->ring_current->prev: %p\n", kcb->ring_current->prev);
+            struct dcb *i = kcb->ring_current;
+            do {
+                printf("converting %p\n", i);
+                i->type = TASK_TYPE_BEST_EFFORT;
+                tmp = i->next;
+                i->next = i->prev = NULL;
+                make_runnable(i);
+                i = tmp;
+            } while (i != kcb->ring_current);
+            // XXX: should solve this more elegantly
+            kcb->u_hrt = u_hrt;
+            kcb->w_be = w_be;
+            kcb->n_be = n_be;
+            kcb->queue_head = queue_head;
+            kcb->queue_tail = queue_tail;
+            for (i = queue_head; i; i=i->next) {
+                printf("%p (-> %p)\n", i, i->next);
+            }
+            break;
+        }
+        default:
+            printf("don't know how to convert %d to RBED state\n", from);
+            break;
+    }
+}
+
 void scheduler_restore_state(void)
 {
     queue_head = kcb->queue_head;

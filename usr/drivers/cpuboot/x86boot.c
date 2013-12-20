@@ -489,17 +489,25 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
 
 static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                                     enum cpu_type cpu_type,
+                                    const char *cpu_ext,
                                     const char *cmdline,
                                     struct intermon_binding **ret_binding,
                                     struct capref* frame)
 {
-    const char *monitorname = NULL, *cpuname = NULL;
+    const char *monitorname = NULL, *cpuname_ = NULL;
     genpaddr_t arch_page_size;
     errval_t err;
 
     err = get_architecture_config(cpu_type, &arch_page_size,
-                                  &monitorname, &cpuname);
+                                  &monitorname, &cpuname_);
     assert(err_is_ok(err));
+    char cpuname[32] = { 0 };
+    if (strcmp(cpu_ext, "")) {
+        snprintf(cpuname, 32, "%s_%s", cpuname_, cpu_ext);
+    } else {
+        snprintf(cpuname, 32, "%s", cpuname_);
+    }
+    debug_printf("loading %s\n", cpuname);
 
     // compute size of frame needed and allocate it
     struct frame_identity urpc_frame_id = {.base = 0, .bits = 0};
@@ -820,11 +828,23 @@ int main(int argc, char** argv)
     //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
     //assert(type < CPU_TYPE_NUM);
 
-    if (!strcmp(argv[2], "up")) {
+    if (!strncmp(argv[2], "up", 2)) {
         struct intermon_binding *new_binding = NULL;
         struct capref frame;
-        err = spawn_xcore_monitor(destination, destination, CPU_X86_64,
-                                  "loglevel=5 logmask=129", &new_binding, &frame);
+        char sched[32] = { 0 };
+        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
+             char *s=argv[2]+3;
+             int i;
+             for (i = 0; i < 31; i++) {
+                 if (!s[i] || s[i] == ' ') {
+                     break;
+                 }
+             }
+             memcpy(sched, s, i);
+             sched[i] = 0;
+        }
+        err = spawn_xcore_monitor(destination, destination, CPU_X86_64, sched,
+                                  "loglevel=5 logmask=1", &new_binding, &frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }

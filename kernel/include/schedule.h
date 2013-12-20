@@ -20,6 +20,7 @@ void make_runnable(struct dcb *dcb);
 void scheduler_remove(struct dcb *dcb);
 void scheduler_yield(struct dcb *dcb);
 void scheduler_reset_time(void);
+void scheduler_convert(void);
 void scheduler_restore_state(void);
 
 #endif
