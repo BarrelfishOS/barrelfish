@@ -244,8 +244,7 @@ static uint64_t rtl_tx_slots_count_fn(void)
  *
  */
 static errval_t rtl8029_send_ethernet_packet_fn(struct driver_buffer *buffers,
-                                                size_t                count,
-                                                void                 *opaque)
+                                                size_t                count)
 {
     // Find the length of entire packet
     uint64_t pkt_len = 0;
@@ -277,7 +276,9 @@ static errval_t rtl8029_send_ethernet_packet_fn(struct driver_buffer *buffers,
     while(rtl8029as_tsr_ptx_rdf(&rtl) == 0);
 
     // Tell the client we sent them!!!
-    handle_tx_done(opaque);
+    for (int idx = 0; idx < count; idx++) {
+        handle_tx_done(buffers[idx].opaque);
+    }
 
     return SYS_ERR_OK;
 }

@@ -318,8 +318,7 @@ static bool handle_free_TX_slot_fn(void)
  * NOTE: This function get called from ethersrv.c
  *****************************************************************/
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
-                                      size_t                count,
-                                      void                 *opaque)
+                                      size_t                count)
 
 {
     E1000_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);

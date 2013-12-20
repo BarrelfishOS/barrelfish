@@ -75,7 +75,7 @@ static uint64_t rtl_tx_slots_count_fn(void)
  *
  */
 static errval_t lo_send_ethernet_packet_fn(struct driver_buffer *buffers,
-                            size_t  count, void *tx_opaque)
+                                           size_t  count)
 {
     // Find the length of entire packet
     uint64_t pkt_len = 0;
@@ -100,12 +100,15 @@ static errval_t lo_send_ethernet_packet_fn(struct driver_buffer *buffers,
     packetbuf = NULL;
 
     // treat it as incoming packet and handle it!
-//    process_received_packet(rx_packet_opaque, pkt_len, true);
-    sf_process_received_packet_lo(rx_packet_opaque, tx_opaque, pkt_len, true,
-            0);
+    //process_received_packet(rx_packet_opaque, pkt_len, true);
+    /* TODO ak: broken lo
+     * sf_process_received_packet_lo(rx_packet_opaque, tx_opaque, pkt_len, true,
+            0);*/
 
     // Tell the client we sent them!!!
-    handle_tx_done(tx_opaque);
+    for (int idx = 0; idx < count; idx++) {
+        handle_tx_done(buffers[idx].opaque);
+    }
 
     return SYS_ERR_OK;
 } // end function: lo_send_ethernet_packet_fn

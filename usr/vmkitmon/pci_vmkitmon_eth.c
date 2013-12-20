@@ -109,7 +109,7 @@ static void dumpRegion(uint8_t *start){
 }
 #endif
 
-static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size, void *opaque) {
+static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size) {
 	struct pci_vmkitmon_eth *h = the_pci_vmkitmon_eth->state;
 	int i;
 	uint64_t paddr;
@@ -140,7 +140,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers, size_t size
 				VMKITMON_ETH_DEBUG("Used rxdesc %d to transmit\n", j);
 				transmitted = 1;
                 
-                pbuf_list_tx[ether_transmit_index].opaque = opaque;
+                pbuf_list_tx[ether_transmit_index].opaque = buffer->opaque;
                 ether_transmit_index = (ether_transmit_index + 1) % DRIVER_TRANSMIT_BUFFER;
                 
 				break;
