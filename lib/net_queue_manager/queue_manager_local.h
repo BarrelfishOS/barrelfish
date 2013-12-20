@@ -46,5 +46,7 @@ extern ether_rx_get_free_slots rx_get_free_slots_fn_ptr;
 extern bool is_loopback_device;
 struct buffer_descriptor *get_lo_receiver(void *opaque);
 
+void* sf_rx_ring_buffer(void *opaque);
+
 #endif // Queue_Manager_local_H_
 

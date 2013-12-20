@@ -744,6 +744,9 @@ errors pci PCI_ERR_ {
     failure DEVICE_INIT         "Could not initialize device",
     failure MEM_ALLOC           "Could not allocate memory",
     failure WRONG_INDEX         "Invalid index for requested cap",
+    failure MSIX_NOTSUP         "MSI-X is not sypported by the device",
+    failure MSIX_BADVECTOR      "Invalid index for MSI-X vector",
+    failure MSIX_DISABLED       "MSI-X is not enabled for this device",
 };
 
 // errors in ACPI

@@ -67,8 +67,6 @@ static bool copy_bufs_to_user(struct buffer_descriptor *buffer,
                               uint64_t flags);
 
 
-void* sf_rx_ring_buffer(void *opaque);
-
 // Initialize interface for soft_filters channel
 static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
     .register_filter_memory_request = register_filter_memory_request,

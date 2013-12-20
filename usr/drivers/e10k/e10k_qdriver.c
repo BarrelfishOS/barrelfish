@@ -21,6 +21,7 @@
 #include <if/e10k_defs.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
+#include <pci/pci.h>
 
 #include "helper.h"
 #include "e10k_queue.h"
@@ -61,7 +62,9 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx_frame,
                                       struct capref txhwb_frame,
                                       struct capref rx_frame,
-                                      uint32_t rxbufsz);
+                                      uint32_t rxbufsz,
+                                      int16_t msix_intvec,
+                                      uint8_t msix_intdest);
 static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate);
 static void idc_terminate_queue(void);
 
@@ -73,6 +76,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
                               bool use_interrupts,
                               bool use_rsc) __attribute__((weak));
 void cd_set_interrupt_rate(struct e10k_binding *b,
@@ -86,6 +91,7 @@ void qd_queue_memory_registered(struct e10k_binding *b);
 void qd_write_queue_tails(struct e10k_binding *b);
 
 void qd_argument(const char *arg);
+static void interrupt_handler(void *);
 void qd_interrupt(bool is_rx, bool is_tx);
 void qd_main(void);
 int main(int argc, char **argv) __attribute__((weak));
@@ -134,6 +140,9 @@ static bool use_interrupts = false;
 
 /** Indicates whether RSC should be used */
 static bool use_rsc = false;
+
+/** Indicates whether MSI-X should be used */
+static bool use_msix = true;
 
 /** Minimal delay between interrupts in us */
 static uint16_t interrupt_delay = 0;
@@ -449,6 +458,8 @@ static void setup_queue(void)
     size_t tx_size, txhwb_size, rx_size;
     void *tx_virt, *txhwb_virt, *rx_virt;
     vregion_flags_t flags;
+    uint8_t vector, core;
+    errval_t err;
 
 
 
@@ -481,7 +492,22 @@ static void setup_queue(void)
     q = e10k_queue_init(tx_virt, NTXDESCS, txhwb_virt, rx_virt, NRXDESCS, &ops,
                         NULL);
 
-    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ);
+
+
+    if (use_interrupts && use_msix) {
+        INITDEBUG("Enabling MSI-X interrupts\n");
+        err = pci_setup_inthandler(interrupt_handler, NULL, &vector);
+        assert(err_is_ok(err));
+        core = disp_get_core_id();
+    } else {
+        if (use_interrupts) {
+            INITDEBUG("Enabling legacy interrupts\n");
+        }
+        vector = 0;
+        core = 0;
+    }
+    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+                              vector, core);
 }
 
 /** Hardware queue initialized in card driver */
@@ -525,7 +551,9 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx,
                                       struct capref txhwb,
                                       struct capref rx,
-                                      uint32_t rxbufsz)
+                                      uint32_t rxbufsz,
+                                      int16_t msix_intvec,
+                                      uint8_t msix_intdest)
 {
 
     errval_t r;
@@ -533,13 +561,13 @@ static void idc_register_queue_memory(uint8_t queue,
 
     if (!standalone) {
         cd_register_queue_memory(NULL, queue, tx, txhwb, rx, rxbufsz,
-                use_interrupts, use_rsc);
+                msix_intvec, msix_intdest, use_interrupts, use_rsc);
         return;
     }
 
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx, txhwb, rx, rxbufsz, use_interrupts,
-                                       use_rsc);
+                                       tx, txhwb, rx, rxbufsz, msix_intvec,
+                                       msix_intdest, use_interrupts, use_rsc);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -724,6 +752,8 @@ void qd_argument(const char *arg)
         } else {
             interrupt_delay = i;
         }
+    } else if (strncmp(arg, "msix=", strlen("msix=") - 1) == 0) {
+        use_msix = !!atol(arg + strlen("msix="));
     } else {
         ethersrv_argument(arg);
     }
@@ -766,6 +796,11 @@ static void eventloop_ints(void)
     }
 }
 
+static void interrupt_handler(void *data)
+{
+    qd_interrupt(true, false);
+}
+
 void qd_interrupt(bool is_rx, bool is_tx)
 {
     size_t count;
@@ -791,9 +826,9 @@ void qd_main(void)
                    "on the command line!");
     }
 
-    if (use_interrupts && standalone) {
-        USER_PANIC("Interrupts with standalone queue driver not yet "
-                   "implemented");
+    if (use_interrupts && standalone && !use_msix) {
+        USER_PANIC("Interrupts with standalone queue driver only work if MSI-X "
+                   "is enabled.");
     }
 
     if (standalone) {
@@ -831,6 +866,8 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
                               bool use_ints,
                               bool use_rsc_)
 {
