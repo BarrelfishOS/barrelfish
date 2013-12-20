@@ -18,6 +18,73 @@
 
 #include <barrelfish/barrelfish.h>
 
+
+/**
+ * Read data from possibly scattered packet
+ *
+ * @param data   Array of pointers to each buffer
+ * @param len    Array of sizes for each buffer
+ * @param count  Number of buffers
+ * @param offset Offset to start of region to be read
+ * @param size   Number of bytes to be read
+ * @param dst    Memory location for result
+ *
+ * @return 1 if the data has been read successfully, 0 otherwise.
+ *
+ * @note Even if the result does not indicate success, the contents of dst may
+ * be modified.
+ **/
+static inline int pkt_read(uint8_t **data, int *len, int count, int offset,
+                           size_t size, void *dst)
+{
+    uint8_t *b = dst;
+    int i = 0;
+    int l = 0;
+    while (size > 0) {
+        while (i < count && offset >= (l + len[i])) {
+            l += len[i];
+            i++;
+        }
+
+        // Outside of packet boundaries
+        if (i >= count) {
+            printf("Ouside of boundary\n");
+            return 0;
+        }
+        *b = data[i][offset - l];
+
+        size--;
+        offset++;
+        b++;
+    }
+    return 1;
+}
+
+static inline int pkt_get_8(uint8_t **data, int *len, int count, int offset,
+                            uint8_t *dst)
+{
+    return pkt_read(data, len, count, offset, 1, dst);
+}
+
+static inline int pkt_get_16(uint8_t **data, int *len, int count, int offset,
+                             uint16_t *dst)
+{
+    return pkt_read(data, len, count, offset, 2, dst);
+}
+
+static inline int pkt_get_32(uint8_t **data, int *len, int count, int offset,
+                             uint32_t *dst)
+{
+    return pkt_read(data, len, count, offset, 4, dst);
+}
+
+static inline int pkt_get_64(uint8_t **data, int *len, int count, int offset,
+                             uint64_t *dst)
+{
+    return pkt_read(data, len, count, offset, 8, dst);
+}
+
+
 /*
  * Take compiled filter and run data through it.
  * Result gets stored in the filterresult_t*
@@ -27,8 +94,9 @@
  * \brief Performs recursive execution of a subtree of the filter code
  * @param filter_code Points to the begining of the filter code
  * @param filter_len Specifies the length of the filter code in bytes
- * @param packet_data Points to the packet data to run the filter on
- * @param packet_len Specifies the length of the packet data in bytes
+ * @param packet_data Array of pointers to the packet data to run the filter on
+ * @param packet_len  Array of lengths of packet data in bytes
+ * @param count       Number of packet parts
  * @param[out] result_value Return value of the subtree execution
  * @param[in] result_offset Initially specifies the offset of the next byte to be executed in the filter code
  * @param[out] result_offset Specifies the next code byte to be executed, after the entire subtree code was executed
@@ -36,13 +104,18 @@
  */
 
 err_t
-calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
-	 int packet_len, uint64_t * result_value, size_t * result_offset);
+calc(uint8_t * filter_code, int filter_len, uint8_t **packet_data,
+	 int *packet_len, int count, uint64_t * result_value,
+     size_t * result_offset);
 err_t
-calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
-	 int packet_len, uint64_t * result_value, size_t * result_offset)
+calc(uint8_t * filter_code, int filter_len, uint8_t **packet_data,
+	 int *packet_len, int count, uint64_t * result_value,
+     size_t * result_offset)
 {
 	uint64_t        res;
+	uint8_t         res8;
+	uint16_t        res16;
+	uint32_t        res32;
 	size_t          start = *result_offset;
 	if (start > filter_len){
 	    return ERR_UNKNOWN;
@@ -98,7 +171,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		// whole treesize
 		*result_offset += 5;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 		// Return false if first tree returned false
@@ -112,7 +185,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		// Fetch 2nd argument
 		*result_offset += 1;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 
@@ -125,7 +198,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		// whole treesize
 		*result_offset += 5;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 		// Return true if first subtree returned true
@@ -139,7 +212,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		// Fetch 2nd argument
 		*result_offset += 1;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 
@@ -163,7 +236,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		 */
 		*result_offset += 1;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 
@@ -177,34 +250,35 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 			return ERR_OK;
 		case OP_LOAD8:
 			// Packet access
-			if ((*result_value) >= packet_len)
-				return ERR_BAD_ACCESS;	// Access not withing packet
-			*result_value = *(uint8_t *) (packet_data + (*result_value));
+            if (!pkt_get_8(packet_data, packet_len, count, *result_value,
+                           &res8))
+                return ERR_BAD_ACCESS; // Access not withing packet
+			*result_value = res8;
 			return ERR_OK;
 		case OP_LOAD16:
 			// Packet access
-			if ((*result_value) + 1 >= packet_len)
-				return ERR_BAD_ACCESS;	// Access not withing packet
-			(*result_value) =
-				ntohs(*(uint16_t *) (packet_data + (*result_value)));
+            if (!pkt_get_16(packet_data, packet_len, count, *result_value,
+                            &res16))
+                return ERR_BAD_ACCESS; // Access not withing packet
+			*result_value = ntohs(res16);
 			return ERR_OK;
 		case OP_LOAD32:
 			// Packet access
-			if ((*result_value) + 3 >= packet_len)
-				return ERR_BAD_ACCESS;	// Access not withing packet
-			*result_value =
-			      ntohl(*(uint32_t *) (packet_data + (*result_value)));
+            if (!pkt_get_32(packet_data, packet_len, count, *result_value,
+                            &res32))
+                return ERR_BAD_ACCESS; // Access not withing packet
+			*result_value = ntohl(res32);
 			return ERR_OK;
 		case OP_LOAD64:
 			// Packet access
-			if ((*result_value + 7) >= packet_len)
-				return ERR_BAD_ACCESS;	// Access not withing packet
+            if (!pkt_get_64(packet_data, packet_len, count, *result_value,
+                            &res))
+                return ERR_BAD_ACCESS; // Access not withing packet
+
 			// If we are on a littleendian machine, translate from network
 			//
 			//
 			// order (bigendian) to hostorder
-		        res =
-				*(uint64_t *) (packet_data + (*result_value));
 			short           word = 0x0001;
 			char           *byte = (char *) &word;
 			if (byte[0])		// Little endian
@@ -230,7 +304,7 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
 		res = *result_value;
 		*result_offset += 1;
 		if ((err =
-			 calc(filter_code, filter_len, packet_data, packet_len,
+			 calc(filter_code, filter_len, packet_data, packet_len, count,
 				  result_value, result_offset)) < 0)
 			return err;
 
@@ -342,14 +416,16 @@ calc(uint8_t * filter_code, int filter_len, uint8_t * packet_data,
  * \brief Executes the specified filter on the given packet.
  * @param filter_code Points to the filters byte code
  * @param filter_len Length of the byte code
- * @param packet_data Points to the packet data to run the filter on
- * @param packet_len Length of packet data in bytes
+ * @param packet_data Array of pointers to the packet data to run the filter on
+ * @param packet_len  Array of lengths of packet data in bytes
+ * @param count       Number of packet parts
  * @param[out] error_out Error information upon failure during execution
  * @return true, if the filter executed successfully and the result was not zero. false otherwise.
  */
 bool
 execute_filter(uint8_t * filter_code, int filter_len,
-			   uint8_t * packet_data, int packet_len, int *error_out)
+			   uint8_t **packet_data, int *packet_len, int count,
+               int *error_out)
 {
 	err_t           err;
 	uint64_t        result_value;
@@ -357,7 +433,7 @@ execute_filter(uint8_t * filter_code, int filter_len,
 	result_value = 0;
 	result_offset = 0;
 	err =
-		calc(filter_code, filter_len, packet_data, packet_len,
+		calc(filter_code, filter_len, packet_data, packet_len, count,
 			 &result_value, &result_offset);
 	if (error_out) {
 		*error_out = err;
