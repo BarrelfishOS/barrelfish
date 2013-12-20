@@ -32,7 +32,7 @@ static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebit
                "minbase: 0x%"PRIxGENPADDR" maxlimit: 0x%"PRIxGENPADDR"\n",
                sizebits, minbase, maxlimit);
 
-    mm_debug = true;
+    //mm_debug = true;
 
     struct capref devframe = NULL_CAP;
     errval_t err = mm_alloc_range(&pci_mm_physaddr, sizebits, minbase, maxlimit, &devframe, NULL);
@@ -40,7 +40,7 @@ static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebit
     	DEBUG_ERR(err, "mm alloc range failed...\n");
     }
 
-    mm_debug = false;
+    //mm_debug = false;
 
     err = b->tx_vtbl.mm_alloc_range_proxy_response(b, NOP_CONT, devframe, err);
     assert(err_is_ok(err));

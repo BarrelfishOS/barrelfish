@@ -189,7 +189,7 @@ int init_all_apics(void)
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                errval_t err = oct_set("hw.apic.%d { cpu_id: %d, id: %d, enabled: %d }",
+                errval_t err = oct_set("hw.apic.%d { processor_id: %d, apic_id: %d, enabled: %d }",
                                          s->Id, s->ProcessorId, s->Id,
                                          s->LapicFlags & ACPI_MADT_ENABLED);
                 assert(err_is_ok(err));

@@ -771,6 +771,10 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
 int main(int argc, char** argv)
 {
     errval_t err;
+    for (size_t i = 0; i < argc; i++) {
+        printf("%s:%s:%d: argv[i]=%s\n",
+               __FILE__, __FUNCTION__, __LINE__, argv[i]);
+    }
     if (argc < 4) {
         printf("%s:%s:%d: Not enough arguments\n", __FILE__, __FUNCTION__, __LINE__);
         return 1;

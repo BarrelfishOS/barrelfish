@@ -29,165 +29,32 @@
 
 #include "kaluga.h"
 
-static coreid_t cores_on_boot = 0;
-static char** apic_record_names = NULL;
 static coreid_t core_counter = 0;
-static bool cores_booted = false;
-
-static void trigger_local_apic_manual(size_t);
-static void cpu_change_event(octopus_mode_t, char*, void*);
-
-static errval_t new_mon_msg(struct mon_msg_state** mms, send_handler_fn s)
-{
-    *mms = malloc(sizeof(struct mon_msg_state));
-    if (*mms == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
-    (*mms)->send = s;
-    (*mms)->next = NULL;
-
-    return SYS_ERR_OK;
-}
-
-static void send_boot_initialize_request(struct monitor_binding* b,
-        struct mon_msg_state* mm)
-{
-    errval_t err;
-
-    trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_BOOT_INITIALIZE_USER, 0);
-    err = b->tx_vtbl.boot_initialize_request(b,
-            MKCONT(free, mm));
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            enqueue_msg_state(b, mm);
-            return;
-        }
-        USER_PANIC_ERR(err, "kaluga: sending %s failed!", __FUNCTION__);
-    }
-}
-
-static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
-{
-    static coreid_t core_boot_replies = 1; // BSP Monitor already running
-    if (err_is_fail(msgerr)) {
-        USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
-    }
-
-    KALUGA_DEBUG("boot_core_reply: core_boot_replies=%d, cores_on_boot=%d\n",
-            core_boot_replies+1, cores_on_boot);
-
-    if (++core_boot_replies == cores_on_boot) {
-        trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_ALL_UP, 0);
-        struct monitor_binding *mb = get_monitor_binding();
-        struct mon_msg_state *mms = NULL;
-        errval_t err = new_mon_msg(&mms, send_boot_initialize_request);
-        assert(err_is_ok(err));
-
-        KALUGA_DEBUG("before boot send...\n");
-        //trace_flush(NOP_CONT);
-        mms->send(mb, mms);
-    }
-    else {
-        // Boot next core...
-        trigger_local_apic_manual(++core_counter);
-    }
-}
-
-static void boot_initialize_reply(struct monitor_binding *st)
-{
-    KALUGA_DEBUG("boot_initialize_reply\n");
-    cores_booted = true;
-}
-
-
-static void send_boot_core_request(struct monitor_binding* b,
-        struct mon_msg_state* mm)
-{
-    /*errval_t err;
-
-    struct module_info* mi = find_module("cpu");
-    trace_event(TRACE_SUBSYS_CORES, TRACE_EVENT_CORES_USER_REQUEST, mm->core_id);
-    err = b->tx_vtbl.boot_core_request(b, MKCONT(free, mm), mm->core_id,
-            mm->arch_id, CURRENT_CPU_TYPE, mi->complete_line);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            enqueue_msg_state(b, mm);
-            return;
-        }
-        USER_PANIC_ERR(err, "device_manager: sending %s failed!", __FUNCTION__);
-    }*/
-}
-
-static inline void configure_monitor_binding(void)
-{
-    struct monitor_binding* mb = get_monitor_binding();
-    mb->rx_vtbl.boot_core_reply = boot_core_reply;
-    mb->rx_vtbl.boot_initialize_reply = boot_initialize_reply;
-    mb->st = NULL;
-}
-
-static void trigger_local_apic_manual(size_t next)
-{
-    assert(next < cores_on_boot);
-    char* record;
-    errval_t err = oct_get(&record, apic_record_names[next]);
-    assert(err_is_ok(err));
-
-    KALUGA_DEBUG("trigger_manual: %s %zu\n", record, next);
-    cpu_change_event(OCT_ON_SET, record, NULL);
-}
 
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
+        assert(my_core_id == 0); // TODO(gz): why?
 
         uint64_t cpu_id, arch_id, enabled = 0;
-        errval_t err = oct_read(record, "_ { cpu_id: %d, id: %d, enabled: %d }",
+        errval_t err = oct_read(record, "_ { processor_id: %d, apic_id: %d, enabled: %d }",
                 &cpu_id, &arch_id, &enabled);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");
             assert(!"Illformed core record received");
             goto out;
         }
-
-        // cpu_id may vary so we can't really use this
-        // to enumerate cores...
-
-        assert(my_core_id == 0);
         // XXX: copied this line from spawnd bsp_bootup,
         // not sure why x86_64 is hardcoded here but it
         // seems broken...
-        skb_add_fact("corename(%"PRIu8", x86_64, apic(%"PRIu64")).",
+        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
                 core_counter, arch_id);
 
-        if (arch_id != my_arch_id && enabled) {
-            struct monitor_binding* mb = get_monitor_binding();
-
-            struct mon_msg_state* mms = NULL;
-            err = new_mon_msg(&mms, send_boot_core_request);
+        struct module_info* mi = find_module("x86boot");
+        if (mi != NULL) {
+            err = mi->start_function(0, mi, record);
             assert(err_is_ok(err));
-
-            mms->core_id = core_counter;
-            mms->arch_id = arch_id;
-            mms->send(mb, mms);
-        }
-        else {
-            // XXX: see watch_for_cores()
-            KALUGA_DEBUG("record: %s is BSP, ignore.\n", record);
-            if (cores_on_boot > 1) {
-                trigger_local_apic_manual(++core_counter);
-            }
-            else {
-                struct monitor_binding *mb = get_monitor_binding();
-                struct mon_msg_state *mms = NULL;
-                errval_t err = new_mon_msg(&mms, send_boot_initialize_request);
-                assert(err_is_ok(err));
-                mms->send(mb, mms);
-            }
         }
 
     }
@@ -204,39 +71,11 @@ out:
 
 errval_t watch_for_cores(void)
 {
-    // XXX: The current core boot protocol is a bit
-    // limited. We need to know how many cores are available
-    // at boot time and send a boot initialize reply
-    // after all cores are up.
-	// It is possible to boot cores parallel, however,
-	// I figured a clean output on boot is worth more
-	// than the gain in speed so we still boot sequential.
-    // For now we do not handle cores that appear at runtime.
-    // In case the boot protocol changes in the future
-    // just use trigger_existing_and_watch()
-
-    configure_monitor_binding();
     static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
                                "                        enabled: 1, "
                                "                        id: _ }";
-    size_t amount;
-    errval_t err = oct_get_names(&apic_record_names, &amount, local_apics);
-    assert(err_is_ok(err));
-    cores_on_boot = (coreid_t) amount;
-
-    if (err_is_ok(err)) {
-        trigger_local_apic_manual(core_counter);
-
-        // Wait until boot process is done,
-        // this is not necessary but leads to a cleaner
-        // console output
-        while (!cores_booted) {
-            messages_wait_and_handle_next();
-        }
-    }
-
-    oct_free_names(apic_record_names, cores_on_boot);
-    return err;
+   octopus_trigger_id_t tid;
+   return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
@@ -251,34 +90,41 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t cpu_id, id;
+    uint64_t cpu_id, apic_id;
     char **argv = mi->argv;
     bool cleanup = false;
-    err = oct_read(record, "_ { cpu_id: %d, id: %d }",
-            &cpu_id, &id);
+
+    KALUGA_DEBUG("Starting x86boot for %s", record);
+    err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
+            &cpu_id, &apic_id);
     if (err_is_ok(err)) {
         argv = malloc((mi->argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, mi->argc * sizeof(char *));
-        char *cpu_id_s  = malloc(10);
-        char *id_s  = malloc(10);
-        snprintf(cpu_id_s, 10, "%"PRIx64"", cpu_id);
-        snprintf(id_s, 10, "%"PRIx64"", id);
+        char *apic_id_s  = malloc(10);
+        snprintf(apic_id_s, 10, "%"PRIx64"", apic_id);
 
+        argv[mi->argc] = "x86boot";
+        mi->argc += 1;
+        argv[mi->argc] = "auto";
+        mi->argc += 1;
         argv[mi->argc] = "up";
         mi->argc += 1;
-        argv[mi->argc] = cpu_id_s;
-        mi->argc += 1;
-        argv[mi->argc] = id_s;
+        argv[mi->argc] = apic_id_s;
         mi->argc += 1;
         argv[mi->argc] = NULL;
 
         cleanup = true;
+    }
+    else {
+        DEBUG_ERR(err, "Malformed CPU record?");
+        return err;
     }
 
     struct capref task_cap_kernel;
     task_cap_kernel.cnode = cnode_task;
     task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
 
+#ifdef KALUGA_SERVICE_DEBUG
     struct capability info;
     err = debug_cap_identify(task_cap_kernel, &info);
     if (err_is_fail(err)) {
@@ -286,82 +132,28 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     }
     char buffer[1024];
     debug_print_cap(buffer, 1024, &info);
-    printf("%s:%d: capability=%s\n", __FILE__, __LINE__, buffer);
+    KALUGA_DEBUG("%s:%d: capability=%s\n", __FILE__, __LINE__, buffer);
+#endif
 
     struct capref inheritcn_cap;
     err = alloc_inheritcn_with_caps(&inheritcn_cap,
                                     NULL_CAP, NULL_CAP, task_cap_kernel);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "alloc_inheritcn_with_kernelcap failed.");
+        DEBUG_ERR(err, "alloc_inheritcn_with_caps failed.");
     }
 
     err = spawn_program_with_caps(where, mi->path, argv,
-            environ, inheritcn_cap, NULL_CAP, 0, &mi->did);
+                                  environ, inheritcn_cap,
+                                  NULL_CAP, 0, &mi->did);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
     }
+
     if (cleanup) {
         free(argv[mi->argc-1]);
-        free(argv[mi->argc-2]);
         free(argv);
     }
 
     return err;
 }
-
-
-/*
-static void ioapic_change_event(octopus_mode_t mode, char* record, void* state)
-{
-    if (mode & OCT_ON_SET) {
-        struct module_info* mi = find_module("ioapic");
-        if (mi != NULL) {
-            // Pass apic id as 1st argument
-            static const char* fmt = "apicid=%u";
-            int len = snprintf(NULL, 0, fmt, my_arch_id);
-            char* apic_arg = malloc(len+1);
-            snprintf(apic_arg, len+1, fmt, my_arch_id);
-
-            mi->argv[2] = apic_arg;
-            errval_t err = mi->start_function(my_core_id, mi, record);
-            free(apic_arg);
-
-            switch (err_no(err)) {
-            case SYS_ERR_OK:
-                KALUGA_DEBUG("Spawned I/O APIC driver: %s\n", mi->binary);
-                break;
-
-            case KALUGA_ERR_DRIVER_ALREADY_STARTED:
-                KALUGA_DEBUG("%s already running.\n", mi->binary);
-                break;
-
-            case KALUGA_ERR_DRIVER_NOT_AUTO:
-                KALUGA_DEBUG("%s not declared as auto, ignore.\n", mi->binary);
-                break;
-
-            default:
-                DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
-                break;
-            }
-        }
-    }
-    else if (mode & OCT_ON_DEL) {
-        KALUGA_DEBUG("Removed I/O APIC?");
-        assert(!"NYI");
-    }
-
-    free(record);
-}
-
-
-errval_t watch_for_ioapic(void)
-{
-    KALUGA_DEBUG("watch_for_ioapic\n");
-    static char* io_apics = "r'hw.ioapic.[0-9]+' { id: _, address: _, "
-                            "irqbase: _ }";
-
-    octopus_trigger_id_t tid;
-    return trigger_existing_and_watch(io_apics, ioapic_change_event,
-            NULL, &tid);
-}*/

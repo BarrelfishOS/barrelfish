@@ -64,7 +64,7 @@ errval_t find_all_apics(void)
                    s->ProcessorId, s->Id,
                    s->LapicFlags & ACPI_MADT_ENABLED);
 
-            errval_t err = oct_set("hw.apic.%d { cpu_id: %d, id: %d, enabled: %d }",
+            errval_t err = oct_set("hw.apic.%d { processor_id: %d, apic_id: %d, enabled: %d }",
                                      s->Id, s->ProcessorId, s->Id,
                                      s->LapicFlags & ACPI_MADT_ENABLED);
             assert(err_is_ok(err));
