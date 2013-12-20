@@ -55,6 +55,7 @@
 #include "lwip/dhcp.h"
 #include "lwip/stats.h"
 #include "arch/perf.h"
+#include "lwip/init.h"
 
 #include <string.h>
 
@@ -630,7 +631,11 @@ err_t ip_output_if_opt(struct pbuf * p, struct ip_addr * src,
 
         IPH_CHKSUM_SET(iphdr, 0);
 #if CHECKSUM_GEN_IP
-        IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+        if (is_hw_feature_enabled(IPv4_CHECKSUM_HW)) {
+            p->nicflags |= NETIF_TXFLAG_IPCHECKSUM;
+        } else {
+            IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+        }
 #endif
     } else {
         /* IP header already included in p */

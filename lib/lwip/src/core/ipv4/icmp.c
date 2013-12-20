@@ -50,6 +50,7 @@
 #include "lwip/def.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
+#include "lwip/init.h"
 
 #include <string.h>
 
@@ -231,7 +232,11 @@ void icmp_input(struct pbuf *p, struct netif *inp)
             IPH_TTL_SET(iphdr, ICMP_TTL);
             IPH_CHKSUM_SET(iphdr, 0);
 #if CHECKSUM_GEN_IP
-            IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, IP_HLEN));
+            if (is_hw_feature_enabled(IPv4_CHECKSUM_HW)) {
+                p->nicflags |= NETIF_TXFLAG_IPCHECKSUM;
+            } else {
+                IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, IP_HLEN));
+            }
 #endif                          /* CHECKSUM_GEN_IP */
 
             ICMP_STATS_INC(icmp.xmit);

@@ -635,3 +635,15 @@ void lwip_print_interesting_stats(void)
 
 }
 
+
+// checks and tells if given hardware feature is enabled or not.
+// NOTE: This code is kept in this file because the information about the
+// card name is available here. But we should move into separate file
+// in future.
+bool is_hw_feature_enabled(int hw_feature)
+{
+    // FIXME: based on the cardname and configuration, hardware feature's
+    // activeness should be decided
+    return false;
+} // end function: is_hw_feature_enabled
+

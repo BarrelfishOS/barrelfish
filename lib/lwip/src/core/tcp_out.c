@@ -53,6 +53,7 @@
 #include "lwip/inet_chksum.h"
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
+#include "lwip/init.h"
 
 #include <string.h>
 
@@ -554,9 +555,17 @@ err_t tcp_output(struct tcp_pcb *pcb)
 #endif
 
 #if CHECKSUM_GEN_TCP
-        tcphdr->chksum =
-          inet_chksum_pseudo(p, &(pcb->local_ip), &(pcb->remote_ip),
-                             IP_PROTO_TCP, p->tot_len);
+        if (is_hw_feature_enabled(TCP_IPV4_CHECKSUM_HW)) {
+            p->nicflags |= NETIF_TXFLAG_TCPCHECKSUM;
+            p->nicflags |= TCPH_HDRLEN(tcphdr) << NETIF_TXFLAG_TCPHDRLEN_SHIFT;
+            tcphdr->chksum =
+                (~inet_chksum_pseudo_partial(p, &(pcb->local_ip), &(pcb->remote_ip),
+                                             IP_PROTO_TCP, p->tot_len, 0)) & 0xffff;
+        } else {
+            tcphdr->chksum =
+                inet_chksum_pseudo(p, &(pcb->local_ip), &(pcb->remote_ip),
+                        IP_PROTO_TCP, p->tot_len);
+        }
 #endif
 #if LWIP_NETIF_HWADDRHINT
         ip_output_hinted(p, &(pcb->local_ip), &(pcb->remote_ip), pcb->ttl,
@@ -752,10 +761,22 @@ static void tcp_output_segment(struct tcp_seg *seg, struct tcp_pcb *pcb)
 
     seg->tcphdr->chksum = 0;
 #if CHECKSUM_GEN_TCP
-    seg->tcphdr->chksum = inet_chksum_pseudo(seg->p,
-                                             &(pcb->local_ip),
-                                             &(pcb->remote_ip),
-                                             IP_PROTO_TCP, seg->p->tot_len);
+
+    if (is_hw_feature_enabled(TCP_IPV4_CHECKSUM_HW)) {
+        seg->p->nicflags |= NETIF_TXFLAG_TCPCHECKSUM;
+        seg->p->nicflags |=
+            TCPH_HDRLEN(seg->tcphdr) << NETIF_TXFLAG_TCPHDRLEN_SHIFT;
+        seg->tcphdr->chksum = (~inet_chksum_pseudo_partial(seg->p,
+                    &(pcb->local_ip),
+                    &(pcb->remote_ip),
+                    IP_PROTO_TCP, seg->p->tot_len,
+                    0)) & 0xffff;
+    } else {
+        seg->tcphdr->chksum = inet_chksum_pseudo(seg->p,
+                    &(pcb->local_ip),
+                    &(pcb->remote_ip),
+                    IP_PROTO_TCP, seg->p->tot_len);
+    }
 #endif
     TCP_STATS_INC(tcp.xmit);
 

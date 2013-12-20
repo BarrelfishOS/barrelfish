@@ -149,6 +149,14 @@ bool lwip_init_auto_ex(struct waitset *opt_waitset,
 bool lwip_init_ex(const char *card_name, uint64_t queueid,
                   struct waitset *opt_waitset, struct thread_mutex *opt_mutex);
 
+// For supporting hardware features
+enum enabled_hardware_features {
+    IPv4_CHECKSUM_HW = 1,
+    IPv6_CHECKSUM_HW,
+    UDP_IPV4_CHECKSUM_HW,
+    TCP_IPV4_CHECKSUM_HW,
+};
+bool is_hw_feature_enabled(int hw_feature);
 #ifdef __cplusplus
 }
 #endif

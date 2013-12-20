@@ -31,8 +31,9 @@ static void idc_register_buffer(struct net_queue_manager_binding *binding,
                                 uint64_t qid, uint64_t slots, uint8_t role);
 
 static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
-                     uint64_t offset, uint64_t len, uint64_t more_chunks,
-                     uint64_t flags);
+                               uint64_t offset, uint64_t len,
+                               uint64_t more_chunks, uint64_t flags,
+                               bool blocking);
 
 static void idc_get_mac_address(struct net_queue_manager_binding *binding,
                                 uint64_t qid);
