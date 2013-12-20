@@ -29,6 +29,9 @@ interface e10k "e10k queue management interface" {
                                bool   use_irq);
     response queue_memory_registered();
 
+    /* Modify interrupt rate for a particular queue */
+    call set_interrupt_rate(qid id, uint16 rate);
+
     /* FIXME: this is not technically a response, but a request by the server,
               hope this works anyway... I'd like the dev mgr to be server. */
     /* Tells queue driver to write the tail pointers for the rx and

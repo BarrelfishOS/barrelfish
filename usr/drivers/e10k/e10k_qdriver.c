@@ -60,6 +60,7 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref txhwb_frame,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz);
+static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate);
 static void idc_terminate_queue(void);
 
 // Hack for monolithic driver
@@ -71,6 +72,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref rx,
                               uint32_t rxbufsz,
                               bool use_interrupts) __attribute__((weak));
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t queue,
+                           uint16_t rate) __attribute__((weak));
+
 
 void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
         uint64_t macaddr);
@@ -123,6 +128,9 @@ static bool use_txhwb = true;
 
 /** Indicates whether Interrupts should be used */
 static bool use_interrupts = false;
+
+/** Minimal delay between interrupts in us */
+static uint16_t interrupt_delay = 0;
 
 /** Capability for hardware TX ring */
 static struct capref tx_frame;
@@ -403,6 +411,13 @@ static void setup_queue(void)
     idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ);
 }
 
+/** Hardware queue initialized in card driver */
+static void hwqueue_initialized(void)
+{
+    // Just for testing make interrupts as slow as possible
+    idc_set_interrupt_rate(qi, interrupt_delay);
+}
+
 /** Terminate this queue driver */
 static void terminate_queue_fn(void)
 {
@@ -456,6 +471,24 @@ static void idc_register_queue_memory(uint8_t queue,
     assert(err_is_ok(r));
 }
 
+/** Modify interrupt rate for queue */
+static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate)
+{
+    errval_t r;
+
+    INITDEBUG("idc_register_queue_memory()\n");
+
+    if (!standalone) {
+        cd_set_interrupt_rate(NULL, queue, rate);
+        return;
+    };
+
+    r = e10k_set_interrupt_rate__tx(binding, NOP_CONT, queue, rate);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+
+}
+
 /** Tell card driver to stop this queue. */
 static void idc_terminate_queue(void)
 {
@@ -501,6 +534,8 @@ void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
 void qd_queue_memory_registered(struct e10k_binding *b)
 {
     initialized = 1;
+
+    hwqueue_initialized();
 
     // Register queue with queue_mgr library
     ethersrv_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
@@ -603,7 +638,16 @@ void qd_argument(const char *arg)
     } else if (strncmp(arg, "interrupts=",
                        strlen("interrupts=") - 1) == 0) {
         use_interrupts = !!atol(arg + strlen("interrupts="));
-
+    } else if (strncmp(arg, "int_delay=",
+                       strlen("int_delay=") - 1) == 0) {
+        long i = atol(arg + strlen("int_delay="));
+        uint16_t max_delay = 1023;
+        if (i < 0 || i > max_delay) {
+            printf("Invalid int_delay value, must be between 0 and %u\n",
+                max_delay);
+        } else {
+            interrupt_delay = i;
+        }
     } else {
         ethersrv_argument(arg);
     }
