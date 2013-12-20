@@ -795,71 +795,6 @@ static void exit_help(const char *program)
 }
 
 
-static errval_t trigger_existing_and_watch(const char *query,
-        trigger_handler_fn event_handler, void *state,
-        octopus_trigger_id_t *tid)
-{
-    errval_t error_code;
-    char **names = NULL;
-    char *output = NULL;
-    char *record = NULL; // freed by cpu_change_event
-    size_t len = 0;
-    octopus_trigger_t t = oct_mktrigger(0, octopus_BINDING_EVENT,
-                                        OCT_PERSIST | OCT_ON_SET | OCT_ON_DEL | OCT_ALWAYS_SET,
-                                        event_handler, state);
-
-    // Get current cores registered in system
-    struct octopus_thc_client_binding_t *rpc = oct_get_thc_client();
-    errval_t err = rpc->call_seq.get_names(rpc, query,
-                                           t, &output, tid, &error_code);
-    if (err_is_fail(err)) {
-        goto out;
-    }
-    err = error_code;
-
-    switch(err_no(err)) {
-    case SYS_ERR_OK:
-        err = oct_parse_names(output, &names, &len);
-        if (err_is_fail(err)) {
-            goto out;
-        }
-
-        for (size_t i=0; i < len; i++) {
-            err = oct_get(&record, names[i]);
-
-            switch (err_no(err)) {
-            case SYS_ERR_OK:
-                event_handler(OCT_ON_SET, record, state);
-                break;
-
-            case OCT_ERR_NO_RECORD:
-                assert(record == NULL);
-                break;
-
-            default:
-                DEBUG_ERR(err, "Unable to retrieve record for %s", names[i]);
-                assert(record == NULL);
-                break;
-            }
-        }
-        break;
-    case OCT_ERR_NO_RECORD:
-        err = SYS_ERR_OK; // Overwrite (trigger is set)
-        break;
-
-    default:
-        // Do nothing (wait for trigger)
-        break;
-    }
-
-out:
-    oct_free_names(names, len);
-    free(output);
-
-    return err;
-}
-
-
 static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *st)
 {
     errval_t err;
@@ -1005,8 +940,8 @@ int main(int argc, char **argv)
         // always started by kaluga, need to think of a proper way
         // to start device drivers
         octopus_trigger_id_t tid;
-        trigger_existing_and_watch("r'hw\\.pci.device.*' {}",
-                                   check_possible_e1000_card, NULL, &tid);
+        oct_trigger_existing_and_watch("r'hw\\.pci.device.*' {}",
+                                       check_possible_e1000_card, NULL, &tid);
         if (mac_type == e1000_undefined) {
             E1000_DEBUG("No supported e1000 card found yet, wait for one to appear.\n");
         }

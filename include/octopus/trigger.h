@@ -23,9 +23,15 @@
 #define NOP_TRIGGER (octopus_trigger_t){ /*in_case*/ 0, /*send_to*/ 0, \
                                          /*m*/ 0, /*trigger*/ 0, /*st*/ 0 }
 
+#define TRIGGER_ALWAYS (OCT_PERSIST | OCT_ON_SET | OCT_ON_DEL | OCT_ALWAYS_SET)
+
 typedef void(*trigger_handler_fn)(octopus_mode_t mode, char* record, void* state);
 octopus_trigger_t oct_mktrigger(errval_t, octopus_binding_type_t, octopus_mode_t,
         trigger_handler_fn, void*);
 errval_t oct_remove_trigger(octopus_trigger_id_t);
+errval_t oct_trigger_existing_and_watch(const char*,
+        trigger_handler_fn, void*,
+        octopus_trigger_id_t*);
+
 
 #endif /* OCTOPUS_TRIGGER_H_ */
