@@ -241,11 +241,11 @@ void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
 bool handle_fragmented_packet(void* packet, size_t len, uint64_t flags);
 
 
-struct filter *execute_filters(struct driver_rx_buffer *buf, size_t count);
+struct filter *execute_filters(void *data, size_t len);
 
 /* FIXME: put this into the local include file.  */
 bool copy_packet_to_user(struct buffer_descriptor* buffer,
-				void *data, uint64_t len, bool more, uint64_t flags);
+				void *data, uint64_t len, uint64_t flags);
 
 void do_pending_work_for_all(void);
 

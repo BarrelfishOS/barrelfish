@@ -185,14 +185,31 @@ uint64_t pbuf_free_incoming_counter = 0;
  */
 void
 bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
-            uint64_t packet_len, struct pbuf *p)
+            uint64_t packet_len, struct pbuf *pp)
 {
     struct bfeth *bfeth;
     struct eth_hdr *ethhdr;
+    struct pbuf *p;
 
     bfeth = netif->state;
 
-    assert(p->len >= sizeof(*ethhdr));
+    //asq: low_level_input is not needed anymore, because p was preallocated
+    //and filled with an arrived packet by the network card driver.
+    //We only need to find the original vaddr of p according to the received
+    //index.
+    //We have to adjust the len and tot_len fields. The packet is
+    //most probably shorter than pbuf's size.
+    //LWIP is freeing the memory by looking at the type, not by the len or
+    //tot_len fields, so that should be fine.
+
+    //get vaddr of p and adjust the length according to the packet length.
+    p = mem_barrelfish_get_pbuf(pbuf_id);
+    //* Buffer has to be found
+    assert(p != 0);
+
+    assert(packet_len != 0);
+    p->len = packet_len;
+    p->tot_len = packet_len;
     ethhdr = p->payload;
 
     struct pbuf *replaced_pbuf = get_pbuf_for_packet();

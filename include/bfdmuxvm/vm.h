@@ -39,6 +39,5 @@
 typedef uint8_t op_t;
 
 bool execute_filter(uint8_t * filter_code, int filter_len,
-                    uint8_t **packet_data, int *packet_len, int part_count,
-                    int *error_out);
+                    uint8_t * packet_data, int packet_len, int *error_out);
 #endif

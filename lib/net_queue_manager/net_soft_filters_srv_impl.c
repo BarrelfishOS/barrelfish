@@ -61,11 +61,6 @@ static void re_register_filter(struct net_soft_filters_binding *cc,
 static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id,
                          uint64_t buffer_id_rx, uint64_t buffer_id_tx);
 static void mac_address_request_sf(struct net_soft_filters_binding *cc);
-static bool copy_bufs_to_user(struct buffer_descriptor *buffer,
-                              struct driver_rx_buffer *buf,
-                              size_t count,
-                              uint64_t flags);
-
 
 // Initialize interface for soft_filters channel
 static struct net_soft_filters_rx_vtbl rx_net_soft_filters_vtbl = {
@@ -805,7 +800,7 @@ static void pause_filter(struct net_soft_filters_binding *cc, uint64_t filter_id
             struct client_closure *cl = (struct client_closure *)b->st;
             assert(cl != NULL);
             copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len,
-                    false, bd->flags);
+                    bd->flags);
         }
     }
     rx_filter->pause_bufpos = 0;
@@ -904,12 +899,11 @@ static void register_arp_filter(struct net_soft_filters_binding *cc, uint64_t id
 
 
 
-static void send_arp_to_all(struct driver_rx_buffer *buf, size_t count,
-                            uint64_t flags)
+static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
 {
     struct filter *head = rx_filters;
 
-    ETHERSRV_DEBUG("### Sending the ARP packet to all, \n");
+    ETHERSRV_DEBUG("### Sending the ARP packet to all, %"PRIx64" \n", len);
     /* sending ARP packets to only those who have registered atleast one
      * filter with e1000n
      * */
@@ -923,7 +917,7 @@ static void send_arp_to_all(struct driver_rx_buffer *buf, size_t count,
         assert(b != NULL);
         cl = (struct client_closure *) b->st;
         assert(cl != NULL);
-        copy_bufs_to_user(head->buffer, buf, count, flags);
+        copy_packet_to_user(head->buffer, data, len, flags);
         head = head->next;
     }
 
@@ -941,27 +935,11 @@ static void send_arp_to_all(struct driver_rx_buffer *buf, size_t count,
                 (uint32_t) (uintptr_t) data);
 #endif // TRACE_ETHERSRV_MODE
 
-    copy_bufs_to_user(buffer, buf, count, flags);
+    copy_packet_to_user(buffer, data, len, flags);
 }
 
-static inline int execute_filter_packet(struct filter *filter,
-                                        struct driver_rx_buffer *buf,
-                                        size_t count,
-                                        int *error)
-{
-    uint8_t *data[count];
-    int lens[count];
-    size_t i;
 
-    for (i = 0; i < count; i++) {
-        data[i] = sf_rx_ring_buffer(buf[i].opaque);
-        lens[i] = buf[i].len;
-    }
-
-    return execute_filter(filter->data, filter->len, data, lens, count, error);
-}
-
-struct filter *execute_filters(struct driver_rx_buffer *buf, size_t count)
+struct filter *execute_filters(void *data, size_t len)
 {
     struct filter *head = rx_filters;
     int res, error;
@@ -973,7 +951,8 @@ struct filter *execute_filters(struct driver_rx_buffer *buf, size_t count)
     // it is not really necessary. since it could only mean we have
     // received a corrupted packet.
     while (head) {
-        res = execute_filter_packet(head, buf, count, &error);
+        res = execute_filter(head->data, head->len, (uint8_t *) data,
+                             len, &error);
         if (res) {
             // FIXME IK: we need some way of testing how precise a match is
             // and take the most precise match (ie with the least wildcards)
@@ -992,7 +971,7 @@ struct filter *execute_filters(struct driver_rx_buffer *buf, size_t count)
 }
 
 /** Return virtual address for RX buffer. */
-void* sf_rx_ring_buffer(void *opaque)
+static void* rx_ring_buffer(void *opaque)
 {
     size_t idx = (size_t) opaque;
 
@@ -1079,34 +1058,13 @@ void init_soft_filters_service(char *service_name, uint64_t qid,
 } // end function: init_soft_filters_service
 
 
-static bool copy_bufs_to_user(struct buffer_descriptor *buffer,
-                              struct driver_rx_buffer *buf,
-                              size_t count,
-                              uint64_t flags)
-{
-    size_t i;
-    bool ret = true;
-    for (i = 0; ret && i < count; i++) {
-       ret = ret && copy_packet_to_user(buffer,
-                                        sf_rx_ring_buffer(buf[i].opaque),
-                                        buf[i].len, (i < count - 1), flags);
-    }
-
-    if (i > 0 && !ret) {
-        // TODO: how should this be handled?
-        USER_PANIC("copy_packet_to_user failed in middle of chain");
-    }
-    return ret;
-}
-
 // Checks if packet belongs to specific application and sends to it
-static bool handle_application_packet(struct driver_rx_buffer *buf,
-        size_t count, uint64_t flags)
+static bool handle_application_packet(void *packet, size_t len, uint64_t flags)
 {
 
     // executing filters to find the relevant buffer
     uint64_t ts = rdtsc();
-    struct filter *filter = execute_filters(buf, count);
+    struct filter *filter = execute_filters(packet, len);
 
     if (filter == NULL) {
         // No matching filter
@@ -1147,8 +1105,6 @@ static bool handle_application_packet(struct driver_rx_buffer *buf,
     }
 
     if (filter->paused) {
-        USER_PANIC("Paused filter currently broken");
-#if 0 // Paused
         // Packet belongs to paused filter
         assert(filter->pause_bufpos < MAX_PAUSE_BUFFER);
         struct bufdesc *bd = &filter->pause_buffer[filter->pause_bufpos++];
@@ -1157,7 +1113,6 @@ static bool handle_application_packet(struct driver_rx_buffer *buf,
         bd->pkt_len = len;
         bd->flags = flags;
         return true;
-#endif
     }
 
     // Normal case
@@ -1170,7 +1125,7 @@ static bool handle_application_packet(struct driver_rx_buffer *buf,
                 (uint32_t) ((uintptr_t) packet));
 #endif // TRACE_ONLY_SUB_NNET
 
-    bool ret = copy_bufs_to_user(buffer, buf, count, flags);
+    bool ret = copy_packet_to_user(buffer, packet, len, flags);
     if (ret) {
         // Packet delivered to the application buffer
         if (cl->debug_state == 4) {
@@ -1198,8 +1153,7 @@ static bool handle_application_packet(struct driver_rx_buffer *buf,
 
 // Checks if packet is of ARP type
 // If YES, then send it to all
-static bool handle_arp_packet(struct driver_rx_buffer *buf, size_t count,
-                              uint64_t flags)
+static bool handle_arp_packet(void *packet, size_t len, uint64_t flags)
 {
     int error;
 
@@ -1207,11 +1161,12 @@ static bool handle_arp_packet(struct driver_rx_buffer *buf, size_t count,
         return false;
     }
 
-    bool res = execute_filter_packet(&arp_filter_rx, buf, count, &error);
+    bool res = execute_filter(arp_filter_rx.data, arp_filter_rx.len,
+              (uint8_t *) packet, len, &error);
 
     if (res) { // we have an arp packet
 //      ETHERSRV_DEBUG("ARP packet...\n");
-        send_arp_to_all(buf, count, flags);
+        send_arp_to_all(packet, len, flags);
         return true;
     }
 
@@ -1220,8 +1175,7 @@ static bool handle_arp_packet(struct driver_rx_buffer *buf, size_t count,
 
 
 // give this packet to netd
-static bool handle_netd_packet(struct driver_rx_buffer *buf, size_t count,
-                               uint64_t flags)
+static bool handle_netd_packet(void *packet, size_t len, uint64_t flags)
 {
     if(waiting_for_netd()){
 //        ETHERSRV_DEBUG("waiting for netd\n");
@@ -1247,7 +1201,7 @@ static bool handle_netd_packet(struct driver_rx_buffer *buf, size_t count,
 
     struct client_closure *cl = (struct client_closure *)b->st;
     assert(cl != NULL);
-    if (copy_bufs_to_user(buffer, buf, count, flags) == false) {
+    if (copy_packet_to_user(buffer, packet, len, flags) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
     }
     ETHERSRV_DEBUG("packet handled by netd\n");
@@ -1299,7 +1253,7 @@ void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
     assert(is_last);
 
     // Get the virtual address for this buffer
-    pkt_data = sf_rx_ring_buffer(opaque_rx);
+    pkt_data = rx_ring_buffer(opaque_rx);
 
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
@@ -1327,14 +1281,27 @@ out:
 void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
                                 uint64_t flags)
 {
-    size_t i;
+    void *pkt_data;
+    void *opaque;
+    size_t pkt_len;
+
+    // FIXME: allow packets to be distributed over multiple buffers
+    assert(count == 1);
+
+    opaque = buf[0].opaque;
+    pkt_len = buf[0].len;
+    // Get the virtual address for this buffer
+    pkt_data = rx_ring_buffer(opaque);
+
+    assert(pkt_len <= rx_ring_bufsz);
 
 #if TRACE_ETHERSRV_MODE
-    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, 0);
+    uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);
+    trace_event(TRACE_SUBSYS_NET, TRACE_EVENT_NET_NI_A, pkt_location);
 #endif // TRACE_ETHERSRV_MODE
 #if TRACE_ONLY_SUB_NNET
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVSEE,
-                    0);
+                    (uint32_t) ((uintptr_t) pkt_data));
 #endif // TRACE_ONLY_SUB_NNET
 
 #if 0  // LOOPBACK
@@ -1347,29 +1314,27 @@ void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
     }
 #endif
 
-#if 0  // Fragments
-    // check for fragmented packet TODO
-    if (handle_fragmented_packet(buf, count, flags)) {
+    // check for fragmented packet
+    if (handle_fragmented_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG("fragmented packet..\n");
         goto out;
     }
-#endif
 
 #if TRACE_ONLY_SUB_NNET
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_RXESVFRGDONE,
-                    0);
+                    (uint32_t) ((uintptr_t) pkt_data));
 #endif // TRACE_ONLY_SUB_NNET
 
     // check for application specific packet
-    if (handle_application_packet(buf, count, flags)) {
+    if (handle_application_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG
         //printf
-            ("application specific packet.. \n");
+            ("application specific packet.. len %"PRIu64"\n", pkt_len);
         goto out;
     }
 
     // check for ARP packet
-     if (handle_arp_packet(buf, count, flags)) {
+     if (handle_arp_packet(pkt_data, pkt_len, flags)) {
         ETHERSRV_DEBUG
             ("ARP packet..\n");
         goto out;
@@ -1378,12 +1343,10 @@ void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
     // last resort: send packet to netd
 
     ETHERSRV_DEBUG("orphan packet, goes to netd..\n");
-    handle_netd_packet(buf, count, flags);
+    handle_netd_packet(pkt_data, pkt_len, flags);
 
 out:
-    for (i = 0; i < count; i++) {
-        rx_ring_register_buffer(buf[i].opaque);
-    }
+     rx_ring_register_buffer(opaque);
 } // end function: process_received_packet
 
 
