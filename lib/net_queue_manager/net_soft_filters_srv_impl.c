@@ -1278,18 +1278,22 @@ out:
 #endif
 
 
-void sf_process_received_packet(void *opaque, size_t pkt_len, bool is_last,
-        uint64_t flags)
+void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
+                                uint64_t flags)
 {
     void *pkt_data;
+    void *opaque;
+    size_t pkt_len;
 
-    assert(pkt_len <= rx_ring_bufsz);
     // FIXME: allow packets to be distributed over multiple buffers
-    assert(is_last);
+    assert(count == 1);
 
+    opaque = buf[0].opaque;
+    pkt_len = buf[0].len;
     // Get the virtual address for this buffer
     pkt_data = rx_ring_buffer(opaque);
 
+    assert(pkt_len <= rx_ring_bufsz);
 
 #if TRACE_ETHERSRV_MODE
     uint32_t pkt_location = (uint32_t) ((uintptr_t) pkt_data);

@@ -113,6 +113,11 @@ struct driver_buffer {
     uint64_t flags;
 };
 
+struct driver_rx_buffer {
+    size_t len;
+    void  *opaque;
+};
+
 
 #define MAX_STAT_EVENTS   5   // This is the count of pbuf_lifecycle events
 #define MAX_CHUNKS   5 // Max no. of allowed chunks for single packet
@@ -225,7 +230,7 @@ bool handle_tx_done(void *opaque);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
-void process_received_packet(void *opaque, size_t pkt_len, bool is_last,
+void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
     uint64_t flags);
 
 // For local loopback device

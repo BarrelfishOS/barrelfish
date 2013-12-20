@@ -359,6 +359,7 @@ static bool handle_next_received_packet(void)
     volatile union rx_desc *rxd;
     size_t len = 0;
     bool new_packet = false;
+    struct driver_rx_buffer rxb;
 
     if (receive_bufptr == receive_index) { //no packets received
         return false;
@@ -384,7 +385,9 @@ static bool handle_next_received_packet(void)
                     (uint32_t) len);
 #endif // TRACE_ONLY_SUB_NNET
 
-        process_received_packet(receive_opaque[receive_bufptr], len, true, 0);
+        rxb.opaque = receive_opaque[receive_bufptr];
+        rxb.len = len;
+        process_received_packet(&rxb, 1, 0);
     } // end if: valid packet received
     else {
     	// false alarm. Something else happened, not packet arrival

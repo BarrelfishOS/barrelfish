@@ -315,10 +315,12 @@ uint8_t get_driver_benchmark_state(int direction,
 // antoinek: Might need to reenable this when we enable multi threaded lwip
 // again
 //bool lwip_in_packet_received = false;
-static void handle_incoming(size_t idx, size_t len, uint64_t flags)
+static void handle_incoming(size_t idx, size_t len, uint64_t more,
+                            uint64_t flags)
 {
     struct pbuf *p;
 
+    assert(!more);
 #if LWIP_TRACE_MODE
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_LWIPRX, 0);
 #endif // LWIP_TRACE_MODE
@@ -375,11 +377,11 @@ void idc_connect_to_driver(char *card_name, uint64_t queueid)
  * antoinek: FIXME: These should be renamed in some resonable manner
  */
 
-void benchmark_rx_done(size_t idx, size_t len, uint64_t flags)
+void benchmark_rx_done(size_t idx, size_t len, uint64_t more, uint64_t flags)
 {
     LWIPBF_DEBUG("benchmark_rx_done(%"PRIu64", %"PRIu64")\n", idx, len);
     if (lwip_init_done) {
-        handle_incoming(idx, len, flags);
+        handle_incoming(idx, len, more, flags);
     }
 }
 

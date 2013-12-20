@@ -389,9 +389,10 @@ static void rtl8029_handle_interrupt(void *arg)
         	assert(packet_length > 0);
 
             if (packetbuf != NULL) {
+                struct driver_rx_buffer buf = { .opaque = packetbuf_opaque,
+                    .len = packet_length };
                 packetbuf = NULL;
-                process_received_packet(packetbuf_opaque, packet_length,
-                        true, 0);
+                process_received_packet(&buf, 1, 0);
             }
         }
     }
