@@ -249,8 +249,8 @@ MODULES_armv7=\
 	sbin/usb_manager \
 	sbin/usb_keyboard \
 	sbin/kaluga \
-	armv7/sbin/fish \
-	sbin/examples/xmplspawn
+	sbin/fish \
+	sbin/examples/xmpl-spawn
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -434,7 +434,7 @@ DOCS= \
 	./docs/TN-016-Serial.pdf \
 	./docs/TN-017-ARM.pdf \
 	./docs/TN-018-PracticalGuide.pdf \
-	./docs/TN-019-DeviceDriver.pdf 
+	./docs/TN-019-DeviceDriver.pdf
 
 docs doc: $(DOCS)
 .PHONY: docs doc
@@ -649,7 +649,7 @@ heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 #######################################################################
 
 menu.lst.heteropanda_master: $(SRCDIR)/hake/menu.lst.heteropanda_master
-	cp $< $@	
+	cp $< $@
 
 heteropanda_master_image: $(PANDABOARD_MODULES) \
 		tools/bin/arm_molly \
