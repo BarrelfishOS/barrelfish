@@ -45,6 +45,14 @@
 #include <dev/xapic_dev.h>
 #include <target/x86_64/offsets_target.h>
 
+#include <bench/bench.h>
+
+//#define DEBUG(x...) debug_printf(x)
+#define DEBUG(x...) ((void)0)
+
+uint64_t start = 0;
+uint64_t end = 0;
+
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -148,7 +156,7 @@ static inline errval_t invoke_start_core(void)
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
-    printf("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
+    DEBUG("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
 
     // Copy the startup code to the real-mode address
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
@@ -171,11 +179,11 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     uint8_t* real_dest = (uint8_t*)real_base + X86_64_REAL_MODE_LINEAR_OFFSET;
 
 /*
-    printf("%s:%d: X86_64_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_64_REAL_MODE_LINEAR_OFFSET);
-    printf("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
-    printf("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
-    printf("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
-    printf("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
+    DEBUG("%s:%d: X86_64_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_64_REAL_MODE_LINEAR_OFFSET);
+    DEBUG("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
+    DEBUG("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
+    DEBUG("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
+    DEBUG("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
 */
 
     memcpy(real_dest, real_src, real_end - real_src);
@@ -243,14 +251,14 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     }*/
 
 
-    printf("%s:%d: \n", __FILE__, __LINE__);
+    DEBUG("%s:%d: \n", __FILE__, __LINE__);
     //give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
         if (*ap_lock != 0) {
             break;
         }
     }
-    printf("%s:%d: \n", __FILE__, __LINE__);
+    DEBUG("%s:%d: \n", __FILE__, __LINE__);
 
     // If the lock is set, the core has been started, otherwise assume, that
     // a core with this APIC ID doesn't exist.
@@ -366,7 +374,7 @@ static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
         return err;
     }
     *binary_phys = id.base;
-    printf("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+    DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
 
     err = vspace_map_one_frame((void**)binary_virt, info.size, binary_image_cap,
                                NULL, NULL);
@@ -414,7 +422,7 @@ static errval_t allocate_kernel_memory(lvaddr_t cpu_binary, genpaddr_t page_size
     uint64_t old_minbase;
     uint64_t old_maxlimit;
     ram_get_affinity(&old_minbase, &old_maxlimit);
-    printf("%s:%d: \n", __FILE__, __LINE__);
+    DEBUG("%s:%d: \n", __FILE__, __LINE__);
     for (uint64_t minbase = 0, maxlimit = (uint64_t)1 << 30;
             minbase < (uint64_t)4 << 30;
             minbase += (uint64_t)1 << 30, maxlimit += (uint64_t)1 << 30) {
@@ -507,7 +515,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     } else {
         snprintf(cpuname, 32, "%s", cpuname_);
     }
-    debug_printf("loading %s\n", cpuname);
+    DEBUG("loading %s\n", cpuname);
 
     // compute size of frame needed and allocate it
     struct frame_identity urpc_frame_id = {.base = 0, .bits = 0};
@@ -516,9 +524,9 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
-    printf("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
+    DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
-    printf("%s:%s:%d: urpc_frame_id.size=%d\n",
+    DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
 
     err = cap_mark_remote(*frame);
@@ -660,7 +668,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
     struct frame_identity fid;
     invoke_frame_identify(kcb, &fid);
-    printf("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
+    DEBUG("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, fid.base);
     core_data->kcb = (genpaddr_t) fid.base;
 
@@ -675,7 +683,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         // ensure termination
         core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
 
-        printf("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
+        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
 
     /* Invoke kernel capability to boot new core */
@@ -704,14 +712,17 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
     if (err_is_fail(msgerr)) {
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
-    printf("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
+    DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
+    end = bench_tsc();
+
     done = true;
 }
 
 static void power_down_response(struct monitor_binding *st, coreid_t target)
 {
-    printf("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
-    printf("%s:%s:%d: Is the core really down now?\n", __FILE__, __FUNCTION__, __LINE__);
+    DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
+    DEBUG("%s:%s:%d: Is the core really down now?\n", __FILE__, __FUNCTION__, __LINE__);
+    end = bench_tsc();
 
     done = true;
 }
@@ -721,21 +732,21 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
     errval_t err;
     struct capref kcb_mem;
 
-    printf("%s:%s:%d: get capability\n",
+    DEBUG("%s:%s:%d: get capability\n",
            __FILE__, __FUNCTION__, __LINE__);
 
     err = oct_get_capability("corexxx", &kcb);
     if (err_is_ok(err)) {
-        printf("%s:%s:%d: kcb cap was cached\n",
+        DEBUG("%s:%s:%d: kcb cap was cached\n",
                __FILE__, __FUNCTION__, __LINE__);
         return err;
     }
     else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
-        printf("%s:%s:%d: did not find the kcb in cap storage\n",
+        DEBUG("%s:%s:%d: did not find the kcb in cap storage\n",
                __FILE__, __FUNCTION__, __LINE__);
         return err;
     }
-    printf("%s:%s:%d: Create a new kcb\n",
+    DEBUG("%s:%s:%d: Create a new kcb\n",
            __FILE__, __FUNCTION__, __LINE__);
 
     err = ram_alloc(&kcb_mem, OBJBITS_KCB);
@@ -757,7 +768,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
         DEBUG_ERR(err, "Failure in cap_retype.");
     }
 
-    printf("%s:%s:%d: Store the kcb.\n",
+    DEBUG("%s:%s:%d: Store the kcb.\n",
            __FILE__, __FUNCTION__, __LINE__);
     err = oct_put_capability("corexxx", kcb);
     if (err_is_fail(err)) {
@@ -772,11 +783,11 @@ int main(int argc, char** argv)
 {
     errval_t err;
     for (size_t i = 0; i < argc; i++) {
-        printf("%s:%s:%d: argv[i]=%s\n",
+        DEBUG("%s:%s:%d: argv[i]=%s\n",
                __FILE__, __FUNCTION__, __LINE__, argv[i]);
     }
     if (argc < 4) {
-        printf("%s:%s:%d: Not enough arguments\n", __FILE__, __FUNCTION__, __LINE__);
+        DEBUG("%s:%s:%d: Not enough arguments\n", __FILE__, __FUNCTION__, __LINE__);
         return 1;
     }
 
@@ -796,7 +807,7 @@ int main(int argc, char** argv)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_arch_core_id failed.");
     }
-    printf("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
+    DEBUG("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
 
     err = mc->vtbl.get_kernel_cap(mc, &kernel_cap);
     if (err_is_fail(err)) {
@@ -804,18 +815,20 @@ int main(int argc, char** argv)
     }
 
     for (size_t i = 0; i < argc; i++) {
-        printf("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
+        DEBUG("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
     }
+
+    start = bench_tsc();
 
     coreid_t destination = (coreid_t) atoi(argv[3]);
     assert(destination < MAX_COREID);
 
     if(!strcmp(argv[3], "again")) {
-        printf("%s:%s:%d: we're doing a reboot\n",
+        DEBUG("%s:%s:%d: we're doing a reboot\n",
                __FILE__, __FUNCTION__, __LINE__);
         do_reboot = true;
     } else {
-        printf("%s:%s:%d: we're not doing a reboot\n",
+        DEBUG("%s:%s:%d: we're not doing a reboot\n",
                __FILE__, __FUNCTION__, __LINE__);
     }
 
@@ -857,14 +870,14 @@ int main(int argc, char** argv)
         err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, destination, frame);
     }
     else if (!strcmp(argv[2], "down")) {
-        printf("%s:%d: Power it down...\n", __FILE__, __LINE__);
+        DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
         err = st->tx_vtbl.power_down(st, NOP_CONT, destination);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
         }
     }
     else if (!strcmp(argv[2], "resume")) {
-        printf("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
+        DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
         err = invoke_start_core();
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "resume core failed.");
@@ -872,7 +885,7 @@ int main(int argc, char** argv)
         done = true;
     }
     else {
-        printf("%s:%s:%d: unknown cmd = %s\n",
+        DEBUG("%s:%s:%d: unknown cmd = %s\n",
                __FILE__, __FUNCTION__, __LINE__, argv[2]);
         done = true;
     }
@@ -884,7 +897,10 @@ int main(int argc, char** argv)
         }
     }
 
-    printf("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
+    DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
+
+    printf("%s:%s:%d: Time it took [ticks]: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start);
 
     return 0;
 }
