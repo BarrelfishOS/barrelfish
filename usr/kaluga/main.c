@@ -131,7 +131,7 @@ int main(int argc, char** argv)
     struct module_info* mi = find_module("x86boot");
     if (mi != NULL) {
         printf("%s:%d: spawn x86boot\n", __FILE__, __LINE__);
-        err = mi->start_function(0, mi, "hw.apic.1 { cpu_id: 1, enabled: 1, id: 1 }");
+        err = mi->start_function(0, mi, "hw.apic.1 { processor_id: 1, enabled: 1, apic_id: 1 }");
         assert(err_is_ok(err));
     }
 

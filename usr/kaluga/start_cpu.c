@@ -103,10 +103,6 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         char *apic_id_s  = malloc(10);
         snprintf(apic_id_s, 10, "%"PRIx64"", apic_id);
 
-        argv[mi->argc] = "x86boot";
-        mi->argc += 1;
-        argv[mi->argc] = "auto";
-        mi->argc += 1;
         argv[mi->argc] = "up";
         mi->argc += 1;
         argv[mi->argc] = apic_id_s;
