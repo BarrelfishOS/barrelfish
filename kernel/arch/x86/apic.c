@@ -276,9 +276,6 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 {
     //clear the previous error, if nobody was interested before.
     //otherwise it isn't possible to send another IPI
-    char buf[1024];
-    xapic_esr_pr(buf, 1024, &apic);
-    printf("%s:%s:%d:\n%s", __FILE__, __FUNCTION__, __LINE__, buf);
     xapic_esr_rawwr(&apic,0);
     xapic_esr_rawwr(&apic,0);
 
@@ -289,9 +286,7 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
     xapic_icr_lo_rawwr(&apic, cmd);
 
     // Wait for delivery
-    printf("%s:%s:%d: delivery check\n", __FILE__, __FUNCTION__, __LINE__);
     while( wait && xapic_icr_lo_dlv_stat_rdf(&apic) );
-    printf("%s:%s:%d: delivered\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 /** \brief Send an INIT IPI (assert mode)
