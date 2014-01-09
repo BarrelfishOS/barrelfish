@@ -15,8 +15,10 @@
 #ifndef KCB_H
 #define KCB_H
 
+#include <kernel.h>
 #include <capabilities.h>
 #include <irq.h>
+
 struct cte;
 struct dcb;
 
@@ -62,12 +64,12 @@ extern struct kcb *kcb;
 
 static inline void print_kcb(void)
 {
-    printf("kcb contents:\n");
-    printf("  mdb_root = 0x%"PRIxLVADDR"\n", kcb->mdb_root);
-    printf("  queue_head = %p\n", kcb->queue_head);
-    printf("  queue_tail = %p\n", kcb->queue_tail);
-    printf("  wakeup_queue_head = %p\n", kcb->wakeup_queue_head);
-    printf("  u_hrt = %u, u_srt = %u, w_be = %u, n_be = %u\n",
+    printk(LOG_DEBUG, "kcb contents:\n");
+    printk(LOG_DEBUG, "  mdb_root = 0x%"PRIxLVADDR"\n", kcb->mdb_root);
+    printk(LOG_DEBUG, "  queue_head = %p\n", kcb->queue_head);
+    printk(LOG_DEBUG, "  queue_tail = %p\n", kcb->queue_tail);
+    printk(LOG_DEBUG, "  wakeup_queue_head = %p\n", kcb->wakeup_queue_head);
+    printk(LOG_DEBUG, "  u_hrt = %u, u_srt = %u, w_be = %u, n_be = %u\n",
             kcb->u_hrt, kcb->u_srt, kcb->w_be, kcb->n_be);
     // TODO interrupt state
 }

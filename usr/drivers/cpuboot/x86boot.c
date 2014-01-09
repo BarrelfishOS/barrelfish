@@ -63,7 +63,7 @@ struct elf_allocate_state {
 };
 
 static bool done = false;
-static bool do_reboot = false;
+static bool kcb_stored = false;
 
 static struct capref kcb;
 
@@ -720,8 +720,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 static void power_down_response(struct monitor_binding *st, coreid_t target)
 {
-    DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
-    DEBUG("%s:%s:%d: Is the core really down now?\n", __FILE__, __FUNCTION__, __LINE__);
+    printf("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
     end = bench_tsc();
 
     done = true;
@@ -739,6 +738,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
     if (err_is_ok(err)) {
         DEBUG("%s:%s:%d: kcb cap was cached\n",
                __FILE__, __FUNCTION__, __LINE__);
+        kcb_stored = true;
         return err;
     }
     else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
@@ -781,6 +781,8 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
 
 int main(int argc, char** argv)
 {
+    bench_arch_init();
+
     errval_t err;
     for (size_t i = 0; i < argc; i++) {
         DEBUG("%s:%s:%d: argv[i]=%s\n",
@@ -823,15 +825,6 @@ int main(int argc, char** argv)
     coreid_t destination = (coreid_t) atoi(argv[3]);
     assert(destination < MAX_COREID);
 
-    if(!strcmp(argv[3], "again")) {
-        DEBUG("%s:%s:%d: we're doing a reboot\n",
-               __FILE__, __FUNCTION__, __LINE__);
-        do_reboot = true;
-    } else {
-        DEBUG("%s:%s:%d: we're not doing a reboot\n",
-               __FILE__, __FUNCTION__, __LINE__);
-    }
-
     err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Octopus initialization failed.");
@@ -861,10 +854,13 @@ int main(int argc, char** argv)
              sched[i] = 0;
         }
         err = spawn_xcore_monitor(destination, destination, CPU_X86_64, sched,
-                                  "loglevel=5 logmask=1", &new_binding, &frame);
+                                  "loglevel=0 logmask=1", &new_binding, &frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
+        end = bench_tsc();
+        printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
         err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, destination, frame);
@@ -899,8 +895,8 @@ int main(int argc, char** argv)
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
 
-    printf("%s:%s:%d: Time it took [ticks]: %lu\n",
-           __FILE__, __FUNCTION__, __LINE__, end-start);
+    printf("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
     return 0;
 }

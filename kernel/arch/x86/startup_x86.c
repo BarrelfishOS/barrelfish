@@ -299,6 +299,8 @@ void kernel_startup(void)
 
     struct dcb *init_dcb;
 
+    kend = rdtscp();
+    printf("Time it took to initialize the kernel = %lu\n", kend-kstart);
 
     if (apic_is_bsp()) {
         if (bsp_coreid != 0) {
@@ -340,11 +342,11 @@ void kernel_startup(void)
             // set queue pointers
             scheduler_restore_state();
             // restore wakeup queue state
-            printf("%s:%s:%d: kcb->wakeup_queue_head = %p\n",
+            printk(LOG_DEBUG, "%s:%s:%d: kcb->wakeup_queue_head = %p\n",
                    __FILE__, __FUNCTION__, __LINE__, kcb->wakeup_queue_head);
             wakeup_set_queue_head(kcb->wakeup_queue_head);
 
-            printf("%s:%s:%d: dcb_current = %p\n",
+            printk(LOG_DEBUG, "%s:%s:%d: dcb_current = %p\n",
                    __FILE__, __FUNCTION__, __LINE__, dcb_current);
             struct dcb *next = schedule();
             debug(SUBSYS_STARTUP, "next = %p\n", next);

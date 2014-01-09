@@ -71,6 +71,14 @@ void boot_core_request(struct monitor_binding *b, coreid_t id,
 {
     errval_t err;
 
+    struct intermon_binding *ibind;
+    err = intermon_binding_get(id, &ibind);
+    if (err_is_ok(err)) {
+        ((struct intermon_state*)ibind->st)->originating_client = b;
+        return;
+    }
+
+
     // Setup new inter-monitor connection to ourselves
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     struct intermon_ump_ipi_binding *ump_binding = malloc(sizeof(

@@ -46,6 +46,10 @@
 #include <dev/ia32_dev.h>
 #include <dev/amd64_dev.h>
 
+uint64_t kstart = 0;
+uint64_t kend = 0;
+
+
 /**
  * Used to store the address of global struct passed during boot across kernel
  * relocations.
@@ -460,7 +464,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     kcb = (struct kcb *)
         local_phys_to_mem((lpaddr_t) kcb);
-    printf("%s:%s:%d: kcb->is_valid = %d\n",
+    printk(LOG_DEBUG, "%s:%s:%d: kcb->is_valid = %d\n",
            __FILE__, __FUNCTION__, __LINE__, kcb->is_valid);
 
     /*
@@ -487,7 +491,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     apic_init();
 
     // do not remove/change this printf: needed by regression harness
-    printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
+    //printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
 
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC
@@ -575,6 +579,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
+    kstart = rdtscp();
     // Sanitize the screen
     conio_cls();
     // Initialize serial, only initialize HW if we are
@@ -623,8 +628,8 @@ void arch_init(uint64_t magic, void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
-           local_phys_to_mem(dest));
+    //printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
+    //       local_phys_to_mem(dest));
 
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
