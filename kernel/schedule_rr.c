@@ -18,8 +18,6 @@
 
 #include <timer.h> // update_sched_timer
 
-static struct dcb *ring_current = NULL;
-
 /**
  * \brief Scheduler policy.
  *
@@ -28,14 +26,14 @@ static struct dcb *ring_current = NULL;
 struct dcb *schedule(void)
 {
     // empty ring
-    if(ring_current == NULL) {
+    if(kcb->ring_current == NULL) {
         return NULL;
     }
 
-    assert(ring_current->next != NULL);
-    assert(ring_current->prev != NULL);
+    assert(kcb->ring_current->next != NULL);
+    assert(kcb->ring_current->prev != NULL);
 
-    kcb->ring_current = ring_current = ring_current->next;
+    kcb->ring_current = kcb->ring_current->next;
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif
@@ -49,16 +47,16 @@ void make_runnable(struct dcb *dcb)
         assert(dcb->prev == NULL && dcb->next == NULL);
 
         // Ring empty
-        if(ring_current == NULL) {
-            kcb->ring_current = ring_current = dcb;
+        if(kcb->ring_current == NULL) {
+            kcb->ring_current = dcb;
             dcb->next = dcb;
         }
 
         // Insert after current ring position
-        dcb->prev = ring_current;
-        dcb->next = ring_current->next;
-        ring_current->next->prev = dcb;
-        ring_current->next = dcb;
+        dcb->prev = kcb->ring_current;
+        dcb->next = kcb->ring_current->next;
+        kcb->ring_current->next->prev = dcb;
+        kcb->ring_current->next = dcb;
     }
 }
 
@@ -79,7 +77,7 @@ void scheduler_remove(struct dcb *dcb)
         return;
     }
 
-    struct dcb *next = ring_current->next;
+    struct dcb *next = kcb->ring_current->next;
 
     // Remove dcb from scheduler ring
     dcb->prev->next = dcb->next;
@@ -87,13 +85,13 @@ void scheduler_remove(struct dcb *dcb)
     dcb->prev = dcb->next = NULL;
 
     // Removing ring_current
-    if(dcb == ring_current) {
+    if(dcb == kcb->ring_current) {
         if(dcb == next) {
             // Only guy in the ring
-            kcb->ring_current = ring_current = NULL;
+            kcb->ring_current = NULL;
         } else {
             // Advance ring_current
-            kcb->ring_current = ring_current = next;
+            kcb->ring_current = next;
         }
     }
 }
@@ -157,7 +155,5 @@ void scheduler_convert(void)
 
 void scheduler_restore_state(void)
 {
-    ring_current = kcb->ring_current;
     // No-Op in RR scheduler
-    // TODO: could implement similar to RBED
 }
