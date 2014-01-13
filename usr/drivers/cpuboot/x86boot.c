@@ -911,6 +911,14 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "power_down failed.");
         }
 
+        // Monitor of core sends monitor_initialized back to our monitor
+        // which will send us a boot_core_reply in turn.
+        // this makes sure the messages reaches us, as we set
+        // the reply binding to this program and not the old x86boot
+        // that booted the core initially
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+
         err = give_kcb_to_new_core(destination_id, kcb);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Can not send KCB to another core.");
