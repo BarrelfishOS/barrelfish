@@ -897,11 +897,12 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     }
 
 
-    // Handle mapping
-    mdb_insert(dest_cte);
-
     /* Copy is done */
     if(!mint) {
+        // Handle mapping here only for non-mint operations
+        // (mint can change eq fields which would make the early insertion
+        // invalid in some cases)
+        mdb_insert(dest_cte);
         return SYS_ERR_OK;
     }
 
@@ -915,7 +916,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         }
         dest_cap->u.cnode.guard      = param1;
         dest_cap->u.cnode.guard_size = param2;
-        return SYS_ERR_OK;
+        break;
 
     case ObjType_EndPoint:
         // XXX: FIXME: check that buffer offset lies wholly within the disp frame
@@ -933,7 +934,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         }
         dest_cap->u.endpoint.epoffset = param1;
         dest_cap->u.endpoint.epbuflen = param2;
-        return SYS_ERR_OK;
+        break;
 
     case ObjType_IO:
         if(src_cap->u.io.start  <= param1) {
@@ -942,13 +943,17 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         if(src_cap->u.io.end  >= param2) {
             dest_cap->u.io.end = param2;
         }
-        return SYS_ERR_OK;
+        break;
 
     default:
         // Unhandled source type for mint
         return SYS_ERR_INVALID_SOURCE_TYPE;
     }
 
+    // Handle mapping after doing minting operation
+    mdb_insert(dest_cte);
+
+    return SYS_ERR_OK;
 }
 
 /// Handle deletion of a cnode or dcb cap
