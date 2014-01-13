@@ -565,11 +565,16 @@ void scheduler_reset_time(void)
     kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now
-    for(struct dcb *i = kcb_current->queue_head; i != NULL; i = i->next) {
-        i->release_time = 0;
-        i->etime = 0;
-        i->last_dispatch = 0;
-    }
+    struct kcb *k = kcb_current;
+    do {
+        printk(LOG_NOTE, "clearing kcb %p\n", k);
+        for(struct dcb *i = k->queue_head; i != NULL; i = i->next) {
+            i->release_time = 0;
+            i->etime = 0;
+            i->last_dispatch = 0;
+        }
+        k = k->next;
+    }while(k && k!=kcb_current);
 
     // Forget all accounting information
     lastdisp = NULL;

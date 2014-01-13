@@ -95,10 +95,14 @@ errval_t
 mdb_init(struct kcb *k)
 {
 #if IN_KERNEL
+#if 0
+    //XXX: write two versions of this; so we can have full sanity checks for
+    //all scenarios -SG
     if (my_kcb) {
         printf("MDB has non-null kcb.\n");
         return CAPS_ERR_MDB_ALREADY_INITIALIZED;
     }
+#endif
     my_kcb = k;
     if (!my_kcb->is_valid) {
         // empty kcb, do nothing
@@ -108,19 +112,16 @@ mdb_init(struct kcb *k)
     // set root
     mdb_root = (struct cte *)k->mdb_root;
 
-    // check tree
-    if (!mdb_is_sane()) {
-        printf("restored mdb not in valid state\n");
-        mdb_root = NULL;
-        return CAPS_ERR_MDB_INVALID_STATE;
-    }
+#if 0
     // always check invariants here
     int i = mdb_check_invariants();
     if (i) {
         printf("mdb invariant %s violated\n", mdb_invariant_to_str(i));
+        mdb_dump_all_the_things();
         mdb_root = NULL;
         return CAPS_ERR_MDB_INVARIANT_VIOLATION;
     }
+#endif
     return SYS_ERR_OK;
 }
 

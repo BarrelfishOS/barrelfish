@@ -375,6 +375,10 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
         kcb_current->next = kcb_current->prev = new_kcb;
         new_kcb->next = new_kcb->prev = kcb_current;
     }
+    // reset scheduler statistics
+    scheduler_reset_time();
+
+    printk(LOG_NOTE, "kcb_current = %p\n", kcb_current);
 
     return SYSRET(SYS_ERR_OK);
 }

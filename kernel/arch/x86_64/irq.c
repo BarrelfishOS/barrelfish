@@ -67,6 +67,7 @@
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include <kcb.h>
+#include <mdb/mdb_tree.h>
 
 #include <dev/ia32_dev.h>
 
@@ -818,7 +819,9 @@ static __attribute__ ((used)) void handle_irq(int vector)
         timer_fired ++;
         // switch kcb every 5 time slices (SG: I just picked 5 arbitrarily)
         if (timer_fired % 5 == 0 && kcb_current->next) {
+            printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
             kcb_current = kcb_current->next;
+            mdb_init(kcb_current);
             // update queue tail to make associated assembly not choke
             queue_tail = kcb_current->queue_tail;
         }

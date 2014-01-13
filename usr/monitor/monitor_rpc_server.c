@@ -705,9 +705,10 @@ static void forward_kcb_request(struct monitor_blocking_binding *b,
     }
 
     if (destination == my_core_id) {
-        printf("%s:%s:%d: Invoke syscall directly, destination==my_core_id\n",
-               __FILE__, __FUNCTION__, __LINE__);
-        err = invoke_monitor_add_kcb((uintptr_t)kcb_cap.u.kernelcontrolblock.kcb);
+        uintptr_t kcb_base = (uintptr_t)kcb_cap.u.kernelcontrolblock.kcb;
+        printf("%s:%s:%d: Invoke syscall directly, destination==my_core_id; kcb_base = 0x%"PRIxPTR"\n",
+               __FILE__, __FUNCTION__, __LINE__, kcb_base);
+        err = invoke_monitor_add_kcb(kcb_base);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "invoke_montitor_add_kcb failed.");
         }
