@@ -362,7 +362,7 @@ static struct sysret kernel_start_core(struct capability *kernel_cap,
 static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
-    uint64_t kcb_addr = args[0];
+    lvaddr_t kcb_addr = local_phys_to_mem(args[0]);
 
     struct kcb *new_kcb = (struct kcb *)kcb_addr;
     if (kcb_current->next) {
