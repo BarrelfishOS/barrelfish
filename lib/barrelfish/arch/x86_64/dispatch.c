@@ -288,7 +288,7 @@ disp_save_suspend(void)
     // subsequently used, they won't be restored at save_resume.
     __asm volatile ("movq       %%rbp,  6*8(%[regs])    \n\t"
                     "movq       %%rsp,  7*8(%[regs])    \n\t"
-                    "lea        save_resume(%%rip), %%rcx\n\t"
+                    "lea        save_suspend_resume(%%rip), %%rcx\n\t"
                     "movq       %%rcx, 16*8(%[regs])    \n\t"   // RIP
                     "pushfq                             \n\t"
                     "popq       17*8(%[regs])           \n\t"   // RFLAGS
@@ -305,8 +305,8 @@ disp_save_suspend(void)
                     );
 
     sys_suspend();
-    assert_disabled(!"This code won't run if the yield succeeded.");
+    //assert_disabled(!"This code won't run if the yield succeeded.");
 
-    __asm volatile ("save_resume:");
+    __asm volatile ("save_suspend_resume:");
     // Instead we go here directly
 }
