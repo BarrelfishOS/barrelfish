@@ -462,10 +462,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         panic("error while mapping physical memory!");
     }
 
-    kcb = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb);
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
     printk(LOG_DEBUG, "%s:%s:%d: kcb->is_valid = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kcb->is_valid);
+           __FILE__, __FUNCTION__, __LINE__, kcb_current->is_valid);
 
     /*
      * Also reset the global descriptor table (GDT), so we get
@@ -655,7 +655,7 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->mmap_addr = mb->mmap_addr;
 
         extern struct kcb bspkcb;
-        kcb = &bspkcb;
+        kcb_current = &bspkcb;
     } else { /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =
             (struct x86_core_data*)(dest - BASE_PAGE_SIZE);
@@ -665,7 +665,7 @@ void arch_init(uint64_t magic, void *pointer)
         core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
 
-        kcb = (struct kcb*) glbl_core_data->kcb;
+        kcb_current = (struct kcb*) glbl_core_data->kcb;
         if (core_data->module_end > 4ul * (1ul << 30)) {
             panic("The cpu module is outside the initial 4GB mapping."
                   " Either move the module or increase initial mapping.");

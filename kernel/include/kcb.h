@@ -35,6 +35,11 @@ enum sched_state {
 struct kcb {
     bool is_valid; ///< kcb has been initialized by a kernel before
 
+    /// kcb scheduling ring.
+    /// This field points to the next kcb that should be scheduled when we're
+    /// running multiple kcbs on the same kernel
+    struct kcb *next;
+
     /// mdb root node
     lvaddr_t mdb_root;
     // XXX: need memory for a rootcn here because we can't have it static in
@@ -60,17 +65,18 @@ struct kcb {
 };
 
 ///< The kernel control block
-extern struct kcb *kcb;
+extern struct kcb *kcb_current;
 
 static inline void print_kcb(void)
 {
     printk(LOG_DEBUG, "kcb contents:\n");
-    printk(LOG_DEBUG, "  mdb_root = 0x%"PRIxLVADDR"\n", kcb->mdb_root);
-    printk(LOG_DEBUG, "  queue_head = %p\n", kcb->queue_head);
-    printk(LOG_DEBUG, "  queue_tail = %p\n", kcb->queue_tail);
-    printk(LOG_DEBUG, "  wakeup_queue_head = %p\n", kcb->wakeup_queue_head);
+    printk(LOG_DEBUG, "  mdb_root = 0x%"PRIxLVADDR"\n", kcb_current->mdb_root);
+    printk(LOG_DEBUG, "  queue_head = %p\n", kcb_current->queue_head);
+    printk(LOG_DEBUG, "  queue_tail = %p\n", kcb_current->queue_tail);
+    printk(LOG_DEBUG, "  wakeup_queue_head = %p\n", kcb_current->wakeup_queue_head);
     printk(LOG_DEBUG, "  u_hrt = %u, u_srt = %u, w_be = %u, n_be = %u\n",
-            kcb->u_hrt, kcb->u_srt, kcb->w_be, kcb->n_be);
+            kcb_current->u_hrt, kcb_current->u_srt, kcb_current->w_be,
+            kcb_current->n_be);
     // TODO interrupt state
 }
 

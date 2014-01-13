@@ -314,25 +314,25 @@ void kernel_startup(void)
     init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
         // if we have a kernel control block, use it
-        if (kcb && kcb->is_valid) {
+        if (kcb_current && kcb_current->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
             //kernel_loglevel = 5;
 
             print_kcb();
             errval_t err;
             // restore mdb
-            err = mdb_init(kcb);
+            err = mdb_init(kcb_current);
             if (err_is_fail(err)) {
                 panic("couldn't restore mdb");
             }
             // figure out if we need to convert scheduler state
 #ifdef CONFIG_SCHEDULER_RR
-            if (kcb->sched != SCHED_RR) {
+            if (kcb_current->sched != SCHED_RR) {
                 printf("converting scheduler state to RR\n");
                 scheduler_convert();
             }
 #elif CONFIG_SCHEDULER_RBED
-            if (kcb->sched != SCHED_RBED) {
+            if (kcb_current->sched != SCHED_RBED) {
                 printf("converting scheduler state to RBED\n");
                 scheduler_convert();
             }
@@ -342,9 +342,9 @@ void kernel_startup(void)
             // set queue pointers
             scheduler_restore_state();
             // restore wakeup queue state
-            printk(LOG_DEBUG, "%s:%s:%d: kcb->wakeup_queue_head = %p\n",
-                   __FILE__, __FUNCTION__, __LINE__, kcb->wakeup_queue_head);
-            wakeup_set_queue_head(kcb->wakeup_queue_head);
+            printk(LOG_DEBUG, "%s:%s:%d: kcb_current->wakeup_queue_head = %p\n",
+                   __FILE__, __FUNCTION__, __LINE__, kcb_current->wakeup_queue_head);
+            wakeup_set_queue_head(kcb_current->wakeup_queue_head);
 
             printk(LOG_DEBUG, "%s:%s:%d: dcb_current = %p\n",
                    __FILE__, __FUNCTION__, __LINE__, dcb_current);

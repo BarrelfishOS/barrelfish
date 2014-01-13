@@ -26,14 +26,14 @@
 struct dcb *schedule(void)
 {
     // empty ring
-    if(kcb->ring_current == NULL) {
+    if(kcb_current->ring_current == NULL) {
         return NULL;
     }
 
-    assert(kcb->ring_current->next != NULL);
-    assert(kcb->ring_current->prev != NULL);
+    assert(kcb_current->ring_current->next != NULL);
+    assert(kcb_current->ring_current->prev != NULL);
 
-    kcb->ring_current = kcb->ring_current->next;
+    kcb_current->ring_current = kcb_current->ring_current->next;
     #ifdef CONFIG_ONESHOT_TIMER
     update_sched_timer(kernel_now + kernel_timeslice);
     #endif
@@ -47,16 +47,16 @@ void make_runnable(struct dcb *dcb)
         assert(dcb->prev == NULL && dcb->next == NULL);
 
         // Ring empty
-        if(kcb->ring_current == NULL) {
-            kcb->ring_current = dcb;
+        if(kcb_current->ring_current == NULL) {
+            kcb_current->ring_current = dcb;
             dcb->next = dcb;
         }
 
         // Insert after current ring position
-        dcb->prev = kcb->ring_current;
-        dcb->next = kcb->ring_current->next;
-        kcb->ring_current->next->prev = dcb;
-        kcb->ring_current->next = dcb;
+        dcb->prev = kcb_current->ring_current;
+        dcb->next = kcb_current->ring_current->next;
+        kcb_current->ring_current->next->prev = dcb;
+        kcb_current->ring_current->next = dcb;
     }
 }
 
@@ -77,7 +77,7 @@ void scheduler_remove(struct dcb *dcb)
         return;
     }
 
-    struct dcb *next = kcb->ring_current->next;
+    struct dcb *next = kcb_current->ring_current->next;
 
     // Remove dcb from scheduler ring
     dcb->prev->next = dcb->next;
@@ -85,13 +85,13 @@ void scheduler_remove(struct dcb *dcb)
     dcb->prev = dcb->next = NULL;
 
     // Removing ring_current
-    if(dcb == kcb->ring_current) {
+    if(dcb == kcb_current->ring_current) {
         if(dcb == next) {
             // Only guy in the ring
-            kcb->ring_current = NULL;
+            kcb_current->ring_current = NULL;
         } else {
             // Advance ring_current
-            kcb->ring_current = next;
+            kcb_current->ring_current = next;
         }
     }
 }
@@ -124,20 +124,20 @@ void scheduler_reset_time(void)
 
 void scheduler_convert(void)
 {
-    enum sched_state from = kcb->sched;
+    enum sched_state from = kcb_current->sched;
     switch (from) {
         case SCHED_RBED:
         {
             // initialize RR ring
             struct dcb *last = NULL;
-            for (struct dcb *i = kcb->queue_head; i; i = i->next)
+            for (struct dcb *i = kcb_current->queue_head; i; i = i->next)
             {
                 i->prev = last;
                 last = i;
             }
             // at this point: we have a dll, but need to close the ring
-            kcb->queue_head->prev = kcb->queue_tail;
-            kcb->queue_tail->next = kcb->queue_head;
+            kcb_current->queue_head->prev = kcb_current->queue_tail;
+            kcb_current->queue_tail->next = kcb_current->queue_head;
             break;
         }
         case SCHED_RR:
@@ -147,8 +147,8 @@ void scheduler_convert(void)
             printf("don't know how to convert %d to RBED state\n", from);
             break;
     }
-    kcb->ring_current = kcb->queue_head;
-    for (struct dcb *i = kcb->ring_current; i != kcb->ring_current; i=i->next) {
+    kcb_current->ring_current = kcb_current->queue_head;
+    for (struct dcb *i = kcb_current->ring_current; i != kcb_current->ring_current; i=i->next) {
         printf("dcb %p\n  prev=%p\n  next=%p\n", i, i->prev, i->next);
     }
 }

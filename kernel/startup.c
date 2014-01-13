@@ -26,7 +26,7 @@
 #include <trace/trace.h>
 
 struct kcb bspkcb; ///< HACK! Remove and don't reference this, kcb points here in case we're bsp
-struct kcb* kcb;
+struct kcb *kcb_current;
 
 coreid_t my_core_id;
 
@@ -148,13 +148,13 @@ struct dcb *spawn_module(struct spawn_state *st,
     // don't want this to be static, as the memory backing the data section of
     // the kernel can and will disappear when we reboot a core with a
     // different kernel but want to restore the state
-    struct cte *rootcn = &kcb->init_rootcn;
-    mdb_init(kcb);
-    kcb->is_valid = true;
+    struct cte *rootcn = &kcb_current->init_rootcn;
+    mdb_init(kcb_current);
+    kcb_current->is_valid = true;
 #if defined(CONFIG_SCHEDULER_RR)
-    kcb->sched = SCHED_RR;
+    kcb_current->sched = SCHED_RR;
 #elif defined(CONFIG_SCHEDULER_RBED)
-    kcb->sched = SCHED_RBED;
+    kcb_current->sched = SCHED_RBED;
 #else
 #error invalid scheduler
 #endif
