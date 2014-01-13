@@ -13,6 +13,7 @@
  */
 
 #include <kernel.h>
+#include <kcb.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <mdb/mdb.h>
@@ -358,6 +359,27 @@ static struct sysret kernel_start_core(struct capability *kernel_cap,
     return (struct sysret){.error = SYS_ERR_OK, .value = 0x0};
 }
 
+static struct sysret kernel_add_kcb(struct capability *kern_cap,
+                                    int cmd, uintptr_t *args)
+{
+    uint64_t kcb_addr = args[0];
+
+    struct kcb *new_kcb = (struct kcb *)kcb_addr;
+    if (kcb_current->next) {
+        assert(kcb_current->prev);
+        new_kcb->next = kcb_current->next;
+        new_kcb->prev = kcb_current;
+        new_kcb->next->prev = new_kcb;
+        new_kcb->prev->next = new_kcb;
+    } else {
+        kcb_current->next = kcb_current->prev = new_kcb;
+        new_kcb->next = new_kcb->prev = kcb_current;
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
@@ -495,6 +517,7 @@ static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
     uint64_t synctime = args[0];
     return sys_monitor_handle_sync_timer(synctime);
 }
+
 
 static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
@@ -923,6 +946,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
         [KernelCmd_StartCore] = kernel_start_core,
+        [KernelCmd_Add_kcb]      = kernel_add_kcb,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,

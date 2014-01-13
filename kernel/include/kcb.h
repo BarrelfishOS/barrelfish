@@ -36,9 +36,12 @@ struct kcb {
     bool is_valid; ///< kcb has been initialized by a kernel before
 
     /// kcb scheduling ring.
-    /// This field points to the next kcb that should be scheduled when we're
-    /// running multiple kcbs on the same kernel
-    struct kcb *next;
+    /// These fields point to the next and previous kcb that should be
+    /// scheduled when we're running multiple kcbs on the same kernel.
+    /// invariant: next == NULL --> prev == NULL
+    /// invariant: next is the next kcb in the ring and prev is the previous
+    ///            kcb in the ring
+    struct kcb *next, *prev;
 
     /// mdb root node
     lvaddr_t mdb_root;

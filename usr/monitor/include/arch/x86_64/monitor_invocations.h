@@ -177,4 +177,12 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
     return sysret.error;
 }
 
+static inline errval_t
+invoke_monitor_add_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+
+    return cap_invoke2(cap_kernel, KernelCmd_Add_kcb, kcb_base).error;
+}
+
 #endif
