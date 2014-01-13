@@ -484,11 +484,26 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     setup_default_idt();
     idt_initialized = true;
 
+    kend = rdtscp();
+    printf("Time for the kernel after setup_default_idt = %lu [ms]: %lu\n",
+           kend-kstart, ((357*(kend-kstart))/1000000000));
+
+
     // Enable machine check reporting
     mcheck_init();
 
+    kend = rdtscp();
+    printf("Time for the kernel after mcheck_init = %lu [ms]: %lu\n",
+           kend-kstart, ((357*(kend-kstart))/1000000000));
+
+
     // Initialize local APIC
     apic_init();
+
+    kend = rdtscp();
+    printf("Time for the kernel after apic_init = %lu [ms]: %lu\n",
+           kend-kstart, ((357*(kend-kstart))/1000000000));
+
 
     // do not remove/change this printf: needed by regression harness
     //printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);

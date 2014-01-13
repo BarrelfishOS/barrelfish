@@ -687,6 +687,57 @@ static void get_kernel_cap(struct monitor_blocking_binding *b)
     }
 }
 
+static void forward_kcb_request(struct monitor_blocking_binding *b,
+                                coreid_t destination, struct capref kcb)
+{
+    printf("%s:%s:%d: forward_kcb_request in monitor\n",
+           __FILE__, __FUNCTION__, __LINE__);
+
+    errval_t err = SYS_ERR_OK;
+
+    struct capability kcb_cap;
+    err = monitor_cap_identify(kcb, &kcb_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "monitor_cap_identify failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    if (destination == my_core_id) {
+        printf("%s:%s:%d: Invoke syscall directly, destination==my_core_id\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        err = invoke_monitor_add_kcb((uintptr_t)kcb_cap.u.kernelcontrolblock.kcb);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "invoke_montitor_add_kcb failed.");
+        }
+
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    struct intermon_binding *ib;
+    err = intermon_binding_get(destination, &ib);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "intermon_binding_get failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    intermon_caprep_t kcb_rep;
+    capability_to_caprep(&kcb_cap, &kcb_rep);
+
+    err = ib->tx_vtbl.give_kcb_request(ib, NOP_CONT, kcb_rep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "give_kcb send failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -710,6 +761,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
 
     .cap_set_remote_call     = cap_set_remote,
     .get_kernel_cap_call = get_kernel_cap,
+
+    .forward_kcb_request_call = forward_kcb_request,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

@@ -352,13 +352,13 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
 }
 
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
-                                               uint8_t event, uint8_t perf_umask, 
+                                               uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,
-                                               uint64_t counter_value, 
+                                               uint64_t counter_value,
                                                capaddr_t ep_addr)
 {
-    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate, 
-                       event, perf_umask, counter_id, kernel, 
+    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate,
+                       event, perf_umask, counter_id, kernel,
                        counter_value, ep_addr).error;
 }
 

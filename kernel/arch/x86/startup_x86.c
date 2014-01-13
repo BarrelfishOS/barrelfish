@@ -298,10 +298,6 @@ void kernel_startup(void)
         = (void *)((lvaddr_t)&_start_kernel - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
-
-    kend = rdtscp();
-    printf("Time it took to initialize the kernel = %lu\n", kend-kstart);
-
     if (apic_is_bsp()) {
         if (bsp_coreid != 0) {
             my_core_id = bsp_coreid;

@@ -61,4 +61,6 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
     /* Scary */
     rpc get_kernel_cap(out cap cap);
+
+    rpc forward_kcb_request(in coreid destination, in cap kcb, out errval err);
 };

@@ -47,8 +47,8 @@
 
 #include <bench/bench.h>
 
-//#define DEBUG(x...) debug_printf(x)
-#define DEBUG(x...) ((void)0)
+#define DEBUG(x...) debug_printf(x)
+//#define DEBUG(x...) ((void)0)
 
 uint64_t start = 0;
 uint64_t end = 0;
@@ -734,7 +734,15 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
     DEBUG("%s:%s:%d: get capability\n",
            __FILE__, __FUNCTION__, __LINE__);
 
-    err = oct_get_capability("corexxx", &kcb);
+    int length = snprintf(NULL, 0, "kcb_id_%d", coreid) + 1; // +1 for \0
+    char* kcb_key = (char*)malloc(length);
+    assert (kcb_key != NULL);
+    snprintf(kcb_key, length+1, "kcb_id_%d", coreid);
+
+    DEBUG("%s:%s:%d: oct_get_capability for key = %s\n",
+           __FILE__, __FUNCTION__, __LINE__, kcb_key);
+
+    err = oct_get_capability(kcb_key, &kcb);
     if (err_is_ok(err)) {
         DEBUG("%s:%s:%d: kcb cap was cached\n",
                __FILE__, __FUNCTION__, __LINE__);
@@ -770,7 +778,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
 
     DEBUG("%s:%s:%d: Store the kcb.\n",
            __FILE__, __FUNCTION__, __LINE__);
-    err = oct_put_capability("corexxx", kcb);
+    err = oct_put_capability(kcb_key, kcb);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "can not save the capability.");
     }
@@ -778,6 +786,24 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
     return err;
 }
 
+static errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
+{
+    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    printf("%s:%s:%d: Send KCB to local monitor for forwarding to destination_id = %"PRIuCOREID"\n",
+           __FILE__, __FUNCTION__, __LINE__, destination_id);
+
+    errval_t ret_err;
+    errval_t err = mc->vtbl.forward_kcb_request(mc, destination_id, new_kcb, &ret_err);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "forward_kcb_request failed.");
+    }
+    if (err_is_fail(ret_err)) {
+        USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
+    }
+
+    printf("%s:%s:%d: KCB forwarded\n", __FILE__, __FUNCTION__, __LINE__);
+    return SYS_ERR_OK;
+}
 
 int main(int argc, char** argv)
 {
@@ -822,15 +848,15 @@ int main(int argc, char** argv)
 
     start = bench_tsc();
 
-    coreid_t destination = (coreid_t) atoi(argv[3]);
-    assert(destination < MAX_COREID);
+    coreid_t target_id = (coreid_t) atoi(argv[3]);
+    assert(target_id < MAX_COREID);
 
     err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Octopus initialization failed.");
     }
 
-    err = create_or_get_kcb_cap(destination);
+    err = create_or_get_kcb_cap(target_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get kcb.");
     }
@@ -853,7 +879,7 @@ int main(int argc, char** argv)
              memcpy(sched, s, i);
              sched[i] = 0;
         }
-        err = spawn_xcore_monitor(destination, destination, CPU_X86_64, sched,
+        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
                                   "loglevel=0 logmask=1", &new_binding, &frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -863,13 +889,31 @@ int main(int argc, char** argv)
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, destination, frame);
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
-        err = st->tx_vtbl.power_down(st, NOP_CONT, destination);
+        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
+        }
+    }
+    else if (!strcmp(argv[2], "give")) {
+        assert (argc == 5);
+        DEBUG("%s:%d: Give kcb from core %s to core %s...\n",
+              __FILE__, __LINE__, argv[3], argv[4]);
+
+        coreid_t destination_id = (coreid_t) atoi(argv[4]);
+        assert(destination_id < MAX_COREID);
+
+        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "power_down failed.");
+        }
+
+        err = give_kcb_to_new_core(destination_id, kcb);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Can not send KCB to another core.");
         }
     }
     else if (!strcmp(argv[2], "resume")) {

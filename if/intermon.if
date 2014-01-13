@@ -167,4 +167,7 @@ interface intermon "The Interface between monitors" {
 
     call power_down_request();
     response power_down_response();
+
+    call give_kcb_request(caprep kcb);
+    response give_kcb_response(errval err);
 };
