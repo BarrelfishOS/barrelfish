@@ -185,4 +185,12 @@ invoke_monitor_add_kcb(uintptr_t kcb_base)
     return cap_invoke2(cap_kernel, KernelCmd_Add_kcb, kcb_base).error;
 }
 
+static inline errval_t
+invoke_monitor_remove_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+
+    return cap_invoke2(cap_kernel, KernelCmd_Remove_kcb, kcb_base).error;
+}
+
 #endif

@@ -18,6 +18,7 @@
 #include <kernel.h>
 #include <capabilities.h>
 #include <irq.h>
+#include <mdb/mdb_tree.h>
 
 struct cte;
 struct dcb;
@@ -81,6 +82,16 @@ static inline void print_kcb(void)
             kcb_current->u_hrt, kcb_current->u_srt, kcb_current->w_be,
             kcb_current->n_be);
     // TODO interrupt state
+}
+
+// XXX: this is from RBED, don't know how to properly have this here -SG
+extern struct dcb *queue_tail;
+static inline void switch_kcb(struct kcb *next)
+{
+    kcb_current = next;
+    mdb_init(kcb_current);
+    // update queue tail to make associated assembly not choke
+    queue_tail = kcb_current->queue_tail;
 }
 
 

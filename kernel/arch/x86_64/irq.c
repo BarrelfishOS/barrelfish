@@ -368,7 +368,6 @@ HW_EXCEPTION_NOERR(666);
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 
 static int timer_fired = 0;
-extern struct dcb *queue_tail; // from rbed scheduler
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
@@ -820,10 +819,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         // switch kcb every 5 time slices (SG: I just picked 5 arbitrarily)
         if (timer_fired % 5 == 0 && kcb_current->next) {
             printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
-            kcb_current = kcb_current->next;
-            mdb_init(kcb_current);
-            // update queue tail to make associated assembly not choke
-            queue_tail = kcb_current->queue_tail;
+            switch_kcb(kcb_current->next);
         }
         apic_eoi();
         assert(kernel_ticks_enabled);

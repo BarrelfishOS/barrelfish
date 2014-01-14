@@ -383,6 +383,42 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret kernel_remove_kcb(struct capability *kern_cap,
+                                       int cmd, uintptr_t *args)
+{
+    uint64_t kcb_addr = args[0];
+
+    struct kcb *to_remove = (struct kcb *)kcb_addr;
+    struct kcb *k = kcb_current;
+
+    do {
+        if (k == to_remove) {
+            if (k == kcb_current) {
+                // switch to next available kcb if we're removing the kcb that
+                // is currently being scheduled.
+                switch_kcb(kcb_current->next);
+            }
+            // remove kcb from ring
+            k->prev->next = k->next;
+            k->next->prev = k->prev;
+            if (k->next->next == k->next) {
+                // clear ring to disable switching mechanism if only one kcb
+                // left
+                k->next->next = k->next->prev = NULL;
+            }
+            // clear next and prev of removed kcb to not leak other kcb addrs
+            k->next = k->prev = NULL;
+
+            // break out if we're done
+            return SYSRET(SYS_ERR_OK);
+        }
+        k = k->next;
+    } while (k != kcb_current);
+
+    return SYSRET(SYS_ERR_KCB_NOT_FOUND);
+}
+
+
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
@@ -951,6 +987,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
         [KernelCmd_StartCore] = kernel_start_core,
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
+        [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,
