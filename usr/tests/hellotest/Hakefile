@@ -7,10 +7,11 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for hellotest
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "hellotest",
-                      cFiles = [ "hellotest.c" ]
+                      cFiles = [ "hellotest.c" ],
+                      addLibraries = ["bench"]
                  }
 ]

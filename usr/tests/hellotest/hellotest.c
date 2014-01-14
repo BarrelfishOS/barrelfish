@@ -1,17 +1,18 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
+#include <bench/bench.h>
+
+#define ITERATIONS 1000000000
 
 int main(int argc, char *argv[])
 {
-    volatile int a = 0;
+    bench_init();
     while(1) {
-      if ((a++ % 10000000000) == 0) {
-          debug_printf("Hello world (debug_printf)\n");
-          printf("Hello world (normal printf)\n");
-          for (int i = 0;i < argc; i ++) {
-            printf("arg[%d] = %s\n", i, argv[i]);
-          }
-      }
+        uint64_t start = bench_tsc();
+        for (volatile int i = 0; i < ITERATIONS; i++);
+        uint64_t end = bench_tsc();
+        printf("%s:%s:%d: Time for loop-iteration: %"PRIu64" ticks / %"PRIu64" ms\n",
+               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
     }
 
   return EXIT_SUCCESS;
