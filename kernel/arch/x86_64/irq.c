@@ -390,7 +390,7 @@ static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
+    struct capability *cap = &kcb_home->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {

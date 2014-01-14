@@ -467,6 +467,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     printk(LOG_DEBUG, "%s:%s:%d: kcb->is_valid = %d\n",
            __FILE__, __FUNCTION__, __LINE__, kcb_current->is_valid);
 
+    kcb_home = kcb_current;
+
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT

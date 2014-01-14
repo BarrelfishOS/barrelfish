@@ -70,6 +70,8 @@ struct kcb {
 
 ///< The kernel control block
 extern struct kcb *kcb_current;
+///< The home kernel control block, interrupts get handled based on this kcb
+extern struct kcb *kcb_home;
 
 static inline void print_kcb(void)
 {
