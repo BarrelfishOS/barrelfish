@@ -906,10 +906,20 @@ int main(int argc, char** argv)
         coreid_t destination_id = (coreid_t) atoi(argv[4]);
         assert(destination_id < MAX_COREID);
 
+        DEBUG("%s:%s:%d: power down target_id=%"PRIuCOREID"\n",
+               __FILE__, __FUNCTION__, __LINE__, target_id);
         err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
         }
+
+        while(!done) {
+            err = event_dispatch(get_default_waitset());
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "error in event_dispatch");
+            }
+        }
+        done = false;
 
         // Monitor of core sends monitor_initialized back to our monitor
         // which will send us a boot_core_reply in turn.
@@ -917,7 +927,7 @@ int main(int argc, char** argv)
         // the reply binding to this program and not the old x86boot
         // that booted the core initially
         struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, NULL_CAP);
 
         err = give_kcb_to_new_core(destination_id, kcb);
         if (err_is_fail(err)) {
