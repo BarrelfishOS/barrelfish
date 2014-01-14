@@ -934,6 +934,58 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "Can not send KCB to another core.");
         }
     }
+    else if (!strcmp(argv[2], "take")) {
+        assert (argc == 6);
+        DEBUG("%s:%s:%d: Taking kcb.%s from core %s to core %s\n", __FILE__,
+                __FUNCTION__, __LINE__, argv[3], argv[4], argv[5]);
+
+        coreid_t source_id = (coreid_t) atoi(argv[4]);
+        coreid_t destination_id = (coreid_t) atoi(argv[5]);
+
+        assert(source_id < MAX_COREID);
+        assert(destination_id < MAX_COREID);
+
+        struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+
+
+        printf("%s:%s:%d: Take KCB from local monitor\n",
+                __FILE__, __FUNCTION__, __LINE__);
+        errval_t ret_err;
+        // send message to monitor to be relocated -> don't switch kcb -> remove kcb from ring -> msg -> (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
+        errval_t err = mc->vtbl.forward_kcb_rm_request(mc, target_id, kcb, &ret_err);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "forward_kcb_request failed.");
+        }
+        if (err_is_fail(ret_err)) {
+            USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
+        }
+
+        struct intermon_binding *new_binding = NULL;
+        struct capref frame;
+        char sched[32] = { 0 };
+        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
+             char *s=argv[2]+3;
+             int i;
+             for (i = 0; i < 31; i++) {
+                 if (!s[i] || s[i] == ' ') {
+                     break;
+                 }
+             }
+             memcpy(sched, s, i);
+             sched[i] = 0;
+        }
+        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
+                                  "loglevel=0 logmask=1", &new_binding, &frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+        end = bench_tsc();
+        printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+    }
     else if (!strcmp(argv[2], "resume")) {
         DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
         err = invoke_start_core();

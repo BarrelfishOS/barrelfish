@@ -196,6 +196,7 @@ enum kernel_cmd {
     KernelCmd_StartCore,          ///<
     KernelCmd_Add_kcb,            ///< add extra kcb to be scheduled
     KernelCmd_Remove_kcb,         ///< remove kcb from scheduling ring
+    KernelCmd_Suspend_kcb_sched,  ///< suspend/resume kcb scheduler
     KernelCmd_Count
 };
 

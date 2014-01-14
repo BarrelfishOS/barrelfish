@@ -386,38 +386,21 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
 static struct sysret kernel_remove_kcb(struct capability *kern_cap,
                                        int cmd, uintptr_t *args)
 {
+    printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
     uint64_t kcb_addr = args[0];
 
     struct kcb *to_remove = (struct kcb *)kcb_addr;
-    struct kcb *k = kcb_current;
 
-    do {
-        if (k == to_remove) {
-            if (k == kcb_current) {
-                // switch to next available kcb if we're removing the kcb that
-                // is currently being scheduled.
-                switch_kcb(kcb_current->next);
-            }
-            // remove kcb from ring
-            k->prev->next = k->next;
-            k->next->prev = k->prev;
-            if (k->next->next == k->next) {
-                // clear ring to disable switching mechanism if only one kcb
-                // left
-                k->next->next = k->next->prev = NULL;
-            }
-            // clear next and prev of removed kcb to not leak other kcb addrs
-            k->next = k->prev = NULL;
-
-            // break out if we're done
-            return SYSRET(SYS_ERR_OK);
-        }
-        k = k->next;
-    } while (k != kcb_current);
-
-    return SYSRET(SYS_ERR_KCB_NOT_FOUND);
+    return SYSRET(kcb_remove(to_remove));
 }
 
+static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
+                                              int cmd, uintptr_t *args)
+{
+    printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
+    kcb_sched_suspended = (bool)args[0];
+    return SYSRET(SYS_ERR_OK);
+}
 
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
@@ -988,6 +971,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_StartCore] = kernel_start_core,
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
+        [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Set] = handle_irq_table_set,
@@ -1170,7 +1154,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Temporarily suspend the CPU
     case SYSCALL_SUSPEND:
-        retval = sys_suspend();
+        retval = sys_suspend((bool)arg0);
         break;
 
     case SYSCALL_DEBUG:

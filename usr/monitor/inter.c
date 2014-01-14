@@ -726,6 +726,29 @@ static void give_kcb_response(struct intermon_binding *b, errval_t error)
 
 }
 
+static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base)
+{
+    errval_t err;
+    // don't switch kcbs on the current core
+    err = invoke_monitor_suspend_kcb_scheduler(true);
+    assert(err_is_ok(err));
+    // remove kcb from ring
+    err = invoke_monitor_remove_kcb((uintptr_t) kcb_base);
+    assert(err_is_ok(err));
+    // send reply
+    err = b->tx_vtbl.forward_kcb_rm_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+    // disp_save_rm_kcb -> next kcb -> enable kcb switching again
+    disp_save_rm_kcb();
+}
+
+static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
+{
+    struct monitor_blocking_binding *mb = b->st;
+
+    mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
+}
+
 extern struct monitor_binding* cpuboot_driver;
 
 static void power_down_response(struct intermon_binding* b)
@@ -773,6 +796,9 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
 
     .give_kcb_request = give_kcb_request,
     .give_kcb_response = give_kcb_response,
+
+    .forward_kcb_rm_request = forward_kcb_rm_request,
+    .forward_kcb_rm_response = forward_kcb_rm_response,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)

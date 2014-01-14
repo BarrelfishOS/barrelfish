@@ -304,7 +304,8 @@ disp_save_suspend(void)
                       "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
                     );
 
-    sys_suspend();
+    // halt
+    sys_suspend(true);
     //assert_disabled(!"This code won't run if the yield succeeded.");
 
     __asm volatile ("save_suspend_resume:");

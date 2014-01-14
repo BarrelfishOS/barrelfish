@@ -33,6 +33,7 @@ let
                "capabilities.c",
                "dispatch.c",
                scheduler,
+               "kcb.c",
                "memset.c",
                "memmove.c",
                "paging_generic.c",

@@ -25,9 +25,9 @@ errval_t sys_yield(capaddr_t target)
     return syscall2(SYSCALL_YIELD, target).error;
 }
 
-errval_t sys_suspend(void)
+errval_t sys_suspend(bool halt)
 {
-    return syscall1(SYSCALL_SUSPEND).error;
+    return syscall2(SYSCALL_SUSPEND, halt).error;
 }
 
 errval_t sys_print(const char *string, size_t length)

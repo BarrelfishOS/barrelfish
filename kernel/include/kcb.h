@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2013, ETH Zurich.
+ * Copyright (c) 2013, 2014, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -72,6 +72,8 @@ struct kcb {
 extern struct kcb *kcb_current;
 ///< The home kernel control block, interrupts get handled based on this kcb
 extern struct kcb *kcb_home;
+///< flag that indicates whether kcb scheduling should happen
+extern bool kcb_sched_suspended;
 
 static inline void print_kcb(void)
 {
@@ -96,5 +98,6 @@ static inline void switch_kcb(struct kcb *next)
     queue_tail = kcb_current->queue_tail;
 }
 
+errval_t kcb_remove(struct kcb *to_remove);
 
 #endif

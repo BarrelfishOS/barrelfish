@@ -29,11 +29,12 @@
 #include <irq.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
+#include <kcb.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
     /* FIXME: check that string is mapped and accessible to caller! */
-    printf("%.*s", (int)length, str);
+    printf("[%d] %.*s", my_core_id, (int)length, str);
     return SYS_ERR_OK;
 }
 
@@ -523,13 +524,13 @@ struct sysret sys_yield(capaddr_t target)
     panic("Yield returned!");
 }
 
-struct sysret sys_suspend(void)
+struct sysret sys_suspend(bool do_halt)
 {
     dispatcher_handle_t handle = dcb_current->disp;
     struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
-    debug(SUBSYS_DISPATCH, "%.*s suspends\n", DISP_NAME_LEN, disp->name);
+    debug(SUBSYS_DISPATCH, "%.*s suspends (halt: %d)\n", DISP_NAME_LEN, disp->name, do_halt);
 
     if (!disp->disabled) {
         printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");
@@ -539,9 +540,23 @@ struct sysret sys_suspend(void)
     disp->disabled = false;
     dcb_current->disabled = false;
 
-    printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
-    halt();
-    printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+    if (do_halt) {
+        printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+        halt();
+        printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+    } else {
+        printk(LOG_NOTE, "in sys_suspend(<no_halt>)!\n");
+        // switch to next
+        printk(LOG_NOTE, "calling switch_kcb!\n");
+        struct kcb *next = kcb_current->next;
+        kcb_current->next = NULL;
+        switch_kcb(next);
+        // enable kcb scheduler
+        printk(LOG_NOTE, "enabling kcb scheduler!\n");
+        kcb_sched_suspended = false;
+        // schedule something in the other kcb
+        dispatch(schedule());
+    }
 
     panic("Yield returned!");
 }

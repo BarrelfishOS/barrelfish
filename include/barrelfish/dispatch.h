@@ -101,6 +101,8 @@ void disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
 
 void disp_save_suspend(void);
 
+void disp_save_rm_kcb(void);
+
 void __attribute__((noreturn)) disp_yield_disabled(dispatcher_handle_t handle);
 dispatcher_handle_t disp_new(int core_id);
 

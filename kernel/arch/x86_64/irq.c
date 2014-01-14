@@ -368,6 +368,8 @@ HW_EXCEPTION_NOERR(666);
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 
 static int timer_fired = 0;
+// this is used to pin a kcb for critical sections
+bool kcb_sched_suspended = false;
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
@@ -389,6 +391,7 @@ static int timer_fired = 0;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
+    switch_kcb(kcb_home);
     assert(irq >= 0 && irq < NDISPATCH);
     struct capability *cap = &kcb_home->irq_dispatch[irq].cap;
 
@@ -817,8 +820,8 @@ static __attribute__ ((used)) void handle_irq(int vector)
         // count time slices
         timer_fired ++;
         // switch kcb every 5 time slices (SG: I just picked 5 arbitrarily)
-        if (timer_fired % 5 == 0 && kcb_current->next) {
-            printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
+        if (!kcb_sched_suspended && timer_fired % 5 == 0 && kcb_current->next) {
+            //printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
             switch_kcb(kcb_current->next);
         }
         apic_eoi();

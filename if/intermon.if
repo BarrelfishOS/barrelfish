@@ -170,4 +170,7 @@ interface intermon "The Interface between monitors" {
 
     call give_kcb_request(caprep kcb);
     response give_kcb_response(errval err);
+
+    call forward_kcb_rm_request(uint64 kcb_base);
+    call forward_kcb_rm_response(errval err);
 };
