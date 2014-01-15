@@ -391,13 +391,22 @@ bool kcb_sched_suspended = false;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
-    switch_kcb(kcb_home);
+    if (kcb_current != kcb_home) {
+        switch_kcb(kcb_home);
+    }
     assert(irq >= 0 && irq < NDISPATCH);
     struct capability *cap = &kcb_home->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
         printk(LOG_WARN, "unhandled IRQ %d\n", irq);
+        return;
+    } else if (cap->type > ObjType_Num) {
+        // XXX: HACK: this doesn't fix the root cause of having weird entries
+        // in kcb_current->irq_dispatch[], but it allows us to test the system
+        // more reliably for now. -SG
+        // Also complain to SG if this gets checked in to the main tree!
+        printk(LOG_WARN, "receiver type > %d, %d, assume unhandled\n", ObjType_Num, cap->type);
         return;
     }
 
@@ -416,6 +425,9 @@ static void send_user_interrupt(int irq)
     }
 //    printf("Interrupt %d\n", irq);
     // Otherwise, cap needs to be an endpoint
+    if (cap->type != ObjType_EndPoint) {
+        printf("irq %d, cap->type == %d\n", irq, cap->type);
+    }
     assert(cap->type == ObjType_EndPoint);
 
     // send empty message as notification
