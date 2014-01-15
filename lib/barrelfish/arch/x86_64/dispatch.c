@@ -311,3 +311,53 @@ disp_save_suspend(void)
     __asm volatile ("save_suspend_resume:");
     // Instead we go here directly
 }
+
+void
+#if defined(__GNUC__) && !defined(__clang__) && !defined(__ICC)
+__attribute__((optimize(2)))
+#endif
+disp_save_rm_kcb(void)
+{
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+    arch_registers_state_t *state =
+        dispatcher_get_enabled_save_area(handle);
+
+    assert_disabled(disp_gen->runq != NULL);
+    assert_disabled(disp->haswork);
+
+    struct registers_x86_64 *regs = state;
+
+    // Save resume IP, stack and control registers
+    // See disp_switch above for details
+    // XXX: Using the clobber list here to make the compiler save only
+    // used registers. Be very careful when changing the code below
+    // this asm block! If registers in the clobber list are
+    // subsequently used, they won't be restored at save_resume.
+    __asm volatile ("movq       %%rbp,  6*8(%[regs])    \n\t"
+                    "movq       %%rsp,  7*8(%[regs])    \n\t"
+                    "lea        save_rm_kcb_resume(%%rip), %%rcx\n\t"
+                    "movq       %%rcx, 16*8(%[regs])    \n\t"   // RIP
+                    "pushfq                             \n\t"
+                    "popq       17*8(%[regs])           \n\t"   // RFLAGS
+                    "mov        %%fs, %%bx              \n\t"
+                    "mov        %%bx, %[fs]             \n\t"
+                    "mov        %%gs, %%bx              \n\t"
+                    "mov        %%bx, %[gs]             \n\t"
+                    :
+                    : [regs] "a" (regs),
+                      [fs] "m" (regs->fs),
+                      [gs] "m" (regs->gs)
+                    : "rbx", "rcx", "rdx", "rsi", "rdi",
+                      "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+                    );
+
+    // don't halt but remove kcb of this domain
+    sys_suspend(false);
+    //assert_disabled(!"This code won't run if the yield succeeded.");
+
+    __asm volatile ("save_rm_kcb_resume:");
+    // Instead we go here directly
+}
