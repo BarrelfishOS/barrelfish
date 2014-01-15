@@ -720,7 +720,7 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 
 static void power_down_response(struct monitor_binding *st, coreid_t target)
 {
-    printf("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
+    debug_printf("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
     end = bench_tsc();
 
     done = true;
@@ -789,7 +789,7 @@ static errval_t create_or_get_kcb_cap(coreid_t coreid)
 static errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
 {
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    printf("%s:%s:%d: Send KCB to local monitor for forwarding to destination_id = %"PRIuCOREID"\n",
+    debug_printf("%s:%s:%d: Send KCB to local monitor for forwarding to destination_id = %"PRIuCOREID"\n",
            __FILE__, __FUNCTION__, __LINE__, destination_id);
 
     errval_t ret_err;
@@ -801,7 +801,7 @@ static errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_
         USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
     }
 
-    printf("%s:%s:%d: KCB forwarded\n", __FILE__, __FUNCTION__, __LINE__);
+    debug_printf("%s:%s:%d: KCB forwarded\n", __FILE__, __FUNCTION__, __LINE__);
     return SYS_ERR_OK;
 }
 
@@ -948,7 +948,7 @@ int main(int argc, char** argv)
         struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
 
 
-        printf("%s:%s:%d: Take KCB from local monitor\n",
+        debug_printf("%s:%s:%d: Take KCB from local monitor\n",
                 __FILE__, __FUNCTION__, __LINE__);
         errval_t ret_err;
         // send message to monitor to be relocated -> don't switch kcb -> remove kcb from ring -> msg -> (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
@@ -980,7 +980,7 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
         end = bench_tsc();
-        printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
@@ -1009,7 +1009,7 @@ int main(int argc, char** argv)
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
 
-    printf("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
+    debug_printf("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
            __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
     return 0;

@@ -78,6 +78,8 @@ extern bool kcb_sched_suspended;
 static inline void print_kcb(void)
 {
     printk(LOG_DEBUG, "kcb contents:\n");
+    printk(LOG_DEBUG, "  next = %p, prev = %p\n",
+            kcb_current->next, kcb_current->prev);
     printk(LOG_DEBUG, "  mdb_root = 0x%"PRIxLVADDR"\n", kcb_current->mdb_root);
     printk(LOG_DEBUG, "  queue_head = %p\n", kcb_current->queue_head);
     printk(LOG_DEBUG, "  queue_tail = %p\n", kcb_current->queue_tail);

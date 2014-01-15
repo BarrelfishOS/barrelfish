@@ -768,7 +768,8 @@ static void forward_kcb_rm_request(struct monitor_blocking_binding *b,
 
     // send request to other monitor
     // remember monitor binding to send answer
-    ib->st = b;
+    struct intermon_state *ist = (struct intermon_state*)ib->st;
+    ist->originating_client = (struct monitor_binding*)b; //XXX: HACK
     err = ib->tx_vtbl.forward_kcb_rm_request(ib, NOP_CONT, kcb_base);
     assert(err_is_ok(err));
 

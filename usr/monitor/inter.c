@@ -740,11 +740,19 @@ static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base
     assert(err_is_ok(err));
     // disp_save_rm_kcb -> next kcb -> enable kcb switching again
     disp_save_rm_kcb();
+    // send monitor initialized when we're back up
+    err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    assert(err_is_ok(err));
 }
 
 static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
 {
-    struct monitor_blocking_binding *mb = b->st;
+    //XXX: HACK
+    struct monitor_blocking_binding *mb =
+        (struct monitor_blocking_binding*)
+        ((struct intermon_state*)b->st)->originating_client;
+
+    debug_printf("received kcb_rm response on %d, forwarding to %p\n", my_core_id, mb);
 
     mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
 }

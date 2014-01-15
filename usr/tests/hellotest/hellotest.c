@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
         uint64_t start = bench_tsc();
         for (volatile int i = 0; i < ITERATIONS; i++);
         uint64_t end = bench_tsc();
-        printf("%s:%s:%d: Time for loop-iteration: %"PRIu64" ticks / %"PRIu64" ms\n",
-               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+        debug_printf("Time for loop-iteration: %"PRIu64" ticks / %"PRIu64" ms\n",
+               end-start, bench_tsc_to_ms(end-start));
     }
 
   return EXIT_SUCCESS;

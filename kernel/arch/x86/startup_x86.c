@@ -312,6 +312,7 @@ void kernel_startup(void)
         // if we have a kernel control block, use it
         if (kcb_current && kcb_current->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
+            assert(kcb_current == kcb_home);
             //kernel_loglevel = 5;
 
             print_kcb();
