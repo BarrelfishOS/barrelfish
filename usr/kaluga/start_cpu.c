@@ -29,7 +29,7 @@
 
 #include "kaluga.h"
 
-static coreid_t core_counter = 0;
+static coreid_t core_counter = 1;
 
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
@@ -97,6 +97,9 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     KALUGA_DEBUG("Starting x86boot for %s", record);
     err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
             &cpu_id, &apic_id);
+    skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
+            core_counter++, apic_id);
+
     if (err_is_ok(err)) {
         argv = malloc((mi->argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, mi->argc * sizeof(char *));
