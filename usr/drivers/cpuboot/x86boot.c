@@ -879,6 +879,9 @@ int main(int argc, char** argv)
              memcpy(sched, s, i);
              sched[i] = 0;
         }
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+
         err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
                                   "loglevel=0 logmask=1", &new_binding, &frame);
         if (err_is_fail(err)) {
@@ -887,9 +890,6 @@ int main(int argc, char** argv)
         end = bench_tsc();
         DEBUG("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
@@ -1000,6 +1000,8 @@ int main(int argc, char** argv)
         done = true;
     }
 
+    DEBUG("%s:%s:%d: Wait for message.\n",
+          __FILE__, __FUNCTION__, __LINE__);
     while(!done) {
         err = event_dispatch(get_default_waitset());
         if (err_is_fail(err)) {
