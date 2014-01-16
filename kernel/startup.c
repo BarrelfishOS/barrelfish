@@ -25,6 +25,7 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 
+struct cte bspkcbcap;
 struct kcb bspkcb; ///< HACK! Remove and don't reference this, kcb points here in case we're bsp
 struct kcb *kcb_current;
 struct kcb *kcb_home;
@@ -127,7 +128,6 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     return SYS_ERR_OK;
 }
 
-
 struct dcb *spawn_module(struct spawn_state *st,
                          const char *name, int argc, const char** argv,
                          lpaddr_t bootinfo, lvaddr_t args_base,
@@ -159,6 +159,13 @@ struct dcb *spawn_module(struct spawn_state *st,
 #else
 #error invalid scheduler
 #endif
+    err = caps_create_new(ObjType_KernelControlBlock, alloc_phys(1 << OBJBITS_KCB),
+                        OBJBITS_KCB, OBJBITS_KCB, &bspkcbcap);
+    assert(err_is_ok(err));
+    memcpy(bspkcbcap.cap.u.kernelcontrolblock.kcb, kcb_current, sizeof(struct kcb));
+    kcb_current = bspkcbcap.cap.u.kernelcontrolblock.kcb;
+    kcb_home = kcb_current;
+
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
                         BASE_PAGE_BITS, DEFAULT_CNODE_BITS, rootcn);
     assert(err_is_ok(err));
