@@ -486,7 +486,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     setup_default_idt();
     idt_initialized = true;
 
-    kend = rdtscp();
+    kend = rdtsc();
     printf("Time for the kernel after setup_default_idt = %lu [ms]: %lu\n",
            kend-kstart, ((357*(kend-kstart))/1000000000));
 
@@ -494,7 +494,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Enable machine check reporting
     mcheck_init();
 
-    kend = rdtscp();
+    kend = rdtsc();
     printf("Time for the kernel after mcheck_init = %lu [ms]: %lu\n",
            kend-kstart, ((357*(kend-kstart))/1000000000));
 
@@ -502,7 +502,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Initialize local APIC
     apic_init();
 
-    kend = rdtscp();
+    kend = rdtsc();
     printf("Time for the kernel after apic_init = %lu [ms]: %lu\n",
            kend-kstart, ((357*(kend-kstart))/1000000000));
 
@@ -596,7 +596,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
-    kstart = rdtscp();
+    kstart = rdtsc();
     // Sanitize the screen
     conio_cls();
     // Initialize serial, only initialize HW if we are
