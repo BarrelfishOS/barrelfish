@@ -162,6 +162,7 @@ MODULES_x86_64= \
 	sbin/testdesc \
 	sbin/testdesc-child \
 	sbin/lshw \
+	sbin/x86boot \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -423,7 +424,7 @@ DOCS= \
 	./docs/TN-013-CapabilityManagement.pdf \
 	./docs/TN-014-bulk-transfer.pdf \
 	./docs/TN-015-DiskDriverArchitecture.pdf \
-	./docs/TN-016-Serial.pdf 
+	./docs/TN-016-Serial.pdf
 
 docs doc: $(DOCS)
 .PHONY: docs doc
@@ -638,7 +639,7 @@ heteropanda_slave: $(HETEROPANDA_SLAVE_MODULES) \
 #######################################################################
 
 menu.lst.heteropanda_master: $(SRCDIR)/hake/menu.lst.heteropanda_master
-	cp $< $@	
+	cp $< $@
 
 heteropanda_master_image: $(PANDABOARD_MODULES) \
 		tools/bin/arm_molly \
@@ -650,7 +651,7 @@ heteropanda_master_image: $(PANDABOARD_MODULES) \
 	# Generate appropriate linker script
 	cpp -P -DBASE_ADDR=0x82001000 $(SRCDIR)/tools/arm_molly/molly_ld_script.in \
 		molly_panda/molly_ld_script
-		
+
 	# HETEROPANDA: convert slave image into a form we can insert in our image
 	$(ARM_OBJCOPY) -I binary -O elf32-littlearm -B arm --rename-section \
 	    .data=.rodata_thumb,alloc,load,readonly,data,contents heteropanda_slave \

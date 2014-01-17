@@ -805,6 +805,20 @@ static errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_
     return SYS_ERR_OK;
 }
 
+volatile int counter = 0;
+static void mysleep(int sleeptime)
+{
+    volatile int i = 0;
+    volatile int j = 0;
+    volatile int n = sleeptime;
+    n = sleeptime;
+    for ( i = 0; i < n; ++i) {
+        for ( j = 0; j < 32100; ++j) {
+            counter = counter + 1;
+        }
+    }
+}
+
 int main(int argc, char** argv)
 {
     bench_arch_init();
@@ -890,7 +904,9 @@ int main(int argc, char** argv)
 
         struct monitor_binding *mb = get_monitor_binding();
         err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
-
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "boot_core_request failed");
+        }
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
@@ -898,6 +914,52 @@ int main(int argc, char** argv)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
         }
+    }
+    else if (!strncmp(argv[2], "barrelfish", 2)) {
+
+        DEBUG("%s:%d:reboot: Power it down...\n", __FILE__, __LINE__);
+        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "power_down failed.");
+        }
+
+        int sleeptime = 10000;
+        DEBUG("%s:%d:reboot: down done, sleeping for %d...\n",
+                __FILE__, __LINE__, sleeptime);
+        mysleep(sleeptime);
+
+        DEBUG("%s:%d:reboot: bring it back...\n", __FILE__, __LINE__);
+        struct intermon_binding *new_binding = NULL;
+        struct capref frame;
+        char sched[32] = { 0 };
+        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
+             char *s=argv[2]+3;
+             int i;
+             for (i = 0; i < 31; i++) {
+                 if (!s[i] || s[i] == ' ') {
+                     break;
+                 }
+             }
+             memcpy(sched, s, i);
+             sched[i] = 0;
+        }
+        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
+                                  "loglevel=0 logmask=1", &new_binding, &frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+        end = bench_tsc();
+        DEBUG("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "boot_core_request failed.");
+        }
+        DEBUG("%s:%d:reboot: done..., sleeping again\n", __FILE__, __LINE__);
+        mysleep(sleeptime);
+        DEBUG("%s:%d:reboot: done..., sleeping done\n", __FILE__, __LINE__);
     }
     else if (!strcmp(argv[2], "give")) {
         assert (argc == 5);
