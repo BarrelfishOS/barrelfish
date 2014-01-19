@@ -129,7 +129,6 @@ static errval_t boot_app_core(int argc, char *argv[])
     }
 #endif
 
-    printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
     err = boot_arch_app_core(argc, argv, &parent_core_id, &intermon_binding);
     if(err_is_fail(err)) {
         return err;
@@ -192,7 +191,6 @@ static errval_t boot_app_core(int argc, char *argv[])
         USER_PANIC_ERR(err, "error spawning spawnd");
     }
 
-    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     /* Signal the monitor that booted us that we have initialized */
     err = intermon_binding->tx_vtbl.monitor_initialized(intermon_binding, NOP_CONT);
     if (err_is_fail(err)) {
