@@ -87,6 +87,9 @@ static int cores_initialized = 1;
 
 static void domain_init_done(void *arg, errval_t err)
 {
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "domain_init_done failed.");
+    }
     assert(err_is_ok(err));
     cores_initialized++;
 }
