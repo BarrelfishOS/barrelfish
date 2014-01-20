@@ -43,6 +43,9 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     struct _shm *s = &shms[shmid];
     errval_t err;
 
+    printf("%s:%s:%d: shmid = %d, shmaddr= %p, shmflg = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, shmid, shmaddr, shmflg);
+
     struct frame_identity id;
     vregion_flags_t attr;
 
