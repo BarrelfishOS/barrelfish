@@ -180,6 +180,16 @@ errval_t posixcompat_unpack_fds(void)
         .slot = TASKCN_SLOT_FDSPAGE,
     };
 
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        // we don't have a FD buffer, return OK
+        return SYS_ERR_OK;
+    } else {
+        // frame identify failed, return error
+        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    }
+
     void *fdspg;
     err = vspace_map_one_frame(&fdspg, FDS_SIZE, frame, NULL, NULL);
     if (err_is_fail(err)) {
