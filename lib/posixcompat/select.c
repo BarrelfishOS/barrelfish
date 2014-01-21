@@ -36,6 +36,7 @@ static void timeout_fired(void *arg)
 int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
            struct timeval *timeout)
 {
+    POSIXCOMPAT_DEBUG("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
     struct monitor_binding *mb = get_monitor_binding();
     struct waitset ws, *monitor_ws = mb->waitset;
     bool wait_monitor = false;
@@ -111,11 +112,16 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             abort();
         }
 
+        POSIXCOMPAT_DEBUG("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
         if(lwiptype) {
             lnfds++;
             lwip_mutex_lock();
+            POSIXCOMPAT_DEBUG("%s:%s:%d: before lwip select\n",
+                              __FILE__, __FUNCTION__, __LINE__);
             int r = lwip_select(lnfds, preadfds, pwritefds, pexceptfds,
                                 timeout);
+            POSIXCOMPAT_DEBUG("%s:%s:%d: after lwip select\n",
+                              __FILE__, __FUNCTION__, __LINE__);
             lwip_mutex_unlock();
             if(r == -1) {
                 return r;
@@ -363,5 +369,7 @@ int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
         memcpy(exceptfds, &oexceptfds, sizeof(fd_set));
     }
 
+    POSIXCOMPAT_DEBUG("%s:%s:%d: return from select\n",
+                      __FILE__, __FUNCTION__, __LINE__);
     return retfds;
 }
