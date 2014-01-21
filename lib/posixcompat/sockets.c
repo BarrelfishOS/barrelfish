@@ -281,7 +281,7 @@ int socket(int domain, int type, int protocol)
             if(fd == -1) {
                 return fd;
             }
-			
+
             e.type = FDTAB_TYPE_LWIP_SOCKET;
             e.fd = fd;
         }
@@ -330,7 +330,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         int ret = lwip_bind(e->fd, addr, addrlen);
         lwip_mutex_unlock();
         return ret;
-		
+
     default:
         return -1;
     }
@@ -452,6 +452,8 @@ int listen(int sockfd, int backlog)
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    POSIXCOMPAT_DEBUG("%s:%s:%d: accept(sockfd=%d , e->type=%d)\n",
+           __FILE__, __FUNCTION__, __LINE__, sockfd, e->type);
 
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
@@ -529,7 +531,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
                         return -1;
                     }
                 }
-			
+
                 return newfd;
             }
 
