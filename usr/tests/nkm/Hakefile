@@ -15,5 +15,8 @@
 [ build application { target = "nkmtest",
                       cFiles = [ "nkmtest.c", "vspace_dump.c" ],
                       addLibraries = [ "cap_predicates" ]
+                    },
+  build application { target = "test_modify_flags",
+                      cFiles = [ "modify_flags.c" ]
                     }
 ]
