@@ -689,7 +689,7 @@ static errval_t do_single_modify_flags(struct pmap_arm *pmap, genvaddr_t vaddr,
     if (ptable) {
         struct vnode *page = find_vnode(ptable, ptentry);
         if (page) {
-            if (inside_region(page, ptentry, pages)) {
+            if (inside_region(ptable, ptentry, pages)) {
                 // we're modifying part of a valid mapped region
                 // arguments to invocation: invoke frame cap, first affected
                 // page (as offset from first page in mapping), #affected
