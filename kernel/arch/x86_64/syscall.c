@@ -724,6 +724,17 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    int outvec;
+    ret.error = irq_table_alloc(&outvec);
+    ret.value = outvec;
+    return ret;
+}
+
+
 static struct sysret handle_irq_table_set(struct capability *to, int cmd,
                                           uintptr_t *args)
 {
@@ -974,6 +985,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
     },
     [ObjType_IRQTable] = {
+        [IRQTableCmd_Alloc] = handle_irq_table_alloc,
         [IRQTableCmd_Set] = handle_irq_table_set,
         [IRQTableCmd_Delete] = handle_irq_table_delete
     },

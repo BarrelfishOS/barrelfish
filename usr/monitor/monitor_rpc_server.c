@@ -501,13 +501,17 @@ static void arm_irq_handle_call(struct monitor_blocking_binding *b,
 static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep)
 {
     /* allocate a new slot in the IRQ table */
-    // XXX: probably want to be able to reuse vectors! :)
-    static int nextvec = 0;
-    int vec = nextvec++;
+    int vec;
+    errval_t err, err2;
+    err = invoke_irqtable_alloc_vector(cap_irq, &vec);
+    if (err_is_fail(err)) {
+        err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, 0);
+    }
+    // we got a vector
 
     /* set it and reply */
-    errval_t err = invoke_irqtable_set(cap_irq, vec, ep);
-    errval_t err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
+    err = invoke_irqtable_set(cap_irq, vec, ep);
+    err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
     assert(err_is_ok(err2));
 }
 

@@ -455,6 +455,24 @@ static void send_user_interrupt(int irq)
 #endif
 }
 
+errval_t irq_table_alloc(int *outvec)
+{
+    assert(outvec);
+    // XXX: this is O(n)
+    int i;
+    for (i = 0; i < NDISPATCH; i++) {
+        if (kcb_current->irq_dispatch[i].cap.type == ObjType_Null)
+            break;
+    }
+    if (i == NDISPATCH) {
+        *outvec = -1;
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        *outvec = i;
+        return SYS_ERR_OK;
+    }
+}
+
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;

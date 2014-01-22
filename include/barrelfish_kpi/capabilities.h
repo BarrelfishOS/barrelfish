@@ -224,6 +224,7 @@ enum frame_cmd {
  * IRQ Table capability commands.
  */
 enum irqtable_cmd {
+    IRQTableCmd_Alloc,  ///< Allocate new vector (XXX: HACK: this is x86 specific)
     IRQTableCmd_Set,    ///< Set endpoint for IRQ# notifications
     IRQTableCmd_Delete  ///< Remove notification endpoint for IRQ#
 };

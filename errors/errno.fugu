@@ -83,6 +83,7 @@ errors kernel SYS_ERR_ {
     failure IRQ_NOT_ENDPOINT    "Specified capability is not an endpoint cap",
     failure IRQ_NO_LISTENER     "No listener on specified endpoint cap", // ??
     failure IRQ_INVALID         "Invalid interrupt number",
+    failure IRQ_NO_FREE_VECTOR  "Unable to allocate vector",
 
     // IO capability
     failure IO_PORT_INVALID     "IO port out of range",
