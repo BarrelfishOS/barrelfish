@@ -47,8 +47,8 @@
 
 #include <bench/bench.h>
 
-#define DEBUG(x...) debug_printf(x)
-//#define DEBUG(x...) ((void)0)
+//#define DEBUG(x...) debug_printf(x)
+#define DEBUG(x...) ((void)0)
 
 uint64_t start = 0;
 uint64_t end = 0;
@@ -237,6 +237,12 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
+/*
+    err = invoke_send_start_ipi(1, entry);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke sipi");
+        return err;
+    }*/
 
     err = invoke_send_start_ipi(1, entry);
     if (err_is_fail(err)) {
@@ -244,21 +250,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         return err;
     }
 
-    /*err = invoke_send_start_ipi(1, entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "invoke sipi");
-        return err;
-    }*/
 
-
-    DEBUG("%s:%d: \n", __FILE__, __LINE__);
     //give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
         if (*ap_lock != 0) {
             break;
         }
     }
-    DEBUG("%s:%d: \n", __FILE__, __LINE__);
 
     // If the lock is set, the core has been started, otherwise assume, that
     // a core with this APIC ID doesn't exist.
@@ -899,7 +897,7 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
         end = bench_tsc();
-        DEBUG("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
@@ -949,7 +947,7 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
         end = bench_tsc();
-        DEBUG("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
@@ -1043,7 +1041,7 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
         end = bench_tsc();
-        DEBUG("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
         struct monitor_binding *mb = get_monitor_binding();
@@ -1074,7 +1072,7 @@ int main(int argc, char** argv)
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
 
-    DEBUG("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
+    debug_printf("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
            __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
     return 0;

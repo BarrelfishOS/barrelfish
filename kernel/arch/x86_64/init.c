@@ -487,24 +487,24 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     idt_initialized = true;
 
     kend = rdtsc();
-    printf("Time for the kernel after setup_default_idt = %lu [ms]: %lu\n",
-           kend-kstart, ((357*(kend-kstart))/1000000000));
+    //printf("Time for the kernel after setup_default_idt = %lu [ms]: %lu\n",
+    //       kend-kstart, ((357*(kend-kstart))/1000000000));
 
 
     // Enable machine check reporting
     mcheck_init();
 
     kend = rdtsc();
-    printf("Time for the kernel after mcheck_init = %lu [ms]: %lu\n",
-           kend-kstart, ((357*(kend-kstart))/1000000000));
+    //printf("Time for the kernel after mcheck_init = %lu [ms]: %lu\n",
+    //       kend-kstart, ((357*(kend-kstart))/1000000000));
 
 
     // Initialize local APIC
     apic_init();
 
     kend = rdtsc();
-    printf("Time for the kernel after apic_init = %lu [ms]: %lu\n",
-           kend-kstart, ((357*(kend-kstart))/1000000000));
+    //printf("Time for the kernel after apic_init = %lu [ms]: %lu\n",
+    //       kend-kstart, ((357*(kend-kstart))/1000000000));
 
 
     // do not remove/change this printf: needed by regression harness

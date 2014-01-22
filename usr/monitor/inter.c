@@ -123,7 +123,7 @@ static void boot_core_reply_handler(struct monitor_binding *b,
 
 static void monitor_initialized(struct intermon_binding *b)
 {
-    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (monitor_ready == NULL) {
         monitor_ready = calloc(MAX_COREID, sizeof(bool));
     }
@@ -150,7 +150,7 @@ static void monitor_initialized(struct intermon_binding *b)
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
-    printf("%s:%s:%d: client=%p\n", __FILE__, __FUNCTION__, __LINE__, client);
+    //printf("%s:%s:%d: client=%p\n", __FILE__, __FUNCTION__, __LINE__, client);
     boot_core_reply_cont(client, err);
 }
 
@@ -665,8 +665,8 @@ static void spawnd_image_request(struct intermon_binding *b)
 
 static void stop_core(void* arg)
 {
-    printf("%s:%s:%d: execute stop core\n",
-           __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d: execute stop core\n",
+    //       __FILE__, __FUNCTION__, __LINE__);
 
     //errval_t err = invoke_monitor_stop_core();
     /*if (err_is_fail(err)) {
@@ -674,14 +674,14 @@ static void stop_core(void* arg)
     }*/
     disp_save_suspend();
 
-    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
 
     struct intermon_binding *b = (struct intermon_binding *) arg;
     errval_t err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "sending boot_core_reply failed");
     }
-    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 static void power_down_request(struct intermon_binding *b)
