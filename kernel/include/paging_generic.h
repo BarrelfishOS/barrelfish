@@ -19,7 +19,7 @@
 #include <errors/errno.h>
 
 struct mapping_info {
-    lvaddr_t pte;       ///< where the capability is mapped
+    lpaddr_t pte;       ///< where the capability is mapped
     size_t pte_count;   ///< the amount of PTEs mapped in this mapping
     uint64_t offset;    ///< the offset into the physical region identified by the capability where the mapping begins.
 };
