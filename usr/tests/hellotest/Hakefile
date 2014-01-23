@@ -12,6 +12,7 @@
 
 [ build application { target = "hellotest",
                       cFiles = [ "hellotest.c" ],
-                      addLibraries = ["bench"]
+                      addLibraries = ["bench"],
+                      flounderDefs = ["monitor_blocking", "monitor"]
                  }
 ]
