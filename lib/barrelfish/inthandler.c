@@ -64,11 +64,11 @@ static void generic_interrupt_handler(void *arg)
     errval_t err;
 
     // consume message
-    struct lmp_recv_buf buf = { .buflen = 0 };
-    err = lmp_endpoint_recv(state->idcep, &buf, NULL);
+    struct lmp_recv_msg buf = LMP_RECV_MSG_INIT;
+    err = lmp_endpoint_recv(state->idcep, &buf.buf, NULL);
     assert(err_is_ok(err));
 
-    if (buf.msglen == 1 && buf.words[0] == 1) {
+    if (buf.buf.msglen == 1 && buf.words[0] == 1) {
         // domain moved notification
         debug_printf("got moved, need to reregister for interrupt\n");
         if (!state->reloc_handler) {

@@ -391,11 +391,17 @@ bool kcb_sched_suspended = false;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
-    if (kcb_current != kcb_home) {
-        switch_kcb(kcb_home);
-    }
+    struct kcb *k = kcb_current;
+    do {
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+            break;
+        }
+        k=k->next?k->next:k;
+    } while(k!=kcb_current);
+    switch_kcb(k);
+    // from here: kcb_current is the kcb for which the interrupt was intended
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability *cap = &kcb_home->irq_dispatch[irq].cap;
+    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
@@ -458,11 +464,21 @@ static void send_user_interrupt(int irq)
 errval_t irq_table_alloc(int *outvec)
 {
     assert(outvec);
-    // XXX: this is O(n)
+    // XXX: this is O(#kcb*NDISPATCH)
     int i;
     for (i = 0; i < NDISPATCH; i++) {
-        if (kcb_current->irq_dispatch[i].cap.type == ObjType_Null)
+        struct kcb *k = kcb_current;
+        bool found_free = true;
+        do {
+            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+                found_free = false;
+                break;
+            }
+            k=k->next?k->next:k;
+        } while(k != kcb_current);
+        if (found_free) {
             break;
+        }
     }
     if (i == NDISPATCH) {
         *outvec = -1;
@@ -535,9 +551,8 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
 {
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        if (kcb->irq_dispatch[i].cap.type != ObjType_Null) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
             struct capability *cap = &kcb->irq_dispatch[i].cap;
-            assert(cap->type == ObjType_EndPoint);
             // 1 word message as notification
             errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
             if (err_is_fail(err)) {
@@ -550,8 +565,8 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
                     printk(LOG_ERR, "Unexpected error delivering IRQ\n");
                 }
             }
-            kcb->irq_dispatch[i].cap.type = ObjType_Null;
         }
+        kcb->irq_dispatch[i].cap.type = ObjType_Null;
     }
     return SYS_ERR_OK;
 }

@@ -60,6 +60,10 @@ errval_t device_init(bool enable_irq, uint8_t coreid, int vector,
                      uint32_t vendor_id, uint32_t device_id,
                      uint32_t *bus, uint32_t *dev,uint32_t *fun,
                      int *nr_allocated_bars);
+errval_t device_reregister_interrupt(uint8_t coreid, int vector,
+                 uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
+                 uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
+                 uint32_t *dev,uint32_t *fun);
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index);
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                      uint8_t index, int cap_nr);
