@@ -672,6 +672,7 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->mmap_addr = mb->mmap_addr;
 
         extern struct kcb bspkcb;
+        memset(&bspkcb, 0, sizeof(bspkcb));
         kcb_current = &bspkcb;
     } else { /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =
