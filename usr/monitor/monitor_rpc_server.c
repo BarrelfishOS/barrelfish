@@ -519,6 +519,7 @@ static void get_arch_core_id(struct monitor_blocking_binding *b)
 {
     static uintptr_t arch_id = -1;
     errval_t err;
+    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 
     if (arch_id == -1) {
         err = invoke_monitor_get_arch_id(&arch_id);
@@ -734,6 +735,7 @@ static void forward_kcb_request(struct monitor_blocking_binding *b,
     intermon_caprep_t kcb_rep;
     capability_to_caprep(&kcb_cap, &kcb_rep);
 
+    ib->st = b;
     err = ib->tx_vtbl.give_kcb_request(ib, NOP_CONT, kcb_rep);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "give_kcb send failed");
@@ -776,43 +778,6 @@ static void forward_kcb_rm_request(struct monitor_blocking_binding *b,
     ist->originating_client = (struct monitor_binding*)b; //XXX: HACK
     err = ib->tx_vtbl.forward_kcb_rm_request(ib, NOP_CONT, kcb_base);
     assert(err_is_ok(err));
-
-#if 0
-    if (destination == my_core_id) {
-        printf("%s:%s:%d: Invoke syscall directly, destination==my_core_id; kcb_base = 0x%"PRIxPTR"\n",
-               __FILE__, __FUNCTION__, __LINE__, kcb_base);
-        err = invoke_monitor_remove_kcb(kcb_base);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "invoke_montitor_add_kcb failed.");
-        }
-
-        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
-        assert(err_is_ok(err));
-        return;
-    }
-
-    debug_printf("X-CORE KCB-RM IS NOT EXPECTED TO WORK RIGHT, EXPECT BADNESS!!!\n");
-
-    struct intermon_binding *ib;
-    err = intermon_binding_get(destination, &ib);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "intermon_binding_get failed");
-        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
-        assert(err_is_ok(err));
-        return;
-    }
-
-    intermon_caprep_t kcb_rep;
-    capability_to_caprep(&kcb_cap, &kcb_rep);
-
-    err = ib->tx_vtbl.take_kcb_request(ib, NOP_CONT, kcb_rep);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "give_kcb send failed");
-        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
-        assert(err_is_ok(err));
-        return;
-    }
-#endif
 }
 
 /*------------------------- Initialization functions -------------------------*/

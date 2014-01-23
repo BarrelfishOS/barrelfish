@@ -700,21 +700,27 @@ static void power_down_request(struct intermon_binding *b)
 
 static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_rep)
 {
+    errval_t err;
     struct capability kcb_cap;
+
     caprep_to_capability(&kcb_rep, &kcb_cap);
     assert(kcb_cap.type != ObjType_Null);
 
     struct capref kcb_capref;
-    errval_t err = monitor_cap_create(kcb_capref, &kcb_cap, my_core_id);
+    err = slot_alloc(&kcb_capref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can't allocate slot for kcb_capref.");
+    }
+
+    err = monitor_cap_create(kcb_capref, &kcb_cap, my_core_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "monitor_cap_create failed");
     }
 
     printf("%s:%s:%d: Remote monitor: give kcb to kernel\n",
                 __FILE__, __FUNCTION__, __LINE__);
-
-    // kcb.u.base ...
-    err = invoke_monitor_add_kcb((uintptr_t)kcb_cap.u.kernelcontrolblock.kcb);
+    uintptr_t kcb_base = (uintptr_t)kcb_cap.u.kernelcontrolblock.kcb;
+    err = invoke_monitor_add_kcb(kcb_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "invoke_monitor_add_kcb failed.");
     }
@@ -723,14 +729,17 @@ static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_r
     assert(err_is_ok(err));
 }
 
-static void give_kcb_response(struct intermon_binding *b, errval_t error)
+static void give_kcb_response(struct intermon_binding *ib, errval_t error)
 {
-    printf("%s:%s:%d: Local montior received answer\n",
+    printf("%s:%s:%d: Local monitor received answer\n",
                 __FILE__, __FUNCTION__, __LINE__);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "give kcb did not work.");
+    if (err_is_fail(error)) {
+        USER_PANIC_ERR(error, "give kcb did not work.");
     }
 
+    struct monitor_blocking_binding * b = (struct monitor_blocking_binding *) ib->st;
+    errval_t err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, error);
+    assert(err_is_ok(err));
 }
 
 static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base)

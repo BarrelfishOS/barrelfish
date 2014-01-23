@@ -541,7 +541,8 @@ struct sysret sys_suspend(bool do_halt)
     dcb_current->disabled = false;
 
     if (do_halt) {
-        printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+        printf("%s:%s:%d: before halt of core (%"PRIuCOREID")\n",
+               __FILE__, __FUNCTION__, __LINE__, my_core_id);
         halt();
         printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     } else {
