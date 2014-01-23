@@ -232,23 +232,24 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
 
-    err = invoke_send_init_ipi(1);
+    err = invoke_send_init_ipi(core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
-/*
-    err = invoke_send_start_ipi(1, entry);
+
+    err = invoke_send_start_ipi(core_id, entry);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke sipi");
+        return err;
+    }
+
+    /*err = invoke_send_start_ipi(core_id, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
     }*/
 
-    err = invoke_send_start_ipi(1, entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "invoke sipi");
-        return err;
-    }
 
 
     //give the new core a bit time to start-up and set the lock
