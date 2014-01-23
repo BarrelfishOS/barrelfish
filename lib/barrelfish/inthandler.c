@@ -54,6 +54,8 @@ struct interrupt_handler_state {
     struct lmp_endpoint *idcep;
     interrupt_handler_fn handler;
     void *handler_arg;
+    interrupt_handler_fn reloc_handler;
+    void *reloc_handler_arg;
 };
 
 static void generic_interrupt_handler(void *arg)
@@ -66,10 +68,20 @@ static void generic_interrupt_handler(void *arg)
     err = lmp_endpoint_recv(state->idcep, &buf, NULL);
     assert(err_is_ok(err));
 
-    // run real handler
-    //if (init_complete) {
-    state->handler(state->handler_arg);
-
+    if (buf.msglen == 1 && buf.words[0] == 1) {
+        // domain moved notification
+        debug_printf("got moved, need to reregister for interrupt\n");
+        if (!state->reloc_handler) {
+            debug_printf("no relocation handler registered, expect badness!\n");
+            return;
+        }
+        // run relocation handler
+        state->reloc_handler(state->reloc_handler_arg);
+    } else {
+        // run real handler
+        //if (init_complete) {
+        state->handler(state->handler_arg);
+    }
     // re-register
     struct event_closure cl = {
         .handler = generic_interrupt_handler,
@@ -141,8 +153,10 @@ errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
  * \param ret_vector On success, returns interrupt vector with which
  *                   handler is associated
  */
-errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
-                          uint32_t *ret_vector)
+errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_arg,
+                                  interrupt_handler_fn reloc_handler,
+                                  void *reloc_handler_arg,
+                                  uint32_t *ret_vector)
 {
     errval_t err;
 
@@ -153,6 +167,8 @@ errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
 
     state->handler = handler;
     state->handler_arg = handler_arg;
+    state->reloc_handler = reloc_handler;
+    state->reloc_handler_arg = reloc_handler_arg;
 
     /* create endpoint to handle interrupts */
     struct capref epcap;
@@ -184,4 +200,10 @@ errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
     }
 
     return SYS_ERR_OK;
+}
+
+errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
+                          uint32_t *ret_vector)
+{
+    return inthandler_setup_movable(handler, handler_arg, NULL, NULL, ret_vector);
 }

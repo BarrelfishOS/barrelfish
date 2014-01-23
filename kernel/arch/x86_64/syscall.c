@@ -377,6 +377,8 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
     }
     // reset scheduler statistics
     scheduler_reset_time();
+    // upcall domains with registered interrupts to tell them to reregister
+    irq_table_notify_domains(new_kcb);
 
     printk(LOG_NOTE, "kcb_current = %p\n", kcb_current);
 

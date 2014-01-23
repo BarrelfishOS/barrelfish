@@ -28,6 +28,15 @@ errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
                                    uint32_t vendor, uint32_t device,
                                    uint32_t bus, uint32_t dev, uint32_t fun);
 
+errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
+                                         uint32_t subclass, uint32_t prog_if,
+                                         uint32_t vendor, uint32_t device,
+                                         uint32_t bus, uint32_t dev, uint32_t fun,
+                                         interrupt_handler_fn handler,
+                                         void *handler_arg,
+                                         interrupt_handler_fn reloc_handler,
+                                         void *reloc_handler_arg);
+
 errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
                                  uint32_t subclass, uint32_t prog_if,
                                  uint32_t vendor, uint32_t device,

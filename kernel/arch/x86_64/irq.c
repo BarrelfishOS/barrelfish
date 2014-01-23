@@ -531,6 +531,31 @@ errval_t irq_table_delete(unsigned int nidt)
     }
 }
 
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    uintptr_t msg[] = { 1 };
+    for (int i = 0; i < NDISPATCH; i++) {
+        if (kcb->irq_dispatch[i].cap.type != ObjType_Null) {
+            struct capability *cap = &kcb->irq_dispatch[i].cap;
+            assert(cap->type == ObjType_EndPoint);
+            // 1 word message as notification
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            if (err_is_fail(err)) {
+                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                    struct dispatcher_shared_generic *disp =
+                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                            DISP_NAME_LEN, disp->name);
+                } else {
+                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+                }
+            }
+            kcb->irq_dispatch[i].cap.type = ObjType_Null;
+        }
+    }
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Handles kernel exceptions
  *
