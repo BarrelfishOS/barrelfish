@@ -715,6 +715,9 @@ static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_r
 
     // kcb.u.base ...
     err = invoke_monitor_add_kcb((uintptr_t)kcb_cap.u.kernelcontrolblock.kcb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "invoke_monitor_add_kcb failed.");
+    }
 
     err = b->tx_vtbl.give_kcb_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
@@ -724,6 +727,9 @@ static void give_kcb_response(struct intermon_binding *b, errval_t error)
 {
     printf("%s:%s:%d: Local montior received answer\n",
                 __FILE__, __FUNCTION__, __LINE__);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "give kcb did not work.");
+    }
 
 }
 
