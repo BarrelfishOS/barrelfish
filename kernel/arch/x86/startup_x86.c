@@ -336,6 +336,8 @@ void kernel_startup(void)
 #else
 #error must define scheduler
 #endif
+            // update core id of domains
+            kcb_update_core_id(kcb_current);
             // set queue pointers
             scheduler_restore_state();
             // restore wakeup queue state

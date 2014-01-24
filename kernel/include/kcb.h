@@ -101,5 +101,6 @@ static inline void switch_kcb(struct kcb *next)
 }
 
 errval_t kcb_remove(struct kcb *to_remove);
+void kcb_update_core_id(struct kcb *kcb);
 
 #endif

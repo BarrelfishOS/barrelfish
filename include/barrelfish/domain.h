@@ -31,6 +31,7 @@ struct spawn_rpc_client;
 struct waitset *get_default_waitset(void);
 void disp_set_core_id(coreid_t core_id);
 coreid_t disp_get_core_id(void);
+coreid_t disp_get_current_core_id(void);
 domainid_t disp_get_domain_id(void);
 coreid_t disp_handle_get_core_id(dispatcher_handle_t handle);
 void set_monitor_binding(struct monitor_binding *b);

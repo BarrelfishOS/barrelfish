@@ -150,6 +150,13 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
         dcb->domain_id = odisp->u.dispatcher.dcb->domain_id;
     }
 
+    /* 7. (HACK) Set current core id */
+    {
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(dcb->disp);
+    disp->curr_core_id = my_core_id;
+    }
+
     if(!dcb->is_vm_guest) {
         struct dispatcher_shared_generic *disp =
                     get_dispatcher_shared_generic(dcb->disp);

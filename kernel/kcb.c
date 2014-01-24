@@ -14,8 +14,8 @@
 
 #include <kernel.h>
 #include <kcb.h>
+#include <dispatch.h>
 
-// returns true if we removed `to_remove'
 errval_t kcb_remove(struct kcb *to_remove)
 {
     if (to_remove == kcb_current) {
@@ -52,4 +52,40 @@ errval_t kcb_remove(struct kcb *to_remove)
     } while (k != kcb_current);
 
     return SYS_ERR_KCB_NOT_FOUND;
+}
+
+void kcb_update_core_id(struct kcb *kcb)
+{
+#ifdef CONFIG_SCHEDULER_RBED
+    for (struct dcb *d = kcb->queue_head; d; d = d->next) {
+        printk(LOG_NOTE, "[sched] updating current core id to %d for %s\n",
+                my_core_id, get_disp_name(d));
+        struct dispatcher_shared_generic *disp =
+            get_dispatcher_shared_generic(d->disp);
+        disp->curr_core_id = my_core_id;
+    }
+#elif CONFIG_SCHEDULER_RR
+#error NYI!
+#else
+#error must define scheduler policy in Config.hs
+#endif
+    // do it for dcbs in wakeup queue
+    for (struct dcb *d = kcb->wakeup_queue_head; d; d=d->wakeup_next) {
+        printk(LOG_NOTE, "[wakeup] updating current core id to %d for %s\n",
+                my_core_id, get_disp_name(d));
+        struct dispatcher_shared_generic *disp =
+            get_dispatcher_shared_generic(d->disp);
+        disp->curr_core_id = my_core_id;
+    }
+
+    for (int i = 0; i < NDISPATCH; i++) {
+        struct capability *cap = &kcb->irq_dispatch[i].cap;
+        if (cap->type == ObjType_EndPoint) {
+            printk(LOG_NOTE, "[irq] updating current core id to %d for %s\n",
+                    my_core_id, get_disp_name(cap->u.endpoint.listener));
+            struct dispatcher_shared_generic *disp =
+                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+            disp->curr_core_id = my_core_id;
+        }
+    }
 }

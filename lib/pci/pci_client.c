@@ -58,7 +58,7 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
 
     err = pci_client->vtbl.
         reregister_interrupt(pci_client, class, subclass, prog_if, vendor,
-                device, bus, dev, fun, 0 /* HACK: should be *real* core id */,
+                device, bus, dev, fun, disp_get_current_core_id(),
                 vector, &msgerr);
     if (err_is_fail(err)) {
         return err;
