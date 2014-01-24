@@ -54,7 +54,7 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
 
     char status[512];
     ohci_control_pr(status, 512, hc->ohci_base);
-    printf(status);
+    puts(status);
 
     /*
      * check the ownership of the host controller
@@ -198,7 +198,7 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
     /*
      * initialize the mackerel framework
      */
-    ohci_initialize(&ohci_base, (mackerel_addr_t) base);
+    ohci_initialize(&ohci_base, base);
     hc->ohci_base = &ohci_base;
 
     /*

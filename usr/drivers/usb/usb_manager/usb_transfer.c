@@ -189,7 +189,7 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
              * the first frame must be of size device request, otherwise
              * this is an error
              */
-            USB_DEBUG("ERROR: wrong frame length: %u / %u",
+            USB_DEBUG("ERROR: wrong frame length: %"PRIu32" / %zx",
                    xfer->frame_lengths[0], sizeof(struct usb_device_request));
             USB_DEBUG_TR_RETURN;
             return (1);

@@ -60,11 +60,11 @@ void usb_ehci_set_datastruct_size(usb_ds_size_t size)
  */
 void usb_ehci_print_datastruct_sizes(void)
 {
-    printf("sizeof(struct usb_ehci_itd) = %u\n", sizeof(struct usb_ehci_itd));
-    printf("sizeof(struct usb_ehci_sitd) = %u\n", sizeof(struct usb_ehci_sitd));
-    printf("sizeof(struct usb_ehci_qh) = %u\n", sizeof(struct usb_ehci_qh));
-    printf("sizeof(struct usb_ehci_qtd) = %u\n", sizeof(struct usb_ehci_qtd));
-    printf("sizeof(struct usb_ehci_fstn) = %u\n", sizeof(struct usb_ehci_fstn));
+    printf("sizeof(struct usb_ehci_itd) = %zu\n", sizeof(struct usb_ehci_itd));
+    printf("sizeof(struct usb_ehci_sitd) = %zu\n", sizeof(struct usb_ehci_sitd));
+    printf("sizeof(struct usb_ehci_qh) = %zu\n", sizeof(struct usb_ehci_qh));
+    printf("sizeof(struct usb_ehci_qtd) = %zu\n", sizeof(struct usb_ehci_qtd));
+    printf("sizeof(struct usb_ehci_fstn) = %zu\n", sizeof(struct usb_ehci_fstn));
 }
 
 /*

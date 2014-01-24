@@ -464,7 +464,7 @@ int main(int argc, char *argv[])
     }
     uint32_t intr_vector;
     err = inthandler_setup(usb_hc_intr_handler, NULL,
-            uint32_t &intr_vector);
+            &intr_vector);
     /* TODO: register interrupt routing.. */
 #endif
 
