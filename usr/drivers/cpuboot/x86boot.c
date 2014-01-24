@@ -498,8 +498,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                                     enum cpu_type cpu_type,
                                     const char *cpu_ext,
                                     const char *cmdline,
-                                    struct intermon_binding **ret_binding,
-                                    struct capref* frame)
+                                    struct frame_identity urpc_frame_id)
 {
     const char *monitorname = NULL, *cpuname_ = NULL;
     genpaddr_t arch_page_size;
@@ -517,22 +516,10 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     DEBUG("loading %s\n", cpuname);
 
     // compute size of frame needed and allocate it
-    struct frame_identity urpc_frame_id = {.base = 0, .bits = 0};
-    size_t framesize;
-    err = frame_alloc_identify(frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
     DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
-
-    err = cap_mark_remote(*frame);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not mark cap remote.");
-        return err;
-    }
 
     static size_t cpu_binary_size;
     static lvaddr_t cpu_binary = 0;
@@ -878,8 +865,6 @@ int main(int argc, char** argv)
     //assert(type < CPU_TYPE_NUM);
 
     if (!strncmp(argv[2], "up", 2)) {
-        struct intermon_binding *new_binding = NULL;
-        struct capref frame;
         char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
@@ -892,20 +877,34 @@ int main(int argc, char** argv)
              memcpy(sched, s, i);
              sched[i] = 0;
         }
-        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=1", &new_binding, &frame);
+
+        struct capref frame;
+        size_t framesize;
+        struct frame_identity urpc_frame_id;
+        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
         }
-        end = bench_tsc();
-        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
-               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+        err = cap_mark_remote(frame);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not mark cap remote.");
+            return err;
+        }
 
         struct monitor_binding *mb = get_monitor_binding();
         err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "boot_core_request failed");
         }
+
+        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
+                                  "loglevel=4 logmask=255", urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+        end = bench_tsc();
+        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
+               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
@@ -913,52 +912,6 @@ int main(int argc, char** argv)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
         }
-    }
-    else if (!strncmp(argv[2], "barrelfish", 2)) {
-
-        DEBUG("%s:%d:reboot: Power it down...\n", __FILE__, __LINE__);
-        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "power_down failed.");
-        }
-
-        int sleeptime = 10000;
-        DEBUG("%s:%d:reboot: down done, sleeping for %d...\n",
-                __FILE__, __LINE__, sleeptime);
-        mysleep(sleeptime);
-
-        DEBUG("%s:%d:reboot: bring it back...\n", __FILE__, __LINE__);
-        struct intermon_binding *new_binding = NULL;
-        struct capref frame;
-        char sched[32] = { 0 };
-        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-             char *s=argv[2]+3;
-             int i;
-             for (i = 0; i < 31; i++) {
-                 if (!s[i] || s[i] == ' ') {
-                     break;
-                 }
-             }
-             memcpy(sched, s, i);
-             sched[i] = 0;
-        }
-        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=1", &new_binding, &frame);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }
-        end = bench_tsc();
-        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
-               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "boot_core_request failed.");
-        }
-        DEBUG("%s:%d:reboot: done..., sleeping again\n", __FILE__, __LINE__);
-        mysleep(sleeptime);
-        DEBUG("%s:%d:reboot: done..., sleeping done\n", __FILE__, __LINE__);
     }
     else if (!strcmp(argv[2], "give")) {
         assert (argc == 5);
@@ -1022,8 +975,6 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
         }
 
-        struct intermon_binding *new_binding = NULL;
-        struct capref frame;
         char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
@@ -1036,17 +987,34 @@ int main(int argc, char** argv)
              memcpy(sched, s, i);
              sched[i] = 0;
         }
+
+        struct capref frame;
+        size_t framesize;
+        struct frame_identity urpc_frame_id;
+        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+        }
+        err = cap_mark_remote(frame);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not mark cap remote.");
+            return err;
+        }
+
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "boot_core_request failed");
+        }
+
         err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=1", &new_binding, &frame);
+                                  "loglevel=0 logmask=1", urpc_frame_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
         end = bench_tsc();
         debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
                __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
     }
     else if (!strcmp(argv[2], "resume")) {
         DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
