@@ -29,7 +29,7 @@
     },
 
     build application {
-        target = "x86bootbench",
+        target = "x86bootdownupdate",
         cFiles = (find withSuffices [".c"]),
         assemblyFiles = ["init_ap_x86_64.S"],
         addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE"],
@@ -41,5 +41,21 @@
         mackerelDevices = [],
         flounderDefs = ["monitor_blocking", "monitor"],
         flounderBindings = ["intermon"]
+    },
+
+    build application {
+        target = "x86bootupdate",
+        cFiles = (find withSuffices [".c"]),
+        assemblyFiles = ["init_ap_x86_64.S"],
+        addCFlags = ["-DMICROBENCH", "-DUPDATE"],
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
+        addIncludes = [
+            "../../../kernel/include/arch/x86_64/",
+            "../../../kernel/include"
+        ],
+        mackerelDevices = [],
+        flounderDefs = ["monitor_blocking", "monitor"],
+        flounderBindings = ["intermon"]
     }
+
 ]
