@@ -12,9 +12,9 @@ int main(int argc, char *argv[])
         uint64_t start = bench_tsc();
         for (volatile int i = 0; i < ITERATIONS; i++);
         uint64_t end = bench_tsc();
-        debug_printf("Time for loop-iteration: %"PRIu64" ticks / %"PRIu64" ms\n",
+        printf("Time for loop-iteration: %"PRIu64" ticks / %"PRIu64" ms\n",
                end-start, bench_tsc_to_ms(end-start));
-        struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+        /*struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
 
         uintptr_t id;
         errval_t err = mc->vtbl.get_arch_core_id(mc, &id);
@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
         else{
             printf("%s:%s:%d: core_id = %lu\n",
                    __FILE__, __FUNCTION__, __LINE__, id);
-        }
+        }*/
     }
 
   return EXIT_SUCCESS;

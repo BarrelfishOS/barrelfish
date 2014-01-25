@@ -962,7 +962,7 @@ struct monitor_binding* cpuboot_driver;
 static void power_down_request(struct monitor_binding *b,
                                coreid_t target)
 {
-   printf("%s:%d\n", __FUNCTION__, __LINE__);
+   //printf("%s:%d\n", __FUNCTION__, __LINE__);
    errval_t err;
 
    cpuboot_driver = b;

@@ -131,14 +131,14 @@ static void monitor_initialized(struct intermon_binding *b)
     struct intermon_state *st = b->st;
     errval_t err = SYS_ERR_OK;
 
-    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
     // Inform other monitors of this new monitor
     monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
     }
-    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 
     // New plan, do timing sync for every time a monitor has come up...
     /*if(num_monitors > 1) {

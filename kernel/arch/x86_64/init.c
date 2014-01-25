@@ -508,7 +508,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
 
     // do not remove/change this printf: needed by regression harness
-    printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
+    //printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
 
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC

@@ -78,7 +78,9 @@ extern uint64_t x86_64_init_ap_wait;
 extern uint64_t x86_64_init_ap_lock;
 extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
+extern uint64_t x86_64_init_ap_dispatch;
 
+volatile uint32_t* ap_dispatch;
 static coreid_t my_arch_id;
 static struct capref kernel_cap;
 
@@ -223,6 +225,14 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                                          ((lpaddr_t) &x86_64_start_ap) +
                                          real_dest);
 
+    // pointer to the pseudo-lock that is set before dispatch,
+    // to measure time it takes to update the kernel
+    ap_dispatch = (volatile uint32_t *)
+                   ((lpaddr_t) &x86_64_init_ap_dispatch -
+                   ((lpaddr_t) &x86_64_start_ap) +
+                    real_dest);
+    *ap_dispatch = 0;
+
     // Pointer to the lock variable in the realmode code
     volatile uint8_t *ap_lock = (volatile uint8_t *)
                                         ((lpaddr_t) &x86_64_init_ap_lock -
@@ -230,6 +240,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                                         real_dest);
 
     *ap_wait = AP_STARTING_UP;
+
 
 
     err = invoke_send_init_ipi(core_id);
@@ -699,7 +710,6 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-    end = bench_tsc();
 
     done = true;
 }
@@ -707,7 +717,6 @@ static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 static void power_down_response(struct monitor_binding *st, coreid_t target)
 {
     DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
-    end = bench_tsc();
 
     done = true;
 }
@@ -805,10 +814,94 @@ static void mysleep(int sleeptime)
     }
 }
 
-int main(int argc, char** argv)
-{
+#if defined(MICROBENCH)
+static int real_main(int argc, char** argv);
+int main(int argc, char** argv) {
+    errval_t err;
+
+    vfs_init();
+
     bench_arch_init();
 
+    err = connect_to_acpi();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "connect to acpi failed.");
+    }
+
+    err = oct_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Octopus initialization failed.");
+    }
+
+#if UPDOWN
+    int argc_down = 4;
+    char* argv_down[] = {
+        "x86boot",
+        "auto",
+        "down",
+        "1"
+    };
+    int argc_up = 4;
+    char* argv_up[] = {
+        "x86boot",
+        "auto",
+        "up",
+        "1"
+    };
+
+    uint64_t start_down, end_down, start_up, end_up;
+
+    printf("# ticks-down ms-down ticks-up ms-up\n");
+    for (size_t i=0; i<20; i++) {
+        start_down = bench_tsc();
+        real_main(argc_down, argv_down);
+        end_down = bench_tsc();
+
+        start_up = bench_tsc();
+        real_main(argc_up, argv_up);
+        end_up = bench_tsc();
+
+        printf("%lu %lu %lu %lu\n",
+               end_down-start_down, bench_tsc_to_ms(end_down-start_down),
+               end_up-start_up, bench_tsc_to_ms(end_up-start_up));
+
+    }
+#endif
+
+#if UPDATE
+    int argc_update = 4;
+    char* argv_update[] = {
+        "x86boot",
+        "auto",
+        "update",
+        "1"
+    };
+    uint64_t start_up, end_up;
+
+    printf("# ticks-update ms-update\n");
+    for (size_t i=0; i<20; i++) {
+
+        start_up = bench_tsc();
+        real_main(argc_update, argv_update);
+        end_up = bench_tsc();
+
+        printf("%lu %lu\n",
+               end_up-start_up, bench_tsc_to_ms(end_up-start_up));
+
+    }
+#endif
+
+
+
+}
+#endif
+
+#if !defined(MICROBENCH)
+int main(int argc, char** argv)
+#else
+static int real_main(int argc, char** argv)
+#endif
+{
     errval_t err;
     for (size_t i = 0; i < argc; i++) {
         DEBUG("%s:%s:%d: argv[i]=%s\n",
@@ -819,16 +912,26 @@ int main(int argc, char** argv)
         return 1;
     }
 
+#if !defined(MICROBENCH)
     vfs_init();
 
-    struct monitor_binding *st = get_monitor_binding();
-    st->rx_vtbl.boot_core_reply = boot_core_reply;
-    st->rx_vtbl.power_down_response = power_down_response;
+    bench_arch_init();
 
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "connect to acpi failed.");
     }
+
+    err = oct_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Octopus initialization failed.");
+    }
+#endif
+
+    struct monitor_binding *st = get_monitor_binding();
+    st->rx_vtbl.boot_core_reply = boot_core_reply;
+    st->rx_vtbl.power_down_response = power_down_response;
+
 
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     err = mc->vtbl.get_arch_core_id(mc, (uintptr_t*)&my_arch_id);
@@ -846,15 +949,9 @@ int main(int argc, char** argv)
         DEBUG("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
     }
 
-    start = bench_tsc();
-
     coreid_t target_id = (coreid_t) atoi(argv[3]);
     assert(target_id < MAX_COREID);
 
-    err = oct_init();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Octopus initialization failed.");
-    }
 
     err = create_or_get_kcb_cap(target_id);
     if (err_is_fail(err)) {
@@ -864,7 +961,7 @@ int main(int argc, char** argv)
     //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
     //assert(type < CPU_TYPE_NUM);
 
-    if (!strncmp(argv[2], "up", 2)) {
+    if (!strcmp(argv[2], "up")) {
         char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
@@ -898,13 +995,46 @@ int main(int argc, char** argv)
         }
 
         err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=4 logmask=255", urpc_frame_id);
+                                  "loglevel=0 logmask=0", urpc_frame_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
-        end = bench_tsc();
-        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
-               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+    }
+    else if (!strcmp(argv[2], "update")) {
+        char sched[32] = { 0 };
+        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
+             char *s=argv[2]+3;
+             int i;
+             for (i = 0; i < 31; i++) {
+                 if (!s[i] || s[i] == ' ') {
+                     break;
+                 }
+             }
+             memcpy(sched, s, i);
+             sched[i] = 0;
+        }
+
+        struct capref frame;
+        size_t framesize;
+        struct frame_identity urpc_frame_id;
+        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+        }
+        err = cap_mark_remote(frame);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not mark cap remote.");
+            return err;
+        }
+
+        done = true;
+        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
+                                  "loglevel=0 logmask=0", urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+
+        while(*ap_dispatch != 1);
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
@@ -1012,9 +1142,6 @@ int main(int argc, char** argv)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
-        end = bench_tsc();
-        debug_printf("%s:%s:%d: Time it took for x86boot portion [ticks]: %lu [ms]: %lu\n",
-               __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
     }
     else if (!strcmp(argv[2], "resume")) {
         DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
@@ -1040,9 +1167,5 @@ int main(int argc, char** argv)
     }
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
-
-    debug_printf("%s:%s:%d: Time it took [ticks]: %lu [ms]: %lu\n",
-           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
-
     return 0;
 }

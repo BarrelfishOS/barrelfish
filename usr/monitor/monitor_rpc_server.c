@@ -519,7 +519,7 @@ static void get_arch_core_id(struct monitor_blocking_binding *b)
 {
     static uintptr_t arch_id = -1;
     errval_t err;
-    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+//    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 
     if (arch_id == -1) {
         err = invoke_monitor_get_arch_id(&arch_id);

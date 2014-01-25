@@ -356,6 +356,17 @@ void kernel_startup(void)
                 debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
                       dst->name);
             }
+
+            // measure time to update
+            extern uint64_t x86_64_start_ap;
+            extern uint64_t x86_64_init_ap_dispatch;
+            volatile uint32_t *ap_dispatch = (volatile uint32_t *) local_phys_to_mem(
+                                             (lpaddr_t)&x86_64_init_ap_dispatch -
+                                             ((lpaddr_t)&x86_64_start_ap) +
+                                             X86_64_REAL_MODE_LINEAR_OFFSET);
+            *ap_dispatch = 1;
+            // end of time to update
+
             // interrupt state should be fine, as it's used directly from the
             // kcb.
             dispatch(next);

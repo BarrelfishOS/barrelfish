@@ -227,8 +227,11 @@ x86_64_init_ap_absolute_entry:
         .global x86_64_init_ap_global
 x86_64_init_ap_global:
         .long 0
-        .long 0
 
+        .global x86_64_init_ap_dispatch
+x86_64_init_ap_dispatch:
+        .long 0
+        .long 0
 
         .global x86_64_init_ap_wait
 x86_64_init_ap_wait:
