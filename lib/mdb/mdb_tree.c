@@ -94,6 +94,7 @@ static void set_root(struct cte *new_root)
 errval_t
 mdb_init(struct kcb *k)
 {
+    assert (k != NULL);
 #if IN_KERNEL
 #if 0
     //XXX: write two versions of this; so we can have full sanity checks for

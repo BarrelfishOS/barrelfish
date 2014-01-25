@@ -94,6 +94,7 @@ static inline void print_kcb(void)
 extern struct dcb *queue_tail;
 static inline void switch_kcb(struct kcb *next)
 {
+    assert (next != NULL);
     kcb_current = next;
     mdb_init(kcb_current);
     // update queue tail to make associated assembly not choke
