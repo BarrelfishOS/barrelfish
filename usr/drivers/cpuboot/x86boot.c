@@ -833,7 +833,7 @@ int main(int argc, char** argv) {
         USER_PANIC_ERR(err, "Octopus initialization failed.");
     }
 
-#if UPDOWN
+#if DOWNUPDATE
     int argc_down = 4;
     char* argv_down[] = {
         "x86boot",
@@ -845,7 +845,7 @@ int main(int argc, char** argv) {
     char* argv_up[] = {
         "x86boot",
         "auto",
-        "up",
+        "update",
         "1"
     };
 
@@ -891,6 +891,71 @@ int main(int argc, char** argv) {
     }
 #endif
 
+#if TAKE
+    int argc_up = 4;
+    // Give kcb from core 2 to core 1
+    char* argv_up[] = {
+        "x86boot",
+        "auto",
+        "up",
+        "2"
+    };
+
+    int argc_give = 5;
+    // Give kcb from core 2 to core 1
+    char* argv_give[] = {
+        "x86boot",
+        "auto",
+        "give",
+        "2",
+        "1"
+    };
+
+    int argc_take = 6;
+    // Taking kcb.2 from core 1 to core 0
+    char* argv_take_ping[] = {
+        "x86boot",
+        "auto",
+        "take",
+        "2",
+        "1",
+        "0"
+    };
+
+    // Taking kcb.2 from core 0 to core 1
+    char* argv_take_pong[] = {
+        "x86boot",
+        "auto",
+        "take",
+        "2",
+        "0",
+        "1"
+    };
+
+    // Set-up, start 2 and give 2 to 1
+    real_main(argc_up, argv_up);
+    real_main(argc_give, argv_give);
+
+    uint64_t start_take1, end_take1;
+    uint64_t start_take2, end_take2;
+
+    printf("# ticks-takegive ms-takegive\n");
+    for (size_t i=0; i<20; i++) {
+
+        start_take1 = bench_tsc();
+        real_main(argc_take, argv_take_ping);
+        end_take1 = bench_tsc();
+
+        start_take2 = bench_tsc();
+        real_main(argc_take, argv_take_pong);
+        end_take2 = bench_tsc();
+
+        printf("%lu %lu %lu %lu\n",
+               end_take1-start_take1, bench_tsc_to_ms(end_take1-start_take1),
+               end_take2-start_take2, bench_tsc_to_ms(end_take2-start_take2));
+
+    }
+#endif
 
 
 }
@@ -961,7 +1026,7 @@ static int real_main(int argc, char** argv)
     //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
     //assert(type < CPU_TYPE_NUM);
 
-    if (!strcmp(argv[2], "up")) {
+    if (!strcmp(argv[2], "up")) { // TODO(gz) should be boot!
         char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
@@ -995,7 +1060,7 @@ static int real_main(int argc, char** argv)
         }
 
         err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=0", urpc_frame_id);
+                                  "loglevel=2 logmask=0", urpc_frame_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }
@@ -1038,10 +1103,17 @@ static int real_main(int argc, char** argv)
     }
     else if (!strcmp(argv[2], "down")) {
         DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
-        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
+        /*err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "power_down failed.");
+        }*/
+
+        // TODO(gz): Use designated IRQ number
+        err = sys_debug_send_ipi(target_id, 0, 40);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
         }
+        done = true;
     }
     else if (!strcmp(argv[2], "give")) {
         assert (argc == 5);
@@ -1096,8 +1168,10 @@ static int real_main(int argc, char** argv)
         DEBUG("%s:%s:%d: Take KCB from local monitor\n",
                 __FILE__, __FUNCTION__, __LINE__);
         errval_t ret_err;
-        // send message to monitor to be relocated -> don't switch kcb -> remove kcb from ring -> msg -> (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
-        errval_t err = mc->vtbl.forward_kcb_rm_request(mc, target_id, kcb, &ret_err);
+        // send message to monitor to be relocated -> don't switch kcb ->
+        // remove kcb from ring -> msg ->
+        // (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
+        errval_t err = mc->vtbl.forward_kcb_rm_request(mc, source_id, kcb, &ret_err);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "forward_kcb_request failed.");
         }

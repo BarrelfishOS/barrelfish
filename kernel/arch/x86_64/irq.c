@@ -391,6 +391,11 @@ bool kcb_sched_suspended = false;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
+    if (irq == 8) {
+        printk(LOG_WARN, "halt!\n");
+        halt();
+    }
+
     struct kcb *k = kcb_current;
     do {
         if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {

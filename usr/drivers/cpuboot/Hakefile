@@ -32,7 +32,7 @@
         target = "x86bootbench",
         cFiles = (find withSuffices [".c"]),
         assemblyFiles = ["init_ap_x86_64.S"],
-        addCFlags = ["-DMICROBENCH", "-DUPDATE"],
+        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE"],
         addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
         addIncludes = [
             "../../../kernel/include/arch/x86_64/",
