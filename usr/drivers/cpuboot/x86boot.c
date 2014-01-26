@@ -532,6 +532,8 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
 
+    start = bench_tsc();
+
     static size_t cpu_binary_size;
     static lvaddr_t cpu_binary = 0;
     static genpaddr_t cpu_binary_phys;
@@ -566,6 +568,12 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
     // Again, ensure caching actually worked (see above)
     assert (strcmp(cached_monitorname, monitorname) == 0);
+
+    end = bench_tsc();
+    printf("%s:%s:%d: load binary from ramfs ticks: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+
+    start = bench_tsc();
 
     struct capref cpu_memory_cap;
     struct frame_identity frameid;
@@ -627,6 +635,11 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         DEBUG_ERR(err, "Can not relocate new kernel.");
         return err;
     }
+    end = bench_tsc();
+    printf("%s:%s:%d: relocate binary ticks: ticks: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+
+    start = bench_tsc();
 
     genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
                                  + frameid.base + arch_page_size;
@@ -682,9 +695,18 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
         DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
+    end = bench_tsc();
+    printf("%s:%s:%d: init kcb: ticks: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
+    start = bench_tsc();
     /* Invoke kernel capability to boot new core */
     start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
+
+    end = bench_tsc();
+    printf("%s:%s:%d: start_aps_x86_64_start: ticks: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+
 
     /* Clean up */
     // XXX: Should not delete the remote caps?
@@ -885,7 +907,7 @@ int main(int argc, char** argv) {
         real_main(argc_update, argv_update);
         end_up = bench_tsc();
 
-        while(*ap_dispatch != 2);
+        //while(*ap_dispatch != 2);
 
         printf("%lu %lu %lu %lu\n",
                end_up-start_up, bench_tsc_to_ms(end_up-start_up),
