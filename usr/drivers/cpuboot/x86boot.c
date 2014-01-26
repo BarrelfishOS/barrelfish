@@ -885,7 +885,7 @@ int main(int argc, char** argv) {
         real_main(argc_update, argv_update);
         end_up = bench_tsc();
 
-        while(*ap_dispatch != 2);
+        //while(*ap_dispatch != 2);
 
         printf("%lu %lu %lu %lu\n",
                end_up-start_up, bench_tsc_to_ms(end_up-start_up),
