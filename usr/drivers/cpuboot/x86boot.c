@@ -538,7 +538,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     static lvaddr_t cpu_binary = 0;
     static genpaddr_t cpu_binary_phys;
     static const char* cached_cpuname = NULL;
-    if (cpu_binary == 0) {
+    //if (cpu_binary == 0) {
         cached_cpuname = cpuname;
         // XXX: Caching these for now, until we have unmap
         err = lookup_module(cpuname, &cpu_binary, &cpu_binary_phys,
@@ -547,7 +547,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
             DEBUG_ERR(err, "Can not lookup module");
             return err;
         }
-    }
+    //}
     // Ensure caching actually works and we're
     // always loading same binary. If this starts to fail, get rid of caching.
     assert (strcmp(cached_cpuname, cpuname) == 0);
@@ -556,7 +556,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     static lvaddr_t monitor_binary = 0;
     static genpaddr_t monitor_binary_phys;
     static const char* cached_monitorname = NULL;
-    if (monitor_binary == 0) {
+    //if (monitor_binary == 0) {
         cached_monitorname = monitorname;
         // XXX: Caching these for now, until we have unmap
         err = lookup_module(monitorname, &monitor_binary,
@@ -565,7 +565,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
             DEBUG_ERR(err, "Can not lookup module");
             return err;
         }
-    }
+    //}
     // Again, ensure caching actually worked (see above)
     assert (strcmp(cached_monitorname, monitorname) == 0);
 
