@@ -47,8 +47,8 @@
 
 #include <bench/bench.h>
 
-//#define DEBUG(x...) debug_printf(x)
-#define DEBUG(x...) ((void)0)
+#define DEBUG(x...) debug_printf(x)
+//#define DEBUG(x...) ((void)0)
 
 uint64_t start = 0;
 uint64_t end = 0;
@@ -1123,7 +1123,7 @@ static int real_main(int argc, char** argv)
         coreid_t destination_id = (coreid_t) atoi(argv[4]);
         assert(destination_id < MAX_COREID);
 
-        DEBUG("%s:%s:%d: power down target_id=%"PRIuCOREID"\n",
+        /*DEBUG("%s:%s:%d: power down target_id=%"PRIuCOREID"\n",
                __FILE__, __FUNCTION__, __LINE__, target_id);
         err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
         if (err_is_fail(err)) {
@@ -1136,15 +1136,13 @@ static int real_main(int argc, char** argv)
                 USER_PANIC_ERR(err, "error in event_dispatch");
             }
         }
-        done = false;
-
-        // Monitor of core sends monitor_initialized back to our monitor
-        // which will send us a boot_core_reply in turn.
-        // this makes sure the messages reaches us, as we set
-        // the reply binding to this program and not the old x86boot
-        // that booted the core initially
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, NULL_CAP);
+        done = false;*/
+        // TODO(gz): Use designated IRQ number
+        err = sys_debug_send_ipi(target_id, 0, 40);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
+        }
+        done = true;
 
         err = give_kcb_to_new_core(destination_id, kcb);
         if (err_is_fail(err)) {
@@ -1164,9 +1162,6 @@ static int real_main(int argc, char** argv)
 
         struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
 
-
-        DEBUG("%s:%s:%d: Take KCB from local monitor\n",
-                __FILE__, __FUNCTION__, __LINE__);
         errval_t ret_err;
         // send message to monitor to be relocated -> don't switch kcb ->
         // remove kcb from ring -> msg ->
@@ -1179,7 +1174,13 @@ static int real_main(int argc, char** argv)
             USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
         }
 
-        char sched[32] = { 0 };
+        err = give_kcb_to_new_core(destination_id, kcb);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Can not send KCB to another core.");
+        }
+        done = true;
+
+        /*char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
              int i;
@@ -1215,7 +1216,7 @@ static int real_main(int argc, char** argv)
                                   "loglevel=0 logmask=1", urpc_frame_id);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }
+        }*/
     }
     else if (!strcmp(argv[2], "resume")) {
         DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
