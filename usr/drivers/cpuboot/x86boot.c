@@ -376,6 +376,7 @@ static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
     }
     *binary_size = info.size;
 
+    start = bench_tsc();
     struct capref binary_image_cap;
     struct frame_identity id;
     err = frame_alloc_identify(&binary_image_cap, info.size, NULL, &id);
@@ -385,14 +386,22 @@ static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
     }
     *binary_phys = id.base;
     DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+    end = bench_tsc();
+    printf("%s:%s:%d: frame_alloc_identify: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
+    start = bench_tsc();
     err = vspace_map_one_frame((void**)binary_virt, info.size, binary_image_cap,
                                NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not map frame");
         return err;
     }
+    end = bench_tsc();
+    printf("%s:%s:%d: vspace_map_one_frame: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
+    uint64_t read_start = bench_tsc();
     size_t bytes_read = 0;
     err = vfs_read(handle, (void*)*binary_virt, info.size, &bytes_read);
     if (err_is_fail(err)) {
@@ -400,6 +409,10 @@ static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
         return err;
     }
     assert(bytes_read == info.size); // TODO(gz): If this fails, need to loop vfs_read
+    uint64_t read_end = bench_tsc();
+    printf("%s:%s:%d: vfs_read: %lu ms: %lu\n",
+           __FILE__, __FUNCTION__, __LINE__, read_end-read_start,
+           bench_tsc_to_ms(read_end-read_start));
 
 
     return SYS_ERR_OK;
@@ -532,7 +545,7 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
 
-    start = bench_tsc();
+    //start = bench_tsc();
 
     static size_t cpu_binary_size;
     static lvaddr_t cpu_binary = 0;
@@ -569,9 +582,9 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // Again, ensure caching actually worked (see above)
     assert (strcmp(cached_monitorname, monitorname) == 0);
 
-    end = bench_tsc();
-    printf("%s:%s:%d: load binary from ramfs ticks: %lu ms: %lu\n",
-           __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
+    //end = bench_tsc();
+    //printf("%s:%s:%d: load binary from ramfs ticks: %lu ms: %lu\n",
+    //       __FILE__, __FUNCTION__, __LINE__, end-start, bench_tsc_to_ms(end-start));
 
     start = bench_tsc();
 
