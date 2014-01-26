@@ -366,6 +366,9 @@ void kernel_startup(void)
                                              X86_64_REAL_MODE_LINEAR_OFFSET);
             *ap_dispatch = 1;
             // end of time to update
+            kend = rdtsc();
+            printf("Time to boot = %"PRIu64" cycles\n", kend-kstart);
+            *ap_dispatch = 2;
 
             // interrupt state should be fine, as it's used directly from the
             // kcb.
