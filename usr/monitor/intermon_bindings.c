@@ -25,10 +25,8 @@ errval_t intermon_binding_set(struct intermon_state *st)
         return MON_ERR_INVALID_CORE_ID;
     }
     if (bindings[st->core_id] != NULL) {
-        printf("%s:%s:%d: overwrite binding, scary.\n",
-               __FILE__, __FUNCTION__, __LINE__);
-        printf("%s:%s:%d: Was this core online before?\n",
-               __FILE__, __FUNCTION__, __LINE__);
+        //printf("%s:%s:%d: overwrite binding (core_id=%"PRIuCOREID"), scary.\n",
+        //       __FILE__, __FUNCTION__, __LINE__, st->core_id);
     }
     bindings[st->core_id] = st;
 
@@ -38,6 +36,7 @@ errval_t intermon_binding_set(struct intermon_state *st)
 errval_t intermon_binding_get(coreid_t coreid, struct intermon_binding **ret)
 {
     assert(ret != NULL);
+    //printf("%s:%s:%d: coreid=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, coreid);
 
     if (coreid > MAX_COREID) {
         *ret = NULL;

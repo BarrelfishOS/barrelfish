@@ -224,7 +224,8 @@ static void bind_monitor_proxy(struct intermon_binding *b,
 static void new_monitor_notify(struct intermon_binding *st,
                                coreid_t core_id)
 {
-    printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    //printf("%s:%s:%d for core %"PRIuCOREID"\n",
+    //       __FILE__, __FUNCTION__, __LINE__, core_id);
     errval_t err;
 
     /* Setup the connection */

@@ -47,8 +47,8 @@
 
 #include <bench/bench.h>
 
-#define DEBUG(x...) debug_printf(x)
-//#define DEBUG(x...) ((void)0)
+//#define DEBUG(x...) debug_printf(x)
+#define DEBUG(x...) ((void)0)
 
 uint64_t start = 0;
 uint64_t end = 0;
@@ -242,7 +242,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
 
-
+    end = bench_tsc();
     err = invoke_send_init_ipi(core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
@@ -878,15 +878,16 @@ int main(int argc, char** argv) {
     };
     uint64_t start_up, end_up;
 
-    printf("# ticks-update ms-update\n");
+    printf("# ticks-update ms-update ticks-x86boot ms-x86boot\n");
     for (size_t i=0; i<20; i++) {
 
         start_up = bench_tsc();
         real_main(argc_update, argv_update);
         end_up = bench_tsc();
 
-        printf("%lu %lu\n",
-               end_up-start_up, bench_tsc_to_ms(end_up-start_up));
+        printf("%lu %lu %lu %lu\n",
+               end_up-start_up, bench_tsc_to_ms(end_up-start_up),
+               end-start, bench_tsc_to_ms(end-start));
 
     }
 #endif
@@ -967,6 +968,8 @@ int main(int argc, char** argv)
 static int real_main(int argc, char** argv)
 #endif
 {
+    start = bench_tsc();
+
     errval_t err;
     for (size_t i = 0; i < argc; i++) {
         DEBUG("%s:%s:%d: argv[i]=%s\n",
