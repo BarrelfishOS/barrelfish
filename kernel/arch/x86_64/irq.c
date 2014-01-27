@@ -391,11 +391,6 @@ bool kcb_sched_suspended = false;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
-    if (irq == 8) {
-        printk(LOG_WARN, "halt!\n");
-        halt();
-    }
-
     struct kcb *k = kcb_current;
     do {
         if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
@@ -951,7 +946,11 @@ static __attribute__ ((used)) void handle_irq(int vector)
     } else if (vector == APIC_INTER_CORE_VECTOR) {
         apic_eoi();
         ipi_handle_notify();
+    } else if (vector == APIC_INTER_HALT_VECTOR) {
+        printk(LOG_WARN, "halt!\n");
+        halt();
     }
+
 #if 0
  else if (irq >= 0 && irq <= 15) { // classic PIC device interrupt
      printk(LOG_NOTE, "got interrupt %d!\n", irq);
