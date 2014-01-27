@@ -575,7 +575,7 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
         paging_set_flags(entry, kpi_paging_flags);
     }
 
-    return SYS_ERR_OK;
+    return paging_tlb_flush_range(mapping, pages);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
