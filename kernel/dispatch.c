@@ -17,6 +17,7 @@
 #include <exec.h> /* XXX wait_for_interrupt, resume, execute */
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
+#include <kcb.h>
 #include <wakeup.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/lmp.h>
@@ -241,7 +242,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         dispatcher_get_disabled_save_area(handle);
 
     assert(disp != NULL);
-    disp->systime = kernel_now;
+    disp->systime = kernel_now + kcb_current->kernel_off;
 
     if (dcb->disabled) {
         debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,

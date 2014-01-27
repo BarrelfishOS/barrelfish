@@ -27,6 +27,7 @@ errval_t kcb_remove(struct kcb *to_remove)
             to_remove->next->prev = to_remove->prev;
         }
         to_remove->prev = NULL;
+        to_remove->kernel_off = kernel_now;
         return SYS_ERR_OK;
     }
 
@@ -45,7 +46,8 @@ errval_t kcb_remove(struct kcb *to_remove)
             // clear next and prev of removed kcb to not leak other kcb addrs
             k->next = k->prev = NULL;
 
-            // break out if we're done
+            // update kernel_off & break out if we're done
+            k->kernel_off = kernel_now;
             return SYS_ERR_OK;
         }
         k = k->next;

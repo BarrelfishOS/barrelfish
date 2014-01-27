@@ -496,7 +496,7 @@ struct sysret sys_yield(capaddr_t target)
     // Remove from queue when no work and no more messages and no missed wakeup
     systime_t wakeup = disp->wakeup;
     if (!disp->haswork && disp->lmp_delivered == disp->lmp_seen
-        && (wakeup == 0 || wakeup > kernel_now)) {
+        && (wakeup == 0 || wakeup > (kernel_now + kcb_current->kernel_off))) {
         scheduler_remove(dcb_current);
         if (wakeup != 0) {
             wakeup_set(dcb_current, wakeup);

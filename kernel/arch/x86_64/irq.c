@@ -898,7 +898,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         assert(kernel_ticks_enabled);
         update_kernel_now();
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
-        wakeup_check(kernel_now);
+        wakeup_check(kernel_now+kcb_current->kernel_off);
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
         // Handle performance counter overflow
         // Reset counters
@@ -947,6 +947,12 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_eoi();
         ipi_handle_notify();
     } else if (vector == APIC_INTER_HALT_VECTOR) {
+        // update kernel_off of all kcbs
+        struct kcb *k = kcb_current;
+        do{
+            k->kernel_off = kernel_now;
+            k=k->next;
+        }while(k && k!=kcb_current);
         printk(LOG_WARN, "halt!\n");
         halt();
     } else if (vector == APIC_SPURIOUS_INTERRUPT_VECTOR) {

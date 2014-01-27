@@ -61,6 +61,8 @@ struct kcb {
     /// make the scheduler work correctly
     /// wakeup queue head
     struct dcb *wakeup_queue_head;
+    /// last value of kernel_now before shutdown/migration
+    size_t kernel_off;
 
 #if defined(__x86_64__)
     struct cte irq_dispatch[NDISPATCH];

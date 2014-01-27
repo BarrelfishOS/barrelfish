@@ -58,7 +58,7 @@ void wakeup_remove(struct dcb *dcb)
 void wakeup_set(struct dcb *dcb, systime_t waketime)
 {
     assert(dcb != NULL);
-    assert(waketime > kernel_now);
+    assert(waketime > (kernel_now + kcb_current->kernel_off));
 
     // if we're already enqueued, remove first
     wakeup_remove(dcb);

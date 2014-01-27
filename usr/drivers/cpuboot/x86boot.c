@@ -1096,6 +1096,13 @@ static int real_main(int argc, char** argv)
             return err;
         }
 
+        // do clean(ish) shutdown
+        // TODO(gz): Use designated IRQ number
+        err = sys_debug_send_ipi(target_id, 0, 40);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
+        }
+
         done = true;
         err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
                                   "loglevel=0 logmask=0", urpc_frame_id);
