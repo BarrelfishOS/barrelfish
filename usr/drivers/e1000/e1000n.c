@@ -834,6 +834,24 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
     free(record);
 }
 
+
+static void e1000_reregister_handler(void *arg)
+{
+    errval_t err;
+    printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
+    err = pci_reregister_irq_for_device(
+            class, subclass, program_interface,
+            vendor, deviceid, bus, device, function,
+            e1000_interrupt_handler_fn, NULL,
+            e1000_reregister_handler, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pci_reregister_irq_for_device");
+    }
+
+    return;
+}
+
+
 /*****************************************************************
  * main.
  *
@@ -980,9 +998,11 @@ int main(int argc, char **argv)
     assert(err_is_ok(err));
 
     if (use_interrupt)
-        err = pci_register_driver_irq(e1000_init_fn, class, subclass, program_interface,
-                                      vendor, deviceid, bus, device, function,
-                                      e1000_interrupt_handler_fn, NULL);
+        err = pci_register_driver_movable_irq(e1000_init_fn, class, subclass, program_interface,
+                                              vendor, deviceid, bus, device, function,
+                                              e1000_interrupt_handler_fn, NULL,
+                                              e1000_reregister_handler,
+                                              NULL);
 
     else
         err = pci_register_driver_noirq(e1000_init_fn, class, subclass, program_interface,
