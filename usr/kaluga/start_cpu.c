@@ -49,7 +49,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         // not sure why x86_64 is hardcoded here but it
         // seems broken...
         skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
-                core_counter, arch_id);
+                core_counter++, arch_id);
 
         struct module_info* mi = find_module("x86boot");
         if (mi != NULL) {
@@ -71,9 +71,9 @@ out:
 
 errval_t watch_for_cores(void)
 {
-    static char* local_apics = "r'hw\\.apic\\.[0-9]+' { cpu_id: _, "
+    static char* local_apics = "r'hw\\.apic\\.[0-9]+' { processor_id: _, "
                                "                        enabled: 1, "
-                               "                        id: _ }";
+                               "                        apic_id: _ }";
    octopus_trigger_id_t tid;
    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
@@ -93,24 +93,30 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     uint64_t cpu_id, apic_id;
     char **argv = mi->argv;
     bool cleanup = false;
+    size_t argc = mi->argc;
 
     KALUGA_DEBUG("Starting x86boot for %s", record);
     err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
             &cpu_id, &apic_id);
-    skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
-            core_counter++, apic_id);
-
     if (err_is_ok(err)) {
-        argv = malloc((mi->argc+1) * sizeof(char *));
-        memcpy(argv, mi->argv, mi->argc * sizeof(char *));
+        // TODO(gz): Properly ignore to boot the BSP
+        if (apic_id == my_core_id) {
+            return SYS_ERR_OK;
+        }
+
+//        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
+//                core_counter++, apic_id);
+
+        argv = malloc((argc+1) * sizeof(char *));
+        memcpy(argv, mi->argv, argc * sizeof(char *));
         char *apic_id_s  = malloc(10);
         snprintf(apic_id_s, 10, "%"PRIx64"", apic_id);
 
-        argv[mi->argc] = "up";
-        mi->argc += 1;
-        argv[mi->argc] = apic_id_s;
-        mi->argc += 1;
-        argv[mi->argc] = NULL;
+        argv[argc] = "up";
+        argc += 1;
+        argv[argc] = apic_id_s;
+        argc += 1;
+        argv[argc] = NULL;
 
         cleanup = true;
     }
@@ -150,8 +156,19 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     }
 
     if (cleanup) {
-        free(argv[mi->argc-1]);
+        free(argv[argc-1]);
         free(argv);
+    }
+
+    char* barrier;
+    err = oct_barrier_enter("x86boot", &barrier, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "can not lock x86boot.");
+    }
+
+    err = oct_barrier_leave(barrier);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "can not lock x86boot.");
     }
 
     return err;

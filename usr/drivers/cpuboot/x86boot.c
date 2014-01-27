@@ -1253,5 +1253,19 @@ static int real_main(int argc, char** argv)
     }
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
+
+#if !defined(MICROBENCH)
+    char* barrier;
+    err = oct_barrier_enter("x86boot", &barrier, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "can not lock x86boot.");
+    }
+
+    err = oct_barrier_leave(barrier);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "can not lock x86boot.");
+    }
+#endif
+
     return 0;
 }
