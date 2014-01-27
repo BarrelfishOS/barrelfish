@@ -62,7 +62,9 @@ struct kcb {
     /// wakeup queue head
     struct dcb *wakeup_queue_head;
     /// last value of kernel_now before shutdown/migration
-    size_t kernel_off;
+    //needs to be signed because it's possible to migrate a kcb onto a cpu
+    //driver whose kernel_now > this kcb's kernel_off.
+    int64_t kernel_off;
 
 #if defined(__x86_64__)
     struct cte irq_dispatch[NDISPATCH];

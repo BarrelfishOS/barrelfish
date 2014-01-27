@@ -375,6 +375,8 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
         kcb_current->next = kcb_current->prev = new_kcb;
         new_kcb->next = new_kcb->prev = kcb_current;
     }
+    // update kernel_now offset
+    new_kcb->kernel_off -= kernel_now;
     // reset scheduler statistics
     scheduler_reset_time();
     // update current core id of all domains
