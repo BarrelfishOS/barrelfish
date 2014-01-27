@@ -17,7 +17,7 @@
 
 #include <xapic_dev.h>
 
-#define APIC_INTER_HALT_VECTOR                  8
+#define APIC_INTER_HALT_VECTOR                  (8+NEXCEPTIONS)
 #define APIC_INTER_CORE_VECTOR                  249
 #define APIC_TIMER_INTERRUPT_VECTOR             250
 #define APIC_THERMAL_INTERRUPT_VECTOR           251

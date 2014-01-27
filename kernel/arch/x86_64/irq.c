@@ -949,6 +949,9 @@ static __attribute__ ((used)) void handle_irq(int vector)
     } else if (vector == APIC_INTER_HALT_VECTOR) {
         printk(LOG_WARN, "halt!\n");
         halt();
+    } else if (vector == APIC_SPURIOUS_INTERRUPT_VECTOR) {
+        // ignore
+        printk(LOG_DEBUG, "spurious interrupt\n");
     }
 
 #if 0
