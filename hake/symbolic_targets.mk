@@ -163,6 +163,7 @@ MODULES_x86_64= \
 	sbin/testdesc-child \
 	sbin/lshw \
 	sbin/x86boot \
+	sbin/x86bootseq \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

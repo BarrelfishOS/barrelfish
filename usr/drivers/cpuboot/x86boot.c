@@ -1254,16 +1254,21 @@ static int real_main(int argc, char** argv)
 
     DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
 
-#if !defined(MICROBENCH)
+#if defined(ENSURE_SEQUENTIAL)
     char* barrier;
     err = oct_barrier_enter("x86boot", &barrier, 2);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not lock x86boot.");
+        USER_PANIC_ERR(err, "can not enter x86boot.");
     }
 
     err = oct_barrier_leave(barrier);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not lock x86boot.");
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
+            // ignore
+        }
+        else {
+            USER_PANIC_ERR(err, "oct_barrier_leave");
+        }
     }
 #endif
 

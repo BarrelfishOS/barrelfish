@@ -51,7 +51,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
                 core_counter++, arch_id);
 
-        struct module_info* mi = find_module("x86boot");
+        struct module_info* mi = find_module("x86bootseq");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
             assert(err_is_ok(err));
@@ -95,7 +95,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     bool cleanup = false;
     size_t argc = mi->argc;
 
-    KALUGA_DEBUG("Starting x86boot for %s", record);
+    KALUGA_DEBUG("Starting x86bootseq for %s", record);
     err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
             &cpu_id, &apic_id);
     if (err_is_ok(err)) {
