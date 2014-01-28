@@ -740,8 +740,10 @@ static void give_kcb_response(struct intermon_binding *ib, errval_t error)
     }
 
     struct monitor_blocking_binding * b = (struct monitor_blocking_binding *) ib->st;
-    errval_t err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, error);
-    assert(err_is_ok(err));
+    if (b != NULL) {
+        errval_t err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, error);
+        assert(err_is_ok(err));
+    }
 }
 
 static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base)
