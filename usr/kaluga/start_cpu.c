@@ -168,7 +168,13 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     err = oct_barrier_leave(barrier);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not lock x86boot.");
+        if (err_no(err) == OCT_ERR_NO_RECORD) {
+            // lost the race
+            err = SYS_ERR_OK;
+        }
+        else {
+            USER_PANIC_ERR(err, "You shall not pass.")
+        }
     }
 
     return err;
