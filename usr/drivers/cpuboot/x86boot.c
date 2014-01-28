@@ -1229,6 +1229,48 @@ static int real_main(int argc, char** argv)
             USER_PANIC_ERR(err, "spawn xcore monitor failed.");
         }*/
     }
+    else if (!strcmp(argv[2], "upwith")) { // TODO(gz) should be boot!
+        char sched[32] = { 0 };
+        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
+             char *s=argv[2]+3;
+             int i;
+             for (i = 0; i < 31; i++) {
+                 if (!s[i] || s[i] == ' ') {
+                     break;
+                 }
+             }
+             memcpy(sched, s, i);
+             sched[i] = 0;
+        }
+
+        coreid_t destination_id = (coreid_t) atoi(argv[4]);
+
+        struct capref frame;
+        size_t framesize;
+        struct frame_identity urpc_frame_id;
+        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+        }
+        err = cap_mark_remote(frame);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not mark cap remote.");
+            return err;
+        }
+
+        // TODO(gz): Use designated IRQ number
+        err = sys_debug_send_ipi(target_id, 0, 40);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
+        }
+        done = true;
+
+        err = spawn_xcore_monitor(destination_id, destination_id, CPU_X86_64, sched,
+                                  "loglevel=2 logmask=0", urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+    }
     else if (!strcmp(argv[2], "resume")) {
         DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
         err = invoke_start_core();
