@@ -391,16 +391,19 @@ bool kcb_sched_suspended = false;
 static uint32_t interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
+    assert(irq >= 0 && irq < NDISPATCH);
     struct kcb *k = kcb_current;
     do {
         if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
             break;
         }
-        k=k->next?k->next:k;
-    } while(k!=kcb_current);
-    switch_kcb(k);
+        k = k->next;
+    } while (k && k != kcb_current);
+    // if k == NULL we don't need to switch as we only have a single kcb
+    if (k) {
+        switch_kcb(k);
+    }
     // from here: kcb_current is the kcb for which the interrupt was intended
-    assert(irq >= 0 && irq < NDISPATCH);
     struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)

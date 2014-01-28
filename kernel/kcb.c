@@ -26,6 +26,8 @@ errval_t kcb_remove(struct kcb *to_remove)
             to_remove->prev->next = to_remove->next;
             to_remove->next->prev = to_remove->prev;
         }
+        // intentionally leaving to_remove->next alone, so switch_kcb doesn't
+        // break
         to_remove->prev = NULL;
         to_remove->kernel_off = kernel_now;
         return SYS_ERR_OK;
