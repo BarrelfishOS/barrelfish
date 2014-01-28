@@ -29,7 +29,7 @@
 
 #include "kaluga.h"
 
-static coreid_t core_counter = 1;
+//static coreid_t core_counter = 1;
 
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
@@ -48,8 +48,8 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         // XXX: copied this line from spawnd bsp_bootup,
         // not sure why x86_64 is hardcoded here but it
         // seems broken...
-        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
-                core_counter++, arch_id);
+//        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
+//                core_counter++, arch_id);
 
         struct module_info* mi = find_module("x86bootseq");
         if (mi != NULL) {
@@ -173,7 +173,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
             err = SYS_ERR_OK;
         }
         else {
-            USER_PANIC_ERR(err, "You shall not pass.")
+            USER_PANIC_ERR(err, "You shall not pass.");
         }
     }
 
