@@ -47,8 +47,12 @@
 
 #include <bench/bench.h>
 
-//#define DEBUG(x...) debug_printf(x)
+#ifdef DEBUG
+#undef DEBUG
+#define DEBUG(x...) debug_printf(x)
+#else
 #define DEBUG(x...) ((void)0)
+#endif
 
 uint64_t start = 0;
 uint64_t end = 0;
@@ -1018,7 +1022,7 @@ static int real_main(int argc, char** argv)
         DEBUG("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
     }
 
-    coreid_t target_id = (coreid_t) atoi(argv[3]);
+    coreid_t target_id = (coreid_t) strtol(argv[3], NULL, 16);
     assert(target_id < MAX_COREID);
 
 
@@ -1131,7 +1135,7 @@ static int real_main(int argc, char** argv)
         DEBUG("%s:%d: Give kcb from core %s to core %s...\n",
               __FILE__, __LINE__, argv[3], argv[4]);
 
-        coreid_t destination_id = (coreid_t) atoi(argv[4]);
+        coreid_t destination_id = (coreid_t) strtol(argv[4], NULL, 16);
         assert(destination_id < MAX_COREID);
 
         /*DEBUG("%s:%s:%d: power down target_id=%"PRIuCOREID"\n",
@@ -1165,8 +1169,8 @@ static int real_main(int argc, char** argv)
         DEBUG("%s:%s:%d: Taking kcb.%s from core %s to core %s\n", __FILE__,
                 __FUNCTION__, __LINE__, argv[3], argv[4], argv[5]);
 
-        coreid_t source_id = (coreid_t) atoi(argv[4]);
-        coreid_t destination_id = (coreid_t) atoi(argv[5]);
+        coreid_t source_id = (coreid_t) strtol(argv[4], NULL, 16);
+        coreid_t destination_id = (coreid_t) strtol(argv[5], NULL, 16);
 
         assert(source_id < MAX_COREID);
         assert(destination_id < MAX_COREID);
