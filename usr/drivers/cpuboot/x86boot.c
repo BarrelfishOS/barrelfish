@@ -1234,6 +1234,7 @@ static int real_main(int argc, char** argv)
         }*/
     }
     else if (!strcmp(argv[2], "upwith")) { // TODO(gz) should be boot!
+        assert(argc == 5);
         char sched[32] = { 0 };
         if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
              char *s=argv[2]+3;
@@ -1247,7 +1248,7 @@ static int real_main(int argc, char** argv)
              sched[i] = 0;
         }
 
-        coreid_t destination_id = (coreid_t) atoi(argv[4]);
+        coreid_t destination_id = (coreid_t) strtol(argv[4], NULL, 16);
 
         struct capref frame;
         size_t framesize;
