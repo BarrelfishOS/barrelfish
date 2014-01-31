@@ -893,7 +893,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         // count time slices
         timer_fired ++;
         // switch kcb every 5 time slices (SG: I just picked 5 arbitrarily)
-        if (!kcb_sched_suspended && timer_fired % 5 == 0 && kcb_current->next) {
+        if (!kcb_sched_suspended && timer_fired % 2 == 0 && kcb_current->next) {
             //printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
             switch_kcb(kcb_current->next);
         }

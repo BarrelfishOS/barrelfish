@@ -623,6 +623,7 @@ static void polling_loop(void)
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
         err = event_dispatch_non_block(ws);
+        //err = event_dispatch(ws);
         if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
             E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
                         (unsigned int)err);
