@@ -95,11 +95,21 @@ static struct allowed_registers prcm = {
     }
 };
 
+static struct allowed_registers sdma = {
+    .binary = "hw.arm.omap44xx.sdma",
+    .registers =
+    {
+        {OMAP44XX_SDMA, 0x1000},
+        {0x0, 0x0}
+    }
+};
+
 static struct allowed_registers* omap44xx[10] = {
     &usb,
     &fdif,
     &mmchs,
     &prcm,
+    &sdma,
     NULL,
 };
 
