@@ -56,6 +56,7 @@
            "pl130_gic",
            "sp804_pit",
            "cortex_a9_pit",
+           "cortex_a9_gt",
            "a9scu",
            "ti_i2c",
            "ti_twl6030",
