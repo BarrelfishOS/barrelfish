@@ -37,6 +37,7 @@ void do_resume(uint32_t *regs)
     cp15_invalidate_i_and_d_caches();
 
     __asm volatile(
+        "clrex\n\t"
         // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory
@@ -62,7 +63,11 @@ void do_resume(uint32_t *regs)
         /* "ldmia  lr!, {r13}                              \n\t" */
         /* // Restore LR and PC */
         /* "ldmia  lr!, {r14-r15}                          \n\t" */
-        "ldmia  %[regs], {r0-r15}^                          \n\t"
+        "mov lr, %[regs]\n\t"
+        "ldmia lr, {r0 - lr}^\n\t"
+        "add lr, #4*15\n\t"
+        "ldr lr, [lr]\n\t"
+        "movs pc, lr\n\t"
         // Make sure pipeline is clear
         "nop                          \n\t"
         "nop                          \n\t"
@@ -147,7 +152,7 @@ void wait_for_interrupt(void)
     // Switch to priviledged mode with interrupts enabled.
     __asm volatile(
         //"mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
-        "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
+        "mov    r0, #" XTR(ARM_MODE_SVC) "              \n\t"
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
 #if defined(__ARM_ARCH_6K__)
