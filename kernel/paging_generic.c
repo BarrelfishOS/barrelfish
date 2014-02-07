@@ -233,7 +233,7 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
     }
     genvaddr_t vaddr;
     size_t entry = (frame->mapping_info.pte - get_address(&leaf_pt->cap)) /
-        sizeof(union x86_64_ptable_entry);
+        PTABLE_ENTRY_SIZE;
     err = compile_vaddr(leaf_pt, entry, &vaddr);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
