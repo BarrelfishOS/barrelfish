@@ -51,7 +51,7 @@ static void run_client(struct xmplthc_thc_client_binding_t *cl)
     // rpc
     cl->call_seq.myrpc(cl, i, &s);
     debug_printf("client: returned from myrpc(%d, '%s')\n", i, s);
-    free(s); 
+    free(s);
 
     debug_printf("finished client\n");
 }
@@ -86,7 +86,7 @@ static void start_client(void)
 
 /* --------------------- Server ------------------------------ */
 
-static void rx_xmplthc_myrpc(struct xmplthc_thc_service_binding_t *sv, 
+static void rx_xmplthc_myrpc(struct xmplthc_thc_service_binding_t *sv,
                              int i)
 {
     debug_printf("server: received xmplthc_myrpc_call: %d\n", i);
@@ -101,7 +101,7 @@ static void rx_xmplthc_myrpc(struct xmplthc_thc_service_binding_t *sv,
 
 
 
-static void rx_xmplthc_mycall(struct xmplthc_thc_service_binding_t *sv, 
+static void rx_xmplthc_mycall(struct xmplthc_thc_service_binding_t *sv,
                               int i)
 {
     debug_printf("server: received xmplthc_mycall: %d\n", i);
@@ -115,7 +115,7 @@ static void rx_xmplthc_mycall(struct xmplthc_thc_service_binding_t *sv,
 }
 
 
-static void rx_xmplthc_mymsg(struct xmplthc_thc_service_binding_t *sv, 
+static void rx_xmplthc_mymsg(struct xmplthc_thc_service_binding_t *sv,
                            int i)
 {
     debug_printf("server: received xmplthc_msg: %d\n", i);
@@ -125,7 +125,7 @@ static void run_server(struct xmplthc_thc_service_binding_t *sv)
 {
     xmplthc_service_msg_t msg;
     bool loop = true;
-  
+
     // this is the bitmap of messages we are interested in receiving
     struct xmplthc_service_selector selector = {
         .mymsg = 1,
@@ -169,7 +169,7 @@ static void start_server(void)
     struct xmplthc_binding *b;
     iref_t iref;
 
-    err = xmplthc_thc_export(&e_info, service_name, 
+    err = xmplthc_thc_export(&e_info, service_name,
                              get_default_waitset(),
                              IDC_EXPORT_FLAGS_DEFAULT,
                              &iref);
@@ -196,8 +196,7 @@ static void start_server(void)
 
 
 /* --------------------- Main ------------------------------ */
-
-int thcmain(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     if ((argc >= 2) && (strcmp(argv[1], "client") == 0)) {
         start_client();
