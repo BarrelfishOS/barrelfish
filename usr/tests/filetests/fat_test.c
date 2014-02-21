@@ -22,7 +22,7 @@ static void walk_dir(char* path)
     printf("%s:%d: path=%s\n", __FUNCTION__, __LINE__, path);
     vfs_handle_t dhandle;
     struct vfs_fileinfo info;
-    
+
     errval_t err = vfs_opendir(path, &dhandle);
     assert(err_is_ok(err));
 
@@ -39,7 +39,7 @@ static void walk_dir(char* path)
             printf("%s:%d: Found directory %s\n", __FUNCTION__, __LINE__, newpath);
             walk_dir(newpath);
             break;
-        
+
         case VFS_FILE:
             printf("%s:%d: Found file %s\n", __FUNCTION__, __LINE__, newpath);
             vfs_handle_t fhandle;
@@ -50,7 +50,7 @@ static void walk_dir(char* path)
             err = vfs_read(fhandle, buf, info.size, &bytes_read);
             assert(err_is_ok(err));
             assert(bytes_read == info.size);
-            printf("%s:%d: File content is (bytes=%d):\n%s\n", 
+            printf("%s:%d: File content is (bytes=%zu):\n%s\n",
                    __FUNCTION__, __LINE__, bytes_read, buf);
 
             free(buf);
@@ -61,14 +61,14 @@ static void walk_dir(char* path)
     }
 
     err = vfs_closedir(dhandle);
-    assert(err_is_ok(err));   
+    assert(err_is_ok(err));
 }
 
 int main(int argc, char *argv[])
 {
     vfs_init();
     vfs_mkdir("/fat");
-    
+
     errval_t err = vfs_mount("/fat", "fat32://0+0");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vfs_fat_mount failed");
