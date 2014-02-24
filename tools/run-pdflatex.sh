@@ -8,11 +8,11 @@
 ##########################################################################
 #
 # run-pdflatex.sh: helper script to build Barrelfish technical notes
-# 
+#
 # This script wraps up pdflatex into something that can be entirely
 # controlled by command-line options, making it considerably easier to
 # invoke from a Makefile or Hakefile.
-# 
+#
 # In some ways this is a poor relation to rubber, but it doesn't
 # require any support packages (not even Python), and is specifically
 # tailored to the kinds of filesystem naming games that Hake likes to
@@ -35,7 +35,7 @@ EOF
     exit 1
 }
 
-# 
+#
 # Shorthand for running pdflatex.  This is nicer than using a single
 # shell variable as it always gets the quoting right.
 #
@@ -59,13 +59,13 @@ esac
 
 cons_inputs() {
     if [ -z "$_ISCYGWIN" ] ; then
-	echo "${1}${2}//:" 
+	echo "${1}${2}//:"
     else
 	echo "${1}${2}//\\;"
     fi
 }
 
-# 
+#
 # Initial values for input arguments
 #
 if [ -z "$TEXINPUTS" ]; then
@@ -87,7 +87,7 @@ HAS_GLO=
 #
 # Argument processing.
 #
-while [ -n "$*" ]; do 
+while [ -n "$*" ]; do
     case $1 in
 	--input-tex)
 	    shift; INPUT_TEX=$1 ;;
@@ -122,7 +122,7 @@ BIBINPUTS=`cons_inputs "$BIBINPUTS" "$INPUT_DIR"`
 export TEXINPUTS
 export BIBINPUTS
 
-# 
+#
 # We use a different jobname due to parallel Make paranoia: it's a
 # good idea if the output file that we really care out only appears as
 # the last step of the build.  This also allows us to specify
@@ -134,6 +134,7 @@ JOB_NAME="${INPUT_BASE}.tmp"
 # "the filename on the command line must be given without the .aux extension"
 AUX_FILE_WITHOUT_AUX="$WORKING_DIR/${JOB_NAME}"
 AUX_FILE="$WORKING_DIR/${JOB_NAME}.aux"
+OUT_FILE="$WORKING_DIR/${JOB_NAME}.out"
 HST_FILE="$WORKING_DIR/${JOB_NAME}.hst"
 LOG_FILE="$WORKING_DIR/${JOB_NAME}.log"
 TOC_FILE="$WORKING_DIR/${JOB_NAME}.toc"
@@ -144,13 +145,19 @@ GLO_FILE="$WORKING_DIR/${JOB_NAME}.glo"
 ACN_FILE="$WORKING_DIR/${JOB_NAME}.acn"
 IST_FILE="$WORKING_DIR/${JOB_NAME}.ist"
 PDF_FILE="$WORKING_DIR/${JOB_NAME}.pdf"
+LOT_FILE="$WORKING_DIR/${JOB_NAME}.lot"
+LOF_FILE="$WORKING_DIR/${JOB_NAME}.lof"
+GLS_FILE="$WORKING_DIR/${JOB_NAME}.gls"
+GLG_FILE="$WORKING_DIR/${JOB_NAME}.glg"
+ACR_FILE="$WORKING_DIR/${JOB_NAME}.acr"
+ALG_FILE="$WORKING_DIR/${JOB_NAME}.alg"
 
 # remove ubuntu chroot from environment to make pdflatex work
 # -SG, 2014-10-14
 export LD_LIBRARY_PATH=
 
 #
-# And, finally, do what the old Makefile used to do. 
+# And, finally, do what the old Makefile used to do.
 #
 # bibtex on cygwin can be miktex which always 0 exit code
 run_latex
@@ -158,8 +165,10 @@ if [ -n "$HAS_BIB" ]; then (bibtex $AUX_FILE_WITHOUT_AUX && test -r $BBL_FILE)  
 if [ -n "$HAS_GLO" ]; then (makeglossaries -s $IST_FILE $GLO_FILE && makeglossaries -s $IST_FILE $ACN_FILE && test -r $GLO_FILE)  || exit; echo run_latex; fi
 if [ -e "$TOC_FILE" -o -e "$BBL_FILE" -o -e "$VER_FILE" -o -e "$GLO_FILE" -o -e "$ACN_FILE" ]; then run_latex; fi
 while egrep -e 'LaTeX Warning.*Rerun' "$LOG_FILE"; do run_latex; done
-rm -f "$AUX_FILE" "$HST_FILE" "$LOG_FILE" "$TOC_FILE" "$BBL_FILE" 
-rm -f "$BLG_FILE" "$VER_FILE" 
+rm -f "$AUX_FILE" "$HST_FILE" "$LOG_FILE" "$TOC_FILE" "$BBL_FILE"
+rm -f "$BLG_FILE" "$VER_FILE" "$OUT_FILE"
 rm -f "$GLO_FILE" "$ACN_FILE" "$IST_FILE"
+rm -f "$LOT_FILE" "$LOF_FILE" "$GLS_FILE"
+rm -f "$GLG_FILE" "$ACR_FILE" "$ALG_FILE"
 mv "$PDF_FILE" "$OUTPUT_PDF"
 echo "Output file is in $OUTPUT_PDF"
