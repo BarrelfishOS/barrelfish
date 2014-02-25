@@ -23,6 +23,7 @@
 #include <syscall.h>
 #include <armv7_syscall.h>
 #include <start_aps.h>
+#include <useraccess.h>
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
 __attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);
@@ -253,6 +254,27 @@ handle_delete(
     int     bits = (int)sa->arg3;
 
     return sys_delete(root, cptr, bits, false);
+}
+
+static struct sysret
+handle_create(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(5 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    enum objtype type      = (sa->arg2 >> 16) & 0xffff;
+    uint8_t      objbits   = (sa->arg2 >> 8) & 0xff;
+    capaddr_t    dest_cptr = sa->arg3;
+    cslot_t      dest_slot = sa->arg4;
+    int          bits      = sa->arg2 & 0xff;
+    printk(LOG_NOTE, "type = %d, bits = %d\n", type, bits);
+
+    return sys_create(root, type, objbits, dest_cptr, dest_slot, bits);
 }
 
 static struct sysret
@@ -514,6 +536,24 @@ static struct sysret dispatcher_dump_ptables(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_idcap_identify(struct capability *to,
+                                           arch_registers_state_t *context,
+                                           int argc)
+{
+    assert(to->type == ObjType_ID);
+    assert(3 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+    idcap_id_t *idp = (idcap_id_t *) sa->arg2;
+
+    // Check validity of user space pointer
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t) idp, sizeof(*idp)))  {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    return sys_idcap_identify(to, idp);
+}
+
 
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
@@ -538,6 +578,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Retype] = handle_retype,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_Create] = handle_create,
     },
     [ObjType_VNode_ARM_l1] = {
     	[VNodeCmd_Map]   = handle_map,
@@ -559,8 +600,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Remote_cap]   = monitor_remote_cap,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
+    },
+    [ObjType_ID] = {
+        [IDCmd_Identify] = handle_idcap_identify
     }
-
 };
 
 static struct sysret
