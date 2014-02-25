@@ -16,6 +16,12 @@
 #define ARM_BARRELFISH_CPU_H
 
 // XXX: placeholder; there's definitely more than one arm in existence!
-#define CURRENT_CPU_TYPE CPU_ARM
+#ifdef __ARM_ARCH_7A__
+#define CURRENT_CPU_TYPE CPU_ARM7
+#elif __ARM_ARCH_5__
+#define CURRENT_CPU_TYPE CPU_ARM5
+#else
+#error "must define CURRENT_CPU_TYPE"
+#endif
 
 #endif

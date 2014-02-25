@@ -201,7 +201,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 #endif
         break;
 
-    case CPU_ARM:
+    case CPU_ARM7:
         err = vnode_create(si->vtree, ObjType_VNode_ARM_l1);
         break;
 
@@ -265,7 +265,7 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
         break;
 
     case EM_ARM:
-        si->cpu_type = CPU_ARM;
+        si->cpu_type = CPU_ARM7;
         break;
 
     default:
