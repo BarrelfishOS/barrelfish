@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
             irq = (uint8_t) x;
         } else if (strncmp(argv[i], "name=", sizeof("name=") - 1) == 0) {
              driver_name = argv[i] + sizeof("name=") - 1;
+        } else if (strncmp(argv[i], "auto", 4) == 0) {
+            // do nothing, means we are being started through kaluga
         } else {
             fprintf(stderr, "Error: unknown option %s\n", argv[i]);
             goto usage;

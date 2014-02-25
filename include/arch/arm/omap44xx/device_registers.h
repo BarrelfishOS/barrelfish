@@ -45,10 +45,14 @@
 #define OMAP44XX_MMCHS4 0x480D1000
 #define OMAP44XX_MMCHS5 0x480D5000
 
-
-
-
-
-
+// UARTs
+#define OMAP44XX_MAP_L4_PER_UART1                       0x4806A000
+#define OMAP44XX_MAP_L4_PER_UART1_SIZE                  0x1000
+#define OMAP44XX_MAP_L4_PER_UART2                       0x4806C000
+#define OMAP44XX_MAP_L4_PER_UART2_SIZE                  0x1000
+#define OMAP44XX_MAP_L4_PER_UART3                       0x48020000
+#define OMAP44XX_MAP_L4_PER_UART3_SIZE                  0x1000
+#define OMAP44XX_MAP_L4_PER_UART4                       0x4806E000
+#define OMAP44XX_MAP_L4_PER_UART4_SIZE                  0x1000
 
 #endif // DEVICE_REGISTERS_H_
