@@ -20,8 +20,10 @@
 # define CURRENT_CPU_TYPE_STR "x86_32"
 #elif CURRENT_CPU_TYPE == CPU_SCC
 # define CURRENT_CPU_TYPE_STR "scc"
-#elif CURRENT_CPUT_TYPE == CPU_ARM
-# define CURRENT_CPU_TYPE_STR "arm"
+#elif CURRENT_CPU_TYPE == CPU_ARM5
+# define CURRENT_CPU_TYPE_STR "armv5"
+#elif CURRENT_CPU_TYPE == CPU_ARM7
+# define CURRENT_CPU_TYPE_STR "armv7"
 #else
 # error "unknown CURRENT_CPU_TYPE"
 #endif

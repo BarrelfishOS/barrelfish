@@ -44,7 +44,7 @@ printf("armv7-m can not spawn new cores yet");
 #else
 	int r;
 	switch(cpu_type) {
-	case CPU_ARM:
+	case CPU_ARM7:
 		r = start_aps_arm_start(core_id, (lvaddr_t)entry);
 		if(r != 0)
 		{

@@ -23,7 +23,8 @@ enum cpu_type {
     CPU_X86_64,
     CPU_X86_32,
     CPU_SCC,
-    CPU_ARM, // XXX: Which ARMs to add here?
+    CPU_ARM7,
+    CPU_ARM5,
     CPU_TYPE_NUM // must be last
 };
 
@@ -37,11 +38,8 @@ static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
     case CPU_X86_64:    return "x86_64";
     case CPU_X86_32:    return "x86_32";
     case CPU_SCC:       return "scc";
-#ifdef __GEM5__
-    case CPU_ARM:       return "arm_gem5";
-    #else
-    case CPU_ARM:       return "arm";
-#endif // __GEM5__
+    case CPU_ARM7:      return "armv7";
+    case CPU_ARM5:      return "armv5";
     default:            return "(unknown)";
     }
 }
