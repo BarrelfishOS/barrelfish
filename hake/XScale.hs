@@ -47,7 +47,8 @@ ourCommonFlags = [ Str "-Wno-packed-bitfield-compat",
                    Str "-DPIC_REGISTER=R10",
                    Str "-fpic",
                    Str "-ffixed-r9",
-                   Str "-DTHREAD_REGISTER=R9" ]
+                   Str "-DTHREAD_REGISTER=R9",
+                   Str "-D__ARM_ARCH_5__" ]
 
 cFlags = ArchDefaults.commonCFlags 
          ++ ArchDefaults.commonFlags
@@ -137,7 +138,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mpic-register=r10",
                                 "-DPIC_REGISTER=R10",
                                 "-ffixed-r9",
-                                "-DTHREAD_REGISTER=R9" ]]
+                                "-DTHREAD_REGISTER=R9",
+                                "-D__ARM_ARCH_5__" ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
                   NStr "-Wl,-Map,", Out arch "kernel.map",
