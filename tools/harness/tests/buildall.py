@@ -27,3 +27,20 @@ class BuildAllTest(Test):
 
     def process_data(self, testdir, raw_iter):
         return PassFailResult(True)
+
+@tests.add_test
+class BuildPandaboardImage(Test):
+    '''Simple test to ensure that the default pandaboard image builds cleanly'''
+    name = "buildall_pandaboard"
+
+    def setup(self, build, machine, testdir):
+        build.build(['pandaboard_image'])
+
+    def run(self, build, machine, testdir):
+        return []
+
+    def cleanup(self, machine):
+        pass
+
+    def process_data(self, testdir, raw_iter):
+        return PassFailResult(True)
