@@ -485,6 +485,8 @@ PANDABOARD_MODULES=\
 	armv7/sbin/fish \
 	armv7/sbin/usb_manager \
 	armv7/sbin/usb_keyboard \
+	armv7/sbin/serial \
+	armv7/sbin/angler \
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@
