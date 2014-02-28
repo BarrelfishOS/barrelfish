@@ -55,6 +55,14 @@ SECTIONS {
                *(.rodata15); 
                . = ALIGN(4k);
                *(.rodata16); 
+               . = ALIGN(4k);
+               *(.rodata17); 
+               . = ALIGN(4k);
+               *(.rodata18); 
+               . = ALIGN(4k);
+               *(.rodata19); 
+               . = ALIGN(4k);
+               *(.rodata20); 
         }
         . = ALIGN(4k);
         //address will be put into molly_init, if heteropanda option has been specified

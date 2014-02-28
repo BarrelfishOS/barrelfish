@@ -45,7 +45,7 @@ for BIN in $BINS; do
   echo $BIN '->' $BIN_OUT
   $OBJCOPY -I binary -O elf32-littlearm -B arm --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
   IDX=$(($IDX+1))
-  if [ $IDX = 17 ]; then
+  if [ $IDX = 20 ]; then
       echo Error: linker script cannot handle $IDX modules
       exit 1
   fi
