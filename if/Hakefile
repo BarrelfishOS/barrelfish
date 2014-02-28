@@ -68,6 +68,8 @@
                "unixsock",
 	       "bcache",
 	       "replay",
+               "arrakis",
+               "e10k_vf",
 	       "empty"],
              arch <- allArchitectures
 ] ++

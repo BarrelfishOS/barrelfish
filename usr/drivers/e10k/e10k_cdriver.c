@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011, ETH Zurich.
+ * Copyright (c) 2007-2011, 2013, 2014, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,13 +17,20 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
 #include <ipv4/lwip/inet.h>
+#ifdef LIBRARY
+#       include <netif/e1000.h>
+#endif
 
 #include <if/e10k_defs.h>
+#include <if/e10k_vf_defs.h>
 #include <dev/e10k_dev.h>
 
 #include "e10k.h"
 #include "sleep.h"
 #include "helper.h"
+
+//#define VTON_DCBOFF
+//#define DCA_ENABLED
 
 //#define DEBUG(x...) printf("e10k: " x)
 #define DEBUG(x...) do {} while (0)
@@ -79,6 +86,27 @@ struct e10k_filter {
     uint16_t l4_type;
 };
 
+union macentry {
+    uint8_t as8[6];
+    uint64_t as64;
+};
+
+static union macentry mactable[128] = {
+    { .as8 = "\x0\x0\x0\x0\x0\x0" },      // First MAC is never set (loaded from card EEPROM)
+
+    { .as8 = "\x22\xc9\xfc\x96\x83\xfc" },
+    { .as8 = "\xce\x43\x5b\xf7\x3e\x60" },
+    { .as8 = "\x6a\xb0\x62\xf6\xa7\x21" },
+    { .as8 = "\xb2\xdf\xf9\x39\xc6\x10" },
+    { .as8 = "\x92\x77\xe7\x3f\x80\x30" },
+    { .as8 = "\xd6\x88\xd6\x86\x4a\x22" },
+    { .as8 = "\x7e\x64\xe9\x2e\xbe\x4b" },
+    { .as8 = "\xba\xac\x49\xd6\x3c\x77" },
+
+    // We set the rest to all zeroes
+
+    // Last MAC (127) never set (loaded from card EEPROM ... at least, it's already there)
+};
 
 // Hack for monolithic driver
 void qd_main(void) __attribute__((weak));
@@ -111,7 +139,7 @@ static void stop_device(void);
 
 static void device_init(void);
 static void queue_hw_init(uint8_t n);
-static void queue_hw_stop(uint8_t n);
+//static void queue_hw_stop(uint8_t n);
 static void interrupt_handler_msix(void* arg);
 //static void interrupt_handler_msix_b(void* arg);
 
@@ -121,7 +149,6 @@ static void e10k_flt_ftqf_setup(int index, struct e10k_filter *filter);
 
 
 static const char *service_name = "e10k";
-uint64_t d_mac;
 static int initialized = 0;
 static e10k_t *d = NULL;
 static struct capref *regframe;
@@ -147,8 +174,7 @@ static char buf[4096];
 static uint32_t pci_bus = PCI_DONT_CARE;
 static uint32_t pci_device = PCI_DONT_CARE;
 static uint32_t pci_function = 0;
-
-
+static uint32_t pci_deviceid = E10K_PCI_DEVID;
 
 
 static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
@@ -201,6 +227,7 @@ static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
     e10k_ftqf_wr(d, idx, ftqf);
 }
 
+#ifndef LIBRARY
 static int ftqf_index = 0;
 static int ftqf_alloc(void)
 {
@@ -228,7 +255,7 @@ static errval_t reg_ftfq_filter(struct e10k_filter* f, uint64_t* fid)
 
     return SYS_ERR_OK;
 }
-
+#endif
 
 
 #if 0
@@ -461,12 +488,8 @@ static void device_init(void)
     while (e10k_eec_auto_rd_rdf(d) == 0); // TODO: Timeout
     DEBUG("EEPROM auto read done\n");
 
-
     // Wait for DMA initialization
     while (e10k_rdrxctl_dma_initok_rdf(d) == 0); // TODO: Timeout
-
-    d_mac = e10k_ral_ral_rdf(d, 0) | ((uint64_t) e10k_rah_rah_rdf(d, 0) << 32);
-    DEBUG("mac valid = %x\n", e10k_rah_av_rdf(d, 0));
 
     // Wait for link to come up
     while (e10k_links_lnk_up_rdf(d) == 0); // TODO: Timeout
@@ -518,24 +541,62 @@ static void device_init(void)
     // Just a guess for RSC delay
     e10k_gpie_rsc_delay_wrf(d, 2);
 
+    // Initialize multiple register tables (MAC 0 and 127 are not set)
+    for (i = 0; i < 128; i++) {
+        /* uint64_t mac = e10k_ral_ral_rdf(d, i) | ((uint64_t) e10k_rah_rah_rdf(d, i) << 32); */
+        /* uint8_t *m = (uint8_t *)&mac; */
+        /* DEBUG("Old MAC %d: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx ... mac valid = %x\n", */
+        /*       i, m[0], m[1], m[2], m[3], m[4], m[5], e10k_rah_av_rdf(d, 0)); */
 
-    // Initialize multiple register tables
-    for (i = 1; i < 128; i++) {
-        e10k_ral_wr(d, i, 0);
-        e10k_rah_wr(d, i, 0);
+        if(i > 0 && i < 127) {
+            e10k_ral_wr(d, i, mactable[i].as64 & 0xffffffff);
+            e10k_rah_wr(d, i, mactable[i].as64 >> 32);
+            e10k_rah_av_wrf(d, i, 1);
+
+            /* mac = e10k_ral_ral_rdf(d, i) | ((uint64_t) e10k_rah_rah_rdf(d, i) << 32); */
+            /* m = (uint8_t *)&mac; */
+            /* DEBUG("New MAC %d: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx ... mac valid = %x\n", */
+            /*       i, m[0], m[1], m[2], m[3], m[4], m[5], e10k_rah_av_rdf(d, 0)); */
+        }
     }
     for (i = 0; i < 128; i++)
         e10k_mta_bit_vec_wrf(d, i, 0);
     for (i = 0; i < 128; i++)
         e10k_vfta_vlan_flt_wrf(d, i, 0);
+    for (i = 0; i < 128; i++)
+        e10k_pfvlvfb_wr(d, i, 0);
     for (i = 0; i < 64; i++) {
+#ifdef VTON_DCBOFF
+        e10k_pfvlvf_vi_en_wrf(d, i, 1);
+#else
         e10k_pfvlvf_vi_en_wrf(d, i, 0);
+#endif
         e10k_psrtype_wr(d, i, 0);
     }
     for (i = 0; i < 128; i++)
         e10k_pfuta_wr(d, i, 0);
     for (i = 0; i < 256; i++)
         e10k_mpsar_pool_ena_wrf(d, i, 0);
+
+    // Program direct match MAC forwarding rules
+    // This setup will assign the first 64 MAC addresses each to a different
+    // RX pool. This assumes we have 64 VFs. The rest is set to filtered.
+    for(i = 0; i < 128; i++) {
+        if(i < 32) {
+            // Pools < 32 (low bits)
+            e10k_mpsar_pool_ena_wrf(d, 2 * i, 1 << i);
+            e10k_mpsar_pool_ena_wrf(d, 2 * i + 1, 0);
+        } else if(i < 64) {
+            // Pools >= 32 and < 64 (high bits)
+            e10k_mpsar_pool_ena_wrf(d, 2 * i, 0);
+            e10k_mpsar_pool_ena_wrf(d, 2 * i + 1, 1 << (i - 32));
+        } else {
+            // Pools >= 64 -> DROP
+            e10k_mpsar_pool_ena_wrf(d, 2 * i, 0);
+            e10k_mpsar_pool_ena_wrf(d, 2 * i + 1, 0);
+        }
+    }
+
     for (i = 0; i < 128; i++) {
         e10k_fhft_1_wr(d, i, 0);
         if (i < 64) {
@@ -543,8 +604,13 @@ static void device_init(void)
         }
     }
 
+#ifdef VTON_DCBOFF
+    // Disallow per-queue RSC (not supported in SR-IOV mode)
+    e10k_rfctl_rsc_dis_wrf(d, 1);
+#else
     // Allow for per-queue RSC
     e10k_rfctl_rsc_dis_wrf(d, 0);
+#endif
 
     // Initialize RX filters
     for (i = 0; i < 128; i++) {
@@ -569,10 +635,13 @@ static void device_init(void)
 
 
     // Configure buffers etc. according to specification
-    // Section 4.6.11.3.4 (No DCP, no virtualization, no RSS)
+    // Section 4.6.11.3.4 (DCB, virtualization, no RSS)
     // 1:1 from spec, though not sure if everything is necessary, but since
     // initialization is still buggy, I'd rather be conservative and set some
     // additional flags, even if they aren't strictly necessary.
+    e10k_rttdcs_arbdis_wrf(d, 1);
+
+#ifdef VTON_DCBOFF
     e10k_rxpbsize_size_wrf(d, 0, 0x200);
     e10k_txpbsize_size_wrf(d, 0, 0xA0);
     e10k_txpbthresh_thresh_wrf(d, 0, 0xA0);
@@ -582,49 +651,99 @@ static void device_init(void)
         e10k_txpbthresh_thresh_wrf(d, i, 0x0);
     }
 
-    e10k_mrqc_mrque_wrf(d, e10k_no_rss);
+    e10k_mrqc_mrque_wrf(d, e10k_vrt_only);
     e10k_mtqc_rt_en_wrf(d, 0);
-    e10k_mtqc_vt_en_wrf(d, 0);
-    e10k_mtqc_num_tc_wrf(d, 0);
-    e10k_pfvtctl_vt_en_wrf(d, 0);
+
+    e10k_mtqc_vt_en_wrf(d, 1);
+    e10k_mtqc_num_tc_wrf(d, 1);
+    e10k_pfvtctl_vt_en_wrf(d, 1);
+#else
+    for (i = 0; i < 8; i++) {
+        e10k_rxpbsize_size_wrf(d, i, 0x40);
+        e10k_txpbsize_size_wrf(d, i, 0x14);
+        e10k_txpbthresh_thresh_wrf(d, i, 0x14);
+    }
+
+    e10k_mrqc_mrque_wrf(d, e10k_vrt_only);
+    e10k_mtqc_rt_en_wrf(d, 1);
+    e10k_mtqc_vt_en_wrf(d, 1);
+    e10k_mtqc_num_tc_wrf(d, 2);
+    e10k_pfvtctl_vt_en_wrf(d, 1);
+#endif
     e10k_rtrup2tc_wr(d, 0);
     e10k_rttup2tc_wr(d, 0);
 
+#ifdef VTON_DCBOFF
     e10k_dtxmxszrq_max_bytes_wrf(d, 0xFFF);
+#else
+    e10k_dtxmxszrq_max_bytes_wrf(d, 0x010);
+#endif
+
+    e10k_rttdcs_arbdis_wrf(d, 0);
 
     for (i = 0; i < 128; i++) {
         pfqde = e10k_pfqde_queue_idx_insert(0x0, i);
         pfqde = e10k_pfqde_we_insert(pfqde, 1);
+        // XXX: Might want to set drop enable here
+        /* pfqde = e10k_pfqde_qde_insert(pfqde, 1); */
         e10k_pfqde_wr(d, pfqde);
     }
 
+#ifdef VTON_DCBOFF
     e10k_mflcn_rpfce_wrf(d, 0);
     e10k_mflcn_rfce_wrf(d, 0);
     e10k_fccfg_tfce_wrf(d, e10k_lfc_en);
+#else
+    e10k_mflcn_rpfce_wrf(d, 1);
+    e10k_mflcn_rfce_wrf(d, 0);
+    e10k_fccfg_tfce_wrf(d, e10k_pfc_en);
+#endif
 
-    /* Causes ECC error (could be same problem as with l34timir (see e10k.dev)
+    /* Causes ECC error (could be same problem as with l34timir (see e10k.dev) */
     for (i = 0; i < 128; i++) {
         e10k_rttdqsel_txdq_idx_wrf(d, i);
         e10k_rttdt1c_wr(d, 0);
-    }*/
+    }
+
+    e10k_rttdqsel_txdq_idx_wrf(d, 0);
+    e10k_rttbcnrc_wr(d, 0);
+
     for (i = 0; i < 8; i++) {
         e10k_rttdt2c_wr(d, i, 0);
         e10k_rttpt2c_wr(d, i, 0);
         e10k_rtrpt4c_wr(d, i, 0);
     }
 
+#ifdef VTON_DCBOFF
     e10k_rttdcs_tdpac_wrf(d, 0);
+
+    // XXX: Should be on, but transmit only works when it's off...
+    // Linux driver doesn't seem to set it either
+    /* e10k_rttdcs_vmpac_wrf(d, 1); */
     e10k_rttdcs_vmpac_wrf(d, 0);
+
     e10k_rttdcs_tdrm_wrf(d, 0);
     e10k_rttdcs_bdpm_wrf(d, 1);
-    e10k_rttdcs_bpbfsm_wrf(d, 1);
+    e10k_rttdcs_bpbfsm_wrf(d, 0);
     e10k_rttpcs_tppac_wrf(d, 0);
     e10k_rttpcs_tprm_wrf(d, 0);
     e10k_rttpcs_arbd_wrf(d, 0x224);
     e10k_rtrpcs_rac_wrf(d, 0);
     e10k_rtrpcs_rrm_wrf(d, 0);
+#else
+    e10k_rttdcs_tdpac_wrf(d, 1);
+    e10k_rttdcs_vmpac_wrf(d, 1);
+    e10k_rttdcs_tdrm_wrf(d, 1);
+    e10k_rttdcs_bdpm_wrf(d, 1);
+    e10k_rttdcs_bpbfsm_wrf(d, 0);
+    e10k_rttpcs_tppac_wrf(d, 1);
+    e10k_rttpcs_tprm_wrf(d, 1);
+    e10k_rttpcs_arbd_wrf(d, 0x004);
+    e10k_rtrpcs_rac_wrf(d, 1);
+    e10k_rtrpcs_rrm_wrf(d, 1);
 
-
+    e10k_sectxminifg_sectxdcb_wrf(d, 0x1f);
+#endif
 
     // disable relaxed ordering
     for (i = 0; i < 128; i++) {
@@ -647,6 +766,23 @@ static void device_init(void)
             e10k_rxdctl_2_enable_wrf(d, i - 64, 0);
         }
     }
+
+    for(i = 0; i < 64; i++) {
+        e10k_pfvml2flt_mpe_wrf(d, i, 1);
+        e10k_pfvml2flt_bam_wrf(d, i, 1);
+        e10k_pfvml2flt_aupe_wrf(d, i, 1);
+    }
+
+#ifdef DCA_ENABLED
+    // Enable DCA (Direct Cache Access)
+    {
+        e10k_dca_ctrl_t dca_ctrl = 0;
+        dca_ctrl = e10k_dca_ctrl_dca_mode_insert(dca_ctrl, e10k_dca10);
+        e10k_dca_ctrl_wr(d, dca_ctrl);
+    }
+
+    printf("DCA globally enabled\n");
+#endif
 
     DEBUG("Card initialized (%d)\n", initialized_before);
 
@@ -711,6 +847,7 @@ static void queue_hw_init(uint8_t n)
 
     // Set RSC status
     if (queues[n].use_rsc) {
+        USER_PANIC("RSC not supported in SR-IOV mode!\n");
         e10k_rscctl_1_maxdesc_wrf(d, n, 3);
         e10k_rscctl_1_rsc_en_wrf(d, n, 1);
         // TODO: (how) does this work for queues >=64?
@@ -723,6 +860,11 @@ static void queue_hw_init(uint8_t n)
     // Initialize queue pointers (empty)
     e10k_rdt_1_wr(d, n, queues[n].rx_head);
     e10k_rdh_1_wr(d, n, queues[n].rx_head);
+
+#ifdef VTON_DCBOFF
+    // Open virtualization pool gate (assumes 64 VF mapping)
+    e10k_pfvfre_wr(d, n / 64, e10k_pfvfre_rd(d, n / 64) | (1 << ((n / 2) % 32)));
+#endif
 
     e10k_rxdctl_1_enable_wrf(d, n, 1);
     while (e10k_rxdctl_1_enable_rdf(d, n) == 0); // TODO: Timeout
@@ -774,7 +916,6 @@ static void queue_hw_init(uint8_t n)
         }
     }
 
-
     // Enable RX
     if (enable_global) {
         DEBUG("[%x] Enabling RX globally...\n", n);
@@ -782,6 +923,30 @@ static void queue_hw_init(uint8_t n)
         DEBUG("[%x] RX globally enabled\n", n);
     }
 
+#ifdef DCA_ENABLED
+    {
+        // Enable DCA for this queue
+        e10k_dca_rxctrl_t dca_rxctrl = 0;
+
+        dca_rxctrl = e10k_dca_rxctrl_rxdca_desc_insert(dca_rxctrl, 1);
+        dca_rxctrl = e10k_dca_rxctrl_rxdca_hdr_insert(dca_rxctrl, 1);
+        dca_rxctrl = e10k_dca_rxctrl_rxdca_payl_insert(dca_rxctrl, 1);
+
+        uint8_t my_apic_id;
+        errval_t err = sys_debug_get_apic_id(&my_apic_id);
+        assert(err_is_ok(err));
+
+        dca_rxctrl = e10k_dca_rxctrl_cpuid_insert(dca_rxctrl, my_apic_id);
+
+        if(n < 64) {
+            e10k_dca_rxctrl_1_wr(d, n, dca_rxctrl);
+        } else {
+            e10k_dca_rxctrl_2_wr(d, n - 64, dca_rxctrl);
+        }
+
+        printf("DCA enabled on queue %d with APIC ID %d\n", n, my_apic_id);
+    }
+#endif
 
     // Initialize TX queue in HW
     e10k_tdbal_wr(d, n, tx_phys);
@@ -817,10 +982,14 @@ static void queue_hw_init(uint8_t n)
         DEBUG("[%x] TX globally enabled\n", n);
     }
 
+#ifdef VTON_DCBOFF
+    // Open virtualization pool gate (assumes 64 VF mapping)
+    e10k_pfvfte_wr(d, n / 64, e10k_pfvfte_rd(d, n / 64) | (1 << ((n / 2) % 32)));
+#endif
+
     e10k_txdctl_enable_wrf(d, n, 1);
     while (e10k_txdctl_enable_rdf(d, n) == 0); // TODO: Timeout
     DEBUG("[%x] TX queue enabled\n", n);
-
 
     // Some initialization stuff from BSD driver
     e10k_dca_txctrl_txdesc_wbro_wrf(d, n, 0);
@@ -829,6 +998,7 @@ static void queue_hw_init(uint8_t n)
 
 }
 
+#ifndef LIBRARY
 /** Stop queue. */
 static void queue_hw_stop(uint8_t n)
 {
@@ -848,6 +1018,7 @@ static void queue_hw_stop(uint8_t n)
     // A bit too much, but make sure memory is not used anymore
     milli_sleep(1);
 }
+#endif
 
 
 /** Stop whole device. */
@@ -974,6 +1145,7 @@ static void idc_write_queue_tails(struct e10k_binding *b)
     assert(err_is_ok(r));
 }
 
+#ifndef LIBRARY
 /** Signal queue driver that the queue is stopped. */
 static void idc_queue_terminated(struct e10k_binding *b)
 {
@@ -1007,10 +1179,20 @@ static void idc_filter_unregistered(struct e10k_binding *b,
     // TODO: handle busy
     assert(err_is_ok(r));
 }
+#endif
 
 /** Request from queue driver for register memory cap */
 void cd_request_device_info(struct e10k_binding *b)
 {
+    assert(initialized);
+#ifdef LIBRARY
+    uint64_t d_mac = e10k_ral_ral_rdf(d, qi) | ((uint64_t) e10k_rah_rah_rdf(d, qi) << 32);
+    DEBUG("mac valid = %x\n", e10k_rah_av_rdf(d, qi));
+#else
+    uint64_t d_mac = e10k_ral_ral_rdf(d, 0) | ((uint64_t) e10k_rah_rah_rdf(d, 0) << 32);
+    DEBUG("mac valid = %x\n", e10k_rah_av_rdf(d, 0));
+#endif
+
     if (b == NULL) {
         struct capref cr;
         errval_t err = slot_alloc(&cr);
@@ -1087,6 +1269,7 @@ void cd_set_interrupt_rate(struct e10k_binding *b,
     }
 }
 
+#ifndef LIBRARY
 /**
  * Request from queue driver to stop hardware queue and free everything
  * associated with that queue.
@@ -1182,9 +1365,77 @@ static void initialize_mngif(void)
                     IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
 }
+#endif
 
+/****** VF/PF server interface *******/
 
+static void init_done_vf(struct e10k_vf_binding *b, uint8_t vfn)
+{
+    assert(vfn < 64);
 
+    DEBUG("VF %d init done\n", vfn);
+
+    // Enable correct pool for VF
+    e10k_pfvfre_wr(d, vfn / 32, e10k_pfvfre_rd(d, vfn / 32) | (1 << (vfn % 32)));
+    e10k_pfvfte_wr(d, vfn / 32, e10k_pfvfte_rd(d, vfn / 32) | (1 << (vfn % 32)));
+
+    if(vfn < 32) {
+        e10k_pfvflrec_wr(d, 0, 1 << vfn);
+    } else {
+        e10k_pfvflrec_wr(d, 1, 1 << (vfn - 32));
+    }
+
+    errval_t err = b->tx_vtbl.init_done_response(b, NOP_CONT);
+    assert(err_is_ok(err));
+}
+
+static void get_mac_address_vf(struct e10k_vf_binding *b, uint8_t vfn)
+{
+    assert(initialized);
+    uint64_t d_mac = e10k_ral_ral_rdf(d, vfn) | ((uint64_t) e10k_rah_rah_rdf(d, vfn) << 32);
+    errval_t err = b->tx_vtbl.get_mac_address_response(b, NOP_CONT, d_mac);
+    assert(err_is_ok(err));
+}
+
+static struct e10k_vf_rx_vtbl vf_rx_vtbl = {
+    .get_mac_address_call = get_mac_address_vf,
+    .init_done_call = init_done_vf,
+};
+
+static void vf_export_cb(void *st, errval_t err, iref_t iref)
+{
+    const char *suffix = "_vf";
+    char name[strlen(service_name) + strlen(suffix) + 1];
+
+    assert(err_is_ok(err));
+
+    // Build label for interal management service
+    sprintf(name, "%s%s", service_name, suffix);
+
+    err = nameservice_register(name, iref);
+    assert(err_is_ok(err));
+    DEBUG("VF/PF interface [%s] exported\n", name);
+}
+
+static errval_t vf_connect_cb(void *st, struct e10k_vf_binding *b)
+{
+    DEBUG("New connection on VF/PF interface\n");
+    b->rx_vtbl = vf_rx_vtbl;
+    return SYS_ERR_OK;
+}
+
+/**
+ * Initialize management interface for queue drivers.
+ * This has to be done _after_ the hardware is initialized.
+ */
+static void initialize_vfif(void)
+{
+    errval_t r;
+
+    r = e10k_vf_export(NULL, vf_export_cb, vf_connect_cb, get_default_waitset(),
+		       IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(r));
+}
 
 /******************************************************************************/
 /* Initialization code for driver */
@@ -1211,6 +1462,8 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     // Initialize Mackerel binding
     e10k_initialize(d, (void*) bar_info[0].vaddr);
 
+    DEBUG("STATUS = %x\n", e10k_status_rd(d));
+
     // Initialize manager for MSI-X vectors
     if (msix) {
         DEBUG("Enabling MSI-X interrupts\n");
@@ -1232,9 +1485,45 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
 
     assert(initialized);
 
+#ifdef VTON_DCBOFF
+    DEBUG("SR-IOV device up routine\n");
+
+    // Setup support for 64 VFs
+    e10k_gcr_ext_vtmode_wrf(d, e10k_vt_64);
+    e10k_gpie_vtmode_wrf(d, e10k_vt_64);
+
+    // Enable virtualization, disable default pool, replication enable
+    e10k_pfvtctl_t pfvtctl = e10k_pfvtctl_rd(d);
+    pfvtctl = e10k_pfvtctl_vt_en_insert(pfvtctl, 1);
+    pfvtctl = e10k_pfvtctl_def_pl_insert(pfvtctl, 0);
+    pfvtctl = e10k_pfvtctl_dis_def_pl_insert(pfvtctl, 1);
+    pfvtctl = e10k_pfvtctl_rpl_en_insert(pfvtctl, 1);
+    e10k_pfvtctl_wr(d, pfvtctl);
+
+    // Enable L2 loopback
+    e10k_pfdtxgswc_lbe_wrf(d, 1);
+
+    // TODO: Accept untagged packets in all VMDQ pools
+    // TODO: Broadcast accept mode
+    // TODO: Accept packets matching PFUTA table
+    // TODO: Accept packets matching MTA table
+    // TODO: Accept untagged packets enable
+    // TODO: Strip VLAN tag for incoming packets
+
+    DEBUG("STATUS = %x\n", e10k_status_rd(d));
+
+    e10k_ctrl_ext_pfrstd_wrf(d, 1);
+#endif
+
+#ifndef LIBRARY
     // Now we initialize the management interface
     DEBUG("Initializing management interface\n");
     initialize_mngif();
+#endif
+
+    DEBUG("Initializing VF/PF interface\n");
+    initialize_vfif();
+    DEBUG("Done with initialization\n");
 }
 
 
@@ -1249,7 +1538,7 @@ static void pci_register(void)
 
     r = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
-                                PCI_VENDOR_INTEL, E10K_PCI_DEVID,
+                                PCI_VENDOR_INTEL, pci_deviceid,
                                 pci_bus, pci_device, pci_function,
                                 interrupt_handler, NULL);
     assert(err_is_ok(r));
@@ -1260,15 +1549,17 @@ static void parse_cmdline(int argc, char **argv)
     int i;
 
     for (i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
+        if (strncmp(argv[i], "cardname=", strlen("cardname=")) == 0) {
             service_name = argv[i] + strlen("cardname=");
-        } else if (strncmp(argv[i], "bus=", strlen("bus=") - 1) == 0) {
+        } else if (strncmp(argv[i], "bus=", strlen("bus=")) == 0) {
             pci_bus = atol(argv[i] + strlen("bus="));
-        } else if (strncmp(argv[i], "device=", strlen("device=") - 1) == 0) {
+        } else if (strncmp(argv[i], "device=", strlen("device=")) == 0) {
             pci_device = atol(argv[i] + strlen("device="));
-        } else if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0){
+        } else if (strncmp(argv[i], "function=", strlen("function=")) == 0) {
             pci_function = atol(argv[i] + strlen("function="));
-        } else if (strncmp(argv[i], "msix=", strlen("msix=") - 1) == 0) {
+        } else if (strncmp(argv[i], "deviceid=", strlen("deviceid=")) == 0) {
+            pci_deviceid = strtoul(argv[i] + strlen("deviceid="), NULL, 0);
+        } else if (strncmp(argv[i], "msix=", strlen("msix=")) == 0) {
             msix = !!atol(argv[i] + strlen("msix="));
             // also pass this to queue driver
             qd_argument(argv[i]);
@@ -1278,6 +1569,7 @@ static void parse_cmdline(int argc, char **argv)
     }
 }
 
+#ifndef LIBRARY
 static void eventloop(void)
 {
     struct waitset *ws;
@@ -1300,10 +1592,12 @@ void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
 void qd_queue_memory_registered(struct e10k_binding *b) { }
 void qd_write_queue_tails(struct e10k_binding *b) { }
 
-
 int main(int argc, char **argv)
+#else
+int e1000n_driver_init(int argc, char *argv[])
+#endif
 {
-    DEBUG("Started\n");
+    DEBUG("PF driver started\n");
     parse_cmdline(argc, argv);
     pci_register();
 
@@ -1311,5 +1605,6 @@ int main(int argc, char **argv)
         event_dispatch(get_default_waitset());
     }
     qd_main();
+    return 1;
 }
 

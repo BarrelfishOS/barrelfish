@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2014, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -73,5 +73,8 @@ errval_t pcie_setup_confspace(void);
 errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count);
 errval_t pci_msix_vector_init(struct pci_address *addr, uint16_t idx,
                               uint8_t destination, uint8_t vector);
+
+extern const char *skb_bridge_program;
+extern uint16_t max_numvfs;
 
 #endif // PCI_H_

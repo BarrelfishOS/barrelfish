@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -230,12 +230,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
 
     assert(dcb != NULL);
-#ifdef __x86_64__
-    if (dcb->is_vm_guest) {
-        vmkit_vmenter(dcb);
-        panic("vmkit_vmenter unexpectedly returned");
-    }
-#endif
 
     dispatcher_handle_t handle = dcb->disp;
     struct dispatcher_shared_generic *disp =
@@ -250,12 +244,24 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
-        resume(disabled_area);
+	if(!dcb->is_vm_guest) {
+	  resume(disabled_area);
+#ifdef __x86_64__
+	} else {
+	  vmkit_vmenter(dcb);
+#endif
+	}
     } else {
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
-        execute(disp->dispatcher_run);
+	if(!dcb->is_vm_guest) {
+	  execute(disp->dispatcher_run);
+#ifdef __x86_64__
+	} else {
+	  vmkit_vmexec(dcb, disp->dispatcher_run);
+#endif
+	}
     }
 } // end function: dispatch
 

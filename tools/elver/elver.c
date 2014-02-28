@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -244,6 +244,7 @@ static void set_elf_headers(uint32_t base)
     multiboot_info->syms.elf.size = head->e_shentsize;
     multiboot_info->syms.elf.addr = base + head->e_shoff;
     multiboot_info->syms.elf.shndx = head->e_shstrndx;
+    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_ELF_SYMS;
 }
 
 int startup(uint32_t magic, struct multiboot_info *mb);

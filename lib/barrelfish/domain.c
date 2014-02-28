@@ -1123,6 +1123,25 @@ void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *c)
     disp->core_state.c.spawn_rpc_clients[core] = c;
 }
 
+struct arrakis_rpc_client *get_arrakis_rpc_client(coreid_t core)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    assert(core < MAX_CPUS);
+    return disp->core_state.c.arrakis_rpc_clients[core];
+}
+
+/**
+ * \brief set the chips_context state on the dispatcher priv
+ */
+void set_arrakis_rpc_client(coreid_t core, struct arrakis_rpc_client *c)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    assert(core < MAX_CPUS);
+    disp->core_state.c.arrakis_rpc_clients[core] = c;
+}
+
 /**
  * \brief Returns a pointer to the terminal state on the dispatcher priv
  */

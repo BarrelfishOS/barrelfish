@@ -295,7 +295,7 @@
 
 /* Define to 1 if you have the declaration of `SHUT_RD', and to 0 if you
    don't. */
-#define HAVE_DECL_SHUT_RD 0
+#define HAVE_DECL_SHUT_RD 1
 
 /* Define to 1 if you have the declaration of `writev', and to 0 if you don't.
    */
@@ -974,22 +974,22 @@
 #define HAVE_STRUCT_ADDRINFO 1
 
 /* define if you have struct in6_addr data type */
-/* #undef HAVE_STRUCT_IN6_ADDR */
+#define HAVE_STRUCT_IN6_ADDR 1
 
 /* define if you have struct sockaddr_in6 data type */
-/* #undef HAVE_STRUCT_SOCKADDR_IN6 */
+#define HAVE_STRUCT_SOCKADDR_IN6 1
 
 /* Define to 1 if `sin6_scope_id' is a member of `struct sockaddr_in6'. */
 /* #undef HAVE_STRUCT_SOCKADDR_IN6_SIN6_SCOPE_ID */
 
 /* define if you have struct sockaddr_storage data type */
-/* #undef HAVE_STRUCT_SOCKADDR_STORAGE */
+#define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
 /* Define to 1 if `st_blksize' is a member of `struct stat'. */
 #define HAVE_STRUCT_STAT_ST_BLKSIZE 1
 
 /* Define to 1 if the system has the type `struct timespec'. */
-/* #undef HAVE_STRUCT_TIMESPEC */
+#define HAVE_STRUCT_TIMESPEC 1
 
 /* define if you have struct timeval */
 #define HAVE_STRUCT_TIMEVAL 1

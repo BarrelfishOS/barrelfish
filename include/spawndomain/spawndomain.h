@@ -41,6 +41,9 @@ struct spawninfo {
 
     // vspace of spawned domain
     struct vspace *vspace;
+    struct vregion *vregion[16];
+    genvaddr_t base[16];
+    unsigned int vregions;
 
     dispatcher_handle_t handle;
     enum cpu_type cpu_type;

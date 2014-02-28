@@ -80,6 +80,15 @@ MODULES_GENERIC= \
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
 	sbin/cpu \
+	sbin/e1000test \
+	sbin/e10ktest \
+	sbin/e10ktest_vf \
+	sbin/e10k_ctrl \
+	sbin/udpecho_arranet_e1000 \
+	sbin/udpecho_arranet_e10k \
+	sbin/udpecho_arranet_e10kvf \
+	sbin/udpecho_arranet_e1000_recvfrom \
+	sbin/udpecho_arranet_e10k_recvfrom \
 	sbin/mdbtest_range_query \
 	sbin/mdbtest_addr_zero \
 	sbin/mdb_bench \
@@ -135,6 +144,9 @@ MODULES_x86_64= \
 	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
 	sbin/serial \
+	sbin/arrakismon \
+	sbin/arrakis_hellotest \
+	sbin/socketpipetest \
 	sbin/shared_mem_clock_bench \
 	sbin/sif \
 	sbin/slideshow \
@@ -171,6 +183,7 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
+	sbin/spin \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -295,8 +308,12 @@ CLEAN_HD=
 DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
+MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
+	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
+	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
+
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)

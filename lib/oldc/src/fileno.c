@@ -27,6 +27,7 @@ int fileno(FILE *f)
     struct fdtab_entry e = {
         .type = FDTAB_TYPE_FILE,
         .handle = f->handle,
+        .epoll_fd = -1,
     };
     return fdtab_search_alloc(&e);
 }

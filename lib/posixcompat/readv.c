@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,6 +14,12 @@
  * \brief Read a vector.
  */
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt)
+{
+    assert(!"NYI");
+    return -1;
+}
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
 {
     assert(!"NYI");
     return -1;

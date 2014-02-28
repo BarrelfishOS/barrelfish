@@ -35,6 +35,11 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref inheritcn_cap,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid);
+errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 struct capref inheritcn_cap,
+                                 struct capref argcn_cap, spawn_flags_t flags,
+                                 domainid_t *ret_domainid);
 errval_t spawn_program(coreid_t coreid, const char *path,
                        char *const argv[], char *const envp[],
                        spawn_flags_t flags, domainid_t *ret_domainid);

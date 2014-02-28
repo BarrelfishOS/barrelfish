@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2010, 2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -32,7 +32,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                                                  "icsolver", "vfs",
                                                  "posixcompat", "hashtable", "pcre", 
                                                  "octopus_server", "octopus_parser", "skb",
-                                                 "bench", "dmalloc" ],
+                                                 "bench", "dmalloc", "lwip" ],
                        architectures = [ arch ]
                 }
 in

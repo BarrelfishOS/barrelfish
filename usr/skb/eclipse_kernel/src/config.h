@@ -274,7 +274,7 @@
 //#define HAVE_SETSID 0
 
 /* Define if you have sigaction.  */
-//#define HAVE_SIGACTION 0
+#define HAVE_SIGACTION 1
 
 /* Define if you have sigaltstack.  */
 //#define HAVE_SIGALTSTACK 0

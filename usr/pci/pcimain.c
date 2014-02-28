@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2014, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -55,6 +55,17 @@ static errval_t init_io_ports(void)
 int main(int argc, char *argv[])
 {
     errval_t err;
+
+    // Parse commandline arguments
+    for(int i = 1; i < argc; i++) {
+        if(!strncmp(argv[i], "skb_bridge_program=", strlen("skb_bridge_program="))) {
+            skb_bridge_program = argv[i] + strlen("skb_bridge_program=");
+        } else if(!strncmp(argv[i], "numvfs=", strlen("numvfs="))) {
+            max_numvfs = atoi(argv[i] + strlen("numvfs="));
+        } else {
+            printf("%s: Unknown commandline option \"%s\" -- skipping.\n", argv[0], argv[i]);
+        }
+    }
 
     err = oct_init();
     if (err_is_fail(err)) {

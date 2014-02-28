@@ -36,7 +36,7 @@ struct e10k_queue {
     void**                          tx_opaque;
     bool*                           tx_isctx;
     size_t                          tx_head;
-    size_t                          tx_tail;
+    size_t                          tx_tail, tx_lasttail;
     size_t                          tx_size;
     uint32_t*                       tx_hwb;
 
@@ -62,7 +62,7 @@ static inline e10k_queue_t* e10k_queue_init(void* tx, size_t tx_size,
     q->tx_opaque = calloc(tx_size, sizeof(void*));
     q->tx_isctx = calloc(tx_size, sizeof(bool));
     q->tx_head = 0;
-    q->tx_tail = 0;
+    q->tx_tail = q->tx_lasttail = 0;
     q->tx_size = tx_size;
     q->tx_hwb = tx_hwb;
 
@@ -88,6 +88,8 @@ static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
     e10k_q_tdesc_adv_ctx_t d;
     size_t tail = q->tx_tail;
 
+    memset(q->tx_ring[tail], 0, e10k_q_tdesc_adv_wb_size);
+
     // TODO: Check if there is room in the queue
     q->tx_isctx[tail] = true;
     d = q->tx_ring[tail];
@@ -95,6 +97,7 @@ static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
     e10k_q_tdesc_adv_rd_dtyp_insert(d, e10k_q_adv_ctx);
     e10k_q_tdesc_adv_rd_dext_insert(d, 1);
 
+    /* e10k_q_tdesc_adv_ctx_bcntlen_insert(d, 0x3f); */
     e10k_q_tdesc_adv_ctx_idx_insert(d, idx);
     e10k_q_tdesc_adv_ctx_maclen_insert(d, maclen);
     e10k_q_tdesc_adv_ctx_iplen_insert(d, iplen);
@@ -102,6 +105,7 @@ static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
     e10k_q_tdesc_adv_ctx_l4len_insert(d, l4len);
     e10k_q_tdesc_adv_ctx_l4t_insert(d, l4t);
 
+    q->tx_lasttail = q->tx_tail;
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
 }
@@ -113,6 +117,8 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, uint64_t phys,
 {
     e10k_q_tdesc_adv_rd_t d;
     size_t tail = q->tx_tail;
+
+    memset(q->tx_ring[tail], 0, e10k_q_tdesc_adv_wb_size);
 
     // TODO: Check if there is room in the queue
     q->tx_isctx[tail] = false;
@@ -137,6 +143,7 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, uint64_t phys,
         e10k_q_tdesc_adv_rd_txsm_insert(d, txsm);
     }
 
+    q->tx_lasttail = q->tx_tail;
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
 }
@@ -148,9 +155,18 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, uint64_t phys,
             -1, false, false);
 }
 
+/*
+ * Reclaim 1 packet from the TX queue once it's handled by the
+ * card. Call multiple times to reclaim more packets.
+ *
+ * \param       q       Queue to check
+ * \param       opaque  Contains opaque data of reclaimed packet, if any
+ *
+ * \return 1 if no packet can be reclaimed, 0 otherwise.
+ */
 static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque)
 {
-    e10k_q_tdesc_adv_wb_t d;
+    /* e10k_q_tdesc_adv_wb_t d; */
     size_t head = q->tx_head;
     int result = 1;
 
@@ -159,17 +175,41 @@ static inline int e10k_queue_get_txbuf(e10k_queue_t* q, void** opaque)
         return 1;
     }
 
-    d = q->tx_ring[head];
-    if (!q->tx_hwb && !e10k_q_tdesc_adv_wb_dd_extract(d)) {
-        return 1;
+    if(!q->tx_hwb) {
+        size_t idx = head;
+
+        // Skip over context and non-EOP descriptors
+        while(idx != q->tx_tail && q->tx_isctx[idx] && !e10k_q_tdesc_adv_wb_dd_extract(q->tx_ring[idx])) {
+            idx = (idx + 1) % q->tx_size;
+        }
+
+        /* d = q->tx_ring[head]; */
+        /* d = q->tx_ring[idx]; */
+        /* if (!e10k_q_tdesc_adv_wb_dd_extract(d)) { */
+        /*     return 1; */
+        /* } */
+
+        if(idx == q->tx_tail) {
+            return 1;
+        }
     }
 
+    // Check the last written packet, which should be marked with a
+    // write-back indicator (RS bit)
+    /* if (!q->tx_hwb) { */
+    /*     assert(!q->tx_isctx[q->tx_lasttail]); */
+    /*     if(!e10k_q_tdesc_adv_wb_dd_extract(q->tx_ring[q->tx_lasttail])) { */
+    /*         return 1; */
+    /*     } */
+    /* } */
+
+    // That last packet got written out, now go reclaim from the head pointer.
     if (!q->tx_isctx[head]) {
         *opaque = q->tx_opaque[head];
         result = 0;
     }
 
-    memset(d, 0, e10k_q_tdesc_adv_wb_size);
+    /* memset(q->tx_ring[head], 0, e10k_q_tdesc_adv_wb_size); */
     q->tx_head = (head + 1) % q->tx_size;
     return result;
 }

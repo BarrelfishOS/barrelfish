@@ -29,7 +29,7 @@
 #include <sys/types.h>
 #include <stdlib.h>	/* for malloc() */
 #include <string.h>
-#include <pcre/pcreposix.h>
+#include <pcreposix.h>
 #include "eclipse.h"
 
 #include <stdio.h>

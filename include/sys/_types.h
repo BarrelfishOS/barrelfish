@@ -42,6 +42,7 @@ typedef int8_t          __int8_t;
 typedef int16_t         __int16_t;
 typedef int32_t         __int32_t;
 typedef int64_t         __int64_t;
+typedef uintptr_t       __uintptr_t;
 
 typedef __uint8_t       u_int8_t;       /* unsigned integrals (deprecated) */
 typedef __uint16_t      u_int16_t;
@@ -49,6 +50,7 @@ typedef __uint32_t      u_int32_t;
 typedef __uint64_t      u_int64_t;
 
 typedef __uint8_t       __sa_family_t;
+typedef __uint32_t	__socklen_t;
 
 typedef va_list         __va_list;
 typedef size_t          __size_t;
@@ -56,6 +58,7 @@ typedef size_t          __size_t;
 typedef __uint32_t	__gid_t;
 typedef __uint32_t	__uid_t;
 typedef __int32_t	__clock_t;
+typedef __int32_t       __clockid_t;    /* clock_gettime()... */
 
 typedef int             __ct_rune_t;    /* arg type for ctype funcs */
 typedef __ct_rune_t     __rune_t;       /* rune_t (see above) */
@@ -65,6 +68,9 @@ typedef __ct_rune_t     __wint_t;       /* wint_t (see above) */
 typedef __uint16_t      __mode_t;       /* permissions */
 typedef __int64_t       __off_t;        /* file offset */
 typedef __int32_t       __pid_t;        /* process [group] */
+typedef __int64_t       __rlim_t;       /* resource limit - intentionally */
+                                        /* signed, because of legacy code */
+                                        /* that uses -1 for RLIM_INFINITY */
 #define _HAVE_SYSTYPES
 typedef long            __key_t;        /* IPC key (for Sys V IPC) */
 

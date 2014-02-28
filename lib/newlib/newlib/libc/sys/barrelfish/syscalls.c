@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 size_t (*_libc_terminal_read_func)(char *, size_t);
 size_t (*_libc_terminal_write_func)(const char *, size_t);
@@ -26,7 +27,22 @@ clock_t times(struct tms *buf)
   return -1;
 }
 
-void (*_libc_exit_func)(int);
+clock_t _times_r(struct _reent *r, struct tms *buf)
+{
+  return -1;
+}
+
+int _getpid_r(struct _reent *r)
+{
+    assert(!"NYI");
+}
+
+int _stat_r(struct _reent *r, const char *path, struct stat *buf)
+{
+    assert(!"NYI");
+}
+
+void (*_libc_exit_func)(int) __attribute__((noreturn));
 void _Exit(int status)
 {
     _libc_exit_func(status);

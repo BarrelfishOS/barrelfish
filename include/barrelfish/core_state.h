@@ -41,11 +41,21 @@ struct captrack {
 };
 #endif // 0 DELETEME
 
+#define MAX_V2P_MAPPINGS        64
+
+struct v2pmap {
+    genvaddr_t  va;
+    genpaddr_t  pa;
+    size_t      size;
+};
+
 struct morecore_state {
     struct thread_mutex mutex;
     Header header_base;
     Header *header_freep;
     struct vspace_mmu_aware mmu_state;
+    struct v2pmap v2p_mappings[MAX_V2P_MAPPINGS];
+    int v2p_entries;
 #if 0 // DELETEME
     struct captrack track_frames[MAX_TRACK_FRAMES];
 #endif // 0 DELETEME
@@ -88,6 +98,7 @@ struct spawn_state;
 struct monitor_binding;
 struct mem_rpc_client;
 struct spawn_rpc_client;
+struct arrakis_rpc_client;
 
 struct core_state_generic {
     struct waitset default_waitset;
@@ -98,6 +109,7 @@ struct core_state_generic {
     struct ram_alloc_state ram_alloc_state;
     struct octopus_rpc_client *octopus_rpc_client;
     struct spawn_rpc_client *spawn_rpc_clients[MAX_CPUS];
+    struct arrakis_rpc_client *arrakis_rpc_clients[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;
     struct spawn_state *spawn_state;

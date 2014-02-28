@@ -28,6 +28,7 @@ struct monitor_binding;
 struct monitor_blocking_rpc_client;
 struct waitset;
 struct spawn_rpc_client;
+struct arrakis_rpc_client;
 
 struct waitset *get_default_waitset(void);
 void disp_set_core_id(coreid_t core_id);
@@ -48,7 +49,9 @@ struct ram_alloc_state *get_ram_alloc_state(void);
 void set_octopus_rpc_client(struct octopus_rpc_client *st);
 struct octopus_rpc_client *get_octopus_rpc_client(void);
 void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *st);
+void set_arrakis_rpc_client(coreid_t core, struct arrakis_rpc_client *st);
 struct spawn_rpc_client *get_spawn_rpc_client(coreid_t core);
+struct arrakis_rpc_client *get_arrakis_rpc_client(coreid_t core);
 struct terminal_state *get_terminal_state(void);
 void set_terminal_state(struct terminal_state *st);
 struct domain_state *get_domain_state(void);

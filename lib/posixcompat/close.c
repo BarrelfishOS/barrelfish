@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <lwip/sockets.h>
 #include <vfs/fdtab.h>
+#include <sys/epoll.h>
 #include "posixcompat.h"
 #include "pty.h"
 
@@ -23,6 +24,12 @@ int close(int fd)
     struct fdtab_entry *e = fdtab_get(fd);
     if (e->type == FDTAB_TYPE_AVAILABLE) {
         return -1;
+    }
+
+    // Might need to remove from epoll list
+    if(e->epoll_fd != -1) {
+        ret = epoll_ctl(e->epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+        assert(ret == 0);
     }
 
     switch(e->type) {

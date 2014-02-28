@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,8 @@
 __BEGIN_DECLS
 
 #define MIN_FD  0
-#define MAX_FD  132
+//#define MAX_FD  132
+#define MAX_FD  4096
 
 enum fdtab_type {
     FDTAB_TYPE_AVAILABLE,
@@ -26,8 +27,18 @@ enum fdtab_type {
     FDTAB_TYPE_STDOUT,
     FDTAB_TYPE_STDERR,
     FDTAB_TYPE_LWIP_SOCKET,
+    FDTAB_TYPE_EPOLL_INSTANCE,
     FDTAB_TYPE_PTM,         ///< master side of pseudo-terminal
     FDTAB_TYPE_PTS,         ///< slave side of pseudo-terminal
+};
+
+#include <signal.h>
+#include <sys/epoll.h>
+
+struct _epoll_events_list {
+    struct _epoll_events_list *prev, *next;
+    struct epoll_event event;
+    int fd;
 };
 
 struct fdtab_entry {
@@ -37,6 +48,8 @@ struct fdtab_entry {
         int             fd;
         int             inherited;
 //    };
+    int epoll_fd;
+    struct _epoll_events_list epoll_events;
 };
 
 int fdtab_alloc(struct fdtab_entry *h);

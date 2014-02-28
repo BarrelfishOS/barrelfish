@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,12 +18,14 @@
 int gettimeofday(struct timeval *tv, struct timezone *tz)
 {
     uint64_t now = rdtsc();
-    uint64_t tscperms;
+    static uint64_t tscperms = 0;
 
-    errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
-    assert(err_is_ok(err));
+    if(tscperms == 0) {
+        errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
+        assert(err_is_ok(err));
+        assert(tscperms >= 1000);
+    }
 
-    assert(tscperms >= 1000);
     uint64_t tod_us = (TOD_OFFSET * 1000000) + (now / (tscperms / 1000));
 
     if(tv != NULL) {

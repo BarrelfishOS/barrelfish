@@ -21,6 +21,7 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/cpu_arch.h>
 #include <if/spawn_rpcclient_defs.h>
+#include <if/arrakis_rpcclient_defs.h>
 #include <vfs/vfs_path.h>
 
 extern char **environ;
@@ -31,9 +32,25 @@ struct spawn_bind_retst {
     bool present;
 };
 
+struct arrakis_bind_retst {
+    errval_t err;
+    struct arrakis_binding *b;
+    bool present;
+};
+
 static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
 {
     struct spawn_bind_retst *retst = st;
+    assert(retst != NULL);
+    assert(!retst->present);
+    retst->err = err;
+    retst->b = b;
+    retst->present = true;
+}
+
+static void arrakis_bind_cont(void *st, errval_t err, struct arrakis_binding *b)
+{
+    struct arrakis_bind_retst *retst = st;
     assert(retst != NULL);
     assert(!retst->present);
     retst->err = err;
@@ -237,6 +254,129 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     }
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");
+    } else if (err_is_fail(msgerr)) {
+        return msgerr;
+    }
+
+    if (ret_domainid != NULL) {
+        *ret_domainid = domain_id;
+    }
+
+    return msgerr;
+}
+
+errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
+                               char *const argv[], char *const envp[],
+                               struct capref inheritcn_cap,
+                               struct capref argcn_cap, spawn_flags_t flags,
+                               domainid_t *ret_domainid)
+{
+    struct arrakis_rpc_client *cl;
+    errval_t err, msgerr;
+
+    // default to copying our environment
+    if (envp == NULL) {
+        envp = environ;
+    }
+
+    // do we have a arrakis client connection for this core?
+    assert(coreid < MAX_CPUS);
+    cl = get_arrakis_rpc_client(coreid);
+    if (cl == NULL) {
+        char namebuf[16];
+        snprintf(namebuf, sizeof(namebuf), "arrakis.%u", coreid);
+        namebuf[sizeof(namebuf) - 1] = '\0';
+
+        iref_t iref;
+        err = nameservice_blocking_lookup(namebuf, &iref);
+        if (err_is_fail(err)) {
+            //DEBUG_ERR(err, "arrakis daemon on core %u not found\n", coreid);
+            return err;
+        }
+
+        // initiate bind
+        struct arrakis_bind_retst bindst = { .present = false };
+        err = arrakis_bind(iref, arrakis_bind_cont, &bindst, get_default_waitset(),
+                           IDC_BIND_FLAGS_DEFAULT);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "arrakis_bind failed");
+        }
+
+        // XXX: block for bind completion
+        while (!bindst.present) {
+            messages_wait_and_handle_next();
+        }
+
+        if(err_is_fail(bindst.err)) {
+            USER_PANIC_ERR(bindst.err, "asynchronous error during arrakis_bind");
+        }
+        assert(bindst.b != NULL);
+
+        cl = malloc(sizeof(struct arrakis_rpc_client));
+        assert(cl != NULL);
+
+        err = arrakis_rpc_client_init(cl, bindst.b);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "arrakis_rpc_client_init failed");
+        }
+
+        set_arrakis_rpc_client(coreid, cl);
+    }
+
+    // construct argument "string"
+    // \0-separated strings in contiguous character buffer
+    // this is needed, as flounder can't send variable-length arrays of strings
+    size_t argstrlen = 0;
+    for (int i = 0; argv[i] != NULL; i++) {
+        argstrlen += strlen(argv[i]) + 1;
+    }
+
+    char argstr[argstrlen];
+    size_t argstrpos = 0;
+    for (int i = 0; argv[i] != NULL; i++) {
+        strcpy(&argstr[argstrpos], argv[i]);
+        argstrpos += strlen(argv[i]);
+        argstr[argstrpos++] = '\0';
+    }
+    assert(argstrpos == argstrlen);
+
+    // repeat for environment
+    size_t envstrlen = 0;
+    for (int i = 0; envp[i] != NULL; i++) {
+        envstrlen += strlen(envp[i]) + 1;
+    }
+
+    char envstr[envstrlen];
+    size_t envstrpos = 0;
+    for (int i = 0; envp[i] != NULL; i++) {
+        strcpy(&envstr[envstrpos], envp[i]);
+        envstrpos += strlen(envp[i]);
+        envstr[envstrpos++] = '\0';
+    }
+    assert(envstrpos == envstrlen);
+
+
+    domainid_t domain_id;
+
+    // make an unqualified path absolute using the $PATH variable
+    // TODO: implement search (currently assumes PATH is a single directory)
+    char *searchpath = getenv("PATH");
+    if (searchpath == NULL) {
+        searchpath = VFS_PATH_SEP_STR; // XXX: just put it in the root
+    }
+    size_t buflen = strlen(path) + strlen(searchpath) + 2;
+    char pathbuf[buflen];
+    if (path[0] != VFS_PATH_SEP) {
+        snprintf(pathbuf, buflen, "%s%c%s", searchpath, VFS_PATH_SEP, path);
+        pathbuf[buflen - 1] = '\0';
+        //vfs_path_normalise(pathbuf);
+        path = pathbuf;
+    }
+
+    err = cl->vtbl.spawn_arrakis_domain(cl, path, argstr, argstrlen,
+                                        envstr, envstrlen, &msgerr, &domain_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending arrakis request");
     } else if (err_is_fail(msgerr)) {
         return msgerr;
     }

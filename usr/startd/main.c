@@ -146,5 +146,7 @@ int main(int argc, const char *argv[])
     // startup apps listed in bootscript
     spawn_bootscript_domains();
 
+    spawn_arrakis_domains();
+
     return EXIT_SUCCESS;
 }

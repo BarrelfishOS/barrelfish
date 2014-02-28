@@ -14,7 +14,6 @@
       | f <- [ 
    "cpiobin.h",
    "dlfcn.h",
-   "lwipopts.h",
    "multicast.h",
    "utime.h",
    "values.h",

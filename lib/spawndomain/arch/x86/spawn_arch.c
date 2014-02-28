@@ -165,6 +165,9 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
         }
     }
 
+    si->vregion[si->vregions] = vregion;
+    si->base[si->vregions++] = base;
+
     genvaddr_t genvaddr = vregion_get_base_addr(vregion) + base_offset;
     *retbase = (void*)vspace_genvaddr_to_lvaddr(genvaddr);
     return SYS_ERR_OK;
@@ -181,6 +184,7 @@ errval_t spawn_arch_load(struct spawninfo *si,
 
     // Reset the elfloader_slot
     si->elfload_slot = 0;
+    si->vregions = 0;
 
     struct capref cnode_cap = {
         .cnode = si->rootcn,

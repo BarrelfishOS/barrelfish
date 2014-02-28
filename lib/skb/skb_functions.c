@@ -18,8 +18,8 @@
 #include <skb/skb.h>
 #include "skb_debug.h"
 
-#define BUFFER_SIZE 16384
-#define OUTPUT_SIZE 16384
+#define BUFFER_SIZE (16384 * 2)
+#define OUTPUT_SIZE (16384 * 2)
 
 /* XXX: The following static chars make the skb connection not thread
    safe and we probably don't want to put them in the per dispatcher

@@ -45,6 +45,9 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
 #include <trace/trace.h>
+#ifdef LIBRARY
+#       include <netif/e1000.h>
+#endif
 
 #include "e1000n.h"
 
@@ -223,6 +226,18 @@ static uint64_t find_tx_free_slot_count_fn(void)
     return free_slots;
 }
 
+#ifdef LIBRARY
+bool e1000n_queue_empty(void)
+{
+    uint16_t tail, head;
+
+    tail = e1000_tdt_val_rdf(&(e1000), 0);
+    head = e1000_tdh_val_rdf(&(e1000), 0);
+
+    return (head == tail);
+}
+#endif
+
 /*****************************************************************
  * Transmit logic
  *
@@ -342,7 +357,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
             return r;
         }
         E1000_DEBUG("transmit_pbuf done for pbuf 0x%p, index %i\n",
-            opaque, i);
+            buffers[i].opaque, i);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
@@ -351,7 +366,6 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 
     return SYS_ERR_OK;
 } // end function: transmit_pbuf_list_fn
-
 
 
 static bool handle_next_received_packet(void)
@@ -486,11 +500,31 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
  *
  * This function should never exit.
  ****************************************************************/
+#ifndef LIBRARY
 static void polling_loop(void)
+#else
+extern struct waitset *lwip_waitset;
+
+void arranet_polling_loop(void)
+{
+    errval_t err = event_dispatch_non_block(barrelfish_interrupt_waitset); // nonblocking
+    if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
+        E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
+                    (unsigned int)err);
+    }
+    // Give it a manual poll if there were no interrupts
+    if(err_no(err) == LIB_ERR_NO_EVENT) {
+        while(handle_free_TX_slot_fn());
+        handle_multiple_packets(1);
+    }
+}
+
+void e1000n_polling_loop(struct waitset *ws)
+#endif
 {
     uint64_t poll_count = 0;
     uint64_t ts;
-//    uint8_t jobless_iterations = 0;
+    uint8_t jobless_iterations = 0;
     errval_t err;
     bool no_work = true;
 
@@ -499,10 +533,14 @@ static void polling_loop(void)
         ++poll_count;
 
         ts = rdtsc();
+#ifndef LIBRARY
         do_pending_work_for_all();
+#endif
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
+#ifndef LIBRARY
         struct waitset *ws = get_default_waitset();
+#endif
 
         if (use_interrupt) {
             err = event_dispatch_debug(ws); // blocking // doesn't work correctly
@@ -516,8 +554,10 @@ static void polling_loop(void)
                         (unsigned int)err);
             break;
         } else {
-            no_work = false;
+            no_work = true;
         }
+
+        while(handle_free_TX_slot_fn());
 
 #if TRACE_ETHERSRV_MODE
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_POLL, poll_count);
@@ -536,16 +576,20 @@ static void polling_loop(void)
         }
 */
 
- /*       if (no_work) {
+        if (no_work) {
             ++jobless_iterations;
             if (jobless_iterations == 10) {
-                if (use_interrupt) {
-                    E1000_DEBUG("no work available, yielding thread\n");
-                    thread_yield();
-                }
+#ifndef LIBRARY
+                /* if (use_interrupt) { */
+                /*     E1000_DEBUG("no work available, yielding thread\n"); */
+                /*     thread_yield(); */
+                /* } */
+#else
+                /* E1000_DEBUG("no work available, returning\n"); */
+                return;
+#endif
             }
         }
-*/
     } // end while
 }
 
@@ -611,7 +655,6 @@ static void setup_internal_memory(void)
 }
 
 
-
 static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 {
     return add_desc(paddr, opaque);
@@ -640,8 +683,7 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
 
     setup_internal_memory();
 
-
-
+#ifndef LIBRARY
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  NULL,
                   transmit_pbuf_list_fn,
@@ -650,7 +692,17 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                   receive_buffer_size,
                   rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
-
+#else
+    ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,
+		  NULL,
+                  transmit_pbuf_list_fn,
+                  find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn,
+                  receive_buffer_size,
+                  rx_register_buffer_fn,
+                  rx_find_free_slot_count_fn);
+    
+#endif
 
 #if TRACE_ETHERSRV_MODE
     set_cond_termination(trace_conditional_termination);
@@ -686,8 +738,12 @@ static void e1000_interrupt_handler_fn(void *arg)
         return;
     }
 
+#ifndef LIBRARY
     E1000_DEBUG("e1000 interrupt came in\n");
     handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
+#else
+    handle_multiple_packets(1);
+#endif
 }
 
 
@@ -823,7 +879,11 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
  *
  *
  ****************************************************************/
+#ifndef LIBRARY
 int main(int argc, char **argv)
+#else
+int e1000n_driver_init(int argc, char **argv)
+#endif
 {
     char *service_name = 0;
     errval_t err;
@@ -832,7 +892,7 @@ int main(int argc, char **argv)
     E1000_DEBUG("e1000 standalone driver started.\n");
 
     E1000_DEBUG("argc = %d\n", argc);
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         E1000_DEBUG("arg %d = %s\n", i, argv[i]);
         if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
@@ -982,11 +1042,13 @@ int main(int argc, char **argv)
 
     e1000_print_link_status(&e1000_device);
 
+#ifndef LIBRARY
     E1000_DEBUG("#### starting polling.\n");
     // FIXME: hack to force the driver in polling mode, as interrupts are
     // not reliably working
     use_interrupt = false;
     polling_loop();
+#endif
 
     return 1;
 }

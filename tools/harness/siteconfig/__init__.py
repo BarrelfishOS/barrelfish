@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009, ETH Zurich.
+# Copyright (c) 2009, 2013, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -28,6 +28,8 @@ if os.path.isdir('/home/netos') and socket.getfqdn().endswith('.ethz.ch'):
     import eth
 elif socket.getfqdn().endswith('.europe.corp.microsoft.com'):
     import msrc
+elif socket.getfqdn().endswith('triangle') or socket.getfqdn().endswith('.cs.washington.edu'):
+    import uw
 else:
     debug.warning("unable to guess site, using ETH... expect breakage!")
     import eth

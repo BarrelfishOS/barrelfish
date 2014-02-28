@@ -13,7 +13,10 @@
 #include "e10k_dev.h"
 
 #define E10K_PCI_DEVID 0x10FB
+//#define E10K_PCI_DEVID 0x154d
 
 void e10k_phy_init(e10k_t* d);
+
+extern int qi;
 
 #endif // ndef E10K_H_

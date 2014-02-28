@@ -66,6 +66,12 @@ void thread_sem_post(struct thread_sem *sem);
 void thread_set_tls(void *);
 void *thread_get_tls(void);
 
+void thread_set_tls_key(int, void *);
+void *thread_get_tls_key(int);
+
+uintptr_t thread_id(void);
+void thread_set_id(uintptr_t id);
+
 __END_DECLS
 
 #endif

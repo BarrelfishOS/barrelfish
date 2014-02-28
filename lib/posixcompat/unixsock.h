@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -35,6 +35,7 @@ struct _unix_socket {
     int protocol;       // Protocol subtype == 0
     bool passive;       // true iff socket is passive (used to listen)
     bool nonblocking;   // True iff socket is non-blocking
+    struct thread_mutex mutex;  // Mutex for this socket
 
     // Local and peer Sockaddr (includes filename)
     struct sockaddr_un sockaddr, peer;

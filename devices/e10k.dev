@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich. All rights reserved.
+ * Copyright (c) 2011, 2013, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -539,6 +539,9 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     _           27 rsvd;
   };
 
+  // Undocumented
+  register ciaa rw addr(base, 0x11088) "CIAA" type(uint32);
+  register ciad rw addr(base, 0x1108C) "CIAD" type(uint32);
 
   /************************************
    * 8.2.3.5 Interrupt Registers
@@ -707,7 +710,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     eimen       1 "EICS Immediate Interrupt Enable";
     ll_int      4 "Low latency Credits Increment Rate";
     rsc_delay   3 "RSC Delay";
-    vt_mode     2 "VT_Mode";
+    vtmode      2 type(vt_mode) "VT_Mode";
     _           14 rsvd;
     eiame       1 "Extended Interrupt Auto Mask Enable";
     pba_sup     1 "BA Support";
@@ -1444,6 +1447,14 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   /************************************
    * 8.2.3.12 - 8.2.3.18 TODO
    ***********************************/
+
+  // 8.2.3.12.4
+  register sectxminifg rw addr(base, 0x08810) "Security Tx Buffer Minimum IFG" {
+    minsecifg   4      	"Minimum IFG between packets";
+    _		4;
+    sectxdcb	5	"If PFC enabled, set to 0x1f, else set to 0x10";
+    _		19;
+  };
 
   // 8.2.3.12.5
   register secrxctrl rw addr(base, 0x08d00) "Security Rx Control" {
@@ -2256,67 +2267,119 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   register rlec rc addr(base, 0x04040) "Receive Length Error Count"
     type(uint32);
 
-  // 8.2.23.26
+  // 8.2.3.23.8
+  register ssvpc rc addr(base, 0x08780) "Switch Security Violation Packet Count"
+    type(uint32);
+
+  // 8.2.3.23.26
   register gprc ro addr(base, 0x04074) "Good packets recieved count"
+    type(uint32);
+
+  // 8.2.3.23.27
+  register gorcl rc addr(base, 0x04088) "Good Octets Received Count Low"
+    type(uint32);
+
+  // 8.2.3.23.28
+  register gorch rc addr(base, 0x0408c) "Good Octets Received Count High"
     type(uint32);
 
   // 8.2.3.23.29
   register rxnfgpc rc addr(base, 0x041B0) "Good Rx Non-Filtered Packet Counter"
     type(uint32);
 
-  // 8.2.23.32
+  // 8.2.3.23.32
   register rxdgpc rc addr(base, 0x02F50) "DMA Good Rx Packet Counter"
     type(uint32);
 
-  // 8.2.23.44
+  // 8.2.3.23.44
   register gptc rc addr(base, 0x04080) "Good packets trasmitted count"
     type(uint32);
 
-  // 8.2.23.47
+  // 8.2.3.23.45
+  register gotcl rc addr(base, 0x04090) "Good octets transmitted count low"
+    type(uint32);
+
+  // 8.2.3.23.46
+  register gotch rc addr(base, 0x04094) "Good octets transmitted count high"
+    type(uint32);
+
+  // 8.2.3.23.47
   register txdgpc rc addr(base, 0x087A0) "DMA Good Tx Packet Counter"
     type(uint32);
 
-  // 8.2.23.50
+  // 8.2.3.23.50
   register ruc rc addr(base, 0x040A4) "Receive Undersize Count"
     type(uint32);
 
-  // 8.2.23.51
+  // 8.2.3.23.51
   register rfc rc addr(base, 0x040A8) "Receive Fragment Count"
     type(uint32);
 
-  // 8.2.23.52
+  // 8.2.3.23.52
   register roc rc addr(base, 0x040AC) "Receive Oversize Count"
     type(uint32);
 
-  // 8.2.23.53
+  // 8.2.3.23.53
   register rjc rc addr(base, 0x040B0) "Receive Jabber Count"
     type(uint32);
 
-  // 8.2.23.54
+  // 8.2.3.23.54
   register mngprc rc addr(base, 0x040B4) "Management Packets Received Count"
     type(uint32);
 
-  // 8.2.23.55
+  // 8.2.3.23.55
   register mngpdc rc addr(base, 0x040B8) "Management Packets Dropped Count"
     type(uint32);
 
-  // 8.2.23.59
+  // 8.2.3.23.57
+  register torl rc addr(base, 0x040c0) "Total octets received low"
+    type(uint32);
+
+  // 8.2.3.23.58
+  register torh rc addr(base, 0x040c4) "Total octets received high"
+    type(uint32);
+
+  // 8.2.3.23.59
   register tpr rc addr(base, 0x040D0) "Total Packets Recieved"
     type(uint32);
 
-  // 8.2.23.60
+  // 8.2.3.23.60
   register tpt rc addr(base, 0x040D4) "Total Packets Transmitted"
     type(uint32);
 
-  // 8.2.23.69
+  // 8.2.3.23.69
   register mspdc rc addr(base, 0x04010) "MAC Short Packet Discard Count"
     type(uint32);
 
-  // 8.2.23.74
+  // 8.2.3.23.71
+  regarray rqsmr rw addr(base, 0x02300) [32; 0x4] "Receive Queue Statistics Mapping" {
+    q_map0 	 4  "Map to queue 4*n+0";
+    _		 4;
+    q_map1 	 4  "Map to queue 4*n+1";
+    _		 4;
+    q_map2 	 4  "Map to queue 4*n+2";
+    _		 4;
+    q_map3 	 4  "Map to queue 4*n+3";
+    _		 4;
+  };
+
+  // 8.2.3.23.73
+  regarray tqsm rw addr(base, 0x08600) [32; 0x4] "Transmit Queue Statistics Mapping" {
+    q_map0 	 4  "Map to queue 4*n+0";
+    _		 4;
+    q_map1 	 4  "Map to queue 4*n+1";
+    _		 4;
+    q_map2 	 4  "Map to queue 4*n+2";
+    _		 4;
+    q_map3 	 4  "Map to queue 4*n+3";
+    _		 4;
+  };
+
+  // 8.2.3.23.74
   regarray qprc rc addr(base, 0x01030) [16; 0x40] "Queue Packets Received Count"
     type(uint32);
 
-  // 8.2.23.75
+  // 8.2.3.23.75
   regarray qprdc rc addr(base, 0x01430) [16; 0x40] "Queue Packets Received Drop Count"
     type(uint32);
 
@@ -2413,6 +2476,18 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     _           1 rsvd;
   };
 
+  // 8.2.3.27.5
+  regarray pfvflre ro addr(base, 0x00600) [2] "PF VFLR Events Indication" type(uint32);
+
+  // 8.2.3.27.6
+  regarray pfvflrec rw1c addr(base, 0x00700) [2] "PF VFLR Events Clear" type(uint32);
+
+  // 8.2.3.27.7
+  regarray pfvfre rw addr(base, 0x051e0) [2] "PF VF Receive Enable" type(uint32);
+
+  // 8.2.3.27.8
+  regarray pfvfte rw addr(base, 0x08110) [2] "PF VF Transmit Enable" type(uint32);
+
   // 8.2.3.27.9
   register pfqde rw addr(base, 0x02F04) "PF PF Queue Drop Enable Register" {
     qde         1 "Enable drop of packets from Rx Queue queue_idx";
@@ -2422,6 +2497,30 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     we          1 "Write Enable";
     re          1 "Read Enable";
     _           14 rsvd;
+  };
+
+  // 8.2.3.27.11
+  regarray pfvfspoof rw addr(base, 0x08200) [8] "PF VF Anti Spoof Control" {
+    macas  8	     "MAC Address Anti-spoofing filter";
+    vlanas 8	     "VLAN tag anti-spoofing filter";
+    _	   16;
+  };
+
+  // 8.2.3.27.12
+  register pfdtxgswc rw addr(base, 0x08220) "PFDMA Tx General Switch Control" {
+    lbe	   1	     "Enables VMDQ loopback";
+    _	   31;
+  };
+
+  // 8.2.3.27.14
+  regarray pfvml2flt rw addr(base, 0x0f000) [64] "PF VM L2 Control" {
+    _	   24;
+    aupe   1	"Accept Untagged Packets Enable";
+    rompe  1	"Receive Overflow Multicast Packets";
+    rope   1	"Receive MAC Filters Overflow";
+    bam	   1	"Broadcast accept";
+    mpe	   1	"Multicast Promiscuous";
+    _	   3;
   };
 
   // 8.2.3.27.15

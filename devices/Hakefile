@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2012, ETH Zurich.
+-- Copyright (c) 2007-2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -27,6 +27,7 @@
            "audio_nbm",
            "e1000",
            "e10k",
+           "e10k_vf",
            "e10k_q",
            "ehci",
            "fat16_ebpb",
@@ -86,6 +87,7 @@
            "omap/omap44xx_sysctrl_padconf_core",
            "omap/omap44xx_sysctrl_padconf_wkup",
            "omap/omap44xx_usbconf",
+           "pci_sr_iov_cap",
            "omap/omap44xx_usbtllhs_config",
            "omap/omap44xx_uart3"
          ], arch <- allArchitectures

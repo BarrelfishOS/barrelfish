@@ -21,6 +21,7 @@
 
 #include <stdbool.h>
 
+bool lwip_sock_is_open(int socket);
 bool lwip_sock_ready_read(int socket);
 bool lwip_sock_ready_write(int socket);
 

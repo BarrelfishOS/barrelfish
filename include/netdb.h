@@ -74,6 +74,16 @@
 __BEGIN_DECLS
 
 /*
+ * Error return codes from getaddrinfo()
+ */ 
+#define EAI_BADFLAGS     3      /* invalid value for ai_flags */
+#define EAI_SOCKTYPE    10      /* ai_socktype not supported */
+#define EAI_SYSTEM      11      /* system error returned in errno */
+#define EAI_BADHINTS    12      /* invalid value for hints */
+#define EAI_PROTOCOL    13      /* resolved protocol is unknown */
+#define EAI_OVERFLOW    14      /* argument buffer overflow */
+
+/*
  * Flag values for getaddrinfo()
  */
 #define AI_PASSIVE  0x00000001 /* get address to use bind() */
@@ -91,6 +101,24 @@ __BEGIN_DECLS
 #define AI_V4MAPPED 0x00000800 /* accept IPv4-mapped IPv6 address */
 /* special recommended flags for getipnodebyname */
 #define AI_DEFAULT  (AI_V4MAPPED_CFG | AI_ADDRCONFIG)
+
+/*
+ * Constants for getnameinfo()
+ */
+#define NI_MAXHOST      1025
+#define NI_MAXSERV      32
+
+/*
+ * Flag values for getnameinfo()
+ */
+#define NI_NOFQDN       0x00000001
+#define NI_NUMERICHOST  0x00000002
+#define NI_NAMEREQD     0x00000004
+#define NI_NUMERICSERV  0x00000008
+#define NI_DGRAM        0x00000010
+#if 0 /* obsolete */
+#define NI_WITHSCOPEID  0x00000020
+#endif
 
 struct hostent *gethostbyname(const char *name);
 struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type);

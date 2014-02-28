@@ -60,7 +60,8 @@ cStdIncs arch archFamily =
       NoDep SrcTree "src" Config.libcInc,
       NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
-      NoDep SrcTree "src" "/include/ipv4", -- XXX
+      NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
+      NoDep SrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",
       NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",

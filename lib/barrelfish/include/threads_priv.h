@@ -13,6 +13,9 @@
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/except.h>
 
+/// Maximum number of thread-local storage keys
+#define MAX_TLS         16
+
 /** \brief TLS dynamic thread vector data structure
  *
  * See: ELF handling for thread-local storage. Ulrich Drepper, Dec 2005.
@@ -51,6 +54,7 @@ struct thread {
     void                *exception_stack_top; ///< Bounds of exception stack
     exception_handler_fn exception_handler; ///< Exception handler, or NULL
     void                *userptr;           ///< User's thread local pointer
+    void                *userptrs[MAX_TLS]; ///< User's thread local pointers
     uintptr_t           yield_epoch;        ///< Yield epoch
     void                *wakeup_reason;     ///< Value returned from block()
     coreid_t            coreid;             ///< XXX: Core ID affinity
@@ -68,6 +72,7 @@ struct thread {
 #endif
     arch_registers_fpu_state_t fpu_state;   ///< FPU state
     void                *slab;              ///< Base of slab block containing this TCB
+    uintptr_t           id;                 ///< User-defined thread identifier
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);
