@@ -22,6 +22,7 @@
 #include <procon/procon.h>
 #include <if/net_queue_manager_defs.h>
 #include <barrelfish/net_constants.h>
+#include <net_interfaces/flags.h>
 
 /*****************************************************************
  * Constants:
@@ -41,6 +42,7 @@
 struct bufdesc {
     char pkt_data[1600];
     size_t pkt_len;
+    uint64_t flags;
 };
 
 struct filter {
@@ -108,6 +110,12 @@ struct driver_buffer {
     void    *va;
     size_t   len;
     void    *opaque;
+    uint64_t flags;
+};
+
+struct driver_rx_buffer {
+    size_t len;
+    void  *opaque;
 };
 
 
@@ -167,8 +175,7 @@ typedef void (*ether_get_mac_address_t)(uint8_t *mac);
 typedef void (*ether_terminate_queue)(void);
 typedef errval_t (*ether_transmit_pbuf_list_t)(
     struct driver_buffer *buffers,
-    size_t                count,
-    void                 *opaque);
+    size_t                count);
 typedef uint64_t (*ether_get_tx_free_slots)(void);
 typedef bool (*ether_handle_free_TX_slot)(void);
 typedef errval_t (*ether_rx_register_buffer)(uintptr_t paddr, void *vaddr,
@@ -223,21 +230,22 @@ bool handle_tx_done(void *opaque);
 
 struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
-void process_received_packet(void *opaque, size_t pkt_len, bool is_last);
+void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
+    uint64_t flags);
 
 // For local loopback device
 void sf_process_received_packet_lo(void *opaque_rx, void *opaque_tx,
-        size_t pkt_len, bool is_last);
+        size_t pkt_len, bool is_last, uint64_t flags);
 
 /* for frag.c */
-bool handle_fragmented_packet(void* packet, size_t len);
+bool handle_fragmented_packet(void* packet, size_t len, uint64_t flags);
 
 
 struct filter *execute_filters(void *data, size_t len);
 
 /* FIXME: put this into the local include file.  */
 bool copy_packet_to_user(struct buffer_descriptor* buffer,
-				void *data, uint64_t len);
+				void *data, uint64_t len, uint64_t flags);
 
 void do_pending_work_for_all(void);
 

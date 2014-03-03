@@ -86,7 +86,8 @@
            "omap/omap44xx_sysctrl_padconf_core",
            "omap/omap44xx_sysctrl_padconf_wkup",
            "omap/omap44xx_usbconf",
-           "omap/omap44xx_usbtllhs_config"
+           "omap/omap44xx_usbtllhs_config",
+           "omap/omap44xx_uart3"
          ], arch <- allArchitectures
 ] ++
 

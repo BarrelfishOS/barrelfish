@@ -146,8 +146,12 @@ void wait_for_interrupt(void)
     // Switch to system mode with interrupts enabled. -- OLD
     // Switch to priviledged mode with interrupts enabled.
     __asm volatile(
-        //"mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+#if defined(__ARM_ARCH_5__)
+            //XXX: qemu 0.14 chokes on ARM_MODE_PRIV?! -SG
+        "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
+#else
         "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
+#endif
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
 #if defined(__ARM_ARCH_6K__)

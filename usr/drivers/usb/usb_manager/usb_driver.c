@@ -308,8 +308,6 @@ static void usb_driver_spawn(void)
     assert(device_process != NULL);
     assert(device_process->path != NULL);
 
-    coreid_t core = 0;
-
     domainid_t new_domain = -1;
 
     char *argv[1] = {
@@ -322,7 +320,7 @@ static void usb_driver_spawn(void)
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err,
-                "failed to spawn %s on core %i", device_process->path, core);
+                "failed to spawn %s ", device_process->path);
         device_process = NULL;
     } else {
         USB_DEBUG_DRIVER("driver %s spawned\n", device_process->path);

@@ -412,7 +412,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     flags |= X86_64_PTABLE_PRESENT;
 
     /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = info->pte + offset;
+    lvaddr_t base = local_phys_to_mem(info->pte) + offset;
 
     for (int i = 0; i < pages; i++) {
         union x86_64_ptable_entry *entry =
@@ -420,7 +420,8 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
         paging_x86_64_modify_flags(entry, flags);
     }
 
-    return SYS_ERR_OK;
+    /* flush affected TLB entries and return */
+    return paging_tlb_flush_range(mapping, pages);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

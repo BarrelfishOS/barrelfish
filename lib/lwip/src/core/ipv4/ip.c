@@ -55,6 +55,7 @@
 #include "lwip/dhcp.h"
 #include "lwip/stats.h"
 #include "arch/perf.h"
+#include "lwip/init.h"
 
 #include <string.h>
 
@@ -269,7 +270,9 @@ err_t ip_input(struct pbuf * p, struct netif * inp)
 
     /* verify checksum */
 #if CHECKSUM_CHECK_IP
-    if (inet_chksum(iphdr, iphdr_hlen) != 0) {
+    int hwcxs_good = ((p->nicflags & NETIF_RXFLAG_IPCHECKSUM) &&
+            (p->nicflags & NETIF_RXFLAG_IPCHECKSUM_GOOD));
+    if (!hwcxs_good && inet_chksum(iphdr, iphdr_hlen) != 0) {
 
         LWIP_DEBUGF(IP_DEBUG | 2,
                     ("Checksum (0x%" X16_F ") failed, IP packet dropped.\n",
@@ -630,7 +633,11 @@ err_t ip_output_if_opt(struct pbuf * p, struct ip_addr * src,
 
         IPH_CHKSUM_SET(iphdr, 0);
 #if CHECKSUM_GEN_IP
-        IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+        if (is_hw_feature_enabled(IPv4_CHECKSUM_HW)) {
+            p->nicflags |= NETIF_TXFLAG_IPCHECKSUM;
+        } else {
+            IPH_CHKSUM_SET(iphdr, inet_chksum(iphdr, ip_hlen));
+        }
 #endif
     } else {
         /* IP header already included in p */

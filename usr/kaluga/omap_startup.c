@@ -95,11 +95,24 @@ static struct allowed_registers prcm = {
     }
 };
 
+static struct allowed_registers uart = {
+    .binary = "hw.arm.omap44xx.uart",
+    .registers =
+    {
+        {OMAP44XX_MAP_L4_PER_UART1,OMAP44XX_MAP_L4_PER_UART1_SIZE},
+        {OMAP44XX_MAP_L4_PER_UART2,OMAP44XX_MAP_L4_PER_UART2_SIZE},
+        {OMAP44XX_MAP_L4_PER_UART3,OMAP44XX_MAP_L4_PER_UART3_SIZE},
+        {OMAP44XX_MAP_L4_PER_UART4,OMAP44XX_MAP_L4_PER_UART4_SIZE},
+        {0x0, 0x0}
+    }
+};
+
 static struct allowed_registers* omap44xx[10] = {
     &usb,
     &fdif,
     &mmchs,
     &prcm,
+    &uart,
     NULL,
 };
 

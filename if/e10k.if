@@ -26,8 +26,14 @@ interface e10k "e10k queue management interface" {
                                cap    txhwb,
                                cap    rx,
                                uint32 rxbufsz,
-                               bool   use_irq);
+                               int16  msix_intvec,
+                               uint8  msix_intdest,
+                               bool   use_irq,
+                               bool   use_rsc);
     response queue_memory_registered();
+
+    /* Modify interrupt rate for a particular queue */
+    call set_interrupt_rate(qid id, uint16 rate);
 
     /* FIXME: this is not technically a response, but a request by the server,
               hope this works anyway... I'd like the dev mgr to be server. */

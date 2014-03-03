@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 ETH Zurich.
+ * Copyright (c) 2009 - 2012 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,119 +12,10 @@
 #include <cp15.h>
 #include <paging_kernel_arch.h>
 #include <string.h>
+#include <exceptions.h>
+#include <arm_hal.h>
 #include <cap_predicates.h>
-
-// ------------------------------------------------------------------------
-// Internal declarations
-
-union l1_entry {
-    uint32_t raw;
-
-    /// Invalid L1 entry
-    struct {
-        uint32_t        type            :2;     // == 0
-    } invalid;
-
-    /// L1 entry for 256 4K L2 entries
-    struct {
-        uint32_t        type            :2;     // == 1
-        uint32_t        sbz0            :2;     // Should-be-zero
-        uint32_t        mb1             :1;     // Must-be-one
-        uint32_t        domain          :4;
-        uint32_t        sbz1            :1;     // Should-be-zero
-        uint32_t        base_address    :22;
-    } coarse;
-
-    /// L1 entry for 1MB mapped section
-    struct {
-        uint32_t        type            :2;     // == 2
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        mb1             :1;     // Must-be-One
-        uint32_t        domain          :4;
-        uint32_t        sbz0            :1;
-        uint32_t        ap              :2;
-        uint32_t        sbz1            :8;
-        uint32_t        base_address    :12;
-    } section;
-
-    /// L1 entry for 1024 1K L2 descriptors
-    struct {
-        uint32_t        type            :2;     // == 3
-        uint32_t        sbz0            :2;
-        uint32_t        mb1             :1;
-        uint32_t        domain          :4;
-        uint32_t        sbz1            :3;
-        uint32_t        base_address    :20;
-    } fine;
-};
-
-STATIC_ASSERT_SIZEOF(union l1_entry, 4);
-
-#define L1_TYPE_INVALID_ENTRY   0
-#define L1_TYPE_COARSE_ENTRY    1
-#define L1_TYPE_SECTION_ENTRY   2
-#define L1_TYPE_FINE_ENTRY      3
-#define L1_TYPE(x)              ((x) & 3)
-
-union l2_entry {
-    uint32_t raw;
-
-    /// Invalid L2 entry
-    struct {
-        uint32_t        type            :2;     // == 0
-    } invalid;
-
-    /// Descriptior for a 64K page
-    struct {
-        uint32_t        type            :2;     // == 1
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        ap0             :2;
-        uint32_t        ap1             :2;
-        uint32_t        ap2             :2;
-        uint32_t        ap3             :2;
-        uint32_t        sbz             :4;
-        uint32_t        base_address    :16;
-    } large_page;
-
-    /// Descriptor for a 4K page
-    struct {
-        uint32_t        type            :2;     // == 2
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        ap0             :2;
-        uint32_t        ap1             :2;
-        uint32_t        ap2             :2;
-        uint32_t        ap3             :2;
-        uint32_t        base_address    :20;
-    } small_page;
-
-    /// Descriptor for a 1K page
-    struct {
-        uint32_t        type            :2;     // == 3
-        uint32_t        bufferable      :1;
-        uint32_t        cacheable       :1;
-        uint32_t        ap              :2;
-        uint32_t        sbz             :4;
-        uint32_t        base_address    :22;
-    } tiny_page;
-};
-
-STATIC_ASSERT_SIZEOF(union l2_entry, 4);
-
-#define L2_TYPE_INVALID_PAGE    0
-#define L2_TYPE_LARGE_PAGE      1
-#define L2_TYPE_SMALL_PAGE      2
-#define L2_TYPE_TINY_PAGE       3
-#define L2_TYPE(x)              ((x) & 3)
-
-#define BYTES_PER_SECTION       0x100000
-#define BYTES_PER_PAGE          0x1000
-#define BYTES_PER_SMALL_PAGE    0x400
-
-// ------------------------------------------------------------------------
-// Utility declarations
+#include <dispatch.h>
 
 inline static uintptr_t paging_round_down(uintptr_t address, uintptr_t size)
 {
@@ -146,150 +37,19 @@ static inline struct cte *cte_for_cap(struct capability *cap)
     return (struct cte *) (cap - offsetof(struct cte, cap));
 }
 
-// ------------------------------------------------------------------------
-// Exported functions
 
+union arm_l2_entry;
 static void
-paging_write_section_entry(uintptr_t ttbase, lvaddr_t va, union l1_entry l1)
+paging_set_flags(union arm_l2_entry *entry, uintptr_t kpi_paging_flags)
 {
-    union l1_entry *l1_table;
-    if (ttbase == 0) {
-        ttbase = cp15_read_ttbr() + KERNEL_OFFSET;
-    }
-    l1_table = (union l1_entry *) ttbase;
-    l1_table[va >> 20u] = l1;
-}
-
-void paging_map_kernel_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
-{
-
-    union l1_entry l1;
-
-    l1.raw = 0;
-    l1.section.type = L1_TYPE_SECTION_ENTRY;
-    l1.section.bufferable   = 1;
-    l1.section.cacheable    = 1;
-    l1.section.ap           = 1;
-    l1.section.base_address = pa >> 20u;
-
-    paging_write_section_entry(ttbase, va, l1);
-}
-
-void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
-{
-    lpaddr_t pend  = paging_round_up(paddr + bytes, BYTES_PER_SECTION);
-    while (paddr < pend) {
-        paging_map_kernel_section(0, paddr + MEMORY_OFFSET, paddr);
-        paddr += BYTES_PER_SECTION;
-    }
-}
-
-static void
-paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
-{
-    union l1_entry l1;
-
-    l1.raw = 0;
-    l1.section.type = L1_TYPE_SECTION_ENTRY;
-    l1.section.bufferable   = 0;
-    l1.section.cacheable    = 0;
-    l1.section.ap           = 1;
-    l1.section.base_address = pa >> 20u;
-
-    paging_write_section_entry(ttbase, va, l1);
-}
-
-lvaddr_t paging_map_device(lpaddr_t device_base, size_t device_bytes)
-{
-    // HACK to put device in high memory.
-    // Should likely track these allocations.
-    static lvaddr_t dev_alloc = KERNEL_OFFSET;
-    assert(device_bytes <= BYTES_PER_SECTION);
-    dev_alloc -= BYTES_PER_SECTION;
-
-    paging_map_device_section(0, dev_alloc, device_base);
-
-    return dev_alloc;
-}
-
-void paging_make_good(lvaddr_t new_table_base, size_t new_table_bytes)
-{
-    assert(new_table_base >= MEMORY_OFFSET);
-    assert(new_table_bytes == ARM_L1_ALIGN);
-    assert(aligned(new_table_base, ARM_L1_ALIGN));
-
-    lvaddr_t ttbr = local_phys_to_mem(cp15_read_ttbr());
-    size_t st = (MEMORY_OFFSET / ARM_L1_SECTION_BYTES) * ARM_L1_BYTES_PER_ENTRY;
-
-    // Copy kernel pages (everything from MEMORY_OFFSET upwards)
-    memcpy((void*)new_table_base + st, (void*)ttbr + st,
-           ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY - st);
-}
-
-void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
-{
-    assert(aligned(table_base, ARM_L1_ALIGN));
-    assert(aligned(va, BYTES_PER_SECTION));
-    assert(aligned(pa, BYTES_PER_SMALL_PAGE));
-
-    union l1_entry e;
-
-    e.raw                 = 0;
-    e.coarse.type         = L1_TYPE_COARSE_ENTRY;
-    e.coarse.mb1          = 1;
-    e.coarse.domain       = 0;
-    e.coarse.base_address = (pa >> 10);
-
-    uintptr_t* l1table = (uintptr_t*)table_base;
-    l1table[va / BYTES_PER_SECTION] = e.raw;
-}
-
-void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
-{
-    assert(0 == (flags & 0xfffff000));
-    assert(0 == (flags & 0x3));
-    assert(0 == (addr & 0xfff));
-
-    union l2_entry e;
-    e.raw = flags;
-    assert(e.small_page.ap0 == e.small_page.ap1 &&
-           e.small_page.ap0 == e.small_page.ap2 &&
-           e.small_page.ap0 == e.small_page.ap3);
-
-    e.small_page.type = L2_TYPE_SMALL_PAGE;
-    e.small_page.base_address = (addr >> 12);
-
-    *l2e = e.raw;
-}
-
-void paging_context_switch(lpaddr_t ttbr)
-{
-    assert(ttbr < MEMORY_OFFSET);
-    assert((ttbr & 0x3fff) == 0);
-
-    lpaddr_t old_ttbr = cp15_read_ttbr();
-    if (ttbr != old_ttbr)
-    {
-        cp15_write_ttbr(ttbr);
-        cp15_invalidate_tlb();
-        cp15_invalidate_i_and_d_caches();
-    }
-}
-
-static void
-paging_set_flags(union l2_entry *entry, uintptr_t kpi_paging_flags)
-{
-    entry->small_page.bufferable = 1;
-    entry->small_page.cacheable =
-        (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
-
-    entry->small_page.ap0  =
-        (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
-    entry->small_page.ap0 |=
-        (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
-    entry->small_page.ap1 = entry->small_page.ap0;
-    entry->small_page.ap2 = entry->small_page.ap0;
-    entry->small_page.ap3 = entry->small_page.ap0;
+        entry->small_page.bufferable = 1;
+        entry->small_page.cacheable =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_NOCACHE) ? 0 : 1;
+        entry->small_page.ap10  =
+            (kpi_paging_flags & KPI_PAGING_FLAGS_READ)  ? 2 : 0;
+        entry->small_page.ap10 |=
+            (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE) ? 3 : 0;
+        entry->small_page.ap2 = 0;
 }
 
 static errval_t
@@ -339,7 +99,7 @@ caps_map_l1(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union l1_entry* entry = (union l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
+    union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
 
     // Source
     genpaddr_t src_gpaddr = get_address(src);
@@ -357,10 +117,9 @@ caps_map_l1(struct capability* dest,
     for (int i = 0; i < 4; i++, entry++)
     {
         entry->raw = 0;
-        entry->coarse.type   = L1_TYPE_COARSE_ENTRY;
-        entry->coarse.mb1    = 1;
-        entry->coarse.domain = 0;
-        entry->coarse.base_address =
+        entry->page_table.type   = L1_TYPE_PAGE_TABLE_ENTRY;
+        entry->page_table.domain = 0;
+        entry->page_table.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
               slot * ARM_L1_SCALE + i, entry, entry->raw);
@@ -384,19 +143,19 @@ caps_map_l2(struct capability* dest,
     // ARM L2 has 256 entries, but we treat a 4K page as a consecutive
     // region of L2 with a single index. 4K == 4 * 1K
     if (slot >= (256 * 4)) {
-        panic("oops");
+        panic("oops: slot >= (256 * 4)");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
-        panic("oops");
+        panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     // check offset within frame
     if ((offset + BYTES_PER_PAGE > get_size(src)) ||
         ((offset % BYTES_PER_PAGE) != 0)) {
-        panic("oops");
+        panic("oops: frame offset invalid");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -409,7 +168,7 @@ caps_map_l2(struct capability* dest,
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union l2_entry* entry = (union l2_entry*)dest_lvaddr + slot;
+    union arm_l2_entry* entry = (union arm_l2_entry*)dest_lvaddr + slot;
     if (entry->small_page.type != L2_TYPE_INVALID_PAGE) {
         panic("Remapping valid page.");
     }
@@ -455,7 +214,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         return SYS_ERR_VM_ALREADY_MAPPED;
     }
 
-
     if (ObjType_VNode_ARM_l1 == dest_cap->type) {
         //printf("caps_map_l1: %zu\n", (size_t)pte_count);
         return caps_map_l1(dest_cap, dest_slot, src_cap,
@@ -480,7 +238,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
     size_t unmapped_pages = 0;
-    union l2_entry *ptentry = (union l2_entry *)pt + slot;
+    union arm_l2_entry *ptentry = (union arm_l2_entry *)pt + slot;
     for (int i = 0; i < num_pages; i++) {
         ptentry++->raw = 0;
         unmapped_pages++;
@@ -500,13 +258,13 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
     switch (pgtable->type) {
         case ObjType_VNode_ARM_l1:
         {
-            union l1_entry *e = (union l1_entry*)lv;
-            *paddr = (genpaddr_t)(e->coarse.base_address) << 10;
+            union arm_l1_entry *e = (union arm_l1_entry*)lv;
+            *paddr = (genpaddr_t)(e->page_table.base_address) << 10;
             return;
         }
         case ObjType_VNode_ARM_l2:
         {
-            union l2_entry *e = (union l2_entry*)lv;
+            union arm_l2_entry *e = (union arm_l2_entry*)lv;
             *paddr = (genpaddr_t)(e->small_page.base_address) << 12;
             return;
         }
@@ -578,8 +336,8 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
     lvaddr_t base = local_phys_to_mem(info->pte) + offset;
 
     for (int i = 0; i < pages; i++) {
-        union l2_entry *entry =
-            (union l2_entry *)base + i;
+        union arm_l2_entry *entry =
+            (union arm_l2_entry *)base + i;
         paging_set_flags(entry, kpi_paging_flags);
     }
 
@@ -593,14 +351,14 @@ void paging_dump_tables(struct dcb *dispatcher)
 
     for (int l1_index = 0; l1_index < ARM_L1_MAX_ENTRIES; l1_index++) {
         // get level2 table
-        union l1_entry *l2 = (union l1_entry *)l1 + l1_index;
-        if (!l2->raw) { continue; }
-        genpaddr_t ptable_gp = (genpaddr_t)(l2->coarse.base_address) << 10;
+        union arm_l1_entry *l1_e = (union arm_l1_entry *)l1 + l1_index;
+        if (!l1_e->raw) { continue; }
+        genpaddr_t ptable_gp = (genpaddr_t)(l1_e->page_table.base_address) << 10;
         lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
         for (int entry = 0; entry < ARM_L2_MAX_ENTRIES; entry++) {
-            union l2_entry *e =
-                (union l2_entry *)ptable_lv + entry;
+            union arm_l2_entry *e =
+                (union arm_l2_entry *)ptable_lv + entry;
             genpaddr_t paddr = (genpaddr_t)(e->small_page.base_address) << BASE_PAGE_BITS;
             if (!paddr) {
                 continue;

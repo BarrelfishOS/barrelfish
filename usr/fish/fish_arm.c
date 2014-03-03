@@ -1132,11 +1132,12 @@ static void getline(char *input, size_t size)
             if (i > 0) {
                 i--;
                 putchar('\b'); // FIXME: this kinda works on my terminal
+                putchar(' ');
+                putchar('\b');
                 //puts("\033[1X"); // XXX: suitable for xterm
             }
         } else if (in != '\n' && i < size - 1) {
             input[i++] = in;
-            putchar(in);
         }
         fflush(stdout);
     } while(in != '\n');
@@ -1257,28 +1258,7 @@ int main(int argc, const char *argv[])
     bool        is_bootscript = true;
     coreid_t my_core_id = disp_get_core_id();
 
-    // XXX: parse aguments to determine input sources to use
-    unsigned stdin_sources = 0;
-
     vfs_init();
-
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "serial") == 0) {
-            stdin_sources |= TERMINAL_SOURCE_SERIAL;
-        } else if (strcmp(argv[i], "keyboard") == 0) {
-            stdin_sources |= TERMINAL_SOURCE_KEYBOARD;
-        } else if (strcmp(argv[i], "nobootscript") == 0) {
-            is_bootscript = false;
-        }
-    }
-    // fallback default: use serial, as before
-    if (stdin_sources == 0) {
-        stdin_sources = TERMINAL_SOURCE_SERIAL;
-    }
-
-    // XXX: All the following calls should go away once we have stable APIs
-    errval_t e = terminal_want_stdin(stdin_sources);
-    assert(err_is_ok(e));
 
     cwd = strdup("/");
 
@@ -1330,10 +1310,6 @@ int main(int argc, const char *argv[])
                 snprintf(exitstr, 128, "%u", exitcode);
                 int r = setenv("EXITCODE", exitstr, 1);
                 assert(r == 0);
-
-                // Reacquire terminal for stdin
-                e = terminal_want_stdin(stdin_sources);
-                assert(err_is_ok(e));
             }
         }
     }

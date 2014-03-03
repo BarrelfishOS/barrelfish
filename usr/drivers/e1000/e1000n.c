@@ -318,8 +318,7 @@ static bool handle_free_TX_slot_fn(void)
  * NOTE: This function get called from ethersrv.c
  *****************************************************************/
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
-                                      size_t                count,
-                                      void                 *opaque)
+                                      size_t                count)
 
 {
     E1000_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
@@ -360,6 +359,7 @@ static bool handle_next_received_packet(void)
     volatile union rx_desc *rxd;
     size_t len = 0;
     bool new_packet = false;
+    struct driver_rx_buffer rxb;
 
     if (receive_bufptr == receive_index) { //no packets received
         return false;
@@ -385,7 +385,9 @@ static bool handle_next_received_packet(void)
                     (uint32_t) len);
 #endif // TRACE_ONLY_SUB_NNET
 
-        process_received_packet(receive_opaque[receive_bufptr], len, true);
+        rxb.opaque = receive_opaque[receive_bufptr];
+        rxb.len = len;
+        process_received_packet(&rxb, 1, 0);
     } // end if: valid packet received
     else {
     	// false alarm. Something else happened, not packet arrival

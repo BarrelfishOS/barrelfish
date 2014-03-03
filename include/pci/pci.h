@@ -40,7 +40,7 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
                                         void *handler_arg);
 
 errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
-                              int *ret_vector);
+                              uint8_t *ret_vector);
 
 
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
@@ -48,5 +48,21 @@ errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
 errval_t pci_write_conf_header(uint32_t dword, uint32_t val);
 
 errval_t pci_client_connect(void);
+
+
+/**
+ * Enable MSI-X for the PCI device
+ * @param count Memory location where the number of supported vectors is written
+ */
+errval_t pci_msix_enable(uint16_t *count);
+
+/**
+ * Configure an MSI-X vector
+ * @param index       MSI-X Vector index
+ * @param destination Destination APIC where the interrupt should be sent
+ * @param vector      Interrupt vector to send
+ */
+errval_t pci_msix_vector_init(uint16_t index, uint8_t destination,
+                              uint8_t vector);
 
 #endif

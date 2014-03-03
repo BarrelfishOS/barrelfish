@@ -62,6 +62,7 @@
 #include "lwip/snmp.h"
 #include "arch/perf.h"
 #include "lwip/dhcp.h"
+#include "lwip/init.h"
 
 #include <string.h>
 #include <idc_barrelfish.h>
@@ -264,7 +265,9 @@ void udp_input(struct pbuf *p, struct netif *inp)
 #endif                          /* LWIP_UDPLITE */
         {
 #if CHECKSUM_CHECK_UDP
-            if (udphdr->chksum != 0) {
+            int hwcxs_good = ((p->nicflags & NETIF_RXFLAG_L4CHECKSUM) &&
+                    (p->nicflags & NETIF_RXFLAG_L4CHECKSUM_GOOD));
+            if (!hwcxs_good && udphdr->chksum != 0) {
                 if (inet_chksum_pseudo(p, (struct ip_addr *) &(iphdr->src),
                                        (struct ip_addr *) &(iphdr->dest),
                                        IP_PROTO_UDP, p->tot_len) != 0) {
@@ -555,9 +558,17 @@ udp_sendto_if(struct udp_pcb * pcb, struct pbuf * p,
         udphdr->len = htons(q->tot_len);
         /* calculate checksum */
 #if CHECKSUM_GEN_UDP
-        if ((pcb->flags & UDP_FLAGS_NOCHKSUM) == 0) {
-            udphdr->chksum =
-              inet_chksum_pseudo(q, src_ip, dst_ip, IP_PROTO_UDP, q->tot_len);
+        if (is_hw_feature_enabled(UDP_IPV4_CHECKSUM_HW)) {
+            if ((pcb->flags & UDP_FLAGS_NOCHKSUM) == 0) {
+                q->nicflags |= NETIF_TXFLAG_UDPCHECKSUM;
+                // Only calculate checksum over pseudo header
+                udphdr->chksum =
+                    ~inet_chksum_pseudo_partial(q, src_ip, dst_ip, IP_PROTO_UDP,
+                            q->tot_len, 0) & 0xffff;
+            } else {
+                udphdr->chksum = inet_chksum_pseudo(q, src_ip, dst_ip,
+                        IP_PROTO_UDP, q->tot_len);
+            }
             /* chksum zero must become 0xffff, as zero means 'no checksum' */
             if (udphdr->chksum == 0x0000)
                 udphdr->chksum = 0xffff;

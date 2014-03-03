@@ -36,7 +36,7 @@ __BEGIN_DECLS
  * 5. void * pointers are casted to uint64_t which is assumed to be lossless.
  * */
 
-#define MAX_QUEUE_SIZE 2048
+#define MAX_QUEUE_SIZE 1024
 #define MAX_PARAMS 10
 
 struct q_entry {

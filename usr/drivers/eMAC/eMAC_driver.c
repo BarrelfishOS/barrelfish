@@ -44,9 +44,7 @@ uint64_t eMAC_mac;
  * datastructure instead of working with procon library.  */
 //static errval_t EMAC_send_ethernet_packet_fn(struct client_closure *cl)
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
-                                      size_t                count,
-                                      void                 *opaque)
-
+                                      size_t                count)
 {
     EMAC_DEBUG("send pkt function called\n");
     assert(!"Older implementation, will not work without modification");

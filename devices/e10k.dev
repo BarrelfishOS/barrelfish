@@ -1069,6 +1069,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
 
   // 8.2.3.8.8
   register rdrxctl rw addr(base, 0x02f00) "Receive DMA Control Register" {
+    _           1 rsvd;
     crcstrip    1 "Rx CRC Strip indication to the Rx DMA unit";
     _           1 rsvd;
     dma_initok  1 ro "DMA Init Done";
@@ -1077,7 +1078,7 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
     _           3 rsvd;
     rscackc     1 mb1 "RSC Coalescing on ACK Change";
     fcoe_wrfix  1 mb1 "FCoE Write Exchange Fix";
-    _           6 rsvd;
+    _           5 rsvd;
   };
 
   // 8.2.3.8.9
@@ -1769,10 +1770,9 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   // 8.2.3.22.8
   register hlreg0 rw addr(base, 0x04240) "MAC Core Control 0 Register" {
     txcrcen     1 "Tx CRC Enable";
-    _           1 rsvd;
+    rxcrcstrp   1 "Rx CRC Strip";
     jumboen     1 "Jumbo Frame Enable";
-    _           1 mb1;
-    _           6 mbz;
+    _           7 mbz;
     txpaden     1 "Tx Pad Frame Enable";
     _           4 rsvd;
     lpbk        1 "Loopback enabled";

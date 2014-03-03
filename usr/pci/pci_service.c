@@ -246,6 +246,38 @@ static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uin
     assert(err_is_ok(err));
 }
 
+static void msix_enable_handler(struct pci_binding *b)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr = {
+        .bus= cc->bus,
+        .device=cc->dev,
+        .function=cc->fun,
+    };
+    errval_t err;
+    uint16_t count;
+
+    err = pci_msix_enable(&addr, &count);
+    err = b->tx_vtbl.msix_enable_response(b, NOP_CONT, err, count);
+    assert(err_is_ok(err));
+}
+
+static void msix_vector_init_handler(struct pci_binding *b, uint16_t idx,
+                                     uint8_t destination, uint8_t vector)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr = {
+        .bus= cc->bus,
+        .device=cc->dev,
+        .function=cc->fun,
+    };
+    errval_t err;
+
+    err = pci_msix_vector_init(&addr, idx, destination, vector);
+    err = b->tx_vtbl.msix_vector_init_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
@@ -253,6 +285,9 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
     .read_conf_header_call = read_conf_header_handler,
     .write_conf_header_call = write_conf_header_handler,
+
+    .msix_enable_call = msix_enable_handler,
+    .msix_vector_init_call = msix_vector_init_handler,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

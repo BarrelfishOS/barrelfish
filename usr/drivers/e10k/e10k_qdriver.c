@@ -21,6 +21,7 @@
 #include <if/e10k_defs.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
+#include <pci/pci.h>
 
 #include "helper.h"
 #include "e10k_queue.h"
@@ -37,6 +38,8 @@
 /* Size of RX buffers */
 #define RXBUFSZ 2048
 
+/* Maximal number of buffers per packet */
+#define MAXDESCS 16
 
 // Enable Debugging for packet transfers
 #define DEBUG_ENABLE 0
@@ -59,7 +62,10 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx_frame,
                                       struct capref txhwb_frame,
                                       struct capref rx_frame,
-                                      uint32_t rxbufsz);
+                                      uint32_t rxbufsz,
+                                      int16_t msix_intvec,
+                                      uint8_t msix_intdest);
+static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate);
 static void idc_terminate_queue(void);
 
 // Hack for monolithic driver
@@ -70,7 +76,14 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
-                              bool use_interrupts) __attribute__((weak));
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
+                              bool use_interrupts,
+                              bool use_rsc) __attribute__((weak));
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t queue,
+                           uint16_t rate) __attribute__((weak));
+
 
 void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
         uint64_t macaddr);
@@ -78,6 +91,7 @@ void qd_queue_memory_registered(struct e10k_binding *b);
 void qd_write_queue_tails(struct e10k_binding *b);
 
 void qd_argument(const char *arg);
+static void interrupt_handler(void *);
 void qd_interrupt(bool is_rx, bool is_tx);
 void qd_main(void);
 int main(int argc, char **argv) __attribute__((weak));
@@ -123,6 +137,15 @@ static bool use_txhwb = true;
 
 /** Indicates whether Interrupts should be used */
 static bool use_interrupts = false;
+
+/** Indicates whether RSC should be used */
+static bool use_rsc = false;
+
+/** Indicates whether MSI-X should be used */
+static bool use_msix = true;
+
+/** Minimal delay between interrupts in us */
+static uint16_t interrupt_delay = 0;
 
 /** Capability for hardware TX ring */
 static struct capref tx_frame;
@@ -207,17 +230,70 @@ static void stats_dump(void)
 /******************************************************************************/
 /* Transmit path */
 
+#define ETHHDR_LEN 14
+#define IPHDR_LEN 20
+#define UDPHDR_LEN 8
+
+
+
+static inline bool buf_use_tcpxsm(struct driver_buffer *buffers)
+{
+    return (buffers->flags & NETIF_TXFLAG_TCPCHECKSUM);
+}
+
+static inline bool buf_use_udpxsm(struct driver_buffer *buffers)
+{
+    return (buffers->flags & NETIF_TXFLAG_UDPCHECKSUM);
+}
+
+static inline bool buf_use_ipxsm(struct driver_buffer *buf)
+{
+    return (buf->flags & NETIF_TXFLAG_IPCHECKSUM) ||
+        buf_use_tcpxsm(buf) || buf_use_udpxsm(buf);
+}
+
+static inline bool buf_tcphdrlen(struct driver_buffer *buf)
+{
+    return ((buf->flags & NETIF_TXFLAG_TCPHDRLEN_MASK) >>
+        NETIF_TXFLAG_TCPHDRLEN_SHIFT) * 4;
+}
+
+
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
-                                      size_t                count,
-                                      void                 *opaque)
+                                      size_t                count)
 {
     size_t i;
+    size_t totallen = 0;
+    size_t start = 0;
     DEBUG("Add buffer callback %d:\n", count);
 
     // TODO: Make sure there is room in TX queue
     for (i = 0; i < count; i++) {
-        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len, opaque,
-            (i == count - 1));
+        totallen += buffers[i].len;
+    }
+
+    // Prepare checksum offload
+    if (buf_use_ipxsm(buffers)) {
+        e10k_q_l4_type_t l4t = 0;
+        uint8_t l4len = 0;
+
+        if (buf_use_tcpxsm(buffers)) {
+            l4t = e10k_q_tcp;
+            l4len = buf_tcphdrlen(buffers);
+        } else if (buf_use_udpxsm(buffers)) {
+            l4t = e10k_q_udp;
+            l4len = UDPHDR_LEN;
+        }
+        e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
+
+        e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
+            buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+        start++;
+   }
+
+    for (i = start; i < count; i++) {
+        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len,
+            buffers[i].opaque, (i == 0), (i == count - 1), totallen);
     }
 
     e10k_queue_bump_txtail(q);
@@ -237,9 +313,8 @@ static uint64_t find_tx_free_slot_count_fn(void)
 static bool handle_free_tx_slot_fn(void)
 {
     void *op;
-    int last;
 
-    if (e10k_queue_get_txbuf(q, &op, &last) != 0) {
+    if (e10k_queue_get_txbuf(q, &op) != 0) {
         return false;
     }
 
@@ -292,8 +367,12 @@ static size_t check_for_new_packets(void)
 {
     size_t len;
     void *op;
-    int last;
+    int last = 1;
     size_t count;
+    size_t pkt_cnt;
+    struct driver_rx_buffer buf[MAXDESCS];
+    uint64_t flags = 0;
+    int res;
 
     if (!initialized) return 0;
 
@@ -302,15 +381,29 @@ static size_t check_for_new_packets(void)
     // TODO: This loop can cause very heavily bursty behaviour, if the packets
     // arrive faster than they can be processed.
     count = 0;
-    while (e10k_queue_get_rxbuf(q, &op, &len, &last) == 0) {
+    pkt_cnt = 0;
+    while ((res = e10k_queue_get_rxbuf(q, &op, &len, &last, &flags)) == 0 ||
+           pkt_cnt != 0)
+    {
+        if (res != 0) continue;
 #if TRACE_ETHERSRV_MODE
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRVRX, 0);
 #endif // TRACE_ETHERSRV_MODE
 
-        DEBUG("New packet (q=%d)\n", qi);
 
-        process_received_packet(op, len, !!last);
+        DEBUG("New packet (q=%d f=%"PRIx64")\n", qi, flags);
+
+        buf[pkt_cnt].opaque = op;
+        buf[pkt_cnt].len = len;
+        pkt_cnt++;
+        if (last) {
+            process_received_packet(buf, pkt_cnt, flags);
+            pkt_cnt = 0;
+        } else {
+            assert(pkt_cnt < MAXDESCS - 1);
+        }
         count++;
+        flags = 0;
     }
 
     if (count > 0) e10k_queue_bump_rxtail(q);
@@ -365,6 +458,8 @@ static void setup_queue(void)
     size_t tx_size, txhwb_size, rx_size;
     void *tx_virt, *txhwb_virt, *rx_virt;
     vregion_flags_t flags;
+    uint8_t vector, core;
+    errval_t err;
 
 
 
@@ -397,7 +492,28 @@ static void setup_queue(void)
     q = e10k_queue_init(tx_virt, NTXDESCS, txhwb_virt, rx_virt, NRXDESCS, &ops,
                         NULL);
 
-    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ);
+
+
+    if (use_interrupts && use_msix) {
+        INITDEBUG("Enabling MSI-X interrupts\n");
+        err = pci_setup_inthandler(interrupt_handler, NULL, &vector);
+        assert(err_is_ok(err));
+        core = disp_get_core_id();
+    } else {
+        if (use_interrupts) {
+            INITDEBUG("Enabling legacy interrupts\n");
+        }
+        vector = 0;
+        core = 0;
+    }
+    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+                              vector, core);
+}
+
+/** Hardware queue initialized in card driver */
+static void hwqueue_initialized(void)
+{
+    idc_set_interrupt_rate(qi, interrupt_delay);
 }
 
 /** Terminate this queue driver */
@@ -435,7 +551,9 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref tx,
                                       struct capref txhwb,
                                       struct capref rx,
-                                      uint32_t rxbufsz)
+                                      uint32_t rxbufsz,
+                                      int16_t msix_intvec,
+                                      uint8_t msix_intdest)
 {
 
     errval_t r;
@@ -443,14 +561,33 @@ static void idc_register_queue_memory(uint8_t queue,
 
     if (!standalone) {
         cd_register_queue_memory(NULL, queue, tx, txhwb, rx, rxbufsz,
-                use_interrupts);
+                msix_intvec, msix_intdest, use_interrupts, use_rsc);
         return;
-    };
+    }
 
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx, txhwb, rx, rxbufsz, use_interrupts);
+                                       tx, txhwb, rx, rxbufsz, msix_intvec,
+                                       msix_intdest, use_interrupts, use_rsc);
     // TODO: handle busy
     assert(err_is_ok(r));
+}
+
+/** Modify interrupt rate for queue */
+static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate)
+{
+    errval_t r;
+
+    INITDEBUG("idc_set_interrupt_rate()\n");
+
+    if (!standalone) {
+        cd_set_interrupt_rate(NULL, queue, rate);
+        return;
+    }
+
+    r = e10k_set_interrupt_rate__tx(binding, NOP_CONT, queue, rate);
+    // TODO: handle busy
+    assert(err_is_ok(r));
+
 }
 
 /** Tell card driver to stop this queue. */
@@ -498,6 +635,8 @@ void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
 void qd_queue_memory_registered(struct e10k_binding *b)
 {
     initialized = 1;
+
+    hwqueue_initialized();
 
     // Register queue with queue_mgr library
     ethersrv_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
@@ -600,7 +739,21 @@ void qd_argument(const char *arg)
     } else if (strncmp(arg, "interrupts=",
                        strlen("interrupts=") - 1) == 0) {
         use_interrupts = !!atol(arg + strlen("interrupts="));
-
+    } else if (strncmp(arg, "rsc=",
+                       strlen("rsc=") - 1) == 0) {
+        use_rsc = !!atol(arg + strlen("rsc="));
+    } else if (strncmp(arg, "int_delay=",
+                       strlen("int_delay=") - 1) == 0) {
+        long i = atol(arg + strlen("int_delay="));
+        uint16_t max_delay = 1023;
+        if (i < 0 || i > max_delay) {
+            printf("Invalid int_delay value, must be between 0 and %u\n",
+                max_delay);
+        } else {
+            interrupt_delay = i;
+        }
+    } else if (strncmp(arg, "msix=", strlen("msix=") - 1) == 0) {
+        use_msix = !!atol(arg + strlen("msix="));
     } else {
         ethersrv_argument(arg);
     }
@@ -643,6 +796,11 @@ static void eventloop_ints(void)
     }
 }
 
+static void interrupt_handler(void *data)
+{
+    qd_interrupt(true, false);
+}
+
 void qd_interrupt(bool is_rx, bool is_tx)
 {
     size_t count;
@@ -668,9 +826,9 @@ void qd_main(void)
                    "on the command line!");
     }
 
-    if (use_interrupts && standalone) {
-        USER_PANIC("Interrupts with standalone queue driver not yet "
-                   "implemented");
+    if (use_interrupts && standalone && !use_msix) {
+        USER_PANIC("Interrupts with standalone queue driver only work if MSI-X "
+                   "is enabled.");
     }
 
     if (standalone) {
@@ -708,7 +866,17 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
-                              bool use_ints)
+                              int16_t msix_intvec,
+                              uint8_t msix_intdest,
+                              bool use_ints,
+                              bool use_rsc_)
+{
+    USER_PANIC("Should not be called");
+}
+
+void cd_set_interrupt_rate(struct e10k_binding *b,
+                           uint8_t queue,
+                           uint16_t rate)
 {
     USER_PANIC("Should not be called");
 }

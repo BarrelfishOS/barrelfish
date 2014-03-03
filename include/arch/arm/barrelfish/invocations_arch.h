@@ -492,7 +492,17 @@ invoke_idcap_identify(
     idcap_id_t *id
                       )
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    assert(id != NULL);
+
+    uint8_t invoke_bits = get_cap_valid_bits(idcap);
+    capaddr_t invoke_cptr = get_cap_addr(idcap) >> (CPTR_BITS - invoke_bits);
+
+    // user-space pointer 'id' is directly written to by kernel.
+    struct sysret sysret =
+        syscall3((invoke_bits << 16) | (IDCmd_Identify << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) id);
+
+    return sysret.error;
 }
 
 #endif

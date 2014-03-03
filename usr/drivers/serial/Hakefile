@@ -18,6 +18,18 @@
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
                       mackerelDevices = [ "pc16550d" ],
-                      addLibraries = [ "pci", "term_server" ]
+                      addLibraries = [ "pci", "term_server" ],
+                      architectures = [ "x86_64", "x86_32" ]
+                    },
+  build application { target = "serial",
+                      cFiles = [ "main.c", "basic_service.c",
+                                 "terminal_service.c", "omap44xx_serial.c" ],
+                      flounderBindings = [ "serial" ],
+                      flounderDefs = [ "terminal" , "terminal_config",
+                                       "terminal_session" ],
+                      mackerelDevices = [ "omap/omap44xx_uart3" ],
+                      addLibraries = [ "term_server", "driverkit" ],
+                      architectures = [ "armv7" ]
                     }
+
 ]

@@ -19,7 +19,7 @@
 #include <errors/errno.h>
 
 struct mapping_info {
-    lvaddr_t pte;       ///< where the capability is mapped
+    lpaddr_t pte;       ///< where the capability is mapped
     size_t pte_count;   ///< the amount of PTEs mapped in this mapping
     uint64_t offset;    ///< the offset into the physical region identified by the capability where the mapping begins.
 };
@@ -28,5 +28,6 @@ struct cte;
 errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr);
 errval_t unmap_capability(struct cte *mem);
 errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **retcte);
+errval_t paging_tlb_flush_range(struct cte *frame, size_t pages);
 
 #endif // PAGING_H
