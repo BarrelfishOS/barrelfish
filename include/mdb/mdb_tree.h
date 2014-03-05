@@ -21,25 +21,30 @@ __BEGIN_DECLS
 struct capability;
 struct cte;
 
-enum {
-    // All checked invariants hold
-    MDB_INVARIANT_OK = 0,
-    // A node with level > 0 must have both children
-    MDB_INVARIANT_BOTHCHILDREN,
-    // The level of a node's left child must be lt the node's level
-    MDB_INVARIANT_LEFT_LEVEL_LESS,
-    // The level of a node's right child must be leq the node's level
-    MDB_INVARIANT_RIGHT_LEVEL_LEQ,
-    // The level of a node's right grandchildren must bt lt the node's level
-    MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS,
-    MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS,
-    // The node's "end" value must be the maximum of the subtree's ends
-    MDB_INVARIANT_END_IS_MAX,
-    // The left child of a node must be earlier in the ordering
-    MDB_INVARIANT_LEFT_SMALLER,
-    // The right child of a node must be later in the ordering
-    MDB_INVARIANT_RIGHT_GREATER,
+#define MDB_INVARIANTS \
+    /* All checked invariants hold */\
+    X(MDB_INVARIANT_OK) \
+    /* A node with level > 0 must have both children */\
+    X(MDB_INVARIANT_BOTHCHILDREN) \
+    /* The level of a node's left child must be lt the node's level */\
+    X(MDB_INVARIANT_LEFT_LEVEL_LESS) \
+    /* The level of a node's right child must be leq the node's level */\
+    X(MDB_INVARIANT_RIGHT_LEVEL_LEQ) \
+    /* The level of a node's right grandchildren must bt lt the node's level */\
+    X(MDB_INVARIANT_RIGHTRIGHT_LEVEL_LESS) \
+    X(MDB_INVARIANT_RIGHTLEFT_LEVEL_LESS) \
+    /* The node's "end" value must be the maximum of the subtree's ends */\
+    X(MDB_INVARIANT_END_IS_MAX) \
+    /* The left child of a node must be earlier in the ordering */\
+    X(MDB_INVARIANT_LEFT_SMALLER) \
+    /* The right child of a node must be later in the ordering */\
+    X(MDB_INVARIANT_RIGHT_GREATER)
+
+#define X(i) i,
+enum mdb_inv {
+    MDB_INVARIANTS
 };
+#undef X
 
 enum {
     // No cap was found covering the specified region

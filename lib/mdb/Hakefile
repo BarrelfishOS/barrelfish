@@ -32,7 +32,8 @@
           libopts = libGetOptionsForArch arch args
           opts = kopts {
               extraIncludes = extraIncludes libopts,
-              optSuffix = optSuffix libopts
+              optSuffix = optSuffix libopts,
+              extraFlags = extraFlags libopts
             }
           predicatesFile = "/capabilities/cap_predicates.c"
           predicatesObj = objectFilePath opts predicatesFile

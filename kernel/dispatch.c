@@ -328,6 +328,9 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
 
     if (give_away) {
         err = caps_delete(send_cte);
+        if (err_is_fail(err)) {
+            printk(LOG_NOTE, "deleting source of lmp captransfer failed: %"PRIuERRV"\n", err);
+        }
         assert(err_is_ok(err)); // A copy now exists in the recv slot, so this
                                 // should not fail
     }

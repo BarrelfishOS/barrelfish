@@ -111,6 +111,8 @@ boot_core_reply_cont(struct monitor_binding *domain_binding,
                      errval_t error_code)
 {
     errval_t err;
+    debug_printf("boot_core_reply_cont: %s (%"PRIuERRV")\n",
+            err_getstring(error_code), error_code);
     err = domain_binding->tx_vtbl.
             boot_core_reply(domain_binding, NOP_CONT, error_code);
     if (err_is_fail(err)) {

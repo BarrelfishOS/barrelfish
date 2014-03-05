@@ -711,12 +711,14 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
+    debug_printf("setup inherited\n");
     /* Setup inherited caps */
     err = spawn_setup_inherited_caps(si, inheritcn_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_INHERITED_CAPS);
     }
 
+    debug_printf("setup args\n");
     /* Setup argument caps */
     err = spawn_setup_argcn(si, argcn_cap);
     if (err_is_fail(err)) {

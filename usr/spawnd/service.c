@@ -335,6 +335,8 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
 
     err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
                 &domainid);
+    // XXX: do we really want to delete the inheritcn and the argcn here? iaw:
+    // do we copy these somewhere? -SG
     if (!capref_is_null(inheritcn_cap)) {
         errval_t err2;
         err2 = cap_delete(inheritcn_cap);

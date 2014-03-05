@@ -389,7 +389,7 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
         err = cap_delete(node->cap);
         // Can fail if node was not free (e.g. deleted already)
         if(err_is_fail(err) && node->type == NodeType_Free) {
-            DEBUG_ERR(err, "cap_delete for chunked cap failed?!? Ignoring.");
+            DEBUG_ERR(err, "cap_delete for chunked cap failed(node->type = %d) Ignoring.", node->type);
         }
     }
 

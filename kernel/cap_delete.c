@@ -167,6 +167,7 @@ cleanup_copy(struct cte *cte)
     }
 
     if (distcap_is_foreign(cte)) {
+        TRACE_CAP_MSG("cleaning up non-owned copy", cte);
         if (cte->mdbnode.remote_copies || cte->mdbnode.remote_descs) {
             struct cte *ancestor = mdb_find_ancestor(cte);
             if (ancestor) {
@@ -179,6 +180,7 @@ cleanup_copy(struct cte *cte)
     if (err_is_fail(err)) {
         return err;
     }
+    TRACE_CAP_MSG("cleaned up copy", cte);
     memset(cte, 0, sizeof(*cte));
 
     return SYS_ERR_OK;
@@ -467,10 +469,9 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
 
 static void clear_list_append(struct cte *cte)
 {
-    // make sure we don't break delete list by inserting cte again
-    if (distcap_is_in_delete(cte)) {
-        return;
-    }
+    // make sure we don't break delete list by inserting cte that hasn't been
+    // removed from delete list into clear list
+    assert(cte->delete_node.next == NULL);
 
     if (!clear_tail) {
         assert(!clear_head);
@@ -497,6 +498,7 @@ errval_t caps_delete_step(struct cte *ret_next)
     }
     assert(delete_head->mdbnode.in_delete);
 
+    TRACE_CAP_MSG("performing delete step", delete_head);
     struct cte *cte = delete_head, *next = cte->delete_node.next;
     if (cte->mdbnode.locked) {
         err = SYS_ERR_CAP_LOCKED;
@@ -516,7 +518,14 @@ errval_t caps_delete_step(struct cte *ret_next)
         }
     }
     else {
+        // XXX: need to clear delete_list flag because it's reused for
+        // clear_list? -SG
+        cte->delete_node.next = NULL;
         err = caps_delete_last(cte, ret_next);
+        if (err_is_fail(err)) {
+            // if delete_last fails, reinsert in delete list
+            cte->delete_node.next = next;
+        }
     }
 
     if (err_is_ok(err)) {

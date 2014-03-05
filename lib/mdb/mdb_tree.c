@@ -24,13 +24,20 @@
 
 // PP switch to change behaviour if invariants fail
 #ifdef MDB_FAIL_INVARIANTS
+#define X(i) #i,
+const char *mdb_invariants[] = {
+    MDB_INVARIANTS
+};
+#undef X
 // on failure, dump mdb and terminate
 static void
-mdb_dump_and_fail(struct cte *cte, int failure)
+mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
 {
     mdb_dump(cte, 0);
-    printf("failed on cte %p with failure %d\n", cte, failure);
+    printf("failed on cte %p with failure %s (%d)\n", cte,
+            mdb_invariants[failure], failure);
     // XXX: what is "proper" way to always terminate?
+    mdb_dump_all_the_things();
     assert(false);
 }
 #define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
@@ -234,6 +241,25 @@ mdb_check_invariants(void)
         printf("mdb_check_invariants() -> %d\n", res);
     }
     return res;
+}
+
+static bool
+mdb_is_reachable(struct cte *root, struct cte *cte)
+{
+    if (root == cte) {
+        return true;
+    }
+    if (N(root)->left) {
+        if (mdb_is_reachable(N(root)->left, cte)) {
+            return true;
+        }
+    }
+    if (N(root)->right) {
+        if (mdb_is_reachable(N(root)->right, cte)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /*
@@ -467,6 +493,7 @@ mdb_insert(struct cte *new_node)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
+    assert(mdb_is_reachable(mdb_root, new_node));
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
 }
 
@@ -514,6 +541,9 @@ mdb_exchange_nodes(struct cte *first, struct cte *first_parent,
 
     mdb_update_end(first);
     mdb_update_end(second);
+
+    assert(mdb_is_reachable(mdb_root, first));
+    assert(mdb_is_reachable(mdb_root, second));
 }
 
 static void
@@ -535,6 +565,7 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
     assert(compare_caps(C(target), C(*current), true) != 0);
     assert(mdb_is_child(target, target_parent));
     assert(mdb_is_child(*current, parent));
+    assert(mdb_is_reachable(mdb_root, target));
 
     struct cte *current_ = *current;
 
@@ -564,7 +595,8 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
                                 current_, dir, ret_target);
         }
         else if (N(current_)->right) {
-            // right is null, left non-null -> current is level 0 node with
+            assert(N(current_)->level == 0);
+            // right is non-null, left null -> current is level 0 node with
             // horizontal right link, and is also the successor of the target.
             // in this case, exchange current and current right, then current
             // (at its new position) and the target.
@@ -578,11 +610,13 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
             N(new_current)->right = NULL;
             *ret_target = current_;
             *current = new_current;
+            assert(!mdb_is_reachable(mdb_root, target));
             MDB_TRACE_LEAVE_SUB(NULL);
         }
     }
 
     if (*ret_target) {
+        assert(!mdb_is_reachable(mdb_root, target));
         // implies we recursed further down to find a leaf. need to rebalance.
         current_ = mdb_rebalance(current_);
         *current = current_;
@@ -641,6 +675,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
         }
         else if (!N(current_)->left) {
             // move to right child then go left (dir=-1)
+            // curr, new_right = xchg_rm(elem, parent, current.right, current, -1)
             struct cte *new_current = NULL;
             struct cte *new_right = N(current_)->right;
             mdb_exchange_remove(target, parent, &new_right, current_, -1,
@@ -648,9 +683,11 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             assert(new_current);
             current_ = new_current;
             N(current_)->right = new_right;
+            assert(!mdb_is_reachable(mdb_root, target));
         }
         else {
             // move to left child then go right (dir=1)
+            // curr, new_left = xchg_rm(elem, parent, current.left, current, 1)
             struct cte *new_current = NULL;
             struct cte *new_left = N(current_)->left;
             mdb_exchange_remove(target, parent, &new_left, current_, 1,
@@ -658,6 +695,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             assert(new_current);
             current_ = new_current;
             N(current_)->left = new_left;
+            assert(!mdb_is_reachable(mdb_root, target));
         }
     }
 
@@ -677,6 +715,7 @@ mdb_remove(struct cte *target)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", target);
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
+    assert(!mdb_is_reachable(mdb_root, target));
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 

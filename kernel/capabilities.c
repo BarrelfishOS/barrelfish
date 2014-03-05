@@ -30,9 +30,6 @@
 #include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
 
-/// Ignore remote capabilities if this is defined
-#define RCAPDB_NULL
-
 /// Sets the specified number of low-order bits to 1
 #define MASK(bits)      ((1UL << bits) - 1)
 

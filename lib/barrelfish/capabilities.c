@@ -622,7 +622,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 
     err = cap_destroy(ram);
     if (err_is_fail(err)) {
-        return err;
+        return err_push(err, LIB_ERR_CAP_DESTROY);
     }
 
     if (retbytes != NULL) {

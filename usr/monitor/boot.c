@@ -81,11 +81,11 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
     // setup new binding
     assert(new_binding != NULL);
     intermon_init(new_binding, id);
-    ((struct intermon_state*)new_binding->st)->capops_ready = false;
 
     // store client that requested the boot, so we can tell them when it completes
     struct intermon_state *st = new_binding->st;
     st->originating_client = b;
+    st->capops_ready = false;
 
  out:
     free(cmdline);
@@ -93,6 +93,8 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
     if (err_is_ok(err)) {
         num_monitors++;
     } else {
+        debug_printf("sending boot_core_reply: %s (%"PRIuERRV")\n",
+                err_getstring(err), err);
         errval_t err2 = b->tx_vtbl.boot_core_reply(b, NOP_CONT, err);
         if (err_is_fail(err2)) {
             USER_PANIC_ERR(err2, "sending boot_core_reply failed");
