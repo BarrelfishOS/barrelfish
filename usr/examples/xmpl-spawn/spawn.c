@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
         coreid_t core = 0;
         for (int i = 0; i < num_spawns; i++, core++) {
-            core %= num_cores; 
+            core %= num_cores;
             /*
               Signature for spawn_program is:
 
@@ -49,12 +49,12 @@ int main(int argc, char *argv[])
                 spawn_flags_t flags, domainid_t *ret_domainid)
             */
             err = spawn_program(core, path, argv, NULL, 0, &new_domain);
-            
+
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed spawn %d on core %d", i, core);
             } else {
-                debug_printf("program %d on core %d spawned "
-                             "with domain id %d\n", i, core, new_domain);
+                debug_printf("program %d on core %"PRIuCOREID" spawned "
+                             "with domain id %"PRIuDOMAINID"\n", i, core, new_domain);
             }
         }
     } else {

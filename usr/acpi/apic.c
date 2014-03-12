@@ -60,7 +60,7 @@ errval_t find_all_apics(void)
                    s->ProcessorId, s->Id,
                    s->LapicFlags & ACPI_MADT_ENABLED);
 
-            skb_add_fact("apic(%d,%d,%d).",
+            skb_add_fact("apic(%d,%d,%"PRIu32").",
                    s->ProcessorId, s->Id,
                    s->LapicFlags & ACPI_MADT_ENABLED);
 
@@ -77,7 +77,7 @@ errval_t find_all_apics(void)
             ACPI_DEBUG("Found I/O APIC: ID = %d, mem base = 0x%x, "
                    "INTI base = %d\n", s->Id, s->Address, s->GlobalIrqBase);
 
-            skb_add_fact("ioapic(%d,%u,%d).", s->Id, s->Address, s->GlobalIrqBase);
+            skb_add_fact("ioapic(%d,%"PRIu32",%"PRIu32").", s->Id, s->Address, s->GlobalIrqBase);
             skb_add_fact("memory_region(%u,%u,%zu, %u,%u).",
                          s->Address,
                          BASE_PAGE_BITS, //as used elswhere in acpi.c

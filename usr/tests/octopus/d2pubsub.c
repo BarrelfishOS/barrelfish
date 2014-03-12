@@ -32,7 +32,7 @@ static void message_handler(oct_mode_t mode, char* record, void* st)
         { "msg_2", "msg_4", "msg_5", "msg_5", "msg_6", "msg_7" };
         char* name = NULL;
 
-        debug_printf("Message: %s received: %lu\n", record, *received);
+        debug_printf("Message: %s received: %zx\n", record, *received);
 
         errval_t err = oct_read(record, "%s", &name);
         ASSERT_ERR_OK(err);
@@ -67,23 +67,23 @@ static void subscriber(void)
     err = oct_subscribe(message_handler, &received, &id1,
             "_ { fl: 1.01, attr: 10 }");
     ASSERT_ERR_OK(err);
-    debug_printf("id is: %lu\n", id1);
+    debug_printf("id is: %"PRIu64"\n", id1);
 
     char* str = "test.txt";
     err = oct_subscribe(message_handler, &received, &id2, "_ { str: r'%s' }",
             str);
     ASSERT_ERR_OK(err);
-    debug_printf("id is: %lu\n", id2);
+    debug_printf("id is: %"PRIu64"\n", id2);
 
     err = oct_subscribe(message_handler, &received, &id3, "_ { age > %d }",
             9);
     ASSERT_ERR_OK(err);
-    debug_printf("id is: %lu\n", id3);
+    debug_printf("id is: %"PRIu64"\n", id3);
 
     err = oct_subscribe(message_handler, &received, &id4,
             "r'^msg_(6|7)$'");
     ASSERT_ERR_OK(err);
-    debug_printf("id is: %lu\n", id4);
+    debug_printf("id is: %"PRIu64"\n", id4);
 
     // Synchronize with publisher
     err = oct_barrier_enter(barrier_name, &barrier_record, 2);

@@ -55,7 +55,7 @@ void experiment(coreid_t idx)
     /* Print results */
     for (int i = 0; i < MAX_COUNT; i++) {
         if (timestamps[i].time1 > timestamps[i].time0) {
-            printf("page %d took %ld\n", i,
+            printf("page %d took %"PRIuCYCLES"\n", i,
                    timestamps[i].time1 - bench_tscoverhead() -
                    timestamps[i].time0);
         }

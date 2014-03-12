@@ -35,7 +35,7 @@ static void test(char *base, size_t size, size_t runs, reset_fn reset, measure_f
         }
 
         // output
-        printf("%s: %"PRIu64"/%lu\n", name, val - bench_tscoverhead(), num_caps);
+        printf("%s: %"PRIu64"/%zu\n", name, val - bench_tscoverhead(), num_caps);
     }
 
     if (run < runs) {
@@ -206,7 +206,7 @@ int main(int argc, char* argv[])
     err = frame_alloc(&frame, size_wanted, &size);
     assert_err(err, "alloc");
     assert(size >= size_wanted);
-    printf("got %lu bytes\n", size);
+    printf("got %zu bytes\n", size);
 
     struct memobj *m;
     struct vregion *v;

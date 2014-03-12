@@ -86,7 +86,7 @@ int RCCE_APP(int argc, char **argv)
               }
           } while(ret != NULL);
 
-          printf("%d: Total %lu bytes after %d allocations\n", ME, total, j);
+          printf("%d: Total %zu bytes after %d allocations\n", ME, total, j);
 
           state = State_Deflate;
           break;

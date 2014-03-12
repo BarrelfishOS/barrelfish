@@ -294,7 +294,7 @@ void usb_ehci_interrupt(usb_host_controller_t *host)
     intr = ehci_usbsts_usbi_insert(intr, 0);
 
     if (intr != 0) {
-        USB_DEBUG("NOTICE: Blocking interrupt %x\n", intr);
+        USB_DEBUG("NOTICE: Blocking interrupt %"PRIx32"\n", intr);
         /*
          * there is still an interrupt left, so block on this type
          */

@@ -100,7 +100,7 @@ static void start_experiment(void)
 
         printf("Running on %d cores\n", i + 1);
         for (int j = 0; j < MAX_COUNT; j++) {
-            printf("page %d took %ld\n", j,
+            printf("page %d took %"PRIuCYCLES"\n", j,
                    timestamps[j].time1 - timestamps[j].time0 - bench_tscoverhead());
         }
 

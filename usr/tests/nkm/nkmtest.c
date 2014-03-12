@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
         printf("frame_identify: %s (%ld)\n", err_getstring(err), err);
         return 1;
     }
-    printf("frame: base = 0x%zx, bits = %d\n", fi.base, fi.bits);
+    printf("frame: base = 0x%"PRIxGENPADDR", bits = %d\n", fi.base, fi.bits);
 
     dump_page_tables();
 

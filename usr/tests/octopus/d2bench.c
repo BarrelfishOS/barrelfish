@@ -42,10 +42,10 @@ static void variable_records(void)
 {
     size_t exps = sizeof(records) / sizeof(size_t);
     for (size_t i = 1; i < exps; i++) {
-        printf("# Run experiment with %lu records:\n", records[i]);
+        printf("# Run experiment with %zu records:\n", records[i]);
 
         for (size_t j = records[i - 1]; j < records[i]; j++) {
-            errval_t err = oct_set("object%lu { attr: 'object%lu' }", j, j);
+            errval_t err = oct_set("object%zu { attr: 'object%zu' }", j, j);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "set");
                 exit(0);
@@ -63,7 +63,7 @@ static void variable_records(void)
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             size_t get_nr = bench_tsc() % records[i];
             char buf[100];
-            sprintf(buf, "object%lu", get_nr);
+            sprintf(buf, "object%zu", get_nr);
 
             timestamps[k].time0 = bench_tsc();
             cl->call_seq.get(cl, buf, NOP_TRIGGER, &data, &tid, &error_code);
@@ -77,7 +77,7 @@ static void variable_records(void)
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             printf(
-                    "%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n",
+                    "%zu %"PRIuCYCLES" %"PRIuCYCLES" %d %zu\n",
                     k,
                     timestamps[k].time1 - timestamps[k].time0
                             - bench_tscoverhead(), timestamps[k].server,
@@ -98,7 +98,7 @@ static void add_record(void) {
     octopus_trigger_id_t tid;
 
     for (size_t i = 1; i < exps; i++) {
-        printf("# Run add_record with %lu records:\n", add_records[i]);
+        printf("# Run add_record with %zu records:\n", add_records[i]);
 
         for (size_t j = add_records[i - 1]; j < add_records[i]; j++) {
             //printf("add to system: %s\n", record);
@@ -130,7 +130,7 @@ static void add_record(void) {
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
             printf(
-                    "%lu %"PRIuCYCLES" %"PRIuCYCLES" %d %lu\n",
+                    "%zu %"PRIuCYCLES" %"PRIuCYCLES" %d %zu\n",
                     k,
                     timestamps[k].time1 - timestamps[k].time0
                     - bench_tscoverhead(), timestamps[k].server,
@@ -163,7 +163,7 @@ static void one_record(void)
     }
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
-        printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
+        printf("%zu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
                 timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead(),
                 timestamps[i].server, timestamps[i].busy);
     }
@@ -194,7 +194,7 @@ static void unnamed_record(void)
     }
 
     for (size_t i = 0; i < MAX_ITERATIONS; i++) {
-        printf("%lu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
+        printf("%zu %"PRIuCYCLES" %"PRIuCYCLES" %d\n", i,
                 timestamps[i].time1 - timestamps[i].time0 - bench_tscoverhead(),
                 timestamps[i].server, timestamps[i].busy);
     }

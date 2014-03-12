@@ -83,7 +83,7 @@ void experiment(coreid_t idx)
             strcpy(str, "Instruction cache miss");
         }
         for (int i = MAX_COUNT / 10; i < MAX_COUNT; i++) {
-            printf("%s %d %ld %ld\n", str, i,
+            printf("%s %d %"PRIuCYCLES" %"PRIuCYCLES"\n", str, i,
                    overhead[i].time1 - overhead[i].time0,
                    timestamps[i].time1 - timestamps[i].time0);
         }

@@ -127,7 +127,7 @@ void usb_driver_rx_done_notify(struct usb_driver_binding *b,
     struct usb_xfer_state *st = usb_xfer_get_state(tid);
 
     if (st == NULL) {
-        debug_printf("WARNING: xfer done with unknown tid.. %u\n", tid);
+        debug_printf("WARNING: xfer done with unknown tid.. %"PRIu32"\n", tid);
         free(data);
         return;
     }

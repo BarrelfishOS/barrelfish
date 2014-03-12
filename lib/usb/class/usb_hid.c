@@ -286,7 +286,7 @@ int32_t usb_hid_get_item(struct usb_hid_data *s, struct usb_hid_item *h)
                 break;
             default:
                 dval = usb_hid_get_byte(s, bSize);
-                USB_DEBUG("bad length %u (data=0x%02x)\n", bSize, dval);
+                USB_DEBUG("bad length %"PRIu32" (data=0x%02"PRId32")\n", bSize, dval);
                 continue;
         }
 
