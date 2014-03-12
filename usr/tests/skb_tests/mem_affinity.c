@@ -38,7 +38,7 @@ int main(int argc, char**argv)
     printf("\nexecute query...\n");
 
     char *output, *errstr;
-    int errint;
+    int32_t errint;
     err = skb_evaluate(query, &output, &errstr, &errint);
     assert(err_is_ok(err));
     assert(errint == 0);
@@ -64,7 +64,7 @@ int main(int argc, char**argv)
     }
 
     for (int i = 0; i < idx; i++) {
-        printf("found affinity %d: [%lx, %lx]\n", i, memory_affinities[i].base,
+        printf("found affinity %d: [%"PRIx64", %"PRIx64"]\n", i, memory_affinities[i].base,
                 memory_affinities[i].limit);
     }
     return 0;

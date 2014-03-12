@@ -167,7 +167,7 @@ int inctest4(int arg)
         lcount++;
         __sync_fetch_and_add(&atomiccounter, 1);
     }
-    sprintf(msg, "%x: Count %lx %p\n", disp_get_core_id(), lcount, &lcount);
+    sprintf(msg, "%"PRIuCOREID": Count %"PRIx64" %p\n", disp_get_core_id(), lcount, &lcount);
     sys_print(msg, strlen(msg));
     return 0;
 }
@@ -185,7 +185,7 @@ int bartest1(int arg)
         count++;
     }
     // Take address of count to prevent optimisation
-    sprintf(msg, "%x: Count %lx %p\n", disp_get_core_id(), count, &count);
+    sprintf(msg, "%"PRIuCOREID": Count %"PRIx64" %p\n", disp_get_core_id(), count, &count);
     sys_print(msg, strlen(msg));
     return 0;
 }
@@ -205,7 +205,7 @@ int bartest4(int arg)
         count++;
     }
     // Take address of count to prevent optimisation
-    sprintf(msg, "%x: Count %lx %p\n", disp_get_core_id(), count, &count);
+    sprintf(msg, "%"PRIuCOREID": Count %"PRIx64" %p\n", disp_get_core_id(), count, &count);
     sys_print(msg, strlen(msg));
     return 0;
 }
@@ -216,7 +216,7 @@ static int mutextest(int arg)
 {
     for(int i = 0; i < 100000; i++) {
         thread_mutex_lock(&print_mutex);
-        printf("%d: test_thread %d\n", disp_get_core_id(), i);
+        printf("%"PRIuCOREID": test_thread %d\n", disp_get_core_id(), i);
         thread_mutex_unlock(&print_mutex);
     }
 
@@ -228,7 +228,7 @@ static int remote(void *dummy)
     uint64_t time = rdtsc();
     int core = disp_get_core_id();
     times[core] = time;
-    printf("remote running on %d after %lu\n", core, time-times[0]);
+    printf("remote running on %d after %"PRIu64"\n", core, time-times[0]);
 
     if (core == 1) sys_print("Null\n", 5);
     BARRIER(barrier, NPROC);
@@ -263,7 +263,7 @@ static int remote(void *dummy)
     BARRIER(barrier, NPROC);
 
     if (core == 1) {
-        printf("gcount %lx\n", gcount);
+        printf("gcount %"PRIx64"\n", gcount);
         gcount = 0;
         printf("locktest4\n");
     }
@@ -272,7 +272,7 @@ static int remote(void *dummy)
     locktest4(core);
     BARRIER(barrier, NPROC);
 
-    if (core == 1) printf("gcount %lx\n", gcount);
+    if (core == 1) printf("gcount %"PRIx64"\n", gcount);
 
     if (core == 1) printf("inctest1\n");
     atomiccounter = 0;
@@ -282,7 +282,7 @@ static int remote(void *dummy)
     BARRIER(barrier, NPROC);
 
     if (core == 1) {
-        printf("count %x\n", atomiccounter);
+        printf("count %"PRIx32"\n", atomiccounter);
         atomiccounter = 0;
         printf("inctest4\n");
     }
@@ -292,7 +292,7 @@ static int remote(void *dummy)
     BARRIER(barrier, NPROC);
 
     if (core == 1) {
-        printf("count %x\n", atomiccounter);
+        printf("count %"PRIx32"\n", atomiccounter);
         atomiccounter = 0;
         printf("bartest1\n");
     }
@@ -313,7 +313,7 @@ static int remote(void *dummy)
     BARRIER(barrier, NPROC);
 
     if (core == 1) printf("Done\n");
-    
+
     return 0;
 }
 
@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
         exit(-1);
     }
 
-     
+
     //printf("main running on %d\n", disp_get_core_id());
 
     int cores = strtol(argv[1], NULL, 10) + 1;
@@ -346,8 +346,8 @@ int main(int argc, char *argv[])
 
     trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
     for (int i = 1; i < cores; i++) {
-        err = domain_new_dispatcher(i + disp_get_core_id(), 
-                                    domain_spanned_callback, 
+        err = domain_new_dispatcher(i + disp_get_core_id(),
+                                    domain_spanned_callback,
                                     (void*)(uintptr_t)i);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "domain_new_dispatcher failed");
@@ -362,7 +362,7 @@ int main(int argc, char *argv[])
     trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 0);
 
     //sys_print("\nDone\n", 6);
-    printf("spantest: Done in %ld cycles\n", finish-before);
+    printf("spantest: Done in %"PRIu64" cycles\n", finish-before);
 
     //trace_dump();
 

@@ -44,7 +44,7 @@ void experiment(coreid_t idx)
     }
 
     for (int i = MAX_COUNT / 10; i < MAX_COUNT; i++) {
-        printf("page %d took %ld\n", i,
+        printf("page %d took %"PRIuCYCLES"\n", i,
                timestamps[i].time1 - timestamps[i].time0
                - bench_tscoverhead());
     }

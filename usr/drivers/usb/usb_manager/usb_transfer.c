@@ -170,7 +170,7 @@ static uint8_t usb_transfer_ctrl_start(struct usb_xfer *xfer)
     }
 
     if (xfer->num_frames > 2) {
-        USB_DEBUG("ERROR: too many frames %u", xfer->num_frames);
+        USB_DEBUG("ERROR: too many frames %"PRIu32"", xfer->num_frames);
         USB_DEBUG_TR_RETURN;
         return (1);
     }

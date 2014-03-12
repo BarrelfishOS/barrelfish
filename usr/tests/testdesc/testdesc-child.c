@@ -38,12 +38,12 @@ static void print_unixsock_fd(void *handle)
            ush->type, ush->protocol, ush->passive, ush->nonblocking);
 }
 
-static errval_t get_inherited_fds(void) 
+static errval_t get_inherited_fds(void)
 {
     errval_t err;
 
     /* Map the FD buffer into our address space.
-     * It stays there since the FD data structures will remain in there and be 
+     * It stays there since the FD data structures will remain in there and be
      * referenced from the FD table.
      */
     struct capref frame = {
@@ -115,15 +115,15 @@ static errval_t get_inherited_fds(void)
             s = "pseudo-terminal slave";
             break;
         }
-        printf("fd_store %d: num: %d, type: %d:%s handle: %p\n", 
+        printf("fd_store %d: num: %d, type: %d:%s handle: %p\n",
                i, fd->num, fd->type, s, fd->handle);
 
         switch (fd->type) {
         case FDTAB_TYPE_FILE:
-            print_file_fd((void*)(p + (genpaddr_t)fd->handle));
+            print_file_fd((void*)(p + (lpaddr_t)fd->handle));
             break;
         case FDTAB_TYPE_UNIX_SOCKET:
-            print_unixsock_fd((void*)(p + (genpaddr_t)fd->handle));
+            print_unixsock_fd((void*)(p + (lpaddr_t)fd->handle));
             break;
         default:
             printf("[no handle data]\n");
@@ -136,7 +136,7 @@ static errval_t get_inherited_fds(void)
 
 }
 
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     errval_t err;
 

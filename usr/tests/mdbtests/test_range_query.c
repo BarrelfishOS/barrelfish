@@ -102,7 +102,7 @@ get_overlap_queries(struct cte *ranges, size_t range_count, size_t count, genvad
 {
     size_t gencount[4] = { 0 };
 
-    DEBUG_ALL_THE_THINGS("get_overlap_queries() count = %zd, gencount = [ %zd %zd %zd %zd ]\n",
+    DEBUG_ALL_THE_THINGS("get_overlap_queries() count = %zu, gencount = [ %zu %zu %zu %zu ]\n",
             count, gencount[0], gencount[1], gencount[2], gencount[3]);
 
     while (min_count(gencount, 4) < count) {
@@ -176,7 +176,7 @@ get_overlap_queries(struct cte *ranges, size_t range_count, size_t count, genvad
                 }
             }
             else {
-                printf("strange query: %zd - %zd (%zd - %zd)\n", begin, end, r_begin, r_end);
+                printf("strange query: %"PRIxGENVADDR" - %"PRIxGENVADDR" (%"PRIxGENVADDR" - %"PRIxGENVADDR")\n", begin, end, r_begin, r_end);
                 USER_PANIC("huh?\n");
             }
         }
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
             struct cte *retcap;
             errval_t r = mdb_find_range(get_type_root(ObjType_RAM), q->begin, q->size, MDB_RANGE_FOUND_PARTIAL, &retcap, &result);
             if (err_is_fail(r)) {
-                printf("begin = 0x%"PRIxGENVADDR", size = %zd, type = %d\n", q->begin, q->size, qtype);
+                printf("begin = 0x%"PRIxGENVADDR", size = %zu, type = %d\n", q->begin, q->size, qtype);
                 USER_PANIC("mdb_find_range returned with error %d\n", r);
             }
             if (result != qtype) {

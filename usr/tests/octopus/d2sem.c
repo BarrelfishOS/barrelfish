@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
     errval_t err = oct_sem_new(&id, 1);
     ASSERT_ERR_OK(err);
-    debug_printf("Semaphore created with id=%d\n", id);
+    debug_printf("Semaphore created with id=%"PRIu32"\n", id);
 
     err = oct_sem_trywait(id);
     ASSERT_ERR_OK(err);

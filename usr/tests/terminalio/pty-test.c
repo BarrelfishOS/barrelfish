@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
     // read from master side
     char buffer[BUFFER_SIZE + 1];
-    ssize_t r = 0;
+    size_t r = 0;
     while (true) {
         debug_printf("Waiting for characters at pseudo-terminal master.\n");
         r = read(ptm, buffer, BUFFER_SIZE);

@@ -140,7 +140,7 @@ static void bfscope_trace_send(struct tcp_pcb *tpcb)
     if (trace_sent >= trace_length) {
         /* No more events */
         uint64_t timestamp_stop = rdtsc();
-        DEBUG("bfscope: done (%lu bytes) in %ld cycles\n",
+        DEBUG("bfscope: done (%zx bytes) in %"PRIuCYCLES" cycles\n",
                trace_sent, timestamp_stop - timestamp_start);
 
         bfscope_trace_dump_finished();
@@ -170,12 +170,12 @@ static void bfscope_trace_dump_network(void)
     assert(bfscope_client != NULL);
     assert(trace_length > 0);
 
-    printf("bfscope: sending %lu bytes to network...\n", trace_length);
+    printf("bfscope: sending %zu bytes to network...\n", trace_length);
 
     /* Send length field */
     char tmpbuf[10];
     int len;
-    len = snprintf(tmpbuf, 9, "%08ld", trace_length);
+    len = snprintf(tmpbuf, 9, "%zu", trace_length);
     tcp_write(bfscope_client, tmpbuf, 8, TCP_WRITE_FLAG_COPY);
 
     /* Start to send the trace */
@@ -213,7 +213,7 @@ static void bfscope_trace_dump(void)
     // Acquire the trace buffer
     trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN, &number_of_events);
 
-    DEBUG("bfscope: trace length %lu, nr. of events %d\n", trace_length, number_of_events);
+    DEBUG("bfscope: trace length %zu, nr. of events %d\n", trace_length, number_of_events);
 
     if (trace_length <= 0 || number_of_events <= 0) {
         DEBUG("bfscope: trace length too small, not dumping.\n");
@@ -314,7 +314,7 @@ static err_t bfscope_server_init(void)
     assert(pcb2 != NULL);
     tcp_accept(pcb2, accept_cb);
 
-    printf("bfscope: listening on port %d\n", BFSCOPE_TCP_PORT);
+    printf("bfscope: listening on port %"PRIu16"\n", BFSCOPE_TCP_PORT);
 
     return ERR_OK;
 }

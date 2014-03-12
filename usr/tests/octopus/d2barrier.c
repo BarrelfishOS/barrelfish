@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
     size_t wait_for = atoi(argv[1]);
     char* record = NULL;
-    debug_printf("Barrier test with: %lu processes:\n", wait_for);
+    debug_printf("Barrier test with: %zu processes:\n", wait_for);
 
     err = oct_barrier_enter("my_barrier", &record, wait_for);
     if(err_is_ok(err)) {

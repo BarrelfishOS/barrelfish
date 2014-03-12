@@ -50,11 +50,11 @@ int main(int argc, char**argv)
     for (int i = 0; i < argc; i++) {
         if(strncmp(argv[i],"affinitymin=",strlen("affinitymin="))==0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
-            printf("minbase = %lu\n", minbase);
+            printf("minbase = %"PRIu64"\n", minbase);
         }
         if(strncmp(argv[i],"affinitymax=",strlen("affinitymax=")-1)==0) {
             maxbase = atol(argv[i] + strlen("affinitymax="));
-            printf("maxbase = %lu\n", maxbase);
+            printf("maxbase = %"PRIu64"\n", maxbase);
         }
         if(strncmp(argv[i],"cardname=",strlen("cardname=")-1)==0) {
             card_name = argv[i] + strlen("cardname=");

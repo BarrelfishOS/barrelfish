@@ -214,7 +214,7 @@ errval_t connect(callback cb)
 
     /* Get the list of coreids in the system and add them to the coreset */
     char *result, *str_err;
-    int int_err;
+    int32_t int_err;
     err = skb_evaluate("get_core_id_list(L),write(L).",
                        &result, &str_err, &int_err);
     if (err_is_fail(err)) {

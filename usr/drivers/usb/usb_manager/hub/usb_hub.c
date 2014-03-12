@@ -560,7 +560,7 @@ usb_error_t usb_hub_explore(struct usb_device *hub_device)
                         "WARNING: illegal enable change on port %u\n", portno);
             } else {
                 if (port->restarts == USB_HUB_MAX_RESTARTS) {
-                    USB_DEBUG("WARNING: too many restarts on port %u.\n ", i);
+                    USB_DEBUG("WARNING: too many restarts on port %"PRIu32".\n ", i);
                 } else {
                     ps.wPortChange.connect = 1;
                     port->restarts++;
