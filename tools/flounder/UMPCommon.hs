@@ -1127,14 +1127,13 @@ cap_rx_handler_case p ifn typedefs mn (Message _ _ msgargs _) nfrags caps = [
         subcase :: CapFieldTransfer -> Int -> [C.Stmt]
         subcase (CapFieldTransfer _ cap) ncap = [
             C.Ex $ C.Assignment (argfield_expr RX mn cap) (C.Variable "cap"),
-            if is_last then
-                -- if this was the last cap, and we've received all the other fragments, we're done
-                C.If (C.Binary C.Equals rx_msgfrag_field (C.NumConstant $ toInteger nfrags))
-                    [
-                        C.StmtList $ finished_recv (ump_drv p) ifn typedefs mn msgargs,
-                        C.StmtList $ register_recv p ifn
-                    ] []
-                else C.StmtList [],
+            -- we need to do this for any cap, because we might not get
+            -- all of them
+            C.If (C.Binary C.Equals rx_msgfrag_field (C.NumConstant $ toInteger nfrags))
+                [
+                    C.StmtList $ finished_recv (ump_drv p) ifn typedefs mn msgargs,
+                    C.StmtList $ register_recv p ifn
+                ] [],
             C.Break]
             where
                 rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
