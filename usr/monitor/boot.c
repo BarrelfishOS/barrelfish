@@ -93,7 +93,7 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
     if (err_is_ok(err)) {
         num_monitors++;
     } else {
-        debug_printf("sending boot_core_reply: %s (%"PRIuERRV")\n",
+        DEBUG_CAPOPS("sending boot_core_reply: %s (%"PRIuERRV")\n",
                 err_getstring(err), err);
         errval_t err2 = b->tx_vtbl.boot_core_reply(b, NOP_CONT, err);
         if (err_is_fail(err2)) {

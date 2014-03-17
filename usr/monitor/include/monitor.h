@@ -26,6 +26,7 @@
 #include <monitor_invocations_arch.h>
 #include <queue.h>
 #include <connection.h>
+#include "monitor_debug.h"
 
 // Change #URPC_SIZE if changing this
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
@@ -90,6 +91,15 @@ static inline void caprep_to_capability(intermon_caprep_t *caprep,
 {
     union capability_caprep_u u = { .caprep = *caprep };
     *cap = u.cap;
+}
+
+static inline void debug_print_caprep(intermon_caprep_t *caprep)
+{
+    union capability_caprep_u u = { .caprep = *caprep };
+    char buf[256];
+    debug_print_cap(buf, 256, &u.cap);
+    buf[255] = 0;
+    DEBUG_CAPOPS("\t%s\n", buf);
 }
 
 #include <ram_alloc.h>

@@ -29,10 +29,11 @@ capsend_target(coreid_t dest, struct msg_queue_elem *queue_elem)
     if (err_is_fail(err)) {
         return err;
     }
+    DEBUG_CAPOPS("capsend_target: ->%d (%p)\n", dest, queue_elem);
     struct intermon_state *inter_st = (struct intermon_state*)dest_b->st;
     if (!inter_st->capops_ready) {
         // XXX: custom error value
-        return MON_ERR_NO_MONITOR_FOR_CORE;
+        return MON_ERR_CAPOPS_BUSY;
     }
 
     // enqueue message

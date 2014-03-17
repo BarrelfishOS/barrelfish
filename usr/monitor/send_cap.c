@@ -12,6 +12,7 @@
 #include <barrelfish/debug.h>
 #include <monitor_invocations_arch.h>
 #include <string.h>
+#include "monitor_debug.h"
 
 static void
 captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
@@ -24,6 +25,7 @@ captx_prepare_copy_result_cont(errval_t status, capaddr_t cnaddr,
         st->captx.slot = slot;
     }
     intermon_captx_t *tx = err_is_ok(status) ? &st->captx : NULL;
+    DEBUG_CAPOPS("%s: st->send_cont = %p\n", __FUNCTION__, st->send_cont);
     st->send_cont(status, st, tx, st->st);
 }
 
@@ -72,6 +74,7 @@ void
 captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
                   captx_recv_cont recv_cont, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     assert(state);
     assert(recv_cont);
     errval_t err;

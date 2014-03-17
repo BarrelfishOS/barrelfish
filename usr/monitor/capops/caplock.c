@@ -13,7 +13,7 @@
 #include <barrelfish/debug.h>
 #include <monitor_invocations.h>
 #include "capqueue.h"
-#include "magic.h"
+#include "monitor_debug.h"
 
 static struct capqueue_queue global_queue;
 
@@ -21,7 +21,7 @@ void
 caplock_wait(struct domcapref cap,
              struct event_queue_node *qn, struct event_closure cont)
 {
-    debug_printf("caplock_wait\n");
+    DEBUG_CAPOPS("caplock_wait\n");
     capqueue_wait(&global_queue, qn, cont);
 }
 

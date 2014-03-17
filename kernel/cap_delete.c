@@ -104,6 +104,10 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
             caps_mark_revoke_generic(slot);
         }
 
+        if (cte->delete_node.next) {
+            debug(SUBSYS_CAPS, "cte is part of delete list, clearing\n");
+            cte->delete_node.next = NULL;
+        }
         clear_list_append(cte);
 
         return SYS_ERR_OK;

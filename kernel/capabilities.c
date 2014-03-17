@@ -758,7 +758,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         src_cap.u.id.core_local_id = id_cap_counter++;
 
         // Insert the capability
-        return set_cap(&dest_caps->cap, &src_cap);
+        err = set_cap(&dest_caps->cap, &src_cap);
+        break;
 
     case ObjType_IO:
         src_cap.u.io.start = 0;

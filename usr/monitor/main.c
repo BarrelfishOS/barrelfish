@@ -157,7 +157,7 @@ static errval_t boot_app_core(int argc, char *argv[])
 #endif
 
     /* with memory alloc running, take part in cap ops */
-    debug_printf("sending capops_ready to %"PRIuCOREID"\n", parent_core_id);
+    DEBUG_CAPOPS("sending capops_ready to %"PRIuCOREID"\n", parent_core_id);
     err = intermon_binding->tx_vtbl.capops_ready(intermon_binding, NOP_CONT);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SEND_REMOTE_MSG);

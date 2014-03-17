@@ -111,7 +111,7 @@ boot_core_reply_cont(struct monitor_binding *domain_binding,
                      errval_t error_code)
 {
     errval_t err;
-    debug_printf("boot_core_reply_cont: %s (%"PRIuERRV")\n",
+    DEBUG_CAPOPS("boot_core_reply_cont: %s (%"PRIuERRV")\n",
             err_getstring(error_code), error_code);
     err = domain_binding->tx_vtbl.
             boot_core_reply(domain_binding, NOP_CONT, error_code);
@@ -172,6 +172,7 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
                             uintptr_t your_mon_id,
                             struct intermon_binding *b)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct cap_receive_request_state *me =
@@ -200,6 +201,7 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
                          uint32_t capid, uintptr_t your_mon_id,
                          struct intermon_binding *b)
 {
+    DEBUG_CAPOPS("%s ->%"PRIuPTR", %s\n", __FUNCTION__, domain_id, err_getstring(msgerr));
     errval_t err, err2;
     struct capref *capp = caprefdup(cap);
 
@@ -207,8 +209,10 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
         cap_receive_request(domain_binding, MKCONT(free, capp), domain_id, msgerr, cap, capid);
 
     if (err_is_fail(err)) {
+        DEBUG_CAPOPS("%s: send failed: %s\n", __FUNCTION__, err_getstring(err));
         free(capp);
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            DEBUG_CAPOPS("%s: enqueueing message b/c flounder busy\n", __FUNCTION__);
             cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap,
                                         capid, your_mon_id, b);
         } else {
@@ -245,6 +249,7 @@ static void
 cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
                               struct capref cap, void *st_)
 {
+    DEBUG_CAPOPS("%s: %s\n", __FUNCTION__, err_getstring(err));
     struct cap_send_request_st *st = (struct cap_send_request_st*)st_;
 
     uintptr_t my_mon_id = st->my_mon_id;
@@ -259,9 +264,11 @@ cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
     // Try to send cap to the user domain, but only if the queue is empty
     struct monitor_state *mst = domain_binding->st;
     if (msg_queue_is_empty(&mst->queue)) {
+        DEBUG_CAPOPS("deliver cap to user domain 0x%"PRIxPTR"\n", domain_id);
         cap_receive_request_cont(domain_binding, domain_id, err, cap, st->capid,
                                  your_mon_id, st->b);
     } else {
+        DEBUG_CAPOPS("enqueue cap for delivery to user domain\n");
         // don't allow sends to bypass the queue
         cap_receive_request_enqueue(domain_binding, domain_id, err, cap, st->capid,
                                     your_mon_id, st->b);
@@ -272,6 +279,7 @@ static void
 cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
                  uint32_t capid, intermon_captx_t captx)
 {
+    DEBUG_CAPOPS("intermon: %s\n", __FUNCTION__);
     errval_t err;
 
     struct cap_send_request_st *st;
@@ -669,10 +677,10 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
 #if CONFIG_TRACE
     err = trace_intermon_init(b);
-	if (err_is_fail(err)) {
-		USER_PANIC_ERR(err, "trace_intermon_init failed");
-		return err;
-	}
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trace_intermon_init failed");
+        return err;
+    }
 
     err = bfscope_intermon_init(b);
     if (err_is_fail(err)) {
@@ -695,7 +703,7 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
     err = intermon_binding_set(st);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "intermon_binding_set failed");       
+        USER_PANIC_ERR(err, "intermon_binding_set failed");
         return err;
     }
 

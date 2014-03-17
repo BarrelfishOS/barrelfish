@@ -479,6 +479,9 @@ errors monitor MON_ERR_ {
     failure RSRC_MEMBER_LIMIT	"Reached member limit of resource domain",
     failure RSRC_ILL_MANIFEST	"Illegal manifest",
     failure RSRC_NOT_FOUND	"Resource domain not found on this core",
+
+    // capops
+    failure CAPOPS_BUSY         "Other end not ready for operation",
 };
 
 // errors related to the routing library

@@ -685,6 +685,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
 
     si->cpu_type = type;
 
+    debug_printf("init cspace\n");
     /* Initialize cspace */
     err = spawn_setup_cspace(si);
     if (err_is_fail(err)) {
@@ -692,11 +693,13 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     }
 
     /* Initialize vspace */
+    debug_printf("init vspace\n");
     err = spawn_setup_vspace(si);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
+    debug_printf("load binary\n");
     genvaddr_t entry;
     void* arch_info;
     /* Load the image */
@@ -705,26 +708,28 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_LOAD);
     }
 
+    debug_printf("setup disp frame\n");
     /* Setup dispatcher frame */
     err = spawn_setup_dispatcher(si, coreid, name, entry, arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_DISPATCHER);
     }
 
-    debug_printf("setup inherited\n");
+    debug_printf("setup inheritcn\n");
     /* Setup inherited caps */
     err = spawn_setup_inherited_caps(si, inheritcn_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_INHERITED_CAPS);
     }
 
-    debug_printf("setup args\n");
+    debug_printf("setup argcn\n");
     /* Setup argument caps */
     err = spawn_setup_argcn(si, argcn_cap);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ARGCN);
     }
  
+    debug_printf("setup cmdline args & env\n");
     /* Setup cmdline args */
     err = spawn_setup_env(si, argv, envp);
     if (err_is_fail(err)) {

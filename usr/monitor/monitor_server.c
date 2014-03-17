@@ -633,6 +633,7 @@ static void
 cap_send_tx_cont(struct intermon_binding *b,
                  struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("%s: %p %p\n", __FUNCTION__, b, e);
     errval_t send_err;
     struct send_cap_st *st = (struct send_cap_st*)e;
     struct remote_conn_state *conn = remote_conn_lookup(st->my_mon_id);
@@ -648,6 +649,7 @@ static void
 cap_send_request_tx_cont(errval_t err, struct captx_prepare_state *captx_st,
                          intermon_captx_t *captx, void *st_)
 {
+    DEBUG_CAPOPS("%s: %s\n", __FUNCTION__, err_getstring(err));
     errval_t queue_err;
     struct send_cap_st *send_st = (struct send_cap_st*)st_;
 
@@ -660,6 +662,7 @@ cap_send_request_tx_cont(errval_t err, struct captx_prepare_state *captx_st,
 
     send_st->captx = *captx;
 
+    DEBUG_CAPOPS("%s: enqueueing send\n", __FUNCTION__);
     send_st->qe.cont = cap_send_tx_cont;
     struct remote_conn_state *conn = remote_conn_lookup(send_st->my_mon_id);
     struct intermon_binding *binding = conn->mon_binding;
@@ -677,6 +680,7 @@ static void
 cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
                  struct capref cap, uint32_t capid)
 {
+    DEBUG_CAPOPS("cap_send_request\n");
     errval_t err;
     struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
 
@@ -828,7 +832,7 @@ static void num_cores_request(struct monitor_binding *b)
      * and start from zero, which is a false assumption! Go ask the SKB...
      */
 
-    debug_printf("Application invoked deprecated num_cores_request() API."
+    DEBUG_CAPOPS("Application invoked deprecated num_cores_request() API."
                  " Please fix it!\n");
 
     /* Send reply */

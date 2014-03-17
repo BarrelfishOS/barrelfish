@@ -37,7 +37,7 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
     printf("failed on cte %p with failure %s (%d)\n", cte,
             mdb_invariants[failure], failure);
     // XXX: what is "proper" way to always terminate?
-    mdb_dump_all_the_things();
+    //mdb_dump_all_the_things();
     assert(false);
 }
 #define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
@@ -150,6 +150,9 @@ mdb_check_subtree_invariants(struct cte *cte)
 {
     if (!cte) {
         return MDB_INVARIANT_OK;
+    }
+    if (C(cte)->type == 0) {
+        mdb_dump_all_the_things();
     }
     assert(C(cte)->type != 0);
 

@@ -34,6 +34,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
                       struct capref inheritcn_cap, struct capref argcn_cap,
                       domainid_t *domainid)
 {
+    debug_printf("spawn: %s\n", path);
     errval_t err, msgerr;
 
     /* read file into memory */
@@ -296,6 +297,7 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
                                     struct capref inheritcn_cap,
                                     struct capref argcn_cap)
 {
+    debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err;
     domainid_t domainid = 0;
 

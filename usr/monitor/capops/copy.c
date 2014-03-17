@@ -75,6 +75,7 @@ static void
 recv_copy_result_send__rdy(struct intermon_binding *b,
                            struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("recv_copy_result_send__rdy: %p, %p\n", b, e);
     errval_t err;
     struct recv_copy_result_msg_st *msg_st = (struct recv_copy_result_msg_st*)e;
     err = intermon_capops_recv_copy_result__tx(b, NOP_CONT, msg_st->status,
@@ -92,6 +93,7 @@ recv_copy_result__enq(coreid_t dest, errval_t status, capaddr_t capaddr,
                       uint8_t vbits, cslot_t slot, genvaddr_t st)
 {
     errval_t err;
+    DEBUG_CAPOPS("recv_copy_result__enq: ->%d, %s\n", dest, err_getstring(status));
 
     // create send state
     struct recv_copy_result_msg_st *msg_st = calloc(1, sizeof(struct recv_copy_result_msg_st));
@@ -136,6 +138,7 @@ static void
 owner_copy_send__rdy(struct intermon_binding *b,
                      struct intermon_msg_queue_elem *e)
 {
+    DEBUG_CAPOPS("owner_copy_send__rdy: ->%p, %p\n", b, e);
     struct owner_copy_msg_st *msg_st = (struct owner_copy_msg_st*)e;
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)(msg_st->st);
     assert(rpc_st);
@@ -161,6 +164,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
                 coreid_t dest, bool give_away,
                 copy_result_handler_t result_handler, genvaddr_t st)
 {
+    DEBUG_CAPOPS("owner_copy__enq: %d->%d, give_away=%d\n", from, dest, give_away);
     errval_t err = SYS_ERR_OK, err2;
 
     // create new rpc state to associate return message
@@ -308,6 +312,10 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
     err = monitor_cap_identify(capref, &cap);
     GOTO_IF_ERR(err, cont);
 
+    char buf[256];
+    debug_print_cap(buf,256,&cap);
+    buf[255]=0;
+    debug_printf("cap: %s\n", buf);
     // cap is foreign so it must be a type that needs "locality" on a particular core
     assert(distcap_needs_locality(cap.type));
 
@@ -379,12 +387,15 @@ static void
 recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
                       cslot_t slot, struct cap_copy_rpc_st *rpc_st)
 {
+    DEBUG_CAPOPS("recv_copy_result__src: %s\n", err_getstring(status));
     // origin of copy
     errval_t err;
 
     if (err_is_ok(status)) {
         if (rpc_st->delete_after) {
+            DEBUG_CAPOPS("deleting our copy\n");
             if (rpc_st->is_last) {
+                DEBUG_CAPOPS("our copy is last\n");
                 // a give_away was performed, need to unlock and set new owner
                 err = monitor_set_cap_owner(cap_root,
                                             get_cap_addr(rpc_st->cap),
@@ -401,6 +412,7 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
         }
     }
     // call result handler
+    DEBUG_CAPOPS("result_handler: %p\n", rpc_st->result_handler);
     if (rpc_st->result_handler) {
         rpc_st->result_handler(status, capaddr, vbits, slot, (void*)rpc_st->st);
     }
@@ -417,6 +429,7 @@ recv_copy_result__rx(struct intermon_binding *b, errval_t status,
                      genvaddr_t st)
 {
     assert(st);
+    DEBUG_CAPOPS("recv_copy_result__rx: %p, %s\n", b, err_getstring(status));
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)st;
     rpc_st->recv_handler(status, capaddr, vbits, slot, rpc_st);
 }
@@ -432,6 +445,8 @@ void
 recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
               uint8_t owner_relations, genvaddr_t st)
 {
+    DEBUG_CAPOPS("recv_copy__rx: %p, %"PRIu8"\n", b, owner_relations);
+    debug_print_caprep(&caprep);
     errval_t err, err2;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
@@ -568,6 +583,7 @@ void
 capops_copy(struct capref capref, coreid_t dest, bool give_away,
             copy_result_handler_t result_handler, void *st)
 {
+    DEBUG_CAPOPS("capops_copy: dest=%d, give_away=%d\n", dest, give_away);
     errval_t err, err2;
     struct capability cap;
     distcap_state_t state;
@@ -602,10 +618,12 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
                        get_cnode_valid_bits(res), res.slot, st);
     }
     else if (distcap_state_is_foreign(state)) {
+        DEBUG_CAPOPS("capops_copy: sending copy from non-owner, forward request to owner\n");
         // sending copy from non-owner, send copy request to owner
         request_copy__enq(capref, dest, give_away, result_handler, st);
     }
     else {
+        DEBUG_CAPOPS("capops_copy: sending copy from owner\n");
         // sending copy from owner
         err = monitor_cap_identify(capref, &cap);
         GOTO_IF_ERR(err, err_cont);

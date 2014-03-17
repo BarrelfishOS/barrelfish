@@ -124,6 +124,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid)
 {
+    debug_printf("%s: %s\n", __FUNCTION__, path);
     struct spawn_rpc_client *cl;
     errval_t err, msgerr;
 
@@ -231,6 +232,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                     envstr, envstrlen,
                                     &msgerr, &domain_id);
     } else {
+        debug_printf("%s: spawn_domain_with_caps\n", __FUNCTION__);
         err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
                                               envstr, envstrlen, inheritcn_cap,
                                               argcn_cap, &msgerr, &domain_id);
