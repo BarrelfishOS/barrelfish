@@ -15,5 +15,6 @@
 
 errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b);
 errval_t mon_ram_alloc_serve(void);
+errval_t mon_ram_free(struct capability *cap_raw, genpaddr_t base, uint8_t bits);
 
 #endif

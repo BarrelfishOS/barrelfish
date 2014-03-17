@@ -15,8 +15,9 @@
 #include "caplock.h"
 #include "capqueue.h"
 #include "dom_invocations.h"
-#include "internal.h"
 #include "delete_int.h"
+#include "internal.h"
+#include "ram_alloc.h"
 #include <if/mem_rpcclient_defs.h>
 
 struct delete_remote_mc_st {
@@ -56,6 +57,7 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
 void
 send_new_ram_cap(struct capref cap)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err, result;
 
     struct capability cap_data;
@@ -68,17 +70,30 @@ send_new_ram_cap(struct capref cap)
     thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
 
     struct mem_rpc_client *b = get_mem_client();
-    // XXX: This should not be an RPC! It could stall the monitor, but
-    // we trust mem_serv for the moment.
-    err = b->vtbl.free_monitor(b, cap, ram.base, ram.bits, &result);
-    assert(err_is_ok(err));
-    assert(err_is_ok(result));
+    if (!b) {
+        DEBUG_CAPOPS("%s: forwarding to monitor.0\n", __FUNCTION__);
+        // we're not on core 0, so forward free_monitor msg to monitor.0
+        err = mon_ram_free(&cap_data, ram.base, ram.bits);
+        assert(err_is_ok(err));
+    } else {
+        DEBUG_CAPOPS("%s: we are monitor.0\n", __FUNCTION__);
+        // XXX: This should not be an RPC! It could stall the monitor, but
+        // we trust mem_serv for the moment.
+        err = b->vtbl.free_monitor(b, cap, ram.base, ram.bits, &result);
+        assert(err_is_ok(err));
+        assert(err_is_ok(result));
+    }
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
     // XXX: this seems to happen during the lmp transfer anyway -SG
-    //err = cap_delete(cap);
-    //assert(err_is_ok(err));
+    if (!b) {
+        DEBUG_CAPOPS("%s: not monitor.0, deleting local copy\n", __FUNCTION__);
+        // should we do this if not on core 0? -SG
+        err = cap_delete(cap);
+        assert(err_is_ok(err));
+    }
+    DEBUG_CAPOPS("%s: finished\n", __FUNCTION__);
 }
 
 static void delete_wait__fin(void *st_)
@@ -96,6 +111,7 @@ static void delete_last(struct delete_st* del_st)
                               del_st->capref.bits, del_st->newcap);
     GOTO_IF_ERR(err, report_error);
     if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
+        DEBUG_CAPOPS("%s: sending reclaimed RAM to memserv.\n", __FUNCTION__);
         send_new_ram_cap(del_st->newcap);
         err = SYS_ERR_OK;
     }

@@ -14,7 +14,6 @@
 #include "capops.h"
 #include "caplock.h"
 #include "capsend.h"
-#include "magic.h"
 #include "internal.h"
 
 struct cap_copy_rpc_st;
@@ -596,6 +595,10 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
         goto err_cont;
     }
 
+    // get internal cap representation
+    err = monitor_cap_identify(capref, &cap);
+    GOTO_IF_ERR(err, err_cont);
+
     if (dest == my_core_id) {
         // tried to send to self, just create a local copy
         struct capref res;
@@ -616,18 +619,15 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
 
         result_handler(err, get_cnode_addr(res),
                        get_cnode_valid_bits(res), res.slot, st);
-    }
-    else if (distcap_state_is_foreign(state)) {
+    } else if (distcap_state_is_foreign(state) && distcap_needs_locality(cap.type)) {
         DEBUG_CAPOPS("capops_copy: sending copy from non-owner, forward request to owner\n");
+
         // sending copy from non-owner, send copy request to owner
         request_copy__enq(capref, dest, give_away, result_handler, st);
-    }
-    else {
-        DEBUG_CAPOPS("capops_copy: sending copy from owner\n");
-        // sending copy from owner
-        err = monitor_cap_identify(capref, &cap);
-        GOTO_IF_ERR(err, err_cont);
+    } else {
+        DEBUG_CAPOPS("capops_copy: sending copy from here/owner\n");
 
+        // sending copy from here/owner
         owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
                         result_handler, (genvaddr_t)st);
     }

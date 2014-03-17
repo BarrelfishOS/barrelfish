@@ -19,4 +19,6 @@ interface monitor_mem "Inter-monitor memory allocation" {
 
     rpc alloc(in uint8 size_bits, in genpaddr minbase, in genpaddr maxlimit,
               in coreid from, out errval err, out caprep caprep);
+
+    rpc free(in caprep caprep, in genpaddr base, in uint8 size_bits, out errval status);
 };

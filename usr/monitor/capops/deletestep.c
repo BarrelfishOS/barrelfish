@@ -1,5 +1,6 @@
 #include "internal.h"
 #include "delete_int.h"
+#include "monitor_debug.h"
 #include <monitor_invocations.h>
 #include <caplock.h>
 #include <barrelfish/event_queue.h>
@@ -46,6 +47,7 @@ delete_steps_init(struct waitset *ws)
 void
 delete_steps_trigger(void)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     if (!triggered) {
         triggered = true;
         if (!suspended && !enqueued) {
@@ -58,12 +60,14 @@ delete_steps_trigger(void)
 void
 delete_steps_pause(void)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     suspended++;
 }
 
 void
 delete_steps_resume(void)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     assert(suspended > 0);
     suspended--;
     if (!suspended) {
@@ -75,6 +79,7 @@ delete_steps_resume(void)
 static void
 delete_steps_delete_result(errval_t status, void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     assert(err_is_ok(status));
     delete_steps_resume();
 }
@@ -82,6 +87,7 @@ delete_steps_delete_result(errval_t status, void *st)
 static void
 delete_steps_cont(void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     assert(triggered);
     assert(enqueued);
@@ -102,6 +108,7 @@ delete_steps_cont(void *st)
         capops_delete_int(&delete_step_st);
     }
     else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        DEBUG_CAPOPS("%s: cap not found, starting clear step\n", __FUNCTION__);
         delete_steps_clear(st);
     }
     else if (err_is_fail(err)) {
@@ -109,6 +116,7 @@ delete_steps_cont(void *st)
     }
     else {
         if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
+            DEBUG_CAPOPS("%s: sending reclaimed RAM to memserv.\n", __FUNCTION__);
             send_new_ram_cap(delcap);
         }
         if (!enqueued) {
@@ -121,6 +129,7 @@ delete_steps_cont(void *st)
 static void
 delete_steps_clear(void *st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     while (true) {
         err = monitor_clear_step(delcap);
@@ -131,9 +140,11 @@ delete_steps_clear(void *st)
             USER_PANIC_ERR(err, "while performing clear steps");
         }
         else if (err_no(err) == SYS_ERR_RAM_CAP_CREATED) {
+            DEBUG_CAPOPS("%s: sending reclaimed RAM to memserv.\n", __FUNCTION__);
             send_new_ram_cap(delcap);
         }
     }
+    DEBUG_CAPOPS("%s: finished, calling delete_queue_notify\n", __FUNCTION__);
     triggered = false;
     delete_queue_notify();
 }
@@ -141,6 +152,7 @@ delete_steps_clear(void *st)
 void
 delete_queue_wait(struct delete_queue_node *qn, struct event_closure cont)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     // enqueue the node in the list of pending events
     if (!pending_head) {
         assert(!pending_tail);
@@ -163,6 +175,7 @@ delete_queue_wait(struct delete_queue_node *qn, struct event_closure cont)
 static void
 delete_queue_notify(void)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     // this should only be triggered when the "stepping" mode of the
     // delete/revoke state machine completes, so a notify without any
     // operations pending would be very strange and is probably a bug
@@ -175,6 +188,7 @@ delete_queue_notify(void)
 
     // put them all in the event queue so they are executed
     for ( ; curr; curr = curr->next) {
+        DEBUG_CAPOPS("%s: adding %p to ev q.\n", __FUNCTION__, curr);
         event_queue_add(&delete_queue, &curr->qn, curr->cont);
     }
 }

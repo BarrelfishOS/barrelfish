@@ -34,18 +34,18 @@
 #define MASK(bits)      ((1UL << bits) - 1)
 
 #ifdef TRACE_PMEM_CAPS
-bool       trace_pmem_enabled = TRACE_PMEM_ENABLED_INITIAL;
-genpaddr_t TRACE_PMEM_BEGIN   = TRACE_PMEM_BEGIN_INITIAL;
-gensize_t  TRACE_PMEM_SIZE    = TRACE_PMEM_SIZE_INITIAL;
+uint64_t   trace_types_enabled = TRACE_TYPES_ENABLED_INITIAL;
+genpaddr_t TRACE_PMEM_BEGIN    = TRACE_PMEM_BEGIN_INITIAL;
+gensize_t  TRACE_PMEM_SIZE     = TRACE_PMEM_SIZE_INITIAL;
 
-void caps_trace_ctrl(bool enable, genpaddr_t start, gensize_t size)
+void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 {
-    if (enable) {
-        trace_pmem_enabled = enable;
+    if (types) {
+        trace_types_enabled = types;
         TRACE_PMEM_BEGIN = start;
         TRACE_PMEM_SIZE = size;
     } else {
-        trace_pmem_enabled = false;
+        trace_types_enabled = false;
     }
 }
 #endif

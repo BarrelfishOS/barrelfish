@@ -16,6 +16,7 @@
 #include "capops.h"
 #include <if/monitor_mem_defs.h>
 #include <if/monitor_mem_rpcclient_defs.h>
+#include <if/mem_rpcclient_defs.h>
 
 static uint8_t mem_core_id;
 static struct monitor_mem_rpc_client monitor_mem_client;
@@ -99,6 +100,54 @@ out:
     }
 }
 
+static void mem_free_handler(struct monitor_mem_binding *b,
+                             monitor_mem_caprep_t caprep,
+                             genpaddr_t base, uint8_t bits)
+{
+    errval_t err, result;
+    // this should only run on the bsp monitor
+    assert(bsp_monitor);
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+
+    // convert caprep into cap
+    intermon_caprep_t caprep2;
+    // XXX: work around stupid flounder behaviour: these types are identical!
+    STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
+    memcpy(&caprep2, &caprep, sizeof(caprep));
+    struct capability cap_raw;
+    caprep_to_capability(&caprep2, &cap_raw);
+
+    DEBUG_CAPOPS("%s: freeing:\n", __FUNCTION__);
+    debug_print_caprep(&caprep2);
+
+    assert(ObjType_RAM == cap_raw.type);
+
+    struct capref cap;
+    err = slot_alloc(&cap);
+    if (err_is_fail(err)) {
+        result = err_push(err, LIB_ERR_SLOT_ALLOC);
+        goto out;
+    }
+
+    err = monitor_cap_create(cap, &cap_raw, my_core_id);
+    if (err_is_fail(err)) {
+        result = err_push(err, MON_ERR_CAP_CREATE);
+        goto out;
+    }
+    DEBUG_CAPOPS("%s: created local copy, sending to memserv\n", __FUNCTION__);
+
+    struct mem_rpc_client *mb = get_mem_client();
+    assert(mb);
+    err = mb->vtbl.free_monitor(mb, cap, base, bits, &result);
+    if (err_is_fail(err)) {
+        result = err;
+    }
+out:
+    DEBUG_CAPOPS("%s: sending reply: %s\n", __FUNCTION__, err_getstring(result));
+    err = b->tx_vtbl.free_response(b, NOP_CONT, result);
+    assert(err_is_ok(err));
+}
+
 static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
                               uint64_t minbase, uint64_t maxlimit)
 {
@@ -134,6 +183,7 @@ static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
 
 static struct monitor_mem_rx_vtbl the_monitor_mem_vtable = {
     .alloc_call = mem_alloc_handler,
+    .free_call = mem_free_handler,
 };
 
 static errval_t monitor_mem_connected(void *st, struct monitor_mem_binding *b)
@@ -215,3 +265,22 @@ errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b)
 
     return SYS_ERR_OK;
 }
+
+errval_t mon_ram_free(struct capability *cap_raw, genpaddr_t base, uint8_t bits)
+{
+    errval_t err, status;
+    // get caprep
+    intermon_caprep_t caprep;
+    capability_to_caprep(cap_raw, &caprep);
+    // XXX: work around stupid flounder behaviour: these types are identical!
+    monitor_mem_caprep_t caprep2;
+    STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
+    memcpy(&caprep, &caprep2, sizeof(caprep));
+
+    err = monitor_mem_client.vtbl.free(&monitor_mem_client, caprep2, base, bits, &status);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return status;
+}
+

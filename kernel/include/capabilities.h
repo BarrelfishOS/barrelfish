@@ -21,12 +21,6 @@
 #include <cap_predicates.h>
 #include <paging_generic.h>
 
-#ifdef TRACE_PMEM_CAPS
-#define TRACE_PMEM_ENABLED_INITIAL false
-#define TRACE_PMEM_BEGIN_INITIAL   0x0
-#define TRACE_PMEM_SIZE_INITIAL    (~(uint32_t)0)
-#endif
-
 struct cte;
 
 struct delete_list {
@@ -120,14 +114,40 @@ errval_t caps_revoke(struct cte *cte);
  */
 
 #ifdef TRACE_PMEM_CAPS
-extern bool trace_pmem_enabled;
+STATIC_ASSERT(ObjType_Num == 25, "knowledge of all cap types");
+#define ALL_PMEM_TYPES \
+    ((1ul<<ObjType_RAM) | \
+     (1ul<<ObjType_Frame) | \
+     (1ul<<ObjType_DevFrame) | \
+     (1ul<<ObjType_CNode) | \
+     (1ul<<ObjType_FCNode) | \
+     (1ul<<ObjType_VNode_x86_64_pml4) | \
+     (1ul<<ObjType_VNode_x86_64_pdpt) | \
+     (1ul<<ObjType_VNode_x86_64_pdir) | \
+     (1ul<<ObjType_VNode_x86_64_ptable) | \
+     (1ul<<ObjType_VNode_x86_32_pdpt) | \
+     (1ul<<ObjType_VNode_x86_32_pdir) | \
+     (1ul<<ObjType_VNode_x86_32_ptable) | \
+     (1ul<<ObjType_VNode_ARM_l1) | \
+     (1ul<<ObjType_VNode_ARM_l2) | \
+     (1ul<<ObjType_PhysAddr))
+
+// #define TRACE_TYPES_ENABLED_INITIAL 0x0
+#define TRACE_TYPES_ENABLED_INITIAL (~(uint64_t)0)
+#define TRACE_PMEM_BEGIN_INITIAL    0x0
+#define TRACE_PMEM_SIZE_INITIAL     (~(uint32_t)0)
+
+extern uint64_t trace_types_enabled;
 extern genpaddr_t TRACE_PMEM_BEGIN;
 extern gensize_t TRACE_PMEM_SIZE;
-void caps_trace_ctrl(bool enable, genpaddr_t start, gensize_t size);
+void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size);
 static inline bool caps_should_trace(struct capability *cap)
 {
-    if (!trace_pmem_enabled) {
+    if (!(trace_types_enabled & (1ul<<cap->type))) {
         return false;
+    }
+    if (!(ALL_PMEM_TYPES & (1ul<<cap->type))) {
+        return true;
     }
     genpaddr_t begin = get_address(cap);
     gensize_t size = get_size(cap);
