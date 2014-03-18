@@ -95,6 +95,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
                                   NULL_CAP, SPAWN_NEW_DOMAIN, retdomainid);
 
+    debug_printf("%s: spawn_program_with_caps: %s\n", __FUNCTION__, err_getstring(err));
     if (prog != argv[0]) {
         free(prog);
     }
@@ -328,6 +329,7 @@ static int oncore(int argc, char *argv[])
 
     // TODO: do something with domain_id
 
+    debug_printf("oncore done: new domain %"PRIuDOMAINID"\n", domain_id);
     return ret;
 }
 

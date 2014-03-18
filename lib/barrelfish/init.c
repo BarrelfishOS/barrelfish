@@ -44,14 +44,17 @@ void libc_exit(int);
 
 void libc_exit(int status)
 {
+    debug_printf("%s: %d\n", __FUNCTION__, status);
     errval_t err;
 
     if (!init_domain) {
+        debug_printf("%s: calling terminal_exit()\n", __FUNCTION__);
         terminal_exit();
     }
 
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
+        debug_printf("domain_id 0, doing nothing\n");
 #if 0 // XXX: revocation goes through the mon, but monitor ep is revoked in the process
         errval_t err = cap_revoke(cap_dispatcher);
         if (err_is_fail(err)) {
@@ -66,6 +69,7 @@ void libc_exit(int status)
 
         // XXX: Leak all other domain allocations
     } else {
+        debug_printf("%s: calling spawn_exit()\n", __FUNCTION__);
         err = spawn_exit(status);
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "spawn_exit");

@@ -411,6 +411,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
 
 static void delete_reply_status(errval_t status, void *st)
 {
+    debug_printf("sending cap_delete reply msg: %s\n", err_getstring(status));
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_delete_response(b, NOP_CONT, status);
     assert(err_is_ok(err));

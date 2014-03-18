@@ -11,11 +11,11 @@
 #include "monitor.h"
 #include "capops.h"
 #include "capsend.h"
-#include "magic.h"
 #include "caplock.h"
 #include "internal.h"
 #include "delete_int.h"
 #include "dom_invocations.h"
+#include "monitor_debug.h"
 
 struct revoke_slave_st *slaves_head = 0, *slaves_tail = 0;
 
@@ -204,7 +204,7 @@ revoke_mark__rx(struct intermon_binding *b,
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // found no copies or descendants of capability on this core,
         // do nothing. -SG
-        printf("no copies on core %d\n", disp_get_core_id());
+        DEBUG_CAPOPS("no copies on core %d\n", disp_get_core_id());
     } else if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "marking revoke");
     }

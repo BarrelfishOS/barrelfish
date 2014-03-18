@@ -125,7 +125,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  domainid_t *ret_domainid)
 {
     debug_printf("%s: %s\n", __FUNCTION__, path);
-    struct spawn_rpc_client *cl;
     errval_t err, msgerr;
 
     // default to copying our environment
@@ -133,49 +132,12 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         envp = environ;
     }
 
-    // do we have a spawn client connection for this core?
-    assert(coreid < MAX_CPUS);
-    cl = get_spawn_rpc_client(coreid);
-    if (cl == NULL) {
-        char namebuf[16];
-        snprintf(namebuf, sizeof(namebuf), "spawn.%u", coreid);
-        namebuf[sizeof(namebuf) - 1] = '\0';
-
-        iref_t iref;
-        err = nameservice_blocking_lookup(namebuf, &iref);
-        if (err_is_fail(err)) {
-            //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
-            return err;
-        }
-
-        // initiate bind
-        struct spawn_bind_retst bindst = { .present = false };
-        err = spawn_bind(iref, spawn_bind_cont, &bindst, get_default_waitset(),
-                         IDC_BIND_FLAGS_DEFAULT);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn_bind failed");
-        }
-
-        // XXX: block for bind completion
-        while (!bindst.present) {
-            messages_wait_and_handle_next();
-        }
-
-        if(err_is_fail(bindst.err)) {
-            USER_PANIC_ERR(bindst.err, "asynchronous error during spawn_bind");
-        }
-        assert(bindst.b != NULL);
-
-        cl = malloc(sizeof(struct spawn_rpc_client));
-        assert(cl != NULL);
-
-        err = spawn_rpc_client_init(cl, bindst.b);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn_rpc_client_init failed");
-        }
-
-        set_spawn_rpc_client(coreid, cl);
+    err = bind_client(coreid);
+    if (err_is_fail(err)) {
+        return err;
     }
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
+    assert(cl != NULL);
 
     // construct argument "string"
     // \0-separated strings in contiguous character buffer
@@ -237,6 +199,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                               envstr, envstrlen, inheritcn_cap,
                                               argcn_cap, &msgerr, &domain_id);
     }
+    debug_printf("%s: after call to spawn_domain(_with_caps)\n", __FUNCTION__);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");
     } else if (err_is_fail(msgerr)) {

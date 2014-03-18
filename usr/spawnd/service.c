@@ -259,6 +259,7 @@ static void retry_spawn_domain_response(void *a)
 static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
                             domainid_t domainid)
 {
+    debug_printf("%s: %s, %"PRIuDOMAINID"\n", __FUNCTION__, err_getstring(rerr), domainid);
     errval_t err;
  
     err = b->tx_vtbl.spawn_domain_response(b, NOP_CONT, rerr, domainid);
@@ -268,7 +269,7 @@ static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
 
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             // this will be freed in the retry handler
-            struct pending_spawn_response *sr = 
+            struct pending_spawn_response *sr =
                 malloc(sizeof(struct pending_spawn_response));
             if (sr == NULL) {
                 return LIB_ERR_MALLOC_FAIL;
@@ -290,16 +291,74 @@ static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
     return SYS_ERR_OK;
 }
 
+static void retry_spawn_domain_w_caps_response(void *a)
+{
+    errval_t err;
 
-static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
-                                    char *argbuf, size_t argbytes,
-                                    char *envbuf, size_t envbytes,
-                                    struct capref inheritcn_cap,
-                                    struct capref argcn_cap)
+    struct pending_spawn_response *r = (struct pending_spawn_response*)a;
+    struct spawn_binding *b = r->b;
+
+    err = b->tx_vtbl.spawn_domain_with_caps_response(b, NOP_CONT, r->err, r->domainid);
+
+    if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        // try again
+        err = b->register_send(b, get_default_waitset(), 
+                               MKCONT(retry_spawn_domain_response,a));
+    }
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "error sending spawn_domain reply\n");
+    }
+
+    free(a);
+}
+
+
+static errval_t spawn_with_caps_reply(struct spawn_binding *b, errval_t rerr,
+                                      domainid_t domainid)
+{
+    debug_printf("%s: %s, %"PRIuDOMAINID"\n", __FUNCTION__, err_getstring(rerr), domainid);
+    errval_t err;
+ 
+    err = b->tx_vtbl.spawn_domain_with_caps_response(b, NOP_CONT, rerr, domainid);
+
+    if (err_is_fail(err)) { 
+        DEBUG_ERR(err, "error sending spawn_domain reply\n");
+
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            // this will be freed in the retry handler
+            struct pending_spawn_response *sr =
+                malloc(sizeof(struct pending_spawn_response));
+            if (sr == NULL) {
+                return LIB_ERR_MALLOC_FAIL;
+            }
+            sr->b = b;
+            sr->err = rerr;
+            sr->domainid = domainid;
+            err = b->register_send(b, get_default_waitset(), 
+                                   MKCONT(retry_spawn_domain_w_caps_response, sr));
+            if (err_is_fail(err)) {
+                // note that only one continuation may be registered at a time
+                free(sr);
+                DEBUG_ERR(err, "register_send failed!");
+                return err;
+            }
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes,
+                                       char *envbuf, size_t envbytes,
+                                       struct capref inheritcn_cap,
+                                       struct capref argcn_cap,
+                                       domainid_t *domainid)
 {
     debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err;
-    domainid_t domainid = 0;
+    assert(domainid);
+    *domainid = 0;
 
     /* extract arguments from buffer */
     char *argv[MAX_CMDLINE_ARGS + 1];
@@ -336,7 +395,7 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
     vfs_path_normalise(path);
 
     err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
-                &domainid);
+                domainid);
     // XXX: do we really want to delete the inheritcn and the argcn here? iaw:
     // do we copy these somewhere? -SG
     if (!capref_is_null(inheritcn_cap)) {
@@ -356,23 +415,44 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
         DEBUG_ERR(err, "spawn");
     }
 
-    err = spawn_reply(b, err, domainid);
+    free(envbuf);
+    free(path);
+
+    return err;
+}
+
+static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
+                                    char *argbuf, size_t argbytes,
+                                    char *envbuf, size_t envbytes,
+                                    struct capref inheritcn_cap,
+                                    struct capref argcn_cap)
+{
+    errval_t err;
+    domainid_t newdomid;
+    err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
+                                 inheritcn_cap, argcn_cap, &newdomid);
+
+    err = spawn_with_caps_reply(b, err, newdomid);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "while sending reply in spawn_with_caps_handler");
+    }
+}
+
+static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
+                          size_t argbytes, char *envbuf, size_t envbytes)
+{
+    errval_t err;
+    domainid_t newdomid;
+    err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
+                                 NULL_CAP, NULL_CAP, &newdomid);
+
+    err = spawn_reply(b, err, newdomid);
 
     if (err_is_fail(err)) {
         // not much we can do about this
         DEBUG_ERR(err, "while sending reply in spawn_handler");
     }
-
-    free(envbuf);
-    free(path);
-}
-
-
-static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
-                          size_t argbytes, char *envbuf, size_t envbytes)
-{
-    spawn_with_caps_handler(b, path, argbuf, argbytes, envbuf, envbytes,
-                            NULL_CAP, NULL_CAP);
 }
 
 /**
@@ -409,18 +489,22 @@ static void cleanup_cap(struct capref cap)
 {
     errval_t err;
 
+    debug_printf("%s: revoke\n", __FUNCTION__);
     err = cap_revoke(cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cap_revoke");
     }
+    debug_printf("%s: destroy\n", __FUNCTION__);
     err = cap_destroy(cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cap_destroy");
     }
+    debug_printf("%s: cleaned up\n", __FUNCTION__);
 }
 
 static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
 {
+    debug_printf("%s\n", __FUNCTION__);
     struct ps_entry *ps = ps_get(domainid);
 
     if(ps == NULL) {
@@ -431,9 +515,12 @@ static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
     ps->exitcode = exitcode;
 
     // Garbage collect victim's capabilities
+    debug_printf("%s: cleanup_cap(dcb)\n", __FUNCTION__);
     cleanup_cap(ps->dcb);       // Deschedule dispatcher (do this first!)
+    debug_printf("%s: cleanup_cap(rootcn)\n", __FUNCTION__);
     cleanup_cap(ps->rootcn_cap);
 
+    debug_printf("%s: waiters: %p\n", __FUNCTION__, ps->waiters);
     // XXX: why only when waiters exist? -SG
     if(ps->waiters != NULL) {
         // Cleanup local data structures and inform waiters
@@ -456,6 +543,8 @@ static void kill_handler(struct spawn_binding *b, domainid_t domainid)
 static void exit_handler(struct spawn_binding *b, domainid_t domainid,
                          uint8_t exitcode)
 {
+    debug_printf("%s: %p, %"PRIuDOMAINID", %hhu\n", __FUNCTION__, b, domainid, exitcode);
+    debug_printf("%s: kill_domain\n", __FUNCTION__);
     errval_t err = kill_domain(domainid, exitcode);
     struct ps_entry *ps = ps_get(domainid);
 
