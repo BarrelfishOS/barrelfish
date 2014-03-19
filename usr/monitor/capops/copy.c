@@ -192,8 +192,14 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
                             recv_copy_result__fwd);
     rpc_st->result_handler = result_handler;
 
-    // check for special handling of giving away last copy
     uint8_t remote_relations = RRELS_COPY_BIT;
+
+    // XXX: short-circuit out if cap we're sending is null cap
+    if (cap->type == ObjType_Null) {
+        goto null_shortcircuit;
+    }
+
+    // check for special handling of giving away last copy
     if (rpc_st->delete_after) {
         uint8_t relations = 0;
         err = monitor_cap_has_relations(capref, RRELS_COPY_BIT, &relations);
@@ -243,6 +249,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // create send state
     struct owner_copy_msg_st *msg_st;
+null_shortcircuit:
     err = calloce(1, sizeof(struct owner_copy_msg_st), &msg_st);
     GOTO_IF_ERR(err, err_cont);
 
@@ -390,7 +397,7 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
     // origin of copy
     errval_t err;
 
-    if (err_is_ok(status)) {
+    if (err_is_ok(status) && !capref_is_null(rpc_st->cap)) {
         if (rpc_st->delete_after) {
             DEBUG_CAPOPS("deleting our copy\n");
             if (rpc_st->is_last) {
@@ -454,6 +461,12 @@ recv_copy__rx(struct intermon_binding *b, intermon_caprep_t caprep,
     struct capability cap;
 
     caprep_to_capability(&caprep, &cap);
+
+    if (cap.type == ObjType_Null) {
+        // short-circuit null-cap transfer
+        err = SYS_ERR_OK;
+        goto zero_slot;
+    }
 
     // get a slot to put the cap
     err = slot_alloc(&dest);
@@ -587,6 +600,15 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
     struct capability cap;
     distcap_state_t state;
 
+    // short-circuit out with null capref
+    if (capref_is_null(capref)) {
+        memset(&cap, sizeof(cap), 0);
+        cap.type = ObjType_Null;
+        owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
+                result_handler, (genvaddr_t)st);
+        return;
+    }
+
     // check that cap is valid
     err = cap_get_state(capref, &state);
     GOTO_IF_ERR(err, err_cont);
@@ -599,7 +621,7 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
     err = monitor_cap_identify(capref, &cap);
     GOTO_IF_ERR(err, err_cont);
 
-    if (dest == my_core_id) {
+    if (dest == my_core_id && !(cap.type == ObjType_Null)) {
         // tried to send to self, just create a local copy
         struct capref res;
         err = slot_alloc(&res);

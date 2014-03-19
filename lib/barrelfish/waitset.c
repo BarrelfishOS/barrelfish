@@ -435,6 +435,7 @@ errval_t check_for_event(struct waitset *ws, struct event_closure *retclosure)
  * \param ws Waitset
  */
 
+volatile bool ev_disp_shout = false;
 errval_t event_dispatch(struct waitset *ws)
 {
     struct event_closure closure;
@@ -443,6 +444,9 @@ errval_t event_dispatch(struct waitset *ws)
         return err;
     }
 
+    if (ev_disp_shout) {
+        debug_printf("%s: calling %p\n", __FUNCTION__, closure.handler);
+    }
     assert(closure.handler != NULL);
     closure.handler(closure.arg);
     return SYS_ERR_OK;

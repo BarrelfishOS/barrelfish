@@ -649,7 +649,7 @@ static void
 cap_send_request_tx_cont(errval_t err, struct captx_prepare_state *captx_st,
                          intermon_captx_t *captx, void *st_)
 {
-    DEBUG_CAPOPS("%s: %s\n", __FUNCTION__, err_getstring(err));
+    DEBUG_CAPOPS("%s: %s [%p]\n", __FUNCTION__, err_getstring(err), __builtin_return_address(0));
     errval_t queue_err;
     struct send_cap_st *send_st = (struct send_cap_st*)st_;
 
