@@ -48,6 +48,12 @@ captx_get_capref(capaddr_t cnaddr, uint8_t cnbits, cslot_t slot,
 {
     errval_t err;
 
+    if (cnaddr == 0 && cnbits == 0 && slot == 0) {
+        // got a null cap, return null capref
+        *ret = NULL_CAP;
+        return SYS_ERR_OK;
+    }
+
     struct capability cnode_cap;
     err = invoke_monitor_identify_cap(cnaddr, cnbits, &cnode_cap);
     if (err_is_fail(err)) {
