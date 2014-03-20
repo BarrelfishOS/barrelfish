@@ -125,7 +125,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid)
 {
-    debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err, msgerr;
 
     // default to copying our environment
@@ -202,12 +201,10 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                     envstr, envstrlen,
                                     &msgerr, &domain_id);
     } else {
-        debug_printf("%s: spawn_domain_with_caps\n", __FUNCTION__);
         err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
                                               envstr, envstrlen, inheritcn_cap,
                                               argcn_cap, &msgerr, &domain_id);
     }
-    debug_printf("%s: after call to spawn_domain(_with_caps)\n", __FUNCTION__);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");
     } else if (err_is_fail(msgerr)) {

@@ -318,10 +318,6 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
     err = monitor_cap_identify(capref, &cap);
     GOTO_IF_ERR(err, cont);
 
-    char buf[256];
-    debug_print_cap(buf,256,&cap);
-    buf[255]=0;
-    debug_printf("cap: %s\n", buf);
     // cap is foreign so it must be a type that needs "locality" on a particular core
     assert(distcap_needs_locality(cap.type));
 

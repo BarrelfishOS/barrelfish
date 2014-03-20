@@ -102,7 +102,6 @@ void flounder_support_migrate_notify(struct waitset_chanstate *chan,
 static void cap_send_cont(void *arg)
 {
     struct flounder_cap_state *s = arg;
-    debug_printf("%s: calling %p\n", __FUNCTION__, s->cap_send_continuation);
     s->cap_send_continuation(s->binding);
 }
 
@@ -112,26 +111,18 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
                                 struct capref cap, bool give_away,
                                 void (*cont)(void *st))
 {
-    char buf[256];
-    debug_print_capref(buf, 256, cap);
-    debug_printf("%s: sending %s (%d)\n", __FUNCTION__, buf, give_away);
     errval_t err;
 
-    debug_printf("%s: continuation: %p\n", __FUNCTION__, cont);
     s->cap_send_continuation = cont;
 
-    char *action;
     if (give_away) {
-        action = "move";
-       err = mb->tx_vtbl.cap_move_request(mb, MKCONT(cap_send_cont, s),
+        err = mb->tx_vtbl.cap_move_request(mb, MKCONT(cap_send_cont, s),
                                            monitor_id, cap, s->tx_capnum);
     }
     else {
-        action = "send";
         err = mb->tx_vtbl.cap_send_request(mb, MKCONT(cap_send_cont, s),
                                            monitor_id, cap, s->tx_capnum);
     }
-    debug_printf("%s: %s %s\n", __FUNCTION__,  action,err_getstring(err));
     if (err_is_ok(err)) {
         s->tx_capnum++;
         return err;

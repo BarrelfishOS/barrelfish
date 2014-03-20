@@ -34,7 +34,6 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
                       struct capref inheritcn_cap, struct capref argcn_cap,
                       domainid_t *domainid)
 {
-    debug_printf("spawn: %s\n", path);
     errval_t err, msgerr;
 
     /* read file into memory */
@@ -125,8 +124,6 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MONITOR_CLIENT);
     }
-
-    debug_printf("spawning %s on core %u\n", path, my_core_id);
 
     /* give the perfmon capability */
     struct capref dest, src;
@@ -259,7 +256,6 @@ static void retry_spawn_domain_response(void *a)
 static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
                             domainid_t domainid)
 {
-    debug_printf("%s: %s, %"PRIuDOMAINID"\n", __FUNCTION__, err_getstring(rerr), domainid);
     errval_t err;
  
     err = b->tx_vtbl.spawn_domain_response(b, NOP_CONT, rerr, domainid);
@@ -316,7 +312,6 @@ static void retry_spawn_domain_w_caps_response(void *a)
 static errval_t spawn_with_caps_reply(struct spawn_binding *b, errval_t rerr,
                                       domainid_t domainid)
 {
-    debug_printf("%s: %s, %"PRIuDOMAINID"\n", __FUNCTION__, err_getstring(rerr), domainid);
     errval_t err;
  
     err = b->tx_vtbl.spawn_domain_with_caps_response(b, NOP_CONT, rerr, domainid);
@@ -355,7 +350,6 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
                                        struct capref argcn_cap,
                                        domainid_t *domainid)
 {
-    debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err;
     assert(domainid);
     *domainid = 0;
@@ -466,7 +460,6 @@ static void cleanup_domain(domainid_t domainid)
 
     // Tell all waiters of exit and free list as we go
     for(struct ps_waiter *w = ps->waiters; w != NULL;) {
-	debug_printf("informing waiter\n");
         err = w->binding->tx_vtbl.wait_response
             (w->binding, NOP_CONT, ps->exitcode, SYS_ERR_OK);
         if(err_is_fail(err)) {
@@ -489,22 +482,18 @@ static void cleanup_cap(struct capref cap)
 {
     errval_t err;
 
-    debug_printf("%s: revoke\n", __FUNCTION__);
     err = cap_revoke(cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cap_revoke");
     }
-    debug_printf("%s: destroy\n", __FUNCTION__);
     err = cap_destroy(cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cap_destroy");
     }
-    debug_printf("%s: cleaned up\n", __FUNCTION__);
 }
 
 static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
 {
-    debug_printf("%s\n", __FUNCTION__);
     struct ps_entry *ps = ps_get(domainid);
 
     if(ps == NULL) {
@@ -515,12 +504,9 @@ static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
     ps->exitcode = exitcode;
 
     // Garbage collect victim's capabilities
-    debug_printf("%s: cleanup_cap(dcb)\n", __FUNCTION__);
     cleanup_cap(ps->dcb);       // Deschedule dispatcher (do this first!)
-    debug_printf("%s: cleanup_cap(rootcn)\n", __FUNCTION__);
     cleanup_cap(ps->rootcn_cap);
 
-    debug_printf("%s: waiters: %p\n", __FUNCTION__, ps->waiters);
     // XXX: why only when waiters exist? -SG
     if(ps->waiters != NULL) {
         // Cleanup local data structures and inform waiters
@@ -543,8 +529,6 @@ static void kill_handler(struct spawn_binding *b, domainid_t domainid)
 static void exit_handler(struct spawn_binding *b, domainid_t domainid,
                          uint8_t exitcode)
 {
-    debug_printf("%s: %p, %"PRIuDOMAINID", %hhu\n", __FUNCTION__, b, domainid, exitcode);
-    debug_printf("%s: kill_domain\n", __FUNCTION__);
     errval_t err = kill_domain(domainid, exitcode);
     struct ps_entry *ps = ps_get(domainid);
 

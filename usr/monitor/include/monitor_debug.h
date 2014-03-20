@@ -16,7 +16,7 @@
 #define DEBUG_MONITOR_H
 
 // XXX: should be done via Config.hs
-#define DEBUG_MONITOR_CAPOPS
+//#define DEBUG_MONITOR_CAPOPS
 
 #if defined(DEBUG_MONITOR_CAPOPS) || defined(GLOBAL_DEBUG)
 #define DEBUG_CAPOPS(x...) debug_printf(x)
