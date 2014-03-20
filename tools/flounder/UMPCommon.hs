@@ -1092,7 +1092,7 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
          C.SComment "Check if there's an associated error",
          C.SComment "FIXME: how should we report this to the user? at present we just deliver a NULL capref",
          C.If (C.Call "err_is_fail" [C.Variable "success"])
-              [C.Ex $ C.Call "DEBUG_ERR" [errvar,
+              [C.Ex $ C.Call "DEBUG_ERR" [C.Variable "success",
                                           C.StringConstant "error in cap transfer"]]
               [],
          C.SBlank,
