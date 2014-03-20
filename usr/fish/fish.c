@@ -82,7 +82,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
 
     assert(retdomainid != NULL);
 
-    debug_printf("create inheritcn\n");
     // inherit the session capability
     struct capref inheritcn_cap;
     err = alloc_inheritcn_with_sidcap(&inheritcn_cap, cap_sessionid);
@@ -90,12 +89,10 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
         USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
     }
 
-    debug_printf("spawn program\n");
     argv[argc] = NULL;
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
                                   NULL_CAP, SPAWN_NEW_DOMAIN, retdomainid);
 
-    debug_printf("%s: spawn_program_with_caps: %s\n", __FUNCTION__, err_getstring(err));
     if (prog != argv[0]) {
         free(prog);
     }
@@ -329,7 +326,6 @@ static int oncore(int argc, char *argv[])
 
     // TODO: do something with domain_id
 
-    debug_printf("oncore done: new domain %"PRIuDOMAINID"\n", domain_id);
     return ret;
 }
 

@@ -591,7 +591,11 @@ void
 capops_copy(struct capref capref, coreid_t dest, bool give_away,
             copy_result_handler_t result_handler, void *st)
 {
-    DEBUG_CAPOPS("capops_copy: dest=%d, give_away=%d\n", dest, give_away);
+#if defined(DEBUG_MONITOR_CAPOPS)
+    char buf[256];
+    debug_print_capref(buf, 256, capref);
+    DEBUG_CAPOPS("capops_copy: dest=%d, give_away=%d, capref=%s\n", dest, give_away, buf);
+#endif
     errval_t err, err2;
     struct capability cap;
     distcap_state_t state;

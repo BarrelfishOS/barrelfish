@@ -249,7 +249,11 @@ static void
 cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
                               struct capref cap, void *st_)
 {
-    DEBUG_CAPOPS("%s: %s\n", __FUNCTION__, err_getstring(err));
+#if defined (DEBUG_MONITOR_CAPOPS)
+    char buf[256];
+    debug_print_capref(buf,256,cap);
+    DEBUG_CAPOPS("%s: %s (cap: %s)\n", __FUNCTION__, err_getstring(err), buf);
+#endif
     struct cap_send_request_st *st = (struct cap_send_request_st*)st_;
 
     uintptr_t my_mon_id = st->my_mon_id;
