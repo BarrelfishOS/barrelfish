@@ -491,8 +491,9 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 #
 ######################################################################
 
-k1om: @echo "NYI: building the Xeon Phi Image"
-
+k1om:: $(MODULES_k1om)
+        @echo "NYI: building the Xeon Phi Image"
+.PHONY: k1om
 
 #######################################################################
 #
