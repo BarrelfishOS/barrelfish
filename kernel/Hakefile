@@ -133,6 +133,54 @@ let
      addLibraries = [ "elf_kernel" ]
      },
   --
+  -- Intel Xeon Phi (K1OM)
+  --
+  cpuDriver { 
+     architectures = [ "k1om" ],
+     assemblyFiles = [ "arch/x86_64/boot.S", 
+                       "arch/x86_64/entry.S", 
+                       "arch/x86/init_ap_x86_64.S", 
+                       "arch/x86/init_ap_x86_32.S" ],
+     cFiles = [ "arch/x86_64/debug.c", 
+                "arch/x86_64/gdb_arch.c", 
+                "arch/x86_64/init.c", 
+                "arch/x86_64/irq.c",
+                "arch/x86_64/startup_arch.c", 
+                "arch/x86_64/exec.c", 
+                "arch/x86_64/syscall.c", 
+                "arch/x86_64/paging.c",
+                "arch/x86_64/vmkit.c" , 
+                "arch/x86_64/page_mappings_arch.c",
+                "arch/x86/apic.c", 
+                "arch/x86/pic.c", 
+                "arch/x86/start_aps.c", 
+                "arch/x86/cmos.c", 
+                "arch/x86/misc.c",
+                "arch/x86/serial.c", 
+                "arch/x86/multiboot.c", 
+                "arch/x86/conio.c", 
+                "arch/x86/syscall.c", 
+                "arch/x86/debugregs.c",
+                "arch/x86/perfmon.c", 
+                "arch/x86/perfmon_intel.c", 
+                "arch/x86/perfmon_amd.c", 
+                "arch/x86/rtc.c", 
+                "arch/x86/timing.c",
+                "arch/x86/startup_x86.c", 
+                "arch/x86/mcheck.c", 
+                "arch/x86/ipi_notify.c"
+              ],
+     mackerelDevices = [ "lpc_pic", 
+                         "pc16550d", 
+                         "ia32", 
+                         "amd64", 
+                         "xapic", 
+                         "amd_vmcb", 
+                         "cpuid", 
+                         "lpc_rtc" ],
+     addLibraries = [ "elf_kernel" ]
+     },
+  --
   -- Generic Intel ia32 32-bit x86 core
   --
   cpuDriver { 
