@@ -567,6 +567,8 @@ void arch_init(uint64_t magic, void *pointer)
     conio_cls();
     serial_console_init();
 
+    panic("Hello World!\n");
+
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);
     struct Elf64_Shdr *rela, *symtab;

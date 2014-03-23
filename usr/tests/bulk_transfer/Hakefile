@@ -10,21 +10,21 @@
 
 [ build application { target = "bulk_mini",
                       cFiles = [ "bulk_mini.c" ],
-                      addLibraries = libDeps [ "bulk_transfer" ]
+                      addLibraries =  [ "bulk_transfer" ]
                  },
   build application { target = "bulk_netproxy",
                       cFiles = [ "bulk_netproxy.c", "sleep.c" ],
-                      addLibraries = libDeps [ "bulk_transfer", "lwip",
+                      addLibraries =  [ "bulk_transfer", "lwip",
 				"bench" ]
                  },
   build application { target = "bulk_nettrans",
                       cFiles = [ "bulk_nettrans.c" ],
-                      addLibraries = libDeps [ "bulk_transfer" ]
+                      addLibraries =  [ "bulk_transfer" ]
                  },
 
   build application { target = "bulk_shm",
                       cFiles = [ "bulk_shm.c" ],
-                      addLibraries = libDeps [ "bulk_transfer" ]
+                      addLibraries = [ "bulk_transfer" ]
                  }
 
 ]

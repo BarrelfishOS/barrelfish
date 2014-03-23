@@ -53,8 +53,8 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-sse4a",
                    Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
-                   Str "Wa,-march=k1om",
-                   Str "Wa,-mtune=k1om",
+                   Str "-Wa,-march=k1om",
+                   Str "-Wa,-mtune=k1om",
                    Str "-D__x86__" ]
 
 cFlags = ArchDefaults.commonCFlags
