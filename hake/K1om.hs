@@ -38,7 +38,7 @@ cxxcompiler = "x86_64-k1om-barrelfish-g++"
 
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
-                   Str "-fPIE",
+-- incompatible                   Str "-fPIE",
                    Str "-fno-stack-protector", 
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
@@ -121,7 +121,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
 
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
-                                "-pie",
+-- incompatible                                "-pie",
                                  "-fno-builtin",
                                 "-nostdlib",
                                 "-Wl,--fatal-warnings",

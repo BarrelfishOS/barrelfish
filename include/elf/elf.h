@@ -167,6 +167,7 @@ __BEGIN_DECLS
 #define EM_TINYJ        61      /* Advanced Logic Corp. TinyJ processor. */
 #define EM_X86_64       62      /* Advanced Micro Devices x86-64 */
 #define EM_AMD64        EM_X86_64       /* Advanced Micro Devices x86-64 (compat) */
+#define EM_K1OM         181	/* Intel K1OM (Xeon Phi) */
 
 /* Non-standard or deprecated. */
 #define EM_486          6       /* Intel i486. */
