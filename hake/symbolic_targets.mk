@@ -24,6 +24,9 @@ MAKEFLAGS=r
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
+# settings for the Intel Xeon Phi
+K1OM_GCC?=x86_64-k1om-barrelfish-gcc
+K1OM_OBJCPY?=x86_64-k1om-barrelfish-objcopy
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -265,6 +268,10 @@ MODULES_armv7=\
 MODULES_arm11mp=\
 	sbin/cpu \
 	sbin/cpu.bin
+	
+# Intel Xeon Phi-specific modules
+MODULES_k1om =\
+	sbin/cpu \
 
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
@@ -330,6 +337,10 @@ debugsim: $(MODULES) armv5/romfs.cpio armv5/tools/debug.arm.gdb
 else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
+else ifeq ($(ARCH), k1om)
+	# what is the emulation option for the xeon phi ?  
+	QEMU=unknown-arch-error
+	GDB=x86_64-k1om-barrelfish-gdb
 endif
 
 
@@ -472,6 +483,15 @@ $(TESTS): %.txt: %.cfg tools/bin/simulator
 
 schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
+
+
+######################################################################
+#
+# Intel Xeon Phi Builds
+#
+######################################################################
+
+k1om: @echo "NYI: building the Xeon Phi Image"
 
 
 #######################################################################

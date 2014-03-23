@@ -15,6 +15,7 @@ module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
 import Path
 import qualified X86_64
+import qualified K1om
 import qualified X86_32
 import qualified SCC
 import qualified ARMv5
@@ -78,6 +79,7 @@ sInDir af tf dir = inDir af tf dir ".S"
 
 options :: String -> Options
 options "x86_64" = X86_64.options
+options "k1om" = K1om.options
 options "x86_32" = X86_32.options
 options "scc" = SCC.options
 options "armv5" = ARMv5.options
@@ -87,6 +89,7 @@ options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
+kernelCFlags "k1om" = K1om.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "scc" = SCC.kernelCFlags
 kernelCFlags "armv5" = ARMv5.kernelCFlags
@@ -96,6 +99,7 @@ kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
+kernelLdFlags "k1om" = K1om.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "scc" = SCC.kernelLdFlags
 kernelLdFlags "armv5" = ARMv5.kernelLdFlags
@@ -171,6 +175,7 @@ kernelOptions arch = Options {
 cCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
+    | optArch opts == "k1om"    = K1om.cCompiler opts phase src obj
     | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
     | optArch opts == "scc"     = SCC.cCompiler opts phase src obj
     | optArch opts == "armv5"   = ARMv5.cCompiler opts phase src obj
@@ -200,6 +205,8 @@ makeDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDepend opts phase src obj depfile
     | optArch opts == "x86_64" =
         X86_64.makeDepend opts phase src obj depfile
+    | optArch opts == "k1om" =
+        K1om.makeDepend opts phase src obj depfile
     | optArch opts == "x86_32" =
         X86_32.makeDepend opts phase src obj depfile
     | optArch opts == "scc" =
@@ -225,6 +232,7 @@ makeCxxDepend opts phase src obj depfile
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
 cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_64"  = X86_64.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "k1om"  = K1om.cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
     | optArch opts == "scc"     = SCC.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv5"   = ARMv5.cToAssembler opts phase src afile objdepfile
@@ -240,6 +248,7 @@ cToAssembler opts phase src afile objdepfile
 assembler :: Options -> String -> String -> [ RuleToken ]
 assembler opts src obj
     | optArch opts == "x86_64"  = X86_64.assembler opts src obj
+    | optArch opts == "k1om"  = K1om.assembler opts src obj
     | optArch opts == "x86_32"  = X86_32.assembler opts src obj
     | optArch opts == "scc"     = SCC.assembler opts src obj
     | optArch opts == "armv5"   = ARMv5.assembler opts src obj
@@ -252,6 +261,7 @@ assembler opts src obj
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
 archive opts objs libs name libname
     | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
+    | optArch opts == "k1om"  = K1om.archive opts objs libs name libname
     | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
     | optArch opts == "scc"     = SCC.archive opts objs libs name libname
     | optArch opts == "armv5"     = ARMv5.archive opts objs libs name libname
@@ -264,6 +274,7 @@ archive opts objs libs name libname
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
 linker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
+    | optArch opts == "k1om" = K1om.linker opts objs libs bin
     | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
     | optArch opts == "scc"    = SCC.linker opts objs libs bin
     | optArch opts == "armv5"  = ARMv5.linker opts objs libs bin
@@ -745,6 +756,7 @@ linkCxx opts objs libs bin =
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
