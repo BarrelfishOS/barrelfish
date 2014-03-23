@@ -16,13 +16,13 @@ set -e  # Die if any command fails.
 set -x  # Trace each command before execution.
 
 BASEDIR=$(pwd)
-BASEDIR=~/eth/barrelfish
+BASEDIR=/local/acreto
 
 
 export TARGET=x86_64-k1om-barrelfish
 
 # Path of your Barrelfish source and build tree.
-BARRELFISH_SOURCE=$BASEDIR/barrelfish
+BARRELFISH_SOURCE=$BASEDIR/barrelfish.xeon-phi
 BARRELFISH_BUILD=$BASEDIR/build
 
 # Modify these versions to match the corresponding patch.
@@ -81,7 +81,7 @@ fi
 pushd "${TOOLCHAIN_BUILD}"
 
 # 1. binutils - GNU Binary Utilities
-curl -L -O "http://ftp.gnu.org/gnu/binutils/${BINUTILS}.tar.gz"
+wget "http://ftp.gnu.org/gnu/binutils/${BINUTILS}.tar.gz"
 tar xzvf ${BINUTILS}.tar.gz
 pushd ${BINUTILS}/
 patch -p1 < "${BINUTILS_PATCH}"
@@ -102,7 +102,7 @@ popd  # ${BINUTILS}-build/
 
 
 # 2. GCC - GNU Compiler Collection
-curl -L -O "ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/${GCC}/${GCC}.tar.bz2"
+wget "ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/${GCC}/${GCC}.tar.bz2"
 tar xjvf ${GCC}.tar.bz2
 pushd ${GCC}/
 source ./contrib/download_prerequisites
