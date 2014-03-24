@@ -91,7 +91,6 @@ pushd ${BINUTILS}-build/
 ../${BINUTILS}/configure \
     --prefix="${TOOLCHAIN_PREFIX}" \
     --target="${TARGET}" \
-    --enable-gold=default \
     --enable-threads \
     --enable-lto \
     --enable-plugins \
@@ -99,7 +98,6 @@ pushd ${BINUTILS}-build/
 make -j${MAKE_JOBS}
 make install-strip
 popd  # ${BINUTILS}-build/
-
 
 # 2. GCC - GNU Compiler Collection
 wget "ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/${GCC}/${GCC}.tar.bz2"
