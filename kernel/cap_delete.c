@@ -500,7 +500,7 @@ errval_t caps_delete_step(struct cte *ret_next)
         assert(!delete_tail);
         return SYS_ERR_CAP_NOT_FOUND;
     }
-    assert(delete_head->mdbnode.in_delete);
+    assert(delete_head->mdbnode.in_delete == true);
 
     TRACE_CAP_MSG("performing delete step", delete_head);
     struct cte *cte = delete_head, *next = cte->delete_node.next;
