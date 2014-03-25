@@ -28,23 +28,31 @@ import qualified ArchDefaults
 arch = "k1om"
 archFamily = "k1om"
 
-compiler = "x86_64-k1om-barrelfish-gcc"
-objcopy  = "x86_64-k1om-barrelfish-objcopy"
-objdump  = "x86_64-k1om-barrelfish-objdump"
-ar       = "x86_64-k1om-barrelfish-ar"
-ranlib   = "x86_64-k1om-barrelfish-ranlib"
-cxxcompiler = "x86_64-k1om-barrelfish-g++"
+--compiler = "x86_64-k1om-barrelfish-gcc"
+--objcopy  = "x86_64-k1om-barrelfish-objcopy"
+--objdump  = "x86_64-k1om-barrelfish-objdump"
+--ar       = "x86_64-k1om-barrelfish-ar"
+--ranlib   = "x86_64-k1om-barrelfish-ranlib"
+--cxxcompiler = "x86_64-k1om-barrelfish-g++"
 
 
-ourCommonFlags = [ Str "-m64",
+compiler = "gcc"
+objcopy  = "objcopy"
+objdump  = "objdump"
+ar       = "ar"
+ranlib   = "ranlib"
+cxxcompiler = "g++"
+
+
+ourCommonFlags = [ --Str "-m64",
                    Str "-mno-red-zone",
--- incompatible                   Str "-fPIE",
+                   Str "-fPIE",
                    Str "-fno-stack-protector", 
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
 -- the intel mic architecture has no "normal" SIMD extensions
-                   Str "-mno-mmx",
-                   Str "-mno-sse",
+--                   Str "-mno-mmx",
+--                   Str "-mno-sse",
                    Str "-mno-sse2",
                    Str "-mno-sse3",
                    Str "-mno-sse4.1",
@@ -53,8 +61,8 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-sse4a",
                    Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
-                   Str "-Wa,-march=k1om",
-                   Str "-Wa,-mtune=k1om",
+--                   Str "-Wa,-march=k1om",
+--                   Str "-Wa,-mtune=k1om",
                    Str "-D__x86__" ]
 
 cFlags = ArchDefaults.commonCFlags
@@ -67,9 +75,13 @@ cxxFlags = ArchDefaults.commonCxxFlags
 
 cDefines = ArchDefaults.cDefines options
 
+-- TODO> -m elf_i386
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
-               Str "-Wl,--build-id=none",
-               Str "-m64" ]
+--               Str "-Wl,-b,elf64-k1om",
+--               Str "-Wl,--oformat,elf64-k1om",
+               Str "-Wl,--build-id=none"]
+               --Str "-m64" 
+
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
@@ -91,7 +103,6 @@ options = (ArchDefaults.options arch archFamily) {
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
-                                "-m64",
                                 "-mno-red-zone",
                                 "-fPIE",
                                 "-fno-stack-protector",
@@ -107,25 +118,28 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wno-packed-bitfield-compat",
                                 "-Wno-unused-but-set-variable",
                                 "-Werror",
-                                "-imacros deputy/nodeputy.h" ] ]
---                                "-mno-mmx",
---                                "-mno-sse",
---                                "-mno-sse2",
---                                "-mno-sse3",
---                                "-mno-sse4.1",
---                                "-mno-sse4.2",
+                                "-imacros deputy/nodeputy.h",
+                                "-mno-mmx",
+                                "-mno-sse",
+                                "-mno-sse2",
+                                "-mno-sse3",
+                                "-mno-sse4.1",
+                                "-mno-sse4.2",
 --              "-Wno-unused-but-set-variable",
---                                "-mno-sse4",
---                                "-mno-sse4a",
---                                "-mno-3dnow" 
-
+                                "-mno-sse4",
+                                "-mno-sse4a",
+                                "-mno-3dnow" ] ]
+	
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
--- incompatible                                "-pie",
+--                                 "-Wl,-b,elf64-k1om",
+                                -- "-Wl,-A,k1om",
+--                                 "-Wl,--oformat,elf64-k1om",
+                                 "-pie",
                                  "-fno-builtin",
-                                "-nostdlib",
-                                "-Wl,--fatal-warnings",
-                                "-m64" ] ]
+                                 "-nostdlib",
+                                 "-Wl,--fatal-warnings"] ]
+--                                "-m64" 
 
 
 ------------------------------------------------------------------------

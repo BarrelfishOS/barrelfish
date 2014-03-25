@@ -52,7 +52,6 @@ MODULES_COMMON= \
 	sbin/init_null \
 	sbin/init \
 	sbin/chips \
-	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
 	sbin/flounder_stubs_empty_bench \
@@ -83,6 +82,7 @@ MODULES_GENERIC= \
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
 	sbin/cpu \
+	sbin/skb \
 	sbin/mdbtest_range_query \
 	sbin/mdbtest_addr_zero \
 	sbin/mdb_bench \
@@ -174,14 +174,14 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
-	sbin/block_server \
-	sbin/block_server_client \
-	sbin/bs_user \
-	sbin/bulk_shm \
-	sbin/bulk_transfer_passthrough \
-	sbin/bulkbench_micro_echo \
-	sbin/bulkbench_micro_throughput \
-	sbin/bulkbench_micro_rtt \
+#	sbin/block_server \
+#	sbin/block_server_client \
+#	sbin/bs_user \
+#	sbin/bulk_shm \
+#	sbin/bulk_transfer_passthrough \
+#	sbin/bulkbench_micro_echo \
+#	sbin/bulkbench_micro_throughput \
+#	sbin/bulkbench_micro_rtt \
 
 
 # the following are broken in the newidc system
@@ -198,6 +198,7 @@ MODULES_x86_64_broken= \
 # x86-32-specific module to build by default
 MODULES_x86_32=\
 	sbin/cpu \
+	sbin/skb \
 	sbin/lpc_kbd \
 	sbin/serial \
 	$(BIN_RCCE_BT) \
@@ -271,7 +272,7 @@ MODULES_arm11mp=\
 	
 # Intel Xeon Phi-specific modules
 MODULES_k1om =\
-	sbin/cpu \
+	sbin/cpu 
 
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
@@ -491,8 +492,8 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 #
 ######################################################################
 
-k1om:: $(MODULES_k1om)
-        @echo "NYI: building the Xeon Phi Image"
+k1om: 
+
 .PHONY: k1om
 
 #######################################################################

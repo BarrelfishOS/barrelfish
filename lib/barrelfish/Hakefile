@@ -51,6 +51,13 @@
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c"]
+      archfam_srcs "k1om"   = [ "arch/k1om/debug.c", "arch/k1om/dispatch.c" ,
+                                 "arch/k1om/syscalls.c", "arch/k1om/sys_debug.c",
+                                 "arch/k1om/ldt.c",
+                                 "target/k1om/pmap_target.c", "target/x86/pmap_x86.c",
+                                 "vspace/arch/k1om/layout.c",
+                                 "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
+                                 "arch/x86/perfmon.c", "arch/x86/tls.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c", 
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
@@ -62,10 +69,12 @@
       arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
+      arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs _     = []
 
       arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
       arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
+      arch_assembly "k1om"  = [ "arch/k1om/entry.S" ]
       arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
       arch_assembly "armv7-m" = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
       arch_assembly _         = []

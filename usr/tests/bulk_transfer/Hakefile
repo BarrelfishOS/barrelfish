@@ -10,21 +10,25 @@
 
 [ build application { target = "bulk_mini",
                       cFiles = [ "bulk_mini.c" ],
-                      addLibraries =  [ "bulk_transfer" ]
+                      addLibraries =  [ "bulk_transfer" ],
+                      architectures = ["x86_64"]
                  },
   build application { target = "bulk_netproxy",
                       cFiles = [ "bulk_netproxy.c", "sleep.c" ],
                       addLibraries =  [ "bulk_transfer", "lwip",
-				"bench" ]
+				"bench" ],
+                      architectures = ["x86_64"]
                  },
   build application { target = "bulk_nettrans",
                       cFiles = [ "bulk_nettrans.c" ],
-                      addLibraries =  [ "bulk_transfer" ]
+                      addLibraries =  [ "bulk_transfer" ],
+                      architectures = ["x86_64"]
                  },
 
   build application { target = "bulk_shm",
                       cFiles = [ "bulk_shm.c" ],
-                      addLibraries = [ "bulk_transfer" ]
+                      addLibraries = [ "bulk_transfer" ],
+                      architectures = ["x86_64"]
                  }
 
 ]

@@ -16,14 +16,14 @@ set -e  # Die if any command fails.
 set -x  # Trace each command before execution.
 
 BASEDIR=$(pwd)
-BASEDIR=/local/acreto
+BASEDIR=/home/acreto
 
 
 export TARGET=x86_64-k1om-barrelfish
 
 # Path of your Barrelfish source and build tree.
 BARRELFISH_SOURCE=$BASEDIR/barrelfish.xeon-phi
-BARRELFISH_BUILD=$BASEDIR/build
+BARRELFISH_BUILD=$BASEDIR/barrelfish.xeon-phi/build
 
 # Modify these versions to match the corresponding patch.
 BINUTILS=binutils-2.24
