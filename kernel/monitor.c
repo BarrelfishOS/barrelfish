@@ -87,6 +87,7 @@ struct sysret sys_monitor_remote_relations(capaddr_t root_addr, uint8_t root_bit
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -204,6 +205,7 @@ struct sysret sys_get_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -217,6 +219,7 @@ struct sysret sys_set_cap_owner(capaddr_t root_addr, uint8_t root_bits, capaddr_
     struct cte *cte;
     err = sys_double_lookup(root_addr, root_bits, cptr, bits, &cte);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -261,6 +264,7 @@ struct sysret sys_lock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t tar
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -281,6 +285,7 @@ struct sysret sys_unlock_cap(capaddr_t root_addr, uint8_t root_bits, capaddr_t t
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -324,6 +329,11 @@ struct sysret sys_monitor_delete_last(capaddr_t root_addr, uint8_t root_bits,
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
+        printf("%s: root_addr: %"PRIxCADDR", root_bits: %"PRIu8
+               ", target_addr: %"PRIxCADDR", target_bits: %"PRIu8"\n",
+               __FUNCTION__, root_addr, root_bits, target_addr, target_bits);
+
+        printf("%s: error in double_lookup: %"PRIxERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 
@@ -366,6 +376,7 @@ struct sysret sys_monitor_revoke_mark_tgt(capaddr_t root_addr, uint8_t root_bits
     struct cte *target;
     err = sys_double_lookup(root_addr, root_bits, target_addr, target_bits, &target);
     if (err_is_fail(err)) {
+        printf("%s: error in double_lookup: %"PRIuERRV"\n", __FUNCTION__, err);
         return SYSRET(err);
     }
 

@@ -18,8 +18,8 @@
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
-#include <barrelfish_kpi/syscall_overflows_arch.h>
 #include <barrelfish_kpi/cpu.h>
+#include <barrelfish_kpi/syscall_overflows_arch.h>
 #include <barrelfish_kpi/syscalls.h>
  
 /**
@@ -220,27 +220,38 @@ static inline errval_t invoke_monitor_spawn_scc_core(uint8_t id,
 
 static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
-                                 capaddr_t src, enum objtype newtype, 
-                                 int objbits, capaddr_t to, capaddr_t slot, 
-                                 int bits) {
-    USER_PANIC("NYI");
-#if 0
-    return cap_invoke9(cap_kernel, KernelCmd_Retype, rootcap_addr, 
-                       rootcap_vbits, src, newtype, objbits, to, slot,
-                       bits).error;
-#endif
+                                 capaddr_t src, enum objtype newtype,
+                                 int objbits, capaddr_t to, capaddr_t slot,
+                                 int bits)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    assert(newtype <= 0xffff);
+    assert(objbits <= 0xff);
+    assert(bits <= 0xff);
+    assert(rootcap_vbits <= 0xff);
+
+    struct remote_retype_syscall_overflow rootcap_struct = {
+        .rootcap_addr = rootcap_addr,
+        .rootcap_vbits = rootcap_vbits,
+    };
+
+    // arguments 2-5 must match the deserialisation in
+    // kernel/arch/x86_32/handle_retype_common.
+    return syscall7((invoke_bits << 16) | (KernelCmd_Retype << 8) | SYSCALL_INVOKE,
+            invoke_cptr, (uintptr_t)&rootcap_struct, src,
+            (newtype << 16) | (objbits << 8) | bits, to, slot).error;
 }
 
 static inline errval_t
 invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
 {
-    USER_PANIC("NYI");
-#if 0
-    assert(sizeof(struct capability) == 4*sizeof(uint64_t));
-    return cap_invoke8(cap_kernel, KernelCmd_Copy_existing,
-                       raw[0], raw[1], raw[2], raw[3],
-                       cn_addr, cn_bits, slot).error;
-#endif
+    // XXX: this is assumed in client code of this function!
+    assert(sizeof(struct capability) <= 4*sizeof(uint64_t));
+
+    return cap_invoke5(cap_kernel, KernelCmd_Copy_existing,
+                       cn_addr, cn_bits, slot, (uintptr_t)raw).error;
 }
 
 static inline errval_t
@@ -276,11 +287,12 @@ static inline errval_t
 invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
                            capaddr_t retcn, int retcnbits, cslot_t retslot)
 {
-    USER_PANIC("NYI");
-#if 0
-    return cap_invoke8(cap_kernel, KernelCmd_Delete_last, root, rbits, cap,
-                       cbits, retcn, retcnbits, retslot).error;
-#endif
+    assert(rbits <= 0xff);
+    assert(cbits <= 0xff);
+    assert(retcnbits <= 0xff);
+
+    return cap_invoke6(cap_kernel, KernelCmd_Delete_last, root, cap,
+                       retcn, retslot, ((cbits<<16)|(rbits<<8)|retcnbits)).error;
 }
 
 static inline errval_t
@@ -300,11 +312,10 @@ invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
 static inline errval_t
 invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
 {
-    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
-    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
-    return cap_invoke5(cap_kernel, KernelCmd_Revoke_mark_relations,
-                       raw_base[0], raw_base[1],
-                       raw_base[2], raw_base[3]).error;
+    // XXX: this is assumed in client code of this function!
+    assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
+    return cap_invoke2(cap_kernel, KernelCmd_Revoke_mark_relations,
+                       (uintptr_t)raw_base).error;
 }
 
 static inline errval_t
@@ -324,18 +335,16 @@ invoke_monitor_clear_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 static inline errval_t
 invoke_monitor_has_descendants(uint64_t *raw, bool *res)
 {
-    USER_PANIC("NYI");
-#if 0
-    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
-    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
+    // XXX: this is assumed in client code of this function!
+    assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
+
     struct sysret sysret;
-    sysret = cap_invoke5(cap_kernel, KernelCmd_Has_descendants,
-                         raw[0], raw[1], raw[2], raw[3]);
+    sysret = cap_invoke2(cap_kernel, KernelCmd_Has_descendants,
+                         (uintptr_t)raw);
     if (err_is_ok(sysret.error)) {
         *res = sysret.value;
     }
     return sysret.error;
-#endif
 }
 
 #endif

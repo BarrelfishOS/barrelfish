@@ -844,9 +844,9 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     // If lookup exceeded expected depth then table is malformed
     if (bits_resolved > vbits) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: Lookup exceeded valid bits\n"
-              "Cnode bits = %u, guard size = %u, valid bits = %u\n",
+              "Cnode bits = %u, guard size = %u, valid bits = %u, bits_resolved = %u\n",
               cnode_cap->u.cnode.bits, cnode_cap->u.cnode.guard_size,
-              vbits);
+              vbits, bits_resolved);
         return SYS_ERR_DEPTH_EXCEEDED;
     }
 
