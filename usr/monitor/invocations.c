@@ -144,25 +144,6 @@ errval_t monitor_cap_create(struct capref dest, struct capability *cap,
     return invoke_monitor_create_cap((uint64_t*)cap, caddr, vbits, slot, owner);
 }
 
-/**
- * \brief Walk the mdb to lookup a local copy of the cnode and return the #slot
- * within that cnode.
- */
-errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw,
-                                        capaddr_t slot, struct capability *ret)
-{
-    assert(cnode_raw != NULL);
-    assert(ret != NULL);
-
-    // Assert cnode type
-    assert(cnode_raw->type == ObjType_CNode);
-    // Assert slot within the cnode
-    assert(slot < (1UL << cnode_raw->u.cnode.bits));
-
-    return invoke_monitor_identify_cnode_get_cap((uint64_t*)cnode_raw,
-                                                 slot, ret);
-}
-
 /** 
  * \brief Retype a capability on behalf of another domains.  Capabilities which
  * are remote (cross-core) must be retyped through the monitor to maintain 

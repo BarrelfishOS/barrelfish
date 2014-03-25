@@ -443,34 +443,6 @@ static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
     return sys_monitor_nullify_cap(cptr, bits);
 }
 
-static struct sysret monitor_iden_cnode_get_cap(struct capability *kern_cap,
-                                                int cmd, uintptr_t *args)
-{
-    errval_t err;
-
-    /* XXX: Get the raw metadata of the cnode */
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
-    struct capability *cnode = (struct capability *)args;
-    assert(cnode->type == ObjType_CNode);
-
-    struct capability *cnode_copy;
-    err = mdb_get_copy(cnode, &cnode_copy);
-    if (err_is_fail(err)) {
-        return SYSRET(err);
-    }
-
-    capaddr_t slot = args[pos];
-    struct cte* cte = caps_locate_slot(cnode_copy->u.cnode.cnode, slot);
-
-    // XXX: Write cap data directly back to user-space
-    // FIXME: this should involve a pointer/range check for reliability,
-    // but because the monitor is inherently trusted it's not a security hole
-    struct capability *retbuf = (void *)args[pos + 1];
-    *retbuf = cte->cap;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
                                                int cmd, uintptr_t *args)
 {
@@ -878,7 +850,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
         [KernelCmd_Remote_relations] = monitor_remote_relations,
         [KernelCmd_Cap_has_relations] = monitor_cap_has_relations,
-        [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
         [KernelCmd_Create_cap]   = monitor_create_cap,
         [KernelCmd_Copy_existing] = monitor_copy_existing,
         [KernelCmd_Nullify_cap]  = monitor_nullify_cap,

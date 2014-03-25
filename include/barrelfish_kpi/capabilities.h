@@ -178,7 +178,6 @@ enum kernel_cmd {
     KernelCmd_Cap_has_relations,      ///< Return presence of local relations
     KernelCmd_Create_cap,         ///< Create a new capability
     KernelCmd_Copy_existing,
-    KernelCmd_Iden_cnode_get_cap, ///< Look up cnode, return cap within
     KernelCmd_Get_core_id,        ///< Returns the id of the core the domain is on
     KernelCmd_Get_arch_id,        ///< Returns arch id of caller's core
     KernelCmd_Nullify_cap,        ///< Set the capability to NULL allowed it to be reused

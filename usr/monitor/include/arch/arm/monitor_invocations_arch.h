@@ -121,29 +121,6 @@ invoke_monitor_register(struct capref ep)
 }
 
 static inline errval_t
-invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, capaddr_t slot,
-                                      struct capability *out)
-{
-    USER_PANIC("NYI");
-    assert(cnode_raw != NULL);
-    assert(out != NULL);
-    return LIB_ERR_NOT_IMPLEMENTED;
-
-#if 0
-    struct idc_send_msg msg;
-    idc_msg_init(&msg);
-    idc_msg_encode_word(&msg, KernelCmd_Iden_cnode_get_cap);
-    for (int i = 0; i < sizeof(struct capability) / sizeof(uint64_t); i++) {
-        idc_msg_encode_word(&msg, cnode_raw[i]);
-    }
-    idc_msg_encode_word(&msg, slot);
-    idc_msg_encode_word(&msg, (uintptr_t)out);
-
-    return cap_invoke(cap_kernel, &msg);
-#endif
-}
-
-static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  capaddr_t src, enum objtype newtype,
                                  int objbits, capaddr_t to, capaddr_t slot,

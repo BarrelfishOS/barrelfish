@@ -103,15 +103,6 @@ invoke_monitor_register(struct capref ep)
 }
 
 static inline errval_t
-invoke_monitor_identify_cnode_get_cap(uint64_t *cnode_raw, capaddr_t slot,
-                                      struct capability *out)
-{
-    return cap_invoke4(cap_kernel, KernelCmd_Iden_cnode_get_cap,
-                       (uintptr_t)cnode_raw, slot, (uintptr_t)out).error;
-}
-
-
-static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  capaddr_t src, enum objtype newtype, 
                                  int objbits, capaddr_t to, capaddr_t slot, 
