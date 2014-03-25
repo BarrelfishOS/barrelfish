@@ -185,32 +185,19 @@ static struct sysret handle_copy(struct capability *root,
     return copy_or_mint(root, args, false);
 }
 
-static struct sysret handle_delete_common(struct capability *root,
-                                          uintptr_t *args, bool from_monitor)
-{
-    capaddr_t cptr = args[0];
-    int bits     = args[1];
-    return sys_delete(root, cptr, bits, from_monitor);
-}
-
 static struct sysret handle_delete(struct capability *root, int cmd, uintptr_t *args)
 {
-    return  handle_delete_common(root, args, false);
-}
-
-static struct sysret handle_revoke_common(struct capability *root,
-                                          uintptr_t *args,
-                                          bool from_monitor)
-{
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_revoke(root, cptr, bits, from_monitor);
+    return  sys_delete(root, cptr, bits);
 }
 
 static struct sysret handle_revoke(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return  handle_revoke_common(root, args, false);
+    capaddr_t cptr = args[0];
+    int bits     = args[1];
+    return  sys_revoke(root, cptr, bits);
 }
 
 static struct sysret handle_map(struct capability *pgtable,
@@ -248,71 +235,6 @@ static struct sysret handle_unmap(struct capability *pgtable,
 
     err = page_mappings_unmap(pgtable, mapping, entry, pte_count);
     return SYSRET(err);
-}
-
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_retype(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
-{
-    errval_t err;
-
-    struct remote_retype_syscall_overflow * overflow =
-        (struct remote_retype_syscall_overflow *) args[0];
-
-    assert(overflow != NULL);
-
-    capaddr_t root_caddr = overflow->rootcap_addr;
-    capaddr_t root_vbits = overflow->rootcap_vbits;
-
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: conceal first word of arguments */
-    return handle_retype_common(root, &args[1], true);
-}
-
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_delete(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
-{
-    errval_t err;
-
-    capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
-
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: conceal first two words of arguments */
-    return handle_delete_common(root, &args[2], true);
-}
-
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
-{
-    errval_t err;
-
-    capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
-
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: conceal first two words of arguments */
-    return handle_revoke_common(root, &args[2], true);
 }
 
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
@@ -412,27 +334,6 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     return monitor_identify_cap_common(kernel_cap, root, &args[2]);
 }
 
-static struct sysret monitor_remote_cap(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
-{
-    struct capability *root = &dcb_current->cspace.cap;
-    capaddr_t cptr = args[0];
-    int bits = args[1];
-    bool remote = (bool)args[2];
-
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
-    }
-
-    set_cap_remote(cte, remote);
-    bool has_desc = has_descendants(cte);
-
-    return (struct sysret){ .error = SYS_ERR_OK, .value = has_desc };
-}
-
-
 static struct sysret monitor_create_cap(struct capability *kernel_cap,
                                         int cmd, uintptr_t *args)
 {
@@ -459,7 +360,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                            slot, owner, src));
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
@@ -769,16 +670,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
-        [KernelCmd_Remote_cap]   = monitor_remote_cap,
         [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
         [KernelCmd_Create_cap]   = monitor_create_cap,
         [KernelCmd_Nullify_cap]  = monitor_nullify_cap,
         [KernelCmd_Setup_trace]  = handle_trace_setup,
         [KernelCmd_Register]     = monitor_handle_register,
         [KernelCmd_Domain_Id]    = monitor_handle_domain_id,
-        [MonitorCmd_Retype]      = monitor_handle_retype,
-        [MonitorCmd_Delete]      = monitor_handle_delete,
-        [MonitorCmd_Revoke]      = monitor_handle_revoke,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
 #ifdef __scc__
         [KernelCmd_Spawn_SCC_Core]   = monitor_spawn_scc_core,
@@ -867,7 +764,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
             // try to deliver message
             retval.error = lmp_deliver(to, dcb_current, &args[1], length_words,
-                                       send_cptr, send_bits);
+                                       args[0], send_cptr, send_bits);
 
             /* Switch to reciever upon successful delivery with sync flag,
              * or (some cases of) unsuccessful delivery with yield flag */
@@ -1023,7 +920,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
                                         recv_slot);
 
                 retval.error = caps_create_new(ObjType_DevFrame, args[1], bits,
-                        bits, slot);
+                        bits, my_core_id, slot);
             }
             break;
 

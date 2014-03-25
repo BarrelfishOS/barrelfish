@@ -220,7 +220,7 @@ struct find_cap_broadcast_st {
 static errval_t
 find_cap_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *st)
 {
-    return intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (genvaddr_t)st);
+    return intermon_capops_find_cap__tx(b, NOP_CONT, *caprep, (uintptr_t)st);
 }
 
 errval_t
@@ -326,7 +326,8 @@ void
 find_cap_result__rx_handler(struct intermon_binding *b, errval_t result, genvaddr_t st)
 {
     // if we receive a positive result, immediately forward to caller
-    struct find_cap_broadcast_st *fc_bc_st = (struct find_cap_broadcast_st*)st;
+    lvaddr_t lst = (lvaddr_t)st;
+    struct find_cap_broadcast_st *fc_bc_st = (struct find_cap_broadcast_st*)lst;
     if (err_is_ok(result)) {
         if (!fc_bc_st->found) {
             fc_bc_st->found = true;
@@ -363,7 +364,8 @@ struct find_descendants_mc_st {
 static errval_t
 find_descendants_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *mc_st)
 {
-    return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)mc_st);
+    lvaddr_t lst = (lvaddr_t)mc_st;
+    return intermon_capops_find_descendants__tx(b, NOP_CONT, *caprep, (genvaddr_t)lst);
 }
 
 errval_t
@@ -447,7 +449,8 @@ find_descendants__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
 void
 find_descendants_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
-    struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)st;
+    lvaddr_t lst = (lvaddr_t) st;
+    struct find_descendants_mc_st *mc_st = (struct find_descendants_mc_st*)lst;
 
     if (err_is_ok(status)) {
         // found result
@@ -485,7 +488,8 @@ struct update_owner_broadcast_st {
 static errval_t
 update_owner_broadcast_send_cont(struct intermon_binding *b, intermon_caprep_t *caprep, struct capsend_mc_st *bc_st)
 {
-    return intermon_capops_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)bc_st);
+    lvaddr_t lst = (lvaddr_t)bc_st;
+    return intermon_capops_update_owner__tx(b, NOP_CONT, *caprep, (genvaddr_t)lst);
 }
 
 errval_t
@@ -556,7 +560,8 @@ owner_updated(coreid_t owner, genvaddr_t st)
 void
 owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
 {
-    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)st;
+    lvaddr_t lst = (lvaddr_t)st;
+    struct update_owner_broadcast_st *uo_bc_st = (struct update_owner_broadcast_st*)lst;
     if (!capsend_handle_mc_reply(&uo_bc_st->bc)) {
         // broadcast is not complete
         return;

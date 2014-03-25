@@ -142,7 +142,7 @@ delete_remote__send(struct intermon_binding *b, intermon_caprep_t *caprep,
                     struct capsend_mc_st *st)
 {
     return intermon_capops_delete_remote__tx(b, NOP_CONT, *caprep,
-                                             (genvaddr_t)st);
+                                             (lvaddr_t)st);
 }
 
 static void
@@ -236,7 +236,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
                          genvaddr_t st)
 {
     errval_t err;
-    struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)st;
+    struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)(lvaddr_t)st;
     struct delete_st *del_st = mc_st->del_st;
 
     // XXX: do something with received errors?

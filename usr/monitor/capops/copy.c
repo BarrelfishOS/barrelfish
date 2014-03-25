@@ -139,7 +139,7 @@ owner_copy_send__rdy(struct intermon_binding *b,
 {
     DEBUG_CAPOPS("owner_copy_send__rdy: ->%p, %p\n", b, e);
     struct owner_copy_msg_st *msg_st = (struct owner_copy_msg_st*)e;
-    struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)(msg_st->st);
+    struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)((lvaddr_t)msg_st->st);
     assert(rpc_st);
     errval_t err;
 
@@ -172,7 +172,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
     if (err_is_fail(err)) {
         // rpc_st hasn't been set up so we have to do failure handling manually
         if (from == my_core_id) {
-            result_handler(err, 0, 0, 0, (void*)st);
+            result_handler(err, 0, 0, 0, (void*)(lvaddr_t)st);
         }
         else {
             err2 = recv_copy_result__enq(from, err, 0, 0, 0, st);
@@ -256,7 +256,7 @@ null_shortcircuit:
     msg_st->queue_elem.cont = owner_copy_send__rdy;
     capability_to_caprep(cap, &msg_st->caprep);
     msg_st->owner_relations = remote_relations;
-    msg_st->st = (genvaddr_t)rpc_st;
+    msg_st->st = (lvaddr_t)rpc_st;
 
     // enqueue message
     err = capsend_target(dest, (struct msg_queue_elem*)msg_st);
@@ -296,7 +296,7 @@ request_copy_send__rdy(struct intermon_binding *b,
     struct request_copy_msg_st *msg_st = (struct request_copy_msg_st*)e;
     err = intermon_capops_request_copy__tx(b, NOP_CONT, msg_st->dest,
                                            msg_st->caprep,
-                                           (genvaddr_t)msg_st->st);
+                                           (lvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         assert(msg_st->st);
         struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)msg_st->st;
@@ -328,7 +328,7 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
         result_handler(err, 0, 0, 0, st);
         return;
     }
-    rpc_st->st = (genvaddr_t)st;
+    rpc_st->st = (lvaddr_t)st;
     rpc_st->from = my_core_id;
     rpc_st->delete_after = give_away;
     rpc_st->is_last = false;
@@ -416,7 +416,7 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t vbits,
     // call result handler
     DEBUG_CAPOPS("result_handler: %p\n", rpc_st->result_handler);
     if (rpc_st->result_handler) {
-        rpc_st->result_handler(status, capaddr, vbits, slot, (void*)rpc_st->st);
+        rpc_st->result_handler(status, capaddr, vbits, slot, (void*)((lvaddr_t)rpc_st->st));
     }
 
     free(rpc_st);
@@ -432,7 +432,7 @@ recv_copy_result__rx(struct intermon_binding *b, errval_t status,
 {
     assert(st);
     DEBUG_CAPOPS("recv_copy_result__rx: %p, %s\n", b, err_getstring(status));
-    struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)st;
+    struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)((lvaddr_t)st);
     rpc_st->recv_handler(status, capaddr, vbits, slot, rpc_st);
 }
 
@@ -605,7 +605,7 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
         memset(&cap, sizeof(cap), 0);
         cap.type = ObjType_Null;
         owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
-                result_handler, (genvaddr_t)st);
+                result_handler, (lvaddr_t)st);
         return;
     }
 
@@ -651,7 +651,7 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
 
         // sending copy from here/owner
         owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
-                        result_handler, (genvaddr_t)st);
+                        result_handler, (lvaddr_t)st);
     }
 
     return;

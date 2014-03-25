@@ -46,7 +46,7 @@ move_request_send_cont(struct intermon_binding *b, struct intermon_msg_queue_ele
 {
     errval_t err;
     struct move_request_msg_st *msg_st = (struct move_request_msg_st*)e;
-    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, msg_st->relations, (genvaddr_t)msg_st->st);
+    err = intermon_capops_move_request__tx(b, NOP_CONT, msg_st->caprep, msg_st->relations, (lvaddr_t)msg_st->st);
     if (err_is_fail(err)) {
         struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)msg_st->st;
         if (rpc_st->result_handler) {
@@ -236,7 +236,7 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
     coreid_t from = inter_st->core_id;
     assert(from != my_core_id);
-    struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)st;
+    struct cap_move_rpc_st *rpc_st = (struct cap_move_rpc_st*)(lvaddr_t)st;
 
     caplock_unlock(rpc_st->capref);
     rpc_st->result_handler(status, rpc_st->st);

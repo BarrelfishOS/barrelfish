@@ -139,7 +139,7 @@ retype_request_check__rx(errval_t status, void *st)
 
 void
 retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
-                   int desttype, uint32_t destbits, genvaddr_t st)
+                   uint32_t desttype, uint32_t destbits, genvaddr_t st)
 {
     errval_t err;
 
@@ -200,7 +200,7 @@ retype_result__rx(errval_t status, struct retype_request_st *req_st)
 void
 retype_response__rx(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
-    struct retype_request_st *req_st = (struct retype_request_st*)st;
+    struct retype_request_st *req_st = (struct retype_request_st*)(lvaddr_t)st;
     retype_result__rx(status, req_st);
 }
 
@@ -216,7 +216,7 @@ retype_request__send(struct intermon_binding *b, struct intermon_msg_queue_elem 
     err = intermon_capops_request_retype__tx(b, NOP_CONT, req_st->caprep,
                                              req_st->check.type,
                                              req_st->check.objbits,
-                                             (genvaddr_t)req_st);
+                                             (lvaddr_t)req_st);
 
     if (err_is_fail(err)) {
         retype_result__rx(err, req_st);

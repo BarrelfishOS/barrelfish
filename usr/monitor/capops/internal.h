@@ -97,7 +97,7 @@ void retrieve_result__rx(struct intermon_binding *b,
                          errval_t status, uint8_t relations,
                          genvaddr_t st);
 void retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep,
-                        int desttype, uint32_t destbits, genvaddr_t st);
+                        uint32_t desttype, uint32_t destbits, genvaddr_t st);
 void retype_response__rx(struct intermon_binding *b, errval_t status,
                                  genvaddr_t st);
 void revoke_mark__rx(struct intermon_binding *b,

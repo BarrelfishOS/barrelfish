@@ -127,7 +127,7 @@ retrieve_owner__send(struct intermon_binding *b,
     GOTO_IF_ERR(err, report_error);
 
     capability_to_caprep(&st->rawcap, &caprep);
-    err = intermon_capops_retrieve_request__tx(b, NOP_CONT, caprep, (genvaddr_t)st);
+    err = intermon_capops_retrieve_request__tx(b, NOP_CONT, caprep, (lvaddr_t)st);
     GOTO_IF_ERR(err, report_error);
 
     return;
@@ -227,7 +227,7 @@ retrieve_result__rx(struct intermon_binding *b, errval_t status,
                     uint8_t relations, genvaddr_t st)
 {
     errval_t err;
-    struct retrieve_rpc_st *rst = (struct retrieve_rpc_st*)st;
+    struct retrieve_rpc_st *rst = (struct retrieve_rpc_st*)(lvaddr_t)st;
 
     if (err_is_fail(status)) {
         err = status;

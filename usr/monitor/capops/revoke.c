@@ -164,7 +164,7 @@ revoke_mark__send(struct intermon_binding *b,
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((char*)mc_st - off);
     return intermon_capops_revoke_mark__tx(b, NOP_CONT, *caprep,
-                                           (genvaddr_t)st);
+                                           (lvaddr_t)st);
 }
 
 void
@@ -229,7 +229,7 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
 {
     errval_t err;
 
-    struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
+    struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;
     if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
         // multicast not complete
         return;
@@ -253,7 +253,7 @@ revoke_commit__send(struct intermon_binding *b,
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((char*)mc_st - off);
-    return intermon_capops_revoke_commit__tx(b, NOP_CONT, (genvaddr_t)st);
+    return intermon_capops_revoke_commit__tx(b, NOP_CONT, (lvaddr_t)st);
 }
 
 void
@@ -337,7 +337,7 @@ void
 revoke_done__rx(struct intermon_binding *b,
                 genvaddr_t st)
 {
-    struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
+    struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;
     if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
         // multicast not complete
         return;

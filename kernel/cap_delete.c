@@ -301,7 +301,7 @@ static void caps_mark_revoke_copy(struct cte *cte)
     if (err_is_fail(err)) {
         // this should not happen as there is a copy of the cap
         panic("error while marking/deleting cap copy for revoke:"
-              " 0x%"PRIxGENPADDR"\n", err);
+              " 0x%"PRIuERRV"\n", err);
     }
 }
 
@@ -347,7 +347,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
     else if (err_is_fail(err)) {
         // some serious mojo went down in the cleanup voodoo
         panic("error while marking/deleting descendant cap for revoke:"
-              " 0x%"PRIxGENPADDR"\n", err);
+              " 0x%"PRIuERRV"\n", err);
     }
 }
 
@@ -380,7 +380,7 @@ errval_t caps_delete_foreigns(struct cte *cte)
         err = cleanup_copy(next);
         if (err_is_fail(err)) {
             panic("error while deleting foreign copy for remote_delete:"
-                  " 0x%"PRIxGENPADDR"\n", err);
+                  " 0x%"PRIuERRV"\n", err);
         }
     }
 
@@ -396,7 +396,7 @@ errval_t caps_delete_foreigns(struct cte *cte)
     err = caps_try_delete(cte);
     if (err_is_fail(err)) {
         panic("error while deleting foreign copy for remote_delete:"
-              " 0x%"PRIxGENPADDR"\n", err);
+              " 0x%"PRIuERRV"\n", err);
     }
 
     return SYS_ERR_OK;
