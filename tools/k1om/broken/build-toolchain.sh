@@ -15,25 +15,20 @@
 set -e  # Die if any command fails.
 set -x  # Trace each command before execution.
 
-#-------------------------------------------------------------------------------
+BASEDIR=$(pwd)
+BASEDIR=/home/acreto
 
-# Modify these versions to match the corresponding patch.
-BINUTILS=binutils-2.22+mpss3.2
-GCC=gcc-4.7.0+mpss3.2
+
+export TARGET=x86_64-k1om-barrelfish
 
 # Path of your Barrelfish source and build tree.
-BARRELFISH_SOURCE=/home/acreto/barrelfish.xeon-phi
-BARRELFISH_BUILD=${BARRELFISH_SOURCE}/build
+BARRELFISH_SOURCE=$BASEDIR/barrelfish.xeon-phi
+BARRELFISH_BUILD=$BASEDIR/barrelfish.xeon-phi/build
 
-# Where the toolchain will be built and installed.
-# Note: the toolchain is specific to the Barrelfish tree mentioned above.
-TOOLCHAIN_PREFIX=${BARRELFISH_SOURCE}/toolchain
+# Modify these versions to match the corresponding patch.
+BINUTILS=binutils-2.24
+GCC=gcc-4.8.2
 
-# Cross compiler target.
-#TARGET=x86_64-pc-barrelfish
-TARGET=k1om-pc-barrelfish
-#TARGET=i586-pc-barrelfish
-#TARGET=i586-scc-barrelfish
 
 # Directory this shell script is stored in.
 # http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
@@ -43,12 +38,13 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 BINUTILS_PATCH="${SCRIPT_DIR}/${BINUTILS}-barrelfish.patch"
 GCC_PATCH="${SCRIPT_DIR}/${GCC}-barrelfish.patch"
 
-# Build parallelism
-MAKE_JOBS=
-if [[ -z "${MAKE_JOBS}" ]]; then
-  # Guess a sensible value - default: #cores + 2.
-  MAKE_JOBS=$(($(grep "^core id" /proc/cpuinfo | sort -u | wc -l) + 2))
-fi
+#-------------------------------------------------------------------------------
+
+# Where the toolchain will be built and installed.
+# Note: the toolchain is specific to the Barrelfish tree mentioned above.
+TOOLCHAIN_PREFIX=${BARRELFISH_SOURCE}/toolchain
+
+
 
 #-------------------------------------------------------------------------------
 
@@ -65,20 +61,31 @@ exit_with_error() { echo "error: $1" && exit 1; }
 [[ ! -f "${GCC_PATCH}" ]] && \
     exit_with_error "GCC patch not found (${GCC_PATCH})."
 
-TOOLCHAIN_BUILD="$(mktemp -d --tmpdir barrelfish-toolchain-build.XXXXXXXXXX)"
 
 # Build the toolchain.
 export PATH=${PATH}:${TOOLCHAIN_PREFIX}/bin
+export PREFIX=${TOOLCHAIN_PREFIX}
+
+
+TOOLCHAIN_BUILD="$(mktemp -d --tmpdir barrelfish-toolchain-build.XXXXXXXXXX)"
+
+
+# Build parallelism
+MAKE_JOBS=
+if [[ -z "${MAKE_JOBS}" ]]; then
+  # Guess a sensible value - default: #cores + 2.
+  MAKE_JOBS=$(($(grep "^core id" /proc/cpuinfo | sort -u | wc -l) + 2))
+fi
+
 
 pushd "${TOOLCHAIN_BUILD}"
 
 # 1. binutils - GNU Binary Utilities
-cp "${SCRIPT_DIR}/${BINUTILS}.tar.bz2" "${TOOLCHAIN_BUILD}/${BINUTILS}.tar.bz2"
-tar xjvf "${TOOLCHAIN_BUILD}/${BINUTILS}.tar.bz2"
+wget "http://ftp.gnu.org/gnu/binutils/${BINUTILS}.tar.gz"
+tar xzvf ${BINUTILS}.tar.gz
 pushd ${BINUTILS}/
 patch -p1 < "${BINUTILS_PATCH}"
 popd  # ${BINUTILS}/
-
 mkdir -p ${BINUTILS}-build/
 pushd ${BINUTILS}-build/
 ../${BINUTILS}/configure \
@@ -87,16 +94,14 @@ pushd ${BINUTILS}-build/
     --enable-threads \
     --enable-lto \
     --enable-plugins \
-    --disable-nls \
-    --disable-doc \
-    MAKEINFO=missing
-make MAKEINFO=true -j${MAKE_JOBS}
-make MAKEINFO=true install-strip 
+    --disable-nls
+make -j${MAKE_JOBS}
+make install-strip
 popd  # ${BINUTILS}-build/
 
 # 2. GCC - GNU Compiler Collection
-cp "${SCRIPT_DIR}/${GCC}.tar.bz2" "${TOOLCHAIN_BUILD}/${GCC}.tar.bz2"
-tar xjvf "${TOOLCHAIN_BUILD}/${GCC}.tar.bz2"
+wget "ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/${GCC}/${GCC}.tar.bz2"
+tar xjvf ${GCC}.tar.bz2
 pushd ${GCC}/
 source ./contrib/download_prerequisites
 # http://stackoverflow.com/questions/407523/escape-a-string-for-sed-search-pattern
@@ -109,24 +114,20 @@ popd  # ${GCC}/
 
 mkdir -p ${GCC}-build/
 pushd ${GCC}-build/
-CC=gcc-4.7 ../${GCC}/configure \
+../${GCC}/configure \
     --prefix="${TOOLCHAIN_PREFIX}" \
     --target="${TARGET}" \
-    --enable-languages=c \
+    --enable-languages=c,c++ \
     --enable-initfini-array \
     --disable-nls \
-    --disable-multilib \
     --disable-libssp \
     --with-newlib \
-  #  --with-cpu-64=k1om \
-  #  --with-arch-64=k1om \
-  #  --with-tune-64=k1om \
-    MAKEINFO=missing
-make MAKEINFO=true -j$MAKE_JOBS
-make MAKEINFO=true install-strip
+    --disable-multilib # from xeon phi inside cluster
+make -j$MAKE_JOBS
+make install-strip
+
 popd  # ${GCC}-build/
 
 popd  # ${TOOLCHAIN_BUILD}
 
-rm -rf "${TOOLCHAIN_BUILD}"
 rm -rf "${TOOLCHAIN_BUILD}"
