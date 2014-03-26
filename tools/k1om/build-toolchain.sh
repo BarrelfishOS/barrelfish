@@ -21,6 +21,8 @@ set -x  # Trace each command before execution.
 BINUTILS=binutils-2.22+mpss3.2
 GCC=gcc-4.7.0+mpss3.2
 
+export CC=gcc-4.6
+
 # Path of your Barrelfish source and build tree.
 BARRELFISH_SOURCE=/home/acreto/barrelfish.xeon-phi
 BARRELFISH_BUILD=${BARRELFISH_SOURCE}/build
@@ -31,7 +33,7 @@ TOOLCHAIN_PREFIX=${BARRELFISH_SOURCE}/toolchain
 
 # Cross compiler target.
 #TARGET=x86_64-pc-barrelfish
-TARGET=k1om-pc-barrelfish
+export TARGET=k1om-pc-barrelfish
 #TARGET=i586-pc-barrelfish
 #TARGET=i586-scc-barrelfish
 
@@ -67,8 +69,11 @@ exit_with_error() { echo "error: $1" && exit 1; }
 
 TOOLCHAIN_BUILD="$(mktemp -d --tmpdir barrelfish-toolchain-build.XXXXXXXXXX)"
 
+
+
 # Build the toolchain.
 export PATH=${PATH}:${TOOLCHAIN_PREFIX}/bin
+export PREFIX=${TOOLCHAIN_PREFIX}
 
 pushd "${TOOLCHAIN_BUILD}"
 
@@ -86,11 +91,17 @@ pushd ${BINUTILS}-build/
     --target="${TARGET}" \
     --enable-threads \
     --enable-lto \
+    --with-cpu-64=k1om \
+    --with-arch-64=k1om \
+    --with-tune-64=k1om \
+    --with-cpu=k1om \
+    --with-arch=k1om \
+    --with-tune=k1om \
     --enable-plugins \
     --disable-nls \
     --disable-doc \
     MAKEINFO=missing
-make MAKEINFO=true -j${MAKE_JOBS}
+make MAKEINFO=true ARCH=k1om -j${MAKE_JOBS}
 make MAKEINFO=true install-strip 
 popd  # ${BINUTILS}-build/
 
@@ -109,21 +120,55 @@ popd  # ${GCC}/
 
 mkdir -p ${GCC}-build/
 pushd ${GCC}-build/
-CC=gcc-4.7 ../${GCC}/configure \
+../${GCC}/configure \
     --prefix="${TOOLCHAIN_PREFIX}" \
     --target="${TARGET}" \
     --enable-languages=c \
     --enable-initfini-array \
     --disable-nls \
-    --disable-multilib \
+    --with-multilib-list=m64 \
     --disable-libssp \
     --with-newlib \
-  #  --with-cpu-64=k1om \
-  #  --with-arch-64=k1om \
-  #  --with-tune-64=k1om \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --with-cpu-64=k1om \
+    --with-arch-64=k1om \
+    --with-tune-64=k1om \
+    --with-cpu=k1om \
+    --with-arch=k1om \
+    --with-tune=k1om \
     MAKEINFO=missing
-make MAKEINFO=true -j$MAKE_JOBS
-make MAKEINFO=true install-strip
+
+#    --disable-multilib \
+
+make MAKEINFO=true ARCH=k1om all-gcc -j$MAKE_JOBS
+make MAKEINFO=true ARCH=k1om install-gcc -j$MAKE_JOBS
+
+
+../${GCC}/configure \
+    --prefix="${TOOLCHAIN_PREFIX}" \
+    --target="${TARGET}" \
+    --enable-languages=c \
+    --enable-initfini-array \
+    --disable-nls \
+    --with-multilib-list=m64 \
+    --disable-libssp \
+    --with-newlib \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --disable-shared \
+    --with-cpu-64=k1om \
+    --with-arch-64=k1om \
+    --with-tune-64=k1om \
+    --with-cpu=k1om \
+    --with-arch=k1om \
+    --with-tune=k1om \
+    MAKEINFO=missing
+
+#    --disable-multilib \
+
+make MAKEINFO=true all -j$MAKE_JOBS
+make MAKEINFO=true install-strip -j$MAKE_JOBS
 popd  # ${GCC}-build/
 
 popd  # ${TOOLCHAIN_BUILD}

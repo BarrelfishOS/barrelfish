@@ -62,6 +62,15 @@ index 7282a68..3933f4d 100644
  i[34567]86-*-freebsd*)
  	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h ${fbsd_tm_file} i386/freebsd.h"
  	tmake_file="${tmake_file} i386/t-crtstuff"
+@@ -2688,7 +2688,7 @@
+ esac
+ 
+ case ${target} in
+-i[34567]86-*-linux* | x86_64-*-linux* | [lk]1om-*-linux*)
++i[34567]86-*-linux* | x86_64-*-linux* | [lk]1om-*-linux* | k1om-*-barrelfish* )
+ 	tmake_file="${tmake_file} i386/t-pmm_malloc i386/t-i386"
+ 	;;
+ i[34567]86-*-* | x86_64-*-* | [lk]1om-*-*)
 @@ -2864,6 +2882,10 @@
      arch=l1om
      cpu=l1om
@@ -83,15 +92,35 @@ index 7282a68..3933f4d 100644
  	i[34567]86-*-solaris2*)
  		tmake_file="${tmake_file} i386/t-fprules-softfp soft-fp/t-softfp"
  		;;
-@@ -2706,7 +2706,7 @@
- esac
- 
- case ${target} in
--i[34567]86-*-linux* | x86_64-*-linux* | [lk]1om-*-linux*)
-+i[34567]86-*-linux* | x86_64-*-linux* | [lk]1om-*-linux* | k1om-*-barrelfish* )
- 	tmake_file="${tmake_file} i386/t-pmm_malloc i386/t-i386"
- 	;;
- i[34567]86-*-* | x86_64-*-* | [lk]1om-*-*)
+diff --git a/gcc/configure b/gcc/configure
+--- a/gcc/configure	
++++ b/gcc/configure
+@@ -6897,6 +6897,6 @@
+   case $target in
+     powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux* | [lk]1om*-*-linux* | s390*-*-linux* | \
+-    i?86*-*-mingw* | x86_64*-*-mingw* | \
++    i?86*-*-mingw* | x86_64*-*-mingw* | k1om-*-barrelfish* | \
+     i?86*-*-cygwin*)
+       enable_decimal_float=yes
+       ;;
+@@ -13278,6 +13278,6 @@
+ x86_64-*kfreebsd*-gnu|[lk]1om-*kfreebsd*-gnu| \
+ x86_64-*linux*|[lk]1om-*linux*|ppc*-*linux*|powerpc*-*linux*| \
+-s390*-*linux*|s390*-*tpf*|sparc*-*linux*)
++s390*-*linux*|s390*-*tpf*|sparc*-*linux*|k1om-*-barrelfish*)
+   # Find out which ABI we are using.
+   echo 'int i;' > conftest.$ac_ext
+   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
+@@ -13325,6 +13325,9 @@
+ 	  k1om-*linux*)
+ 	    LD="${LD-ld} -m elf_k1om"
+ 	    ;;
++	  k1om-*barrelfish*)
++	    LD="${LD-ld} -m elf_k1om"
++	    ;;
+ 	  ppc*-*linux*|powerpc*-*linux*)
+ 	    LD="${LD-ld} -m elf64ppc"
+ 	    ;;
 diff --git a/boehm-gc/configure b/boehm-gc/configure
 --- a/boehm-gc/configure
 +++ b/boehm-gc/configure
@@ -144,34 +173,6 @@ diff --git a/libgcc/configure b/libgcc/configure
      i?86*-*-cygwin*)
        enable_decimal_float=yes
        ;;
-@@ -6896,7 +6896,7 @@
- 
-   case $target in
-     powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux* | [lk]1om*-*-linux* | s390*-*-linux* | \
--    i?86*-*-mingw* | x86_64*-*-mingw* | \
-+    i?86*-*-mingw* | x86_64*-*-mingw* | k1om-*-barrelfish* | \
-     i?86*-*-cygwin*)
-       enable_decimal_float=yes
-       ;;
-@@ -13277,7 +13277,7 @@
- 
- x86_64-*kfreebsd*-gnu|[lk]1om-*kfreebsd*-gnu| \
- x86_64-*linux*|[lk]1om-*linux*|ppc*-*linux*|powerpc*-*linux*| \
--s390*-*linux*|s390*-*tpf*|sparc*-*linux*)
-+s390*-*linux*|s390*-*tpf*|sparc*-*linux*|k1om-*-barrelfish*)
-   # Find out which ABI we are using.
-   echo 'int i;' > conftest.$ac_ext
-   if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
-@@ -13325,6 +13325,9 @@
- 	  k1om-*linux*)
- 	    LD="${LD-ld} -m elf_k1om"
- 	    ;;
-+	  k1om-*barrelfish*)
-+	    LD="${LD-ld} -m elf_k1om"
-+	    ;;
- 	  ppc*-*linux*|powerpc*-*linux*)
- 	    LD="${LD-ld} -m elf64ppc"
- 	    ;;
 diff --git a/libmudflap/configure b/libmudflap/configure
 --- a/libmudflap/configure
 +++ b/libmudflap/configure
@@ -691,7 +692,7 @@ index 66b4724..86bb37d 100644
  i[34567]86-pc-msdosdjgpp*)
  	;;
  i[34567]86-*-lynxos*)
-@@ -597,7 +597,7 @@
+@@ -585,7 +585,7 @@
  esac
  
  case ${host} in
@@ -700,7 +701,7 @@ index 66b4724..86bb37d 100644
    i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | \
    i[34567]86-*-gnu*)
  	tmake_file="${tmake_file} t-tls"
-@@ -611,7 +611,7 @@
+@@ -599,7 +599,7 @@
  i[34567]86-*-darwin* | x86_64-*-darwin* | [lk]1om-*-darwin* | \
    i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu | [lk]1om-*-kfreebsd*-gnu | \
    i[34567]86-*-linux* | x86_64-*-linux* | [lk]1om-*-linux* | \
@@ -709,7 +710,7 @@ index 66b4724..86bb37d 100644
    i[34567]86-*-solaris2* | \
    i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw* | \
    i[34567]86-*-freebsd* | x86_64-*-freebsd* | [lk]1om-*-freebsd*)
-@@ -622,7 +622,7 @@
+@@ -610,7 +610,7 @@
  esac
  
  case ${host} in
@@ -748,7 +749,7 @@ diff --git a/libstdc++-v3/configure b/libstdc++-v3/configure
 index b642495..45e3ed3 100755
 --- a/libstdc++-v3/configure
 +++ b/libstdc++-v3/configure
-@@ -50852,6 +51752,5867 @@ _ACEOF
+@@ -50889,6 +51789,5867 @@ _ACEOF
    fi
  
      ;;
