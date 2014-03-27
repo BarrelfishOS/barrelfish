@@ -50,7 +50,14 @@ struct cte {
     char padding[(1UL << OBJBITS_CTE)
                  - sizeof(struct capability) - sizeof(struct mdbnode)
                  - sizeof(struct delete_list) - sizeof(struct mapping_info)];
-};
+}
+// XXX: this is ugly, we might consider having packed for all architectures. -SG
+#if defined(__ARM_ARCH_7A__)
+__attribute__((packed))
+#endif
+;
+
+STATIC_ASSERT_SIZEOF(struct cte, (1UL << OBJBITS_CTE));
 
 static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
 {

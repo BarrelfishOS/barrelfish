@@ -93,8 +93,7 @@ setup_intermon_connection(int local_hwid,
     }
 
     // Mark it remote
-    bool has_descendants;
-    err = monitor_cap_remote(frame, true, &has_descendants);
+    err = monitor_remote_relations(frame, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -244,8 +243,7 @@ cpu_memory_prepare(size_t *size,
     }
 
     // Mark memory as remote
-    bool has_descendants;
-    err = monitor_cap_remote(cap, true, &has_descendants);
+    err = monitor_remote_relations(cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }
@@ -292,8 +290,7 @@ spawn_memory_prepare(size_t size, struct capref *cap_ret,
     }
 
     // Mark memory as remote
-    bool has_descendants;
-    err = monitor_cap_remote(cap, true, &has_descendants);
+    err = monitor_remote_relations(cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
         return err;
     }

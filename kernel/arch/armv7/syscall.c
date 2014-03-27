@@ -253,7 +253,7 @@ handle_delete(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_delete(root, cptr, bits, false);
+    return sys_delete(root, cptr, bits);
 }
 
 static struct sysret
@@ -291,7 +291,7 @@ handle_revoke(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_revoke(root, cptr, bits, false);
+    return sys_revoke(root, cptr, bits);
 }
 
 static struct sysret
@@ -390,33 +390,6 @@ monitor_handle_register(
 }
 
 static struct sysret
-monitor_remote_cap(
-	struct capability *kernel_cap,
-	arch_registers_state_t* context,
-	int argc)
-{
-	//assert(3 == argc);
-
-	struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-	struct capability *root = &dcb_current->cspace.cap;
-    capaddr_t cptr = sa->arg2;
-    int bits = sa->arg3;
-    bool remote = (bool)sa->arg4;
-
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
-    }
-
-    set_cap_remote(cte, remote);
-    bool has_desc = has_descendants(cte);
-
-    return (struct sysret){ .error = SYS_ERR_OK, .value = has_desc };
-}
-
-static struct sysret
 monitor_create_cap(
     struct capability *kernel_cap,
     arch_registers_state_t* context,
@@ -432,23 +405,28 @@ monitor_create_cap(
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
-    int cnode_vbits    = sa->arg3;
-    size_t slot        = sa->arg4;
+    int cnode_vbits      = sa->arg3;
+    size_t slot          = sa->arg4;
+    coreid_t owner       = sa->arg5;
     struct capability *src =
-        (struct capability*)sa->arg5;
+        (struct capability*)sa->arg6;
 
-    //printf("type = %d\n", src->type);
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null ) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                            slot, owner, src));
 }
 
 /**
@@ -597,7 +575,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Register]     = monitor_handle_register,
         [KernelCmd_Create_cap]   = monitor_create_cap,
-        [KernelCmd_Remote_cap]   = monitor_remote_cap,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
     },
@@ -649,6 +626,8 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 // does the sender want to yield to the target
                 // if undeliverable?
                 bool yield = flags & LMP_FLAG_YIELD;
+                // is the cap (if present) to be deleted on send?
+                bool give_away = flags & LMP_FLAG_GIVEAWAY;
 
                 // Message registers in context are
                 // discontinguous for now so copy message words
@@ -668,7 +647,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits);
+                                      length_words, send_cptr, send_bits, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)

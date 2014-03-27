@@ -4,6 +4,7 @@
 #include <monitor_invocations.h>
 #include <caplock.h>
 #include <barrelfish/event_queue.h>
+#include <barrelfish/slot_alloc.h>
 
 static struct event_queue trigger_queue;
 static bool triggered;

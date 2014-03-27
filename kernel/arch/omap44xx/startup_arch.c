@@ -93,8 +93,8 @@ static lpaddr_t app_alloc_phys(size_t size)
 
 static lpaddr_t app_alloc_phys_aligned(size_t size, size_t align)
 {
-	app_alloc_phys_start = round_up(app_alloc_phys_start, align);
-	return app_alloc_phys(size);
+    app_alloc_phys_start = round_up(app_alloc_phys_start, align);
+    return app_alloc_phys(size);
 }
 
 /**
@@ -128,8 +128,8 @@ lpaddr_t bsp_alloc_phys(size_t size)
 
 static lpaddr_t bsp_alloc_phys_aligned(size_t size, size_t align)
 {
-	bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
-	return bsp_alloc_phys(size);
+    bsp_init_alloc_addr = round_up(bsp_init_alloc_addr, align);
+    return bsp_alloc_phys(size);
 }
 
 /**
@@ -171,7 +171,7 @@ static uint32_t elf_to_l2_flags(uint32_t eflags)
 {
 #ifdef __ARM_ARCH_7M__//the cortex-m3 does not actually understand these flags yet
 //XXX: if we ever allow all these flags, then remove the ifdef again
-    return 0; 
+    return 0;
 #else   //normal case, __ARM_ARCH_7A__
     switch (eflags & (PF_W|PF_R))
     {
@@ -290,7 +290,7 @@ void create_module_caps(struct spawn_state *st)
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
     err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
-                          BASE_PAGE_BITS,
+                          BASE_PAGE_BITS, my_core_id,
                           caps_locate_slot(CNODE(st->modulecn),
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
@@ -326,7 +326,7 @@ void create_module_caps(struct spawn_state *st)
             assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
             // create as DevFrame cap to avoid zeroing memory contents
             err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
-                                  block_size,
+                                  block_size, my_core_id,
                                   caps_locate_slot(CNODE(st->modulecn),
                                                    st->modulecn_slot++));
             assert(err_is_ok(err));
@@ -346,69 +346,64 @@ void create_module_caps(struct spawn_state *st)
 /// Create physical address range or RAM caps to unused physical memory
 static void create_phys_caps(lpaddr_t init_alloc_addr)
 {
-	errval_t err;
+    errval_t err;
 
-	/* Walk multiboot MMAP structure, and create appropriate caps for memory */
-	char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
-	genpaddr_t last_end_addr = 0;
+    /* Walk multiboot MMAP structure, and create appropriate caps for memory */
+    char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
+    genpaddr_t last_end_addr = 0;
 
-	for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;)
-	{
-		struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
+    for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
+        struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
-		debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
-				mmap->base_addr, mmap->base_addr + mmap->length,
-				mmap->type);
+        debug(SUBSYS_STARTUP, "MMAP %llx--%llx Type %"PRIu32"\n",
+                mmap->base_addr, mmap->base_addr + mmap->length,
+                mmap->type);
 
-		if (last_end_addr >= init_alloc_addr
-				&& mmap->base_addr > last_end_addr)
-		{
-			/* we have a gap between regions. add this as a physaddr range */
-			debug(SUBSYS_STARTUP, "physical address range %llx--%llx\n",
-					last_end_addr, mmap->base_addr);
+        if (last_end_addr >= init_alloc_addr
+                && mmap->base_addr > last_end_addr) {
+            /* we have a gap between regions. add this as a physaddr range */
+            debug(SUBSYS_STARTUP, "physical address range %llx--%llx\n",
+                    last_end_addr, mmap->base_addr);
 
-			err = create_caps_to_cnode(last_end_addr,
-					mmap->base_addr - last_end_addr,
-					RegionType_PhyAddr, &spawn_state, bootinfo);
-			assert(err_is_ok(err));
-		}
+            err = create_caps_to_cnode(last_end_addr,
+                    mmap->base_addr - last_end_addr,
+                    RegionType_PhyAddr, &spawn_state, bootinfo);
+            assert(err_is_ok(err));
+        }
 
-		if (mmap->type == MULTIBOOT_MEM_TYPE_RAM)
-		{
-			genpaddr_t base_addr = mmap->base_addr;
-			genpaddr_t end_addr  = base_addr + mmap->length;
+        if (mmap->type == MULTIBOOT_MEM_TYPE_RAM) {
+            genpaddr_t base_addr = mmap->base_addr;
+            genpaddr_t end_addr  = base_addr + mmap->length;
 
-			// only map RAM which is greater than init_alloc_addr
-			if (end_addr > local_phys_to_gen_phys(init_alloc_addr))
-			{
-				if (base_addr < local_phys_to_gen_phys(init_alloc_addr)) {
-					base_addr = local_phys_to_gen_phys(init_alloc_addr);
-				}
-				debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
+            // only map RAM which is greater than init_alloc_addr
+            if (end_addr > local_phys_to_gen_phys(init_alloc_addr))
+            {
+                if (base_addr < local_phys_to_gen_phys(init_alloc_addr)) {
+                    base_addr = local_phys_to_gen_phys(init_alloc_addr);
+                }
+                debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
 
-				assert(end_addr >= base_addr);
-				err = create_caps_to_cnode(base_addr, end_addr - base_addr,
-						RegionType_Empty, &spawn_state, bootinfo);
-				assert(err_is_ok(err));
-			}
-		}
-		else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr))
-		{
-			/* XXX: The multiboot spec just says that mapping types other than
-			 * RAM are "reserved", but GRUB always maps the ACPI tables as type
-			 * 3, and things like the IOAPIC tend to show up as type 2 or 4,
-			 * so we map all these regions as platform data
-			 */
-			debug(SUBSYS_STARTUP, "platform %llx--%llx\n", mmap->base_addr,
-					mmap->base_addr + mmap->length);
-			assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
-			err = create_caps_to_cnode(mmap->base_addr, mmap->length,
-					RegionType_PlatformData, &spawn_state, bootinfo);
-			assert(err_is_ok(err));
-		}
+                assert(end_addr >= base_addr);
+                err = create_caps_to_cnode(base_addr, end_addr - base_addr,
+                        RegionType_Empty, &spawn_state, bootinfo);
+                assert(err_is_ok(err));
+            }
+        } else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr)) {
+            /* XXX: The multiboot spec just says that mapping types other than
+             * RAM are "reserved", but GRUB always maps the ACPI tables as type
+             * 3, and things like the IOAPIC tend to show up as type 2 or 4,
+             * so we map all these regions as platform data
+             */
+            debug(SUBSYS_STARTUP, "platform %llx--%llx\n", mmap->base_addr,
+                    mmap->base_addr + mmap->length);
+            assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
+            err = create_caps_to_cnode(mmap->base_addr, mmap->length,
+                    RegionType_PlatformData, &spawn_state, bootinfo);
+            assert(err_is_ok(err));
+        }
         last_end_addr = mmap->base_addr + mmap->length;
         m += mmap->size + 4;
-	}
+    }
 
     // Assert that we have some physical address space
     assert(last_end_addr != 0);
@@ -475,7 +470,7 @@ static void init_page_tables(void)
      */
     caps_create_new(ObjType_VNode_ARM_l1,
                     mem_to_local_phys((lvaddr_t)init_l1),
-                    vnode_objbits(ObjType_VNode_ARM_l1), 0,
+                    vnode_objbits(ObjType_VNode_ARM_l1), 0, my_core_id,
                     caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
                     );
 
@@ -489,7 +484,7 @@ static void init_page_tables(void)
         caps_create_new(
                         ObjType_VNode_ARM_l2,
                         mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
-                        objbits_vnode, 0,
+                        objbits_vnode, 0, my_core_id,
                         caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
                         );
     }
@@ -550,7 +545,7 @@ static struct dcb *spawn_init_common(const char *name,
      * should not be a problem.
      */
     struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, iocap);
+    errval_t  err = caps_create_new(ObjType_DevFrame, 0x40000000, 30, 30, my_core_id, iocap);
         assert(err_is_ok(err));
 
     struct dispatcher_shared_generic *disp
@@ -625,37 +620,30 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     /* Fill bootinfo struct */
     bootinfo->mem_spawn_core = KERNEL_IMAGE_SIZE; // Size of kernel
 
-    /*
-    // Map dispatcher
-    spawn_init_map(init_l2, INIT_VBASE, INIT_DISPATCHER_VBASE,
-                   mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
-                   INIT_PERM_RW);
-    disp_arm->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-	*/
     return init_dcb;
 }
 
 struct dcb *spawn_app_init(struct arm_core_data *core_data,
                            const char *name, alloc_phys_func alloc_phys)
 {
-	errval_t err;
+    errval_t err;
 
-	/* Construct cmdline args */
-	// Core id of the core that booted this core
-	char coreidchar[10];
-	snprintf(coreidchar, sizeof(coreidchar), "%d", core_data->src_core_id);
+    /* Construct cmdline args */
+    // Core id of the core that booted this core
+    char coreidchar[10];
+    snprintf(coreidchar, sizeof(coreidchar), "%d", core_data->src_core_id);
 
-	// IPI channel id of core that booted this core
-	char chanidchar[30];
-	snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
+    // IPI channel id of core that booted this core
+    char chanidchar[30];
+    snprintf(chanidchar, sizeof(chanidchar), "chanid=%"PRIu32, core_data->chan_id);
 
-	// Arch id of the core that booted this core
-	char archidchar[30];
-	snprintf(archidchar, sizeof(archidchar), "archid=%d",
-			core_data->src_arch_id);
+    // Arch id of the core that booted this core
+    char archidchar[30];
+    snprintf(archidchar, sizeof(archidchar), "archid=%d",
+            core_data->src_arch_id);
 
-	const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
-	int argc = 4;
+    const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
+    int argc = 4;
 
     struct dcb *init_dcb = spawn_init_common(name, argc, argv,0, alloc_phys);
 
@@ -664,8 +652,8 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     		TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
-    		core_data->urpc_frame_bits,
-    		core_data->urpc_frame_bits, urpc_frame_cte);
+            core_data->urpc_frame_bits,
+            core_data->urpc_frame_bits, my_core_id, urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
@@ -680,7 +668,7 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     genvaddr_t entry_point, got_base=0;
     err = elf_load(EM_ARM, startup_alloc_init, &l2_info,
     		local_phys_to_mem(core_data->monitor_binary),
-    		core_data->monitor_binary_size, &entry_point);
+                core_data->monitor_binary_size, &entry_point);
     if (err_is_fail(err)) {
     	//err_print_calltrace(err);
     	panic("ELF load of init module failed!");

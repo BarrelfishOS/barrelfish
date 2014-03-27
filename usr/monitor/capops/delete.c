@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/core_state.h>
 #include "monitor.h"
 #include "capops.h"
 #include "capsend.h"
