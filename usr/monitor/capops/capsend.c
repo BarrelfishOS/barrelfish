@@ -193,7 +193,8 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_s
         }
     }
 
-    if (!bc_st->num_pending) {
+    if (!bc_st->num_pending && dest_count > 1) {
+        // XXX: needs sane error -SG
         return MON_ERR_NO_MONITOR_FOR_CORE;
     }
 
