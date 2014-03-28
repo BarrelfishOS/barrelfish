@@ -1,0 +1,14 @@
+diff -Naur sysdeps/i386/configure sysdeps/i386/configure
+--- sysdeps/i386/configure 
++++ sysdeps/i386/configure 
+@@ -632,7 +632,9 @@
+ done
+ 
+ 
+-ac_fn_c_check_header_mongrel "$LINENO" "cpuid.h" "ac_cv_header_cpuid_h" "$ac_includes_default"
++ac_fn_c_check_header_compile "$LINENO" "cpuid.h" "ac_cv_header_cpuid_h" "
++
++"
+ if test "x$ac_cv_header_cpuid_h" = x""yes; then :
+ 
+ else
