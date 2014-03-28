@@ -12,6 +12,7 @@
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
+#include <mdb/mdb_tree.h>
 
 #include <arm_hal.h>
 #include <irq.h>
@@ -24,6 +25,20 @@
 #include <armv7_syscall.h>
 #include <start_aps.h>
 #include <useraccess.h>
+
+// helper macros  for invocation handler definitions
+#define INVOCATION_HANDLER(func) \
+static struct sysret \
+func( \
+    struct capability *kernel_cap, \
+    arch_registers_state_t* context, \
+    int argc \
+    )
+
+#define INVOCATION_PRELUDE(n) \
+    assert(n == argc); \
+    struct registers_arm_syscall_args* sa = &context->syscall_args
+
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
 __attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);
@@ -295,6 +310,23 @@ handle_revoke(
 }
 
 static struct sysret
+handle_get_state(
+    struct capability* root,
+    arch_registers_state_t* context,
+    int argc
+    )
+{
+    assert(4 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    capaddr_t cptr = (capaddr_t)sa->arg2;
+    int       bits = (int)sa->arg3;
+
+    return sys_get_state(root, cptr, bits);
+}
+
+static struct sysret
 handle_map(
     struct capability *ptable,
     arch_registers_state_t *context,
@@ -348,6 +380,110 @@ handle_unmap(
     return SYSRET(err);
 }
 
+/// Different handler for cap operations performed by the monitor
+INVOCATION_HANDLER(monitor_handle_retype)
+{
+    INVOCATION_PRELUDE(8);
+    errval_t err;
+
+    struct capability *root;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, sa->arg6,
+            sa->arg7, &root, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
+    }
+
+    /* XXX: this hides the first argument which retype_common doesn't know
+     * about */
+    return handle_retype_common(root, true, context, 6);
+}
+
+INVOCATION_HANDLER(monitor_handle_has_descendants)
+{
+    INVOCATION_PRELUDE(3);
+    // check access to user pointer
+    if (!access_ok(ACCESS_READ, sa->arg2, sizeof(struct capability))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct capability *src = (struct capability *)sa->arg2;
+
+    struct cte *next = mdb_find_greater(src, false);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (next && is_ancestor(&next->cap, src)),
+    };
+}
+
+INVOCATION_HANDLER(monitor_handle_delete_last)
+{
+    INVOCATION_PRELUDE(7);
+    capaddr_t root_caddr = sa->arg2;
+    capaddr_t target_caddr = sa->arg3;
+    capaddr_t retcn_caddr = sa->arg4;
+    cslot_t retcn_slot = sa->arg5;
+    uint8_t target_vbits = (sa->arg6>>16)&0xff;
+    uint8_t root_vbits = (sa->arg6>>8)&0xff;
+    uint8_t retcn_vbits = sa->arg6&0xff;
+
+    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
+                                   target_vbits, retcn_caddr, retcn_vbits, retcn_slot);
+}
+
+INVOCATION_HANDLER(monitor_handle_delete_foreigns)
+{
+    INVOCATION_PRELUDE(4);
+    capaddr_t caddr = sa->arg2;
+    uint8_t bits = sa->arg3;
+    return sys_monitor_delete_foreigns(caddr, bits);
+}
+
+INVOCATION_HANDLER(monitor_handle_revoke_mark_tgt)
+{
+    INVOCATION_PRELUDE(6);
+    capaddr_t root_caddr   = sa->arg2;
+    uint8_t root_vbits     = sa->arg3;
+    capaddr_t target_caddr = sa->arg4;
+    uint8_t target_vbits   = sa->arg5;
+
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
+                                       target_caddr, target_vbits);
+}
+
+INVOCATION_HANDLER(monitor_handle_revoke_mark_rels)
+{
+    INVOCATION_PRELUDE(3);
+    // user pointer to src cap, check access
+    if (!access_ok(ACCESS_READ, sa->arg2, sizeof(struct capability))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+    struct capability *base = (struct capability*)sa->arg2;
+
+    return sys_monitor_revoke_mark_rels(base);
+}
+
+INVOCATION_HANDLER(monitor_handle_delete_step)
+{
+    INVOCATION_PRELUDE(5);
+    capaddr_t ret_cn_addr = sa->arg2;
+    capaddr_t ret_cn_bits = sa->arg3;
+    capaddr_t ret_slot    = sa->arg4;
+
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+}
+
+INVOCATION_HANDLER(monitor_handle_clear_step)
+{
+    INVOCATION_PRELUDE(5);
+    capaddr_t ret_cn_addr = sa->arg2;
+    capaddr_t ret_cn_bits = sa->arg3;
+    capaddr_t ret_slot    = sa->arg4;
+
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
+}
+
+
 static struct sysret
 monitor_get_core_id(
     struct capability* to,
@@ -373,6 +509,60 @@ monitor_get_arch_id(
     return (struct sysret) { .error = SYS_ERR_OK, .value = my_core_id };
 }
 
+INVOCATION_HANDLER(monitor_handle_domain_id)
+{
+    INVOCATION_PRELUDE(4);
+    capaddr_t cptr       = sa->arg2;
+    domainid_t domain_id = sa->arg3;
+
+    return sys_monitor_domain_id(cptr, domain_id);
+}
+
+INVOCATION_HANDLER(monitor_get_cap_owner)
+{
+    INVOCATION_PRELUDE(6);
+    capaddr_t root_addr = sa->arg2;
+    uint8_t root_bits   = sa->arg3;
+    capaddr_t cptr      = sa->arg4;
+    uint8_t bits        = sa->arg5;
+
+    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
+}
+
+INVOCATION_HANDLER(monitor_set_cap_owner)
+{
+    INVOCATION_PRELUDE(7);
+    capaddr_t root_addr = sa->arg2;
+    uint8_t root_bits   = sa->arg3;
+    capaddr_t cptr      = sa->arg4;
+    uint8_t bits        = sa->arg5;
+    coreid_t owner      = sa->arg6;
+
+    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
+}
+
+INVOCATION_HANDLER(monitor_lock_cap)
+{
+    INVOCATION_PRELUDE(6);
+    capaddr_t root_addr = sa->arg2;
+    uint8_t root_bits   = sa->arg3;
+    capaddr_t cptr      = sa->arg4;
+    uint8_t bits        = sa->arg5;
+
+    return sys_lock_cap(root_addr, root_bits, cptr, bits);
+}
+
+INVOCATION_HANDLER(monitor_unlock_cap)
+{
+    INVOCATION_PRELUDE(6);
+    capaddr_t root_addr = sa->arg2;
+    uint8_t root_bits   = sa->arg3;
+    capaddr_t cptr      = sa->arg4;
+    uint8_t bits        = sa->arg5;
+
+    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
+}
+
 static struct sysret
 monitor_handle_register(
     struct capability* to,
@@ -387,6 +577,56 @@ monitor_handle_register(
     capaddr_t ep_caddr = (capaddr_t)sa->arg2;
 
     return sys_monitor_register(ep_caddr);
+}
+
+INVOCATION_HANDLER(monitor_cap_has_relations)
+{
+    INVOCATION_PRELUDE(5);
+    capaddr_t caddr = sa->arg2;
+    uint8_t vbits = sa->arg3;
+    uint8_t mask = sa->arg4;
+
+    return sys_cap_has_relations(caddr, vbits, mask);
+}
+
+INVOCATION_HANDLER(monitor_remote_relations)
+{
+    INVOCATION_PRELUDE(7);
+    capaddr_t root_addr = sa->arg2;
+    int root_bits       = sa->arg3;
+    capaddr_t cptr      = sa->arg4;
+    int bits            = sa->arg5;
+    uint8_t relations   = sa->arg6 & 0xFF;
+    uint8_t mask        = (sa->arg6 >> 8) & 0xFF;
+
+    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+                                        relations, mask);
+}
+
+INVOCATION_HANDLER(monitor_copy_existing)
+{
+    INVOCATION_PRELUDE(6);
+    capaddr_t cnode_cptr = sa->arg2;
+    int cnode_vbits    = sa->arg3;
+    size_t slot        = sa->arg4;
+
+    // user pointer to src cap, check access
+    if (!access_ok(ACCESS_READ, sa->arg5, sizeof(struct capability))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+    /* Get the raw metadata of the capability to create from user pointer */
+    struct capability *src = (struct capability *)sa->arg5;
+
+    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
+}
+
+INVOCATION_HANDLER(monitor_nullify_cap)
+{
+    INVOCATION_PRELUDE(4);
+    capaddr_t cptr = sa->arg2;
+    int bits       = sa->arg3;
+
+    return sys_monitor_nullify_cap(cptr, bits);
 }
 
 static struct sysret
@@ -462,6 +702,27 @@ monitor_identify_cap(
 	struct capability *retbuf = (void *)sa->arg4;
 
     return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
+}
+
+INVOCATION_HANDLER(monitor_identify_domains_cap)
+{
+    INVOCATION_PRELUDE(7);
+    errval_t err;
+
+    capaddr_t root_caddr = sa->arg2;
+    capaddr_t root_vbits = sa->arg3;
+    capaddr_t cptr       = sa->arg4;
+    int bits             = sa->arg5;
+    struct capability *retbuf = (void *)sa->arg6;
+
+    struct capability *root;
+    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
+                          &root, CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
+    }
+
+    return sys_monitor_identify_cap(root, cptr, bits, retbuf);
 }
 
 static struct sysret handle_irq_table_set( struct capability* to,
@@ -551,12 +812,13 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
-        [CNodeCmd_Copy]   = handle_copy,
-        [CNodeCmd_Mint]   = handle_mint,
-        [CNodeCmd_Retype] = handle_retype,
-        [CNodeCmd_Delete] = handle_delete,
-        [CNodeCmd_Revoke] = handle_revoke,
-        [CNodeCmd_Create] = handle_create,
+        [CNodeCmd_Copy]     = handle_copy,
+        [CNodeCmd_Mint]     = handle_mint,
+        [CNodeCmd_Retype]   = handle_retype,
+        [CNodeCmd_Delete]   = handle_delete,
+        [CNodeCmd_Revoke]   = handle_revoke,
+        [CNodeCmd_Create]   = handle_create,
+        [CNodeCmd_GetState] = handle_get_state,
     },
     [ObjType_VNode_ARM_l1] = {
     	[VNodeCmd_Map]   = handle_map,
@@ -571,12 +833,31 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
             [IRQTableCmd_Delete] = handle_irq_table_delete,
         },
     [ObjType_Kernel] = {
-        [KernelCmd_Get_core_id]  = monitor_get_core_id,
-        [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
-        [KernelCmd_Register]     = monitor_handle_register,
-        [KernelCmd_Create_cap]   = monitor_create_cap,
-        [KernelCmd_Spawn_core]   = monitor_spawn_core,
-        [KernelCmd_Identify_cap] = monitor_identify_cap,
+        [KernelCmd_Cap_has_relations] = monitor_cap_has_relations,
+        [KernelCmd_Clear_step]        = monitor_handle_clear_step,
+        [KernelCmd_Copy_existing]     = monitor_copy_existing,
+        [KernelCmd_Create_cap]        = monitor_create_cap,
+        [KernelCmd_Delete_foreigns]   = monitor_handle_delete_foreigns,
+        [KernelCmd_Delete_last]       = monitor_handle_delete_last,
+        [KernelCmd_Delete_step]       = monitor_handle_delete_step,
+        [KernelCmd_Domain_Id]         = monitor_handle_domain_id,
+        [KernelCmd_Get_arch_id]       = monitor_get_arch_id,
+        [KernelCmd_Get_cap_owner]     = monitor_get_cap_owner,
+        [KernelCmd_Get_core_id]       = monitor_get_core_id,
+        [KernelCmd_Has_descendants]   = monitor_handle_has_descendants,
+        [KernelCmd_Identify_cap]      = monitor_identify_cap,
+        [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
+        [KernelCmd_Lock_cap]          = monitor_lock_cap,
+        [KernelCmd_Nullify_cap]       = monitor_nullify_cap,
+        [KernelCmd_Register]          = monitor_handle_register,
+        [KernelCmd_Remote_relations]  = monitor_remote_relations,
+        [KernelCmd_Retype]            = monitor_handle_retype,
+        [KernelCmd_Revoke_mark_relations] = monitor_handle_revoke_mark_rels,
+        [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
+        [KernelCmd_Set_cap_owner]     = monitor_set_cap_owner,
+        //[KernelCmd_Setup_trace]       = handle_trace_setup,
+        [KernelCmd_Spawn_core]        = monitor_spawn_core,
+        [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify

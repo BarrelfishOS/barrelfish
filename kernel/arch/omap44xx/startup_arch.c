@@ -471,7 +471,8 @@ static void init_page_tables(void)
     caps_create_new(ObjType_VNode_ARM_l1,
                     mem_to_local_phys((lvaddr_t)init_l1),
                     vnode_objbits(ObjType_VNode_ARM_l1), 0, my_core_id,
-                    caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+                    caps_locate_slot(CNODE(spawn_state.pagecn),
+                        pagecn_pagemap++)
                     );
 
     //STARTUP_PROGRESS();
@@ -485,7 +486,8 @@ static void init_page_tables(void)
                         ObjType_VNode_ARM_l2,
                         mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
                         objbits_vnode, 0, my_core_id,
-                        caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
+                        caps_locate_slot(CNODE(spawn_state.pagecn),
+                            pagecn_pagemap++)
                         );
     }
 

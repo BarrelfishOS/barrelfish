@@ -23,9 +23,11 @@
 
 struct cte;
 
+#define DELETE_LIST_SIZE (sizeof(uint64_t))
 struct delete_list {
     struct cte *next;
-    //cslot_t next_slot;
+    // make sure delete list is always the same size!
+    char padding[DELETE_LIST_SIZE - sizeof(struct cte*)];
 };
 
 STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
@@ -50,12 +52,7 @@ struct cte {
     char padding[(1UL << OBJBITS_CTE)
                  - sizeof(struct capability) - sizeof(struct mdbnode)
                  - sizeof(struct delete_list) - sizeof(struct mapping_info)];
-}
-// XXX: this is ugly, we might consider having packed for all architectures. -SG
-#if defined(__ARM_ARCH_7A__)
-__attribute__((packed))
-#endif
-;
+};
 
 STATIC_ASSERT_SIZEOF(struct cte, (1UL << OBJBITS_CTE));
 

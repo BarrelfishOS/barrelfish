@@ -113,9 +113,9 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  int objbits, capaddr_t to, capaddr_t slot,
                                  int bits)
 {
-    assert(src != CPTR_NULL);
-    USER_PANIC("NYI");
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return cap_invoke7(cap_kernel, KernelCmd_Retype,
+                       src, (newtype << 16) | (objbits << 8) | bits, to, slot,
+                       rootcap_addr, rootcap_vbits).error;
 }
 
 static inline errval_t
