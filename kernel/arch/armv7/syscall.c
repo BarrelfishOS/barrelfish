@@ -36,7 +36,7 @@ func( \
     )
 
 #define INVOCATION_PRELUDE(n) \
-    assert(n == argc); \
+    /* assert(n == argc); */\
     struct registers_arm_syscall_args* sa = &context->syscall_args
 
 
