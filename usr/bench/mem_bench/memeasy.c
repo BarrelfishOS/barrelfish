@@ -95,12 +95,12 @@ int main(int argc, char** argv)
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "cap_retype failed.");
         }
+        end = bench_tsc();
 
         err = cap_delete(frame);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "cap_delete failed.");
         }
-        end = bench_tsc();
 
         if (sleep > 0) {
             sleep_until(sleep);
@@ -109,10 +109,10 @@ int main(int argc, char** argv)
         runs[i] = end - start;
     }
 
+    runs[0] = BENCH_IGNORE_WATERMARK;
+
     printf("Average cycles %"PRIuCYCLES", Variance %"PRIuCYCLES"\n \
            Average ms %"PRIu64" Variance ms %"PRIu64"\n",
-            bench_avg(runs, MAX_ITERATION),
-            bench_variance(runs, MAX_ITERATION),
             bench_tsc_to_ms(bench_avg(runs, MAX_ITERATION)),
             bench_tsc_to_ms(bench_variance(runs, MAX_ITERATION)));
 
