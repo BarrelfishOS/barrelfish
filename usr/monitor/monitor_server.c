@@ -223,6 +223,7 @@ static void bind_lmp_service_request_cont(struct monitor_binding *serv_binding,
                                           struct monitor_binding *b,
                                           uintptr_t domain_id)
 {
+    debug_printf("%s\n", __FUNCTION__);
     errval_t err, err2;
 
     struct monitor_state *ist = serv_binding->st;
@@ -235,6 +236,7 @@ static void bind_lmp_service_request_cont(struct monitor_binding *serv_binding,
         send_cont = MKCONT(destroy_outgoing_cap, capp);
     }
 
+    debug_printf("%s: sending bind request to service (cont=%p)\n", __FUNCTION__, send_cont);
     err = serv_binding->tx_vtbl.
         bind_lmp_service_request(serv_binding, send_cont, service_id,
                                  con_id, buflen, ep);
@@ -242,6 +244,7 @@ static void bind_lmp_service_request_cont(struct monitor_binding *serv_binding,
         free(capp);
 
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            debug_printf("%s: flounder busy, register retry\n", __FUNCTION__, send_cont);
             struct bind_lmp_service_request_state *me =
                 malloc(sizeof(struct bind_lmp_service_request_state));
             assert(me != NULL);
@@ -284,6 +287,7 @@ static void bind_lmp_client_request(struct monitor_binding *b,
                                     iref_t iref, uintptr_t domain_id,
                                     size_t buflen, struct capref ep)
 {
+    debug_printf("%s: %p, iref=%d, %d\n", __FUNCTION__, b, iref, domain_id);
     errval_t err;
     struct monitor_binding *serv_binding = NULL;
 

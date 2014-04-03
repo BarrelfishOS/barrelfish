@@ -128,6 +128,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid)
 {
+    debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err, msgerr;
 
     // default to copying our environment
