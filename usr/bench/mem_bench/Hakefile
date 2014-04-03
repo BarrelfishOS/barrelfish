@@ -7,12 +7,17 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for bmp_bench
--- 
+--
 --------------------------------------------------------------------------
 
 [
 build application { target = "mem_kpi_bench",
                   cFiles = [ "membench.c" ],
                   addLibraries = [ "bench"]
-                  }
+                  },
+
+build application { target = "memeasy",
+                    cFiles = [ "memeasy.c" ],
+                    addLibraries = [ "bench"]
+                }
 ]

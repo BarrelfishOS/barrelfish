@@ -164,6 +164,7 @@ MODULES_x86_64= \
 	sbin/lshw \
 	sbin/x86boot \
 	sbin/x86bootseq \
+    sbin/memeasy \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
