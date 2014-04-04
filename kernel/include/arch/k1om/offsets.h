@@ -15,7 +15,7 @@
 #ifndef OFFSETS_ARCH_H
 #define OFFSETS_ARCH_H
 
-#include <target/x86_64/offsets_target.h>
+#include <target/k1om/offsets_target.h>
 
 #define PADDR_SPACE_SIZE          X86_64_PADDR_SPACE_SIZE
 #define PADDR_SPACE_LIMIT         X86_64_PADDR_SPACE_LIMIT

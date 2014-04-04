@@ -44,15 +44,17 @@ ranlib   = "ranlib"
 cxxcompiler = "g++"
 
 
-ourCommonFlags = [ --Str "-m64",
+ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
-                   Str "-fPIE",
+                  -- Str "-fPIE",
+                   Str "-fPIC",
                    Str "-fno-stack-protector", 
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
 -- the intel mic architecture has no "normal" SIMD extensions
---                   Str "-mno-mmx",
---                   Str "-mno-sse",
+                   Str "-fno-tree-vectorize",
+                   Str "-mno-mmx",
+                   Str "-mno-sse",
                    Str "-mno-sse2",
                    Str "-mno-sse3",
                    Str "-mno-sse4.1",
@@ -63,7 +65,9 @@ ourCommonFlags = [ --Str "-m64",
 -- specific Xeon Phi architecture
 --                   Str "-Wa,-march=k1om",
 --                   Str "-Wa,-mtune=k1om",
-                   Str "-D__x86__" ]
+                   Str "-D__x86__",
+                   Str "-D__k1om__" ]
+
 
 cFlags = ArchDefaults.commonCFlags
                ++ ArchDefaults.commonFlags
@@ -79,8 +83,8 @@ cDefines = ArchDefaults.cDefines options
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
 --               Str "-Wl,-b,elf64-k1om",
 --               Str "-Wl,--oformat,elf64-k1om",
-               Str "-Wl,--build-id=none"]
-               --Str "-m64" 
+               Str "-Wl,--build-id=none",
+               Str "-m64" ]
 
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
@@ -103,10 +107,14 @@ options = (ArchDefaults.options arch archFamily) {
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
+                                "-m64",
                                 "-mno-red-zone",
-                                "-fPIE",
+                               -- "-fPIE",
+                                "-fPIC",
+                                "-e startup_64",
                                 "-fno-stack-protector",
                                 "-U__linux__",
+                                "-D__k1om__",
                                 "-Wall",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
@@ -119,27 +127,28 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wno-unused-but-set-variable",
                                 "-Werror",
                                 "-imacros deputy/nodeputy.h",
+                                "-fno-tree-vectorize",
                                 "-mno-mmx",
                                 "-mno-sse",
                                 "-mno-sse2",
                                 "-mno-sse3",
                                 "-mno-sse4.1",
                                 "-mno-sse4.2",
---              "-Wno-unused-but-set-variable",
                                 "-mno-sse4",
                                 "-mno-sse4a",
                                 "-mno-3dnow" ] ]
 	
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
---                                 "-Wl,-b,elf64-k1om",
+                                 --"-Wl,-b,elf64-k1om",
                                 -- "-Wl,-A,k1om",
---                                 "-Wl,--oformat,elf64-k1om",
-                                 "-pie",
+                                 --"-Wl,--oformat,elf64-k1om",
+                                 -- "-pie",
+                                 "-fPIC",
                                  "-fno-builtin",
                                  "-nostdlib",
-                                 "-Wl,--fatal-warnings"] ]
---                                "-m64" 
+                                 "-Wl,--fatal-warnings",
+                                 "-m64" ] ]
 
 
 ------------------------------------------------------------------------

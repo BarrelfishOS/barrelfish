@@ -37,7 +37,8 @@
 #include <arch/x86/startup_x86.h>
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
-#include <target/x86_64/barrelfish_kpi/cpu_target.h>
+#include <target/k1om/barrelfish_kpi/cpu_target.h>
+#include <linux_host.h>
 
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
@@ -54,7 +55,7 @@ static uint64_t addr_global;
  *
  * This is the one and only kernel stack for a kernel instance.
  */
-uintptr_t x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+uintptr_t x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE / sizeof(uintptr_t)];
 
 /**
  * \brief Global Task State Segment (TSS).
@@ -71,11 +72,8 @@ static struct task_state_segment tss __attribute__ ((aligned (4)));
  * turned off in 64-bit mode. They map flat-mode code and stack segments for
  * both kernel- and user-space and the only Task State Segment (TSS).
  */
-union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
-    [NULL_SEL] = {   // Null segment
-        .raw = 0
-    },
-    [KCODE_SEL] = {   // Kernel code segment
+union segment_descriptor gdt[] __attribute__ ((aligned (4))) = { [NULL_SEL] = {  // Null segment
+        .raw = 0 }, [KCODE_SEL] = {   // Kernel code segment
         .d = {
             .lo_limit = 0xffff,
             .lo_base = 0,
@@ -88,10 +86,7 @@ union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
             .long_mode = 1,
             .operation_size = 0,
             .granularity = 1,
-            .hi_base = 0
-        }
-    },
-    [KSTACK_SEL] = {   // Kernel stack segment
+            .hi_base = 0 } }, [KSTACK_SEL] = {  // Kernel stack segment
         .d = {
             .lo_limit = 0xffff,
             .lo_base = 0,
@@ -104,10 +99,7 @@ union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
             .long_mode = 1,
             .operation_size = 0,
             .granularity = 1,
-            .hi_base = 0
-        }
-    },
-    [USTACK_SEL] = {   // User stack segment
+            .hi_base = 0 } }, [USTACK_SEL] = {  // User stack segment
         .d = {
             .lo_limit = 0xffff,
             .lo_base = 0,
@@ -120,10 +112,7 @@ union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
             .long_mode = 1,
             .operation_size = 0,
             .granularity = 1,
-            .hi_base = 0
-        }
-    },
-    [UCODE_SEL] = {   // User code segment
+            .hi_base = 0 } }, [UCODE_SEL] = {  // User code segment
         .d = {
             .lo_limit = 0xffff,
             .lo_base = 0,
@@ -136,10 +125,7 @@ union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
             .long_mode = 1,
             .operation_size = 0,
             .granularity = 1,
-            .hi_base = 0
-        }
-    },
-    [TSS_LO_SEL] = {   // Global Task State Segment (TSS), lower 8 bytes
+            .hi_base = 0 } }, [TSS_LO_SEL] = {  // Global Task State Segment (TSS), lower 8 bytes
         .sys_lo = {
             .lo_limit = sizeof(tss) & 0xffff,
             .type = SDT_SYSTSS,
@@ -147,33 +133,19 @@ union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
             .present = 1,
             .hi_limit = (sizeof(tss) >> 16) & 0xf,
             .available = 0,
-            .granularity = 0,
-        }
-    },
-    [TSS_HI_SEL] = {   // Global Task State Segment (TSS), upper 8 bytes
-        .sys_hi = {
-            .base = 0
-        }
-    },
-    [LDT_LO_SEL] = {    // Local descriptor table (LDT), lower 8 bytes
-        .sys_lo = {
-            .lo_limit = 0, // # 4k pages (since granularity = 1)
-            .lo_base = 0, // changed by context switch path when doing lldt
-            .type = 2, // LDT
+            .granularity = 0, } }, [TSS_HI_SEL] = {  // Global Task State Segment (TSS), upper 8 bytes
+        .sys_hi = { .base = 0 } }, [LDT_LO_SEL] = {  // Local descriptor table (LDT), lower 8 bytes
+        .sys_lo = { .lo_limit = 0,  // # 4k pages (since granularity = 1)
+            .lo_base = 0,  // changed by context switch path when doing lldt
+            .type = 2,  // LDT
             .privilege_level = SEL_UPL,
             .present = 1,
             .hi_limit = 0,
             .available = 0,
             .granularity = 1,
-            .hi_base = 0
-        }
-    },
-    [LDT_HI_SEL] = {    // Local descriptor table (LDT), upper 8 bytes
-        .sys_hi = {
-            .base = 0 // changed by context switch path when doing lldt
-        }
-    },
-};
+            .hi_base = 0 } }, [LDT_HI_SEL ] = {  // Local descriptor table (LDT), upper 8 bytes
+        .sys_hi = { .base = 0  // changed by context switch path when doing lldt
+                } }, };
 
 union segment_descriptor *ldt_descriptor = &gdt[LDT_LO_SEL];
 
@@ -181,23 +153,22 @@ union segment_descriptor *ldt_descriptor = &gdt[LDT_LO_SEL];
  * Bootup PML4, used to map both low (identity-mapped) memory and relocated
  * memory at the same time.
  */
-static union x86_64_pdir_entry boot_pml4[PTABLE_SIZE]
-__attribute__ ((aligned(BASE_PAGE_SIZE)));
+static union x86_64_pdir_entry boot_pml4[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * Bootup low-map PDPT and hi-map PDPT.
  */
-static union x86_64_pdir_entry boot_pdpt[PTABLE_SIZE]
-__attribute__ ((aligned(BASE_PAGE_SIZE))),
-    boot_pdpt_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
+static union x86_64_pdir_entry
+        boot_pdpt[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+        boot_pdpt_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * Bootup low-map PDIR, hi-map PDIR, and 1GB PDIR.
  */
-static union x86_64_ptable_entry boot_pdir[PTABLE_SIZE]
-__attribute__ ((aligned(BASE_PAGE_SIZE))),
-    boot_pdir_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-    boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
+static union x86_64_ptable_entry
+        boot_pdir[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+        boot_pdir_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+        boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * This flag is set to true once the IDT is initialized and exceptions can be
@@ -218,59 +189,68 @@ bool idt_initialized = false;
  * \param base  Start address of kernel image in physical address space.
  * \param size  Size of kernel image.
  */
-static void paging_init(lpaddr_t base, size_t size)
+static void
+paging_init(lpaddr_t base,
+            size_t size)
 {
     lvaddr_t vbase = local_phys_to_mem(base);
 
     // Align base to kernel page size
-    if(base & X86_64_MEM_PAGE_MASK) {
+    if (base & X86_64_MEM_PAGE_MASK) {
         size += base & X86_64_MEM_PAGE_MASK;
         base -= base & X86_64_MEM_PAGE_MASK;
     }
 
     // Align vbase to kernel page size
-    if(vbase & X86_64_MEM_PAGE_MASK) {
+    if (vbase & X86_64_MEM_PAGE_MASK) {
         vbase -= vbase & X86_64_MEM_PAGE_MASK;
     }
 
     // Align size to kernel page size
-    if(size & X86_64_MEM_PAGE_MASK) {
+    if (size & X86_64_MEM_PAGE_MASK) {
         size += X86_64_MEM_PAGE_SIZE - (size & X86_64_MEM_PAGE_MASK);
     }
 
     // XXX: Cannot currently map more than one table of pages
     assert(size <= X86_64_MEM_PAGE_SIZE * X86_64_PTABLE_SIZE);
-/*     assert(size <= MEM_PAGE_SIZE); */
+    /*     assert(size <= MEM_PAGE_SIZE); */
 
-    for(size_t i = 0; i < size; i += X86_64_MEM_PAGE_SIZE,
-            base += X86_64_MEM_PAGE_SIZE, vbase += X86_64_MEM_PAGE_SIZE) {
+    for (size_t i = 0; i < size; i += X86_64_MEM_PAGE_SIZE, base +=
+    X86_64_MEM_PAGE_SIZE, vbase += X86_64_MEM_PAGE_SIZE) {
         // No kernel image above 4 GByte
-        assert(base < ((lpaddr_t)4 << 30));
+        assert(base < ((lpaddr_t )4 << 30));
 
         // Identity-map the kernel's physical region, so we don't lose ground
-        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(base)], (lpaddr_t)boot_pdpt);
-        paging_x86_64_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)], (lpaddr_t)boot_pdir);
-        paging_x86_64_map_large(&boot_pdir[X86_64_PDIR_BASE(base)], base, PTABLE_PRESENT
-                                | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(base)],
+                                (lpaddr_t) boot_pdpt);
+        paging_x86_64_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
+                                (lpaddr_t) boot_pdir);
+        paging_x86_64_map_large(
+                &boot_pdir[X86_64_PDIR_BASE(base)], base,
+                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
         // Alias the same region at MEMORY_OFFSET
-        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)], (lpaddr_t)boot_pdpt_hi);
-        paging_x86_64_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)], (lpaddr_t)boot_pdir_hi);
-        paging_x86_64_map_large(&boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base, PTABLE_PRESENT
-                                | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
+                                (lpaddr_t) boot_pdpt_hi);
+        paging_x86_64_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
+                                (lpaddr_t) boot_pdir_hi);
+        paging_x86_64_map_large(
+                &boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
+                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
     }
 
     // Identity-map the first 1G of physical memory for bootloader data
-    paging_x86_64_map_table(&boot_pml4[0], (lpaddr_t)boot_pdpt);
-    paging_x86_64_map_table(&boot_pdpt[0], (lpaddr_t)boot_pdir_1GB);
+    paging_x86_64_map_table(&boot_pml4[0], (lpaddr_t) boot_pdpt);
+    paging_x86_64_map_table(&boot_pdpt[0], (lpaddr_t) boot_pdir_1GB);
     for (int i = 0; i < X86_64_PTABLE_SIZE; i++) {
-        paging_x86_64_map_large(&boot_pdir_1GB[X86_64_PDIR_BASE(X86_64_MEM_PAGE_SIZE * i)],
-                                X86_64_MEM_PAGE_SIZE * i, PTABLE_PRESENT
-                                | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_x86_64_map_large(
+                &boot_pdir_1GB[X86_64_PDIR_BASE(X86_64_MEM_PAGE_SIZE * i)],
+                X86_64_MEM_PAGE_SIZE * i,
+                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
     }
 
     // Activate new page tables
-    paging_x86_64_context_switch((lpaddr_t)boot_pml4);
+    paging_x86_64_context_switch((lpaddr_t) boot_pml4);
 }
 
 /**
@@ -281,35 +261,34 @@ static void paging_init(lpaddr_t base, size_t size)
  * Finally, completes setup of GDT to include TSS base address mapping and
  * loads TSS into task register.
  */
-static void gdt_reset(void)
+static void
+gdt_reset(void)
 {
-    lvaddr_t                     ptss = (lvaddr_t)&tss;
-    struct region_descriptor    region = {
-        .rd_limit = sizeof(gdt),
-        .rd_base = (uint64_t)&gdt
-    };
+    lvaddr_t ptss = (lvaddr_t) &tss;
+    struct region_descriptor region = { .rd_limit = sizeof(gdt), .rd_base =
+            (uint64_t) &gdt };
 
     // Load default GDT
     __asm volatile("lgdt %[region]" :: [region] "m" (region));
 
     // Reload segments
     __asm volatile("mov %[null], %%ds      \n\t"
-                   "mov %[null], %%es      \n\t"
-                   "mov %[ss], %%ss        \n\t"
-                   "mov %[null], %%gs      \n\t"
-                   "mov %[null], %%fs      \n\t"
-                   "pushq %[cs]            \n\t"          // new CS
-                   "lea 1f(%%rip), %%rax   \n\t"          // jumps to after lret
-                   "pushq %%rax            \n\t"          // new IP
-                   "lretq                  \n\t"          // fake return
-                   "1:                     \n\t"          // we'll continue here
-                   : /* No Output */
-                   :
-                   [null] "r" (0),
-                   [ss] "r" (GSEL(KSTACK_SEL, SEL_KPL)),
-                   [cs] "i" (GSEL(KCODE_SEL, SEL_KPL))
-                   : "rax"
-                   );
+            "mov %[null], %%es      \n\t"
+            "mov %[ss], %%ss        \n\t"
+            "mov %[null], %%gs      \n\t"
+            "mov %[null], %%fs      \n\t"
+            "pushq %[cs]            \n\t"          // new CS
+            "lea 1f(%%rip), %%rax   \n\t"// jumps to after lret
+            "pushq %%rax            \n\t"// new IP
+            "lretq                  \n\t"// fake return
+            "1:                     \n\t"// we'll continue here
+            : /* No Output */
+            :
+            [null] "r" (0),
+            [ss] "r" (GSEL(KSTACK_SEL, SEL_KPL)),
+            [cs] "i" (GSEL(KCODE_SEL, SEL_KPL))
+            : "rax"
+    );
 
     // Complete setup of TSS descriptor (by inserting base address of TSS)
     gdt[TSS_LO_SEL].sys_lo.lo_base = ptss & 0xffffff;
@@ -317,7 +296,8 @@ static void gdt_reset(void)
     gdt[TSS_HI_SEL].sys_hi.base = ptss >> 32;
 
     // Complete setup of TSS
-    tss.rsp[0] = (lvaddr_t)&x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE / sizeof(uintptr_t)];
+    tss.rsp[0] = (lvaddr_t) &x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE
+            / sizeof(uintptr_t)];
 
     // Load task state register
     __asm volatile("ltr %%ax" :: "a" (GSEL(TSS_LO_SEL, SEL_KPL)));
@@ -335,10 +315,10 @@ static inline void __attribute__ ((always_inline))
 relocate_stack(lvaddr_t offset)
 {
     __asm volatile("add %[stack], %%rsp\n\t"
-                   : /* No output */
-                   : [stack] "er" (offset)
-                   : "rsp"
-                   );
+            : /* No output */
+            : [stack] "er" (offset)
+            : "rsp"
+    );
 }
 
 /**
@@ -349,39 +329,41 @@ relocate_stack(lvaddr_t offset)
  * user-space base selector and RFLAGS mask for SYSCALL/SYSRET fast system
  * calls.
  */
-static inline void enable_fast_syscalls(void)
+static inline void
+enable_fast_syscalls(void)
 {
     // Segment selector bases for both kernel- and user-space for fast
-    // system calls 
+    // system calls
     ia32_star_t star = ia32_star_rd(NULL);
-    star = ia32_star_call_insert(star, GSEL(KCODE_SEL,  SEL_KPL));
-    star = ia32_star_ret_insert( star, GSEL(KSTACK_SEL, SEL_UPL));
+    star = ia32_star_call_insert(star, GSEL(KCODE_SEL, SEL_KPL));
+    star = ia32_star_ret_insert(star, GSEL(KSTACK_SEL, SEL_UPL));
     ia32_star_wr(NULL, star);
 
     // Set ia32_lstar MSR to point to kernel-space system call multiplexer
-    ia32_lstar_wr(NULL, (lvaddr_t)syscall_entry);
+    ia32_lstar_wr(NULL, (lvaddr_t) syscall_entry);
 
     // Set IA32_FMASK MSR for our OSes EFLAGS mask
     // We mask out everything (including interrupts).
-    ia32_fmask_v_wrf(NULL, ~(RFLAGS_ALWAYS1) );
+    ia32_fmask_v_wrf(NULL, ~(RFLAGS_ALWAYS1));
 
     // Enable fast system calls
     ia32_efer_sce_wrf(NULL, 1);
 }
 
-static inline void enable_tlb_flush_filter(void)
+static inline void
+enable_tlb_flush_filter(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
     // Must read "AuthenticAMD"
     cpuid(0, &eax, &ebx, &ecx, &edx);
-    if(ebx != 0x68747541 || ecx != 0x444d4163 || edx != 0x69746e65) {
+    if (ebx != 0x68747541 || ecx != 0x444d4163 || edx != 0x69746e65) {
         return;
     }
 
     // Is at least family 0fh?
     cpuid(1, &eax, &ebx, &ecx, &edx);
-    if(((eax >> 8) & 0xf) != 0xf) {
+    if (((eax >> 8) & 0xf) != 0xf) {
         return;
     }
 
@@ -389,7 +371,8 @@ static inline void enable_tlb_flush_filter(void)
     ia32_amd_hwcr_ffdis_wrf(NULL, 1);
 }
 
-static inline void enable_monitor_mwait(void)
+static inline void
+enable_monitor_mwait(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
@@ -414,10 +397,11 @@ static inline void enable_monitor_mwait(void)
  * calls kernel_startup(), which should not return (if it does, this function
  * halts the kernel).
  */
-static void  __attribute__ ((noreturn, noinline)) text_init(void)
+static void __attribute__ ((noreturn, noinline))
+text_init(void)
 {
     // Reset global and locks to point to the memory in the pristine image
-    global = (struct global*)addr_global;
+    global = (struct global*) addr_global;
 
     /*
      * Reset paging once more to use relocated data structures and map in
@@ -426,11 +410,11 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     paging_x86_64_reset();
 
     // Relocate global to "memory"
-    global = (struct global*)local_phys_to_mem((lpaddr_t)global);
+    global = (struct global*) local_phys_to_mem((lpaddr_t) global);
 
     // Relocate glbl_core_data to "memory"
-    glbl_core_data = (struct x86_core_data *)
-        local_phys_to_mem((lpaddr_t)glbl_core_data);
+    glbl_core_data = (struct x86_core_data *) local_phys_to_mem(
+            (lpaddr_t) glbl_core_data);
 
     /*
      * Use new physical address space for video memory -- no calls to functions
@@ -441,16 +425,16 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Re-map physical memory
     /* XXX: Currently we are statically mapping a fixed amount of
-       memory.  We should not map in more memory than the machine
-       actually has.  Or else if the kernel tries to access addresses
-       not backed by real memory, it will experience weird faults
-       instead of a simpler pagefault.
+     memory.  We should not map in more memory than the machine
+     actually has.  Or else if the kernel tries to access addresses
+     not backed by real memory, it will experience weird faults
+     instead of a simpler pagefault.
 
-       Ideally, we should use the ACPI information to figure out which
-       memory to map in. Look at ticket #218 for more
-       information. -Akhi
-    */
-    if(paging_x86_64_map_memory(0, X86_64_PADDR_SPACE_LIMIT) != 0) {
+     Ideally, we should use the ACPI information to figure out which
+     memory to map in. Look at ticket #218 for more
+     information. -Akhi
+     */
+    if (paging_x86_64_map_memory(0, X86_64_PADDR_SPACE_LIMIT) != 0) {
         panic("error while mapping physical memory!");
     }
 
@@ -480,7 +464,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
 
-    if(apic_is_bsp()) {
+    if (apic_is_bsp()) {
         // Initialize classic (8259A) PIC
         pic_init();
     }
@@ -492,10 +476,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     if (kernel_ticks_enabled) {
         timing_calibrate();
         bool periodic = true;
-        #ifdef CONFIG_ONESHOT_TIMER
+#ifdef CONFIG_ONESHOT_TIMER
         // we probably need a global variable like kernel_ticks_enabled
         periodic = false;
-        #endif
+#endif
         apic_timer_init(false, periodic);
         timing_apic_timer_set_ms(kernel_timeslice);
     } else {
@@ -534,6 +518,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Returning here will crash! -- low pages not mapped anymore!
 }
 
+
+
 /**
  * \brief Architecture-specific initialization function.
  *
@@ -561,16 +547,23 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  * \param magic         Boot magic value
  * \param pointer       Pointer to Multiboot Info or to Global structure
  */
-void arch_init(uint64_t magic, void *pointer)
+void
+arch_init(uint64_t magic,
+          void *pointer)
 {
     // Sanitize the screen
-    conio_cls();
+    //conio_cls();
     serial_console_init();
 
-    panic("Hello World!\n");
+    notify_host();
 
-    void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
-        (void *)local_phys_to_mem((lpaddr_t)text_init);
+    /* we do not have multiboot */
+
+    void __attribute__ ((noreturn))
+    (*reloc_text_init)(void) =
+    (void *)local_phys_to_mem((lpaddr_t)text_init);
+
+
     struct Elf64_Shdr *rela, *symtab;
     struct multiboot_info *mb = NULL;
 
@@ -579,44 +572,47 @@ void arch_init(uint64_t magic, void *pointer)
      * known. Otherwise the passed value should equal the original structure.
      * If magic value does not match what we expect, we cannot proceed safely.
      */
-    switch(magic) {
+    switch (magic) {
     case MULTIBOOT_INFO_MAGIC:
-        mb = (struct multiboot_info *)pointer;
+        mb = (struct multiboot_info *) pointer;
 
         // Construct the global structure and store its address to retrive it
         // across relocation
         memset(&global->locks, 0, sizeof(global->locks));
-        addr_global            = (uint64_t)global;
+        addr_global = (uint64_t) global;
         break;
 
     case KERNEL_BOOT_MAGIC:
-        global = (struct global*)pointer;
+        global = (struct global*) pointer;
         // Store the address of global to retrive it across relocation
-        addr_global = (uint64_t)global;
+        addr_global = (uint64_t) global;
         break;
 
     default:
-        panic("Magic value does not match! (0x%x != 0x%lx != 0x%x)",
-              KERNEL_BOOT_MAGIC, magic, MULTIBOOT_INFO_MAGIC);
+        addr_global = (uint64_t) global;
         break;
     }
 
+
     /* determine page-aligned physical address past end of multiboot */
-    lvaddr_t dest = (lvaddr_t)&_start_kernel;
+    lvaddr_t dest = (lvaddr_t) &_start_kernel;
     if (dest & (BASE_PAGE_SIZE - 1)) {
         dest &= ~(BASE_PAGE_SIZE - 1);
         dest += BASE_PAGE_SIZE;
     }
 
+    printf("Welcome to Barrelfish\n");
+
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
-           local_phys_to_mem(dest));
+//    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem(dest));
+
+    printf("Hi there!\n");
 
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
     if (mb != NULL) { /* Multiboot info was passed */
         multiboot_flags = mb->flags;
-        elf = (struct x86_coredata_elf *)&mb->syms.elf;
+        elf = (struct x86_coredata_elf *) &mb->syms.elf;
 
         // We need the ELF section header table for relocation
         if (!(multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_ELF_SYMS)) {
@@ -625,9 +621,9 @@ void arch_init(uint64_t magic, void *pointer)
         }
 
         // Determine where free RAM starts
-        glbl_core_data->start_free_ram =
-            ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
-                     BASE_PAGE_SIZE);
+        glbl_core_data->start_free_ram = ROUND_UP(
+                max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
+                BASE_PAGE_SIZE);
 
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;
@@ -635,12 +631,15 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
     } else { /* No multiboot info, use the core_data struct */
-        struct x86_core_data *core_data =
-            (struct x86_core_data*)(dest - BASE_PAGE_SIZE);
+
+        printf("No multiboot \n");
+
+        struct x86_core_data *core_data = (struct x86_core_data*) (dest
+                - BASE_PAGE_SIZE);
         multiboot_flags = core_data->multiboot_flags;
         elf = &core_data->elf;
         glbl_core_data = core_data;
-        core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
+        core_data->cmdline = (lpaddr_t) &core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
 
         if (core_data->module_end > 4ul * (1ul << 20)) {
@@ -648,44 +647,73 @@ void arch_init(uint64_t magic, void *pointer)
                   " Either move the module or increase initial mapping.");
         }
     }
+    printf("Continuing... \n");
+
+
+    if (!elf) {
+        printf("ELF is null.Continuing... \n");
+        while(1)
+            ;
+    }
+
+    printf("Elf non null.. go ahead\n");
+
+    printf("testing....\n");
+    printf("1+2=%d\n", 1+2);
 
     // We're only able to process Elf64_Rela entries
     if (elf->size != sizeof(struct Elf64_Shdr)) {
+        printf("ELF section header entry size mismatch!\n");
+        while(1)
+            ;
         panic("ELF section header entry size mismatch!");
     }
 
+    printf("Continuing... 2\n");
+
     // Find relocation section
-    rela = elf64_find_section_header_type((struct Elf64_Shdr *)
-                                          (lpaddr_t)elf->addr,
+    rela = elf64_find_section_header_type((struct Elf64_Shdr *) (lpaddr_t) elf->addr,
                                           elf->num, SHT_RELA);
     if (rela == NULL) {
         panic("Kernel image does not include relocation section!");
     }
 
+    printf("Continuing... 3\n");
+
     // Find symbol table section
-    symtab = elf64_find_section_header_type((struct Elf64_Shdr *)
-                                            (lpaddr_t)elf->addr,
-                                            elf->num, SHT_DYNSYM);
+    symtab = elf64_find_section_header_type(
+            (struct Elf64_Shdr *) (lpaddr_t) elf->addr, elf->num, SHT_DYNSYM);
     if (symtab == NULL) {
         panic("Kernel image does not include symbol table!");
     }
 
+    printf("Continuing... 4\n");
+
     // Alias kernel on top of memory, keep low memory
-    paging_init((lpaddr_t)&_start_kernel, SIZE_KERNEL_IMAGE);
+    paging_init((lpaddr_t) &_start_kernel, SIZE_KERNEL_IMAGE);
 
     // Relocate kernel image for top of memory
-    elf64_relocate(X86_64_MEMORY_OFFSET + (lvaddr_t)&_start_kernel,
-                   (lvaddr_t)&_start_kernel,
-                   (struct Elf64_Rela *)(rela->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel),
-                   rela->sh_size,
-                   (struct Elf64_Sym *)(symtab->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel),
-                   symtab->sh_size,
-                   X86_64_START_KERNEL_PHYS, &_start_kernel);
+    elf64_relocate(
+            X86_64_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
+            (lvaddr_t) &_start_kernel,
+            (struct Elf64_Rela *) (rela->sh_addr - X86_64_START_KERNEL_PHYS
+                    + &_start_kernel),
+            rela->sh_size,
+            (struct Elf64_Sym *) (symtab->sh_addr - X86_64_START_KERNEL_PHYS
+                    + &_start_kernel),
+            symtab->sh_size,
+            X86_64_START_KERNEL_PHYS,
+            &_start_kernel);
 
     /*** Aliased kernel available now -- low memory still mapped ***/
 
     // Relocate stack to aliased location
     relocate_stack(X86_64_MEMORY_OFFSET);
+
+    printf("Before reloc_text_init()\n");
+
+    while(1)
+        ;
 
     // Call aliased text_init() function and continue initialization
     reloc_text_init();

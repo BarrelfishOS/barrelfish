@@ -50,7 +50,8 @@
  * Start address of kernel image in physical memory. This is passed to
  * the linker also. The bootloader will load us there.
  */
-#define X86_64_START_KERNEL_PHYS       0x100000
+#define X86_64_START_KERNEL_PHYS       0x10000
+//#define X86_64_START_KERNEL_PHYS       0x0
 
 /**
  * Kernel stack size -- 16KB

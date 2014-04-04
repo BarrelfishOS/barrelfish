@@ -137,26 +137,26 @@ let
   --
   cpuDriver { 
      architectures = [ "k1om" ],
-     assemblyFiles = [ "arch/x86_64/boot.S", 
-                       "arch/x86_64/entry.S", 
+     assemblyFiles = [ "arch/k1om/boot.S", 
+                       "arch/k1om/entry.S", 
                        "arch/x86/init_ap_x86_64.S", 
                        "arch/x86/init_ap_x86_32.S" ],
-     cFiles = [ "arch/x86_64/debug.c", 
-                "arch/x86_64/gdb_arch.c", 
-                "arch/x86_64/init.c", 
-                "arch/x86_64/irq.c",
-                "arch/x86_64/startup_arch.c", 
-                "arch/x86_64/exec.c", 
-                "arch/x86_64/syscall.c", 
-                "arch/x86_64/paging.c",
-                "arch/x86_64/vmkit.c" , 
-                "arch/x86_64/page_mappings_arch.c",
+     cFiles = [ "arch/k1om/debug.c", 
+                "arch/k1om/gdb_arch.c", 
+                "arch/k1om/init.c", 
+                "arch/k1om/irq.c",
+                "arch/k1om/startup_arch.c", 
+                "arch/k1om/exec.c", 
+                "arch/k1om/syscall.c", 
+                "arch/k1om/paging.c",
+                "arch/k1om/vmkit.c" , 
+                "arch/k1om/page_mappings_arch.c",
+                "arch/k1om/serial.c",
                 "arch/x86/apic.c", 
                 "arch/x86/pic.c", 
                 "arch/x86/start_aps.c", 
                 "arch/x86/cmos.c", 
                 "arch/x86/misc.c",
-                "arch/x86/serial.c", 
                 "arch/x86/multiboot.c", 
                 "arch/x86/conio.c", 
                 "arch/x86/syscall.c", 
@@ -183,7 +183,7 @@ let
   --
   -- Generic Intel ia32 32-bit x86 core
   --
-  cpuDriver { 
+  cpuDriver { 	
      architectures = [ "x86_32" ],
      assemblyFiles = [ "arch/x86_32/boot.S", 
                        "arch/x86_32/entry.S", 

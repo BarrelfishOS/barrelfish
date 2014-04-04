@@ -127,6 +127,7 @@ pushd ${GCC}-build/
     --disable-nls \
     --disable-libssp \
     --with-newlib \
+    --nobootstrap \
     --with-gnu-as \
     --with-gnu-ld \
     --disable-multilib # from xeon phi inside cluster
