@@ -18,6 +18,6 @@ build application { target = "mem_kpi_bench",
 
 build application { target = "memeasy",
                     cFiles = [ "memeasy.c" ],
-                    addLibraries = [ "bench"]
+                    addLibraries = [ "bench", "trace" ]
                 }
 ]

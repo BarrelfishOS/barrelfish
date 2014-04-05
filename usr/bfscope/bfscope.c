@@ -68,10 +68,11 @@ static void bfscope_send_flush_ack_to_monitor(void);
 static void bfscope_connection_close(struct tcp_pcb *tpcb)
 {
     DEBUG("bfscope: close\n");
+    printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
     trace_length = 0;
-    tcp_arg(tpcb, NULL);
-    tcp_close(tpcb);
-    bfscope_client = NULL;
+    //tcp_arg(tpcb, NULL);
+    //tcp_close(tpcb);
+    //bfscope_client = NULL;
 }
 
 /*
@@ -81,7 +82,7 @@ static void error_cb(void *arg, err_t err)
 {
     struct tcp_pcb *tpcb = (struct tcp_pcb *)arg;
 
-    DEBUG("bfscope: TCP(%p) error %d\n", arg, err);
+    printf("bfscope: TCP(%p) error %d\n", arg, err);
 
     if (tpcb) {
         bfscope_connection_close(tpcb);
@@ -222,7 +223,8 @@ static void bfscope_trace_dump(void)
 
     dump_in_progress = true;
 
-
+    printf("%s:%s:%d: bfscope_client=%p\n",
+            __FILE__, __FUNCTION__, __LINE__, bfscope_client);
     if (bfscope_client != NULL) {
         // We have a connected client, dump to network
         bfscope_trace_dump_network();
@@ -286,8 +288,10 @@ static err_t accept_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
 
     tcp_accepted(tpcb);
 
-    bfscope_client = tpcb;
 
+    bfscope_client = tpcb;
+    printf("%s:%s:%d: bfscope_client=%p\n",
+           __FILE__, __FUNCTION__, __LINE__, bfscope_client);
     return ERR_OK;
 }
 
