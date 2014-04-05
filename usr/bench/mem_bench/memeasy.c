@@ -22,6 +22,8 @@
 #include <trace/trace.h>
 
 #define MAX_ITERATION 1000
+#define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
+
 static volatile bool finished;
 
 static void set_true(void* arg) {
@@ -60,28 +62,27 @@ static void after_prepare(void *arg)
 static errval_t init_tracing(void)
 {
     trace_reset_all();
-
     debug_printf("after trace reset\n");
 
     // Tell the trace system when to start and stop.  We can also
     // provide an overriding maximum duration (in cycles) as the last parameter.
-    return trace_control(TRACE_EVENT(TRACE_SUBSYS_XMPL,
-                                    TRACE_EVENT_XMPL_START, 0),
-                        TRACE_EVENT(TRACE_SUBSYS_XMPL,
-                                    TRACE_EVENT_XMPL_STOP, 0),
+    return trace_control(TRACE_EVENT(TRACE_SUBSYS_BENCH,
+                                    TRACE_EVENT_BENCH_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_BENCH,
+                                    TRACE_EVENT_BENCH_STOP, 0),
                         0);
 }
 
 static void start_tracing(void)
 {
     // start the trace going by providing the start event
-    trace_event(TRACE_SUBSYS_XMPL, TRACE_EVENT_XMPL_START, 0);
+    TRACE(BENCH, START, 0);
 }
 
 static void stop_tracing(void)
 {
     // stop the trace by providing the stop event
-    trace_event(TRACE_SUBSYS_XMPL, TRACE_EVENT_XMPL_STOP, 0);
+    TRACE(BENCH, STOP, 0);
 }
 
 static void callback(void *arg)
@@ -172,6 +173,7 @@ int main(int argc, char** argv)
     }
 
     for (size_t i=0; i<MAX_ITERATION; i++) {
+        TRACE(BENCH, ROUND_START, 0);
         //printf("%s:%s:%d: i=%"PRIu64"\n",
         //       __FILE__, __FUNCTION__, __LINE__, i);
         start = bench_tsc();
@@ -190,6 +192,7 @@ int main(int argc, char** argv)
         if (sleep > 0) {
             sleep_until(sleep);
         }
+        TRACE(BENCH, ROUND_END, 0);
 
         runs[i] = end - start;
     }
