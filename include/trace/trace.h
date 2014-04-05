@@ -86,6 +86,11 @@
 
 #define TRACE_MAX_BOOT_APPLICATIONS 16
 
+// A macro to simplify calling of trace_event
+// e.g., do TRACE(BENCH, START, 0)
+// instead of
+// trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_START, 0)
+#define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
 #if defined(__x86_64__)
 #define TRACE_TIMESTAMP() rdtsc()
