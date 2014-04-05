@@ -311,7 +311,6 @@ int main(int argc, char *argv[])
             printf("Warning: tracing not available on core %d\n", my_core_id);
         }
     }
-    trace_set_autoflush(true);
 #endif // tracing
 
     domain_mgmt_init();
