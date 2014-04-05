@@ -63,6 +63,7 @@ subsystem kernel {
     event SC_COPY_OR_MINT     "Syscall COPY_OR_MINT",
     event SC_CTE_FOR_CAP      "Syscall CTE_FOR_CAP",
     event SC_MAP              "Syscall MAP",
+    event SC_UNMAP            "Syscall UNMAP",
     event SC_DELETE           "Syscall DELETE",
     event SC_REVOKE           "Syscall REVOKE",
     event SC_MONITOR_REGISTER "Syscall MONITOR_REGISTER",

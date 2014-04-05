@@ -51,7 +51,10 @@ static struct sysret handle_dispatcher_setup(struct capability *to,
     bool run = args[4];
     capaddr_t odptr = args[5];
 
-    return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    TRACE(KERNEL, SC_DISP_SETUP, 0);
+    struct sysret sr = sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    TRACE(KERNEL, SC_DISP_SETUP, 1);
+    return sr;
 }
 
 static struct sysret handle_dispatcher_properties(struct capability *to,
@@ -64,8 +67,11 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
     unsigned long release = args[4];
     unsigned short weight = args[5];
 
-    return sys_dispatcher_properties(to, type, deadline, wcet, period,
-                                     release, weight);
+    TRACE(KERNEL, SC_DISP_PROPS, 0);
+    struct sysret sr = sys_dispatcher_properties(to, type, deadline, wcet, period,
+                                                 release, weight);
+    TRACE(KERNEL, SC_DISP_PROPS, 1);
+    return sr;
 }
 
 static struct sysret handle_retype_common(struct capability *root,
@@ -79,8 +85,11 @@ static struct sysret handle_retype_common(struct capability *root,
     uint64_t dest_slot       = args[4];
     uint64_t dest_vbits      = args[5];
 
-    return sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                      dest_slot, dest_vbits, from_monitor);
+    TRACE(KERNEL, SC_RETYPE, 0);
+    struct sysret sr = sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
+                                  dest_slot, dest_vbits, from_monitor);
+    TRACE(KERNEL, SC_RETYPE, 1);
+    return sr;
 }
 
 static struct sysret handle_retype(struct capability *root,
@@ -99,8 +108,11 @@ static struct sysret handle_create(struct capability *root,
     cslot_t dest_slot         = args[3];
     uint8_t dest_vbits        = args[4];
 
-    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
-                      dest_vbits);
+    TRACE(KERNEL, SC_CREATE, 0);
+    struct sysret sr = sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                                  dest_vbits);
+    TRACE(KERNEL, SC_CREATE, 1);
+    return sr;
 }
 
 
@@ -125,8 +137,11 @@ static struct sysret copy_or_mint(struct capability *root,
         param1 = param2 = 0;
     }
 
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, param1, param2, mint);
+    TRACE(KERNEL, SC_COPY_OR_MINT, 0);
+    struct sysret sr = sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
+                                        destcn_vbits, source_vbits, param1, param2, mint);
+    TRACE(KERNEL, SC_COPY_OR_MINT, 1);
+    return sr;
 }
 
 static struct sysret handle_map(struct capability *ptable,
@@ -140,8 +155,11 @@ static struct sysret handle_map(struct capability *ptable,
     uint64_t  offset        = args[4];
     uint64_t  pte_count     = args[5];
 
-    return sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
+    TRACE(KERNEL, SC_MAP, 0);
+    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
                    pte_count);
+    TRACE(KERNEL, SC_MAP, 1);
+    return sr;
 }
 
 static struct sysret handle_mint(struct capability *root,
@@ -162,7 +180,12 @@ static struct sysret handle_delete_common(struct capability *root,
 {
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_delete(root, cptr, bits, from_monitor);
+
+    TRACE(KERNEL, SC_DELETE, 0);
+    struct sysret sr = sys_delete(root, cptr, bits, from_monitor);
+    TRACE(KERNEL, SC_DELETE, 1);
+
+    return sr;
 }
 
 static struct sysret handle_delete(struct capability *root,
@@ -178,7 +201,12 @@ static struct sysret handle_revoke_common(struct capability *root,
 {
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_revoke(root, cptr, bits, from_monitor);
+
+    TRACE(KERNEL, SC_REVOKE, 0);
+    struct sysret sr = sys_revoke(root, cptr, bits, from_monitor);
+    TRACE(KERNEL, SC_REVOKE, 1);
+
+    return sr;
 }
 
 static struct sysret handle_revoke(struct capability *root,
@@ -204,7 +232,9 @@ static struct sysret handle_unmap(struct capability *pgtable,
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
 
+    TRACE(KERNEL, SC_UNMAP, 0);
     err = page_mappings_unmap(pgtable, mapping, entry, pages);
+    TRACE(KERNEL, SC_UNMAP, 1);
     return SYSRET(err);
 }
 
@@ -272,7 +302,11 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
                                              int cmd, uintptr_t *args)
 {
     capaddr_t ep_caddr = args[0];
-    return sys_monitor_register(ep_caddr);
+
+    TRACE(KERNEL, SC_MONITOR_REGISTER, 0);
+    struct sysret sr = sys_monitor_register(ep_caddr);
+    TRACE(KERNEL, SC_MONITOR_REGISTER, 1);
+    return sr;
 }
 
 /**
@@ -285,7 +319,10 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
     enum cpu_type cpu_type = args[1];
     genvaddr_t entry       = args[2];
 
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+    TRACE(KERNEL, SC_SPAWN_CORE, 0);
+    struct sysret sr = sys_monitor_spawn_core(core_id, cpu_type, entry);
+    TRACE(KERNEL, SC_SPAWN_CORE, 1);
+    return sr;
 }
 
 static inline void __monitor(const void *eax, unsigned long ecx,
@@ -1144,7 +1181,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Yield the CPU to the next dispatcher
     case SYSCALL_YIELD:
+        TRACE(KERNEL, SC_YIELD, 0);
         retval = sys_yield((capaddr_t)arg0);
+        TRACE(KERNEL, SC_YIELD, 1);
         break;
 
         // NOP system call for benchmarking purposes
@@ -1153,7 +1192,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Debug print system call
     case SYSCALL_PRINT:
+        TRACE(KERNEL, SC_PRINT, 0);
         retval.error = sys_print((char *)arg0, arg1);
+        TRACE(KERNEL, SC_PRINT, 1);
         break;
 
         // Reboot!
@@ -1172,7 +1213,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Temporarily suspend the CPU
     case SYSCALL_SUSPEND:
+        TRACE(KERNEL, SC_SUSPEND, 0);
         retval = sys_suspend((bool)arg0);
+        TRACE(KERNEL, SC_SUSPEND, 1);
         break;
 
     case SYSCALL_DEBUG:
