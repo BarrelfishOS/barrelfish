@@ -27,9 +27,9 @@
 uintptr_t *gdb_arch_registers;
 
 /** \brief Separate stack area for the stub to run on */
-static uintptr_t gdb_stack[X86_64_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+static uintptr_t gdb_stack[K1OM_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 /** \brief Pointer to top of GDB stack area. */
-uintptr_t * SNT gdb_stack_top = &gdb_stack[X86_64_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+uintptr_t * SNT gdb_stack_top = &gdb_stack[K1OM_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 
 /** \brief Converts exception vector to signal number.
  *
@@ -90,9 +90,9 @@ void gdb_handle_exception_onstack(int vector, uintptr_t * NONNULL
 
     /* while we're checking the stack pointer, sanity check that it's
      * within the normal kernel stack region */
-    } else if (save_area[GDB_X86_64_RSP_REG] < (lvaddr_t)&x86_64_kernel_stack ||
-              save_area[GDB_X86_64_RSP_REG] > (lvaddr_t)&x86_64_kernel_stack +
-               X86_64_KERNEL_STACK_SIZE) {
+    } else if (save_area[GDB_X86_64_RSP_REG] < (lvaddr_t)&k1om_kernel_stack ||
+              save_area[GDB_X86_64_RSP_REG] > (lvaddr_t)&k1om_kernel_stack +
+               K1OM_KERNEL_STACK_SIZE) {
         printk(LOG_WARN, "BIG FAT WARNING: kernel stack pointer (0x%lx) is "
                "invalid!\n", save_area[GDB_X86_64_RSP_REG]);
         printk(LOG_WARN, "Boldly attempting to continue into GDB anyway...\n");
@@ -234,7 +234,7 @@ static int ensure_mapping(lvaddr_t addr)
     }
 
     /* if address is outside "physical" memory region, fail the access */
-    if (addr < X86_64_MEMORY_OFFSET) {
+    if (addr < K1OM_PADDR_SPACE_LIMIT) {
         return -1;
     }
 

@@ -14,8 +14,8 @@
 
 #include <kernel.h>
 #include <dispatch.h>
-#include <target/x86_64/paging_kernel_target.h>
-#include <target/x86_64/offsets_target.h>
+#include <target/k1om/paging_kernel_target.h>
+#include <target/k1om/offsets_target.h>
 #include <paging_kernel_arch.h>
 #include <mdb/mdb_tree.h>
 #include <string.h>
@@ -53,7 +53,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 printf("src type invalid\n");
                 return SYS_ERR_WRONG_MAPPING;
             }
-            if(slot >= X86_64_PML4_BASE(X86_64_MEMORY_OFFSET)) { // Kernel mapped here
+            if(slot >= X86_64_PML4_BASE(K1OM_MEMORY_OFFSET)) { // Kernel mapped here
                 return SYS_ERR_VNODE_SLOT_RESERVED;
             }
             break;

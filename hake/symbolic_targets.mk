@@ -503,6 +503,7 @@ k1om: $(XEON_PHI_MODULES)
 	@echo "OK. Co Processor OS Built."
 	scp "k1om/sbin/cpu" emmentaler.ethz.ch:
 	ssh emmentaler.ethz.ch "scp cpu babybel.in.barrelfish.org:/root/cpu"
+	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/create-bzBarrelfish.sh'"
 
 
 #######################################################################

@@ -22,6 +22,7 @@
 #include <x86.h>
 #include <serial.h>
 #include <kernel_multiboot.h>
+#include <kernel_boot_param.h>
 #include <syscall.h>
 #include <getopt/getopt.h>
 #include <exec.h>
@@ -55,7 +56,7 @@ static uint64_t addr_global;
  *
  * This is the one and only kernel stack for a kernel instance.
  */
-uintptr_t x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE / sizeof(uintptr_t)];
+uintptr_t k1om_kernel_stack[K1OM_KERNEL_STACK_SIZE / sizeof(uintptr_t)];
 
 /**
  * \brief Global Task State Segment (TSS).
@@ -249,6 +250,8 @@ paging_init(lpaddr_t base,
                 PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
     }
 
+
+
     // Activate new page tables
     paging_x86_64_context_switch((lpaddr_t) boot_pml4);
 }
@@ -296,7 +299,7 @@ gdt_reset(void)
     gdt[TSS_HI_SEL].sys_hi.base = ptss >> 32;
 
     // Complete setup of TSS
-    tss.rsp[0] = (lvaddr_t) &x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE
+    tss.rsp[0] = (lvaddr_t) &k1om_kernel_stack[K1OM_KERNEL_STACK_SIZE
             / sizeof(uintptr_t)];
 
     // Load task state register
@@ -319,6 +322,13 @@ relocate_stack(lvaddr_t offset)
             : [stack] "er" (offset)
             : "rsp"
     );
+}
+
+static inline void __attribute__ ((always_inline))
+relocate_kernel(lvaddr_t offset)
+{
+
+
 }
 
 /**
@@ -400,6 +410,11 @@ enable_monitor_mwait(void)
 static void __attribute__ ((noreturn, noinline))
 text_init(void)
 {
+
+    printf("inside text_init\n");
+    while(1)
+        ;
+
     // Reset global and locks to point to the memory in the pristine image
     global = (struct global*) addr_global;
 
@@ -416,12 +431,6 @@ text_init(void)
     glbl_core_data = (struct x86_core_data *) local_phys_to_mem(
             (lpaddr_t) glbl_core_data);
 
-    /*
-     * Use new physical address space for video memory -- no calls to functions
-     * that end up calling a conio.c function may be called between
-     * paging_reset() and conio_relocate_vidmem()!
-     */
-    conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
 
     // Re-map physical memory
     /* XXX: Currently we are statically mapping a fixed amount of
@@ -434,7 +443,7 @@ text_init(void)
      memory to map in. Look at ticket #218 for more
      information. -Akhi
      */
-    if (paging_x86_64_map_memory(0, X86_64_PADDR_SPACE_LIMIT) != 0) {
+    if (paging_x86_64_map_memory(0, K1OM_PADDR_SPACE_LIMIT) != 0) {
         panic("error while mapping physical memory!");
     }
 
@@ -449,7 +458,8 @@ text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init();
+    assert(!"SET THE CORRECT ADDRESS");
+    serial_console_init(0x123);
 
     // Setup IDT
     setup_default_idt();
@@ -520,6 +530,7 @@ text_init(void)
 
 
 
+
 /**
  * \brief Architecture-specific initialization function.
  *
@@ -551,48 +562,21 @@ void
 arch_init(uint64_t magic,
           void *pointer)
 {
-    // Sanitize the screen
-    //conio_cls();
-    serial_console_init();
-
-    notify_host();
-
-    /* we do not have multiboot */
-
-    void __attribute__ ((noreturn))
-    (*reloc_text_init)(void) =
-    (void *)local_phys_to_mem((lpaddr_t)text_init);
-
-
-    struct Elf64_Shdr *rela, *symtab;
+    /* pointer to the boot param struct set up by the boot loader */
+    struct boot_params *bp = NULL;
     struct multiboot_info *mb = NULL;
 
+    /* initialize the console port to the host */
+    assert(!"SET PHYSICAL ADDRESS OF MMIO SPACE");
+    serial_console_init(0x123);
+
     /*
-     * If this is the boot image, make Multiboot information structure globally
-     * known. Otherwise the passed value should equal the original structure.
-     * If magic value does not match what we expect, we cannot proceed safely.
+     * notify the host that we are running
      */
-    switch (magic) {
-    case MULTIBOOT_INFO_MAGIC:
-        mb = (struct multiboot_info *) pointer;
+    notify_host();
 
-        // Construct the global structure and store its address to retrive it
-        // across relocation
-        memset(&global->locks, 0, sizeof(global->locks));
-        addr_global = (uint64_t) global;
-        break;
-
-    case KERNEL_BOOT_MAGIC:
-        global = (struct global*) pointer;
-        // Store the address of global to retrive it across relocation
-        addr_global = (uint64_t) global;
-        break;
-
-    default:
-        addr_global = (uint64_t) global;
-        break;
-    }
-
+    void __attribute__ ((noreturn))
+    (*reloc_text_init)(void) = (void *)local_phys_to_mem((lpaddr_t)text_init);
 
     /* determine page-aligned physical address past end of multiboot */
     lvaddr_t dest = (lvaddr_t) &_start_kernel;
@@ -601,13 +585,95 @@ arch_init(uint64_t magic,
         dest += BASE_PAGE_SIZE;
     }
 
-    printf("Welcome to Barrelfish\n");
-
     // XXX: print kernel address for debugging with gdb
-//    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem(dest));
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem(dest));
 
-    printf("Hi there!\n");
+    /*
+     * If this is the boot image, make Multiboot information structure globally
+     * known. Otherwise the passed value should equal the original structure.
+     * If magic value does not match what we expect, we cannot proceed safely.
+     */
+    switch (magic) {
+    case MULTIBOOT_INFO_MAGIC:
+        /* kernel is started with multiboot information available */
+        mb = (struct multiboot_info *) pointer;
 
+        // Construct the global structure and store its address to retrieve it
+        // across relocation
+        memset(&global->locks, 0, sizeof(global->locks));
+        addr_global = (uint64_t) global;
+
+        printf("Barrelfish (with multiboot )\n");
+        break;
+
+    case KERNEL_BOOT_MAGIC:
+        /* kernel is started by another kernel */
+        global = (struct global*) pointer;
+        // Store the address of global to retrive it across relocation
+        addr_global = (uint64_t) global;
+        printf("Barrelfish (with kernel boot)\n");
+        break;
+
+    case K1OM_BOOT_MAGIC:
+        /* kernel is started by the K1OM boot loadeer */
+        bp = (struct boot_params *) pointer;
+
+        printf("Barrelfish (with K1OM boot_params)\n");
+
+        // Construct the global structure and store its address to retrieve it
+        // across relocation
+        memset(&global->locks, 0, sizeof(global->locks));
+        addr_global = (uint64_t) global;
+
+        struct setup_header *boot_hdr = (struct setup_header *) &bp->hdr;
+
+        /*
+         * Memory Layout (given by the MPSS stack)
+         *  + struct boot_params
+         *  + kernel cmd line
+         *  + kernel image
+         *  + ramfs (multiboot moduels)
+         *  -- start of free memory --
+         */
+
+        /* get the CMD line from the boot information */
+        glbl_core_data->cmdline = boot_hdr->cmd_line_ptr;
+
+        /* modules are stored in the ramdisk */
+        glbl_core_data->mods_addr = boot_hdr->ramdisk_image;
+
+        /* number of modules needs to be parsed via kernel cmd line */
+        glbl_core_data->mods_count = 0;
+
+        /* memory map
+         * TODO: How to represent the memory map?
+         */
+        glbl_core_data->mmap_length = 0;
+        glbl_core_data->mmap_addr = 0;
+
+        /* free ram starts after the ram disk */
+        uint32_t end_ramdisk = boot_hdr->ramdisk_image + boot_hdr->ramdisk_size;
+        glbl_core_data->start_free_ram = ROUND_UP(
+                max(end_ramdisk, (uintptr_t)&_end_kernel), BASE_PAGE_SIZE);
+
+        printf("K1OM_PADDR_SPACE_LIMIT=0x%"PRIxLVADDR"\n", K1OM_PADDR_SPACE_LIMIT);
+
+        printf("initialize paging text_init():\n");
+
+        paging_init((lpaddr_t) &_start_kernel, SIZE_KERNEL_IMAGE);
+
+
+        /* we do not need to do relocation, this was already done in bootstrap */
+        reloc_text_init();
+        break;
+
+    default:
+        addr_global = (uint64_t) global;
+        break;
+    }
+
+
+    struct Elf64_Shdr *rela, *symtab;
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
     if (mb != NULL) { /* Multiboot info was passed */
@@ -631,9 +697,6 @@ arch_init(uint64_t magic,
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
     } else { /* No multiboot info, use the core_data struct */
-
-        printf("No multiboot \n");
-
         struct x86_core_data *core_data = (struct x86_core_data*) (dest
                 - BASE_PAGE_SIZE);
         multiboot_flags = core_data->multiboot_flags;
@@ -647,29 +710,15 @@ arch_init(uint64_t magic,
                   " Either move the module or increase initial mapping.");
         }
     }
-    printf("Continuing... \n");
-
 
     if (!elf) {
-        printf("ELF is null.Continuing... \n");
-        while(1)
-            ;
+        panic("ELF is null.Continuing... \n");
     }
-
-    printf("Elf non null.. go ahead\n");
-
-    printf("testing....\n");
-    printf("1+2=%d\n", 1+2);
 
     // We're only able to process Elf64_Rela entries
     if (elf->size != sizeof(struct Elf64_Shdr)) {
-        printf("ELF section header entry size mismatch!\n");
-        while(1)
-            ;
         panic("ELF section header entry size mismatch!");
     }
-
-    printf("Continuing... 2\n");
 
     // Find relocation section
     rela = elf64_find_section_header_type((struct Elf64_Shdr *) (lpaddr_t) elf->addr,
@@ -678,8 +727,6 @@ arch_init(uint64_t magic,
         panic("Kernel image does not include relocation section!");
     }
 
-    printf("Continuing... 3\n");
-
     // Find symbol table section
     symtab = elf64_find_section_header_type(
             (struct Elf64_Shdr *) (lpaddr_t) elf->addr, elf->num, SHT_DYNSYM);
@@ -687,33 +734,26 @@ arch_init(uint64_t magic,
         panic("Kernel image does not include symbol table!");
     }
 
-    printf("Continuing... 4\n");
-
     // Alias kernel on top of memory, keep low memory
     paging_init((lpaddr_t) &_start_kernel, SIZE_KERNEL_IMAGE);
 
     // Relocate kernel image for top of memory
     elf64_relocate(
-            X86_64_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
+            K1OM_PADDR_SPACE_LIMIT + (lvaddr_t) &_start_kernel,
             (lvaddr_t) &_start_kernel,
-            (struct Elf64_Rela *) (rela->sh_addr - X86_64_START_KERNEL_PHYS
+            (struct Elf64_Rela *) (rela->sh_addr - K1OM_START_KERNEL_PHYS
                     + &_start_kernel),
             rela->sh_size,
-            (struct Elf64_Sym *) (symtab->sh_addr - X86_64_START_KERNEL_PHYS
+            (struct Elf64_Sym *) (symtab->sh_addr - K1OM_START_KERNEL_PHYS
                     + &_start_kernel),
             symtab->sh_size,
-            X86_64_START_KERNEL_PHYS,
+            K1OM_START_KERNEL_PHYS,
             &_start_kernel);
 
     /*** Aliased kernel available now -- low memory still mapped ***/
 
     // Relocate stack to aliased location
-    relocate_stack(X86_64_MEMORY_OFFSET);
-
-    printf("Before reloc_text_init()\n");
-
-    while(1)
-        ;
+    relocate_stack(K1OM_PADDR_SPACE_LIMIT);
 
     // Call aliased text_init() function and continue initialization
     reloc_text_init();

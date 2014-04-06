@@ -19,7 +19,7 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish/ldt.h>
 #include <arch/ldt.h>
-#include <target/x86_64/barrelfish_kpi/cpu_target.h> // segment_descriptor
+#include <target/k1om/barrelfish_kpi/cpu_target.h> // segment_descriptor
 #include <stdio.h>
 
 #define LDT_NENTRIES    512     ///< Number of entries in the statically-sized LDT

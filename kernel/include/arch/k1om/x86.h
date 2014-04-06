@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef __X86_H
-#define __X86_H
+#ifndef K1OM__X86_H
+#define K1OM__X86_H
 
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/cpu.h>
@@ -103,6 +103,29 @@ static inline void enable_fpu(void)
 #endif
 }
 
+static inline void monitor(lvaddr_t base, uint32_t extensions, uint32_t hints)
+{
+    //panic("MONITOR INSTRUCTION NOT SUPPORTED!");
+   /* __asm volatile("monitor"
+                   : // No output
+                   :
+                   "a" (base),
+                   "c" (extensions),
+                   "d" (hints)
+                   ); */
+}
+
+static inline void mwait(uint32_t hints, uint32_t extensions)
+{
+  //  panic("MWAIT INSTRUCTION NOT SUPPORTED!");
+  /*  __asm volatile("mwait"
+                   : // No output
+                   :
+                   "a" (hints),
+                   "c" (extensions)
+                   ); */
+}
+
 #endif //__ASSEMBLER__
 
-#endif //__X86_H
+#endif //K1OM__X86_H

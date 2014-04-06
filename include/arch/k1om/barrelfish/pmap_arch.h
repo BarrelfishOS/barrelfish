@@ -15,7 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_PMAP_H
 #define ARCH_X86_64_BARRELFISH_PMAP_H
 
-#include <target/x86_64/barrelfish/pmap_target.h>
+#include <target/k1om/barrelfish/pmap_target.h>
 
 #define ARCH_DEFAULT_PMAP_SIZE sizeof(struct pmap_x86)
 

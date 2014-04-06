@@ -181,12 +181,14 @@ vm_exec (struct dcb *dcb)
 
 static inline void
 vmload (lpaddr_t vmcb) {
-    __asm volatile ("vmload" : : "a" (vmcb) : "memory");
+    assert(!"VMLOAD not supported instruction");
+   // __asm volatile ("vmload" : : "a" (vmcb) : "memory");
 }
 
 static inline void
 vmsave (lpaddr_t vmcb) {
-    __asm volatile ("vmsave" : : "a" (vmcb) : "memory");
+    assert(!"VMSAVE not supported instruction");
+   // __asm volatile ("vmsave" : : "a" (vmcb) : "memory");
 }
 
 static inline void

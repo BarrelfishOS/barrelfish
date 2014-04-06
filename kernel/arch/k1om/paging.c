@@ -18,8 +18,8 @@
 /*
  * Table requirements for various address spaces.
  */
-#define MEM_PDPT_SIZE           X86_64_PDPT_ENTRIES(X86_64_PADDR_SPACE_LIMIT)
-#define MEM_PDIR_SIZE           X86_64_PDIR_ENTRIES(X86_64_PADDR_SPACE_LIMIT)
+#define MEM_PDPT_SIZE           X86_64_PDPT_ENTRIES(K1OM_PADDR_SPACE_LIMIT)
+#define MEM_PDIR_SIZE           X86_64_PDIR_ENTRIES(K1OM_PADDR_SPACE_LIMIT)
 
 /*
  * Page attribute bitmaps for various address spaces.
@@ -102,8 +102,8 @@ static int paging_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
     paging_align(&vbase, &base, &size, X86_64_MEM_PAGE_SIZE);
 
     // Is mapped region out of range?
-    assert(base + size <= (lpaddr_t)X86_64_PADDR_SPACE_LIMIT);
-    if(base + size > (lpaddr_t)X86_64_PADDR_SPACE_LIMIT) {
+    assert(base + size <= (lpaddr_t)K1OM_PADDR_SPACE_LIMIT);
+    if(base + size > (lpaddr_t)K1OM_PADDR_SPACE_LIMIT) {
         return -1;
     }
 
@@ -160,7 +160,7 @@ void paging_x86_64_reset(void)
     }
 
     // Map an initial amount of memory
-    if(paging_x86_64_map_memory(0, X86_64_KERNEL_INIT_MEMORY) != 0) {
+    if(paging_x86_64_map_memory(0, K1OM_KERNEL_INIT_MEMORY) != 0) {
         panic("error while mapping physical memory!");
     }
 
@@ -188,7 +188,7 @@ void paging_x86_64_make_good_pml4(lpaddr_t base)
     debug(SUBSYS_PAGING, "Is now a PML4: table = 0x%"PRIxLPADDR"\n", base);
 
     // Map memory
-    for(i = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET); i < X86_64_PTABLE_SIZE; i++) {
+    for(i = X86_64_PML4_BASE(K1OM_MEMORY_OFFSET); i < X86_64_PTABLE_SIZE; i++) {
         newpml4[i] = pml4[i];
     }
 }

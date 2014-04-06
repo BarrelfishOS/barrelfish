@@ -17,7 +17,7 @@
 #define ARCH_X86_64_BARRELFISH_REGISTERS_H
 
 #include <barrelfish_kpi/registers_arch.h>
-#include <target/x86_64/registers_target.h>
+#include <target/k1om/registers_target.h>
 
 static inline void
 registers_set_initial(arch_registers_state_t *regs, struct thread *thread,

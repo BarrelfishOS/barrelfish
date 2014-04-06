@@ -18,6 +18,9 @@
 /// Magic value passed when kernel is booted by itself (and not bootloader)
 #define KERNEL_BOOT_MAGIC       0x33e1f154
 
+#define K1OM_BOOT_MAGIC         0xB001B001
+
+
 #ifndef __ASSEMBLER__
 
 extern bool idt_initialized;

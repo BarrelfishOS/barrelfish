@@ -548,7 +548,7 @@ static __attribute__ ((used,noreturn))
     uintptr_t rip = gdb_save_frame[GDB_X86_64_RIP_REG];
     printf("Faulting instruction pointer (or next instruction): 0x%lx\n", rip);
     printf("  => i.e. unrelocated kernel address 0x%lx\n",
-           rip - (uintptr_t)&_start_kernel + X86_64_START_KERNEL_PHYS);
+           rip - (uintptr_t)&_start_kernel + K1OM_START_KERNEL_PHYS);
 
     printf("Registers:\n");
     printf(" rax: 0x%016lx  r8 : 0x%016lx\n",

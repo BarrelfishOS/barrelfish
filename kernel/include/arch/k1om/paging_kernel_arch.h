@@ -12,10 +12,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef KERNEL_ARCH_X86_64_PAGING_H
-#define KERNEL_ARCH_X86_64_PAGING_H
+#ifndef KERNEL_ARCH_K1OM_PAGING_H
+#define KERNEL_ARCH_K1OM_PAGING_H
 
-#include <target/x86_64/paging_kernel_target.h>
+#include <target/k1om/paging_kernel_target.h>
 #include <paging_kernel_helper.h>
 
 /** Physical memory page size is 2 MBytes */

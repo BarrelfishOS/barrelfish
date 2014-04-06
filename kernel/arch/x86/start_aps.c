@@ -25,6 +25,7 @@
 #include <init.h>
 #include <arch/x86/kputchar.h>
 #include "xapic_dev.h"
+#include <target/k1om/offsets_target.h>
 #include <target/x86_64/offsets_target.h>
 #include <target/x86_32/offsets_target.h>
 

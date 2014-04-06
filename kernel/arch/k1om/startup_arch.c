@@ -38,9 +38,9 @@
 /**
  * init's needed boot pages.
  */
-#define INIT_PDPT_SIZE          X86_64_PDPT_ENTRIES(X86_64_INIT_SPACE_LIMIT)
-#define INIT_PDIR_SIZE          X86_64_PDIR_ENTRIES(X86_64_INIT_SPACE_LIMIT)
-#define INIT_PTABLE_SIZE        X86_64_PTABLE_ENTRIES(X86_64_INIT_SPACE_LIMIT)
+#define INIT_PDPT_SIZE          X86_64_PDPT_ENTRIES(K1OM_INIT_SPACE_LIMIT)
+#define INIT_PDIR_SIZE          X86_64_PDIR_ENTRIES(K1OM_INIT_SPACE_LIMIT)
+#define INIT_PTABLE_SIZE        X86_64_PTABLE_ENTRIES(K1OM_INIT_SPACE_LIMIT)
 #define INIT_PAGE_BITMAP        X86_64_PTABLE_PRESENT
 
 /// Pointer to bootinfo structure for init
@@ -110,12 +110,12 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
 
     paging_align(&vbase, &base, &size, BASE_PAGE_SIZE);
 
-    assert(vbase + size - X86_64_INIT_VBASE < X86_64_INIT_SPACE_LIMIT);
+    assert(vbase + size - K1OM_INIT_VBASE < K1OM_INIT_SPACE_LIMIT);
 
     // Map pages
     for(vaddr = vbase; vaddr < vbase + size;
         vaddr += BASE_PAGE_SIZE, base += BASE_PAGE_SIZE) {
-        lvaddr_t baddr = vaddr - X86_64_INIT_VBASE;
+        lvaddr_t baddr = vaddr - K1OM_INIT_VBASE;
         union x86_64_ptable_entry *ptable_base = &init_ptable[
                     X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE *
                     X86_64_PTABLE_SIZE * X86_64_PTABLE_SIZE +
@@ -147,7 +147,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     errval_t err;
 
     // map first meg of RAM, which contains lots of crazy BIOS tables
-    err = create_caps_to_cnode(0, X86_64_START_KERNEL_PHYS,
+    err = create_caps_to_cnode(0, K1OM_START_KERNEL_PHYS,
                                RegionType_PlatformData, &spawn_state, bootinfo);
     assert(err_is_ok(err));
 
@@ -440,13 +440,13 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
     assert(last_end_addr != 0);
 
-    if (last_end_addr < X86_64_PADDR_SPACE_SIZE) {
+    if (last_end_addr < K1OM_PADDR_SPACE_SIZE) {
         /*
          * FIXME: adding the full range results in too many caps to add
          * to the cnode (and we can't handle such big caps in user-space
          * yet anyway) so instead we limit it to something much smaller
          */
-        size_t size = X86_64_PADDR_SPACE_SIZE - last_end_addr;
+        size_t size = K1OM_PADDR_SPACE_SIZE - last_end_addr;
         const lpaddr_t phys_region_limit = 1UL << 32; // PCI implementation limit
         if (last_end_addr > phys_region_limit) {
             size = 0; // end of RAM is already too high!
@@ -526,9 +526,9 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
     // init's memory manager expects page tables within the pagecn to
     // already be connected to the corresponding directories. To avoid
     // unneccessary special cases, we connect them here.
-    for(lvaddr_t vaddr = X86_64_INIT_VBASE; vaddr < X86_64_INIT_SPACE_LIMIT;
+    for(lvaddr_t vaddr = K1OM_INIT_VBASE; vaddr < K1OM_INIT_SPACE_LIMIT;
         vaddr += BASE_PAGE_SIZE) {
-        lvaddr_t baddr = vaddr - X86_64_INIT_VBASE;
+        lvaddr_t baddr = vaddr - K1OM_INIT_VBASE;
         union x86_64_pdir_entry *pml4_base, *pdpt_base, *pdir_base;
         union x86_64_ptable_entry *ptable_base;
         pml4_base = &init_pml4[X86_64_PML4_BASE(vaddr)];

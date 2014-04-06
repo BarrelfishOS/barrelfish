@@ -20,7 +20,7 @@
 #include <irq.h>
 #include <x86.h>
 #include <dispatch.h>
-#include <target/x86_64/barrelfish_kpi/cpu_target.h>
+#include <target/k1om/barrelfish_kpi/cpu_target.h>
 
 /**
  * \brief Reboots the system.
@@ -179,7 +179,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
  */
 void __attribute__ ((noreturn)) wait_for_interrupt(void)
 {
-    __asm volatile("lea x86_64_kernel_stack(%%rip), %%rsp\n\t"
+    __asm volatile("lea k1om_kernel_stack(%%rip), %%rsp\n\t"
                    "addq %[stack_size], %%rsp\n\t"
                    "sti                 \n\t"
                    // The instruction right after STI is still in interrupt
@@ -187,7 +187,7 @@ void __attribute__ ((noreturn)) wait_for_interrupt(void)
                    // to make sure pending interrupts are handeled immediately.
                    "nop                 \n\t"
                    "hlt                 \n\t"
-                   :: [stack_size] "i" (X86_64_KERNEL_STACK_SIZE) : "rsp" );
+                   :: [stack_size] "i" (K1OM_KERNEL_STACK_SIZE) : "rsp" );
     panic("hlt should not return");
 }
 

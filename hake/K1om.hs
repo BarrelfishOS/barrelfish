@@ -28,15 +28,15 @@ import qualified ArchDefaults
 arch = "k1om"
 archFamily = "k1om"
 
---compiler = "x86_64-k1om-barrelfish-gcc"
---objcopy  = "x86_64-k1om-barrelfish-objcopy"
---objdump  = "x86_64-k1om-barrelfish-objdump"
---ar       = "x86_64-k1om-barrelfish-ar"
---ranlib   = "x86_64-k1om-barrelfish-ranlib"
---cxxcompiler = "x86_64-k1om-barrelfish-g++"
+compiler = "k1om-mpss-linux-gcc"
+--objcopy  = "k1om-mpss-linux-objcopy"
+--objdump  = "k1om-mpss-linux-objdump"
+--ar       = "k1om-mpss-linux-ar"
+--ranlib   = "k1om-mpss-linux-ranlib"
+--cxxcompiler = "k1om-mpss-linux-g++"
 
 
-compiler = "gcc"
+-- compiler = "gcc"
 objcopy  = "objcopy"
 objdump  = "objdump"
 ar       = "ar"
@@ -46,13 +46,15 @@ cxxcompiler = "g++"
 
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
-                  -- Str "-fPIE",
-                   Str "-fPIC",
+                   Str "-fPIE",
+                --   Str "-fPIC",
                    Str "-fno-stack-protector", 
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
 -- the intel mic architecture has no "normal" SIMD extensions
                    Str "-fno-tree-vectorize",
+		   Str "-Wa,-march=k1om",
+		   Str "-mk1om",
                    Str "-mno-mmx",
                    Str "-mno-sse",
                    Str "-mno-sse2",
@@ -84,6 +86,7 @@ ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
 --               Str "-Wl,-b,elf64-k1om",
 --               Str "-Wl,--oformat,elf64-k1om",
                Str "-Wl,--build-id=none",
+	 	Str "-Wl,-melf_k1om",
                Str "-m64" ]
 
 
@@ -109,12 +112,16 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-std=c99",
                                 "-m64",
                                 "-mno-red-zone",
-                               -- "-fPIE",
-                                "-fPIC",
-                                "-e startup_64",
+                                "-fPIE",
+                               -- "-fPIC",
+                                "-e kernel_start",
+		--		"-mk1om",
+				"-Wa,-march=k1om",
                                 "-fno-stack-protector",
+				"-fomit-frame-pointer",
                                 "-U__linux__",
                                 "-D__k1om__",
+				"-mk1om",
                                 "-Wall",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
@@ -143,8 +150,10 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
                                  --"-Wl,-b,elf64-k1om",
                                 -- "-Wl,-A,k1om",
                                  --"-Wl,--oformat,elf64-k1om",
-                                 -- "-pie",
-                                 "-fPIC",
+                                  "-fPIE",
+			--	"-mk1om",
+				"-Wl,-melf_k1om",
+                               --  "-fPIC",
                                  "-fno-builtin",
                                  "-nostdlib",
                                  "-Wl,--fatal-warnings",

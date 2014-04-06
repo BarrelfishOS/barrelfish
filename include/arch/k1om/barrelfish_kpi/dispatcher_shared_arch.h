@@ -15,7 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_KPI_DISPATCHER_SHARED_ARCH_H
 #define ARCH_X86_64_BARRELFISH_KPI_DISPATCHER_SHARED_ARCH_H
 
-#include <target/x86_64/barrelfish_kpi/dispatcher_shared_target.h>
+#include <target/k1om/barrelfish_kpi/dispatcher_shared_target.h>
 
 /**
  * \brief Returns whether dispatcher is currently disabled, given IP.

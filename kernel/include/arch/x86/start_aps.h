@@ -21,6 +21,7 @@
 #define AP_STARTING_UP 1
 #define AP_STARTED     2
 
+int start_aps_k1om_start(uint8_t core_id, genvaddr_t entry);
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry);
 int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry);
 

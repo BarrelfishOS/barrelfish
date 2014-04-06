@@ -27,9 +27,13 @@ extern const unsigned serial_num_physical_ports;
 /*
  * Initialize a physical serial port
  */
+#ifdef __k1om__
 extern errval_t serial_init(unsigned port);
 extern errval_t serial_early_init(unsigned port);
-
+#else
+extern errval_t serial_init(unsigned port);
+extern errval_t serial_early_init(unsigned port);
+#endif
 /*
  * Polled, blocking input/output.  No buffering.
  */
@@ -42,10 +46,19 @@ extern char serial_getchar(unsigned port);
  */
 extern unsigned serial_console_port;
 
+#ifdef __k1om__
+static inline errval_t serial_console_init(lvaddr_t mmio_base)
+{
+    return serial_init(serial_console_port);
+}
+
+#else
 static inline errval_t serial_console_init(void)
 {
     return serial_init(serial_console_port);
 }
+#endif
+
 static inline void serial_console_putchar(char c)
 {
     if (c == '\n') {

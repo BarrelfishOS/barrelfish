@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef KERNEL_TARGET_X86_64_PAGING_H
-#define KERNEL_TARGET_X86_64_PAGING_H
+#ifndef KERNEL_TARGET_K1OM_PAGING_H
+#define KERNEL_TARGET_K1OM_PAGING_H
 
 #include <capabilities.h>
 #include <barrelfish_kpi/paging_arch.h>
@@ -328,4 +328,4 @@ static inline uint64_t paging_x86_64_mask_attrs(uint64_t attr, uint64_t mask)
     return attr;
 }
 
-#endif // KERNEL_TARGET_X86_64_PAGING_H
+#endif // KERNEL_TARGET_K1OM_PAGING_H

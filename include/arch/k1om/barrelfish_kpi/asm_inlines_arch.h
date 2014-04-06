@@ -17,7 +17,7 @@
 
 #ifndef __ASSEMBLER__
 
-#include <target/x86_64/barrelfish_kpi/registers_target.h>
+#include <target/k1om/barrelfish_kpi/registers_target.h>
 
 static inline void cpuid(uint32_t function, uint32_t *eax, uint32_t *ebx,
                          uint32_t *ecx, uint32_t *edx)
@@ -83,6 +83,84 @@ static inline void fpu_restore(struct registers_fpu_x86_64 *fpustate)
 
     __asm volatile ("fxrstorq %0" :: "m" (*regs));
 }
+
+
+/** \brief This code reads the cycle counter */
+static inline uint64_t rdtsc(void)
+{
+    /*
+    uint32_t eax, edx;
+    __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
+    return ((uint64_t)edx << 32) | eax;
+    */
+    return 0;
+}
+
+/** \brief This code reads the cycle counter -- flushing the
+    instruction pipeline first. Throws away the processor ID information. */
+static inline uint64_t rdtscp(void)
+{
+    /*
+    uint32_t eax, edx;
+    __asm volatile ("rdtscp" : "=a" (eax), "=d" (edx) :: "ecx");
+    return ((uint64_t)edx << 32) | eax;
+    */
+    return 0;
+}
+
+static inline uint64_t rdpmc(uint32_t counter)
+{
+    uint32_t eax, edx;
+/*
+    __asm volatile("rdpmc"
+                   : "=a" (eax), "=d" (edx)
+                   : "c" (counter)
+                   );
+*/
+    return ((uint64_t)edx << 32) | eax;
+}
+
+static inline void mfence(void)
+{
+   // __asm volatile("mfence");
+}
+
+static inline void sfence(void)
+{
+   //  __asm volatile("sfence");
+}
+
+static inline void lfence(void)
+{
+   // __asm volatile("lfence");
+}
+
+static inline void clflush(void *line)
+{
+    __asm volatile("clflush %0" :: "m" (line));
+}
+
+#ifndef __scc__
+#       define CACHE_LINE_SIZE 64 /* bytes */
+#else
+#       define CACHE_LINE_SIZE 32 /* bytes */
+#endif
+
+#ifndef __cplusplus
+/* flush a range of memory from the cache */
+static inline void cache_flush_range(void *base, size_t len)
+{
+    //mfence();
+
+    uint8_t *line = (uint8_t *)((uintptr_t)base & ~(CACHE_LINE_SIZE-1UL));
+    do {
+        clflush(line);
+        line += CACHE_LINE_SIZE;
+    } while (line < (uint8_t *)base + len);
+}
+#endif
+
+
 
 #endif // __ASSEMBLER__
 

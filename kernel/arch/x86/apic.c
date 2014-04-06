@@ -109,7 +109,11 @@ void apic_init(void)
 {
     //pointer to a variable used as pseudo-lock to synchronize the BSP
     //and the AP which gets enabled
-#if defined (__x86_64__)
+#if defined(__k1om__)
+        volatile uint32_t *ap_wait = (volatile uint32_t *)
+            local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
+                              K1OM_REAL_MODE_LINEAR_OFFSET);
+#elif defined (__x86_64__)
     volatile uint32_t *ap_wait = (volatile uint32_t *)
         local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
                           X86_64_REAL_MODE_LINEAR_OFFSET);

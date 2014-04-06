@@ -15,7 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_DISPATCHER_H
 #define ARCH_X86_64_BARRELFISH_DISPATCHER_H
 
-#include <target/x86_64/barrelfish/dispatcher_target.h>
+#include <target/k1om/barrelfish/dispatcher_target.h>
 
 static inline struct dispatcher_generic*
 get_dispatcher_generic(dispatcher_handle_t handle)

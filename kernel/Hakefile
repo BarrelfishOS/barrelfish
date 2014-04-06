@@ -137,7 +137,8 @@ let
   --
   cpuDriver { 
      architectures = [ "k1om" ],
-     assemblyFiles = [ "arch/k1om/boot.S", 
+     assemblyFiles = [ "arch/k1om/boot.S",
+     				   "arch/k1om/kernel.S",  
                        "arch/k1om/entry.S", 
                        "arch/x86/init_ap_x86_64.S", 
                        "arch/x86/init_ap_x86_32.S" ],

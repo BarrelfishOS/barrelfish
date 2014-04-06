@@ -17,6 +17,6 @@
 
 #include <barrelfish_kpi/eflags_arch.h>
 #include <barrelfish_kpi/asm_inlines_arch.h>
-#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
+#include <arch/k1om/barrelfish_kpi/asm_inlines_arch.h>
 
 #endif // ARCH_X86_64_BARRELFISH_KPI_GENERIC_H

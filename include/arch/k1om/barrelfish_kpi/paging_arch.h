@@ -15,7 +15,7 @@
 #ifndef ARCH_X86_64_BARRELFISH_KPI_PAGING_H
 #define ARCH_X86_64_BARRELFISH_KPI_PAGING_H
 
-#include <target/x86_64/barrelfish_kpi/paging_target.h>
+#include <target/k1om/barrelfish_kpi/paging_target.h>
 
 /**
  * Information about page sizes

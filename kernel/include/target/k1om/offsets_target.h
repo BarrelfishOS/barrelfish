@@ -1,8 +1,8 @@
 /**
  * \file
- * \brief X86-64 address space sizes and offsets
+ * \brief K1OM address space sizes and offsets
  *
- * The layout of the x86-64 virtual address space can be summarized as
+ * The layout of the K1OM virtual address space can be summarized as
  * follows:
  *
  *<pre>
@@ -31,39 +31,47 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef KERNEL_TARGET_X86_64_OFFSETS_H
-#define KERNEL_TARGET_X86_64_OFFSETS_H
+#ifndef KERNEL_TARGET_K1OM_OFFSETS_H
+#define KERNEL_TARGET_K1OM_OFFSETS_H
 
 /**
  * Absolute size of virtual address space. This is 48-bit on x86-64
  * currently, which equals 256 TBytes and allows for 512 PML4 slots,
  * each of which can map 512 GBytes.
  */
-#define X86_64_VADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
+#define K1OM_VADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
 
 /**
- * Absolute size of physical address space. This is also 48-bit.
+ * Absolute size of physical address space. This is also 40-bit.
+ *
+ * Intel Xeon Phi Systems Software Developers Guide,  2.1.4:
+ *
+ * The Intel® Xeon Phi™ coprocessor supports 40-bit physical address in 64-bit.
  */
-#define X86_64_PADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
+#define K1OM_PADDR_SPACE_SIZE        ((genpaddr_t)1 << 40)
 
 /**
  * Start address of kernel image in physical memory. This is passed to
  * the linker also. The bootloader will load us there.
  */
-#define X86_64_START_KERNEL_PHYS       0x10000
-//#define X86_64_START_KERNEL_PHYS       0x0
+#define K1OM_START_KERNEL_PHYS          0x100000
 
 /**
  * Kernel stack size -- 16KB
  */
-#define X86_64_KERNEL_STACK_SIZE       0x4000
+#define K1OM_KERNEL_STACK_SIZE       0x4000
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
- * for a bigger physical address space.  We set this to 37-bit,
- * i.e. 128 GBytes.
+ * for a bigger physical address space.  We set this to 40-bit,
+ * i.e. 1024 GBytes.
+ *
+ * Xeon Phi Systems Software Developers Guide,  2.1.4:
+ *
+ * The Intel® Xeon Phi™ coprocessor supports 40-bit physical address in 64-bit.
+ *
  */
-#define X86_64_PADDR_SPACE_LIMIT       ((genpaddr_t)1 << 37)
+#define K1OM_PADDR_SPACE_LIMIT       ((genpaddr_t)1 << 40)
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -77,7 +85,7 @@
  * unneccessarily. init's lowest segment should also be based at these
  * multiples or it restricts itself.
  */
-#define X86_64_INIT_SPACE_LIMIT        (32 * 1024 * 1024)
+#define K1OM_INIT_SPACE_LIMIT        (32 * 1024 * 1024)
 
 /**
  * Base address of init address space in virtual memory. init should
@@ -86,7 +94,7 @@
  * KByte pages, a page table maps 2 MBytes. Thus, align it to
  * multiples of 2 MBytes).
  */
-#define X86_64_INIT_VBASE              0x200000
+#define K1OM_INIT_VBASE              0x200000
 
 /**
  * Initial amount of physical memory to map during bootup. The low
@@ -95,13 +103,13 @@
  * this value. This value is also the amount of memory you _expect_ to
  * be in the system during bootup, or the kernel will crash!
  */
-#define X86_64_KERNEL_INIT_MEMORY      (1 * 1024 * 1024)
+#define K1OM_KERNEL_INIT_MEMORY      (1 * 1024 * 1024)
 
 /**
  * Aligns an address to the nearest PML4 entry by masking out lower 39
  * bits.
  */
-#define X86_64_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x1ffffff << 39))
+#define K1OM_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x1ffffff << 39))
 
 /**
  * Absolute offset of mapped physical memory within virtual address
@@ -110,30 +118,35 @@
  *
  * Change VSPACE_END in lib/barrelfish if you change this.
  */
-#define X86_64_MEMORY_OFFSET        X86_64_PML4_ALIGN(-X86_64_PADDR_SPACE_LIMIT)
+#define K1OM_MEMORY_OFFSET        K1OM_PML4_ALIGN(-K1OM_PADDR_SPACE_LIMIT)
 
 /**
  * The real-mode addresses
  */
 
-#define X86_64_REAL_MODE_SEGMENT 0x0600 /**< The real-mode segment */
-#define X86_64_REAL_MODE_OFFSET  0x0000 /**< The real-mode offset _has to be_ 0000!! */
+#define K1OM_REAL_MODE_SEGMENT 0x0600 /**< The real-mode segment */
+#define K1OM_REAL_MODE_OFFSET  0x0000 /**< The real-mode offset _has to be_ 0000!! */
 
-#define X86_64_REAL_MODE_LINEAR_OFFSET \
-    (X86_64_REAL_MODE_SEGMENT << 4) /**< The linear offset
+#define K1OM_REAL_MODE_LINEAR_OFFSET \
+    (K1OM_REAL_MODE_SEGMENT << 4) /**< The linear offset
                                        of the real-mode
                                        segment */
 
-#define X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg) ((uint8_t)(seg >> 8))
-#define X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off) ((uint32_t)(seg << 16) | off)
+#define K1OM_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg) ((uint8_t)(seg >> 8))
+#define K1OM_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off) ((uint32_t)(seg << 16) | off)
+
+
+/*
+ * TODO: Add K1OM offsets
+ */
 
 #ifndef __ASSEMBLER__
 
 /**
  * \brief The kernel stack.
  */
-extern uintptr_t x86_64_kernel_stack[X86_64_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
+extern uintptr_t k1om_kernel_stack[K1OM_KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 
 #endif
 
-#endif // KERNEL_TARGET_X86_64_OFFSETS_H
+#endif // KERNEL_TARGET_K1OM_OFFSETS_H

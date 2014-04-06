@@ -17,15 +17,15 @@
 
 #include <target/k1om/offsets_target.h>
 
-#define PADDR_SPACE_SIZE          X86_64_PADDR_SPACE_SIZE
-#define PADDR_SPACE_LIMIT         X86_64_PADDR_SPACE_LIMIT
+#define PADDR_SPACE_SIZE          K1OM_PADDR_SPACE_SIZE
+#define PADDR_SPACE_LIMIT         K1OM_PADDR_SPACE_LIMIT
 
-#define REAL_MODE_LINEAR_OFFSET   X86_64_REAL_MODE_LINEAR_OFFSET
-#define REAL_MODE_SEGMENT         X86_64_REAL_MODE_SEGMENT
-#define REAL_MODE_OFFSET          X86_64_REAL_MODE_OFFSET
+#define REAL_MODE_LINEAR_OFFSET   K1OM_REAL_MODE_LINEAR_OFFSET
+#define REAL_MODE_SEGMENT         K1OM_REAL_MODE_SEGMENT
+#define REAL_MODE_OFFSET          K1OM_REAL_MODE_OFFSET
 
-#define REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg)      X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg)
-#define REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off)   X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off)
+#define REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg)      K1OM_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg)
+#define REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off)   K1OM_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off)
 
 #ifndef __ASSEMBLER__
 
@@ -39,8 +39,8 @@
  */
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
-    assert(addr < X86_64_PADDR_SPACE_LIMIT);
-    return (lvaddr_t)(addr + (lvaddr_t)X86_64_MEMORY_OFFSET);
+    assert(addr < K1OM_PADDR_SPACE_LIMIT);
+    return (lvaddr_t)(addr + (lvaddr_t)K1OM_MEMORY_OFFSET);
 }
 
 /**
@@ -53,8 +53,8 @@ static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
  */
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {
-    assert(addr >= X86_64_MEMORY_OFFSET);
-    return (lpaddr_t)(addr - (lpaddr_t)X86_64_MEMORY_OFFSET);
+    assert(addr >= K1OM_MEMORY_OFFSET);
+    return (lpaddr_t)(addr - (lpaddr_t)K1OM_MEMORY_OFFSET);
 }
 
 static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)
@@ -78,6 +78,8 @@ extern char _start_kernel;
  * of the kernel image.
  */
 extern char _end_kernel;
+
+extern char _end_kernel_text;
 
 /**
  * The size of the whole kernel image.

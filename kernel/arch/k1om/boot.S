@@ -48,16 +48,23 @@
 
 #include <multiboot.h>
 #include <target/k1om/offsets_target.h>
-          .code32
-          .text
+
+
+
+#define K1OM_BOOT_MAGIC         0xB001B001
+
+#if 1
 
 #define DECOMPRESS 0
-#define VERIFYCPU 0
+
+#define CONFIG_RELOCATABLE 0
+
 
 #define GDT_ENTRY_KERNEL_DS 3
 #define GDT_ENTRY_KERNEL_CS 2
 #define __KERNEL_DS (GDT_ENTRY_KERNEL_DS*8)
 #define __KERNEL_CS (GDT_ENTRY_KERNEL_CS*8)
+#define LONG_MODE_CS 0x0008
 #define BOOT_STACK_SIZE       0x4000
 #define X86_CR4_PAE 0x00000020 /* enable physical address extensions */
 #define MSR_EFER              0xc0000080 /* extended feature register */
@@ -65,15 +72,15 @@
 #define X86_CR0_PE  0x00000001 /* Protection Enable */
 #define X86_CR0_PG  0x80000000 /* Paging */
 
+
+
 #define BP_scratch 484 /* offsetof(struct boot_params, scratch) # */
 #define BP_loadflags 529 /* offsetof(struct boot_params, hdr.loadflags) # */
 #define BP_hardware_subarch 572 /* offsetof(struct boot_params, hdr.hardware_subarch)   # */
 #define BP_version 518 /* offsetof(struct boot_params, hdr.version)     # */
 #define BP_kernel_alignment 560 /* offsetof(struct boot_params, hdr.kernel_alignment)   # */
 #define z_extract_offset 0
-#define LOAD_PHYSICAL_ADDR 0x1000000
-
-
+#define LOAD_PHYSICAL_ADDR K1OM_START_KERNEL_PHYS
 
 #ifndef LINKER_SCRIPT
 #define ALIGN __ALIGN
@@ -108,6 +115,9 @@
   END(name)
 #endif
 
+
+          .code32
+          .text
 
           .section  ".head.text","ax"
           .code32
@@ -144,15 +154,7 @@ ENTRY(startup_32)
           movl      $boot_stack_end, %eax
           addl      %ebp, %eax
           movl      %eax, %esp
-/*
- * verify_cpu returns 0 if the CPU supports long mode & SSE
- * ML1OM & MK1OM support long mode, but not SSE
- */
-#ifndef VERIFYCPU
-          call      verify_cpu
-          testl     %eax, %eax
-          jnz       no_longmode
-#endif
+
 
 /*
  * Compute the delta between where we were compiled to run at
@@ -162,24 +164,38 @@ ENTRY(startup_32)
  * contains the address where we should move the kernel image temporarily
  * for safe in-place decompression.
  */
-          movl      $LOAD_PHYSICAL_ADDR, %ebx
+#ifdef CONFIG_RELOCATABLE
+	movl	%ebp, %ebx
+	movl	BP_kernel_alignment(%esi), %eax
+	decl	%eax
+	addl	%eax, %ebx
+	notl	%eax
+	andl	%eax, %ebx
+#else
+	movl	$LOAD_PHYSICAL_ADDR, %ebx
+#endif
 
           /* Target address to relocate to for decompression */
-          addl      $z_extract_offset, %ebx
+    //      addl      $z_extract_offset, %ebx
 
 
-/*
- * Prepare for entering 64 bit mode
- */
+		/*
+ 		* Prepare for entering 64 bit mode
+ 		*/
 
           /* Load new GDT with the 64bit segments using 32bit descriptor */
           leal      gdt(%ebp), %eax
           movl      %eax, gdt+2(%ebp)
           lgdt      gdt(%ebp)
 
+
           /* Enable PAE mode */
-          movl      $(X86_CR4_PAE), %eax
-          movl      %eax, %cr4
+         // movl      $(X86_CR4_PAE), %eax
+          // movl      %eax, %cr4
+
+	      mov %cr4,%eax
+		  orl $(X86_CR4_PAE),%eax
+		  mov %eax,%cr4
 
  /*
   * Build early 4G boot pagetable
@@ -268,11 +284,13 @@ ENTRY(startup_32)
           pushl     %eax
 
           /* Enter paged protected Mode, activating Long Mode */
-          movl      $(X86_CR0_PG | X86_CR0_PE), %eax /* Enable Paging and Protected mode */
+          movl      $(X86_CR0_PG | X86_CR0_PE), %eax
+          /* Enable Paging and Protected mode */
           movl      %eax, %cr0
 
           /* Jump from 32bit compatibility mode into 64bit mode. */
           lret
+
 ENDPROC(startup_32)
 
 no_longmode:
@@ -281,9 +299,6 @@ no_longmode:
           hlt
           jmp     1b
 
-#if VERIFYCPU
-#include "../../kernel/verify_cpu.S"
-#endif
           /*
            * Be careful here startup_64 needs to be at a predictable
            * address so I can export it in an ELF header.  Bootloaders
@@ -291,7 +306,7 @@ no_longmode:
            * it may change in the future.
            */
           .code64
-          .org 0x400
+          .org 0x200
 ENTRY(startup_64)
           /*
            * We come here either from startup_32 or directly from a
@@ -311,7 +326,12 @@ ENTRY(startup_64)
           movl    $0x20, %eax
           ltr       %ax
 
-#if 0
+		  /* a little "printf" to show that we are running */
+		  movabsq $0x08007DAB5C, %r14
+          movl    $0x0A58553E, (%r14)
+          movabsq $0x08007DAB40, %r14
+          movl    $2054847098, (%r14)
+
           /*
            * Compute the decompressed kernel start address.  It is where
            * we were loaded at aligned to a 2M boundary. %rbp contains the
@@ -326,13 +346,23 @@ ENTRY(startup_64)
            */
 
           /* Start with the delta to where the kernel will run at. */
-          movq  $LOAD_PHYSICAL_ADDR, %rbp
+#ifdef CONFIG_RELOCATABLE
+	leaq	startup_32(%rip) /* - $startup_32 */, %rbp
+	movl	BP_kernel_alignment(%rsi), %eax
+	decl	%eax
+	addq	%rax, %rbp
+	notq	%rax
+	andq	%rax, %rbp
+#else
+	movq	$LOAD_PHYSICAL_ADDR, %rbp
+#endif
 
           /* Target address to relocate to for decompression */
-          leaq      z_extract_offset(%rbp), %rbx
+          //leaq      z_extract_offset(%rbp), %rbx
+          movq		%rbp, %rbx
 
           /* Set up the stack */
-          leaq      boot_stack_end(%rbx), %rsp
+       //   leaq      boot_stack_end(%rbx), %rsp
 
           /* Zero EFLAGS */
           pushq     $0
@@ -343,24 +373,17 @@ ENTRY(startup_64)
  * Copy the compressed kernel to the end of our buffer
  * where decompression in place becomes safe.
  */
- #if 1
           pushq     %rsi
-          leaq      (_bss-8)(%rip), %rsi
-          leaq      (_bss-8)(%rbx), %rdi
-          movq      $_bss /* - $startup_32 */, %rcx
+          leaq      (_bss-8)(%rip), %rsi    /* FROM */
+          leaq      (_bss-8)(%rbx), %rdi	/* TO */
+          movq      $_bss /* - $startup_32 */, %rcx /* UNTIL ZERO */
           shrq      $3, %rcx
           std
           rep       movsq
           cld
           popq      %rsi
-#endif
 
-#if 1
-        movabsq $0x08007DAB5C, %r14
-        movl    $0x0A52503E, (%r14)
-        movabsq $0x08007DAB40, %r14
-        movl    $2054847098, (%r14)
-#endif
+
 
 
 /*
@@ -370,9 +393,9 @@ ENTRY(startup_64)
           jmp       *%rax
 
           .text
+          .section  ".head64.text","ax"
 relocated:
 
-#endif
 
 /*
  * Clear BSS (stack is currently empty)
@@ -384,49 +407,18 @@ relocated:
           shrq      $3, %rcx
           rep       stosq
 
-/*
- * Adjust our own GOT
- */
-          leaq      _got(%rip), %rdx
-          leaq      _egot(%rip), %rcx
-1:
-          cmpq      %rcx, %rdx
-          jae       2f
-          addq      %rbx, (%rdx)
-          addq      $8, %rdx
-          jmp       1b
-2:
-
-
           /* Reset EFLAGS */
           pushq     $0
           popf
 
-          lea  (x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+		  /* store the boot info struct pointer and the magic value */
+          movl	$K1OM_BOOT_MAGIC, %eax
+          movl %esi, %ebx
 
-          movl      %eax, %edi          /* Multiboot magic value */
-          movl      %ebx, %esi          /* Pointer to multiboot info struct */
-
-
-#if 1
-        movabsq $0x08007DAB5C, %r14
-        movl    $0x0A58553E, (%r14)
-        movabsq $0x08007DAB40, %r14
-        movl    $2054847098, (%r14)
-#endif
-
-
-          call      arch_init
-
-          // jmp       *%rbp
-
-          /* Halt -- this should never be reached */
-ENTRY(halt)
-          hlt
-          jmp       halt
-
+		  jmp kernel_start  /* jmp K1OM_START_KERNEL_PHYS + 12 */
 
           .data
+          .align 16
 gdt:
           .word     gdt_end - gdt
           .long     gdt
@@ -436,17 +428,15 @@ gdt:
           .quad     0x00cf92000000ffff  /* __KERNEL_DS */
           .quad     0x0080890000000000  /* TS descriptor */
           .quad   0x0000000000000000    /* TS continued */
+          .byte 0xff,0xff,0x00,0x60,0x00,0x9a,0xcf,0x00 // segment at linear address 0x6000
+          .byte 0xff,0xff,0x00,0x00,0x00,0x92,0xaf,0x00 // stack segment in 64bit mode
 gdt_end:
+
 
 /*
  * Stack and heap for uncompression
  */
-          .bss
-          .balign 4
-#if DECOMPRESS
-boot_heap:
-          .fill BOOT_HEAP_SIZE, 1, 0
-#endif
+          .align 16
 boot_stack:
           .fill BOOT_STACK_SIZE, 1, 0
 boot_stack_end:
@@ -458,3 +448,4 @@ boot_stack_end:
           .balign 4096
 pgtable:
           .fill 7*4096, 1, 0
+#endif

@@ -182,26 +182,6 @@ static inline void wbinvd(void)
     __asm volatile("wbinvd" ::: "memory");
 }
 
-static inline void monitor(lvaddr_t base, uint32_t extensions, uint32_t hints)
-{
-    __asm volatile("monitor"
-                   : // No output
-                   :
-                   "a" (base),
-                   "c" (extensions),
-                   "d" (hints)
-                   );
-}
-
-static inline void mwait(uint32_t hints, uint32_t extensions)
-{
-    __asm volatile("mwait"
-                   : // No output
-                   :
-                   "a" (hints),
-                   "c" (extensions)
-                   );
-}
 
 static inline void clts(void)
 {
