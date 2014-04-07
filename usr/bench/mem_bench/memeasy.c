@@ -23,7 +23,6 @@
 #include <trace/trace.h>
 
 #define MAX_ITERATION 1000
-#define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
 static volatile bool finished;
 
