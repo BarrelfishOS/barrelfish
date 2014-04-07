@@ -18,6 +18,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
 #include <trace/trace.h>
 
@@ -183,6 +184,24 @@ int main(int argc, char** argv)
             USER_PANIC_ERR(err, "cap_retype failed.");
         }
         end = bench_tsc();
+
+#if 0
+        // check that frame is clear
+        void *buf;
+        vspace_map_one_frame(&buf, (1<<ram_bits), frame, NULL, NULL);
+        char *cbuf = buf;
+        for (int k = 0; k<(1<<ram_bits);k++) {
+            if (cbuf[k] != 0) {
+                debug_printf("mismatch: %d: %d\n", k, cbuf[k]);
+            }
+            assert(cbuf[k] == 0);
+        }
+        for (int k = 0; k<(1<<ram_bits);k++) {
+            cbuf[k] = k % 256;
+        }
+        sys_debug_flush_cache();
+        vspace_unmap(buf);
+#endif
 
         err = cap_delete(frame);
         if (err_is_fail(err)) {
