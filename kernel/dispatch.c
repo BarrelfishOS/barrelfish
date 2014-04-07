@@ -249,11 +249,13 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
+        TRACE(KERNEL, SC_YIELD, 1);
         resume(disabled_area);
     } else {
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
+        TRACE(KERNEL, SC_YIELD, 1);
         execute(disp->dispatcher_run);
     }
 }
