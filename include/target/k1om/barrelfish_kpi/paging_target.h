@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef TARGET_X86_64_BARRELFISH_KPI_PAGING_H
-#define TARGET_X86_64_BARRELFISH_KPI_PAGING_H
+#ifndef TARGET_K1OM_BARRELFISH_KPI_PAGING_H
+#define TARGET_K1OM_BARRELFISH_KPI_PAGING_H
 
 #ifndef __ASSEMBLER__
 typedef uint64_t paging_x86_64_flags_t;

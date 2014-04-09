@@ -102,7 +102,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
 
-        paging_x86_64_map_table(entry, src_lp + offset);
+        paging_k1om_map_table(entry, src_lp + offset);
     }
 
     return SYS_ERR_OK;
@@ -139,9 +139,9 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_64_flags_t flags =
-        paging_x86_64_cap_to_page_flags(src->rights);
+        paging_k1om_cap_to_page_flags(src->rights);
     // Mask with provided access rights mask
-    flags = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
+    flags = paging_k1om_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags
     flags |= X86_64_PTABLE_FLAGS(mflags);
     // Unconditionally mark the page present
@@ -177,7 +177,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         }
 
         // Carry out the page mapping
-        paging_x86_64_map(entry, src_lp + offset, flags);
+        paging_k1om_map(entry, src_lp + offset, flags);
     }
 
     return SYS_ERR_OK;
@@ -403,9 +403,9 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_64_flags_t flags =
-        paging_x86_64_cap_to_page_flags(frame->rights);
+        paging_k1om_cap_to_page_flags(frame->rights);
     // Mask with provided access rights mask
-    flags = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
+    flags = paging_k1om_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags
     flags |= X86_64_PTABLE_FLAGS(mflags);
     // Unconditionally mark the page present
@@ -417,7 +417,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     for (int i = 0; i < pages; i++) {
         union x86_64_ptable_entry *entry =
             (union x86_64_ptable_entry *)base + i;
-        paging_x86_64_modify_flags(entry, flags);
+        paging_k1om_modify_flags(entry, flags);
     }
 
     /* flush affected TLB entries and return */

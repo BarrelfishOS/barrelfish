@@ -494,15 +494,17 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 
 # Intel Xeon Phi-specific modules
 XEON_PHI_MODULES =\
-	k1om/sbin/cpu 
+	k1om/sbin/cpu \
+	k1om/sbin/xeonphi_loader
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
 
 k1om: $(XEON_PHI_MODULES) 
 	@echo "OK. Co Processor OS Built."
-	scp "k1om/sbin/cpu" emmentaler.ethz.ch:
+	scp k1om/sbin/* emmentaler.ethz.ch:
 	ssh emmentaler.ethz.ch "scp cpu babybel.in.barrelfish.org:/root/cpu"
+	ssh emmentaler.ethz.ch "scp xeonphi_loader babybel.in.barrelfish.org:/root/xeonphi_loader"
 	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/create-bzBarrelfish.sh'"
 
 

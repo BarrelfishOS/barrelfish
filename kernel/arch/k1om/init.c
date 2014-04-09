@@ -41,6 +41,8 @@
 #include <target/k1om/barrelfish_kpi/cpu_target.h>
 #include <linux_host.h>
 
+#include <xeon_phi.h>
+
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
 #include <dev/amd64_dev.h>
@@ -169,7 +171,8 @@ static union x86_64_pdir_entry
 static union x86_64_ptable_entry
         boot_pdir[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
         boot_pdir_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-        boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
+        boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+        boot_pdir_mmio[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * This flag is set to true once the IDT is initialized and exceptions can be
@@ -222,38 +225,54 @@ paging_init(lpaddr_t base,
         assert(base < ((lpaddr_t )4 << 30));
 
         // Identity-map the kernel's physical region, so we don't lose ground
-        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(base)],
+        paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(base)],
                                 (lpaddr_t) boot_pdpt);
-        paging_x86_64_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
+        paging_k1om_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
                                 (lpaddr_t) boot_pdir);
-        paging_x86_64_map_large(
+        paging_k1om_map_large(
                 &boot_pdir[X86_64_PDIR_BASE(base)], base,
                 PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
         // Alias the same region at MEMORY_OFFSET
-        paging_x86_64_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
+        paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
                                 (lpaddr_t) boot_pdpt_hi);
-        paging_x86_64_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
+        paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
                                 (lpaddr_t) boot_pdir_hi);
-        paging_x86_64_map_large(
+        paging_k1om_map_large(
                 &boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
                 PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+
     }
 
     // Identity-map the first 1G of physical memory for bootloader data
-    paging_x86_64_map_table(&boot_pml4[0], (lpaddr_t) boot_pdpt);
-    paging_x86_64_map_table(&boot_pdpt[0], (lpaddr_t) boot_pdir_1GB);
+    paging_k1om_map_table(&boot_pml4[0], (lpaddr_t) boot_pdpt);
+    paging_k1om_map_table(&boot_pdpt[0], (lpaddr_t) boot_pdir_1GB);
     for (int i = 0; i < X86_64_PTABLE_SIZE; i++) {
-        paging_x86_64_map_large(
+        paging_k1om_map_large(
                 &boot_pdir_1GB[X86_64_PDIR_BASE(X86_64_MEM_PAGE_SIZE * i)],
                 X86_64_MEM_PAGE_SIZE * i,
                 PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
     }
 
+    /*
+     * Identity MAP MMIO Register Region for "Serial Out" support
+     * 0x08007D0000ULL
+     *
+     * PML4[0], PDIR[32]
+     */
+    paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+                            (lpaddr_t) boot_pdpt_hi);
+    paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+                            (lpaddr_t) boot_pdir_mmio);
 
+    paging_k1om_map_large(
+            &boot_pdir_mmio[X86_64_PDIR_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+            XEON_PHI_SBOX_BASE,
+            PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR
+            | PTABLE_CACHE_DISABLED);
 
     // Activate new page tables
-    paging_x86_64_context_switch((lpaddr_t) boot_pml4);
+    paging_k1om_context_switch((lpaddr_t) boot_pml4);
 }
 
 /**
@@ -314,6 +333,7 @@ gdt_reset(void)
  *
  * \param offset        Offset to add to the stack pointer.
  */
+
 static inline void __attribute__ ((always_inline))
 relocate_stack(lvaddr_t offset)
 {
@@ -325,9 +345,14 @@ relocate_stack(lvaddr_t offset)
 }
 
 static inline void __attribute__ ((always_inline))
-relocate_kernel(lvaddr_t offset)
+relocate_boot_stack(void)
 {
+    lvaddr_t offset = local_phys_to_mem(0);
 
+    __asm__ volatile (
+            "addq      %0, %%rsp;    \n\t"
+            : : "r"(offset) : "%rsp"
+    );
 
 }
 
@@ -410,19 +435,39 @@ enable_monitor_mwait(void)
 static void __attribute__ ((noreturn, noinline))
 text_init(void)
 {
-
-    printf("inside text_init\n");
-    while(1)
-        ;
-
     // Reset global and locks to point to the memory in the pristine image
     global = (struct global*) addr_global;
+
+    printf("Before Paging Reset %p\n", printf);
+
 
     /*
      * Reset paging once more to use relocated data structures and map in
      * whole of kernel and available physical memory. Map out low memory.
      */
-    paging_x86_64_reset();
+    paging_k1om_reset();
+
+    serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
+
+    volatile uint32_t *p = (volatile uint32_t *)(local_phys_to_mem(XEON_PHI_SBOX_BASE)+0x0000AB40);
+    volatile uint32_t *p2 = (volatile uint32_t *)(local_phys_to_mem(XEON_PHI_SBOX_BASE)+0x0000AB5C);
+
+
+    while((*p))
+        ;
+
+
+    uint32_t v = *p;
+    uint32_t v2 = *p2;
+
+    *p2 = 0x0a686765;
+    *p = 0x7A7A7A7A;
+
+
+
+    printf("past 0x%x, 0x%x\n", v, v2);
+
+
 
     // Relocate global to "memory"
     global = (struct global*) local_phys_to_mem((lpaddr_t) global);
@@ -431,21 +476,18 @@ text_init(void)
     glbl_core_data = (struct x86_core_data *) local_phys_to_mem(
             (lpaddr_t) glbl_core_data);
 
-
-    // Re-map physical memory
-    /* XXX: Currently we are statically mapping a fixed amount of
-     memory.  We should not map in more memory than the machine
-     actually has.  Or else if the kernel tries to access addresses
-     not backed by real memory, it will experience weird faults
-     instead of a simpler pagefault.
-
-     Ideally, we should use the ACPI information to figure out which
-     memory to map in. Look at ticket #218 for more
-     information. -Akhi
+    while (1)
+            ;
+    /*
+     * We know how much memory we have based on the card model
      */
-    if (paging_x86_64_map_memory(0, K1OM_PADDR_SPACE_LIMIT) != 0) {
+    if (paging_k1om_map_memory(0, K1OM_PHYSICAL_MEMORY_SIZE) != 0) {
         panic("error while mapping physical memory!");
     }
+
+    printf("foobar\n");
+
+
 
     /*
      * Also reset the global descriptor table (GDT), so we get
@@ -458,8 +500,6 @@ text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    assert(!"SET THE CORRECT ADDRESS");
-    serial_console_init(0x123);
 
     // Setup IDT
     setup_default_idt();
@@ -529,8 +569,6 @@ text_init(void)
 }
 
 
-
-
 /**
  * \brief Architecture-specific initialization function.
  *
@@ -566,9 +604,10 @@ arch_init(uint64_t magic,
     struct boot_params *bp = NULL;
     struct multiboot_info *mb = NULL;
 
-    /* initialize the console port to the host */
-    assert(!"SET PHYSICAL ADDRESS OF MMIO SPACE");
-    serial_console_init(0x123);
+    /* initialize the console port to the host
+     * TODO: put all the base addresses into centralized defines
+     */
+    serial_console_init(XEON_PHI_SBOX_BASE);
 
     /*
      * notify the host that we are running
@@ -656,14 +695,19 @@ arch_init(uint64_t magic,
         glbl_core_data->start_free_ram = ROUND_UP(
                 max(end_ramdisk, (uintptr_t)&_end_kernel), BASE_PAGE_SIZE);
 
-        printf("K1OM_PADDR_SPACE_LIMIT=0x%"PRIxLVADDR"\n", K1OM_PADDR_SPACE_LIMIT);
-
-        printf("initialize paging text_init():\n");
+        printf("Start Free RAM at 0x%x (%i MB)\n", glbl_core_data->start_free_ram,
+               glbl_core_data->start_free_ram >> 20);
 
         paging_init((lpaddr_t) &_start_kernel, SIZE_KERNEL_IMAGE);
 
+        serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
 
-        /* we do not need to do relocation, this was already done in bootstrap */
+        //relocate_boot_kernel((lpaddr_t) &_start_kernel,
+        //                     K1OM_PADDR_SPACE_LIMIT + (lvaddr_t) &_start_kernel);
+
+        /*relocate the stack to the new high memory region */
+        relocate_boot_stack();
+
         reloc_text_init();
         break;
 
@@ -671,7 +715,6 @@ arch_init(uint64_t magic,
         addr_global = (uint64_t) global;
         break;
     }
-
 
     struct Elf64_Shdr *rela, *symtab;
     struct x86_coredata_elf *elf;
@@ -709,10 +752,6 @@ arch_init(uint64_t magic,
             panic("The cpu module is outside the initial 4MB mapping."
                   " Either move the module or increase initial mapping.");
         }
-    }
-
-    if (!elf) {
-        panic("ELF is null.Continuing... \n");
     }
 
     // We're only able to process Elf64_Rela entries

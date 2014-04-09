@@ -22,12 +22,11 @@
 #define SBOX_SCRATCH15          0x0000AB5C
 #define SBOX_SCRATCH8           0x0000AB40
 
-//static uint8_t *sbox_base = (uint8_t *)SBOX_BASE;
 
 /* todo: get rid of those */
-unsigned serial_console_port;
-unsigned serial_debug_port;
 int serial_portbase;
+
+lvaddr_t serial_base = SBOX_BASE;
 
 union xeon_phi_message {
 	uint32_t val;
@@ -35,7 +34,9 @@ union xeon_phi_message {
 };
 
 /** \brief Initialise the serial driver. */
-errval_t serial_init(unsigned port) {
+errval_t serial_init(lvaddr_t base) {
+
+    serial_base = base;
 
 	// XXX: if non-BSP core, assume HW is already initialised
 	if (!arch_core_is_bsp()) {
@@ -45,10 +46,12 @@ errval_t serial_init(unsigned port) {
 	return SYS_ERR_OK;
 }
 
-errval_t serial_early_init(unsigned port) {
+errval_t serial_early_init(void) {
+
+    serial_base = SBOX_BASE;
 
 	/* clear out the control register */
-	uint32_t *signal = (uint32_t*) ((void *) SBOX_BASE + SBOX_SCRATCH8);
+	uint32_t *signal = (uint32_t*) ((void *) serial_base + SBOX_SCRATCH8);
 	*signal = 0;
 	return SYS_ERR_OK;
 }
@@ -57,11 +60,12 @@ union xeon_phi_message data_buf;
 union xeon_phi_message data_ctrl;
 uint32_t didx = 0;
 
+#define SERIAL_TIMEOUT 0xFFFFFF
 
 /** \brief Prints a single character to the default serial port. */
-void serial_putchar(unsigned port, char c) {
-	volatile uint32_t *ctrl = ((uint32_t *) (SBOX_BASE + SBOX_SCRATCH8));
-	volatile uint32_t *data = ((uint32_t *) (SBOX_BASE + SBOX_SCRATCH15));
+void serial_putchar(char c) {
+	volatile uint32_t *ctrl = ((volatile uint32_t *) (serial_base + SBOX_SCRATCH8));
+	volatile uint32_t *data = ((volatile uint32_t *) (serial_base + SBOX_SCRATCH15));
 
 	data_buf.c[didx] = c;
 	data_ctrl.c[didx] = 0x7A;
@@ -69,7 +73,8 @@ void serial_putchar(unsigned port, char c) {
 
 	if (c == '\n' || didx == 4) {
 		// write
-		while ((*ctrl))
+	    volatile uint32_t timeout = SERIAL_TIMEOUT;
+		while ((*ctrl) && (timeout--))
 			;
 
 		*data = data_buf.val;
@@ -83,7 +88,7 @@ void serial_putchar(unsigned port, char c) {
 /** \brief Reads a single character from the default serial port.
  * This function spins waiting for a character to arrive.
  */
-char serial_getchar(unsigned port) {
+char serial_getchar(void) {
 	assert(!"Not possible to get input from Host");
 	return '\0';
 }

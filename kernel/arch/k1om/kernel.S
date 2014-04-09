@@ -17,29 +17,28 @@
 
 /* The flags for the Multiboot header */
 #define MB_FLAGS (MULTIBOOT_HEADER_FLAG_MODS_PGALIGNED | MULTIBOOT_HEADER_FLAG_NEED_MEMINFO)
-	.code64
-	.text
-	.globl	kernel_start, halt
-	/* Multiboot header, 4-byte aligned */
-	.align	4
-	.long	MULTIBOOT_HEADER_MAGIC               /* magic */
-	.long	MB_FLAGS                             /* flags */
-	.long	-(MULTIBOOT_HEADER_MAGIC + MB_FLAGS) /* checksum */
 
-kernel_start:
-	/* Initialize the stack pointer */
-	lea	(k1om_kernel_stack + K1OM_KERNEL_STACK_SIZE)(%rip), %rsp
+          .text
+          .globl    start, halt
+          /* Multiboot header, 4-byte aligned */
+          .align    4
+          .long     MULTIBOOT_HEADER_MAGIC               /* magic */
+          .long     MB_FLAGS                             /* flags */
+          .long     -(MULTIBOOT_HEADER_MAGIC + MB_FLAGS) /* checksum */
 
-	/* Reset EFLAGS */
-	pushq	$0
-	popf
+start:
+          /* Initialize the stack pointer */
+          lea       (k1om_kernel_stack + K1OM_KERNEL_STACK_SIZE)(%rip), %rsp
 
-	/* Enter architecture-specific init -- this should never return */
-	movl	%eax, %edi	/* Multiboot magic value */
-	movl	%ebx, %esi	/* Pointer to multiboot info struct */
+          /* Reset EFLAGS */
+          pushq     $0
+          popf
 
-	jmp		arch_init
+          /* Enter architecture-specific init -- this should never return */
+          movl      %eax, %edi          /* Multiboot magic value */
+          movl      %ebx, %esi          /* Pointer to multiboot info struct */
+          call      arch_init
 
-	/* Halt -- this should never be reached */
-halt:	hlt
-	jmp	halt
+          /* Halt -- this should never be reached */
+halt:     hlt
+          jmp       halt

@@ -1,0 +1,84 @@
+----------------------------------------------------------------------
+-- Copyright (c) 2009, 2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /tools/elver
+--
+----------------------------------------------------------------------
+
+--
+-- This has to be rather low-level, since elver is indeed a module for
+-- x86_64, but is built for 32-bits, so it's easiest to do this rather
+-- explicitly.
+-- 
+let arch = "k1om"
+    opts = (options arch) { 
+             optFlags = [ Str s | s <- [ "-fno-builtin",
+                                "-nostdinc",
+                                "-std=c99",
+                                "-m64",
+                                "-fPIC", 
+                                "-e start_kernel",
+                                "-mno-red-zone",
+                                "-mk1om",
+                                "-Wa,-march=k1om",
+                                "-fno-stack-protector",
+                                "-fomit-frame-pointer",
+                                "-U__linux__",
+                                "-D__k1om__",
+                                "-mk1om",
+                                "-Wall",
+                                "-Wshadow",
+                                "-Wstrict-prototypes",
+                                "-Wold-style-definition",
+                                "-Wmissing-prototypes",
+                                "-Wmissing-declarations",
+                                "-Wmissing-field-initializers",
+                                "-Wredundant-decls",
+                                "-Wno-packed-bitfield-compat",
+                                "-Wno-unused-but-set-variable",
+                                "-Werror",
+                                "-imacros deputy/nodeputy.h",
+                                "-fno-tree-vectorize",
+                                "-mno-mmx",
+                                "-mno-sse",
+                                "-mno-sse2",
+                                "-mno-sse3",
+                                "-mno-sse4.1",
+                                "-mno-sse4.2",
+                                "-mno-sse4",
+                                "-mno-sse4a",
+                                "-mno-3dnow" ] ]
+                          ++ [ Str "-imacros",
+                               NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
+             optIncludes = [ NoDep SrcTree "src" "/include",
+                             NoDep SrcTree "src" "/include/oldc", 
+                             NoDep SrcTree "src" "/include/c", 
+                             NoDep SrcTree "src" "/include/arch/k1om",
+                             NoDep BuildTree arch "/include" ],
+             optDefines = [],
+             optLibs = [],
+             optLdFlags = [ Str s | s <- [ "-Wl,-N ",
+                                 "-fPIC ",
+                                 "-Wl,-melf_k1om ",
+                                 "-fno-builtin ",
+                                 "-nostdlib ",
+                                 "-Wl,--fatal-warnings ",
+                                 "-m64 ",
+                                 "-e startup_32",
+                                 "-T../tools/xloader/linker.lds", 
+                                        "-Wl,--build-id=none" ]],
+             optSuffix = "_for_xloader" 
+           }
+    objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c"
+                                             ] ]
+in 
+  [ compileCFiles opts [ "loader.c", "lib.c" ],
+    assembleSFiles opts [ "boot.S" ],
+    link opts objs [] "xeonphi_loader"
+  ]
+  

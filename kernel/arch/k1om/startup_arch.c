@@ -131,7 +131,7 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
 
         if(!X86_64_IS_PRESENT(ptable_base)) {
             debug(SUBSYS_PAGING, "mapped!\n");
-            paging_x86_64_map(ptable_base, base,
+            paging_k1om_map(ptable_base, base,
                               INIT_PAGE_BITMAP | paging_elf_to_page_flags(flags));
         } else {
             debug(SUBSYS_PAGING, "already existing!\n");
@@ -486,11 +486,11 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
     /* Page table setup */
     /* Initialize init page tables */
     for(size_t i = 0; i < INIT_PDPT_SIZE; i++) {
-        paging_x86_64_clear_pdir(&init_pdpt[i]);
+        paging_k1om_clear_pdir(&init_pdpt[i]);
         for(size_t j = 0; j < INIT_PDIR_SIZE; j++) {
-            paging_x86_64_clear_pdir(&init_pdir[i * PTABLE_SIZE + j]);
+            paging_k1om_clear_pdir(&init_pdir[i * PTABLE_SIZE + j]);
             for(size_t k = 0; k < INIT_PTABLE_SIZE; k++) {
-                paging_x86_64_clear_ptable(
+                paging_k1om_clear_ptable(
                 &init_ptable[i * PTABLE_SIZE * PTABLE_SIZE + j * PTABLE_SIZE + k]);
             }
         }
@@ -544,14 +544,14 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
                                    X86_64_PTABLE_SIZE + X86_64_PDIR_BASE(baddr) *
                                    X86_64_PTABLE_SIZE + X86_64_PTABLE_BASE(vaddr)];
 
-        paging_x86_64_map_table(pml4_base, mem_to_local_phys((lvaddr_t)pdpt_base));
-        paging_x86_64_map_table(pdpt_base, mem_to_local_phys((lvaddr_t)pdir_base));
-        paging_x86_64_map_table(pdir_base, mem_to_local_phys((lvaddr_t)ptable_base));
+        paging_k1om_map_table(pml4_base, mem_to_local_phys((lvaddr_t)pdpt_base));
+        paging_k1om_map_table(pdpt_base, mem_to_local_phys((lvaddr_t)pdir_base));
+        paging_k1om_map_table(pdir_base, mem_to_local_phys((lvaddr_t)ptable_base));
     }
 
     /* Initialize and switch to init's PML4 */
-    paging_x86_64_make_good_pml4(mem_to_local_phys((lvaddr_t)init_pml4));
-    paging_x86_64_context_switch(mem_to_local_phys((lvaddr_t)init_pml4));
+    paging_k1om_make_good_pml4(mem_to_local_phys((lvaddr_t)init_pml4));
+    paging_k1om_context_switch(mem_to_local_phys((lvaddr_t)init_pml4));
 
     /***** VSpace available now *****/
 }
@@ -572,27 +572,27 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     init_page_tables(st, alloc_phys);
 
     /* Map cmdline args R/W into VSpace at ARGS_BASE */
-    paging_x86_64_map_table(&init_pml4[X86_64_PML4_BASE(ARGS_BASE)],
+    paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(ARGS_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdpt));
-    paging_x86_64_map_table(&init_pdpt[X86_64_PDPT_BASE(ARGS_BASE)],
+    paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(ARGS_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdir));
-    paging_x86_64_map_table(&init_pdir[X86_64_PDIR_BASE(ARGS_BASE)],
+    paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(ARGS_BASE)],
                             mem_to_local_phys((lvaddr_t)init_ptable));
     for (int i = 0; i < ARGS_SIZE / BASE_PAGE_SIZE; i++) {
-        paging_x86_64_map(&init_ptable[X86_64_PTABLE_BASE(ARGS_BASE) + i],
+        paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(ARGS_BASE) + i],
                           st->args_page + i * BASE_PAGE_SIZE,
                           INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
     }
 
     /* Map dispatcher frame R/W into VSpace */
-    paging_x86_64_map_table(&init_pml4[X86_64_PML4_BASE(DISPATCHER_BASE)],
+    paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(DISPATCHER_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdpt));
-    paging_x86_64_map_table(&init_pdpt[X86_64_PDPT_BASE(DISPATCHER_BASE)],
+    paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(DISPATCHER_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdir));
-    paging_x86_64_map_table(&init_pdir[X86_64_PDIR_BASE(DISPATCHER_BASE)],
+    paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(DISPATCHER_BASE)],
                             mem_to_local_phys((lvaddr_t)init_ptable));
     for (int i = 0; i < (1 << DISPATCHER_FRAME_BITS) / BASE_PAGE_SIZE; i++) {
-        paging_x86_64_map(&init_ptable[X86_64_PTABLE_BASE(DISPATCHER_BASE) + i],
+        paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(DISPATCHER_BASE) + i],
                           mem_to_local_phys(init_dcb->disp) + i * BASE_PAGE_SIZE,
                           INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
     }
@@ -644,16 +644,16 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     snprintf(bootinfochar, sizeof(bootinfochar), "%lu", BOOTINFO_BASE);
     const char *argv[] = { "init", bootinfochar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              bootinfo_phys, alloc_phys);
 
     /* Map bootinfo R/W into VSpace at vaddr BOOTINFO_BASE */
-    paging_x86_64_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t)init_pdpt));
-    paging_x86_64_map_table(&init_pdpt[0], mem_to_local_phys((lvaddr_t)init_pdir));
-    paging_x86_64_map_table(&init_pdir[1], mem_to_local_phys((lvaddr_t)init_ptable));
+    paging_k1om_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t)init_pdpt));
+    paging_k1om_map_table(&init_pdpt[0], mem_to_local_phys((lvaddr_t)init_pdir));
+    paging_k1om_map_table(&init_pdir[1], mem_to_local_phys((lvaddr_t)init_ptable));
     for (int i = 0; i < BOOTINFO_SIZE / BASE_PAGE_SIZE; i++) {
-        paging_x86_64_map(&init_ptable[i], bootinfo_phys + i * BASE_PAGE_SIZE,
+        paging_k1om_map(&init_ptable[i], bootinfo_phys + i * BASE_PAGE_SIZE,
                    INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
     }
 
@@ -719,7 +719,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     const char *argv[] = { name, coreidchar, chanidchar, archidchar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              0, alloc_phys);
 
@@ -735,14 +735,14 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
     /* Map urpc frame at MON_URPC_BASE */
-    paging_x86_64_map_table(&init_pml4[X86_64_PML4_BASE(MON_URPC_BASE)],
+    paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(MON_URPC_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdpt));
-    paging_x86_64_map_table(&init_pdpt[X86_64_PDPT_BASE(MON_URPC_BASE)],
+    paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(MON_URPC_BASE)],
                             mem_to_local_phys((lvaddr_t)init_pdir));
-    paging_x86_64_map_table(&init_pdir[X86_64_PDIR_BASE(MON_URPC_BASE)],
+    paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(MON_URPC_BASE)],
                             mem_to_local_phys((lvaddr_t)init_ptable));
     for (int i = 0; i < MON_URPC_SIZE / BASE_PAGE_SIZE; i++) {
-        paging_x86_64_map(&init_ptable[X86_64_PTABLE_BASE(MON_URPC_BASE) + i],
+        paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(MON_URPC_BASE) + i],
                           urpc_ptr + i * BASE_PAGE_SIZE,
                           INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
     }

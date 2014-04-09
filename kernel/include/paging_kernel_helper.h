@@ -38,7 +38,7 @@ static inline void paging_align(lvaddr_t *vbase, lpaddr_t *base, size_t *size,
     }
 
     // Check whether base is aligned
-/////    assert(((*base) & pagemask) == 0);
+//   assert(((*base) & pagemask) == 0);
     // Align base to page size
     if(base != NULL && (*base & pagemask)) {
         printk(LOG_WARN, "Given paddr %" PRIxLPADDR " unaligned to system "

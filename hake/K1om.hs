@@ -47,14 +47,12 @@ cxxcompiler = "g++"
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
                    Str "-fPIE",
-                --   Str "-fPIC",
                    Str "-fno-stack-protector", 
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
--- the intel mic architecture has no "normal" SIMD extensions
                    Str "-fno-tree-vectorize",
-		   Str "-Wa,-march=k1om",
-		   Str "-mk1om",
+                   Str "-Wa,-march=k1om",
+                   Str "-mk1om",
                    Str "-mno-mmx",
                    Str "-mno-sse",
                    Str "-mno-sse2",
@@ -65,8 +63,6 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-sse4a",
                    Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
---                   Str "-Wa,-march=k1om",
---                   Str "-Wa,-mtune=k1om",
                    Str "-D__x86__",
                    Str "-D__k1om__" ]
 
@@ -83,10 +79,8 @@ cDefines = ArchDefaults.cDefines options
 
 -- TODO> -m elf_i386
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
---               Str "-Wl,-b,elf64-k1om",
---               Str "-Wl,--oformat,elf64-k1om",
                Str "-Wl,--build-id=none",
-	 	Str "-Wl,-melf_k1om",
+               Str "-Wl,-melf_k1om",               
                Str "-m64" ]
 
 
@@ -111,17 +105,16 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-m64",
+                                "-fPIE", 
+                                "-e start_kernel",
                                 "-mno-red-zone",
-                                "-fPIE",
-                               -- "-fPIC",
-                                "-e kernel_start",
-		--		"-mk1om",
-				"-Wa,-march=k1om",
+                                "-mk1om",
+                                "-Wa,-march=k1om",
                                 "-fno-stack-protector",
-				"-fomit-frame-pointer",
+                                "-fomit-frame-pointer",
                                 "-U__linux__",
                                 "-D__k1om__",
-				"-mk1om",
+                                "-mk1om",
                                 "-Wall",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
@@ -146,18 +139,13 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-3dnow" ] ]
 	
 
-kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
-                                 --"-Wl,-b,elf64-k1om",
-                                -- "-Wl,-A,k1om",
-                                 --"-Wl,--oformat,elf64-k1om",
-                                  "-fPIE",
-			--	"-mk1om",
-				"-Wl,-melf_k1om",
-                               --  "-fPIC",
-                                 "-fno-builtin",
-                                 "-nostdlib",
-                                 "-Wl,--fatal-warnings",
-                                 "-m64" ] ]
+kernelLdFlags = [ Str s | s <- [ "-Wl,-N ",
+                                 "-pie ",
+                                 "-Wl,-melf_k1om ",
+                                 "-fno-builtin ",
+                                 "-nostdlib ",
+                                 "-Wl,--fatal-warnings ",
+                                 "-m64 " ] ]
 
 
 ------------------------------------------------------------------------
@@ -182,7 +170,7 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 --
 -- Link the kernel (CPU Driver)
 -- 
-linkKernel :: Options -> [String] -> [String] -> String -> HRule
+linkKernel :: Options -> [String] -> [String]  -> String -> HRule
 linkKernel opts objs libs kbin = 
     let linkscript = "/kernel/linker.lds"
     in

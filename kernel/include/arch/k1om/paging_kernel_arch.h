@@ -53,12 +53,12 @@
  */
 static void inline paging_context_switch(lpaddr_t addr)
 {
-    paging_x86_64_context_switch(addr);
+    paging_k1om_context_switch(addr);
 }
 
 static lvaddr_t inline paging_map_device(lpaddr_t base, size_t size)
 {
-    return paging_x86_64_map_device(base, size);
+    return paging_k1om_map_device(base, size);
 }
 
 static inline bool is_root_pt(enum objtype type) {

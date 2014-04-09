@@ -47,9 +47,9 @@ let
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
   
-  link_cpudriver arg = linkKernel opts name objs libs
+  link_cpudriver arg = linkKernel opts name objs libs 
     where 
-      opts = (kernelOptions $ head $ Args.architectures arg)
+      opts = kernelOptions $ head $ Args.architectures arg
       suffix = if "cpu" == Args.target arg 
              then "" 
              else "_" ++ (Args.target arg)
@@ -62,7 +62,7 @@ let
     let 
       cafiles = Data.List.nub $ concat [ [ [ arch, cfile ] 
                                          | arch <- Args.architectures arg,
-                                           cfile <- common_c ++ (Args.cFiles arg) ]
+                                                    cfile <- common_c ++ (Args.cFiles arg) ]
                                        | arg <- arglist ]
       safiles = Data.List.nub $ concat [ [ [ arch, sfile ]
                                          | arch <- Args.architectures arg,
@@ -138,7 +138,7 @@ let
   cpuDriver { 
      architectures = [ "k1om" ],
      assemblyFiles = [ "arch/k1om/boot.S",
-     				   "arch/k1om/kernel.S",  
+     		--		   "arch/k1om/kernel.S",  
                        "arch/k1om/entry.S", 
                        "arch/x86/init_ap_x86_64.S", 
                        "arch/x86/init_ap_x86_32.S" ],
@@ -179,8 +179,9 @@ let
                          "amd_vmcb", 
                          "cpuid", 
                          "lpc_rtc" ],
-     addLibraries = [ "elf_kernel" ]
+     addLibraries = [ "elf_kernel" ] 
      },
+
   --
   -- Generic Intel ia32 32-bit x86 core
   --

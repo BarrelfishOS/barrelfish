@@ -19,10 +19,10 @@
 #include <barrelfish_kpi/paging_arch.h>
 
 // Functions defined elsewhere. Move the declerations to appropriate includes
-int paging_x86_64_map_memory(lpaddr_t base, size_t size);
-lvaddr_t paging_x86_64_map_device(lpaddr_t base, size_t size);
-void paging_x86_64_reset(void);
-void paging_x86_64_make_good_pml4(lpaddr_t base);
+int paging_k1om_map_memory(lpaddr_t base, size_t size);
+lvaddr_t paging_k1om_map_device(lpaddr_t base, size_t size);
+void paging_k1om_reset(void);
+void paging_k1om_make_good_pml4(lpaddr_t base);
 
 /// All flags valid for page access protection from user-space
 #define X86_64_PTABLE_ACCESS_MASK \
@@ -114,7 +114,7 @@ union x86_64_ptable_entry {
  *
  * \param p     Pointer to page directory to clear.
  */
-static inline void paging_x86_64_clear_pdir(union x86_64_pdir_entry * COUNT(X86_64_PTABLE_SIZE)
+static inline void paging_k1om_clear_pdir(union x86_64_pdir_entry * COUNT(X86_64_PTABLE_SIZE)
                                             NONNULL p)
 {
     for (int i = 0; i < X86_64_PTABLE_SIZE; i++) {
@@ -129,7 +129,7 @@ static inline void paging_x86_64_clear_pdir(union x86_64_pdir_entry * COUNT(X86_
  *
  * \param p     Pointer to page table to clear.
  */
-static inline void paging_x86_64_clear_ptable(union x86_64_ptable_entry * COUNT(X86_64_PTABLE_SIZE)
+static inline void paging_k1om_clear_ptable(union x86_64_ptable_entry * COUNT(X86_64_PTABLE_SIZE)
                                               NONNULL p)
 {
     for (int i = 0; i < X86_64_PTABLE_SIZE; i++) {
@@ -146,12 +146,11 @@ static inline void paging_x86_64_clear_ptable(union x86_64_ptable_entry * COUNT(
  * \param entry Pointer to page directory entry to point from.
  * \param base  Base virtual address of page directory/table to point to.
  */
-static inline void paging_x86_64_map_table(union x86_64_pdir_entry *entry,
+static inline void paging_k1om_map_table(union x86_64_pdir_entry *entry,
                                            lpaddr_t base)
 {
     union x86_64_pdir_entry tmp;
     tmp.raw = X86_64_PTABLE_CLEAR;
-
     tmp.d.present = 1;
     tmp.d.read_write = 1;
     tmp.d.user_supervisor = 1;
@@ -170,7 +169,7 @@ static inline void paging_x86_64_map_table(union x86_64_pdir_entry *entry,
  * \param base          Physical address to map to (will be page-aligned).
  * \param bitmap        Bitmap to apply to page attributes.
  */
-static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
+static inline void paging_k1om_map_large(union x86_64_ptable_entry *entry,
                                            lpaddr_t base, uint64_t bitmap)
 {
     union x86_64_ptable_entry tmp;
@@ -181,7 +180,7 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     tmp.large.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
     tmp.large.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.large.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
-    tmp.large.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+    tmp.large.global = 0;
     tmp.large.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
@@ -200,7 +199,7 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
  * \param base          Physical address to map to (will be page-aligned).
  * \param bitmap        Bitmap to apply to page attributes.
  */
-static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
+static inline void paging_k1om_map(union x86_64_ptable_entry * NONNULL entry,
                                      lpaddr_t base, uint64_t bitmap)
 {
     union x86_64_ptable_entry tmp;
@@ -212,7 +211,7 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
     tmp.base.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.base.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.base.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
-    tmp.base.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+    tmp.base.global = 0;
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.base.base_addr = base >> 12;
 
@@ -228,7 +227,7 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
  * \param entry         Pointer to page table entry to map from.
  * \param bitmap        Bitmap to apply to page attributes.
  */
-static inline void paging_x86_64_modify_flags(union x86_64_ptable_entry * NONNULL entry,
+static inline void paging_k1om_modify_flags(union x86_64_ptable_entry * NONNULL entry,
                                               uint64_t bitmap)
 {
     union x86_64_ptable_entry tmp = *entry;
@@ -239,7 +238,7 @@ static inline void paging_x86_64_modify_flags(union x86_64_ptable_entry * NONNUL
     tmp.base.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.base.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.base.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
-    tmp.base.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+    tmp.base.global =  0;
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
 
     *entry = tmp;
@@ -260,7 +259,7 @@ static inline void paging_unmap(union x86_64_ptable_entry * NONNULL entry)
  *
  * \return X86-64 page flags.
  */
-static inline uint64_t paging_x86_64_cap_to_page_flags(CapRights rights)
+static inline uint64_t paging_k1om_cap_to_page_flags(CapRights rights)
 {
     uint64_t pageflags = 0;
 
@@ -290,7 +289,7 @@ static inline uint64_t paging_x86_64_cap_to_page_flags(CapRights rights)
  *
  * \param pml4  Physical base address of PML4 table.
  */
-static void inline paging_x86_64_context_switch(lpaddr_t pml4)
+static void inline paging_k1om_context_switch(lpaddr_t pml4)
 {
     __asm volatile("mov %[pml4], %%cr3"
                    : /* No output */
@@ -317,7 +316,7 @@ static void inline paging_x86_64_context_switch(lpaddr_t pml4)
  *
  * \return Masked version of 'attr'.
  */
-static inline uint64_t paging_x86_64_mask_attrs(uint64_t attr, uint64_t mask)
+static inline uint64_t paging_k1om_mask_attrs(uint64_t attr, uint64_t mask)
 {
     // First, mask out all "bit-sets-enabled" attributes
     attr &= mask | X86_64_PTABLE_EXECUTE_DISABLE;

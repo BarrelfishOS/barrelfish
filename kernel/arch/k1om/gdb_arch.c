@@ -82,7 +82,7 @@ void gdb_handle_exception_onstack(int vector, uintptr_t * NONNULL
         save_area[GDB_X86_64_RSP_REG] <= (lvaddr_t)gdb_stack_top) {
         panic("Nested exception within GDB stub");
     }
-    
+
     /* were we in user mode at the time of the trap? */
     if ((save_area[GDB_X86_64_CS_REG] & 0x3) != 0) {
         printk(LOG_NOTE,
@@ -248,7 +248,7 @@ static int ensure_mapping(lvaddr_t addr)
         return 0;
     }
 
-    int r = paging_x86_64_map_memory(paddr, X86_64_MEM_PAGE_SIZE);
+    int r = paging_k1om_map_memory(paddr, X86_64_MEM_PAGE_SIZE);
     if (r < 0) {
         return r;
     }
@@ -266,7 +266,7 @@ int gdb_arch_write_byte(uint8_t *addr, uint8_t val)
     if (r < 0) {
         return r;
     }
-    
+
     *addr = val;
     return 0;
 }
@@ -280,7 +280,7 @@ int gdb_arch_read_byte(uint8_t *addr, uint8_t *val)
     if (r < 0) {
         return r;
     }
-    
+
     *val = *addr;
     return 0;
 }

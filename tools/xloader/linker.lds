@@ -7,18 +7,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#if 1
-#include <target/k1om/offsets_target.h>
-
-/*OUTPUT_FORMAT("elf64-x86-64") */
-/*OUTPUT_ARCH("i386:x86-64") */
 OUTPUT_FORMAT("elf64-k1om") 
 OUTPUT_ARCH(k1om) 
 
-_start_kernel = K1OM_START_KERNEL_PHYS;
 
 
-ENTRY(kernel_start)
+ENTRY(startup_32)
 SECTIONS
 {
  /* Be careful parts of head_64.S assume startup_32 is at
@@ -38,7 +32,7 @@ SECTIONS
  }
   . = ALIGN(4k);
   
- .text K1OM_START_KERNEL_PHYS : ALIGN(4k) {
+ .text : ALIGN(4k) {
   _start_kernel = .; /* Text */
   *(.text)
   *(.text.*)
@@ -58,9 +52,7 @@ SECTIONS
   KEEP(*(.got))
   _egot = .;
  }
- 
-
- 
+  
  .bss : ALIGN(4k) {
   _bss = . ;
   *(.bss)
@@ -77,7 +69,7 @@ SECTIONS
   *(.pgtable)
   _epgtable = . ;
  }
-
+_end_bootloader = .;
 
  
  /***** These sections get discarded *****/
@@ -95,50 +87,3 @@ SECTIONS
                 *(.dynamic);
         }
 }
-
-#else 
-
-#include <target/k1om/offsets_target.h>
-
-OUTPUT_FORMAT("elf64-x86-64")
-OUTPUT_ARCH("i386:x86-64")
-
-_start_kernel = X86_64_START_KERNEL_PHYS;
-
-SECTIONS {
-        . = ALIGN(4k);
-        .text X86_64_START_KERNEL_PHYS : ALIGN(4k)
-        {
-                *(.text);
-        }
-        _end_kernel_text = .;
-
-        . = ALIGN(4k);
-        .rodata . :
-        {
-                *(.rodata);
-        }
-
-        .bss . :
-        {
-                *(.bss);
-        }
-
-        _end_kernel = .;
-
-        /***** These sections get discarded *****/
-        /DISCARD/ :
-        {
-                /* Discard exception handler frames and headers -- we don't use em */
-                *(.eh_frame);
-                *(.eh_frame_hdr);
-		*(.note.gnu.build-id);
-                *(.interp);
-/*              *(.dynsym); */
-/*              *(.dynstr); */
-/*              *(.hash); */
-/*              *(.gnu.hash); */
-                *(.dynamic);
-        }
-}
-#endif

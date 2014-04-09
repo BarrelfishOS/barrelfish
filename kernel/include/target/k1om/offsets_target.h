@@ -74,6 +74,29 @@
 #define K1OM_PADDR_SPACE_LIMIT       ((genpaddr_t)1 << 40)
 
 /**
+ * Maximum physical address space mappable by the kernel.  Adjust this
+ * for a bigger physical address space.  We set this to 40-bit,
+ * i.e. 1024 GBytes.
+ *
+ * Xeon Phi Systems Software Developers Guide,  2.1.4:
+ *
+ * The Intel® Xeon Phi™ coprocessor supports 40-bit physical address in 64-bit.
+ *
+ */
+#ifdef __XEON_PHI_7120__
+#define K1OM_PHYSICAL_MEMORY_SIZE       ((genpaddr_t)(16ULL*1024*1024*1024))
+#else
+#ifdef __XEON_PHI_5120__
+#define K1OM_PHYSICAL_MEMORY_SIZE       ((genpaddr_t)(8ULL*1024*1024*1024))
+#else
+/* __XEON_PHI_3120__  */
+#define K1OM_PHYSICAL_MEMORY_SIZE       ((genpaddr_t)(6ULL*1024*1024*1024))
+#endif
+#endif
+
+
+
+/**
  * Static address space limit for the init user-space domain. The
  * static space is used to map in code and static data of the init
  * module, as well as all loaded multiboot modules. init can freely
