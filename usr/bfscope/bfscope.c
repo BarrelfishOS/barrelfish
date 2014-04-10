@@ -18,6 +18,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/dispatch.h>
+#include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <barrelfish/event_queue.h>
 #include <barrelfish/nameservice_client.h>

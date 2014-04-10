@@ -16,7 +16,8 @@
 
   build application { target = "stsc_bench",
                       cFiles = ["stsc_bench.c"],
-                      addLibraries = [ "rcce" ]
+                      addLibraries = [ "rcce" ],
+                      architectures = {"x86_64", "x86_32"}
                     },
 
   build application { target = "lrpc_bench",

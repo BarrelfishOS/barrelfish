@@ -26,8 +26,6 @@
 #include <barrelfish_kpi/paging_arm_v5.h>
 #include <startup.h>
 
-#include <romfs_size.h>
-
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
 
