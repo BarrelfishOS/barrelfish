@@ -500,13 +500,46 @@ XEON_PHI_MODULES =\
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
 
-k1om: $(XEON_PHI_MODULES) 
-	@echo "OK. Co Processor OS Built."
+k1om: $(XEON_PHI_MODULES) \
+		tools/bin/create_multiboot \
+		menu.lst.k1om
+	
+	@echo ""
+	@echo "--------------------------------------------------------"
+	@echo "Stage 1 complete."
+	@echo "--------------------------------------------------------"
+	@echo ""
+	@echo "Generating temporary multiboot files..."
+	
+	$(SRCDIR)/tools/xloader/multiboot/build_data_files.sh menu.lst.k1om molly_k1om
+	
+	@echo ""
+	@echo "Generating multiboot information structure..."
+	tools/bin/create_multiboot menu.lst.k1om k1om_multiboot.c
+	
+	@echo ""
+	@echo "--------------------------------------------------------"
+	@echo "Stage 2 complete."
+	@echo "========================================================"
+	@echo "--------------------------------------------------------"
+	@echo ""
+	@echo "Generating bootloader and multiboot disk..."
+	
+	# TODO: create ramdisk
+	# TODO: 
+	
+	@echo "========================================================"
+	@echo "Stage 3 complete. Co processor OS is built"
+	@echo "========================================================"
 	scp k1om/sbin/* emmentaler.ethz.ch:
 	ssh emmentaler.ethz.ch "scp cpu babybel.in.barrelfish.org:/root/cpu"
 	ssh emmentaler.ethz.ch "scp xeonphi_loader babybel.in.barrelfish.org:/root/xeonphi_loader"
 	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/create-bzBarrelfish.sh'"
 
+
+pandaboard_image: $(PANDABOARD_MODULES) \
+		tools/bin/arm_molly \
+		menu.lst.pandaboard
 
 #######################################################################
 #

@@ -12,8 +12,7 @@ timeout 0
 
 title	Barrelfish
 root	(nd)
-kernel	/k1om/sbin/elver loglevel=4
-module	/k1om/sbin/cpu loglevel=4
+kernel	/k1om/sbin/cpu loglevel=4
 #module	/k1om/sbin/init
 
 # Domains spawned by init

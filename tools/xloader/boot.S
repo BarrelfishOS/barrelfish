@@ -383,7 +383,7 @@ relocated:
           pushq     $0
           popf
 
-                      /* store the boot info struct pointer and the magic value */
+		  /* store the boot info struct pointer and the magic value */
           movl      $K1OM_BOOT_MAGIC, %eax
           movl      %esi, %ebx
           call      loader

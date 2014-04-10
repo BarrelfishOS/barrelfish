@@ -26,13 +26,19 @@
 #include <barrelfish_kpi/types.h>
 #include <errors/errno.h>
 
+#include "kernel_boot_param.h"
+
 extern char _end_bootloader;
+
+#define K1OM_BOOT_MAGIC         0xB001B001
 
 #if 0
 #include <elf/elf.h>
 
 #include "../../kernel/include/multiboot.h"
 #endif
+
+#define XEON_PHI_SBOX_BASE           0x08007D0000ULL     /* PCIE Box Registers */
 
 #define PTABLE_EXECUTE_DISABLE  (1LL << 63)
 #define PTABLE_GLOBAL_PAGE      (1L << 8)
@@ -132,6 +138,40 @@ static union ptable_entry pdir[PTABLE_SIZE]
 __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 static lpaddr_t phys_alloc_start;
+
+#endif
+
+
+/*
+ * ----------------------------------------------------------------------------
+ *  Basic Error Reporting Mechanism
+ * ----------------------------------------------------------------------------
+ */
+union status {
+    uint32_t raw;
+    char vals[4];
+};
+
+static void print_status(char a, char b) {
+
+    volatile uint32_t *p = (volatile uint32_t *)((XEON_PHI_SBOX_BASE)+0x0000AB40);
+    volatile uint32_t *p2 = (volatile uint32_t *)((XEON_PHI_SBOX_BASE)+0x0000AB5C);
+
+    union status s;
+
+    s.vals[0] = 0x0a;
+    s.vals[1] = b;
+    s.vals[2] = a;
+    s.vals[3] = '>';
+
+    while((*p))
+            ;
+
+
+    *p2 = s.raw;
+    *p = 0x7A7A7A7A;
+}
+#if 0
 
 static errval_t linear_alloc(void *s, genvaddr_t base, size_t size, uint32_t flags,
                              void **ret)
@@ -260,22 +300,44 @@ static lpaddr_t phys_alloc_start;
 
 int loader(uint32_t magic, void *mb);
 
-int loader(uint32_t magic, void *mb)
+
+/**
+ * Entry point from boot.S
+ *
+ * + long mode enabled
+ * + procetion mode enabled
+ * + paging enabled
+ *
+ * Memory Layout
+ *
+ * 0x0000000 boot.S
+ *
+ * 0x0000000
+ *
+ * 0x0000000    _end_bootloader
+ *
+ * start of CPU.elf
+ *
+ *
+ * \param magic         magic value
+ * \param bootparam     pointer to struct boot param
+ *
+ */
+int loader(uint32_t magic, void *bootparam)
 {
-#define XEON_PHI_SBOX_BASE           0x08007D0000ULL     /* PCIE Box Registers */
+    print_status('S', '0');
 
-    volatile uint32_t *p = (volatile uint32_t *)((XEON_PHI_SBOX_BASE)+0x0000AB40);
-    volatile uint32_t *p2 = (volatile uint32_t *)((XEON_PHI_SBOX_BASE)+0x0000AB5C);
-
-    while((*p))
+    if (magic != K1OM_BOOT_MAGIC) {
+        /* wrong value */
+        print_status('E', '0');
+        while(1)
             ;
-
-    *p2 = 0x0a686765;
-    *p = 0x7A7A7A7A;
-
+    }
 
     phys_alloc_start = ROUND_UP((uint64_t)&_end_bootloader, BASE_PAGE_SIZE) +
             BASE_PAGE_SIZE;
+
+
 
 
 #if 0
