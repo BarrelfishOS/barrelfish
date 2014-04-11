@@ -198,7 +198,12 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
     /*
      * initialize the mackerel framework
      */
-    ohci_initialize(&ohci_base, base);
+// TODO: Why does 32-bit expect mackerel_io_t?
+#ifdef __x86__
+    ohci_initialize(&ohci_base, (mackerel_io_t)base);
+#else
+    ohci_initialize(&ohci_base, (mackerel_addr_t)base);
+#endif
     hc->ohci_base = &ohci_base;
 
     /*
