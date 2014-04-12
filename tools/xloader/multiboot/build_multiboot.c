@@ -1,16 +1,18 @@
-/* 
- * M5 boot image tool.  
+/**
+ * \file
+ * \brief Multiboot information creator
  *
- * Molly: a fish that starts with an "M" and has 5 letters in it.
+ * This program creates a multiboot informaton structure based on the pre-
+ * processed menu.lst file
+ */
+
+/*
+ * Copyright (c) 2014 ETH Zurich.
+ * All rights reserved.
  *
- * This file processes a menu.lst to generate C definitions for the 
- * multiboot structures.  It refers to additional object files
- * which contain the contents of the kernel and modules as blobs of
- * data.  (Generated using objcopy via build_data_files.sh)
- *
- * The resulting files are then linked against molly_boot.S, 
- * molly_init.c, and an ELF loader.  This results in a single kernel
- * image that M5 can boot.
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -31,28 +33,13 @@
 
 #define MAX_MODULES 256
 
-static char *kernel_symbol_prefix;
 static char *kernel_cmd_line;
 static unsigned int kernel_offset;
 static unsigned int kernel_length;
 static unsigned int module_offset[MAX_MODULES];
 static unsigned int module_length[MAX_MODULES];
-static char *module_symbol_prefix[MAX_MODULES];
 static char *module_cmd_line[MAX_MODULES];
 
-static char *
-get_symbol_name_prefix(char *original)
-{
-    char *prefix = "_binary__";
-    char *r = malloc(strlen(prefix) + strlen(original) + 1);
-    sprintf(r, "%s%s", prefix, original);
-    for (int i = 0; i < strlen(r); i++) {
-        if (r[i] == '/') {
-            r[i] = '_';
-        }
-    }
-    return r;
-}
 
 int
 main(int argc,
@@ -82,6 +69,7 @@ main(int argc,
     fprintf(o, "#include <barrelfish_kpi/types.h>\n");
     fprintf(o, "#include <errors/errno.h>\n");
     fprintf(o, "#include <elf/elf.h>\n");
+    fprintf(o, "#include \"mbi.h\"\n");
     fprintf(o, "#include \"../kernel/include/multiboot.h\"\n");
 
     // Process menu.lst, generating definitions
@@ -107,7 +95,6 @@ main(int argc,
         if (!strcmp(cmd, "kernel")) {
             printf("   +Kernel: %s, offset=0x%x, length=0x%x, args=%s\n",
                    image, offset, length, args);
-            kernel_symbol_prefix = get_symbol_name_prefix(image);
             kernel_cmd_line = malloc(strlen(line) + 1);
             kernel_length = length;
             kernel_offset = offset;
@@ -115,7 +102,6 @@ main(int argc,
             got_kernel = 1;
         } else if (!strcmp(cmd, "module")) {
             assert(n_modules < MAX_MODULES);
-            module_symbol_prefix[n_modules] = get_symbol_name_prefix(image);
             module_cmd_line[n_modules] = malloc(strlen(line) + 1);
             module_length[n_modules] = length;
             module_offset[n_modules] = offset;

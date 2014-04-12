@@ -11,8 +11,12 @@
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
- *
- *
+ */
+
+
+/*
+ * The kernel boot param structure is adapted from the Linux boot params
+ * specifications.
  */
 
 #ifndef KERNEL_BOOT_PARAM_H

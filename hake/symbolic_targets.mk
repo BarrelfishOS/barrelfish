@@ -25,8 +25,6 @@ ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
 # settings for the Intel Xeon Phi
-K1OM_GCC?=x86_64-k1om-barrelfish-gcc
-K1OM_OBJCPY?=x86_64-k1om-barrelfish-objcopy
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -495,7 +493,7 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 # Intel Xeon Phi-specific modules
 XEON_PHI_MODULES =\
 	k1om/sbin/cpu \
-	
+	k1om/sbin/init_null
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
@@ -503,17 +501,17 @@ menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	
 	
 
-+k1om: $(XEON_PHI_MODULES) \
+k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
 		tools/bin/create_multiboot
 
 	
 	@echo ""
-	@echo "--------------------------------------------------------"
-	@echo "Stage 1 complete."
-	@echo "--------------------------------------------------------"
+	@echo "-------------------------------------------------------------------"
+	@echo "Stage 1 complete: Modules built."
+	@echo "-------------------------------------------------------------------"
 	@echo ""
-	@echo "Generating temporary multiboot files..."
+	@echo "Generating multiboot image"
 	
 	$(SRCDIR)/tools/xloader/multiboot/build_data_files.sh menu.lst.k1om multiboot
 
@@ -523,22 +521,31 @@ menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp mbi.c $(SRCDIR)/tools/xloader/mbi.c
 	
 	@echo ""
-	@echo "--------------------------------------------------------"
-	@echo "Stage 2 complete."
-	@echo "========================================================"
-	@echo "--------------------------------------------------------"
+	@echo "-------------------------------------------------------------------"
+	@echo "Stage 2 complete: Multiboot image built."
+	@echo "-------------------------------------------------------------------"
 	@echo ""
-	@echo "Generating bootloader and multiboot disk..."
-	make k1om/sbin/xloader -j1
-	
-	@echo "========================================================"
-	@echo "Stage 3 complete. Co processor OS is built"
-	@echo "========================================================"
-	# scp k1om/sbin/* emmentaler.ethz.ch:
-	# ssh emmentaler.ethz.ch "scp cpu babybel.in.barrelfish.org:/root/cpu"
-	# ssh emmentaler.ethz.ch "scp xeonphi_loader babybel.in.barrelfish.org:/root/xeonphi_loader"
-	# ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/create-bzBarrelfish.sh'"
+	@echo "Generating bootloader..."
+	+make k1om/sbin/xloader > /dev/null
 
+	@echo ""
+	@echo "-------------------------------------------------------------------"
+	@echo "Stage 3 complete. Bootloader and multiboot image is built. "
+	@echo "-------------------------------------------------------------------"
+	@echo ""
+	@echo "Uploading to babybel... "
+	mv k1om/sbin/xloader ./xloader
+	mv multiboot/mbimg ./mbimg
+	rm -rf xloader.gz mbimg.gz
+	gzip xloader mbimg
+	scp *.gz emmentaler.ethz.ch:
+	ssh emmentaler.ethz.ch "scp *.gz babybel.in.barrelfish.org:/root/barrelfish/"
+	@echo ""
+	@echo "Boot Barrelfish on Xeon Phi.... "
+	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/create-bzBarrelfish.sh'"
+	@echo ""
+	@echo "-------------------------------------------------------------------"
+	@echo "Done."
 
 
 pandaboard_image: $(PANDABOARD_MODULES) \

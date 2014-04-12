@@ -37,11 +37,11 @@ compiler = "k1om-mpss-linux-gcc"
 
 
 -- compiler = "gcc"
-objcopy  = "objcopy"
-objdump  = "objdump"
-ar       = "ar"
-ranlib   = "ranlib"
-cxxcompiler = "g++"
+objcopy  = "k1om-mpss-linux-objcopy"
+objdump  = "k1om-mpss-linux-objdump"
+ar       = "k1om-mpss-linux-ar"
+ranlib   = "k1om-mpss-linux-anlib"
+cxxcompiler = "k1om-mpss-linux-g++"
 
 
 ourCommonFlags = [ Str "-m64",
@@ -53,17 +53,21 @@ ourCommonFlags = [ Str "-m64",
                    Str "-fno-tree-vectorize",
                    Str "-Wa,-march=k1om",
                    Str "-mk1om",
-                   Str "-mno-mmx",
-                   Str "-mno-sse",
-                   Str "-mno-sse2",
-                   Str "-mno-sse3",
-                   Str "-mno-sse4.1",
-                   Str "-mno-sse4.2",
-                   Str "-mno-sse4",
-                   Str "-mno-sse4a",
-                   Str "-mno-3dnow", 
+		   Str "-mtune=k1om",
+                   Str "-fno-builtin",
+-- Apparently the MPSS gcc somehow incudes CMOVES?
+		   Str "-fno-if-conversion",		   
+ --                  Str "-mno-mmx",
+ --                  Str "-mno-sse",
+ --                  Str "-mno-sse2",
+ --                  Str "-mno-sse3",
+ --                  Str "-mno-sse4.1",
+ --                  Str "-mno-sse4.2",
+ --                  Str "-mno-sse4",
+--                   Str "-mno-sse4a",
+--                   Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
-                   Str "-D__x86__",
+              --     Str "-D__x86__",
                    Str "-D__k1om__" ]
 
 
@@ -136,7 +140,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse4.2",
                                 "-mno-sse4",
                                 "-mno-sse4a",
-                                "-mno-3dnow" ] ]
+                                "-mno-3dnow", 
+-- Apparently the MPSS gcc somehow incudes CMOVES?
+		                "-fno-if-conversion" ] ]
 	
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N ",

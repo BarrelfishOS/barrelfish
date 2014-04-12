@@ -69,7 +69,7 @@ SECTIONS
  }
  
 .shstrtab : {
-*(.bss)
+*(.shstrtab)
 }  
        
  .symtab  : {

@@ -1,5 +1,21 @@
 #!/bin/bash
 
+#
+# \file
+# \brief Multiboot information creator
+#
+# This program creates a multiboot informaton structure based on the pre-
+# processed menu.lst file
+#
+#
+# Copyright (c) 2014 ETH Zurich.
+# All rights reserved.
+#
+# This file is distributed under the terms in the attached LICENSE file.
+# If you do not find this file, copies can be found by writing to:
+# ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+#
+
 if [ $# != 2 ]; then
     echo Expected $0 menu.lst output_prefix
     exit 1
@@ -72,6 +88,6 @@ do
        echo -en "\0" >> $MBIMG
     done
     echo $TYPE" "$BIN" "$OFFSET" "$FILESIZE" "$CMD >> $MBHEADER
-    OFFSET=$(echo "$OFFSET+$PADDING" | bc)
+    OFFSET=$(echo "$OFFSET+$PADDING+$FILESIZE" | bc)
   fi
 done <$MENU_LST	

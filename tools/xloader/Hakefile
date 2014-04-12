@@ -62,7 +62,6 @@ let arch = "k1om"
                              NoDep BuildTree arch "/include" ],
              optDefines = [],
              optLibs = [],
-             optDependencies = [In BuildTree "." "xeon_phi_mbi.c" ],
              optLdFlags = [ Str s | s <- [ "-Wl,-N ",
                                  "-fPIC ",
                                  "-Wl,-melf_k1om ",
@@ -77,7 +76,7 @@ let arch = "k1om"
              optSuffix = "_for_xloader" 
            }
     objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c",
-    									    "elf64.c","mbi.c" ] ]
+    									    "elf64.c", "mbi.c" ] ]
                                             
 in 
   [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c", "mbi.c"],

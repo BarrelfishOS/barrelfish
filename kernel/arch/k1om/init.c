@@ -604,14 +604,10 @@ arch_init(uint64_t magic,
     struct boot_params *bp = NULL;
     struct multiboot_info *mb = NULL;
 
-    /* initialize the console port to the host
-     * TODO: put all the base addresses into centralized defines
-     */
+    /* initialize the console port to the host */
     serial_console_init(XEON_PHI_SBOX_BASE);
 
-    /*
-     * notify the host that we are running
-     */
+    /* notify the host that we are running */
     notify_host();
 
     void __attribute__ ((noreturn))

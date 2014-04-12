@@ -12,8 +12,9 @@ timeout 0
 
 title	Barrelfish
 root	(nd)
-kernel	/k1om/sbin/cpu loglevel=4 test=foo
+kernel	/k1om/sbin/cpu loglevel=4
 #module	/k1om/sbin/init
+module	/k1om/sbin/init_null
 
 # Domains spawned by init
 #module	/k1om/sbin/mem_serv

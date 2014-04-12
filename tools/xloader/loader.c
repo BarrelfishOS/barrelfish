@@ -26,31 +26,42 @@
 #include <errors/errno.h>
 #include <elf/elf.h>
 
+#include "mbi.h"
 #include "kernel_boot_param.h"
-
-extern struct multiboot_info xeon_phi_mbi;
 
 #include "../../kernel/include/multiboot.h"
 
+/* the boot magic */
 #define K1OM_BOOT_MAGIC         0xB001B001
 
+/* the address of the Xeon Phi SBOX registers used for status prints*/
 #define SBOX_BASE           0x08007D0000ULL
 
+/* reference to the end of bootloader */
 extern char _end_bootloader;
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
 #define BASE_PAGE_SIZE 0x1000
 
-struct multiboot_info multiboot_info = { .flags =
-        (MULTIBOOT_HEADER_FLAG_MODS_PGALIGNED | MULTIBOOT_HEADER_FLAG_NEED_MEMINFO) };
+/* Pointer to the multiboot struct we use */
+struct multiboot_info *multiboot_info;
+
+/* Address where we can safely allocate memory */
 static lpaddr_t phys_alloc_start;
 
+/* the entry address of the loaded kernel */
+genvaddr_t kernel_entry;
+
+/**
+ * C level entry point for the boot loader
+ *
+ * \param magic this field must hold the value K1OM_BOOT_MAGIC
+ * \param mb    pointer to the boot_params struct setup by the boot loader
+ */
 int
 loader(uint64_t magic,
        struct boot_params *mb);
-
-genvaddr_t kernel_entry;
 
 /*
  * ----------------------------------------------------------------------------
@@ -110,82 +121,35 @@ linear_alloc(void *s,
     // round to base page size
     uint32_t npages = (size + BASE_PAGE_SIZE - 1) / BASE_PAGE_SIZE;
 
-    /* *ret = (void *)(uintptr_t)base; */
     *ret = (void *) phys_alloc_start;
 
     phys_alloc_start += npages * BASE_PAGE_SIZE;
     return SYS_ERR_OK;
 }
 
-#if 0
-static struct multiboot_modinfo *multiboot_find_module(const char *basename)
+
+static struct multiboot_modinfo *
+multiboot_find_module(const char *basename)
 {
-    struct multiboot_modinfo *mod = (struct multiboot_modinfo *)
-    multiboot_info->mods_addr;
+    struct multiboot_modinfo *mod;
+    mod = (struct multiboot_modinfo *) (uintptr_t) multiboot_info->mods_addr;
 
-    for(size_t i = 0; i < multiboot_info->mods_count; i++) {
-        const char *modname = strrchr((char *)mod[i].string, '/');
+    for (size_t i = 0; i < multiboot_info->mods_count; i++) {
+        const char *modname = strrchr((char *) (uintptr_t) mod[i].string, '/');
 
-        if(modname == NULL) {
-            modname = (char *)mod[i].string;
+        if (modname == NULL) {
+            modname = (char *) (uintptr_t) mod[i].string;
         } else {
             modname++;
         }
 
-        if(!strncmp(modname, basename, strlen(basename))) {
+        if (!strncmp(modname, basename, strlen(basename))) {
             return &mod[i];
         }
     }
 
     return NULL;
 }
-
-static uintptr_t multiboot_end_addr(void)
-{
-    lpaddr_t end = ((lpaddr_t)multiboot_info) + sizeof(struct multiboot_info);
-    struct multiboot_info *mi = multiboot_info;
-
-#define CHECK(pa)           { lpaddr_t tmp = pa; if (tmp > end) { end = tmp; } }
-#define CHECK_STR(pstr)     CHECK(pstr + strlen((char *)pstr) + 1)
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_CMDLINE) {
-        CHECK_STR(mi->cmdline)
-    }
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_MODS) {
-        struct multiboot_modinfo *mod = (void *)mi->mods_addr;
-
-        for(int i = 0; i < mi->mods_count; i++) {
-            CHECK(mod[i].mod_end)
-            CHECK_STR(mod[i].string)
-        }
-    }
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_ELF_SYMS) {
-        CHECK(mi->syms.elf.addr + mi->syms.elf.num * mi->syms.elf.size)
-        /* FIXME: does this include mi_elfshdr_shndx?? */
-    }
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
-        CHECK(mi->mmap_addr + mi->mmap_length)
-    }
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_DRIVES) {
-        CHECK(mi->drives_addr + mi->drives_length)
-    }
-
-    if (mi->flags & MULTIBOOT_INFO_FLAG_HAS_LOADERNAME) {
-        CHECK_STR(mi->boot_loader_name)
-    }
-
-    /* TODO: config table, APM table, VBE */
-
-#undef CHECK
-#undef CHECK_STR
-
-    return end;
-}
-
 
 static void
 set_elf_headers(uintptr_t base)
@@ -197,26 +161,16 @@ set_elf_headers(uintptr_t base)
     multiboot_info->syms.elf.addr = base + head->e_shoff;
     multiboot_info->syms.elf.shndx = head->e_shstrndx;
 }
-#endif
 
+/*
+ * ----------------------------------------------------------------------------
+ *  Loader
+ * ----------------------------------------------------------------------------
+ */
 
 /**
  * Entry point from boot.S
- *
- * + long mode enabled
- * + procetion mode enabled
- * + paging enabled
- *
- * Memory Layout
- *
- * 0x0000000 boot.S
- *
- * 0x0000000
- *
- * 0x0000000    _end_bootloader
- *
- * start of CPU.elf
- *
+ * Long mode, paging and protected mode enabled
  *
  * \param magic         magic value
  * \param bootparam     pointer to struct boot param
@@ -238,47 +192,71 @@ loader(uint64_t magic,
     struct boot_params *bp = (struct boot_params *) bootparam;
     struct setup_header *boot_hdr = (struct setup_header *) &bp->hdr;
 
-
+    multiboot_info = get_multiboot();
 
     /*
      * Copy the multi boot image closer to the kernel
      */
-    lpaddr_t mb_img_start = ROUND_UP((lpaddr_t)&_end_bootloader,
-                                  1<<21 );
+    lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, 1 << 21);
     lpaddr_t mb_img_orig = boot_hdr->ramdisk_image;
 
+    /* sanity check for the locations */
     if (mb_img_start > mb_img_orig) {
         eabort('E', 'C');
     }
-    memcpy((void *)mb_img_start, (void *)mb_img_orig, boot_hdr->ramdisk_size);
+    memcpy((void *) mb_img_start, (void *) mb_img_orig, boot_hdr->ramdisk_size);
 
+    /*
+     * the multiboot does only stores the offsets within the multiboot image
+     * thus we have to adjust the addresses in the multiboot info struct
+     */
+    struct multiboot_modinfo *mod;
+    mod = (struct multiboot_modinfo *) (uintptr_t) multiboot_info->mods_addr;
 
+    for (size_t i = 0; i < multiboot_info->mods_count; i++) {
+        mod->mod_start += mb_img_start;
+        mod->mod_end += mb_img_start;
+        mod++;
+    }
+
+    /* look up the kernel module */
+    struct multiboot_modinfo *kernel;
+    kernel = multiboot_find_module("cpu");
+    if (kernel == NULL) {
+        kernel = multiboot_find_module("kernel");
+    }
 
     /* set the start address where we can allocate ram */
-    phys_alloc_start = ROUND_UP(mb_img_start+boot_hdr->ramdisk_size, BASE_PAGE_SIZE);
+    phys_alloc_start = ROUND_UP(mb_img_start + boot_hdr->ramdisk_size,
+                                BASE_PAGE_SIZE);
 
-    boot_hdr->ramdisk_image = (uint32_t)mb_img_start;
+    boot_hdr->ramdisk_image = (uint32_t) mb_img_start;
 
     lpaddr_t kernel_start = phys_alloc_start;
 
-    /* fillin multiboot structure */
-    multiboot_info.cmdline = boot_hdr->cmd_line_ptr;
-    multiboot_info.mods_addr = boot_hdr->ramdisk_image;
+    /* overwrite the cmd line with the one supplied by the host */
+    multiboot_info->cmdline = boot_hdr->cmd_line_ptr;
 
+    /* we use the mem_lower and mem_upper for the mulitboot image location */
+    multiboot_info->mem_lower = boot_hdr->ramdisk_image;
+    multiboot_info->mem_upper = boot_hdr->ramdisk_image+boot_hdr->ramdisk_size;
 
-    err = elf64_load(EM_K1OM, linear_alloc, NULL, boot_hdr->ramdisk_image,
-                     boot_hdr->ramdisk_size, &kernel_entry, NULL, NULL,
+    /* we use the config table to store the pointer to struct boot param */
+    multiboot_info->config_table = (uint32_t)(uintptr_t)bootparam;
+
+    err = elf64_load(EM_K1OM, linear_alloc, NULL, kernel->mod_start,
+                     MULTIBOOT_MODULE_SIZE(*kernel), &kernel_entry, NULL, NULL,
                      NULL);
 
     if (err_is_fail(err)) {
         eabort('E', '1');
     }
 
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) boot_hdr
-            ->ramdisk_image;
-    struct Elf64_Shdr *rela, *symtab, *symhead =
-            (struct Elf64_Shdr *) (boot_hdr->ramdisk_image
-                    + (uintptr_t) cpu_head->e_shoff);
+    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) kernel->mod_start;
+    struct Elf64_Shdr *rela, *symtab, *symhead;
+
+    symhead = (struct Elf64_Shdr *) (kernel->mod_start
+            + (uintptr_t) cpu_head->e_shoff);
 
     genvaddr_t elfbase = elf_virtual_base64(cpu_head);
 
@@ -287,80 +265,18 @@ loader(uint64_t magic,
     symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_DYNSYM);
 
     elf64_relocate(
-            kernel_start,
-            elfbase,
-            (struct Elf64_Rela *) (uintptr_t) (boot_hdr->ramdisk_image
-                    + rela->sh_offset),
+            kernel_start, elfbase,
+            (struct Elf64_Rela *) (uintptr_t) (kernel->mod_start + rela->sh_offset),
             rela->sh_size,
-            (struct Elf64_Sym *) (uintptr_t) (boot_hdr->ramdisk_image
-                    + symtab->sh_offset),
+            (struct Elf64_Sym *) (uintptr_t) (kernel->mod_start + symtab->sh_offset),
             symtab->sh_size, elfbase, (void *) kernel_start);
 
     kernel_entry = kernel_entry - elfbase + kernel_start;
 
-    //set_elf_headers();
+    set_elf_headers(kernel->mod_start);
     print_status('S', '2');
-
-    // void (*arch_init)(uint64_t magic, void *pointer);
-    // arch_init= (void(*)(uint64_t, void *))kernel_entry;
-
-    multiboot_info.flags = 123;
-    multiboot_info.vbe_interface_len = 456;
-
-    //arch_init(K1OM_BOOT_MAGIC, &multiboot_info);
 
     return kernel_entry;
 
-#if 0
-    // Store important registers
-    multiboot_info = mb;
-    eax = magic;
-
-    // Look for the kernel to boot, which may have several names
-    struct multiboot_modinfo *kernel;
-    kernel = multiboot_find_module("cpu");
-    if (kernel == NULL) {
-        kernel = multiboot_find_module("kernel");
-    }
-
-    // Reserve a page before kernel start
-    phys_alloc_start = ROUND_UP(multiboot_end_addr(), BASE_PAGE_SIZE) +
-    BASE_PAGE_SIZE;
-    lpaddr_t kernel_start = phys_alloc_start;
-
-    err = elf64_load(EM_X86_64, linear_alloc, NULL, kernel->mod_start,
-            MULTIBOOT_MODULE_SIZE(*kernel), &kernel_entry, NULL, NULL, NULL);
-    if (err_is_fail(err)) {
-        printf("Elver ELF loading failed!\n");
-        return -1;
-    }
-
-    // Relocate kernel image
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)kernel->mod_start;
-    struct Elf64_Shdr *rela, *symtab, *symhead =
-    (struct Elf64_Shdr *)(kernel->mod_start + (uintptr_t)cpu_head->e_shoff);
-    genvaddr_t elfbase = elf_virtual_base64(cpu_head);
-    rela = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_RELA);
-    symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_DYNSYM);
-    elf64_relocate(kernel_start, elfbase,
-            (struct Elf64_Rela *)(uintptr_t)(kernel->mod_start + rela->sh_offset),
-            rela->sh_size,
-            (struct Elf64_Sym *)(uintptr_t)(kernel->mod_start + symtab->sh_offset),
-            symtab->sh_size,
-            elfbase, (void *)kernel_start);
-    kernel_entry = kernel_entry - elfbase + kernel_start;
-
-    // Identity map the first 1 GByte of physical memory in long mode
-    paging_map_table(&boot_pml4[PML4_BASE(0)], (uint64_t)(uint32_t)pdpt);
-    paging_map_table(&pdpt[PDPT_BASE(0)], (uint64_t)(uint32_t)pdir);
-    for(uint32_t i = 0; i < 0xf000000; i += 0x200000) {
-        paging_map_large(&pdir[PDIR_BASE(i)], i, PTABLE_PRESENT
-                | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
-    }
-
-    // Put real kernel's ELF symbols into multiboot
-    set_elf_headers(kernel->mod_start);
-#endif
-    return 0;
 }
 
