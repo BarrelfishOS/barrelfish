@@ -238,11 +238,14 @@ loader(uint64_t magic,
     multiboot_info->cmdline = boot_hdr->cmd_line_ptr;
 
     /* we use the mem_lower and mem_upper for the mulitboot image location */
+
     multiboot_info->mem_lower = boot_hdr->ramdisk_image;
     multiboot_info->mem_upper = boot_hdr->ramdisk_image+boot_hdr->ramdisk_size;
+    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_MEMINFO;
 
     /* we use the config table to store the pointer to struct boot param */
     multiboot_info->config_table = (uint32_t)(uintptr_t)bootparam;
+    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
 
     err = elf64_load(EM_K1OM, linear_alloc, NULL, kernel->mod_start,
                      MULTIBOOT_MODULE_SIZE(*kernel), &kernel_entry, NULL, NULL,

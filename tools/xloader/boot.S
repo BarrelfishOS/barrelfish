@@ -219,7 +219,7 @@ ENTRY(startup_64)
 
            /* jump to the kernel entry point */
           movq      $K1OM_BOOT_MAGIC, %rax
-          leaq      (multiboot_info), %rbx
+          movq      multiboot_info, %rbx
           movq kernel_entry, %rcx
           jmp       *%rcx
 
