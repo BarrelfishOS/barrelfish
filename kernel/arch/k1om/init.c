@@ -226,21 +226,19 @@ paging_init(lpaddr_t base,
 
         // Identity-map the kernel's physical region, so we don't lose ground
         paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(base)],
-                                (lpaddr_t) boot_pdpt);
+                              (lpaddr_t) boot_pdpt);
         paging_k1om_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
-                                (lpaddr_t) boot_pdir);
-        paging_k1om_map_large(
-                &boot_pdir[X86_64_PDIR_BASE(base)], base,
-                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+                              (lpaddr_t) boot_pdir);
+        paging_k1om_map_large(&boot_pdir[X86_64_PDIR_BASE(base)], base,
+        PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
         // Alias the same region at MEMORY_OFFSET
         paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
-                                (lpaddr_t) boot_pdpt_hi);
+                              (lpaddr_t) boot_pdpt_hi);
         paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
-                                (lpaddr_t) boot_pdir_hi);
-        paging_k1om_map_large(
-                &boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
-                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+                              (lpaddr_t) boot_pdir_hi);
+        paging_k1om_map_large(&boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
+        PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
     }
 
@@ -260,10 +258,12 @@ paging_init(lpaddr_t base,
      *
      * PML4[0], PDIR[32]
      */
-    paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
-                            (lpaddr_t) boot_pdpt_hi);
-    paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
-                            (lpaddr_t) boot_pdir_mmio);
+    paging_k1om_map_table(
+            &boot_pml4[X86_64_PML4_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+            (lpaddr_t) boot_pdpt_hi);
+    paging_k1om_map_table(
+            &boot_pdpt_hi[X86_64_PDPT_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+            (lpaddr_t) boot_pdir_mmio);
 
     paging_k1om_map_large(
             &boot_pdir_mmio[X86_64_PDIR_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
@@ -344,17 +344,6 @@ relocate_stack(lvaddr_t offset)
     );
 }
 
-static inline void __attribute__ ((always_inline))
-relocate_boot_stack(void)
-{
-    lvaddr_t offset = local_phys_to_mem(0);
-
-    __asm__ volatile (
-            "addq      %0, %%rsp;    \n\t"
-            : : "r"(offset) : "%rsp"
-    );
-
-}
 
 /**
  * \brief Enable SYSCALL/SYSRET fast system calls.
@@ -438,36 +427,13 @@ text_init(void)
     // Reset global and locks to point to the memory in the pristine image
     global = (struct global*) addr_global;
 
-    printf("Before Paging Reset %p\n", printf);
-
-
+    // re-initialize the console with the relocated address
+    serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
     /*
      * Reset paging once more to use relocated data structures and map in
      * whole of kernel and available physical memory. Map out low memory.
      */
     paging_k1om_reset();
-
-    serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
-
-    volatile uint32_t *p = (volatile uint32_t *)(local_phys_to_mem(XEON_PHI_SBOX_BASE)+0x0000AB40);
-    volatile uint32_t *p2 = (volatile uint32_t *)(local_phys_to_mem(XEON_PHI_SBOX_BASE)+0x0000AB5C);
-
-
-    while((*p))
-        ;
-
-
-    uint32_t v = *p;
-    uint32_t v2 = *p2;
-
-    *p2 = 0x0a686765;
-    *p = 0x7A7A7A7A;
-
-
-
-    printf("past 0x%x, 0x%x\n", v, v2);
-
-
 
     // Relocate global to "memory"
     global = (struct global*) local_phys_to_mem((lpaddr_t) global);
@@ -476,18 +442,12 @@ text_init(void)
     glbl_core_data = (struct x86_core_data *) local_phys_to_mem(
             (lpaddr_t) glbl_core_data);
 
-    while (1)
-            ;
     /*
      * We know how much memory we have based on the card model
      */
     if (paging_k1om_map_memory(0, K1OM_PHYSICAL_MEMORY_SIZE) != 0) {
         panic("error while mapping physical memory!");
     }
-
-    printf("foobar\n");
-
-
 
     /*
      * Also reset the global descriptor table (GDT), so we get
@@ -499,28 +459,52 @@ text_init(void)
     // Arch-independent early startup
     kernel_startup_early();
 
-    // XXX: re-init the serial driver, in case the port changed after parsing args
-
     // Setup IDT
     setup_default_idt();
     idt_initialized = true;
 
+    // initialize the Xeon Phi
+    xeon_phi_init_early();
+
     // Enable machine check reporting
     mcheck_init();
 
+    /**
+     * 2.1.8.2.2 Interrupt Handling
+     *
+     * There are three different types of interrupt flows that are supported in
+     * the Intel Xeon Phi coprocessor:
+     *
+     * + Local Interrupts – These are the interrupts that are destined for one
+     *   (or more) of the Intel Xeon Phi coprocessor cores located on the
+     *   originating device. They appear in the form of APIC messages on the
+     *   APIC serial bus.
+     * + Remote Interrupts – These are the interrupts which are destined for one
+     *   (or more) of the Intel Xeon Phi coprocessor cores in other Intel Xeon
+     *   PhiTM coprocessor devices. They appear as MMIO accesses on the PEG port.
+     * + System Interrupts – These are the interrupts which are destined for
+     *   the host processor(s). They appear as INTx/MSI/MSI-X messages on the
+     *   PEG port, depending upon the PCI configuration settings.
+     */
+
     // Initialize local APIC
+    printf("apic_init\n");
     apic_init();
+
 
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
 
+    /*
+     * there is no such thing as a PIC on the xeon phi
+     * XXX: verify!
     if (apic_is_bsp()) {
+        printf("apic_is_bsp\n");
         // Initialize classic (8259A) PIC
         pic_init();
     }
+    */
 
-    // Initialize real-time clock
-    rtc_init();
 
     // Initialize local APIC timer
     if (kernel_ticks_enabled) {
@@ -537,29 +521,42 @@ text_init(void)
         apic_mask_timer();
     }
 
+    printf("ipi_notify_init\n");
     // Initialize IPI notification mechanism
     ipi_notify_init();
 
+    printf("enable_fast_syscalls\n");
     // Enable SYSCALL/SYSRET fast system calls
+    /*
+     * NOTE: the xeon phi does not support SYSENTER/SYSEXIT
+     */
     enable_fast_syscalls();
 
+    printf("ia32_efer_nxe_wrf\n");
     // Enable "no execute" page-level protection bit
     ia32_efer_nxe_wrf(NULL, 1);
 
+    printf("enable_fpu\n");
     // Enable FPU and MMX
-    enable_fpu();
+    //enable_fpu();
 
+    printf("amd64_cr4_pce_wrf\n");
     // Enable user-mode RDPMC opcode
     amd64_cr4_pce_wrf(NULL, 1);
 
+    printf("enable_tlb_flush_filter\n");
     // AMD64: Check if TLB flush filter is enabled
     enable_tlb_flush_filter();
 
+//    printf("amd64_cr4_pge_wrf\n");
+
     // Enable global pages
-    amd64_cr4_pge_wrf(NULL, 1);
+    // there are no global page tables
+    // amd64_cr4_pge_wrf(NULL, 1);
 
     // Check/Enable MONITOR/MWAIT opcodes
-    enable_monitor_mwait();
+    // there is no monitor/mwait
+    //enable_monitor_mwait();
 
     // Call main kernel startup function -- this should never return
     kernel_startup();
@@ -567,7 +564,6 @@ text_init(void)
     halt();
     // Returning here will crash! -- low pages not mapped anymore!
 }
-
 
 /**
  * \brief Architecture-specific initialization function.
@@ -601,7 +597,6 @@ arch_init(uint64_t magic,
           void *pointer)
 {
     /* pointer to the boot param struct set up by the boot loader */
-    struct boot_params *bp = NULL;
     struct multiboot_info *mb = NULL;
 
     /* initialize the console port to the host */
@@ -650,70 +645,26 @@ arch_init(uint64_t magic,
         break;
 
     case K1OM_BOOT_MAGIC:
-        /* kernel is started by the K1OM boot loadeer */
-        bp = (struct boot_params *) pointer;
-
-        printf("Barrelfish (with K1OM boot_params) 0x%"PRIxLVADDR"\n", (uintptr_t)pointer);
-
+        /* kernel is started by the K1OM boot loader */
         mb = (struct multiboot_info *) pointer;
-        printf("mb->flags= %u\n", mb->flags);
-        printf("mb-> vbe_interface_len= %u\n", mb-> vbe_interface_len);
 
+        printf("Barrelfish from xloader: MBI: 0x%"PRIxLVADDR", IMG: [0x%x, 0x%x]\n",
+               (lpaddr_t) pointer, mb->mem_lower, mb->mem_upper);
 
-
-        while(1)
-            ;
+        /*
+         * XXX: The multiboot structure when invoked from the xloader will
+         *      contain additional information.
+         *
+         *      CMDLINE:    the cmd line as set by the host OS
+         *      MEM_LOWER:  the start of the multiboot image
+         *      MEM_UPPER:  the end of the multiboot image
+         */
 
         // Construct the global structure and store its address to retrieve it
         // across relocation
         memset(&global->locks, 0, sizeof(global->locks));
         addr_global = (uint64_t) global;
 
-        struct setup_header *boot_hdr = (struct setup_header *) &bp->hdr;
-
-        /*
-         * Memory Layout (given by the MPSS stack)
-         *  + struct boot_params
-         *  + kernel cmd line
-         *  + kernel image
-         *  + ramfs (multiboot moduels)
-         *  -- start of free memory --
-         */
-
-        /* get the CMD line from the boot information */
-        glbl_core_data->cmdline = boot_hdr->cmd_line_ptr;
-
-        /* modules are stored in the ramdisk */
-        glbl_core_data->mods_addr = boot_hdr->ramdisk_image;
-
-        /* number of modules needs to be parsed via kernel cmd line */
-        glbl_core_data->mods_count = 0;
-
-        /* memory map
-         * TODO: How to represent the memory map?
-         */
-        glbl_core_data->mmap_length = 0;
-        glbl_core_data->mmap_addr = 0;
-
-        /* free ram starts after the ram disk */
-        uint32_t end_ramdisk = boot_hdr->ramdisk_image + boot_hdr->ramdisk_size;
-        glbl_core_data->start_free_ram = ROUND_UP(
-                max(end_ramdisk, (uintptr_t)&_end_kernel), BASE_PAGE_SIZE);
-
-        printf("Start Free RAM at 0x%x (%i MB)\n", glbl_core_data->start_free_ram,
-               glbl_core_data->start_free_ram >> 20);
-
-        paging_init((lpaddr_t) &_start_kernel, SIZE_KERNEL_IMAGE);
-
-        serial_console_init(local_phys_to_mem(XEON_PHI_SBOX_BASE));
-
-        //relocate_boot_kernel((lpaddr_t) &_start_kernel,
-        //                     K1OM_PADDR_SPACE_LIMIT + (lvaddr_t) &_start_kernel);
-
-        /*relocate the stack to the new high memory region */
-        relocate_boot_stack();
-
-        reloc_text_init();
         break;
 
     default:
@@ -724,6 +675,7 @@ arch_init(uint64_t magic,
     struct Elf64_Shdr *rela, *symtab;
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
+
     if (mb != NULL) { /* Multiboot info was passed */
         multiboot_flags = mb->flags;
         elf = (struct x86_coredata_elf *) &mb->syms.elf;
@@ -734,17 +686,23 @@ arch_init(uint64_t magic,
                   "header information -- Relocation impossible!");
         }
 
-        // Determine where free RAM starts
+        /*
+         * Determine where free RAM starts
+         */
         glbl_core_data->start_free_ram = ROUND_UP(
                 max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
                 BASE_PAGE_SIZE);
+
+        printf("Start Free RAM at 0x%x (%i MB)\n", glbl_core_data->start_free_ram,
+                               glbl_core_data->start_free_ram >> 20);
 
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;
         glbl_core_data->cmdline = mb->cmdline;
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
-    } else { /* No multiboot info, use the core_data struct */
+    } else {
+        /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data = (struct x86_core_data*) (dest
                 - BASE_PAGE_SIZE);
         multiboot_flags = core_data->multiboot_flags;
@@ -783,7 +741,7 @@ arch_init(uint64_t magic,
 
     // Relocate kernel image for top of memory
     elf64_relocate(
-            K1OM_PADDR_SPACE_LIMIT + (lvaddr_t) &_start_kernel,
+            K1OM_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
             (lvaddr_t) &_start_kernel,
             (struct Elf64_Rela *) (rela->sh_addr - K1OM_START_KERNEL_PHYS
                     + &_start_kernel),
@@ -793,11 +751,10 @@ arch_init(uint64_t magic,
             symtab->sh_size,
             K1OM_START_KERNEL_PHYS,
             &_start_kernel);
-
     /*** Aliased kernel available now -- low memory still mapped ***/
 
     // Relocate stack to aliased location
-    relocate_stack(K1OM_PADDR_SPACE_LIMIT);
+    relocate_stack(K1OM_MEMORY_OFFSET);
 
     // Call aliased text_init() function and continue initialization
     reloc_text_init();

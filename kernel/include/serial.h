@@ -59,13 +59,6 @@ static inline errval_t serial_console_init(lvaddr_t sbox_base)
     return serial_init(sbox_base);
 }
 
-#else
-static inline errval_t serial_console_init(void)
-{
-    return serial_init(serial_console_port);
-}
-#endif
-
 static inline void serial_console_putchar(char c)
 {
     if (c == '\n') {
@@ -73,11 +66,30 @@ static inline void serial_console_putchar(char c)
     }
     serial_putchar(c);
 }
+
 static inline char serial_console_getchar(void)
 {
-    assert(!"Get char not available!");
-    return '0';
+    return serial_getchar();
 }
+#else
+static inline errval_t serial_console_init(void)
+{
+    return serial_init(serial_debug_port);
+}
+
+static inline void serial_console_putchar(char c)
+{
+    if (c == '\n') {
+        serial_putchar(serial_debug_port, '\r');
+    }
+    serial_putchar(serial_debug_port, c);
+}
+
+static inline char serial_console_getchar(void)
+{
+    return serial_getchar(serial_debug_port);
+}
+#endif
 
 /*
  * Debug logical port.  Putchar will replace LF with CRLF, unlike
@@ -85,12 +97,31 @@ static inline char serial_console_getchar(void)
  */
 #ifndef __k1om__
 extern unsigned serial_debug_port;
-#endif
 
+
+static inline errval_t serial_debug_init(void)
+{
+    return serial_init(serial_debug_port);
+}
+
+static inline void serial_debug_putchar(char c)
+{
+    if (c == '\n') {
+        serial_putchar(serial_debug_port, '\r');
+    }
+    serial_putchar(serial_debug_port, c);
+}
+
+static inline char serial_debug_getchar(void)
+{
+    return serial_getchar(serial_debug_port);
+}
+#else
 static inline errval_t serial_debug_init(void)
 {
     return SYS_ERR_OK;
 }
+
 static inline void serial_debug_putchar(char c)
 {
     if (c == '\n') {
@@ -98,11 +129,11 @@ static inline void serial_debug_putchar(char c)
     }
     serial_putchar(c);
 }
+
 static inline char serial_debug_getchar(void)
 {
-    assert(!"Get char not available!");
-    return '0';
-
+    return serial_getchar();
 }
+#endif
 
 #endif //__SERIAL_H

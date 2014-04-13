@@ -31,7 +31,13 @@
 #  include <barrelfish/ump_endpoint.h>
 #endif
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__k1om__)
+#include <barrelfish_kpi/asm_inlines_arch.h>
+static inline cycles_t cyclecount(void)
+{
+    return rdtsc();
+}
+#elif defined(__x86_64__) || defined(__i386__)
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 static inline cycles_t cyclecount(void)
 {

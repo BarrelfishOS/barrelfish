@@ -119,7 +119,9 @@ static inline uint8_t inb(uint16_t port)
 
 static inline void outb(uint16_t port, uint8_t data)
 {
+#if !defined(__k1om__)
     __asm __volatile("outb %0,%%dx" : : "a" (data), "d" (port));
+#endif
 }
 
 static inline uint32_t ind(uint16_t port)
@@ -131,7 +133,9 @@ static inline uint32_t ind(uint16_t port)
 
 static inline void outd(uint16_t port, uint32_t data)
 {
+#if !defined(__k1om__)
     __asm __volatile("out %0,%%dx" : : "a" (data), "d" (port));
+#endif
 }
 
 static inline uint16_t inw(uint16_t port)
@@ -143,7 +147,9 @@ static inline uint16_t inw(uint16_t port)
 
 static inline void outw(uint16_t port, uint16_t data)
 {
-    __asm __volatile("outw %0,%%dx" : : "a" (data), "d" (port));
+#if !defined(__k1om__)
+   __asm __volatile("outw %0,%%dx" : : "a" (data), "d" (port));
+#endif
 }
 
 /** \brief This function reads a model specific register */

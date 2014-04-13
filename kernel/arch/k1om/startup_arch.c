@@ -663,7 +663,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
         panic("Could not find init module!");
     }
     lvaddr_t init_ep;
-    err = elf_load(EM_X86_64, startup_alloc_init, &spawn_state,
+    err = elf_load(EM_K1OM, startup_alloc_init, &spawn_state,
                    local_phys_to_mem(module->mod_start),
                    MULTIBOOT_MODULE_SIZE(*module), &init_ep);
     if (err_is_fail(err)) {
@@ -749,7 +749,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     // elf load the domain
     genvaddr_t entry_point;
-    err = elf_load(EM_X86_64, startup_alloc_init, &spawn_state,
+    err = elf_load(EM_K1OM, startup_alloc_init, &spawn_state,
                    local_phys_to_mem(core_data->monitor_binary),
                    core_data->monitor_binary_size, &entry_point);
     if (err_is_fail(err)) {

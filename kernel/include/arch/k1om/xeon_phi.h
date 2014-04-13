@@ -61,4 +61,6 @@
 #define XEON_PHI_CBOX_SIZE (64*1024)
 
 
+void xeon_phi_init_early(void);
+
 #endif /* XEON_PHI_H*/

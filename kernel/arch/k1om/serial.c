@@ -38,6 +38,9 @@ errval_t serial_init(lvaddr_t base) {
 
     serial_base = base;
 
+    printf("Setting Serial address to 0x%"PRIxLVADDR"\n",
+                       (lpaddr_t) serial_base);
+
 	// XXX: if non-BSP core, assume HW is already initialised
 	if (!arch_core_is_bsp()) {
 		return SYS_ERR_OK;
@@ -89,6 +92,5 @@ void serial_putchar(char c) {
  * This function spins waiting for a character to arrive.
  */
 char serial_getchar(void) {
-	assert(!"Not possible to get input from Host");
 	return '\0';
 }

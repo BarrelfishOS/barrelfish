@@ -59,7 +59,6 @@ mapit(union x86_64_pdir_entry *pml4_base,
         paging_k1om_map_table(pml4_base, mem_to_local_phys((lvaddr_t) pdpt_base));
     }
 
-
     if (!X86_64_IS_PRESENT(pdpt_base)) {
         paging_k1om_map_table(pdpt_base, mem_to_local_phys((lvaddr_t) pdir_base));
     }
@@ -165,8 +164,8 @@ void
 paging_k1om_reset(void)
 {
     // Map kernel image so we don't lose ground
-    if (paging_k1om_map_memory((lvaddr_t) &_start_kernel,
-    SIZE_KERNEL_IMAGE+SIZE_KERNEL_IMAGE)
+    if (paging_k1om_map_memory(mem_to_local_phys((lvaddr_t) &_start_kernel),
+    SIZE_KERNEL_IMAGE)
         != 0) {
         panic("error while mapping physical memory!");
     }
@@ -176,13 +175,9 @@ paging_k1om_reset(void)
         panic("error while mapping physical memory!");
     }
 
-
-    lvaddr_t sbox_addr;
-    sbox_addr = paging_k1om_map_device(XEON_PHI_SBOX_BASE, XEON_PHI_SBOX_SIZE);
-
-    assert(sbox_addr == local_phys_to_mem(XEON_PHI_SBOX_BASE));
-
-    printf("Before context switch\n");
+    if (paging_k1om_map_memory(XEON_PHI_SBOX_BASE, XEON_PHI_SBOX_SIZE) != 0) {
+        panic("error while mapping physical memory!");
+    }
 
     // Switch to new page layout
     paging_k1om_context_switch(mem_to_local_phys((lvaddr_t) pml4));
