@@ -88,11 +88,11 @@ static inline void fpu_restore(struct registers_fpu_x86_64 *fpustate)
 /** \brief This code reads the cycle counter */
 static inline uint64_t rdtsc(void)
 {
-    /*
+
     uint32_t eax, edx;
     __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
     return ((uint64_t)edx << 32) | eax;
-    */
+
     return 0;
 }
 
