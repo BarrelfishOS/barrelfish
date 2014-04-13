@@ -505,6 +505,7 @@ k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
 		tools/bin/create_multiboot
 
+	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/reset-mic.sh'"
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"

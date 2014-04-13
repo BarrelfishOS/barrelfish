@@ -228,7 +228,7 @@ loader(uint64_t magic,
 
     /* set the start address where we can allocate ram */
     phys_alloc_start = ROUND_UP(mb_img_start + boot_hdr->ramdisk_size,
-                                BASE_PAGE_SIZE);
+                                BASE_PAGE_SIZE)+BASE_PAGE_SIZE;
 
     boot_hdr->ramdisk_image = (uint32_t) mb_img_start;
 

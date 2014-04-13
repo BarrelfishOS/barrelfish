@@ -21,10 +21,10 @@ struct multiboot_info *get_multiboot(void) {
   mbi.mods_count = 2;
   mbi.mods_addr = (uint32_t)(uint64_t) mbi_mods;
   mbi_mods[0].mod_start = (uint32_t) 0x0;
-  mbi_mods[0].mod_end = (uint32_t) 0xf6a5a;
+  mbi_mods[0].mod_end = (uint32_t) 0xf2f09;
   mbi_mods[0].string = (uint32_t)(uint64_t) "/k1om/sbin/cpu loglevel=4";
-  mbi_mods[1].mod_start = (uint32_t) 0xf7000;
-  mbi_mods[1].mod_end = (uint32_t) 0x60cc13;
+  mbi_mods[1].mod_start = (uint32_t) 0xf3000;
+  mbi_mods[1].mod_end = (uint32_t) 0x608c13;
   mbi_mods[1].string = (uint32_t)(uint64_t) "/k1om/sbin/init_null ";
   mbi.mmap_length = sizeof(mbi_mmaps);
   mbi.mmap_addr = (uint32_t)(uint64_t) mbi_mmaps;
