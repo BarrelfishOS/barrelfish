@@ -59,7 +59,8 @@ syscall_entry:
 	/* Load pointer to endpoint cap */
 	shl	$OBJBITS_CTE, %rsi
 	mov	OFFSETOF_CAP_CNODE_CNODE(%rdi), %rcx
-	mov	$0xffffff8000000000, %rdi	// phys_to_mem()
+	// XXX: this shoud not be hardcoded! -RA
+	mov	$0xffffff0000000000, %rdi	// phys_to_mem()
 	add	%rdi, %rcx
 	add	%rsi, %rcx
 
@@ -147,7 +148,7 @@ lrpc_check_runnable_continue:
         xor     %eax, %eax
         mov     %eax, %fs
         mov     %eax, %gs
-        
+
 	/* Get new dispatcher pointer */
 	mov	OFFSETOF_DCB_DISP(%rsi), %rax
 	/* Disable target dispatcher -- gotta do it here for TLB hit reasons */
@@ -182,7 +183,7 @@ load_ldt: /* Load a new LDT: r11 = base, r14 = npages, rcx = temp for descriptor
         je load_ldt_invalid
         cmpq    $0, %r14
         je load_ldt_invalid
-        
+
         /* Update segment descriptor for LDT */
 
         movq    %r11, current_ldt_base(%rip)
@@ -236,9 +237,9 @@ load_ldt: /* Load a new LDT: r11 = base, r14 = npages, rcx = temp for descriptor
 
         // Store new descriptor (low half) to GDT
         mov %rcx, (gdt + 8*LDT_LO_SEL)(%rip)
-        
+
         // Construct segment selector and load it
-        mov     $LDT_SELECTOR, %cx        
+        mov     $LDT_SELECTOR, %cx
         lldt    %cx
 	jmp	load_ldt_continue
 

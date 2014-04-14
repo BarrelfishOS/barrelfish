@@ -21,7 +21,10 @@
 
 static coreid_t my_core_id;
 
-#ifdef __x86_64__
+#if defined(__k1om__)
+#       define MONITOR_NAME  "k1om/sbin/monitor"
+#       define MEM_SERV_NAME "k1om/sbin/mem_serv"
+#elif defined(__x86_64__)
 #       define MONITOR_NAME  "x86_64/sbin/monitor"
 #       define MEM_SERV_NAME "x86_64/sbin/mem_serv"
 #elif defined(__scc__)
@@ -310,6 +313,8 @@ int main(int argc, char *argv[])
             abort();
         }
     }
+
+    printf("Init done.\n");
 
     return EXIT_SUCCESS;
 }

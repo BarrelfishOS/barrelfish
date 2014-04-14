@@ -83,7 +83,7 @@ errval_t initialize_monitor(struct spawninfo *si)
         return err_push(err, INIT_ERR_COPY_PACN_CAP);
     }
 
-#if __x86_64__ || __i386__
+#if __x86_64__ || __i386__ || __k1om__
     /* Give monitor IRQ */
     dest.cnode = si->taskcn;
     dest.slot  = TASKCN_SLOT_IRQ;
