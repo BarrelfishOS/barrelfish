@@ -73,12 +73,12 @@ main(int argc,
     fprintf(o, "#include \"../kernel/include/multiboot.h\"\n");
 
     // Process menu.lst, generating definitions
-    unsigned int offset;
-    unsigned int length;
+    uint64_t offset;
+    uint64_t length;
 
     char cmd[MAX_CMD_SIZE], args[MAX_ARGS_SIZE], image[MAX_IMAGE_SIZE];
     while (!feof(f)) {
-        char line[1024];
+        char line[MAX_LINE_SIZE];
 
         cmd[0] = args[0] = image[0] = line[0] = '\0';
 
@@ -89,11 +89,11 @@ main(int argc,
          * kernel /k1om/sbin/cpu 0 1006840 loglevel=4
          *
          */
-        fgets(line, 1024, f);
-        sscanf(line, "%s %s %u %u %[^\n]", cmd, image, &offset, &length, args);
+        fgets(line, MAX_LINE_SIZE, f);
+        sscanf(line, "%s %s %lu %lu %[^\n]", cmd, image, &offset, &length, args);
 
         if (!strcmp(cmd, "kernel")) {
-            printf("   +Kernel: %s, offset=0x%x, length=0x%x, args=%s\n",
+            printf("   +Kernel: %s, offset=0x%lx, length=0x%lx, args=%s\n",
                    image, offset, length, args);
             kernel_cmd_line = malloc(strlen(line) + 1);
             kernel_length = length;
@@ -106,17 +106,18 @@ main(int argc,
             module_length[n_modules] = length;
             module_offset[n_modules] = offset;
             sprintf(module_cmd_line[n_modules], "%s %s", image, args);
-            printf("   +Module [%d]: %s, offset=0x%x, length=0x%x, args=%s\n", n_modules,
+            printf("   +Module [%d]: %s, offset=0x%lx, length=0x%lx, args=%s\n", n_modules,
                                image, offset, length, args);
             n_modules++;
         } else if (!strcmp(cmd, "mmap")) {
-            uint64_t base, len;
+            //uint64_t base, len;
             int type;
-            sscanf(args, "%" SCNi64 " %" SCNi64 " %i", &base, &len, &type);
+            sscanf(line, "%s %s %lx %lx %i", cmd, image, &offset, &length, &type);
+            sscanf(args, "%i", &type);
             printf("   +MMAP %d: [0x%" PRIx64 ", 0x%" PRIx64 "], type %d\n",
-                   n_mmaps, base, len, type);
+                   n_mmaps, offset, length, type);
             fprintf(o, "static uint64_t mbi_mmap%d[] = {0x%lx, 0x%lx, %d};\n",
-                    n_mmaps, base, len, type);
+                    n_mmaps, offset, length, type);
             n_mmaps++;
         } else {
             bool iscmd = false;
