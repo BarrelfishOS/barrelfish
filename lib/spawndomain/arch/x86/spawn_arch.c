@@ -24,6 +24,8 @@
 
 #if defined(__i386__)
 #define EM_HOST EM_386
+#elif defined(__k1om__)
+#define EM_HOST EM_K1OM
 #elif defined(__x86_64__)
 #define EM_HOST EM_X86_64
 #else
@@ -186,7 +188,7 @@ errval_t spawn_arch_load(struct spawninfo *si,
         .cnode = si->rootcn,
         .slot  = ROOTCN_SLOT_SEGCN,
     };
-    // XXX: this code assumes that elf_load never needs more than 32 slots for 
+    // XXX: this code assumes that elf_load never needs more than 32 slots for
     // text frame capabilities.
     err = cnode_create_raw(cnode_cap, &si->segcn, DEFAULT_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
@@ -210,7 +212,7 @@ void spawn_arch_set_registers(void *arch_load_info,
                               arch_registers_state_t *enabled_area,
                               arch_registers_state_t *disabled_area)
 {
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__k1om__)
     /* XXX: 1st argument to _start is the dispatcher pointer
      * see lib/crt/arch/x86_64/crt0.s */
     disabled_area->rdi = get_dispatcher_shared_generic(handle)->udisp;

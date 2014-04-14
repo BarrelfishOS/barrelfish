@@ -189,6 +189,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 
     switch(si->cpu_type) {
     case CPU_X86_64:
+    case CPU_K1OM:
         err = vnode_create(si->vtree, ObjType_VNode_x86_64_pml4);
         break;
 
@@ -256,6 +257,9 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
     struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)binary;
 
     switch(head->e_machine) {
+    case EM_K1OM:
+        si->cpu_type = CPU_K1OM;
+        break;
     case EM_X86_64:
         si->cpu_type = CPU_X86_64;
         break;
@@ -563,7 +567,7 @@ static errval_t spawn_setup_fdcap(struct spawninfo *si,
 
     struct capref src;
     src.cnode = inheritcn;
-    src.slot  = INHERITCN_SLOT_FDSPAGE; 
+    src.slot  = INHERITCN_SLOT_FDSPAGE;
 
     // Create frame (actually multiple pages) for fds
     struct capref dest;
@@ -721,7 +725,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ARGCN);
     }
- 
+
     /* Setup cmdline args */
     err = spawn_setup_env(si, argv, envp);
     if (err_is_fail(err)) {

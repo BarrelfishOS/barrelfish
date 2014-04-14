@@ -65,7 +65,7 @@ errval_t spawn_map_module(struct mem_region *module, size_t *retsize,
     void *base;
     struct memobj *memobj;
     struct vregion *vregion;
- 
+
     err = vspace_map_anon_attr(&base, &memobj, &vregion, size, &size,
                                VREGION_FLAGS_READ);
     if (err_is_fail(err)) {
@@ -123,7 +123,7 @@ errval_t spawn_unmap_module(lvaddr_t mapped_addr)
 const char *multiboot_module_rawstring(struct mem_region *region)
 {
     if (multiboot_strings == NULL) {
-	errval_t err;
+        errval_t err;
         /* Map in multiboot module strings area */
         struct capref mmstrings_cap = {
             .cnode = cnode_module,
@@ -190,9 +190,9 @@ const char *multiboot_module_name(struct mem_region *region)
 
 struct mem_region *multiboot_find_module(struct bootinfo *bi, const char *name)
 {
+
     for(size_t i = 0; i < bi->regions_length; i++) {
         struct mem_region *region = &bi->regions[i];
-
         const char *modname = multiboot_module_name(region);
         if (modname != NULL &&
             strncmp(modname + strlen(modname) - strlen(name),
