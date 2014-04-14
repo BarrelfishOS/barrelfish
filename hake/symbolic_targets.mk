@@ -493,17 +493,20 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 # Intel Xeon Phi-specific modules
 XEON_PHI_MODULES =\
 	k1om/sbin/cpu \
-	k1om/sbin/init_null
+	k1om/sbin/init \
+	k1om/sbin/mem_serv \
+	k1om/sbin/monitor \
+	k1om/sbin/ramfsd \
+	k1om/sbin/skb 
+	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
-	
-	
-	
+
 
 k1om: $(XEON_PHI_MODULES) \
-		menu.lst.k1om \
-		tools/bin/create_multiboot
+	menu.lst.k1om \
+	tools/bin/create_multiboot 
 
 	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/reset-mic.sh'"
 	

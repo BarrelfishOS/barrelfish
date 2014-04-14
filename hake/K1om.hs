@@ -29,14 +29,6 @@ arch = "k1om"
 archFamily = "k1om"
 
 compiler = "k1om-mpss-linux-gcc"
---objcopy  = "k1om-mpss-linux-objcopy"
---objdump  = "k1om-mpss-linux-objdump"
---ar       = "k1om-mpss-linux-ar"
---ranlib   = "k1om-mpss-linux-ranlib"
---cxxcompiler = "k1om-mpss-linux-g++"
-
-
--- compiler = "gcc"
 objcopy  = "k1om-mpss-linux-objcopy"
 objdump  = "k1om-mpss-linux-objdump"
 ar       = "k1om-mpss-linux-ar"
@@ -67,7 +59,7 @@ ourCommonFlags = [ Str "-m64",
 --                   Str "-mno-sse4a",
 --                   Str "-mno-3dnow", 
 -- specific Xeon Phi architecture
-              --     Str "-D__x86__",
+                   Str "-D__x86__",
                    Str "-D__k1om__" ]
 
 
@@ -118,8 +110,10 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fomit-frame-pointer",
                                 "-U__linux__",
                                 "-D__k1om__",
+                                "-D__x86__",
                                 "-mk1om",
                                 "-Wall",
+                                "-Wa,-march=k1om",
                                 "-Wshadow",
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",

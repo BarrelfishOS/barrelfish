@@ -13,16 +13,16 @@ timeout 0
 title	Barrelfish
 root	(nd)
 kernel	/k1om/sbin/cpu loglevel=4
-#module	/k1om/sbin/init
-module	/k1om/sbin/init_null
+module	/k1om/sbin/init
+
 
 # Domains spawned by init
-#module	/k1om/sbin/mem_serv
-#module	/k1om/sbin/monitor
+module	/k1om/sbin/mem_serv
+module	/k1om/sbin/monitor
 
 # Special boot time domains spawned by monitor
-#module  /k1om/sbin/ramfsd boot
-#module  /k1om/sbin/skb boot
+module  /k1om/sbin/ramfsd boot
+module  /k1om/sbin/skb boot
 #modulenounzip /skb_ramfs.cpio.gz nospawn
 #module  /k1om/sbin/kaluga boot
 #module  /k1om/sbin/acpi boot
@@ -39,7 +39,7 @@ module	/k1om/sbin/init_null
 mmap map 0x0000000000 0x0180000000 1
 
 # host system memory size 512GB
-mmap map 0x8000000000 0x8000000000 2
+#mmap map 0x8000000000 0x8000000000 2
 
 
 
