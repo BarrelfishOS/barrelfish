@@ -108,6 +108,11 @@ static void trigger_send_handler(struct octopus_binding* b,
 
 static inline bool can_install_trigger(octopus_trigger_t trigger, errval_t error)
 {
+    OCT_DEBUG("%s:%s:%d: trigger.m > 0 = %d\n",
+              __FILE__, __FUNCTION__, __LINE__, trigger.m > 0);
+    OCT_DEBUG("%s:%s:%d: trigger.in_case == err_no(error) = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, trigger.in_case == err_no(error));
+
     return trigger.m > 0 &&
            (trigger.in_case == err_no(error) ||
            (trigger.m & OCT_ALWAYS_SET) != 0 );
