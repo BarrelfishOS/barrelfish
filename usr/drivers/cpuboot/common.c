@@ -52,19 +52,21 @@ errval_t create_or_get_kcb_cap(coreid_t coreid)
     DEBUG("%s:%s:%d: oct_get_capability for key = %s\n",
           __FILE__, __FUNCTION__, __LINE__, kcb_key);
 
-    err = oct_get_capability(kcb_key, &kcb);
-    if (err_is_ok(err)) {
-        DEBUG("%s:%s:%d: kcb cap was cached\n",
-              __FILE__, __FUNCTION__, __LINE__);
-        kcb_stored = true;
-        return err;
-    } else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
-        DEBUG("%s:%s:%d: did not find the kcb in cap storage\n",
-              __FILE__, __FUNCTION__, __LINE__);
-        return err;
+    if (!new_kcb_flag) {
+        err = oct_get_capability(kcb_key, &kcb);
+        if (err_is_ok(err)) {
+            DEBUG("%s:%s:%d: kcb cap was cached\n",
+                  __FILE__, __FUNCTION__, __LINE__);
+            kcb_stored = true;
+            return err;
+        } else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
+            DEBUG("%s:%s:%d: did not find the kcb in cap storage\n",
+                  __FILE__, __FUNCTION__, __LINE__);
+            return err;
+        }
     }
-    DEBUG("%s:%s:%d: Create a new kcb\n",
-          __FILE__, __FUNCTION__, __LINE__);
+    DEBUG("%s:%s:%d: Create a new kcb (new_kcb_flag = %d)\n",
+          __FILE__, __FUNCTION__, __LINE__, new_kcb_flag);
 
     err = ram_alloc(&kcb_mem, OBJBITS_KCB);
     if (err_is_fail(err)) {
@@ -85,11 +87,14 @@ errval_t create_or_get_kcb_cap(coreid_t coreid)
         DEBUG_ERR(err, "Failure in cap_retype.");
     }
 
-    DEBUG("%s:%s:%d: Store the kcb.\n",
-          __FILE__, __FUNCTION__, __LINE__);
-    err = oct_put_capability(kcb_key, kcb);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "can not save the capability.");
+    // HACK don't store KCB righ tnow will leak with -nm flags!
+    if (!new_kcb_flag) {
+        DEBUG("%s:%s:%d: Store the kcb.\n",
+              __FILE__, __FUNCTION__, __LINE__);
+        err = oct_put_capability(kcb_key, kcb);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "can not save the capability.");
+        }
     }
 
     return err;

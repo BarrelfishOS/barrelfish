@@ -24,7 +24,10 @@ bool done = false;
 bool kcb_stored = false;
 struct capref kcb;
 
-static int debug_flag;
+bool debug_flag = false;
+bool new_kcb_flag = false;
+bool nomsg_flag = false;
+
 static char* cmd_kernel_binary = "";
 static char* cmd_kernel_args = "loglevel=2 logmask=0";
 
@@ -357,10 +360,19 @@ static struct cmd commands[] = {
     {NULL, NULL, NULL, NULL, 0},
 };
 
+static struct option long_options[] = {
+    {"debug",   no_argument,       0, 'd'},
+    {"binary",  required_argument, 0, 'b'},
+    {"kargs",   required_argument, 0, 'k'},
+    {"newkcb",  no_argument,       0, 'n'},
+    {"nomsg",   no_argument,       0, 'm'},
+    {"help",    no_argument,       0, 'h'},
+    {0, 0, 0, 0}
+};
+
 static void print_help(char* argv0)
 {
-    printf("Usage: %s [--debug] [--binary <path>] " \
-           "[--kargs \"<kernel args>\"] <COMMAND> [<args>]\n", argv0);
+    printf("Usage: %s [OPTIONS] <COMMAND> [<args>]\n", argv0);
     printf("Options:\n");
     printf("\t -d, --debug\n");
     printf("\t\t Print debug information\n");
@@ -368,11 +380,14 @@ static void print_help(char* argv0)
     printf("\t\t Overwrite default kernel binary\n");
     printf("\t -k, --kargs\n");
     printf("\t\t Overwrite default kernel cmd arguments\n");
+    printf("\t -n, --newkcb\n");
+    printf("\t\t Create a new KCB even if there is already one for that core\n");
+    printf("\t -m, --nomsg\n");
+    printf("\t\t Don't wait for monitor message at the end\n");
     printf("\n");
     printf("Commands:\n");
     for (size_t i = 0; commands[i].name != NULL; i++) {
-        printf("\t %s\n", commands[i].name);
-        printf("\t\t %s\n", commands[i].desc);
+        printf("\t %s\t\t%s\n", commands[i].name, commands[i].desc);
     }
 }
 
@@ -508,6 +523,7 @@ static void microbench(void)
 int main (int argc, char **argv)
 {
     initialize();
+    int ret = -1;
 
 #if defined(ENSURE_SEQUENTIAL)
     errval_t err;
@@ -520,23 +536,16 @@ int main (int argc, char **argv)
 
 #if defined(MICROBENCH)
     microbench();
-    return 0;
+    goto out;
 #endif
 
     // Parse arguments, call handler function
     int c;
     while (1) {
-        static struct option long_options[] = {
-            {"debug",   no_argument,       &debug_flag, 'd'},
-            {"binary",  required_argument, 0, 'b'},
-            {"kargs",   required_argument, 0, 'k'},
-            {"help",    no_argument,       0, 'h'},
-            {0, 0, 0, 0}
-        };
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "b:k:h",
+        c = getopt_long (argc, argv, "b:k:hnmd",
                          long_options, &option_index);
         if (c == -1) {
             break; // End of the options
@@ -555,24 +564,36 @@ int main (int argc, char **argv)
             cmd_kernel_args = optarg;
             break;
 
+        case 'm':
+            nomsg_flag = true;
+            break;
+
+        case 'n':
+            new_kcb_flag = true;
+            break;
+
+        case 'd':
+            debug_flag = true;
+            break;
+
         case '?':
         case 'h':
             print_help(argv[0]);
+            goto out;
             break;
-
         default:
-            abort ();
+            abort();
+            break;
         }
     }
 
-    int ret = -1;
     if (optind < argc) {
-        DEBUG ("non-option ARGV-elements\n");
         for (; optind < argc; optind++) {
             for (size_t i = 0; commands[i].name != NULL; i++) {
                 if (strcmp(argv[optind], commands[i].name) == 0) {
                     if (argc - optind < commands[i].argc) {
                         print_cmd_help(commands[i].name);
+                        goto out;
                     }
                     else {
                         ret = commands[i].fn(argc-optind, argv+optind);
@@ -586,7 +607,7 @@ int main (int argc, char **argv)
     if (ret == -1) {
         print_help(argv[0]);
     }
-    else {
+    else if (!nomsg_flag) {
         DEBUG("%s:%s:%d: Wait for message.\n",
               __FILE__, __FUNCTION__, __LINE__);
         while(!done) {
@@ -597,6 +618,7 @@ int main (int argc, char **argv)
         }
     }
 
+out:
 #if defined(ENSURE_SEQUENTIAL)
     err = oct_unlock(lock);
     if (err_is_fail(err)) {

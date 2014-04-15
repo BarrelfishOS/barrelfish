@@ -33,13 +33,17 @@
 #include <if/intermon_defs.h>
 
 #define DEBUG
-
 #ifdef DEBUG
 #undef DEBUG
-#define DEBUG(x...) debug_printf(x)
+#define DEBUG(x...) if (debug_flag) debug_printf(x)
 #else
 #define DEBUG(x...) ((void)0)
 #endif
+
+// Globals
+extern bool debug_flag;
+extern bool new_kcb_flag;
+
 
 // TODO(gz): Remove!
 #pragma GCC diagnostic ignored "-Wunused-function"
