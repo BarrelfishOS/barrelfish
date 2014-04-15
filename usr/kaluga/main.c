@@ -44,7 +44,7 @@ static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
-    set_start_function("x86bootseq", start_boot_driver);
+    set_start_function("x86boot", start_boot_driver);
 }
 
 static void parse_arguments(int argc, char** argv)
@@ -128,9 +128,9 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    /*struct module_info* mi = find_module("x86bootseq");
+    /*struct module_info* mi = find_module("x86boot");
     if (mi != NULL) {
-        printf("%s:%d: spawn x86bootseq\n", __FILE__, __LINE__);
+        printf("%s:%d: spawn x86boot\n", __FILE__, __LINE__);
         err = mi->start_function(0, mi, "hw.apic.1 { processor_id: 1, enabled: 1, apic_id: 1 }");
         err = mi->start_function(0, mi, "hw.apic.2 { processor_id: 2, enabled: 1, apic_id: 2 }");
 

@@ -51,7 +51,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 //        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
 //                core_counter++, arch_id);
 
-        struct module_info* mi = find_module("x86bootseq");
+        struct module_info* mi = find_module("x86boot");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
             assert(err_is_ok(err));
@@ -95,7 +95,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     bool cleanup = false;
     size_t argc = mi->argc;
 
-    KALUGA_DEBUG("Starting x86bootseq for %s", record);
+    KALUGA_DEBUG("Starting x86boot for %s", record);
     err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
             &cpu_id, &apic_id);
     if (err_is_ok(err)) {
@@ -112,7 +112,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         char *apic_id_s  = malloc(10);
         snprintf(apic_id_s, 10, "%"PRIx64"", apic_id);
 
-        argv[argc] = "up";
+        argv[argc] = "boot";
         argc += 1;
         argv[argc] = apic_id_s;
         argc += 1;
@@ -158,23 +158,6 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     if (cleanup) {
         free(argv[argc-1]);
         free(argv);
-    }
-
-    char* barrier;
-    err = oct_barrier_enter("x86boot", &barrier, 2);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not lock x86boot.");
-    }
-
-    err = oct_barrier_leave(barrier);
-    if (err_is_fail(err)) {
-        if (err_no(err) == OCT_ERR_NO_RECORD) {
-            // lost the race
-            err = SYS_ERR_OK;
-        }
-        else {
-            USER_PANIC_ERR(err, "You shall not pass.");
-        }
     }
 
     return err;
