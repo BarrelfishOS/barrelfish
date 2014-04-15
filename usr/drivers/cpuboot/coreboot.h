@@ -32,6 +32,8 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <if/intermon_defs.h>
 
+#define DEBUG
+
 #ifdef DEBUG
 #undef DEBUG
 #define DEBUG(x...) debug_printf(x)

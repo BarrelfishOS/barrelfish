@@ -119,7 +119,7 @@ errval_t get_architecture_config(enum cpu_type type,
 {
     switch (type) {
     case CPU_X86_64:
-            *arch_page_size = X86_64_BASE_PAGE_SIZE;
+        *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = "/x86_64/sbin/monitor";
         *cpu_binary = "/x86_64/sbin/cpu";
         break;

@@ -23,11 +23,6 @@ let template = application {
     }
 in [
     build template {
-        target = "x86bootseq",
-        addCFlags = ["-DENSURE_SEQUENTIAL"]
-    },
-
-    build template {
         target = "x86boot",
         addCFlags = ["-DENSURE_SEQUENTIAL"]
     },
