@@ -11,29 +11,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
+#include "coreboot.h"
 
-#include <barrelfish/barrelfish.h>
-#include <barrelfish/spawn_client.h>
-#include <elf/elf.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
-
-#include <if/monitor_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
-#include <spawndomain/spawndomain.h>
-#include <if/intermon_defs.h>
-#include <acpi_client/acpi_client.h>
-#include <vfs/vfs.h>
-
-#include <barrelfish_kpi/capabilities.h>
-#include <barrelfish/invocations_arch.h>
-#include <octopus/octopus.h>
-#include <octopus/capability_storage.h>
 
 // From kernels start_aps.c
 #include <kernel.h>
@@ -45,31 +27,13 @@
 #include <dev/xapic_dev.h>
 #include <target/x86_64/offsets_target.h>
 
-#include <bench/bench.h>
-
-#ifdef DEBUG
-#undef DEBUG
-#define DEBUG(x...) debug_printf(x)
-#else
-#define DEBUG(x...) ((void)0)
-#endif
-
-uint64_t start = 0;
-uint64_t end = 0;
-
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
-#pragma GCC diagnostic ignored "-Wunused-function"
 
 struct elf_allocate_state {
     void *vbase;
     genvaddr_t elfbase;
 };
-
-static bool done = false;
-static bool kcb_stored = false;
-
-static struct capref kcb;
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -85,8 +49,10 @@ extern uint64_t x86_64_init_ap_global;
 extern uint64_t x86_64_init_ap_dispatch;
 
 volatile uint32_t* ap_dispatch;
-static coreid_t my_arch_id;
-static struct capref kernel_cap;
+extern coreid_t my_arch_id;
+extern struct capref kernel_cap;
+extern struct capref kcb;
+extern uint64_t end;
 
 static errval_t elfload_allocate(void *state, genvaddr_t base,
                                          size_t size, uint32_t flags,
@@ -140,10 +106,35 @@ static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
     return sr.error;
 }
 
-static inline errval_t invoke_start_core(void)
+errval_t invoke_start_core(void)
 {
     struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_StartCore);
     return sr.error;
+}
+
+errval_t get_architecture_config(enum cpu_type type,
+                                 genpaddr_t *arch_page_size,
+                                 const char **monitor_binary,
+                                 const char **cpu_binary)
+{
+    switch (type) {
+    case CPU_X86_64:
+            *arch_page_size = X86_64_BASE_PAGE_SIZE;
+        *monitor_binary = "/x86_64/sbin/monitor";
+        *cpu_binary = "/x86_64/sbin/cpu";
+        break;
+
+    case CPU_X86_32:
+        *arch_page_size = X86_32_BASE_PAGE_SIZE;
+        *monitor_binary = "x86_32/sbin/monitor";
+        *cpu_binary = "x86_32/sbin/cpu";
+        break;
+
+    default:
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+    }
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -245,7 +236,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
     *ap_wait = AP_STARTING_UP;
 
-
     end = bench_tsc();
     err = invoke_send_init_ipi(core_id);
     if (err_is_fail(err)) {
@@ -287,127 +277,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     return -1;
 }
 
-static errval_t get_architecture_config(enum cpu_type type,
-                                        genpaddr_t* arch_page_size,
-                                        const char** monitor_binary,
-                                        const char** cpu_binary)
-{
-    switch (type) {
-    case CPU_X86_64:
-        *arch_page_size = X86_64_BASE_PAGE_SIZE;
-        *monitor_binary = "/x86_64/sbin/monitor";
-        *cpu_binary = "/x86_64/sbin/cpu";
-        break;
-
-    case CPU_X86_32:
-        *arch_page_size = X86_32_BASE_PAGE_SIZE;
-        *monitor_binary = "x86_32/sbin/monitor";
-        *cpu_binary = "x86_32/sbin/cpu";
-        break;
-
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static inline errval_t
-invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                          bool * has_descendents)
-{
-    struct sysret r = cap_invoke4(kernel_cap, KernelCmd_Remote_cap, cap, bits,
-                                  is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
-}
-
-static errval_t cap_mark_remote(struct capref cap)
-{
-    // TODO(gz): Re-enable, this does not much right now but
-    // will be interesting with Mark nevills libmdb
-
-    bool has_descendants;
-
-    uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
-    return invoke_monitor_cap_remote(caddr, vbits, true, &has_descendants);
-}
-
-/**
- * \brief Same as frame_alloc but also identify the capability.
- */
-static errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
-                                     size_t *retbytes, struct frame_identity* id)
-{
-    errval_t err = frame_alloc(dest, bytes, retbytes);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_alloc failed.");
-        return err;
-    }
-
-    if (id != NULL) {
-        err = invoke_frame_identify(*dest, id);
-    }
-
-    return err;
-}
-
-static errval_t lookup_module(const char* module_name, lvaddr_t* binary_virt,
-                              genpaddr_t* binary_phys, size_t* binary_size)
-{
-    /*struct mem_region *module_region = multiboot_find_module(bi, module_name);
-    if (module_region == NULL) {
-        USER_PANIC("multiboot module not found?");
-        return SPAWN_ERR_FIND_MODULE;
-    }*/
-
-    vfs_handle_t handle;
-    struct vfs_fileinfo info;
-
-    errval_t err = vfs_open(module_name, &handle);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vfs_open could not open module?");
-        return err;
-    }
-
-    err = vfs_stat(handle, &info);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vfs_stat for binary failed.");
-        return err;
-    }
-    *binary_size = info.size;
-
-    struct capref binary_image_cap;
-    struct frame_identity id;
-    err = frame_alloc_identify(&binary_image_cap, info.size, NULL, &id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not allocate space for binary");
-        return err;
-    }
-    *binary_phys = id.base;
-    DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
-
-    err = vspace_map_one_frame((void**)binary_virt, info.size, binary_image_cap,
-                               NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not map frame");
-        return err;
-    }
-
-    size_t bytes_read = 0;
-    err = vfs_read(handle, (void*)*binary_virt, info.size, &bytes_read);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not read binary from vfs");
-        return err;
-    }
-    assert(bytes_read == info.size); // TODO(gz): If this fails, need to loop vfs_read
-
-
-    return SYS_ERR_OK;
-}
 
 /**
  * Allocates memory for kernel binary.
@@ -509,11 +378,11 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
     return SYS_ERR_OK;
 }
 
-static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
-                                    enum cpu_type cpu_type,
-                                    const char *cpu_ext,
-                                    const char *cmdline,
-                                    struct frame_identity urpc_frame_id)
+errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
+                             enum cpu_type cpu_type,
+                             const char *cpu_ext,
+                             const char *cmdline,
+                             struct frame_identity urpc_frame_id)
 {
     const char *monitorname = NULL, *cpuname_ = NULL;
     genpaddr_t arch_page_size;
@@ -706,618 +575,4 @@ static errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     return SYS_ERR_OK;
-}
-
-static void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
-{
-    if (err_is_fail(msgerr)) {
-        USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
-    }
-    DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-
-    done = true;
-}
-
-static void power_down_response(struct monitor_binding *st, coreid_t target)
-{
-    DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, target);
-
-    done = true;
-}
-
-static errval_t create_or_get_kcb_cap(coreid_t coreid)
-{
-    errval_t err;
-    struct capref kcb_mem;
-
-    DEBUG("%s:%s:%d: get capability\n",
-           __FILE__, __FUNCTION__, __LINE__);
-
-    int length = snprintf(NULL, 0, "kcb_id_%d", coreid) + 1; // +1 for \0
-    char* kcb_key = (char*)malloc(length);
-    assert (kcb_key != NULL);
-    snprintf(kcb_key, length+1, "kcb_id_%d", coreid);
-
-    DEBUG("%s:%s:%d: oct_get_capability for key = %s\n",
-           __FILE__, __FUNCTION__, __LINE__, kcb_key);
-
-    err = oct_get_capability(kcb_key, &kcb);
-    if (err_is_ok(err)) {
-        DEBUG("%s:%s:%d: kcb cap was cached\n",
-               __FILE__, __FUNCTION__, __LINE__);
-        kcb_stored = true;
-        return err;
-    }
-    else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
-        DEBUG("%s:%s:%d: did not find the kcb in cap storage\n",
-               __FILE__, __FUNCTION__, __LINE__);
-        return err;
-    }
-    DEBUG("%s:%s:%d: Create a new kcb\n",
-           __FILE__, __FUNCTION__, __LINE__);
-
-    err = ram_alloc(&kcb_mem, OBJBITS_KCB);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame alloc");
-        return err;
-    }
-
-    err = slot_alloc(&kcb);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failure in slot_alloc.");
-        return err;
-    }
-
-    err = cap_retype(kcb, kcb_mem,
-                     ObjType_KernelControlBlock,
-                     OBJBITS_KCB);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failure in cap_retype.");
-    }
-
-    DEBUG("%s:%s:%d: Store the kcb.\n",
-           __FILE__, __FUNCTION__, __LINE__);
-    err = oct_put_capability(kcb_key, kcb);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "can not save the capability.");
-    }
-
-    return err;
-}
-
-static errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
-{
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    DEBUG("%s:%s:%d: Send KCB to local monitor for forwarding to destination_id = %"PRIuCOREID"\n",
-           __FILE__, __FUNCTION__, __LINE__, destination_id);
-
-    errval_t ret_err;
-    errval_t err = mc->vtbl.forward_kcb_request(mc, destination_id, new_kcb, &ret_err);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "forward_kcb_request failed.");
-    }
-    if (err_is_fail(ret_err)) {
-        USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
-    }
-
-    DEBUG("%s:%s:%d: KCB forwarded\n", __FILE__, __FUNCTION__, __LINE__);
-    return SYS_ERR_OK;
-}
-
-volatile int counter = 0;
-static void mysleep(int sleeptime)
-{
-    volatile int i = 0;
-    volatile int j = 0;
-    volatile int n = sleeptime;
-    n = sleeptime;
-    for ( i = 0; i < n; ++i) {
-        for ( j = 0; j < 32100; ++j) {
-            counter = counter + 1;
-        }
-    }
-}
-
-#if defined(MICROBENCH)
-static int real_main(int argc, char** argv);
-int main(int argc, char** argv) {
-    errval_t err;
-
-    vfs_init();
-
-    bench_arch_init();
-
-    err = connect_to_acpi();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "connect to acpi failed.");
-    }
-
-    err = oct_init();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Octopus initialization failed.");
-    }
-
-#if DOWNUPDATE
-    int argc_down = 4;
-    char* argv_down[] = {
-        "x86boot",
-        "auto",
-        "down",
-        "1"
-    };
-    int argc_up = 4;
-    char* argv_up[] = {
-        "x86boot",
-        "auto",
-        "update",
-        "1"
-    };
-
-    uint64_t start_down, end_down, start_up, end_up;
-
-    printf("# ticks-down ms-down ticks-up ms-up\n");
-    for (size_t i=0; i<20; i++) {
-        start_down = bench_tsc();
-        real_main(argc_down, argv_down);
-        end_down = bench_tsc();
-
-        start_up = bench_tsc();
-        real_main(argc_up, argv_up);
-        end_up = bench_tsc();
-
-        printf("%lu %lu %lu %lu\n",
-               end_down-start_down, bench_tsc_to_ms(end_down-start_down),
-               end_up-start_up, bench_tsc_to_ms(end_up-start_up));
-
-    }
-#endif
-
-#if UPDATE
-    int argc_update = 4;
-    char* argv_update[] = {
-        "x86boot",
-        "auto",
-        "update",
-        "1"
-    };
-    uint64_t start_up, end_up;
-
-    printf("# ticks-update ms-update ticks-x86boot ms-x86boot\n");
-    for (size_t i=0; i<20; i++) {
-
-        start_up = bench_tsc();
-        real_main(argc_update, argv_update);
-        end_up = bench_tsc();
-
-        //while(*ap_dispatch != 2);
-
-        printf("%lu %lu %lu %lu\n",
-               end_up-start_up, bench_tsc_to_ms(end_up-start_up),
-               end-start, bench_tsc_to_ms(end-start));
-    }
-#endif
-
-#if TAKE
-    int argc_up = 4;
-    // Give kcb from core 2 to core 1
-    char* argv_up[] = {
-        "x86boot",
-        "auto",
-        "up",
-        "2"
-    };
-
-    int argc_give = 5;
-    // Give kcb from core 2 to core 1
-    char* argv_give[] = {
-        "x86boot",
-        "auto",
-        "give",
-        "2",
-        "1"
-    };
-
-    int argc_take = 6;
-    // Taking kcb.2 from core 1 to core 0
-    char* argv_take_ping[] = {
-        "x86boot",
-        "auto",
-        "take",
-        "2",
-        "1",
-        "0"
-    };
-
-    // Taking kcb.2 from core 0 to core 1
-    char* argv_take_pong[] = {
-        "x86boot",
-        "auto",
-        "take",
-        "2",
-        "0",
-        "1"
-    };
-
-    // Set-up, start 2 and give 2 to 1
-    real_main(argc_up, argv_up);
-    real_main(argc_give, argv_give);
-
-    uint64_t start_take1, end_take1;
-    uint64_t start_take2, end_take2;
-
-    printf("# ticks-takegive ms-takegive\n");
-    for (size_t i=0; i<20; i++) {
-
-        start_take1 = bench_tsc();
-        real_main(argc_take, argv_take_ping);
-        end_take1 = bench_tsc();
-
-        start_take2 = bench_tsc();
-        real_main(argc_take, argv_take_pong);
-        end_take2 = bench_tsc();
-
-        printf("%lu %lu %lu %lu\n",
-               end_take1-start_take1, bench_tsc_to_ms(end_take1-start_take1),
-               end_take2-start_take2, bench_tsc_to_ms(end_take2-start_take2));
-
-    }
-#endif
-
-
-}
-#endif
-
-#if !defined(MICROBENCH)
-int main(int argc, char** argv)
-#else
-static int real_main(int argc, char** argv)
-#endif
-{
-    start = bench_tsc();
-
-    errval_t err;
-    for (size_t i = 0; i < argc; i++) {
-        DEBUG("%s:%s:%d: argv[i]=%s\n",
-               __FILE__, __FUNCTION__, __LINE__, argv[i]);
-    }
-    if (argc < 4) {
-        DEBUG("%s:%s:%d: Not enough arguments\n", __FILE__, __FUNCTION__, __LINE__);
-        return 1;
-    }
-
-#if !defined(MICROBENCH)
-    vfs_init();
-
-    bench_arch_init();
-
-    err = connect_to_acpi();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "connect to acpi failed.");
-    }
-
-    err = oct_init();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Octopus initialization failed.");
-    }
-#endif
-
-    struct monitor_binding *st = get_monitor_binding();
-    st->rx_vtbl.boot_core_reply = boot_core_reply;
-    st->rx_vtbl.power_down_response = power_down_response;
-
-
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    err = mc->vtbl.get_arch_core_id(mc, (uintptr_t*)&my_arch_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "get_arch_core_id failed.");
-    }
-    DEBUG("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
-
-    err = mc->vtbl.get_kernel_cap(mc, &kernel_cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "get_kernel_cap failed.");
-    }
-
-    for (size_t i = 0; i < argc; i++) {
-        DEBUG("%s:%d: argv[i]=%s\n", __FILE__, __LINE__, argv[i]);
-    }
-
-    coreid_t target_id = (coreid_t) strtol(argv[3], NULL, 16);
-    assert(target_id < MAX_COREID);
-
-
-    err = create_or_get_kcb_cap(target_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not get kcb.");
-    }
-
-    //enum cpu_type type = (enum cpu_type) atoi(argv[4]);
-    //assert(type < CPU_TYPE_NUM);
-
-    if (!strcmp(argv[2], "up")) { // TODO(gz) should be boot!
-        char sched[32] = { 0 };
-        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-             char *s=argv[2]+3;
-             int i;
-             for (i = 0; i < 31; i++) {
-                 if (!s[i] || s[i] == ' ') {
-                     break;
-                 }
-             }
-             memcpy(sched, s, i);
-             sched[i] = 0;
-        }
-
-        struct capref frame;
-        size_t framesize;
-        struct frame_identity urpc_frame_id;
-        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-        }
-        err = cap_mark_remote(frame);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not mark cap remote.");
-            return err;
-        }
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "boot_core_request failed");
-        }
-
-        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=2 logmask=0", urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }
-    }
-    else if (!strcmp(argv[2], "update")) {
-        char sched[32] = { 0 };
-        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-             char *s=argv[2]+3;
-             int i;
-             for (i = 0; i < 31; i++) {
-                 if (!s[i] || s[i] == ' ') {
-                     break;
-                 }
-             }
-             memcpy(sched, s, i);
-             sched[i] = 0;
-        }
-
-        struct capref frame;
-        size_t framesize;
-        struct frame_identity urpc_frame_id;
-        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-        }
-        err = cap_mark_remote(frame);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not mark cap remote.");
-            return err;
-        }
-
-        // do clean(ish) shutdown
-        // TODO(gz): Use designated IRQ number
-        err = sys_debug_send_ipi(target_id, 0, 40);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-        }
-
-        done = true;
-        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=0", urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }
-
-        while(*ap_dispatch != 1);
-    }
-    else if (!strcmp(argv[2], "down")) {
-        DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
-        /*err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "power_down failed.");
-        }*/
-
-        // TODO(gz): Use designated IRQ number
-        err = sys_debug_send_ipi(target_id, 0, 40);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-        }
-        done = true;
-    }
-    else if (!strcmp(argv[2], "give")) {
-        assert (argc == 5);
-        DEBUG("%s:%d: Give kcb from core %s to core %s...\n",
-              __FILE__, __LINE__, argv[3], argv[4]);
-
-        coreid_t destination_id = (coreid_t) strtol(argv[4], NULL, 16);
-        assert(destination_id < MAX_COREID);
-
-        /*DEBUG("%s:%s:%d: power down target_id=%"PRIuCOREID"\n",
-               __FILE__, __FUNCTION__, __LINE__, target_id);
-        err = st->tx_vtbl.power_down(st, NOP_CONT, target_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "power_down failed.");
-        }
-
-        while(!done) {
-            err = event_dispatch(get_default_waitset());
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "error in event_dispatch");
-            }
-        }
-        done = false;*/
-        // TODO(gz): Use designated IRQ number
-        err = sys_debug_send_ipi(target_id, 0, 40);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-        }
-        done = true;
-
-        err = give_kcb_to_new_core(destination_id, kcb);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "Can not send KCB to another core.");
-        }
-    }
-    else if (!strcmp(argv[2], "take")) {
-        assert (argc == 6);
-        DEBUG("%s:%s:%d: Taking kcb.%s from core %s to core %s\n", __FILE__,
-                __FUNCTION__, __LINE__, argv[3], argv[4], argv[5]);
-
-        coreid_t source_id = (coreid_t) strtol(argv[4], NULL, 16);
-        coreid_t destination_id = (coreid_t) strtol(argv[5], NULL, 16);
-
-        assert(source_id < MAX_COREID);
-        assert(destination_id < MAX_COREID);
-
-        struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-
-        errval_t ret_err;
-        // send message to monitor to be relocated -> don't switch kcb ->
-        // remove kcb from ring -> msg ->
-        // (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
-        errval_t err = mc->vtbl.forward_kcb_rm_request(mc, source_id, kcb, &ret_err);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "forward_kcb_request failed.");
-        }
-        if (err_is_fail(ret_err)) {
-            USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
-        }
-
-        err = give_kcb_to_new_core(destination_id, kcb);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "Can not send KCB to another core.");
-        }
-        done = true;
-
-        /*char sched[32] = { 0 };
-        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-             char *s=argv[2]+3;
-             int i;
-             for (i = 0; i < 31; i++) {
-                 if (!s[i] || s[i] == ' ') {
-                     break;
-                 }
-             }
-             memcpy(sched, s, i);
-             sched[i] = 0;
-        }
-
-        struct capref frame;
-        size_t framesize;
-        struct frame_identity urpc_frame_id;
-        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-        }
-        err = cap_mark_remote(frame);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not mark cap remote.");
-            return err;
-        }
-
-        struct monitor_binding *mb = get_monitor_binding();
-        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "boot_core_request failed");
-        }
-
-        err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
-                                  "loglevel=0 logmask=1", urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }*/
-    }
-    else if (!strcmp(argv[2], "upwith")) { // TODO(gz) should be boot!
-        assert(argc == 5);
-        char sched[32] = { 0 };
-        if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-             char *s=argv[2]+3;
-             int i;
-             for (i = 0; i < 31; i++) {
-                 if (!s[i] || s[i] == ' ') {
-                     break;
-                 }
-             }
-             memcpy(sched, s, i);
-             sched[i] = 0;
-        }
-
-        coreid_t destination_id = (coreid_t) strtol(argv[4], NULL, 16);
-
-        struct capref frame;
-        size_t framesize;
-        struct frame_identity urpc_frame_id;
-        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-        }
-        err = cap_mark_remote(frame);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not mark cap remote.");
-            return err;
-        }
-
-        // TODO(gz): Use designated IRQ number
-        err = sys_debug_send_ipi(target_id, 0, 40);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-        }
-        done = true;
-
-        err = spawn_xcore_monitor(destination_id, destination_id, CPU_X86_64, sched,
-                                  "loglevel=2 logmask=0", urpc_frame_id);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-        }
-    }
-    else if (!strcmp(argv[2], "resume")) {
-        DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
-        err = invoke_start_core();
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "resume core failed.");
-        }
-        done = true;
-    }
-    else {
-        DEBUG("%s:%s:%d: unknown cmd = %s\n",
-               __FILE__, __FUNCTION__, __LINE__, argv[2]);
-        done = true;
-    }
-
-    DEBUG("%s:%s:%d: Wait for message.\n",
-          __FILE__, __FUNCTION__, __LINE__);
-    while(!done) {
-        err = event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "error in event_dispatch");
-        }
-    }
-
-    DEBUG("%s:%s:%d: We're done here...\n", __FILE__, __FUNCTION__, __LINE__);
-
-#if defined(ENSURE_SEQUENTIAL)
-    char* barrier;
-    err = oct_barrier_enter("x86boot", &barrier, 2);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not enter x86boot.");
-    }
-
-    err = oct_barrier_leave(barrier);
-    if (err_is_fail(err)) {
-        if (err_no(err) == OCT_ERR_NO_RECORD) {
-            // ignore
-        }
-        else {
-            USER_PANIC_ERR(err, "oct_barrier_leave");
-        }
-    }
-#endif
-
-    return 0;
 }
