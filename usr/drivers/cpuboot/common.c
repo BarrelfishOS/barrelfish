@@ -15,7 +15,6 @@
 
 extern bool done;
 extern struct capref kcb;
-extern bool kcb_stored;
 extern struct capref kernel_cap;
 
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
@@ -57,7 +56,6 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
         if (err_is_ok(err)) {
             DEBUG("%s:%s:%d: kcb cap was cached\n",
                   __FILE__, __FUNCTION__, __LINE__);
-            kcb_stored = true;
             return err;
         } else if (err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
             DEBUG("%s:%s:%d: did not find the kcb in cap storage\n",

@@ -191,7 +191,8 @@ static int give_kcb(int argc, char** argv)
 
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    errval_t err = create_or_get_kcb_cap(target_id);
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }

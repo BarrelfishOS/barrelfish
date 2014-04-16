@@ -52,7 +52,7 @@ extern bool new_kcb_flag;
 // common.c
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr);
 void power_down_response(struct monitor_binding *st, coreid_t target);
-errval_t create_or_get_kcb_cap(coreid_t coreid);
+errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb);
 errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb);
 errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
                                    bool *has_descendents);
@@ -67,7 +67,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              enum cpu_type cpu_type,
                              const char *cpu_ext,
                              const char *cmdline,
-                             struct frame_identity urpc_frame_id);
+                             struct frame_identity urpc_frame_id,
+                             struct capref kcb);
 errval_t invoke_start_core(void);
 errval_t get_architecture_config(enum cpu_type type,
                                  genpaddr_t *arch_page_size,
