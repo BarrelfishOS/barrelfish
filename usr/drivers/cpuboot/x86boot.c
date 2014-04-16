@@ -51,7 +51,6 @@ extern uint64_t x86_64_init_ap_dispatch;
 volatile uint32_t* ap_dispatch;
 extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
-extern struct capref kcb;
 extern uint64_t end;
 
 static errval_t elfload_allocate(void *state, genvaddr_t base,
@@ -382,7 +381,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              enum cpu_type cpu_type,
                              const char *cpu_ext,
                              const char *cmdline,
-                             struct frame_identity urpc_frame_id)
+                             struct frame_identity urpc_frame_id,
+                             struct capref kcb)
 {
     const char *monitorname = NULL, *cpuname_ = NULL;
     genpaddr_t arch_page_size;

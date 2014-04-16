@@ -21,8 +21,6 @@ coreid_t my_arch_id;
 struct capref kernel_cap;
 
 bool done = false;
-bool kcb_stored = false;
-struct capref kcb;
 
 bool debug_flag = false;
 bool new_kcb_flag = false;
@@ -93,7 +91,8 @@ static int boot_cpu(int argc, char **argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    errval_t err = create_or_get_kcb_cap(target_id);
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
@@ -118,7 +117,7 @@ static int boot_cpu(int argc, char **argv)
 
     err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
                               cmd_kernel_binary, cmd_kernel_args,
-                              urpc_frame_id);
+                              urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
     }
@@ -130,7 +129,8 @@ static int update_cpu(int argc, char** argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    errval_t err = create_or_get_kcb_cap(target_id);
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
@@ -158,7 +158,7 @@ static int update_cpu(int argc, char** argv)
     done = true;
     err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
                               cmd_kernel_binary, cmd_kernel_args,
-                              urpc_frame_id);
+                              urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
     }
@@ -222,7 +222,8 @@ static int take_kcb(int argc, char** argv)
 
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    errval_t err = create_or_get_kcb_cap(target_id);
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
@@ -300,7 +301,8 @@ static int resume_cpu(int argc, char** argv)
 
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    errval_t err = create_or_get_kcb_cap(target_id);
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
