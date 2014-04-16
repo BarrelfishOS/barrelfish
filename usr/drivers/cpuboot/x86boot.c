@@ -111,16 +111,38 @@ errval_t invoke_start_core(void)
     return sr.error;
 }
 
+static char* get_binary_path(char* fmt, char* binary_name)
+{
+    assert (binary_name != NULL);
+    assert (fmt != NULL);
+
+    int length = snprintf(NULL, 0, fmt, binary_name);
+
+    char* binary = malloc(length+1); // TODO(gz): Free this
+    snprintf(binary, length+1, fmt, binary_name);
+
+    return binary;
+}
+
 errval_t get_architecture_config(enum cpu_type type,
                                  genpaddr_t *arch_page_size,
                                  const char **monitor_binary,
                                  const char **cpu_binary)
 {
+    extern char* cmd_kernel_binary;
+    extern char* cmd_monitor_binary;
+
     switch (type) {
     case CPU_X86_64:
+    {
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
-        *monitor_binary = "/x86_64/sbin/monitor";
-        *cpu_binary = "/x86_64/sbin/cpu";
+        *monitor_binary = (cmd_kernel_binary == NULL) ?
+                        "/x86_64/sbin/monitor" :
+                        get_binary_path("/x86_64/sbin/%s", cmd_monitor_binary);
+        *cpu_binary = (cmd_kernel_binary == NULL) ?
+                        "/x86_64/sbin/cpu" :
+                        get_binary_path("/x86_64/sbin/%s", cmd_kernel_binary);
+    }
         break;
 
     case CPU_X86_32:
@@ -379,25 +401,20 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              enum cpu_type cpu_type,
-                             const char *cpu_ext,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
-    const char *monitorname = NULL, *cpuname_ = NULL;
+    const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
     errval_t err;
 
     err = get_architecture_config(cpu_type, &arch_page_size,
-                                  &monitorname, &cpuname_);
+                                  &monitorname, &cpuname);
     assert(err_is_ok(err));
-    char cpuname[32] = { 0 };
-    if (strcmp(cpu_ext, "")) {
-        snprintf(cpuname, 32, "%s_%s", cpuname_, cpu_ext);
-    } else {
-        snprintf(cpuname, 32, "%s", cpuname_);
-    }
-    DEBUG("loading %s\n", cpuname);
+
+    DEBUG("loading kernel: %s\n", cpuname);
+    DEBUG("loading 1st app: %s\n", monitorname);
 
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",

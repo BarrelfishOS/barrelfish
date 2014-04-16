@@ -65,7 +65,6 @@ errval_t cap_mark_remote(struct capref cap);
 // x86boot.c
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              enum cpu_type cpu_type,
-                             const char *cpu_ext,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb);

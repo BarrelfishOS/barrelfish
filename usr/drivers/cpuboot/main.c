@@ -26,8 +26,9 @@ bool debug_flag = false;
 bool new_kcb_flag = false;
 bool nomsg_flag = false;
 
-static char* cmd_kernel_binary = "";
-static char* cmd_kernel_args = "loglevel=2 logmask=0";
+char* cmd_kernel_binary = NULL;
+char* cmd_monitor_binary = NULL;
+char* cmd_kernel_args = "loglevel=2 logmask=0";
 
 static void load_arch_id(void)
 {
@@ -116,7 +117,7 @@ static int boot_cpu(int argc, char **argv)
     }
 
     err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
-                              cmd_kernel_binary, cmd_kernel_args,
+                              cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -157,7 +158,7 @@ static int update_cpu(int argc, char** argv)
 
     done = true;
     err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
-                              cmd_kernel_binary, cmd_kernel_args,
+                              cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -287,7 +288,7 @@ static int take_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "boot_core_request failed");
     }
 
-    err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64, sched,
+    err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
                               "loglevel=0 logmask=1", urpc_frame_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -366,6 +367,7 @@ static struct cmd commands[] = {
 static struct option long_options[] = {
     {"debug",   no_argument,       0, 'd'},
     {"binary",  required_argument, 0, 'b'},
+    {"monitor", required_argument, 0, 'x'},
     {"kargs",   required_argument, 0, 'k'},
     {"newkcb",  no_argument,       0, 'n'},
     {"nomsg",   no_argument,       0, 'm'},
@@ -381,6 +383,8 @@ static void print_help(char* argv0)
     printf("\t\t Print debug information\n");
     printf("\t -b, --binary\n");
     printf("\t\t Overwrite default kernel binary\n");
+    printf("\t -x, --monitor\n");
+    printf("\t\t Overwrite default monitor binary\n");
     printf("\t -k, --kargs\n");
     printf("\t\t Overwrite default kernel cmd arguments\n");
     printf("\t -n, --newkcb\n");
@@ -548,7 +552,7 @@ int main (int argc, char **argv)
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "b:k:hnmd",
+        c = getopt_long (argc, argv, "b:k:x:hnmd",
                          long_options, &option_index);
         if (c == -1) {
             break; // End of the options
@@ -565,6 +569,10 @@ int main (int argc, char **argv)
 
         case 'k':
             cmd_kernel_args = optarg;
+            break;
+
+        case 'x':
+            cmd_monitor_binary = optarg;
             break;
 
         case 'm':
