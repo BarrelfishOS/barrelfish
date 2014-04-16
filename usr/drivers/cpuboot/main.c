@@ -368,7 +368,7 @@ static struct option long_options[] = {
     {"debug",   no_argument,       0, 'd'},
     {"kernel",  required_argument, 0, 'k'},
     {"monitor", required_argument, 0, 'x'},
-    {"kargs",   required_argument, 0, 'k'},
+    {"kargs",   required_argument, 0, 'a'},
     {"newkcb",  no_argument,       0, 'n'},
     {"nomsg",   no_argument,       0, 'm'},
     {"help",    no_argument,       0, 'h'},
@@ -385,7 +385,7 @@ static void print_help(char* argv0)
     printf("\t\t Overwrite default kernel binary\n");
     printf("\t -x, --monitor\n");
     printf("\t\t Overwrite default monitor binary\n");
-    printf("\t -k, --kargs\n");
+    printf("\t -a, --kargs\n");
     printf("\t\t Overwrite default kernel cmd arguments\n");
     printf("\t -n, --newkcb\n");
     printf("\t\t Create a new KCB even if there is already one for that core\n");
@@ -552,7 +552,7 @@ int main (int argc, char **argv)
         /* getopt_long stores the option index here. */
         int option_index = 0;
 
-        c = getopt_long (argc, argv, "b:k:x:hnmd",
+        c = getopt_long (argc, argv, "k:a:x:hnmd",
                          long_options, &option_index);
         if (c == -1) {
             break; // End of the options
