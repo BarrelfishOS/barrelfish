@@ -189,7 +189,7 @@ int init_all_apics(void)
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                static coreid_t barrelfish_id_counter = 0;
+                static coreid_t barrelfish_id_counter = 1;
                 coreid_t barrelfish_id;
                 if (my_apic_id == s->Id) {
                     barrelfish_id = 0; // BSP core is 0

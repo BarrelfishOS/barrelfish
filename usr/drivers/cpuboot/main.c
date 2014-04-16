@@ -389,7 +389,7 @@ static struct cmd commands[] = {
         "Resume a (previously halted) core.",
         "resume <apic id>",
         resume_cpu,
-        4
+        2
     },
     {
         "list",
@@ -600,11 +600,11 @@ int main (int argc, char **argv)
             // Long options handled by their short handles
             break;
 
-        case 'b':
+        case 'k':
             cmd_kernel_binary = optarg;
             break;
 
-        case 'k':
+        case 'a':
             cmd_kernel_args = optarg;
             break;
 
