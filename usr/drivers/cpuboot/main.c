@@ -101,12 +101,13 @@ static int list_cpu(int argc, char **argv) {
         err = oct_get(&record, names[i]);
         assert(err_is_ok(err));
 
-        uint64_t barrelfish_id, apic_id;
-        err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d }",
-                       &barrelfish_id, &apic_id);
+        uint64_t barrelfish_id, apic_id, processor_id, enabled;
+        err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d, processor_id: %d, enabled: %d }",
+                       &barrelfish_id, &apic_id, &processor_id, &enabled);
         assert(err_is_ok(err));
 
-        printf("CPU %"PRIu64": APIC=%"PRIu64" STATUS=?\n", barrelfish_id, apic_id);
+        printf("CPU %"PRIu64": APIC_ID=%"PRIu64" APIC_PROCESSOR_ID=%"PRIu64" ENABLED=%"PRIu64"\n",
+               barrelfish_id, apic_id, processor_id, enabled);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No cpus found?\n",
