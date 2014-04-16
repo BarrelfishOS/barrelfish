@@ -37,19 +37,20 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         KALUGA_DEBUG("CPU found: %s\n", record);
         assert(my_core_id == 0); // TODO(gz): why?
 
-        uint64_t cpu_id, arch_id, enabled = 0;
-        errval_t err = oct_read(record, "_ { processor_id: %d, apic_id: %d, enabled: %d }",
-                &cpu_id, &arch_id, &enabled);
+        uint64_t barrelfish_id, arch_id, enabled = 0;
+        errval_t err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d, enabled: %d }",
+                &barrelfish_id, &arch_id, &enabled);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Cannot read record.");
             assert(!"Illformed core record received");
             goto out;
         }
+
         // XXX: copied this line from spawnd bsp_bootup,
         // not sure why x86_64 is hardcoded here but it
         // seems broken...
-//        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
-//                core_counter++, arch_id);
+        skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
+                barrelfish_id, arch_id);
 
         struct module_info* mi = find_module("x86boot");
         if (mi != NULL) {
@@ -71,9 +72,10 @@ out:
 
 errval_t watch_for_cores(void)
 {
-    static char* local_apics = "r'hw\\.apic\\.[0-9]+' { processor_id: _, "
-                               "                        enabled: 1, "
-                               "                        apic_id: _ }";
+    static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
+                               "                             enabled: 1, "
+                               "                             apic_id: _, "
+                               "                             barrelfish_id: _ }";
    octopus_trigger_id_t tid;
    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
@@ -90,22 +92,22 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t cpu_id, apic_id;
+    uint64_t barrelfish_id, apic_id;
     char **argv = mi->argv;
     bool cleanup = false;
     size_t argc = mi->argc;
 
     KALUGA_DEBUG("Starting x86boot for %s", record);
-    err = oct_read(record, "_ { processor_id: %d, apic_id: %d }",
-            &cpu_id, &apic_id);
+    err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d }",
+            &apic_id, &barrelfish_id);
     if (err_is_ok(err)) {
         // TODO(gz): Properly ignore to boot the BSP
         if (apic_id == my_core_id) {
             return SYS_ERR_OK;
         }
 
-//        skb_add_fact("corename(%"PRIuCOREID", x86_64, apic(%"PRIu64")).",
-//                core_counter++, apic_id);
+        skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
+                     barrelfish_id, apic_id);
 
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));

@@ -189,9 +189,18 @@ int init_all_apics(void)
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                errval_t err = oct_set("hw.apic.%d { processor_id: %d, apic_id: %d, enabled: %d }",
-                                         s->Id, s->ProcessorId, s->Id,
-                                         s->LapicFlags & ACPI_MADT_ENABLED);
+                static coreid_t barrelfish_id_counter = 0;
+                coreid_t barrelfish_id;
+                if (my_apic_id == s->Id) {
+                    barrelfish_id = 0; // BSP core is 0
+                }
+                else {
+                    barrelfish_id = barrelfish_id_counter++;
+                }
+                errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: %d, barrelfish_id: %d }",
+                                         barrelfish_id, s->ProcessorId, s->Id,
+                                         s->LapicFlags & ACPI_MADT_ENABLED,
+                                         barrelfish_id);
                 assert(err_is_ok(err));
 
                 skb_add_fact("apic(%d,%d,%"PRIu32").",

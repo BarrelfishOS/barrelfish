@@ -88,10 +88,40 @@ struct cmd {
     int argc;
 };
 
+static int list_cpu(int argc, char **argv) {
+    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+
+    char** names;
+    size_t len;
+    errval_t err = oct_get_names(&names, &len, "r'hw\\.processor\\.[0-9]+'");
+    assert(err_is_ok(err));
+
+    for (size_t i=0; i<len; i++) {
+        char* record;
+        err = oct_get(&record, names[i]);
+        assert(err_is_ok(err));
+
+        uint64_t barrelfish_id, apic_id;
+        err = oct_read(record, "_ { barrelfish_id: %d, apic_id: %d }",
+                       &barrelfish_id, &apic_id);
+        assert(err_is_ok(err));
+
+        printf("CPU %"PRIu64": APIC=%"PRIu64" STATUS=?\n", barrelfish_id, apic_id);
+    }
+
+    oct_free_names(names, len);
+    return 0;
+}
+
 static int boot_cpu(int argc, char **argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
+
+    //char* record;
+    //errval_t err = oct_get(&record, "hw.processor.* { barrelfish_id: %d }", target_id);
+
+
     struct capref kcb;
     errval_t err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
@@ -360,6 +390,13 @@ static struct cmd commands[] = {
         "resume <apic id>",
         resume_cpu,
         4
+    },
+    {
+        "list",
+        "List current status of all cores.",
+        "list",
+        list_cpu,
+        1
     },
     {NULL, NULL, NULL, NULL, 0},
 };
