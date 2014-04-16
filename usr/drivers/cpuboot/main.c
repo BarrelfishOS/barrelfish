@@ -366,7 +366,7 @@ static struct cmd commands[] = {
 
 static struct option long_options[] = {
     {"debug",   no_argument,       0, 'd'},
-    {"binary",  required_argument, 0, 'b'},
+    {"kernel",  required_argument, 0, 'k'},
     {"monitor", required_argument, 0, 'x'},
     {"kargs",   required_argument, 0, 'k'},
     {"newkcb",  no_argument,       0, 'n'},
@@ -381,7 +381,7 @@ static void print_help(char* argv0)
     printf("Options:\n");
     printf("\t -d, --debug\n");
     printf("\t\t Print debug information\n");
-    printf("\t -b, --binary\n");
+    printf("\t -k, --kernel\n");
     printf("\t\t Overwrite default kernel binary\n");
     printf("\t -x, --monitor\n");
     printf("\t\t Overwrite default monitor binary\n");
