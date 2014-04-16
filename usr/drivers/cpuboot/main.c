@@ -108,7 +108,12 @@ static int list_cpu(int argc, char **argv) {
 
         printf("CPU %"PRIu64": APIC=%"PRIu64" STATUS=?\n", barrelfish_id, apic_id);
     }
+    if (len == 0) {
+        DEBUG("%s:%s:%d: No cpus found?\n",
+              __FILE__, __FUNCTION__, __LINE__);
+    }
 
+    done = true;
     oct_free_names(names, len);
     return 0;
 }
