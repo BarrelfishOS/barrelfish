@@ -497,7 +497,10 @@ XEON_PHI_MODULES =\
 	k1om/sbin/mem_serv \
 	k1om/sbin/monitor \
 	k1om/sbin/ramfsd \
-	k1om/sbin/skb 
+	k1om/sbin/skb \
+	k1om/sbin/spawnd \
+	k1om/sbin/startd \
+	k1om/sbin/acpi
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om

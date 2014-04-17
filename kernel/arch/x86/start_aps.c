@@ -25,12 +25,19 @@
 #include <init.h>
 #include <arch/x86/kputchar.h>
 #include "xapic_dev.h"
+#ifdef __k1om__
 #include <target/k1om/offsets_target.h>
+#include <barrelfish_kpi/asm_inlines_arch.h>
+#else
 #include <target/x86_64/offsets_target.h>
+#endif
 #include <target/x86_32/offsets_target.h>
 
+#ifdef __k1om__
 #define STARTUP_TIMEOUT         0xffffff
-
+#else
+#define STARTUP_TIMEOUT         0xfffff
+#endif
 /**
  * start_ap and start_ap_end mark the start end the end point of the assembler
  * startup code to be copied
@@ -56,7 +63,7 @@ extern uint64_t x86_32_init_ap_global;
  * \brief Boot a app core of x86_64 type
  *
  * The processors are started by a sequency of INIT and STARTUP IPIs
- * which are sent by this function. 
+ * which are sent by this function.
  *
  * \param core_id   APIC ID of the core to try booting
  * \param entry     Entry address for new kernel in the destination
@@ -66,6 +73,7 @@ extern uint64_t x86_32_init_ap_global;
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
+    printf("Starting hwid core: %u\n", core_id);
     /* Copy the startup code to the real-mode address */
     uint8_t *real_dest = (uint8_t*) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
@@ -104,16 +112,16 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     if (CPU_IS_M5_SIMULATOR) {
         printk(LOG_WARN, "Warning: skipping shutdown/init of APs on M5\n");
     } else {
-        //set shutdown status to WARM_SHUTDOWN and set start-vector
-        cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
                                                           X86_64_REAL_MODE_OFFSET);
 
         //INIT 1 assert
         apic_send_init_assert(core_id, xapic_none);
 
-        //set shutdown status to WARM_SHUTDOWN and set start-vector
-        cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+#ifdef __k1om__
+       delay_ms(10);
+#endif
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
                                                           X86_64_REAL_MODE_OFFSET);
 
@@ -121,13 +129,22 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         apic_send_init_deassert();
     }
 
+#ifdef __k1om__
+       delay_ms(200);
+#endif
+
     //SIPI1
     apic_send_start_up(core_id, xapic_none,
                        X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
 
+#ifdef __k1om__
+       delay_ms(200);
+#endif
     //SIPI2
     apic_send_start_up(core_id, xapic_none,
                        X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT));
+
+
 
     //give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
@@ -139,7 +156,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     //if the lock is set, the core has been started, otherwise assume, that
     //a core with this APIC ID doesn't exist.
     if (*ap_lock != 0) {
-        while (*ap_wait != AP_STARTED);
+        int count = 0;
+        while (*ap_wait != AP_STARTED) {
+            if (count == 0xFFFFFFF) {
+                printf("Waiting for started: %i, [%i]\n", core_id, *ap_wait);
+            }
+            count++;
+        }
         *ap_lock = 0;
         debug(SUBSYS_STARTUP, "booted CPU%hhu\n", core_id);
         return 0;
@@ -151,7 +174,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
  * \brief Boot a app core of x86_32 type
  *
  * The processors are started by a sequency of INIT and STARTUP IPIs
- * which are sent by this function. 
+ * which are sent by this function.
  *
  * \param core_id   APIC ID of the core to try booting
  * \param entry     Entry address for new kernel in the destination

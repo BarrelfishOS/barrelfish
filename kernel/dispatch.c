@@ -105,7 +105,7 @@ static inline void context_switch(struct dcb *dcb)
         /* FIXME: incomplete clean-up of "thread_register" in progress here.
          * Complain vigorously to AB if he checks this mess in
          */
-#ifdef __x86_64__  /* Setup new LDT */
+#if defined(__x86_64__) || defined(__k1om__)  /* Setup new LDT */
         maybe_reload_ldt(dcb, false);
 #else
         struct dispatcher_shared_generic *disp =
@@ -194,7 +194,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
         dcb_current = NULL;
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__k1om__)
         // Can this be moved into wait_for_interrupt?
         // Or wait_for_nonscheduling_interrupt()?
         if (!wakeup_is_pending()) {

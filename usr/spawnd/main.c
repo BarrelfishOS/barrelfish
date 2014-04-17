@@ -2,7 +2,7 @@
  * \file
  * \brief Spawn daemon for Barrelfish.
  * At boot, decides which cores to boot and which domains to spawn.
- * After boot, offers a service on each core to spawn programs from 
+ * After boot, offers a service on each core to spawn programs from
  * the file system.
  */
 
@@ -75,7 +75,7 @@ static void get_bootmodules(void)
 
     char *bootmodules = malloc(info.size + 1);
     if (bootmodules == NULL) {
-        USER_PANIC_ERR(LIB_ERR_MALLOC_FAIL, 
+        USER_PANIC_ERR(LIB_ERR_MALLOC_FAIL,
                        "failed to allocate memory for bootmodules");
     }
     size_t bootmodules_len;
@@ -88,7 +88,7 @@ static void get_bootmodules(void)
         USER_PANIC_ERR(err, "unexpected short read of /bootmodules");
     }
 
-    err = vfs_close(vh); 
+    err = vfs_close(vh);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not close bottmodules file");
     }
@@ -103,29 +103,33 @@ int main(int argc, const char *argv[])
 {
     errval_t err;
 
+    printf("Spawnd up.\n");
+
+
     vfs_init();
-    
+
     my_core_id = disp_get_core_id();
 
-    /*
+
+#if 0
     debug_printf("spawnd invoked on core %d as:", my_core_id);
     for (int i = 0; i < argc; i++) {
         printf(" %s", argv[i]);
     }
     printf("\n");
-    */
+#endif
 
     // read in the bootmodules file so that we know what to start
     get_bootmodules();
-    //debug_printf("gbootmodules is:\n%s\n", gbootmodules);
 
     // construct sane inital environment
     init_environ();
 
     if (argc >= 2 && strcmp(argv[1],"boot") == 0) {
+        debug_printf("we're bsp. start other cores.\n");
         // if we're the BSP, bring up the other cores
         is_bsp_core = true;
-#if defined(USE_KALUGA_DVM) && (!defined(__arm__) && !defined(__scc__))
+#if defined(USE_KALUGA_DVM) && (!defined(__arm__) && !defined(__scc__) &&!defined(__k1om__))
         err = start_service();
 #else
         bsp_bootup(gbootmodules, argc, argv);

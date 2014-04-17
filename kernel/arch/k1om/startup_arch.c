@@ -158,7 +158,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
         for(char * printcur = map; printcur < map + map_length;) {\
             struct multiboot_mmap * printcurmmap = (struct multiboot_mmap * SAFE)TC(printcur);\
             printf("\t0x%08lx - 0x%08lx Type: %d Length: 0x%lx\n", printcurmmap->base_addr, printcurmmap->base_addr + printcurmmap->length, printcurmmap->type, printcurmmap->length);\
-            printcur += printcurmmap->size + 4;\
+            printcur += printcurmmap->size;\
         }\
     } while (0)
 
@@ -180,10 +180,10 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
         for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
             struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
-            if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
+            if (cur + curmmap->size >= clean_mmap_addr + clean_mmap_length)
                 break; // do not try to move this check into the forloop as entries do not have to be the same length
 
-            struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+            struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
 
             if (nextmmap->base_addr < curmmap->base_addr ||
                 (nextmmap->base_addr == curmmap->base_addr && nextmmap->length > curmmap->length)) {
@@ -206,13 +206,14 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     printf("Sorted MMAP\n");
     PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
 
+#if 0
     // now merge consecutive memory regions of the same or lower type
     for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
         struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
         if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
             break; // do not try to move this check into the forloop as entries do not have to be the same length
 
-        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
 
         /* On some machines (brie1) the IOAPIC region is only 1kB.
          * Currently we're not able to map regions that are <4kB so we
@@ -347,12 +348,12 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
             }
         } while (reduced);
 
-        cur += curmmap->size + 4;
+        cur += curmmap->size;
 
 #undef DISCARD_NEXT_MMAP
 #undef BUBBLE_NEXT_MMAP
     }
-
+#endif
     printf("Preprocessed MMAP\n");
     PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
 
@@ -362,7 +363,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
         if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
             break; // do not try to move this check into the forloop as entries do not have to be the same length
 
-        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size + 4);
+        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
 
         if (nextmmap->base_addr & BASE_PAGE_MASK) {
             uint64_t offset = nextmmap->base_addr - ((nextmmap->base_addr >> BASE_PAGE_BITS) << BASE_PAGE_BITS);
@@ -379,7 +380,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
             }
         }
 
-        cur += curmmap->size + 4;
+        cur += curmmap->size;
     }
 
     printf("Pagealigned MMAP\n");
@@ -435,7 +436,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
         }
 
         last_end_addr = mmap->base_addr + mmap->length;
-        m += mmap->size + 4;
+        m += mmap->size;
     }
 
     assert(last_end_addr != 0);

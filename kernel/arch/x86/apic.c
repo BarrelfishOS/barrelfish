@@ -107,42 +107,6 @@ void apic_timer_set_divide(xapic_divide_t divide)
 */
 void apic_init(void)
 {
-    /*
-     * XXX: Xeon Phi Notes:
-     * The local APIC registers have expanded fields for the APIC ID, Logical
-     * APIC ID, and APIC Destination ID. Refer to the SDM Volume 3A System
-     * Programming Guide for details.
-     *
-     * There is a local APIC (LAPIC) per hardware thread in the Intel Xeon Phi
-     * coprocessor. In addition, the SBox contains within it a LAPIC that has
-     * 8 Interrupt Command Registers (ICRs) to support host-to-coprocessor
-     * and inter-coprocessor interrupts. To initiate an interrupt from the
-     * host to an Intel Xeon Phi coprocessor or from one Intel Xeon Phi
-     * coprocessor to another, the initiator must write to an ICR on the target
-     * Intel® Xeon PhiTM coprocessor. Since there are 8 ICRs, the system can
-     * have up to 8 Intel Xeon Phi coprocessors that can be organized in a mesh
-     * topology along with the host.
-     *
-     *
-     * XXX:
-     * APIC On-Chip. The processor contains an Advanced Programmable Interrupt
-     * Controller (APIC), responding to memory mapped commands in the physical
-     * address range FFFE0000H to FFFE0FFFH (by default - some processors permit
-     * the APIC to be relocated).
-     *
-     * Xeon Phi:
-     * 0x00_0000_0000 to 0x03_FFFF_FFFF (16 GiB)
-     *      GDDR (Low) Memory
-     *      Local APIC Range (relocatable) 0x00_FEE0_0000 to 0x00_FEE0_0FFF (4 kB)
-     *      Boot Code (Flash) and Fuse (via SBOX) 0x00_FF00_0000 to 0x00_FFFF_FFFF (16 MB)
-     * 0x04_0000_0000 to 0x07_FFFF_FFFF (16 GB)
-     * 0x08_0000_0000 to 0x0B_FFFF_FFFF (16 GB)
-           GDDR Memory (up to PHY_GDDR_TOP)
-     * Xeon Phi:
-     * 0x000000000 0x400000000
-     */
-
-
     //pointer to a variable used as pseudo-lock to synchronize the BSP
     //and the AP which gets enabled
 #if defined(__k1om__)
@@ -180,12 +144,12 @@ void apic_init(void)
           apic_phys, apic_base);
     xapic_initialize(&apic, (void *)apic_base);
 
+
 #if !defined(__scc__)
     apic_id = apic_get_id();
     debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
     if (ia32_apic_base_bsp_extract(apic_base_msr)) {
         debug(SUBSYS_APIC, "APIC: bootstrap processor\n");
-        printf("APIC: bootstrap processor\n");
         apic_bsp = true;
     } else {
         debug(SUBSYS_APIC, "APIC: application processor\n");
@@ -197,7 +161,7 @@ void apic_init(void)
     // initialize spurious interrupt register
     // no focus, software enabled
     {
-	xapic_svr_t t = xapic_svr_initial; 
+	xapic_svr_t t = xapic_svr_initial;
 	t = xapic_svr_vector_insert(t, APIC_SPURIOUS_INTERRUPT_VECTOR);
 	t = xapic_svr_enable_insert(t, 1);
 	t = xapic_svr_focus_insert( t, 1);
@@ -232,7 +196,7 @@ void apic_init(void)
     /*
      * TODO: How are the local intercore interrups handled using the APIC?
      */
-#if defined(__scc__)
+#if defined(__scc__) // || defined(__k1om__)
     //LINT0: inter-core interrupt
     //generate fixed int
     {
@@ -325,7 +289,11 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 
     //send the IPI
     xapic_icr_hi_t t = xapic_icr_hi_initial;
+#if !defined(__k1om__)
     t = xapic_icr_hi_dest_insert(t, destination);
+#else
+    t = xapic_icr_hi_xeon_phi_dest_insert(t, destination);
+#endif
     xapic_icr_hi_rawwr(&apic, t);
     xapic_icr_lo_rawwr(&apic, cmd);
 
@@ -438,7 +406,11 @@ void apic_seoi(uint8_t int_nr)
 
 uint8_t apic_get_id(void)
 {
+#if !defined(__k1om__)
     return xapic_id_id_rdf(&apic);
+#else
+    return xapic_id_xeon_phi_id_rdf(&apic);
+#endif
 }
 
 /**

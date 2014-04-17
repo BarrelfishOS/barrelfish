@@ -1,0 +1,127 @@
+@@ -1399,6 +1399,116 @@
+ 	return ret;
+ }
+ 
++#define MSG_BOOT  ((0xB0 << 8) | 0x01)
++#define TASK_NAME_LENGTH 20
++#define XEON_PHI_BUFFER_LENGTH 1024
++struct xeon_phi_recv {
++        struct task_struct *thread;
++        char task_name[TASK_NAME_LENGTH];
++        char buf[XEON_PHI_BUFFER_LENGTH+1];
++        uint32_t idx;
++        mic_ctx_t *mic_ctx;
++};
++
++static struct xeon_phi_recv recv_threads[8];
++
++union xeon_phi_message {
++        uint32_t val;
++        char c[4];
++};
++
++static int xeon_phi_recv_handler(void *arg)
++{
++        struct xeon_phi_recv *ts;
++        mic_ctx_t *mic_ctx;
++        uint32_t devid;
++        union xeon_phi_message data, ctrl;
++        uint32_t i;
++	MIC_STATUS ms;
++        ts = (struct xeon_phi_recv *)arg;
++        mic_ctx = ts->mic_ctx;
++        devid = mic_ctx->bi_id;
++	ts->idx=0;
++        printk("[xeon phi %d] : recv thread started.\n", devid);
++        while(1) {
++                i = 0;
++		ms = mic_ctx->state;
++		 if (!(ms == MIC_READY 
++                       	 || ms == MIC_BOOT
++                         || ms == MIC_ONLINE
++			 || ms == MIC_BOOTFAIL)
++                         || mic_ctx->mmio.va == 0) {
++			msleep(1000);
++                        continue;
++                }
++		ctrl.val = SBOX_READ(mic_ctx->mmio.va, SBOX_SCRATCH8);
++                if (!ctrl.val) {
++              		 yield();
++                        continue;
++                }
++
++                data.val = SBOX_READ(mic_ctx->mmio.va, SBOX_SCRATCH15);
++                while(i < 4 && ctrl.c[i]) {
++			if (ctrl.c[i] != 0x7A) {
++				printk("[xeon phi %d] : ERROR invalid ctrl value.%x \n", devid,
++					 ctrl.c[i]);
++			}
++                        if (ctrl.c[i]&0x80) {
++				i++;
++				continue;
++			}
++                        if (data.c[i] == '\n') {
++                                ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->idx = 0;
++			} else if (data.c[i] == 0x4){
++				ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->idx = 0;
++                        } else if (ts->idx == XEON_PHI_BUFFER_LENGTH){
++                                ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->buf[0] = data.c[i];
++                                ts->idx = 1;
++                        } else {
++                                ts->buf[ts->idx] = data.c[i];
++                                ts->idx++;
++                        }
++                        i++;
++                }
++                SBOX_WRITE(0, mic_ctx->mmio.va, SBOX_SCRATCH8);
++        }
++
++	printk("[xeon phi %d] : thread terminated.\n ", devid);
++        return 0;
++}
++
++static void xeon_phi_setup_uart_threads(mic_ctx_t *mic_ctx)
++{
++        struct xeon_phi_recv *ts;
++        uint32_t devid;
++
++        devid = mic_ctx->bi_id;
++
++        printk("Creating recv thread for %d\n", devid);
++
++        ts = &(recv_threads[devid]);
++
++        memset(ts, 0, sizeof(struct xeon_phi_recv));
++
++        snprintf(ts->task_name, TASK_NAME_LENGTH, "[xeon phi] %d", devid);
++
++        ts->mic_ctx = mic_ctx;
++
++        ts->thread = kthread_create(xeon_phi_recv_handler, ts, ts->task_name);
++        if (!ts->thread) {
++                printk("FAILED: Creating recv thread for %d", devid);
++                return;
++        }
++        wake_up_process(ts->thread);
++}
++
++
+ int
+ adapter_init_device(mic_ctx_t *mic_ctx)
+ {
+@@ -1515,6 +1625,9 @@
+ 	sku_build_table(mic_ctx);
+ 	/* Determine the amount of compensation that needs to be applied to MIC's ETC timer */
+ 	calculate_etc_compensation(mic_ctx);
++	
++	xeon_phi_setup_uart_threads(mic_ctx);
++	
+ 
+ 	return 0;
+ 

@@ -132,7 +132,7 @@
  * Aligns an address to the nearest PML4 entry by masking out lower 39
  * bits.
  */
-#define K1OM_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x1ffffff << 39))
+#define K1OM_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x1ffffffUL << 39))
 
 /**
  * Absolute offset of mapped physical memory within virtual address
@@ -158,6 +158,16 @@
 #define K1OM_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg) ((uint8_t)(seg >> 8))
 #define K1OM_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off) ((uint32_t)(seg << 16) | off)
 
+#define X86_64_REAL_MODE_SEGMENT 0x0600 /**< The real-mode segment */
+#define X86_64_REAL_MODE_OFFSET  0x0000 /**< The real-mode offset _has to be_ 0000!! */
+
+#define X86_64_REAL_MODE_LINEAR_OFFSET \
+    (X86_64_REAL_MODE_SEGMENT << 4) /**< The linear offset
+                                       of the real-mode
+                                       segment */
+
+#define X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(seg) ((uint8_t)(seg >> 8))
+#define X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(seg,off) ((uint32_t)(seg << 16) | off)
 
 /*
  * TODO: Add K1OM offsets

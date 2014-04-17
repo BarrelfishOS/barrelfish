@@ -26,9 +26,8 @@ module  /k1om/sbin/skb boot
 #modulenounzip /skb_ramfs.cpio.gz nospawn
 #module  /k1om/sbin/kaluga boot
 #module  /k1om/sbin/acpi boot
-#module  /k1om/sbin/spawnd boot
-#bootapic-x86_64=1-15
-#module  /k1om/sbin/startd boot
+module  /k1om/sbin/spawnd boot bootk1om=0-227
+module  /k1om/sbin/startd boot
 #module /k1om/sbin/routing_setup boot
 
 #low gddr memory
@@ -36,8 +35,15 @@ module  /k1om/sbin/skb boot
 
 # GDDR Memory we have 6GB on our Xeon PHi
 #mmap map 0x0800000000 0x0180000000 1
-mmap map 0x0000000000 0x0180000000 1
 
+mmap map 0x0000000000 0x00FEE00000 1
+# memory hole for the APIC and the flash rom 
+mmap map 0x00FEE00000 0x120000 3
+mmap map 0x0100000000 0x80000000 1             
+
+DBOX registers 0x08_007C_0000 to 0x08_007C_FFFF (64 kB)
+SBOX registers 0x08_007D_0000 to 0x08_007D_FFFF (64 kB)
+#
 # host system memory size 512GB
 #mmap map 0x8000000000 0x8000000000 2
 

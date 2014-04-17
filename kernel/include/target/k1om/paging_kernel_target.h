@@ -31,7 +31,7 @@ void paging_k1om_make_good_pml4(lpaddr_t base);
 
 /// All arch-specific flags valid to be set from user-space
 #define X86_64_PTABLE_FLAGS_MASK                                        \
-    (X86_64_PTABLE_GLOBAL_PAGE | X86_64_PTABLE_ATTR_INDEX |             \
+    (X86_64_PTABLE_ATTR_INDEX |             \
      X86_64_PTABLE_DIRTY | X86_64_PTABLE_ACCESSED |                     \
      X86_64_PTABLE_CACHE_DISABLED | X86_64_PTABLE_WRITE_THROUGH)
 
@@ -180,7 +180,7 @@ static inline void paging_k1om_map_large(union x86_64_ptable_entry *entry,
     tmp.large.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
     tmp.large.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.large.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
-    tmp.large.global = 0;
+    tmp.large.global = 0; // always zero
     tmp.large.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
@@ -211,7 +211,7 @@ static inline void paging_k1om_map(union x86_64_ptable_entry * NONNULL entry,
     tmp.base.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.base.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.base.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
-    tmp.base.global = 0;
+    tmp.base.global = 0; // always zero
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.base.base_addr = base >> 12;
 

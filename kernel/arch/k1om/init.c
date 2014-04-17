@@ -39,6 +39,7 @@
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include <target/k1om/barrelfish_kpi/cpu_target.h>
+#include <barrelfish_kpi/asm_inlines_arch.h>
 #include <linux_host.h>
 
 #include <xeon_phi.h>
@@ -229,16 +230,18 @@ paging_init(lpaddr_t base,
                               (lpaddr_t) boot_pdpt);
         paging_k1om_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
                               (lpaddr_t) boot_pdir);
-        paging_k1om_map_large(&boot_pdir[X86_64_PDIR_BASE(base)], base,
-        PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_k1om_map_large(
+                &boot_pdir[X86_64_PDIR_BASE(base)], base,
+                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
         // Alias the same region at MEMORY_OFFSET
         paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
                               (lpaddr_t) boot_pdpt_hi);
         paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
                               (lpaddr_t) boot_pdir_hi);
-        paging_k1om_map_large(&boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
-        PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_k1om_map_large(
+                &boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
+                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
 
     }
 
@@ -343,7 +346,6 @@ relocate_stack(lvaddr_t offset)
             : "rsp"
     );
 }
-
 
 /**
  * \brief Enable SYSCALL/SYSRET fast system calls.
@@ -488,23 +490,22 @@ text_init(void)
      */
 
     // Initialize local APIC
-    printf("apic_init\n");
     apic_init();
 
-
     // do not remove/change this printf: needed by regression harness
-    printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
+    printf("Barrelfish CPU driver starting on k1om apic_id %u\n", apic_id);
+
+
 
     /*
      * there is no such thing as a PIC on the xeon phi
      * XXX: verify!
-    if (apic_is_bsp()) {
-        printf("apic_is_bsp\n");
-        // Initialize classic (8259A) PIC
-        pic_init();
-    }
-    */
-
+     if (apic_is_bsp()) {
+     printf("apic_is_bsp\n");
+     // Initialize classic (8259A) PIC
+     pic_init();
+     }
+     */
 
     // Initialize local APIC timer
     if (kernel_ticks_enabled) {
@@ -521,37 +522,30 @@ text_init(void)
         apic_mask_timer();
     }
 
-    printf("ipi_notify_init\n");
     // Initialize IPI notification mechanism
     ipi_notify_init();
 
-    printf("enable_fast_syscalls\n");
     // Enable SYSCALL/SYSRET fast system calls
     /*
      * NOTE: the xeon phi does not support SYSENTER/SYSEXIT
      */
     enable_fast_syscalls();
 
-    printf("ia32_efer_nxe_wrf\n");
     // Enable "no execute" page-level protection bit
     ia32_efer_nxe_wrf(NULL, 1);
 
-    printf("enable_fpu\n");
     // Enable FPU and MMX
-    //enable_fpu();
+    enable_fpu();
 
-    printf("amd64_cr4_pce_wrf\n");
     // Enable user-mode RDPMC opcode
     amd64_cr4_pce_wrf(NULL, 1);
 
-    printf("enable_tlb_flush_filter\n");
     // AMD64: Check if TLB flush filter is enabled
     enable_tlb_flush_filter();
 
-//    printf("amd64_cr4_pge_wrf\n");
 
     // Enable global pages
-    // there are no global page tables
+    // there are no global page tables, enabling this will result in a GP
     // amd64_cr4_pge_wrf(NULL, 1);
 
     // Check/Enable MONITOR/MWAIT opcodes
@@ -564,6 +558,8 @@ text_init(void)
     halt();
     // Returning here will crash! -- low pages not mapped anymore!
 }
+
+
 
 /**
  * \brief Architecture-specific initialization function.
@@ -641,7 +637,6 @@ arch_init(uint64_t magic,
         global = (struct global*) pointer;
         // Store the address of global to retrive it across relocation
         addr_global = (uint64_t) global;
-        printf("Barrelfish (with kernel boot)\n");
         break;
 
     case K1OM_BOOT_MAGIC:
@@ -650,6 +645,7 @@ arch_init(uint64_t magic,
 
         printf("Barrelfish from xloader: MBI: 0x%"PRIxLVADDR", IMG: [0x%x, 0x%x]\n",
                (lpaddr_t) pointer, mb->mem_lower, mb->mem_upper);
+
 
         /*
          * XXX: The multiboot structure when invoked from the xloader will
@@ -694,7 +690,7 @@ arch_init(uint64_t magic,
                 BASE_PAGE_SIZE);
 
         printf("Start Free RAM at 0x%x (%i MB)\n", glbl_core_data->start_free_ram,
-                               glbl_core_data->start_free_ram >> 20);
+               glbl_core_data->start_free_ram >> 20);
 
         glbl_core_data->mods_addr = mb->mods_addr;
         glbl_core_data->mods_count = mb->mods_count;

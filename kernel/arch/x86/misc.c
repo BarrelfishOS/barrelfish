@@ -28,6 +28,7 @@
 #define DEFAULT_LOGLEVEL        LOG_NOTE
 #define DEFAULT_SUBSYSTEM_MASK  (~0L)
 
+
 /**
  * Global kernel loglevel.
  */

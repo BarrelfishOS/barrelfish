@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2010-2011, ETH Zurich. 
+ * Copyright (c) 2010-2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -129,6 +129,7 @@ static void state_machine(void)
         }
 
         if (coreid <= MAX_COREID) {
+            debug_printf("Spawing core %i, archid %i\n", coreid, coreid_mappings[coreid].arch_id);
             err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, coreid,
                                                 coreid_mappings[coreid].arch_id,
                                                 CURRENT_CPU_TYPE, kernel_cmdline);
@@ -150,22 +151,22 @@ static void state_machine(void)
     }
 
     case 2: { // wait for all spawnd's to come up
-
+        debug_printf("case 2\n");
         for (uintptr_t c = 0; c <= MAX_COREID; c++) {
             if (coreid_mappings[c].present && c != my_core_id) {
                 err = nsb_wait_n(c, SERVICE_BASENAME);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "nameservice barrier wait for %s.%d",
                                    SERVICE_BASENAME, c);
-                }                
+                }
             }
         }
 
         err = nsb_register(ALL_SPAWNDS_UP);
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "nameservice barrier register for %s", 
+            USER_PANIC_ERR(err, "nameservice barrier register for %s",
                            ALL_SPAWNDS_UP);
-        }                
+        }
 
         // offer the spawn service
         err = start_service();
@@ -270,6 +271,8 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
             cmdline_mappings = argv[i];
         } else if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
             cmdline_mappings = argv[i];
+        } else if(!strncmp(argv[i],"bootk1om=",strlen("bootk1om="))) {
+            cmdline_mappings = argv[i];
         } else if(!strncmp(argv[i],"bootarm=",strlen("bootarm="))) {
         	cmdline_mappings = argv[i];
         // this is for compatibility with the armv5 ports which doesn't support multi-core yet
@@ -343,12 +346,13 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
 
     }
 
+#if 0
     for (int i = 0; i <= MAX_COREID; i++) {
         if (coreid_mappings[i].present) {
             debug_printf("coreid %d is arch id %d\n", i,
                          coreid_mappings[i].arch_id);
         }
     }
-
+#endif
     state_machine();
 }

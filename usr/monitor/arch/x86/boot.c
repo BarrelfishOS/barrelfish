@@ -50,6 +50,11 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     errval_t err;
 
     switch(cpu_type) {
+    case CPU_K1OM:
+        arch_page_size = X86_64_BASE_PAGE_SIZE;
+        monitorname = "k1om/sbin/monitor";
+        cpuname = "k1om/sbin/cpu";
+        break;
     case CPU_X86_64:
         arch_page_size = X86_64_BASE_PAGE_SIZE;
         monitorname = "x86_64/sbin/monitor";
@@ -65,6 +70,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
+
 
     // Setup new inter-monitor connection to ourselves
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
@@ -102,6 +108,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     err = invoke_monitor_get_arch_id(&my_arch_id);
     assert(err == SYS_ERR_OK);
 
+
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     // Bootee's notify channel ID is always 1
     struct capref notify_cap;
@@ -131,6 +138,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
                             (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
 #endif
+
     if (err_is_fail(err)) {
         cap_destroy(frame);
         return err_push(err, LIB_ERR_UMP_CHAN_BIND);
@@ -146,11 +154,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     ump_binding->ump_state.chan.sendid =
         (uintptr_t)(umpid.base + MON_URPC_CHANNEL_LEN);
 
+
     /* Look up modules */
     struct mem_region *cpu_region = multiboot_find_module(bi, cpuname);
     if (cpu_region == NULL) {
         return SPAWN_ERR_FIND_MODULE;
     }
+
     // XXX: Caching these for now, until we have unmap
     static size_t cpu_binary_size;
     static lvaddr_t cpu_binary = 0;
@@ -166,6 +176,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     } else {
         assert(cpu_region == cached_cpu_region);
     }
+
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
 
     struct mem_region *monitor_region = multiboot_find_module(bi, monitorname);
@@ -227,6 +238,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     ram_set_affinity(old_minbase, old_maxlimit);
 #endif
 
+
     // Mark memory as remote
     err = monitor_cap_remote(cpu_memory_cap, true, &has_descendants);
     if (err_is_fail(err)) {
@@ -276,6 +288,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
     switch(cpu_head->e_machine) {
+    case EM_K1OM:
+        /* fall through */
     case EM_X86_64: {
         struct Elf64_Shdr *rela, *symtab, *symhead =
             (struct Elf64_Shdr *)(cpu_binary + (uintptr_t)cpu_head->e_shoff);
@@ -337,6 +351,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     /* Setup the core_data struct in the new kernel */
     struct x86_core_data *core_data = (struct x86_core_data*)cpu_buf_memory;
     switch(cpu_head->e_machine) {
+    case EM_K1OM:
+        /* fall through */
     case EM_X86_64: // XXX: Confusion address translation about gen/l/addrs
         core_data->elf.size = sizeof(struct Elf64_Shdr);
         core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;

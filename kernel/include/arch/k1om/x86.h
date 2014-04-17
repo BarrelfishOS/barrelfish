@@ -77,7 +77,7 @@ enum x86_64_cpu_save_registers {
 /** \brief Enable FPU */
 static inline void enable_fpu(void)
 {
-    uint64_t cr0, cr4;
+    uint64_t cr0;
     __asm__ __volatile__("mov %%cr0, %%rax" : "=a" (cr0) : );
     //clear EM
     cr0 &= ~(1 << 2);
@@ -94,10 +94,13 @@ static inline void enable_fpu(void)
 #endif
     __asm__ __volatile__("mov %%rax,%%cr0" : : "a" (cr0));
     //set OSFXSR
+#ifndef __k1om__
+    uint64_t cr4;
+    /* Enabling SSE instruction os K1OM causes a GP*/
     __asm__ __volatile__("mov %%cr4, %%rax" : "=a" (cr4) : );
     cr4 |= (1 << 9);
     __asm__ __volatile__("mov %%rax,%%cr4" : : "a" (cr4));
-
+#endif
 #ifndef FPU_LAZY_CONTEXT_SWITCH
     __asm volatile ("finit");
 #endif
