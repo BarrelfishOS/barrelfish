@@ -36,7 +36,7 @@
 +        while(1) {
 +                i = 0;
 +		ms = mic_ctx->state;
-+		 if (!(ms == MIC_READY 
++		 if (!(ms == MIC_SHUTDOWN 
 +                       	 || ms == MIC_BOOT
 +                         || ms == MIC_ONLINE
 +			 || ms == MIC_BOOTFAIL)
