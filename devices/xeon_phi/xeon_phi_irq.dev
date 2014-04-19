@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_irq.dev
+ *
+ * description: register definitions for the Xeon Phi interrupts
+ */
+
+device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     * Number: 4
+     */
+    regarray doorbel rw addr(base, 0xCC90) [4] "System Doorbell Interrupt Command Registe 0-3" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_disable rw addr(base, 0xCCA0) "32 Bits to Disable Interrupts" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_assert rw addr(base, 0xCCA4) "32 Bits to Assert Interrupts" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_send rw addr(base, 0xCCA8) "32 Bits to log INTSCR field of Marker Message" { 
+        value 32 "Value";
+    };
+};

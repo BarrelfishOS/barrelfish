@@ -1,0 +1,72 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_apic.dev
+ *
+ * description: register definitions for the Xeon Phi APIC register
+ * 
+ * Note: this is for raising interrupts to the other parts.
+ */
+
+device xeon_phi_apic lsbfirst ( addr base ) "Intel Xeon Phi APIC register" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register idr rw addr(base, 0xA800) "APIC Identification Register" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register ver rw addr(base, 0xA804) "APIC Version Register" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register pr rw addr(base, 0xA808) "APIC Prioroty Register" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     * Number: 26
+     */
+    regarray rt rw addr(base, 0xA840) [26] "APIC Redirection Table" { 
+        value 64 "Value";
+    };            
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray icr rw addr(base, 0x9D0) [8] "APIC Interrupt Command Register 0 to 7" { 
+        value 64 "Value";
+    };            
+
+
+};

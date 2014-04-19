@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_c6_scratch.dev
+ *
+ * description: register definitions for the Xeon Phi Package C6 Scratch Pad
+ */
+
+device xeon_phi_c6_scratch lsbfirst ( addr base ) "Intel Xeon Phi C6 Scratch Pad" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     * Number: 22
+     */
+    regarray entry rw addr(base, 0xC000) [22] "System Memory Page Table Entry" { 
+        value 32 "Value";
+    };
+
+
+};

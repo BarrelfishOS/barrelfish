@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_i2c_oc.dev
+ *
+ * description: register definitions for the I2C Bus Overclocking Interface
+ * 
+ * Protection Level: Ring0
+ * Visibility: Host / Coprocessor
+ * Reset Domain: CSR_RESET, HOT_RESET
+ * Register Access: TRM, I2C
+ */
+
+device xeon_phi_i2c_oc lsbfirst ( addr base ) "Intel Xeon Phi I2C Bus Overclocking Unit" {
+	
+	/*
+	 *
+	 */
+	register icr rw addr(base, 0x1000) "I2C Control Register for LRB Over-clocking Unit" { 
+		value 32 "Value";
+	};
+	
+	/*
+	 * 
+	 */
+	register isr rw addr(base, 0x1004) "I2C Status Register for LRB Over-clocking Unit" { 
+		value 32 "Value";
+	};
+	
+	/*
+	 * 
+	 */
+	register isar rw addr(base, 0x1008) "I2C Slave Address Register for LRB Over-clocking Unit" { 
+		value 32 "Value";
+	};
+	
+	/*
+	 * 
+	 */
+	register idbr rw addr(base, 0x100C) "I2C Data Buffer Register for LRB Over-clocking Unit" { 
+		value 32 "Value";
+	};
+	
+	/*
+	 * 
+	 */
+	register idmr rw addr(base, 0x1010) "2C Bus Monitor Register for LRB Over-clocking Unit" { 
+		value 32 "Value";
+	};
+
+};
+
