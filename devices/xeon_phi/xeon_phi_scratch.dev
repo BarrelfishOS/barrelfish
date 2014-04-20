@@ -21,7 +21,7 @@ device xeon_phi_scratch lsbfirst ( addr base ) "Intel Xeon Phi Software Scratch 
      * Register Access: TRM
      * Number: 16
      */
-    regarray entry rw addr(base, 0xAB20) [16] "Software Scratch Registers 0-15" { 
+    regarray scratch rw addr(base, 0xAB20) [16] "Software Scratch Registers 0-15" { 
         value 32 "Value";
     };
 
