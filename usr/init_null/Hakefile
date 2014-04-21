@@ -15,5 +15,7 @@
                       addLinkFlags = [ "-e _start_init"],
 		      addLibraries = [ "mm", "getopt", "trace", "elf" ],
 		      architectures = allArchitectures
+        addCFlags = ["-DXOR_CYCLES"],
+          addCFlags = ["-DMEM_CYCLES"],
                     }
 ]
