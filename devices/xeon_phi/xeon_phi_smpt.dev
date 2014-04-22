@@ -10,9 +10,25 @@
  * xeon_phi_smpt.dev
  *
  * description: register definitions for the Xeon Phi system memory page tables
+ *
+ *   #define BUILD_SMPT(NO_SNOOP, HOST_ADDR)  \
+	(uint32_t)(((((HOST_ADDR)<< 2) & (~0x03)) | ((NO_SNOOP) & (0x01))))
+	
+    constants 
+    
+    #define SMPT_MASK 		0x1F
+    #define MIC_SYSTEM_PAGE_SHIFT 	34ULL
+    #define MIC_SYSTEM_PAGE_MASK 	((1ULL << MIC_SYSTEM_PAGE_SHIFT) - 1ULL)
+    
+    micscif_smpt.c/.h
  */
 
 device xeon_phi_smpt lsbfirst ( addr base ) "Intel Xeon Phi System Memory Page Tables" {
+
+    constants snooping "System Snooping Control" {
+        enabled  = 0  "Enable Snooping";
+        disabled = 1  "Disabled Snooping";
+    };
 
     /*
      * Protection Level: Ring 0
@@ -21,8 +37,10 @@ device xeon_phi_smpt lsbfirst ( addr base ) "Intel Xeon Phi System Memory Page T
      * Register Access: TRM
      * Number: 32
      */
-    regarray entry rw addr(base, 0x3100) [32] "System Memory Page Table Entry" { 
-        value 32 "Value";
+    regarray entry rw addr(base, 0x3100) [32] "System Memory Page Table Entry" {
+        snoop_disabled 1 type(snooping) "Disable snooping";
+        _              1 "Reserved"
+        host_address  30 "High 32bit of the host address";
     };
 
 

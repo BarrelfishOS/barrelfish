@@ -161,7 +161,25 @@ device xeon_phi_dma lsbfirst ( addr base ) "Intel Xeon Phi DMA System" {
      * Register Access: CRU
      */
     register dcr rw addr(base, 0xA280) "DMA Configuration Register" {
-        r 32 "";
+        co0    1 "DMA Channel 0 Owner";
+        ce0    1 "DMA Channel 0 Enable"; 
+        co1    1 "DMA Channel 0 Owner";
+        ce1    1 "DMA Channel 1 Enable"; 
+        co2    1 "DMA Channel 0 Owner";
+        ce2    1 "DMA Channel 2 Enable"; 
+        co3    1 "DMA Channel 0 Owner";
+        ce3    1 "DMA Channel 3 Enable"; 
+        co4    1 "DMA Channel 0 Owner";
+        ce4    1 "DMA Channel 4 Enable"; 
+        co5    1 "DMA Channel 0 Owner";
+        ce5    1 "DMA Channel 5 Enable"; 
+        co6    1 "DMA Channel 0 Owner";
+        ce6    1 "DMA Channel 6 Enable"; 
+        co7    1 "DMA Channel 0 Owner";
+        ce7    1 "DMA Channel 7 Enable"; 
+        arb_h  8 "Arb H";
+        arb_l  7 "Arb L";
+        p      1 "Priority EN";
     };
     
     /*
