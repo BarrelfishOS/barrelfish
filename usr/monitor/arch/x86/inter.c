@@ -186,6 +186,8 @@ static void bind_monitor_proxy(struct intermon_binding *b,
     err = intermon_binding_get(dst_core_id, &dst_binding);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "intermon_binding_get failed");
+        printf("%s:%s:%d: my_core_id=%"PRIuCOREID" dst_core_id=%"PRIuCOREID"\n",
+               __FILE__, __FUNCTION__, __LINE__, my_core_id, dst_core_id);
     }
 
     // Proxy the request

@@ -761,8 +761,8 @@ static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base
     // disp_save_rm_kcb -> next kcb -> enable kcb switching again
     disp_save_rm_kcb();
     // send monitor initialized when we're back up
-    err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
-    assert(err_is_ok(err));
+    //err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    //assert(err_is_ok(err));
 }
 
 static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
