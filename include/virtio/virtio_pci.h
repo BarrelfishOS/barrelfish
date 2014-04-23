@@ -26,4 +26,27 @@
 
 
 
+/**
+ * \brief initializes a new virtio device structure
+ */
+errval_t virtio_pci_device_init(struct virtio_device **vdev,
+                                 struct capref mmio);
+
+/**
+ * \brief de-initialization of the device structure and freeing of resources
+ */
+errval_t virtio_pci_device_free(struct virtio_device **vdev);
+
+/**
+ * \brief initializes a new virtio driver structure
+ */
+errval_t virtio_pci_driver_init(struct virtio_driver **vdrv,
+                                 struct capref mmio);
+
+/**
+ * \brief de-initialization of the driver structure and freeing of resources
+ */
+errval_t virtio_pci_driver_free(struct virtio_driver **vdrv);
+
+
 #endif // VIRTIO_VIRTIO_PCI_H

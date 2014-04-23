@@ -103,4 +103,56 @@
 #define VIRTIO_TRANSPORT_F_END      32
 
 
+/**
+ * \brief this struct represents a virtio device
+ *
+ * This can be seen as on the host side of the virtio channel
+ */
+struct virtio_device
+{
+    struct virtio_device_id id; ///< the virtio device id
+
+    struct virtio_fn    fn;     ///< backend specific implementation
+
+    void *device_config;
+
+    size_t          num_queues; ///< number of vqueues associated with the dev
+    struct vring    vqueues;    ///< the
+
+};
+
+
+/**
+ * \brief this struct represents a virtio driver
+ *
+ * This can be seen as on the guest side of the virtio channel
+ */
+struct virtio_driver
+{
+    void *device_config;
+
+
+};
+
+/**
+ * \brief adds a buffer to the available ring
+ */
+errval_t virtio_add_buffer();
+
+/**
+ * \brief gets the next used buffer
+ */
+errval_t virtio_get_buffer();
+
+/**
+ * \brief
+ */
+void virtio_disable_callback(void);
+
+/**
+ * \brief
+ */
+void virtio_enable_callback();
+
+
 #endif // VIRTIO_H
