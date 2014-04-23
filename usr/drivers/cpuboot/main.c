@@ -170,6 +170,53 @@ static int boot_cpu(int argc, char **argv)
     return 0;
 }
 
+static int halt_boot(int argc, char **argv)
+{
+    coreid_t boot_id = (coreid_t) strtol(argv[1], NULL, 16);
+    assert(boot_id < MAX_COREID);
+
+    struct capref kcb;
+    errval_t err = create_or_get_kcb_cap(boot_id, &kcb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can not get KCB.");
+    }
+
+    coreid_t down_id = (coreid_t) strtol(argv[2], NULL, 16);
+
+    struct capref frame;
+    size_t framesize;
+    struct frame_identity urpc_frame_id;
+    err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+    }
+    err = cap_mark_remote(frame);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    DEBUG("Power down %"PRIuCOREID", lets hope kcb for %"PRIuCOREID" runs there.",
+          down_id, boot_id);
+    // TODO(gz): Use designated IRQ number
+    err = sys_debug_send_ipi(down_id, 0, 40);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
+    }
+    done = true;
+
+    DEBUG("Booting %"PRIuCOREID"...", boot_id);
+    err = spawn_xcore_monitor(boot_id, boot_id, CPU_X86_64,
+                              cmd_kernel_args, urpc_frame_id,
+                              kcb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+    }
+
+    return 0;
+}
+
+
 static int update_cpu(int argc, char** argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
@@ -294,25 +341,20 @@ static int take_kcb(int argc, char** argv)
         USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
     }
 
+
+    //
+    // Move KCB to a core that is currently running
+    //
     err = give_kcb_to_new_core(destination_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not send KCB to another core.");
     }
     done = true;
 
-    /*char sched[32] = { 0 };
-    if ((strlen(argv[2]) > 3) && argv[2][2] == '=') {
-         char *s=argv[2]+3;
-         int i;
-         for (i = 0; i < 31; i++) {
-             if (!s[i] || s[i] == ' ') {
-                 break;
-             }
-         }
-         memcpy(sched, s, i);
-         sched[i] = 0;
-    }
-
+    //
+    // Boot the removed KCB on a core that is currently not running
+    //
+    /*
     struct capref frame;
     size_t framesize;
     struct frame_identity urpc_frame_id;
@@ -332,8 +374,10 @@ static int take_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "boot_core_request failed");
     }
 
-    err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
-                              "loglevel=0 logmask=1", urpc_frame_id);
+    err = spawn_xcore_monitor(target_id, target_id,
+                              CPU_X86_64,
+                              cmd_kernel_args,
+                              urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
     }*/
@@ -403,6 +447,13 @@ static struct cmd commands[] = {
         "Resume a (previously halted) core.",
         "resume <apic id>",
         resume_cpu,
+        2
+    },
+    {
+        "hb",
+        "Halt a core and reboot another core. (Remove when we have proper move).",
+        "hb <boot apic id> <power down apic id>",
+        halt_boot,
         2
     },
     {
@@ -687,6 +738,6 @@ out:
         USER_PANIC_ERR(err, "can not unlock x86boot.");
     }
 #endif
-
+    DEBUG("x86boot is done.");
     return ret;
 }
