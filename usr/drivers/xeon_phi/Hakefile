@@ -11,7 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "xeon_phi",
-                      cFiles = [ "main.c" ],
-                      architectures = [ "x86_64" ]
+                      cFiles = [ "main.c", "boot.c", "serial.c" ],
+                      addLibraries = libDeps ["skb", "pci", "spawndomain", "elf" ],
+                      architectures= ["x86_64"],
+                      mackerelDevices = [ "xeon_phi/xeon_phi_apic", 
+                                          "xeon_phi/xeon_phi_boot", 
+                                          "xeon_phi/xeon_phi_serial"]
                     }
 ]

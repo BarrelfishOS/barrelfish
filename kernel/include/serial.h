@@ -74,20 +74,20 @@ static inline char serial_console_getchar(void)
 #else
 static inline errval_t serial_console_init(void)
 {
-    return serial_init(serial_debug_port);
+    return serial_init(serial_console_port);
 }
 
 static inline void serial_console_putchar(char c)
 {
     if (c == '\n') {
-        serial_putchar(serial_debug_port, '\r');
+        serial_putchar(serial_console_port, '\r');
     }
-    serial_putchar(serial_debug_port, c);
+    serial_putchar(serial_console_port, c);
 }
 
 static inline char serial_console_getchar(void)
 {
-    return serial_getchar(serial_debug_port);
+    return serial_getchar(serial_console_port);
 }
 #endif
 

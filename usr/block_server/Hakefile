@@ -15,8 +15,8 @@
     cFiles = [ "block_server.c",    "network_server.c", "network_client.c", 
                "block_storage.c", "block_storage_cache.c",   "local_server.c", "net_benchmark.c" ],
     addLibraries = libDeps [ "bulk_transfer", "lwip", "net_if_raw", "bench"],
-    flounderDefs = [ "block_service" ],
-    flounderBindings = [ "block_service" ],
+    flounderDefs = [ "block_service", "bulk_ctrl" ],
+    flounderBindings = [ "block_service", "bulk_ctrl" ],
     architectures = [ "x86_64", "x86_32" ]
   },
     
@@ -26,8 +26,8 @@
                "local_server.c", "block_storage_cache.c",
                "block_storage.c", "net_benchmark.c" ],
     addLibraries = libDeps [ "bulk_transfer", "lwip", "bench" ],
-    flounderDefs = [ "block_service" ],
-    flounderBindings = [ "block_service" ],
+    flounderDefs = [ "block_service", "bulk_ctrl" ],
+    flounderBindings = [ "block_service", "bulk_ctrl" ],
     architectures = [ "x86_64", "x86_32" ]
   }
 ]

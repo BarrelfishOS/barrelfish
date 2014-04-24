@@ -86,7 +86,12 @@
            "omap/omap44xx_sysctrl_padconf_core",
            "omap/omap44xx_sysctrl_padconf_wkup",
            "omap/omap44xx_usbconf",
-           "omap/omap44xx_usbtllhs_config"
+           "omap/omap44xx_usbtllhs_config",
+           "virtio/virtio_blk",
+           "virtio/virtio_mmio",
+           "xeon_phi/xeon_phi_serial",
+           "xeon_phi/xeon_phi_boot", 
+           "xeon_phi/xeon_phi_apic"
          ], arch <- allArchitectures
 ] ++
 

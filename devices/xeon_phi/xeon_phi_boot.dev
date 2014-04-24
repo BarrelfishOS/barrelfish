@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_boot.dev
+ *
+ * description: register definitions for the Xeon Phi Boot Time Registers
+ */
+
+device xeon_phi_boot lsbfirst ( addr base ) "Intel Xeon Phi Boot Registers" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+
+     constants offset width(32) "" {
+         address_shift=12;
+         address_mask=0xfffff000;
+     };
+
+    /*
+     * alias for scratch register 2
+     */
+    register download rw addr(base, 0xAB28) {
+        status       1 "Download status bit";
+        apicid       9 "APIC ID to send the boot interrupt";
+        _            2 "unused";
+        offset      20 "Load offset";         
+    };
+    
+    /*
+     * alias for scratch register 3
+     */
+    register res_size rw addr(base, 0xAB2C) {
+        os 32 "Reserved size";
+    };
+    
+    /*
+     * alias for scratch register 5
+     */
+    register os_size rw addr(base, 0xAB34) {
+        size 32 "Size of the loaded image";
+    };
+    
+    constants mem width(2) "" {
+          mem_all    = 0x0;
+          mem_half   = 0x1;
+          mem_third  = 0x2;
+          mem_fourth = 0x3;
+    };
+    
+    register meminfo rw addr(base, 0xAB20) {
+          test_disable  1 "Memtest disable";
+          usage         2 "Memory usage";
+          size_kb      29 "Memory size in KB";
+    };
+    
+    
+
+};

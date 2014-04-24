@@ -178,7 +178,8 @@ let
                          "xapic", 
                          "amd_vmcb", 
                          "cpuid", 
-                         "lpc_rtc" ],
+                         "lpc_rtc", 
+                         "xeon_phi/xeon_phi_serial" ],
      addLibraries = [ "elf_kernel" ] 
      },
 
