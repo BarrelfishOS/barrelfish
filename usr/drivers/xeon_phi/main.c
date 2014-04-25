@@ -20,6 +20,8 @@
 
 volatile uint32_t bootstrap_done = 0;
 
+struct xeon_phi xphi;
+
 int main(int argc,
          char *argv[])
 {
@@ -32,6 +34,12 @@ int main(int argc,
     }
 
     debug_printf("Host bootstrap done\n");
+
+    xeon_phi_boot(&xphi,
+                  XEON_PHI_BOOTLOADER,
+                  XEON_PHI_MULTIBOOT);
+
+
 
     return 0;
 }

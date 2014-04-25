@@ -106,22 +106,18 @@ void pic_init(void)
 
     // Setup 8259A PIC for proper protected mode interrupt delivery
     /* ICW1 */
-    printf("ICW1\n");
     lpc_pic_master_icw1_ltim_wrf(&pic, 0);
     lpc_pic_slave_icw1_ltim_wrf( &pic, 0);
 
     /* ICW2 */
-    printf("ICW2\n");
     lpc_pic_master_icw2_rawwr(&pic, 0x20); // IDT offset 0x20
     lpc_pic_slave_icw2_rawwr(&pic, 0x28);  // IDT offset 0x28
 
     /* ICW3 */
-    printf("IC3\n");
     lpc_pic_master_icw3_cascade_wrf(&pic, 1);
     lpc_pic_slave_icw3_slave_id_wrf(&pic, 2);
 
     /* ICW4 */
-    printf("ICW4\n");
     lpc_pic_icw4_t icw4 = lpc_pic_icw4_default;
     icw4 = lpc_pic_icw4_aeoi_insert(icw4, 0);
     icw4 = lpc_pic_icw4_sfnm_insert(icw4, 0);
@@ -132,12 +128,10 @@ void pic_init(void)
         printf("Warning: not setting elcr1 elcr2 on M5\n");
     } else {
         // Set all interrupts to be edge triggered (i.e. 0)
-        printf("Edge Trigger\n");
         lpc_pic_master_trigger_rawwr(&pic, 0);
         lpc_pic_slave_trigger_rawwr( &pic, 0);
     }
 
-    printf("Mask\n");
     // Mask all interrupts (except cascade IRQ 2)
     lpc_pic_slave_ocw1_wr(&pic, 0xff);
     lpc_pic_master_ocw1_wr(&pic, ~(1 << 2));

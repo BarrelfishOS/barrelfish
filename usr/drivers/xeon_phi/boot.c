@@ -234,11 +234,6 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
 
     xeon_phi_apic_icr_lo_wr(&apic_registers, xeon_phi_apic_bootstrap, icr_lo);
 
-
-#if 0
-    mic_send_bootstrap_intr(mic_ctx);
-#endif
-
     return SYS_ERR_OK;
 }
 
@@ -263,10 +258,11 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     xeon_phi_boot_initialize(&boot_registers, XEON_PHI_MMIO_TO_SBOX(phi->mmio_base));
     xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi->mmio_base));
+
     // load the coprocessor OS
     err = load_os(phi, xloader_img, &osimg_size, &offset);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not load multiboot image");
+        USER_PANIC_ERR(err, "Could not load bootloader image");
     }
 
     // load cmdline

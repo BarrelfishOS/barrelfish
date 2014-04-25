@@ -37,7 +37,7 @@ static void multiboot_cap_reply(struct monitor_binding *st,
                                 struct capref cap,
                                 errval_t msgerr)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
     static cslot_t multiboot_slots = 0;
 
     /*
@@ -45,7 +45,10 @@ static void multiboot_cap_reply(struct monitor_binding *st,
      * so we got everything
      */
     if (err_is_fail(msgerr)) {
-        DEBUG_ERR(msgerr, "We have all multiboot modules...");
+        debug_printf("We got all the boot modules\n");
+        if (msgerr !=  SYS_ERR_CAP_NOT_FOUND) {
+            USER_PANIC_ERR(err, "Unexpected error.");
+        }
 
         struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
         if (cl == NULL) {
@@ -60,7 +63,7 @@ static void multiboot_cap_reply(struct monitor_binding *st,
             USER_PANIC_ERR(err, "Could not request bootinfo from monitor.\n");
         }
 
-        err = vspace_map_one_frame((void**) bi,
+        err = vspace_map_one_frame((void**) &bi,
                                    bootinfo_size,
                                    bootinfo_frame,
                                    NULL,
@@ -71,6 +74,8 @@ static void multiboot_cap_reply(struct monitor_binding *st,
         }
 
         bootstrap_done = 1;
+
+        return;
     }
 
     /*

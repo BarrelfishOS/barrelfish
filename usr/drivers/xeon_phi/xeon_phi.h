@@ -10,6 +10,10 @@
 #ifndef XEON_PHI_H_
 #define XEON_PHI_H_
 
+
+#define XEON_PHI_BOOTLOADER "xeon_phi_bootloader"
+#define XEON_PHI_MULTIBOOT "xeon_phi_multiboot"
+
 #define HOST_DBOX_OFFSET      0x00000000
 #define HOST_SBOX_OFFSET      0x00010000
 

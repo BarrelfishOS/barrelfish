@@ -36,7 +36,7 @@
 #ifdef __k1om__
 #define STARTUP_TIMEOUT         0xffffff
 #else
-#define STARTUP_TIMEOUT         0xfffff
+#define STARTUP_TIMEOUT         0xffffff
 #endif
 /**
  * start_ap and start_ap_end mark the start end the end point of the assembler
@@ -73,7 +73,6 @@ extern uint64_t x86_32_init_ap_global;
  */
 int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
-    printf("Starting hwid core: %u\n", core_id);
     /* Copy the startup code to the real-mode address */
     uint8_t *real_dest = (uint8_t*) local_phys_to_mem(X86_64_REAL_MODE_LINEAR_OFFSET);
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
@@ -112,15 +111,20 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     if (CPU_IS_M5_SIMULATOR) {
         printk(LOG_WARN, "Warning: skipping shutdown/init of APs on M5\n");
     } else {
-
+#if !defined(__k1om__)
+        cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
+#endif
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
                                                           X86_64_REAL_MODE_OFFSET);
 
         //INIT 1 assert
+
         apic_send_init_assert(core_id, xapic_none);
 
 #ifdef __k1om__
        delay_ms(10);
+#else
+       cmos_write( CMOS_RAM_SHUTDOWN_ADDR, CMOS_RAM_WARM_SHUTDOWN);
 #endif
         *init_vector = X86_64_REAL_MODE_ADDR_TO_REAL_MODE_VECTOR(X86_64_REAL_MODE_SEGMENT,
                                                           X86_64_REAL_MODE_OFFSET);

@@ -68,7 +68,6 @@ struct sysret sys_io(struct capability *to, enum io_cmd cmd,
     }
 
     debug(SUBSYS_IO, "handle_io: IO cmd 0x%x to port 0x%" PRIx16 "\n", cmd, port);
-    printf("handle_io: IO cmd 0x%x to port 0x%" PRIx16 "\n", cmd, port);
     switch(cmd) {
     case IOCmd_Outb:
         outb(port, data);
