@@ -108,9 +108,7 @@ static struct usb_xfer_state *usb_xfer_get_state(usb_xfer_id_t tid)
         st = st->next;
     }
 
-    if (st->tid != tid) {
-        return (NULL);
-    }
+    assert(st==NULL || (st && st->tid == tid));
 
     return (st);
 }
@@ -184,6 +182,10 @@ usb_error_t usb_transfer_setup_control(usb_transfer_setup_t *setup,
 
     usb_xfer_state_enq(st);
 
+    if (ret_id) {
+        *ret_id = ret_tid;
+    }
+
     return (USB_ERR_OK);
 }
 
@@ -223,6 +225,10 @@ usb_error_t usb_transfer_setup_isoc(usb_transfer_setup_t *setup,
     st->type = USB_TYPE_ISOC;
 
     usb_xfer_state_enq(st);
+
+    if (ret_id) {
+        *ret_id = ret_tid;
+    }
 
     return (USB_ERR_OK);
 }
@@ -264,6 +270,10 @@ usb_error_t usb_transfer_setup_bulk(usb_transfer_setup_t *setup,
 
     usb_xfer_state_enq(st);
 
+    if (ret_id) {
+        *ret_id = ret_tid;
+    }
+
     return (USB_ERR_OK);
 }
 
@@ -294,7 +304,9 @@ usb_error_t usb_transfer_setup_intr(usb_transfer_setup_t *setup,
         return ((usb_error_t) ret_error);
     }
 
-    *ret_id = ret_tid;
+    if (ret_id) {
+        *ret_id = ret_tid;
+    }
 
     struct usb_xfer_state *st = malloc(sizeof(struct usb_xfer_state));
 
