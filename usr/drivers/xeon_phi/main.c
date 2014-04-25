@@ -12,8 +12,26 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdio.h>
+#include <string.h>
+#include <barrelfish/barrelfish.h>
 
-int main(int argc, char *argv[]) {
+#include "xeon_phi.h"
+
+volatile uint32_t bootstrap_done = 0;
+
+int main(int argc,
+         char *argv[])
+{
+    debug_printf("Xeon Phi host module started.\n");
+
+    host_bootstrap();
+
+    while (bootstrap_done == 0) {
+        messages_wait_and_handle_next();
+    }
+
+    debug_printf("Host bootstrap done\n");
 
     return 0;
 }

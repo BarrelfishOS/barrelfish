@@ -24,6 +24,8 @@ module	/x86_64/sbin/monitor
 module  /x86_64/sbin/ramfsd boot
 module  /x86_64/sbin/skb boot
 modulenounzip /skb_ramfs.cpio.gz nospawn
+modulenounzip /xeon_phi_mbimage nospawn
+module  /xeon_phi_xloader nospawn
 module  /x86_64/sbin/kaluga boot
 module  /x86_64/sbin/acpi boot
 module  /x86_64/sbin/spawnd boot
@@ -31,27 +33,29 @@ module  /x86_64/sbin/spawnd boot
 module  /x86_64/sbin/startd boot
 module /x86_64/sbin/routing_setup boot
 
+
 # Drivers
 module /x86_64/sbin/pci auto
 module /x86_64/sbin/ahcid auto
+module  /x86_64/sbin/xeon_phi auto
 
 ## For networking
 ## For qemu, enable rtl8029
-module /x86_64/sbin/rtl8029 auto
+#module /x86_64/sbin/rtl8029 auto
 
 ## For real hardware, enable e1000n
-module /x86_64/sbin/e1000n auto
+#module /x86_64/sbin/e1000n auto
 
 ## Other services needed for networking
-module /x86_64/sbin/NGD_mng auto
-module /x86_64/sbin/netd auto
+#module /x86_64/sbin/NGD_mng auto
+#module /x86_64/sbin/netd auto
 
 ## Block Service
-module /x86_64/sbin/block_server
-module /x86_64/sbin/block_server_client
-module /x86_64/sbin/bs_user
+#module /x86_64/sbin/block_server
+#module /x86_64/sbin/block_server_client
+#module /x86_64/sbin/bs_user
 
 # General user domains
-module	/x86_64/sbin/serial
-module  /x86_64/sbin/fish nospawn
-module	/x86_64/sbin/angler serial0.terminal xterm
+#module	/x86_64/sbin/serial
+#module  /x86_64/sbin/fish nospawn
+#module	/x86_64/sbin/angler serial0.terminal xterm

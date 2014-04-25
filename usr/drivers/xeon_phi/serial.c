@@ -16,7 +16,6 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
-
 #include <dev/xeon_phi/xeon_phi_serial_dev.h>
 
 #include "xeon_phi.h"
@@ -28,8 +27,8 @@ static xeon_phi_serial_t mmio_serial;
 
 uint8_t xeon_phi_id = 0;
 
-static inline void
-xprintf(uint8_t xid, char *fmt)
+static inline void xprintf(uint8_t xid,
+                           char *fmt)
 {
     printf("\033[34m>> XEON_PHI\033[31m%u\033[0m: %s", xid, fmt);
 }
@@ -38,12 +37,11 @@ struct xeon_phi_arg
 {
     xeon_phi_serial_t base;
     uint8_t xid;
-    char buffer[XEON_PHI_BUFFER_LENGTH+1];
+    char buffer[XEON_PHI_BUFFER_LENGTH + 1];
     uint32_t idx;
 };
 
-static int
-xeon_phi_recv_handler(void *arg)
+static int xeon_phi_recv_handler(void *arg)
 {
     struct xeon_phi_arg *xarg = arg;
     uint32_t nodata;
@@ -102,7 +100,8 @@ xeon_phi_recv_handler(void *arg)
             }
             if (has_data != xeon_phi_serial_data) {
                 debug_printf("[xeon phi %d] : ERROR invalid ctrl value.%x\n",
-                             xarg->xid, has_data);
+                             xarg->xid,
+                             has_data);
             }
             /* always issue a new line */
             if (value == '\n') {
@@ -142,8 +141,7 @@ xeon_phi_recv_handler(void *arg)
  *
  * The sbox memory region has already been mapped
  */
-errval_t
-serial_start_recv_thread(struct xeon_phi *phi)
+errval_t serial_start_recv_thread(struct xeon_phi *phi)
 {
     struct xeon_phi_arg *xarg = malloc(sizeof(struct xeon_phi_arg));
     if (xarg == NULL) {

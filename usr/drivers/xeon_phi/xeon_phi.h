@@ -21,6 +21,16 @@
 #define XBOOT_DEBUG(x...) debug_printf(" BOOT | " x)
 //#define XBOOT_DEBUG(x...)
 
+#define MAX(a, b)   ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a, b)   ( ((a) < (b)) ? (a) : (b) )
+
+/*
+ * TODO: Verify these values if they are really needed
+ */
+#define MEMORY_RESERVE_PERCENT 50
+#define UOS_RESERVE_SIZE_MIN    ((128) * 1024 * 1024)
+#define UOS_RESERVE_SIZE_MAX    (((4) * 1024 * 1024 * 1024ULL) - ((4) * 1024))
+
 struct xeon_phi
 {
     lvaddr_t mmio_base;     ///< base address of the MMIO register space
@@ -40,8 +50,7 @@ struct xeon_phi
  *
  * \param phi   pointer to the card information
  */
-errval_t
-serial_start_recv_thread(struct xeon_phi *phi);
+errval_t serial_start_recv_thread(struct xeon_phi *phi);
 
 /**
  * \brief boots the card with the given loader and multiboot image
@@ -50,8 +59,7 @@ serial_start_recv_thread(struct xeon_phi *phi);
  * \param xloader_img   pointer to the card bootloader image
  * \param multiboot_img pointer to the card multiboot image
  */
-errval_t
-xeon_phi_boot(struct xeon_phi *phi,
+errval_t xeon_phi_boot(struct xeon_phi *phi,
               char *xloader_img,
               char *multiboot_img);
 
@@ -60,7 +68,12 @@ xeon_phi_boot(struct xeon_phi *phi,
  *
  * \param phi   pointer to the card information
  */
-errval_t
-xeon_phi_reset(struct xeon_phi *phi);
+errval_t xeon_phi_reset(struct xeon_phi *phi);
+
+/**
+ * \brief Bootstraps the host driver to get the multiboot images of the
+ *        xeon phi loader and the xeon phi multiboot image
+ */
+errval_t host_bootstrap(void);
 
 #endif /* XEON_PHI_H_ */

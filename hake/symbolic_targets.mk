@@ -172,6 +172,7 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
+	sbin/xeon_phi \
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \
