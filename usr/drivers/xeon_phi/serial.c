@@ -151,7 +151,7 @@ errval_t serial_start_recv_thread(struct xeon_phi *phi)
 
     xarg->xid = phi->id;
 
-    xeon_phi_serial_initialize(&xarg->base, XEON_PHI_MMIO_TO_SBOX(phi->mmio_base));
+    xeon_phi_serial_initialize(&xarg->base, XEON_PHI_MMIO_TO_SBOX(phi));
 
     /*
      * xxx: maybe store the thread pointer

@@ -87,7 +87,7 @@ device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
     
     register int_status rw addr(base, 0x9004) "System Interrupt Status Register" {
     	reg 32 "registr3";
-    }
+    };
     
     /*
      * Note: This register is used for SW testing and HW debug only. The intent 
@@ -123,7 +123,15 @@ device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
      * to defeature ordering checks to avoid the hang condition.
      */
     register int_enable rw addr(base, 0x900C) "System Interrupt Enable Register" {
+    	dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;  
+    };
     
+    constants int_en "" {
+    	dbr_enable_all = 0xF; 
+    	dma_enable_all = 0xFF;
     };
     
     /* 
@@ -136,7 +144,10 @@ device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
      * separate Interrupt sources.
      */
     register int_disable rw addr(base, 0x9010) "System Interrupt Disable" {
-    
+    	dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;    
     };
     
     /*
@@ -185,7 +196,10 @@ device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
      * otherwise the behavior is undefined.
      */
     regarray msi_vector rw addr(base, 0x9044) [16] "MSI(-X) Vector Assignment Register 0-15" {
-    	reg 32 "ff";
+		dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;  
     };
     
     

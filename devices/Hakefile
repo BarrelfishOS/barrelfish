@@ -91,7 +91,9 @@
            "virtio/virtio_mmio",
            "xeon_phi/xeon_phi_serial",
            "xeon_phi/xeon_phi_boot", 
-           "xeon_phi/xeon_phi_apic"
+           "xeon_phi/xeon_phi_apic",
+           "xeon_phi/xeon_phi_smpt",
+           "xeon_phi/xeon_phi_irq"
          ], arch <- allArchitectures
 ] ++
 

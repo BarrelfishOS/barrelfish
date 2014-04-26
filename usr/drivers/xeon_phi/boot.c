@@ -86,11 +86,11 @@ static errval_t load_os(struct xeon_phi *phi,
 
     printf("Loading xloader onto card...\n");
     XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->aper_base,
+                phi->apt.vbase,
                 loadoffset,
                 imgsize);
 
-    memcpy((void *) (phi->aper_base + loadoffset), (void *) binary, imgsize);
+    memcpy((void *) (phi->apt.vbase + loadoffset), (void *) binary, imgsize);
 
     if (ret_cmdoffset) {
         *ret_cmdoffset = loadoffset + imgsize;
@@ -132,19 +132,19 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
 
     printf("Loading multiboot image onto card...\n");
     XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->aper_base,
+                phi->apt.vbase,
                 load_offset,
                 imgsize);
 
-    memcpy((void *) (phi->aper_base + load_offset), (void *) image, imgsize);
+    memcpy((void *) (phi->apt.vbase + load_offset), (void *) image, imgsize);
 
     /*
      * we are using the Linux style way in booting. The following will update
      * the corresponding fields in struct boot_param of the header.
      */
-    uint32_t *ramfs_addr_ptr = (uint32_t *) (phi->aper_base + os_offset + 0x218);
+    uint32_t *ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + os_offset + 0x218);
     *ramfs_addr_ptr = load_offset;
-    ramfs_addr_ptr = (uint32_t *) (phi->aper_base + os_offset + 0x21c);
+    ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + os_offset + 0x21c);
     *ramfs_addr_ptr = imgsize;
 
     return SYS_ERR_OK;
@@ -162,7 +162,7 @@ static errval_t load_cmdline(struct xeon_phi *phi,
                              uint32_t *ret_size)
 {
     uint32_t cmdlen = 0;
-    void *buf = (void *) (phi->aper_base + load_offset);
+    void *buf = (void *) (phi->apt.vbase + load_offset);
 
     if (phi->cmdline) {
         cmdlen += sprintf(buf, "%s foobar=%i", phi->cmdline, 123);
@@ -256,8 +256,10 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         return SYS_ERR_ILLEGAL_INVOCATION;
     }
 
-    xeon_phi_boot_initialize(&boot_registers, XEON_PHI_MMIO_TO_SBOX(phi->mmio_base));
-    xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi->mmio_base));
+    xeon_phi_boot_initialize(&boot_registers,
+                             XEON_PHI_MMIO_TO_SBOX(phi),
+                             XEON_PHI_MMIO_TO_DBOX(phi));
+    xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi));
 
     // load the coprocessor OS
     err = load_os(phi, xloader_img, &osimg_size, &offset);
@@ -286,15 +288,5 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
 
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief performs a soft reset of the card
- *
- * \param phi   pointer to the card information
- */
-errval_t xeon_phi_reset(struct xeon_phi *phi)
-{
     return SYS_ERR_OK;
 }

@@ -11,17 +11,29 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "xeon_phi",
-                      cFiles = [ "main.c", 
+                      cFiles = [ "main.c",
+                      			 "xeon_phi.c", 
                                  "boot.c", 
                                  "serial.c", 
-                                 "host_bootstrap.c" ],
-                      addLibraries = libDeps ["skb", "pci", "spawndomain", "elf" ],
+                                 "host_bootstrap.c", 
+                                 "dma.c", 
+                                 "interrupts.c", 
+                                 "service.c", 
+                                 "smpt.c", 
+                                 "sleep.c" ],
+                      addLibraries = libDeps ["skb", 
+                      						  "pci", 
+                      						  "spawndomain", 
+                      						  "elf", 
+                      						  "bench" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderDefs = ["monitor"],
                       architectures= ["x86_64"],
                       mackerelDevices = [ "xeon_phi/xeon_phi_apic", 
                                           "xeon_phi/xeon_phi_boot", 
-                                          "xeon_phi/xeon_phi_serial"]
+                                          "xeon_phi/xeon_phi_serial",
+                                          "xeon_phi/xeon_phi_smpt", 
+                                          "xeon_phi/xeon_phi_irq"]
                     }
 ]
 

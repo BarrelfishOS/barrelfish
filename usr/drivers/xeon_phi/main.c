@@ -17,6 +17,8 @@
 #include <barrelfish/barrelfish.h>
 
 #include "xeon_phi.h"
+#include "smpt.h"
+
 
 volatile uint32_t bootstrap_done = 0;
 
@@ -25,21 +27,33 @@ struct xeon_phi xphi;
 int main(int argc,
          char *argv[])
 {
+    errval_t err;
     debug_printf("Xeon Phi host module started.\n");
 
-    host_bootstrap();
+    err = host_bootstrap();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not do the host bootstrap\n");
+    }
 
     while (bootstrap_done == 0) {
         messages_wait_and_handle_next();
     }
 
-    debug_printf("Host bootstrap done\n");
+    xphi.state = XEON_PHI_STATE_NULL;
 
-    xeon_phi_boot(&xphi,
+    err = xeon_phi_init(&xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not do the card initialization\n");
+    }
+
+    err = xeon_phi_boot(&xphi,
                   XEON_PHI_BOOTLOADER,
                   XEON_PHI_MULTIBOOT);
+    if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not boot the card\n");
+    }
 
-
+    debug_printf("Xeon Phi host module terminated.\n");
 
     return 0;
 }
