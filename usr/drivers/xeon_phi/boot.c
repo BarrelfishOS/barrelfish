@@ -27,6 +27,21 @@ struct bootinfo *bi = NULL;
 
 #include "xeon_phi.h"
 
+/*
+ * TODO: Verify these values if they are really needed
+ */
+#define MEMORY_RESERVE_PERCENT 50
+#define UOS_RESERVE_SIZE_MIN    ((128) * 1024 * 1024)
+#define UOS_RESERVE_SIZE_MAX    (((4) * 1024 * 1024 * 1024ULL) - ((4) * 1024))
+
+/*
+ * Helper macros
+ */
+#define MAX(a, b)   ( ((a) > (b)) ? (a) : (b) )
+#define MIN(a, b)   ( ((a) < (b)) ? (a) : (b) )
+#define ALIGN(x) ((x + BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE-1))
+
+
 static xeon_phi_boot_t boot_registers;
 static xeon_phi_apic_t apic_registers;
 
@@ -51,11 +66,15 @@ static inline lvaddr_t get_load_offset(struct xeon_phi *phi)
  * \param xloader_img   name of the bootloader image
  * \param ret_imgsize   returned image size
  * \param ret_cmdoffset returned offset to load the next piece onto the card
+ *
+ * Note: it is important that the bootloader just uses statically allocated
+ *       memory and does not exceed its image size with additional memory.
+ *       Otherwise the CMD line or the multiboot image will be overwritten.
  */
-static errval_t load_os(struct xeon_phi *phi,
-                        char *xloader_img,
-                        uint32_t *ret_imgsize,
-                        lvaddr_t *ret_cmdoffset)
+static errval_t load_bootloader(struct xeon_phi *phi,
+                                char *xloader_img,
+                                uint32_t *ret_imgsize,
+                                lvaddr_t *ret_cmdoffset)
 {
     errval_t err;
     /*
@@ -262,10 +281,13 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi));
 
     // load the coprocessor OS
-    err = load_os(phi, xloader_img, &osimg_size, &offset);
+    err = load_bootloader(phi, xloader_img, &osimg_size, &offset);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load bootloader image");
     }
+
+    // round to next page
+    offset = ALIGN(offset);
 
     // load cmdline
     err = load_cmdline(phi, offset, &size);
@@ -274,7 +296,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     }
 
     // round to next page
-    offset += size + BASE_PAGE_SIZE - (size & (BASE_PAGE_SIZE - 1));
+    offset = ALIGN(offset);
 
     // load multiboot image
     err = load_multiboot_image(phi, multiboot_img, offset, &size);

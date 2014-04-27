@@ -67,96 +67,106 @@ device xeon_phi_boot lsbfirst ( addr sbox_base, addr dbox_base ) "Intel Xeon Phi
     	reset  1 "Perform device rest";
     	_     31; 
     };
+    
     /*
-    constants postcodes "" {
-    	postcode_invalid = 0x0 "Invalid Postcode";
-		postcode_lidt = 0x01 "LIDT";
-		postcode_sboxinit = 0x02 "SBOX initialization";
-		postcode_gddrtop = 0x03 "Set GDDR Top";
-		postcode_memtest = 0x04 "Begin memory test";
-		postcode_e820 = 0x05 "Program E820 table";
-		postcode_dbox = 0x06 "Initialize DBOX";
-		postcode_cache = 0x09 "Enable Cache";    
-		postcode_initap = 0x0b "Pass initialization params to APs";
-		postcode_code = 0x0c "Cache C code";
-		postcode_mp = 0x0d "Program MP table";
-		postcode_apwkup = 0x0f "Wake up APs";
-		postcode_apboot = 0x10 "Wait for APs to boot";
-		postcode_sig = 0x11 "Signal host to download OS";
-		postcode_ready = 0x12 "Wait for download READY";
-		postcode_boot = 0x13 "Signal to boot received";
-		postcode_pinfo = 0x15 "Report platform information";
-		postcode_ptable = 0x17 "Page table setup";
-		postcode_memtrain = 0x30 ""Begin memory training;
-		postcode_gddrtrain = 0x31 ""GDDR Training to query memory modules;
-		postcode_findgddrtrain = 0x32 "Find GDDR training parameters in flash";
-		postcode_mmiotrain = 0x33 "MMIO training";
-		postcode_rcomptrain = 0x34 "RCOMP training";
-		postcode_dcctrain = 0x35 "DCC disable training";
-		postcode_hcktrain = 0x36 "HCK training";
-		postcode_ucodetrain = 0x37 "UCode Training";
-		postcode_vendortrain = 0x38 "Vendor specific training";
-		postcode_addrtrain = 0x39 "GDDR address training";
-		postcode_gddrident = 0x3A "GDDR memory module identification";
-		postcode_wcktrain = 0x3B "GDDR WCK training";
-		postcode_cdrdtrain = 0x3C "GDDR read training with CDR enabled";
-		postcode_cdretrain = 0x3D "GDDR Read Training with CDR disabled";
-		postcode_wrtrain = 0x3E "GDDR Write Training";
-		postcode_fintrain = 0x3F "Finalize GDDR Training";
-		postcode_osauth = 0x40 "Begin Coprocessor OS authentification";
-		postcode_loading0 = 0x50 "Coprocessor OS Loading 0";
-		postcode_loading1 = 0x51 "Coprocessor OS Loading 1";
-		postcode_loading2 = 0x52 "Coprocessor OS Loading 2";
-		postcode_loading3 = 0x53 "Coprocessor OS Loading 3";
-		postcode_loading4 = 0x54 "Coprocessor OS Loading 4";
-		postcode_loading5 = 0x55 "Coprocessor OS Loading 5";
-		postcode_loading6 = 0x56 "Coprocessor OS Loading 6";
-		postcode_loading7 = 0x57 "Coprocessor OS Loading 7";
-		postcode_loading8 = 0x58 "Coprocessor OS Loading 8";
-		postcode_loading9 = 0x59 "Coprocessor OS Loading 9";
-		postcode_loadingb = 0x5A "Coprocessor OS Loading A";
-		postcode_loadinga = 0x5B "Coprocessor OS Loading B";
-		postcode_loadingc = 0x5C "Coprocessor OS Loading C";
-		postcode_loadingd = 0x5D "Coprocessor OS Loading D";
-		postcode_loadinge = 0x5E "Coprocessor OS Loading E";
-		postcode_loadingf = 0x5F "Coprocessor OS Loading F";
-		postcode_gp = 0x6P "Int 13 - General Protection Fault";
-		postcode_invaltss = 0x75 "Int 10 - Invalid TSS";
-		postcode_fpu = 0x87 "Int 16 - x87 FPU Error";
-		postcode_algin = 0xac "";
-		postcode_bp = 0x "";
-		postcode_bound = 0x "";
-		postcode_mc = 0x "";
-		postcode_seg = 0x "";
-		postcode_dbg = 0x "";
-		postcode_div = 0x "";
-		postcode_df = 0x "";
-		postcode_memf = 0x "";
-		postcode_ = 0x "";
-		postcode_ = 0x "";
-		postcode_ = 0x "";
-		postcode_ = 0x "";
-		
-		postcode_ = 0x "";
-
-
-
-
-
-
-
-
-    	postcode_invalid         = 0; 
-   		postcode_reset_failed_f2 = 12870;
-		postcode_reset_failed_f4 = 13382;
-    	postcode_fatal		     = 0xffffffff;
+     * Note: The post codes are represented as a two byte ASCII values  
+     */
+    constants postcodes width(16) "The Xeon Phi Post codes" {
+		postcode_lidt           = 0x3031 "01 LIDT";
+		postcode_sboxinit       = 0x3032 "02 SBOX initialization";
+		postcode_gddrtop        = 0x3033 "03 Set GDDR Top";
+		postcode_memtest        = 0x3034 "04 Begin memory test";
+		postcode_e820           = 0x3035 "05 Program E820 table";
+		postcode_dbox           = 0x3036 "06 Initialize DBOX";
+		postcode_cache          = 0x3039 "09 Enable Cache";    
+		postcode_initap         = 0x3062 "0b Pass initialization params to APs";
+		postcode_code           = 0x3063 "0c Cache C code";
+		postcode_mp             = 0x3045 "0E Program MP table";
+		postcode_apwkup         = 0x3046 "0F Wake up APs";
+		postcode_apboot         = 0x3130 "10 Wait for APs to boot";
+		postcode_sig            = 0x3131 "11 Signal host to download OS";
+		postcode_ready          = 0x3132 "12 Wait for download READY";
+		postcode_boot           = 0x3133 "13 Signal to boot received";
+		postcode_pinfo          = 0x3135 "15 Report platform information";
+		postcode_ptable         = 0x3137 "17 Page table setup";
+		postcode_memtrain       = 0x3330 "30 Begin memory training";
+		postcode_gddrtrain      = 0x3331 "31 GDDR Training to query memory modules";
+		postcode_findgddrtrain  = 0x3332 "32 Find GDDR training parameters in flash";
+		postcode_mmiotrain      = 0x3333 "33 MMIO training";
+		postcode_rcomptrain     = 0x3334 "34 RCOMP training";
+		postcode_dcctrain       = 0x3335 "35 DCC disable training";
+		postcode_hcktrain       = 0x3336 "36 HCK training";
+		postcode_ucodetrain     = 0x3337 "37 UCode Training";
+		postcode_vendortrain    = 0x3338 "38 Vendor specific training";
+		postcode_addrtrain      = 0x3339 "39 GDDR address training";
+		postcode_gddrident      = 0x3341 "3A GDDR memory module identification";
+		postcode_wcktrain       = 0x3362 "3b GDDR WCK training";
+		postcode_cdrdtrain      = 0x3343 "3C GDDR read training with CDR enabled";
+		postcode_cdretrain      = 0x3364 "3d GDDR Read Training with CDR disabled";
+		postcode_wrtrain        = 0x3345 "3E GDDR Write Training";
+		postcode_fintrain       = 0x3346 "3F Finalize GDDR Training";
+		postcode_osauth         = 0x3430 "40 Begin Coprocessor OS authentification";
+		postcode_loading0       = 0x3530 "50 Coprocessor OS Loading 0";
+		postcode_loading1       = 0x3531 "51 Coprocessor OS Loading 1";
+		postcode_loading2       = 0x3532 "52 Coprocessor OS Loading 2";
+		postcode_loading3       = 0x3533 "53 Coprocessor OS Loading 3";
+		postcode_loading4       = 0x3534 "54 Coprocessor OS Loading 4";
+		postcode_loading5       = 0x3535 "55 Coprocessor OS Loading 5";
+		postcode_loading6       = 0x3536 "56 Coprocessor OS Loading 6";
+		postcode_loading7       = 0x3537 "57 Coprocessor OS Loading 7";
+		postcode_loading8       = 0x3538 "58 Coprocessor OS Loading 8";
+		postcode_loading9       = 0x3539 "59 Coprocessor OS Loading 9";
+		postcode_loadingb       = 0x3541 "5A Coprocessor OS Loading A";
+		postcode_loadinga       = 0x3542 "5B Coprocessor OS Loading B";
+		postcode_loadingc       = 0x3543 "5C Coprocessor OS Loading C";
+		postcode_loadingd       = 0x3544 "5D Coprocessor OS Loading D";
+		postcode_loadinge       = 0x3545 "5E Coprocessor OS Loading E";
+		postcode_loadingf       = 0x3546 "5F Coprocessor OS Loading F";
+		postcode_gp             = 0x3650 "6P Int 13 - General Protection Fault";
+		postcode_tss            = 0x3735 "75 Int 10 - Invalid TSS";
+		postcode_fpu            = 0x3837 "87 Int 16 - x87 FPU Error";
+		postcode_algin          = 0x4143 "AC INT 17 - Alignment Check";
+		postcode_bp             = 0x6250 "bP INT 3 - Break Point";
+		postcode_bound          = 0x6272 "br INT 5 - BOUND Range Exceeded";
+		postcode_mc             = 0x4343 "CC INT 18 - Machine Check";
+		postcode_seg            = 0x636F "co INT 9 - Coprocessor Segmenet Overrun";
+		postcode_dbg            = 0x6462 "db INT 1 - Debug";
+		postcode_div            = 0x6445 "dE INT 0 - Divide Error";
+		postcode_df             = 0x6446 "dF INT 8 - Double Fault";
+		postcode_memf           = 0x4545 "EE Memory Test Failed";
+		postcode_pnf            = 0x4630 "F0 GDDR Parameters not found";
+		postcode_pllf           = 0x4631 "F1 GBOX PLL lock failure";
+		postcode_memtf          = 0x4632 "F2 GDDR failed memory training";
+		postcode_memqf          = 0x4633 "F3 GDDR memory module query failed";
+		postcode_mempf          = 0x4634 "F4 Memory preservation failure";
+	    postcode_sf             = 0x4635 "F5 INT 12 - Stack Fault";
+	    postcode_done           = 0x4646 "FF - Bootstrap finished execution";
+	    postcode_ld             = 0x4C64 "Ld - Locking down hardware access";
+	    postcode_authf          = 0x6E41 "nA - OS Image failed Authentification";
+	    postcode_dna            = 0x6E64 "nd INT 7 - Device not Available";
+	    postcode_nmi            = 0x6E6F "no INT 2 - Non-maskable Interrupt";
+	    postcode_snp            = 0x6E50 "nP INT 11 - Segment Not Present";
+	    postcode_of             = 0x6F46 "oF INT 4 - Overflow";
+	    postcode_pf             = 0x5046 "PF INT 14 - Pagefault";
+	    postcode_rs             = 0x7235 "r5 INT 15 - Reserved";
+	    postcode_iop            = 0x7564 "ud INT 6 - Invalid OP code";
     };
-    */
+    
+    constants postcodes_special width(32) "The Xeon Phi Post codes" {
+        postcode_invalid = 0x0;
+        postcode_fatal   = 0xffffffff;
+    };
+    
     
     register postcode rw addr(dbox_base, 0x242c) {
-    	code0  8;
-    	code1  8;
+    	code  16 type(postcodes);
     	_     16;
+    };
+    
+    register postcode_raw rw also addr(dbox_base, 0x242c) {
+        code0  8;
+        code1  8;
+        _     16;
     };
 
 };

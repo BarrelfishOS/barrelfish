@@ -17,4 +17,18 @@
 #include <barrelfish/barrelfish.h>
 
 #include "xeon_phi.h"
+#include "dma.h"
+
+/**
+ * \brief Initializes the DMA structure for the Xeon Phi
+ *
+ * \param phi the xeon phi DMA structure
+ *
+ * \return SYS_ERR_OK on success,
+ */
+errval_t dma_init(struct xeon_phi *phi)
+{
+
+    return SYS_ERR_OK;
+}
 

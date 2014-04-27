@@ -22,6 +22,7 @@
 #include "xeon_phi.h"
 #include "interrupts.h"
 #include "sleep.h"
+#include "dma.h"
 
 static uint32_t initialized = 0;
 
@@ -171,6 +172,8 @@ errval_t xeon_phi_init(struct xeon_phi *phi)
 
     device_init(phi);
 
+    dma_init(phi);
+
     return SYS_ERR_OK;
 }
 
@@ -205,19 +208,27 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     milli_sleep(1000);
 
     xeon_phi_boot_postcode_t postcode;
+    xeon_phi_boot_postcodes_t pc;
     for (uint32_t time = 0; time < XEON_PHI_RESET_TIME; ++time) {
         postcode = xeon_phi_boot_postcode_rd(&boot_registers);
+        pc = xeon_phi_boot_postcode_extract(postcode);
+        debug_printf("Resetting; %s\n", xeon_phi_boot_postcodes_describe(pc));
+        XBOOT_DEBUG("Resetting (Post Code %c%c)\n",
+                     xeon_phi_boot_postcode_raw_code0_extract(postcode),
+                     xeon_phi_boot_postcode_raw_code1_extract(postcode));
 
-        debug_printf("Resetting (Post Code %c%c)\n",
-                     xeon_phi_boot_postcode_code0_extract(postcode),
-                     xeon_phi_boot_postcode_code1_extract(postcode));
-
-
+        if (postcode == xeon_phi_boot_postcode_invalid
+                || postcode == xeon_phi_boot_postcode_fatal
+                || pc == xeon_phi_boot_postcode_memtf
+                || pc == xeon_phi_boot_postcode_mempf) {
+            break;
+        }
 
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
             phi->state = XEON_PHI_STATE_READY;
             debug_printf("Reset successful\n");
             /*
+             * XXX; Maybe we should re-enable the IRQ if they were enabled beforehand
              * if (mic_ctx->msie)
                     mic_enable_msi_interrupts(mic_ctx);
                 mic_enable_interrupts(mic_ctx);
@@ -231,44 +242,14 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     }
 
     if (phi->state != XEON_PHI_STATE_READY) {
-        debug_printf("Reset Failed (Post Code %c%c)\n",
-                             xeon_phi_boot_postcode_code0_extract(postcode),
-                             xeon_phi_boot_postcode_code1_extract(postcode));
+        debug_printf("Reset Failed; %s\n", xeon_phi_boot_postcodes_describe(pc));
+        XBOOT_DEBUG("Reset Failed (Post Code %c%c)\n",
+                             xeon_phi_boot_postcode_raw_code0_extract(postcode),
+                             xeon_phi_boot_postcode_raw_code1_extract(postcode));
+
+        return 1;
     }
-#if 0
 
-
-
-        void
-        reset_timer(unsigned long arg)
-        {
-            if (mic_ctx->reset_count == RESET_FAIL_TIME ||
-                !postcode || 0xffffffff == postcode || mic_ctx->state == MIC_RESETFAIL) {
-                mic_ctx->reset_count = 0;
-                mic_setstate(mic_ctx, MIC_RESETFAIL);
-                wake_up(&mic_ctx->resetwq);
-                printk("MIC %d RESETFAIL postcode %c%c %d\n", mic_ctx->bi_id,
-                    postcode & 0xff, (postcode >> 8) & 0xff, postcode);
-                return;
-            }
-
-            /* check for F2 or F4 error codes from bootstrap */
-            if ((postcode == RESET_FAILED_F2) || (postcode == RESET_FAILED_F4)) {
-                if (mic_ctx->resetworkq) {
-                    queue_work(mic_ctx->resetworkq, &mic_ctx->resetwork);
-                } else {
-                    mic_ctx->reset_count = 0;
-                    mic_setstate(mic_ctx, MIC_RESETFAIL);
-                    wake_up(&mic_ctx->resetwq);
-                    return;
-                }
-            }
-
-
-
-
-        }
-#endif
     return SYS_ERR_OK;
 }
 
