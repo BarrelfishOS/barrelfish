@@ -164,9 +164,8 @@ MODULES_x86_64= \
 	sbin/testdesc-child \
 	sbin/lshw \
 	sbin/x86boot \
-    sbin/cpu_single \
-    sbin/init_app \
-    sbin/memeasy \
+        sbin/cpu_single \
+        sbin/init_app \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
