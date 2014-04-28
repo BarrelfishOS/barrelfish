@@ -17,5 +17,13 @@
 		      architectures = allArchitectures
         addCFlags = ["-DXOR_CYCLES"],
           addCFlags = ["-DMEM_CYCLES"],
-                    }
+      },
+
+      build application {
+            target = "deadmem",
+            addCFlags = ["-DMEM_CYCLES", "-Wno-unused-variable"],
+            cFiles = [ "deadline.c" ],
+            addLibraries = libDeps [ "vfs", "lwip", "bench" ],
+            architectures = ["x86_64"]
+      }
 ]
