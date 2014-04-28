@@ -68,9 +68,12 @@
                "unixsock",
                "bcache",
                "replay",
+               "xeon_phi",
+               "xeon_phi_manager",
                "block_service",
                "bulk_ctrl",
-               "empty"
+               "empty" 
+               
            ],
              arch <- allArchitectures
 ] ++

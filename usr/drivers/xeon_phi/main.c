@@ -15,10 +15,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <xeon_phi/xeon_phi_manager_client.h>
 
 #include "xeon_phi.h"
 #include "smpt.h"
-
+#include "service.h"
 
 volatile uint32_t bootstrap_done = 0;
 
@@ -39,6 +40,26 @@ int main(int argc,
         messages_wait_and_handle_next();
     }
 
+    err = service_init(&xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not start the driver service\n");
+    }
+
+    uint8_t num;
+    iref_t *irefs;
+    err = xeon_phi_manager_client_register(xphi.iref, &xphi.id, &num, &irefs);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
+    }
+
+#if !0
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not register with the other drivers");
+    }
+
+    service_start();
+#endif
     xphi.state = XEON_PHI_STATE_NULL;
 
     err = xeon_phi_init(&xphi);
@@ -46,12 +67,17 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not do the card initialization\n");
     }
 
-    err = xeon_phi_boot(&xphi,
-                  XEON_PHI_BOOTLOADER,
-                  XEON_PHI_MULTIBOOT);
+    err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
     if (err_is_fail(err)) {
-            DEBUG_ERR(err, "could not boot the card\n");
+        DEBUG_ERR(err, "could not boot the card\n");
     }
+
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not register with the other drivers");
+    }
+
+    service_start();
 
     debug_printf("Xeon Phi host module terminated.\n");
 

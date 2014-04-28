@@ -28,7 +28,6 @@ static uint32_t initialized = 0;
 
 #define XEON_PHI_RESET_TIME 300
 
-
 static struct xeon_phi *card;
 
 static uint32_t pci_bus = PCI_DONT_CARE;
@@ -67,40 +66,34 @@ static uint32_t pci_function = PCI_DONT_CARE;
 #define PCI_DEVICE_KNC_225d 0x225d
 #define PCI_DEVICE_KNC_225e 0x225e
 
-
-
 #define XEON_PHI_APT_BAR 0
 #define XEON_PHI_MMIO_BAR 4
-
 
 static void device_init(struct xeon_phi *phi)
 {
 
-
 #if 0
     scratch13 = SBOX_READ(mic_ctx->mmio.va, SBOX_SCRATCH13);
-        mic_ctx->bi_stepping = SCRATCH13_STEP_ID(scratch13);
-        mic_ctx->bi_substepping = SCRATCH13_SUB_STEP(scratch13);
-    #ifdef MIC_IS_EMULATION
-        mic_ctx->bi_platform = PLATFORM_EMULATOR;
-    #else
-        mic_ctx->bi_platform = SCRATCH13_PLATFORM_ID(scratch13);
-    #endif
-        mic_enable_msi_interrupts(mic_ctx);
-        mic_enable_interrupts(mic_ctx);
+    mic_ctx->bi_stepping = SCRATCH13_STEP_ID(scratch13);
+    mic_ctx->bi_substepping = SCRATCH13_SUB_STEP(scratch13);
+#ifdef MIC_IS_EMULATION
+    mic_ctx->bi_platform = PLATFORM_EMULATOR;
+#else
+    mic_ctx->bi_platform = SCRATCH13_PLATFORM_ID(scratch13);
+#endif
+    mic_enable_msi_interrupts(mic_ctx);
+    mic_enable_interrupts(mic_ctx);
 
-        mic_reg_irqhandler(mic_ctx, 1, "MIC SHUTDOWN DoorBell 1",
+    mic_reg_irqhandler(mic_ctx, 1, "MIC SHUTDOWN DoorBell 1",
                     mic_shutdown_host_doorbell_intr_handler);
-
 
 #endif
 
-    initialized=true;
+    initialized = true;
 }
 
-static void
-pci_init_card(struct device_mem* bar_info,
-              int bar_count)
+static void pci_init_card(struct device_mem* bar_info,
+                          int bar_count)
 {
     errval_t err;
 
@@ -124,12 +117,12 @@ pci_init_card(struct device_mem* bar_info,
         USER_PANIC_ERR(err, "Failed to map MMIO range");
     }
 
-    card->apt.vbase = (lvaddr_t)bar_info[XEON_PHI_APT_BAR].vaddr;
+    card->apt.vbase = (lvaddr_t) bar_info[XEON_PHI_APT_BAR].vaddr;
     card->apt.length = bar_info[XEON_PHI_APT_BAR].bytes;
-    card->apt.pbase = (lpaddr_t)bar_info[XEON_PHI_APT_BAR].paddr;
-    card->mmio.vbase = (lvaddr_t)bar_info[XEON_PHI_MMIO_BAR].vaddr;
+    card->apt.pbase = (lpaddr_t) bar_info[XEON_PHI_APT_BAR].paddr;
+    card->mmio.vbase = (lvaddr_t) bar_info[XEON_PHI_MMIO_BAR].vaddr;
     card->mmio.length = bar_info[XEON_PHI_MMIO_BAR].bytes;
-    card->mmio.pbase = (lpaddr_t)bar_info[XEON_PHI_MMIO_BAR].paddr;
+    card->mmio.pbase = (lpaddr_t) bar_info[XEON_PHI_MMIO_BAR].paddr;
 
     card->state = XEON_PHI_STATE_PCI_OK;
 }
@@ -143,12 +136,17 @@ static void pci_register(struct xeon_phi *phi)
         USER_PANIC_ERR(err, "Could not connect to PCI\n");
     }
 
-    err = pci_register_driver_irq(pci_init_card, PCI_DONT_CARE,
+    err = pci_register_driver_irq(pci_init_card,
+                                  PCI_DONT_CARE,
                                   PCI_DONT_CARE,
                                   PCI_DONT_CARE,
                                   PCI_VENDOR_ID_INTEL,
-                                  PCI_DEVICE_KNC_225e, pci_bus, pci_device,
-                                  pci_function, interrupt_handler, phi);
+                                  PCI_DEVICE_KNC_225e,
+                                  pci_bus,
+                                  pci_device,
+                                  pci_function,
+                                  interrupt_handler,
+                                  phi);
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not register the PCI device");
@@ -211,16 +209,16 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     xeon_phi_boot_postcodes_t pc;
     for (uint32_t time = 0; time < XEON_PHI_RESET_TIME; ++time) {
         postcode = xeon_phi_boot_postcode_rd(&boot_registers);
-        pc = xeon_phi_boot_postcode_extract(postcode);
+        pc = xeon_phi_boot_postcode_code_extract(postcode);
         debug_printf("Resetting; %s\n", xeon_phi_boot_postcodes_describe(pc));
         XBOOT_DEBUG("Resetting (Post Code %c%c)\n",
-                     xeon_phi_boot_postcode_raw_code0_extract(postcode),
-                     xeon_phi_boot_postcode_raw_code1_extract(postcode));
+                    xeon_phi_boot_postcode_raw_code0_extract(postcode),
+                    xeon_phi_boot_postcode_raw_code1_extract(postcode));
 
-        if (postcode == xeon_phi_boot_postcode_invalid
-                || postcode == xeon_phi_boot_postcode_fatal
-                || pc == xeon_phi_boot_postcode_memtf
-                || pc == xeon_phi_boot_postcode_mempf) {
+        if (postcode == xeon_phi_boot_postcode_invalid || postcode
+                        == xeon_phi_boot_postcode_fatal
+            || pc == xeon_phi_boot_postcode_memtf
+            || pc == xeon_phi_boot_postcode_mempf) {
             break;
         }
 
@@ -230,10 +228,10 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
             /*
              * XXX; Maybe we should re-enable the IRQ if they were enabled beforehand
              * if (mic_ctx->msie)
-                    mic_enable_msi_interrupts(mic_ctx);
-                mic_enable_interrupts(mic_ctx);
-                mic_smpt_restore(mic_ctx);
-                micscif_start(mic_ctx);
+             mic_enable_msi_interrupts(mic_ctx);
+             mic_enable_interrupts(mic_ctx);
+             mic_smpt_restore(mic_ctx);
+             micscif_start(mic_ctx);
              */
             return SYS_ERR_OK;
         }
@@ -244,13 +242,12 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     if (phi->state != XEON_PHI_STATE_READY) {
         debug_printf("Reset Failed; %s\n", xeon_phi_boot_postcodes_describe(pc));
         XBOOT_DEBUG("Reset Failed (Post Code %c%c)\n",
-                             xeon_phi_boot_postcode_raw_code0_extract(postcode),
-                             xeon_phi_boot_postcode_raw_code1_extract(postcode));
+                    xeon_phi_boot_postcode_raw_code0_extract(postcode),
+                    xeon_phi_boot_postcode_raw_code1_extract(postcode));
 
         return 1;
     }
 
     return SYS_ERR_OK;
 }
-
 

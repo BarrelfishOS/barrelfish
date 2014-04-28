@@ -1,0 +1,23 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/xeon_phi_manager
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "xeon_phi_manager",
+                        cFiles = [ "main.c", 
+                                   "service.c",
+                                   "cardmanager.c" ],
+		    flounderDefs = ["xeon_phi_manager"],
+		    flounderBindings = ["xeon_phi_manager"],
+		    architectures = ["x86_64"]
+		    
+                    }
+]
+

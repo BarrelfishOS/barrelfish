@@ -10,6 +10,8 @@
 #ifndef XEON_PHI_H_
 #define XEON_PHI_H_
 
+#include <xeon_phi/xeon_phi.h>
+
 /*
  * Common setting values
  */
@@ -36,8 +38,6 @@
 #define XDEBUG_SMPT     1
 #define XDEBUG_SERVICE  1
 
-
-
 /*
  * This defines are used to reference the MMIO registers on the host side.
  *
@@ -52,7 +52,6 @@
     ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+HOST_SBOX_OFFSET))
 #define XEON_PHI_MMIO_TO_DBOX(phi) \
     ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+HOST_DBOX_OFFSET))
-
 
 /*
  * --------------------------------------------------------------------------
@@ -89,31 +88,47 @@
 #define XSERVICE_DEBUG(x...)
 #endif
 
-
 /*
  * --------------------------------------------------------------------------
  * Xeon Phi Management structure
  */
 
 /// represents the state of the Xeon Phi
-typedef enum xeon_phi_state {
+typedef enum xeon_phi_state
+{
     XEON_PHI_STATE_NULL,    ///< The card has not yet been initialized
     XEON_PHI_STATE_PCI_OK,  ///< The card has been registered with PCI
     XEON_PHI_STATE_RESET,   ///< The card has been reset
     XEON_PHI_STATE_READY,   ///< The card is ready to load the os
-    XEON_PHI_STATE_BOOTING, ///< The card is in the booting state
+    XEON_PHI_STATE_BOOTING,  ///< The card is in the booting state
     XEON_PHI_STATE_ONLINE   ///< the card has booted and is online
 } xeon_phi_state_t;
 
+typedef enum xnode_state {
+    XNODE_STATE_NONE,
+    XNODE_STATE_REGISTERING,
+    XNODE_STATE_READY,
+    XNODE_STATE_FAILURE
+} xnode_state_t;
 
 /// represents the memory ranges occupied by the Xeon Phi card
-struct mbar {
+struct mbar
+{
     lvaddr_t vbase;
     lpaddr_t pbase;
-    size_t   length;
+    size_t length;
     /*
      * XXX: may it be useful to store the cap here aswell ?
      */
+};
+
+struct xnode
+{
+    struct xeon_phi_binding *binding;
+    iref_t                   iref;
+    xnode_state_t state;
+    uint8_t         id;
+    struct xeon_phi *local;
 };
 
 struct xeon_phi
@@ -123,15 +138,17 @@ struct xeon_phi
     struct mbar apt;        ///< pointer to the aperture address range
 
     uint8_t id;             ///< card id for identifying the card
-
-
+    iref_t iref;
     uint32_t apicid;        ///< APIC id used for sending the boot interrupt
+
+    uint8_t      connected;
+    struct xnode topology[XEON_PHI_NUM_MAX];
 
     char *cmdline;          ///< pointer to the bootloader cmdline
 
-    struct smpt_info  *smpt; ///< pointer to the SMPT information struct
-    struct irq_info   *irq;  ///< pointer to the IRQ information struct
-    struct dma_infi   *dma;  ///< pointer to the DMA information struct
+    struct smpt_info *smpt;  ///< pointer to the SMPT information struct
+    struct irq_info *irq;  ///< pointer to the IRQ information struct
+    struct dma_infi *dma;  ///< pointer to the DMA information struct
 };
 
 /**
@@ -171,7 +188,5 @@ errval_t xeon_phi_init(struct xeon_phi *phi);
  *        xeon phi loader and the xeon phi multiboot image
  */
 errval_t host_bootstrap(void);
-
-
 
 #endif /* XEON_PHI_H_ */
