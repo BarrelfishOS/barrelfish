@@ -19,7 +19,7 @@
 
 /**
  * Size of bootinfo mapping.
- */ 
+ */
 #define BOOTINFO_SIZEBITS       (BASE_PAGE_BITS + 2)
 #define BOOTINFO_SIZE           (1UL << BOOTINFO_SIZEBITS)
 
@@ -77,15 +77,16 @@
 #define ROOTCN_SLOT_TASKCN       0   ///< Taskcn slot in root cnode
 #define ROOTCN_SLOT_PAGECN       1   ///< Pagecn slot in root cnode
 #define ROOTCN_SLOT_BASE_PAGE_CN 2   ///< Slot for a cnode of BASE_PAGE_SIZE frames
-#define ROOTCN_SLOT_SUPERCN      3   ///< Slot for a cnode of SUPER frames
-#define ROOTCN_SLOT_SEGCN        4   ///< SegCN slot in root cnode
-#define ROOTCN_SLOT_PACN         5   ///< PhysAddr cnode slot in root cnode
-#define ROOTCN_SLOT_MODULECN     6   ///< Multiboot modules cnode slot in root cnode
-#define ROOTCN_SLOT_SLOT_ALLOC0  7   ///< Root of slot alloc0
-#define ROOTCN_SLOT_SLOT_ALLOC1  8   ///< Root of slot alloc1
-#define ROOTCN_SLOT_SLOT_ALLOC2  9   ///< Root of slot alloc2
-#define ROOTCN_SLOT_ARGCN        10  ///< Argcn slot in root cnode
-#define ROOTCN_SLOTS_USER        11  ///< First free slot in root cnode for user
+#define ROOTCN_SLOT_SUPERCN0     3   ///< Slot for a cnode of SUPER frames
+#define ROOTCN_SLOT_SUPERCN1     4   ///< Slot for a cnode of SUPER frames
+#define ROOTCN_SLOT_SEGCN        5   ///< SegCN slot in root cnode
+#define ROOTCN_SLOT_PACN         6   ///< PhysAddr cnode slot in root cnode
+#define ROOTCN_SLOT_MODULECN     7   ///< Multiboot modules cnode slot in root cnode
+#define ROOTCN_SLOT_SLOT_ALLOC0  8   ///< Root of slot alloc0
+#define ROOTCN_SLOT_SLOT_ALLOC1  9   ///< Root of slot alloc1
+#define ROOTCN_SLOT_SLOT_ALLOC2  10  ///< Root of slot alloc2
+#define ROOTCN_SLOT_ARGCN        11  ///< Argcn slot in root cnode
+#define ROOTCN_SLOTS_USER        12  ///< First free slot in root cnode for user
 
 /* Size of CNodes in Root CNode if not the default size */
 #define SLOT_ALLOC_CNODE_BITS   (DEFAULT_CNODE_BITS * 2)
@@ -113,7 +114,8 @@
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)
 
 #define CPTR_BASE_PAGE_CN_BASE  (ROOTCN_SLOT_BASE_PAGE_CN << DEFAULT_CN_ADDR_BITS)
-#define CPTR_SUPERCN_BASE       (ROOTCN_SLOT_SUPERCN << DEFAULT_CN_ADDR_BITS)
+#define CPTR_SUPERCN0_BASE      (ROOTCN_SLOT_SUPERCN0 << DEFAULT_CN_ADDR_BITS)
+#define CPTR_SUPERCN1_BASE      (ROOTCN_SLOT_SUPERCN1 << DEFAULT_CN_ADDR_BITS)
 #define CPTR_PHYADDRCN_BASE     (ROOTCN_SLOT_PACN << DEFAULT_CN_ADDR_BITS)
 #define CPTR_MODULECN_BASE      (ROOTCN_SLOT_MODULECN << DEFAULT_CN_ADDR_BITS)
 #define CPTR_PML4_BASE          (ROOTCN_SLOT_PAGECN << (CPTR_BITS - PAGE_CNODE_BITS))

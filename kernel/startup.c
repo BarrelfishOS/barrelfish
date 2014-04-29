@@ -61,8 +61,12 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     switch(type) {
     case RegionType_Empty:
         cap_type = ObjType_RAM;
-        cnode = &st->supercn->cap;
-        slot = &st->supercn_slot;
+        cnode = &st->supercn0->cap;
+        slot = &st->supercn0_slot;
+        if (*slot >= 1UL << cnode->u.cnode.bits) {
+            slot = &st->supercn1_slot;
+            cnode = &st->supercn1->cap;
+        }
         break;
 
     case RegionType_PhyAddr:
@@ -167,10 +171,15 @@ struct dcb *spawn_module(struct spawn_state *st,
     assert(err_is_ok(err));
 
     // Super cnode in root cnode
-    st->supercn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN);
+    st->supercn0 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN0);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn0);
     assert(err_is_ok(err));
+    st->supercn1 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN1);
+    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn1);
+    assert(err_is_ok(err));
+
 
     // slot_alloc cnodes in root cnode
     st->slot_alloc_cn0 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SLOT_ALLOC0);

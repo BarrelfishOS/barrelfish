@@ -22,12 +22,12 @@ enum region_type;
 
 struct spawn_state {
     /// Init's cnodes
-    struct cte *taskcn, *segcn, *supercn, *physaddrcn, *modulecn,
+    struct cte *taskcn, *segcn,*supercn0,*supercn1, *physaddrcn, *modulecn,
                *pagecn, *basepagecn,
                *slot_alloc_cn0, *slot_alloc_cn1, *slot_alloc_cn2;
 
     /// Next slot in each cnode
-    cslot_t segcn_slot, supercn_slot, physaddrcn_slot, modulecn_slot;
+    cslot_t segcn_slot, supercn0_slot, supercn1_slot, physaddrcn_slot, modulecn_slot;
 
     /// Address of arguments page
     lpaddr_t args_page;

@@ -24,12 +24,21 @@ errval_t initialize_mem_serv(struct spawninfo *si)
     /* copy supercn to memory server */;
     struct capref init_supercn_cap = {
         .cnode = cnode_root,
-        .slot  = ROOTCN_SLOT_SUPERCN
+        .slot  = ROOTCN_SLOT_SUPERCN0
     };
     struct capref child_supercn_cap = {
         .cnode = si->rootcn,
-        .slot  = ROOTCN_SLOT_SUPERCN
+        .slot  = ROOTCN_SLOT_SUPERCN0
     };
+    err = cap_copy(child_supercn_cap, init_supercn_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_SUPERCN_CAP);
+    }
+
+    /* copy supercn to memory server */;
+    init_supercn_cap.slot = ROOTCN_SLOT_SUPERCN1;
+    child_supercn_cap.slot = ROOTCN_SLOT_SUPERCN1;
+
     err = cap_copy(child_supercn_cap, init_supercn_cap);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_SUPERCN_CAP);
