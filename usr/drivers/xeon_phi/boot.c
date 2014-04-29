@@ -26,6 +26,7 @@
 struct bootinfo *bi = NULL;
 
 #include "xeon_phi.h"
+#include "sleep.h"
 
 /*
  * TODO: Verify these values if they are really needed
@@ -184,17 +185,22 @@ static errval_t load_cmdline(struct xeon_phi *phi,
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
     if (phi->cmdline) {
-        cmdlen += sprintf(buf, "%s foobar=%i", phi->cmdline, 123);
+        cmdlen += sprintf(buf+cmdlen, "%s foobar=%i", phi->cmdline, 123);
     } else {
-        cmdlen += sprintf(buf, "foobar=%i", 123);
+        cmdlen += sprintf(buf+cmdlen, "foobar=%i", 123);
     }
 
+    cmdlen += sprintf(buf+cmdlen, "card_id=%i", phi->id);
+
+    /*
+     * id
+     */
     /*
      * TODO: Add multihop / communication information here..
      */
 
     if (ret_size) {
-        *ret_size = load_offset;
+        *ret_size = cmdlen;
     }
 
     return SYS_ERR_OK;
@@ -248,8 +254,6 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
     assert(icr_lo == (229 | (1 << 13)));
 
     xeon_phi_apic_icr_hi_wr(&apic_registers, xeon_phi_apic_bootstrap, phi->apicid);
-
-
 
     xeon_phi_apic_icr_lo_wr(&apic_registers, xeon_phi_apic_bootstrap, icr_lo);
 
@@ -307,8 +311,25 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     // start the receive thread
     serial_start_recv_thread(phi);
 
+    XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
+
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
+
+    uint32_t time = 0;
+    while(time < 300) {
+        milli_sleep(1000);
+        if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
+            break;
+        }
+        if (time % 5) {
+            XBOOT_DEBUG("Waiting for ready signal %u\n", time+1);
+        }
+    }
+
+    if (!xeon_phi_boot_download_status_rdf(&boot_registers)) {
+        USER_PANIC("Boot failed");
+    }
 
     return SYS_ERR_OK;
 }

@@ -112,7 +112,7 @@ static void register_response_recv(struct xeon_phi_binding *_binding,
                    topology->local->connected);
 }
 
-static void register_call_sent_cb(void *a)F
+static void register_call_sent_cb(void *a)
 {
 
 }
