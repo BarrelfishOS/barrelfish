@@ -166,6 +166,8 @@ MODULES_x86_64= \
 	sbin/x86boot \
         sbin/cpu_single \
         sbin/init_app \
+        sbin/mirrornfs \
+
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

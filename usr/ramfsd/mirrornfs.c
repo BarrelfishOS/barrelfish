@@ -85,11 +85,13 @@ static void mirror_nfs(char* path) {
                    __FILE__, __FUNCTION__, __LINE__, info.size);
 
             size_t bytes_read = 0;
-            err = vfs_read(fhandle, buf, 10, &bytes_read);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "vfs_read failed.");
+            if (info.size > 0) {
+                err = vfs_read(fhandle, buf, info.size, &bytes_read);
+                if (err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "vfs_read failed.");
+                }
+                assert(bytes_read == info.size);
             }
-            assert(bytes_read == info.size);
 
             printf("%s:%s:%d: mirror file from %s to %s\n",
                    __FILE__, __FUNCTION__, __LINE__,
@@ -101,12 +103,14 @@ static void mirror_nfs(char* path) {
                 USER_PANIC_ERR(err, "vfs_create failed.");
             }
 
-            size_t bytes_written;
-            err = vfs_write(ohandle, buf, info.size, &bytes_written);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "vfs_write failed.");
+            if (info.size > 0) {
+                size_t bytes_written;
+                err = vfs_write(ohandle, buf, info.size, &bytes_written);
+                if (err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "vfs_write failed.");
+                }
+                assert(bytes_written == info.size);
             }
-            assert(bytes_written == info.size);
 
             err = vfs_close(ohandle);
             if (err_is_fail(err)) {
@@ -157,32 +161,6 @@ int main(int argc, char** argv)
       DEBUG_ERR(err, "vfs_mount");
       return 1;
     }
-
-    vfs_handle_t fhandle;
-    err = vfs_open("/data/pg_hba.conf", &fhandle);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "call failed.");
-    }
-    printf("%s:%s:%d: open seemed ok\n", __FILE__, __FUNCTION__, __LINE__);
-    char* buf = malloc(4096);
-    assert (buf != NULL);
-    printf("%s:%s:%d: trying to read 10 bytes\n",
-           __FILE__, __FUNCTION__, __LINE__);
-
-
-    size_t bytes_read = 0;
-    err = vfs_write(fhandle, "asdf", 4, &bytes_read);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "vfs_write failed.");
-    }
-
-    err = vfs_read(fhandle, buf, 10, &bytes_read);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "vfs_read failed.");
-    }
-    printf("%s:%s:%d: buf=%s\n",
-           __FILE__, __FUNCTION__, __LINE__, buf);
-
 
     printf("%s:%s:%d: Mirror it..\n", __FILE__, __FUNCTION__, __LINE__);
     mirror_nfs(NFS_PREFIX);
