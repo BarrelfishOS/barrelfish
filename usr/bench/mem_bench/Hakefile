@@ -15,6 +15,11 @@ build application { target = "mem_kpi_bench",
                   cFiles = [ "membench.c" ],
                   addLibraries = [ "bench"]
                   },
+build application { target = "mem_kpi_loadgen",
+                  cFiles = [ "membench.c" ],
+                  addLibraries = [ "bench"],
+                  addCFlags = [ "-DLOADGEN" ]
+                  },
 
 build application { target = "memeasy",
                     cFiles = [ "memeasy.c" ],
