@@ -26,7 +26,6 @@
 #include <paging_kernel_arch.h>
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
-#include <memset.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
@@ -214,7 +213,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         TRACE(KERNEL, BZERO, 1);
         // XXX: SCC hack, while we don't have a devframe allocator
         if(lpaddr + ((lpaddr_t)1 << bits) < PADDR_SPACE_LIMIT) {
-            memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+            memset((void*)lvaddr, 0, (lvaddr_t)1 << bits);
         } else {
             printk(LOG_WARN, "Allocating RAM at 0x%" PRIxLPADDR
                    " uninitialized\n", lpaddr);
@@ -272,7 +271,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -297,7 +296,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -330,7 +329,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -352,7 +351,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -374,7 +373,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -402,7 +401,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -431,7 +430,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -453,7 +452,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -475,7 +474,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
@@ -497,7 +496,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         size_t objbits_vnode = vnode_objbits(type);
 
         TRACE(KERNEL, BZERO, 1);
-        memset_pages((void*)lvaddr, 0, 1UL<<(bits-BASE_PAGE_BITS));
+        memset((void*)lvaddr, 0, 1UL << bits);
         TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {

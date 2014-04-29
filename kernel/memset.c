@@ -79,20 +79,10 @@
 /*
  Author: Carl van Schaik
 */
-
-#include <kernel.h>
-
-#include <stdbool.h>
+#include <string.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
-#include <barrelfish_kpi/asm_inlines_arch.h>
-#include <barrelfish_kpi/paging_arch.h>
-#include <x86.h>
-#include <fpu.h>
-#include <dispatch.h>
-#include <memset.h>
 /*
  * Fill memory at s with (n) * byte value 'c'
  */
@@ -145,48 +135,4 @@ memset(void *s, int c, size_t n)
 		*mem++ = x;
 
 	return s;
-}
-
-/**
- * Fill memory at s with (n) * BASE_PAGE_SIZE bytes of value 'c'
- * uses SSE2 instructions (if available)
- */
-void *memset_pages(void *s, int c, size_t n)
-{
-#ifdef __x86_64__
-    if ((uintptr_t)s&0x7F) {
-        // goto naive impl if not aligned to 128b
-        return memset(s, c, n*BASE_PAGE_SIZE);
-    }
-
-    bool trap = fpu_trap_get();
-    fpu_trap_off();
-
-    if (fpu_dcb && fpu_dcb == dcb_current) {
-        // need to account for fpu state by application
-        struct dispatcher_shared_generic *dst =
-            get_dispatcher_shared_generic(fpu_dcb->disp);
-
-        if(fpu_dcb->disabled) {
-            fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-	    dst->fpu_used = 1;
-        } else {
-            assert(!fpu_dcb->disabled);
-            fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
-	    dst->fpu_used = 2;
-        }
-    }
-
-    // call 128b sse2-enabled memset loop
-    memset_128b_sse2_(s,c,n);
-
-    if (trap) {
-        fpu_trap_on();
-    }
-
-    return s;
-#else
-    // fall back to standard memset for other archs
-    return memset(s, c, n*BASE_PAGE_SIZE);
-#endif
 }
