@@ -19,7 +19,7 @@
                     },
 
     build application { target = "mirrornfs",
-                        cFiles = [ "mirrornfs.c" ],
+                        cFiles = [ "mirrornfs2.c", "http_cache.c" ],
                         addLibraries = libDeps [ "vfs", "lwip", "nfs" ]
     }
 ]
