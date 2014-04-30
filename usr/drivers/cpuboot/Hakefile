@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 let template = application {
-        cFiles = (find withSuffices [".c"]),
+        cFiles = filter ((/=) "bench.c") (find withSuffices [".c"]),
         assemblyFiles = ["init_ap_x86_64.S"],
         addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
         addIncludes = ["../../../kernel/include/arch/x86_64/", "../../../kernel/include" ],
@@ -35,5 +35,11 @@ in [
     build template {
         target = "x86bootupdate",
         addCFlags = ["-DMICROBENCH", "-DUPDATE"]
+    },
+    build application {
+        target = "x86bootdownupdateload",
+        cFiles = [ "bench.c" ],
+        addCFlags = [ "-DBENCH=\\\"x86bootdownupdate\\\"" ],
+        addLibraries = [ "octopus", "spawndomain" ]
     }
 ]
