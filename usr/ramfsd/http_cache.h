@@ -17,7 +17,19 @@
 #include "webserver_session.h"
 err_t http_cache_init (struct ip_addr server, const char *path,
                      void (*callback)(void));
-err_t http_cache_lookup (const char *name, struct http_conn *cs);
 long decrement_buff_holder_ref (struct buff_holder *bh);
 long decrement_reference (struct http_conn *cs);
+
+struct http_cache_entry {
+    int                 valid;      /* flag for validity of the data */
+    char                *name;      /* name of the cached file */
+    size_t              copied;     /* how much data is copied? */
+    int                 loading;    /* flag indicating if data is loading */
+    struct buff_holder  *hbuff;      /* holder for buffer */
+    struct nfs_fh3      file_handle;    /* for NFS purpose */
+    struct http_conn *conn;     /* list of connections waiting for data */
+    struct http_conn *last;        /* for quick insertions at end */
+    struct http_cache_entry *next;   /* for linked list */
+};
+
 #endif // HTTP_CACHE_H
