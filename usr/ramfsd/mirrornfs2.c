@@ -48,7 +48,7 @@ void place_file_in_ramfs(struct http_cache_entry* e) {
 
     vfs_handle_t ohandle;
 
-    printf("%s:%s:%d: vfs create for real_path = %s\n",
+    DEBUGPRINT("%s:%s:%d: vfs create for real_path = %s\n",
            __FILE__, __FUNCTION__, __LINE__, real_path);
     errval_t err = vfs_create(real_path, &ohandle);
     if (err_is_fail(err)) {
@@ -74,7 +74,7 @@ void create_all_the_dirs(struct http_cache_entry* e) {
     strcpy(real_path, BASE_PATH);
     strcat(real_path, e->name);
 
-    printf("%s:%s:%d: vfs create for real_path = %s\n",
+    DEBUGPRINT("%s:%s:%d: vfs create for real_path = %s\n",
            __FILE__, __FUNCTION__, __LINE__, real_path);
     errval_t err = vfs_mkdir(real_path);
     if (err_is_fail(err)) {

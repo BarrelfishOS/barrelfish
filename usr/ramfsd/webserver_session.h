@@ -13,7 +13,7 @@
 
 #include <nfs/nfs.h>
 
-#define DEBUGWS 1
+//#define DEBUGWS 1
 
 #ifdef DEBUGWS
 #define DEBUGPRINT(arg...) printf(arg)

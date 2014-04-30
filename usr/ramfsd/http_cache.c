@@ -253,14 +253,14 @@ static void read_callback (void *arg, struct nfs_client *client,
     assert(res->count == res->data.data_len);
 
     if (e->hbuff->data == NULL) {
-        printf("%s:%s:%d: e->hbuff->data is NULL for e->name=%s\n",
+        DEBUGPRINT("%s:%s:%d: e->hbuff->data is NULL for e->name=%s\n",
                __FILE__, __FUNCTION__, __LINE__, e->name);
     }
     assert (e->hbuff != NULL);
     assert (e->hbuff->data != NULL );
 
     if (e->hbuff->len < e->copied + res->data.data_len) {
-        printf("%s:%s:%d: e->name = %s e->hbuff->len = %zu e->copied = %zu res->data.data_len = %d\n",
+        DEBUGPRINT("%s:%s:%d: e->name = %s e->hbuff->len = %zu e->copied = %zu res->data.data_len = %d\n",
                __FILE__, __FUNCTION__, __LINE__,
                e->name, e->hbuff->len,  e->copied, res->data.data_len);
     }
@@ -427,7 +427,7 @@ static err_t async_load_cache_entry(struct http_cache_entry *e, struct nfs_fh3 h
     if (!strcmp(basename, "..") || !strcmp(basename, ".")){
         return ERR_OK; // don't load those
     }
-    printf("%s:%s:%d: nfs_lookup basename=%s\n",
+    DEBUGPRINT("%s:%s:%d: nfs_lookup basename=%s\n",
            __FILE__, __FUNCTION__, __LINE__, basename);
     r = nfs_lookup(my_nfs_client, handle, basename,
                 lookup_callback, e);
@@ -451,10 +451,10 @@ static void readdir_callback(void *arg, struct nfs_client *client,
     DEBUGPRINT ("readdir_callback came in\n");
     if(arg != NULL) {
         parent = (struct http_cache_entry *) arg;
-        printf("%s:%s:%d: dealing with parent->name = %s\n",
+        DEBUGPRINT("%s:%s:%d: dealing with parent->name = %s\n",
                __FILE__, __FUNCTION__, __LINE__, parent->name);
     }
-    printf("%s:%s:%d: results->status = %d\n",
+    DEBUGPRINT("%s:%s:%d: results->status = %d\n",
            __FILE__, __FUNCTION__, __LINE__, result->status);
     assert(result != NULL && result->status == NFS3_OK);
 
