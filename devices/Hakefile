@@ -87,6 +87,7 @@
            "omap/omap44xx_sysctrl_padconf_wkup",
            "omap/omap44xx_usbconf",
            "omap/omap44xx_usbtllhs_config",
+<<<<<<< HEAD
            "virtio/virtio_blk",
            "virtio/virtio_mmio",
            "xeon_phi/xeon_phi_serial",
@@ -95,6 +96,9 @@
            "xeon_phi/xeon_phi_smpt",
            "xeon_phi/xeon_phi_irq",
            "pci_sr_iov_cap"
+=======
+           "omap/omap44xx_uart3"
+>>>>>>> Cleaned up omap44xx uart3 device file.
          ], arch <- allArchitectures
 ] ++
 
