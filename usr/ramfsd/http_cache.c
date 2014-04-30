@@ -363,7 +363,8 @@ static void lookup_callback (void *arg, struct nfs_client *client,
         resok->obj_attributes.attributes_follow &&
         resok->obj_attributes.post_op_attr_u.attributes.type == NF3DIR) {
         DEBUGPRINT("It's a directory yaya\n");
-        char* basename = (strrchr(e->name, '/') != NULL) ? strrchr(e->name, '/')+1 : e->name;
+        char* basename = (strrchr(e->name, '/') != NULL) ?
+                         strrchr(e->name, '/')+1 : e->name;
         if (!strcmp(basename, ".") || !strcmp(basename, "..")) {
             // Ignore those
             return;
@@ -420,14 +421,14 @@ static err_t async_load_cache_entry(struct http_cache_entry *e, struct nfs_fh3 h
     err_t r;
     assert(e != NULL);
 
-    // FIXME: currently only works for files in root directory.
-    // Do lookup for given filename in root dir
+    // Do lookup for given filename in handle dir
     DEBUGPRINT ("pageloading starting\n");
     char* basename = (strrchr(e->name, '/') != NULL) ? strrchr(e->name, '/')+1 : e->name;
-    printf("%s:%s:%d: nfs_lookup basename=%s\n", __FILE__, __FUNCTION__, __LINE__, basename);
     if (!strcmp(basename, "..") || !strcmp(basename, ".")){
         return ERR_OK; // don't load those
     }
+    printf("%s:%s:%d: nfs_lookup basename=%s\n",
+           __FILE__, __FUNCTION__, __LINE__, basename);
     r = nfs_lookup(my_nfs_client, handle, basename,
                 lookup_callback, e);
     assert(r == ERR_OK);
@@ -483,7 +484,7 @@ static void readdir_callback(void *arg, struct nfs_client *client,
     if (!resok->reply.eof) {
         assert(last != NULL);
         r = nfs_readdir(client, (parent != NULL) ? parent->file_handle : nfs_root_fh,
-                        last->cookie, resok->cookieverf, readdir_callback, NULL);
+                        last->cookie, resok->cookieverf, readdir_callback, parent);
         assert(r == ERR_OK);
     } else {
         readdir_complete = true;
@@ -542,13 +543,8 @@ static void mount_callback(void *arg, struct nfs_client *client,
 {
     assert(mountstat == MNT3_OK);
     nfs_root_fh = fhandle; /* GLOBAL: assigning root of filesystem handle */
-#ifdef PRELOAD_WEB_CACHE
     DEBUGPRINT ("nfs_mount successful, loading initial cache.\n");
     initial_cache_load(client); /* Initial load of files for cache. */
-#else //     PRELOAD_WEB_CACHE
-    DEBUGPRINT ("nfs_mount successful\n");
-    init_callback(); /* done! */
-#endif // PRELOAD_WEB_CACHE
 } /* end function: mount_callback */
 
 err_t http_cache_init(struct ip_addr server, const char *path,
