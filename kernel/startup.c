@@ -94,7 +94,7 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
         if (*slot >= 1UL << cnode->u.cnode.bits) {
             printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
                    "in CNode\n");
-            return -1;
+            return SYS_ERR_SLOTS_IN_USE;
         }
         /* Cannot insert anymore into the mem_region */
         if (*regions_index >= MAX_MEM_REGIONS) {
@@ -193,8 +193,10 @@ struct dcb *spawn_module(struct spawn_state *st,
 
     // Super cnode in root cnode
     st->supercn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SUPERCN);
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn);
+    err = caps_create_new(ObjType_CNode,
+                          alloc_phys(1UL << (OBJBITS_CTE + SUPER_CNODE_BITS)),
+                          SUPER_CNODE_BITS + OBJBITS_CTE,
+                          SUPER_CNODE_BITS, st->supercn);
     assert(err_is_ok(err));
 
     // slot_alloc cnodes in root cnode

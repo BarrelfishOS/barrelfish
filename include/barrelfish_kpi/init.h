@@ -70,6 +70,12 @@
 /// Number of entries in page cnode
 #define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)
 
+/// Number of entries in super cnode (in bits)
+#define SUPER_CNODE_BITS        (DEFAULT_CNODE_BITS + 2)
+
+/// Number of entries in page cnode
+#define SUPER_CNODE_SLOTS        (1UL << SUPER_CNODE_BITS)
+
 /// Remainder of guard size when subtracting bits from capaddr_t bitsize
 #define GUARD_REMAINDER(bits)   (CPTR_BITS - (bits))
 
@@ -114,7 +120,7 @@
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)
 
 #define CPTR_BASE_PAGE_CN_BASE  (ROOTCN_SLOT_BASE_PAGE_CN << DEFAULT_CN_ADDR_BITS)
-#define CPTR_SUPERCN_BASE       (ROOTCN_SLOT_SUPERCN << DEFAULT_CN_ADDR_BITS)
+#define CPTR_SUPERCN_BASE       (ROOTCN_SLOT_SUPERCN << (CPTR_BITS - SUPER_CNODE_BITS))
 #define CPTR_PHYADDRCN_BASE     (ROOTCN_SLOT_PACN << DEFAULT_CN_ADDR_BITS)
 #define CPTR_MODULECN_BASE      (ROOTCN_SLOT_MODULECN << DEFAULT_CN_ADDR_BITS)
 #define CPTR_PML4_BASE          (ROOTCN_SLOT_PAGECN << (CPTR_BITS - PAGE_CNODE_BITS))
