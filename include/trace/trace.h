@@ -263,7 +263,7 @@ trace_reserve_and_fill_slot(struct trace_event *ev,
         if (buf->tail_index - buf->head_index == 1 ||
                 (buf->tail_index == 0 && (buf->head_index == TRACE_MAX_EVENTS-1))) {
             // Buffer is full, overwrite last event
-            return i;
+            break;
         }
 
         nw = (i + 1) % TRACE_MAX_EVENTS;
@@ -502,7 +502,7 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
-        return SYS_ERR_OK;
+        return TRACE_ERR_SUBSYS_DISABLED;
     }
 
     struct trace_event ev;
@@ -514,7 +514,7 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 #if TRACE_ONLY_SUB_NET
     /* NOTE: This will ensure that only network related messages are logged. PS */
     if (subsys != TRACE_SUBSYS_NET) {
-        return SYS_ERR_OK;
+        return TRACE_ERR_SUBSYS_DISABLED;
     }
 #endif // TRACE_ONLY_SUB_NET
 
