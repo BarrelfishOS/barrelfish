@@ -29,7 +29,7 @@ static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
         if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
             debug(SUBSYS_PAGING, "could not find cap associated "
                     "with 0x%"PRIxLPADDR"\n", old->mapping_info.pte);
-            return SYS_ERR_VNODE_LOOKUP_NEXT;
+            return SYS_ERR_VNODE_NOT_INSTALLED;
         }
         if (err_is_fail(err)) {
             debug(SUBSYS_PAGING, "error in compile_vaddr:"

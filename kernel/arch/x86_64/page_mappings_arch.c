@@ -361,13 +361,17 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
     // get virtual address of first page
     // TODO: error checking
     genvaddr_t vaddr;
+    bool tlb_flush_necessary = true;
     struct cte *leaf_pt = cte_for_cap(pgtable);
     err = compile_vaddr(leaf_pt, slot, &vaddr);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
             debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
-        }
-        else {
+        } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID
+                   && leaf_pt->mapping_info.pte == 0) {
+            debug(SUBSYS_PAGING, "unmapping in floating page table; not flushing TLB\n");
+            tlb_flush_necessary = false;
+        } else {
             return err;
         }
     }
@@ -382,10 +386,12 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
     // flush TLB for unmapped pages if we got a valid virtual address
     // TODO: heuristic that decides if selective or full flush is more
     //       efficient?
-    if (num_pages > 1 && err_is_ok(err)) {
-        do_full_tlb_flush();
-    } else {
-        do_one_tlb_flush(vaddr);
+    if (tlb_flush_necessary) {
+        if (num_pages > 1 || err_is_fail(err)) {
+            do_full_tlb_flush();
+        } else {
+            do_one_tlb_flush(vaddr);
+        }
     }
 
     // update mapping info
