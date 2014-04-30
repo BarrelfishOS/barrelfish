@@ -66,11 +66,11 @@ REGEX_START r{QUOTE}
                 return BOOL;
             }
 
-/*{FLOAT}     {
+{FLOAT}     {
                 yylval->dl = atof(yytext);
                 return FLOAT;
             }
-*/
+
 
 {IDENT}     { 
                 yylval->str = strdup(yytext);

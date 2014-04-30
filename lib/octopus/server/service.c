@@ -459,14 +459,14 @@ void set_with_idcap_handler(struct octopus_binding *b, struct capref idcap,
     struct oct_reply_state *drs = NULL;
     struct ast_object *ast = NULL;
 
+    err = new_oct_reply_state(&drs, set_with_idcap_reply);
+    assert(err_is_ok(err));
+
     err = build_query_with_idcap(&query, idcap, attributes);
     if (err_is_fail(err)) {
         goto out;
     }
     OCT_DEBUG(" set_with_idcap_handler: %s\n", query);
-
-    err = new_oct_reply_state(&drs, set_with_idcap_reply);
-    assert(err_is_ok(err));
 
     err = check_query_length(query);
     if (err_is_fail(err)) {
