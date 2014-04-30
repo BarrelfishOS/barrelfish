@@ -29,12 +29,12 @@
 size_t mem_total = 0, mem_avail = 0;
 
 /* parameters for size of supported RAM and thus required storage */
-
-// XXX: Even though we could manage an arbitrary amount of RAM on any
 // architecture, we use paddr_t as the type to represent region
 // limits, which limits us its size.
 #if defined(__x86_64__)
-#       define MAXSIZEBITS     38              ///< Max size of memory in allocator
+// x86_64 usually supports 48 bits of physical address space, maybe figure
+// this out dynamically? -SG,2014-04-30
+#       define MAXSIZEBITS     48              ///< Max size of memory in allocator
 #elif defined(__i386__)
 #       define MAXSIZEBITS     32
 #elif defined(__arm__)
