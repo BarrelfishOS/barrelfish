@@ -149,7 +149,9 @@ errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
 {
     errval_t err = frame_alloc(dest, bytes, retbytes);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_alloc failed.");
+        if (err_no(err) != LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS){
+            DEBUG_ERR(err, "frame_alloc failed.");
+        }
         return err;
     }
 

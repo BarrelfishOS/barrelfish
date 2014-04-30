@@ -48,7 +48,7 @@ extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 extern uint64_t x86_64_init_ap_dispatch;
 
-volatile uint32_t* ap_dispatch;
+volatile uint64_t* ap_dispatch;
 extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
 extern uint64_t end;
@@ -243,7 +243,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
     // pointer to the pseudo-lock that is set before dispatch,
     // to measure time it takes to update the kernel
-    ap_dispatch = (volatile uint32_t *)
+    ap_dispatch = (volatile uint64_t *)
                    ((lpaddr_t) &x86_64_init_ap_dispatch -
                    ((lpaddr_t) &x86_64_start_ap) +
                     real_dest);
@@ -405,6 +405,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
+    uint64_t start = 0;
     const char *monitorname = NULL, *cpuname = NULL;
     genpaddr_t arch_page_size;
     errval_t err;
@@ -422,6 +423,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     DEBUG("%s:%s:%d: urpc_frame_id.size=%d\n",
            __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bits);
 
+    if (benchmark_flag) {
+        start = bench_tsc();
+    }
     static size_t cpu_binary_size;
     static lvaddr_t cpu_binary = 0;
     static genpaddr_t cpu_binary_phys;
@@ -457,6 +461,11 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // Again, ensure caching actually worked (see above)
     assert (strcmp(cached_monitorname, monitorname) == 0);
 
+    if (benchmark_flag) {
+        bench_data->load = bench_tsc() - start;
+        start = bench_tsc();
+    }
+
     struct capref cpu_memory_cap;
     struct frame_identity frameid;
     size_t cpu_memory;
@@ -479,6 +488,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MAP);
     }
+    if (benchmark_flag) {
+        bench_data->alloc_cpu = bench_tsc() - start;
+        start = bench_tsc();
+    }
 
     /* Chunk of memory to load monitor on the app core */
     struct capref spawn_memory_cap;
@@ -496,6 +509,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         DEBUG_ERR(err, "Can not mark cap remote.");
         return err;
     }
+    if (benchmark_flag) {
+        bench_data->alloc_mon = bench_tsc() - start;
+        start = bench_tsc();
+    }
 
     /* Load cpu */
     struct elf_allocate_state state;
@@ -511,11 +528,18 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     if (err_is_fail(err)) {
         return err;
     }
+    if (benchmark_flag) {
+        bench_data->elf_load = bench_tsc() - start;
+        start = bench_tsc();
+    }
 
     err = relocate_cpu_binary(cpu_binary, cpu_head, state, frameid, arch_page_size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not relocate new kernel.");
         return err;
+    }
+    if (benchmark_flag) {
+        bench_data->elf_reloc = bench_tsc() - start;
     }
 
     genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase

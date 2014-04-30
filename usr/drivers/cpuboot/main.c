@@ -22,9 +22,12 @@ struct capref kernel_cap;
 
 bool done = false;
 
+bool benchmark_flag = false;
 bool debug_flag = false;
 bool new_kcb_flag = false;
 bool nomsg_flag = false;
+
+struct bench_data *bench_data = NULL;
 
 char* cmd_kernel_binary = NULL;
 char* cmd_monitor_binary = NULL;
@@ -515,23 +518,30 @@ static void print_cmd_help(char* cmd)
 
 static void microbench(void)
 {
+    struct bench_data data;
+    benchmark_flag = true;
+    bench_data = &data;
+    cmd_kernel_args = "loglevel=0";
 
 #if DOWNUPDATE
     int argc_down = 2;
     char *argv_down[] = {
         "down",
-        "1"
+        "2"
     };
 
     int argc_up = 2;
     char *argv_up[] = {
         "update",
-        "1"
+        "2"
     };
 
     uint64_t start_down, end_down, start_up, end_up;
 
-    printf("# ticks-down ms-down ticks-up ms-up\n");
+    debug_printf("# ticks-down ms-down ticks-up ms-up"
+            " ms-load ticks-load ms-alloc_cpu ticks-alloc_cpu"
+            " ms-alloc_mon ticks-alloc_mon ms-elf_load ticks-elf_load"
+            " ms-elf_reloc ticks-elf_reloc ms-misc ticks-misc ms-cpu_init ticks-cpu_init\n");
     for (size_t i = 0; i < 20; i++) {
         start_down = bench_tsc();
         stop_cpu(argc_down, argv_down);
@@ -541,9 +551,22 @@ static void microbench(void)
         update_cpu(argc_up, argv_up);
         end_up = bench_tsc();
 
-        printf("%lu %lu %lu %lu\n",
-               end_down - start_down, bench_tsc_to_ms(end_down - start_down),
-               end_up - start_up, bench_tsc_to_ms(end_up - start_up));
+        while(*ap_dispatch < 2);
+
+        uint64_t up = end_up - start_up;
+        uint64_t misc = up - (data.load + data.alloc_cpu + data.alloc_mon +
+                              data.elf_load + data.elf_reloc);
+        debug_printf("%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n",
+                   end_down - start_down, bench_tsc_to_ms(end_down - start_down),
+                   up, bench_tsc_to_ms(up),
+                   bench_tsc_to_ms(data.load), data.load,
+                   bench_tsc_to_ms(data.alloc_cpu), data.alloc_cpu,
+                   bench_tsc_to_ms(data.alloc_mon), data.alloc_mon,
+                   bench_tsc_to_ms(data.elf_load), data.elf_load,
+                   bench_tsc_to_ms(data.elf_reloc), data.elf_reloc,
+                   bench_tsc_to_ms(misc), misc,
+                   bench_tsc_to_ms(*ap_dispatch), *ap_dispatch
+               );
     }
 #endif
 
@@ -561,8 +584,6 @@ static void microbench(void)
         start_up = bench_tsc();
         update_cpu(argc_update, argv_update);
         end_up = bench_tsc();
-
-        //while(*ap_dispatch != 2);
 
         printf("%lu %lu %lu %lu\n",
                end_up - start_up, bench_tsc_to_ms(end_up - start_up),

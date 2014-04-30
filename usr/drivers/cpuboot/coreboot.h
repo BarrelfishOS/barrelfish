@@ -41,9 +41,19 @@
 #endif
 
 // Globals
+extern bool benchmark_flag;
 extern bool debug_flag;
 extern bool new_kcb_flag;
 
+struct bench_data {
+    uint64_t load;
+    uint64_t alloc_cpu;
+    uint64_t alloc_mon;
+    uint64_t elf_load;
+    uint64_t elf_reloc;
+};
+struct bench_data *bench_data;
+extern volatile uint64_t* ap_dispatch;
 
 // TODO(gz): Remove!
 #pragma GCC diagnostic ignored "-Wunused-function"
