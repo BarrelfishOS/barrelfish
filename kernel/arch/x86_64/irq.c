@@ -871,7 +871,8 @@ update_kernel_now(void)
 /// Handle an IRQ that arrived, either while in user or kernel mode (HLT)
 static __attribute__ ((used)) void handle_irq(int vector)
 {
-    debug(SUBSYS_DISPATCH, "IRQ vector %d while %s\n", vector,
+    int irq = vector - NEXCEPTIONS;
+    debug(SUBSYS_DISPATCH, "IRQ vector %d (irq %d) while %s\n", vector, irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
     /*static int counter = 0;
@@ -880,8 +881,6 @@ static __attribute__ ((used)) void handle_irq(int vector)
                __FILE__, __FUNCTION__, __LINE__);
     }*/
 
-
-    int irq = vector - NEXCEPTIONS;
 
     // if we were in wait_for_interrupt(), unmask timer before running userspace
     if (dcb_current == NULL && kernel_ticks_enabled) {
