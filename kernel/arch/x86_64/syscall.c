@@ -919,8 +919,8 @@ static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
     coreid_t destination = args[0];
-    printk(LOG_DEBUG, "%s:%s:%d: destination=%"PRIuCOREID"\n",
-           __FILE__, __FUNCTION__, __LINE__, destination);
+//    printk(LOG_DEBUG, "%s:%s:%d: destination=%"PRIuCOREID"\n",
+//           __FILE__, __FUNCTION__, __LINE__, destination);
 
     apic_send_init_assert(destination, xapic_none);
     apic_send_init_deassert();
@@ -934,8 +934,8 @@ static struct sysret kernel_send_start_ipi(struct capability *cap,
 {
     coreid_t destination = args[0];
     genvaddr_t start_vector = X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT);
-    printk(LOG_DEBUG, "%s:%d: destination=%"PRIuCOREID" start_vector=%"PRIxGENVADDR"\n",
-           __FILE__, __LINE__, destination, start_vector);
+//    printk(LOG_DEBUG, "%s:%d: destination=%"PRIuCOREID" start_vector=%"PRIxGENVADDR"\n",
+//           __FILE__, __LINE__, destination, start_vector);
 
     apic_send_start_up(destination, xapic_none, start_vector);
 
