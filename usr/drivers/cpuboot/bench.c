@@ -13,9 +13,16 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish/deferred.h>
 #include <octopus/octopus.h>
 #include <stdio.h>
 #include <string.h>
+
+void set_flag(void *arg);
+void set_flag(void *arg) {
+    bool *flag = arg;
+    *flag = true;
+}
 
 static int execute_program(coreid_t coreid, int argc, char *argv[],
                            domainid_t *retdomainid)
@@ -63,15 +70,33 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Octopus initialization failed.");
     }
 
-    char** names;
+    char **names;
+    char **n2;
     size_t len;
     err = oct_get_names(&names, &len, "r'hw\\.processor\\.[0-9]+'");
     assert(err_is_ok(err));
     assert(len > 0);
+    assert(names);
+    n2 = names;
+    printf("%p, %ld\n", names, len);
     domainid_t *load_dom_ids = calloc(len, sizeof(domainid_t));
+    printf("%p, %ld\n", names, len);
+    int my_bf_id = -1;
+    printf("%p, %ld\n", names, len);
+    char *load_argv[1] = { LOAD_GEN_DOMAIN };
+    printf("%p, %ld\n", names, len);
 
+    int load_count = 0;
     // start load generating domain on all cores
     for (size_t i=0; i<len; i++) {
+        load_count++;
+        if (load_count > 8) {
+            break;
+        }
+        if (!names) {
+            names = n2;
+        }
+        printf("%ld: %p, %ld\n", i, names, len);
         char* record;
         err = oct_get(&record, names[i]);
         assert(err_is_ok(err));
@@ -81,15 +106,31 @@ int main(int argc, char *argv[])
                        &barrelfish_id, &apic_id, &processor_id, &enabled);
         assert(err_is_ok(err));
 
-        if (enabled) {
+        if (enabled && apic_id != disp_get_core_id()) {
             printf("spawning load generator on apic_id %"PRIx64"\n", apic_id);
-            char *load_argv[1] = { LOAD_GEN_DOMAIN };
             execute_program(apic_id, 1, load_argv, &load_dom_ids[barrelfish_id]);
+        } else if (apic_id == disp_get_core_id()) {
+            my_bf_id = barrelfish_id;
         }
     }
+    if (my_bf_id > -1) {
+        execute_program(disp_get_core_id(), 1, load_argv, &load_dom_ids[my_bf_id]);
+    }
 
+    if (!names) { names = n2; }
+    assert(names);
     oct_free_names(names, len);
 
+    // wait a bit
+    static struct deferred_event myevent;
+    static const int wait_usec = 5e6;
+    bool flag = false;
+    deferred_event_register(&myevent, get_default_waitset(),
+            wait_usec, MKCLOSURE(set_flag, &flag));
+    while(!flag) {
+        event_dispatch(get_default_waitset());
+    }
+    printf("starting benchmark\n");
     // run benchmark
     domainid_t x86id;
 #ifndef BENCH
@@ -101,10 +142,12 @@ int main(int argc, char *argv[])
 #endif
     wait_domain_id(x86id);
 
+#if 0
     // kill load gens
     for (size_t i = 0; i < len; i++) {
         if (load_dom_ids[i] != 0) {
             spawn_kill(load_dom_ids[i]);
         }
     }
+#endif
 }
