@@ -34,7 +34,7 @@ size_t mem_total = 0, mem_avail = 0;
 // architecture, we use paddr_t as the type to represent region
 // limits, which limits us its size.
 #if defined(__x86_64__)
-#       define MAXSIZEBITS     40              ///< Max size of memory in allocator
+#       define MAXSIZEBITS     38              ///< Max size of memory in allocator
 #elif defined(__i386__)
 #       define MAXSIZEBITS     32
 #elif defined(__arm__)
@@ -410,23 +410,13 @@ initialize_ram_alloc(void)
 
     /* walk bootinfo and add all unused RAM caps to allocator */
     struct capref mem_cap = {
-        .cnode = cnode_super0,
+        .cnode = cnode_super,
         .slot = 0,
     };
 
     for (int i = 0; i < bi->regions_length; i++) {
         if (bi->regions[i].mr_type == RegionType_Empty) {
             dump_ram_region(i, bi->regions + i);
-
-            /*
-             * we may have more memory regions than we have space in a single
-             * CNode, thus we switch to the second.
-             *
-             */
-            if (mem_cap.slot >= (1UL << mem_cap.cnode.size_bits)) {
-                mem_cap.slot=0;
-                mem_cap.cnode = cnode_super1;
-            }
 
             mem_total += ((size_t)1) << bi->regions[i].mr_bits;
 

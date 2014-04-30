@@ -8,3 +8,6 @@ tags
 /.dist-buildwrapper
 toolchain/*
 /build
+.cproject
+.project
+

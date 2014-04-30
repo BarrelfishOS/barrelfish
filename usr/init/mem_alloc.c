@@ -54,7 +54,7 @@ errval_t initialize_ram_alloc(void)
      * or else the next closest less than MM_MAXSIZEBITS */
     int mem_region = -1, mem_slot = 0;
     struct capref mem_cap = {
-        .cnode = cnode_super0,
+        .cnode = cnode_super,
         .slot = 0,
     };
 
@@ -62,7 +62,7 @@ errval_t initialize_ram_alloc(void)
     for (int i = 0; i < bi->regions_length; i++) {
         assert(!bi->regions[i].mr_consumed);
         if (bi->regions[i].mr_type == RegionType_Empty) {
-            if (bi->regions[i].mr_bits >= MM_REQUIREDBITS
+            if (bi->regions[i].mr_bits >= MM_REQUIREDBITS 
                 && bi->regions[i].mr_bits <= MM_MAXSIZEBITS && (mem_region == -1
                  || bi->regions[i].mr_bits < bi->regions[mem_region].mr_bits)) {
                 mem_region = i;

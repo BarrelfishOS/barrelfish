@@ -49,14 +49,8 @@ struct cnoderef cnode_base = {
 };
 
 /// Super CNode
-struct cnoderef cnode_super0 = {
-    .address = CPTR_SUPERCN0_BASE,
-    .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = DEFAULT_CNODE_BITS,
-    .guard_size = 0
-};
-struct cnoderef cnode_super1 = {
-    .address = CPTR_SUPERCN1_BASE,
+struct cnoderef cnode_super = {
+    .address = CPTR_SUPERCN_BASE,
     .address_bits = DEFAULT_CNODE_BITS,
     .size_bits = DEFAULT_CNODE_BITS,
     .guard_size = 0

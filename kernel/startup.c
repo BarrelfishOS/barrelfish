@@ -61,12 +61,8 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     switch(type) {
     case RegionType_Empty:
         cap_type = ObjType_RAM;
-        cnode = &st->supercn0->cap;
-        slot = &st->supercn0_slot;
-        if (*slot >= 1UL << cnode->u.cnode.bits) {
-            slot = &st->supercn1_slot;
-            cnode = &st->supercn1->cap;
-        }
+        cnode = &st->supercn->cap;
+        slot = &st->supercn_slot;
         break;
 
     case RegionType_PhyAddr:
@@ -89,19 +85,9 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     while (remain > 0) {
         /* Cannot insert anymore into this cnode */
         if (*slot >= 1UL << cnode->u.cnode.bits) {
-            /*
-             * it may be the case that we run over so switch to the other
-             * supercn1 the switching should only happen once during this loop
-             */
-            if (cnode == &st->supercn0->cap) {
-                slot = &st->supercn1_slot;
-                cnode = &st->supercn1->cap;
-                assert(*slot < 1UL << cnode->u.cnode.bits);
-            } else {
-                printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
-                       "in CNode\n");
-                return -1;
-            }
+            printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
+                   "in CNode\n");
+            return -1;
         }
         /* Cannot insert anymore into the mem_region */
         if (*regions_index >= MAX_MEM_REGIONS) {
@@ -181,15 +167,10 @@ struct dcb *spawn_module(struct spawn_state *st,
     assert(err_is_ok(err));
 
     // Super cnode in root cnode
-    st->supercn0 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN0);
+    st->supercn = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN);
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn0);
+                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn);
     assert(err_is_ok(err));
-    st->supercn1 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SUPERCN1);
-    err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
-                          BASE_PAGE_BITS, DEFAULT_CNODE_BITS, st->supercn1);
-    assert(err_is_ok(err));
-
 
     // slot_alloc cnodes in root cnode
     st->slot_alloc_cn0 = caps_locate_slot(CNODE(&rootcn), ROOTCN_SLOT_SLOT_ALLOC0);

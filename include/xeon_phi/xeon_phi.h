@@ -13,21 +13,4 @@
 /// The maximum number of coprocessor cards in a system
 #define XEON_PHI_NUM_MAX 8
 
-
-#define XEON_PHY_HOST_MEM_OFFSET 0x8000000000UL
-
-#define XEON_PHI_HOST_TO_CARD_MEM(x) \
-    ((lpaddr_t)(x)+XEON_PHY_HOST_MEM_OFFSET)
-
-
-/**
- * this struct represents the information passed from the host to the
- * coprocessor kernels
- */
-struct xeon_phi_info {
-    uintptr_t comm_base; // TODO: communication base
-
-    uint8_t present;    ///< flag indicating the present cards in the system
-};
-
 #endif // XEON_PHI_XEON_PHI_H_

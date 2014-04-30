@@ -62,7 +62,7 @@
  * for a bigger physical address space.  We set this to 37-bit,
  * i.e. 128 GBytes.
  */
-#define X86_64_PADDR_SPACE_LIMIT       ((genpaddr_t)1 << 40)
+#define X86_64_PADDR_SPACE_LIMIT       ((genpaddr_t)1 << 37)
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -100,7 +100,7 @@
  * Aligns an address to the nearest PML4 entry by masking out lower 39
  * bits.
  */
-#define X86_64_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x7fffff << 41))
+#define X86_64_PML4_ALIGN(addr)        ((addr) & ((genpaddr_t)0x1ffffff << 39))
 
 /**
  * Absolute offset of mapped physical memory within virtual address
