@@ -138,10 +138,12 @@ device pci_hdr1 msbfirst ( pci base ) "PCI Type 1 Configuration" {
   register bar0 pci ( base, 0x10 ) "Base address 0" type(uint32);
   register bar1 pci ( base, 0x14 ) "Base address 1" type(uint32);
 
-  register pri_bus pci (base, 0x18) "Primary bus number" type(uint8);
-  register sec_bus pci (base, 0x19) "Secondary bus number" type(uint8);
-  register sub_bus pci (base, 0x1a) "Subordinate bus number" type(uint8);
-  register sec_lat pci (base, 0x1b) "Secondary latency timer" type(uint8);
+  register bcfg pci (base, 0x18) "Bus configuration register" {
+    sec_lat    8   "Secondary latency timer";
+    sub_bus    8   "Subordinate bus number";
+    sec_bus    8   "Secondary bus number";
+    pri_bus    8   "Primary bus number";
+  };
 
   //
   // I/O base and limit registers
@@ -163,13 +165,11 @@ device pci_hdr1 msbfirst ( pci base ) "PCI Type 1 Configuration" {
   //
   // Memory-mapped I/O base and limit registers
   //
-  
-  regtype membl "Memory-mapped base and limit" {
-    addr	12 rw "Low bits of address";
-    _		4;
+
+  register membl pci (base, 0x20) "Memory base and limit" {
+    limit  16	 "Limit";
+    base   16	 "Base";
   };
-  register mem_base pci (base, 0x20) "Memory base" type(uint16);
-  register mem_limit pci (base, 0x22) "Memory limit" type(uint16);
 
   //
   // Prefetchable memory base and limit registers
@@ -206,7 +206,7 @@ device pci_hdr1 msbfirst ( pci base ) "PCI Type 1 Configuration" {
     pritm_dis	1 ro "Primary discard timeout";
     back2back   1 ro "Fast back-to-back enable";
     sec_reset   1 rw "Secondary bus reset";
-    mabort	1 ro "Master abort mode";
+    mabort	1 rw "Master abort mode";
     _		1;
     vga		1 rw "VGA enable";
     isa		1 rw "ISA enable";

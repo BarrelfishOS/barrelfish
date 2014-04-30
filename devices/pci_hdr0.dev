@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, ETH Zurich. All rights reserved.
+ * Copyright (c) 2008, 2013, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -167,7 +167,7 @@ device pci_hdr0 msbfirst ( pci base ) "PCI Type 0 Configuration" {
   register cap_ptr ro pci(base, 0x34) "Capabilities ptr" type(uint8);
 
   register int_line rw pci(base, 0x3c) "Interrupt line" type(uint8);
-  register int_pin ro pci(base, 0x3d) "Interrupt ping" type(uint8);
+  register int_pin ro pci(base, 0x3d) "Interrupt pin" type(uint8);
 
   register min_gnt ro pci(base, 0x3e) "Min Gnt" type(uint8);
   register max_lat ro pci(base, 0x3f) "Max Lat" type(uint8);

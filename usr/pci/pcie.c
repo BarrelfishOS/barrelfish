@@ -51,7 +51,7 @@ errval_t pcie_setup_confspace(void) {
             return error_code;
         }
 
-        PCI_DEBUG("calling confspace init with: %"PRIu64", %"PRIu16", %"PRIu8", %"PRIu8"",
+        PCI_DEBUG("calling confspace init with: %"PRIu64", %"PRIu16", %"PRIu8", %"PRIu8"\n",
                 address, segment, sbus, ebus);
         int r = pcie_confspace_init(pcie_cap, address, segment, sbus, ebus);
         assert(r == 0);

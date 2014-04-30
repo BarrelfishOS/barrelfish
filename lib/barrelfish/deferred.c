@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -112,18 +112,49 @@ errval_t deferred_event_register(struct deferred_event *event,
     return err;
 }
 
+static void usleep_callback(void *val)
+{
+    bool *wakeup = val;
+    *wakeup = true;
+}
+
+errval_t barrelfish_usleep(delayus_t delay)
+{
+    struct deferred_event dev;
+    struct waitset ws;
+    errval_t err;
+    bool wakeup = false;
+
+    deferred_event_init(&dev);
+    waitset_init(&ws);
+    err = deferred_event_register(&dev, &ws, delay,
+                                  MKCLOSURE(usleep_callback, &wakeup));
+    if(err_is_fail(err)) {
+        return err;
+    }
+
+    while(!wakeup) {
+        err = event_dispatch(&ws);
+        if(err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    return waitset_destroy(&ws);
+}
+
 /**
  * \brief Cancel a deferred event that has not yet fired
  */
 errval_t deferred_event_cancel(struct deferred_event *event)
 {
+    enum ws_chanstate chanstate = event->waitset_state.state;
     dispatcher_handle_t dh = disp_disable();
     errval_t err = waitset_chan_deregister_disabled(&event->waitset_state);
-    if (err_is_ok(err)) {
+    if (err_is_ok(err) && chanstate != CHAN_PENDING) {
         // remove from dispatcher queue
         struct dispatcher_generic *disp = get_dispatcher_generic(dh);
         if (event->prev == NULL) {
-            assert(disp->deferred_events == event);
             disp->deferred_events = event->next;
         } else {
             event->prev->next = event->next;
@@ -194,7 +225,7 @@ void trigger_deferred_events_disabled(dispatcher_handle_t dh, systime_t now)
 
     for (e = dg->deferred_events; e != NULL && e->time <= now; e = e->next) {
         err = waitset_chan_trigger_disabled(&e->waitset_state, dh);
-        assert(err_is_ok(err));
+        assert_disabled(err_is_ok(err));
     }
     dg->deferred_events = e;
     if (e != NULL) {

@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, 2011, ETH Zurich.
+ * Copyright (c) 2009, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -33,6 +33,7 @@ errval_t deferred_event_register(struct deferred_event *event,
                                  struct waitset *ws, delayus_t delay,
                                  struct event_closure closure);
 errval_t deferred_event_cancel(struct deferred_event *event);
+errval_t barrelfish_usleep(delayus_t delay);
 
 struct periodic_event {
     struct deferred_event de;
