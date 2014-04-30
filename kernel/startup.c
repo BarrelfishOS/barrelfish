@@ -89,9 +89,19 @@ errval_t create_caps_to_cnode(lpaddr_t base_addr, size_t size,
     while (remain > 0) {
         /* Cannot insert anymore into this cnode */
         if (*slot >= 1UL << cnode->u.cnode.bits) {
-            printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
-                   "in CNode\n");
-            return -1;
+            /*
+             * it may be the case that we run over so switch to the other
+             * supercn1 the switching should only happen once during this loop
+             */
+            if (cnode == &st->supercn0->cap) {
+                slot = &st->supercn1_slot;
+                cnode = &st->supercn1->cap;
+                assert(*slot < 1UL << cnode->u.cnode.bits);
+            } else {
+                printk(LOG_WARN, "create_caps_to_cnode: Cannot create more caps "
+                       "in CNode\n");
+                return -1;
+            }
         }
         /* Cannot insert anymore into the mem_region */
         if (*regions_index >= MAX_MEM_REGIONS) {
