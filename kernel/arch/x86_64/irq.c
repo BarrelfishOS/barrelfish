@@ -955,6 +955,8 @@ static __attribute__ ((used)) void handle_irq(int vector)
             k->kernel_off = kernel_now;
             k=k->next;
         }while(k && k!=kcb_current);
+        uint64_t kdown = rdtsc();
+        printk(LOG_DEBUG, "tsc: %"PRIu64"\n", kdown);
         printk(LOG_WARN, "halt!\n");
         halt();
     } else if (vector == APIC_SPURIOUS_INTERRUPT_VECTOR) {

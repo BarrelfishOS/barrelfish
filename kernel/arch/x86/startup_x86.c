@@ -360,7 +360,7 @@ void kernel_startup(void)
             // measure time to update
             extern uint64_t x86_64_start_ap;
             extern uint64_t x86_64_init_ap_dispatch;
-            volatile uint32_t *ap_dispatch = (volatile uint32_t *) local_phys_to_mem(
+            volatile uint64_t *ap_dispatch = (volatile uint64_t *) local_phys_to_mem(
                                              (lpaddr_t)&x86_64_init_ap_dispatch -
                                              ((lpaddr_t)&x86_64_start_ap) +
                                              X86_64_REAL_MODE_LINEAR_OFFSET);

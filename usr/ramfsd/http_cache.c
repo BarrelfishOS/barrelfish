@@ -80,7 +80,7 @@ static struct buff_holder *allocate_buff_holder (size_t len)
     if ( len > 0) {
 
         struct capref big_file_cap;
-        err = slot_alloc(&big_file_cap);
+        errval_t err = slot_alloc(&big_file_cap);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "slot_alloc failed.");
         }
@@ -89,7 +89,7 @@ static struct buff_holder *allocate_buff_holder (size_t len)
             USER_PANIC_ERR(err, "ram_alloc failed.");
         }
         err = vspace_map_one_frame(&result->data, len, big_file_cap,
-                                    NULL, NULL)
+                                    NULL, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "map the frame failed.");
         }

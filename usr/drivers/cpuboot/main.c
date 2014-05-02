@@ -524,16 +524,21 @@ static void microbench(void)
     cmd_kernel_args = "loglevel=0";
 
 #if DOWNUPDATE
+#ifndef COREID
+#define COREID 2
+#endif
+#define STR(x) STRR(x)
+#define STRR(x) #x
     int argc_down = 2;
     char *argv_down[] = {
         "down",
-        "2"
+        STR(COREID)
     };
 
     int argc_up = 2;
     char *argv_up[] = {
         "update",
-        "2"
+        STR(COREID)
     };
 
     uint64_t start_down, end_down, start_up, end_up;
@@ -552,6 +557,8 @@ static void microbench(void)
         end_up = bench_tsc();
 
         while(*ap_dispatch < 2);
+
+        printf("startdown: %"PRIu64"\n", start_down);
 
         uint64_t up = end_up - start_up;
         uint64_t misc = up - (data.load + data.alloc_cpu + data.alloc_mon +

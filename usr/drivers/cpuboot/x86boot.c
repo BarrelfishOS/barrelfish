@@ -48,7 +48,8 @@ extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 extern uint64_t x86_64_init_ap_dispatch;
 
-volatile uint64_t* ap_dispatch;
+volatile uint64_t *dispatch[255];
+volatile uint64_t *ap_dispatch;
 extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
 extern uint64_t end;
@@ -247,6 +248,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                    ((lpaddr_t) &x86_64_init_ap_dispatch -
                    ((lpaddr_t) &x86_64_start_ap) +
                     real_dest);
+    dispatch[core_id] = ap_dispatch;
     *ap_dispatch = 0;
 
     // Pointer to the lock variable in the realmode code

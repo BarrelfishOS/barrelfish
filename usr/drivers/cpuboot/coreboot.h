@@ -54,6 +54,7 @@ struct bench_data {
 };
 struct bench_data *bench_data;
 extern volatile uint64_t* ap_dispatch;
+extern volatile uint64_t *dispatch[];
 
 // TODO(gz): Remove!
 #pragma GCC diagnostic ignored "-Wunused-function"
