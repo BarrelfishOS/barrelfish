@@ -102,6 +102,11 @@ static void pci_init_card(struct device_mem* bar_info,
         return;
     }
 
+    printf("Got: %i bars\n", bar_count);
+    for (int i = 0; i < bar_count; ++i) {
+        printf("> Bar[%i]: {type=%i, paddr=0x%lx, size=%u}\n", i, bar_info[i].type, bar_info[i].paddr, (uint32_t)(bar_info[i].bytes/1024));
+    }
+
     // ok may be 5
     if (bar_count != 5) {
         USER_PANIC("There is something wrong. The Card should have 2 MBARs.");
