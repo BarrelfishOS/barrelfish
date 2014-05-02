@@ -444,18 +444,27 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     assert(last_end_addr != 0);
 
     if (last_end_addr < X86_64_PADDR_SPACE_SIZE) {
+#if 0
         /*
          * FIXME: adding the full range results in too many caps to add
          * to the cnode (and we can't handle such big caps in user-space
          * yet anyway) so instead we limit it to something much smaller
          */
         size_t size = X86_64_PADDR_SPACE_SIZE - last_end_addr;
-        const lpaddr_t phys_region_limit = 1UL << 32; // PCI implementation limit
+        const lpaddr_t phys_region_limit = 1UL << 48; // PCI implementation limit
         if (last_end_addr > phys_region_limit) {
             size = 0; // end of RAM is already too high!
         } else if (last_end_addr + size > phys_region_limit) {
             size = phys_region_limit - last_end_addr;
         }
+#endif
+        /*
+         * XXX: with the new machines and the Xeon Phi we need to extend
+         *      this range to the full 48bit physical address range
+         *      - 2014-05-02, RA
+         */
+        size_t size = X86_64_PADDR_SPACE_SIZE - last_end_addr;
+
         debug(SUBSYS_STARTUP, "end physical address range %lx--%lx\n",
               last_end_addr, last_end_addr + size);
         err = create_caps_to_cnode(last_end_addr, size,
