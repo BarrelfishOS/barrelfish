@@ -52,14 +52,6 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
     }
 
-#if !0
-    err = service_register(&xphi, irefs, num);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not register with the other drivers");
-    }
-
-    service_start();
-#endif
     xphi.state = XEON_PHI_STATE_NULL;
 
     err = xeon_phi_init(&xphi);

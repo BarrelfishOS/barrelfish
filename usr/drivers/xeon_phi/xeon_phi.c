@@ -67,7 +67,7 @@ static uint32_t pci_function = PCI_DONT_CARE;
 #define PCI_DEVICE_KNC_225e 0x225e
 
 #define XEON_PHI_APT_BAR 0
-#define XEON_PHI_MMIO_BAR 4
+#define XEON_PHI_MMIO_BAR 1
 
 static void device_init(struct xeon_phi *phi)
 {
@@ -107,10 +107,13 @@ static void pci_init_card(struct device_mem* bar_info,
         printf("> Bar[%i]: {type=%i, paddr=0x%lx, size=%u}\n", i, bar_info[i].type, bar_info[i].paddr, (uint32_t)(bar_info[i].bytes/1024));
     }
 
-    // ok may be 5
-    if (bar_count != 5) {
+    if (bar_count != 2) {
         USER_PANIC("There is something wrong. The Card should have 2 MBARs.");
     }
+
+    /*
+     * TODO> install some checks that we got the correct caps
+     */
 
     err = map_device(&bar_info[XEON_PHI_APT_BAR]);
     if (err_is_fail(err)) {
