@@ -116,12 +116,12 @@ device xeon_phi_apic lsbfirst ( addr base ) "Intel Xeon Phi APIC register" {
      * Register Access: CRU
      * Number: 8
      */
-    regarray icr_lo rw addr(base, 0x9D0) [8; 0x8] "APIC Interrupt Command Register 0 to 7" { 
+    regarray icr_lo rw addr(base, 0xA9D0) [8; 0x8] "APIC Interrupt Command Register 0 to 7" { 
         vector      8 "Vector";
         dlv_mode    3 type(vdm) "Delivery mode";
         dst_mode    1 type(dst_mode) "Destination mode";
         dlv_stat    1 ro "Delivery status";
-        _           1;
+        boot_notify 1 "Boot notify bit";
         level       1 type(int_level) "Level";
         trig_mode   1 type(trigm) "Trigger mode";
         _           2;
@@ -129,7 +129,7 @@ device xeon_phi_apic lsbfirst ( addr base ) "Intel Xeon Phi APIC register" {
         _           12;
     };            
     
-    regarray icr_hi rw addr(base, 0x9D4) [8; 0x8]  "APIC Interrupt Command Register 0 to 7" { 
+    regarray icr_hi rw addr(base, 0xA9D4) [8; 0x8]  "APIC Interrupt Command Register 0 to 7" { 
         dest        32 "Destination field";
     }; 
 

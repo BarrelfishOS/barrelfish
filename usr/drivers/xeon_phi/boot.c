@@ -244,12 +244,12 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
 
     XBOOT_DEBUG("memsize = 0x%x, reserved size = 0x%x\n", memsize, reserved);
 
-    xeon_phi_boot_res_size_wr(&boot_registers, reserved);
+    xeon_phi_boot_res_size_rawwr(&boot_registers, reserved);
 
     // sending the bootstrap interrupt
     xeon_phi_apic_icr_lo_t icr_lo = xeon_phi_apic_icr_lo_default;
     icr_lo = xeon_phi_apic_icr_lo_vector_insert(icr_lo, xeon_phi_apic_vec_bsp);
-    icr_lo = xeon_phi_apic_icr_lo_dlv_stat_insert(icr_lo, 0x1);
+    icr_lo = xeon_phi_apic_icr_lo_boot_notify_insert(icr_lo, 0x1);
 
     assert(icr_lo == (229 | (1 << 13)));
 
@@ -284,6 +284,11 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
                              XEON_PHI_MMIO_TO_DBOX(phi));
     xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi));
 
+
+    phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
+    XBOOT_DEBUG("APICID = %u\n", phi->apicid);
+
+
     // load the coprocessor OS
     err = load_bootloader(phi, xloader_img, &osimg_size, &offset);
     if (err_is_fail(err)) {
@@ -308,13 +313,18 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         USER_PANIC_ERR(err, "Could not load multiboot image");
     }
 
-    // start the receive thread
-    serial_start_recv_thread(phi);
+    xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 
     XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
 
+    phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
+    XBOOT_DEBUG("APICID = %u\n", phi->apicid);
+
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
+
+    // start the receive thread
+    serial_start_recv_thread(phi);
 
     uint32_t time = 0;
     while(time < 300) {

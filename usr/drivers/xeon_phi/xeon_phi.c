@@ -256,6 +256,12 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
         return 1;
     }
 
+#if 0
+#define ENABLE_MIC_INTERRUPTS(mmio) { \
+    uint32_t sboxSice0reg = SBOX_READ((mmio), SBOX_SICE0); \
+    sboxSice0reg |= SBOX_SICE0_DBR_BITS(0xf) | SBOX_SICE0_DMA_BITS(0xff); \
+    SBOX_WRITE(sboxSice0reg, (mmio), SBOX_SICE0); }
+#endif
     return SYS_ERR_OK;
 }
 

@@ -20,7 +20,7 @@
 #define XEON_PHI_BOOTLOADER "xeon_phi_bootloader"
 
 /// the name of the Xeon Phi multiboot image containint the modules
-#define XEON_PHI_MULTIBOOT "xeon_phi_multiboot"
+#define XEON_PHI_MULTIBOOT "xeon_phi_multiboot_ramfs"
 
 /// if we use MSIX interrupts or legacy interrupts
 #define XEON_PHI_MSIX_ENABLED 1

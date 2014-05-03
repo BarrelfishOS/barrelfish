@@ -95,7 +95,12 @@ bar_mapping_size64(uint64_t base)
     for (pciaddr_t mask = 1;; mask <<= 1) {
         assert(mask != 0);
         if (base & mask) {
-            return mask << 7;
+            /*
+             * Note: we get the actual raw register content here and not
+             *       the bar.base value so no shift.
+             *       - 2014-05-03, RA
+             */
+            return mask;
         }
     }
 }
@@ -1132,10 +1137,8 @@ pci_setup_root_complex(void)
 //           PCI header like for any PCI device. PCI HDR0 is misused
 //           here for the bridges.
 
-static void
-query_bars(pci_hdr0_t devhdr,
-           struct pci_address addr,
-           bool pci2pci_bridge)
+static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
+                       bool pci2pci_bridge)
 {
     pci_hdr0_bar32_t bar, barorigaddr;
 
@@ -1145,7 +1148,7 @@ query_bars(pci_hdr0_t devhdr,
         orig_value.raw = pci_hdr0_bars_rd(&devhdr, i);
         barorigaddr = orig_value.val;
 
-        // probe BAR to see if it is implemented
+        // probe BAR to determine the mapping size
         pci_hdr0_bars_wr(&devhdr, i, BAR_PROBE);
 
         uint32_t bar_value = pci_hdr0_bars_rd(&devhdr, i);
@@ -1158,15 +1161,16 @@ query_bars(pci_hdr0_t devhdr,
         /*
          * Cannot just compare the base value, with addresses over 4G there
          * will be a problem. Thus we need to check if the entire register is
-         * zero.
-         * 2014-05-02, RA
+         * zero. If it is a 32bit register, then the address part will be filled.
+         * If it is a 64bit register, the type will contain a nonzero value.
+         * - 2014-05-02, RA
          */
         if (bar_value == 0) {
             // BAR not implemented
             continue;
         }
 
-        if (bar.space == 0) {  // memory mapped
+        if (bar.space == 0) { // memory mapped
             //bar(addr(bus, device, function), barnr, orig address, size, space,
             //         prefetchable?, 64bit?).
             //where space = mem | io, prefetchable= prefetchable | nonprefetchable,
@@ -1187,70 +1191,54 @@ query_bars(pci_hdr0_t devhdr,
                 //is constructed out of two consequtive 32bit BARs
 
                 //read the upper 32bits of the address
-                pci_hdr0_bar32_t bar_high, barorigaddr_high;
-                union pci_hdr0_bar32_un orig_value_high;
-                orig_value_high.raw = pci_hdr0_bars_rd(&devhdr, i + 1);
-                barorigaddr_high = orig_value_high.val;
+                uint32_t orig_value_high = pci_hdr0_bars_rd(&devhdr, i + 1);
 
                 // probe BAR to determine the mapping size
                 pci_hdr0_bars_wr(&devhdr, i + 1, BAR_PROBE);
 
-                bar_high = (union pci_hdr0_bar32_un ) { .raw = pci_hdr0_bars_rd(
-                                &devhdr, i + 1) } .val;
+                // read the size information of the bar
+                uint32_t bar_value_high = pci_hdr0_bars_rd(&devhdr, i+1);
 
                 //write original value back to the BAR
-                pci_hdr0_bars_wr(&devhdr, i + 1, orig_value_high.raw);
+                pci_hdr0_bars_wr(&devhdr, i + 1, orig_value_high);
 
-                pciaddr_t base64 = bar_high.base;
+                pciaddr_t base64 = 0, origbase64 = 0;
+                base64 = bar_value_high;
                 base64 <<= 32;
-                base64 |= bar.base;
+                base64 |= (uint32_t) (bar.base<<7);
 
-                pciaddr_t origbase64 = barorigaddr_high.base;
+                origbase64 = orig_value_high;
                 origbase64 <<= 32;
-                origbase64 |= barorigaddr.base;
+                origbase64 |= (uint32_t) (barorigaddr.base<<7);
 
-                PCI_DEBUG(
-                        "(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
-                        addr.bus, addr.device, addr.function, i, origbase64 << 7,
-                        bar_mapping_size64(base64),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
+                            addr.bus, addr.device, addr.function, i, origbase64,
+                            bar_mapping_size64(base64),
+                            (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
-                skb_add_fact(
-                        "bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
-                        "16'%" PRIx64 ", mem, %s, %d).",
-                        addr.bus, addr.device, addr.function, i, origbase64 << 7,
-                        bar_mapping_size64(base64),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                        type);
+                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
+                            "16'%" PRIx64 ", mem, %s, %d).",
+                            addr.bus, addr.device, addr.function, i, origbase64,
+                            bar_mapping_size64(base64),
+                            (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                            type);
 
-                i++;  //step one forward, because it is a 64bit BAR
+                i++; //step one forward, because it is a 64bit BAR
             } else {
-                PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
-                          addr.bus, addr.device, addr.function, i,
-                          barorigaddr.base << 7, bar_mapping_size(bar),
-                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
-
                 //32bit BAR
-                skb_add_fact(
-                        "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
-                        addr.bus, addr.device, addr.function, i,
-                        (uint32_t) (barorigaddr.base << 7),
-                        (uint32_t) bar_mapping_size(bar),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                        type);
+                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
+                             addr.bus, addr.device, addr.function,
+                             i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar),
+                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                             type);
             }
         } else {
-            PCI_DEBUG("(%u,%u,%u): IO BAR %d at 0x%x, size %x\n", addr.bus,
-                      addr.device, addr.function, i, barorigaddr.base << 7,
-                      bar_mapping_size(bar));
             //bar(addr(bus, device, function), barnr, orig address, size, space).
             //where space = mem | io
-            skb_add_fact(
-                    "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
-                    "nonprefetchable, 32).",
-                    addr.bus, addr.device, addr.function, i,
-                    (uint32_t) (barorigaddr.base << 7),
-                    (uint32_t) bar_mapping_size(bar));
+            skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
+                         "nonprefetchable, 32).",
+                         addr.bus, addr.device, addr.function,
+                         i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar));
         }
     }
 }

@@ -23,8 +23,6 @@
 #define XEON_PHI_BUFFER_LENGTH 0x400
 #define XEON_PHI_POLL_GIVEUP   0x100
 
-static xeon_phi_serial_t mmio_serial;
-
 uint8_t xeon_phi_id = 0;
 
 static inline void xprintf(uint8_t xid,
@@ -51,7 +49,7 @@ static int xeon_phi_recv_handler(void *arg)
 
     debug_printf("xeon phi receive handler started. %d\n", xarg->xid);
 
-    xeon_phi_serial_ctrl_rawwr(&mmio_serial, xeon_phi_serial_reset);
+    xeon_phi_serial_ctrl_rawwr(&xarg->base, xeon_phi_serial_reset);
 
     nodata = XEON_PHI_POLL_GIVEUP;
 
@@ -62,6 +60,8 @@ static int xeon_phi_recv_handler(void *arg)
             if (--nodata) {
                 continue;
             }
+
+
             // reset counter
             nodata = XEON_PHI_POLL_GIVEUP;
 
