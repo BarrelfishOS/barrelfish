@@ -28,6 +28,8 @@ struct bootinfo *bi = NULL;
 #include "xeon_phi.h"
 #include "sleep.h"
 
+#define BOOT_TIMEOUT 3000
+
 /*
  * TODO: Verify these values if they are really needed
  */
@@ -75,7 +77,7 @@ static inline lvaddr_t get_load_offset(struct xeon_phi *phi)
 static errval_t load_bootloader(struct xeon_phi *phi,
                                 char *xloader_img,
                                 uint32_t *ret_imgsize,
-                                lvaddr_t *ret_cmdoffset)
+                                lvaddr_t *ret_loadoffset)
 {
     errval_t err;
     /*
@@ -104,6 +106,8 @@ static errval_t load_bootloader(struct xeon_phi *phi,
      */
     lvaddr_t loadoffset = get_load_offset(phi);
 
+    XBOOT_DEBUG("bootloader offset = 0x%lx\n", phi->apt.vbase + loadoffset);
+
     printf("Loading xloader onto card...\n");
     XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
                 phi->apt.vbase,
@@ -112,8 +116,8 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 
     memcpy((void *) (phi->apt.vbase + loadoffset), (void *) binary, imgsize);
 
-    if (ret_cmdoffset) {
-        *ret_cmdoffset = loadoffset + imgsize;
+    if (ret_loadoffset) {
+        *ret_loadoffset = loadoffset;
     }
 
     if (ret_imgsize) {
@@ -129,9 +133,12 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 static errval_t load_multiboot_image(struct xeon_phi *phi,
                                      char *multiboot_img,
                                      lvaddr_t load_offset,
-                                     uint32_t *ret_imgsize)
+                                     uint32_t os_offset)
 {
     errval_t err;
+
+    XBOOT_DEBUG("multiboot offset = 0x%lx\n", phi->apt.vbase + load_offset);
+
     /*
      * find the boot loader image in the host multiboot
      */
@@ -148,7 +155,6 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
         return err_push(err, SPAWN_ERR_ELF_MAP);
     }
 
-    lvaddr_t os_offset = get_load_offset(phi);
 
     printf("Loading multiboot image onto card...\n");
     XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
@@ -182,6 +188,9 @@ static errval_t load_cmdline(struct xeon_phi *phi,
                              uint32_t *ret_size)
 {
     uint32_t cmdlen = 0;
+
+    XBOOT_DEBUG("cmdline offset = 0x%lx\n", phi->apt.vbase + load_offset);
+
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
     if (phi->cmdline) {
@@ -272,7 +281,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
                        char *multiboot_img)
 {
     errval_t err;
-    lvaddr_t offset;
+    lvaddr_t offset, os_offset;
     uint32_t size, osimg_size;
 
     if (bi == NULL) {
@@ -288,15 +297,16 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
     XBOOT_DEBUG("APICID = %u\n", phi->apicid);
 
-
     // load the coprocessor OS
     err = load_bootloader(phi, xloader_img, &osimg_size, &offset);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load bootloader image");
     }
 
+    os_offset = offset;
+
     // round to next page
-    offset = ALIGN(offset);
+    offset = ALIGN(osimg_size + offset);
 
     // load cmdline
     err = load_cmdline(phi, offset, &size);
@@ -308,7 +318,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     offset = ALIGN(offset);
 
     // load multiboot image
-    err = load_multiboot_image(phi, multiboot_img, offset, &size);
+    err = load_multiboot_image(phi, multiboot_img, offset, os_offset);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load multiboot image");
     }
@@ -323,17 +333,20 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
 
-    // start the receive thread
-    serial_start_recv_thread(phi);
+    XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
 
-    uint32_t time = 0;
-    while(time < 300) {
-        milli_sleep(1000);
+    // start the receive thread
+    //serial_start_recv_thread(phi);
+
+    uint32_t time = 0, time_steps = 0;
+    while(time < BOOT_TIMEOUT) {
+        milli_sleep(100);
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
             break;
         }
-        if (time % 5) {
-            XBOOT_DEBUG("Waiting for ready signal %u\n", time+1);
+        if (time % 50) {
+            XBOOT_DEBUG("Waiting for ready signal %u\n", time_steps);
+            time_steps += 5;
         }
     }
 

@@ -26,7 +26,8 @@
 
 static uint32_t initialized = 0;
 
-#define XEON_PHI_RESET_TIME 300
+#define XEON_PHI_RESET_TIME 3000
+#define XEON_PHI_RESET_TIME_UNIT 100
 
 static struct xeon_phi *card;
 
@@ -68,6 +69,9 @@ static uint32_t pci_function = PCI_DONT_CARE;
 
 #define XEON_PHI_APT_BAR 0
 #define XEON_PHI_MMIO_BAR 1
+#define XEON_PHI_MMIO_BAR_SIZE (128*1024)
+#define XEON_PHI_APT_BAR_SIZE (8ULL << 30)
+#define XEON_PHI_BAR_TYPE 0
 
 static void device_init(struct xeon_phi *phi)
 {
@@ -111,9 +115,14 @@ static void pci_init_card(struct device_mem* bar_info,
         USER_PANIC("There is something wrong. The Card should have 2 MBARs.");
     }
 
+
     /*
      * TODO> install some checks that we got the correct caps
      */
+    assert(bar_info[XEON_PHI_MMIO_BAR].bytes == XEON_PHI_MMIO_BAR_SIZE);
+    assert(bar_info[XEON_PHI_APT_BAR].bytes >= XEON_PHI_APT_BAR_SIZE);
+    assert(bar_info[XEON_PHI_MMIO_BAR].type == XEON_PHI_BAR_TYPE);
+    assert(bar_info[XEON_PHI_APT_BAR].type == XEON_PHI_BAR_TYPE);
 
     err = map_device(&bar_info[XEON_PHI_APT_BAR]);
     if (err_is_fail(err)) {
@@ -214,15 +223,13 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     milli_sleep(1000);
 
     xeon_phi_boot_postcode_t postcode;
-    xeon_phi_boot_postcodes_t pc;
+    xeon_phi_boot_postcodes_t pc, pc_prev = 0;
     for (uint32_t time = 0; time < XEON_PHI_RESET_TIME; ++time) {
         postcode = xeon_phi_boot_postcode_rd(&boot_registers);
         pc = xeon_phi_boot_postcode_code_extract(postcode);
-        debug_printf("Resetting; %s\n", xeon_phi_boot_postcodes_describe(pc));
-        XBOOT_DEBUG("Resetting (Post Code %c%c)\n",
-                    xeon_phi_boot_postcode_raw_code0_extract(postcode),
-                    xeon_phi_boot_postcode_raw_code1_extract(postcode));
-
+        if (pc_prev != pc) {
+            debug_printf("Resetting: %s\n", xeon_phi_boot_postcodes_describe(pc));
+            }
         if (postcode == xeon_phi_boot_postcode_invalid || postcode
                         == xeon_phi_boot_postcode_fatal
             || pc == xeon_phi_boot_postcode_memtf
@@ -244,7 +251,8 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
             return SYS_ERR_OK;
         }
 
-        milli_sleep(1000);
+        pc_prev = pc;
+        milli_sleep(XEON_PHI_RESET_TIME_UNIT);
     }
 
     if (phi->state != XEON_PHI_STATE_READY) {
@@ -253,7 +261,7 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
                     xeon_phi_boot_postcode_raw_code0_extract(postcode),
                     xeon_phi_boot_postcode_raw_code1_extract(postcode));
 
-        return 1;
+        return 1; // todo> error code
     }
 
 #if 0
