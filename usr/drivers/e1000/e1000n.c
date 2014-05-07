@@ -342,7 +342,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
             return r;
         }
         E1000_DEBUG("transmit_pbuf done for pbuf 0x%p, index %i\n",
-            opaque, i);
+            buffers[i].opaque, i);
     } // end for: for each pbuf
 #if TRACE_ONLY_SUB_NNET
     trace_event(TRACE_SUBSYS_NNET,  TRACE_EVENT_NNET_TXDRVADD,
