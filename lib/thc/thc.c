@@ -95,8 +95,9 @@ extern void thc_on_alt_stack_0(void *stacktop, void *fn, void *args);
 static void *thc_alloc_new_stack_0(void);
 
 static PTState_t *thc_get_pts_0(void);
+#if !defined(BARRELFISH)
 static void thc_set_pts_0(PTState_t *pts);
-
+#endif
 static inline void thc_schedule_local(awe_t *awe);
 
 /***********************************************************************/
@@ -1735,8 +1736,6 @@ static PTState_t *thc_get_pts_0(void) {
   return (PTState_t*)&ptstate_tls;
 }
 
-static void thc_set_pts_0(PTState_t *st) {
-}
 #elif defined(linux)
 volatile int TlsInitLatch = 0;
 volatile int TlsDoneInit = 0;
