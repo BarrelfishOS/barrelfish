@@ -65,7 +65,7 @@
 #define DEBUG_YIELD(XX)
 #define DEBUG_STACK(XX)
 #define DEBUG_AWE(XX)
-#define DEBUG_FINISH(XX) 
+#define DEBUG_FINISH(XX)
 #define DEBUG_CANCEL(XX)
 #define DEBUG_INIT(XX)
 #define DEBUG_DISPATCH(XX)
@@ -82,7 +82,7 @@
 /***********************************************************************/
 
 // Prototypes
-// 
+//
 // NB: those marked as "extern" are actually defined in this same file,
 // but the entire function (including label, prolog, epilogue, etc) is
 // in inline-asm, and so the definition is not visible to the compiler.
@@ -111,14 +111,6 @@ static PTState_t *PTS(void) {
   }
 #endif
   return pts;
-}
-
-static void InitPTS(void) {
-  PTState_t *pts = malloc(sizeof(PTState_t));
-  memset(pts, 0, sizeof(PTState_t));
-  thc_latch_init(&pts->latch);
-  assert((PTS() == NULL) && "PTS already initialized");
-  thc_set_pts_0(pts);
 }
 
 static void thc_pts_lock(PTState_t *t) {
@@ -271,7 +263,7 @@ void _thc_pendingfree(void) {
 
 #ifdef CONFIG_LAZY_THC
 
-// This checks whether the awe's lazy stack is finished with (according to 
+// This checks whether the awe's lazy stack is finished with (according to
 // the provided esp, and puts it on pending free list if so.
 
 static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
@@ -281,7 +273,7 @@ static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
 			  pts->curr_lazy_stack, esp + LAZY_STACK_BUFFER));
   if ((esp + LAZY_STACK_BUFFER) == pts->curr_lazy_stack) {
     // nothing on lazy stack, we can safely free it
-    DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "  freeing lazy stack %p\n", 
+    DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "  freeing lazy stack %p\n",
 			    pts->curr_lazy_stack));
     assert(pts->pendingFree == NULL);
     pts->pendingFree = pts->curr_lazy_stack;
@@ -292,7 +284,7 @@ static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
 // Allocate a lazy stack for this awe's continuation to execute on.
 
 static void alloc_lazy_stack (awe_t *awe) {
-  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "> AllocLazyStack(awe=%p)\n", 
+  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "> AllocLazyStack(awe=%p)\n",
 			  awe));
   assert(awe->status == LAZY_AWE && !awe->lazy_stack);
   awe->lazy_stack = _thc_allocstack();
@@ -352,7 +344,7 @@ static void re_init_dispatch_awe(void *a, void *arg) {
   pts->dispatch_awe = *awe;
   assert(awe->status == EAGER_AWE && !pts->curr_lazy_stack);
 #ifndef NDEBUG
-  // Do not count dispatch AWE in the debugging stats (it is created 
+  // Do not count dispatch AWE in the debugging stats (it is created
   // once and then resumed once per dispatch-loop entry, so it obscures
   // mis-match between normal 1-shot AWEs)
   pts->aweCreated--;
@@ -380,7 +372,7 @@ static void thc_dispatch_loop(void) {
   DEBUG_DISPATCH(DEBUGPRINTF(DEBUG_DISPATCH_PREFIX "> dispatch_loop\n"));
 
   thc_pendingfree(pts);
-  
+
   // Pick up work passed to us from other threads
   if (pts->aweRemoteHead.next != &pts->aweRemoteTail) {
     awe_t *tmp = pts->aweHead.next;
@@ -394,8 +386,8 @@ static void thc_dispatch_loop(void) {
     pts->aweRemoteHead.next = &pts->aweRemoteTail;
     pts->aweRemoteTail.prev = &pts->aweRemoteHead;
     thc_pts_unlock(pts);
-  } 
-  
+  }
+
   if (pts->aweHead.next == &pts->aweTail) {
     DEBUG_DISPATCH(DEBUGPRINTF(DEBUG_DISPATCH_PREFIX "  queue empty\n"));
     assert(pts->idle_fn != NULL && "Dispatch loop idle, and no idle_fn work");
@@ -439,7 +431,7 @@ static void thc_init_dispatch_loop(void) {
   pts->dispatchStack = _thc_allocstack();
   // Set start of stack-frame marker
   *((void**)(pts->dispatchStack - LAZY_STACK_BUFFER + __WORD_SIZE)) = NULL;
-  thc_awe_init(&pts->dispatch_awe, &thc_dispatch_loop, 
+  thc_awe_init(&pts->dispatch_awe, &thc_dispatch_loop,
                pts->dispatchStack-LAZY_STACK_BUFFER,
                pts->dispatchStack-LAZY_STACK_BUFFER);
   pts->aweHead.next = &(pts->aweTail);
@@ -467,7 +459,7 @@ static void thc_exit_dispatch_loop(void) {
   }
   // Exit
   thc_pts_lock(pts);
-  assert((pts->aweHead.next == &(pts->aweTail)) && 
+  assert((pts->aweHead.next == &(pts->aweTail)) &&
          "Dispatch queue not empty at exit");
   DEBUG_INIT(DEBUGPRINTF(DEBUG_INIT_PREFIX
                          "  NULLing out dispatch AWE\n"));
@@ -479,14 +471,20 @@ static void thc_exit_dispatch_loop(void) {
 //
 // (Hence the dispatch loop will run on its own stack, rather than
 // the caller's)
-
+static void thc_start_rts(void);
 static void thc_dispatch(PTState_t *pts) {
-  assert(pts && pts->doneInit && "Not initialized RTS");
+  //assert(pts && pts->doneInit && "Not initialized RTS");
+  if (!pts->doneInit) {
+    thc_start_rts();
+  }
   thc_awe_execute_0(&pts->dispatch_awe);
 }
-
+static void IdleFn(void *arg);
 static void thc_start_rts(void) {
-  InitPTS();
+  PTS()->idle_fn = IdleFn;
+  PTS()->idle_args = NULL;
+  PTS()->idle_stack = NULL;
+
   assert(PTS() && (!PTS()->doneInit) && "Already initialized RTS");
   DEBUG_INIT(DEBUGPRINTF(DEBUG_INIT_PREFIX "> Starting\n"));
   thc_init_dispatch_loop();
@@ -574,23 +572,23 @@ static void init_lazy_awe (void ** lazy_awe_fp) {
 
   // Get the saved awe
   awe_t *awe = THC_LAZY_FRAME_AWE(lazy_awe_fp);
-  
+
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX " found lazy awe %p @ frameptr %p",
 			awe, lazy_awe_fp));
 
   // Scrub nested return, lazy awe will now return through dispatch loop
   THC_LAZY_FRAME_RET(lazy_awe_fp) = NULL;
-  
+
   assert(awe->status == LAZY_AWE);
   // Allocate a new stack for this awe
   alloc_lazy_stack(awe);
   // lazily start async block
   _thc_startasync(awe->current_fb, awe->lazy_stack);
   // schedule lazy awe
-  _thc_schedulecont_c(awe); 
+  _thc_schedulecont_c(awe);
 }
 
-// Check for all lazy awe on the stack - initalizing and scheduling any if 
+// Check for all lazy awe on the stack - initalizing and scheduling any if
 // they are found.
 
 static void check_for_lazy_awe (void * ebp) {
@@ -603,8 +601,8 @@ static void check_for_lazy_awe (void * ebp) {
     }
     frame_ptr = (void **) THC_LAZY_FRAME_PREV(frame_ptr);
     ret_addr   = THC_LAZY_FRAME_RET(frame_ptr);
-  } 
- 
+  }
+
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX "< CheckForLazyAWE\n"));
 }
 
@@ -660,7 +658,7 @@ void _thc_startfinishblock(finish_t *fb, int fb_kind) {
 
   DEBUG_FINISH(DEBUGPRINTF(DEBUG_FINISH_PREFIX "  Connecting own [%p]<->[%p]\n",
                            &(fb->start_node), &(fb->end_node)));
-  
+
   fb->start_node.next = &(fb->end_node);
   fb->end_node.prev = &(fb->start_node);
   if (current_fb != NULL) {
@@ -689,7 +687,7 @@ static void _thc_endfinishblock0(void *a, void *f) {
   awe_t *awe = (awe_t*)a;
 
   awe->lazy_stack = awe->pts->curr_lazy_stack;
-  
+
   DEBUG_FINISH(DEBUGPRINTF(DEBUG_FINISH_PREFIX "  Waiting f=%p awe=%p\n",
                            fb, a));
   assert(fb->finish_awe == NULL);
@@ -728,7 +726,7 @@ void _thc_do_cancel_request(finish_t *fb) {
 #ifndef NDEBUG
   pts->cancelsRequested++;
 #endif
-  
+
   // Handle nested cancel blocks
   finish_list_t *fl = fb->start_node.next;
   while (fl->fb != fb) {
@@ -752,7 +750,7 @@ void _thc_do_cancel_request(finish_t *fb) {
       fl = fl->next;
     }
   }
-  
+
   // Run our own cancellation actions
   thc_run_cancel_actions(pts, fb);
 }
@@ -789,7 +787,7 @@ void _thc_endfinishblock(finish_t *fb, void *stack) {
     fb->end_node.next->prev = fb->start_node.prev;
   }
 
-  if (pts->curr_lazy_stack && 
+  if (pts->curr_lazy_stack &&
       (fb->enclosing_fb == NULL || stack != fb->enclosing_fb->old_sp) &&
       pts->curr_lazy_stack != fb->enclosing_lazy_stack) {
       check_lazy_stack_finished(pts, stack);
@@ -885,7 +883,7 @@ static void thc_yield_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  awe_t *awe = (awe_t*)a; 
+  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -904,7 +902,7 @@ static void thc_yieldto_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  awe_t *last_awe = (awe_t*)a; 
+  awe_t *last_awe = (awe_t*)a;
 
   last_awe->lazy_stack = last_awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
@@ -941,7 +939,7 @@ static void thc_suspend_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  *(void**)arg = a;  awe_t *awe = (awe_t*)a; 
+  *(void**)arg = a;  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -970,7 +968,7 @@ static void thc_suspendthen_with_cont(void *a, void *arg) {
   *(void**)(ta->awe_addr) = a;
   ta->then_fn(ta->then_arg);
 
-  awe_t *awe = (awe_t*)a; 
+  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -1068,7 +1066,7 @@ void THCAddCancelItem(cancel_item_t *ci, THCCancelFn_t fn, void *arg) {
 void THCRemoveCancelItem(cancel_item_t *ci) {
   PTState_t *pts = PTS();
   finish_t *fb = pts->current_fb;
-  DEBUG_CANCEL(DEBUGPRINTF(DEBUG_CANCEL_PREFIX "> THCRemoveCancelItem(%p) from FB %p\n", 
+  DEBUG_CANCEL(DEBUGPRINTF(DEBUG_CANCEL_PREFIX "> THCRemoveCancelItem(%p) from FB %p\n",
                            ci, fb));
   assert(fb != NULL && "Current fb NULL");
   assert(!ci->was_run);
@@ -1140,7 +1138,7 @@ static void IdleFn(void *arg) {
     // in the bottom-half of a THC receive function)
     if (me != idle_ct) {
       break;
-    } 
+    }
 
     // Yield while some real work is now available
     while (pts->aweHead.next != &pts->aweTail &&
@@ -1153,9 +1151,6 @@ static void IdleFn(void *arg) {
 __attribute__((constructor))
 static void thc_init(void) {
   thc_start_rts();
-  PTS()->idle_fn = IdleFn;
-  PTS()->idle_args = NULL;
-  PTS()->idle_stack = NULL;
 }
 
 __attribute__((destructor))
@@ -1350,8 +1345,8 @@ __asm__ ("      .text \n\t"
          " pop %esp                         \n\t" // Restore old ESP
          " ret \n\t");
 #else
-void thc_on_alt_stack_0(void *stack,   
-                        void *fn,   
+void thc_on_alt_stack_0(void *stack,
+                        void *fn,
                         void *args) {
   assert(0 && "thc_on_alt_stack_0 not implemented for this architecture");
 }
@@ -1434,7 +1429,7 @@ __asm__ ("      .text \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1512,7 +1507,7 @@ __asm__ ("      .text                     \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1590,7 +1585,7 @@ __asm__ ("      .text                     \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1684,12 +1679,12 @@ int _thc_schedulecont(void *cont) {
   return 0;
 }
 
-void _thc_callcont(void *awe,   
-                   void *fn,         
-                   void *args) {            
+void _thc_callcont(void *awe,
+                   void *fn,
+                   void *args) {
   assert(0 && "_thc_callcont not implemented for this architecture");
 }
-void  _thc_lazy_awe_marker() {            
+void  _thc_lazy_awe_marker() {
   assert(0 && "_thc_lazy_awe_marker not implemented for this architecture");
 }
 #endif
@@ -1734,12 +1729,13 @@ static void thc_set_pts_0(PTState_t *st) {
   }
 }
 #elif defined(BARRELFISH)
+static __thread PTState_t ptstate_tls;
+
 static PTState_t *thc_get_pts_0(void) {
-  return (PTState_t*)thread_get_tls();
+  return (PTState_t*)&ptstate_tls;
 }
 
 static void thc_set_pts_0(PTState_t *st) {
-  thread_set_tls((void*)st);
 }
 #elif defined(linux)
 volatile int TlsInitLatch = 0;
