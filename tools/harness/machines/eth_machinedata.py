@@ -113,6 +113,15 @@ machines = dict({
                  'tickrate'    : 1870,
                  'boot_timeout': 360},
 
+    'burrata': {'ncores'          : 20,
+                'machine_name'    : 'burrata',
+                'bootarch'        : 'x86_64',
+                'buildarchs'      : ['x86_64', 'x86_32'],
+                'cores_per_socket': 10,
+                'perfcount_type'  : 'intel',
+                'tickrate'        : 2500,
+                'boot_timeout'    : 360},
+
     'nos4-32'   : {'ncores'      : 4,
                    'machine_name' : 'nos4',
                    'bootarch' : 'x86_32',
@@ -217,6 +226,16 @@ machines = dict({
                 'cores_per_socket': 4,
                 'perfcount_type': 'intel',
                 'tickrate'    : 3400},
+
+    'burrata-32': {'ncores'          : 20,
+                   'machine_name'    : 'burrata',
+                   'bootarch'        : 'x86_32',
+                   'buildarchs'      : ['x86_64', 'x86_32'],
+                   'cores_per_socket': 10,
+                   'perfcount_type'  : 'intel',
+                   'tickrate'        : 2500,
+                   'boot_timeout'    : 360},
+
 
 
     # SK: For Python 2.7
