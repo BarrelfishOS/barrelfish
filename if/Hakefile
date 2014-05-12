@@ -50,6 +50,7 @@
                "skb",
                "skb_map",
                "octopus",               
+               "omap_sdma",
                "spawn",
                "terminal",
                "terminal_config",
@@ -79,6 +80,7 @@
                "mem",
                "xmplthc",
                "octopus",
+               "omap_sdma",
                "ata_rw28" ],
              arch <- allArchitectures
 ]

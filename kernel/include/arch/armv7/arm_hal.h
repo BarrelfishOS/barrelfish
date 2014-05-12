@@ -69,6 +69,14 @@ uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);
 
 /*
+ * Cortex A9 Global Timer
+ */
+void     gt_init(void);
+uint64_t gt_read(void);
+uint32_t gt_read_low(void);
+uint32_t gt_read_high(void);
+
+/*
  * system control unit
  * only for multi-core
  */

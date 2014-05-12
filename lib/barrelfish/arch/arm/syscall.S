@@ -16,6 +16,7 @@
 syscall:
         // Save pointer to return structure (r0), callee-save
 	// registers (r4-r10,r12) that are cloberred.
+        clrex
         mov     r12, sp
         push    {r0, r4-r10, r11, r12, lr, pc}
         ldmia   r12, {r4-r10, r12}
