@@ -162,7 +162,7 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
         for(uint32_t j = 0; j < 100000000; j++);
         hc->root_hub_num_ports = ohci_rh_descra_ndp_rdf(hc->ohci_base);
     }
-    debug_printf("OHCI CONTROLLER INTIALIZED. Having %u ports\n",
+    debug_printf("OHCI CONTROLLER INTIALIZED. Having %"PRIu8" ports\n",
             hc->root_hub_num_ports );
 
     //char buf[8001];
@@ -174,7 +174,7 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
 
                        uint32_t* test = (uint32_t* )hc->ohci_base->base;
                        test = test + (-0x800+0x44)/4;
-                       printf("TEST: %x", (*test)>>16);
+                       printf("TEST: %"PRIx32"", (*test)>>16);
 
                        //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
                        usb_ohci_root_hub_interrupt(hc);

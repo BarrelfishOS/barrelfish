@@ -157,7 +157,7 @@ static void lrpc_benchmark(uint64_t event, uint64_t umask)
 
     /* Print results */
     for (int i = 0; i < ITERATIONS; i++) {
-        printf("page %d took %ld\n", i,
+        printf("page %d took %"PRIu64"\n", i,
                 timestamps[i].time1 - bench_tscoverhead() -
                 timestamps[i].time0);
     }

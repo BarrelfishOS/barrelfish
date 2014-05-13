@@ -47,7 +47,7 @@ static void tests_cb(void)
         }
 
         // Print results
-        printf("With core %d, avg %ld, variance %ld\n", i,
+        printf("With core %d, avg %"PRIuCYCLES", variance %"PRIuCYCLES"\n", i,
                bench_avg(timestamp[i].time, MAX_COUNT),
                bench_variance(timestamp[i].time, MAX_COUNT));
     }

@@ -29,7 +29,7 @@ void experiment(coreid_t idx)
     struct ump_chan_state *send = &chan->send_chan;
     struct ump_chan_state *recv = &chan->endpoint.chan;
 
-    printf("Running latency between core %d and core %d\n", my_core_id, idx);
+    printf("Running latency between core %"PRIuCOREID" and core %"PRIuCOREID"\n", my_core_id, idx);
 
     /* Run experiment */
     for (int i = 0; i < MAX_COUNT; i++) {
@@ -45,7 +45,7 @@ void experiment(coreid_t idx)
     /* Print results */
     for (int i = MAX_COUNT / 10; i < MAX_COUNT; i++) {
         if (timestamps[i].time1 > timestamps[i].time0) {
-            printf("page %d took %ld\n", i,
+            printf("page %d took %"PRIuCYCLES"\n", i,
                    timestamps[i].time1 - bench_tscoverhead() -
                    timestamps[i].time0);
         }

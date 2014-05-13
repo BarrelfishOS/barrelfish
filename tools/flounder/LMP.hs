@@ -331,6 +331,7 @@ lmp_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     C.SBlank,
 
     C.SComment "run user's connect handler",
+    C.Ex $ C.Call "assert" [(C.DerefField exportvar "connect_cb")],
     C.Ex $ C.Assignment errvar $ C.CallInd (C.DerefField exportvar "connect_cb")
                        [C.DerefField exportvar "st", bindvar],
     C.If (C.Call "err_is_fail" [errvar])

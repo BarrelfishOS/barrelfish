@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
     ASSERT_STRING(output, "obj3 { attr: 3 }");
-    debug_printf("tid is: %lu\n", tid);
+    debug_printf("tid is: %"PRIu64"\n", tid);
     free(output);
 
     oct_del("obj3");
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
             &tid, &error_code);
     ASSERT_ERR_OK(err);
     ASSERT_ERR_OK(error_code);
-    debug_printf("tid is: %lu\n", tid);
+    debug_printf("tid is: %"PRIu64"\n", tid);
     ASSERT_STRING(output, "obj2 { attr: 2 }");
 
     oct_del("obj2");

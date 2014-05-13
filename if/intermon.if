@@ -80,16 +80,6 @@ interface intermon "The Interface between monitors" {
                                    chanid_t chan_id,
                                    coreid_t core_id);
 
-    message bind_monitor_request_bmp(coreid_t core_id,
-                                     chanid_t chan_id,
-                                     coreid_t from_core_id);
-    message bind_monitor_reply_bmp(errval err,
-                                   chanid_t chan_id,
-                                   coreid_t core_id);
-    message bind_monitor_proxy_bmp(coreid_t dst_core_id,
-                                   chanid_t chan_id,
-                                   coreid_t core_id);
-
     message new_monitor_notify(coreid_t core_id);
 
     message bind_ump_request(iref iref,

@@ -38,7 +38,7 @@ static void tsc_bench(void)
     timestamp[MAX_COUNT - 1].time1 = bench_tsc();
 
     for (int i = 0; i < MAX_COUNT - 1; i++) {
-        printf("Iteration %d: time0 %ld time1 %ld difference %ld\n",
+        printf("Iteration %d: time0 %"PRIu64" time1 %"PRIu64" difference %"PRIu64"\n",
                i, timestamp[i].time0, timestamp[i].time1,
                timestamp[i].time1 - timestamp[i].time0);
     }

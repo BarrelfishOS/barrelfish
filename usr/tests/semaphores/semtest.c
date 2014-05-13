@@ -30,20 +30,20 @@ int main(int argc, char *argv[])
     // Worker
     for(;;) {
         if(disp_get_domain_id() % 1 == 0) {
-            printf("%d: post\n", disp_get_domain_id());
+            printf("%"PRIuDOMAINID": post\n", disp_get_domain_id());
             sem_post(&sem);
         }
-        printf("%d: trywait\n", disp_get_domain_id());
+        printf("%"PRIuDOMAINID": trywait\n", disp_get_domain_id());
         if(sem_trywait(&sem) == -1) {
-            printf("%d: would block\n", disp_get_domain_id());
-            printf("%d: wait\n", disp_get_domain_id());
+            printf("%"PRIuDOMAINID": would block\n", disp_get_domain_id());
+            printf("%"PRIuDOMAINID": wait\n", disp_get_domain_id());
             sem_wait(&sem);
         } else {
-            printf("%d: works\n", disp_get_domain_id());
+            printf("%"PRIuDOMAINID": works\n", disp_get_domain_id());
         }
 
         if(disp_get_domain_id() % 1 == 1) {
-            printf("%d: post\n", disp_get_domain_id());
+            printf("%"PRIuDOMAINID": post\n", disp_get_domain_id());
             sem_post(&sem);
         }
     }

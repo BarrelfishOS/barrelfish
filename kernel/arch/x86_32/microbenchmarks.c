@@ -14,7 +14,6 @@
 
 #include <kernel.h>
 #include <microbenchmarks.h>
-#include <apic.h>
 #include <x86.h>
 
 // address space switch (mov to cr3)
@@ -22,10 +21,10 @@ static int asswitch_func(struct microbench *mb)
 {
     uint64_t start, end;
     uint64_t asvalue;
-    
+
     // Put the cr3 value in the asvalue register for now
     __asm__ __volatile__("mov %%cr3, %0" : "=r" (asvalue));
-    
+
     start = rdtscp();
     for (int i = 0; i < MICROBENCH_ITERATIONS; i++) {
         __asm__ __volatile__(
@@ -34,16 +33,16 @@ static int asswitch_func(struct microbench *mb)
             : "r" (asvalue));
     }
     end = rdtscp();
-    
+
     mb->result = end - start;
-    
+
     return 0;
 }
 
 static int wrmsr_func(struct microbench *mb)
 {
     uint64_t start, end;
-    
+
     start = rdtscp();
     for (int i = 0; i < MICROBENCH_ITERATIONS; i++) {
         wrmsr(MSR_IA32_FSBASE, 0);
@@ -51,7 +50,7 @@ static int wrmsr_func(struct microbench *mb)
     end = rdtscp();
 
     mb->result = end - start;
-    
+
     return 0;
 }
 

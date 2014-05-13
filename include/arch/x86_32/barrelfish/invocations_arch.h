@@ -19,6 +19,7 @@
 #include <barrelfish_kpi/distcaps.h>            // for distcap_state_t
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish/debug.h>
 
 
@@ -603,9 +604,9 @@ invoke_monitor_get_arch_id(uintptr_t *core_id)
 }
 
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
-                                               uint8_t event, uint8_t perf_umask, 
+                                               uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,
-                                               uint64_t counter_value, 
+                                               uint64_t counter_value,
                                                capaddr_t ep_addr)
 {
     return ERR_NOTIMP;

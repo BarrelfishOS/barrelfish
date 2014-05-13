@@ -192,7 +192,7 @@ do_handle_event(replay_eventrec_t *er)
     /* pick a file for this operation */
     // (only needed for Open/Create/Unlink)
     char fname[256];
-    snprintf(fname, 256, "%s/data/%u", defdir, er->fnumsize);
+    snprintf(fname, 256, "%s/data/%"PRIu32"", defdir, er->fnumsize);
 
 
     op_id++;
@@ -273,7 +273,7 @@ do_handle_event(replay_eventrec_t *er)
     case TOP_Read: {
         //uint64_t ticks = rdtsc();
         if (er->fnumsize > MAX_DATA) {
-            printf("er->fnumsize == %u\n", er->fnumsize);
+            printf("er->fnumsize == %"PRIu32"\n", er->fnumsize);
             assert(0);
         }
         int fd = tfd2fd[er->fd];
@@ -289,7 +289,7 @@ do_handle_event(replay_eventrec_t *er)
 
     case TOP_Write: {
         if (er->fnumsize > MAX_DATA) {
-            printf("er->fnumsize == %u\n", er->fnumsize);
+            printf("er->fnumsize == %"PRIu32"\n", er->fnumsize);
             assert(0);
         }
         wbuf_t *wb = tfd2wb[er->fd];

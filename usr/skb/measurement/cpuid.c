@@ -261,7 +261,7 @@ void gather_cpuid_data(coreid_t core_id)
     //read the maximum number of standard functions
     uint32_t max_std_fn = cpuid_max_biv_rd(&id);
 //    skb_add_fact("maxstdcpuid(%hhu, %u).", core_id, max_std_fn);
-    skb_add_fact("maxstdcpuid(%u, %u).", core_id, max_std_fn);
+    skb_add_fact("maxstdcpuid(%"PRIuCOREID", %"PRIu32").", core_id, max_std_fn);
 /*
 the mackerel file seemsnot to work
     if ((cpuid_vendor0_rd(&id) == 0x68747541) &&

@@ -122,7 +122,7 @@ static void construct_record(size_t attributes) {
 
             idx = my_random() % (sizeof(values) / sizeof(char*));
             pos += sprintf(buf+pos, "%s", values[idx]);
-            
+
             i++;
         }
 
@@ -141,7 +141,7 @@ static void no_name_get_worstcase(void)
 
     size_t exps = sizeof(records) / sizeof(size_t);
     for (size_t i = 1; i < exps; i++) {
-        printf("# Run no_name_get_worstcase with %lu records:\n", records[i]);
+        printf("# Run no_name_get_worstcase with %zu records:\n", records[i]);
         octopus_trigger_id_t tid;
 
         struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
@@ -165,7 +165,7 @@ static void no_name_get_worstcase(void)
         }
 
         for (size_t k = 0; k < MAX_ITERATIONS; k++) {
-            printf("%lu %"PRIuCYCLES" %u %lu %lu\n",
+            printf("%zu %"PRIuCYCLES" %u %zu %zu\n",
                     k,
                     timestamps[k].time1 - timestamps[k].time0 - bench_tscoverhead(),
                     timestamps[k].busy, timestamps[k].count, records[i]);

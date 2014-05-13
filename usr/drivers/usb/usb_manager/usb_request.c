@@ -189,7 +189,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
         current_data_length = length;
         if (current_data_length > xfer->max_data_length) {
             USB_DEBUG(
-                    "NOTICE: current_data_length (%u)> xfer->max_data_length (%u)\n", current_data_length, xfer->max_data_length);
+                    "NOTICE: current_data_length (%"PRIu16")> xfer->max_data_length (%"PRIu32")\n", current_data_length, xfer->max_data_length);
             current_data_length = xfer->max_data_length;
         }
         // set the frame length of the data stage
