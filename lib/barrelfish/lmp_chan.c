@@ -261,6 +261,7 @@ static void bind_lmp_service_request_handler(struct monitor_binding *b,
                                              size_t buflen_words,
                                              struct capref endpoint)
 {
+    debug_printf("%s\n", __FUNCTION__);
     struct idc_export *e = (void *)service_id;
     struct lmp_chan *lc = NULL;
     errval_t err;

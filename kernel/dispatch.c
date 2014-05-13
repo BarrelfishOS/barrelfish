@@ -320,7 +320,8 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
         return SYS_ERR_LMP_CAPTRANSFER_DST_SLOT_OCCUPIED;
     }
 
-    TRACE_CAP_MSG("transferring", send_cte);
+    //caps_trace(__func__, __LINE__, send_cte, "transferring");
+    //TRACE_CAP_MSG("transferring", send_cte);
 
     /* Insert send cap into recv cap */
     err = caps_copy_to_cte(recv_cte, send_cte, false, 0, 0);

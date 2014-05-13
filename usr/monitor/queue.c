@@ -172,12 +172,12 @@ errval_t monitor_enqueue_send_at_front(struct monitor_binding *b, struct msg_que
 /// NB: Not part of the queue functionality
 void destroy_outgoing_cap(void *arg)
 {
-    debug_printf("cleaning up outgoing cap\n");
+    DEBUG_CAPOPS("cleaning up outgoing cap\n");
     struct capref *cap = arg;
     assert(cap != NULL);
     assert(!capref_is_null(*cap));
 
-    debug_printf("cleaning up outgoing cap: cap_destroy\n");
+    DEBUG_CAPOPS("cleaning up outgoing cap: cap_destroy\n");
     errval_t err = cap_destroy(*cap);
     if (err_is_fail(err)) {
         if(err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
@@ -185,7 +185,7 @@ void destroy_outgoing_cap(void *arg)
         }
     }
 
-    debug_printf("cleaning up outgoing cap: free\n");
+    DEBUG_CAPOPS("cleaning up outgoing cap: free\n");
     free(cap);
 }
 
