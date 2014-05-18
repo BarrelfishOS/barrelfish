@@ -520,7 +520,7 @@ k1om: $(XEON_PHI_MODULES) \
 	menu.lst.k1om \
 	tools/bin/create_multiboot 
 
-	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/reset-mic.sh'"
+	# ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/reset-mic.sh'"
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
@@ -550,15 +550,19 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "-------------------------------------------------------------------"
 	@echo ""
 	@echo "Uploading to babybel... "
-	mv k1om/sbin/xloader ./xloader
-	mv multiboot/mbimg ./mbimg
-	rm -rf xloader.gz mbimg.gz
-	gzip xloader mbimg
+	mv k1om/sbin/xloader ./xeon_phi_bootloader
+	mv multiboot/mbimg ./xeon_phi_multiboot
+	rm -rf xeon_phi_bootloader.gz xeon_phi_multiboot.gz
+	gzip xeon_phi_bootloader xeon_phi_multiboot
 	scp *.gz emmentaler.ethz.ch:
-	ssh emmentaler.ethz.ch "scp *.gz babybel.in.barrelfish.org:/root/barrelfish/"
+	ssh emmentaler.ethz.ch "gunzip -f *.gz"
+	ssh emmentaler.ethz.ch "mv xeon_phi_bootloader /home/netos/tftpboot/acreto"
+	ssh emmentaler.ethz.ch "mv xeon_phi_multiboot /home/netos/tftpboot/acreto"
+	# ssh emmentaler.ethz.ch "scp *.gz babybel.in.barrelfish.org:/root/barrelfish/"
 	@echo ""
 	@echo "Boot Barrelfish on Xeon Phi.... "
-	ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/create-bzBarrelfish.sh'"
+	# ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/create-bzBarrelfish.sh'"
+	ssh emmentaler.ethz.ch "rackpower -r babybel"
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Done."
