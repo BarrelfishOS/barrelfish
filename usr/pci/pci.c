@@ -627,6 +627,7 @@ assign_bus_numbers(struct pci_address parentaddr,
                         classcode.subclss, classcode.prog_if, *busnum);
                 //use the original hdr (pci_hdr0_t) here
                 query_bars(hdr, addr, true);
+                query_bars(bhdr, addr, true);
 
                 // assign bus numbers to secondary bus
                 struct pci_address bridge_addr = { .bus = *busnum, .device = addr
@@ -1137,8 +1138,10 @@ pci_setup_root_complex(void)
 //           PCI header like for any PCI device. PCI HDR0 is misused
 //           here for the bridges.
 
-static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
-                       bool pci2pci_bridge)
+static void
+query_bars(pci_hdr0_t devhdr,
+           struct pci_address addr,
+           bool pci2pci_bridge)
 {
     pci_hdr0_bar32_t bar, barorigaddr;
 
@@ -1170,7 +1173,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
             continue;
         }
 
-        if (bar.space == 0) { // memory mapped
+        if (bar.space == 0) {  // memory mapped
             //bar(addr(bus, device, function), barnr, orig address, size, space,
             //         prefetchable?, 64bit?).
             //where space = mem | io, prefetchable= prefetchable | nonprefetchable,
@@ -1197,7 +1200,7 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
                 pci_hdr0_bars_wr(&devhdr, i + 1, BAR_PROBE);
 
                 // read the size information of the bar
-                uint32_t bar_value_high = pci_hdr0_bars_rd(&devhdr, i+1);
+                uint32_t bar_value_high = pci_hdr0_bars_rd(&devhdr, i + 1);
 
                 //write original value back to the BAR
                 pci_hdr0_bars_wr(&devhdr, i + 1, orig_value_high);
@@ -1205,40 +1208,46 @@ static void query_bars(pci_hdr0_t devhdr, struct pci_address addr,
                 pciaddr_t base64 = 0, origbase64 = 0;
                 base64 = bar_value_high;
                 base64 <<= 32;
-                base64 |= (uint32_t) (bar.base<<7);
+                base64 |= (uint32_t) (bar.base << 7);
 
                 origbase64 = orig_value_high;
                 origbase64 <<= 32;
-                origbase64 |= (uint32_t) (barorigaddr.base<<7);
+                origbase64 |= (uint32_t) (barorigaddr.base << 7);
 
-                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
-                            addr.bus, addr.device, addr.function, i, origbase64,
-                            bar_mapping_size64(base64),
-                            (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                PCI_DEBUG(
+                        "(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
+                        addr.bus, addr.device, addr.function, i, origbase64,
+                        bar_mapping_size64(base64),
+                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
-                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
-                            "16'%" PRIx64 ", mem, %s, %d).",
-                            addr.bus, addr.device, addr.function, i, origbase64,
-                            bar_mapping_size64(base64),
-                            (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                            type);
+                skb_add_fact(
+                        "bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
+                        "16'%" PRIx64 ", mem, %s, %d).",
+                        addr.bus, addr.device, addr.function, i, origbase64,
+                        bar_mapping_size64(base64),
+                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                        type);
 
-                i++; //step one forward, because it is a 64bit BAR
+                i++;  //step one forward, because it is a 64bit BAR
             } else {
                 //32bit BAR
-                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
-                             addr.bus, addr.device, addr.function,
-                             i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar),
-                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                             type);
+                skb_add_fact(
+                        "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
+                        addr.bus, addr.device, addr.function, i,
+                        (uint32_t) (barorigaddr.base << 7),
+                        (uint32_t) bar_mapping_size(bar),
+                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                        type);
             }
         } else {
             //bar(addr(bus, device, function), barnr, orig address, size, space).
             //where space = mem | io
-            skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
-                         "nonprefetchable, 32).",
-                         addr.bus, addr.device, addr.function,
-                         i, (uint32_t)(barorigaddr.base << 7), (uint32_t)bar_mapping_size(bar));
+            skb_add_fact(
+                    "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
+                    "nonprefetchable, 32).",
+                    addr.bus, addr.device, addr.function, i,
+                    (uint32_t) (barorigaddr.base << 7),
+                    (uint32_t) bar_mapping_size(bar));
         }
     }
 }
@@ -1279,8 +1288,23 @@ program_bridge_window(uint8_t bus,
         if (pref) {
             pci_hdr1_pref_base_upper_wr(&bridgehdr, base >> 32);
             pci_hdr1_pref_limit_upper_wr(&bridgehdr, high >> 32);
+            /*
+             * The least significant nibble of this register value (1h)
+             * indicates that a 64 bit address decoder is supported and
+             * that the Upper Base/Limit Registers are also used.
+             */
+            if ((base >> 32)) {
+                pref_reg.tpe = pci_hdr1_mem_64bit;
+            } else {
+                pref_reg.tpe = pci_hdr1_mem_32bit;
+            }
             pref_reg.val = base >> 20;
             pci_hdr1_pref_base_wr(&bridgehdr, pref_reg);
+            if ((high >> 32)) {
+                pref_reg.tpe = pci_hdr1_mem_64bit;
+            } else {
+                pref_reg.tpe = pci_hdr1_mem_32bit;
+            }
             pref_reg.val = high >> 20;
             pci_hdr1_pref_limit_wr(&bridgehdr, pref_reg);
         } else {

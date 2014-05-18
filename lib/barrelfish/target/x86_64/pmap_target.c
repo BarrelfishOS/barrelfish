@@ -35,7 +35,7 @@
 // Location and size of virtual address space reserved for mapping
 // frames backing refill_slabs
 #define META_DATA_RESERVED_BASE (PML4_MAPPING_SIZE * (disp_get_core_id() + 1))
-#define META_DATA_RESERVED_SIZE (X86_64_BASE_PAGE_SIZE * 20000)
+#define META_DATA_RESERVED_SIZE (X86_64_BASE_PAGE_SIZE * 80000)
 
 /**
  * \brief Translate generic vregion flags to architecture specific pmap flags
