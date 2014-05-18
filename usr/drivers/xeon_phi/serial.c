@@ -49,7 +49,6 @@ static int xeon_phi_recv_handler(void *arg)
 
     debug_printf("xeon phi receive handler started. %d\n", xarg->xid);
 
-    xeon_phi_serial_ctrl_rawwr(&xarg->base, xeon_phi_serial_reset);
 
     nodata = XEON_PHI_POLL_GIVEUP;
 
@@ -152,6 +151,8 @@ errval_t serial_start_recv_thread(struct xeon_phi *phi)
     xarg->xid = phi->id;
 
     xeon_phi_serial_initialize(&xarg->base, XEON_PHI_MMIO_TO_SBOX(phi));
+
+    xeon_phi_serial_ctrl_rawwr(&xarg->base, xeon_phi_serial_reset);
 
     /*
      * xxx: maybe store the thread pointer

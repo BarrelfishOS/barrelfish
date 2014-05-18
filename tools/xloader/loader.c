@@ -89,9 +89,6 @@ print_status(char a,
     s.vals[1] = a;
     s.vals[0] = '>';
 
-    while ((*p))
-        ;
-
     *p2 = s.raw;
     *p = 0x7A7A7A7A;
 }
@@ -104,6 +101,13 @@ eabort(char a,
     while (1)
         ;
 }
+
+static inline void notify_host(void)
+{
+    volatile uint32_t *p = (volatile uint32_t *) ((SBOX_BASE) + 0xAB28);
+    *p = (*p) | 0x1;
+}
+
 
 /*
  * ----------------------------------------------------------------------------
@@ -194,6 +198,8 @@ loader(uint64_t magic,
 
     multiboot_info = get_multiboot();
 
+    print_status('S', '1');
+
     /*
      * Copy the multi boot image closer to the kernel
      */
@@ -202,7 +208,7 @@ loader(uint64_t magic,
 
     /* sanity check for the locations */
     if (mb_img_start > mb_img_orig) {
-        eabort('E', 'C');
+        eabort('E', '1');
     }
     memcpy((void *) mb_img_start, (void *) mb_img_orig, boot_hdr->ramdisk_size);
 
@@ -218,12 +224,16 @@ loader(uint64_t magic,
         mod->mod_end += mb_img_start;
         mod++;
     }
+    print_status('S', '2');
 
     /* look up the kernel module */
     struct multiboot_modinfo *kernel;
     kernel = multiboot_find_module("cpu");
     if (kernel == NULL) {
         kernel = multiboot_find_module("kernel");
+    }
+    if (kernel == NULL) {
+        eabort('E', '2');
     }
 
     /* set the start address where we can allocate ram */
@@ -247,12 +257,14 @@ loader(uint64_t magic,
     multiboot_info->config_table = (uint32_t)(uintptr_t)bootparam;
     multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
 
+    print_status('S', '3');
+
     err = elf64_load(EM_K1OM, linear_alloc, NULL, kernel->mod_start,
                      MULTIBOOT_MODULE_SIZE(*kernel), &kernel_entry, NULL, NULL,
                      NULL);
 
     if (err_is_fail(err)) {
-        eabort('E', '1');
+        eabort('E', '3');
     }
 
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) kernel->mod_start;
@@ -267,6 +279,8 @@ loader(uint64_t magic,
 
     symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_DYNSYM);
 
+    print_status('S', '4');
+
     elf64_relocate(
             kernel_start, elfbase,
             (struct Elf64_Rela *) (uintptr_t) (kernel->mod_start + rela->sh_offset),
@@ -276,8 +290,11 @@ loader(uint64_t magic,
 
     kernel_entry = kernel_entry - elfbase + kernel_start;
 
+    print_status('S', '5');
+
     set_elf_headers(kernel->mod_start);
-    print_status('S', '2');
+
+    print_status('S', '6');
 
     return kernel_entry;
 

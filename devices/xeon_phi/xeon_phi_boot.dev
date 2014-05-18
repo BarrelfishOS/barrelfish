@@ -20,6 +20,16 @@ device xeon_phi_boot lsbfirst ( addr sbox_base, addr dbox_base ) "Intel Xeon Phi
      * Reset Dmain: CSR_RESET, HOT_RESET
      * Register Access: TRM
      */
+     
+     register flash_ctrl rw addr(sbox_base, 0xAB24) {
+        percent    7 "Percentage progress";
+        status     4 "Status code";
+        command    4 "flash command";
+        smc_status 4 "SMC Status";
+        _          5 "Reserved";
+        cmd_data   7 "Command Data";
+        mm_debug   1 "Memory debug";
+     }; 
 
      constants offset width(32) "" {
          address_shift=12;
@@ -59,7 +69,7 @@ device xeon_phi_boot lsbfirst ( addr sbox_base, addr dbox_base ) "Intel Xeon Phi
     
     register meminfo rw addr(sbox_base, 0xAB20) {
           test_disable  1 "Memtest disable";
-          usage         2 "Memory usage";
+          usage         2 "Memory usage";	
           size_kb      29 "Memory size in KB";
     };
     
@@ -150,6 +160,7 @@ device xeon_phi_boot lsbfirst ( addr sbox_base, addr dbox_base ) "Intel Xeon Phi
         postcode_pf             = 0x4650 "PF INT 14 - Pagefault";
         postcode_rs             = 0x3572 "r5 INT 15 - Reserved";
         postcode_iop            = 0x6475 "ud INT 6 - Invalid OP code";
+        postcode_unknownerr	    = 0x3048 "H0 Unknown Error, HALT";
     };
     
     constants postcodes_special width(32) "The Xeon Phi Post codes" {

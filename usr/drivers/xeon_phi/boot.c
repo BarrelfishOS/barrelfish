@@ -56,10 +56,30 @@ static xeon_phi_apic_t apic_registers;
  */
 static inline lvaddr_t get_load_offset(struct xeon_phi *phi)
 {
+    return ((lvaddr_t)xeon_phi_boot_download_offset_rdf(&boot_registers))<<12;
+}
 
-    xeon_phi_boot_download_t offset;
-    offset = xeon_phi_boot_download_rawrd(&boot_registers);
-    return (offset & xeon_phi_boot_address_mask);
+
+static uint64_t get_adapter_memsize(void)
+{
+    xeon_phi_boot_meminfo_t meminfo = xeon_phi_boot_meminfo_rd(&boot_registers);
+
+    uint64_t memsize = xeon_phi_boot_meminfo_size_kb_extract(meminfo);
+    memsize *= 1024;
+
+    switch (xeon_phi_boot_meminfo_usage_extract(meminfo)) {
+        case xeon_phi_boot_mem_all:
+            return memsize;
+        case xeon_phi_boot_mem_half:
+            return (memsize / 2);
+        case xeon_phi_boot_mem_third:
+            return (memsize / 3);
+            break;
+        case xeon_phi_boot_mem_fourth:
+            return (memsize / 4);
+        default:
+            return memsize;
+    }
 }
 
 /**
@@ -96,15 +116,22 @@ static errval_t load_bootloader(struct xeon_phi *phi,
         return err_push(err, SPAWN_ERR_ELF_MAP);
     }
 
+    imgsize = module->mrmod_size;
+
     struct Elf64_Ehdr *head = (struct Elf64_Ehdr *) binary;
     if (head->e_machine != EM_K1OM) {
         return SPAWN_ERR_DETERMINE_CPUTYPE;
     }
 
+
     /*
-     * get the load offset: we do not want to write into the
+     * get the load offset: we do not want to write into the boot loade
      */
     lvaddr_t loadoffset = get_load_offset(phi);
+
+    get_adapter_memsize();
+
+    phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
 
     XBOOT_DEBUG("bootloader offset = 0x%lx\n", phi->apt.vbase + loadoffset);
 
@@ -155,6 +182,7 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
         return err_push(err, SPAWN_ERR_ELF_MAP);
     }
 
+    imgsize = module->mrmod_size;
 
     printf("Loading multiboot image onto card...\n");
     XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
@@ -221,27 +249,9 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
     // set the bootimage size to tell the bootloader
     xeon_phi_boot_os_size_rawwr(&boot_registers, os_imgsize);
 
-    xeon_phi_boot_meminfo_t meminfo = xeon_phi_boot_meminfo_rd(&boot_registers);
+    uint64_t memsize = get_adapter_memsize();
 
-    uint32_t memsize = xeon_phi_boot_meminfo_size_kb_extract(meminfo) * 1024;
-
-    switch (xeon_phi_boot_meminfo_usage_extract(meminfo)) {
-        case xeon_phi_boot_mem_all:
-            memsize /= 1;
-            break;
-        case xeon_phi_boot_mem_half:
-            memsize /= 2;
-            break;
-
-        case xeon_phi_boot_mem_third:
-            memsize /= 3;
-            break;
-        case xeon_phi_boot_mem_fourth:
-            memsize /= 4;
-            break;
-    }
-
-    uint32_t reserved = (uint32_t)(memsize * MEMORY_RESERVE_PERCENT / 100);
+    uint64_t reserved = (memsize * MEMORY_RESERVE_PERCENT / 100);
 
 
     // Keep in mind maximum uos reserve size is uint32_t, so we never overflow
@@ -249,11 +259,11 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
     reserved = MAX(reserved, UOS_RESERVE_SIZE_MIN);
 
     // Always align uos reserve size to a page
-    reserved = (uint32_t)(reserved & ~(BASE_PAGE_SIZE-1));
+    reserved = (reserved & ~(BASE_PAGE_SIZE-1));
 
-    XBOOT_DEBUG("memsize = 0x%x, reserved size = 0x%x\n", memsize, reserved);
+    XBOOT_DEBUG("memsize = 0x%lx, reserved size = 0x%lx\n", memsize, reserved);
 
-    xeon_phi_boot_res_size_rawwr(&boot_registers, reserved);
+    xeon_phi_boot_res_size_rawwr(&boot_registers, (uint32_t)reserved);
 
     // sending the bootstrap interrupt
     xeon_phi_apic_icr_lo_t icr_lo = xeon_phi_apic_icr_lo_default;
