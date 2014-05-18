@@ -340,13 +340,29 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
     XBOOT_DEBUG("APICID = %u\n", phi->apicid);
 
+    xeon_phi_serial_init(phi);
+
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
 
     XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
 
     // start the receive thread
-    //serial_start_recv_thread(phi);
+    xeon_phi_serial_start_recv_thread(phi);
+
+    xeon_phi_boot_postcode_t postcode;
+    xeon_phi_boot_postcodes_t pc, pc_prev = 0;
+    while(1) {
+        postcode = xeon_phi_boot_postcode_rd(&boot_registers);
+        pc = xeon_phi_boot_postcode_code_extract(postcode);
+        if (pc_prev != pc) {
+            XBOOT_DEBUG("%s\n", xeon_phi_boot_postcodes_describe(pc));
+        }
+        if (postcode == xeon_phi_boot_postcode_done) {
+            break;
+        }
+        pc_prev = pc;
+    }
 
     uint32_t time = 0, time_steps = 0;
     while(time < BOOT_TIMEOUT) {
@@ -361,7 +377,8 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     }
 
     if (!xeon_phi_boot_download_status_rdf(&boot_registers)) {
-        USER_PANIC("Boot failed");
+        USER_PANIC("Firmware not responding with ready bit");
+        // TODO return error code
     }
 
     return SYS_ERR_OK;

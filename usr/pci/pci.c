@@ -627,7 +627,6 @@ assign_bus_numbers(struct pci_address parentaddr,
                         classcode.subclss, classcode.prog_if, *busnum);
                 //use the original hdr (pci_hdr0_t) here
                 query_bars(hdr, addr, true);
-                query_bars(bhdr, addr, true);
 
                 // assign bus numbers to secondary bus
                 struct pci_address bridge_addr = { .bus = *busnum, .device = addr

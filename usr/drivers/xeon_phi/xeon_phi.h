@@ -152,11 +152,18 @@ struct xeon_phi
 };
 
 /**
- * \brief initializes the serial receive thread from the xeon phi
+ * \brief starts the serial receive thread
  *
  * \param phi   pointer to the card information
  */
-errval_t serial_start_recv_thread(struct xeon_phi *phi);
+errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi);
+
+/**
+ * \brief initializes the serial receiver
+ *
+ * \param phi   pointer to the card information
+ */
+errval_t xeon_phi_serial_init(struct xeon_phi *phi);
 
 /**
  * \brief boots the card with the given loader and multiboot image

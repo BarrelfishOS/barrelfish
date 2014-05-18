@@ -23,7 +23,17 @@
 #define XEON_PHI_BUFFER_LENGTH 0x400
 #define XEON_PHI_POLL_GIVEUP   0x100
 
-uint8_t xeon_phi_id = 0;
+
+struct xeon_phi_arg
+{
+    xeon_phi_serial_t base;
+    uint8_t xid;
+    uint8_t init;
+    char buffer[XEON_PHI_BUFFER_LENGTH + 1];
+    uint32_t idx;
+};
+
+static struct xeon_phi_arg recv_thread_arg;
 
 static inline void xprintf(uint8_t xid,
                            char *fmt)
@@ -31,13 +41,7 @@ static inline void xprintf(uint8_t xid,
     printf("\033[34m>> XEON_PHI\033[31m%u\033[0m: %s", xid, fmt);
 }
 
-struct xeon_phi_arg
-{
-    xeon_phi_serial_t base;
-    uint8_t xid;
-    char buffer[XEON_PHI_BUFFER_LENGTH + 1];
-    uint32_t idx;
-};
+
 
 static int xeon_phi_recv_handler(void *arg)
 {
@@ -59,7 +63,6 @@ static int xeon_phi_recv_handler(void *arg)
             if (--nodata) {
                 continue;
             }
-
 
             // reset counter
             nodata = XEON_PHI_POLL_GIVEUP;
@@ -140,24 +143,34 @@ static int xeon_phi_recv_handler(void *arg)
  *
  * The sbox memory region has already been mapped
  */
-errval_t serial_start_recv_thread(struct xeon_phi *phi)
+errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
 {
-    struct xeon_phi_arg *xarg = malloc(sizeof(struct xeon_phi_arg));
-    if (xarg == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+    if (!recv_thread_arg.init) {
+        xeon_phi_serial_init(phi);
     }
-    memset(xarg, 0, sizeof(struct xeon_phi_arg));
 
-    xarg->xid = phi->id;
+    xeon_phi_recv_handler(&recv_thread_arg);
+    //thread_create(xeon_phi_recv_handler, xarg);
 
-    xeon_phi_serial_initialize(&xarg->base, XEON_PHI_MMIO_TO_SBOX(phi));
+    return SYS_ERR_OK;
+}
 
-    xeon_phi_serial_ctrl_rawwr(&xarg->base, xeon_phi_serial_reset);
+/**
+ * \brief initializes the serial receiver
+ *
+ * \param phi   pointer to the card information
+ */
+errval_t xeon_phi_serial_init(struct xeon_phi *phi)
+{
+    memset(&recv_thread_arg, 0, sizeof(struct xeon_phi_arg));
 
-    /*
-     * xxx: maybe store the thread pointer
-     */
-    thread_create(xeon_phi_recv_handler, xarg);
+    recv_thread_arg.xid = phi->id;
+
+    xeon_phi_serial_initialize(&recv_thread_arg.base, XEON_PHI_MMIO_TO_SBOX(phi));
+
+    xeon_phi_serial_ctrl_rawwr(&recv_thread_arg.base, xeon_phi_serial_reset);
+
+    recv_thread_arg.init = 1;
 
     return SYS_ERR_OK;
 }
