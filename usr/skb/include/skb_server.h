@@ -16,7 +16,7 @@
 #define SKB_SERVER_H_
 
 #include <barrelfish/barrelfish.h>
-
+#include <skb/skb.h>
 #include <if/skb_defs.h>
 
 #define POST_EXECUTE 1
@@ -25,7 +25,7 @@ void skb_server_init(void);
 void post_and_execute_string(void);
 
 
-#define BUFFER_SIZE (32 * 1024)
+#define BUFFER_SIZE SKB_REPLY_BUF_SIZE
 
 
 struct skb_query_state {
