@@ -244,24 +244,31 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
+#if defined(__x86_64__) && !defined(__k1om__)
 	if(!dcb->is_vm_guest) {
 	  resume(disabled_area);
-#ifdef __x86_64__
+
 	} else {
 	  vmkit_vmenter(dcb);
-#endif
 	}
+#else
+	  resume(disabled_area);
+#endif
     } else {
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
-	if(!dcb->is_vm_guest) {
-	  execute(disp->dispatcher_run);
-#ifdef __x86_64__
-	} else {
-	  vmkit_vmexec(dcb, disp->dispatcher_run);
+#if defined(__x86_64__) && !defined(__k1om__)
+        if(!dcb->is_vm_guest) {
+            execute(disp->dispatcher_run);
+        } else {
+            vmkit_vmexec(dcb, disp->dispatcher_run);
+        }
+#else
+        execute(disp->dispatcher_run);
 #endif
-	}
+
+
     }
 } // end function: dispatch
 
