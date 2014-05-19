@@ -794,7 +794,7 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
         if (err_is_ok(err)) {
             e1000_mac_type_t check_mac_type = e1000_get_mac_type(ven, devid);
 
-            if (mac_type == e1000_undefined && check_mac_type != e1000_undefined) {
+            if (check_mac_type != e1000_undefined) {
                 E1000_DEBUG("Using device. vendor: 0x%"PRIx64", device id: 0%"PRIx64" function: 0%"PRIx64".\n", ven, devid, fun);
                 mac_type = check_mac_type;
                 bus = pcibus;
