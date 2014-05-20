@@ -39,7 +39,7 @@ start:
         //
         mrs     r3, cpsr
         bic     r3, r3, #ARM_MODE_MASK
-        orr     r3, r3, #ARM_MODE_SVC  // Ensure in privileged mode
+        orr     r3, r3, #ARM_MODE_PRIV  // Ensure in privileged mode
         msr     cpsr_c, r3		// _c => don't change cond. codes
 
         //init stack

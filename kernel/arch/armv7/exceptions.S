@@ -57,6 +57,11 @@ undef_stack:
 undef_stack_top:
         .space 8, 0
 
+svc_stack:
+        .space EXCEPTION_MODE_STACK_BYTES, 0
+svc_stack_top:
+        .space 8, 0
+
         //
         // System mode stack
         //
@@ -106,6 +111,9 @@ $exceptions_load_stacks:
         bl      set_stack_for_mode
         mov     r0, # ARM_MODE_UND
         ldr     r1, = undef_stack_top
+        bl      set_stack_for_mode
+        mov     r0, # ARM_MODE_SVC
+        ldr     r1, = svc_stack_top
         bl      set_stack_for_mode
 $exceptions_install_handlers:
         mov     r0, # ARM_EVECTOR_PABT
@@ -254,7 +262,7 @@ null_handler:
         //
 .macro enter_sys scratch
         clrex
-        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SVC)
+        mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
         msr cpsr_c, \scratch
         init_sys_pic_register
         init_sys_stack

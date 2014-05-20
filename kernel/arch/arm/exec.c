@@ -63,11 +63,7 @@ void do_resume(uint32_t *regs)
         /* "ldmia  lr!, {r13}                              \n\t" */
         /* // Restore LR and PC */
         /* "ldmia  lr!, {r14-r15}                          \n\t" */
-        "mov lr, %[regs]\n\t"
-        "ldmia lr, {r0 - lr}^\n\t"
-        "add lr, #4*15\n\t"
-        "ldr lr, [lr]\n\t"
-        "movs pc, lr\n\t"
+        "ldmia  %[regs], {r0-r15}^                          \n\t"
         // Make sure pipeline is clear
         "nop                          \n\t"
         "nop                          \n\t"
@@ -155,7 +151,7 @@ void wait_for_interrupt(void)
             //XXX: qemu 0.14 chokes on ARM_MODE_PRIV?! -SG
         "mov    r0, #" XTR(ARM_MODE_SYS) "              \n\t"
 #else
-        "mov    r0, #" XTR(ARM_MODE_SVC) "              \n\t"
+        "mov    r0, #" XTR(ARM_MODE_PRIV) "              \n\t"
 #endif
         "msr    cpsr_c, r0                              \n\t"
         "0:                                             \n\t"
