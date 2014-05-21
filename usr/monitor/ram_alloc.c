@@ -275,7 +275,7 @@ errval_t mon_ram_free(struct capability *cap_raw, genpaddr_t base, uint8_t bits)
     // XXX: work around stupid flounder behaviour: these types are identical!
     monitor_mem_caprep_t caprep2;
     STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
-    memcpy(&caprep, &caprep2, sizeof(caprep));
+    memcpy(&caprep2, &caprep, sizeof(caprep));
 
     err = monitor_mem_client.vtbl.free(&monitor_mem_client, caprep2, base, bits, &status);
     if (err_is_fail(err)) {
