@@ -23,6 +23,7 @@
 #include <bench/bench_arch.h>
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
+#include <if/monitor_mem_defs.h>
 #include <monitor_invocations_arch.h>
 #include <queue.h>
 #include <connection.h>
@@ -73,31 +74,44 @@ extern int num_monitors;
 
 union capability_caprep_u {
     intermon_caprep_t caprep;
+    monitor_mem_caprep_t caprep2;
     monitor_blocking_caprep_t caprepb; // XXX: identical to intermon_caprep_t
     struct capability cap;
 };
 STATIC_ASSERT(sizeof(union capability_caprep_u) >= sizeof(struct capability), \
                   ASSERT_CONCAT("Size mismatch:", intermon_caprep_t));
 
+STATIC_ASSERT(sizeof(struct capability) <= sizeof(intermon_caprep_t),
+        ASSERT_CONCAT("Size mismatch:", intermon_caprep_t));
+
 static inline void capability_to_caprep(struct capability *cap,
                                         intermon_caprep_t *caprep)
 {
-    union capability_caprep_u u = { .cap = *cap };
-    *caprep = u.caprep;
+    memcpy(caprep, cap, sizeof(*cap));
 }
 
 static inline void caprep_to_capability(intermon_caprep_t *caprep,
                                         struct capability *cap)
 {
-    union capability_caprep_u u = { .caprep = *caprep };
-    *cap = u.cap;
+    memcpy(cap, caprep, sizeof(*cap));
 }
 
 static inline void debug_print_caprep(intermon_caprep_t *caprep)
 {
-    union capability_caprep_u u = { .caprep = *caprep };
+    struct capability cap;
+    memcpy(&cap, caprep, sizeof(cap));
     char buf[256];
-    debug_print_cap(buf, 256, &u.cap);
+    debug_print_cap(buf, 256, &cap);
+    buf[255] = 0;
+    DEBUG_CAPOPS("\t%s\n", buf);
+}
+
+static inline void debug_print_caprep2(monitor_mem_caprep_t *caprep)
+{
+    struct capability cap;
+    memcpy(&cap, caprep, sizeof(cap));
+    char buf[256];
+    debug_print_cap(buf, 256, &cap);
     buf[255] = 0;
     DEBUG_CAPOPS("\t%s\n", buf);
 }

@@ -181,7 +181,6 @@ enum kernel_cmd {
     KernelCmd_Get_core_id,        ///< Returns the id of the core the domain is on
     KernelCmd_Get_arch_id,        ///< Returns arch id of caller's core
     KernelCmd_Nullify_cap,        ///< Set the capability to NULL allowed it to be reused
-    KernelCmd_Unmap_vaddr,
     KernelCmd_Setup_trace,        ///< Set up trace buffer
     KernelCmd_Register,           ///< Register monitor notify endpoint
     KernelCmd_Domain_Id,          ///< Set domain ID of dispatcher

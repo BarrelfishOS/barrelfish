@@ -25,7 +25,7 @@
 /**
  * capability invocation syscall wrapper, copied from x86_32 version
  */
-static inline struct sysret cap_invoke(struct capref to, uintptr_t cmd,
+static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr_t cmd,
                                        uintptr_t arg2, uintptr_t arg3,
                                        uintptr_t arg4, uintptr_t arg5,
                                        uintptr_t arg6, uintptr_t arg7,
@@ -35,35 +35,68 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t cmd,
     uint8_t invoke_bits = get_cap_valid_bits(to);
     capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
 
-    // invoke_bits << 16 | cmd << 8 | syscall_invoke
+    assert(cmd < 0xFF);
+    assert(invoke_bits < 0xFF);
+    // flags << 24 | invoke_bits << 16 | cmd << 8 | syscall_invoke
+    // ^ used for LMP
     uint32_t invocation = ((invoke_bits << 16) | (cmd << 8) | SYSCALL_INVOKE);
 
-    return syscall12(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
-            arg7, arg8, arg9, arg10, arg11);
+    switch (argc) {
+        case 0:
+        return syscall2(invocation, invoke_cptr);
+        case 1:
+        return syscall3(invocation, invoke_cptr, arg2);
+        case 2:
+        return syscall4(invocation, invoke_cptr, arg2, arg3);
+        case 3:
+        return syscall5(invocation, invoke_cptr, arg2, arg3, arg4);
+        case 4:
+        return syscall6(invocation, invoke_cptr, arg2, arg3, arg4, arg5);
+        case 5:
+        return syscall7(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6);
+        case 6:
+        return syscall8(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
+                        arg7);
+        case 7:
+        return syscall9(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
+                        arg7, arg8);
+        case 8:
+        return syscall10(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
+                        arg7, arg8, arg9);
+        case 9:
+        return syscall11(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
+                         arg7, arg8, arg9, arg10);
+        case 10:
+        return syscall12(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6,
+                         arg7, arg8, arg9, arg10, arg11);
+        default:
+        return SYSRET(SYS_ERR_ILLEGAL_INVOCATION);
+    }
+    assert(!"reached");
 }
 
 #define cap_invoke11(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k)   \
-    cap_invoke(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k)
+    cap_invoke(to, 10, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k)
 #define cap_invoke10(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j)   \
-    cap_invoke11(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, 0)
+    cap_invoke(to, 9, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, 0)
 #define cap_invoke9(to, _a, _b, _c, _d, _e, _f, _g, _h, _i)        \
-    cap_invoke10(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, 0)
+    cap_invoke(to, 8, _a, _b, _c, _d, _e, _f, _g, _h, _i, 0, 0)
 #define cap_invoke8(to, _a, _b, _c, _d, _e, _f, _g, _h)    \
-    cap_invoke9(to, _a, _b, _c, _d, _e, _f, _g, _h, 0)
+    cap_invoke(to, 7, _a, _b, _c, _d, _e, _f, _g, _h, 0, 0, 0)
 #define cap_invoke7(to, _a, _b, _c, _d, _e, _f, _g)    \
-    cap_invoke8(to, _a, _b, _c, _d, _e, _f, _g, 0)
+    cap_invoke(to, 6, _a, _b, _c, _d, _e, _f, _g, 0, 0, 0, 0)
 #define cap_invoke6(to, _a, _b, _c, _d, _e, _f)        \
-    cap_invoke7(to, _a, _b, _c, _d, _e, _f, 0)
+    cap_invoke(to, 5, _a, _b, _c, _d, _e, _f, 0, 0, 0, 0, 0)
 #define cap_invoke5(to, _a, _b, _c, _d, _e)            \
-    cap_invoke6(to, _a, _b, _c, _d, _e, 0)
+    cap_invoke(to, 4, _a, _b, _c, _d, _e, 0, 0, 0, 0, 0, 0)
 #define cap_invoke4(to, _a, _b, _c, _d)                \
-    cap_invoke5(to, _a, _b, _c, _d, 0)
+    cap_invoke(to, 3, _a, _b, _c, _d, 0, 0, 0, 0, 0, 0, 0)
 #define cap_invoke3(to, _a, _b, _c)                    \
-    cap_invoke4(to, _a, _b, _c, 0)
+    cap_invoke(to, 2, _a, _b, _c, 0, 0, 0, 0, 0, 0, 0, 0)
 #define cap_invoke2(to, _a, _b)                        \
-    cap_invoke3(to, _a, _b, 0)
+    cap_invoke(to, 1, _a, _b, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 #define cap_invoke1(to, _a)                            \
-    cap_invoke2(to, _a, 0)
+    cap_invoke(to, 0, _a, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 /**
  * \brief Retype a capability.
  *

@@ -36,7 +36,7 @@ func( \
     )
 
 #define INVOCATION_PRELUDE(n) \
-    /* assert(n == argc); */\
+    assert(n == argc); \
     struct registers_arm_syscall_args* sa = &context->syscall_args
 
 
@@ -636,7 +636,7 @@ monitor_create_cap(
     int argc
     )
 {
-    assert(6 == argc);
+    assert(7 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 

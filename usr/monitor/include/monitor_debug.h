@@ -16,12 +16,19 @@
 #define DEBUG_MONITOR_H
 
 // XXX: should be done via Config.hs
-//#define DEBUG_MONITOR_CAPOPS
+#define DEBUG_MONITOR_CAPOPS
+#define DEBUG_MONITOR_INVOCATIONS
 
-#if defined(DEBUG_MONITOR_CAPOPS) || defined(GLOBAL_DEBUG)
+#if defined(DEBUG_MONITOR_CAPOPS) || defined(DEBUG_MONITOR_ALL) || defined(GLOBAL_DEBUG)
 #define DEBUG_CAPOPS(x...) debug_printf(x)
 #else
 #define DEBUG_CAPOPS(x...) ((void)0)
 #endif
+#if defined(DEBUG_MONITOR_INVOCATIONS) || defined(DEBUG_MONITOR_ALL) || defined(GLOBAL_DEBUG)
+#define DEBUG_INVOCATION(x...) debug_printf(x)
+#else
+#define DEBUG_INVOCATION(x...) ((void)0)
+#endif
+
 
 #endif // DEBUG_MONITOR_H

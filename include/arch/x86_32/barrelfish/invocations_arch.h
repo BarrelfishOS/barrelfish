@@ -584,25 +584,6 @@ invoke_dispatcher_properties(struct capref dispatcher,
                     invoke_cptr, (type << 16) | weight, deadline, wcet, period, release).error;
 }
 
-static inline errval_t
-invoke_monitor_get_arch_id(uintptr_t *core_id)
-{
-    assert(core_id != NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret =
-        syscall2((invoke_bits << 16) | (KernelCmd_Get_arch_id << 8) | SYSCALL_INVOKE,
-                 invoke_cptr);
-
-    if (sysret.error == SYS_ERR_OK) {
-        *core_id = sysret.value;
-    }
-
-    return sysret.error;
-}
-
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
                                                uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,

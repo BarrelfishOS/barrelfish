@@ -20,6 +20,7 @@
 #include <barrelfish/invocations_arch.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/syscalls.h>
+#include "monitor_debug.h"
 
 /**
  * \brief Spawn a new core.
@@ -44,6 +45,7 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -55,6 +57,7 @@ invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -68,6 +71,7 @@ invoke_monitor_identify_domains_cap(capaddr_t root_cap, int root_bits,
                                     capaddr_t cap, int bits,
                                     struct capability *out)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -79,6 +83,7 @@ invoke_monitor_identify_domains_cap(capaddr_t root_cap, int root_bits,
 static inline errval_t
 invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -89,17 +94,15 @@ invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 static inline errval_t
 invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot, coreid_t owner)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    return syscall7((invoke_bits << 16) | (KernelCmd_Create_cap << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, caddr, bits, slot, owner,
-                    (uintptr_t)raw).error;
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
+    return cap_invoke6(cap_kernel, KernelCmd_Create_cap, caddr, bits, slot,
+                       owner, (uintptr_t)raw).error;
 }
 
 static inline errval_t
 invoke_monitor_register(struct capref ep)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -113,6 +116,7 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  int objbits, capaddr_t to, capaddr_t slot,
                                  int bits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke7(cap_kernel, KernelCmd_Retype,
                        src, (newtype << 16) | (objbits << 8) | bits, to, slot,
                        rootcap_addr, rootcap_vbits).error;
@@ -121,6 +125,7 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
 static inline errval_t
 invoke_monitor_get_cap_owner(capaddr_t root, int rbits, capaddr_t cap, int cbits, coreid_t *ret_owner)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     struct sysret sysret = cap_invoke5(cap_kernel, KernelCmd_Get_cap_owner,
                                        root, rbits, cap, cbits);
     if (err_is_ok(sysret.error)) {
@@ -132,6 +137,7 @@ invoke_monitor_get_cap_owner(capaddr_t root, int rbits, capaddr_t cap, int cbits
 static inline errval_t
 invoke_monitor_set_cap_owner(capaddr_t root, int rbits, capaddr_t cap, int cbits, coreid_t owner)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke6(cap_kernel, KernelCmd_Set_cap_owner, root, rbits, cap, cbits, owner).error;
 }
 
@@ -142,6 +148,7 @@ invoke_monitor_remote_relations(capaddr_t root_cap, int root_bits,
                                 uint8_t relations, uint8_t mask,
                                 uint8_t *ret_remote_relations)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     struct sysret r = cap_invoke6(cap_kernel, KernelCmd_Remote_relations,
                                   root_cap, root_bits, cap, bits,
                                   ((uint16_t)relations) | (((uint16_t)mask)<<8));
@@ -154,6 +161,7 @@ invoke_monitor_remote_relations(capaddr_t root_cap, int root_bits,
 static inline errval_t
 invoke_monitor_cap_has_relations(capaddr_t caddr, uint8_t bits, uint8_t mask, uint8_t *res)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     assert(res);
     struct sysret ret = cap_invoke4(cap_kernel, KernelCmd_Cap_has_relations,
                                     caddr, bits, mask);
@@ -167,12 +175,14 @@ invoke_monitor_cap_has_relations(capaddr_t caddr, uint8_t bits, uint8_t mask, ui
 static inline errval_t
 invoke_monitor_lock_cap(capaddr_t root, int rbits, capaddr_t cap, int cbits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke5(cap_kernel, KernelCmd_Lock_cap, root, rbits, cap, cbits).error;
 }
 
 static inline errval_t
 invoke_monitor_unlock_cap(capaddr_t root, int rbits, capaddr_t cap, int cbits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke5(cap_kernel, KernelCmd_Unlock_cap, root, rbits, cap, cbits).error;
 }
 
@@ -180,6 +190,7 @@ static inline errval_t
 invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
                            capaddr_t retcn, int retcnbits, cslot_t retslot)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     assert(rbits <= 0xff);
     assert(cbits <= 0xff);
     assert(retcnbits <= 0xff);
@@ -191,6 +202,7 @@ invoke_monitor_delete_last(capaddr_t root, int rbits, capaddr_t cap, int cbits,
 static inline errval_t
 invoke_monitor_delete_foreigns(capaddr_t cap, int bits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke3(cap_kernel, KernelCmd_Delete_foreigns, cap, bits).error;
 }
 
@@ -198,6 +210,7 @@ static inline errval_t
 invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
                                   capaddr_t cap, int cbits)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke5(cap_kernel, KernelCmd_Revoke_mark_target,
                        root, rbits, cap, cbits).error;
 }
@@ -205,6 +218,7 @@ invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
 static inline errval_t
 invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     // XXX: this is assumed in client code of this function!
     assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
     return cap_invoke2(cap_kernel, KernelCmd_Revoke_mark_relations,
@@ -214,6 +228,7 @@ invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
 static inline errval_t
 invoke_monitor_delete_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke4(cap_kernel, KernelCmd_Delete_step,
                        retcn, retcnbits, retslot).error;
 }
@@ -221,6 +236,7 @@ invoke_monitor_delete_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 static inline errval_t
 invoke_monitor_clear_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     return cap_invoke4(cap_kernel, KernelCmd_Clear_step,
                        retcn, retcnbits, retslot).error;
 }
@@ -228,6 +244,7 @@ invoke_monitor_clear_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 static inline errval_t
 invoke_monitor_has_descendants(uint64_t *raw, bool *res)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     // XXX: this is assumed in client code of this function!
     assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
 
@@ -248,6 +265,7 @@ invoke_monitor_has_descendants(uint64_t *raw, bool *res)
 static inline errval_t
 invoke_trace_setup(struct capref cap)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -255,6 +273,7 @@ invoke_trace_setup(struct capref cap)
 static inline errval_t
 invoke_domain_id(struct capref cap, uint64_t domain_id)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -263,6 +282,7 @@ static inline errval_t
 invoke_monitor_rck_register(struct capref kern_cap, struct capref ep,
                             int chanid)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -270,12 +290,14 @@ invoke_monitor_rck_register(struct capref kern_cap, struct capref ep,
 static inline errval_t
 invoke_monitor_rck_delete(struct capref kern_cap, int chanid)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     USER_PANIC("NYI");
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -287,14 +309,10 @@ static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
 static inline errval_t
 invoke_monitor_get_arch_id(uintptr_t *arch_id)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     assert(arch_id != NULL);
 
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret;
-    sysret = syscall2((invoke_bits << 16) | (KernelCmd_Get_arch_id << 8)
-                      | SYSCALL_INVOKE, invoke_cptr);
+    struct sysret sysret = cap_invoke1(cap_kernel, KernelCmd_Get_arch_id);
     if (err_is_ok(sysret.error)) {
         *arch_id = sysret.value;
     }
@@ -304,6 +322,7 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
 static inline errval_t
 invoke_monitor_ipi_register(struct capref ep, int chanid)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -316,6 +335,7 @@ invoke_monitor_ipi_register(struct capref ep, int chanid)
 static inline errval_t
 invoke_monitor_ipi_delete(int chanid)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -327,6 +347,7 @@ invoke_monitor_ipi_delete(int chanid)
 static inline errval_t
 invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
 {
+    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
     // XXX: this is assumed in client code of this function!
     assert(sizeof(struct capability) <= 4*sizeof(uint64_t));
 
