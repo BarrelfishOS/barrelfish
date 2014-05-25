@@ -29,6 +29,7 @@ struct bootinfo *bi = NULL;
 #include "sleep.h"
 
 #define BOOT_TIMEOUT 3000
+#define BOOT_COUNTER 0xFFFFF
 
 /*
  * TODO: Verify these values if they are really needed
@@ -117,12 +118,6 @@ static errval_t load_bootloader(struct xeon_phi *phi,
     }
 
     imgsize = module->mrmod_size;
-
-    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *) binary;
-    if (head->e_machine != EM_K1OM) {
-        return SPAWN_ERR_DETERMINE_CPUTYPE;
-    }
-
 
     /*
      * get the load offset: we do not want to write into the boot loade
@@ -335,28 +330,21 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 
-    XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
-
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
-    XBOOT_DEBUG("APICID = %u\n", phi->apicid);
 
     xeon_phi_serial_init(phi);
 
     // notify the bootstrap
     bootstrap_notify(phi, osimg_size);
 
-    XBOOT_DEBUG("Notify value: 0x%x\n", xeon_phi_boot_download_status_rdf(&boot_registers));
-
-    // start the receive thread
-    xeon_phi_serial_start_recv_thread(phi);
-
     xeon_phi_boot_postcode_t postcode;
     xeon_phi_boot_postcodes_t pc, pc_prev = 0;
-    while(1) {
+    uint32_t counter = BOOT_COUNTER;
+    while(--counter) {
         postcode = xeon_phi_boot_postcode_rd(&boot_registers);
         pc = xeon_phi_boot_postcode_code_extract(postcode);
         if (pc_prev != pc) {
-            XBOOT_DEBUG("%s\n", xeon_phi_boot_postcodes_describe(pc));
+            debug_printf("Xeon Phi Booting: %s\n", xeon_phi_boot_postcodes_describe(pc));
         }
         if (postcode == xeon_phi_boot_postcode_done) {
             break;
@@ -364,14 +352,18 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         pc_prev = pc;
     }
 
+    XBOOT_DEBUG("Bootstrap has finished execution. Waiting for Firmware...\n");
+
     uint32_t time = 0, time_steps = 0;
     while(time < BOOT_TIMEOUT) {
+        /* read all the pending messages */
+        xeon_phi_serial_handle_recv();
         milli_sleep(100);
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
             break;
         }
         if (time % 50) {
-            XBOOT_DEBUG("Waiting for ready signal %u\n", time_steps);
+            debug_printf("Xeon Phi Booting: Waiting for ready signal %u\n", time_steps);
             time_steps += 5;
         }
     }

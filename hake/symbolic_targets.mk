@@ -542,7 +542,7 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "-------------------------------------------------------------------"
 	@echo ""
 	@echo "Generating bootloader..."
-	+make k1om/sbin/xloader > /dev/null
+	+make k1om/sbin/xloader  > /dev/null
 
 	@echo ""
 	@echo "-------------------------------------------------------------------"
@@ -550,7 +550,12 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "-------------------------------------------------------------------"
 	@echo ""
 	@echo "Uploading to babybel... "
-	mv k1om/sbin/xloader ./xeon_phi_bootloader
+	k1om-mpss-linux-objcopy -O binary -R .note -R .comment -S k1om/sbin/xloader ./vmBf.bin
+	
+	gcc $(SRCDIR)/tools/xloader/linux-host/build.c -o ./build
+	./build ~/eth/mpss-3.2/linux-2.6.38+mpss3.2/arch/x86/boot/setup.bin ./vmBf.bin > ./xeon_phi_bootloader
+	
+	ssh emmentaler.ethz.ch "rackpower -r babybel"
 	mv multiboot/mbimg ./xeon_phi_multiboot
 	rm -rf xeon_phi_bootloader.gz xeon_phi_multiboot.gz
 	gzip xeon_phi_bootloader xeon_phi_multiboot
@@ -558,11 +563,6 @@ k1om: $(XEON_PHI_MODULES) \
 	ssh emmentaler.ethz.ch "gunzip -f *.gz"
 	ssh emmentaler.ethz.ch "mv xeon_phi_bootloader /home/netos/tftpboot/acreto"
 	ssh emmentaler.ethz.ch "mv xeon_phi_multiboot /home/netos/tftpboot/acreto"
-	# ssh emmentaler.ethz.ch "scp *.gz babybel.in.barrelfish.org:/root/barrelfish/"
-	@echo ""
-	@echo "Boot Barrelfish on Xeon Phi.... "
-	# ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/create-bzBarrelfish.sh'"
-	ssh emmentaler.ethz.ch "rackpower -r babybel"
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Done."

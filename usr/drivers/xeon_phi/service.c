@@ -26,17 +26,36 @@ static uint32_t is_exported;
 
 static iref_t svc_iref;
 
+static inline errval_t
+handle_messages(void)
+{
+    uint32_t data = xeon_phi_serial_handle_recv();
+    errval_t err = event_dispatch_non_block(get_default_waitset());
+    if (err_is_fail(err)) {
+        if (err_no(err) == LIB_ERR_NO_EVENT) {
+            if (!data) {
+                thread_yield();
+            }
+            return SYS_ERR_OK;
+        }
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
 /*
  * ---------------------------------------------------------------------------
  * Intra Xeon Phi Driver Communication Regigistration
  */
 
-static void register_response_sent_cb(void *a)
+static void
+register_response_sent_cb(void *a)
 {
 
 }
 
-static void register_response_send(void *a)
+static void
+register_response_send(void *a)
 {
     errval_t err;
 
@@ -66,8 +85,9 @@ static void register_response_send(void *a)
 /**
  *
  */
-static void register_call_recv(struct xeon_phi_binding *_binding,
-                               uint8_t id)
+static void
+register_call_recv(struct xeon_phi_binding *_binding,
+                   uint8_t id)
 {
 
     assert(((struct xnode * )(_binding->st))->binding != _binding);
@@ -79,10 +99,8 @@ static void register_call_recv(struct xeon_phi_binding *_binding,
 
     phi->connected++;
 
-    XSERVICE_DEBUG("[%u] New register call: id=0x%x, num_connected=%i\n",
-                   phi->id,
-                   id,
-                   phi->connected);
+    XSERVICE_DEBUG("[%u] New register call: id=0x%x, num_connected=%i\n", phi->id,
+                   id, phi->connected);
 
     _binding->st = &phi->topology[id];
 
@@ -92,8 +110,9 @@ static void register_call_recv(struct xeon_phi_binding *_binding,
 /**
  *
  */
-static void register_response_recv(struct xeon_phi_binding *_binding,
-                                   xeon_phi_errval_t msgerr)
+static void
+register_response_recv(struct xeon_phi_binding *_binding,
+                       xeon_phi_errval_t msgerr)
 {
     assert(((struct xnode * )(_binding->st))->binding == _binding);
 
@@ -107,17 +126,17 @@ static void register_response_recv(struct xeon_phi_binding *_binding,
     }
 
     XSERVICE_DEBUG("[%u] New register response: 0x%lx, num_connected=%u\n",
-                   topology->local->id,
-                   msgerr,
-                   topology->local->connected);
+                   topology->local->id, msgerr, topology->local->connected);
 }
 
-static void register_call_sent_cb(void *a)
+static void
+register_call_sent_cb(void *a)
 {
 
 }
 
-static void register_call_send(void *a)
+static void
+register_call_send(void *a)
 {
     errval_t err;
 
@@ -143,16 +162,16 @@ static void register_call_send(void *a)
 /// Receive handler table
 static struct xeon_phi_rx_vtbl xps_rx_vtbl = {
     .register_call = register_call_recv,
-    .register_response = register_response_recv
-};
+    .register_response = register_response_recv };
 
 /*
  * ---------------------------------------------------------------------------
  * Service Setup
  */
-static void svc_bind_cb(void *st,
-                        errval_t err,
-                        struct xeon_phi_binding *b)
+static void
+svc_bind_cb(void *st,
+            errval_t err,
+            struct xeon_phi_binding *b)
 {
     struct xnode *node = st;
 
@@ -163,16 +182,14 @@ static void svc_bind_cb(void *st,
     node->state = XNODE_STATE_REGISTERING;
 }
 
-static errval_t svc_register(struct xnode *node)
+static errval_t
+svc_register(struct xnode *node)
 {
     XSERVICE_DEBUG("binding to node %i (iref = 0x%x)\n", node->id, node->iref);
     errval_t err;
 
-    err = xeon_phi_bind(node->iref,
-                        svc_bind_cb,
-                        node,
-                        get_default_waitset(),
-                        IDC_BIND_FLAGS_DEFAULT);
+    err = xeon_phi_bind(node->iref, svc_bind_cb, node, get_default_waitset(),
+    IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         node->state = XNODE_STATE_FAILURE;
         return err;
@@ -181,8 +198,9 @@ static errval_t svc_register(struct xnode *node)
     return SYS_ERR_OK;
 }
 
-static errval_t svc_connect_cb(void *st,
-                               struct xeon_phi_binding *b)
+static errval_t
+svc_connect_cb(void *st,
+               struct xeon_phi_binding *b)
 {
     struct xeon_phi *phi = st;
 
@@ -193,9 +211,10 @@ static errval_t svc_connect_cb(void *st,
     return SYS_ERR_OK;
 }
 
-static void svc_export_cb(void *st,
-                          errval_t err,
-                          iref_t iref)
+static void
+svc_export_cb(void *st,
+              errval_t err,
+              iref_t iref)
 {
     if (err_is_fail(err)) {
         svc_iref = 0x0;
@@ -217,7 +236,8 @@ static void svc_export_cb(void *st,
  *
  * \return SYS_ERR_OK on success
  */
-errval_t service_init(struct xeon_phi *phi)
+errval_t
+service_init(struct xeon_phi *phi)
 {
     errval_t err;
 
@@ -225,17 +245,14 @@ errval_t service_init(struct xeon_phi *phi)
         phi->topology[i].local = phi;
     }
 
-    err = xeon_phi_export(phi,
-                          svc_export_cb,
-                          svc_connect_cb,
-                          get_default_waitset(),
-                          IDC_EXPORT_FLAGS_DEFAULT);
+    err = xeon_phi_export(phi, svc_export_cb, svc_connect_cb, get_default_waitset(),
+    IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
 
     while (!is_exported) {
-        messages_wait_and_handle_next();
+        handle_messages();
     }
 
     if (svc_iref == 0x0) {
@@ -254,10 +271,12 @@ errval_t service_init(struct xeon_phi *phi)
  * \param irefs the irefs of the other cards
  * \param num   the number of irefs in the array
  */
-errval_t service_register(struct xeon_phi *phi,
-                          iref_t *irefs,
-                          size_t num)
+errval_t
+service_register(struct xeon_phi *phi,
+                 iref_t *irefs,
+                 size_t num)
 {
+    errval_t err;
     struct xnode *xnode;
     XSERVICE_DEBUG("start binding to nodes\n");
     for (uint32_t i = 0; i < num; ++i) {
@@ -274,7 +293,10 @@ errval_t service_register(struct xeon_phi *phi,
         xnode->state = XNODE_STATE_NONE;
         svc_register(xnode);
         while (xnode->state == XNODE_STATE_NONE) {
-            messages_wait_and_handle_next();
+            err = handle_messages();
+            if (err_is_fail(err)) {
+                return err;
+            }
         }
     }
 
@@ -287,9 +309,14 @@ errval_t service_register(struct xeon_phi *phi,
         xnode = &phi->topology[i];
         register_call_send(xnode);
         while (xnode->state == XNODE_STATE_READY) {
-            messages_wait_and_handle_next();
+            err = handle_messages();
+            if (err_is_fail(err)) {
+                return err;
+            }
         }
     }
+
+    XSERVICE_DEBUG("Registring with other %i Xeon Phi done.\n", (uint32_t)num - 1);
 
     return SYS_ERR_OK;
 }
@@ -297,9 +324,16 @@ errval_t service_register(struct xeon_phi *phi,
 /**
  * \brief starts the service request handling
  */
-errval_t service_start(void)
+errval_t
+service_start(void)
 {
-    messages_handler_loop();
+    errval_t err;
+    while (1) {
+        err = handle_messages();
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
 
     return SYS_ERR_OK;
 }

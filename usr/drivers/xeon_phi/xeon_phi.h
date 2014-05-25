@@ -20,7 +20,7 @@
 #define XEON_PHI_BOOTLOADER "xeon_phi_bootloader"
 
 /// the name of the Xeon Phi multiboot image containint the modules
-#define XEON_PHI_MULTIBOOT "xeon_phi_multiboot_ramfs"
+#define XEON_PHI_MULTIBOOT "xeon_phi_multiboot"
 
 /// if we use MSIX interrupts or legacy interrupts
 #define XEON_PHI_MSIX_ENABLED 1
@@ -164,6 +164,15 @@ errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi);
  * \param phi   pointer to the card information
  */
 errval_t xeon_phi_serial_init(struct xeon_phi *phi);
+
+/**
+ * \brief checks if there is a message waiting on the serial and reads
+ *        it into the buffer.
+ *
+ * \return 0: There was no message
+ *         1: There was a message waiting and it porocessed.
+ */
+uint32_t xeon_phi_serial_handle_recv(void);
 
 /**
  * \brief boots the card with the given loader and multiboot image
