@@ -166,7 +166,7 @@ cleanup:
  * \brief XXX: This is a hack. Currently, we must know when all cores
  * are booted so that the monitors can initialize with each other,
  * setup routing tables and synchronize clocks.
-
+ */
 void boot_initialize_request(struct monitor_binding *st)
 {
     errval_t err;
@@ -198,4 +198,3 @@ void boot_initialize_request(struct monitor_binding *st)
         USER_PANIC_ERR(err, "boot_initialize_reply failed");
     }
 }
-*/

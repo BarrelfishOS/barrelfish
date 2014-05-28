@@ -23,7 +23,7 @@ struct capref kernel_cap;
 bool done = false;
 
 bool benchmark_flag = false;
-bool debug_flag = false;
+bool debug_flag = true;
 bool new_kcb_flag = false;
 bool nomsg_flag = false;
 
@@ -662,6 +662,7 @@ int main (int argc, char **argv)
     initialize();
     int ret = -1;
 
+    DEBUG("x86boot start");
 #if defined(ENSURE_SEQUENTIAL)
     errval_t err;
     char *lock;
@@ -670,6 +671,7 @@ int main (int argc, char **argv)
         USER_PANIC_ERR(err, "can lock x86boot.");
     }
 #endif
+    DEBUG("x86boot got lock");
 
 #if defined(MICROBENCH)
     microbench();

@@ -128,15 +128,6 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    /*struct module_info* mi = find_module("x86boot");
-    if (mi != NULL) {
-        printf("%s:%d: spawn x86boot\n", __FILE__, __LINE__);
-        err = mi->start_function(0, mi, "hw.apic.1 { processor_id: 1, enabled: 1, apic_id: 1 }");
-        err = mi->start_function(0, mi, "hw.apic.2 { processor_id: 2, enabled: 1, apic_id: 2 }");
-
-        assert(err_is_ok(err));
-    }*/
-
     // XXX: This is a bit silly, I add this record
     // because it was previously in spawnd so
     // there may be code out there who relies on this

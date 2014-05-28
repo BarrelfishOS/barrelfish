@@ -209,7 +209,6 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
         DEBUG_ERR(err, "inthandler_setup()\n");
         return err;
     }
-    printf("%s:%s:%d: vector = %d\n", __FILE__, __FUNCTION__, __LINE__, vector);
 
     err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, irq,
                                               disp_get_core_id(), vector,
