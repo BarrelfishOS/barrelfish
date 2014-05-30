@@ -15,16 +15,17 @@ OUTPUT_ARCH(k1om)
 ENTRY(startup_32)
 SECTIONS
 {
- /* Be careful parts of head_64.S assume startup_32 is at
-           * address 0.
-           */
  . = 0 ;
  .head.text  : {
   _head = . ;
   *(.head.text)
   _ehead = . ;
  }
-  
+ .head32.text : {
+  _head32 = . ;
+  *(.head32.text)
+  _ehead32 = . ;
+ }
  .head64.text : {
   _head64 = . ;
   *(.head64.text)
@@ -60,7 +61,7 @@ SECTIONS
   . = ALIGN(8); /* For convenience during zeroing */
   _ebss = .;
  }
-
+ 
 . = ALIGN((1 << 12));
 .pgtable : {
   _pgtable = . ;

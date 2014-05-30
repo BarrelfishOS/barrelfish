@@ -53,14 +53,12 @@
   .size name, .-name
 #endif
 
+
 /*
  * ===========================================================================
  * Begin of 32 bit entry code
  * ===========================================================================
  */
-
-          .code32
-          .text
 
           .section  ".head.text","ax"
           .code32
@@ -70,21 +68,24 @@ ENTRY(startup_32)
           cld
           cli
 
-
           leal      (BP_SCRATCH+4)(%esi), %esp
           call      1f
 1:        popl      %ebp
           subl      $1b, %ebp
-
           movl      %ebp, %ebx
 
+		  leal      prepare_long_mode(%ebx), %eax
+		  jmp		*%eax
+ENDPROC(startup_32)
 
           /* Prepare for the long mode */
+.section  ".head32.text","ax"
 
+ENTRY(prepare_long_mode)
           /* Load new GDT with the 64bit segments using 32bit descriptor */
-          leal      gdt(%ebp), %eax
-          movl      %eax, gdt+2(%ebp)
-          lgdt      gdt(%ebp)
+          leal      gdt(%ebx), %eax
+          movl      %eax, gdt+2(%ebx)
+          lgdt      gdt(%ebx)
 
           /* Enable physical address extension */
           mov       %cr4,%eax
@@ -163,7 +164,7 @@ ENTRY(startup_32)
 
             /* prepare the long mode jump */
           pushl     $LONG_MODE_CS
-          leal      startup_64(%ebp), %eax
+          leal      startup_64(%ebx), %eax
           pushl     %eax
 
           /* Activate protected mode and paging*/
@@ -174,13 +175,14 @@ ENTRY(startup_32)
           /* Jump from 32bit compatibility mode into 64bit mode. */
           lret
 
-ENDPROC(startup_32)
+ENDPROC(prepare_long_mode)
 
 /*
  * ===========================================================================
  * Begin of 64 bit code
  * ===========================================================================
  */
+ 	.section  ".head64.text","ax"
           .code64
 ENTRY(startup_64)
 

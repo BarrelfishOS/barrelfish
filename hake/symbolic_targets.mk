@@ -24,8 +24,7 @@ MAKEFLAGS=r
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
-# settings for the Intel Xeon Phi
-
+K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
 	sbin/rcce_lu_A1 \
@@ -273,10 +272,6 @@ MODULES_armv7=\
 MODULES_arm11mp=\
 	sbin/cpu \
 	sbin/cpu.bin
-	
-# Intel Xeon Phi-specific modules
-MODULES_k1om =\
-	sbin/cpu 
 
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
@@ -515,62 +510,48 @@ XEON_PHI_MODULES =\
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
 
-
 k1om: $(XEON_PHI_MODULES) \
-	menu.lst.k1om \
-	tools/bin/create_multiboot 
-
-	# ssh emmentaler.ethz.ch "ssh babybel.in.barrelfish.org '/root/barrelfish/reset-mic.sh'"
+		menu.lst.k1om \
+		tools/bin/create_multiboot \
+		tools/bin/xbuilder
+		
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
-	@echo "Stage 1 complete: Modules built."
+	@echo "Stage 1 - Generating multiboot image"
 	@echo "-------------------------------------------------------------------"
-	@echo ""
-	@echo "Generating multiboot image"
+	@echo ""	
 	
 	$(SRCDIR)/tools/xloader/multiboot/build_data_files.sh menu.lst.k1om multiboot
-
-	@echo ""
-	@echo "Generating multiboot image and multiboot information structure..."
 	tools/bin/create_multiboot multiboot/mbmenu.lst.k1om mbi.c
 	cp mbi.c $(SRCDIR)/tools/xloader/mbi.c
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
-	@echo "Stage 2 complete: Multiboot image built."
+	@echo "Stage 2 - Building bootloader"
 	@echo "-------------------------------------------------------------------"
 	@echo ""
-	@echo "Generating bootloader..."
-	+make k1om/sbin/xloader  > /dev/null
-
-	@echo ""
-	@echo "-------------------------------------------------------------------"
-	@echo "Stage 3 complete. Bootloader and multiboot image is built. "
-	@echo "-------------------------------------------------------------------"
-	@echo ""
-	@echo "Uploading to babybel... "
-	k1om-mpss-linux-objcopy -O binary -R .note -R .comment -S k1om/sbin/xloader ./vmBf.bin
 	
-	gcc $(SRCDIR)/tools/xloader/linux-host/build.c -o ./build
-	./build ~/eth/mpss-3.2/linux-2.6.38+mpss3.2/arch/x86/boot/setup.bin ./vmBf.bin > ./xeon_phi_bootloader
+	+make k1om/sbin/xloader  > /dev/null
+	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/xloader ./vmBf.bin
+	tools/bin/xbuilder ./vmBf.bin > ./xeon_phi_bootloader
+	
+	@echo ""
+	@echo "-------------------------------------------------------------------"
+	@echo "Stage 3 - Uploading"
+	@echo "-------------------------------------------------------------------"
+	@echo ""
+	@echo "Uploading to emmentaler..."
 	
 	ssh emmentaler.ethz.ch "rackpower -r babybel"
-	mv multiboot/mbimg ./xeon_phi_multiboot
-	rm -rf xeon_phi_bootloader.gz xeon_phi_multiboot.gz
-	gzip xeon_phi_bootloader xeon_phi_multiboot
-	scp *.gz emmentaler.ethz.ch:
-	ssh emmentaler.ethz.ch "gunzip -f *.gz"
-	ssh emmentaler.ethz.ch "mv xeon_phi_bootloader /home/netos/tftpboot/acreto"
-	ssh emmentaler.ethz.ch "mv xeon_phi_multiboot /home/netos/tftpboot/acreto"
+	$(SRCDIR)/tools/xloader/linux-host/install.sh
+	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Done."
 
+.PHONY: k1om
 
-pandaboard_image: $(PANDABOARD_MODULES) \
-		tools/bin/arm_molly \
-		menu.lst.pandaboard
 
 #######################################################################
 #
