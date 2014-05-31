@@ -24,8 +24,8 @@ module	/x86_64/sbin/monitor
 module  /x86_64/sbin/ramfsd boot
 module  /x86_64/sbin/skb boot
 modulenounzip /skb_ramfs.cpio.gz nospawn
-modulenounzip /xeon_phi_mbimage nospawn
-module  /xeon_phi_xloader nospawn
+modulenounzip /xeon_phi_multiboot_ramfs.cpio.gz nospawn
+module  /weever nospawn
 module  /x86_64/sbin/kaluga boot
 module  /x86_64/sbin/acpi boot
 module  /x86_64/sbin/spawnd boot

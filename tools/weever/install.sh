@@ -22,14 +22,14 @@ set -e
 
 # preparing the upload
 mv multiboot/mbimg ./xeon_phi_multiboot
-rm -rf xeon_phi_bootloader.gz xeon_phi_multiboot.gz
-gzip xeon_phi_bootloader xeon_phi_multiboot
+rm -rf weever.gz xeon_phi_multiboot.gz
+gzip weever xeon_phi_multiboot
 
 # uploading...
 scp *.gz emmentaler.ethz.ch:
 
 # Issuing commands to emmentaler
 ssh emmentaler.ethz.ch "gunzip -f *.gz"
-ssh emmentaler.ethz.ch "mv xeon_phi_bootloader /home/netos/tftpboot/acreto"
+ssh emmentaler.ethz.ch "mv weever /home/netos/tftpboot/acreto/"
 ssh emmentaler.ethz.ch "mv xeon_phi_multiboot /home/netos/tftpboot/acreto"
 

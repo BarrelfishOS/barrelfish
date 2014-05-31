@@ -512,8 +512,8 @@ menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 
 k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
-		tools/bin/create_multiboot \
-		tools/bin/xbuilder
+		tools/bin/weever_multiboot \
+		tools/bin/weever_builder
 		
 	
 	@echo ""
@@ -522,9 +522,9 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "-------------------------------------------------------------------"
 	@echo ""	
 	
-	$(SRCDIR)/tools/xloader/multiboot/build_data_files.sh menu.lst.k1om multiboot
-	tools/bin/create_multiboot multiboot/mbmenu.lst.k1om mbi.c
-	cp mbi.c $(SRCDIR)/tools/xloader/mbi.c
+	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om multiboot
+	tools/bin/weever_multiboot multiboot/mbmenu.lst.k1om mbi.c
+	cp mbi.c $(SRCDIR)/tools/weever/mbi.c
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
@@ -532,9 +532,9 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "-------------------------------------------------------------------"
 	@echo ""
 	
-	+make k1om/sbin/xloader  > /dev/null
-	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/xloader ./vmBf.bin
-	tools/bin/xbuilder ./vmBf.bin > ./xeon_phi_bootloader
+	+make k1om/sbin/weever  > /dev/null
+	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever ./weever.bin
+	tools/bin/weever_builder ./weever.bin > ./weever
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"
@@ -544,7 +544,7 @@ k1om: $(XEON_PHI_MODULES) \
 	@echo "Uploading to emmentaler..."
 	
 	ssh emmentaler.ethz.ch "rackpower -r babybel"
-	$(SRCDIR)/tools/xloader/linux-host/install.sh
+	$(SRCDIR)/tools/weever/install.sh
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"

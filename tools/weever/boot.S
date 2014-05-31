@@ -20,20 +20,20 @@
 #include <../kernel/include/target/k1om/offsets_target.h>
 
 /* Boot Magic */
-#define K1OM_BOOT_MAGIC             0xB001B001
+#define K1OM_BOOT_MAGIC               0xB001B001
 
 /* The long mode code segment */
-#define LONG_MODE_CS                 0x0010
+#define LONG_MODE_CS                  0x0010
 
 /* the boot stack size (16 kb)*/
 #define BOOT_STACK_SIZE               0x4000
 
 /* X86 Registers */
 #define MSR_EFER                      0xc0000080
-#define X86_EFER_LONG_MODE_ENABLE   8
-#define X86_CR0_PROTECTION_ENABLE      0x00000001
-#define X86_CR0_PAGING_ENABLE          0x80000000
-#define X86_CR4_PADDREXT_ENABLE     0x00000020
+#define X86_EFER_LONG_MODE_ENABLE     8
+#define X86_CR0_PROTECTION_ENABLE     0x00000001
+#define X86_CR0_PAGING_ENABLE         0x80000000
+#define X86_CR4_PADDREXT_ENABLE       0x00000020
 
 /*
  * scratch field in struct boot_params supplied by the bootloader

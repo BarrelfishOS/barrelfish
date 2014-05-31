@@ -72,10 +72,10 @@ let arch = "k1om"
                                  "-Wl,--fatal-warnings ",
                                  "-m64 ",
                                  "-e startup_32",
---                               "-T../tools/xloader/linker.lds",
+--                               "-T../tools/weever/linker.lds",
                                  "-Wl,--build-id=none" ] ] ++
-                                 [Str "-T", In SrcTree "src" "/tools/xloader/linker.lds"], 
-             optSuffix = "_for_xloader" 
+                                 [Str "-T", In SrcTree "src" "/tools/weever/linker.lds"], 
+             optSuffix = "_for_weever" 
            }
     objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c",
     									    "elf64.c", "mbi.c" ] ]
@@ -83,6 +83,6 @@ let arch = "k1om"
 in 
   [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c", "mbi.c"],
     assembleSFiles opts [ "boot.S" ],
-    link opts objs [] "xloader"
+    link opts objs [] "weever"
   ]
   

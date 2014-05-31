@@ -1,3 +1,26 @@
+/**
+ * \file
+ * \brief Builder for the Xeon Phi Bootloader
+ */
+
+/*
+ * Copyright (c) 2014, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * Description
+ *
+ * This program prepends a >1024 byte header to the Xeon Phi bootloader. The
+ * header contains the necessary fields with the information filled in used by
+ * the Xeon Phi bootstrap. The header contains the Linux bootinfo struct.
+ */
+
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -5,15 +28,10 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#if 0
-#include <stdlib.h>
-#include <stdarg.h>
-#include <sys/types.h>
-#include <sys/sysmacros.h>
-#include <asm/boot.h>
-#endif
-
-
+/*
+ * Size information for the header. The size of the header has to be at
+ * least 1024 bytes!
+ */
 #define SETUP_SECTORS 2
 #define SECTOR_SIZE 512
 #define HEADER_SIZE (SETUP_SECTORS*SECTOR_SIZE)
@@ -54,6 +72,7 @@ int main(int argc, char ** argv)
 
     /*
      * This is the signature. Without this the kernel does not boot.
+     * Signature is reads "HdrS"
      */
     buf[514] = 0x48;
     buf[515] = 0x64;
@@ -63,6 +82,9 @@ int main(int argc, char ** argv)
     /*
      * set the number of setup sectors in addition to the boot sector.
      * this is SETUP_SECTORS - 1
+     *
+     * Note: Setup must be at least 1024 bytes long to have enough space
+     *       for the boot info struct
      */
     buf[0x1f1] = SETUP_SECTORS-1;
 
@@ -74,12 +96,17 @@ int main(int argc, char ** argv)
     buf[0x1f6] = sys_size >> 16;
     buf[0x1f7] = sys_size >> 24;
 
+    /*
+     * write the filled in header to the file
+     */
     if (fwrite(buf, 1, HEADER_SIZE, stdout) != HEADER_SIZE) {
         printf("Writing setup failed");
         return -1;
     }
 
-    /* Copy the kernel code */
+    /*
+     * write the bootloader
+     */
     if (fwrite(kernel, 1, sb.st_size, stdout) != sb.st_size) {
         printf("Writing setup failed");
         return -1;

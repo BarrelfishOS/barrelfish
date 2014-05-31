@@ -10,5 +10,5 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "xbuilder" ["build_xloader.c"] ["-std=gnu99", "-g"] [] ]
+[ compileNativeC "weever_builder" ["build_weever.c"] ["-std=gnu99", "-g"] [] ]
 
