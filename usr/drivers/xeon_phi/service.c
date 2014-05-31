@@ -252,7 +252,7 @@ service_init(struct xeon_phi *phi)
     }
 
     while (!is_exported) {
-        handle_messages();
+        messages_wait_and_handle_next();
     }
 
     if (svc_iref == 0x0) {
