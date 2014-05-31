@@ -128,13 +128,8 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
 
-    XBOOT_DEBUG("bootloader offset = 0x%lx\n", phi->apt.vbase + loadoffset);
 
-    printf("Loading xloader onto card...\n");
-    XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->apt.vbase,
-                loadoffset,
-                imgsize);
+    XBOOT_DEBUG("Loading xloader onto card... offset = 0x%lx\n", loadoffset);
 
     memcpy((void *) (phi->apt.vbase + loadoffset), (void *) binary, imgsize);
 
@@ -159,7 +154,7 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
 {
     errval_t err;
 
-    XBOOT_DEBUG("multiboot offset = 0x%lx\n", phi->apt.vbase + load_offset);
+
 
     /*
      * find the boot loader image in the host multiboot
@@ -179,11 +174,7 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
 
     imgsize = module->mrmod_size;
 
-    printf("Loading multiboot image onto card...\n");
-    XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->apt.vbase,
-                load_offset,
-                imgsize);
+    XBOOT_DEBUG("loading multiboot image onto card... offset = 0x%lx\n", load_offset);
 
     memcpy((void *) (phi->apt.vbase + load_offset), (void *) image, imgsize);
 
@@ -212,7 +203,7 @@ static errval_t load_cmdline(struct xeon_phi *phi,
 {
     uint32_t cmdlen = 0;
 
-    XBOOT_DEBUG("cmdline offset = 0x%lx\n", phi->apt.vbase + load_offset);
+    XBOOT_DEBUG("copying cmdline onto card, offset = 0x%lx\n", load_offset);
 
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
@@ -256,8 +247,6 @@ static errval_t bootstrap_notify(struct xeon_phi *phi,
     // Always align uos reserve size to a page
     reserved = (reserved & ~(BASE_PAGE_SIZE-1));
 
-    XBOOT_DEBUG("memsize = 0x%lx, reserved size = 0x%lx\n", memsize, reserved);
-
     xeon_phi_boot_res_size_rawwr(&boot_registers, (uint32_t)reserved);
 
     // sending the bootstrap interrupt
@@ -300,7 +289,6 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
-    XBOOT_DEBUG("APICID = %u\n", phi->apicid);
 
     // load the coprocessor OS
     err = load_bootloader(phi, xloader_img, &osimg_size, &offset);
@@ -360,6 +348,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         xeon_phi_serial_handle_recv();
         milli_sleep(100);
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
+            XBOOT_DEBUG("Firmware signaled with ready bit. \n");
             break;
         }
         if (time % 50) {
