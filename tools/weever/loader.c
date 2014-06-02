@@ -26,8 +26,9 @@
 #include <errors/errno.h>
 #include <elf/elf.h>
 
+#include <xeon_phi/xeon_phi.h>
+
 #include "mbi.h"
-#include "kernel_boot_param.h"
 
 #include "../../kernel/include/multiboot.h"
 
@@ -42,6 +43,7 @@ extern char _end_bootloader;
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
+#define MAX(x,y)  ((x)>(y) ? (x) : (y))
 #define BASE_PAGE_SIZE 0x1000
 
 /* Pointer to the multiboot struct we use */
@@ -61,7 +63,7 @@ genvaddr_t kernel_entry;
  */
 int
 loader(uint64_t magic,
-       struct boot_params *mb);
+       struct xeon_phi_boot_params *bp);
 
 /*
  * ----------------------------------------------------------------------------
@@ -182,7 +184,7 @@ set_elf_headers(uintptr_t base)
  */
 int
 loader(uint64_t magic,
-       struct boot_params *bootparam)
+       struct xeon_phi_boot_params *bp)
 {
     errval_t err;
 
@@ -193,25 +195,36 @@ loader(uint64_t magic,
         eabort('E', '0');
     }
 
-    struct boot_params *bp = (struct boot_params *) bootparam;
-    struct setup_header *boot_hdr = (struct setup_header *) &bp->hdr;
+    if (((uintptr_t)bp)>>32) {
+        /*
+         * sanity check that the boot params has a value which is less than 4G,
+         * since we store the boot params in a 32bit value
+         */
+        eabort('E', 'a');
+    }
 
     multiboot_info = get_multiboot();
 
     print_status('S', '1');
 
     /*
-     * Copy the multi boot image closer to the kernel
+     * Copy the multiboot image closer to the kernel
      */
-    lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, 1 << 21);
-    lpaddr_t mb_img_orig = boot_hdr->ramdisk_image;
+    lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, BASE_PAGE_SIZE)
+            ;
+    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->payload_offset, bp->cmdline_size);
+
+    bp->payload_offset = mb_img_start;
+    mb_img_start = ROUND_UP(mb_img_start+bp->cmdline_size, 1<<20);
+    lpaddr_t mb_img_orig = bp->ramdisk_image;
 
     /* sanity check for the locations */
-    if (mb_img_start > mb_img_orig || mb_img_start == 0) {
+    if ((mb_img_start > mb_img_orig) || mb_img_start == 0) {
         eabort('E', '1');
     }
-    memcpy((void *) mb_img_start, (void *) mb_img_orig, boot_hdr->ramdisk_size);
+    memcpy((void *) mb_img_start, (void *) mb_img_orig, bp->ramdisk_size);
 
+    bp->ramdisk_image = mb_img_start;
     /*
      * the multiboot does only stores the offsets within the multiboot image
      * thus we have to adjust the addresses in the multiboot info struct
@@ -237,27 +250,27 @@ loader(uint64_t magic,
     }
 
     /* set the start address where we can allocate ram */
-    phys_alloc_start = ROUND_UP(mb_img_start + boot_hdr->ramdisk_size,
+    phys_alloc_start = ROUND_UP(mb_img_start + bp->ramdisk_size,
                                 BASE_PAGE_SIZE)+BASE_PAGE_SIZE;
 
-    boot_hdr->ramdisk_image = (uint32_t) mb_img_start;
+    bp->ramdisk_image = (uint32_t) mb_img_start;
 
     lpaddr_t kernel_start = phys_alloc_start;
 
     /* overwrite the cmd line with the one supplied by the host */
-    multiboot_info->cmdline = boot_hdr->cmd_line_ptr;
+    multiboot_info->cmdline = bp->cmdline_ptr;
+    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CMDLINE;
 
     /* we use the mem_lower and mem_upper for the mulitboot image location */
 
-    multiboot_info->mem_lower = boot_hdr->ramdisk_image;
-    multiboot_info->mem_upper = boot_hdr->ramdisk_image+boot_hdr->ramdisk_size;
+    multiboot_info->mem_lower = bp->ramdisk_image;
+    multiboot_info->mem_upper = bp->ramdisk_image+bp->ramdisk_size;
     multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_MEMINFO;
 
-    /* we use the config table to store the pointer to struct boot param */
-    multiboot_info->config_table = (uint32_t)(uintptr_t)bootparam;
-    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
 
-    boot_hdr->multiboot = (uint64_t)multiboot_info;
+    /* we use the config table to store the pointer to struct boot param */
+    multiboot_info->config_table = (uint32_t)(uintptr_t)bp;
+    multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
 
     print_status('S', '3');
 

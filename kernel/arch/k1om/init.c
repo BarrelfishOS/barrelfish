@@ -43,6 +43,7 @@
 #include <linux_host.h>
 
 #include <xeon_phi.h>
+#include <xeon_phi/xeon_phi.h>
 
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
@@ -643,8 +644,11 @@ arch_init(uint64_t magic,
         /* kernel is started by the K1OM boot loader */
         mb = (struct multiboot_info *) pointer;
 
-        printf("Barrelfish from xloader: MBI: 0x%"PRIxLVADDR", IMG: [0x%x, 0x%x]\n",
+        printf("Barrelfish from weever: MBI: 0x%"PRIxLVADDR", IMG: [0x%x, 0x%x]\n",
                (lpaddr_t) pointer, mb->mem_lower, mb->mem_upper);
+
+        struct xeon_phi_boot_params *bp = (struct xeon_phi_boot_params *)(uintptr_t)mb->config_table;
+        printf("cmdline = %x, %x, %x, %s\n", mb->cmdline, bp->payload_offset, bp->cmdline_ptr, (char *)(uintptr_t)bp->payload_offset);
 
 
         /*

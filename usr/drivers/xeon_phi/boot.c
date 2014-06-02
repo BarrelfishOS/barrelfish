@@ -20,6 +20,8 @@
 #include <spawndomain/spawndomain.h>
 #include <elf/elf.h>
 
+#include <xeon_phi/xeon_phi.h>
+
 #include <dev/xeon_phi/xeon_phi_boot_dev.h>
 #include <dev/xeon_phi/xeon_phi_apic_dev.h>
 
@@ -171,10 +173,10 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
      * we are using the Linux style way in booting. The following will update
      * the corresponding fields in struct boot_param of the header.
      */
-    uint32_t *ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x218);
-    *ramfs_addr_ptr = (uint32_t)load_offset;
-    ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x21c);
-    *ramfs_addr_ptr = (uint32_t)imgsize;
+    struct xeon_phi_boot_params *bp;
+    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+    bp->ramdisk_image = (uint32_t)load_offset;
+    bp->ramdisk_size = (uint32_t)imgsize;
 
     return SYS_ERR_OK;
 }
@@ -215,12 +217,16 @@ static errval_t load_cmdline(struct xeon_phi *phi,
      * TODO: Add multihop / communication information here..
      */
 
+    printf("cmdline = %x,  %s\n", (uint32_t)load_offset, (char*)buf);
 
     phi->cmdline = buf;
     phi->cmdlen = cmdlen;
 
-    uint32_t *cmdline_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x228);
-    *cmdline_ptr = (uint32_t)((uint64_t)phi->cmdline);
+    struct xeon_phi_boot_params *bp;
+    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+    bp->cmdline_ptr = (uint32_t)(load_offset);
+    bp->payload_offset = (uint32_t)(load_offset);
+    bp->cmdline_size = (uint32_t)cmdlen;
 
     return SYS_ERR_OK;
 }

@@ -54,6 +54,24 @@ pci_driver{
 }.
 
 pci_driver{
+    binary: "xeon_phi",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 2,
+    interrupt_load: 0.5,
+    platforms: ['x86_64']
+}.
+
+pci_driver{
+    binary: "xeon_phi",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 20,
+    interrupt_load: 0.5,
+    platforms: ['x86_64']
+}.
+
+pci_driver{
     binary: "ahcid",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'2922, function: _, subvendor: _, subdevice: _ },
@@ -75,14 +93,7 @@ bus_driver{
     platforms: ['x86_64', 'x86_32']
 }.
 
-pci_driver{
-    binary: "xeon_phi",
-    supported_cards:
-    [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
-    core_hint: 0,
-    interrupt_load: 0.5,
-    platforms: ['x86_64']
-}.
+
 
 %
 % Driver selection logic

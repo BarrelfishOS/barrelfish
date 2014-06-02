@@ -30,14 +30,6 @@ kernel_start:
           /* Initialize the stack pointer */
           lea       (k1om_kernel_stack + K1OM_KERNEL_STACK_SIZE)(%rip), %rsp
 
-          /*
-           * Just say Hi to the host
-           */
-          movabsq $0x08007DAB5C, %r14
-          movl    $0x0A46423E, (%r14)
-          movabsq $0x08007DAB40, %r14
-          movl    $2054847098, (%r14)
-
           /* Reset EFLAGS */
           pushq     $0
           popf
