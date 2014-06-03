@@ -65,20 +65,19 @@ errval_t messaging_init(struct xeon_phi *phi,
     mi->base = id.base;
 
     XMESSAGING_DEBUG("Messaging Base = %016lx\n", mi->base);
-
-    err = vspace_map_one_frame(&mi->addr, mi->size, mi->frame, NULL, NULL);
+    void *addr;
+    err = vspace_map_one_frame(&addr, mi->size, mi->frame, NULL, NULL);
     if (err_is_fail(err)) {
         cap_destroy(mi->frame);
         free(mi);
         return err;
     }
 
-    if (capref_is_null(frame)) {
-        memset(mi->addr, 0, mi->size);
-    }
+    mi->meta = addr;
 
-    uint32_t *test = mi->addr;
-    *test = 0x12345678;
+    if (capref_is_null(frame)) {
+        memset(addr, 0, mi->size);
+    }
 
     phi->msg = mi;
 
@@ -91,7 +90,28 @@ errval_t messaging_init(struct xeon_phi *phi,
     return SYS_ERR_OK;
 }
 
-static uint32_t prevmsg = 0;
+/**
+ * \brief handles the event when a new channel is added between the host
+ *        and the card
+ */
+static errval_t handle_messaging_change(struct xeon_phi *phi,
+                                        struct xeon_phi_msg_meta *meta,
+                                        uint32_t channel)
+{
+    struct xeon_phi_msg_chan *chan = &meta->chan[channel];
+    if (phi->is_client) {
+        struct xeon_phi_msg_chan *cnew = chan+1;
+        memcpy(cnew, chan, sizeof(*chan));
+        cnew->base = 0xcafebabe;
+
+        meta->changed[channel] = 0x1;
+        meta->meta_changed |= XEON_PHI_MSG_META_NEW;
+    }
+
+    XMESSAGING_DEBUG("Messaging Base = %016lx\n", 123UL);
+
+    return SYS_ERR_OK;
+}
 
 /**
  * \brief polls the shared messaging frame for a new message
@@ -106,12 +126,38 @@ errval_t messaging_poll(struct xeon_phi *phi)
         return -1;
     }
 
-    uint32_t *test = phi->msg->addr;
-    assert(*test == 0x12345678);
-    test++;
-    if (*test != prevmsg) {
-        prevmsg = *test;
-        debug_printf("got message: %x\n", prevmsg);
+    // check if there is a new channel information available
+    struct xeon_phi_msg_meta *meta = phi->msg->meta;
+    if (meta->meta_changed) {
+        if (phi->is_client) {
+            if (meta->meta_changed & XEON_PHI_MSG_META_CARD) {
+                // we are the card and we have changed, just return
+                return SYS_ERR_OK;
+            }
+        } else {
+            if (meta->meta_changed & XEON_PHI_MSG_META_HOST) {
+                // we are the host and we have changed, just return
+                return SYS_ERR_OK;
+            }
+        }
+
+        for (uint32_t i = 0; i < XEON_PHI_MSG_CHANS; ++i) {
+            if (meta->changed[i] == XEON_PHI_MSG_META_CHANGE) {
+                handle_messaging_change(phi, meta, i);
+                meta->changed[i] = 0x00;
+            } else if (meta->changed[i] == XEON_PHI_MSG_META_NEW) {
+                meta->changed[i] = XEON_PHI_MSG_META_CHANGE;
+            }
+        }
+        if (meta->meta_changed & XEON_PHI_MSG_META_NEW) {
+            if (phi->is_client) {
+                meta->meta_changed = XEON_PHI_MSG_META_CARD;
+            } else {
+                meta->meta_changed = XEON_PHI_MSG_META_HOST;
+            }
+        } else {
+            meta->meta_changed = 0x00;
+        }
     }
 
     return SYS_ERR_OK;

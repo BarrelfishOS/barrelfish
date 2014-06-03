@@ -15,24 +15,14 @@
 #ifndef XEON_PHI_MESSAGING_H
 #define XEON_PHI_MESSAGING_H
 
-/**
- * represents the information for the messaging channel between the host and
- * the card.
- */
-struct msg_info
-{
-    struct capref frame;
-    lpaddr_t base;
-    size_t size;
-    void *addr;
-};
 
-#define XEON_PHI_MSG_CHAN 63
+#define XEON_PHI_MSG_CHANS 63
 #define XEON_PHI_MSG_INIT_SIZE 4096
 
 #define XEON_PHI_CHAN_TYPE_INVAL  0x00
 #define XEON_PHI_CHAN_TYPE_VIRTIO 0x01
 #define XEON_PHI_CHAN_TYPE_UMP    0x02
+#define XEON_PHI_CHAN_TYPE_META   0x03
 #define XEON_PHI_CHAN_TYPE_OTHER  0xFF
 
 #define XEON_PHI_CHAN_OWNER_SELF  0x1
@@ -44,7 +34,10 @@ struct msg_info
 #define XEON_PHI_ADDR_LOCAL     0x01
 #define XEON_PHI_ADDR_REMOTE    0x02
 
-
+#define XEON_PHI_MSG_META_HOST      0x01
+#define XEON_PHI_MSG_META_CARD      0x02
+#define XEON_PHI_MSG_META_NEW       0x04
+#define XEON_PHI_MSG_META_CHANGE    0x08
 /**
  * represents the information needed to create a new messaging channel
  * between the card and the host
@@ -71,8 +64,21 @@ struct xeon_phi_msg_chan
 struct xeon_phi_msg_meta
 {
     uint8_t meta_changed;
-    uint8_t chan_changed[XEON_PHI_MSG_CHAN];
-    struct xeon_phi_msg_chan chan[XEON_PHI_MSG_CHAN];
+    uint8_t changed[XEON_PHI_MSG_CHANS];
+    struct xeon_phi_msg_chan chan[XEON_PHI_MSG_CHANS];
+};
+
+
+/**
+ * represents the information for the messaging channel between the host and
+ * the card.
+ */
+struct msg_info
+{
+    struct capref frame;
+    lpaddr_t base;
+    size_t size;
+    struct xeon_phi_msg_meta *meta;
 };
 
 /**

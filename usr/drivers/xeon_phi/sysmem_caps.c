@@ -98,6 +98,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
 errval_t sysmem_cap_return(void)
 {
     assert(!"NYI: Returning a unused cap.");
+
     return SYS_ERR_OK;
 }
 
@@ -125,11 +126,12 @@ errval_t sysmem_cap_request(lpaddr_t base,
 
 
     // align the base to the next 4k boundary
-    size += (base & ~BASE_PAGE_SIZE);
-    base -= (base & ~BASE_PAGE_SIZE);
+    size += (base & (BASE_PAGE_SIZE-1));
+    base -= (base & (BASE_PAGE_SIZE-1));
 
-    // round up the size to multiple of 4k
-    size += (BASE_PAGE_SIZE - (size & ~ BASE_PAGE_SIZE));
+    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
+
+    size = (size+BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE - 1);
 
     // transform the address into the host memory range
     base += XEON_PHI_SYSMEM_BASE;
