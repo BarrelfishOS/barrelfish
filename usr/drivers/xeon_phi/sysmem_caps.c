@@ -26,7 +26,7 @@
 /// the number of slots to allocate for the allocator
 #define NUM_SLOTS 2048
 
-#define NUM_CHILDREN 16
+#define NUM_CHILDREN 4
 
 /*
  * XXX: This manager relies on the 1:1 mapping of the system memory
@@ -49,6 +49,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     errval_t err;
 
     // initialize the memory allcator
+    XSYSMEM_DEBUG("Initializing slot allocator of %i slots\n", NUM_SLOTS);
     err = range_slot_alloc_init(&sysmem_allocator, NUM_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
@@ -59,6 +60,8 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     if (err_is_fail(err)) {
         return err;
     }
+
+    XSYSMEM_DEBUG("Initializing memory manager\n");
 
     /*
      * initialize the memory manager.
@@ -79,6 +82,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
         return err_push(err, MM_ERR_MM_INIT);
     }
 
+    XSYSMEM_DEBUG("Adding cap: [0x%016lx, %i]\n", ret.base, ret.bits);
     err = mm_add(&sysmem_manager, sysmem_cap, ret.bits, ret.base);
     if (err_is_fail(err)) {
         return err;
@@ -115,6 +119,7 @@ errval_t sysmem_cap_request(lpaddr_t base,
 {
     errval_t err;
 
+    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
     // the size and base must not exceed the maximum range (512G)
     assert(size+base < (1UL<<39));
 
@@ -129,6 +134,7 @@ errval_t sysmem_cap_request(lpaddr_t base,
     // transform the address into the host memory range
     base += XEON_PHI_SYSMEM_BASE;
 
+    XSYSMEM_DEBUG("Allocating cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
     err = mm_alloc_range(&sysmem_manager, log2ceil(size),
                          base, base+size, frame, NULL);
     if (err_is_fail(err)) {

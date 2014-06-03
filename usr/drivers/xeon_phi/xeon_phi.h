@@ -38,6 +38,7 @@
 #define XDEBUG_SMPT      1
 #define XDEBUG_SERVICE   1
 #define XDEBUG_MESSAGING 1
+#define XDEBUG_SYSMEM    1
 
 /*
  * This defines are used to reference the MMIO registers on the host side.
@@ -93,7 +94,11 @@
 #else
 #define XMESSAGING_DEBUG(x...)
 #endif
-
+#if XDEBUG_SYSMEM
+#define XSYSMEM_DEBUG(x...) XDEBUG(" SYSM | " x)
+#else
+#define XSYSMEM_DEBUG(x...)
+#endif
 /*
  * --------------------------------------------------------------------------
  * Xeon Phi Management structure
