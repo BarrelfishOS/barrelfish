@@ -33,7 +33,8 @@
  *
  * \return SYS_ERR_OK on success
  */
-errval_t messaging_init(struct xeon_phi *phi)
+errval_t messaging_init(struct xeon_phi *phi,
+                        struct capref frame)
 {
     errval_t err;
 
@@ -44,10 +45,13 @@ errval_t messaging_init(struct xeon_phi *phi)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-
-    err = frame_alloc(&mi->frame, XEON_PHI_MSG_INIT_SIZE, &mi->size);
-    if (err_is_fail(err)) {
-        return err;
+    if (capref_is_null(frame)) {
+        err = frame_alloc(&mi->frame, XEON_PHI_MSG_INIT_SIZE, &mi->size);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        mi->frame = frame;
     }
 
     struct frame_identity id;
@@ -69,19 +73,25 @@ errval_t messaging_init(struct xeon_phi *phi)
         return err;
     }
 
-    memset(mi->addr, 0, mi->size);
+    if (capref_is_null(frame)) {
+        memset(mi->addr, 0, mi->size);
+    }
 
     uint32_t *test = mi->addr;
     *test = 0x12345678;
 
     phi->msg = mi;
 
-    struct xeon_phi_boot_params *bp;
-    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
-    bp->msg_base = mi->base;
+    if (!phi->is_client) {
+        struct xeon_phi_boot_params *bp;
+        bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+        bp->msg_base = mi->base;
+    }
 
     return SYS_ERR_OK;
 }
+
+static uint32_t prevmsg = 0;
 
 /**
  * \brief polls the shared messaging frame for a new message
@@ -99,8 +109,9 @@ errval_t messaging_poll(struct xeon_phi *phi)
     uint32_t *test = phi->msg->addr;
     assert(*test == 0x12345678);
     test++;
-    if (*test) {
-        debug_printf("got message: %x\n", *test);
+    if (*test != prevmsg) {
+        prevmsg = *test;
+        debug_printf("got message: %x\n", prevmsg);
     }
 
     return SYS_ERR_OK;
@@ -114,8 +125,8 @@ errval_t messaging_poll(struct xeon_phi *phi)
  * \param phi   the card to initialize the messaging for
  * \param frame capabilitz representing the frame to be used
  */
-errval_t messaging_register(struct xeon_phi *phi,
-                            struct capref frame)
+errval_t messaging_channel_open(struct xeon_phi *phi,
+                                struct capref frame)
 {
     return SYS_ERR_OK;
 }

@@ -46,53 +46,54 @@
  * register base. however the SBOX or DBOX have a certain offset into the
  * MMIO range.
  */
-#define HOST_DBOX_OFFSET      0x00000000
-#define HOST_SBOX_OFFSET      0x00010000
+#define XEON_PHI_HOST_DBOX_OFFSET      0x00000000
+#define XEON_PHI_HOST_SBOX_OFFSET      0x00010000
 
 #define XEON_PHI_MMIO_TO_SBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+HOST_SBOX_OFFSET))
+    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_SBOX_OFFSET))
 #define XEON_PHI_MMIO_TO_DBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+HOST_DBOX_OFFSET))
+    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_DBOX_OFFSET))
 
 /*
  * --------------------------------------------------------------------------
  * Debug output generation
  */
 #if XDEBUG_ENABLED
-#define XDEBUG_PRINT(x...) debug_printf(x)
+#define XDEBUG(x...) debug_printf(x)
 #else
 #define XDEBUG_PRINT(x... )
 #endif
 #if XDEBUG_BOOT
-#define XBOOT_DEBUG(x...) XDEBUG_PRINT(" BOOT | " x)
+#define XBOOT_DEBUG(x...) XDEBUG(" BOOT | " x)
 #else
 #define XBOOT_DEBUG(x...)
 #endif
 #if XDEBUG_DMA
-#define XDMA_DEBUG(x...) XDEBUG_PRINT(" DMA | " x)
+#define XDMA_DEBUG(x...) XDEBUG(" DMA | " x)
 #else
 #define XDMA_DEBUG(x...)
 #endif
 #if XDEBUG_INT
-#define XINT_DEBUG(x...) XDEBUG_PRINT(" INT | " x)
+#define XINT_DEBUG(x...) XDEBUG(" INT | " x)
 #else
 #define XINT_DEBUG(x...)
 #endif
 #if XDEBUG_SMPT
-#define XSMPT_DEBUG(x...) XDEBUG_PRINT(" SMPT | " x)
+#define XSMPT_DEBUG(x...) XDEBUG(" SMPT | " x)
 #else
 #define XSMPT_DEBUG(x...)
 #endif
 #if XDEBUG_SERVICE
-#define XSERVICE_DEBUG(x...) XDEBUG_PRINT(" SVC | " x)
+#define XSERVICE_DEBUG(x...) XDEBUG(" SVC | " x)
 #else
 #define XSERVICE_DEBUG(x...)
 #endif
 #if XDEBUG_MESSAGING
-#define XMESSAGING_DEBUG(x...) XDEBUG_PRINT(" MSG | " x)
+#define XMESSAGING_DEBUG(x...) XDEBUG(" MSG | " x)
 #else
 #define XMESSAGING_DEBUG(x...)
 #endif
+
 /*
  * --------------------------------------------------------------------------
  * Xeon Phi Management structure
@@ -154,7 +155,7 @@ struct xeon_phi
     uint8_t      connected;
     struct xnode topology[XEON_PHI_NUM_MAX];
 
-
+    uint8_t is_client;
 
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;  ///< pointer to the IRQ information struct
