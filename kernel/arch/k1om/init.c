@@ -648,8 +648,13 @@ arch_init(uint64_t magic,
                (lpaddr_t) pointer, mb->mem_lower, mb->mem_upper);
 
         struct xeon_phi_boot_params *bp = (struct xeon_phi_boot_params *)(uintptr_t)mb->config_table;
-        printf("cmdline = %x, %x, %x, %s\n", mb->cmdline, bp->payload_offset, bp->cmdline_ptr, (char *)(uintptr_t)bp->payload_offset);
+        printf("cmdline = %x, %lx, %x, %s\n", mb->cmdline, bp->msg_base, bp->cmdline_ptr, (char *)(uintptr_t)bp->cmdline_ptr);
 
+        uint32_t *buf = (uint32_t*)(uintptr_t)mb->config_table;
+        for (uint32_t i = 0; i < 128; i += 8) {
+            printf("%04x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
+                   i*4,buf[i+0],buf[i+1],buf[i+2],buf[i+3],buf[i+4],buf[i+5],buf[i+6],buf[i+7] );
+        }
 
         /*
          * XXX: The multiboot structure when invoked from the xloader will
@@ -659,6 +664,7 @@ arch_init(uint64_t magic,
          *      MEM_LOWER:  the start of the multiboot image
          *      MEM_UPPER:  the end of the multiboot image
          */
+        glbl_core_data->bp = (struct xeon_phi_boot_params *)local_phys_to_mem(mb->config_table);
 
         // Construct the global structure and store its address to retrieve it
         // across relocation

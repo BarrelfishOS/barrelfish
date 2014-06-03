@@ -32,6 +32,9 @@
 #include <startup.h>
 #include <arch/x86/startup_x86.h>
 
+#include <xeon_phi.h>
+#include <xeon_phi/xeon_phi.h>
+
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     (cte)->cap.u.cnode.cnode
 
@@ -44,29 +47,29 @@
 #define INIT_PAGE_BITMAP        X86_64_PTABLE_PRESENT
 
 /// Pointer to bootinfo structure for init
-static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
+static struct bootinfo *bootinfo = (struct bootinfo *) BOOTINFO_BASE;
 
 static struct spawn_state spawn_state;
 
 /**
  * Page map level 4 table for init user address space.
  */
-static union x86_64_pdir_entry *init_pml4; //[PTABLE_SIZE]
+static union x86_64_pdir_entry *init_pml4;  //[PTABLE_SIZE]
 
 /**
  * Page directory pointer table for init user address space.
  */
-static union x86_64_pdir_entry *init_pdpt; //[INIT_PDPT_SIZE][PTABLE_SIZE]
+static union x86_64_pdir_entry *init_pdpt;  //[INIT_PDPT_SIZE][PTABLE_SIZE]
 
 /**
  * Page directory for init user address space.
  */
-static union x86_64_pdir_entry *init_pdir; //[INIT_PDPT_SIZE][INIT_PDIR_SIZE][PTABLE_SIZE]
+static union x86_64_pdir_entry *init_pdir;  //[INIT_PDPT_SIZE][INIT_PDIR_SIZE][PTABLE_SIZE]
 
 /**
  * Page tables for init user address space.
  */
-static union x86_64_ptable_entry *init_ptable; //[INIT_PDPT_SIZE][INIT_PDIR_SIZE][INIT_PTABLE_SIZE][PTABLE_SIZE]
+static union x86_64_ptable_entry *init_ptable;  //[INIT_PDPT_SIZE][INIT_PDIR_SIZE][INIT_PTABLE_SIZE][PTABLE_SIZE]
 
 /**
  * \brief Convert elf flags to page flags
@@ -103,7 +106,9 @@ static uint64_t paging_elf_to_page_flags(uint32_t flags)
  * \param size  Size of program segment in bytes.
  * \param flags ELF64 access control flags of program segment.
  */
-errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
+errval_t startup_map_init(lvaddr_t vbase,
+                          lpaddr_t base,
+                          size_t size,
                           uint32_t flags)
 {
     lvaddr_t vaddr;
@@ -113,26 +118,32 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
     assert(vbase + size - K1OM_INIT_VBASE < K1OM_INIT_SPACE_LIMIT);
 
     // Map pages
-    for(vaddr = vbase; vaddr < vbase + size;
-        vaddr += BASE_PAGE_SIZE, base += BASE_PAGE_SIZE) {
+    for (vaddr = vbase; vaddr < vbase + size; vaddr += BASE_PAGE_SIZE, base +=
+                    BASE_PAGE_SIZE) {
         lvaddr_t baddr = vaddr - K1OM_INIT_VBASE;
-        union x86_64_ptable_entry *ptable_base = &init_ptable[
-                    X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE *
-                    X86_64_PTABLE_SIZE * X86_64_PTABLE_SIZE +
-                    X86_64_PDPT_BASE(baddr) * X86_64_PTABLE_SIZE *
-                    X86_64_PTABLE_SIZE + X86_64_PDIR_BASE(baddr) *
-                    X86_64_PTABLE_SIZE + X86_64_PTABLE_BASE(vaddr)];
+        union x86_64_ptable_entry *ptable_base =
+                        &init_ptable[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE
+                                     * X86_64_PTABLE_SIZE * X86_64_PTABLE_SIZE
+                                     + X86_64_PDPT_BASE(baddr) * X86_64_PTABLE_SIZE
+                                       * X86_64_PTABLE_SIZE
+                                     + X86_64_PDIR_BASE(baddr) * X86_64_PTABLE_SIZE
+                                     + X86_64_PTABLE_BASE(vaddr)];
 
-        debug(SUBSYS_PAGING, "Mapping 4K page: vaddr = 0x%lx, base = 0x%lx, "
+        debug(SUBSYS_PAGING,
+              "Mapping 4K page: vaddr = 0x%lx, base = 0x%lx, "
               "PML4_BASE = %lu, PDPT_BASE = %lu, PDIR_BASE = %lu, "
-              "PTABLE_BASE = %lu -- ", vaddr, base, X86_64_PML4_BASE(baddr),
-              X86_64_PDPT_BASE(baddr), X86_64_PDIR_BASE(baddr),
+              "PTABLE_BASE = %lu -- ",
+              vaddr,
+              base,
+              X86_64_PML4_BASE(baddr),
+              X86_64_PDPT_BASE(baddr),
+              X86_64_PDIR_BASE(baddr),
               X86_64_PTABLE_BASE(baddr));
 
-        if(!X86_64_IS_PRESENT(ptable_base)) {
+        if (!X86_64_IS_PRESENT(ptable_base)) {
             debug(SUBSYS_PAGING, "mapped!\n");
             paging_k1om_map(ptable_base, base,
-                              INIT_PAGE_BITMAP | paging_elf_to_page_flags(flags));
+            INIT_PAGE_BITMAP | paging_elf_to_page_flags(flags));
         } else {
             debug(SUBSYS_PAGING, "already existing!\n");
         }
@@ -147,8 +158,11 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     errval_t err;
 
     // map first meg of RAM, which contains lots of crazy BIOS tables
-    err = create_caps_to_cnode(0, K1OM_START_KERNEL_PHYS,
-                               RegionType_PlatformData, &spawn_state, bootinfo);
+    err = create_caps_to_cnode(0,
+                               K1OM_START_KERNEL_PHYS,
+                               RegionType_PlatformData,
+                               &spawn_state,
+                               bootinfo);
     assert(err_is_ok(err));
 
     char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
@@ -166,8 +180,8 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     PRINT_REGIONS(mmap_addr, glbl_core_data->mmap_length);
 
     // normalize memory regions
-    char *clean_mmap_addr = MBADDR_ASSTRING(init_alloc_addr); // FIXME: Hack!!!! TODO: properly get memory form somewhere
-    assert(glbl_core_data->mmap_length < BOOTINFO_SIZE);
+char *clean_mmap_addr = MBADDR_ASSTRING(init_alloc_addr); // FIXME: Hack!!!! TODO: properly get memory form somewhere
+        assert(glbl_core_data->mmap_length < BOOTINFO_SIZE);
     uint32_t clean_mmap_length = glbl_core_data->mmap_length;
 
     memcpy(clean_mmap_addr, mmap_addr, glbl_core_data->mmap_length);
@@ -178,17 +192,21 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     do {
         swapped = false;
 
-        for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
+        for (char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;
+                        ) {
             struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
             if (cur + curmmap->size >= clean_mmap_addr + clean_mmap_length)
-                break; // do not try to move this check into the forloop as entries do not have to be the same length
+                break;  // do not try to move this check into the forloop as entries do not have to be the same length
 
-            struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
+            struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur
+                            + curmmap->size);
 
-            if (nextmmap->base_addr < curmmap->base_addr ||
-                (nextmmap->base_addr == curmmap->base_addr && nextmmap->length > curmmap->length)) {
+            if (nextmmap->base_addr < curmmap->base_addr || (nextmmap->base_addr
+                            == curmmap->base_addr
+                                                             && nextmmap->length > curmmap
+                                                                             ->length)) {
                 // swap
-                assert(curmmap->size == 20); // FIXME: The multiboot specification does not require this size
+                assert(curmmap->size == 20);  // FIXME: The multiboot specification does not require this size
                 assert(nextmmap->size == 20);
 
                 struct multiboot_mmap tmp;
@@ -201,7 +219,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
             cur += curmmap->size + 4;
         }
-    } while(swapped);
+    } while (swapped);
 
     printf("Sorted MMAP\n");
     PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
@@ -211,7 +229,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
         struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
         if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
-            break; // do not try to move this check into the forloop as entries do not have to be the same length
+        break;  // do not try to move this check into the forloop as entries do not have to be the same length
 
         struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
 
@@ -240,7 +258,6 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
             struct multiboot_mmap bubbletmp; bubbletmp = *bubblecur_mmap; *bubblecur_mmap = *bubblenext_mmap; *bubblenext_mmap = bubbletmp;\
         } else break;\
     }} while(0)
-
 
         bool reduced = false;
         do {
@@ -290,7 +307,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                 if (curmmap->type == nextmmap->type) {
                     // simple. just extend if necessary and discard next
                     if (nextmmap->base_addr + nextmmap->length > curmmap->base_addr + curmmap->length)
-                        curmmap->length = (nextmmap->base_addr + nextmmap->length) - curmmap->base_addr;
+                    curmmap->length = (nextmmap->base_addr + nextmmap->length) - curmmap->base_addr;
 
                     DISCARD_NEXT_MMAP;
 
@@ -331,7 +348,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                         curmmap->length += overlap;
 
                         if (nextmmap->length == 0)
-                            DISCARD_NEXT_MMAP;
+                        DISCARD_NEXT_MMAP;
 
                         reduced = true;
                         continue;
@@ -346,7 +363,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                     }
                 }
             }
-        } while (reduced);
+        }while (reduced);
 
         cur += curmmap->size;
 
@@ -358,15 +375,19 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     PRINT_REGIONS(clean_mmap_addr, clean_mmap_length);
 
     // we can only map pages. Therefore page align regions
-    for(char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
+    for (char * cur = clean_mmap_addr; cur < clean_mmap_addr + clean_mmap_length;) {
         struct multiboot_mmap * curmmap = (struct multiboot_mmap * SAFE)TC(cur);
         if (cur + curmmap->size + 4 >= clean_mmap_addr + clean_mmap_length)
-            break; // do not try to move this check into the forloop as entries do not have to be the same length
+            break;  // do not try to move this check into the forloop as entries do not have to be the same length
 
-        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur + curmmap->size);
+        struct multiboot_mmap * nextmmap = (struct multiboot_mmap * SAFE)TC(cur
+                        + curmmap->size);
 
         if (nextmmap->base_addr & BASE_PAGE_MASK) {
-            uint64_t offset = nextmmap->base_addr - ((nextmmap->base_addr >> BASE_PAGE_BITS) << BASE_PAGE_BITS);
+            uint64_t offset =
+                            nextmmap->base_addr - ((nextmmap->base_addr
+                                            >> BASE_PAGE_BITS)
+                                                   << BASE_PAGE_BITS);
 
             // round in favour of higher type
             if (curmmap->type > nextmmap->type) {
@@ -388,22 +409,27 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
 #undef PRINT_REGIONS
 
-    for(char *m = clean_mmap_addr; m < clean_mmap_addr + clean_mmap_length;) {
+    for (char *m = clean_mmap_addr; m < clean_mmap_addr + clean_mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
-        debug(SUBSYS_STARTUP, "MMAP %lx--%lx Type %u\n",
-              mmap->base_addr, mmap->base_addr + mmap->length,
+        debug(SUBSYS_STARTUP,
+              "MMAP %lx--%lx Type %u\n",
+              mmap->base_addr,
+              mmap->base_addr + mmap->length,
               mmap->type);
 
-        if (last_end_addr >= init_alloc_addr
-            && mmap->base_addr > last_end_addr) {
+        if (last_end_addr >= init_alloc_addr && mmap->base_addr > last_end_addr) {
             /* we have a gap between regions. add this as a physaddr range */
-            debug(SUBSYS_STARTUP, "physical address range %lx--%lx\n",
-                  last_end_addr, mmap->base_addr);
+            debug(SUBSYS_STARTUP,
+                  "physical address range %lx--%lx\n",
+                  last_end_addr,
+                  mmap->base_addr);
 
             err = create_caps_to_cnode(last_end_addr,
                                        mmap->base_addr - last_end_addr,
-                                       RegionType_PhyAddr, &spawn_state, bootinfo);
+                                       RegionType_PhyAddr,
+                                       &spawn_state,
+                                       bootinfo);
             assert(err_is_ok(err));
         }
 
@@ -417,8 +443,11 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                     base_addr = local_phys_to_gen_phys(init_alloc_addr);
                 }
                 debug(SUBSYS_STARTUP, "RAM %lx--%lx\n", base_addr, end_addr);
-                err = create_caps_to_cnode(base_addr, end_addr - base_addr,
-                                           RegionType_Empty, &spawn_state, bootinfo);
+                err = create_caps_to_cnode(base_addr,
+                                           end_addr - base_addr,
+                                           RegionType_Empty,
+                                           &spawn_state,
+                                           bootinfo);
                 assert(err_is_ok(err));
             }
         } else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr)) {
@@ -427,11 +456,16 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
              * 3, and things like the IOAPIC tend to show up as type 2 or 4,
              * so we map all these regions as platform data
              */
-            debug(SUBSYS_STARTUP, "platform %lx--%lx\n", mmap->base_addr,
+            debug(SUBSYS_STARTUP,
+                  "platform %lx--%lx\n",
+                  mmap->base_addr,
                   mmap->base_addr + mmap->length);
             assert(mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr));
-            err = create_caps_to_cnode(mmap->base_addr, mmap->length,
-                                       RegionType_PlatformData, &spawn_state, bootinfo);
+            err = create_caps_to_cnode(mmap->base_addr,
+                                       mmap->length,
+                                       RegionType_PlatformData,
+                                       &spawn_state,
+                                       bootinfo);
             assert(err_is_ok(err));
         }
 
@@ -448,16 +482,21 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
          * yet anyway) so instead we limit it to something much smaller
          */
         size_t size = K1OM_PADDR_SPACE_SIZE - last_end_addr;
-        const lpaddr_t phys_region_limit = 1UL << 32; // PCI implementation limit
+        const lpaddr_t phys_region_limit = 1UL << 32;  // PCI implementation limit
         if (last_end_addr > phys_region_limit) {
-            size = 0; // end of RAM is already too high!
+            size = 0;  // end of RAM is already too high!
         } else if (last_end_addr + size > phys_region_limit) {
             size = phys_region_limit - last_end_addr;
         }
-        debug(SUBSYS_STARTUP, "end physical address range %lx--%lx\n",
-              last_end_addr, last_end_addr + size);
-        err = create_caps_to_cnode(last_end_addr, size,
-                                   RegionType_PhyAddr, &spawn_state, bootinfo);
+        debug(SUBSYS_STARTUP,
+              "end physical address range %lx--%lx\n",
+              last_end_addr,
+              last_end_addr + size);
+        err = create_caps_to_cnode(last_end_addr,
+                                   size,
+                                   RegionType_PhyAddr,
+                                   &spawn_state,
+                                   bootinfo);
         assert(err_is_ok(err));
     }
 }
@@ -469,96 +508,105 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 
 #define OBJSPERPAGE_CTE         (1UL << (BASE_PAGE_BITS - OBJBITS_CTE))
 
-static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
+static void init_page_tables(struct spawn_state *st,
+                             alloc_phys_func alloc_phys)
 {
     /* Allocate memory for init's page tables */
-    init_pml4 = (void *)local_phys_to_mem(
-                alloc_phys(X86_64_PTABLE_SIZE * sizeof(union x86_64_pdir_entry)));
-    init_pdpt = (void *)local_phys_to_mem(
-                alloc_phys(X86_64_PTABLE_SIZE * INIT_PDPT_SIZE
-                           * sizeof(union x86_64_pdir_entry)));
-    init_pdir = (void *)local_phys_to_mem(
-                alloc_phys(X86_64_PTABLE_SIZE * INIT_PDPT_SIZE * INIT_PDIR_SIZE
-                           * sizeof(union x86_64_pdir_entry)));
-    init_ptable = (void *)local_phys_to_mem(
-                alloc_phys(X86_64_PTABLE_SIZE * INIT_PDPT_SIZE * INIT_PDIR_SIZE
-                           * INIT_PTABLE_SIZE * sizeof(union x86_64_ptable_entry)));
+    init_pml4 = (void *) local_phys_to_mem(alloc_phys(X86_64_PTABLE_SIZE
+                    * sizeof(union x86_64_pdir_entry)));
+    init_pdpt = (void *) local_phys_to_mem(alloc_phys(X86_64_PTABLE_SIZE
+                    * INIT_PDPT_SIZE * sizeof(union x86_64_pdir_entry)));
+    init_pdir = (void *) local_phys_to_mem(alloc_phys(X86_64_PTABLE_SIZE
+                    * INIT_PDPT_SIZE * INIT_PDIR_SIZE
+                    * sizeof(union x86_64_pdir_entry)));
+    init_ptable = (void *) local_phys_to_mem(alloc_phys(X86_64_PTABLE_SIZE
+                    * INIT_PDPT_SIZE * INIT_PDIR_SIZE * INIT_PTABLE_SIZE
+                    * sizeof(union x86_64_ptable_entry)));
 
     /* Page table setup */
     /* Initialize init page tables */
-    for(size_t i = 0; i < INIT_PDPT_SIZE; i++) {
+    for (size_t i = 0; i < INIT_PDPT_SIZE; i++) {
         paging_k1om_clear_pdir(&init_pdpt[i]);
-        for(size_t j = 0; j < INIT_PDIR_SIZE; j++) {
+        for (size_t j = 0; j < INIT_PDIR_SIZE; j++) {
             paging_k1om_clear_pdir(&init_pdir[i * PTABLE_SIZE + j]);
-            for(size_t k = 0; k < INIT_PTABLE_SIZE; k++) {
-                paging_k1om_clear_ptable(
-                &init_ptable[i * PTABLE_SIZE * PTABLE_SIZE + j * PTABLE_SIZE + k]);
+            for (size_t k = 0; k < INIT_PTABLE_SIZE; k++) {
+                paging_k1om_clear_ptable(&init_ptable[i * PTABLE_SIZE * PTABLE_SIZE
+                                + j * PTABLE_SIZE + k]);
             }
         }
     }
     /* Map pagetables into pageCN */
-    int     pagecn_pagemap = 0;
+    int pagecn_pagemap = 0;
     // Map PML4 (slot 0 in pagecn)
-    caps_create_new(ObjType_VNode_x86_64_pml4, mem_to_local_phys((lvaddr_t)init_pml4),
-                    BASE_PAGE_BITS, 0,
+    caps_create_new(ObjType_VNode_x86_64_pml4,
+                    mem_to_local_phys((lvaddr_t) init_pml4),
+                    BASE_PAGE_BITS,
+                    0,
                     caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     // Map PDPT into successive slots in pagecn
-    for(size_t i = 0; i < INIT_PDPT_SIZE; i++) {
+    for (size_t i = 0; i < INIT_PDPT_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdpt,
-                        mem_to_local_phys((lvaddr_t)init_pdpt) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        mem_to_local_phys((lvaddr_t) init_pdpt) + i * BASE_PAGE_SIZE,
+                        BASE_PAGE_BITS,
+                        0,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map PDIR into successive slots in pagecn
-    for(size_t i = 0; i < INIT_PDIR_SIZE; i++) {
+    for (size_t i = 0; i < INIT_PDIR_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdir,
-                        mem_to_local_phys((lvaddr_t)init_pdir) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        mem_to_local_phys((lvaddr_t) init_pdir) + i * BASE_PAGE_SIZE,
+                        BASE_PAGE_BITS,
+                        0,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map page tables into successive slots in pagecn
-    for(size_t i = 0; i < INIT_PTABLE_SIZE; i++) {
+    for (size_t i = 0; i < INIT_PTABLE_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_ptable,
-                        mem_to_local_phys((lvaddr_t)init_ptable) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        mem_to_local_phys((lvaddr_t) init_ptable) + i
+                                        * BASE_PAGE_SIZE,
+                        BASE_PAGE_BITS,
+                        0,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Connect all page tables to page directories.
     // init's memory manager expects page tables within the pagecn to
     // already be connected to the corresponding directories. To avoid
     // unneccessary special cases, we connect them here.
-    for(lvaddr_t vaddr = K1OM_INIT_VBASE; vaddr < K1OM_INIT_SPACE_LIMIT;
-        vaddr += BASE_PAGE_SIZE) {
+    for (lvaddr_t vaddr = K1OM_INIT_VBASE; vaddr < K1OM_INIT_SPACE_LIMIT; vaddr +=
+                    BASE_PAGE_SIZE) {
         lvaddr_t baddr = vaddr - K1OM_INIT_VBASE;
         union x86_64_pdir_entry *pml4_base, *pdpt_base, *pdir_base;
         union x86_64_ptable_entry *ptable_base;
         pml4_base = &init_pml4[X86_64_PML4_BASE(vaddr)];
-        pdpt_base = &init_pdpt[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE +
-                               X86_64_PDPT_BASE(vaddr)];
-        pdir_base = &init_pdir[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE *
-                               X86_64_PTABLE_SIZE
+        pdpt_base = &init_pdpt[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE
+                        + X86_64_PDPT_BASE(vaddr)];
+        pdir_base = &init_pdir[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE
+                               * X86_64_PTABLE_SIZE
                                + X86_64_PDPT_BASE(baddr) * X86_64_PTABLE_SIZE
                                + X86_64_PDIR_BASE(vaddr)];
-        ptable_base = &init_ptable[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE *
-                                   X86_64_PTABLE_SIZE * X86_64_PTABLE_SIZE +
-                                   X86_64_PDPT_BASE(baddr) * X86_64_PTABLE_SIZE *
-                                   X86_64_PTABLE_SIZE + X86_64_PDIR_BASE(baddr) *
-                                   X86_64_PTABLE_SIZE + X86_64_PTABLE_BASE(vaddr)];
+        ptable_base = &init_ptable[X86_64_PML4_BASE(baddr) * X86_64_PTABLE_SIZE
+                                   * X86_64_PTABLE_SIZE * X86_64_PTABLE_SIZE
+                                   + X86_64_PDPT_BASE(baddr) * X86_64_PTABLE_SIZE
+                                     * X86_64_PTABLE_SIZE
+                                   + X86_64_PDIR_BASE(baddr) * X86_64_PTABLE_SIZE
+                                   + X86_64_PTABLE_BASE(vaddr)];
 
-        paging_k1om_map_table(pml4_base, mem_to_local_phys((lvaddr_t)pdpt_base));
-        paging_k1om_map_table(pdpt_base, mem_to_local_phys((lvaddr_t)pdir_base));
-        paging_k1om_map_table(pdir_base, mem_to_local_phys((lvaddr_t)ptable_base));
+        paging_k1om_map_table(pml4_base, mem_to_local_phys((lvaddr_t) pdpt_base));
+        paging_k1om_map_table(pdpt_base, mem_to_local_phys((lvaddr_t) pdir_base));
+        paging_k1om_map_table(pdir_base, mem_to_local_phys((lvaddr_t) ptable_base));
     }
 
     /* Initialize and switch to init's PML4 */
-    paging_k1om_make_good_pml4(mem_to_local_phys((lvaddr_t)init_pml4));
-    paging_k1om_context_switch(mem_to_local_phys((lvaddr_t)init_pml4));
+    paging_k1om_make_good_pml4(mem_to_local_phys((lvaddr_t) init_pml4));
+    paging_k1om_context_switch(mem_to_local_phys((lvaddr_t) init_pml4));
 
     /***** VSpace available now *****/
 }
 
-static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
-                                     int argc, const char *argv[],
+static struct dcb *spawn_init_common(struct spawn_state *st,
+                                     const char *name,
+                                     int argc,
+                                     const char *argv[],
                                      lpaddr_t bootinfo_phys,
                                      alloc_phys_func alloc_phys)
 {
@@ -567,52 +615,68 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     /* Perform arch-independent spawn */
     lvaddr_t paramaddr;
     struct dcb *init_dcb = spawn_module(st, name, argc, argv, bootinfo_phys,
-                                        ARGS_BASE, alloc_phys, &paramaddr);
+    ARGS_BASE,
+                                        alloc_phys, &paramaddr);
 
     /* Init page tables */
     init_page_tables(st, alloc_phys);
 
     /* Map cmdline args R/W into VSpace at ARGS_BASE */
     paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(ARGS_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdpt));
+                          mem_to_local_phys((lvaddr_t) init_pdpt));
     paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(ARGS_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdir));
+                          mem_to_local_phys((lvaddr_t) init_pdir));
     paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(ARGS_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_ptable));
+                          mem_to_local_phys((lvaddr_t) init_ptable));
     for (int i = 0; i < ARGS_SIZE / BASE_PAGE_SIZE; i++) {
         paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(ARGS_BASE) + i],
-                          st->args_page + i * BASE_PAGE_SIZE,
-                          INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
+                        st->args_page + i * BASE_PAGE_SIZE,
+                        INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
     }
 
     /* Map dispatcher frame R/W into VSpace */
     paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(DISPATCHER_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdpt));
+                          mem_to_local_phys((lvaddr_t) init_pdpt));
     paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(DISPATCHER_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdir));
+                          mem_to_local_phys((lvaddr_t) init_pdir));
     paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(DISPATCHER_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_ptable));
+                          mem_to_local_phys((lvaddr_t) init_ptable));
     for (int i = 0; i < (1 << DISPATCHER_FRAME_BITS) / BASE_PAGE_SIZE; i++) {
         paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(DISPATCHER_BASE) + i],
-                          mem_to_local_phys(init_dcb->disp) + i * BASE_PAGE_SIZE,
-                          INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
+                        mem_to_local_phys(init_dcb->disp) + i * BASE_PAGE_SIZE,
+                        INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
     }
 
     struct dispatcher_shared_generic *init_disp =
-        get_dispatcher_shared_generic(init_dcb->disp);
+                    get_dispatcher_shared_generic(init_dcb->disp);
     struct dispatcher_shared_x86_64 *init_disp_x86_64 =
-        get_dispatcher_shared_x86_64(init_dcb->disp);
+                    get_dispatcher_shared_x86_64(init_dcb->disp);
 
     registers_set_param(&init_disp_x86_64->enabled_save_area, paramaddr);
 
     // Map IO cap in task cnode
-    struct cte *iocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IO);
-    err = caps_create_new(ObjType_IO, 0, 0, 0, iocap);
+    struct cte *iocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_SYSMEM);
+    err = caps_create_new(ObjType_DevFrame,
+                          XEON_PHI_SYSMEM_BASE,
+                          XEON_PHI_SYSMEM_SIZE_BITS,
+                          XEON_PHI_SYSMEM_SIZE_BITS,
+                          iocap);
+    /*
+     * XXX: there is no IO on the xeon phi, we use this slot to put in the
+     *      capability to the host memory, as this can be seen as IO
+     */
+    struct cte *mmiocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IO);
+    err = caps_create_new(ObjType_DevFrame,
+                          XEON_PHI_SBOX_BASE,
+                          XEON_PHI_SBOX_SIZE_BITS,
+                          XEON_PHI_SBOX_SIZE_BITS,
+                          mmiocap);
+
     assert(err_is_ok(err));
 
     /* Set fields in DCB */
     // Set Vspace
-    init_dcb->vspace = mem_to_local_phys((lvaddr_t)init_pml4);
+    init_dcb->vspace = mem_to_local_phys((lvaddr_t) init_pml4);
 
     // init dispatcher
     init_disp->disabled = true;
@@ -629,7 +693,8 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
+struct dcb *spawn_bsp_init(const char *name,
+                           alloc_phys_func alloc_phys)
 {
     errval_t err;
 
@@ -638,24 +703,30 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     /* Allocate bootinfo */
     lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
-    memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
+    memset((void *) local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
     /* Construct cmdline args */
     char bootinfochar[16];
     snprintf(bootinfochar, sizeof(bootinfochar), "%lu", BOOTINFO_BASE);
-    const char *argv[] = { "init", bootinfochar };
+    const char *argv[] = {
+        "init",
+        bootinfochar
+    };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
-                                             ARRAY_LENGTH(argv), argv,
-                                             bootinfo_phys, alloc_phys);
+    struct dcb *init_dcb = spawn_init_common(&spawn_state,
+                                             name,
+                                             ARRAY_LENGTH(argv),
+                                             argv,
+                                             bootinfo_phys,
+                                             alloc_phys);
 
     /* Map bootinfo R/W into VSpace at vaddr BOOTINFO_BASE */
-    paging_k1om_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t)init_pdpt));
-    paging_k1om_map_table(&init_pdpt[0], mem_to_local_phys((lvaddr_t)init_pdir));
-    paging_k1om_map_table(&init_pdir[1], mem_to_local_phys((lvaddr_t)init_ptable));
+    paging_k1om_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t) init_pdpt));
+    paging_k1om_map_table(&init_pdpt[0], mem_to_local_phys((lvaddr_t) init_pdir));
+    paging_k1om_map_table(&init_pdir[1], mem_to_local_phys((lvaddr_t) init_ptable));
     for (int i = 0; i < BOOTINFO_SIZE / BASE_PAGE_SIZE; i++) {
         paging_k1om_map(&init_ptable[i], bootinfo_phys + i * BASE_PAGE_SIZE,
-                   INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));
+        INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
     }
 
     /* Load init ELF64 binary from multiboot */
@@ -664,16 +735,19 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
         panic("Could not find init module!");
     }
     lvaddr_t init_ep;
-    err = elf_load(EM_K1OM, startup_alloc_init, &spawn_state,
+    err = elf_load(EM_K1OM,
+                   startup_alloc_init,
+                   &spawn_state,
                    local_phys_to_mem(module->mod_start),
-                   MULTIBOOT_MODULE_SIZE(*module), &init_ep);
+                   MULTIBOOT_MODULE_SIZE(*module),
+                   &init_ep);
     if (err_is_fail(err)) {
         //err_print_calltrace(err);
         panic("ELF load of init module failed!");
     }
 
     struct dispatcher_shared_x86_64 *init_disp_x86_64 =
-        get_dispatcher_shared_x86_64(init_dcb->disp);
+                    get_dispatcher_shared_x86_64(init_dcb->disp);
     init_disp_x86_64->disabled_save_area.rip = init_ep;
 
     /* Create caps for init to use */
@@ -682,25 +756,29 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     // we run out of root cnode slots by aligning the memory we declare free
     // to 1MB.
     lpaddr_t init_alloc_end = alloc_phys(0);
-    lpaddr_t align = 1UL << 20; // 1MB
+    lpaddr_t align = 1UL << 20;  // 1MB
     // XXX: No checks are in place to make sure that init_alloc_end_aligned
     // is actually a valid physical memory address (e.g. a location at which
     // RAM exists.
-    lpaddr_t init_alloc_end_aligned = (init_alloc_end + align) & ~(align-1);
+    lpaddr_t init_alloc_end_aligned = (init_alloc_end + align) & ~(align - 1);
     printf("aligning free memory start to 0x%"PRIxLPADDR" (was 0x%"PRIxLPADDR
-           "): wasting %lu kB\n",
-           init_alloc_end_aligned, init_alloc_end,
-           (init_alloc_end_aligned - init_alloc_end) / 1024);
+    "): wasting %lu kB\n",
+           init_alloc_end_aligned, init_alloc_end, (init_alloc_end_aligned
+                           - init_alloc_end)
+                                                   / 1024);
     create_phys_caps(init_alloc_end_aligned);
 
     /* Fill bootinfo struct */
-    bootinfo->mem_spawn_core = NEEDED_KERNEL_SPACE; // Size of kernel
+    bootinfo->mem_spawn_core = NEEDED_KERNEL_SPACE;  // Size of kernel
+
+    bootinfo->host_msg = glbl_core_data->bp->msg_base;
 
     return init_dcb;
 }
 
 struct dcb *spawn_app_init(struct x86_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys)
+                           const char *name,
+                           alloc_phys_func alloc_phys)
 {
     errval_t err;
 
@@ -715,51 +793,63 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     // Arch id of the core that booted this core
     char archidchar[30];
-    snprintf(archidchar, sizeof(archidchar), "archid=%d",
-             core_data->src_arch_id);
+    snprintf(archidchar, sizeof(archidchar), "archid=%d", core_data->src_arch_id);
 
-    const char *argv[] = { name, coreidchar, chanidchar, archidchar };
+    const char *argv[] = {
+        name,
+        coreidchar,
+        chanidchar,
+        archidchar
+    };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
-                                             ARRAY_LENGTH(argv), argv,
-                                             0, alloc_phys);
+    struct dcb *init_dcb = spawn_init_common(&spawn_state,
+                                             name,
+                                             ARRAY_LENGTH(argv),
+                                             argv,
+                                             0,
+                                             alloc_phys);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
-                                                  TASKCN_SLOT_MON_URPC);
+    TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
-    err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
+    err = caps_create_new(ObjType_DevFrame,
+                          core_data->urpc_frame_base,
                           core_data->urpc_frame_bits,
-                          core_data->urpc_frame_bits, urpc_frame_cte);
+                          core_data->urpc_frame_bits,
+                          urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
     /* Map urpc frame at MON_URPC_BASE */
     paging_k1om_map_table(&init_pml4[X86_64_PML4_BASE(MON_URPC_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdpt));
+                          mem_to_local_phys((lvaddr_t) init_pdpt));
     paging_k1om_map_table(&init_pdpt[X86_64_PDPT_BASE(MON_URPC_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_pdir));
+                          mem_to_local_phys((lvaddr_t) init_pdir));
     paging_k1om_map_table(&init_pdir[X86_64_PDIR_BASE(MON_URPC_BASE)],
-                            mem_to_local_phys((lvaddr_t)init_ptable));
+                          mem_to_local_phys((lvaddr_t) init_ptable));
     for (int i = 0; i < MON_URPC_SIZE / BASE_PAGE_SIZE; i++) {
         paging_k1om_map(&init_ptable[X86_64_PTABLE_BASE(MON_URPC_BASE) + i],
-                          urpc_ptr + i * BASE_PAGE_SIZE,
-                          INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
+                        urpc_ptr + i * BASE_PAGE_SIZE,
+                        INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R | PF_W));
     }
 
     // elf load the domain
     genvaddr_t entry_point;
-    err = elf_load(EM_K1OM, startup_alloc_init, &spawn_state,
+    err = elf_load(EM_K1OM,
+                   startup_alloc_init,
+                   &spawn_state,
                    local_phys_to_mem(core_data->monitor_binary),
-                   core_data->monitor_binary_size, &entry_point);
+                   core_data->monitor_binary_size,
+                   &entry_point);
     if (err_is_fail(err)) {
         //err_print_calltrace(err);
         panic("ELF load of init module failed!");
     }
 
     struct dispatcher_shared_x86_64 *init_disp_x86_64 =
-        get_dispatcher_shared_x86_64(init_dcb->disp);
+                    get_dispatcher_shared_x86_64(init_dcb->disp);
     init_disp_x86_64->disabled_save_area.rip = entry_point;
 
     return init_dcb;

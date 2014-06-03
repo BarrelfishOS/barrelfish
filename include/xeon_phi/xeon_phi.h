@@ -25,11 +25,7 @@ struct xeon_phi_boot_params
     uint8_t setup_sects;    /// must be at this very location !!!
     uint16_t root_flags;
     uint32_t syssize;       /// must be at this very location !!!
-    uint16_t ram_size;
-    uint16_t vid_mode;
-    uint16_t root_dev;
-    uint16_t boot_flag;
-    uint16_t jump;
+    uint16_t _pad2[5];
     uint32_t header;        /// must be at this very location !!!
     uint16_t version;
     uint32_t realmode_swtch;
@@ -45,17 +41,16 @@ struct xeon_phi_boot_params
     uint16_t heap_end_ptr;
     uint8_t ext_loader_ver;
     uint8_t ext_loader_type;
-    uint32_t cmdline_ptr;  /// pointer to the command line
+    uint32_t payload_offset;
     uint32_t initrd_addr_max;
     uint32_t kernel_alignment;
-    uint8_t relocatable_kernel;
-    uint8_t _pad2[3];
+    uint8_t _pad4[4];
     uint32_t cmdline_size;  /// size of the command line
     uint32_t hardware_subarch;
     uint64_t hardware_subarch_data;
-    uint32_t payload_offset;
+    uint32_t cmdline_ptr;   /// pointer to the command line
     uint32_t payload_length;
-    uint64_t setup_data;
+    uint64_t msg_base;      /// pointer to the host message base address
     uint64_t multiboot;     /// pointer to the multiboot information
 }__attribute__((packed));
 

@@ -13,7 +13,7 @@
  */
 
 #ifndef XEON_PHI_H
-#define _XEON_PHI_H
+#define XEON_PHI_H
 
 #define XEON_PHI_CBOX_BASE           0x0ULL              /* P54C Core */
 #define XEON_PHI_TXS0_BASE           0x0800780000ULL     /* Texture Sampler */
@@ -54,11 +54,17 @@
 
 
 #define XEON_PHI_SBOX_SIZE (64*1024)
+#define XEON_PHI_SBOX_SIZE_BITS (16)
 
 // TODO: Verify these...
 #define XEON_PHI_GBOX_SIZE (64*1024)
 #define XEON_PHI_DBOX_SIZE (64*1024)
 #define XEON_PHI_CBOX_SIZE (64*1024)
+
+#define XEON_PHI_SYSMEM_BASE 0x8000000000ULL
+#define XEON_PHI_SYSMEM_SIZE_BITS 39
+#define XEON_PHI_SYSMEM_SIZE (1ULL << XEON_PHI_SYSMEM_SIZE_BITS)
+
 
 
 void xeon_phi_init_early(void);

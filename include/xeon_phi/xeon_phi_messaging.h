@@ -10,6 +10,7 @@
 #ifndef XEON_PHI_MESSAGING_H_
 #define XEON_PHI_MESSAGING_H_
 
+#define XEON_PHI_MSG_INIT_SIZE 4096
 ///
 #define XEON_PHI_MSG_SIZE
 
