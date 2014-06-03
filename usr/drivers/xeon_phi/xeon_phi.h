@@ -31,12 +31,13 @@
 /*
  * Debug output switches
  */
-#define XDEBUG_ENABLED  1
-#define XDEBUG_BOOT     1
-#define XDEBUG_DMA      1
-#define XDEBUG_INT      1
-#define XDEBUG_SMPT     1
-#define XDEBUG_SERVICE  1
+#define XDEBUG_ENABLED   1
+#define XDEBUG_BOOT      1
+#define XDEBUG_DMA       1
+#define XDEBUG_INT       1
+#define XDEBUG_SMPT      1
+#define XDEBUG_SERVICE   1
+#define XDEBUG_MESSAGING 1
 
 /*
  * This defines are used to reference the MMIO registers on the host side.
@@ -87,7 +88,11 @@
 #else
 #define XSERVICE_DEBUG(x...)
 #endif
-
+#if XDEBUG_MESSAGING
+#define XMESSAGING_DEBUG(x...) XDEBUG_PRINT(" MSG | " x)
+#else
+#define XMESSAGING_DEBUG(x...)
+#endif
 /*
  * --------------------------------------------------------------------------
  * Xeon Phi Management structure

@@ -37,6 +37,19 @@
                                           "xeon_phi/xeon_phi_serial",
                                           "xeon_phi/xeon_phi_smpt", 
                                           "xeon_phi/xeon_phi_irq"]
+                    },
+                    
+                    build application { target = "xeon_phi_mgr",
+                      cFiles = [ "mgr_main.c" ],                      
+                      -- flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      -- flounderDefs = ["monitor", "xeon_phi_manager", "xeon_phi"],
+                      -- flounderBindings = ["xeon_phi"],
+                      architectures= ["k1om"],
+                      mackerelDevices = [ "xeon_phi/xeon_phi_apic", 
+                                          "xeon_phi/xeon_phi_boot", 
+                                          "xeon_phi/xeon_phi_serial",
+                                          "xeon_phi/xeon_phi_smpt", 
+                                          "xeon_phi/xeon_phi_irq"]
                     }
 ]
 

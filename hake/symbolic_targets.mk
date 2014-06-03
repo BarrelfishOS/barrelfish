@@ -504,7 +504,8 @@ XEON_PHI_MODULES =\
 	k1om/sbin/ramfsd \
 	k1om/sbin/skb \
 	k1om/sbin/spawnd \
-	k1om/sbin/startd 
+	k1om/sbin/startd \
+	k1om/sbin/xeon_phi_mgr
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
@@ -513,7 +514,7 @@ menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
 		tools/bin/weever_multiboot \
-		tools/bin/weever_builder
+		tools/bin/weever_creator
 		
 	
 	@echo ""
@@ -534,7 +535,7 @@ k1om: $(XEON_PHI_MODULES) \
 	
 	+make k1om/sbin/weever  > /dev/null
 	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever ./weever.bin
-	tools/bin/weever_builder ./weever.bin > ./weever
+	tools/bin/weever_creator ./weever.bin > ./weever
 	
 	@echo ""
 	@echo "-------------------------------------------------------------------"

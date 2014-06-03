@@ -23,6 +23,7 @@ module	/k1om/sbin/monitor
 # Special boot time domains spawned by monitor
 module  /k1om/sbin/ramfsd boot
 module  /k1om/sbin/skb boot
+module  /k1om/sbin/xeon_phi_mgr boot
 #modulenounzip /skb_ramfs.cpio.gz nospawn
 #module  /k1om/sbin/kaluga boot
 #module  /k1om/sbin/acpi boot

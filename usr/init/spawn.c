@@ -105,6 +105,18 @@ errval_t initialize_monitor(struct spawninfo *si)
     }
 #endif // __x86_64__ || __i386__
 
+#ifdef __k1om__
+    /* Give monitor system memory cap */
+        dest.cnode = si->taskcn;
+        dest.slot  = TASKCN_SLOT_SYSMEM;
+        src.cnode = cnode_task;
+        src.slot  = TASKCN_SLOT_SYSMEM;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            return err_push(err, INIT_ERR_COPY_IO_CAP);
+        }
+#endif
+
 #if __arm__
     /* Give monitor IO */
        dest.cnode = si->taskcn;

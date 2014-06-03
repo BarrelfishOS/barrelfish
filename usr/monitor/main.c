@@ -17,6 +17,10 @@
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 
+#ifdef __k1om__
+extern char **environ;
+#endif
+
 /* irefs for mem server name service and ramfs */
 iref_t mem_serv_iref = 0;
 iref_t ramfs_serv_iref = 0;
@@ -96,9 +100,20 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     while (name_serv_iref == 0) {
         messages_wait_and_handle_next();
     }
+#ifdef __k1om__
+    char args[19];
+    snprintf(args, sizeof(args), "0x%016lx", bi->host_msg);
+    char *mgr_argv[MAX_CMDLINE_ARGS + 1];
+    spawn_tokenize_cmdargs(args, mgr_argv, ARRAY_LENGTH(mgr_argv));
+    err = spawn_domain_with_args("xeon_phi_mgr", mgr_argv,environ);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning xeon_phi_mgr");
+        return err;
+    }
+#endif
 
     /* initialise rcap_db */
-    err = rcap_db_init(); 
+    err = rcap_db_init();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "monitor rcap_db init failed");
         return err;

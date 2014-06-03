@@ -193,6 +193,9 @@ static errval_t load_cmdline(struct xeon_phi *phi,
 {
     uint32_t cmdlen = 0;
 
+    struct xeon_phi_boot_params *bp;
+    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+
     XBOOT_DEBUG("copying cmdline onto card, offset = 0x%lx\n", load_offset);
 
     void *buf = (void *) (phi->apt.vbase + load_offset);
@@ -222,10 +225,8 @@ static errval_t load_cmdline(struct xeon_phi *phi,
     phi->cmdline = buf;
     phi->cmdlen = cmdlen;
 
-    struct xeon_phi_boot_params *bp;
-    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+
     bp->cmdline_ptr = (uint32_t)(load_offset);
-    bp->payload_offset = (uint32_t)(load_offset);
     bp->cmdline_size = (uint32_t)cmdlen;
 
     return SYS_ERR_OK;

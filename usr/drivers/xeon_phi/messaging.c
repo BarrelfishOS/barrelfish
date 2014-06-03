@@ -18,6 +18,9 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_messaging.h>
+
 #include "xeon_phi.h"
 #include "messaging.h"
 
@@ -42,7 +45,7 @@ errval_t messaging_init(struct xeon_phi *phi)
     }
 
 
-    err = frame_alloc(&mi->frame, 4096, &mi->size);
+    err = frame_alloc(&mi->frame, XEON_PHI_MSG_INIT_SIZE, &mi->size);
     if (err_is_fail(err)) {
         return err;
     }
@@ -57,6 +60,8 @@ errval_t messaging_init(struct xeon_phi *phi)
 
     mi->base = id.base;
 
+    XMESSAGING_DEBUG("Messaging Base = %016lx\n", mi->base);
+
     err = vspace_map_one_frame(&mi->addr, mi->size, mi->frame, NULL, NULL);
     if (err_is_fail(err)) {
         cap_destroy(mi->frame);
@@ -70,6 +75,10 @@ errval_t messaging_init(struct xeon_phi *phi)
     *test = 0x12345678;
 
     phi->msg = mi;
+
+    struct xeon_phi_boot_params *bp;
+    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+    bp->msg_base = mi->base;
 
     return SYS_ERR_OK;
 }
