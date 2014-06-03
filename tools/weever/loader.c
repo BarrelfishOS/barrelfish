@@ -212,9 +212,9 @@ loader(uint64_t magic,
      */
     lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, BASE_PAGE_SIZE)
             ;
-    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->payload_offset, bp->cmdline_size);
+    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->cmdline_ptr, bp->cmdline_size);
 
-    bp->payload_offset = mb_img_start;
+    bp->cmdline_ptr = mb_img_start;
     mb_img_start = ROUND_UP(mb_img_start+bp->cmdline_size, 1<<20);
     lpaddr_t mb_img_orig = bp->ramdisk_image;
 

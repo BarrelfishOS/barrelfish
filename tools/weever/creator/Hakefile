@@ -10,5 +10,5 @@
 --
 ----------------------------------------------------------------------
 
-[ compileNativeC "weever_builder" ["build_weever.c"] ["-std=gnu99", "-g"] [] ]
+[ compileNativeC "weever_creator" ["weever_creator.c"] ["-std=gnu99", "-g"] [] ]
 
