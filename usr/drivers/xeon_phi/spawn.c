@@ -40,21 +40,18 @@ errval_t xeon_phi_spawn_spawn(struct xeon_phi *phi,
     char *argv[1];
     argv[0] = NULL;
 
-    char name[sizeof(data->name)+15];
-    snprintf(name, sizeof(data->name)+15, "%s", "xeon_phi_test");
-
-    XSPAWN_DEBUG("Spawning %s\n", name);
+    XSPAWN_DEBUG("Spawning %s\n", data->name);
     /*
      * TODO: handle arguments
      */
     domainid_t new_domain;
-    err = spawn_program(data->core, name, argv, NULL, 0, &new_domain);
+    err = spawn_program(data->core, data->name, argv, NULL, 0, &new_domain);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawn %s on core %d", data->name, data->core);
     }
 
-    XSPAWN_DEBUG("Spawned %s\n", data->name);
+    XSPAWN_DEBUG("Spawned %s with domain id %d\n", data->name, new_domain);
 
     return SYS_ERR_OK;
 }

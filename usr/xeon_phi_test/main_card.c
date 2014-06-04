@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
     debug_printf("Xeon Phi Manager started.\n");
 
-    err = service_start("foof");
+    err = service_start("xeon_phi_test_iface");
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not start the service\n");
     }

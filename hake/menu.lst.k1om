@@ -30,7 +30,7 @@ module  /k1om/sbin/xeon_phi_mgr boot
 module  /k1om/sbin/spawnd boot bootk1om=0-3
 module  /k1om/sbin/startd boot
 #module /k1om/sbin/routing_setup boot
-
+module /k1om/sbin/xeon_phi_test
 #low gddr memory
 #mmap map 0x0000000000 0x0400000000 1
 

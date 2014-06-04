@@ -22,8 +22,8 @@
 
 
 #define XEON_PHI_MSG_CMD_OPEN      0x01
-#define XEON_PHI_MSG_CMD_SPAWN     0x02
-#define XEON_PHI_MSG_CMD_ERROR     0x03
+#define XEON_PHI_MSG_CMD_SPAWN     0x03
+#define XEON_PHI_MSG_CMD_ERROR     0x04
 #define XEON_PHI_MSG_CMD_OTHER     0x0F
 
 #define XEON_PHI_MSG_STATE_UNSEEN  0x01

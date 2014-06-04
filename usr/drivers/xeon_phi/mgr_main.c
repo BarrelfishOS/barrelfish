@@ -16,10 +16,14 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
+#include <if/xeon_phi_messaging_defs.h>
+
 #include <xeon_phi/xeon_phi.h>
+
 
 #include "xeon_phi.h"
 #include "messaging.h"
+#include "service.h"
 #include "sysmem_caps.h"
 
 static struct xeon_phi xphi;
@@ -33,6 +37,18 @@ static struct capref sysmem_cap = {
 };
 
 static struct capref host_cap;
+
+static inline errval_t handle_messages(void)
+{
+    errval_t err = event_dispatch_non_block(get_default_waitset());
+    if (err_is_fail(err)) {
+        if (err_no(err) == LIB_ERR_NO_EVENT) {
+            return SYS_ERR_OK;
+        }
+        return err;
+    }
+    return SYS_ERR_OK;
+}
 
 
 
@@ -72,13 +88,12 @@ int main(int argc,
     messaging_init(&xphi, host_cap);
 
     XMESSAGING_DEBUG("Start polling for messages...\n");
-    while(1) {
+    while (1) {
         err = messaging_poll(&xphi);
+        err = handle_messages();
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "Error while polling");
+            USER_PANIC_ERR(err, "msg loop");
         }
-        thread_yield();
-
     }
 
     XDEBUG("Messaging loop terminated...\n");

@@ -17,6 +17,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+
+#include <if/xeon_phi_messaging_defs.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_messaging.h>
@@ -24,7 +27,7 @@
 #include "xeon_phi.h"
 #include "messaging.h"
 #include "spawn.h"
-
+#include "sysmem_caps.h"
 /*
  * This messaging infrastructure is only used to bootstrap other messaging
  * implementations such as UMP or VirtIO.
@@ -108,10 +111,82 @@ errval_t messaging_init(struct xeon_phi *phi,
 }
 
 
+struct msg_open_state {
+    struct capref frame;
+    uint8_t type;
+    struct xeon_phi_messaging_binding *b;
+};
+
+static void msg_send_open_cb(void *a)
+{
+    XMESSAGING_DEBUG("sent..\n");
+    free(a);
+}
+
+static void msg_send_open(void *a)
+{
+    XMESSAGING_DEBUG("send open..\n");
+    errval_t err;
+    struct msg_open_state *s = a;
+    struct xeon_phi_messaging_binding *b = s->b;
+    struct event_closure txcont = MKCONT(msg_send_open_cb, s);
+
+    err = xeon_phi_messaging_open__tx(b, txcont, s->frame, s->type);
+
+    if (err_is_fail(err)) {
+      DEBUG_ERR(err, "error sending msg_string message\n");
+      if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            struct waitset *ws = get_default_waitset();
+        txcont = MKCONT(msg_send_open, s);
+            err = b->register_send(b, ws, txcont);
+            if (err_is_fail(err)) {
+                // note that only one continuation may be registered at a time
+                DEBUG_ERR(err, "register_send on binding failed!");
+            }
+        }
+    }
+}
+
+
+static void msg_bind_cb(void *st, errval_t err, struct xeon_phi_messaging_binding *b)
+{
+    XMESSAGING_DEBUG("bind callback..\n");
+    if (err_is_fail(err)) {
+        debug_printf("binding failed\n");
+    }
+
+    struct msg_open_state *s = st;
+    s->b = b;
+
+    msg_send_open(st);
+}
+
 static errval_t handle_msg_open(struct xeon_phi *phi,
                                 struct xeon_phi_msg_open *open)
 {
-    return SYS_ERR_OK;
+    errval_t err;
+    iref_t iref;
+    XMESSAGING_DEBUG("nameservice lookup\n");
+    err = nameservice_blocking_lookup(open->name, &iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct msg_open_state *st = malloc(sizeof(struct msg_open_state));
+
+    err = sysmem_cap_request(open->base, open->size, &st->frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to get the cap request\n");
+        return err;
+    }
+
+    st->type = open->type;
+    XMESSAGING_DEBUG("binding...\n");
+    err = xeon_phi_messaging_bind(iref, msg_bind_cb, st, get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "binding failes\n");
+    }
+    return err;
 }
 
 static errval_t handle_msg_err(struct xeon_phi *phi,

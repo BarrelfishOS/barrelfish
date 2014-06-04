@@ -23,6 +23,7 @@
 #include "smpt.h"
 #include "service.h"
 #include "messaging.h"
+#include "sysmem_caps.h"
 
 volatile uint32_t bootstrap_done = 0;
 
@@ -79,9 +80,27 @@ int main(int argc,
     hdr.size = sizeof(struct xeon_phi_msg_spawn);
     hdr.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
     struct xeon_phi_msg_spawn data;
-    data.length=snprintf(data.name, 54, "xeon_phi_test");
+    data.length=snprintf(data.name, 54, "k1om/sbin/xeon_phi_test");
     data.core = 2;
     messaging_send(&xphi, hdr, &data);
+
+
+    struct capref frame;
+    err = frame_alloc(&frame, 8192, NULL);
+    assert(err_is_ok(err));
+
+    struct frame_identity id;
+    err=invoke_frame_identify(frame, &id);
+
+
+    hdr.size = sizeof(struct xeon_phi_msg_open);
+    hdr.flags.cmd = XEON_PHI_MSG_CMD_OPEN;
+    struct xeon_phi_msg_open data2;
+    snprintf(data2.name, 40, "xeon_phi_test_iface");
+    data2.base = id.base;
+    data2.size = 1UL<<id.bits;
+    data2.type = 0x1;
+    messaging_send(&xphi, hdr, &data2);
 
     service_start(&xphi);
 
