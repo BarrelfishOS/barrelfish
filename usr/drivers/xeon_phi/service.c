@@ -27,7 +27,7 @@ static uint32_t is_exported;
 
 static iref_t svc_iref;
 
-static inline errval_t handle_messages()
+static inline errval_t handle_messages(void)
 {
     uint32_t data = xeon_phi_serial_handle_recv();
     errval_t err = event_dispatch_non_block(get_default_waitset());

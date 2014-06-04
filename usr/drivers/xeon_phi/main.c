@@ -20,6 +20,7 @@
 #include "xeon_phi.h"
 #include "smpt.h"
 #include "service.h"
+#include "messaging.h"
 
 volatile uint32_t bootstrap_done = 0;
 
