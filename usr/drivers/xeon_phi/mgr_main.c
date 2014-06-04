@@ -68,7 +68,14 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }
 
+
     messaging_init(&xphi, host_cap);
 
+    XMESSAGING_DEBUG("Start polling for messages...\n");
+    while(1) {
+        messaging_poll(&xphi);
+    }
+
+    XDEBUG("Messaging loop terminated...\n");
     return 0;
 }

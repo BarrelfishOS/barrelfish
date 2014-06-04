@@ -15,58 +15,61 @@
 #ifndef XEON_PHI_MESSAGING_H
 #define XEON_PHI_MESSAGING_H
 
+#include <xeon_phi/xeon_phi_messaging.h>
 
-#define XEON_PHI_MSG_CHANS 63
 #define XEON_PHI_MSG_INIT_SIZE 4096
+#define XEON_PHI_MSG_CHANS  (XEON_PHI_MSG_INIT_SIZE/2/64)
 
 #define XEON_PHI_CHAN_TYPE_INVAL  0x00
 #define XEON_PHI_CHAN_TYPE_VIRTIO 0x01
 #define XEON_PHI_CHAN_TYPE_UMP    0x02
-#define XEON_PHI_CHAN_TYPE_META   0x03
 #define XEON_PHI_CHAN_TYPE_OTHER  0xFF
 
-#define XEON_PHI_CHAN_OWNER_SELF  0x1
-#define XEON_PHI_CHAN_OWNER_OTHER 0x0
 
-#define XEON_PHI_CHAN_DIR_IN    0x1
-#define XEON_PHI_CHAN_DIR_OUT   0x0
+#define XEON_PHI_MSG_CMD_OPEN      0x01
+#define XEON_PHI_MSG_CMD_CLOSE     0x02
 
-#define XEON_PHI_ADDR_LOCAL     0x01
-#define XEON_PHI_ADDR_REMOTE    0x02
+#define XEON_PHI_MSG_STATE_UNSEEN  0x01
+#define XEON_PHI_MSG_STATE_SEEN    0x80
 
-#define XEON_PHI_MSG_META_HOST      0x01
-#define XEON_PHI_MSG_META_CARD      0x02
-#define XEON_PHI_MSG_META_NEW       0x04
-#define XEON_PHI_MSG_META_CHANGE    0x08
+#define XEON_PHI_MSG_STATE_VALID    0xFF00FF00
+#define XEON_PHI_MSG_STATE_CLEAR    0x0
+
+/**
+ * Representation of a message header.
+ */
+struct xeon_phi_msg_hdr
+{
+    uint32_t valid;
+    uint16_t size;
+    uint16_t type;
+};
+
+struct xeon_phi_msg_data
+{
+    struct xeon_phi_msg_hdr ctrl;
+    union {
+        struct xeon_phi_msg_open open;
+        uint64_t raw[7];
+    } data;
+
+};
+
 /**
  * represents the information needed to create a new messaging channel
  * between the card and the host
  */
 struct xeon_phi_msg_chan
 {
-    lpaddr_t base;      ///< physical address of the buffer
-    lvaddr_t vbase;     ///< virtual address of the messaging buffer (own VSPACE)
-    uint64_t size;      ///< size of the virtual buffer in bytes
-    uint64_t location;  ///< location information where the base refers to
-    struct {
-        uint64_t type   : 8; ///< the type of the channel
-        uint64_t owner  : 1; ///< indicates if we are the owner
-        uint64_t dir    : 1; ///< the direction of the channel
-        uint64_t ack    : 1; ///< acknowledge of changes
-        uint64_t _res   : 53;///< reserved
-    } flags;            ///< channel flags
-    uint64_t _pad[3];   ///< padding for full cache line
+    struct xeon_phi_msg_data data[XEON_PHI_MSG_CHANS];
 };
 
-/**
- * meta information about the channel
- */
-struct xeon_phi_msg_meta
+struct xeon_phi_msg
 {
-    uint8_t meta_changed;
-    uint8_t changed[XEON_PHI_MSG_CHANS];
-    struct xeon_phi_msg_chan chan[XEON_PHI_MSG_CHANS];
+    struct xeon_phi_msg_chan h2c;
+    struct xeon_phi_msg_chan c2h;
 };
+
 
 
 /**
@@ -78,7 +81,9 @@ struct msg_info
     struct capref frame;
     lpaddr_t base;
     size_t size;
-    struct xeon_phi_msg_meta *meta;
+    struct xeon_phi_msg_data *out;
+    struct xeon_phi_msg_data *in;
+    struct xeon_phi_msg *meta;
 };
 
 /**
@@ -111,6 +116,23 @@ errval_t messaging_poll(struct xeon_phi *phi);
  */
 errval_t messaging_channel_open(struct xeon_phi *phi,
                                 struct capref frame);
+
+
+/**
+ * \brief sends a new message over the host-card channel
+ *
+ * \param phi    pointer to the xeon phi data structure
+ * \param hdr    message header
+ * \param data   pointer to the data to send
+ * \param length amount of data to be sent
+ *
+ * \return
+ */
+errval_t messaging_send(struct xeon_phi *phi,
+                        struct xeon_phi_msg_hdr hdr,
+                        void *data);
+
+
 
 /**
  * \brief closes an opened channel

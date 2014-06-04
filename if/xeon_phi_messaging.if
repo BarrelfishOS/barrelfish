@@ -1,5 +1,9 @@
+/** \file
+ *  \brief Xeon Phi Messaging Interface
+ */
+
 /*
- * Copyright (c) 2014 ETH Zurich.
+ * Copyright (c) 2012, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,19 +11,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef XEON_PHI_MESSAGING_H_
-#define XEON_PHI_MESSAGING_H_
-
-
-struct xeon_phi_msg_open
-{
-    lpaddr_t base;
-    uint64_t size;
-    char name[40];
+interface xeon_phi_messaging "Xeon Phi Messaging Interface" {
+    
+    message open(cap msgframe, uint8 type);
+    
 };
-
-
-
-
-
-#endif // XEON_PHI_MESSAGING_H_

@@ -70,6 +70,7 @@
                "replay",
                "xeon_phi",
                "xeon_phi_manager",
+               "xeon_phi_messaging",
                "block_service",
                "bulk_ctrl",
                "arrakis",

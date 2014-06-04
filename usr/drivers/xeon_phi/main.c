@@ -31,6 +31,8 @@ int main(int argc,
     errval_t err;
     debug_printf("Xeon Phi host module started.\n");
 
+    xphi.is_client = 0x0;
+
     err = host_bootstrap();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not do the host bootstrap\n");
@@ -68,6 +70,12 @@ int main(int argc,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not register with the other drivers");
     }
+
+    // sending a test message
+    struct xeon_phi_msg_hdr hdr;
+    hdr.size = sizeof(uint64_t);
+    uint64_t data = 0x1;
+    messaging_send(&xphi, hdr, &data);
 
     service_start(&xphi);
 
