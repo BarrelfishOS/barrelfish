@@ -25,6 +25,7 @@
 
 #include "xeon_phi.h"
 
+
 extern struct bootinfo *bi;
 extern volatile uint32_t bootstrap_done;
 

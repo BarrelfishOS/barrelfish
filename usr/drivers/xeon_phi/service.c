@@ -18,6 +18,7 @@
 #include <xeon_phi/xeon_phi.h>
 
 #include <if/xeon_phi_defs.h>
+#include <if/xeon_phi_messaging_defs.h>
 
 #include "xeon_phi.h"
 #include "service.h"

@@ -20,14 +20,11 @@
 #define XEON_PHI_MSG_INIT_SIZE 4096
 #define XEON_PHI_MSG_CHANS  (XEON_PHI_MSG_INIT_SIZE/2/64)
 
-#define XEON_PHI_CHAN_TYPE_INVAL  0x00
-#define XEON_PHI_CHAN_TYPE_VIRTIO 0x01
-#define XEON_PHI_CHAN_TYPE_UMP    0x02
-#define XEON_PHI_CHAN_TYPE_OTHER  0xFF
-
 
 #define XEON_PHI_MSG_CMD_OPEN      0x01
-#define XEON_PHI_MSG_CMD_CLOSE     0x02
+#define XEON_PHI_MSG_CMD_SPAWN     0x02
+#define XEON_PHI_MSG_CMD_ERROR     0x03
+#define XEON_PHI_MSG_CMD_OTHER     0x0F
 
 #define XEON_PHI_MSG_STATE_UNSEEN  0x01
 #define XEON_PHI_MSG_STATE_SEEN    0x80
@@ -40,9 +37,13 @@
  */
 struct xeon_phi_msg_hdr
 {
-    uint32_t valid;
-    uint16_t size;
-    uint16_t type;
+    uint32_t valid; ///< indicates that the message is fully written
+    uint16_t size;  ///< the length of the message in bytes (max 58)
+    struct {
+        uint16_t cmd : 4;  ///< the type of the payload
+        uint16_t _res : 12;
+    } flags;        ///< flags for this message
+
 };
 
 struct xeon_phi_msg_data
@@ -50,6 +51,9 @@ struct xeon_phi_msg_data
     struct xeon_phi_msg_hdr ctrl;
     union {
         struct xeon_phi_msg_open open;
+        struct xeon_phi_msg_kill kill;
+        struct xeon_phi_msg_spawn spawn;
+        struct xeon_phi_msg_err err;
         uint64_t raw[7];
     } data;
 

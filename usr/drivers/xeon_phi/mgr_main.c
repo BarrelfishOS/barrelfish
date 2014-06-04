@@ -73,7 +73,12 @@ int main(int argc,
 
     XMESSAGING_DEBUG("Start polling for messages...\n");
     while(1) {
-        messaging_poll(&xphi);
+        err = messaging_poll(&xphi);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Error while polling");
+        }
+        thread_yield();
+
     }
 
     XDEBUG("Messaging loop terminated...\n");

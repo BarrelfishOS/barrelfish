@@ -23,6 +23,7 @@
 
 #include "xeon_phi.h"
 #include "messaging.h"
+#include "spawn.h"
 
 /*
  * This messaging infrastructure is only used to bootstrap other messaging
@@ -106,9 +107,48 @@ errval_t messaging_init(struct xeon_phi *phi,
     return SYS_ERR_OK;
 }
 
-static errval_t handle_msg_recv(struct xeon_phi_msg_data *data)
+
+static errval_t handle_msg_open(struct xeon_phi *phi,
+                                struct xeon_phi_msg_open *open)
 {
-    XMESSAGING_DEBUG("Received message = %016lx\n", data->data.raw[0]);
+    return SYS_ERR_OK;
+}
+
+static errval_t handle_msg_err(struct xeon_phi *phi,
+                               struct xeon_phi_msg_err *err)
+{
+    return SYS_ERR_OK;
+}
+
+static errval_t handle_msg_recv(struct xeon_phi *phi,
+                                struct xeon_phi_msg_data *data)
+{
+    errval_t err;
+    switch(data->ctrl.flags.cmd) {
+        case XEON_PHI_MSG_CMD_OPEN :
+            XMESSAGING_DEBUG("Received Open Command\n");
+            err = handle_msg_open(phi, &data->data.open);
+            break;
+        case  XEON_PHI_MSG_CMD_SPAWN :
+            XMESSAGING_DEBUG("Received Spawn Command\n");
+            err = xeon_phi_spawn_spawn(phi, &data->data.spawn);
+            break;
+        case  XEON_PHI_MSG_CMD_ERROR :
+            XMESSAGING_DEBUG("Received Error Command\n");
+            err = handle_msg_err(phi, &data->data.err);
+            break;
+        case  XEON_PHI_MSG_CMD_OTHER :
+            XMESSAGING_DEBUG("Received Other Command\n");
+            err = -1;
+            break;
+        default:
+            USER_PANIC("Received message with unknown command\n");
+            break;
+    }
+
+    if (err_is_fail(err)) {
+
+    }
 
     return SYS_ERR_OK;
 }
@@ -130,15 +170,8 @@ errval_t messaging_poll(struct xeon_phi *phi)
 
     struct xeon_phi_msg_data *data = phi->msg->in;
     if (data->ctrl.valid == XEON_PHI_MSG_STATE_VALID) {
-        if (0) {
-            err = handle_msg_recv(data);
-        }
-        if (data->data.raw[0] < 10) {
-            struct xeon_phi_msg_hdr hdr;
-            hdr.size = sizeof(uint64_t);
-            uint64_t payload = data->data.raw[0] + 1;
-            messaging_send(phi, hdr, &payload);
-        }
+        err = handle_msg_recv(phi, data);
+
         struct xeon_phi_msg_chan *chan;
         if (phi->is_client) {
             chan = &phi->msg->meta->h2c;
@@ -146,12 +179,14 @@ errval_t messaging_poll(struct xeon_phi *phi)
             chan = &phi->msg->meta->c2h;
         }
 
+        data->ctrl.valid = XEON_PHI_MSG_STATE_CLEAR;
+
         data = data + 1;
         if (data == (chan->data + XEON_PHI_MSG_CHANS)) {
             data = chan->data;
         }
         phi->msg->in = data;
-        data->ctrl.valid = XEON_PHI_MSG_STATE_CLEAR;
+
     }
 
     return SYS_ERR_OK;
@@ -184,6 +219,7 @@ errval_t messaging_send(struct xeon_phi *phi,
                         struct xeon_phi_msg_hdr hdr,
                         void *data)
 {
+    XMESSAGING_DEBUG("Sending Message. [%016lx]\n", *((uint64_t *)data));
     struct xeon_phi_msg_data *msg = phi->msg->out;
 
     // allowing only single messages for now
@@ -204,6 +240,8 @@ errval_t messaging_send(struct xeon_phi *phi,
     /* set the valid field to signal the other side */
     msg->ctrl.valid = XEON_PHI_MSG_STATE_VALID;
 
+    XMESSAGING_DEBUG("Message sent.\n");
+
     /* update the next out pointer */
     struct xeon_phi_msg_chan *chan;
     if (phi->is_client) {
@@ -216,7 +254,7 @@ errval_t messaging_send(struct xeon_phi *phi,
     if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
         msg = chan->data;
     }
-    phi->msg->out = data;
+    phi->msg->out = msg;
 
     return SYS_ERR_OK;
 }

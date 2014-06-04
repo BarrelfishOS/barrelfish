@@ -505,7 +505,8 @@ XEON_PHI_MODULES =\
 	k1om/sbin/skb \
 	k1om/sbin/spawnd \
 	k1om/sbin/startd \
-	k1om/sbin/xeon_phi_mgr
+	k1om/sbin/xeon_phi_mgr \
+	k1om/sbin/xeon_phi_test
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om

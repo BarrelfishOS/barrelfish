@@ -24,7 +24,7 @@ enum xpm_svc_state
     XPM_SVC_STATE_NS_REGISTER_FAIL,
     XPM_SVC_STATE_RUNNING
 };
-
+#if 0
 static enum xpm_svc_state svc_state = XPM_SVC_STATE_EXPORTING;
 
 static iref_t messaging_iref;
@@ -35,6 +35,7 @@ static iref_t messaging_iref;
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
 
 };
+#ndif
 
 /*
  * --------------------------------------------------------------------------
@@ -74,7 +75,7 @@ static void svc_export_cb(void *st,
     DEBUG_SVC("ns registered\n");
     svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
 }
-
+#endif
 /**
  * \brief   starts Xeon Phi manager service
  *
@@ -82,6 +83,7 @@ static void svc_export_cb(void *st,
  */
 errval_t service_start(char *iface)
 {
+#if 0
     DEBUG_SVC("starting service...\n");
     errval_t err;
 
@@ -112,5 +114,8 @@ errval_t service_start(char *iface)
     messages_handler_loop();
 
     DEBUG_SVC("Message handler terminated.\n");
+#endif
     return -1;
+
 }
+

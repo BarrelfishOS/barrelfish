@@ -17,6 +17,8 @@
 #include <barrelfish/barrelfish.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
 
+#include <xeon_phi/xeon_phi_messaging.h>
+
 #include "xeon_phi.h"
 #include "smpt.h"
 #include "service.h"
@@ -74,8 +76,11 @@ int main(int argc,
 
     // sending a test message
     struct xeon_phi_msg_hdr hdr;
-    hdr.size = sizeof(uint64_t);
-    uint64_t data = 0x1;
+    hdr.size = sizeof(struct xeon_phi_msg_spawn);
+    hdr.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
+    struct xeon_phi_msg_spawn data;
+    data.length=snprintf(data.name, 54, "xeon_phi_test");
+    data.core = 2;
     messaging_send(&xphi, hdr, &data);
 
     service_start(&xphi);

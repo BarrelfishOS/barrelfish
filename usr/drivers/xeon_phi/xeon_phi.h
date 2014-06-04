@@ -12,6 +12,8 @@
 
 #include <xeon_phi/xeon_phi.h>
 
+#include "debug.h"
+
 /*
  * Common setting values
  */
@@ -28,77 +30,7 @@
 /// the number of MSIX interrupts we use
 #define XEON_PHI_MSIX_NUM     1
 
-/*
- * Debug output switches
- */
-#define XDEBUG_ENABLED   1
-#define XDEBUG_BOOT      1
-#define XDEBUG_DMA       1
-#define XDEBUG_INT       1
-#define XDEBUG_SMPT      1
-#define XDEBUG_SERVICE   1
-#define XDEBUG_MESSAGING 1
-#define XDEBUG_SYSMEM    1
 
-/*
- * This defines are used to reference the MMIO registers on the host side.
- *
- * The Mackerel Specifications use the SBOX or DBOX baseaddress as their
- * register base. however the SBOX or DBOX have a certain offset into the
- * MMIO range.
- */
-#define XEON_PHI_HOST_DBOX_OFFSET      0x00000000
-#define XEON_PHI_HOST_SBOX_OFFSET      0x00010000
-
-#define XEON_PHI_MMIO_TO_SBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_SBOX_OFFSET))
-#define XEON_PHI_MMIO_TO_DBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_DBOX_OFFSET))
-
-/*
- * --------------------------------------------------------------------------
- * Debug output generation
- */
-#if XDEBUG_ENABLED
-#define XDEBUG(x...) debug_printf(x)
-#else
-#define XDEBUG_PRINT(x... )
-#endif
-#if XDEBUG_BOOT
-#define XBOOT_DEBUG(x...) XDEBUG(" BOOT | " x)
-#else
-#define XBOOT_DEBUG(x...)
-#endif
-#if XDEBUG_DMA
-#define XDMA_DEBUG(x...) XDEBUG(" DMA | " x)
-#else
-#define XDMA_DEBUG(x...)
-#endif
-#if XDEBUG_INT
-#define XINT_DEBUG(x...) XDEBUG(" INT | " x)
-#else
-#define XINT_DEBUG(x...)
-#endif
-#if XDEBUG_SMPT
-#define XSMPT_DEBUG(x...) XDEBUG(" SMPT | " x)
-#else
-#define XSMPT_DEBUG(x...)
-#endif
-#if XDEBUG_SERVICE
-#define XSERVICE_DEBUG(x...) XDEBUG(" SVC | " x)
-#else
-#define XSERVICE_DEBUG(x...)
-#endif
-#if XDEBUG_MESSAGING
-#define XMESSAGING_DEBUG(x...) XDEBUG(" MSG | " x)
-#else
-#define XMESSAGING_DEBUG(x...)
-#endif
-#if XDEBUG_SYSMEM
-#define XSYSMEM_DEBUG(x...) XDEBUG(" SYSM | " x)
-#else
-#define XSYSMEM_DEBUG(x...)
-#endif
 /*
  * --------------------------------------------------------------------------
  * Xeon Phi Management structure
