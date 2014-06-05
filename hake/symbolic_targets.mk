@@ -177,6 +177,7 @@ MODULES_x86_64= \
 	sbin/xeon_phi \
 	sbin/xeon_phi_manager \
 	sbin/spin \
+	sbin/xeon_phi_test
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \
@@ -505,7 +506,7 @@ XEON_PHI_MODULES =\
 	k1om/sbin/skb \
 	k1om/sbin/spawnd \
 	k1om/sbin/startd \
-	k1om/sbin/xeon_phi_mgr \
+	k1om/sbin/xeon_phi \
 	k1om/sbin/xeon_phi_test
 	
 

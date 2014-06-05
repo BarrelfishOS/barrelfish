@@ -105,9 +105,9 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     snprintf(args, sizeof(args), "0x%016lx", bi->host_msg);
     char *mgr_argv[MAX_CMDLINE_ARGS + 1];
     spawn_tokenize_cmdargs(args, mgr_argv, ARRAY_LENGTH(mgr_argv));
-    err = spawn_domain_with_args("xeon_phi_mgr", mgr_argv,environ);
+    err = spawn_domain_with_args("xeon_phi", mgr_argv,environ);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed spawning xeon_phi_mgr");
+        DEBUG_ERR(err, "failed spawning xeon_phi");
         return err;
     }
 #endif

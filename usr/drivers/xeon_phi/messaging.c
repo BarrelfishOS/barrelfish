@@ -28,6 +28,9 @@
 #include "messaging.h"
 #include "spawn.h"
 #include "sysmem_caps.h"
+
+struct xeon_phi *xeon_phi;
+
 /*
  * This messaging infrastructure is only used to bootstrap other messaging
  * implementations such as UMP or VirtIO.
@@ -47,6 +50,8 @@ errval_t messaging_init(struct xeon_phi *phi,
     errval_t err;
 
     assert(phi->msg == NULL);
+
+    xeon_phi = phi;
 
     struct msg_info *mi = malloc(sizeof(struct msg_info));
     if (mi == NULL) {
@@ -271,11 +276,27 @@ errval_t messaging_poll(struct xeon_phi *phi)
  * \brief registers a new frame for the shared messaging channel to be used
  *        for communication purposes
  *
- * \param phi   the card to initialize the messaging for
  * \param frame capability representing the frame to be used
+ * \param type  type identifier of the channel
+ *
+ * \returns SYS_ERR_OK on success
  */
-errval_t messaging_channel_open(struct xeon_phi *phi,
-                                struct capref frame)
+errval_t messaging_send_open(struct capref frame,
+                             uint8_t type)
+{
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief sends a spawn command over the Xeon Phi channel
+ *
+ * \param core id of the core on which to spawn the program
+ * \param name the name of the program to spawn
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t messaging_send_spawn(coreid_t core,
+                              char *name)
 {
 
     return SYS_ERR_OK;
@@ -333,3 +354,5 @@ errval_t messaging_send(struct xeon_phi *phi,
 
     return SYS_ERR_OK;
 }
+
+

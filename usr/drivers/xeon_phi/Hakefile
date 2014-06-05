@@ -27,7 +27,8 @@
                                               "spawndomain", 
                                               "elf", 
                                               "bench", 
-                                              "xeon_phi_manager_client" ],
+                                              "xeon_phi_manager_client", 
+                                               "xeon_phi_messaging"],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderDefs = ["monitor", "xeon_phi_manager", "xeon_phi", "xeon_phi_messaging"],
                       flounderBindings = ["xeon_phi", "xeon_phi_messaging"],
@@ -39,7 +40,7 @@
                                           "xeon_phi/xeon_phi_irq"]
                     },
                     
-                    build application { target = "xeon_phi_mgr",
+                    build application { target = "xeon_phi",
                       cFiles = [ "mgr_main.c",
                                  "sysmem_caps.c",
                                  "spawn.c",
@@ -47,7 +48,7 @@
                       -- flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderDefs = ["xeon_phi_messaging"],
                       flounderBindings = ["xeon_phi_messaging"],
-                      addLibraries = libDeps [ "mm", "spawndomain" ],
+                      addLibraries = libDeps [ "mm", "spawndomain", "xeon_phi_messaging" ],
                       architectures= ["k1om"],
                       mackerelDevices = [ "xeon_phi/xeon_phi_apic", 
                                           "xeon_phi/xeon_phi_boot", 

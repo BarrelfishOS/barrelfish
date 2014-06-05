@@ -115,12 +115,24 @@ errval_t messaging_poll(struct xeon_phi *phi);
  * \brief registers a new frame for the shared messaging channel to be used
  *        for communication purposes
  *
- * \param phi   the card to initialize the messaging for
  * \param frame capability representing the frame to be used
+ * \param type  type identifier of the channel
+ *
+ * \returns SYS_ERR_OK on success
  */
-errval_t messaging_channel_open(struct xeon_phi *phi,
-                                struct capref frame);
+errval_t messaging_send_open(struct capref frame,
+                             uint8_t type);
 
+/**
+ * \brief sends a spawn command over the Xeon Phi channel
+ *
+ * \param core id of the core on which to spawn the program
+ * \param name the name of the program to spawn
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t messaging_send_spawn(coreid_t core,
+                              char *name);
 
 /**
  * \brief sends a new message over the host-card channel
@@ -136,15 +148,5 @@ errval_t messaging_send(struct xeon_phi *phi,
                         struct xeon_phi_msg_hdr hdr,
                         void *data);
 
-
-
-/**
- * \brief closes an opened channel
- *
- * \param phi   the card to initialize the messaging for
- * \param frame capability representing the frame to be used
- */
-errval_t messaging_channel_close(struct xeon_phi *phi,
-                                 struct capref frame);
 
 #endif /* XEON_PHI_MESSAGING_H_ */

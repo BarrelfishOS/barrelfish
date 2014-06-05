@@ -49,7 +49,7 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
     }
 
 #ifdef __k1om__
-    if (!strcmp(name, "xeon_phi_mgr")) {
+    if (!strcmp(name, "xeon_phi")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_IO;
         src.cnode = cnode_task;
@@ -236,7 +236,7 @@ errval_t spawn_all_domains(void)
            !strcmp(short_name, "cpu") ||
            !strcmp(short_name, "monitor") ||
            !strcmp(short_name, "mem_serv")||
-           !strcmp(short_name, "xeon_phi_mgr")) {
+           !strcmp(short_name, "xeon_phi")) {
             continue;
         }
 

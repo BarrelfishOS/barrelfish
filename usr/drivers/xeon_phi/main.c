@@ -29,6 +29,11 @@ volatile uint32_t bootstrap_done = 0;
 
 struct xeon_phi xphi;
 
+struct xeon_phi_messaging_cb msg_cb = {
+    .open = messaging_send_open,
+    .spawn = messaging_send_spawn
+};
+
 int main(int argc,
          char *argv[])
 {
@@ -67,12 +72,22 @@ int main(int argc,
 
     err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not boot the card\n");
+        USER_PANIC_ERR(err, "could not boot the card\n");
     }
 
     err = service_register(&xphi, irefs, num);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not register with the other drivers");
+        USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
+
+    err = xeon_phi_messaging_service_init(&msg_cb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the messaging service");
+    }
+
+    err = xeon_phi_messaging_service_start_phi();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not export the service");
     }
 
     // sending a test message
@@ -83,7 +98,6 @@ int main(int argc,
     data.length=snprintf(data.name, 54, "k1om/sbin/xeon_phi_test");
     data.core = 2;
     messaging_send(&xphi, hdr, &data);
-
 
     struct capref frame;
     err = frame_alloc(&frame, 8192, NULL);
@@ -96,7 +110,7 @@ int main(int argc,
     hdr.size = sizeof(struct xeon_phi_msg_open);
     hdr.flags.cmd = XEON_PHI_MSG_CMD_OPEN;
     struct xeon_phi_msg_open data2;
-    snprintf(data2.name, 40, "xeon_phi_test_iface");
+    snprintf(data2.name, 40, "xeon_phi_test.2");
     data2.base = id.base;
     data2.size = 1UL<<id.bits;
     data2.type = 0x1;
