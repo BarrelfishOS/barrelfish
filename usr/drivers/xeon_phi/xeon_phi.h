@@ -30,6 +30,22 @@
 /// the number of MSIX interrupts we use
 #define XEON_PHI_MSIX_NUM     1
 
+#define XEON_PHI_APERTURE_INIT_SIZE (1024*1024*1024)
+
+/*
+ * This defines are used to reference the MMIO registers on the host side.
+ *
+ * The Mackerel Specifications use the SBOX or DBOX baseaddress as their
+ * register base. however the SBOX or DBOX have a certain offset into the
+ * MMIO range.
+ */
+#define XEON_PHI_HOST_DBOX_OFFSET      0x00000000
+#define XEON_PHI_HOST_SBOX_OFFSET      0x00010000
+
+#define XEON_PHI_MMIO_TO_SBOX(phi) \
+    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_SBOX_OFFSET))
+#define XEON_PHI_MMIO_TO_DBOX(phi) \
+    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_DBOX_OFFSET))
 
 /*
  * --------------------------------------------------------------------------
@@ -57,12 +73,11 @@ typedef enum xnode_state {
 /// represents the memory ranges occupied by the Xeon Phi card
 struct mbar
 {
-    lvaddr_t vbase;
-    lpaddr_t pbase;
-    size_t length;
-    /*
-     * XXX: may it be useful to store the cap here aswell ?
-     */
+    lvaddr_t vbase;     ///< virtual address of the mbar if mapped
+    lpaddr_t pbase;     ///< physical address of the mbar
+    size_t length;      ///< length of the mapped area
+    struct capref cap;  ///< capability of the mbar
+    uint8_t bits;       ///< size of the capability in bits
 };
 
 struct xnode
@@ -146,12 +161,36 @@ errval_t xeon_phi_reset(struct xeon_phi *phi);
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi);
+errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun);
 
 /**
  * \brief Bootstraps the host driver to get the multiboot images of the
  *        xeon phi loader and the xeon phi multiboot image
  */
 errval_t host_bootstrap(void);
+
+
+/**
+ * \brief maps the aperture memory range of the Xeon Phi into the drivers
+ *        vspace to be able to load the coprocessor OS onto the card
+ *
+ * \param phi   pointer to the Xeon Phi structure holding aperture information
+ * \param range how much bytes to map
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xeon_phi_map_aperture(struct xeon_phi *phi,
+                               size_t range);
+
+/**
+ * \brief unmaps the previously mapped aperture range when the programming
+ *        completes.
+ *
+ * \param phi pointer to the Xeon Phi structure holiding mapping information
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
+
 
 #endif /* XEON_PHI_H_ */

@@ -32,16 +32,15 @@
 struct xeon_phi_msg_open
 {
     lpaddr_t base;     ///< physical address of the messaging frame
-    uint64_t size :60; ///< size in bytes of the frame
-    uint64_t type :4;  ///< type of the channel
-    char name[40];     ///< interface name (exported by the application)
+    uint8_t  bits;     ///< size of the frame in bits
+    uint8_t  type;     ///< type of the channel
+    char iface[44];     ///< interface name (exported by the application)
 };
 
 
 struct xeon_phi_msg_spawn
 {
     coreid_t core;  ///< core on which to spawn the new domain
-    uint8_t length; ///< length of the name in the name field
     char name[54];  ///< name of the domain to spawn
 };
 
@@ -72,6 +71,7 @@ struct xeon_phi_msg_err
 struct xeon_phi_messaging_cb
 {
     errval_t (*open)(struct capref msgframe, uint8_t chantype);
+    errval_t (*open_iface)(struct capref msgframe, uint8_t chantype, char *iface);
     errval_t (*spawn)(coreid_t core, char *name);
 };
 

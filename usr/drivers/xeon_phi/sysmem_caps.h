@@ -37,11 +37,11 @@ errval_t sysmem_cap_return(void);
  *        length requirements
  *
  * \param base  the base address of the system memory (host address)
- * \param size  the size of the requested capability
+ * \param bits  the size of the requested capability in bits
  * \param frame capability representing the system memory frame
  */
 errval_t sysmem_cap_request(lpaddr_t base,
-                            size_t size,
+                            uint8_t bits,
                             struct capref *frame);
 
 #endif /* XEON_PHI_SYSMEM_CAPS_H_ */

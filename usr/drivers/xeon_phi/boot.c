@@ -366,5 +366,11 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         // TODO return error code
     }
 
+    // we don't need the aperture mapped anymore so unmap it
+    err = xeon_phi_unmap_aperture(phi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to map aperture range");
+    }
+
     return SYS_ERR_OK;
 }

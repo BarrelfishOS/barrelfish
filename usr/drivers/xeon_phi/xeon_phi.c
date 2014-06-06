@@ -23,6 +23,7 @@
 #include "interrupts.h"
 #include "sleep.h"
 #include "dma.h"
+#include "sysmem_caps.h"
 
 static uint32_t initialized = 0;
 
@@ -30,10 +31,6 @@ static uint32_t initialized = 0;
 #define XEON_PHI_RESET_TIME_UNIT 100
 
 static struct xeon_phi *card;
-
-static uint32_t pci_bus = PCI_DONT_CARE;
-static uint32_t pci_device = PCI_DONT_CARE;
-static uint32_t pci_function = PCI_DONT_CARE;
 
 /// PCI Vendor ID of Intel
 #define PCI_VENDOR_ID_INTEL     0x8086
@@ -96,6 +93,8 @@ static void device_init(struct xeon_phi *phi)
     initialized = true;
 }
 
+
+
 static void pci_init_card(struct device_mem* bar_info,
                           int bar_count)
 {
@@ -124,9 +123,37 @@ static void pci_init_card(struct device_mem* bar_info,
     assert(bar_info[XEON_PHI_MMIO_BAR].type == XEON_PHI_BAR_TYPE);
     assert(bar_info[XEON_PHI_APT_BAR].type == XEON_PHI_BAR_TYPE);
 
-    err = map_device(&bar_info[XEON_PHI_APT_BAR]);
+    struct frame_identity id;
+    assert(bar_info[XEON_PHI_APT_BAR].nr_caps == 1);
+    assert(!capref_is_null(bar_info[XEON_PHI_APT_BAR].frame_cap[0]));
+    card->apt.cap = bar_info[XEON_PHI_APT_BAR].frame_cap[0];
+    err = invoke_frame_identify(card->apt.cap, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to identify the aperture cap");
+    }
+    card->apt.bits = id.bits;
+    card->apt.pbase = id.base;
+
+    assert(bar_info[XEON_PHI_MMIO_BAR].nr_caps == 1);
+    assert(!capref_is_null(bar_info[XEON_PHI_MMIO_BAR].frame_cap[0]));
+    card->mmio.cap = bar_info[XEON_PHI_MMIO_BAR].frame_cap[0];
+
+    err = invoke_frame_identify(card->mmio.cap, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to identify the aperture cap");
+    }
+    card->mmio.bits = id.bits;
+    card->mmio.pbase = id.base;
+
+
+    err = xeon_phi_map_aperture(card, XEON_PHI_APERTURE_INIT_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to map aperture range");
+    }
+
+    err = sysmem_cap_manager_init(card->apt.cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the cap manager");
     }
 
     err = map_device(&bar_info[XEON_PHI_MMIO_BAR]);
@@ -134,17 +161,13 @@ static void pci_init_card(struct device_mem* bar_info,
         USER_PANIC_ERR(err, "Failed to map MMIO range");
     }
 
-    card->apt.vbase = (lvaddr_t) bar_info[XEON_PHI_APT_BAR].vaddr;
-    card->apt.length = bar_info[XEON_PHI_APT_BAR].bytes;
-    card->apt.pbase = (lpaddr_t) bar_info[XEON_PHI_APT_BAR].paddr;
     card->mmio.vbase = (lvaddr_t) bar_info[XEON_PHI_MMIO_BAR].vaddr;
     card->mmio.length = bar_info[XEON_PHI_MMIO_BAR].bytes;
-    card->mmio.pbase = (lpaddr_t) bar_info[XEON_PHI_MMIO_BAR].paddr;
 
     card->state = XEON_PHI_STATE_PCI_OK;
 }
 
-static void pci_register(struct xeon_phi *phi)
+static void pci_register(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun)
 {
     errval_t err;
 
@@ -159,9 +182,9 @@ static void pci_register(struct xeon_phi *phi)
                                   PCI_DONT_CARE,
                                   PCI_VENDOR_ID_INTEL,
                                   PCI_DEVICE_KNC_225e,
-                                  pci_bus,
-                                  pci_device,
-                                  pci_function,
+                                  bus,
+                                  dev,
+                                  fun,
                                   interrupt_handler,
                                   phi);
 
@@ -175,11 +198,11 @@ static void pci_register(struct xeon_phi *phi)
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi)
+errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun)
 {
     card = phi;
 
-    pci_register(phi);
+    pci_register(phi, bus,  dev,  fun);
 
     xeon_phi_reset(phi);
 
@@ -273,3 +296,61 @@ errval_t xeon_phi_reset(struct xeon_phi *phi)
     return SYS_ERR_OK;
 }
 
+
+/**
+ * \brief maps the aperture memory range of the Xeon Phi into the drivers
+ *        vspace to be able to load the coprocessor OS onto the card
+ *
+ * \param phi   pointer to the Xeon Phi structure holding aperture information
+ * \param range how much bytes to map
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xeon_phi_map_aperture(struct xeon_phi *phi,
+                               size_t range)
+{
+    if (phi->apt.vbase != 0) {
+        return SYS_ERR_VM_ALREADY_MAPPED;
+    }
+
+    errval_t err;
+    void *addr;
+    err = vspace_map_one_frame(&addr, range, phi->apt.cap, NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame failed for the apt mbar");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    phi->apt.vbase = (lvaddr_t)addr;
+    phi->apt.length = range;
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief unmaps the previously mapped aperture range when the programming
+ *        completes.
+ *
+ * \param phi pointer to the Xeon Phi structure holiding mapping information
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi)
+{
+    errval_t err;
+
+    if (phi->apt.vbase == 0) {
+        return SYS_ERR_OK;
+    }
+
+    err = vspace_unmap((void *)phi->apt.vbase);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame failed for the apt mbar");
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    phi->apt.vbase = 0;
+    phi->apt.length = 0;
+
+    return SYS_ERR_OK;
+}

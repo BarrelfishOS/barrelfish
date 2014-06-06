@@ -17,7 +17,8 @@
 
 #include <xeon_phi/xeon_phi_messaging.h>
 
-#define XEON_PHI_MSG_INIT_SIZE 4096
+#define XEON_PHI_MSG_INIT_BITS 12
+#define XEON_PHI_MSG_INIT_SIZE (1UL << XEON_PHI_MSG_INIT_BITS)
 #define XEON_PHI_MSG_CHANS  (XEON_PHI_MSG_INIT_SIZE/2/64)
 
 
@@ -117,11 +118,13 @@ errval_t messaging_poll(struct xeon_phi *phi);
  *
  * \param frame capability representing the frame to be used
  * \param type  type identifier of the channel
+ * \param iface the name of the exported interface
  *
  * \returns SYS_ERR_OK on success
  */
 errval_t messaging_send_open(struct capref frame,
-                             uint8_t type);
+                             uint8_t type,
+                             char *iface);
 
 /**
  * \brief sends a spawn command over the Xeon Phi channel

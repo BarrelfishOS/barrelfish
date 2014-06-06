@@ -172,14 +172,14 @@ static errval_t handle_msg_open(struct xeon_phi *phi,
     errval_t err;
     iref_t iref;
     XMESSAGING_DEBUG("nameservice lookup\n");
-    err = nameservice_blocking_lookup(open->name, &iref);
+    err = nameservice_blocking_lookup(open->iface, &iref);
     if (err_is_fail(err)) {
         return err;
     }
 
     struct msg_open_state *st = malloc(sizeof(struct msg_open_state));
 
-    err = sysmem_cap_request(open->base, open->size, &st->frame);
+    err = sysmem_cap_request(open->base, 1UL<< open->bits, &st->frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to get the cap request\n");
         return err;
@@ -278,12 +278,61 @@ errval_t messaging_poll(struct xeon_phi *phi)
  *
  * \param frame capability representing the frame to be used
  * \param type  type identifier of the channel
+ * \param iface name of the exported interface
  *
  * \returns SYS_ERR_OK on success
  */
 errval_t messaging_send_open(struct capref frame,
-                             uint8_t type)
+                             uint8_t type,
+                             char *iface)
 {
+    errval_t err;
+
+    if (capref_is_null(frame)) {
+        return SYS_ERR_CAP_NOT_FOUND;
+    }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XMESSAGING_DEBUG("Sending OPEN message. [0x%016lxl, 0x%lx]\n", id.base, 1UL<<id.bits);
+
+    struct xeon_phi_msg_data *msg = xeon_phi->msg->out;
+
+    // in case the other side has not yet read this message, we have to wait
+    while (msg->ctrl.valid != XEON_PHI_MSG_STATE_CLEAR) {
+        thread_yield();
+    }
+
+    msg->ctrl.size = 10;
+
+    msg->data.open.base = id.base;
+    msg->data.open.bits = id.bits;
+    msg->data.open.type = type;
+    msg->ctrl.size += snprintf(msg->data.open.iface, sizeof(msg->data.open.iface), "%s", iface);
+
+    msg->ctrl.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
+
+    /* set the valid field to signal the other side */
+    msg->ctrl.valid = XEON_PHI_MSG_STATE_VALID;
+
+    /* update the next out pointer */
+    struct xeon_phi_msg_chan *chan;
+    if (xeon_phi->is_client) {
+        chan = &xeon_phi->msg->meta->c2h;
+    } else {
+        chan = &xeon_phi->msg->meta->h2c;
+    }
+
+    msg = msg + 1;
+    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+        msg = chan->data;
+    }
+    xeon_phi->msg->out = msg;
+
     return SYS_ERR_OK;
 }
 
@@ -298,6 +347,40 @@ errval_t messaging_send_open(struct capref frame,
 errval_t messaging_send_spawn(coreid_t core,
                               char *name)
 {
+    assert(name != NULL);
+
+    XMESSAGING_DEBUG("Sending SPAWN message. [%s.%d]\n", name, core);
+
+    struct xeon_phi_msg_data *msg = xeon_phi->msg->out;
+
+    // in case the other side has not yet read this message, we have to wait
+    while (msg->ctrl.valid != XEON_PHI_MSG_STATE_CLEAR) {
+        thread_yield();
+    }
+
+    msg->ctrl.size = 1;
+
+    msg->data.spawn.core = core;
+    msg->ctrl.size += snprintf(msg->data.spawn.name, sizeof(msg->data.spawn.name), "%s", name);
+
+    msg->ctrl.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
+
+    /* set the valid field to signal the other side */
+    msg->ctrl.valid = XEON_PHI_MSG_STATE_VALID;
+
+    /* update the next out pointer */
+    struct xeon_phi_msg_chan *chan;
+    if (xeon_phi->is_client) {
+        chan = &xeon_phi->msg->meta->c2h;
+    } else {
+        chan = &xeon_phi->msg->meta->h2c;
+    }
+
+    msg = msg + 1;
+    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+        msg = chan->data;
+    }
+    xeon_phi->msg->out = msg;
 
     return SYS_ERR_OK;
 }

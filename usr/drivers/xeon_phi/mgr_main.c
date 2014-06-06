@@ -79,7 +79,7 @@ int main(int argc,
     offset = host_base;
 
     XMESSAGING_DEBUG("Getting the host messaging cap...\n");
-    err = sysmem_cap_request(host_base, XEON_PHI_MSG_INIT_SIZE, &host_cap);
+    err = sysmem_cap_request(host_base, XEON_PHI_MSG_INIT_BITS, &host_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }

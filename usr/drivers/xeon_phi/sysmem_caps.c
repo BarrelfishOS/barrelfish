@@ -36,7 +36,7 @@
 /// the memory manager for the system memory
 static struct mm sysmem_manager;
 
-/// the
+/// the slot allocator
 static struct range_slot_allocator sysmem_allocator;
 
 /**
@@ -107,7 +107,7 @@ errval_t sysmem_cap_return(void)
  *        length requirements
  *
  * \param base  the base address of the system memory (host address)
- * \param size  the size of the requested capability
+ * \param bits  the size of the requested capability in bits
  * \param frame capability representing the system memory frame
  *
  * \retval SYS_ERR_OK on success
@@ -115,30 +115,27 @@ errval_t sysmem_cap_return(void)
  * Note: the caller must check the size and base of the frame...
  */
 errval_t sysmem_cap_request(lpaddr_t base,
-                            size_t size,
+                            uint8_t bits,
                             struct capref *frame)
 {
     errval_t err;
 
-    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
+    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, 1UL<<bits);
     // the size and base must not exceed the maximum range (512G)
-    assert(size+base < (1UL<<39));
-
+    assert(bits < 40);
+    assert(!(base & (BASE_PAGE_SIZE-1)));
 
     // align the base to the next 4k boundary
-    size += (base & (BASE_PAGE_SIZE-1));
-    base -= (base & (BASE_PAGE_SIZE-1));
+    //size += (base & (BASE_PAGE_SIZE-1));
+    // base -= (base & (BASE_PAGE_SIZE-1));
 
-    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
-
-    size = (size+BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE - 1);
+    // size = (size+BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE - 1);
 
     // transform the address into the host memory range
     base += XEON_PHI_SYSMEM_BASE;
 
-    XSYSMEM_DEBUG("Allocating cap for [0x%016lx, 0x%lx]\n", base, (uint64_t)size);
-    err = mm_alloc_range(&sysmem_manager, log2ceil(size),
-                         base, base+size, frame, NULL);
+    err = mm_alloc_range(&sysmem_manager, bits,
+                         base, base+(1UL << bits), frame, NULL);
     if (err_is_fail(err)) {
         // TODO: we may allow double allocation?
         return err;

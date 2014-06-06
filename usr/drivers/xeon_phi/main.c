@@ -15,8 +15,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-#include <xeon_phi/xeon_phi_manager_client.h>
 
+#include <pci/pci.h>
+
+#include <xeon_phi/xeon_phi_manager_client.h>
 #include <xeon_phi/xeon_phi_messaging.h>
 
 #include "xeon_phi.h"
@@ -30,7 +32,7 @@ volatile uint32_t bootstrap_done = 0;
 struct xeon_phi xphi;
 
 struct xeon_phi_messaging_cb msg_cb = {
-    .open = messaging_send_open,
+    .open_iface = messaging_send_open,
     .spawn = messaging_send_spawn
 };
 
@@ -65,7 +67,7 @@ int main(int argc,
 
     xphi.state = XEON_PHI_STATE_NULL;
 
-    err = xeon_phi_init(&xphi);
+    err = xeon_phi_init(&xphi, PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not do the card initialization\n");
     }
@@ -95,7 +97,7 @@ int main(int argc,
     hdr.size = sizeof(struct xeon_phi_msg_spawn);
     hdr.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
     struct xeon_phi_msg_spawn data;
-    data.length=snprintf(data.name, 54, "k1om/sbin/xeon_phi_test");
+    snprintf(data.name, 54, "k1om/sbin/xeon_phi_test");
     data.core = 2;
     messaging_send(&xphi, hdr, &data);
 
@@ -110,9 +112,9 @@ int main(int argc,
     hdr.size = sizeof(struct xeon_phi_msg_open);
     hdr.flags.cmd = XEON_PHI_MSG_CMD_OPEN;
     struct xeon_phi_msg_open data2;
-    snprintf(data2.name, 40, "xeon_phi_test.2");
+    snprintf(data2.iface, 40, "xeon_phi_test.2");
     data2.base = id.base;
-    data2.size = 1UL<<id.bits;
+    data2.bits = 1UL<<id.bits;
     data2.type = 0x1;
     messaging_send(&xphi, hdr, &data2);
 
