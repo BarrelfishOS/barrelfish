@@ -36,6 +36,9 @@
 /// the memory manager for the system memory
 static struct mm sysmem_manager;
 
+/// offset to the base address
+static lpaddr_t base_offset = 0;
+
 /// the slot allocator
 static struct range_slot_allocator sysmem_allocator;
 
@@ -60,6 +63,8 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     if (err_is_fail(err)) {
         return err;
     }
+
+    base_offset = ret.base;
 
     XSYSMEM_DEBUG("Initializing memory manager\n");
 
@@ -132,7 +137,7 @@ errval_t sysmem_cap_request(lpaddr_t base,
     // size = (size+BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE - 1);
 
     // transform the address into the host memory range
-    base += XEON_PHI_SYSMEM_BASE;
+    base += base_offset;
 
     err = mm_alloc_range(&sysmem_manager, bits,
                          base, base+(1UL << bits), frame, NULL);
