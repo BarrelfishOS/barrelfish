@@ -120,7 +120,7 @@ errval_t sysmem_cap_request(lpaddr_t base,
 {
     errval_t err;
 
-    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, 0x%lx]\n", base, 1UL<<bits);
+    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, %i]\n", base, bits);
     // the size and base must not exceed the maximum range (512G)
     assert(bits < 40);
     assert(!(base & (BASE_PAGE_SIZE-1)));

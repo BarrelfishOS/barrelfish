@@ -92,32 +92,6 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not export the service");
     }
 
-    // sending a test message
-    struct xeon_phi_msg_hdr hdr;
-    hdr.size = sizeof(struct xeon_phi_msg_spawn);
-    hdr.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
-    struct xeon_phi_msg_spawn data;
-    snprintf(data.name, 54, "k1om/sbin/xeon_phi_test");
-    data.core = 2;
-    messaging_send(&xphi, hdr, &data);
-
-    struct capref frame;
-    err = frame_alloc(&frame, 8192, NULL);
-    assert(err_is_ok(err));
-
-    struct frame_identity id;
-    err=invoke_frame_identify(frame, &id);
-
-
-    hdr.size = sizeof(struct xeon_phi_msg_open);
-    hdr.flags.cmd = XEON_PHI_MSG_CMD_OPEN;
-    struct xeon_phi_msg_open data2;
-    snprintf(data2.iface, 40, "xeon_phi_test.2");
-    data2.base = id.base;
-    data2.bits = 1UL<<id.bits;
-    data2.type = 0x1;
-    messaging_send(&xphi, hdr, &data2);
-
     service_start(&xphi);
 
     debug_printf("Xeon Phi host module terminated.\n");

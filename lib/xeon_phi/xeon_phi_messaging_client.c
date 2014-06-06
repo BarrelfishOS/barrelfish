@@ -39,6 +39,7 @@ struct xpm_msg_param_open
 {
     struct capref frame;
     uint8_t type;
+    char iface[44];
 };
 
 static void xpm_msg_open_tx(void *a)
@@ -49,10 +50,14 @@ static void xpm_msg_open_tx(void *a)
 
     struct event_closure txcont = MKCONT(free, a);
 
-    err = xeon_phi_messaging_open__tx(xpm_binding,
+    size_t length = strlen(param->iface)+1;
+
+    err = xeon_phi_messaging_open_iface__tx(xpm_binding,
                                       txcont,
                                       param->frame,
-                                      param->type);
+                                      param->type,
+                                      param->iface,
+                                      length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_open_tx, a);
@@ -84,7 +89,7 @@ static void xpm_msg_spawn_tx(void *a)
 
     struct event_closure txcont = MKCONT(free, a);
 
-    size_t length = strlen(param->name);
+    size_t length = strlen(param->name)+1;
 
     err = xeon_phi_messaging_spawn__tx(xpm_binding,
                                       txcont,
@@ -160,10 +165,10 @@ static errval_t xpm_connect(void)
     conn_state = XPM_STATE_BINDING;
 
     DEBUG_XPMC("binding to iref [%u]... \n", xpm_iref);
-    err = xeon_phi_manager_bind(xpm_iref, xpm_bind_cb,
-    NULL,
-                                get_default_waitset(),
-                                IDC_BIND_FLAGS_DEFAULT);
+    err = xeon_phi_messaging_bind(xpm_iref, xpm_bind_cb,
+                                  NULL,
+                                  get_default_waitset(),
+                                  IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
@@ -187,12 +192,14 @@ static errval_t xpm_connect(void)
 /**
  * \brief sends a OPEN command message over the Xeon Phi channel
  *
+ * \param iface the name of the iface to talk to
  * \param frame capability representing the allocated frame
  * \param type  type of the channel
  *
  * \return SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_open(struct capref frame,
+errval_t xeon_phi_messaging_open(char *iface,
+                                 struct capref frame,
                                  uint8_t type)
 {
     errval_t err;
@@ -211,6 +218,11 @@ errval_t xeon_phi_messaging_open(struct capref frame,
     param->frame = frame;
     param->type = type;
 
+    snprintf(param->iface, sizeof(param->iface), "%s", iface);
+
+    xpm_msg_open_tx(param);
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -232,6 +244,18 @@ errval_t xeon_phi_messaging_spawn(coreid_t core,
             return err;
         }
     }
+
+    struct xpm_msg_param_spawn *param = malloc(sizeof(struct xpm_msg_param_spawn));
+    if (param == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    param->core = core;
+    snprintf(param->name, sizeof(param->name), "%s", name);
+
+    xpm_msg_spawn_tx(param);
+
+    return SYS_ERR_OK;
 }
 
 /**
@@ -251,4 +275,6 @@ errval_t xeon_phi_messaging_kill(domainid_t d)
             return err;
         }
     }
+
+    return SYS_ERR_OK;
 }

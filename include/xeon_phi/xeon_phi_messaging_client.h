@@ -14,12 +14,15 @@
 /**
  * \brief sends a OPEN command message over the Xeon Phi channel
  *
+ * \param iface the name of the iface to talk to
  * \param frame capability representing the allocated frame
  * \param type  type of the channel
  *
  * \return SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_open(struct capref frame, uint8_t type);
+errval_t xeon_phi_messaging_open(char *iface,
+                                 struct capref frame,
+                                 uint8_t type);
 
 /**
  * \brief sends a SPAWN command message over the Xeon Phi channel

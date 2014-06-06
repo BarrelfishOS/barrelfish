@@ -14,6 +14,7 @@
 
 
 #include <xeon_phi/xeon_phi_messaging.h>
+#include <xeon_phi/xeon_phi_messaging_client.h>
 
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
@@ -53,6 +54,30 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not init the service\n");
     }
+
+    coreid_t core = 2;
+    char *name = "xeon_phi_test";
+
+    err = xeon_phi_messaging_spawn(core, name);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not send the spawn message");
+    }
+    char *iface = "xeon_phi_test.2";
+
+    struct capref frame;
+    err = frame_alloc(&frame, 0x2000, NULL);
+    assert(err_is_ok(err));
+    void *buf;
+    err = vspace_map_one_frame(&buf, 0x2000, frame, NULL, NULL);
+    assert(err_is_ok(err));
+
+    snprintf(buf, 0x2000, "hello world! this is host speaking");
+
+    err = xeon_phi_messaging_open(iface, frame, XEON_PHI_CHAN_TYPE_UMP);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not open channel");
+    }
+
 
     err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_START_HANDLER);
     if (err_is_fail(err)) {

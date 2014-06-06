@@ -179,7 +179,7 @@ static errval_t handle_msg_open(struct xeon_phi *phi,
 
     struct msg_open_state *st = malloc(sizeof(struct msg_open_state));
 
-    err = sysmem_cap_request(open->base, 1UL<< open->bits, &st->frame);
+    err = sysmem_cap_request(open->base, open->bits, &st->frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to get the cap request\n");
         return err;

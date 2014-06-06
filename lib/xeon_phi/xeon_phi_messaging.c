@@ -40,16 +40,19 @@ static iref_t messaging_iref;
 /// stores the callbacks to inform the user about arrived messages
 static struct xeon_phi_messaging_cb callbacks;
 
-static void open_call_rx(struct xeon_phi_messaging_binding *_binding,
-                         struct capref msgframe,
-                         uint8_t type)
+static void open_iface_call_rx(struct xeon_phi_messaging_binding *_binding,
+                               struct capref msgframe,
+                               uint8_t type,
+                               char *iface,
+                               size_t length)
 {
-    XPHI_MSG_DBG("Received channel open request type: %x\n", type);
+    XPHI_MSG_DBG("Received channel OPEN cmd: [%s, 0x%x]\n", iface, type);
 
-    if (callbacks.open != NULL) {
-        callbacks.open(msgframe, type);
+    if (callbacks.open_iface != NULL) {
+        callbacks.open_iface(msgframe, type, iface);
     }
 }
+
 
 static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
                           uint8_t core,
@@ -57,14 +60,15 @@ static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
                           size_t length)
 {
     XPHI_MSG_DBG("Received spawn request: %s\n", name);
+
     if (callbacks.spawn != NULL) {
         callbacks.spawn(core, name);
     }
 }
 
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
-.open = open_call_rx,
-.spawn = spawn_call_rx
+    .open_iface = open_iface_call_rx,
+    .spawn = spawn_call_rx
 };
 
 /*
@@ -75,10 +79,10 @@ static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
 static errval_t svc_connect_cb(void *st,
                                struct xeon_phi_messaging_binding *b)
 {
-XPHI_MSG_DBG("New connection request\n");
-b->rx_vtbl = xpm_rx_vtbl;
+    XPHI_MSG_DBG("New connection request\n");
+    b->rx_vtbl = xpm_rx_vtbl;
 
-return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 /**
@@ -88,14 +92,14 @@ static void svc_export_cb(void *st,
                           errval_t err,
                           iref_t iref)
 {
-if (err_is_fail(err)) {
-    svc_state = XPM_SVC_STATE_EXPORT_FAIL;
-    return;
-}
+    if (err_is_fail(err)) {
+        svc_state = XPM_SVC_STATE_EXPORT_FAIL;
+        return;
+    }
 
-messaging_iref = iref;
+    messaging_iref = iref;
 
-svc_state = XPM_SVC_STATE_EXPORT_OK;
+    svc_state = XPM_SVC_STATE_EXPORT_OK;
 }
 
 /**
@@ -109,34 +113,34 @@ svc_state = XPM_SVC_STATE_EXPORT_OK;
  */
 errval_t xeon_phi_messaging_service_init(struct xeon_phi_messaging_cb *fn)
 {
-errval_t err;
+    errval_t err;
 
-XPHI_MSG_DBG("Service initialization... callbacks=%p\n", fn);
+    XPHI_MSG_DBG("Service initialization... callbacks=%p\n", fn);
 
-if (fn) {
-    callbacks = *fn;
-} else {
-    memset(&callbacks, 0, sizeof(callbacks));
-}
+    if (fn) {
+        callbacks = *fn;
+    } else {
+        memset(&callbacks, 0, sizeof(callbacks));
+    }
 
-struct waitset *ws = get_default_waitset();
+    struct waitset *ws = get_default_waitset();
 
-err = xeon_phi_messaging_export(NULL, svc_export_cb, svc_connect_cb, ws,
-IDC_EXPORT_FLAGS_DEFAULT);
-if (err_is_fail(err)) {
-    return err;
-}
+    err = xeon_phi_messaging_export(NULL, svc_export_cb, svc_connect_cb, ws,
+    IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-XPHI_MSG_DBG("Waiting for export... callbacks=%p\n", fn);
-while (svc_state == XPM_SVC_STATE_EXPORTING) {
-    messages_wait_and_handle_next();
-}
+    XPHI_MSG_DBG("Waiting for export... callbacks=%p\n", fn);
+    while (svc_state == XPM_SVC_STATE_EXPORTING) {
+        messages_wait_and_handle_next();
+    }
 
-if (svc_state == XPM_SVC_STATE_EXPORT_FAIL) {
-    return FLOUNDER_ERR_BIND;
-}
+    if (svc_state == XPM_SVC_STATE_EXPORT_FAIL) {
+        return FLOUNDER_ERR_BIND;
+    }
 
-return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 /**
@@ -148,28 +152,28 @@ return SYS_ERR_OK;
  */
 errval_t xeon_phi_messaging_service_start(uint8_t start_handler)
 {
-errval_t err;
-svc_state = XPM_SVC_STATE_NS_REGISTERING;
+    errval_t err;
+    svc_state = XPM_SVC_STATE_NS_REGISTERING;
 
-char buf[50];
-snprintf(buf, 50, "%s.%u", disp_name(), disp_get_core_id());
+    char buf[50];
+    snprintf(buf, 50, "%s.%u", disp_name(), disp_get_core_id());
 
-XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n", messaging_iref, buf);
-err = nameservice_register(buf, messaging_iref);
-if (err_is_fail(err)) {
-    return err;
-}
+    XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n", messaging_iref, buf);
+    err = nameservice_register(buf, messaging_iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
+    svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
 
-if (start_handler) {
-    XPHI_MSG_DBG("Starting service...\n");
+    if (start_handler) {
+        XPHI_MSG_DBG("Starting service...\n");
 
-    svc_state = XPM_SVC_STATE_RUNNING;
-    messages_handler_loop();
-}
+        svc_state = XPM_SVC_STATE_RUNNING;
+        messages_handler_loop();
+    }
 
-return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
 /**
@@ -179,18 +183,18 @@ return SYS_ERR_OK;
  */
 errval_t xeon_phi_messaging_service_start_phi(void)
 {
-errval_t err;
-svc_state = XPM_SVC_STATE_NS_REGISTERING;
+    errval_t err;
+    svc_state = XPM_SVC_STATE_NS_REGISTERING;
 
-XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n",
-             messaging_iref,
-             XEON_PHI_MESSAGING_NAME);
-err = nameservice_register(XEON_PHI_MESSAGING_NAME, messaging_iref);
-if (err_is_fail(err)) {
-    return err;
-}
+    XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n",
+                 messaging_iref,
+                 XEON_PHI_MESSAGING_NAME);
+    err = nameservice_register(XEON_PHI_MESSAGING_NAME, messaging_iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
+    svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
 
-return SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
