@@ -314,7 +314,7 @@ errval_t messaging_send_open(struct capref frame,
     msg->data.open.type = type;
     msg->ctrl.size += snprintf(msg->data.open.iface, sizeof(msg->data.open.iface), "%s", iface);
 
-    msg->ctrl.flags.cmd = XEON_PHI_MSG_CMD_SPAWN;
+    msg->ctrl.flags.cmd = XEON_PHI_MSG_CMD_OPEN;
 
     /* set the valid field to signal the other side */
     msg->ctrl.valid = XEON_PHI_MSG_STATE_VALID;

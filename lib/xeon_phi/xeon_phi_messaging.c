@@ -40,6 +40,17 @@ static iref_t messaging_iref;
 /// stores the callbacks to inform the user about arrived messages
 static struct xeon_phi_messaging_cb callbacks;
 
+static void open_call_rx(struct xeon_phi_messaging_binding *_binding,
+                         struct capref msgframe,
+                         uint8_t type)
+{
+    XPHI_MSG_DBG("Received channel open request type: %x\n", type);
+
+    if (callbacks.open != NULL) {
+        callbacks.open(msgframe, type);
+    }
+}
+
 static void open_iface_call_rx(struct xeon_phi_messaging_binding *_binding,
                                struct capref msgframe,
                                uint8_t type,
@@ -60,7 +71,6 @@ static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
                           size_t length)
 {
     XPHI_MSG_DBG("Received spawn request: %s\n", name);
-
     if (callbacks.spawn != NULL) {
         callbacks.spawn(core, name);
     }
@@ -68,6 +78,7 @@ static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
 
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
     .open_iface = open_iface_call_rx,
+    .open = open_call_rx,
     .spawn = spawn_call_rx
 };
 

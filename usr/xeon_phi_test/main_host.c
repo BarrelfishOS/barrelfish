@@ -56,7 +56,7 @@ int main(int argc,
     }
 
     coreid_t core = 2;
-    char *name = "xeon_phi_test";
+    char *name = "k1om/sbin/xeon_phi_test";
 
     err = xeon_phi_messaging_spawn(core, name);
     if (err_is_fail(err)) {
