@@ -12,7 +12,11 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "virtio",
-                      cFiles = [ "virtio_ring.c" ],
-                      mackerelDevices = [ "virtio/virtio_mmio", "virtio/virtio_blk" ]
+                      cFiles = [ "virtio_ring.c", 
+                      			 "virtqueue.c", 
+                      			 "virtio_device.c",
+                      			 "backends/virtio_device_mmio.c",
+                      			 "backends/virtio_device_pci.c" ],
+                      mackerelDevices = [ "virtio/virtio_mmio" ]
                 }
 ]

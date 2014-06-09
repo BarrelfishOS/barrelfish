@@ -1000,3 +1000,10 @@ errors bulk_transfer BULK_TRANSFER_ {
     
 };
 
+errors virtio VIRTIO_ERR_ {
+	failure SIZE_INVALID		"Size of the ringe is zero or not a power of two",
+	failure MAX_INDIRECT		"Too much indirect descriptors",
+	failure CAP_SIZE			"Supplied cap is too small",
+	failure QUEUE_FULL			"The queue was full",
+	failure QUEUE_EMPTY			"The queue was empty",
+};
