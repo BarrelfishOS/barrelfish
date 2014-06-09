@@ -35,6 +35,7 @@ static errval_t msg_open_cb(struct capref msgframe,
         USER_PANIC_ERR(err, "Could not map the frame");
     }
 
+    debug_printf("msg_open_cb | msg = [%s]\n", (char *)addr);
 
     return SYS_ERR_OK;
 }

@@ -28,6 +28,11 @@
 
 static struct xeon_phi xphi;
 
+struct xeon_phi_messaging_cb msg_cb = {
+    .open_iface = messaging_send_open,
+    .spawn = messaging_send_spawn
+};
+
 static struct capref mmio_cap = {
     .slot = TASKCN_SLOT_IO
 };
@@ -86,6 +91,15 @@ int main(int argc,
 
 
     messaging_init(&xphi, host_cap);
+    err = xeon_phi_messaging_service_init(&msg_cb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the messaging service");
+    }
+
+    err = xeon_phi_messaging_service_start_phi();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not export the service");
+    }
 
     XMESSAGING_DEBUG("Start polling for messages...\n");
     while (1) {

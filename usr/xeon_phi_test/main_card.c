@@ -13,6 +13,9 @@
 #include <stdlib.h>
 
 #include <xeon_phi/xeon_phi_messaging.h>
+#include <xeon_phi/xeon_phi_messaging_client.h>
+
+uint32_t send_reply = 0x0;
 
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
@@ -32,6 +35,10 @@ static errval_t msg_open_cb(struct capref msgframe,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
+
+    debug_printf("msg_open_cb | msg = [%s]\n", (char *)addr);
+
+    send_reply = 0x1;
 
 
     return SYS_ERR_OK;
@@ -53,9 +60,33 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not init the service\n");
     }
 
-    err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_START_HANDLER);
+    char *iface = "xeon_phi_test.0";
+
+    struct capref frame;
+    err = frame_alloc(&frame, 0x2000, NULL);
+    assert(err_is_ok(err));
+    void *buf;
+    err = vspace_map_one_frame(&buf, 0x2000, frame, NULL, NULL);
+    assert(err_is_ok(err));
+
+    snprintf(buf, 0x2000, "hello world! this is client speaking");
+
+
+    err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not start the service\n");
+    }
+
+    while(1) {
+        if (send_reply) {
+            send_reply = 0;
+            err = xeon_phi_messaging_open(iface, frame, XEON_PHI_CHAN_TYPE_UMP);
+                if (err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "could not open channel");
+                }
+
+        }
+        messages_wait_and_handle_next();
     }
 }
 
