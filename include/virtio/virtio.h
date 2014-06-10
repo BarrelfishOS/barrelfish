@@ -13,6 +13,11 @@
 #include <barrelfish/barrelfish.h>
 
 
+/// defines how we map the memory frames
+#define VIRTIO_VREGION_FLAGS_DEVICE VREGION_FLAGS_READ_WRITE
+#define VIRTIO_VREGION_FLAGS_RING VREGION_FLAGS_READ_WRITE
+
+
 /*
  * Generic Feature Bits
  */

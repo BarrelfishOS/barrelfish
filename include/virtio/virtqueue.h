@@ -133,6 +133,23 @@ lpaddr_t virtio_virtqueue_get_vring_paddr(struct virtqueue *vq);
 void virtio_virtqueue_get_vring_cap(struct virtqueue *vq,
                                     struct capref *ret_cap);
 
+/**
+ * \brief Returns the queue index of the virtqueue of the device
+ *
+ * \param vq pointer to the virtqueue structure
+ *
+ * \returns queue index
+ */
+uint16_t virtio_virtqueue_get_queue_index(struct virtqueue *vq);
+
+/**
+ * \brief returns the alignment of the vring
+ *
+ * \param the virtqueue to get the alignment from
+ *
+ * \returns vring alignment
+ */
+lvaddr_t virtio_virtqueue_get_vring_align(struct virtqueue *vq);
 
 /**
  * \brief Returns the number of elements (number of descriptors)in the vring of

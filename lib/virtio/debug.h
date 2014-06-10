@@ -12,6 +12,7 @@
 
 #define VIRTIO_DEBUG_ENABLED 1
 #define VIRTIO_DEBUG_VQ_ENABLED 1
+#define VIRTIO_DEBUG_DEV_ENABLED 1
 
 #if VIRTIO_DEBUG_ENABLED
 #define VIRTIO_DEBUG_PRINT(msg...) debug_printf(msg)
@@ -23,6 +24,12 @@
 #define VIRTIO_DEBUG_VQ(msg...) VIRTIO_DEBUG_PRINT("[VIRTQUEUE] " msg)
 #else
 #define VIRTIO_DEBUG_VQ(msg...)
+#endif
+
+#ifdef VIRTIO_DEBUG_DEV_ENABLED
+#define VIRTIO_DEBUG_DEV(msg...) VIRTIO_DEBUG_PRINT("[VIRTIO DEV] " msg)
+#else
+#define VIRTIO_DEBUG_DEV(msg...)
 #endif
 
 

@@ -96,6 +96,7 @@ enum virtio_device_backend {
     VIRTIO_DEVICE_BACKEND_INVALID,
     VIRTIO_DEVICE_BACKEND_PCI,
     VIRTIO_DEVICE_BACKEND_MMIO,
+    VIRTIO_DEVICE_BACKEND_IO,
 };
 
 /*
@@ -110,55 +111,70 @@ enum virtio_device_backend {
 #define VIRTIO_PCI_DEVICE_ID 0x1000
 #define VIRTIO_PCI_DEVICE_ID2 0x103F
 
+#define VIRTIO_DEVICE_NAME_MAX 32
 
 /**
  * contains necessary values for the device initialization process
  */
-struct virtio_device_init
+struct virtio_device_setup
 {
     uint8_t type;                           ///< expected type of the device
+    char name[VIRTIO_DEVICE_NAME_MAX];
     enum virtio_device_backend  backend;    ///< which backend to use
+    void *dev_reg;
+    size_t dev_reg_size;
+    errval_t (*feature_negotiate)(struct virtio_device *dev);
+    errval_t (*device_setup)(struct virtio_device *dev);
 };
 
-/**
- * contains function pointers to backend specific functions
- */
-struct virtio_device_fn
-{
-    errval_t(*virtio_dev_init_t)(struct virtio_device *dev);
-};
+
 
 /**
- * represents a virtio device
- */
-struct virtio_device
-{
-    uint8_t type;
-    enum virtio_device_backend backend;
-    struct virtio_device_fn *f;
-};
-
-/**
- * \brief initializes the common part of the virtio device structure
+ * \brief initializes a new VirtIO device based on the values passed with the
+ *        device init struct. The device registers have already to be mapped. *
  *
  * \param dev       device structure to initialize
  * \param init      additional information passed for the init process
  * \param dev_regs  memory location of the device registers
  */
 errval_t virtio_device_init(struct virtio_device **dev,
-                            struct virtio_device_init *init,
-                            void *dev_regs);
+                            struct virtio_device_setup *init);
 
 /**
- * \brief initializes the common part of the virtio device structure based on
- *        a supplied cap which gets mapped
+ * \brief initializes a new VirtIO device based on the values passed with the
+ *        device init struct. The supplied cap contains the memory range of the
+ *        device registers.
  *
  * \param dev       device structure to initialize
  * \param init      additional information passed for the init process
  * \param dev_cap   capability representing the device registers
  */
 errval_t virtio_device_init_with_cap(struct virtio_device **dev,
+                                     struct virtio_device_setup *init,
                                      struct capref dev_cap);
 
+/**
+ * \brief resets the virtio device
+ *
+ * \param dev   the device to reset
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_reset(struct virtio_device *dev);
+
+/**
+ * \brief
+ *
+ * \param
+ */
+errval_t virtio_device_set_status(struct virtio_device *dev,
+                                  uint8_t status);
+
+errval_t virtio_device_get_status(struct virtio_device *dev,
+                                  uint8_t *ret_status);
+
+errval_t virtio_device_feature_negotiate(struct virtio_device *dev);
+
+errval_t virtio_device_specific_setup(struct virtio_device *dev);
 
 #endif // VIRTIO_VIRTIO_DEVICE_H

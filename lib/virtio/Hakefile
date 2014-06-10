@@ -15,8 +15,10 @@
                       cFiles = [ "virtio_ring.c", 
                       			 "virtqueue.c", 
                       			 "virtio_device.c",
+                      			 "virtio_buffer.c",
                       			 "backends/virtio_device_mmio.c",
                       			 "backends/virtio_device_pci.c" ],
-                      mackerelDevices = [ "virtio/virtio_mmio" ]
+                      mackerelDevices = [ "virtio/virtio_mmio",
+                                          "virtio/virtio_pci" ]
                 }
 ]

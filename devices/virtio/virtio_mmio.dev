@@ -18,7 +18,7 @@
 device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" {
 
     constants virtio_magic width(4) "Little Endian equivalent of the 'virt' string" {
-        value = 0x74726976;
+        magic_value = 0x74726976 "Little Endian equivalent of the 'virt' string";
     };
     
     register magic_value addr(base, 0x000) "Magic value for identifying the Virtio device" {
@@ -26,13 +26,14 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
     };
     
     constants virtio_version width(32) "Virtio MMIO Device Versions" {
-        invalid = 0x0 "Invalid Version.";
-        legacy  = 0x1 "The legacy interface is used.";
-        virtio1 = 0x2 "Virtio Version 1.0";
+        version_invalid = 0x0 "Invalid Version.";
+        version_legacy  = 0x1 "The legacy interface is used.";
+        version_virtio10 = 0x2 "Virtio Version 1.0";
     };
     
     register version addr(base, 0x004) "Device Version Number" {
-        version 32 "Virtio device interface version";        
+        version 8 "Virtio device interface version";
+        _       24 "Reserved";
     };
     
     constants virtio_deviceid width(32) "Virtio Device IDs" {
@@ -60,7 +61,8 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * addresses, assigning functions to them depending on user’s needs.
      */
     register deviceid addr(base, 0x008) "Virtio Subsystem Device ID" {
-        id 32 "Device ID";
+        id  8 "Device ID";
+        _  24 "Reserved";
     };
     
     register vendorid addr(base, 0x00C) "Virtio Subsystem Vendor ID" {
@@ -87,7 +89,9 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * by reading from DeviceFeatures.
      */
     register dev_features_sel addr(base, 0x014) "Device (host) features word selection." {
-        selector 32 "Virtio Feature Selector";
+        ready     1 "The host has loaded the dev_features register";
+        _        30 "Reserved";
+        selector  1 "Virtio Feature Selector";
     };
     
     /*
@@ -104,7 +108,10 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
     };
   
     register driv_features_sel addr(base, 0x024) "Activated (guest) features word selection" {
-        selector 32 "Virtio Feature Selector";
+        selector  1 "Virtio Feature Selector";
+        _        29 "Reserved";
+        ready     1 "signal the host that the values are ready";
+        ack       1 "the host has stored the values";
     };
     
     /*
@@ -114,7 +121,8 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * QueueUsedHigh apply to. The index number of the first queue is zero (0x0).
      */
     register queue_sel addr(base, 0x030) "Virtual queue index" {
-        selector 32 "Virtio Queue Selector";
+        selector 31 "Virtio Queue Selector";
+        ready     1 "the host has loaded the registers witht the values";
     };
     
     /*
@@ -123,7 +131,7 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * not available. This applies to the queue selected by writing to QueueSel.
      */
     register queue_max addr(base, 0x34) "Maximum virtual queue size" {
-        size 32 "Number ready to process";
+        size 16 "Number ready to process";
     };
     
     /*
@@ -145,7 +153,8 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      */
     register queue_ready addr(base, 0x044) "Virtual queue ready bit" {
         ready  1 "Queue ready bit";
-        _     31 "Reserved";
+        _     30 "Reserved";
+        ack    1 "the host has stored the queue data";        
     };
     
     constants queue width(1) "Queue Ready Bit Values" {
@@ -189,7 +198,7 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
     };    
     
     constants device_status width(8) "Reset value" {
-        reset = 0x0 "Reset the device";
+        device_reset = 0x0 "Reset the device";
     };
     
     /*
@@ -218,10 +227,10 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * higher 32 bits to QueueDescHigh) notifies the device about location of 
      * the Descriptor Table of the queue selected by writing to QueueSel register.
      */
-    register queue_desc_lo addr(base, 0x080) "Virtual queue’s Descriptor Table 64 bit long physical address" { 
+    register queue_desc_lo addr(base, 0x080) "Virtual queue Descriptor Table 64 bit long physical address" { 
         addr 32 "Address of Queue Descriptor Table";
     };
-    register queue_desc_hi addr(base, 0x084) "Virtual queue’s Descriptor Table 64 bit long physical address" { 
+    register queue_desc_hi addr(base, 0x084) "Virtual queue Descriptor Table 64 bit long physical address" { 
         addr 32 "Address of Queue Descriptor Table";
     };    
     
@@ -230,10 +239,10 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * QueueAvailLow, higher 32 bits to QueueAvailHigh) notifies the device 
      * about location of the Available Ring of the queue selected by writing to QueueSel.
      */
-    register queue_avail_lo addr(base, 0x090) "Virtual queue’s Available Ring 64 bit long physical address" { 
+    register queue_avail_lo addr(base, 0x090) "Virtual queue Available Ring 64 bit long physical address" { 
         addr 32 "Address of available ring";
     };
-    register queue_avail_hi addr(base, 0x094) "Virtual queue’s Available Ring 64 bit long physical address" { 
+    register queue_avail_hi addr(base, 0x094) "Virtual queue Available Ring 64 bit long physical address" { 
         addr 32 "Address of available ring";
     };
     
@@ -242,10 +251,10 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
      * QueueUsedLow, higher 32 bits to QueueUsedHigh) notifies the device about 
      * locationof the Used Ring of the queue selected by writing to QueueSel.
      */
-    register queue_used_lo addr(base, 0x0a0) "Virtual queue’s Used Ring 64 bit long physical address" { 
+    register queue_used_lo addr(base, 0x0a0) "Virtual queue Used Ring 64 bit long physical address" { 
         addr 32 "Address of used ring";
     };
-    register queue_used_hi addr(base, 0x0a4) "Virtual queue’s Used Ring 64 bit long physical address" { 
+    register queue_used_hi addr(base, 0x0a4) "Virtual queue Used Ring 64 bit long physical address" { 
         addr 32 "Address of used ring";
     };
     

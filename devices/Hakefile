@@ -91,6 +91,8 @@
            "omap/omap44xx_uart3",
            "virtio/virtio_blk",
            "virtio/virtio_mmio",
+           "virtio/virtio_pci",
+           "virtio/virtio_io",
            "xeon_phi/xeon_phi_serial",
            "xeon_phi/xeon_phi_boot",
            "xeon_phi/xeon_phi_apic",

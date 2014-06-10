@@ -37,6 +37,14 @@ struct xeon_phi_msg_open
     char iface[44];     ///< interface name (exported by the application)
 };
 
+struct xeon_phi_msg_virtq
+{
+    lpaddr_t base;     ///< physical address of the messaging frame
+    uint8_t  bits;     ///< size of the frame in bits
+    uint8_t  queueid;     ///< type of the channel
+    char iface[44];     ///< interface name (exported by the application)
+};
+
 
 struct xeon_phi_msg_spawn
 {
@@ -72,6 +80,8 @@ struct xeon_phi_messaging_cb
 {
     errval_t (*open)(struct capref msgframe, uint8_t chantype);
     errval_t (*open_iface)(struct capref msgframe, uint8_t chantype, char *iface);
+    errval_t (*add_virtq)(struct capref msgframe, uint16_t queue_id);
+    errval_t (*add_virtq_iface)(struct capref msgframe, uint16_t queue_id,char *iface);
     errval_t (*spawn)(coreid_t core, char *name);
 };
 

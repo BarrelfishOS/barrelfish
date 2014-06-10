@@ -1001,9 +1001,16 @@ errors bulk_transfer BULK_TRANSFER_ {
 };
 
 errors virtio VIRTIO_ERR_ {
-	failure SIZE_INVALID		"Size of the ringe is zero or not a power of two",
-	failure MAX_INDIRECT		"Too much indirect descriptors",
-	failure CAP_SIZE			"Supplied cap is too small",
-	failure QUEUE_FULL			"The queue was full",
-	failure QUEUE_EMPTY			"The queue was empty",
+    failure SIZE_INVALID         "Size of the ringe is zero or not a power of two",
+    failure MAX_INDIRECT         "Too much indirect descriptors",
+    failure CAP_SIZE             "Supplied cap is too small",
+    failure QUEUE_FULL           "The queue was full",
+    failure QUEUE_EMPTY          "The queue was empty",
+    failure BACKEND              "Invalid backend",
+    failure DEVICE_REGISTER      "The device registers have not been mapped",
+    failure NOT_VIRTIO_DEVICE    "The device is not a VirtIO device",
+    failure VERSION_MISMATCH     "The VirtIO versions do mismatch",
+    failure DEVICE_STATUS        "VirtIO device has the wrong status",
+    failure QUEUE_ACTIVE         "The selected qeueue is already activated",
+    failure QUEUE_INVALID        "The selected queue does not exist",
 };

@@ -10,14 +10,14 @@
 #ifndef VIRTIO_VIRTIO_MMIO_H
 #define VIRTIO_VIRTIO_MMIO_H
 
-#include <barrelfish/barrelfish.h>
+#include <dev/virtio/virtio_mmio_dev.h>
 
-#include <virtio/virtio.h>
 #include <virtio/virtio_device.h>
 
 struct virtio_device_mmio
 {
     struct virtio_device dev;
+    virtio_mmio_t regs;
 
 };
 
@@ -30,6 +30,9 @@ struct virtio_device_mmio
  * \returns SYS_ERR_OK on success
  */
 errval_t virtio_device_mmio_init(struct virtio_device **dev,
-                                 struct virtio_device_init *info);
+                                 struct virtio_device_setup *info);
+
+
+
 
 #endif // VIRTIO_VIRTIO_MMIO_H
