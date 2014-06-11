@@ -53,8 +53,7 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
                  PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
         argv[mi->argc] = pci_id;
-        mi->argc += 1;
-        argv[mi->argc] = NULL;
+        argv[mi->argc+1] = NULL;
         cleanup = true;
     }
     err = spawn_program(where, mi->path, argv,
@@ -65,7 +64,7 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
     }
     if (cleanup) {
         // alloc'd string is the last of our array
-        free(argv[mi->argc-1]);
+        free(argv[mi->argc]);
         free(argv);
     }
 
