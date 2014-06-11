@@ -28,6 +28,8 @@
                                               "pci", 
                                               "spawndomain", 
                                               "elf", 
+                                              "vfs",
+                                              "lwip",
                                               "bench", 
                                               "xeon_phi_manager_client", 
                                                "xeon_phi_messaging", 

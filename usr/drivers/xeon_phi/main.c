@@ -42,45 +42,47 @@ int main(int argc,
     errval_t err;
     debug_printf("Xeon Phi host module started.\n");
 
-    for (uint32_t i = 0; i < argc; ++i) {
-        debug_printf("argv[%i]=%s\n", i, argv[i]);
-    }
-
     uint32_t vendor_id, device_id;
     uint32_t bus = PCI_DONT_CARE,  dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
 
-    uint32_t parsed = 0;
-    if (argc != 0) {
-        debug_printf("argv[argc-1]=%s\n", argv[argc-1]);
-        parsed = sscanf(argv[argc-1], "%x:%x:%x:%x:%x", &vendor_id, &device_id,
-                        &bus, &dev, &fun);
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc-1], "%x:%x:%x:%x:%x",
+                                 &vendor_id, &device_id,
+                                 &bus, &dev, &fun);
         if (parsed != 5) {
-            debug_printf("ERROR: parsing cmdline argument failed. >"
-                            "Switching back to default values");
+            debug_printf("WARNING: parsing cmdline argument failed. >"
+                            "Switching back to unknown PCI address [0,0,0]");
             bus = PCI_DONT_CARE;
             dev = PCI_DONT_CARE;
             fun = PCI_DONT_CARE;
+        } else {
+            if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
+                debug_printf("ERROR: Unexpected vendor / device ID"
+                                "was: [%x, %x] expected: [%x, %x]",
+                                vendor_id, (device_id & 0xFF00), 0x8086, 0x2500);
+                return -1;
+            }
+            debug_printf("WARNING: Initializing Xeon Phi with PCI address "
+                                 "[%u,%u,%u]\n", bus, dev, fun);
         }
-        if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
-            debug_printf("ERROR: Vendor ID and Device ID do not match!"
-                            "[%x, %x] vs [%x, %x]",vendor_id, (device_id & 0xFF00),
-                            0x8086, 0x2500);
-            debug_printf("Exiting.");
-            return -1;
-        }
+    } else {
+        debug_printf("WARNING: Initializing Xeon Phi with unknown PCI address "
+                     "[0,0,0]\n");
     }
 
     xphi.is_client = 0x0;
 
+#if 0
     err = host_bootstrap();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not do the host bootstrap\n");
     }
 
+
     while (bootstrap_done == 0) {
         messages_wait_and_handle_next();
     }
-
+#endif
     err = service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not start the driver service\n");

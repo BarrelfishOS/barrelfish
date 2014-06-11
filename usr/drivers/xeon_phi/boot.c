@@ -18,6 +18,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
+#include <vfs/vfs.h>
 #include <elf/elf.h>
 
 #include <xeon_phi/xeon_phi.h>
@@ -84,6 +85,59 @@ static uint64_t get_adapter_memsize(void)
     }
 }
 
+
+static errval_t load_module(char *path,
+                            void *buf,
+                            uint64_t *ret_size)
+{
+    errval_t err;
+
+
+    /* read file into memory */
+    vfs_handle_t fh;
+    err = vfs_open(path, &fh);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
+
+    struct vfs_fileinfo info;
+    err = vfs_stat(fh, &info);
+    if (err_is_fail(err)) {
+        vfs_close(fh);
+        return err_push(err, SPAWN_ERR_LOAD);
+    }
+
+    assert(info.type == VFS_FILE);
+
+    uint8_t *image = buf;
+
+    size_t pos = 0, readlen;
+    do {
+        err = vfs_read(fh, &image[pos], info.size - pos, &readlen);
+        if (err_is_fail(err)) {
+            vfs_close(fh);
+            return err_push(err, SPAWN_ERR_LOAD);
+        } else if (readlen == 0) {
+            vfs_close(fh);
+            return SPAWN_ERR_LOAD; // XXX
+        } else {
+            pos += readlen;
+        }
+    } while (err_is_ok(err) && readlen > 0 && pos < info.size);
+
+    err = vfs_close(fh);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to close file %s", path);
+    }
+
+    if (ret_size) {
+        *ret_size = info.size;
+    }
+
+    return SYS_ERR_OK;
+
+}
+
 /**
  * \brief Loads the bootloader image onto the card
  *
@@ -99,6 +153,7 @@ static errval_t load_bootloader(struct xeon_phi *phi,
                                 char *xloader_img)
 {
     errval_t err;
+#if 0
     /*
      * find the boot loader image in the host multiboot
      */
@@ -117,6 +172,8 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 
     imgsize = module->mrmod_size;
 
+
+
     /*
      * get the load offset: we do not want to write into the boot loade
      */
@@ -129,6 +186,19 @@ static errval_t load_bootloader(struct xeon_phi *phi,
     XBOOT_DEBUG("Loading xloader onto card... offset = 0x%lx\n", loadoffset);
 
     memcpy((void *) (phi->apt.vbase + loadoffset), (void *) binary, imgsize);
+
+#endif
+    lvaddr_t loadoffset = get_load_offset(phi);
+    uint64_t imgsize;
+
+    void *buf = (void *) (phi->apt.vbase + loadoffset);
+
+    err = load_module(xloader_img, buf, &imgsize);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
 
     phi->os_offset = loadoffset;
     phi->os_size = imgsize;
@@ -146,6 +216,8 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
     errval_t err;
 
     assert(phi->os_offset != 0);
+
+#if 0
     /*
      * find the boot loader image in the host multiboot
      */
@@ -168,6 +240,16 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
                 load_offset);
 
     memcpy((void *) (phi->apt.vbase + load_offset), (void *) image, imgsize);
+#endif
+
+    uint64_t imgsize;
+
+    void *buf = (void *) (phi->apt.vbase + load_offset);
+
+    err = load_module(multiboot_img, buf, &imgsize);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     /*
      * we are using the Linux style way in booting. The following will update
