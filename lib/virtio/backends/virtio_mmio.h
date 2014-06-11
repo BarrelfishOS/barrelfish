@@ -10,9 +10,11 @@
 #ifndef VIRTIO_VIRTIO_MMIO_H
 #define VIRTIO_VIRTIO_MMIO_H
 
+#include <virtio/virtio_device.h>
+
 #include <dev/virtio/virtio_mmio_dev.h>
 
-#include <virtio/virtio_device.h>
+
 
 struct virtio_device_mmio
 {

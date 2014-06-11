@@ -130,6 +130,7 @@ int main(int argc,
         err = event_dispatch_non_block(get_default_waitset());
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_NO_EVENT) {
+                    thread_yield();
                             continue;
                         }
             USER_PANIC_ERR(err,

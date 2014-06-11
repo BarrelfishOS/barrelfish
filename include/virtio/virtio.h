@@ -34,6 +34,15 @@
 
 
 
+/**
+ * \brief initializes the library for host side operation
+ *
+ * \param guest_base    base address of the guest physical memory
+ * \param guest_size    size of the guest physical memory
+ */
+errval_t virtio_host_init(lpaddr_t guest_base,
+                          lpaddr_t guest_size);
+
 
 /**
  * \brief this struct represents a virtio driver

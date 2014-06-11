@@ -21,11 +21,11 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
 /*
  *  XXX: there may be more device using this driver, so starting it a second time
  *       may be needed.
- *
+ */
     if (is_started(mi) && strcmp("xeon_phi  ",mi->binary)) {
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
-*/
+
     if (!is_auto_driver(mi)) {
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
@@ -46,10 +46,10 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
         // list.
         argv = malloc((mi->argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, mi->argc * sizeof(char *));
-        char *pci_id  = malloc(25);
+        char *pci_id  = malloc(26);
         // Make sure pci vendor and device id fit into our argument
         assert(vendor_id < 0x9999 && device_id < 0x9999);
-        snprintf(pci_id, 25, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+        snprintf(pci_id, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
                  PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
         argv[mi->argc] = pci_id;

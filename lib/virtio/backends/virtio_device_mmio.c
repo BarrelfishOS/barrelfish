@@ -12,14 +12,24 @@
 #include <virtio/virtio.h>
 #include <virtio/virtqueue.h>
 #include <virtio/virtio_ring.h>
+#include <virtio/virtio_device.h>
 
 #include <dev/virtio/virtio_mmio_dev.h>
+
 
 #include "virtio_device.h"
 #include "backends/virtio_mmio.h"
 #include "debug.h"
 
 #define REG_WAIT_MAX 0xFFFF
+
+
+#define REGISTER_WAIT_READY(_reg,_dev)      \
+    do {                                    \
+        uint32_t wait = REG_WAIT_MAX;       \
+        while (!_reg(_dev) && (--wait))     \
+            ;                               \
+    } while(0);                             \
 
 
 /**
@@ -275,7 +285,7 @@ errval_t virtio_device_mmio_init(struct virtio_device **dev,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    virtio_mmio_initialize(&mmio_dev->regs, (mackerel_addr_t) info->dev_reg);
+    virtio_mmio_initialize(&mmio_dev->regs, (mackerel_addr_t) (info->dev_reg));
 
 
     /**
