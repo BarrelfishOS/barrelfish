@@ -42,6 +42,21 @@ int main(int argc,
     errval_t err;
     debug_printf("Xeon Phi host module started.\n");
 
+    uint32_t vendor_id, device_id;
+    uint32_t bus = PCI_DONT_CARE,  dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
+
+    uint32_t parsed = 0;
+    if (argc != 0) {
+        parsed = sscanf(argv[argc-1], "%x:%x:%x:%x:%x", &vendor_id, &device_id,
+                        &bus, &dev, &fun);
+        if (!parsed) {
+            USER_PANIC("Error while parsing: %s\n", argv[argc-1]);
+        }
+        if (vendor_id != 0x8086 || (device_id & 0xFF00) != 0x2500) {
+            USER_PANIC("Vendor ID and Device ID do not match!");
+        }
+    }
+
     xphi.is_client = 0x0;
 
     err = host_bootstrap();
@@ -67,7 +82,7 @@ int main(int argc,
 
     xphi.state = XEON_PHI_STATE_NULL;
 
-    err = xeon_phi_init(&xphi, PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE);
+    err = xeon_phi_init(&xphi, bus, dev, fun);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not do the card initialization\n");
     }
