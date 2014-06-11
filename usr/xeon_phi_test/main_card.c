@@ -7,6 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/ump_chan.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +17,16 @@
 #include <xeon_phi/xeon_phi_messaging_client.h>
 
 uint32_t send_reply = 0x0;
+
+static void *out_ptr;
+static size_t out_len;
+
+static void *in_ptr;
+static size_t in_len;
+
+static struct ump_chan uc;
+
+static uint32_t counter = 0;
 
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
@@ -40,6 +51,14 @@ static errval_t msg_open_cb(struct capref msgframe,
 
     send_reply = 0x1;
 
+    out_ptr = addr;
+    out_len = 1UL << id.bits;
+
+    debug_printf("initializing ump channel\n");
+    err = ump_chan_init(&uc, in_ptr, in_len, out_ptr, out_len);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not initialize the channel");
+    }
 
     return SYS_ERR_OK;
 }
@@ -69,6 +88,9 @@ int main(int argc,
     err = vspace_map_one_frame(&buf, 0x2000, frame, NULL, NULL);
     assert(err_is_ok(err));
 
+    in_ptr = buf;
+    in_len = 0x2000;
+
     snprintf(buf, 0x2000, "hello world! this is client speaking");
 
 
@@ -86,7 +108,21 @@ int main(int argc,
                 }
 
         }
-        messages_wait_and_handle_next();
+        volatile struct ump_message *msg;
+        err = ump_chan_recv(&uc, &msg);
+        if (err_is_ok(err)) {
+            debug_printf("received ump message [%016lx]\n", msg->data[0]);
+            if ((counter++)<10) {
+                struct ump_control ctrl;
+                msg = ump_chan_get_next(&uc, &ctrl);
+                msg->data[0] = counter;
+                msg->header.control = ctrl;
+            }
+        }
+        err = event_dispatch_non_block(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
+        }
     }
 }
 
