@@ -18,32 +18,40 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
 {
     assert(mi != NULL);
     errval_t err = SYS_ERR_OK;
-
-    if (is_started(mi)) {
+/*
+ *  XXX: there may be more device using this driver, so starting it a second time
+ *       may be needed.
+ *
+    if (is_started(mi) && strcmp("xeon_phi  ",mi->binary)) {
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
-
+*/
     if (!is_auto_driver(mi)) {
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t vendor_id, device_id;
+    uint64_t vendor_id, device_id, bus, dev, fun;
     char **argv = mi->argv;
     bool cleanup = false;
-    err = oct_read(record, "_ { vendor: %d, device_id: %d }",
-            &vendor_id, &device_id);
+
+    err = oct_read(record,
+                   "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                   &bus, &dev, &fun, &vendor_id, &device_id);
+
     if (err_is_ok(err)) {
         // We assume that we're starting a device if the query above succeeds
         // and therefore append the pci vendor and device id to the argument
         // list.
         argv = malloc((mi->argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, mi->argc * sizeof(char *));
-        char *pci_id  = malloc(10);
+        char *pci_id  = malloc(25);
         // Make sure pci vendor and device id fit into our argument
         assert(vendor_id < 0x9999 && device_id < 0x9999);
-        snprintf(pci_id, 10, "%04"PRIx64":%04"PRIx64, vendor_id, device_id);
+        snprintf(pci_id, 25, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                 PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
         argv[mi->argc] = pci_id;
         mi->argc += 1;
         argv[mi->argc] = NULL;
@@ -106,7 +114,7 @@ errval_t start_networking(coreid_t core, struct module_info* driver,
     size_t name_len = strlen("cardname=") + strlen(cardname) + 1;
     char* card_argument = malloc(name_len);
     sprintf(card_argument, "cardname=%s", cardname);
-    printf("############# starting network with argiments %s\n", card_argument);
+    printf("############# starting network with arguments %s\n", card_argument);
 
     // Spawn netd and ngd_mng
     netd->argv[0] = card_argument;
