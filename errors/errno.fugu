@@ -1013,4 +1013,9 @@ errors virtio VIRTIO_ERR_ {
     failure DEVICE_STATUS        "VirtIO device has the wrong status",
     failure QUEUE_ACTIVE         "The selected qeueue is already activated",
     failure QUEUE_INVALID        "The selected queue does not exist",
+    failure BUF_SIZE             "The buffer size is invalid.",
+    failure ARG_INVALID          "The given argument is invalid.",
+    failure NO_BUFFER            "No buffer given, number of buffers is 0",
+    failure ALLOC_FULL           "The allocator is already full",
+    failure BUF_USED             "The buffer is already used",
 };

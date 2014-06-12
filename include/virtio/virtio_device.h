@@ -190,11 +190,12 @@ errval_t virtio_device_get_status(struct virtio_device *dev,
 errval_t virtio_device_set_status(struct virtio_device *dev,
                                   uint8_t status);
 
-errval_t virtio_device_get_status(struct virtio_device *dev,
-                                  uint8_t *ret_status);
 
 errval_t virtio_device_feature_negotiate(struct virtio_device *dev);
 
 errval_t virtio_device_specific_setup(struct virtio_device *dev);
+
+bool     virtio_device_has_feature(struct virtio_device *dev,
+                                   uint8_t feature);
 
 #endif // VIRTIO_VIRTIO_DEVICE_H

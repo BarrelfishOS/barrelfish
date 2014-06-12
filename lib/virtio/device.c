@@ -168,11 +168,33 @@ errval_t virtio_device_open_with_cap(struct virtio_device **dev,
                      id.base,
                      (uintptr_t )init->dev_reg);
 
-    err = virtio_device_init(dev, init);
+    err = virtio_device_open(dev, init);
     if (err_is_fail(err)) {
         vspace_unmap(init->dev_reg);
     }
 
     return err;
+}
+
+/**
+ * \brief checks if the device supports a certain feature
+ *
+ * \param dev       the device to query for the feature
+ * \param feature   the featurebit to check
+ *
+ * \returns true  if the device supports that feature
+ *          false if the device does not support that feature
+ */
+bool     virtio_device_has_feature(struct virtio_device *dev,
+                                   uint8_t feature)
+{
+    /*
+     * if the device is not configured yet, we don't know the features
+     */
+    if(dev->status & VIRTIO_DEVICE_STATUS_FEATURES_OK) {
+        return false;
+    }
+
+    return (dev->features & (1UL<<feature)) != 0;
 }
 

@@ -13,6 +13,7 @@
 #include <virtio/virtio.h>
 #include <virtio/virtio_ring.h>
 #include <virtio/virtqueue.h>
+#include <virtio/virtio_device.h>
 
 #include "debug.h"
 
@@ -22,17 +23,17 @@
 
 #define VIRTQUEUE_FLAG_INDIRECT  0x0001
 #define VIRTQUEUE_FLAG_EVENT_IDX 0x0002
+#define VIRTQUEUE_FLAG_FREE_CAP  0x8000
 
 /**
  * this data structure stores additional information to the descriptors
  */
 struct vring_desc_info
 {
-    void *buf;          ///< virtual address of this descriptor
-    struct capref cap;  ///< capability of this descriptor
-    size_t size;        ///< the size of the capability in bytes
-    lpaddr_t paddr;     ///< physical address of this descriptor
-    lpaddr_t offset;    ///< offset into the capability for mapping
+    struct virtio_buffer *buf;
+    void *st;
+    uint8_t is_head;
+
 };
 
 /**
@@ -53,7 +54,7 @@ struct virtqueue
     uint16_t free_head;                 ///< head of the free descriptor chain
     uint16_t free_count;                ///< number of available free descriptors
     uint16_t used_tail;                 ///< last consumed descriptor used table
-    uint16_t used_count;                ///< number of queued used descriptors
+    uint16_t queued_count;              ///< number of queued used descriptors
 
     /* vring memory information */
     struct capref vring_cap;            ///< capability of the vring data structure
@@ -138,6 +139,48 @@ static void virtqueue_init_vring(struct virtqueue *vq)
 
 }
 
+/**
+ * \brief initializes the indirect descriptors
+ *
+ * \param vq the virtqueue to initialize the indirect descriptors
+ * \param size the number of indirect descriptors
+ *
+ * \returns SYS_ERR_OK on success
+ */
+static errval_t virtqueue_init_indirect(struct virtqueue *vq,
+                                        uint16_t size)
+{
+    struct virtio_device *vdev = vq->device;
+
+    /*
+     * check if the device supports indirect descriptors first
+     */
+    if (virtio_device_has_feature(vdev, VIRTIO_RING_F_INDIRECT_DESC)) {
+        VIRTIO_DEBUG_VQ("Device does not support indirect descriptors\n");
+        return SYS_ERR_OK;
+    }
+
+    assert(!"NYI: virtqueue_init_indirect");
+
+    return SYS_ERR_OK;
+}
+
+
+static bool virtqueue_should_notify_host(struct virtqueue *vq)
+{
+    uint16_t new, prev, *event_idx;
+
+    if (vq->flags & VIRTQUEUE_FLAG_EVENT_IDX) {
+        new = vq->vring.avail->idx;
+        prev = new - vq->queued_count;
+        event_idx = vring_get_avail_event(&vq->vring);
+
+        return (vring_need_event(*event_idx, new, prev) != 0);
+    }
+
+    return ((vq->vring.used->flags & VIRTIO_RING_USED_F_NO_NOTIFY) == 0);
+}
+
 
 /*
  * ============================================================================
@@ -189,6 +232,9 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
         cap_destroy(vring_cap);
         return err;
     }
+
+    /* set the flag that we have allocated the cap, so that it gets free'd */
+    (*vq)->flags |= VIRTQUEUE_FLAG_FREE_CAP;
 
     return SYS_ERR_OK;
 }
@@ -265,16 +311,16 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
     vq->intr_handler = setup->intr_handler;
     vq->intr_arg = setup->intr_arg;
 
-    if (setup->max_indirect > 0) {
+    if (0 && setup->max_indirect > 0) {
         /*
          * TODO: initialize indirect descriptors
          */
+        virtqueue_init_indirect(vq, setup->max_indirect);
     }
 
-#if 0
-    if (VIRTIO_BUS_WITH_FEATURE(dev, VIRTIO_RING_F_EVENT_IDX) != 0)
-        vq->vq_flags |= VIRTQUEUE_FLAG_EVENT_IDX;
-#endif
+    if(virtio_device_has_feature(setup->device, VIRTIO_RING_F_EVENT_IDX)) {
+        vq->flags |= (1<<VIRTQUEUE_FLAG_EVENT_IDX);
+    }
 
     virtqueue_init_vring(vq);
     virtio_virtqueue_intr_disable(vq);
@@ -519,7 +565,12 @@ void virtio_virtqueue_intr_disable(struct virtqueue *vq)
  */
 void virtio_virtqueue_notify_host(struct virtqueue *vq)
 {
-    assert(!"NYI: host notify");
+    /* TODO: memory barrier */
+    if (virtqueue_should_notify_host(vq)) {
+        assert(!"NYI: host notify");
+    }
+    vq->queued_count = 0;
+
 }
 
 
@@ -660,20 +711,122 @@ errval_t vring_free(struct vring *vr)
  *  Queue Management
  */
 
+/**
+ * \brief updates the available ring of the virtqueue by placing the descriptor
+ *        into the availabe ring.
+ *
+ * \param vq    the virtqueue to update
+ * \param idx   index of the new descriptor chain head
+ */
+static void virtqueue_update_available(struct virtqueue *vq,
+                                       uint16_t idx)
+{
+    uint16_t avail_idx = vq->vring.avail->idx & (vq->vring_ndesc - 1);
+    vq->vring.avail->ring[avail_idx] = idx;
+
+    /*
+     * wmb();
+     */
+
+    vq->vring.avail->idx++;
+    vq->queued_count++;
+}
+
+
+static errval_t virtqueue_enqueue_bufs(struct virtqueue *vq,
+                                       struct vring_desc *desc,
+                                       uint16_t head,
+                                       struct virtio_buffer_list *bl,
+                                       uint16_t readable,
+                                       uint16_t writable,
+                                       uint16_t *ret_idx)
+{
+    struct virtio_buffer *buf = bl->head;
+    struct vring_desc *cd;
+
+    uint16_t needed = readable + writable;
+    uint16_t idx = head;
+
+    for (uint16_t i = 0; i < needed; ++i) {
+        vq->vring_di[idx].buf = buf;
+        cd = &desc[idx];
+
+        cd->addr = buf->paddr;
+        cd->length = buf->length;
+        cd->flags = 0;
+
+        if (i < needed - 1) {
+            cd->flags |= VIRTIO_RING_DESC_F_NEXT;
+        }
+        if (i >= readable) {
+            cd->flags |= VIRTIO_RING_DESC_F_WRITE;
+        }
+        idx = cd->next;
+        buf = buf->next;
+    }
+
+    if (ret_idx) {
+        *ret_idx = idx;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
+                                       struct virtio_buffer_list *bl,
+                                       void *vaddr,
+                                       uint16_t writeable,
+                                       uint16_t readable)
+{
+    uint16_t needed = readable + writeable;
+
+    if (needed != bl->length || needed < 0) {
+        return VIRTIO_ERR_SIZE_INVALID;
+    }
+
+    if (vq->free_count < needed) {
+        return VIRTIO_ERR_QUEUE_EMPTY;
+    }
+
+    /*
+     * TODO: check if we should use indirect descriptors or not
+     */
+
+    uint16_t free_head = vq->free_head;
+    struct vring_desc_info *info = &vq->vring_di[free_head];
+
+    info->is_head = 0x1;
+    info->st = NULL;
+
+    uint16_t idx;
+    virtqueue_enqueue_bufs(vq, vq->vring.desc, free_head,
+                           bl, readable, writeable, &idx);
+
+
+    /* update free values */
+    vq->free_head = idx;
+    vq->free_count -= needed;
+
+    virtqueue_update_available(vq, free_head);
+
+    return SYS_ERR_OK;
+}
+
 #if 0
 
 /**
  *
  */
 errval_t virtio_virtqueue_desc_alloc(struct virtqueue *vq,
-                                     size_t )
-
-errval_t virtio_virtqueue_desc_enq(struct virtqueue *vq,
-                              )
+                                     struct virtio_buffer_list *bl,
+                                     uint16_t readable,
+                                     uint16_t writeable)
 {
-    assert(!"NYI: virtio_virtqueue_enq");
-    return SYS_ERR_OK;
+
 }
+
+
 
 void *virtio_virtqueue_desc_deq(struct virtqueue *vq)
 {

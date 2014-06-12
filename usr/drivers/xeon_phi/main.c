@@ -16,6 +16,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
+#include <vfs/vfs.h>
 #include <pci/pci.h>
 
 #include <xeon_phi/xeon_phi_manager_client.h>
@@ -62,7 +63,7 @@ int main(int argc,
                                 vendor_id, (device_id & 0xFF00), 0x8086, 0x2500);
                 return -1;
             }
-            debug_printf("WARNING: Initializing Xeon Phi with PCI address "
+            debug_printf("Initializing Xeon Phi with PCI address "
                                  "[%u,%u,%u]\n", bus, dev, fun);
         }
     } else {
@@ -83,6 +84,9 @@ int main(int argc,
         messages_wait_and_handle_next();
     }
 #endif
+
+    vfs_init();
+
     err = service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not start the driver service\n");

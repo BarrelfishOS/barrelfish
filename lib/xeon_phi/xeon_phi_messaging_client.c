@@ -167,8 +167,11 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
     }
 
     char buf[50];
+#if !defined(__k1om__)
     snprintf(buf, 50, "%s.%u", XEON_PHI_MESSAGING_NAME, xeon_phi_id);
-
+#else
+    snprintf(buf, 50, "%s", XEON_PHI_MESSAGING_NAME);
+#endif
 
     DEBUG_XPMC("Nameservice lookup: %s\n", buf);
     err = nameservice_blocking_lookup(buf, &xpm_iref[xeon_phi_id]);

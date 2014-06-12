@@ -27,7 +27,7 @@ module  /k1om/sbin/xeon_phi boot
 #modulenounzip /skb_ramfs.cpio.gz nospawn
 #module  /k1om/sbin/kaluga boot
 #module  /k1om/sbin/acpi boot
-module  /k1om/sbin/spawnd boot bootk1om=0-3
+module  /k1om/sbin/spawnd boot bootk1om=0,4,8,12,16
 module  /k1om/sbin/startd boot
 #module /k1om/sbin/routing_setup boot
 module /k1om/sbin/xeon_phi_test

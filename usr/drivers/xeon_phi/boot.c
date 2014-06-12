@@ -360,10 +360,6 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     errval_t err;
     lvaddr_t offset;
 
-    if (bi == NULL) {
-        return SYS_ERR_ILLEGAL_INVOCATION;
-    }
-
     xeon_phi_boot_initialize(&boot_registers,
                              XEON_PHI_MMIO_TO_SBOX(phi),
                              XEON_PHI_MMIO_TO_DBOX(phi));

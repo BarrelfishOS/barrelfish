@@ -45,35 +45,36 @@ errval_t virtio_host_init(lpaddr_t guest_base,
 
 
 /**
- * \brief this struct represents a virtio driver
- *
- * This can be seen as on the guest side of the virtio channel
- */
-struct virtio_driver
-{
-    void *device_config;
-
-
-};
-
-
-/**
  * VirtIO Memory segment
  */
 
-enum virtio_buffer_state {
+struct virtio_buffer_allocator;
 
+enum virtio_buffer_state {
+    VIRTIO_BUFFER_S_INVALID,
+    VIRTIO_BUFFER_S_FREE,
+    VIRTIO_BUFFER_S_ALLOCED,
+    VIRTIO_BUFFER_S_QUEUED
 };
 
+/**
+ * represents a VirtIO buffer to be used
+ */
 struct virtio_buffer
 {
-    enum virtio_buffer_state state;
-
-    struct virtio_buffer_head *head;
-    struct virtio_buffer *next;
+    struct virtio_buffer_allocator *a;
+    enum virtio_buffer_state state;     ///< state of this buffer
+    lpaddr_t paddr;                     ///< physical address of the buffer
+    void *buf;                          ///< mapped virtual address of the buffer
+    size_t   length;                    ///< size of this buffer
+    struct virtio_buffer_list *lhead;   ///< pointer to the buffer list head
+    struct virtio_buffer *next;         ///< pointer to the next buffer in the list
 };
 
-struct virtio_buffer_head
+/**
+ * represents a list of buffers
+ */
+struct virtio_buffer_list
 {
     struct virtio_buffer *head;
     struct virtio_buffer *tail;
@@ -81,17 +82,85 @@ struct virtio_buffer_head
 };
 
 
-errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator *alloc,
-                                  uint16_t nbufs);
 
-errval_t virtio_buffer_alloc(void);
-errval_t virtio_buffer_free(void);
+/**
+ * \brief   initializes the buffer allocator and allocates memory for the
+ *          buffers
+ *
+ * \param   alloc   the allocator struct to initialize
+ * \param   nbufs   number of buffers to allocate
+ * \param   bufsz   size of each buffer to allocate
+ *
+ * \return  SYS_ERR_OK on success
+ */
+errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
+                                  size_t nbufs,
+                                  size_t bufsz);
 
+/**
+ * \brief   destroys a buffer allocator by freeing up all the resources used
+ *          by the buffers
+ *
+ * \param   alloc   the allocator to destroy
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_buffer_alloc_destroy(struct virtio_buffer_allocator *alloc);
 
-errval_t virtio_buffer_list_reset(void);
-errval_t virtio_buffer_list_append(void);
+/**
+ * \brief   allocated a new virti_buffer from the buffer allocator
+ */
+struct virtio_buffer *virtio_buffer_alloc(struct virtio_buffer_allocator *alloc);
 
+/**
+ * \brief   frees up a unused buffer by returning it to the allocator
+ *
+ * \param   buf     the buffer to be freed
+ */
+errval_t virtio_buffer_free(struct virtio_buffer *buf);
 
+/**
+ * \brief   returns the backing frame capability of a buffer allocator
+ */
+errval_t virtio_buffer_alloc_get_cap(struct virtio_buffer_allocator *alloc,
+                                     struct capref *ret_cap);
+
+/**
+ * \brief initializes a new VirtIO buffer list to be used for chaining buffers
+ *
+ * \param bl buffer list to initialize
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t virtio_blist_init(struct virtio_buffer_list *bl);
+
+/**
+ * \brief frees up the buffer list by returning the buffers to the allocator
+ *
+ * \param bl buffer list to be freed
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_blist_free(struct virtio_buffer_list *bl);
+
+/**
+ * \brief appends a buffer to the tail of buffer list
+ *
+ * \param bl    the list to append the buffer to
+ * \param buf   the buffer to be appended
+ */
+errval_t virtio_blist_append(struct virtio_buffer_list *bl,
+                             struct virtio_buffer *buf);
+
+/**
+ * \brief returns and removes the head of the list
+ *
+ * \param bl buffer list
+ *
+ * \returns pointer to virtio_buffer on sucess
+ *          NULL on failuer
+ */
+struct virtio_buffer *virtio_blist_get(struct virtio_buffer_list *bl);
 
 
 

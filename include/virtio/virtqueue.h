@@ -40,10 +40,10 @@ typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
 #define VIRTQUEUE_CHAIN_END VIRTQUEUE_SIZE_MAX
 
 /// Feature flag indicating that the ring supports indirect descriptors
-#define VIRTIO_RING_F_INDIRECT_DESC (1 << 28)
+#define VIRTIO_RING_F_INDIRECT_DESC 28
 
 /// Feature flag indicating that the ring supports interrupt suppression
-#define VIRTIO_RING_F_EVENT_IDX     (1 << 29)
+#define VIRTIO_RING_F_EVENT_IDX     29
 
 
 /**
@@ -265,8 +265,8 @@ static inline uint64_t virtio_virtqueue_mask_features(uint64_t features)
     uint64_t mask;
 
     mask = (1 << VIRTIO_TRANSPORT_F_START) - 1;
-    mask |= VIRTIO_RING_F_INDIRECT_DESC;
-    mask |= VIRTIO_RING_F_EVENT_IDX;
+    mask |= (1 << VIRTIO_RING_F_INDIRECT_DESC);
+    mask |= (1 <<VIRTIO_RING_F_EVENT_IDX);
 
     return (features & mask);
 }
@@ -277,20 +277,17 @@ static inline uint64_t virtio_virtqueue_mask_features(uint64_t features)
  */
 
 errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
-                                       struct virtio_buffer *buf,
+                                       struct virtio_buffer_list *bl,
                                        void *vaddr,
                                        uint16_t writeable,
                                        uint16_t readable);
 
+
+
 #if 0
-int  virtqueue_enqueue(struct virtqueue *vq, void *cookie,
-         struct sglist *sg, int readable, int writable);
 void    *virtqueue_dequeue(struct virtqueue *vq, uint32_t *len);
 void    *virtqueue_poll(struct virtqueue *vq, uint32_t *len);
 
-
-
-uint64_t virtqueue_filter_features(uint64_t features);
 
 void     virtqueue_dump(struct virtqueue *vq);
 #endif
