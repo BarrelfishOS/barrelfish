@@ -11,6 +11,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
+#include <xeon_phi/xeon_phi.h>
+
 #include <xeon_phi/xeon_phi_messaging.h>
 #include <xeon_phi/xeon_phi_messaging_client.h>
 
@@ -26,8 +28,9 @@ enum xpm_state
     XPM_STATE_BIND_FAIL,
 };
 
-static iref_t xpm_iref = 0;
-struct xeon_phi_messaging_binding *xpm_binding = NULL;
+/* todo: extend this with array of 8 */
+static iref_t xpm_iref[XEON_PHI_NUM_MAX];
+struct xeon_phi_messaging_binding *xpm_binding[XEON_PHI_NUM_MAX];
 
 enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
 
@@ -38,6 +41,7 @@ enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
 struct xpm_msg_param_open
 {
     struct capref frame;
+    struct xeon_phi_messaging_binding *b;
     uint8_t type;
     char iface[44];
 };
@@ -52,7 +56,7 @@ static void xpm_msg_open_tx(void *a)
 
     size_t length = strlen(param->iface)+1;
 
-    err = xeon_phi_messaging_open_iface__tx(xpm_binding,
+    err = xeon_phi_messaging_open_iface__tx(param->b,
                                       txcont,
                                       param->frame,
                                       param->type,
@@ -61,7 +65,7 @@ static void xpm_msg_open_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_open_tx, a);
-            err = xpm_binding->register_send(xpm_binding,
+            err = param->b->register_send(param->b,
                                              get_default_waitset(),
                                              txcont);
             if (err_is_fail(err)) {
@@ -77,6 +81,7 @@ static void xpm_msg_open_tx(void *a)
  */
 struct xpm_msg_param_spawn
 {
+    struct xeon_phi_messaging_binding *b;
     coreid_t core;
     char name[55];
 };
@@ -91,7 +96,7 @@ static void xpm_msg_spawn_tx(void *a)
 
     size_t length = strlen(param->name)+1;
 
-    err = xeon_phi_messaging_spawn__tx(xpm_binding,
+    err = xeon_phi_messaging_spawn__tx(param->b,
                                       txcont,
                                       param->core,
                                       param->name,
@@ -99,7 +104,7 @@ static void xpm_msg_spawn_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_spawn_tx, a);
-            err = xpm_binding->register_send(xpm_binding,
+            err = param->b->register_send(param->b,
                                              get_default_waitset(),
                                              txcont);
             if (err_is_fail(err)) {
@@ -136,9 +141,14 @@ static void xpm_bind_cb(void *st,
         return;
     }
 
-    xpm_binding = b;
+    uint8_t xeon_phi_id = (uint8_t)(uintptr_t)st;
 
-    xpm_binding->rx_vtbl = xpm_rx_vtbl;
+    assert(xpm_binding[xeon_phi_id] == 0);
+
+    b->rx_vtbl = xpm_rx_vtbl;
+    b->st = (void *)(uintptr_t)xeon_phi_id;
+
+    xpm_binding[xeon_phi_id] = b;
 
     DEBUG_XPMC("Binding ok.\n");
 
@@ -148,25 +158,29 @@ static void xpm_bind_cb(void *st,
 /**
  * \brief
  */
-static errval_t xpm_connect(void)
+static errval_t xpm_connect(uint8_t xeon_phi_id)
 {
     errval_t err;
 
-    if (xpm_binding != NULL) {
+    if (xpm_binding[xeon_phi_id] != NULL) {
         return SYS_ERR_OK;
     }
 
-    DEBUG_XPMC("Nameservice lookup: "XEON_PHI_MESSAGING_NAME"\n");
-    err = nameservice_blocking_lookup(XEON_PHI_MESSAGING_NAME, &xpm_iref);
+    char buf[50];
+    snprintf(buf, 50, "%s.%u", XEON_PHI_MESSAGING_NAME, xeon_phi_id);
+
+
+    DEBUG_XPMC("Nameservice lookup: %s\n", buf);
+    err = nameservice_blocking_lookup(buf, &xpm_iref[xeon_phi_id]);
     if (err_is_fail(err)) {
         return err;
     }
 
     conn_state = XPM_STATE_BINDING;
 
-    DEBUG_XPMC("binding to iref [%u]... \n", xpm_iref);
-    err = xeon_phi_messaging_bind(xpm_iref, xpm_bind_cb,
-                                  NULL,
+    DEBUG_XPMC("binding to iref [%u]... \n", xpm_iref[xeon_phi_id]);
+    err = xeon_phi_messaging_bind(xpm_iref[xeon_phi_id], xpm_bind_cb,
+                                  (void *)(uintptr_t)xeon_phi_id,
                                   get_default_waitset(),
                                   IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -198,13 +212,14 @@ static errval_t xpm_connect(void)
  *
  * \return SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_open(char *iface,
+errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
+                                 char *iface,
                                  struct capref frame,
                                  uint8_t type)
 {
     errval_t err;
-    if (xpm_binding == NULL) {
-        err = xpm_connect();
+    if (xpm_binding[xeon_phi_id] == NULL) {
+        err = xpm_connect(xeon_phi_id);
         if (err_is_fail(err)) {
             return err;
         }
@@ -217,6 +232,7 @@ errval_t xeon_phi_messaging_open(char *iface,
 
     param->frame = frame;
     param->type = type;
+    param->b = xpm_binding[xeon_phi_id];
 
     snprintf(param->iface, sizeof(param->iface), "%s", iface);
 
@@ -234,12 +250,13 @@ errval_t xeon_phi_messaging_open(char *iface,
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_spawn(coreid_t core,
+errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
+                                  coreid_t core,
                                   char *name)
 {
     errval_t err;
-    if (xpm_binding == NULL) {
-        err = xpm_connect();
+    if (xpm_binding[xeon_phi_id] == NULL) {
+        err = xpm_connect(xeon_phi_id);
         if (err_is_fail(err)) {
             return err;
         }
@@ -250,6 +267,7 @@ errval_t xeon_phi_messaging_spawn(coreid_t core,
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    param->b = xpm_binding[xeon_phi_id];
     param->core = core;
     snprintf(param->name, sizeof(param->name), "%s", name);
 
@@ -266,11 +284,12 @@ errval_t xeon_phi_messaging_spawn(coreid_t core,
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_kill(domainid_t d)
+errval_t xeon_phi_messaging_kill(uint8_t xeon_phi_id,
+                                 domainid_t d)
 {
     errval_t err;
-    if (xpm_binding == NULL) {
-        err = xpm_connect();
+    if (xpm_binding[xeon_phi_id] == NULL) {
+        err = xpm_connect(xeon_phi_id);
         if (err_is_fail(err)) {
             return err;
         }

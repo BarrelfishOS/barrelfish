@@ -117,7 +117,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not initialize the messaging service");
     }
 
-    err = xeon_phi_messaging_service_start_phi();
+    err = xeon_phi_messaging_service_start_phi(xphi.id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not export the service");
     }

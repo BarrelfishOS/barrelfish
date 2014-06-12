@@ -11,6 +11,7 @@
 #define XEON_PHI_MESSAGING_CLIENT_H
 
 
+
 /**
  * \brief sends a OPEN command message over the Xeon Phi channel
  *
@@ -20,7 +21,8 @@
  *
  * \return SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_open(char *iface,
+errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
+                                 char *iface,
                                  struct capref frame,
                                  uint8_t type);
 
@@ -33,7 +35,9 @@ errval_t xeon_phi_messaging_open(char *iface,
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_spawn(coreid_t core, char *name);
+errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
+                                  coreid_t core,
+                                  char *name);
 
 /**
  * \brief sends a KILL command over the Xeon Phi channel to terminated
@@ -43,6 +47,7 @@ errval_t xeon_phi_messaging_spawn(coreid_t core, char *name);
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_kill(domainid_t d);
+errval_t xeon_phi_messaging_kill(uint8_t xeon_phi_id,
+                                 domainid_t d);
 
 #endif // XEON_PHI_MESSAGING_CLIENT_H

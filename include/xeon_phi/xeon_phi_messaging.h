@@ -10,6 +10,7 @@
 #ifndef XEON_PHI_MESSAGING_H_
 #define XEON_PHI_MESSAGING_H_
 
+
 #ifdef __k1om__
 #define XEON_PHI_MESSAGING_NAME "xeon_phi_messaging_card"
 #else
@@ -110,6 +111,6 @@ errval_t xeon_phi_messaging_service_start(uint8_t start_handler);
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_service_start_phi(void);
+errval_t xeon_phi_messaging_service_start_phi(uint8_t xeon_phi_id);
 
 #endif // XEON_PHI_MESSAGING_H_

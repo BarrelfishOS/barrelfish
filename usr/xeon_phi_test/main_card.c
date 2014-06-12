@@ -102,7 +102,7 @@ int main(int argc,
     while(1) {
         if (send_reply) {
             send_reply = 0;
-            err = xeon_phi_messaging_open(iface, frame, XEON_PHI_CHAN_TYPE_UMP);
+            err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "could not open channel");
                 }

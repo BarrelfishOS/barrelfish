@@ -85,7 +85,7 @@ int main(int argc,
     coreid_t core = 2;
     char *name = "k1om/sbin/xeon_phi_test";
 
-    err = xeon_phi_messaging_spawn(core, name);
+    err = xeon_phi_messaging_spawn(0, core, name);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }
@@ -103,7 +103,7 @@ int main(int argc,
 
     snprintf(buf, 0x2000, "hello world! this is host speaking");
 
-    err = xeon_phi_messaging_open(iface, frame, XEON_PHI_CHAN_TYPE_UMP);
+    err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
     }

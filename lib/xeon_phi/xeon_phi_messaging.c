@@ -192,15 +192,21 @@ errval_t xeon_phi_messaging_service_start(uint8_t start_handler)
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_service_start_phi(void)
+errval_t xeon_phi_messaging_service_start_phi(uint8_t xeon_phi_id)
 {
     errval_t err;
     svc_state = XPM_SVC_STATE_NS_REGISTERING;
 
+    char buf[50];
+#if !defined(__k1om__)
+    snprintf(buf, 50, "%s.%u", XEON_PHI_MESSAGING_NAME, xeon_phi_id);
+#else
+    snprintf(buf, 50, "%s", XEON_PHI_MESSAGING_NAME);
+#endif
     XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n",
                  messaging_iref,
-                 XEON_PHI_MESSAGING_NAME);
-    err = nameservice_register(XEON_PHI_MESSAGING_NAME, messaging_iref);
+                 buf);
+    err = nameservice_register(buf, messaging_iref);
     if (err_is_fail(err)) {
         return err;
     }
