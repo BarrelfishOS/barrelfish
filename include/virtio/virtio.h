@@ -60,17 +60,26 @@ struct virtio_driver
 /**
  * VirtIO Memory segment
  */
+
+enum virtio_buffer_state {
+
+};
+
 struct virtio_buffer
 {
+    enum virtio_buffer_state state;
 
+    struct virtio_buffer_head *head;
+    struct virtio_buffer *next;
 };
 
-struct virtio_buffer_allocator
+struct virtio_buffer_head
 {
-    struct virtio_buffer *buffers;
-    uint16_t size;
-    uint16_t top;
+    struct virtio_buffer *head;
+    struct virtio_buffer *tail;
+    size_t length;
 };
+
 
 errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator *alloc,
                                   uint16_t nbufs);

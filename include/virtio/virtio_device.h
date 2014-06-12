@@ -137,7 +137,7 @@ struct virtio_device_setup
  * \param init      additional information passed for the init process
  * \param dev_regs  memory location of the device registers
  */
-errval_t virtio_device_init(struct virtio_device **dev,
+errval_t virtio_device_open(struct virtio_device **dev,
                             struct virtio_device_setup *init);
 
 /**
@@ -149,9 +149,18 @@ errval_t virtio_device_init(struct virtio_device **dev,
  * \param init      additional information passed for the init process
  * \param dev_cap   capability representing the device registers
  */
-errval_t virtio_device_init_with_cap(struct virtio_device **dev,
+errval_t virtio_device_open_with_cap(struct virtio_device **dev,
                                      struct virtio_device_setup *init,
                                      struct capref dev_cap);
+
+/**
+ * \brief   closes a virtio device.
+ *
+ * \param dev the device to be closed
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_close(struct virtio_device *dev);
 
 /**
  * \brief resets the virtio device
@@ -161,6 +170,17 @@ errval_t virtio_device_init_with_cap(struct virtio_device **dev,
  * \returns SYS_ERR_OK on success
  */
 errval_t virtio_device_reset(struct virtio_device *dev);
+
+/**
+ * \brief returns the status of a virtio device
+ *
+ * \param the device to query for status
+ * \param returned status
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_get_status(struct virtio_device *dev,
+                                  uint8_t *ret_status);
 
 /**
  * \brief
