@@ -17,7 +17,7 @@
 #include <dev/virtio/virtio_mmio_dev.h>
 
 
-#include "virtio_device.h"
+#include "device.h"
 #include "backends/virtio_mmio.h"
 #include "debug.h"
 

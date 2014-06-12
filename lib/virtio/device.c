@@ -12,7 +12,7 @@
 #include <virtio/virtio.h>
 #include <virtio/virtio_device.h>
 
-#include "virtio_device.h"
+#include "device.h"
 #include "backends/virtio_mmio.h"
 #include "backends/virtio_pci.h"
 
@@ -26,7 +26,7 @@
  * \param init      additional information passed for the init process
  * \param dev_regs  memory location of the device registers
  */
-errval_t virtio_device_init(struct virtio_device **dev,
+errval_t virtio_device_open(struct virtio_device **dev,
                             struct virtio_device_setup *init)
 {
     errval_t err = SYS_ERR_OK;
@@ -137,7 +137,7 @@ errval_t virtio_device_init(struct virtio_device **dev,
  * \param init      additional information passed for the init process
  * \param dev_cap   capability representing the device registers
  */
-errval_t virtio_device_init_with_cap(struct virtio_device **dev,
+errval_t virtio_device_open_with_cap(struct virtio_device **dev,
                                      struct virtio_device_setup *init,
                                      struct capref dev_cap)
 {
@@ -154,7 +154,7 @@ errval_t virtio_device_init_with_cap(struct virtio_device **dev,
 
     init->dev_reg_size = (1UL << id.bits);
 
-    err = vspace_map_one_frame_attr(&init->dev_reg, (1UL << id.bits), dev_cap,
+    err = vspace_map_one_frame_attr(&init->dev_reg, init->dev_reg_size, dev_cap,
     VIRTIO_VREGION_FLAGS_DEVICE,
                                     NULL, NULL);
     if (err_is_fail(err)) {
@@ -175,3 +175,4 @@ errval_t virtio_device_init_with_cap(struct virtio_device **dev,
 
     return err;
 }
+

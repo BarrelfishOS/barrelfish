@@ -12,6 +12,8 @@
 
 #include <virtio/virtio_device.h>
 
+
+
 /**
  * represents a virtio device
  */
@@ -20,6 +22,7 @@ struct virtio_device
     char name[VIRTIO_DEVICE_NAME_MAX];
     uint32_t devid;
     uint8_t type;
+    uint8_t status;
     uint64_t features;
     enum virtio_device_backend backend;
     struct virtio_device_fn *f;
