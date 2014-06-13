@@ -1,5 +1,6 @@
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2009, 2011, ETH Zurich.
+-- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -18,5 +19,8 @@
                     },
   build application { target = "test_modify_flags",
                       cFiles = [ "modify_flags.c" ]
+                    },
+  build application { target = "test_invalid_mappings",
+                      cFiles = [ "invalid_mappings.c" ]
                     }
 ]
