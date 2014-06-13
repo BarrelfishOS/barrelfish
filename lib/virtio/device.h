@@ -12,6 +12,8 @@
 
 #include <virtio/virtio_device.h>
 
+// forward declaration
+struct virtqueue;
 
 
 /**
@@ -26,8 +28,6 @@ struct virtio_device
     uint64_t features;
     enum virtio_device_backend backend;
     struct virtio_device_fn *f;
-    uint16_t num_queues;
-    struct virtqueue **queues;
 };
 
 /**

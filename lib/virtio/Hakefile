@@ -13,11 +13,23 @@
 
 [ build library { target = "virtio",
                       cFiles = [ "virtqueue.c", 
-                      			 "device.c",
-                      			 "vbuffer.c",
-                      			 "backends/virtio_device_mmio.c",
-                      			 "backends/virtio_device_pci.c" ],
+                      	   "device.c",
+                      	   "vbuffer.c",
+                      	   "backends/virtio_device_mmio.c",
+                      	   "backends/virtio_device_pci.c",
+                      	   "devices/virtio_block.c" ],
                       mackerelDevices = [ "virtio/virtio_mmio",
                                           "virtio/virtio_pci" ]
-                }
+                },
+  build library { target = "virtio_host",
+                  addCFlags = [ "-DVIRTIO_HOST" ],
+                      cFiles = [ "virtqueue.c", 
+                                 "device.c",
+                                 "vbuffer.c",
+                                 "backends/virtio_device_mmio.c",
+                                 "backends/virtio_device_pci.c",
+                                 "devices/virtio_block.c" ],
+                      mackerelDevices = [ "virtio/virtio_mmio",
+                                          "virtio/virtio_pci" ]
+                }                
 ]

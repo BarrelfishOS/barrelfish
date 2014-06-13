@@ -216,7 +216,7 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
                              struct virtio_buffer *buf)
 {
     if (buf->lhead) {
-        return VIRTIO_ERR_BUF_USED;
+        return VIRTIO_ERR_BUFFER_USED;
     }
     if (bl->length == 0) {
         bl->head = buf;

@@ -276,21 +276,55 @@ static inline uint64_t virtio_virtqueue_mask_features(uint64_t features)
  * Virtqueue Queue Management
  */
 
+/**
+ * \brief Enqueues a new descriptor chain into the virtqueue
+ *
+ * \param vq     the virtqueue the descriptor chain gets enqueued in
+ * \param bl     list of buffers to enqueue into the virtqueue
+ * \param st     state associated with this descriptor chain
+ * \param num_wr number of writable descriptors
+ * \param num_rd number of readable descriptors
+ *
+ * \returns SYS_ERR_OK on success
+ *          VIRTIO_ERR_* on failure
+ */
 errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
                                        struct virtio_buffer_list *bl,
-                                       void *vaddr,
+                                       void *st,
                                        uint16_t writeable,
                                        uint16_t readable);
 
+/**
+ * \brief dequeues a descriptor chain form the virtqueue
+ *
+ * \param vq     the virtqueue to dequeue descriptors from
+ * \param ret_bl returns the associated buffer list structure
+ * \param ret_st returns the associated state of the queue list
+ *
+ * \returns SYS_ERR_OK when the dequeue is successful
+ *          VIRTIO_ERR_NO_DESC_AVAIL when there was no descriptor to dequeue
+ *          VIRTIO_ERR_* if there was an error
+ */
+errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
+                                       struct virtio_buffer_list **ret_bl,
+                                       void **ret_st);
 
 
-#if 0
-void    *virtqueue_dequeue(struct virtqueue *vq, uint32_t *len);
-void    *virtqueue_poll(struct virtqueue *vq, uint32_t *len);
-
-
-void     virtqueue_dump(struct virtqueue *vq);
-#endif
+/**
+ * \brief polls the virtqueue
+ *
+ * \param vq         the virtqueue to dequeue descriptors from
+ * \param ret_bl     returns the associated buffer list structure
+ * \param ret_st     returns the associated state of the queue list
+ * \param handle_msg flag to have messages handled
+ *
+ * \returns SYS_ERR_OK when the dequeue is successful
+ *          VIRTIO_ERR_* if there was an error
+ */
+errval_t virtio_virtqueue_poll(struct virtqueue *vq,
+                               struct virtio_buffer_list **ret_bl,
+                               void **ret_st,
+                               uint8_t handle_msg);
 
 
 #endif // VIRTIO_VIRTQUEUE_H

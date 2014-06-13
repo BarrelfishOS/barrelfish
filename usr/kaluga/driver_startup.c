@@ -58,7 +58,7 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
     }
 
     if (is_started(mi) && !strcmp("xeon_phi",mi->binary)) {
-        where !=20;
+        where += 20;
     }
 
     err = spawn_program(where, mi->path, argv,

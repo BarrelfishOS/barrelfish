@@ -82,51 +82,51 @@ device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
         unsupp  = 0x2 "The request is not supported";
     };
     
+    
+    
+   /*
+    * ------------------------------------------------------------------------
+    * Reading / Writing the configuration space
+    * ------------------------------------------------------------------------ 
+    */
+    
+    
+    
    register capacity addr(base, 0x00) "The capacity in 512byte sectors" {
        sectors  64  "Number of 512byte sectors";
    };
    
-   register size_max addr(base, 0x08) "The maximum segment size" {
-       size 32 "Maximum segment size";
+   register seg_size addr(base, 0x08) "The maximum segment size" {
+       max 32 "Maximum segment size";
    };
    
-   register seg_max addr(base, 0x0C) "The maximum number of segments" {
-       num 32 "Number of segments";
+   register seg_num addr(base, 0x0C) "The maximum number of segments" {
+       max 32 "Maximum number of segments";
    };
    
-   register geo_cylinders addr(base, 0x10) "Geometry Information: Cylinders" {
-       num 16 "Geometry: Number of cylinders";
+   register geometry addr(base, 0x10) "Geometry Information" {
+       cylinders 16 "Number of cylinders";
+       heads      8 "Number of heads"; 
+       sectors    8 "Number of sectors";
    };
    
-   register geo_heads addr(base, 0x12) "Geometry Information: Heads" {
-       num 8 "Geometry: Number of heads";
-   };
-   
-   register geo_sectors addr(base, 0x13) "Geometry Information: Sectors" {
-       num 8 "Geometry: Number of sectors";
-   };
    
    register block_size addr(base, 0x14) "Block Size" {
        size 32 "The size of a block";
    };
    
-   register phys_block_exp addr(base, 0x18) "Toplogy: Logical Blocks" {
-      exp 8 "Number of logical blocks per physical block";
+   register topo_blocks addr(base, 0x18) "Toplogy: Logical Blocks" {
+      logic_per_phys 8 "Number of logical blocks per physical block";
+      offset_aligned 8 "Offset of first aligned logical block";
    };
    
-   register align_offset addr(base, 0x19) "Topology: Align Offset" {
-      off 8 "Offset of first aligned logical block";
+   register topo_io_size addr(base, 0x1A) "Topology: minimum IO Size" {
+       min 16 "Minimum number of IO size in blocks";
+       opt 16 "Maximum number of IO size in  blocks";
    };
    
-   register min_io addr(base, 0x1A) "Topology: minimum IO Size" {
-       size 16 "Minimum number of IO size in blocks";
-   };
    
-   register opt_io addr(base, 0x1C) "Topology: maximum IO Size" {
-       size 32 "Maximum number of IO size in  blocks";
-   };
-   
-   register writeback addr(base, 0x20) "Legacy Writeback Register" {
+   register writeback addr(base, 0x1E) "Legacy Writeback Register" {
        wb   8 "Write back";
    };
  };

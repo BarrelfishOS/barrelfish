@@ -15,7 +15,7 @@
 
 /// defines how we map the memory frames
 #define VIRTIO_VREGION_FLAGS_DEVICE VREGION_FLAGS_READ_WRITE
-#define VIRTIO_VREGION_FLAGS_RING VREGION_FLAGS_READ_WRITE
+#define VIRTIO_VREGION_FLAGS_RING   VREGION_FLAGS_READ_WRITE
 
 
 /*
@@ -35,16 +35,6 @@
 
 
 /**
- * \brief initializes the library for host side operation
- *
- * \param guest_base    base address of the guest physical memory
- * \param guest_size    size of the guest physical memory
- */
-errval_t virtio_host_init(lpaddr_t guest_base,
-                          lpaddr_t guest_size);
-
-
-/**
  * VirtIO Memory segment
  */
 
@@ -57,12 +47,19 @@ enum virtio_buffer_state {
     VIRTIO_BUFFER_S_QUEUED
 };
 
+enum virtio_bl_state {
+    VIRTIO_BUFFER_LIST_S_INVALID,     ///< invalid state
+    VIRTIO_BUFFER_LIST_S_EMTPY,       ///< list is empty can be used to insert bufs
+    VIRTIO_BUFFER_LIST_S_FILLED,      ///< list contains buffers, more can be appended
+    VIRTIO_BUFFER_LIST_S_ENQUEUED     ///< buffer list is enqueued, appending not possible
+};
+
 /**
  * represents a VirtIO buffer to be used
  */
 struct virtio_buffer
 {
-    struct virtio_buffer_allocator *a;
+    struct virtio_buffer_allocator *a;  ///< pointer to the allocator
     enum virtio_buffer_state state;     ///< state of this buffer
     lpaddr_t paddr;                     ///< physical address of the buffer
     void *buf;                          ///< mapped virtual address of the buffer
@@ -76,6 +73,7 @@ struct virtio_buffer
  */
 struct virtio_buffer_list
 {
+    enum virtio_bl_state state;
     struct virtio_buffer *head;
     struct virtio_buffer *tail;
     size_t length;

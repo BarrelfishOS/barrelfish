@@ -198,4 +198,32 @@ errval_t virtio_device_specific_setup(struct virtio_device *dev);
 bool     virtio_device_has_feature(struct virtio_device *dev,
                                    uint8_t feature);
 
+
+/**
+ * \brief reads the device configuration space and copies it into a local buffer
+ *
+ * \param vdev  virtio device
+ * \param buf   pointer to the buffer to store the data
+ * \param len   the length of the buffer
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_config_read(struct virtio_device *vdev,
+                                  void *buf,
+                                  size_t len);
+/**
+ * \brief writes to the configuration space of a device
+ *
+ * \param vdev  virtio device
+ * \param buf   pointer to the buffer with data to update
+ * \param len   the length of the buffer
+ *
+ * \returns SYS_ERR_OK on success
+ *
+ * xxx: this may be done at a certain offset/value combination
+ */
+errval_t virtio_device_config_write(struct virtio_device *dev,
+                                    void *config,
+                                    size_t length);
+
 #endif // VIRTIO_VIRTIO_DEVICE_H
