@@ -17,6 +17,7 @@
 
 /*
  * Copyright (c) 2009-2013 ETH Zurich.
+ * Copyright (c) 2014 HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -1127,7 +1128,7 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
         alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
     }
     size = ROUND_UP(size, alignment);
-    assert(size < 1ul * 1024 * 1024 * 1024); // pml4 size
+    assert(size < 512ul * 1024 * 1024 * 1024); // pml4 size
 
     // try to find free pml4 entry
     bool f[512];
