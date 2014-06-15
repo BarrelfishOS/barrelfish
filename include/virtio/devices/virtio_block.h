@@ -27,6 +27,10 @@
 /// the size of the VirtIO block device configuration spaces
 #define VIRTIO_BLOCK_CONFIG_SIZE 0x20
 
+/// the number of virtqueues for this device type
+#define VIRTIO_BLOCK_NUM_VIRTQUEUES 1
+
+#define VIRTIO_BLOCK_FLOUNDER_IFACE "vblk_host"
 /*
  * --------------------------------------------------------------------------
  * 5.2.3 Feature Bits
@@ -167,10 +171,6 @@ struct virtio_block_reqhdr
     /* the data and status follow */
 };
 
-struct virtio_block_request
-{
-    void *foo;
-};
 
 struct virtio_device_blk
 {
@@ -244,8 +244,8 @@ static inline uint32_t virtio_block_get_segment_num(struct virtio_device_blk *de
 static inline uint32_t virtio_block_get_segment_size(struct virtio_device_blk *dev)
 {
     if (!virtio_device_has_feature(dev->vdev, VIRTIO_BLOCK_F_SIZE_MAX)) {
-                return 0;
-            }
+        return 0;
+    }
     return virtio_blk_seg_size_max_rdf(&dev->config_space);
 }
 
@@ -274,5 +274,29 @@ bool virtio_block_get_topology(struct virtio_device_blk *dev,
  */
 bool virtio_block_get_geometry(struct virtio_device_blk *dev,
                                            struct virtio_block_geometry *geo);
+
+/**
+ * \brief   handles the VirtIO block device common initialization.
+ *
+ * \param   dev     the VirtIO block device
+ * \param   setup   the setup information
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_block_init_device(struct virtio_device_blk *dev,
+                                  struct virtio_device_setup *setup);
+
+/**
+ * \brief   handles the VirtIO block device common initialization.
+ *
+ * \param   dev     the VirtIO block device
+ * \param   setup   the setup information
+ * \param   dev_cap the frame capability backing the device registers
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_block_init_device_with_cap(struct virtio_device_blk *dev,
+                                           struct virtio_device_setup *setup,
+                                           struct capref dev_cap);
 
 #endif // VIRTIO_DEVICES_VIRTIO_BLOCK_H

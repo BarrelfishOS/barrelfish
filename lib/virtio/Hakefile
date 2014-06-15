@@ -17,9 +17,15 @@
                       	   "vbuffer.c",
                       	   "backends/virtio_device_mmio.c",
                       	   "backends/virtio_device_pci.c",
-                      	   "devices/virtio_block.c" ],
+                      	   "devices/virtio_block.c",
+                      	   "guest.c",
+                      	   "guest/channel_flounder.c",
+                      	   "guest/channel_xeon_phi.c"
+                      	    ],
                       mackerelDevices = [ "virtio/virtio_mmio",
-                                          "virtio/virtio_pci" ]
+                                          "virtio/virtio_pci" ],
+                  flounderBindings = [ "virtio" ],
+                  flounderExtraBindings = [ ("virtio", ["rpcclient"])]
                 },
   build library { target = "virtio_host",
                   addCFlags = [ "-DVIRTIO_HOST" ],
@@ -28,8 +34,12 @@
                                  "vbuffer.c",
                                  "backends/virtio_device_mmio.c",
                                  "backends/virtio_device_pci.c",
-                                 "devices/virtio_block.c" ],
+                                 "devices/virtio_block.c",
+                                 "host.c",
+                      	   	     "host/channel_flounder.c",
+                      	   		 "host/channel_xeon_phi.c" ],
                       mackerelDevices = [ "virtio/virtio_mmio",
-                                          "virtio/virtio_pci" ]
+                                          "virtio/virtio_pci" ],
+	             flounderBindings = [ "virtio" ]
                 }                
 ]

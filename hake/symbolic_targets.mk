@@ -177,7 +177,9 @@ MODULES_x86_64= \
 	sbin/xeon_phi \
 	sbin/xeon_phi_manager \
 	sbin/spin \
-	sbin/xeon_phi_test
+	sbin/xeon_phi_test \
+	sbin/virtio_blk_host \
+	sbin/virtio_blk
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \

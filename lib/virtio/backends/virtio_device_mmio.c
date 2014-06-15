@@ -14,6 +14,8 @@
 #include <virtio/virtio_ring.h>
 #include <virtio/virtio_device.h>
 
+#include <virtio/virtio_host.h>
+
 #include <dev/virtio/virtio_mmio_dev.h>
 
 
@@ -331,3 +333,76 @@ errval_t virtio_device_mmio_init(struct virtio_device **dev,
 
     return SYS_ERR_OK;
 }
+
+
+static errval_t virtio_device_mmio_poll_host(struct virtio_host *host)
+{
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief initializes a VirtIO device on the host side using the MMIO transpot
+ *
+ * \param dev   returns a pointer to the newly allocated device structure
+ * \param info  initialization parameters
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_mmio_init_host(struct virtio_host **host,
+                                      struct virtio_host_setup *setup)
+{
+    struct virtio_host_mmio *mmio_host;
+    errval_t err;
+
+    mmio_host = malloc(sizeof(*mmio_host));
+    if (mmio_host == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    /*
+     * TODO> Check for minimum MMIO devie size
+     */
+
+    if (setup->dev_reg == NULL) {
+        setup->dev_size +=VIRTIO_MMIO_DEVICE_SIZE;
+        err = frame_alloc(&mmio_host->host.dev_frame,
+                          setup->dev_size,
+                          &setup->dev_size);
+        if (err_is_fail(err)) {
+            free(mmio_host);
+            return err;
+        }
+
+        err = vspace_map_one_frame_attr(&setup->dev_reg,
+                                        setup->dev_size,
+                                        mmio_host->host.dev_frame,
+                                        VIRTIO_VREGION_FLAGS_DEVICE,
+                                        NULL,
+                                        NULL);
+        if (err_is_fail(err)) {
+            cap_destroy(mmio_host->host.dev_frame);
+            free(mmio_host);
+            return err;
+        }
+    } else {
+        assert(setup->dev_size > VIRTIO_MMIO_DEVICE_SIZE);
+        mmio_host->host.dev_frame = setup->dev_cap;
+    }
+
+    mmio_host->host.device_base = setup->dev_reg;
+    mmio_host->host.dev_size = setup->dev_size;
+    virtio_mmio_initialize(&mmio_host->regs, (mackerel_addr_t) (setup->dev_reg));
+
+    /* initialize the device with values */
+    virtio_mmio_magic_value_wr(&mmio_host->regs, virtio_mmio_magic_value);
+    virtio_mmio_deviceid_id_wrf(&mmio_host->regs, setup->device_type);
+    virtio_mmio_version_version_wrf(&mmio_host->regs, virtio_mmio_version_virtio10);
+
+
+    mmio_host->host.poll = virtio_device_mmio_poll_host;
+
+    return SYS_ERR_OK;
+
+}
+
+

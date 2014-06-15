@@ -53,17 +53,11 @@ device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
      * separate device-readable buffer; command length can be derived from the 
      * length of this buffer.
      */
-    datatype scsi_req lsbfirst(32) "SCSI trailer"{
-        /* request header */
-        /* cmd */
-        /* data */
-        /* sense buffer */
+    datatype scsi_req lsbfirst(32) "SCSI trailer"{	
         errors      32  "Errors that may have occurred";
         data_len    32  "Deprecated: Should be ignored.";
         sense_len   32  "The number of bytes in the sense buffer";
         residual    32  "The residual size: total - transferred";
-        status       8  "Request status";
-        _           24  "To make mackerel happy";
     };
     
     constants req_type "Possible request types for the block device" {

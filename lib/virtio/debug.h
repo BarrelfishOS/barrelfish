@@ -10,9 +10,23 @@
 #ifndef VIRTIO_DEBUG_H_
 #define VIRTIO_DEBUG_H_
 
+/// Global VirtIO debug switch
 #define VIRTIO_DEBUG_ENABLED 1
+
+/// Enables the virtqueue debugging
 #define VIRTIO_DEBUG_VQ_ENABLED 1
+
+/// Enables the VirtIO general device debugging messages
 #define VIRTIO_DEBUG_DEV_ENABLED 1
+
+/// Enables the VirtIO device specific debugging messages
+#define VIRTIO_DEBUG_DT_ENABLED 1
+
+/// Enables the VirtIO transport layer debug messages
+#define VIRTIO_DEBUG_TL_ENABLED 1
+
+/// Enables the VirtIO management layer debug messages
+#define VIRTIO_DEBUG_CHAN_ENABLED 1
 
 #if VIRTIO_DEBUG_ENABLED
 #define VIRTIO_DEBUG_PRINT(msg...) debug_printf(msg)
@@ -21,16 +35,33 @@
 #endif
 
 #ifdef VIRTIO_DEBUG_VQ_ENABLED
-#define VIRTIO_DEBUG_VQ(msg...) VIRTIO_DEBUG_PRINT("[VIRTQUEUE] " msg)
+#define VIRTIO_DEBUG_VQ(msg...) VIRTIO_DEBUG_PRINT("[virtq] " msg)
 #else
 #define VIRTIO_DEBUG_VQ(msg...)
 #endif
 
 #ifdef VIRTIO_DEBUG_DEV_ENABLED
-#define VIRTIO_DEBUG_DEV(msg...) VIRTIO_DEBUG_PRINT("[VIRTIO DEV] " msg)
+#define VIRTIO_DEBUG_DEV(msg...) VIRTIO_DEBUG_PRINT("[virtio dev] " msg)
 #else
 #define VIRTIO_DEBUG_DEV(msg...)
 #endif
 
+#ifdef VIRTIO_DEBUG_DT_ENABLED
+#define VIRTIO_DEBUG_DT(msg...) VIRTIO_DEBUG_PRINT("[virtio type] " msg)
+#else
+#define VIRTIO_DEBUG_DT(msg...)
+#endif
+
+#ifdef VIRTIO_DEBUG_TL_ENABLED
+#define VIRTIO_DEBUG_TL(msg...) VIRTIO_DEBUG_PRINT("[virtio tl] " msg)
+#else
+#define VIRTIO_DEBUG_TL(msg...)
+#endif
+
+#ifdef VIRTIO_DEBUG_CHAN_ENABLED
+#define VIRTIO_DEBUG_CHAN(msg...) VIRTIO_DEBUG_PRINT("[virtio chan] " msg)
+#else
+#define VIRTIO_DEBUG_CHAN(msg...)
+#endif
 
 #endif /* VIRTIO_DEBUG_H_ */

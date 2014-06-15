@@ -10,6 +10,7 @@
 #ifndef VIRTIO_VIRTIO_DEVICE_H
 #define VIRTIO_VIRTIO_DEVICE_H
 
+#include <virtio/virtqueue.h>
 
 struct virtio_device;
 
@@ -99,6 +100,16 @@ enum virtio_device_backend {
     VIRTIO_DEVICE_BACKEND_IO,
 };
 
+/**
+ * driver specific device status
+ */
+enum virtio_device_status {
+    VIRTIO_DEVICE_S_INVALID,
+    VIRTIO_DEVICE_S_INITIALIZING,
+    VIRTIO_DEVICE_S_READY,
+    VIRTIO_DEVICE_S_TERMINATING,
+    VIRTIO_DEVICE_S_ERROR,
+};
 /*
  * 4.1.2 PCI Device Discovery
  *
@@ -113,18 +124,25 @@ enum virtio_device_backend {
 
 #define VIRTIO_DEVICE_NAME_MAX 32
 
+
+typedef void (*config_intr_handler_t)(struct virtio_device *dev);
+
 /**
  * contains necessary values for the device initialization process
  */
 struct virtio_device_setup
 {
     uint8_t type;                           ///< expected type of the device
+    void *device_type;
     char name[VIRTIO_DEVICE_NAME_MAX];
     enum virtio_device_backend  backend;    ///< which backend to use
     void *dev_reg;
     size_t dev_reg_size;
-    errval_t (*feature_negotiate)(struct virtio_device *dev);
-    errval_t (*device_setup)(struct virtio_device *dev);
+    uint64_t driver_features;
+
+    uint16_t vq_num;
+    struct virtqueue_setup *vq_setup;
+    config_intr_handler_t cfg_intr_handler;
 };
 
 
@@ -190,14 +208,19 @@ errval_t virtio_device_get_status(struct virtio_device *dev,
 errval_t virtio_device_set_status(struct virtio_device *dev,
                                   uint8_t status);
 
+errval_t virtio_device_set_driver_features(struct virtio_device *dev,
+                                           uint64_t features);
 
-errval_t virtio_device_feature_negotiate(struct virtio_device *dev);
+errval_t virtio_device_get_device_features(struct virtio_device *dev,
+                                           uint64_t *ret_features);
 
 errval_t virtio_device_specific_setup(struct virtio_device *dev);
 
 bool     virtio_device_has_feature(struct virtio_device *dev,
                                    uint8_t feature);
 
+errval_t virtio_device_feature_negotiate(struct virtio_device *dev,
+                                         uint64_t driver_features);
 
 /**
  * \brief reads the device configuration space and copies it into a local buffer
@@ -219,11 +242,44 @@ errval_t virtio_device_config_read(struct virtio_device *vdev,
  * \param len   the length of the buffer
  *
  * \returns SYS_ERR_OK on success
- *
- * xxx: this may be done at a certain offset/value combination
  */
 errval_t virtio_device_config_write(struct virtio_device *dev,
                                     void *config,
+                                    size_t offset,
                                     size_t length);
 
+
+/**
+ * \brief Returns the pointer to the device specific structure
+ *
+ * \param vdev to get the device specific pointer
+ *
+ * \returns device specific struct pointer
+ */
+void *virtio_device_get_struct(struct virtio_device *vdev);
+
+/**
+ * \brief allocates the virtqueues for this device based on the setup information
+ *
+ * \param vdev      virtio device to allocate the queues for
+ * \param vq_setup  setup information for the virtqueues
+ * \param vq_num    number of virtqueues to allocate
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
+                                       struct virtqueue_setup *vq_setup,
+                                       uint16_t vq_num);
+
+/**
+ * \brief returns a pointer to a virtqueue of the device
+ *
+ * \param vdev   VirtIO device
+ * \param vq_idx the queue index of the queue we want
+ *
+ * \returns pointer to the requested virtqueue
+ *          NULL if no such virtqueue exists
+ */
+struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
+                                          uint16_t vq_idx);
 #endif // VIRTIO_VIRTIO_DEVICE_H

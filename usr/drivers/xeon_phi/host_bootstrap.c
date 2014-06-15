@@ -109,8 +109,11 @@ static void multiboot_cap_reply(struct monitor_binding *st,
  */
 errval_t host_bootstrap(void)
 {
+
     errval_t err;
 
+    return SYS_ERR_OK;
+if (0) {
     /* Create the module cnode */
     struct capref modulecn_cap = {
         .cnode = cnode_root,
@@ -135,6 +138,7 @@ errval_t host_bootstrap(void)
     if (err_is_fail(err)) {
         return err;
     }
+}
 
     return SYS_ERR_OK;
 }

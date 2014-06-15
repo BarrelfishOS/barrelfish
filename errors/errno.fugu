@@ -1011,8 +1011,10 @@ errors virtio VIRTIO_ERR_ {
     failure NOT_VIRTIO_DEVICE    "The device is not a VirtIO device",
     failure VERSION_MISMATCH     "The VirtIO versions do mismatch",
     failure DEVICE_STATUS        "VirtIO device has the wrong status",
+    failure DEVICE_TYPE			 "The VirtIO device is not of the expected type",
     failure QUEUE_ACTIVE         "The selected qeueue is already activated",
     failure QUEUE_INVALID        "The selected queue does not exist",
+    failure QUEUE_BUSY			 "The queue is busy.",
     failure BUFFER_SIZE          "The buffer size is invalid.",
     failure BUFFER_STATE         "The state of the buffer / buffer list is invalid",               
     failure ARG_INVALID          "The given argument is invalid.",
@@ -1022,4 +1024,6 @@ errors virtio VIRTIO_ERR_ {
     failure NO_DESC_AVAIL        "There is no descriptor availabe",
     failure DEQ_CHAIN            "Not the entire chain could be dequeued",
     failure INVALID_RING_INDEX   "The supplied index is not valid", 
+    failure BLK_REQ_IOERR		 "The request ended in an IO error",
+    failure BLK_REQ_UNSUP		 "The request type was not supported",
 };
