@@ -110,6 +110,7 @@ enum virtio_device_status {
     VIRTIO_DEVICE_S_TERMINATING,
     VIRTIO_DEVICE_S_ERROR,
 };
+
 /*
  * 4.1.2 PCI Device Discovery
  *
@@ -117,7 +118,6 @@ enum virtio_device_status {
  * inclusive is a virtio device. The Subsystem Device ID indicates which virtio
  * device is supported by the device.
  */
-
 #define VIRTIO_PCI_VENDOR_ID 0x1AF4
 #define VIRTIO_PCI_DEVICE_ID 0x1000
 #define VIRTIO_PCI_DEVICE_ID2 0x103F
@@ -125,8 +125,14 @@ enum virtio_device_status {
 #define VIRTIO_DEVICE_NAME_MAX 32
 
 
+/*
+ * Function pointers type definitions
+ */
+
+/// interrupt handler when the device configuration space changes
 typedef void (*config_intr_handler_t)(struct virtio_device *dev);
 
+/// device specific initialization function
 typedef errval_t (*virtio_device_setup_t)(struct virtio_device *dev,
                                          void *state);
 
@@ -151,6 +157,26 @@ struct virtio_device_setup
     config_intr_handler_t cfg_intr_handler;
 };
 
+#if 0
+struct virtio_device_setup
+{
+    uint8_t dev_type;                           ///< expected type of the device
+    void   *dev_state;
+    char    dev_name[VIRTIO_DEVICE_NAME_MAX];
+    void   *dev_vbase;
+    size_t  dev_size;
+
+    uint64_t features;
+
+    virtio_device_setup_t setup_fn;
+    void *setup_arg;
+
+    uint16_t vq_num;
+    struct virtqueue_setup *vq_setup;
+
+    enum virtio_device_backend  backend;    ///< which backend to use
+};
+#endif
 
 
 /**
@@ -207,25 +233,72 @@ errval_t virtio_device_get_status(struct virtio_device *dev,
                                   uint32_t *ret_status);
 
 /**
- * \brief
+ * \brief sets the status bit of the device
  *
- * \param
+ * \param dev    the VirtIO device
+ * \param status the status bit to set
+ *
+ * \return SYS_ERR_OK on success
  */
 errval_t virtio_device_set_status(struct virtio_device *dev,
                                   uint8_t status);
 
+/**
+ * \brief tells the device which features the driver understands
+ *
+ * \param dev       the VirtIO device
+ * \param features  bitmap of understood features
+ *
+ * \return SYS_ERR_OK on success
+ */
 errval_t virtio_device_set_driver_features(struct virtio_device *dev,
                                            uint64_t features);
 
+/**
+ * \brief queries the device which features it understands
+ *
+ * \param dev       the VirtIO device
+ * \param features  bitmap of understood features by the device
+ *
+ * \return SYS_ERR_OK on success
+ */
 errval_t virtio_device_get_device_features(struct virtio_device *dev,
                                            uint64_t *ret_features);
 
+/**
+ * \brief wrapper for calling the device specific initialization function
+ *
+ * \param dev   the VirtIO device
+ * \param arg   argument pointer to the initialization function
+ *
+ * \returns SYS_ERR_OK on success
+ *          VIRTIO_ERR_* on failure
+ */
 errval_t virtio_device_specific_setup(struct virtio_device *dev,
                                       void *arg);
 
-bool     virtio_device_has_feature(struct virtio_device *dev,
-                                   uint8_t feature);
+/**
+ * \brief checks if a certain feature is negotiated and understood by both
+ *        device and driver.
+ *
+ * \param dev       the VirtIO device
+ * \param feature   feature bit to check
+ *
+ * \returns true  - if feature bit was set
+ *          false - if the featurebit was not set
+ */
+bool virtio_device_has_feature(struct virtio_device *dev,
+                               uint8_t feature);
 
+/**
+ * \brief negotiates the supported features based on the offered device features
+ *        and the supplied driver features
+ *
+ * \param dev            the VirtIO device
+ * \param driver_featurs bitmask of understood features by the device
+ *
+ * \returns SYS_ERR_OK on success
+ */
 errval_t virtio_device_feature_negotiate(struct virtio_device *dev,
                                          uint64_t driver_features);
 
@@ -254,7 +327,6 @@ errval_t virtio_device_config_write(struct virtio_device *dev,
                                     void *config,
                                     size_t offset,
                                     size_t length);
-
 
 /**
  * \brief Returns the pointer to the device specific structure
@@ -290,6 +362,26 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
 struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
                                           uint16_t vq_idx);
 
+/**
+ * \brief exposes the virtqueue to the device such that it can be used
+ *
+ * \param dev the VirtIO device
+ * \param vq  the virtqueue to be added to the device
+ *
+ * \return SYS_ERR_OK on success
+ */
 errval_t virtio_device_set_virtq(struct virtio_device *dev,
                                  struct virtqueue *vq);
+
+/**
+ * \brief sets the interrupt handler for the configuration space interrupts
+ *
+ * \param dev the VirtIO device
+ * \param fn  handler function
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t virtio_device_set_config_intr_handler(struct virtio_device *dev,
+                                               config_intr_handler_t fn);
+
 #endif // VIRTIO_VIRTIO_DEVICE_H

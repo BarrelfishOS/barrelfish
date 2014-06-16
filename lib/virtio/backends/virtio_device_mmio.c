@@ -476,6 +476,13 @@ static errval_t handle_dev_feature_sel_change(struct virtio_host_mmio *mmio_host
     VIRTIO_DEBUG_TL("handle_dev_feature_sel_change: [0x%x]\n", selector);
     mmio_host->dev_reg.dev_feature_sel = selector;
 
+    if (selector) {
+        virtio_mmio_dev_features_wr(&mmio_host->regs,
+                                    (uint32_t)(mmio_host->host.device_features >> 32));
+    } else {
+        virtio_mmio_dev_features_wr(&mmio_host->regs,
+                                    (uint32_t)mmio_host->host.device_features);
+    }
 
     virtio_mmio_dev_features_sel_ready_wrf(&mmio_host->regs, 0x1);
 

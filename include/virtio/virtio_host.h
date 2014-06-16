@@ -35,32 +35,21 @@ struct virtio_host_cb
 #if 0
 struct virtio_host_setup
 {
-    uint8_t device_type;        ///< which device we are emulating
-    uint64_t device_features;   ///< VirtIO device features bits we support
+    uint8_t        dev_type;        ///< which device we are emulating
+    void          *dev_vbase;
+    size_t         dev_size;
+    struct capref  dev_cap;
 
-    uint16_t num_queues;        ///< number of queues we have
-    uint16_t *queue_num_max;    ///<
+    uint64_t       features;
 
-    struct {
-        void *vbase;
-        size_t size;
-        struct capref cap;
-        uint8_t type;
-        uint64_t features;
-    } device;
+    uint16_t       vq_num;
+    uint16_t      *vq_max;    ///<
 
-    struct {
-        enum virtio_host_channel type;
-        char *iface;
-        struct virtio_host_cb *callback;
-    } channel;
-
-
+    enum virtio_host_channel hc_type;
+    char                    *hc_iface;
+    struct virtio_host_cb   *hc_callback;
 
     enum virtio_device_backend backend;
-
-
-    uint32_t flags;
 };
 #endif
 
@@ -85,14 +74,29 @@ struct virtio_host_setup
 
 
 /**
+ * \brief initializes the VirtIO device and the host side services
  *
+ * \param host  where the host structure pointer will be stored
+ * \param setup information needed to configure the host
  */
 errval_t virtio_host_init(struct virtio_host **host,
                           struct virtio_host_setup *setup);
 
-
+/**
+ * \brief polls the device to see if the driver has written something to the
+ *        registers
+ *
+ * \param host the virtio host device
+ *
+ * \returns SYS_ERR_OK if there was an event on the device
+ *          VIRTIO_ERR_DEVICE_IDLE if there was nothing new
+ *          VIRTIO_ERR_* on failure
+ */
 errval_t virtio_host_poll_device(struct virtio_host *host);
 
+/**
+ *
+ */
 errval_t virtio_host_get_device_cap(struct virtio_host *host,
                                     struct capref *ret_cap);
 
