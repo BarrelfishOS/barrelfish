@@ -7,6 +7,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <string.h>
+
 #include <barrelfish/barrelfish.h>
 
 #include <virtio/virtio.h>
@@ -31,8 +33,9 @@ errval_t virtio_device_open(struct virtio_device **dev,
 {
     errval_t err = SYS_ERR_OK;
 
-    VIRTIO_DEBUG_DEV("virtio_device_open: [%s] @ [%016lx]\n", init->name,
-                     (uintptr_t)init->dev_reg);
+    VIRTIO_DEBUG_DEV("virtio_device_open: [%s] @ [%016lx]\n",
+                     init->name,
+                     (uintptr_t )init->dev_reg);
 
     if (init->dev_reg == NULL || init->dev_reg_size == 0) {
         /*
@@ -69,7 +72,12 @@ errval_t virtio_device_open(struct virtio_device **dev,
 
     struct virtio_device *vdev = *dev;
 
+    assert(vdev);
+
     vdev->state = VIRTIO_DEVICE_S_INITIALIZING;
+    strncpy(vdev->name, init->name, sizeof(vdev->name));
+    vdev->setup = init->setup_fn;
+    vdev->type_state = init->type_state;
 
     /* 1. Reset the device. */
     err = virtio_device_reset(vdev);
@@ -105,7 +113,7 @@ errval_t virtio_device_open(struct virtio_device **dev,
 
     /* 6. Re-read device status to ensure the FEATURES_OK bit is still set: otherwise, the device does not
      support our subset of features and the device is unusable.*/
-    uint8_t status = 0;
+    uint32_t status = 0;
     err = virtio_device_get_status(vdev, &status);
     assert(err_is_ok(err));
 
@@ -115,17 +123,20 @@ errval_t virtio_device_open(struct virtio_device **dev,
 
     /* 7. Perform device-specific setup, including discovery of virtqueues for the device, optional per-bus setup,
      reading and possibly writing the device’s virtio configuration space, and population of virtqueues.*/
-    err = virtio_device_specific_setup(vdev);
+    err = virtio_device_specific_setup(vdev, init->setup_arg);
     if (err_is_fail(err)) {
         goto failed;
     }
     /* 8. Set the DRIVER_OK status bit. At this point the device is “live”. */
+    VIRTIO_DEBUG_DEV("Device [%s] is now live.\n", vdev->name);
     err = virtio_device_set_status(vdev, VIRTIO_DEVICE_STATUS_DRIVER_OK);
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 
-    failed: virtio_device_set_status(vdev, VIRTIO_DEVICE_STATUS_FAILED);
+    failed:
+    VIRTIO_DEBUG_DEV("Device initialization for [%s] failed..\n", vdev->name);
+    virtio_device_set_status(vdev, VIRTIO_DEVICE_STATUS_FAILED);
 
     return err;
 }
@@ -187,19 +198,28 @@ errval_t virtio_device_open_with_cap(struct virtio_device **dev,
  * \returns true  if the device supports that feature
  *          false if the device does not support that feature
  */
-bool     virtio_device_has_feature(struct virtio_device *dev,
-                                   uint8_t feature)
+bool virtio_device_has_feature(struct virtio_device *dev,
+                               uint8_t feature)
 {
     /*
      * if the device is not configured yet, we don't know the features
      */
-    if(dev->status_flags & VIRTIO_DEVICE_STATUS_FEATURES_OK) {
+    if (dev->status_flags & VIRTIO_DEVICE_STATUS_FEATURES_OK) {
         return false;
     }
 
-    return (dev->features & (1UL<<feature)) != 0;
+    return (dev->features & (1UL << feature)) != 0;
 }
 
+errval_t virtio_device_specific_setup(struct virtio_device *dev,
+                                      void *arg)
+{
+    if (dev->setup) {
+        return dev->setup(dev, arg);
+    }
+
+    return SYS_ERR_OK;
+}
 
 /**
  * \brief resets the virtio device
@@ -210,8 +230,9 @@ bool     virtio_device_has_feature(struct virtio_device *dev,
  */
 errval_t virtio_device_reset(struct virtio_device *dev)
 {
-    VIRTIO_DEBUG_DEV("resetting device: %s\n", dev->name);
-    assert(!"NYI:");
+    if (dev->f->reset) {
+        return dev->f->reset(dev);
+    }
     return SYS_ERR_OK;
 }
 
@@ -224,10 +245,12 @@ errval_t virtio_device_reset(struct virtio_device *dev)
  * \returns SYS_ERR_OK on success
  */
 errval_t virtio_device_get_status(struct virtio_device *dev,
-                                  uint8_t *ret_status)
+                                  uint32_t *ret_status)
 {
-    assert(!"NYI:");
-    return SYS_ERR_OK;
+    if (dev->f->get_status) {
+        return dev->f->get_status(dev, ret_status);
+    }
+    return VIRTIO_ERR_BACKEND;
 }
 
 /**
@@ -238,8 +261,10 @@ errval_t virtio_device_get_status(struct virtio_device *dev,
 errval_t virtio_device_set_status(struct virtio_device *dev,
                                   uint8_t status)
 {
-    assert(!"NYI:");
-    return SYS_ERR_OK;
+    if (dev->f->set_status) {
+        return dev->f->set_status(dev, status);
+    }
+    return VIRTIO_ERR_BACKEND;
 }
 
 /**
@@ -249,12 +274,10 @@ errval_t virtio_device_set_status(struct virtio_device *dev,
  *
  * \returns device specific struct pointer
  */
-void *virtio_device_get_struct(struct virtio_device *vdev)
+void *virtio_device_get_type_state(struct virtio_device *vdev)
 {
-    assert(!"NYI:");
-    return NULL;
+    return vdev->type_state;
 }
-
 
 /**
  * \brief reads the device configuration space and copies it into a local buffer
@@ -266,11 +289,14 @@ void *virtio_device_get_struct(struct virtio_device *vdev)
  * \returns SYS_ERR_OK on success
  */
 errval_t virtio_device_config_read(struct virtio_device *vdev,
-                                  void *buf,
-                                  size_t len)
+                                   void *buf,
+                                   size_t len)
 {
-    assert(!"NYI:");
-    return SYS_ERR_OK;
+    if (vdev->f->get_config) {
+        return vdev->f->get_config(vdev, buf, len);
+    }
+
+    return VIRTIO_ERR_BACKEND;
 }
 
 /**
@@ -287,10 +313,12 @@ errval_t virtio_device_config_write(struct virtio_device *dev,
                                     size_t offset,
                                     size_t length)
 {
-    assert(!"NYI:");
-    return SYS_ERR_OK;
-}
+    if (dev->f->set_config) {
+        return dev->f->set_config(dev, config, offset, length);
+    }
 
+    return VIRTIO_ERR_BACKEND;
+}
 
 errval_t virtio_device_set_driver_features(struct virtio_device *dev,
                                            uint64_t features)
@@ -309,8 +337,21 @@ errval_t virtio_device_get_device_features(struct virtio_device *dev,
 errval_t virtio_device_feature_negotiate(struct virtio_device *dev,
                                          uint64_t driver_features)
 {
-    assert(!"NYI:");
-    return dev->f->negotiate_features(dev, driver_features);
+    if (dev->f->negotiate_features) {
+        return dev->f->negotiate_features(dev, driver_features);
+    }
+
+    return VIRTIO_ERR_BACKEND;
+}
+
+errval_t virtio_device_set_virtq(struct virtio_device *dev,
+                                 struct virtqueue *vq)
+{
+    if (dev->f->set_virtq) {
+        return dev->f->set_virtq(dev, vq);
+    }
+
+    return VIRTIO_ERR_BACKEND;
 }
 
 /**
@@ -328,13 +369,15 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
 {
     errval_t err;
 
+    VIRTIO_DEBUG_VQ("Allocating %u virtqueues for [%s].\n", vq_num, vdev->name);
+
     vdev->vq = calloc(vq_num, sizeof(void *));
     if (vdev->vq == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
     struct virtqueue_setup *setup;
-    for(uint16_t i = 0; i < vq_num; ++i) {
+    for (uint16_t i = 0; i < vq_num; ++i) {
         setup = &vq_setup[i];
         setup->queue_id = i;
         setup->device = vdev;
@@ -347,6 +390,20 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
             return err;
         }
     }
+
+    for (uint16_t i = 0; i < vq_num; ++i) {
+        setup = &vq_setup[i];
+        struct virtqueue *vq = vdev->vq[i];
+        if (setup->auto_add) {
+            err = virtio_device_set_virtq(vdev, vq);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "adding the virtqueue to the deivce\n");
+            }
+            // TODO propper error handling
+        }
+    }
+
+    vdev->vq_num = vq_num;
 
     return SYS_ERR_OK;
 }

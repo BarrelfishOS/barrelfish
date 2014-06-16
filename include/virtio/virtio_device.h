@@ -127,18 +127,24 @@ enum virtio_device_status {
 
 typedef void (*config_intr_handler_t)(struct virtio_device *dev);
 
+typedef errval_t (*virtio_device_setup_t)(struct virtio_device *dev,
+                                         void *state);
+
 /**
  * contains necessary values for the device initialization process
  */
 struct virtio_device_setup
 {
     uint8_t type;                           ///< expected type of the device
-    void *device_type;
+    void *type_state;
     char name[VIRTIO_DEVICE_NAME_MAX];
     enum virtio_device_backend  backend;    ///< which backend to use
     void *dev_reg;
     size_t dev_reg_size;
     uint64_t driver_features;
+
+    virtio_device_setup_t setup_fn;
+    void *setup_arg;
 
     uint16_t vq_num;
     struct virtqueue_setup *vq_setup;
@@ -198,7 +204,7 @@ errval_t virtio_device_reset(struct virtio_device *dev);
  * \returns SYS_ERR_OK on success
  */
 errval_t virtio_device_get_status(struct virtio_device *dev,
-                                  uint8_t *ret_status);
+                                  uint32_t *ret_status);
 
 /**
  * \brief
@@ -214,7 +220,8 @@ errval_t virtio_device_set_driver_features(struct virtio_device *dev,
 errval_t virtio_device_get_device_features(struct virtio_device *dev,
                                            uint64_t *ret_features);
 
-errval_t virtio_device_specific_setup(struct virtio_device *dev);
+errval_t virtio_device_specific_setup(struct virtio_device *dev,
+                                      void *arg);
 
 bool     virtio_device_has_feature(struct virtio_device *dev,
                                    uint8_t feature);
@@ -256,7 +263,7 @@ errval_t virtio_device_config_write(struct virtio_device *dev,
  *
  * \returns device specific struct pointer
  */
-void *virtio_device_get_struct(struct virtio_device *vdev);
+void *virtio_device_get_type_state(struct virtio_device *vdev);
 
 /**
  * \brief allocates the virtqueues for this device based on the setup information
@@ -282,4 +289,7 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
  */
 struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
                                           uint16_t vq_idx);
+
+errval_t virtio_device_set_virtq(struct virtio_device *dev,
+                                 struct virtqueue *vq);
 #endif // VIRTIO_VIRTIO_DEVICE_H

@@ -154,7 +154,7 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
     register queue_ready addr(base, 0x044) "Virtual queue ready bit" {
         ready  1 "Queue ready bit";
         _     30 "Reserved";
-        ack    1 "the host has stored the queue data";        
+        signal 1 "signal the host that something has changed";
     };
     
     constants queue width(1) "Queue Ready Bit Values" {
@@ -265,8 +265,8 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
         value 32 "Value";
     };
     
-    register config_addr addr(base, 0x100) "The Offset to the start of the device config space" {
-        offset 32 "Offset to config space";
+    constants config_offset width(8) "Reset value" {
+        config_offset = 0x100 "Offset of the configuration space";
     };
     
 };

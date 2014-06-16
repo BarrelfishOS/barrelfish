@@ -88,6 +88,7 @@ bool virtio_block_get_geometry(struct virtio_device_blk *dev,
  */
 errval_t virtio_block_config_read(struct virtio_device_blk *dev)
 {
+    VIRTIO_DEBUG_DT("reading device configuration\n");
     if (dev->config_addr == NULL) {
         dev->config_addr = malloc(VIRTIO_BLOCK_CONFIG_SIZE);
         if (dev->config_addr == NULL) {
@@ -108,10 +109,15 @@ errval_t virtio_block_config_read(struct virtio_device_blk *dev)
  *
  * \returns SYS_ERR_OK on success
  */
-static errval_t virtio_block_init_common(struct virtio_device_blk *dev,
-                                         struct virtio_device_setup *setup)
+static errval_t virtio_block_init_common(struct virtio_device *vdev,
+                                         void *arg)
 {
     errval_t err;
+
+    VIRTIO_DEBUG_DT("Doing device specific setup: Block Device\n");
+
+    struct virtio_device_setup *setup = arg;
+    struct virtio_device_blk *dev = virtio_device_get_type_state(vdev);
 
     /* read the device configuration */
     err = virtio_block_config_read(dev);
@@ -155,20 +161,17 @@ static errval_t virtio_block_init_common(struct virtio_device_blk *dev,
 errval_t virtio_block_init_device(struct virtio_device_blk *dev,
                                   struct virtio_device_setup *setup)
 {
-    errval_t err;
-
     if (setup->type != VIRTIO_DEVICE_TYPE_BLOCK) {
         VIRTIO_DEBUG_DT("ERROR: Device type was not VIRTIO_DEVICE_TYPE_BLOCK\n");
         return VIRTIO_ERR_DEVICE_TYPE;
     }
 
-    /* initialize the VirtIO device */
-    err = virtio_device_open(&dev->vdev, setup);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    setup->setup_fn = virtio_block_init_common;
+    setup->setup_arg = setup;
+    setup->type_state = dev;
 
-    return virtio_block_init_common(dev, setup);
+    /* initialize the VirtIO device */
+    return virtio_device_open(&dev->vdev, setup);
 }
 
 /**
@@ -185,17 +188,13 @@ errval_t virtio_block_init_device_with_cap(struct virtio_device_blk *dev,
                                            struct virtio_device_setup *setup,
                                            struct capref dev_cap)
 {
-    errval_t err;
-
     if (setup->type != VIRTIO_DEVICE_TYPE_BLOCK) {
         return VIRTIO_ERR_DEVICE_TYPE;
     }
 
-    /* initialize the VirtIO device */
-    err = virtio_device_open_with_cap(&dev->vdev, setup, dev_cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    setup->setup_fn = virtio_block_init_common;
+    setup->setup_arg = setup;
 
-    return virtio_block_init_common(dev, setup);
+    /* initialize the VirtIO device */
+    return virtio_device_open_with_cap(&dev->vdev, setup, dev_cap);
 }

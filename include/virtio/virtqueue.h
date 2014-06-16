@@ -58,6 +58,7 @@ struct virtqueue_setup {
     virtq_intr_hander_t intr_handler;   ///< interrupt handler function
     void *intr_arg;                     ///< argument for the interrupt handler
     uint16_t max_indirect;              ///< maximum indirect descriptors
+    uint8_t auto_add;                   ///< adds this virtqueue to the device
 };
 
 /**

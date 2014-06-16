@@ -44,13 +44,15 @@ errval_t virtio_host_init(struct virtio_host **host,
         assert(!"NYI: IO backend");
         break;
     default:
-
+        err = VIRTIO_ERR_ARG_INVALID;
         break;
     }
 
     if (err_is_fail(err)) {
         return err;
     }
+
+
 
     switch (setup->channel_type) {
     case VIRTIO_HOST_CHAN_FLOUNDER:
@@ -74,7 +76,10 @@ errval_t virtio_host_init(struct virtio_host **host,
 
 errval_t virtio_host_poll_device(struct virtio_host *host)
 {
-    return SYS_ERR_OK;
+    if (host->poll) {
+        return host->poll(host);
+    }
+    return VIRTIO_ERR_BACKEND;
 }
 
 errval_t virtio_host_get_device_cap(struct virtio_host *host,

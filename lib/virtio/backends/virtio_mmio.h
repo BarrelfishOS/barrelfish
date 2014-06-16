@@ -20,12 +20,21 @@ struct virtio_device_mmio
 {
     struct virtio_device dev;
     virtio_mmio_t regs;
+    void *device_base;
+    size_t device_size;
 };
 
 struct virtio_host_mmio
 {
     struct virtio_host host;
     virtio_mmio_t regs;
+    struct mmio_dev_regs {
+        uint8_t status;
+        uint8_t dev_feature_sel : 4;
+        uint8_t driv_feature_sel : 4;
+        uint32_t driv_features[2];
+        uint16_t queue_sel;
+    } dev_reg;
 };
 
 

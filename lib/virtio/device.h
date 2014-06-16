@@ -16,15 +16,30 @@
 // forward declaration
 struct virtqueue;
 
+struct virtio_host_queue
+{
+    lpaddr_t base;
+    size_t   length;
+    uint16_t ndesc;
+};
+
 struct virtio_host
 {
     uint8_t device_type;
+
+    uint64_t device_features;
+    uint16_t num_queues;
+    struct virtio_host_queue *queues;
+
     struct capref dev_frame;
     lpaddr_t dev_size;
     void *device_base;
+
     enum virtio_device_backend backend;
     struct virtio_host_cb *callback;
     errval_t (*poll)(struct virtio_host *);
+
+
 };
 
 /**
@@ -37,7 +52,7 @@ struct virtio_device
     uint32_t devid;
 
     uint8_t type;
-    void *device_type;
+    void *type_state;
 
     uint8_t status_flags;
     enum virtio_device_status state;
@@ -45,6 +60,8 @@ struct virtio_device
     uint64_t features;
     enum virtio_device_backend backend;
     struct virtio_device_fn *f;
+
+    virtio_device_setup_t setup;
 
     uint16_t vq_num;
     struct virtqueue **vq;
@@ -57,10 +74,12 @@ struct virtio_device_fn
 {
     errval_t (*reset)(struct virtio_device *dev);
     errval_t (*set_status)(struct virtio_device *dev, uint8_t status);
+    errval_t (*get_status)(struct virtio_device *dev, uint32_t *status);
     errval_t (*negotiate_features)(struct virtio_device *dev, uint64_t driv_features);
-    errval_t (*setup)(struct virtio_device *dev);
     errval_t (*get_queue_num_max)(struct virtio_device *dev, uint16_t queue_index, uint16_t *num_max);
     errval_t (*set_virtq)(struct virtio_device *dev, struct virtqueue *vq);
+    errval_t (*get_config)(struct virtio_device *vdev, void *buf,size_t len);
+    errval_t (*set_config)(struct virtio_device *dev,void *config,size_t offset, size_t length);
 };
 
 

@@ -33,7 +33,7 @@ void vblock_device_config_changed_intr(struct virtio_device *vdev)
 {
     struct virtio_device_blk *bdev;
 
-    bdev = virtio_device_get_struct(vdev);
+    bdev = virtio_device_get_type_state(vdev);
     if (bdev == NULL) {
         return;
     }
@@ -81,11 +81,12 @@ errval_t vblock_device_init(struct virtio_device_blk *blk,
 
     struct virtqueue_setup vq_setup =  {
         .name = "Request Virtqueue",
-        .vring_ndesc = 0,
-        .vring_align = 0,
+        .vring_ndesc = 16,
+        .vring_align = 4096,
         .intr_handler = 0,
         .intr_arg = 0,
-        .max_indirect =0
+        .max_indirect =0,
+        .auto_add = 1
     };
 
     struct virtio_device_setup setup = {

@@ -26,18 +26,61 @@ enum virtio_host_channel
 struct virtio_host_cb
 {
     errval_t (*open)(struct capref *ret_frame, void **st);
+    errval_t (*close)(void);
+    errval_t (*add)(void);
+    errval_t (*ext)(void);
+    errval_t (*req)(void);
 };
+
+#if 0
+struct virtio_host_setup
+{
+    uint8_t device_type;        ///< which device we are emulating
+    uint64_t device_features;   ///< VirtIO device features bits we support
+
+    uint16_t num_queues;        ///< number of queues we have
+    uint16_t *queue_num_max;    ///<
+
+    struct {
+        void *vbase;
+        size_t size;
+        struct capref cap;
+        uint8_t type;
+        uint64_t features;
+    } device;
+
+    struct {
+        enum virtio_host_channel type;
+        char *iface;
+        struct virtio_host_cb *callback;
+    } channel;
+
+
+
+    enum virtio_device_backend backend;
+
+
+    uint32_t flags;
+};
+#endif
 
 struct virtio_host_setup
 {
-    uint8_t device_type;
+    uint8_t device_type;        ///< which device we are emulating
+    uint64_t device_features;   ///< VirtIO device features bits we support
+
+    uint16_t num_queues;        ///< number of queues we have
+    uint16_t *queue_num_max;    ///<
+
     void *dev_reg;
     lpaddr_t dev_size;
     struct capref dev_cap;
+
     enum virtio_host_channel channel_type;
     enum virtio_device_backend backend;
     char *iface;
     struct virtio_host_cb *callback;
+    uint32_t flags;
 };
 
 

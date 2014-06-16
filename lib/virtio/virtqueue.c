@@ -203,6 +203,9 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
 {
     errval_t err;
 
+    VIRTIO_DEBUG_VQ("Allocating VQ(%u) of size %u\n",
+                    setup->queue_id, setup->vring_ndesc);
+
     assert(vq);
 
     if (setup->vring_ndesc == 0 || !IS_POW2(setup->vring_ndesc)) {
@@ -220,7 +223,7 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
         return err;
     }
 
-    VIRTIO_DEBUG_VQ("Allocated memory for vring: [%lx & %lx]",
+    VIRTIO_DEBUG_VQ("Allocated memory for vring: [0x%lx & 0x%lx]\n",
                     (uint64_t )size,
                     (uint64_t )framesize);
 
@@ -985,7 +988,7 @@ errval_t virtio_virtqueue_poll(struct virtqueue *vq,
 
     err = virtio_virtqueue_desc_dequeue(vq, ret_bl, ret_st);
 
-    while(err_no(err) == VIRTIO_ERR_NO_DESC_AVAIL) {
+    while (err_no(err) == VIRTIO_ERR_NO_DESC_AVAIL) {
         if (handle_msg) {
             err = event_dispatch_non_block(get_default_waitset());
             if (err_is_fail(err)) {
@@ -1001,14 +1004,3 @@ errval_t virtio_virtqueue_poll(struct virtqueue *vq,
 
     return err;
 }
-
-#if 0
-
-
-void *virtio_virtqueue_poll(struct virtqueue *vq)
-{
-    return NULL;
-};
-
-#endif
-
