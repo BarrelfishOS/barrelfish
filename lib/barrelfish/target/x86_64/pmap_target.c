@@ -451,16 +451,19 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t page_size  = X86_64_BASE_PAGE_SIZE;
     size_t table_base = X86_64_PTABLE_BASE(vaddr);
     uint8_t map_bits  = X86_64_BASE_PAGE_BITS + 9;
+    bool debug_out    = false;
     if (flags & VREGION_FLAGS_LARGE) {
         // large page branch (2MB)
         page_size  = X86_64_LARGE_PAGE_SIZE;
         table_base = X86_64_PDIR_BASE(vaddr);
         map_bits   = X86_64_LARGE_PAGE_BITS + 9;
+        debug_out  = false;
     } else if (flags & VREGION_FLAGS_HUGE) {
         // huge page branch (1GB)
-        page_size = X86_64_HUGE_PAGE_SIZE;
+        page_size  = X86_64_HUGE_PAGE_SIZE;
         table_base = X86_64_PDPT_BASE(vaddr);
         map_bits   = X86_64_HUGE_PAGE_BITS + 9;
+        debug_out  = false;
     }
     
     // round to the next full page
@@ -471,23 +474,27 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     genvaddr_t vend = vaddr + size;
 
 #if 0
-    struct frame_identity fi;
-    invoke_frame_identify(frame, &fi);
-    genpaddr_t paddr = fi.base + offset;
+    if (debug_out) {
+        struct frame_identity fi;
+        invoke_frame_identify(frame, &fi);
+        genpaddr_t paddr = fi.base + offset;
 
-    debug_printf("do_map: 0x%"
-            PRIxGENVADDR"--0x%"PRIxGENVADDR" -> 0x%"PRIxGENPADDR
-            "; pte_count = %zd; frame bits = %zd; page size = 0x%zx\n",
-            vaddr, vend, paddr, pte_count, (size_t)fi.bits, page_size);
+        debug_printf("do_map: 0x%"
+                PRIxGENVADDR"--0x%"PRIxGENVADDR" -> 0x%"PRIxGENPADDR
+                "; pte_count = %zd; frame bits = %zd; page size = 0x%zx\n",
+                vaddr, vend, paddr, pte_count, (size_t)fi.bits, page_size);
+    }
 #endif
 
     // all mapping on one leaf table?
     // TODO: needs some work for mixed-size mappings
     if (is_same_pdir(vaddr, vend) ||
-        (flags & VREGION_FLAGS_LARGE && is_same_pdpt(vaddr, vend)) ||
-        (flags & VREGION_FLAGS_HUGE && is_same_pml4(vaddr, vend))) {
+            (flags & VREGION_FLAGS_LARGE && is_same_pdpt(vaddr, vend)) ||
+            (flags & VREGION_FLAGS_HUGE && is_same_pml4(vaddr, vend))) {
         // fast path
-        //debug_printf("  do_map: fast path: %zd\n", pte_count);
+        if (debug_out) {
+            debug_printf("  do_map: fast path: %zd\n", pte_count);
+        }
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -496,7 +503,9 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     else { // multiple leaf page tables
         // first leaf
         uint32_t c = X86_64_PTABLE_SIZE - table_base;
-        //debug_printf("  do_map: slow path: first leaf %"PRIu32"\n", c);
+        if (debug_out) {
+            debug_printf("  do_map: slow path: first leaf %"PRIu32"\n", c);
+        }
         genvaddr_t temp_end = vaddr + c * page_size;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
@@ -505,7 +514,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
         // map full leaves
         while (get_addr_prefix(temp_end, map_bits) <
-               get_addr_prefix(vend, map_bits))
+                get_addr_prefix(vend, map_bits))
         {
             // update vars
             vaddr = temp_end;
@@ -525,7 +534,9 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             frame = next;
 
             // do mapping
-            //debug_printf("  do_map: slow path: full leaf\n");
+            if (debug_out) {
+                debug_printf("  do_map: slow path: full leaf\n");
+            }
             err = do_single_map(pmap, vaddr, temp_end, frame, offset, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -554,7 +565,9 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             }
 
             // do mapping
-            //debug_printf("do_map: slow path: last leaf %"PRIu32"\n", c);
+            if (debug_out) {
+                debug_printf("do_map: slow path: last leaf %"PRIu32"\n", c);
+            }
             err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
