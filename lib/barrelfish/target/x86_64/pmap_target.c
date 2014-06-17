@@ -66,18 +66,18 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 // entry in different directories)
 static inline bool is_same_pdir(genvaddr_t va1, genvaddr_t va2)
 {
-    return (va1>>X86_64_LARGE_PAGE_BITS) == (va2>>X86_64_LARGE_PAGE_BITS);
+    return (va1>>X86_64_LARGE_PAGE_BITS) == ((va2-1)>>X86_64_LARGE_PAGE_BITS);
 }
 // returns whether va1 and va2 share a page directory pointer table entry
 static inline bool is_same_pdpt(genvaddr_t va1, genvaddr_t va2)
 {
-    return (va1>>X86_64_HUGE_PAGE_BITS) == (va2>>X86_64_HUGE_PAGE_BITS);
+    return (va1>>X86_64_HUGE_PAGE_BITS) == ((va2-1)>>X86_64_HUGE_PAGE_BITS);
 }
 // returns whether va1 and va2 share a page map level 4 entry
 static inline bool is_same_pml4(genvaddr_t va1, genvaddr_t va2)
 {
     // the base macros work here as we only have one pml4.
-    return X86_64_PML4_BASE(va1) == X86_64_PML4_BASE(va2);
+    return X86_64_PML4_BASE(va1) == X86_64_PML4_BASE(va2-1);
 }
 // size indicates how many bits to shift
 static inline genvaddr_t get_addr_prefix(genvaddr_t va, uint8_t size)
