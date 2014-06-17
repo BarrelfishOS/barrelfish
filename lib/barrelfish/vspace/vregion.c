@@ -8,6 +8,7 @@
 
 /*
  * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -60,6 +61,10 @@ errval_t vregion_map_aligned(struct vregion *vregion, struct vspace* vspace,
     // Add to memobj
     err = memobj->f.map_region(memobj, vregion);
     if (err_is_fail(err)) {
+        // remove memobj from region if map fails, otherwise we'll get a
+        // follow up error if client code call vregion_destroy() on the
+        // region.
+        vregion->memobj = NULL;
         return err_push(err, LIB_ERR_MEMOBJ_MAP_REGION);
     }
 

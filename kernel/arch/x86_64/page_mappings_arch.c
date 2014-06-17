@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -483,8 +484,8 @@ void paging_dump_tables(struct dcb *dispatcher)
 {
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
 
-    // loop over pdpts
-    for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-1; pdpt_index++) {
+    // loop over pdpts (ignore kernel space 508--511)
+    for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-4; pdpt_index++) {
 
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
         if (!pdpt->raw) { continue; }

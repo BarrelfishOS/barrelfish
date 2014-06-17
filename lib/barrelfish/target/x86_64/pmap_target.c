@@ -92,16 +92,29 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 
     uint32_t end_entry = entry + len;
 
+    // region we check [entry .. end_entry)
+
     for (n = root->u.vnode.children; n; n = n->next) {
-        if (n->is_vnode && n->entry == entry) {
+        // n is page table, we need to check if it's anywhere inside the
+        // region to check [entry .. end_entry)
+        // this amounts to n->entry == entry for len = 1
+        if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
             return true;
         }
-        // n is frame
+        // n is frame [n->entry .. end)
+        // 3 cases:
+        // 1) entry < n->entry && end_entry >= end --> n is a strict subset of
+        // our region
+        // 2) entry inside n (entry >= n->entry && entry < end)
+        // 3) end_entry inside n (end_entry >= n->entry && end_entry < end)
         uint32_t end = n->entry + n->u.frame.pte_count;
-        if (n->entry < entry && end > end_entry) {
+        if (entry < n->entry && end_entry >= end) {
             return true;
         }
-        if (n->entry >= entry && n->entry < end_entry) {
+        if (entry >= n->entry && entry < end) {
+            return true;
+        }
+        if (end_entry > n->entry && end_entry < end) {
             return true;
         }
     }
@@ -391,7 +404,8 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         err = get_ptable(pmap, vaddr, &ptable);
         table_base = X86_64_PTABLE_BASE(vaddr);
     }
-    
+    assert(ptable->is_vnode);
+
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
@@ -888,7 +902,9 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         }
 
         // unmap remaining part
-        c = get_addr_prefix(vend, map_bits) - get_addr_prefix(vaddr, map_bits);
+        // subtracting 9 from map_bits to get #ptes in last-level table
+        // instead of 2nd-to-last.
+        c = get_addr_prefix(vend, map_bits-9) - get_addr_prefix(vaddr, map_bits-9);
         assert(c < X86_64_PTABLE_SIZE);
         if (c) {
             err = do_single_unmap(x86, vaddr, c, true);

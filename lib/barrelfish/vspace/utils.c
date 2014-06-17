@@ -326,6 +326,20 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
                                    struct memobj **retmemobj,
                                    struct vregion **retvregion)
 {
+    return vspace_map_one_frame_attr_aligned(retaddr, size,
+            frame, flags, 0, retmemobj, retvregion);
+}
+
+/**
+ * \brief Wrapper for creating and mapping a memory object
+ * of type one frame with specific flags and a specific alignment
+ */
+errval_t vspace_map_one_frame_attr_aligned(void **retaddr, size_t size,
+                                   struct capref frame, vregion_flags_t flags,
+                                   size_t alignment,
+                                   struct memobj **retmemobj,
+                                   struct vregion **retvregion)
+{
     errval_t err1, err2;
     struct memobj *memobj   = NULL;
     struct vregion *vregion = NULL;
@@ -357,7 +371,8 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
         goto error;
     }
 
-    err1 = vregion_map(vregion, get_current_vspace(), memobj, 0, size, flags);
+    err1 = vregion_map_aligned(vregion, get_current_vspace(), memobj, 0, size,
+            flags, alignment);
     if (err_is_fail(err1)) {
         err1 = err_push(err1, LIB_ERR_VREGION_MAP);
         goto error;
