@@ -483,7 +483,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
 void paging_dump_tables(struct dcb *dispatcher)
 {
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
-
+    union x86_64_ptable_entry *pt;
     // loop over pdpts (ignore kernel space 508--511)
     for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-4; pdpt_index++) {
 
@@ -495,15 +495,33 @@ void paging_dump_tables(struct dcb *dispatcher)
         for (int pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
             // get pdir
             union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + pdir_index;
+            pt = (union x86_64_ptable_entry*)pdir;
             if (!pdir->raw) { continue; }
+            // check if pdir or huge page
+            if (pt->huge.always1) {
+                // is huge page mapping
+                genpaddr_t paddr = pt->huge.base_addr << 30;
+                printf("%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, paddr);
+                // goto next pdpt entry
+                continue;
+            }
             genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
             lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
 
             for (int ptable_index = 0; ptable_index < X86_64_PTABLE_SIZE; ptable_index++) {
                 // get ptable
-                union x86_64_ptable_entry *ptable = (union x86_64_ptable_entry *)pdir_lv + ptable_index;
+                union x86_64_pdir_entry *ptable = (union x86_64_pdir_entry *)pdir_lv + ptable_index;
+                pt = (union x86_64_ptable_entry *)ptable;
                 if (!ptable->raw) { continue; }
-                genpaddr_t ptable_gp = ptable->base.base_addr << BASE_PAGE_BITS;
+                // check if pdir or huge page
+                if (pt->large.always1) {
+                    // is huge page mapping
+                    genpaddr_t paddr = pt->large.base_addr << 21;
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, ptable_index, paddr);
+                    // goto next pdir entry
+                    continue;
+                }
+                genpaddr_t ptable_gp = ptable->d.base_addr << BASE_PAGE_BITS;
                 lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
                 for (int entry = 0; entry < X86_64_PTABLE_SIZE; entry++) {
