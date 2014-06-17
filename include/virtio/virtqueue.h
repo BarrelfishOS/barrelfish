@@ -30,6 +30,9 @@ struct virtqueue;
 /// interrupt handler for virtqueue interrupts
 typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
 
+/// virtqueue default alignment
+#define VIRTQUEUE_ALIGNMENT 4096
+
 /// the maximum length of the name field
 #define VIRTQUEUE_NAME_SIZE 32
 
@@ -52,13 +55,15 @@ typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
 struct virtqueue_setup {
     char name[VIRTQUEUE_NAME_SIZE];     ///< the name of the queue
     struct virtio_device *device;       ///< device this queue belongs to
-    uint16_t queue_id;                  ///< queue id of this queue
+    uint16_t queue_id;                  ///< the id of this queue
     uint16_t vring_ndesc;               ///< size of the vring
     lvaddr_t vring_align;               ///< alignment of the vring
     virtq_intr_hander_t intr_handler;   ///< interrupt handler function
     void *intr_arg;                     ///< argument for the interrupt handler
     uint16_t max_indirect;              ///< maximum indirect descriptors
+    uint8_t buffer_bits;                ///< when non zero, will allocate buffer
     uint8_t auto_add;                   ///< adds this virtqueue to the device
+
 };
 
 /**
@@ -191,6 +196,26 @@ bool virtio_virtqueue_is_full(struct virtqueue *vq);
  */
 uint16_t virtio_virtqueue_get_num_used(struct virtqueue *vq);
 
+/**
+ * \brief returns the number of bits if there are alrady allocated buffers
+ *        for this queue
+ *
+ * \param vq the virtqueue
+ *
+ * \returns size of allocated buffers
+ *          0 if none
+ */
+uint8_t virtio_virtqueue_get_buffer_bits(struct virtqueue *vq);
+
+/**
+ * \brief returns the virtual base of the previously allocated buffer
+ *
+ * \param vq the virtqueue
+ *
+ * \returns virtual address of allocated buffers
+ *          0 if no buffers are allocated
+ */
+lvaddr_t virtio_virtqueue_buffer_vbase(struct virtqueue *vq);
 
 /*
  * ===========================================================================

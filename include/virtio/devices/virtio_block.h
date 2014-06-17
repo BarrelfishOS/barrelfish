@@ -12,7 +12,6 @@
 
 #include <dev/virtio/virtio_blk_dev.h>
 
-
 /*
  * 5.2 Block Device
  * The virtio block device is a simple virtual block device (ie. disk). Read
@@ -31,6 +30,7 @@
 #define VIRTIO_BLOCK_NUM_VIRTQUEUES 1
 
 #define VIRTIO_BLOCK_FLOUNDER_IFACE "vblk_host"
+
 /*
  * --------------------------------------------------------------------------
  * 5.2.3 Feature Bits
@@ -67,12 +67,18 @@
 /// the length of the ID string
 #define VIRTIO_BLOCK_ID_BYTES      20
 
+/*
+ * ---------------------------------------------------------------------------
+ * Configuration Space
+ * ---------------------------------------------------------------------------
+ */
+
 /**
  * \brief VirtIO block device topology information
  */
 struct virtio_block_topology
 {
-    uint8_t num_logic_per_phys; ///< number of logical blocks per physical
+    uint8_t num_logic_per_phys;  ///< number of logical blocks per physical
     uint8_t alignment_offset;   ///< alignment offset
     uint16_t min_io_size;       ///< suggested minimum IO size
     uint32_t opt_io_size;       ///< suggested maximum IO size
@@ -105,7 +111,7 @@ struct virtio_block_config
     struct virtio_block_geometry geometry;                 ///< device geometry
     uint32_t blk_size;
     struct virtio_block_topology topology;                 ///< topology information
-    uint8_t reserved;           ///< reserved field originally write back
+    uint8_t writeback;           ///< write back flag
 }__attribute__((packed));
 
 /*
@@ -156,7 +162,7 @@ struct virtio_scsi_reqhdr
 {
     uint32_t errors;
     uint32_t data_len;  ///< SHOULD be ignored by the driver.
-    uint32_t sense_len; ///< number of bytes actually written to the sense buffer.
+    uint32_t sense_len;  ///< number of bytes actually written to the sense buffer.
     uint32_t residual;  ///< residual size, length - bytes actually transferred.
 };
 
@@ -171,7 +177,9 @@ struct virtio_block_reqhdr
     /* the data and status follow */
 };
 
-
+/**
+ * stores additional information for the VirtIO block device
+ */
 struct virtio_device_blk
 {
     struct virtio_device *vdev;
@@ -227,9 +235,9 @@ static inline uint64_t virtio_block_get_capacity(struct virtio_device_blk *dev)
  */
 static inline uint32_t virtio_block_get_segment_num(struct virtio_device_blk *dev)
 {
-    if (!virtio_device_has_feature(dev->vdev, VIRTIO_BLOCK_F_SEG_MAX)){
-            return 0;
-        }
+    if (!virtio_device_has_feature(dev->vdev, VIRTIO_BLOCK_F_SEG_MAX)) {
+        return 0;
+    }
     return virtio_blk_seg_num_max_rdf(&dev->config_space);
 }
 
@@ -260,7 +268,7 @@ static inline uint32_t virtio_block_get_segment_size(struct virtio_device_blk *d
  *          false otherwise
  */
 bool virtio_block_get_topology(struct virtio_device_blk *dev,
-                                           struct virtio_block_topology *topo);
+                               struct virtio_block_topology *topo);
 
 /**
  * \brief   returns the blocksize of
@@ -273,7 +281,7 @@ bool virtio_block_get_topology(struct virtio_device_blk *dev,
  *          false otherwise
  */
 bool virtio_block_get_geometry(struct virtio_device_blk *dev,
-                                           struct virtio_block_geometry *geo);
+                               struct virtio_block_geometry *geo);
 
 /**
  * \brief   handles the VirtIO block device common initialization.
@@ -298,5 +306,38 @@ errval_t virtio_block_init_device(struct virtio_device_blk *dev,
 errval_t virtio_block_init_device_with_cap(struct virtio_device_blk *dev,
                                            struct virtio_device_setup *setup,
                                            struct capref dev_cap);
+
+
+/*
+ * ----------------------------------------------------------------------------
+ * Additional functions for the host
+ * ----------------------------------------------------------------------------
+ */
+
+#ifdef __VIRTIO_HOST__
+/**
+ * stores additional information for the host side of the VirtIO
+ * block device
+ */
+struct virtio_host_blk
+{
+    struct virtio_device *host;           ///< the vhost of the block device
+    virtio_blk_t config_space;          ///< configuration space (mackerel)
+    void *config_addr;                  ///< raw pointer to the config space
+    void *config_tmp;                   ///< pointer to temporary config space
+    struct virtio_block_config config;  ///< configuration space values
+    struct virqueue_host *vq;           ///< the single virtqueue
+};
+
+/**
+ * \brief writes the configuration space values to the device configuration space
+ *
+ * \param bdev  the VirtIO host block device
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t virtio_block_host_write_config(struct virtio_host_blk *bdev);
+
+#endif // __VIRTIO_HOST__
 
 #endif // VIRTIO_DEVICES_VIRTIO_BLOCK_H

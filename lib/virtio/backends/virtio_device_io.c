@@ -12,6 +12,10 @@
 #include <virtio/virtio.h>
 #include <virtio/virtio_device.h>
 
+#ifdef __VIRTIO_HOST__
+#include <virtio/virtio_host.h>
+#endif
+
 #include "backends/virtio_pci.h"
 
 

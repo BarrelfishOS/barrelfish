@@ -12,20 +12,19 @@
 
 #include <virtio/virtio.h>
 #include <virtio/virtio_device.h>
+#include <virtio/virtqueue_host.h>
 #include <virtio/virtio_host.h>
 
 #include <if/virtio_defs.h>
 #include <if/virtio_rpcclient_defs.h>
 
 #include "channel.h"
+#include "device.h"
 #include "debug.h"
 
-
-static struct virtio_binding *virtio_binding = NULL;
+static uint8_t device_open = 0x0;
 
 static iref_t virtio_rpc_svc_iref;
-
-struct virtio_host_cb *host_cb;
 
 enum virtio_rpc_host_state {
     RPC_HOST_STATE_INVALID,
@@ -45,15 +44,21 @@ struct open_response_state
     struct capref frame;
 };
 
-struct open_response_state err_st;
+struct open_response_state open_err_st;
 
+static void virtio_open_response_cb(void *a)
+{
+    if (a != &open_err_st) {
+        free(a);
+    }
+}
 
 static void virtio_open_response(void *a)
 {
     errval_t err;
     struct open_response_state *st = a;
 
-    struct event_closure txcont = MKCONT(free, st);
+    struct event_closure txcont = MKCONT(virtio_open_response_cb, st);
     err = virtio_open_response__tx(st->b, txcont, st->err, st->frame);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -75,28 +80,40 @@ static void virtio_open_call__rx(struct virtio_binding *_binding,
 {
     errval_t err;
 
-    if (_binding->st) {
-        /* cannot open a device twice! */
-        err_st.err = VIRTIO_ERR_DEVICE_STATUS;
-        virtio_open_response(&err_st);
+    VIRTIO_DEBUG_CHAN("Received device_open rpc call\n");
+
+    if (device_open) {
+        open_err_st.err = VIRTIO_ERR_DEVICE_STATUS;
+        virtio_open_response(&open_err_st);
         return;
+    } else {
+        device_open = 0x1;
     }
+
+    assert(_binding->st);
+
+    struct virtio_device *vdev = _binding->st;
 
     struct open_response_state *st = malloc(sizeof(struct open_response_state));
     if (st == NULL) {
-        err_st.err = LIB_ERR_MALLOC_FAIL;
-        virtio_open_response(&err_st);
+        device_open = 0x0;
+        open_err_st.err = LIB_ERR_MALLOC_FAIL;
+        virtio_open_response(&open_err_st);
         return;
     }
 
-    err = host_cb->open(&st->frame, &_binding->st);
+    assert(vdev->cb_h);
+    assert(vdev->cb_h->open);
+
+    err = vdev->cb_h->open(vdev, backend, &st->frame);
     if (err_is_fail(err)) {
-        err_st.err = err;
-        virtio_open_response(&err_st);
+        device_open = 0x0;
+        open_err_st.err = err;
+        virtio_open_response(&open_err_st);
     }
 
     st->b = _binding;
-    st->err = SYS_ERR_OK;
+    st->err = err;
 
     virtio_open_response(st);
 }
@@ -115,17 +132,81 @@ static  void virtio_close_call__rx(struct virtio_binding *_binding)
 
 /* -------------------- virtio_add() ---------------------------------------- */
 
+struct add_response_state
+{
+    struct virtio_binding *b;
+    errval_t err;
+};
+
+struct open_response_state add_err_st;
+
+static void virtio_add_response_cb(void *a)
+{
+    if (a != &add_err_st) {
+        free(a);
+    }
+}
+
 static void virtio_add_response(void *a)
 {
+    errval_t err;
+    struct add_response_state *st = a;
 
+    struct event_closure txcont = MKCONT(virtio_add_response_cb, st);
+    err = virtio_add_response__tx(st->b, txcont, st->err);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(virtio_add_response, st);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "virtio_add_response: register send failed\n");
+                free(st);
+            }
+        } else {
+            DEBUG_ERR(err, "virtio_add_response: sending reply failed\n");
+            free(st);
+        }
+    }
 }
 
 static  void virtio_add_call__rx(struct virtio_binding *_binding,
                                  uint16_t vq_id,
-                                 uint16_t ndesc,
+                                 uint8_t buf_bits,
                                  struct capref vring)
 {
-    virtio_add_response(_binding);
+    VIRTIO_DEBUG_CHAN("Received virtq_add rpc call\n");
+
+    if (!_binding->st) {
+        /* cannot open a device twice! */
+        add_err_st.err = VIRTIO_ERR_DEVICE_STATUS;
+        virtio_open_response(&add_err_st);
+        return;
+    }
+
+    struct open_response_state *st = malloc(sizeof(struct open_response_state));
+    if (st == NULL) {
+        add_err_st.err = LIB_ERR_MALLOC_FAIL;
+        virtio_open_response(&add_err_st);
+        return;
+    }
+
+    struct virtio_device *vdev = _binding->st;
+
+    assert(vdev->cb_h);
+    assert(vdev->cb_h->add);
+
+    st->b = _binding;
+
+    st->err = virtio_vq_host_init_vring(vdev, vring, vq_id, buf_bits);
+    if (err_is_fail(st->err)) {
+        virtio_add_response(st);
+        return;
+    }
+
+    st->b = _binding;
+    st->err = vdev->cb_h->add(vdev,vring, buf_bits, vq_id);
+
+    virtio_add_response(st);
 }
 
 
@@ -167,13 +248,18 @@ struct virtio_rx_vtbl s_rx_vtbl = {
     .req_call = virtio_req_call__rx,
 };
 
-struct virtio_host_cb *cb;
 
 static errval_t connect_cb(void *st, struct virtio_binding *b)
 {
     VIRTIO_DEBUG_CHAN("New guest connection\n");
 
-    virtio_binding = b;
+    /*
+     * this would be the point where we should initialize a new VirtIO device,
+     * however we support just one device at this stage.
+     *
+     * We assign the current device as the binding state.
+     */
+    b->st = st;
 
     b->rx_vtbl = s_rx_vtbl;
 
@@ -188,11 +274,12 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         return;
     }
 
-    char *iface = st;
+    struct virtio_device *vdev = st;
+
     virtio_rpc_svc_iref = iref;
 
-    VIRTIO_DEBUG_CHAN("Registering [%s] with iref [%u]\n", iface, iref);
-    err = nameservice_register(iface, iref);
+    VIRTIO_DEBUG_CHAN("Registering [%s] with iref [%u]\n", vdev->hc_iface, iref);
+    err = nameservice_register(vdev->hc_iface, iref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
         rpc_client_state = RPC_HOST_STATE_FAILED;
@@ -205,8 +292,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 
 
-errval_t virtio_host_flounder_init(char *iface,
-                                   struct virtio_host_cb *callbacks)
+errval_t virtio_host_flounder_init(struct virtio_device *vdev)
 {
     errval_t err;
 
@@ -214,9 +300,7 @@ errval_t virtio_host_flounder_init(char *iface,
 
     rpc_client_state = RPC_HOST_STATE_EXPORTING;
 
-    host_cb = callbacks;
-
-    err = virtio_export(iface,
+    err = virtio_export(vdev,
                         export_cb, connect_cb,
                         get_default_waitset(),
                         IDC_BIND_FLAGS_DEFAULT);

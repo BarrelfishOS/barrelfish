@@ -10,6 +10,8 @@
 #ifndef VIRTIO_GUEST_H
 #define VIRTIO_GUEST_H
 
+struct virtqueue;
+
 /**
  * represents the channel backend to be used for this VirtIO guest library
  */
@@ -27,7 +29,7 @@ struct virtio_guest_chan_fn
 {
     errval_t (*open)(uint8_t backend, struct capref *ret_frame);
     errval_t (*close)(void);
-    errval_t (*add)(uint16_t vq_id, uint16_t ndesc, struct capref frame);
+    errval_t (*add)(struct virtqueue *vq);
     errval_t (*ext)(uint16_t vq_id, struct capref vbuf);
     errval_t (*req)(uint64_t size, struct capref *cap);
 };
@@ -60,11 +62,9 @@ static inline errval_t virtio_guest_close_device(void)
 /**
  *
  */
-static inline errval_t virtio_guest_add_vring(uint16_t vq_id,
-                                              uint16_t ndesc,
-                                              struct capref frame)
+static inline errval_t virtio_guest_add_virtq(struct virtqueue *vq)
 {
-    return vguest_chan_fn->add(vq_id, ndesc, frame);
+    return vguest_chan_fn->add(vq);
 }
 
 /**

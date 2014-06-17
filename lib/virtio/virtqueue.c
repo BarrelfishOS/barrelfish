@@ -20,9 +20,11 @@
 
 #define IS_POW2(num) (((num) != 0) && (((num) & (~(num) + 1)) == (num)))
 
-#define VIRTQUEUE_FLAG_INDIRECT  0x0001
-#define VIRTQUEUE_FLAG_EVENT_IDX 0x0002
-#define VIRTQUEUE_FLAG_FREE_CAP  0x8000
+#define VIRTQUEUE_FLAG_INDIRECT    1
+#define VIRTQUEUE_FLAG_EVENT_IDX   2
+#define VIRTQUEUE_FLAG_ADDED       13
+#define VIRTQUEUE_FLAG_HAS_BUFFERS 14
+#define VIRTQUEUE_FLAG_FREE_CAP    15
 
 /**
  * this data structure stores additional information to the descriptors
@@ -43,25 +45,29 @@ struct vring_desc_info
 struct virtqueue
 {
     /* device information */
-    struct virtio_device *device;       ///< pointer to to the virtio device
-    uint16_t queue_index;  ///< index of this queue in the device
-    char name[VIRTQUEUE_NAME_SIZE];     ///< name of the queue for debugging
+    struct virtio_device *device;   ///< pointer to to the virtio device
+    uint16_t queue_index;           ///< index of this queue in the device
+    char name[VIRTQUEUE_NAME_SIZE];  ///< name of the queue for debugging
 
-    /* vring information */
-    struct vring vring;                 ///< vring data structure
-    uint16_t vring_ndesc;               ///< number of descriptors of this vring
-    uint32_t flags;                     ///< flags
-    uint16_t free_head;                 ///< head of the free descriptor chain
-    uint16_t free_count;                ///< number of available free descriptors
-    uint16_t used_tail;                 ///< last consumed descriptor used table
-    uint16_t queued_count;              ///< number of queued used descriptors
+    /* vring  information */
+    struct vring vring;             ///< vring data structure
+    struct capref vring_cap;        ///< capability of the vring data structure
+    lvaddr_t vring_vaddr;           ///< virtual address of the vring in memory
+    lpaddr_t vring_paddr;           ///< physical address of the vring
+    lvaddr_t vring_align;           ///< the alignment of the vring
 
-    /* vring memory information */
-    struct capref vring_cap;            ///< capability of the vring data structure
-    lvaddr_t vring_vaddr;               ///< virtual address of the vring in memory
-    lpaddr_t vring_paddr;               ///< physical address of the vring
-    size_t vring_size;                  ///< the size of the vring in memory
-    lvaddr_t vring_align;               ///< the alignment of the vring
+    uint16_t desc_num;              ///< number of descriptors of this vring
+    uint16_t desc_num_max;          ///< maximum number of descriptors supported
+    uint16_t desc_num_queued;       ///< number of queued used descriptors
+
+    uint16_t free_head;             ///< head of the free descriptor chain
+    uint16_t free_count;            ///< number of available free descriptors
+
+    uint16_t used_tail;             ///< last consumed descriptor used table
+    uint16_t used_head;             ///< caches the head of the used descriptors
+
+    uint32_t flags;                 ///< flags
+    uint8_t buffer_bits;
 
     /* interrupt handling */
     virtq_intr_hander_t intr_handler;   ///< interrupt handler
@@ -93,7 +99,7 @@ struct virtqueue
 static bool virtqueue_interrupt_enable(struct virtqueue *vq,
                                        uint16_t num_desc)
 {
-    if (vq->flags & VIRTQUEUE_FLAG_EVENT_IDX) {
+    if (vq->flags & (1 << VIRTQUEUE_FLAG_EVENT_IDX)) {
         uint16_t *used_event = vring_get_used_event(&vq->vring);
         *used_event = vq->used_tail + num_desc;
     } else {
@@ -119,19 +125,21 @@ static void virtqueue_init_vring(struct virtqueue *vq)
     struct vring *vr = &vq->vring;
 
     assert(vq);
-    assert(vq->vring_ndesc);
+    assert(vq->desc_num);
     assert(vq->vring_vaddr);
 
     /*
      * initialize the vring structure in memory
      */
-    vring_init(vr, vq->vring_ndesc, vq->vring_align, (void *) vq->vring_vaddr);
+    vring_init(vr, vq->desc_num, vq->vring_align, (void *) vq->vring_vaddr);
+
+    vr->num = vq->desc_num;
 
     /*
      * initialize the descriptor chains
      */
     uint32_t i;
-    for (i = 0; i < vq->vring_ndesc; ++i) {
+    for (i = 0; i < vq->desc_num; ++i) {
         vr->desc[i].next = i + 1;
     }
     vr->desc[i].next = VIRTQUEUE_CHAIN_END;
@@ -168,9 +176,9 @@ static bool virtqueue_should_notify_host(struct virtqueue *vq)
 {
     uint16_t new, prev, *event_idx;
 
-    if (vq->flags & VIRTQUEUE_FLAG_EVENT_IDX) {
+    if (vq->flags & (1 << VIRTQUEUE_FLAG_EVENT_IDX)) {
         new = vq->vring.avail->idx;
-        prev = new - vq->queued_count;
+        prev = new - vq->desc_num_queued;
         event_idx = vring_get_avail_event(&vq->vring);
 
         return (vring_need_event(*event_idx, new, prev) != 0);
@@ -203,8 +211,10 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
 {
     errval_t err;
 
-    VIRTIO_DEBUG_VQ("Allocating VQ(%u) of size %u\n",
-                    setup->queue_id, setup->vring_ndesc);
+    VIRTIO_DEBUG_VQ("Allocating VQ(%u) of size %u with buffer of %u bits\n",
+                    setup->queue_id,
+                    setup->vring_ndesc,
+                    setup->buffer_bits);
 
     assert(vq);
 
@@ -215,6 +225,10 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
 
     size_t size = vring_size(setup->vring_ndesc, setup->vring_align);
     size = ROUND_UP(size, BASE_PAGE_SIZE);
+
+    if (setup->buffer_bits) {
+        size += setup->vring_ndesc * (1UL << setup->buffer_bits);
+    }
 
     struct capref vring_cap;
     size_t framesize;
@@ -234,7 +248,7 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
     }
 
     /* set the flag that we have allocated the cap, so that it gets free'd */
-    (*vq)->flags |= VIRTQUEUE_FLAG_FREE_CAP;
+    (*vq)->flags |= (1 << VIRTQUEUE_FLAG_FREE_CAP);
 
     return SYS_ERR_OK;
 }
@@ -268,6 +282,8 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
         return VIRTIO_ERR_MAX_INDIRECT;
     }
 
+    setup->vring_align = VIRTQUEUE_ALIGNMENT;
+
     assert(!capref_is_null(vring_cap));
 
     struct frame_identity id;
@@ -278,6 +294,10 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
 
     size_t vring_mem_size = vring_size(setup->vring_ndesc, setup->vring_align);
     vring_mem_size = ROUND_UP(vring_mem_size, BASE_PAGE_SIZE);
+
+    if (setup->buffer_bits) {
+        vring_mem_size += setup->vring_ndesc * (1UL << setup->buffer_bits);
+    }
 
     if (vring_mem_size > (1UL << id.bits)) {
         VIRTIO_DEBUG_VQ("ERROR: supplied cap was too small %lx, needed %lx\n",
@@ -292,9 +312,11 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
         return err;
     }
 
-    struct virtqueue *vq = calloc(1,
-                                  sizeof(struct virtqueue) + (setup->vring_ndesc
-                                                  * sizeof(struct vring_desc_info)));
+    struct virtqueue *vq;
+
+    vq = calloc(1,
+                sizeof(struct virtqueue) + (setup->vring_ndesc
+                                * sizeof(struct vring_desc_info)));
     if (vq == NULL) {
         vspace_unmap(vring_addr);
         return LIB_ERR_MALLOC_FAIL;
@@ -303,9 +325,8 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
     vq->device = setup->device;
     strncpy(vq->name, setup->name, sizeof(vq->name));
     vq->queue_index = setup->queue_id;
-    vq->vring_ndesc = setup->vring_ndesc;
+    vq->desc_num = setup->vring_ndesc;
     vq->vring_align = setup->vring_align;
-    vq->vring_size = vring_mem_size;
     vq->vring_cap = vring_cap;
     vq->vring_paddr = id.base;
     vq->vring_vaddr = (lvaddr_t) vring_addr;
@@ -323,6 +344,11 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
 
     if (virtio_device_has_feature(setup->device, VIRTIO_RING_F_EVENT_IDX)) {
         vq->flags |= (1 << VIRTQUEUE_FLAG_EVENT_IDX);
+    }
+
+    if (setup->buffer_bits) {
+        vq->buffer_bits = setup->buffer_bits;
+        vq->flags |= (1 << VIRTQUEUE_FLAG_HAS_BUFFERS);
     }
 
     virtqueue_init_vring(vq);
@@ -393,6 +419,42 @@ void virtio_virtqueue_get_vring_cap(struct virtqueue *vq,
 }
 
 /**
+ * \brief returns the number of bits if there are alrady allocated buffers
+ *        for this queue
+ *
+ * \param vq the virtqueue
+ *
+ * \returns size of allocated buffers
+ *          0 if none
+ */
+uint8_t virtio_virtqueue_get_buffer_bits(struct virtqueue *vq)
+{
+    if (vq->flags & (1 << VIRTQUEUE_FLAG_HAS_BUFFERS)) {
+        return vq->buffer_bits;
+    }
+    return 0;
+}
+
+/**
+ * \brief returns the virtual base of the previously allocated buffer
+ *
+ * \param vq the virtqueue
+ *
+ * \returns virtual address of allocated buffers
+ *          0 if no buffers are allocated
+ */
+lvaddr_t virtio_virtqueue_buffer_vbase(struct virtqueue *vq)
+{
+    if (vq->flags & (1 << VIRTQUEUE_FLAG_HAS_BUFFERS)) {
+        size_t vring_mem_size = vring_size(vq->desc_num, vq->vring_align);
+        vring_mem_size = ROUND_UP(vring_mem_size, BASE_PAGE_SIZE);
+
+        return vq->vring_vaddr + vring_mem_size;
+    }
+    return 0;
+}
+
+/**
  * \brief Returns the number of elements (number of descriptors)in the vring of
  *        this virtqueue
  *
@@ -402,7 +464,7 @@ void virtio_virtqueue_get_vring_cap(struct virtqueue *vq,
  */
 uint16_t virtio_virtqueue_get_num_desc(struct virtqueue *vq)
 {
-    return vq->vring_ndesc;
+    return vq->desc_num;
 }
 
 /**
@@ -427,7 +489,7 @@ uint16_t virtio_virtqueue_get_queue_index(struct virtqueue *vq)
  */
 bool virtio_virtqueue_is_empty(struct virtqueue *vq)
 {
-    return (vq->vring_ndesc == vq->free_count);
+    return (vq->desc_num == vq->free_count);
 }
 
 /**
@@ -457,7 +519,7 @@ uint16_t virtio_virtqueue_get_num_used(struct virtqueue *vq)
     num_used = vq->vring.used->idx - vq->used_tail;
 
     /* sanity check */
-    assert(num_used <= vq->vring_ndesc);
+    assert(num_used <= vq->desc_num);
 
     return num_used;
 }
@@ -549,9 +611,9 @@ bool virtio_virtqueue_intr_postpone(struct virtqueue *vq,
  */
 void virtio_virtqueue_intr_disable(struct virtqueue *vq)
 {
-    if (vq->flags & VIRTQUEUE_FLAG_EVENT_IDX) {
+    if (vq->flags & (1 << VIRTQUEUE_FLAG_EVENT_IDX)) {
         uint16_t *used_event = vring_get_used_event(&vq->vring);
-        *used_event = vq->used_tail - vq->vring_ndesc - 1;
+        *used_event = vq->used_tail - vq->desc_num - 1;
     } else {
         vq->vring.avail->flags |= VIRTIO_RING_AVAIL_F_NO_INTERRUPT;
     }
@@ -568,7 +630,7 @@ void virtio_virtqueue_notify_host(struct virtqueue *vq)
     if (virtqueue_should_notify_host(vq)) {
         assert(!"NYI: host notify");
     }
-    vq->queued_count = 0;
+    vq->desc_num_queued = 0;
 
 }
 
@@ -719,7 +781,7 @@ errval_t vring_free(struct vring *vr)
 static void virtqueue_update_available(struct virtqueue *vq,
                                        uint16_t idx)
 {
-    uint16_t avail_idx = vq->vring.avail->idx & (vq->vring_ndesc - 1);
+    uint16_t avail_idx = vq->vring.avail->idx & (vq->desc_num - 1);
     vq->vring.avail->ring[avail_idx] = idx;
 
     /*
@@ -727,7 +789,7 @@ static void virtqueue_update_available(struct virtqueue *vq,
      */
 
     vq->vring.avail->idx++;
-    vq->queued_count++;
+    vq->desc_num_queued++;
 }
 
 /**
@@ -934,7 +996,7 @@ errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
         return VIRTIO_ERR_NO_DESC_AVAIL;
     }
 
-    used_idx = vq->used_tail++ & (vq->vring_ndesc - 1);
+    used_idx = vq->used_tail++ & (vq->desc_num - 1);
     elem = &vq->vring.used->ring[used_idx];
 
     /*
@@ -953,7 +1015,7 @@ errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
 
     err = virtqueue_free_desc_chain(vq, desc_idx);
     if (err_is_fail(err)) {
-        used_idx = vq->used_tail-- & (vq->vring_ndesc - 1);
+        used_idx = vq->used_tail-- & (vq->desc_num - 1);
         return err;
     }
 

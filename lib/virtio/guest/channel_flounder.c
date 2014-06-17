@@ -9,6 +9,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <virtio/virtio.h>
+#include <virtio/virtqueue.h>
 #include <virtio/virtio_guest.h>
 
 #include <if/virtio_defs.h>
@@ -79,9 +81,7 @@ static  errval_t close_device(void)
 /**
  *
  */
-static  errval_t add_vring(uint16_t vq_id,
-                           uint16_t ndesc,
-                           struct capref frame)
+static  errval_t add_vring(struct virtqueue *vq)
 {
     errval_t err, msg_err;
 
@@ -90,7 +90,14 @@ static  errval_t add_vring(uint16_t vq_id,
         return -1;
     }
 
-    err =  virtio_rpc_client.vtbl.add(&virtio_rpc_client, vq_id, ndesc, frame, &msg_err);
+    struct capref frame;
+    virtio_virtqueue_get_vring_cap(vq, &frame);
+
+    uint16_t id = virtio_virtqueue_get_queue_index(vq);
+
+    uint8_t bits = virtio_virtqueue_get_buffer_bits(vq);
+
+    err =  virtio_rpc_client.vtbl.add(&virtio_rpc_client, id, bits, frame, &msg_err);
     if (err_is_fail(err)) {
         return err;
     }

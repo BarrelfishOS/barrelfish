@@ -27,7 +27,7 @@
   build application { target = "virtio_blk_host",
                       cFiles = [ "main_host.c"
                                 ],
-	                  addCFlags = [ "-DVIRTIO_HOST" ],
+	            addCFlags = [ "-D__VIRTIO_HOST__" ],
                       addLibraries = libDeps ["virtio_host"],
                       --flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       --flounderDefs = ["monitor", "xeon_phi_manager", "xeon_phi", "xeon_phi_messaging"],

@@ -32,7 +32,15 @@
 #define VIRTIO_TRANSPORT_F_START    28
 #define VIRTIO_TRANSPORT_F_END      32
 
-
+/**
+ * represents the channel backend to be used for this VirtIO guest library
+ */
+enum virtio_host
+{
+    VIRTIO_HOST_CHAN_INVALID,  ///< the channel type is invalid
+    VIRTIO_HOST_CHAN_FLOUNDER, ///< the flounder RPC backend should be used
+    VIRTIO_HOST_CHAN_XEON_PHI, ///< the xeon phi messaging backend should be used
+};
 
 /**
  * VirtIO Memory segment

@@ -15,7 +15,9 @@
 #include <virtio/virtio_ring.h>
 #include <virtio/virtio_device.h>
 
+#ifdef __VIRTIO_HOST__
 #include <virtio/virtio_host.h>
+#endif
 
 #include <dev/virtio/virtio_mmio_dev.h>
 
@@ -137,6 +139,8 @@ static errval_t device_set_status(struct virtio_device *dev,
     return SYS_ERR_OK;
 }
 
+#ifndef __VIRTIO_HOST__
+
 /**
  * \brief resets the VirtIO deivces
  *
@@ -146,7 +150,7 @@ static errval_t device_set_status(struct virtio_device *dev,
  */
 static errval_t device_reset(struct virtio_device *dev)
 {
-    VIRTIO_DEBUG_DEV("resetting mmio device: %s\n", dev->name);
+    VIRTIO_DEBUG_DEV("resetting mmio device: %s\n", dev->dev_name);
     /*
      * TODO: is there some clean up needed ?
      */
@@ -188,6 +192,8 @@ static errval_t device_get_device_features(struct virtio_device *dev,
     return SYS_ERR_OK;
 }
 
+
+
 static errval_t device_set_driver_features(struct virtio_device *dev,
                                            uint64_t features)
 {
@@ -200,9 +206,9 @@ static errval_t device_set_driver_features(struct virtio_device *dev,
     uint32_t reg_val;
 
     if (virtio_mmio_driv_features_sel_selector_rdf(&mmio_dev->regs)) {
-        reg_val = (uint32_t)(features>>32);
+        reg_val = (uint32_t) (features >> 32);
     } else {
-        reg_val = (uint32_t)(features);
+        reg_val = (uint32_t) (features);
         selector = 0x1;
     }
 
@@ -214,9 +220,9 @@ static errval_t device_set_driver_features(struct virtio_device *dev,
     virtio_mmio_driv_features_sel_wr(&mmio_dev->regs, selector);
 
     if (selector) {
-        reg_val = (uint32_t)(features>>32);
+        reg_val = (uint32_t) (features >> 32);
     } else {
-        reg_val = (uint32_t)(features);
+        reg_val = (uint32_t) (features);
     }
 
     virtio_mmio_driv_features_features_wrf(&mmio_dev->regs, reg_val);
@@ -224,12 +230,12 @@ static errval_t device_set_driver_features(struct virtio_device *dev,
     REGISTER_SEND_READY(virtio_mmio_driv_features_sel_ready_wrf, &mmio_dev);
     REGISTER_WAIT_READY(!virtio_mmio_driv_features_sel_ready_rdf, &mmio_dev);
 
-
     // clear the ready bit in the end
     virtio_mmio_driv_features_sel_ready_wrf(&mmio_dev->regs, 0x0);
 
     return SYS_ERR_OK;
 }
+
 
 static errval_t device_set_virtq(struct virtio_device *dev,
                                  struct virtqueue *vq)
@@ -238,7 +244,7 @@ static errval_t device_set_virtq(struct virtio_device *dev,
 
     uint16_t queue_index = virtio_virtqueue_get_queue_index(vq);
 
-    VIRTIO_DEBUG_TL("setting virtqueue [VQ(%u) @ %s]\n", queue_index, dev->name);
+    VIRTIO_DEBUG_TL("setting virtqueue [VQ(%u) @ %s]\n", queue_index, dev->dev_name);
 
     /* we nee to change to the correct queue */
     if (virtio_mmio_queue_sel_selector_rdf(&mmio_dev->regs) != queue_index) {
@@ -287,6 +293,7 @@ static errval_t device_set_virtq(struct virtio_device *dev,
     return SYS_ERR_OK;
 }
 
+
 static errval_t device_get_queue_num_max(struct virtio_device *dev,
                                          uint16_t queue_index,
                                          uint16_t *num_max)
@@ -316,7 +323,7 @@ static errval_t device_negotiate_features(struct virtio_device *dev,
 
     driver_features &= device_features;
 
-    VIRTIO_DEBUG_TL("setting device features to: 0x%lx\n", driver_features);
+    VIRTIO_DEBUG_TL("setting negotiated features to: 0x%lx\n", driver_features);
 
     device_set_driver_features(dev, driver_features);
 
@@ -324,6 +331,8 @@ static errval_t device_negotiate_features(struct virtio_device *dev,
 
     return SYS_ERR_OK;
 }
+
+#endif
 
 /**
  * \brief reads the device configuration space and copies it into a local buffer
@@ -340,11 +349,11 @@ static errval_t device_config_read(struct virtio_device *vdev,
 {
     struct virtio_device_mmio *mmio_dev = (struct virtio_device_mmio *) vdev;
 
-    if (len > (mmio_dev->device_size + virtio_mmio_config_offset)) {
+    if (len > (mmio_dev->dev_size + virtio_mmio_config_offset)) {
         return VIRTIO_ERR_SIZE_INVALID;
     }
 
-    uint8_t *config_space = ((uint8_t *) mmio_dev->device_base)
+    uint8_t *config_space = ((uint8_t *) mmio_dev->dev_base)
                     + virtio_mmio_config_offset;
 
     memcpy(buf, config_space, len);
@@ -368,19 +377,31 @@ static errval_t device_config_write(struct virtio_device *dev,
 {
     struct virtio_device_mmio *mmio_dev = (struct virtio_device_mmio *) dev;
 
-    if ((length + offset) > (mmio_dev->device_size + virtio_mmio_config_offset)) {
+    if ((length + offset) > (mmio_dev->dev_size + virtio_mmio_config_offset)) {
         return VIRTIO_ERR_SIZE_INVALID;
     }
 
     size_t config_offset = virtio_mmio_config_offset + offset;
 
-    uint8_t *config_space = ((uint8_t *) mmio_dev->device_base) + config_offset;
+    uint8_t *config_space = ((uint8_t *) mmio_dev->dev_base) + config_offset;
 
     memcpy(config_space, config, length);
 
     return SYS_ERR_OK;
 }
 
+#ifdef __VIRTIO_HOST__
+
+static errval_t virtio_device_mmio_poll_host(struct virtio_device *host);
+
+struct virtio_device_fn virtio_mmio_fn = {
+    .set_status = device_set_status,
+    .get_status = device_get_status,
+    .get_config = device_config_read,
+    .set_config = device_config_write,
+    .poll = virtio_device_mmio_poll_host
+};
+#else
 struct virtio_device_fn virtio_mmio_fn = {
     .reset = device_reset,
     .set_status = device_set_status,
@@ -391,6 +412,7 @@ struct virtio_device_fn virtio_mmio_fn = {
     .get_config = device_config_read,
     .set_config = device_config_write
 };
+#endif
 
 /**
  * \brief initializes and allocates a VirtIO device structure for the MMIO backend
@@ -405,9 +427,10 @@ errval_t virtio_device_mmio_init(struct virtio_device **dev,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    virtio_mmio_initialize(&mmio_dev->regs, (mackerel_addr_t) (info->dev_reg));
-    mmio_dev->device_base = info->dev_reg;
-    mmio_dev->device_size = info->dev_reg_size;
+    virtio_mmio_initialize(&mmio_dev->regs,
+                           (mackerel_addr_t) (info->backend.args.mmio.dev_base));
+    mmio_dev->dev_base = info->backend.args.mmio.dev_base;
+    mmio_dev->dev_size = info->backend.args.mmio.dev_size;
 
     /**
      * 4.2.3.1.1 Driver Requirements: Device Initialization
@@ -445,24 +468,25 @@ errval_t virtio_device_mmio_init(struct virtio_device **dev,
         return VIRTIO_ERR_NOT_VIRTIO_DEVICE;
     }
 
-    if (devid != info->type) {
+    if (devid != info->dev_type) {
         VIRTIO_DEBUG_DEV("VirtIO device id not as expected [%x, %x].\n",
                          devid,
-                         info->type);
+                         info->dev_type);
         return VIRTIO_ERR_DEVICE_TYPE;
     }
 
-    mmio_dev->dev.devid = devid;
     mmio_dev->dev.backend = VIRTIO_DEVICE_BACKEND_MMIO;
     mmio_dev->dev.f = &virtio_mmio_fn;
-    mmio_dev->dev.type = virtio_mmio_deviceid_id_rdf(&mmio_dev->regs);
+    mmio_dev->dev.dev_type = virtio_mmio_deviceid_id_rdf(&mmio_dev->regs);
 
     *dev = &mmio_dev->dev;
 
     return SYS_ERR_OK;
 }
 
-static errval_t handle_device_status_change(struct virtio_host_mmio *mmio_host,
+#ifdef __VIRTIO_HOST__
+
+static errval_t handle_device_status_change(struct virtio_device_mmio *mmio_host,
                                             uint8_t new_status)
 {
     VIRTIO_DEBUG_TL("handle_device_status_change: [0x%x]\n", new_status);
@@ -470,7 +494,7 @@ static errval_t handle_device_status_change(struct virtio_host_mmio *mmio_host,
     return SYS_ERR_OK;
 }
 
-static errval_t handle_dev_feature_sel_change(struct virtio_host_mmio *mmio_host,
+static errval_t handle_dev_feature_sel_change(struct virtio_device_mmio *mmio_host,
                                               uint8_t selector)
 {
     VIRTIO_DEBUG_TL("handle_dev_feature_sel_change: [0x%x]\n", selector);
@@ -478,10 +502,10 @@ static errval_t handle_dev_feature_sel_change(struct virtio_host_mmio *mmio_host
 
     if (selector) {
         virtio_mmio_dev_features_wr(&mmio_host->regs,
-                                    (uint32_t)(mmio_host->host.device_features >> 32));
+                                    (uint32_t) (mmio_host->dev.device_features >> 32));
     } else {
         virtio_mmio_dev_features_wr(&mmio_host->regs,
-                                    (uint32_t)mmio_host->host.device_features);
+                                    (uint32_t) mmio_host->dev.device_features);
     }
 
     virtio_mmio_dev_features_sel_ready_wrf(&mmio_host->regs, 0x1);
@@ -489,11 +513,13 @@ static errval_t handle_dev_feature_sel_change(struct virtio_host_mmio *mmio_host
     return SYS_ERR_OK;
 }
 
-static errval_t handle_driv_feature_change(struct virtio_host_mmio *mmio_host,
+static errval_t handle_driv_feature_change(struct virtio_device_mmio *mmio_host,
                                            uint8_t selector,
                                            uint32_t feature)
 {
-    VIRTIO_DEBUG_TL("handle_driv_feature_change: [0x%x] [0x%08x]\n", selector, feature);
+    VIRTIO_DEBUG_TL("handle_driv_feature_change: [0x%x] [0x%08x]\n",
+                    selector,
+                    feature);
 
     mmio_host->dev_reg.driv_feature_sel = selector;
     mmio_host->dev_reg.driv_features[selector] = feature;
@@ -503,7 +529,7 @@ static errval_t handle_driv_feature_change(struct virtio_host_mmio *mmio_host,
     return SYS_ERR_OK;
 }
 
-static errval_t handle_queue_sel_change(struct virtio_host_mmio *mmio_host,
+static errval_t handle_queue_sel_change(struct virtio_device_mmio *mmio_host,
                                         uint16_t selector)
 {
     VIRTIO_DEBUG_TL("handle_queue_sel_change: [0x%x]\n", selector);
@@ -519,7 +545,7 @@ static errval_t handle_queue_sel_change(struct virtio_host_mmio *mmio_host,
     return SYS_ERR_OK;
 }
 
-static errval_t handle_queue_change(struct virtio_host_mmio *mmio_host,
+static errval_t handle_queue_change(struct virtio_device_mmio *mmio_host,
                                     uint16_t selector)
 {
     VIRTIO_DEBUG_TL("handle_queue_change: [0x%x]\n", selector);
@@ -529,16 +555,26 @@ static errval_t handle_queue_change(struct virtio_host_mmio *mmio_host,
     return SYS_ERR_OK;
 }
 
-static errval_t virtio_device_mmio_poll_host(struct virtio_host *host)
+static errval_t handle_queue_notify(struct virtio_device_mmio *mmio_host,
+                                    uint16_t queue)
+{
+    VIRTIO_DEBUG_TL("handle_queue_notify: [0x%x]\n", queue);
+    if (mmio_host->dev.cb_h->notify) {
+        return mmio_host->dev.cb_h->notify(&mmio_host->dev, queue);
+    }
+    return SYS_ERR_OK;
+}
+
+static errval_t virtio_device_mmio_poll_host(struct virtio_device *host)
 {
     errval_t err = VIRTIO_ERR_DEVICE_IDLE;
-    struct virtio_host_mmio *mmio_host = ( struct virtio_host_mmio *)host;
+    struct virtio_device_mmio *mmio_host = (struct virtio_device_mmio *) host;
 
     uint32_t reg_value, selector;
 
     reg_value = virtio_mmio_status_rd(&mmio_host->regs);
-    if (mmio_host->dev_reg.status != (uint8_t)reg_value) {
-        err = handle_device_status_change(mmio_host, (uint8_t)reg_value);
+    if (mmio_host->dev_reg.status != (uint8_t) reg_value) {
+        err = handle_device_status_change(mmio_host, (uint8_t) reg_value);
     }
 
     selector = virtio_mmio_dev_features_sel_selector_rdf(&mmio_host->regs);
@@ -548,10 +584,13 @@ static errval_t virtio_device_mmio_poll_host(struct virtio_host *host)
 
     reg_value = virtio_mmio_driv_features_rd(&mmio_host->regs);
     selector = virtio_mmio_driv_features_sel_selector_rdf(&mmio_host->regs);
-    if ((selector != mmio_host->dev_reg.driv_feature_sel)
-                    || (mmio_host->dev_reg.driv_features[selector] != reg_value)){
+    if ((selector != mmio_host->dev_reg.driv_feature_sel) || (mmio_host->dev_reg
+                    .driv_features[selector]
+                                                              != reg_value)) {
         if (virtio_mmio_driv_features_sel_ready_rdf(&mmio_host->regs)) {
-            err = handle_driv_feature_change(mmio_host, (uint8_t)selector, reg_value);
+            err = handle_driv_feature_change(mmio_host,
+                                             (uint8_t) selector,
+                                             reg_value);
         }
     } else {
         // we have to ack the guest
@@ -561,12 +600,19 @@ static errval_t virtio_device_mmio_poll_host(struct virtio_host *host)
     reg_value = virtio_mmio_driv_features_rd(&mmio_host->regs);
     selector = virtio_mmio_queue_sel_selector_rdf(&mmio_host->regs);
     if (selector != mmio_host->dev_reg.queue_sel) {
-        err = handle_queue_sel_change(mmio_host, (uint16_t)selector);
+        err = handle_queue_sel_change(mmio_host, (uint16_t) selector);
     }
 
     if (virtio_mmio_queue_ready_signal_rdf(&mmio_host->regs)) {
         err = handle_queue_change(mmio_host, selector);
     }
+    reg_value = virtio_mmio_queue_notify_index_rdf(&mmio_host->regs);
+    if (virtio_mmio_queue_notify_index_rdf(&mmio_host->regs) != 0xFFFF) {
+        err = handle_queue_notify(mmio_host, (uint16_t)reg_value);
+        virtio_mmio_queue_notify_index_wrf(&mmio_host->regs, 0xFFFF);
+    }
+
+
 
     /* TODO: poll the queues */
 
@@ -581,10 +627,10 @@ static errval_t virtio_device_mmio_poll_host(struct virtio_host *host)
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t virtio_device_mmio_init_host(struct virtio_host **host,
-                                      struct virtio_host_setup *setup)
+errval_t virtio_device_mmio_init_host(struct virtio_device **host,
+                                      struct virtio_device_setup *setup)
 {
-    struct virtio_host_mmio *mmio_host;
+    struct virtio_device_mmio *mmio_host;
     errval_t err;
 
     assert(host);
@@ -594,8 +640,8 @@ errval_t virtio_device_mmio_init_host(struct virtio_host **host,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    mmio_host->host.queues = calloc(setup->num_queues, sizeof(struct virtio_host_queue));
-    if (mmio_host->host.queues  == NULL) {
+    mmio_host->dev.vqh = calloc(setup->vq_num, sizeof(void *));
+    if (mmio_host->dev.vqh == NULL) {
         free(mmio_host);
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -604,23 +650,23 @@ errval_t virtio_device_mmio_init_host(struct virtio_host **host,
      * TODO> Check for minimum MMIO devie size
      */
 
-    if (capref_is_null(setup->dev_cap)) {
+    if (capref_is_null(setup->backend.args.mmio.dev_cap)) {
         VIRTIO_DEBUG_DEV("allocating a new device frame.\n");
-        setup->dev_size += VIRTIO_MMIO_DEVICE_SIZE;
-        err = frame_alloc(&mmio_host->host.dev_frame,
-                          setup->dev_size,
-                          &setup->dev_size);
+        setup->backend.args.mmio.dev_size += VIRTIO_MMIO_DEVICE_SIZE;
+        err = frame_alloc(&mmio_host->dev.dev_cap,
+                          setup->backend.args.mmio.dev_size,
+                          &setup->backend.args.mmio.dev_size);
         if (err_is_fail(err)) {
-            free(mmio_host->host.queues);
+            free(mmio_host->dev.vqh);
             free(mmio_host);
             return err;
         }
     } else {
-        mmio_host->host.dev_frame = setup->dev_cap;
+        mmio_host->dev.dev_cap = setup->backend.args.mmio.dev_cap;
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mmio_host->host.dev_frame, &id);
+    err = invoke_frame_identify(mmio_host->dev.dev_cap, &id);
     if (err_is_fail(err)) {
         VIRTIO_DEBUG_DEV("ERROR: could not identify the frame.");
         return err;
@@ -632,59 +678,70 @@ errval_t virtio_device_mmio_init_host(struct virtio_host **host,
                      id.base,
                      (1UL << id.bits));
 
-    if (setup->dev_reg == NULL) {
+    if (setup->backend.args.mmio.dev_base == NULL) {
         VIRTIO_DEBUG_DEV("mapping device frame.\n");
-        err = vspace_map_one_frame_attr(&setup->dev_reg,
-                                        setup->dev_size,
-                                        mmio_host->host.dev_frame,
+        err = vspace_map_one_frame_attr(&setup->backend.args.mmio.dev_base,
+                                        setup->backend.args.mmio.dev_size,
+                                        mmio_host->dev.dev_cap,
                                         VIRTIO_VREGION_FLAGS_DEVICE,
                                         NULL,
                                         NULL);
         if (err_is_fail(err)) {
-            if (capref_is_null(setup->dev_cap)) {
-                cap_destroy(mmio_host->host.dev_frame);
+            if (capref_is_null(setup->backend.args.mmio.dev_cap)) {
+                cap_destroy(mmio_host->dev.dev_cap);
             }
-            free(mmio_host->host.queues);
+            free(mmio_host->dev.vqh);
             free(mmio_host);
             return err;
         }
     } else {
-        assert(setup->dev_size > VIRTIO_MMIO_DEVICE_SIZE);
+        assert(setup->backend.args.mmio.dev_size > VIRTIO_MMIO_DEVICE_SIZE);
     }
 
-    mmio_host->host.device_features = setup->device_features;
+    mmio_host->dev.device_features = setup->features;
 
-    for (uint32_t i = 0; i < setup->num_queues; ++i) {
-        mmio_host->host.queues[i].ndesc = setup->queue_num_max[i];
+    for (uint32_t i = 0; i < setup->vq_num; ++i) {
+        /* todo: initialize virtqueues */
+        // mmio_host->dev.vqh[i].ndesc = setup->queue_num_max[i];
     }
 
+    mmio_host->dev_base = setup->backend.args.mmio.dev_base;
+    mmio_host->dev_size = setup->backend.args.mmio.dev_size;
 
-    mmio_host->host.device_base = setup->dev_reg;
-    mmio_host->host.dev_size = setup->dev_size;
-    virtio_mmio_initialize(&mmio_host->regs, (mackerel_addr_t) (setup->dev_reg));
+    VIRTIO_DEBUG_DEV("initialize mmio registers to [%016lx].\n",
+                     (uintptr_t)mmio_host->dev_base);
+
+    virtio_mmio_initialize(&mmio_host->regs,
+                           (mackerel_addr_t) (mmio_host->dev_base));
 
     /* initialize the device with values */
     virtio_mmio_magic_value_wr(&mmio_host->regs, virtio_mmio_magic_value);
-    virtio_mmio_deviceid_id_wrf(&mmio_host->regs, setup->device_type);
+    virtio_mmio_deviceid_id_wrf(&mmio_host->regs, setup->dev_type);
     virtio_mmio_version_version_wrf(&mmio_host->regs, virtio_mmio_version_virtio10);
 
     virtio_mmio_dev_features_sel_wr(&mmio_host->regs, 0x0);
     virtio_mmio_driv_features_sel_wr(&mmio_host->regs, 0x0);
     virtio_mmio_queue_sel_wr(&mmio_host->regs, 0x0);
 
-    virtio_mmio_dev_features_wr(&mmio_host->regs, (uint32_t)setup->device_features);
-    virtio_mmio_queue_max_wr(&mmio_host->regs, setup->queue_num_max[0]);
+    virtio_mmio_dev_features_wr(&mmio_host->regs, (uint32_t) setup->features);
+    virtio_mmio_queue_max_wr(&mmio_host->regs, setup->vq_setup[0].vring_ndesc);
+
+    virtio_mmio_queue_notify_index_wrf(&mmio_host->regs, 0xFFFF);
 
     mmio_host->dev_reg.status = 0x0;
     mmio_host->dev_reg.driv_feature_sel = 0x0;
     mmio_host->dev_reg.dev_feature_sel = 0x0;
     mmio_host->dev_reg.queue_sel = 0x0;
 
-    mmio_host->host.poll = virtio_device_mmio_poll_host;
+    mmio_host->dev.f = &virtio_mmio_fn;
 
-    *host = &mmio_host->host;
+    mmio_host->dev.f->poll = virtio_device_mmio_poll_host;
+
+    *host = &mmio_host->dev;
 
     return SYS_ERR_OK;
 
 }
+
+#endif
 

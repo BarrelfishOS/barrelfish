@@ -90,15 +90,20 @@ errval_t vblock_device_init(struct virtio_device_blk *blk,
     };
 
     struct virtio_device_setup setup = {
-        .name = "VirtIO Block Device",
-        .dev_reg = dev_regs,
-        .dev_reg_size = reg_size,
-        .driver_features = VBLOCK_DRIVER_FEATURES,
-        .backend = VBLOCK_DRIVER_BACKEND,
-        .type = VIRTIO_DEVICE_TYPE_BLOCK,
+        .dev_name = "VirtIO Block Device",
+        .backend = {
+            .type = VBLOCK_DRIVER_BACKEND,
+            .args.mmio = {
+                .dev_base = dev_regs,
+                .dev_size = reg_size
+            }
+        },
+        .features = VBLOCK_DRIVER_FEATURES,
+        .dev_type = VIRTIO_DEVICE_TYPE_BLOCK,
         .vq_setup = &vq_setup,
         .vq_num = 1
     };
+
 
     err = virtio_block_init_device(blk, &setup);
     if (err_is_fail(err)) {

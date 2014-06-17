@@ -12,7 +12,12 @@
 #include <barrelfish/barrelfish.h>
 
 #include <virtio/virtio.h>
+#include <virtio/virtqueue.h>
 #include <virtio/virtio_device.h>
+
+#ifndef __VIRTIO_HOST__
+#include <virtio/virtio_guest.h>
+#endif
 
 #include "device.h"
 #include "backends/virtio_mmio.h"
@@ -29,22 +34,14 @@
  * \param dev_regs  memory location of the device registers
  */
 errval_t virtio_device_open(struct virtio_device **dev,
-                            struct virtio_device_setup *init)
+                            struct virtio_device_setup *setup)
 {
     errval_t err = SYS_ERR_OK;
 
-    VIRTIO_DEBUG_DEV("virtio_device_open: [%s] @ [%016lx]\n",
-                     init->name,
-                     (uintptr_t )init->dev_reg);
+    VIRTIO_DEBUG_DEV("virtio_device_open: [%s]\n",
+                     setup->dev_name);
 
-    if (init->dev_reg == NULL || init->dev_reg_size == 0) {
-        /*
-         * XXX: does this also hold for the PCI
-         */
-        return VIRTIO_ERR_DEVICE_REGISTER;
-    }
-
-    switch (init->backend) {
+    switch (setup->backend.type) {
         case VIRTIO_DEVICE_BACKEND_PCI:
             /*
              * TODO: intialize the PCI device backend
@@ -52,7 +49,11 @@ errval_t virtio_device_open(struct virtio_device **dev,
             assert(!"NYI: handling of the PCI backend\n");
             break;
         case VIRTIO_DEVICE_BACKEND_MMIO:
-            err = virtio_device_mmio_init(dev, init);
+            if (setup->backend.args.mmio.dev_base == NULL
+                            || setup->backend.args.mmio.dev_size == 0) {
+                    return VIRTIO_ERR_DEVICE_REGISTER;
+                }
+            err = virtio_device_mmio_init(dev, setup);
             break;
         case VIRTIO_DEVICE_BACKEND_IO:
             /*
@@ -62,7 +63,8 @@ errval_t virtio_device_open(struct virtio_device **dev,
             break;
         default:
             err = VIRTIO_ERR_BACKEND;
-            VIRTIO_DEBUG_DEV("ERROR: unsupported backend: %u\n", init->backend);
+            VIRTIO_DEBUG_DEV("ERROR: unsupported backend: %u\n",
+                             setup->backend.type);
             break;
     }
 
@@ -75,9 +77,10 @@ errval_t virtio_device_open(struct virtio_device **dev,
     assert(vdev);
 
     vdev->state = VIRTIO_DEVICE_S_INITIALIZING;
-    strncpy(vdev->name, init->name, sizeof(vdev->name));
-    vdev->setup = init->setup_fn;
-    vdev->type_state = init->type_state;
+    strncpy(vdev->dev_name, setup->dev_name, sizeof(vdev->dev_name));
+    vdev->setup_fn = setup->setup_fn;
+    vdev->dev_t_st = setup->dev_t_st;
+    vdev->dev_cap = setup->dev_cap;
 
     /* 1. Reset the device. */
     err = virtio_device_reset(vdev);
@@ -100,7 +103,7 @@ errval_t virtio_device_open(struct virtio_device **dev,
     /* 4. Read device feature bits, and write the subset of feature bits understood by the OS and driver to the
      device. During this step the driver MAY read (but MUST NOT write) the device-specific configuration
      fields to check that it can support the device before accepting it.*/
-    err = virtio_device_feature_negotiate(vdev, init->driver_features);
+    err = virtio_device_feature_negotiate(vdev, setup->features);
     if (err_is_fail(err)) {
         goto failed;
     }
@@ -123,19 +126,19 @@ errval_t virtio_device_open(struct virtio_device **dev,
 
     /* 7. Perform device-specific setup, including discovery of virtqueues for the device, optional per-bus setup,
      reading and possibly writing the device’s virtio configuration space, and population of virtqueues.*/
-    err = virtio_device_specific_setup(vdev, init->setup_arg);
+    err = virtio_device_specific_setup(vdev, setup->setup_arg);
     if (err_is_fail(err)) {
         goto failed;
     }
     /* 8. Set the DRIVER_OK status bit. At this point the device is “live”. */
-    VIRTIO_DEBUG_DEV("Device [%s] is now live.\n", vdev->name);
+    VIRTIO_DEBUG_DEV("Device [%s] is now live.\n", vdev->dev_name);
     err = virtio_device_set_status(vdev, VIRTIO_DEVICE_STATUS_DRIVER_OK);
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 
     failed:
-    VIRTIO_DEBUG_DEV("Device initialization for [%s] failed..\n", vdev->name);
+    VIRTIO_DEBUG_DEV("Device initialization for [%s] failed..\n", vdev->dev_name);
     virtio_device_set_status(vdev, VIRTIO_DEVICE_STATUS_FAILED);
 
     return err;
@@ -151,7 +154,7 @@ errval_t virtio_device_open(struct virtio_device **dev,
  * \param dev_cap   capability representing the device registers
  */
 errval_t virtio_device_open_with_cap(struct virtio_device **dev,
-                                     struct virtio_device_setup *init,
+                                     struct virtio_device_setup *setup,
                                      struct capref dev_cap)
 {
     errval_t err;
@@ -164,26 +167,38 @@ errval_t virtio_device_open_with_cap(struct virtio_device **dev,
         VIRTIO_DEBUG_DEV("ERROR: could not identify the device frame.\n");
         return err;
     }
-
-    init->dev_reg_size = (1UL << id.bits);
-
-    err = vspace_map_one_frame_attr(&init->dev_reg, init->dev_reg_size, dev_cap,
-    VIRTIO_VREGION_FLAGS_DEVICE,
+    size_t dev_size = (1UL << id.bits);
+    void *dev_base;
+    err = vspace_map_one_frame_attr(&dev_base, dev_size, dev_cap,
+                                    VIRTIO_VREGION_FLAGS_DEVICE,
                                     NULL, NULL);
     if (err_is_fail(err)) {
         VIRTIO_DEBUG_DEV("ERROR: mapping the device register frame failed.\n");
-        init->dev_reg = NULL;
-        init->dev_reg_size = 0;
         return err;
+    }
+
+    switch (setup->backend.type) {
+        case VIRTIO_DEVICE_BACKEND_IO:
+        case VIRTIO_DEVICE_BACKEND_PCI:
+            return LIB_ERR_NOT_IMPLEMENTED;
+            break;
+        case VIRTIO_DEVICE_BACKEND_MMIO:
+            setup->backend.args.mmio.dev_size = dev_size;
+            setup->backend.args.mmio.dev_base = dev_base;
+            break;
+        default:
+            break;
     }
 
     VIRTIO_DEBUG_DEV("mapped device registers: [0x%016lx] -> [0x%016lx]\n",
                      id.base,
-                     (uintptr_t )init->dev_reg);
+                     (uintptr_t )dev_base);
 
-    err = virtio_device_open(dev, init);
+    setup->dev_cap = dev_cap;
+
+    err = virtio_device_open(dev, setup);
     if (err_is_fail(err)) {
-        vspace_unmap(init->dev_reg);
+        vspace_unmap(dev_base);
     }
 
     return err;
@@ -204,7 +219,7 @@ bool virtio_device_has_feature(struct virtio_device *dev,
     /*
      * if the device is not configured yet, we don't know the features
      */
-    if (dev->status_flags & VIRTIO_DEVICE_STATUS_FEATURES_OK) {
+    if (dev->dev_status & VIRTIO_DEVICE_STATUS_FEATURES_OK) {
         return false;
     }
 
@@ -214,8 +229,8 @@ bool virtio_device_has_feature(struct virtio_device *dev,
 errval_t virtio_device_specific_setup(struct virtio_device *dev,
                                       void *arg)
 {
-    if (dev->setup) {
-        return dev->setup(dev, arg);
+    if (dev->setup_fn) {
+        return dev->setup_fn(dev, arg);
     }
 
     return SYS_ERR_OK;
@@ -276,7 +291,7 @@ errval_t virtio_device_set_status(struct virtio_device *dev,
  */
 void *virtio_device_get_type_state(struct virtio_device *vdev)
 {
-    return vdev->type_state;
+    return vdev->dev_t_st;
 }
 
 /**
@@ -344,6 +359,29 @@ errval_t virtio_device_feature_negotiate(struct virtio_device *dev,
     return VIRTIO_ERR_BACKEND;
 }
 
+
+#ifdef __VIRTIO_HOST__
+/**
+ * \brief returns a pointer to a virtqueue of the device
+ *
+ * \param vdev   VirtIO device
+ * \param vq_idx the queue index of the queue we want
+ *
+ * \returns pointer to the requested virtqueue
+ *          NULL if no such virtqueue exists
+ */
+struct virtqueue_host *virtio_device_get_host_virtq(struct virtio_device *vdev,
+                                                    uint16_t vq_idx)
+{
+    if (vq_idx < vdev->vq_num) {
+        return vdev->vqh[vq_idx];
+    }
+
+    return NULL;
+}
+
+#else
+
 errval_t virtio_device_set_virtq(struct virtio_device *dev,
                                  struct virtqueue *vq)
 {
@@ -369,7 +407,7 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
 {
     errval_t err;
 
-    VIRTIO_DEBUG_VQ("Allocating %u virtqueues for [%s].\n", vq_num, vdev->name);
+    VIRTIO_DEBUG_VQ("Allocating %u virtqueues for [%s].\n", vq_num, vdev->dev_name);
 
     vdev->vq = calloc(vq_num, sizeof(void *));
     if (vdev->vq == NULL) {
@@ -395,6 +433,10 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
         setup = &vq_setup[i];
         struct virtqueue *vq = vdev->vq[i];
         if (setup->auto_add) {
+            err = virtio_guest_add_virtq(vq);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not add the viring\n");
+            }
             err = virtio_device_set_virtq(vdev, vq);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "adding the virtqueue to the deivce\n");
@@ -426,3 +468,4 @@ struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
 
     return NULL;
 }
+#endif

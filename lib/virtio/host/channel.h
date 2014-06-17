@@ -11,8 +11,7 @@
 #define VIRTIO_HOST_CHANNEL_H
 
 
-errval_t virtio_host_flounder_init(char *iface,
-                                   struct virtio_host_cb *callbacks);
+errval_t virtio_host_flounder_init(struct virtio_device *dev);
 
 
 errval_t virtio_host_xeon_phi_init(void);

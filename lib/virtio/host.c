@@ -7,9 +7,13 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <string.h>
+
 #include <barrelfish/barrelfish.h>
 
 #include <virtio/virtio.h>
+#include <virtio/virtqueue.h>
+#include <virtio/virtqueue_host.h>
 #include <virtio/virtio_device.h>
 #include <virtio/virtio_host.h>
 
@@ -27,12 +31,12 @@
 /**
  *
  */
-errval_t virtio_host_init(struct virtio_host **host,
-                          struct virtio_host_setup *setup)
+errval_t virtio_host_init(struct virtio_device **host,
+                          struct virtio_device_setup *setup)
 {
     errval_t err = SYS_ERR_OK;
 
-    switch(setup->backend) {
+    switch(setup->backend.type) {
     case  VIRTIO_DEVICE_BACKEND_PCI:
         assert(!"NYI: PCI backend");
     break;
@@ -52,11 +56,24 @@ errval_t virtio_host_init(struct virtio_host **host,
         return err;
     }
 
+    struct virtio_device *vdev = *host;
 
+    strncpy(vdev->dev_name, setup->dev_name, sizeof(vdev->dev_name));
+    vdev->dev_t_st = setup->dev_t_st;
+    strncpy(vdev->hc_iface, setup->hc_iface, sizeof(vdev->hc_iface));
 
-    switch (setup->channel_type) {
+    vdev->cb_h = setup->hc_cb;
+
+    vdev->vq_num = setup->vq_num;
+
+    setup->vq_setup->device = vdev;
+
+    err = virtio_vq_host_alloc(&vdev->vqh, setup->vq_setup, setup->vq_num);
+    assert(err_is_ok(err));
+
+    switch (setup->hc_type) {
     case VIRTIO_HOST_CHAN_FLOUNDER:
-        err = virtio_host_flounder_init(setup->iface, setup->callback);
+        err = virtio_host_flounder_init(vdev);
         break;
 
     case VIRTIO_HOST_CHAN_XEON_PHI:
@@ -74,19 +91,19 @@ errval_t virtio_host_init(struct virtio_host **host,
     return SYS_ERR_OK;
 }
 
-errval_t virtio_host_poll_device(struct virtio_host *host)
+errval_t virtio_host_poll_device(struct virtio_device *host)
 {
-    if (host->poll) {
-        return host->poll(host);
+    if (host->f->poll) {
+        return host->f->poll(host);
     }
     return VIRTIO_ERR_BACKEND;
 }
 
-errval_t virtio_host_get_device_cap(struct virtio_host *host,
+errval_t virtio_host_get_device_cap(struct virtio_device *host,
                                     struct capref *ret_cap)
 {
     if(ret_cap) {
-        *ret_cap = host->dev_frame;
+        *ret_cap = host->dev_cap;
     }
     return SYS_ERR_OK;
 }

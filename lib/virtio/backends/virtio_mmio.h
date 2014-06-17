@@ -19,22 +19,18 @@
 struct virtio_device_mmio
 {
     struct virtio_device dev;
-    virtio_mmio_t regs;
-    void *device_base;
-    size_t device_size;
-};
-
-struct virtio_host_mmio
-{
-    struct virtio_host host;
-    virtio_mmio_t regs;
+    virtio_mmio_t regs;      ///< mackerel device registers
+    void *dev_base;          ///< mapped virtual base address of this device
+    size_t dev_size;         ///< size of the mapped device region
+#ifdef __VIRTIO_HOST__
     struct mmio_dev_regs {
         uint8_t status;
         uint8_t dev_feature_sel : 4;
         uint8_t driv_feature_sel : 4;
         uint32_t driv_features[2];
         uint16_t queue_sel;
-    } dev_reg;
+    }dev_reg;
+#endif
 };
 
 
@@ -49,7 +45,6 @@ struct virtio_host_mmio
 errval_t virtio_device_mmio_init(struct virtio_device **dev,
                                  struct virtio_device_setup *info);
 
-
 /**
  * \brief initializes a VirtIO device on the host side using the MMIO transpot
  *
@@ -58,9 +53,7 @@ errval_t virtio_device_mmio_init(struct virtio_device **dev,
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t virtio_device_mmio_init_host(struct virtio_host **host,
-                                      struct virtio_host_setup *setup);
-
-
+errval_t virtio_device_mmio_init_host(struct virtio_device **dev,
+                                      struct virtio_device_setup *setup);
 
 #endif // VIRTIO_VIRTIO_MMIO_H

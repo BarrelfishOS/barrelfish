@@ -20,7 +20,7 @@ interface virtio "VirtIO Interface" {
     rpc close();
     
     /* adds a new vring to the device */
-    rpc add(in uint16 vq_id, in uint16 ndesc, in cap vring, out errval err);
+    rpc add(in uint16 vq_id, in uint8 buf_bits, in cap vring, out errval err);
     
     /* extends the shared memory by a new cap */
     rpc extend(in uint16 vq_id, in cap vbuf, out errval err);

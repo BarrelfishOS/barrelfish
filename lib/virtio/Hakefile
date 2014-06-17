@@ -28,8 +28,8 @@
                   flounderExtraBindings = [ ("virtio", ["rpcclient"])]
                 },
   build library { target = "virtio_host",
-                  addCFlags = [ "-DVIRTIO_HOST" ],
-                      cFiles = [ "virtqueue.c", 
+                  addCFlags = [ "-D__VIRTIO_HOST__" ],
+                      cFiles = [ "virtqueue_host.c", 
                                  "device.c",
                                  "vbuffer.c",
                                  "backends/virtio_device_mmio.c",

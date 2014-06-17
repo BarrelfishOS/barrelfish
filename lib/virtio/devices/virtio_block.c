@@ -7,6 +7,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <string.h>
+
 #include <barrelfish/barrelfish.h>
 
 #include <virtio/virtio.h>
@@ -68,7 +70,7 @@ bool virtio_block_get_geometry(struct virtio_device_blk *dev,
         return 0;
     }
 
-    if (!!virtio_device_has_feature(dev->vdev, VIRTIO_BLOCK_F_GEOMETRY)) {
+    if (!virtio_device_has_feature(dev->vdev, VIRTIO_BLOCK_F_GEOMETRY)) {
         return 0;
     }
 
@@ -101,6 +103,13 @@ errval_t virtio_block_config_read(struct virtio_device_blk *dev)
                                      VIRTIO_BLOCK_CONFIG_SIZE);
 }
 
+#ifdef __VIRTIO_HOST__
+static errval_t virtio_block_init_common(struct virtio_device *vdev,
+                                         void *arg)
+{
+    return SYS_ERR_OK;
+}
+#else
 /**
  * \brief   handles the VirtIO block device common initialization.
  *
@@ -147,6 +156,7 @@ static errval_t virtio_block_init_common(struct virtio_device *vdev,
 
     return SYS_ERR_OK;
 }
+#endif
 
 
 /**
@@ -161,14 +171,14 @@ static errval_t virtio_block_init_common(struct virtio_device *vdev,
 errval_t virtio_block_init_device(struct virtio_device_blk *dev,
                                   struct virtio_device_setup *setup)
 {
-    if (setup->type != VIRTIO_DEVICE_TYPE_BLOCK) {
+    if (setup->dev_type != VIRTIO_DEVICE_TYPE_BLOCK) {
         VIRTIO_DEBUG_DT("ERROR: Device type was not VIRTIO_DEVICE_TYPE_BLOCK\n");
         return VIRTIO_ERR_DEVICE_TYPE;
     }
 
     setup->setup_fn = virtio_block_init_common;
     setup->setup_arg = setup;
-    setup->type_state = dev;
+    setup->dev_t_st = dev;
 
     /* initialize the VirtIO device */
     return virtio_device_open(&dev->vdev, setup);
@@ -188,7 +198,7 @@ errval_t virtio_block_init_device_with_cap(struct virtio_device_blk *dev,
                                            struct virtio_device_setup *setup,
                                            struct capref dev_cap)
 {
-    if (setup->type != VIRTIO_DEVICE_TYPE_BLOCK) {
+    if (setup->dev_type != VIRTIO_DEVICE_TYPE_BLOCK) {
         return VIRTIO_ERR_DEVICE_TYPE;
     }
 
@@ -198,3 +208,54 @@ errval_t virtio_block_init_device_with_cap(struct virtio_device_blk *dev,
     /* initialize the VirtIO device */
     return virtio_device_open_with_cap(&dev->vdev, setup, dev_cap);
 }
+
+
+#ifdef __VIRTIO_HOST__
+/*
+ * ----------------------------------------------------------------------------
+ * Additional functions for the host
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief writes the configuration space values to the device configuration space
+ *
+ * \param bdev  the VirtIO host block device
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t virtio_block_host_write_config(struct virtio_host_blk *bdev)
+{
+    if (bdev->config_addr == NULL) {
+        return VIRTIO_ERR_ARG_INVALID;
+    }
+
+    if (bdev->config_tmp == NULL) {
+        bdev->config_tmp = malloc(VIRTIO_BLOCK_CONFIG_SIZE);
+    }
+
+    assert(bdev->config_tmp);
+
+
+
+
+    uint8_t signal = 0x0;
+    if (virtio_blk_capacity_rd(&bdev->config_space)) {
+        signal = 0x1;
+    }
+
+    // clear out the configuration space
+    memset(bdev->config_addr, 0, VIRTIO_BLOCK_CONFIG_SIZE);
+
+
+
+    // assert the config space changed interrupt
+    if (signal) {
+
+    }
+
+    return SYS_ERR_OK;
+}
+
+#endif
+

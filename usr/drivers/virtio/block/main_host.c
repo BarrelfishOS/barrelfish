@@ -16,6 +16,7 @@
 #include <barrelfish/waitset.h>
 
 #include <virtio/virtio.h>
+#include <virtio/virtqueue.h>
 #include <virtio/virtio_device.h>
 #include <virtio/virtio_host.h>
 #include <virtio/devices/virtio_block.h>
@@ -25,20 +26,30 @@
 #include "request.h"
 #include "service.h"
 
-struct virtio_host *host;
+struct virtio_device *host;
 
-static errval_t handle_open(struct capref *ret_frame, void **st)
+static errval_t handle_open(struct virtio_device *vdev, uint8_t backend, struct capref *ret_frame)
 {
     assert(host);
 
-    virtio_host_get_device_cap(host, ret_frame);
+    virtio_host_get_device_cap(vdev, ret_frame);
 
+    assert(!capref_is_null(*ret_frame));
+
+    return SYS_ERR_OK;
+}
+
+static errval_t handle_add(struct virtio_device *vdev, struct capref ring,
+                    uint8_t buf_bits,uint16_t vq_id)
+{
+    debug_printf("handle_add\n");
     return SYS_ERR_OK;
 }
 
 
 static struct virtio_host_cb host_cb = {
-  .open = handle_open
+  .open = handle_open,
+  .add = handle_add
 };
 
 int main(int argc, char *argv[])
@@ -47,17 +58,28 @@ int main(int argc, char *argv[])
 
     debug_printf("VirtIO block device host started.\n");
 
-    uint16_t queue_num_max = 32;
+    struct virtqueue_setup vq_setup =  {
+            .name = "Request Virtqueue",
+            .vring_ndesc = 16,
+            .vring_align = 4096,
+            .intr_handler = 0,
+            .intr_arg = 0,
+            .max_indirect =0,
+            .auto_add = 1
+        };
 
-    struct virtio_host_setup setup = {
-        .device_features = 0xFFFFFFFFFFFFFFFF,
-        .num_queues = 1,
-        .queue_num_max = &queue_num_max,
-        .callback = &host_cb,
-        .channel_type = VIRTIO_HOST_CHAN_FLOUNDER,
-        .backend = VIRTIO_DEVICE_BACKEND_MMIO,
-        .iface = VIRTIO_BLOCK_FLOUNDER_IFACE,
-        .device_type = VIRTIO_DEVICE_TYPE_BLOCK
+    struct virtio_device_setup setup = {
+        .features = 0xFFFFFFFFFFFFFFFF,
+        .vq_num = 1,
+        .vq_setup = &vq_setup,
+        .hc_cb = &host_cb,
+        .hc_type = VIRTIO_HOST_CHAN_FLOUNDER,
+        .backend = {
+            .type = VIRTIO_DEVICE_BACKEND_MMIO,
+            .args = {}
+        },
+        .hc_iface = VIRTIO_BLOCK_FLOUNDER_IFACE,
+        .dev_type = VIRTIO_DEVICE_TYPE_BLOCK
     };
 
     err = virtio_host_init(&host,

@@ -10,8 +10,6 @@
 #ifndef VIRTIO_VIRTIO_DEVICE_H
 #define VIRTIO_VIRTIO_DEVICE_H
 
-#include <virtio/virtqueue.h>
-
 struct virtio_device;
 
 /*
@@ -93,7 +91,7 @@ struct virtio_device;
 /**
  * specifies the possible virtio backends to be used
  */
-enum virtio_device_backend {
+enum virtio_backend {
     VIRTIO_DEVICE_BACKEND_INVALID,
     VIRTIO_DEVICE_BACKEND_PCI,
     VIRTIO_DEVICE_BACKEND_MMIO,
@@ -103,7 +101,7 @@ enum virtio_device_backend {
 /**
  * driver specific device status
  */
-enum virtio_device_status {
+enum virtio_state {
     VIRTIO_DEVICE_S_INVALID,
     VIRTIO_DEVICE_S_INITIALIZING,
     VIRTIO_DEVICE_S_READY,
@@ -124,6 +122,8 @@ enum virtio_device_status {
 
 #define VIRTIO_DEVICE_NAME_MAX 32
 
+#define VIRTIO_DEVICE_HC_IFACE_MAX 32
+
 
 /*
  * Function pointers type definitions
@@ -136,47 +136,54 @@ typedef void (*config_intr_handler_t)(struct virtio_device *dev);
 typedef errval_t (*virtio_device_setup_t)(struct virtio_device *dev,
                                          void *state);
 
+struct virtio_backend_arg {
+    enum virtio_backend  type;
+    union {
+        struct {
+            struct capref dev_cap;      ///<
+            void   *dev_base;
+            size_t  dev_size;
+        } mmio;
+        struct {
+            struct capref dev_cap;
+            /* TODO: fill in needed fieds */
+        } pci;
+        struct {
+            struct capref dev_cap;
+            /* TODO: fill in needed fieds */
+        } io;
+    } args;
+};
+
+
 /**
  * contains necessary values for the device initialization process
  */
 struct virtio_device_setup
 {
-    uint8_t type;                           ///< expected type of the device
-    void *type_state;
-    char name[VIRTIO_DEVICE_NAME_MAX];
-    enum virtio_device_backend  backend;    ///< which backend to use
-    void *dev_reg;
-    size_t dev_reg_size;
-    uint64_t driver_features;
-
-    virtio_device_setup_t setup_fn;
-    void *setup_arg;
-
-    uint16_t vq_num;
-    struct virtqueue_setup *vq_setup;
-    config_intr_handler_t cfg_intr_handler;
-};
-
-#if 0
-struct virtio_device_setup
-{
-    uint8_t dev_type;                           ///< expected type of the device
-    void   *dev_state;
+    uint8_t dev_type;           ///< expected VirtIO type of the device
     char    dev_name[VIRTIO_DEVICE_NAME_MAX];
-    void   *dev_vbase;
-    size_t  dev_size;
+    struct capref dev_cap;
+    void   *dev_t_st;           ///< pointer to device type specific state
+    uint64_t features;          ///< VirtIO feature bits supported
 
-    uint64_t features;
+    struct virtio_backend_arg  backend;    ///< arguments for the backend
 
     virtio_device_setup_t setup_fn;
-    void *setup_arg;
+    void                 *setup_arg;
+
+    config_intr_handler_t config_intr_fn;
 
     uint16_t vq_num;
     struct virtqueue_setup *vq_setup;
-
-    enum virtio_device_backend  backend;    ///< which backend to use
-};
+#ifdef __VIRTIO_HOST__
+    enum virtio_host       hc_type;
+    char                  *hc_iface;
+    struct virtio_host_cb *hc_cb;
 #endif
+};
+
+
 
 
 /**
@@ -350,6 +357,19 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
                                        struct virtqueue_setup *vq_setup,
                                        uint16_t vq_num);
 
+#ifdef __VIRTIO_HOST__
+/**
+ * \brief returns a pointer to a virtqueue of the device
+ *
+ * \param vdev   VirtIO device
+ * \param vq_idx the queue index of the queue we want
+ *
+ * \returns pointer to the requested virtqueue
+ *          NULL if no such virtqueue exists
+ */
+struct virtqueue_host *virtio_device_get_host_virtq(struct virtio_device *vdev,
+                                                    uint16_t vq_idx);
+#else
 /**
  * \brief returns a pointer to a virtqueue of the device
  *
@@ -362,6 +382,7 @@ errval_t virtio_device_virtqueue_alloc(struct virtio_device *vdev,
 struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
                                           uint16_t vq_idx);
 
+
 /**
  * \brief exposes the virtqueue to the device such that it can be used
  *
@@ -372,7 +393,7 @@ struct virtqueue *virtio_device_get_virtq(struct virtio_device *vdev,
  */
 errval_t virtio_device_set_virtq(struct virtio_device *dev,
                                  struct virtqueue *vq);
-
+#endif
 /**
  * \brief sets the interrupt handler for the configuration space interrupts
  *
