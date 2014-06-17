@@ -16,6 +16,7 @@
 #include <virtio/virtqueue.h>
 #include <virtio/virtqueue_host.h>
 #include <virtio/virtio_device.h>
+#include <virtio/virtio_host.h>
 
 #include "debug.h"
 
@@ -28,12 +29,15 @@
 /**
  * this data structure stores additional information to the descriptors
  */
-struct vring_desc_info
+struct vring_mem_info
 {
-    struct virtio_buffer *buf;
-    void *st;
-    struct virtio_buffer_list *bl;
-    uint8_t is_head;
+    struct capref cap;
+    lpaddr_t cap_offset;
+    lpaddr_t paddr;
+    lvaddr_t vaddr;
+    size_t size;
+    struct virtio_buffer *bufs;
+    struct vring_mem_info *next;
 };
 
 /**
@@ -70,7 +74,7 @@ struct virtqueue_host
     virtq_intr_hander_t intr_handler;   ///< interrupt handler
     void *intr_arg;       ///< user argument for the handler
 
-    struct vring_desc_info vring_di[0];  ///< array of additional desc information
+    struct vring_mem_info *mem;   ///< array of additional desc information
 #if 0
     /* indirect descriptors */
     uint16_t max_indirect;
@@ -83,6 +87,57 @@ struct virtqueue_host
     }vq_descx[0];
 #endif
 };
+
+
+static errval_t virtio_vq_host_add_mem_range(struct virtqueue_host *vq,
+                                      struct vring_mem_info *meminfo)
+{
+    if (vq->mem == NULL) {
+        vq->mem = meminfo;
+        return SYS_ERR_OK;
+    }
+
+    struct vring_mem_info *prev, *current = vq->mem;
+
+    if (meminfo->paddr < vq->mem->paddr) {
+        assert((meminfo->paddr+meminfo->size) < vq->mem->paddr);
+        meminfo->next = vq->mem;
+        vq->mem = meminfo;
+        return SYS_ERR_OK;
+    }
+
+    prev = vq->mem;
+    current = current->next;
+    while(current) {
+        if (meminfo->paddr < current->paddr) {
+            assert((meminfo->paddr+meminfo->size) < current->paddr);
+            meminfo->next = current;
+            prev->next = meminfo;
+        }
+        prev = current;
+        current = current->next;
+    }
+    return SYS_ERR_OK;
+}
+
+static struct virtio_buffer *virtio_vq_host_guest2virt(struct virtqueue_host *vq,
+                                          lpaddr_t guest_phys)
+{
+    struct vring_mem_info *mi = vq->mem;
+    while(mi) {
+        if (mi->paddr > guest_phys) {
+            return 0;
+        }
+        if (mi->paddr <= guest_phys) {
+            if ((mi->paddr + mi->size) > guest_phys) {
+                return mi->bufs + (guest_phys - mi->paddr);
+            }
+        }
+        mi = mi->next;
+    }
+
+    return 0;
+}
 
 /*
  * ============================================================================
@@ -149,6 +204,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
  * \param vdev      the VirtIO device
  * \param vring_cap capability to be used for the vring
  * \param vq_id     id of the queue to initialize
+ * \param ndesc     the number of descriptors in this queue
  * \param buf_bits  size of the buffers (0 for none)
  *
  * \returns SYS_ERR_OK on success
@@ -156,6 +212,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
 errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
                                    struct capref vring_cap,
                                    uint16_t vq_id,
+                                   uint16_t ndesc,
                                    uint8_t buf_bits)
 {
     errval_t err;
@@ -189,17 +246,41 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
         return err;
     }
 
-
-
-    struct vring *vr = vring_base;
-
-    VIRTIO_DEBUG_VQ("initializing vring of size %u\n", vr->num);
-    vring_init(&vqh->vring, vr->num, vqh->vring_align, vring_base);
+    VIRTIO_DEBUG_VQ("initializing vring of size %u\n", ndesc);
+    vring_init(&vqh->vring, ndesc, vqh->vring_align, vring_base);
 
     vqh->vring_cap = vring_cap;
+    vqh->desc_num = ndesc;
     vqh->vring_vaddr = (lvaddr_t)vring_base;
     vqh->vring_paddr = id.base;
 
+
+    if (buf_bits) {
+        lpaddr_t offset = vring_size(ndesc, vqh->vring_align);
+        offset = ROUND_UP(offset, BASE_PAGE_SIZE);
+        struct vring_mem_info *mi = calloc(1, sizeof(struct vring_mem_info *));
+        assert(mi);
+        mi->bufs = calloc(ndesc, sizeof(*mi->bufs));
+        mi->cap = vring_cap;
+        mi->cap_offset =offset;
+        mi->paddr = virtio_host_translate_host_addr(id.base) + offset;
+        mi->vaddr = (lvaddr_t)(vring_base) + offset;
+        mi->size = (1UL<<id.bits);
+        size_t buf_size = (1UL<< buf_bits);
+        struct virtio_buffer *buf;
+        lpaddr_t paddr = virtio_host_translate_host_addr(id.base) + offset;
+        lvaddr_t vaddr = (lvaddr_t)(vring_base) + offset;
+        for (uint32_t i = 0; i < ndesc; ++i) {
+            buf = mi->bufs + i;
+            buf->length = buf_size;
+            buf->paddr = paddr;
+            buf->buf = (void*)(vaddr);
+
+            vaddr += buf_size;
+            paddr += buf_size;
+        }
+        virtio_vq_host_add_mem_range(vqh, mi);
+    }
     return SYS_ERR_OK;
 }
 
@@ -624,6 +705,7 @@ errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq,
 
     assert(!"NYI");
 
+    virtio_vq_host_guest2virt(vq, 0x1234);
     /*
      * TODO: read memory barrier
      * rmb();

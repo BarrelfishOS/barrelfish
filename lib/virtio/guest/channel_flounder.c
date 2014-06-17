@@ -97,7 +97,9 @@ static  errval_t add_vring(struct virtqueue *vq)
 
     uint8_t bits = virtio_virtqueue_get_buffer_bits(vq);
 
-    err =  virtio_rpc_client.vtbl.add(&virtio_rpc_client, id, bits, frame, &msg_err);
+    uint16_t ndesc = virtio_virtqueue_get_num_desc(vq);
+
+    err =  virtio_rpc_client.vtbl.add(&virtio_rpc_client, id, ndesc, bits, frame, &msg_err);
     if (err_is_fail(err)) {
         return err;
     }

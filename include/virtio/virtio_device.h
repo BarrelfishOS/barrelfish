@@ -180,6 +180,7 @@ struct virtio_device_setup
     enum virtio_host       hc_type;
     char                  *hc_iface;
     struct virtio_host_cb *hc_cb;
+    lpaddr_t               hc_offset;
 #endif
 };
 

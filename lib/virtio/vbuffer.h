@@ -33,5 +33,4 @@ errval_t virtio_buffer_alloc_assing(struct virtio_buffer_allocator *bf,
                                     struct virtio_device *vdev);
 
 
-
 #endif // VIRTIO_VIRTIO_BUFFER_H

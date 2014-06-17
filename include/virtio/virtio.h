@@ -88,7 +88,6 @@ struct virtio_buffer_list
 };
 
 
-
 /**
  * \brief   initializes the buffer allocator and allocates memory for the
  *          buffers

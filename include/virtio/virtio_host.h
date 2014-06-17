@@ -18,7 +18,7 @@ struct virtio_host_cb
     errval_t (*open)(struct virtio_device *vdev, uint8_t backend, struct capref *ret_frame);
     errval_t (*close)(void);
     errval_t (*add)(struct virtio_device *vdev, struct capref ring,
-                    uint8_t but_bits, uint16_t vq_id);
+                    uint16_t ndesc, uint8_t but_bits, uint16_t vq_id);
     errval_t (*ext)(struct virtio_device *vdev);
     errval_t (*req)(struct virtio_device *vdev, struct capref *cap);
     errval_t (*notify)(struct virtio_device *vq, uint16_t index);
@@ -53,5 +53,10 @@ errval_t virtio_host_poll_device(struct virtio_device *host);
  */
 errval_t virtio_host_get_device_cap(struct virtio_device *host,
                                     struct capref *ret_cap);
+
+
+lpaddr_t virtio_host_translate_host_addr(lpaddr_t host_phys);
+
+lpaddr_t virtio_host_translate_guest_addr(lpaddr_t guest_phys);
 
 #endif // VIRTIO_GUEST_H

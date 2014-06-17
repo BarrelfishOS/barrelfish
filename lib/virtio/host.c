@@ -25,9 +25,12 @@
 #include "host/channel.h"
 
 
+static lpaddr_t paddr_offset = 0x0;
+
 /**
  *
  */
+
 /**
  *
  */
@@ -107,3 +110,18 @@ errval_t virtio_host_get_device_cap(struct virtio_device *host,
     }
     return SYS_ERR_OK;
 }
+
+lpaddr_t virtio_host_translate_host_addr(lpaddr_t host_phys)
+{
+    lpaddr_t guest_addr = (host_phys - paddr_offset);
+    assert(guest_addr <=  host_phys);
+    return guest_addr;
+}
+
+lpaddr_t virtio_host_translate_guest_addr(lpaddr_t guest_phys)
+{
+    lpaddr_t host_addr = (guest_phys + paddr_offset);
+    assert(guest_phys <=  host_addr);
+    return host_addr;
+}
+

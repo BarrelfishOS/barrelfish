@@ -49,6 +49,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
  * \param vdev      the VirtIO device
  * \param vring_cap capability to be used for the vring
  * \param vq_id     id of the queue to initialize
+ * \param ndesc     the number of descriptors in this queue
  * \param buf_bits  size of the buffers (0 for none)
  *
  * \returns SYS_ERR_OK on success
@@ -56,6 +57,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
 errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
                                    struct capref vring_cap,
                                    uint16_t vq_id,
+                                   uint16_t ndesc,
                                    uint8_t buf_bits);
 
 /**

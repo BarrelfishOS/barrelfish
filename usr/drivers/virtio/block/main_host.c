@@ -40,7 +40,7 @@ static errval_t handle_open(struct virtio_device *vdev, uint8_t backend, struct 
 }
 
 static errval_t handle_add(struct virtio_device *vdev, struct capref ring,
-                    uint8_t buf_bits,uint16_t vq_id)
+                    uint16_t ndesc, uint8_t buf_bits,uint16_t vq_id)
 {
     debug_printf("handle_add\n");
     return SYS_ERR_OK;
