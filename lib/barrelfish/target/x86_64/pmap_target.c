@@ -84,7 +84,9 @@ static inline genvaddr_t get_addr_prefix(genvaddr_t va, uint8_t size)
 {
     return va >> size;
 }
-static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
+// only_pages true ==> return true iff there is an actual mapping here, and
+// not just intermediate page tables
+static bool has_vnode(struct vnode *root, uint32_t entry, size_t len, bool only_pages)
 {
     assert(root != NULL);
     assert(root->is_vnode);
@@ -99,8 +101,12 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
         // region to check [entry .. end_entry)
         // this amounts to n->entry == entry for len = 1
         if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
+            if (only_pages) {
+                return has_vnode(n, 0, X86_64_PTABLE_SIZE, true);
+            }
             return true;
         }
+        // this remains the same regardless of `only_pages`.
         // n is frame [n->entry .. end)
         // 3 cases:
         // 1) entry < n->entry && end_entry >= end --> n is a strict subset of
@@ -121,6 +127,7 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
 
     return false;
 }
+
 
 /**
  * \brief Starting at a given root, return the vnode with starting entry equal to #entry
@@ -177,6 +184,41 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
         walk = walk->next;
     }
     assert(!"Should not get here");
+}
+
+static void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
+                                uint32_t entry, size_t len)
+{
+    errval_t err;
+    uint32_t end_entry = entry + len;
+    for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
+        if (n->entry >= entry && n->entry < end_entry) {
+            // here we know that all vnodes we're interested in are
+            // page tables
+            assert(n->is_vnode);
+            if (n->u.vnode.children) {
+                remove_empty_vnodes(pmap, n, 0, X86_64_PTABLE_SIZE);
+            }
+
+            // unmap
+            err = vnode_unmap(root->u.vnode.cap, n->u.vnode.cap, n->entry, 1);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
+                        err_getstring(err));
+            }
+
+            // delete capability
+            err = cap_destroy(n->u.vnode.cap);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: cap_destroy: %s\n",
+                        err_getstring(err));
+            }
+
+            // remove vnode from list
+            remove_vnode(root, n);
+            slab_free(&pmap->slab, n);
+        }
+    }
 }
 
 /**
@@ -411,9 +453,16 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
     // check if there is an overlapping mapping
-    if (has_vnode(ptable, table_base, pte_count)) {
-        printf("page already exists in 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
-        return LIB_ERR_PMAP_EXISTING_MAPPING;
+    if (has_vnode(ptable, table_base, pte_count, false)) {
+        if (has_vnode(ptable, table_base, pte_count, true)) {
+            printf("page already exists in 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
+            return LIB_ERR_PMAP_EXISTING_MAPPING;
+        } else {
+            // clean out empty page tables. We do this here because we benefit
+            // from having the page tables in place when doing lots of small
+            // mappings
+            remove_empty_vnodes(pmap, ptable, table_base, pte_count);
+        }
     }
 
     // setup userspace mapping
@@ -804,7 +853,8 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
         if (page && page->u.frame.pte_count == pte_count) {
             err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, page->u.frame.pte_count);
             if (err_is_fail(err)) {
-                printf("vnode_unmap returned error: %s (%d)\n", err_getstring(err), err_no(err));
+                printf("vnode_unmap returned error: %s (%d)\n",
+                        err_getstring(err), err_no(err));
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
             }
 
