@@ -11,7 +11,13 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "test_large_mappings",
-                      cFiles = [ "map_test.c" ]
+                      cFiles = [ "map_test.c" ],
+                      architectures = [ "x86_64" ]
+                    },
+  build application { target = "test_large_mappings",
+                      cFiles = [ "map_test_32.c" ],
+                      architectures = [ "x86_32" ]
                     }
+
 ]
 
