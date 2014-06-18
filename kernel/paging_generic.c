@@ -223,6 +223,7 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
     return SYS_ERR_CAP_NOT_FOUND;
 }
 
+// TODO: cleanup arch compatibility mess for page size selection
 errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
 {
     // reconstruct first virtual address for TLB flushing
@@ -250,6 +251,7 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
     // flush TLB entries for all modified pages
     size_t page_size = 0;
     switch(leaf_pt->cap.type) {
+#if __x86_64__
         case ObjType_VNode_x86_64_ptable:
             page_size = X86_64_BASE_PAGE_SIZE;
             break;
@@ -259,6 +261,16 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
         case ObjType_VNode_x86_64_pdpt:
             page_size = X86_64_HUGE_PAGE_SIZE;
             break;
+#elif __i386__
+        case ObjType_VNode_x86_32_ptable:
+            page_size = X86_32_BASE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_32_pdir:
+            page_size = X86_32_LARGE_PAGE_SIZE;
+            break;
+#else
+#error setup page sizes for arch
+#endif
         default:
             break;
     }
