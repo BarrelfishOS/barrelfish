@@ -347,12 +347,12 @@ errval_t vspace_map_one_frame_attr_aligned(void **retaddr, size_t size,
     size = ROUND_UP(size, BASE_PAGE_SIZE);
 
     // Allocate space
-    memobj = malloc(sizeof(struct memobj_one_frame));
+    memobj = calloc(1, sizeof(struct memobj_one_frame));
     if (!memobj) {
         err1 = LIB_ERR_MALLOC_FAIL;
         goto error;
     }
-    vregion = malloc(sizeof(struct vregion));
+    vregion = calloc(1, sizeof(struct vregion));
     if (!vregion) {
         err1 = LIB_ERR_MALLOC_FAIL;
         goto error;
