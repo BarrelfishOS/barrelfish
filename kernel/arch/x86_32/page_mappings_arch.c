@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -488,10 +489,20 @@ void paging_dump_tables(struct dcb *dispatcher)
         lvaddr_t pdir_lv = root_pt;
 #endif
 
-        for (int ptable_index = 0; ptable_index < X86_32_PDIR_SIZE; ptable_index++) {
+        // only go to 512 because upper half of address space is kernel space
+        // (1:1 mapped)
+        // TODO: figure out what we need to do here for PAE
+        for (int ptable_index = 0; ptable_index < 512; ptable_index++) {
             // get ptable
             union x86_32_pdir_entry *ptable = (union x86_32_pdir_entry *)pdir_lv + ptable_index;
+            union x86_32_ptable_entry *large = (union x86_32_ptable_entry *)ptable;
             if (!ptable->raw) { continue; }
+            if (large->large.always1) {
+                // large page
+                genpaddr_t paddr = large->large.base_addr << X86_32_LARGE_PAGE_BITS;
+                printf("%d.%d: 0x%"PRIxGENPADDR"\n", pdir_index,
+                        ptable_index, paddr);
+            }
             genpaddr_t ptable_gp = ptable->d.base_addr << BASE_PAGE_BITS;
             lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
