@@ -295,6 +295,24 @@ void *virtio_device_get_type_state(struct virtio_device *vdev)
 }
 
 /**
+ * \brief notifies the host about new descriptors available in the
+ *        available ring
+ *
+ * \param vdev      VirtIO device
+ * \param virtq_id  the virtq to signal on
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t virtio_device_notify_host(struct virtio_device *vdev,
+                                   uint16_t virtq_id)
+{
+    if (vdev->f->notify) {
+        vdev->f->notify(vdev, virtq_id);
+    }
+    return VIRTIO_ERR_BACKEND;
+}
+
+/**
  * \brief reads the device configuration space and copies it into a local buffer
  *
  * \param vdev  virtio device

@@ -70,13 +70,13 @@ void vblock_device_virtqueue_intr(void *arg)
 
 
 
-errval_t vblock_device_init(struct virtio_device_blk *blk,
+errval_t vblock_device_init(struct vblock_device *blk,
                             void *dev_regs,
                             size_t reg_size)
 {
     errval_t err;
 
-    VIRTIO_DEBUG_DEV("Initializing vblock device [%016lx, %lx]\n",
+    VBLOCK_DEBUG_DEV("Initializing vblock device [%016lx, %lx]\n",
                      (uintptr_t)dev_regs, (uint64_t)reg_size);
 
     struct virtqueue_setup vq_setup =  {
@@ -86,7 +86,8 @@ errval_t vblock_device_init(struct virtio_device_blk *blk,
         .intr_handler = 0,
         .intr_arg = 0,
         .max_indirect =0,
-        .auto_add = 1
+        .auto_add = 1,
+        .buffer_bits = 10
     };
 
     struct virtio_device_setup setup = {
@@ -105,8 +106,16 @@ errval_t vblock_device_init(struct virtio_device_blk *blk,
     };
 
 
-    err = virtio_block_init_device(blk, &setup);
+    err = virtio_block_init_device(&blk->blk, &setup);
     if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = virtio_virtqueue_get_buf_alloc(blk->blk.vq, &blk->alloc);
+    assert(err_is_ok(err));
+
+    err = vblock_request_queue_init(blk);
+    if(err_is_fail(err)) {
         return err;
     }
 

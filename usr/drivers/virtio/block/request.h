@@ -61,7 +61,7 @@ static inline struct vblock_req *vblock_request_alloc(struct vblock_device *dev)
  * \param req   the request to insert
  */
 void vblock_request_enqueue(struct vblock_req_queue *queue,
-                        struct vblock_req *req);
+                            struct vblock_req *req);
 
 /**
  * \brief returns a previously allocated reqest by enqueueing it into the

@@ -332,6 +332,16 @@ static errval_t device_negotiate_features(struct virtio_device *dev,
     return SYS_ERR_OK;
 }
 
+static errval_t device_notify_virtq(struct virtio_device *dev,
+                                    uint16_t vq_id)
+{
+    struct virtio_device_mmio *mmio_dev = (struct virtio_device_mmio *) dev;
+
+    virtio_mmio_queue_notify_index_wrf(&mmio_dev->regs, vq_id);
+
+    return SYS_ERR_OK;
+}
+
 #endif
 
 /**
@@ -390,6 +400,7 @@ static errval_t device_config_write(struct virtio_device *dev,
     return SYS_ERR_OK;
 }
 
+
 #ifdef __VIRTIO_HOST__
 
 static errval_t virtio_device_mmio_poll_host(struct virtio_device *host);
@@ -410,7 +421,8 @@ struct virtio_device_fn virtio_mmio_fn = {
     .set_virtq = device_set_virtq,
     .get_queue_num_max = device_get_queue_num_max,
     .get_config = device_config_read,
-    .set_config = device_config_write
+    .set_config = device_config_write,
+    .notify = device_notify_virtq
 };
 #endif
 

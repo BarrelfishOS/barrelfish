@@ -32,12 +32,13 @@ typedef void(*req_callback_t)(struct vblock_req *);
 
  struct vblock_req {
      struct virtio_block_reqhdr header;
-     struct virtio_buffer_list  *bl;
+     struct virtio_buffer_list  bl;
      req_callback_t callback;
      void *arg;
      uint8_t ack;
+     uint8_t writable;
      /* TODO: flounder binding */
-
+     struct virtio_buffer *last;
      struct vblock_req *next;
      struct vblock_req_queue *queue;
  };
@@ -64,6 +65,7 @@ struct vblock_device
     struct vblock_req_queue free_queue;     ///< queue of free requests
 
     struct vblock_req *requests;
+    struct virtio_buffer_allocator *alloc;
 
     /* TODO; pointers to flounder states*/
     iref_t svc_iref;
@@ -86,7 +88,7 @@ void vblock_device_virtqueue_intr(void *arg);
 
 
 
-errval_t vblock_device_init(struct virtio_device_blk *blk,
+errval_t vblock_device_init(struct vblock_device *blk,
                             void *dev_regs,
                             size_t ret_size);
 

@@ -68,6 +68,7 @@ struct virtio_device_fn
     errval_t (*set_virtq)(struct virtio_device *dev, struct virtqueue *vq);
     errval_t (*get_config)(struct virtio_device *vdev, void *buf,size_t len);
     errval_t (*set_config)(struct virtio_device *dev,void *config,size_t offset, size_t length);
+    errval_t (*notify)(struct virtio_device *dev, uint16_t vq_id);
 #ifdef __VIRTIO_HOST__
     errval_t (*poll)(struct virtio_device *vdev);
 #endif

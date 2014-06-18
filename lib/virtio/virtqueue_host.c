@@ -33,10 +33,9 @@ struct vring_mem_info
 {
     struct capref cap;
     lpaddr_t cap_offset;
-    lpaddr_t paddr;
+    lpaddr_t guest_paddr;
     lvaddr_t vaddr;
     size_t size;
-    struct virtio_buffer *bufs;
     struct vring_mem_info *next;
 };
 
@@ -68,12 +67,7 @@ struct virtqueue_host
     uint16_t avail_head;                ///< cache of the available head index
     uint16_t used_head;                 ///< index into the used head
 
-    /* vring memory information */
-
-    /* interrupt handling */
-    virtq_intr_hander_t intr_handler;   ///< interrupt handler
-    void *intr_arg;       ///< user argument for the handler
-
+    struct virtio_host_buf *host_buffers;
     struct vring_mem_info *mem;   ///< array of additional desc information
 #if 0
     /* indirect descriptors */
@@ -89,6 +83,59 @@ struct virtqueue_host
 };
 
 
+static inline struct virtio_host_buf *vqh_host_buf_deq(struct virtio_host_buf **queue)
+{
+    if(*queue == NULL) {
+        return NULL;
+    }
+    struct virtio_host_buf *buf = *queue;
+    *queue = buf->next;
+
+    return buf;
+}
+static inline void vqh_host_buf_enq(struct virtio_host_buf **queue,
+                                     struct virtio_host_buf *buf)
+{
+    assert(buf);
+    buf->next = *queue;
+    *queue = buf;
+}
+static inline uint16_t vqh_host_buf_enq_chain(struct virtio_host_buf **queue,
+                                              struct virtio_host_buf *buf)
+{
+    assert(buf);
+    struct virtio_host_buf *last = buf;
+    uint16_t count = 1;
+    while(last->next) {
+        last = last->next;
+        count++;
+    }
+    last->next = *queue;
+    *queue = buf;
+    return count;
+}
+
+static inline struct virtio_host_buf *vqh_host_buf_alloc(struct virtqueue_host *vq)
+{
+    return vqh_host_buf_deq(&vq->host_buffers);
+}
+static inline uint16_t vqh_host_buf_free_chain(struct virtqueue_host *vq,
+                                           struct virtio_host_buf *buf)
+{
+    return vqh_host_buf_enq_chain(&vq->host_buffers, buf);
+}
+
+#if 0
+
+static inline void vqh_host_buf_free(struct virtqueue_host *vq,
+                                     struct virtio_host_buf *buf)
+{
+    vqh_host_buf_enq(&vq->host_buffers, buf);
+}
+#endif
+
+
+
 static errval_t virtio_vq_host_add_mem_range(struct virtqueue_host *vq,
                                       struct vring_mem_info *meminfo)
 {
@@ -99,8 +146,8 @@ static errval_t virtio_vq_host_add_mem_range(struct virtqueue_host *vq,
 
     struct vring_mem_info *prev, *current = vq->mem;
 
-    if (meminfo->paddr < vq->mem->paddr) {
-        assert((meminfo->paddr+meminfo->size) < vq->mem->paddr);
+    if (meminfo->guest_paddr < vq->mem->guest_paddr) {
+        assert((meminfo->guest_paddr+meminfo->size) < vq->mem->guest_paddr);
         meminfo->next = vq->mem;
         vq->mem = meminfo;
         return SYS_ERR_OK;
@@ -109,8 +156,8 @@ static errval_t virtio_vq_host_add_mem_range(struct virtqueue_host *vq,
     prev = vq->mem;
     current = current->next;
     while(current) {
-        if (meminfo->paddr < current->paddr) {
-            assert((meminfo->paddr+meminfo->size) < current->paddr);
+        if (meminfo->guest_paddr < current->guest_paddr) {
+            assert((meminfo->guest_paddr+meminfo->size) < current->guest_paddr);
             meminfo->next = current;
             prev->next = meminfo;
         }
@@ -120,17 +167,17 @@ static errval_t virtio_vq_host_add_mem_range(struct virtqueue_host *vq,
     return SYS_ERR_OK;
 }
 
-static struct virtio_buffer *virtio_vq_host_guest2virt(struct virtqueue_host *vq,
+static lvaddr_t virtio_vq_host_guest2virt(struct virtqueue_host *vq,
                                           lpaddr_t guest_phys)
 {
     struct vring_mem_info *mi = vq->mem;
     while(mi) {
-        if (mi->paddr > guest_phys) {
+        if (mi->guest_paddr > guest_phys) {
             return 0;
         }
-        if (mi->paddr <= guest_phys) {
-            if ((mi->paddr + mi->size) > guest_phys) {
-                return mi->bufs + (guest_phys - mi->paddr);
+        if (mi->guest_paddr <= guest_phys) {
+            if ((mi->guest_paddr + mi->size) > guest_phys) {
+                return mi->vaddr + (guest_phys - mi->guest_paddr);
             }
         }
         mi = mi->next;
@@ -184,8 +231,10 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
     for (uint32_t i = 0; i < vq_num; ++i) {
         queue->desc_num_max = setup->vring_ndesc;
         queue->device = vdev;
+        /*
         queue->intr_arg = setup->intr_arg;
         queue->intr_handler = setup->intr_handler;
+        */
         queue->queue_index = i;
         queue->vring_align = VIRTQUEUE_ALIGNMENT;
         // queue->desc_ind_max = setup->max_indirect;
@@ -254,31 +303,24 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
     vqh->vring_vaddr = (lvaddr_t)vring_base;
     vqh->vring_paddr = id.base;
 
+    vqh->host_buffers = calloc(ndesc, sizeof(struct virtio_host_buf));
+    struct virtio_host_buf *buf = vqh->host_buffers;
+    assert(vqh->host_buffers);
+    for (uint32_t i = 0; i < ndesc-1; ++i) {
+        buf->next = (buf + 1);
+        buf++;
+    }
 
     if (buf_bits) {
         lpaddr_t offset = vring_size(ndesc, vqh->vring_align);
         offset = ROUND_UP(offset, BASE_PAGE_SIZE);
-        struct vring_mem_info *mi = calloc(1, sizeof(struct vring_mem_info *));
+        struct vring_mem_info *mi = calloc(1, sizeof(struct vring_mem_info));
         assert(mi);
-        mi->bufs = calloc(ndesc, sizeof(*mi->bufs));
         mi->cap = vring_cap;
         mi->cap_offset =offset;
-        mi->paddr = virtio_host_translate_host_addr(id.base) + offset;
+        mi->guest_paddr = virtio_host_translate_host_addr(id.base) + offset;
         mi->vaddr = (lvaddr_t)(vring_base) + offset;
         mi->size = (1UL<<id.bits);
-        size_t buf_size = (1UL<< buf_bits);
-        struct virtio_buffer *buf;
-        lpaddr_t paddr = virtio_host_translate_host_addr(id.base) + offset;
-        lvaddr_t vaddr = (lvaddr_t)(vring_base) + offset;
-        for (uint32_t i = 0; i < ndesc; ++i) {
-            buf = mi->bufs + i;
-            buf->length = buf_size;
-            buf->paddr = paddr;
-            buf->buf = (void*)(vaddr);
-
-            vaddr += buf_size;
-            paddr += buf_size;
-        }
         virtio_vq_host_add_mem_range(vqh, mi);
     }
     return SYS_ERR_OK;
@@ -647,27 +689,24 @@ static void virtqueue_update_used(struct virtqueue_host *vq,
  *          VIRTIO_ERR_* on failure
  */
 errval_t virtio_vq_host_desc_enqueue(struct virtqueue_host *vq,
-                                     struct virtio_buffer_list *bl,
-                                     void *st,
-                                     uint16_t num_wr,
-                                     uint16_t num_rd)
+                                     struct virtio_host_buf *buf,
+                                     uint16_t idx)
 {
-    errval_t err;
 
-    uint16_t idx = 0, length = 0;
 
-    assert(!"NYI");
+    uint16_t count = vqh_host_buf_free_chain(vq, buf);
+
+    VIRTIO_DEBUG_VQ("Enqueue idx=%u, count=%u\n", idx, count);
 
     /*
      * TODO: check if we should use indirect descriptors or not
      */
 
     /* update free values */
-    vq->avail_tail++;
+    vq->used_head++;
 
-    virtqueue_update_used(vq, idx, length);
+    virtqueue_update_used(vq, idx, count);
 
-    err = SYS_ERR_OK;
 
     return SYS_ERR_OK;
 }
@@ -676,22 +715,17 @@ errval_t virtio_vq_host_desc_enqueue(struct virtqueue_host *vq,
  * \brief dequeues a descriptor chain form the virtqueue
  *
  * \param vq     the virtqueue to dequeue descriptors from
- * \param ret_bl returns the associated buffer list structure
- * \param ret_st returns the associated state of the queue list
  *
  * \returns SYS_ERR_OK when the dequeue is successful
  *          VIRTIO_ERR_NO_DESC_AVAIL when there was no descriptor to dequeue
  *          VIRTIO_ERR_* if there was an error
  */
-errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq,
-                                     struct virtio_buffer_list **ret_bl,
-                                     void **ret_st)
+errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq)
 {
-    errval_t err;
 
-    struct vring_used_elem *elem;
+    uint16_t avail_idx;
 
-    uint16_t avail_idx, desc_idx;
+    struct vring_desc *desc;
 
     /*
      * check if there is a descriptor available
@@ -701,20 +735,44 @@ errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq,
     }
 
     avail_idx = vq->avail_tail++ & (vq->desc_num - 1);
-    elem = &vq->vring.used->ring[avail_idx];
 
-    assert(!"NYI");
+    uint16_t desc_idx = vq->vring.avail->ring[avail_idx];
 
-    virtio_vq_host_guest2virt(vq, 0x1234);
+    desc = &vq->vring.desc[desc_idx];
+
+    struct virtio_host_buf *buf_chain = NULL;
+    struct virtio_host_buf *buf = NULL;
+
+    uint16_t count = 1;
+    while(desc->flags & VIRTIO_RING_DESC_F_NEXT) {
+        buf = vqh_host_buf_alloc(vq);
+        assert(buf);
+        buf->size = desc->length;
+        buf->flags = desc->flags;
+        buf->vaddr = virtio_vq_host_guest2virt(vq, desc->addr);
+        vqh_host_buf_enq(&buf_chain, buf);
+        desc = &vq->vring.desc[desc->next];
+        count++;
+    }
+
+    /* handle the last one */
+    buf = vqh_host_buf_alloc(vq);
+    assert(buf);
+    buf->size = desc->length;
+    buf->flags = desc->flags;
+    buf->vaddr = virtio_vq_host_guest2virt(vq, desc->addr);
+    vqh_host_buf_enq(&buf_chain, buf);
+
+    VIRTIO_DEBUG_VQ("Dequeuing element on the available [%u] ring: [%u, %u]\n",
+                    avail_idx, desc_idx, count);
+
     /*
      * TODO: read memory barrier
      * rmb();
      * */
-    desc_idx = (uint16_t) elem->id;
 
-    /* TODO: get the queue lists */
+    virtio_vq_host_desc_enqueue(vq, buf_chain, desc_idx);
 
-    err = SYS_ERR_OK;
 
     return SYS_ERR_OK;
 }
@@ -722,36 +780,34 @@ errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq,
 /**
  * \brief polls the virtqueue
  *
- * \param vq         the virtqueue to dequeue descriptors from
- * \param ret_bl     returns the associated buffer list structure
- * \param ret_st     returns the associated state of the queue list
- * \param handle_msg flag to have messages handled
+ * \param vq         the virtqueue array to dequeue descriptors from
+ * \param vq_num     the number of entries in the vq array
  *
  * \returns SYS_ERR_OK when the dequeue is successful
  *          VIRTIO_ERR_* if there was an error
  */
-errval_t virtio_vq_host_poll(struct virtqueue_host *vq,
-                             struct virtio_buffer_list **ret_bl,
-                             void **ret_st,
-                             uint8_t handle_msg)
+errval_t virtio_vq_host_poll(struct virtqueue_host **vqh,
+                             uint16_t vq_num)
 {
     errval_t err;
 
-    err = virtio_vq_host_desc_dequeue(vq, ret_bl, ret_st);
-
-    while (err_no(err) == VIRTIO_ERR_NO_DESC_AVAIL) {
-        if (handle_msg) {
-            err = event_dispatch_non_block(get_default_waitset());
-            if (err_is_fail(err)) {
-                if (err_no(err) == LIB_ERR_NO_EVENT) {
-                    thread_yield();
-                }
-            }
-        } else {
-            thread_yield();
-        }
-        err = virtio_vq_host_desc_dequeue(vq, ret_bl, ret_st);
+    /* XXX: handle the case where the queues have not been allocated */
+    if (vq_num == 0) {
+        return SYS_ERR_OK;
     }
 
-    return err;
+    assert(vqh);
+
+    for (uint32_t i = 0; i < vq_num; ++i) {
+        struct virtqueue_host *vq = vqh[i];
+        if (vq->vring_vaddr == 0) {
+            continue;
+        }
+        err = virtio_vq_host_desc_dequeue(vq);
+        if (err_is_fail(err) && !err_no(err) == VIRTIO_ERR_NO_DESC_AVAIL) {
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
 }

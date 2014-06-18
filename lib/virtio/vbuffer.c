@@ -98,21 +98,106 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
     vbuf_alloc->size = nbufs;
     vbuf_alloc-> top = nbufs;
 
-    struct virtio_buffer *vbuf;
+    lvaddr_t vaddr = (lvaddr_t)buf;
+    lpaddr_t paddr = id.base;
+
+    struct virtio_buffer *vbuf = buffers;
     for (uint32_t i = 0; i < nbufs; ++i) {
-        vbuf = buffers + i;
-        vbuf = vbuf_alloc->buffers[i];
-        vbuf->buf = (((uint8_t*)buf)+i*size);
+        vbuf->buf = ((uint8_t*)vaddr);
         vbuf->length = size;
-        vbuf->paddr = id.base +i*size;
+        vbuf->paddr = paddr;
         vbuf->state = VIRTIO_BUFFER_S_FREE;
         vbuf->a = vbuf_alloc;
         vbuf_alloc->buffers[i] = vbuf;
+
+        vaddr += size;
+        paddr += size;
+        vbuf++;
     }
     vbuf_alloc->size = size;
     vbuf_alloc->top = size;
 
     *alloc = vbuf_alloc;
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief allocated and initializes a new buffer allocator based on the
+ *        capability with an already existing mapping
+ *
+ * \param bf        where to store the buffer allocator pointer
+ * \param cap       capability of the buffers
+ * \param vaddr     virtual address where they are mapped
+ * \param offset    offset where the buffers start
+ * \param bufsize   size of a single buffer
+ * \param bufcount  number of buffers
+ */
+errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
+                                     struct capref cap,
+                                     lvaddr_t vaddr,
+                                     lpaddr_t offset,
+                                     size_t bufsize,
+                                     size_t bufcount)
+{
+    errval_t err;
+
+    if (!bf) {
+        return VIRTIO_ERR_ARG_INVALID;
+    }
+
+    if (bufcount == 0) {
+        return VIRTIO_ERR_NO_BUFFER;
+    }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert((1UL<<id.bits) >= (offset + (bufsize * bufcount)));
+
+    struct virtio_buffer_allocator *vbuf_alloc;
+
+    vbuf_alloc = malloc(sizeof(*vbuf_alloc));
+    if (vbuf_alloc == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    vbuf_alloc->buffers = calloc(bufcount, sizeof(void *));
+    if (vbuf_alloc->buffers == NULL) {
+        free(vbuf_alloc);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    void *buffers = calloc(bufcount, sizeof(struct virtio_buffer));
+    if (buffers == NULL) {
+        free(vbuf_alloc->buffers);
+        free(vbuf_alloc);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    vbuf_alloc->cap = cap;
+    vbuf_alloc->size = bufsize;
+    vbuf_alloc-> top = bufcount;
+
+    lpaddr_t paddr = id.base + offset;
+
+    struct virtio_buffer *vbuf = buffers;
+    for (uint32_t i = 0; i < bufcount; ++i) {
+        vbuf->buf = (((uint8_t*)vaddr));
+        vbuf->length = bufsize;
+        vbuf->paddr = paddr;
+        vbuf->state = VIRTIO_BUFFER_S_FREE;
+        vbuf->a = vbuf_alloc;
+        vbuf_alloc->buffers[i] = vbuf;
+        vaddr += bufsize;
+        paddr += bufsize;
+        vbuf++;
+    }
+
+    *bf = vbuf_alloc;
 
     return SYS_ERR_OK;
 }
@@ -139,6 +224,7 @@ struct virtio_buffer *virtio_buffer_alloc(struct virtio_buffer_allocator *alloc)
     struct virtio_buffer *buf = alloc->buffers[--alloc->top];
 
     assert(buf->state == VIRTIO_BUFFER_S_FREE);
+
     buf->state = VIRTIO_BUFFER_S_ALLOCED;
     return buf;
 }
@@ -156,7 +242,9 @@ errval_t virtio_buffer_free(struct virtio_buffer *buf)
         return VIRTIO_ERR_ALLOC_FULL;
     }
 
-    assert(buf->state == VIRTIO_BUFFER_S_ALLOCED);
+    assert(buf->state == VIRTIO_BUFFER_S_ALLOCED_WRITABLE
+           || buf->state == VIRTIO_BUFFER_S_ALLOCED_READABLE
+           || buf->state == VIRTIO_BUFFER_S_ALLOCED);
     buf->state = VIRTIO_BUFFER_S_FREE;
 
     alloc->buffers[alloc->top++] = buf;
@@ -197,11 +285,11 @@ errval_t virtio_blist_init(struct virtio_buffer_list *bl)
 errval_t virtio_blist_free(struct virtio_buffer_list *bl)
 {
     errval_t err;
-    struct virtio_buffer *buf = virtio_blist_get(bl);
+    struct virtio_buffer *buf = virtio_blist_head(bl);
     while(buf) {
         err = virtio_buffer_free(buf);
         assert(err_is_ok(err));
-        buf = virtio_blist_get(bl);
+        buf = virtio_blist_head(bl);
     }
     return SYS_ERR_OK;
 }
@@ -221,12 +309,40 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
     if (bl->length == 0) {
         bl->head = buf;
         bl->tail = buf;
+        bl->state = VIRTIO_BUFFER_LIST_S_FILLED;
     } else {
         bl->tail->next = buf;
         bl->tail = buf;
     }
     buf->lhead = bl;
     buf->next = NULL;
+    bl->length++;
+    return SYS_ERR_OK;
+
+}
+
+/**
+ * \brief prepend a buffer to the tail of buffer list
+ *
+ * \param bl    the list to prepend the buffer to
+ * \param buf   the buffer to be prepended
+ */
+errval_t virtio_blist_prepend(struct virtio_buffer_list *bl,
+                              struct virtio_buffer *buf)
+{
+    if (buf->lhead) {
+        return VIRTIO_ERR_BUFFER_USED;
+    }
+
+    if (bl->length == 0) {
+        bl->head = buf;
+        bl->tail = buf;
+        bl->state = VIRTIO_BUFFER_LIST_S_FILLED;
+    } else {
+        buf->next = bl->head;
+        bl->head = buf;
+    }
+    buf->lhead = bl;
     bl->length++;
     return SYS_ERR_OK;
 }
@@ -239,7 +355,7 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
  * \returns pointer to virtio_buffer on sucess
  *          NULL on failuer
  */
-struct virtio_buffer *virtio_blist_get(struct virtio_buffer_list *bl)
+struct virtio_buffer *virtio_blist_head(struct virtio_buffer_list *bl)
 {
     if (bl->length == 0) {
         return NULL;
@@ -250,6 +366,7 @@ struct virtio_buffer *virtio_blist_get(struct virtio_buffer_list *bl)
     if (bl->length == 1) {
         bl->head = NULL;
         bl->tail = NULL;
+        bl->state = VIRTIO_BUFFER_LIST_S_EMTPY;
     } else {
         bl->head = buf->next;
     }
@@ -261,4 +378,42 @@ struct virtio_buffer *virtio_blist_get(struct virtio_buffer_list *bl)
 
     return buf;
 }
+
+/**
+ * \brief returns and removes the tail of the list
+ *
+ * \param bl buffer list
+ *
+ * \returns pointer to virtio_buffer on sucess
+ *          NULL on failuer
+ */
+struct virtio_buffer *virtio_blist_tail(struct virtio_buffer_list *bl)
+{
+    if (bl->length == 0) {
+        return NULL;
+    }
+
+    struct virtio_buffer *buf;
+    buf = bl->head;
+    if (bl->length == 1) {
+        bl->head = NULL;
+        bl->tail = NULL;
+        bl->state = VIRTIO_BUFFER_LIST_S_EMTPY;
+    } else {
+        while(buf->next != bl->tail) {
+            buf = buf->next;
+        }
+        bl->tail = buf;
+        buf = buf->next;
+    }
+
+    bl->length--;
+
+    buf->next = NULL;
+    buf->lhead = NULL;
+
+    return buf;
+}
+
+
 

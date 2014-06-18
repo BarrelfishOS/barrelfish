@@ -16,6 +16,7 @@
 #include <virtio/virtqueue.h>
 #include <virtio/virtio_device.h>
 
+#include "vbuffer.h"
 #include "debug.h"
 
 #define IS_POW2(num) (((num) != 0) && (((num) & (~(num) + 1)) == (num)))
@@ -67,11 +68,14 @@ struct virtqueue
     uint16_t used_head;             ///< caches the head of the used descriptors
 
     uint32_t flags;                 ///< flags
-    uint8_t buffer_bits;
+
 
     /* interrupt handling */
     virtq_intr_hander_t intr_handler;   ///< interrupt handler
-    void *intr_arg;       ///< user argument for the handler
+    void *intr_arg;                 ///< user argument for the handler
+
+    struct virtio_buffer_allocator *buffer_alloc;
+    uint8_t buffer_bits;
 
     struct vring_desc_info vring_di[0];  ///< array of additional desc information
 #if 0
@@ -349,6 +353,18 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
     if (setup->buffer_bits) {
         vq->buffer_bits = setup->buffer_bits;
         vq->flags |= (1 << VIRTQUEUE_FLAG_HAS_BUFFERS);
+        lpaddr_t offset = vring_size(setup->vring_ndesc, setup->vring_align);
+        offset = ROUND_UP(offset, BASE_PAGE_SIZE);
+        lvaddr_t buf_start = ((lvaddr_t)vring_addr) +offset;
+        VIRTIO_DEBUG_VQ("Allocating %u buffers at offset 0x%lx\n",
+                        setup->vring_ndesc, offset);
+        /* we initialize the first buffer_allocator here  */
+        err = virtio_buffer_alloc_init_vq(&vq->buffer_alloc, vring_cap,buf_start , offset, (1UL<<vq->buffer_bits), setup->vring_ndesc);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to initiate the vbuf allocator");
+        }
+        assert(vq->buffer_bits);
+        assert(vq->buffer_alloc);
     }
 
     virtqueue_init_vring(vq);
@@ -628,7 +644,7 @@ void virtio_virtqueue_notify_host(struct virtqueue *vq)
 {
     /* TODO: memory barrier */
     if (virtqueue_should_notify_host(vq)) {
-        assert(!"NYI: host notify");
+        virtio_device_notify_host(vq->device, vq->queue_index);
     }
     vq->desc_num_queued = 0;
 
@@ -788,6 +804,9 @@ static void virtqueue_update_available(struct virtqueue *vq,
      * wmb();
      */
 
+    VIRTIO_DEBUG_VQ("VQ(%u) avail index = %u, num_queued = %u\n",
+                    vq->queue_index, vq->vring.avail->idx + 1, vq->desc_num_queued + 1);
+
     vq->vring.avail->idx++;
     vq->desc_num_queued++;
 }
@@ -814,14 +833,18 @@ static errval_t virtqueue_enqueue_bufs(struct virtqueue *vq,
 {
     struct vring_desc *desc = vq->vring.desc;
     struct virtio_buffer *buf = bl->head;
-    struct vring_desc *cd;
+    struct vring_desc *cd = desc;
 
     if (bl->state != VIRTIO_BUFFER_LIST_S_FILLED) {
         return VIRTIO_ERR_BUFFER_STATE;
     }
 
+
+
     uint16_t needed = num_read + num_write;
     uint16_t idx = head;
+
+    VIRTIO_DEBUG_VQ("Enqueuing %u buffers to VQ(%u)\n", needed, vq->queue_index);
 
     for (uint16_t i = 0; i < needed; ++i) {
         if (buf->state == VIRTIO_BUFFER_S_QUEUED) {
@@ -852,7 +875,7 @@ static errval_t virtqueue_enqueue_bufs(struct virtqueue *vq,
             }
         }
 
-        buf->state = VIRTIO_BUFFER_S_QUEUED;
+        VIRTIO_DEBUG_VQ("  using idx=%u\n", idx);
 
         vq->vring_di[idx].buf = buf;
         cd = &desc[idx];
@@ -870,6 +893,8 @@ static errval_t virtqueue_enqueue_bufs(struct virtqueue *vq,
         idx = cd->next;
         buf = buf->next;
     }
+
+    cd->next = VIRTQUEUE_CHAIN_END;
 
     bl->state = VIRTIO_BUFFER_LIST_S_ENQUEUED;
 
@@ -915,6 +940,7 @@ errval_t virtio_virtqueue_desc_enqueue(struct virtqueue *vq,
      */
 
     uint16_t free_head = vq->free_head;
+    debug_printf("enq using info [%u]\n", free_head);
     struct vring_desc_info *info = &vq->vring_di[free_head];
 
     info->is_head = 0x1;
@@ -958,6 +984,7 @@ static errval_t virtqueue_free_desc_chain(struct virtqueue *vq,
     }
 
     if (ndesc) {
+        VIRTIO_DEBUG_VQ("ERROR: descriptor chain ended at %u\n", ndesc);
         return VIRTIO_ERR_DEQ_CHAIN;
     }
 
@@ -999,6 +1026,9 @@ errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
     used_idx = vq->used_tail++ & (vq->desc_num - 1);
     elem = &vq->vring.used->ring[used_idx];
 
+    VIRTIO_DEBUG_VQ("Dequeuing element [%u] on the used ring: [%u, %u]\n",
+                        used_idx, elem->id, elem->length);
+
     /*
      * TODO: read memory barrier
      * rmb();
@@ -1007,6 +1037,7 @@ errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
 
     /* get the descritpor information */
     struct vring_desc_info *info = &vq->vring_di[desc_idx];
+    debug_printf("deq using info [%u]\n", desc_idx);
 
     assert(info->is_head);
     assert(info->bl);
@@ -1065,4 +1096,32 @@ errval_t virtio_virtqueue_poll(struct virtqueue *vq,
     }
 
     return err;
+}
+
+
+/**
+ * \brief returns a buffer allocator based on the buffers with the virtqueue
+ *        (if any)
+ *
+ * \param vq the virtqueue to get the buffer allocator
+ * \param alloc returns the pointer to the allocator
+ *
+ * \returns SYS_ERR_OK on SUCCESS
+ *          VIRTIO_ERR_BUFFER_SIZE if there are no buffers allocated
+ */
+errval_t virtio_virtqueue_get_buf_alloc(struct virtqueue *vq,
+                                        struct virtio_buffer_allocator **alloc)
+{
+    assert(alloc);
+
+    if (vq->buffer_bits) {
+        if (vq->buffer_alloc != NULL) {
+            *alloc = vq->buffer_alloc;
+            return SYS_ERR_OK;
+        }
+        // XXX: this is actually an error and should not happen
+        return VIRTIO_ERR_NO_BUFFER;
+    }
+
+    return VIRTIO_ERR_NO_BUFFER;
 }

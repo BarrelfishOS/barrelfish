@@ -43,21 +43,21 @@
                                    VBLOCK_DEBUG_PRINT_GUEST(msg)
 
 #ifdef VBLOCK_DEBUG_DEV_ENABLED
-#define VIRTIO_DEBUG_DEV(msg...) VBLOCK_DEBUG_PRINT("[dev] " msg)
+#define VBLOCK_DEBUG_DEV(msg...) VBLOCK_DEBUG_PRINT("[dev] " msg)
 #else
-#define VIRTIO_DEBUG_DEV(msg...)
+#define VBLOCK_DEBUG_DEV(msg...)
 #endif
 
 #ifdef VBLOCK_DEBUG_REQ_ENABLED
-#define VIRTIO_DEBUG_REQ(msg...) VBLOCK_DEBUG_PRINT("[req] " msg)
+#define VBLOCK_DEBUG_REQ(msg...) VBLOCK_DEBUG_PRINT("[req] " msg)
 #else
-#define VIRTIO_DEBUG_REQ(msg...)
+#define VBLOCK_DEBUG_REQ(msg...)
 #endif
 
 #ifdef VBLOCK_DEBUG_SVC_ENABLED
-#define VIRTIO_DEBUG_SVC(msg...) VBLOCK_DEBUG_PRINT("[svc] " msg)
+#define VBLOCK_DEBUG_SVC(msg...) VBLOCK_DEBUG_PRINT("[svc] " msg)
 #else
-#define VIRTIO_DEBUG_SVC(msg...)
+#define VBLOCK_DEBUG_SVC(msg...)
 #endif
 
 #endif /* VBLOCK_DEBUG_H_ */

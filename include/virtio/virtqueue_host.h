@@ -14,6 +14,27 @@
 
 #include <virtio/virtqueue.h>
 
+// forward definition
+struct virtqueue_host;
+
+
+/**
+ * stores the information about the buffer received from the guest
+ */
+struct virtio_host_buf
+{
+    lvaddr_t vaddr;
+    size_t   size;
+    uint16_t flags;
+    struct virtio_host_buf *next;
+
+};
+
+typedef void (*virtq_work_handler_t)(struct virtqueue_host *,
+                                     void *,
+                                     struct virtio_host_buf *,
+                                     uint16_t idx);
+
 /*
  * Extracted from the Virtio Specification 1.0
  * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.pdf
@@ -26,8 +47,7 @@
  *
  */
 
-// forward definition
-struct virtqueue_host;
+
 
 
 /**
@@ -200,42 +220,32 @@ static inline uint64_t virtio_vq_host_mask_features(uint64_t features)
  *          VIRTIO_ERR_* on failure
  */
 errval_t virtio_vq_host_desc_enqueue(struct virtqueue_host *vq,
-                                       struct virtio_buffer_list *bl,
-                                       void *st,
-                                       uint16_t writeable,
-                                       uint16_t readable);
+                                     struct virtio_host_buf *buf,
+                                     uint16_t idx);
 
 /**
  * \brief dequeues a descriptor chain form the virtqueue
  *
  * \param vq     the virtqueue to dequeue descriptors from
- * \param ret_bl returns the associated buffer list structure
- * \param ret_st returns the associated state of the queue list
  *
  * \returns SYS_ERR_OK when the dequeue is successful
  *          VIRTIO_ERR_NO_DESC_AVAIL when there was no descriptor to dequeue
  *          VIRTIO_ERR_* if there was an error
  */
-errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq,
-                                       struct virtio_buffer_list **ret_bl,
-                                       void **ret_st);
+errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq);
 
 
 /**
  * \brief polls the virtqueue
  *
- * \param vq         the virtqueue to dequeue descriptors from
- * \param ret_bl     returns the associated buffer list structure
- * \param ret_st     returns the associated state of the queue list
- * \param handle_msg flag to have messages handled
+ * \param vq         the virtqueue array to dequeue descriptors from
+ * \param vq_num     the number of entries in the vq array
  *
  * \returns SYS_ERR_OK when the dequeue is successful
  *          VIRTIO_ERR_* if there was an error
  */
-errval_t virtio_vq_host_poll(struct virtqueue_host *vq,
-                               struct virtio_buffer_list **ret_bl,
-                               void **ret_st,
-                               uint8_t handle_msg);
+errval_t virtio_vq_host_poll(struct virtqueue_host **vq,
+                             uint16_t vq_num);
 
 
 #endif // VIRTIO_VIRTQUEUE_H

@@ -52,6 +52,8 @@ enum virtio_buffer_state {
     VIRTIO_BUFFER_S_INVALID,
     VIRTIO_BUFFER_S_FREE,
     VIRTIO_BUFFER_S_ALLOCED,
+    VIRTIO_BUFFER_S_ALLOCED_WRITABLE,
+    VIRTIO_BUFFER_S_ALLOCED_READABLE,
     VIRTIO_BUFFER_S_QUEUED
 };
 
@@ -72,6 +74,7 @@ struct virtio_buffer
     lpaddr_t paddr;                     ///< physical address of the buffer
     void *buf;                          ///< mapped virtual address of the buffer
     size_t   length;                    ///< size of this buffer
+    size_t   data_length;
     struct virtio_buffer_list *lhead;   ///< pointer to the buffer list head
     struct virtio_buffer *next;         ///< pointer to the next buffer in the list
 };
@@ -158,6 +161,15 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
                              struct virtio_buffer *buf);
 
 /**
+ * \brief prepend a buffer to the tail of buffer list
+ *
+ * \param bl    the list to prepend the buffer to
+ * \param buf   the buffer to be prepended
+ */
+errval_t virtio_blist_prepend(struct virtio_buffer_list *bl,
+                              struct virtio_buffer *buf);
+
+/**
  * \brief returns and removes the head of the list
  *
  * \param bl buffer list
@@ -165,8 +177,16 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
  * \returns pointer to virtio_buffer on sucess
  *          NULL on failuer
  */
-struct virtio_buffer *virtio_blist_get(struct virtio_buffer_list *bl);
+struct virtio_buffer *virtio_blist_head(struct virtio_buffer_list *bl);
 
-
+/**
+ * \brief returns and removes the tail of the list
+ *
+ * \param bl buffer list
+ *
+ * \returns pointer to virtio_buffer on sucess
+ *          NULL on failuer
+ */
+struct virtio_buffer *virtio_blist_tail(struct virtio_buffer_list *bl);
 
 #endif // VIRTIO_H

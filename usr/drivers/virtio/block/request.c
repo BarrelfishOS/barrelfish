@@ -12,6 +12,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <string.h>
+
 #include <virtio/virtio.h>
 #include <virtio/virtqueue.h>
 #include <virtio/virtio_device.h>
@@ -19,6 +21,7 @@
 
 #include "device.h"
 #include "request.h"
+#include "debug.h"
 
 static errval_t request_status(struct vblock_req *req)
 {
@@ -36,6 +39,22 @@ static errval_t request_status(struct vblock_req *req)
     return VIRTIO_ERR_BLK_REQ_UNSUP;
 }
 
+static errval_t request_finish(struct vblock_req *req)
+{
+    struct virtio_buffer *buf;
+
+    buf = virtio_blist_head(&req->bl);
+    assert(buf);
+    virtio_buffer_free(buf);
+
+
+    buf = virtio_blist_tail(&req->bl);
+    assert(buf);
+    virtio_buffer_free(buf);
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief allocates the request structures based on the number of
  *        descriptors on the virtqueue of the device
@@ -47,6 +66,9 @@ static errval_t request_status(struct vblock_req *req)
 errval_t vblock_request_queue_init(struct vblock_device *dev)
 {
     uint16_t ndesc = virtio_virtqueue_get_num_desc(dev->blk.vq);
+
+    VBLOCK_DEBUG_REQ("initialize request queue [%u]\n", ndesc);
+
 
     struct vblock_req *req = calloc(ndesc, sizeof(struct vblock_req));
     if (req == NULL) {
@@ -60,6 +82,7 @@ errval_t vblock_request_queue_init(struct vblock_device *dev)
     for (uint32_t i = 0; i < ndesc-1; ++i) {
         req->queue = &dev->free_queue;
         req->next = req+1;
+        req++;
     }
 
     dev->requests = req;
@@ -98,7 +121,7 @@ struct vblock_req *vblock_request_dequeue(struct vblock_req_queue *queue)
         return NULL;
     }
 
-    assert(queue->head);
+    //assert(queue->head);
 
     req = queue->head;
 
@@ -153,8 +176,52 @@ void vblock_request_enqueue(struct vblock_req_queue *queue,
 errval_t vblock_request_start(struct vblock_device *dev,
                               struct vblock_req *req)
 {
-    assert(!"NYI: starting of device requests");
-    return SYS_ERR_OK;
+    VBLOCK_DEBUG_REQ("starting request [%016lx]\n", (uintptr_t)req);
+
+    errval_t err;
+    uint16_t num_rd = 0;
+    uint16_t num_wr = 0;
+
+    struct virtqueue *vq = dev->blk.vq;
+
+
+    if (req->writable) {
+        num_wr = req->bl.length;
+    } else {
+        num_rd = req->bl.length;
+    }
+
+
+    struct virtio_buffer *buf = virtio_buffer_alloc(dev->alloc);
+    if (!buf) {
+        return VIRTIO_ERR_NO_BUFFER;
+    }
+
+    buf->data_length = sizeof(struct virtio_block_reqhdr);
+    buf->state = VIRTIO_BUFFER_S_ALLOCED_READABLE;
+    memcpy(buf->buf, &req->header, sizeof(req->header));
+
+    err = virtio_blist_prepend(&req->bl, buf);
+    assert(err_is_ok(err));
+    num_rd++;
+
+
+    buf = virtio_buffer_alloc(dev->alloc);
+    if (!buf) {
+        return VIRTIO_ERR_NO_BUFFER;
+    }
+
+    /* cache the last element of the request */
+    req->last = req->bl.tail;
+
+    buf->data_length = sizeof(uint8_t);
+    buf->state = VIRTIO_BUFFER_S_ALLOCED_WRITABLE;
+    num_wr++;
+    err = virtio_blist_append(&req->bl, buf);
+
+    assert(err_is_ok(err));
+
+    return virtio_virtqueue_desc_enqueue(vq, &req->bl, req, num_rd, num_wr);
 }
 
 /**
@@ -183,16 +250,24 @@ errval_t vblock_request_exec(struct vblock_device *dev,
     /* start the requst */
     err = vblock_request_start(dev, req);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failure while starting request\n");
         return err;
     }
 
     /* notify the host and poll the list */
     virtio_virtqueue_notify_host(vq);
 
-    err = virtio_virtqueue_poll(vq, &req->bl, &req->arg, 1);
+    struct virtio_buffer_list *bl;
+    void *ret_req;
+    err = virtio_virtqueue_poll(vq, &bl, &ret_req, 1);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failure while polling virtqueue\n");
         return err;
     }
+
+    assert(ret_req == req);
+
+    request_finish(req);
 
     return request_status(req);
 }

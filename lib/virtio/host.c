@@ -96,10 +96,17 @@ errval_t virtio_host_init(struct virtio_device **host,
 
 errval_t virtio_host_poll_device(struct virtio_device *host)
 {
+    errval_t err;
     if (host->f->poll) {
-        return host->f->poll(host);
+        err = host->f->poll(host);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        return VIRTIO_ERR_BACKEND;
     }
-    return VIRTIO_ERR_BACKEND;
+    return virtio_vq_host_poll(host->vqh, host->vq_num);
+
 }
 
 errval_t virtio_host_get_device_cap(struct virtio_device *host,

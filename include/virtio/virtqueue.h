@@ -30,6 +30,7 @@ struct virtqueue;
 /// interrupt handler for virtqueue interrupts
 typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
 
+
 /// virtqueue default alignment
 #define VIRTQUEUE_ALIGNMENT 4096
 
@@ -352,5 +353,17 @@ errval_t virtio_virtqueue_poll(struct virtqueue *vq,
                                void **ret_st,
                                uint8_t handle_msg);
 
+/**
+ * \brief returns a buffer allocator based on the buffers with the virtqueue
+ *        (if any)
+ *
+ * \param vq the virtqueue to get the buffer allocator
+ * \param alloc returns the pointer to the allocator
+ *
+ * \returns SYS_ERR_OK on SUCCESS
+ *          VIRTIO_ERR_BUFFER_SIZE if there are no buffers allocated
+ */
+errval_t virtio_virtqueue_get_buf_alloc(struct virtqueue *vq,
+                                        struct virtio_buffer_allocator **alloc);
 
 #endif // VIRTIO_VIRTQUEUE_H

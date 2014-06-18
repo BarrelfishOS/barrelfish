@@ -24,7 +24,7 @@
 #include "request.h"
 #include "service.h"
 
-struct virtio_device_blk blk_dev;
+struct vblock_device blk_dev;
 
 int main(int argc, char *argv[])
 {
@@ -59,6 +59,28 @@ int main(int argc, char *argv[])
     }
 
     vblock_device_init(&blk_dev, dev_regs, dev_size);
+
+    while(1) {
+        struct vblock_req *req = vblock_request_alloc(&blk_dev);
+        if (!req) {
+            continue;
+        }
+
+        struct virtio_buffer *buf = virtio_buffer_alloc(blk_dev.alloc);
+        if (!buf) {
+            vblock_request_free(&blk_dev, req);
+            continue;
+        }
+
+        snprintf(buf->buf, buf->length, "Hello world!!\n");
+
+        virtio_blist_append(&req->bl, buf);
+
+        vblock_request_exec(&blk_dev, req);
+
+        virtio_buffer_free(buf);
+
+    }
 
     debug_printf("VirtIO block device driver terminated.\n");
 }
