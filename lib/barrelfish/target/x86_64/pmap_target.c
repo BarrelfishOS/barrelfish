@@ -84,268 +84,12 @@ static inline genvaddr_t get_addr_prefix(genvaddr_t va, uint8_t size)
 {
     return va >> size;
 }
-// only_pages true ==> return true iff there is an actual mapping here, and
-// not just intermediate page tables
-static bool has_vnode(struct vnode *root, uint32_t entry, size_t len, bool only_pages)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-    struct vnode *n;
-
-    uint32_t end_entry = entry + len;
-
-    // region we check [entry .. end_entry)
-
-    for (n = root->u.vnode.children; n; n = n->next) {
-        // n is page table, we need to check if it's anywhere inside the
-        // region to check [entry .. end_entry)
-        // this amounts to n->entry == entry for len = 1
-        if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
-            if (only_pages) {
-                return has_vnode(n, 0, X86_64_PTABLE_SIZE, true);
-            }
-            return true;
-        }
-        // this remains the same regardless of `only_pages`.
-        // n is frame [n->entry .. end)
-        // 3 cases:
-        // 1) entry < n->entry && end_entry >= end --> n is a strict subset of
-        // our region
-        // 2) entry inside n (entry >= n->entry && entry < end)
-        // 3) end_entry inside n (end_entry >= n->entry && end_entry < end)
-        uint32_t end = n->entry + n->u.frame.pte_count;
-        if (entry < n->entry && end_entry >= end) {
-            return true;
-        }
-        if (entry >= n->entry && entry < end) {
-            return true;
-        }
-        if (end_entry > n->entry && end_entry < end) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 
 /**
- * \brief Starting at a given root, return the vnode with starting entry equal to #entry
+ * \brief Returns the vnode for the pdpt mapping a given vspace address
  */
-static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-    struct vnode *n;
-
-    for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if(n->entry == entry) {
-            return n;
-        }
-    }
-    return NULL;
-}
-
-static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-
-    struct vnode *n;
-
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (!n->is_vnode) {
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry + npages <= end) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static void remove_vnode(struct vnode *root, struct vnode *item)
-{
-    assert(root->is_vnode);
-    struct vnode *walk = root->u.vnode.children;
-    struct vnode *prev = NULL;
-    while (walk) {
-        if (walk == item) {
-            if (prev) {
-                prev->next = walk->next;
-                return;
-            } else {
-                root->u.vnode.children = walk->next;
-                return;
-            }
-        }
-        prev = walk;
-        walk = walk->next;
-    }
-    assert(!"Should not get here");
-}
-
-static void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
-                                uint32_t entry, size_t len)
-{
-    errval_t err;
-    uint32_t end_entry = entry + len;
-    for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
-        if (n->entry >= entry && n->entry < end_entry) {
-            // here we know that all vnodes we're interested in are
-            // page tables
-            assert(n->is_vnode);
-            if (n->u.vnode.children) {
-                remove_empty_vnodes(pmap, n, 0, X86_64_PTABLE_SIZE);
-            }
-
-            // unmap
-            err = vnode_unmap(root->u.vnode.cap, n->u.vnode.cap, n->entry, 1);
-            if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
-                        err_getstring(err));
-            }
-
-            // delete capability
-            err = cap_destroy(n->u.vnode.cap);
-            if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: cap_destroy: %s\n",
-                        err_getstring(err));
-            }
-
-            // remove vnode from list
-            remove_vnode(root, n);
-            slab_free(&pmap->slab, n);
-        }
-    }
-}
-
-/**
- * \brief Allocates a new VNode, adding it to the page table and our metadata
- */
-static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
-                            enum objtype type, uint32_t entry,
-                            struct vnode **retvnode)
-{
-    errval_t err;
-
-    struct vnode *newvnode = slab_alloc(&pmap->slab);
-    if (newvnode == NULL) {
-        return LIB_ERR_SLAB_ALLOC_FAIL;
-    }
-
-    // The VNode capability
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &newvnode->u.vnode.cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    err = vnode_create(newvnode->u.vnode.cap, type);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_CREATE);
-    }
-
-    // Map it
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0, 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_MAP);
-    }
-
-    // The VNode meta data
-    newvnode->is_vnode  = true;
-    newvnode->entry     = entry;
-    newvnode->next      = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
-    newvnode->u.vnode.children = NULL;
-
-    *retvnode = newvnode;
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief Returns the vnode for the pagetable mapping a given vspace address
- */
-static errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
-                            struct vnode **ptable)
-{
-    errval_t err;
-    struct vnode *root = &pmap->root;
-    struct vnode *pdpt, *pdir;
-    assert(root != NULL);
-
-    // PML4 mapping
-    if((pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt,
-                            X86_64_PML4_BASE(base), &pdpt);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
-        }
-    }
-
-    // PDPT mapping
-    if((pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
-                            X86_64_PDPT_BASE(base), &pdir);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
-        }
-    }
-
-    // PDIR mapping
-    if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
-                            X86_64_PDIR_BASE(base), ptable);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
-        }
-    }
-
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief Returns the vnode for the pagedirectory (for large pages) mapping a given vspace address
- *
- */
-static errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
-                            struct vnode **pdir)
-{
-    errval_t err;
-    struct vnode *root = &pmap->root;
-    struct vnode *pdpt;
-    assert(root != NULL);
-
-    // PML4 mapping
-    if((pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt,
-                            X86_64_PML4_BASE(base), &pdpt);
-        if (err_is_fail(err)) {
-            printf("failure mapping pml4\n");
-            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
-        }
-    }
-
-    // PDPT mapping
-    if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
-                            X86_64_PDPT_BASE(base), pdir);
-        if (err_is_fail(err)) {
-            printf("failure mapping pdpt\n");
-            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
-        }
-    }
-
-    return SYS_ERR_OK;
-}
-         
-/**
- * \brief Returns the vnode for the pdpt (for huge pages) mapping a given vspace address
- *
- */
-static errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
-                            struct vnode **pdpt)
+static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdpt)
 {
     errval_t err;
     struct vnode *root = &pmap->root;
@@ -361,55 +105,67 @@ static errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
     }
 
     return SYS_ERR_OK;
-}                   
-                            
+}
 
 /**
- * \brief Returns the vnode for the pagetable mapping a given vspace address,
- *     without performing allocations as get_ptable() does
+ * \brief Returns the vnode for the page directory mapping a given vspace
+ * address
  */
-static struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
+static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdir)
 {
-    struct vnode *root = &pmap->root;
-    struct vnode *pdpt, *pdir;
-    assert(root != NULL);
-
-    // PML4 mapping
-    if((pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        return NULL;
+    errval_t err;
+    struct vnode *pdpt;
+    err = get_pdpt(pmap, base, &pdpt);
+    if (err_is_fail(err)) {
+        return err;
     }
+    assert(pdpt != NULL);
 
     // PDPT mapping
-    if((pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
-        return NULL;
+    if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
+        err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
+                            X86_64_PDPT_BASE(base), pdir);
+        if (err_is_fail(err)) {
+            printf("failure mapping pdpt\n");
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
     }
+
+    return SYS_ERR_OK;
+}
+         
+/**
+ * \brief Returns the vnode for the pagetable mapping a given vspace address
+ */
+static inline errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
+                                  struct vnode **ptable)
+{
+    errval_t err;
+    struct vnode *pdir;
+    err = get_pdir(pmap, base, &pdir);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(pdir != NULL);
 
     // PDIR mapping
-    return find_vnode(pdir, X86_64_PDIR_BASE(base));
-}
-/**
- * \brief Returns the vnode for the page directory mapping a given vspace address,
- *     without performing allocations as get_pdir() does
- */
-static struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
-{
-    struct vnode *root = &pmap->root;
-    struct vnode *pdpt;
-    assert(root != NULL);
-
-    // PML4 mapping
-    if((pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        return NULL;
+    if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
+        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
+                            X86_64_PDIR_BASE(base), ptable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
     }
 
-    // PDPT mapping
-    return find_vnode(pdpt, X86_64_PDPT_BASE(base));
+    return SYS_ERR_OK;
 }
+
 /**
- * \brief Returns the vnode for the page directory pointer table mapping 
- *     for a given vspace address
+ * \brief Returns the vnode for the page directory pointer table mapping for a
+ * given vspace address
  */
-static struct vnode *find_pdpt(struct pmap_x86 *pmap, genvaddr_t base)
+static inline struct vnode *find_pdpt(struct pmap_x86 *pmap, genvaddr_t base)
 {
     struct vnode *root = &pmap->root;
     assert(root != NULL);
@@ -418,6 +174,37 @@ static struct vnode *find_pdpt(struct pmap_x86 *pmap, genvaddr_t base)
     return find_vnode(root, X86_64_PML4_BASE(base));
 }
 
+/**
+ * \brief Returns the vnode for the page directory mapping a given vspace
+ * address, without performing allocations as get_pdir() does
+ */
+static inline struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
+{
+    struct vnode *pdpt = find_pdpt(pmap, base);
+
+    if (pdpt) {
+        // PDPT mapping
+        return find_vnode(pdpt, X86_64_PDPT_BASE(base));
+    } else {
+        return NULL;
+    }
+}
+
+/**
+ * \brief Returns the vnode for the pagetable mapping a given vspace address,
+ * without performing allocations as get_ptable() does
+ */
+static inline struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
+{
+    struct vnode *pdir = find_pdir(pmap, base);
+
+    if (pdir) {
+        // PDIR mapping
+        return find_vnode(pdir, X86_64_PDIR_BASE(base));
+    } else {
+        return NULL;
+    }
+}
 
 static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                               genvaddr_t vend, struct capref frame,
@@ -446,16 +233,16 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         err = get_ptable(pmap, vaddr, &ptable);
         table_base = X86_64_PTABLE_BASE(vaddr);
     }
-    assert(ptable->is_vnode);
-
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
+    assert(ptable->is_vnode);
 
     // check if there is an overlapping mapping
     if (has_vnode(ptable, table_base, pte_count, false)) {
         if (has_vnode(ptable, table_base, pte_count, true)) {
-            printf("page already exists in 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
+            printf("page already exists in 0x%"
+                    PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
             return LIB_ERR_PMAP_EXISTING_MAPPING;
         } else {
             // clean out empty page tables. We do this here because we benefit
@@ -538,8 +325,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     // all mapping on one leaf table?
     // TODO: needs some work for mixed-size mappings
     if (is_same_pdir(vaddr, vend) ||
-            (flags & VREGION_FLAGS_LARGE && is_same_pdpt(vaddr, vend)) ||
-            (flags & VREGION_FLAGS_HUGE && is_same_pml4(vaddr, vend))) {
+        (flags & VREGION_FLAGS_LARGE && is_same_pdpt(vaddr, vend)) ||
+        (flags & VREGION_FLAGS_HUGE && is_same_pml4(vaddr, vend))) {
         // fast path
         if (debug_out) {
             debug_printf("  do_map: fast path: %zd\n", pte_count);
@@ -586,7 +373,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             if (debug_out) {
                 debug_printf("  do_map: slow path: full leaf\n");
             }
-            err = do_single_map(pmap, vaddr, temp_end, frame, offset, X86_64_PTABLE_SIZE, flags);
+            err = do_single_map(pmap, vaddr, temp_end, frame, offset,
+                    X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
@@ -840,7 +628,8 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 }
 
-static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t pte_count, bool delete_cap)
+static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
+                                size_t pte_count, bool delete_cap)
 {
     errval_t err;
     struct vnode *pt = NULL, *page = NULL;
@@ -851,7 +640,8 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr, size_t 
 
     if (pt) {
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry, page->u.frame.pte_count);
+            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry,
+                              page->u.frame.pte_count);
             if (err_is_fail(err)) {
                 printf("vnode_unmap returned error: %s (%d)\n",
                         err_getstring(err), err_no(err));
@@ -915,12 +705,12 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     size_t page_size = X86_64_BASE_PAGE_SIZE;
     size_t table_base = X86_64_PTABLE_BASE(vaddr);
     uint8_t map_bits= X86_64_BASE_PAGE_BITS + 9;
-    if (page->u.frame.flags & VREGION_FLAGS_LARGE) {
+    if (is_large_page(page)) {
         //large 2M page
         page_size = X86_64_LARGE_PAGE_SIZE;
         table_base = X86_64_PDIR_BASE(vaddr);
         map_bits = X86_64_LARGE_PAGE_BITS + 9;
-    } else if (page->u.frame.flags & VREGION_FLAGS_HUGE) {
+    } else if (is_huge_page(page)) {
         //huge 1GB page
         page_size = X86_64_HUGE_PAGE_SIZE;
         table_base = X86_64_PDPT_BASE(vaddr);
