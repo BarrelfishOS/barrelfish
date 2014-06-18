@@ -81,7 +81,8 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (slot + pte_count > X86_32_PTABLE_SIZE) { // disallow more than one page at a time
+    if (slot + pte_count > X86_32_PTABLE_SIZE) {
+        // check that mapping fits page directory
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -92,21 +93,12 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
 #endif
 
     // large page code
-    size_t page_size = X86_32_LARGE_PAGE_SIZE;
-    if(dest->type == ObjType_VNode_x86_32_pdir &&
-       src->type != ObjType_VNode_x86_32_ptable)
+    if(src->type == ObjType_Frame || src->type == ObjType_DevFrame)
     {
         cslot_t last_slot = slot + pte_count;
 
-        if (src->type != ObjType_Frame &&
-            src->type != ObjType_DevFrame) { // Right mapping
-            printf("\tlarge page wrong mapping\n");
-            return SYS_ERR_WRONG_MAPPING;
-        }
-
         // check offset within frame
-        if (offset + pte_count * page_size > get_size(src)) {
-            printf("\tlarge page wrong offset\n");
+        if (offset + pte_count * X86_32_LARGE_PAGE_SIZE > get_size(src)) {
             return SYS_ERR_FRAME_OFFSET_INVALID;
         }
 
@@ -120,7 +112,7 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
         flags_large |= X86_32_PTABLE_FLAGS(flags);
         // Unconditionally mark the page present
         flags_large |= X86_32_PTABLE_PRESENT;
-    
+
         // Convert destination base address
         genpaddr_t dest_gp   = get_address(dest);
         lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
@@ -133,12 +125,11 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
         src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_32_ptable_entry);
         src_cte->mapping_info.pte_count = pte_count;
         src_cte->mapping_info.offset = offset;
-    
 
-        for (; slot < last_slot; slot++, offset += page_size) {
+        for (; slot < last_slot; slot++, offset += X86_32_LARGE_PAGE_SIZE) {
             union x86_32_ptable_entry *entry =
                 (union x86_32_ptable_entry *)dest_lv + slot;
-                
+
             /* FIXME: Flush TLB if the page is already present
              * in the meantime, since we don't do this, we just assert that
              * we never reuse a VA mapping */
@@ -146,7 +137,7 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
                 printf("Trying to map into an already present page NYI.\n");
                 return SYS_ERR_VNODE_SLOT_INUSE;
             }
-            
+
             // Carry out the page mapping
             paging_x86_32_map_large(entry, src_lp + offset, flags_large);
         }
