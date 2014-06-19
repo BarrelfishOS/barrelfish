@@ -64,7 +64,7 @@ errval_t xphi_bench_start_initator_sync(void)
     debug_printf("starting benchmark...\n");
 
     do {
-        uint32_t b_idx = 0;
+        uint64_t b_idx = 0;
 
         tsc_start = rdtsc();
 
@@ -74,7 +74,7 @@ errval_t xphi_bench_start_initator_sync(void)
         xphi_bench_fill_buffer(buf, 1);
 
         // send initiator message
-        XPHI_BENCH_DBG("sending message [%u]\n", b_idx);
+        XPHI_BENCH_DBG("sending message [%lu]\n", b_idx);
         msg->data[0] = b_idx;
         msg->header.control = ctrl;
 
@@ -85,14 +85,14 @@ errval_t xphi_bench_start_initator_sync(void)
             if (err_is_ok(err)) {
                 n_recv++;
                 buf_idx = msg->data[0];
-                XPHI_BENCH_DBG("received message [%u]\n", buf_idx);
+                XPHI_BENCH_DBG("received message [%lu]\n", buf_idx);
                 assert(buf_idx == b_idx);
                 b_idx = (b_idx + 1) & (bufs.num - 1);
 
                 buf = &bufs.buf[b_idx];
                 xphi_bench_fill_buffer(buf, 1);
 
-                XPHI_BENCH_DBG("sending message [%u]\n", b_idx);
+                XPHI_BENCH_DBG("sending message [%lu]\n", b_idx);
                 msg->data[0] = b_idx;
                 msg->header.control = ctrl;
             }
@@ -102,7 +102,7 @@ errval_t xphi_bench_start_initator_sync(void)
             err = ump_chan_recv(&uc, &msg);
             if (err_is_ok(err)) {
                 buf_idx = msg->data[0];
-                XPHI_BENCH_DBG("received message [%u]\n", buf_idx);
+                XPHI_BENCH_DBG("received message [%lu]\n", buf_idx);
                 n_recv++;
             }
         }
@@ -138,7 +138,7 @@ errval_t xphi_bench_start_initator_async(void)
     debug_printf("starting benchmark...\n");
 
     do {
-        uint32_t b_idx = 0;
+        uint64_t b_idx = 0;
         tsc_start = rdtsc();
         struct ump_control ctrl;
         uint32_t irun = 0;
@@ -148,7 +148,7 @@ errval_t xphi_bench_start_initator_async(void)
                 msg = ump_chan_get_next(&uc, &ctrl);
                 struct bench_buf *buf = &bufs.buf[b_idx];
                 xphi_bench_fill_buffer(buf, 1);
-                XPHI_BENCH_DBG("sending message [%u]\n", b_idx);
+                XPHI_BENCH_DBG("sending message [%lu]\n", b_idx);
                 msg->data[0] = b_idx;
                 msg->header.control = ctrl;
                 irun++;
@@ -159,7 +159,7 @@ errval_t xphi_bench_start_initator_async(void)
             err = ump_chan_recv(&uc, &msg);
             if (err_is_ok(err)) {
                 buf_idx = msg->data[0];
-                XPHI_BENCH_DBG("receiving message [%u]\n", buf_idx);
+                XPHI_BENCH_DBG("receiving message [%lu]\n", buf_idx);
                 in_transit--;
                 n_recv++;
             }
