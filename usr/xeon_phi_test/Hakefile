@@ -12,9 +12,10 @@
 
 [ build application { target = "xeon_phi_test",
                         cFiles = [ "main_host.c","service.c", "benchmark.c" ],
+                        flounderDefs = ["xeon_phi_messaging"],
 		    addLibraries = libDeps [ "xeon_phi_messaging", "xeon_phi_messaging_client", "bench" ],
 		    architectures = ["x86_64"]
-		    
+
                     },
   build application { target = "xeon_phi_test",
                         cFiles = [ "main_card.c", "service.c", "benchmark.c" ],
@@ -22,6 +23,6 @@
                         addLibraries = libDeps [ "xeon_phi_messaging", "xeon_phi_messaging_client", "bench" ],
                         architectures = ["k1om"]
                     }
-                    
+
 ]
 

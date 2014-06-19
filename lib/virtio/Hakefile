@@ -8,11 +8,11 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/virtio
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "virtio",
-                      cFiles = [ "virtqueue.c", 
+                      cFiles = [ "virtqueue.c",
                       	   "device.c",
                       	   "vbuffer.c",
                       	   "backends/virtio_device_mmio.c",
@@ -22,14 +22,16 @@
                       	   "guest/channel_flounder.c",
                       	   "guest/channel_xeon_phi.c"
                       	    ],
+
                       mackerelDevices = [ "virtio/virtio_mmio",
-                                          "virtio/virtio_pci" ],
+                                          "virtio/virtio_pci",
+					  "virtio/virtio_blk" ],
                   flounderBindings = [ "virtio" ],
                   flounderExtraBindings = [ ("virtio", ["rpcclient"])]
                 },
   build library { target = "virtio_host",
                   addCFlags = [ "-D__VIRTIO_HOST__" ],
-                      cFiles = [ "virtqueue_host.c", 
+                      cFiles = [ "virtqueue_host.c",
                                  "device.c",
                                  "vbuffer.c",
                                  "backends/virtio_device_mmio.c",
@@ -39,7 +41,8 @@
                       	   	     "host/channel_flounder.c",
                       	   		 "host/channel_xeon_phi.c" ],
                       mackerelDevices = [ "virtio/virtio_mmio",
-                                          "virtio/virtio_pci" ],
+                                          "virtio/virtio_pci",
+					  "virtio/virtio_blk" ],
 	             flounderBindings = [ "virtio" ]
-                }                
+                }
 ]
