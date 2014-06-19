@@ -225,6 +225,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond,
     thread_mutex_unlock(&mutex_mutex);
 
     assert(!"NYI");
+    return -1;
 }
 
 int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)

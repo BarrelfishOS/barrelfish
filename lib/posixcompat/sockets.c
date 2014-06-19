@@ -130,6 +130,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
         assert(!"NYI");
+        return -1;
         break;
 
     case FDTAB_TYPE_LWIP_SOCKET:
@@ -268,6 +269,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
         assert(!"NYI");
+        return -1;
         break;
 
     case FDTAB_TYPE_LWIP_SOCKET:
@@ -293,6 +295,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
         assert(!"NYI");
+        return -1;
         break;
 
     case FDTAB_TYPE_LWIP_SOCKET:
@@ -385,7 +388,7 @@ int socket(int domain, int type, int protocol)
             if(fd == -1) {
                 return fd;
             }
-			
+
             e.type = FDTAB_TYPE_LWIP_SOCKET;
             e.fd = fd;
             e.inherited = false;
@@ -637,7 +640,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
                         return -1;
                     }
                 }
-			
+
                 return newfd;
             }
 
@@ -717,6 +720,8 @@ int setsockopt(int sockfd, int level, int optname, const void *optval,
         assert(!"NYI");
         break;
     }
+
+    return -1;
 }
 
 static void unixsock_bound(void *st, errval_t err, struct unixsock_binding *b)

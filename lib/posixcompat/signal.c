@@ -122,4 +122,5 @@ int sigaction(int signum, const struct sigaction *act,
 int raise(int sig)
 {
     assert(!"NYI");
+    return -1;
 }

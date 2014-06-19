@@ -498,4 +498,5 @@ int epoll_pwait(int epfd, struct epoll_event *events,
                 const sigset_t *sigmask)
 {
     assert(!"NYI");
+    return -1;
 }
