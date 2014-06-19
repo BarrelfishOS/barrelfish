@@ -76,6 +76,7 @@ struct virtqueue
 
     struct virtio_buffer_allocator *buffer_alloc;
     uint8_t buffer_bits;
+    uint8_t header_bits;
 
     struct vring_desc_info vring_di[0];  ///< array of additional desc information
 #if 0
@@ -234,6 +235,10 @@ errval_t virtio_virtqueue_alloc(struct virtqueue_setup *setup,
         size += setup->vring_ndesc * (1UL << setup->buffer_bits);
     }
 
+    if (setup->header_bits) {
+        size += setup->vring_ndesc * (1UL << setup->header_bits);
+    }
+
     struct capref vring_cap;
     size_t framesize;
     err = frame_alloc(&vring_cap, size, &framesize);
@@ -303,6 +308,10 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
         vring_mem_size += setup->vring_ndesc * (1UL << setup->buffer_bits);
     }
 
+    if (setup->header_bits) {
+        vring_mem_size += setup->vring_ndesc * (1UL << setup->header_bits);
+    }
+
     if (vring_mem_size > (1UL << id.bits)) {
         VIRTIO_DEBUG_VQ("ERROR: supplied cap was too small %lx, needed %lx\n",
                         ((1UL << id.bits)),
@@ -365,6 +374,11 @@ errval_t virtio_virtqueue_alloc_with_caps(struct virtqueue_setup *setup,
         }
         assert(vq->buffer_bits);
         assert(vq->buffer_alloc);
+    }
+
+    if (vq->header_bits) {
+        vq->flags |= (1 << VIRTQUEUE_FLAG_HAS_BUFFERS);
+        vq->header_bits = setup->header_bits;
     }
 
     virtqueue_init_vring(vq);
@@ -443,10 +457,10 @@ void virtio_virtqueue_get_vring_cap(struct virtqueue *vq,
  * \returns size of allocated buffers
  *          0 if none
  */
-uint8_t virtio_virtqueue_get_buffer_bits(struct virtqueue *vq)
+uint8_t virtio_virtqueue_has_buffers(struct virtqueue *vq)
 {
     if (vq->flags & (1 << VIRTQUEUE_FLAG_HAS_BUFFERS)) {
-        return vq->buffer_bits;
+        return 1;
     }
     return 0;
 }
@@ -1049,6 +1063,8 @@ errval_t virtio_virtqueue_desc_dequeue(struct virtqueue *vq,
         used_idx = vq->used_tail-- & (vq->desc_num - 1);
         return err;
     }
+
+    bl->state = VIRTIO_BUFFER_LIST_S_FILLED;
 
     if (ret_bl) {
         *ret_bl = bl;

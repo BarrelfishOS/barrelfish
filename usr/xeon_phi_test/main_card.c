@@ -18,15 +18,17 @@
 
 uint32_t send_reply = 0x0;
 
-static void *out_ptr;
-static size_t out_len;
+#include "benchmark.h"
 
-static void *in_ptr;
-static size_t in_len;
+uint8_t connected = 0;
+
+static void *card_buf;
+
+static void *host_buf;
+
+struct bench_bufs bufs;
 
 static struct ump_chan uc;
-
-static uint32_t counter = 0;
 
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
@@ -39,26 +41,63 @@ static errval_t msg_open_cb(struct capref msgframe,
         USER_PANIC_ERR(err, "could not identify the frame");
     }
 
-    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base, 1UL << id.bits);
+    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n",
+                 id.base,
+                 1UL << id.bits);
 
-    void *addr;
-    err = vspace_map_one_frame(&addr, 1UL << id.bits, msgframe, NULL, NULL);
+    err = vspace_map_one_frame(&host_buf, 1UL << id.bits, msgframe, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
 
-    debug_printf("msg_open_cb | msg = [%s]\n", (char *)addr);
 
-    send_reply = 0x1;
 
-    out_ptr = addr;
-    out_len = 1UL << id.bits;
+
 
     debug_printf("initializing ump channel\n");
-    err = ump_chan_init(&uc, in_ptr, in_len, out_ptr, out_len);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "could not initialize the channel");
-    }
+
+    #if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_HOST
+        void *inbuf = host_buf;
+        void *outbuf = host_buf + XPHI_BENCH_MSG_BUF_SIZE;
+    #if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
+        bufs.buf = outbuf + XPHI_BENCH_MSG_BUF_SIZE;
+    #else
+        bufs.buf = card_buf;
+    #endif
+    #else
+    #if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_CARD
+        void *inbuf = card_buf;
+        void *outbuf = card_buf + XPHI_BENCH_MSG_BUF_SIZE;
+    #if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
+        bufs.buf = host_buf;
+    #else
+        bufs.buf = outbuf + XPHI_BENCH_MSG_BUF_SIZE;
+    #endif
+    #else
+        void *inbuf = card_buf;
+        void *outbuf = host_buf;
+    #if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
+        bufs.buf = host_buf + XPHI_BENCH_MSG_BUF_SIZE;
+    #else
+        bufs.buf = card_buf + XPHI_BENCH_MSG_BUF_SIZE;
+    #endif
+    #endif
+    #endif
+
+        bufs.num = XPHI_BENCH_BUF_NUM;
+        bufs.buf_size = XPHI_BENCH_BUF_SIZE;
+
+        debug_printf("[%p, %p, %p]\n", inbuf, outbuf, bufs.buf);
+
+        err = ump_chan_init(&uc, inbuf,
+                            XPHI_BENCH_MSG_BUF_SIZE,
+                            outbuf,
+                            XPHI_BENCH_MSG_BUF_SIZE);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "could not initialize the channel");
+        }
+
+        connected = 0x1;
 
     return SYS_ERR_OK;
 }
@@ -79,55 +118,39 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not init the service\n");
     }
 
-    char *iface = "xeon_phi_test.0";
+    char iface[30];
+    snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_HOST);
 
     struct capref frame;
-    err = frame_alloc(&frame, 0x2000, NULL);
+    size_t alloced_size = 0;
+    err = frame_alloc(&frame, XPHI_BENCH_FRAME_SIZE_CARD, &alloced_size);
     assert(err_is_ok(err));
-    void *buf;
-    err = vspace_map_one_frame(&buf, 0x2000, frame, NULL, NULL);
+    assert(alloced_size >= XPHI_BENCH_FRAME_SIZE_CARD);
+
+    err = vspace_map_one_frame(&card_buf,
+                               XPHI_BENCH_FRAME_SIZE_CARD,
+                               frame,
+                               NULL,
+                               NULL);
     assert(err_is_ok(err));
-
-    in_ptr = buf;
-    in_len = 0x2000;
-
-    snprintf(buf, 0x2000, "hello world! this is client speaking");
-
 
     err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not start the service\n");
     }
 
-    while(1) {
-        if (send_reply) {
-            send_reply = 0;
-            err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
-                if (err_is_fail(err)) {
-                    USER_PANIC_ERR(err, "could not open channel");
-                }
-
-        }
-        volatile struct ump_message *msg;
-        if (out_ptr) {
-        err = ump_chan_recv(&uc, &msg);
-        if (err_is_ok(err)) {
-            debug_printf("received ump message [%016lx]\n", msg->data[0]);
-            if ((counter++)<10) {
-                struct ump_control ctrl;
-                msg = ump_chan_get_next(&uc, &ctrl);
-                msg->data[0] = counter;
-                msg->header.control = ctrl;
-            }
-        }
-        }
-        err = event_dispatch_non_block(get_default_waitset());
-        if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_NO_EVENT) {
-                continue;
-            }
-            USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
-        }
+    while (!connected) {
+        messages_wait_and_handle_next();
     }
+
+    #if XPHI_BENCH_PROCESS == XPHI_BENCH_PROCESS_CARD
+        xphi_bench_start_processor();
+    #else
+    #if XPHI_BENCH_ASYNC
+        xphi_bench_start_initator_async();
+    #else
+        xphi_bench_start_initator_sync();
+    #endif
+#endif
 }
 

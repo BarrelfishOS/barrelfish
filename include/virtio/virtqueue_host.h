@@ -10,30 +10,14 @@
 #ifndef VIRTIO_VIRTQUEUE_HOST_H
 #define VIRTIO_VIRTQUEUE_HOST_H
 
-#include <barrelfish/barrelfish.h>
 
+#include <virtio/virtio_host.h>
 #include <virtio/virtqueue.h>
 
 // forward definition
 struct virtqueue_host;
 
 
-/**
- * stores the information about the buffer received from the guest
- */
-struct virtio_host_buf
-{
-    lvaddr_t vaddr;
-    size_t   size;
-    uint16_t flags;
-    struct virtio_host_buf *next;
-
-};
-
-typedef void (*virtq_work_handler_t)(struct virtqueue_host *,
-                                     void *,
-                                     struct virtio_host_buf *,
-                                     uint16_t idx);
 
 /*
  * Extracted from the Virtio Specification 1.0
@@ -70,7 +54,7 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
  * \param vring_cap capability to be used for the vring
  * \param vq_id     id of the queue to initialize
  * \param ndesc     the number of descriptors in this queue
- * \param buf_bits  size of the buffers (0 for none)
+ * \param has_buf   indicates if there are buffers
  *
  * \returns SYS_ERR_OK on success
  */
@@ -78,7 +62,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
                                    struct capref vring_cap,
                                    uint16_t vq_id,
                                    uint16_t ndesc,
-                                   uint8_t buf_bits);
+                                   uint8_t has_buf);
 
 /**
  * \brief frees the resources of previously allocated virtqueues

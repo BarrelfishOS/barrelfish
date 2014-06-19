@@ -7,6 +7,7 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <string.h>
+#include <stdio.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
@@ -66,6 +67,9 @@ struct virtqueue_host
     uint16_t avail_tail;                ///< last available index
     uint16_t avail_head;                ///< cache of the available head index
     uint16_t used_head;                 ///< index into the used head
+
+    virtq_work_handler_t worker_fn;     ///< callback when new work arrives
+    void *worker_arg;                   ///< argument for the worker function
 
     struct virtio_host_buf *host_buffers;
     struct vring_mem_info *mem;   ///< array of additional desc information
@@ -237,6 +241,8 @@ errval_t virtio_vq_host_alloc(struct virtqueue_host ***vq,
         */
         queue->queue_index = i;
         queue->vring_align = VIRTQUEUE_ALIGNMENT;
+        queue->worker_arg = setup->worker_arg;
+        queue->worker_fn = setup->worker_fn;
         // queue->desc_ind_max = setup->max_indirect;
         qa[i] = queue;
         queue++;
@@ -262,7 +268,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
                                    struct capref vring_cap,
                                    uint16_t vq_id,
                                    uint16_t ndesc,
-                                   uint8_t buf_bits)
+                                   uint8_t has_buffers)
 {
     errval_t err;
 
@@ -273,10 +279,10 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
         return err;
     }
 
-    VIRTIO_DEBUG_VQ("Assigning vring [0x%016lx] to virtq %u containing " "buffers of size %u\n",
+    VIRTIO_DEBUG_VQ("Assigning vring [0x%016lx] to virtq %u %s buffers\n",
                     id.base,
                     vq_id,
-                    buf_bits);
+                    (has_buffers ? "with" : "w/o"));
 
     struct virtqueue_host *vqh = virtio_device_get_host_virtq(vdev, vq_id);
     if (vqh == NULL) {
@@ -311,7 +317,7 @@ errval_t virtio_vq_host_init_vring(struct virtio_device *vdev,
         buf++;
     }
 
-    if (buf_bits) {
+    if (has_buffers) {
         lpaddr_t offset = vring_size(ndesc, vqh->vring_align);
         offset = ROUND_UP(offset, BASE_PAGE_SIZE);
         struct vring_mem_info *mi = calloc(1, sizeof(struct vring_mem_info));
@@ -734,6 +740,8 @@ errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq)
         return VIRTIO_ERR_NO_DESC_AVAIL;
     }
 
+    debug_printf("Avail Tail = %u\n", vq->avail_tail);
+
     avail_idx = vq->avail_tail++ & (vq->desc_num - 1);
 
     uint16_t desc_idx = vq->vring.avail->ring[avail_idx];
@@ -771,7 +779,11 @@ errval_t virtio_vq_host_desc_dequeue(struct virtqueue_host *vq)
      * rmb();
      * */
 
-    virtio_vq_host_desc_enqueue(vq, buf_chain, desc_idx);
+    if (vq->worker_fn) {
+        vq->worker_fn(vq, vq->worker_arg, buf, desc_idx);
+    } else {
+        virtio_vq_host_desc_enqueue(vq, buf_chain, desc_idx);
+    }
 
 
     return SYS_ERR_OK;

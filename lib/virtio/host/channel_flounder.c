@@ -172,7 +172,7 @@ static void virtio_add_response(void *a)
 static  void virtio_add_call__rx(struct virtio_binding *_binding,
                                  uint16_t vq_id,
                                  uint16_t ndesc,
-                                 uint8_t buf_bits,
+                                 uint8_t has_buffers,
                                  struct capref vring)
 {
     VIRTIO_DEBUG_CHAN("Received virtq_add rpc call\n");
@@ -198,14 +198,14 @@ static  void virtio_add_call__rx(struct virtio_binding *_binding,
 
     st->b = _binding;
 
-    st->err = virtio_vq_host_init_vring(vdev, vring, vq_id, ndesc, buf_bits);
+    st->err = virtio_vq_host_init_vring(vdev, vring, vq_id, ndesc, has_buffers);
     if (err_is_fail(st->err)) {
         virtio_add_response(st);
         return;
     }
 
     st->b = _binding;
-    st->err = vdev->cb_h->add(vdev,vring, ndesc, buf_bits, vq_id);
+    st->err = vdev->cb_h->add(vdev,vring, ndesc, has_buffers, vq_id);
 
     virtio_add_response(st);
 }

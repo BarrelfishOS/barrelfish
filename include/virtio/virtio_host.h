@@ -12,18 +12,38 @@
 
 
 struct virtqueue_host;
+struct virtio_device;
+struct virtio_device_setup;
+struct virtqueue_setup;
 
 struct virtio_host_cb
 {
     errval_t (*open)(struct virtio_device *vdev, uint8_t backend, struct capref *ret_frame);
     errval_t (*close)(void);
     errval_t (*add)(struct virtio_device *vdev, struct capref ring,
-                    uint16_t ndesc, uint8_t but_bits, uint16_t vq_id);
+                    uint16_t ndesc, uint8_t has_buffers, uint16_t vq_id);
     errval_t (*ext)(struct virtio_device *vdev);
     errval_t (*req)(struct virtio_device *vdev, struct capref *cap);
     errval_t (*notify)(struct virtio_device *vq, uint16_t index);
 };
 
+/**
+ * stores the information about the buffer received from the guest
+ */
+struct virtio_host_buf
+{
+    lvaddr_t vaddr;
+    size_t   size;
+    uint16_t flags;
+    struct virtio_host_buf *next;
+
+};
+
+/// workhandler for the virtqueue (host side)
+typedef void (*virtq_work_handler_t)(struct virtqueue_host *,
+                                     void *,
+                                     struct virtio_host_buf *,
+                                     uint16_t idx);
 
 
 

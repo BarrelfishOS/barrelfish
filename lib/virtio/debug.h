@@ -28,6 +28,8 @@
 /// Enables the VirtIO management layer debug messages
 #define VIRTIO_DEBUG_CHAN_ENABLED 1
 
+#define VIRTIO_DEBUG_BUF_ENABELD 1
+
 #if VIRTIO_DEBUG_ENABLED
 #define VIRTIO_DEBUG_PRINT(msg...) debug_printf(msg)
 #else
@@ -64,4 +66,9 @@
 #define VIRTIO_DEBUG_CHAN(msg...)
 #endif
 
+#ifdef VIRTIO_DEBUG_BUF_ENABELD
+#define VIRTIO_DEBUG_BUF(msg...) VIRTIO_DEBUG_PRINT("[virtio buf] " msg)
+#else
+#define VIRTIO_DEBUG_BUF(msg...)
+#endif
 #endif /* VIRTIO_DEBUG_H_ */

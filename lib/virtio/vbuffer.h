@@ -15,11 +15,14 @@
  */
 struct virtio_buffer_allocator
 {
-    struct virtio_buffer **buffers;  ///< array of virtio_buffers
-    uint16_t size;                  ///< number of buffers in this allocator
-    uint16_t top;                   ///< pointer to the top slot
-    struct capref cap;              ///< frame capability backing this allocator
-    struct virtio_device *queue;    ///< the VirtIO device this allocator belongs to
+    struct virtio_buffer *buffers;
+    struct virtio_buffer **buf_stack;   ///< array of virtio_buffers
+    uint16_t buf_size;                  ///< size of a buffer
+    uint16_t buf_count;                 ///< the number of buffers
+    uint16_t top;                       ///< pointer to the top slot
+    lpaddr_t offset;                    ///< the offset into the cap
+    struct capref cap;                  ///< frame capability backing this allocator
+    struct virtio_device *queue;        ///< the VirtIO device this allocator belongs to
 };
 
 /**
@@ -32,24 +35,6 @@ struct virtio_buffer_allocator
 errval_t virtio_buffer_alloc_assing(struct virtio_buffer_allocator *bf,
                                     struct virtio_device *vdev);
 
-
-/**
- * \brief allocated and initializes a new buffer allocator based on the
- *        capability with an already existing mapping
- *
- * \param bf        where to store the buffer allocator pointer
- * \param cap       capability of the buffers
- * \param vaddr     virtual address where they are mapped
- * \param offset    offset where the buffers start
- * \param bufsize   size of a single buffer
- * \param bufcount  number of buffers
- */
-errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
-                                     struct capref cap,
-                                     lvaddr_t vaddr,
-                                     lpaddr_t offset,
-                                     size_t bufsize,
-                                     size_t bufcount);
 
 
 #endif // VIRTIO_VIRTIO_BUFFER_H

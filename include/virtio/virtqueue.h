@@ -12,6 +12,10 @@
 
 #include <barrelfish/barrelfish.h>
 
+#ifdef __VIRTIO_HOST__
+#include <virtio/virtio_host.h>
+#endif
+
 /*
  * Extracted from the Virtio Specification 1.0
  * http://docs.oasis-open.org/virtio/virtio/v1.0/virtio-v1.0.pdf
@@ -29,7 +33,6 @@ struct virtqueue;
 
 /// interrupt handler for virtqueue interrupts
 typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
-
 
 /// virtqueue default alignment
 #define VIRTQUEUE_ALIGNMENT 4096
@@ -52,6 +55,9 @@ typedef void (*virtq_intr_hander_t)(struct virtqueue *, void *);
 
 /**
  * this structure holds necessary data to allocate a new virtqueue
+ *
+ * XXX: this may be a bit revised and split into two different structs
+ *      one for the host and one for the guest
  */
 struct virtqueue_setup {
     char name[VIRTQUEUE_NAME_SIZE];     ///< the name of the queue
@@ -59,12 +65,17 @@ struct virtqueue_setup {
     uint16_t queue_id;                  ///< the id of this queue
     uint16_t vring_ndesc;               ///< size of the vring
     lvaddr_t vring_align;               ///< alignment of the vring
-    virtq_intr_hander_t intr_handler;   ///< interrupt handler function
-    void *intr_arg;                     ///< argument for the interrupt handler
     uint16_t max_indirect;              ///< maximum indirect descriptors
+#ifdef __VIRTIO_HOST__
+    virtq_work_handler_t worker_fn;     ///< callback when new work arrives
+    void *worker_arg;                   ///< argument for the worker function
+#else
     uint8_t buffer_bits;                ///< when non zero, will allocate buffer
+    uint8_t header_bits;                ///< allocate additional space for headers
     uint8_t auto_add;                   ///< adds this virtqueue to the device
-
+    void *intr_arg;                     ///< argument for the interrupt handler
+    virtq_intr_hander_t intr_handler;   ///< interrupt handler function
+#endif
 };
 
 /**
@@ -206,7 +217,7 @@ uint16_t virtio_virtqueue_get_num_used(struct virtqueue *vq);
  * \returns size of allocated buffers
  *          0 if none
  */
-uint8_t virtio_virtqueue_get_buffer_bits(struct virtqueue *vq);
+uint8_t virtio_virtqueue_has_buffers(struct virtqueue *vq);
 
 /**
  * \brief returns the virtual base of the previously allocated buffer

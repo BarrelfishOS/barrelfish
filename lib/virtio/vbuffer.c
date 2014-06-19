@@ -14,6 +14,7 @@
 #include <virtio/virtio.h>
 
 #include "vbuffer.h"
+#include "debug.h"
 
 /**
  * \brief   initializes the buffer allocator and allocates memory for the
@@ -79,8 +80,8 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    vbuf_alloc->buffers = calloc(nbufs, sizeof(void *));
-    if (vbuf_alloc->buffers == NULL) {
+    vbuf_alloc->buf_stack = calloc(nbufs, sizeof(void *));
+    if (vbuf_alloc->buf_stack == NULL) {
         vspace_unmap(buf);
         free(vbuf_alloc);
         return LIB_ERR_MALLOC_FAIL;
@@ -89,17 +90,24 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
     void *buffers = malloc(nbufs * sizeof(struct virtio_buffer));
     if (buffers == NULL) {
         vspace_unmap(buf);
-        free(vbuf_alloc->buffers);
+        free(vbuf_alloc->buf_stack);
         free(vbuf_alloc);
         return LIB_ERR_MALLOC_FAIL;
     }
 
+
+    vbuf_alloc->buffers = buffers;
     vbuf_alloc->cap = frame;
-    vbuf_alloc->size = nbufs;
+    vbuf_alloc->buf_count = nbufs;
+    vbuf_alloc->buf_size = size;
     vbuf_alloc-> top = nbufs;
 
     lvaddr_t vaddr = (lvaddr_t)buf;
     lpaddr_t paddr = id.base;
+
+    VIRTIO_DEBUG_BUF("Buffer Allocator initialized: phys [%016lx, %016lx], virt [%016lx, %016lx]",
+                             paddr, paddr + size * nbufs,
+                             vaddr, vaddr + size * nbufs);
 
     struct virtio_buffer *vbuf = buffers;
     for (uint32_t i = 0; i < nbufs; ++i) {
@@ -108,14 +116,12 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
         vbuf->paddr = paddr;
         vbuf->state = VIRTIO_BUFFER_S_FREE;
         vbuf->a = vbuf_alloc;
-        vbuf_alloc->buffers[i] = vbuf;
+        vbuf_alloc->buf_stack[i] = vbuf;
 
         vaddr += size;
         paddr += size;
         vbuf++;
     }
-    vbuf_alloc->size = size;
-    vbuf_alloc->top = size;
 
     *alloc = vbuf_alloc;
 
@@ -165,24 +171,32 @@ errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    vbuf_alloc->buffers = calloc(bufcount, sizeof(void *));
-    if (vbuf_alloc->buffers == NULL) {
+    vbuf_alloc->buf_stack = calloc(bufcount, sizeof(void *));
+    if (vbuf_alloc->buf_stack == NULL) {
         free(vbuf_alloc);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     void *buffers = calloc(bufcount, sizeof(struct virtio_buffer));
     if (buffers == NULL) {
-        free(vbuf_alloc->buffers);
+        free(vbuf_alloc->buf_stack);
         free(vbuf_alloc);
         return LIB_ERR_MALLOC_FAIL;
     }
 
+
+    vbuf_alloc->buffers = buffers;
     vbuf_alloc->cap = cap;
-    vbuf_alloc->size = bufsize;
+    vbuf_alloc->buf_size = bufsize;
+    vbuf_alloc->buf_count = bufcount,
     vbuf_alloc-> top = bufcount;
+    vbuf_alloc->offset = offset;
 
     lpaddr_t paddr = id.base + offset;
+
+    VIRTIO_DEBUG_BUF("Buffer Allocator initialized: \n\tphys [%016lx, %016lx], \n\tvirt [%016lx, %016lx]\n",
+                         paddr, paddr + bufsize * bufcount,
+                         vaddr, vaddr + bufsize * bufcount);
 
     struct virtio_buffer *vbuf = buffers;
     for (uint32_t i = 0; i < bufcount; ++i) {
@@ -191,13 +205,15 @@ errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
         vbuf->paddr = paddr;
         vbuf->state = VIRTIO_BUFFER_S_FREE;
         vbuf->a = vbuf_alloc;
-        vbuf_alloc->buffers[i] = vbuf;
+        vbuf_alloc->buf_stack[i] = vbuf;
         vaddr += bufsize;
         paddr += bufsize;
         vbuf++;
     }
 
     *bf = vbuf_alloc;
+
+
 
     return SYS_ERR_OK;
 }
@@ -221,7 +237,7 @@ struct virtio_buffer *virtio_buffer_alloc(struct virtio_buffer_allocator *alloc)
     if (alloc->top == 0) {
         return NULL;
     }
-    struct virtio_buffer *buf = alloc->buffers[--alloc->top];
+    struct virtio_buffer *buf = alloc->buf_stack[--alloc->top];
 
     assert(buf->state == VIRTIO_BUFFER_S_FREE);
 
@@ -237,7 +253,7 @@ struct virtio_buffer *virtio_buffer_alloc(struct virtio_buffer_allocator *alloc)
 errval_t virtio_buffer_free(struct virtio_buffer *buf)
 {
     struct virtio_buffer_allocator *alloc = buf->a;
-    if (alloc->top >= alloc->size) {
+    if (alloc->top >= alloc->buf_count) {
         /* this should actually not happen */
         return VIRTIO_ERR_ALLOC_FULL;
     }
@@ -247,7 +263,7 @@ errval_t virtio_buffer_free(struct virtio_buffer *buf)
            || buf->state == VIRTIO_BUFFER_S_ALLOCED);
     buf->state = VIRTIO_BUFFER_S_FREE;
 
-    alloc->buffers[alloc->top++] = buf;
+    alloc->buf_stack[alloc->top++] = buf;
 
     return SYS_ERR_OK;
 }
@@ -255,11 +271,29 @@ errval_t virtio_buffer_free(struct virtio_buffer *buf)
 /**
  * \brief   returns the backing frame capability of a buffer allocator
  */
-errval_t virtio_buffer_alloc_get_cap(struct virtio_buffer_allocator *alloc,
-                                     struct capref *ret_cap)
+void virtio_buffer_alloc_get_cap(struct virtio_buffer_allocator *alloc,
+                                     struct capref *ret_cap,
+                                     lpaddr_t *offset)
 {
     *ret_cap = alloc->cap;
-    return SYS_ERR_OK;
+    *offset = alloc->offset;
+}
+
+
+/**
+ * \brief returns the virtual range this buffer allocator spans
+ *
+ * \param alloc the virtio buffer allocator
+ * \param vaddr virtual address the region starts
+ * \param size  the size of the memory region
+ */
+void virtio_buffer_alloc_get_range(struct virtio_buffer_allocator *alloc,
+                                   lvaddr_t *vaddr,
+                                   size_t *size)
+{
+    lvaddr_t start = (lvaddr_t)alloc->buffers[0].buf;
+    *vaddr = start;
+    *size = (alloc->buf_count * alloc->buf_size);
 }
 
 /**
@@ -309,9 +343,11 @@ errval_t virtio_blist_append(struct virtio_buffer_list *bl,
     if (bl->length == 0) {
         bl->head = buf;
         bl->tail = buf;
+        buf->prev = NULL;
         bl->state = VIRTIO_BUFFER_LIST_S_FILLED;
     } else {
         bl->tail->next = buf;
+        buf->prev = bl->tail;
         bl->tail = buf;
     }
     buf->lhead = bl;
@@ -340,6 +376,7 @@ errval_t virtio_blist_prepend(struct virtio_buffer_list *bl,
         bl->state = VIRTIO_BUFFER_LIST_S_FILLED;
     } else {
         buf->next = bl->head;
+        bl->head->prev = buf;
         bl->head = buf;
     }
     buf->lhead = bl;
@@ -369,12 +406,14 @@ struct virtio_buffer *virtio_blist_head(struct virtio_buffer_list *bl)
         bl->state = VIRTIO_BUFFER_LIST_S_EMTPY;
     } else {
         bl->head = buf->next;
+        bl->head->prev = NULL;
     }
 
     bl->length--;
 
     buf->next = NULL;
     buf->lhead = NULL;
+    buf->prev = NULL;
 
     return buf;
 }
@@ -400,17 +439,16 @@ struct virtio_buffer *virtio_blist_tail(struct virtio_buffer_list *bl)
         bl->tail = NULL;
         bl->state = VIRTIO_BUFFER_LIST_S_EMTPY;
     } else {
-        while(buf->next != bl->tail) {
-            buf = buf->next;
-        }
-        bl->tail = buf;
-        buf = buf->next;
+        buf = bl->tail;
+        bl->tail = buf->prev;
+        bl->tail->next = NULL;
     }
 
     bl->length--;
 
     buf->next = NULL;
     buf->lhead = NULL;
+    buf->prev = NULL;
 
     return buf;
 }

@@ -77,6 +77,7 @@ struct virtio_buffer
     size_t   data_length;
     struct virtio_buffer_list *lhead;   ///< pointer to the buffer list head
     struct virtio_buffer *next;         ///< pointer to the next buffer in the list
+    struct virtio_buffer *prev;   ///< pointer to the previous next field
 };
 
 /**
@@ -106,6 +107,24 @@ errval_t virtio_buffer_alloc_init(struct virtio_buffer_allocator **alloc,
                                   size_t bufsz);
 
 /**
+ * \brief allocated and initializes a new buffer allocator based on the
+ *        capability with an already existing mapping
+ *
+ * \param bf        where to store the buffer allocator pointer
+ * \param cap       capability of the buffers
+ * \param vaddr     virtual address where they are mapped
+ * \param offset    offset where the buffers start
+ * \param bufsize   size of a single buffer
+ * \param bufcount  number of buffers
+ */
+errval_t virtio_buffer_alloc_init_vq(struct virtio_buffer_allocator **bf,
+                                     struct capref cap,
+                                     lvaddr_t vaddr,
+                                     lpaddr_t offset,
+                                     size_t bufsize,
+                                     size_t bufcount);
+
+/**
  * \brief   destroys a buffer allocator by freeing up all the resources used
  *          by the buffers
  *
@@ -130,8 +149,20 @@ errval_t virtio_buffer_free(struct virtio_buffer *buf);
 /**
  * \brief   returns the backing frame capability of a buffer allocator
  */
-errval_t virtio_buffer_alloc_get_cap(struct virtio_buffer_allocator *alloc,
-                                     struct capref *ret_cap);
+void virtio_buffer_alloc_get_cap(struct virtio_buffer_allocator *alloc,
+                                     struct capref *ret_cap,
+                                     lpaddr_t *offset);
+
+/**
+ * \brief returns the virtual range this buffer allocator spans
+ *
+ * \param alloc the virtio buffer allocator
+ * \param vaddr virtual address the region starts
+ * \param size  the size of the memory region
+ */
+void virtio_buffer_alloc_get_range(struct virtio_buffer_allocator *alloc,
+                                   lvaddr_t *vaddr,
+                                   size_t *size);
 
 /**
  * \brief initializes a new VirtIO buffer list to be used for chaining buffers

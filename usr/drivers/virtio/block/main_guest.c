@@ -60,26 +60,45 @@ int main(int argc, char *argv[])
 
     vblock_device_init(&blk_dev, dev_regs, dev_size);
 
-    while(1) {
+    uint32_t count = 0;
+    while(count < 32) {
+        debug_printf("\n\n------------------------------------Round: %u\n", count++);
         struct vblock_req *req = vblock_request_alloc(&blk_dev);
         if (!req) {
-            continue;
+            USER_PANIC("no request available\n");
+            break;
         }
 
         struct virtio_buffer *buf = virtio_buffer_alloc(blk_dev.alloc);
         if (!buf) {
             vblock_request_free(&blk_dev, req);
-            continue;
+            USER_PANIC("no buffer available\n");
+            break;
         }
 
         snprintf(buf->buf, buf->length, "Hello world!!\n");
 
-        virtio_blist_append(&req->bl, buf);
+        err = virtio_blist_append(&req->bl, buf);
+        assert(err_is_ok(err));
 
-        vblock_request_exec(&blk_dev, req);
+        assert(req->bl.length == 1);
+
+        err = vblock_request_exec(&blk_dev, req);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "execute the request");
+        }
+
+        struct virtio_buffer *ret_buf = virtio_blist_head(&req->bl);
+        assert(req->bl.length == 0);
+
+        assert(ret_buf == buf);
+
+        debug_printf("data=[%s]", (char*)ret_buf->buf);
+
 
         virtio_buffer_free(buf);
 
+        vblock_request_free(&blk_dev, req);
     }
 
     debug_printf("VirtIO block device driver terminated.\n");

@@ -121,7 +121,7 @@ struct vblock_req *vblock_request_dequeue(struct vblock_req_queue *queue)
         return NULL;
     }
 
-    //assert(queue->head);
+    assert(queue->head);
 
     req = queue->head;
 
@@ -192,10 +192,12 @@ errval_t vblock_request_start(struct vblock_device *dev,
     }
 
 
-    struct virtio_buffer *buf = virtio_buffer_alloc(dev->alloc);
+    struct virtio_buffer *buf = virtio_buffer_alloc(dev->bf_header);
     if (!buf) {
         return VIRTIO_ERR_NO_BUFFER;
     }
+
+    assert(buf->length == sizeof(struct virtio_block_reqhdr));
 
     buf->data_length = sizeof(struct virtio_block_reqhdr);
     buf->state = VIRTIO_BUFFER_S_ALLOCED_READABLE;
@@ -206,19 +208,17 @@ errval_t vblock_request_start(struct vblock_device *dev,
     num_rd++;
 
 
-    buf = virtio_buffer_alloc(dev->alloc);
+    buf = virtio_buffer_alloc(dev->bf_status);
     if (!buf) {
         return VIRTIO_ERR_NO_BUFFER;
     }
 
-    /* cache the last element of the request */
-    req->last = req->bl.tail;
+    assert(buf->length == sizeof(uint8_t));
 
     buf->data_length = sizeof(uint8_t);
     buf->state = VIRTIO_BUFFER_S_ALLOCED_WRITABLE;
     num_wr++;
     err = virtio_blist_append(&req->bl, buf);
-
     assert(err_is_ok(err));
 
     return virtio_virtqueue_desc_enqueue(vq, &req->bl, req, num_rd, num_wr);

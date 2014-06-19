@@ -21,7 +21,6 @@
 #include "request.h"
 #include "debug.h"
 
-
 /**
  * \brief handles the VirtIO config change interrupt
  *
@@ -55,7 +54,7 @@ void vblock_device_virtqueue_intr(void *arg)
 
     bool again = true;
 
-    while(again) {
+    while (again) {
         err = vblock_request_finish_completed(dev);
         if (err_is_fail(err)) {
             /*todo error recovery */
@@ -68,8 +67,6 @@ void vblock_device_virtqueue_intr(void *arg)
     }
 }
 
-
-
 errval_t vblock_device_init(struct vblock_device *blk,
                             void *dev_regs,
                             size_t reg_size)
@@ -77,17 +74,19 @@ errval_t vblock_device_init(struct vblock_device *blk,
     errval_t err;
 
     VBLOCK_DEBUG_DEV("Initializing vblock device [%016lx, %lx]\n",
-                     (uintptr_t)dev_regs, (uint64_t)reg_size);
+                     (uintptr_t )dev_regs,
+                     (uint64_t )reg_size);
 
-    struct virtqueue_setup vq_setup =  {
+    struct virtqueue_setup vq_setup = {
         .name = "Request Virtqueue",
         .vring_ndesc = 16,
         .vring_align = 4096,
         .intr_handler = 0,
         .intr_arg = 0,
-        .max_indirect =0,
+        .max_indirect = 0,
         .auto_add = 1,
-        .buffer_bits = 10
+        .buffer_bits = 10,
+        .header_bits = log2ceil(sizeof(uint8_t) + sizeof(struct virtio_block_reqhdr))
     };
 
     struct virtio_device_setup setup = {
@@ -105,7 +104,6 @@ errval_t vblock_device_init(struct vblock_device *blk,
         .vq_num = 1
     };
 
-
     err = virtio_block_init_device(&blk->blk, &setup);
     if (err_is_fail(err)) {
         return err;
@@ -114,8 +112,44 @@ errval_t vblock_device_init(struct vblock_device *blk,
     err = virtio_virtqueue_get_buf_alloc(blk->blk.vq, &blk->alloc);
     assert(err_is_ok(err));
 
+    struct capref vring_cap;
+    lpaddr_t offset;
+    virtio_buffer_alloc_get_cap(blk->alloc, &vring_cap, &offset);
+
+
+    lvaddr_t buf_start;
+    size_t size;
+    virtio_buffer_alloc_get_range(blk->alloc, &buf_start, &size);
+
+    buf_start += size;
+    offset += size;
+
+    err = virtio_buffer_alloc_init_vq(&blk->bf_header,
+                                      vring_cap,
+                                      buf_start,
+                                      offset,
+                                      sizeof(struct virtio_block_reqhdr),
+                                      vq_setup.vring_ndesc);
+
+    buf_start += (sizeof(struct virtio_block_reqhdr) * vq_setup.vring_ndesc);
+    offset += (sizeof(struct virtio_block_reqhdr) * vq_setup.vring_ndesc);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initiate the vbuf allocator");
+    }
+
+    err = virtio_buffer_alloc_init_vq(&blk->bf_status,
+                                      vring_cap,
+                                      buf_start,
+                                      offset,
+                                      sizeof(uint8_t),
+                                      vq_setup.vring_ndesc);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to initiate the vbuf allocator");
+    }
+
     err = vblock_request_queue_init(blk);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         return err;
     }
 

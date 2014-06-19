@@ -17,6 +17,7 @@
 
 #include <virtio/virtio.h>
 #include <virtio/virtqueue.h>
+#include <virtio/virtqueue_host.h>
 #include <virtio/virtio_device.h>
 #include <virtio/virtio_host.h>
 #include <virtio/devices/virtio_block.h>
@@ -52,6 +53,18 @@ static struct virtio_host_cb host_cb = {
   .add = handle_add
 };
 
+static void virtq_do_work(struct virtqueue_host *vqh,
+                   void *arg,
+                   struct virtio_host_buf *buf,
+                   uint16_t idx)
+{
+    debug_printf("virtq_do_work");
+
+
+
+    virtio_vq_host_desc_enqueue(vqh, buf, idx);
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -61,11 +74,9 @@ int main(int argc, char *argv[])
     struct virtqueue_setup vq_setup =  {
             .name = "Request Virtqueue",
             .vring_ndesc = 16,
-            .vring_align = 4096,
-            .intr_handler = 0,
-            .intr_arg = 0,
             .max_indirect =0,
-            .auto_add = 1
+            .worker_arg = NULL,
+            .worker_fn = virtq_do_work
         };
 
     struct virtio_device_setup setup = {

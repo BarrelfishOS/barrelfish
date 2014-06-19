@@ -38,7 +38,6 @@ typedef void(*req_callback_t)(struct vblock_req *);
      uint8_t ack;
      uint8_t writable;
      /* TODO: flounder binding */
-     struct virtio_buffer *last;
      struct vblock_req *next;
      struct vblock_req_queue *queue;
  };
@@ -66,6 +65,9 @@ struct vblock_device
 
     struct vblock_req *requests;
     struct virtio_buffer_allocator *alloc;
+
+    struct virtio_buffer_allocator *bf_status;
+    struct virtio_buffer_allocator *bf_header;
 
     /* TODO; pointers to flounder states*/
     iref_t svc_iref;
