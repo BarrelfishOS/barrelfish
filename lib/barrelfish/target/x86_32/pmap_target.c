@@ -144,7 +144,7 @@ static struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
 
 #ifdef CONFIG_PAE
     // PDPT mapping
-    return find_vnode(root, X86_32_PDPT_BASE(base));
+    return find_vnode(root, X86_32_PDPTE_BASE(base));
 #else
     return root;
 #endif

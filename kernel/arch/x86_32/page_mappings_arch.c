@@ -469,9 +469,9 @@ void paging_dump_tables(struct dcb *dispatcher)
 
 #ifdef CONFIG_PAE
     // loop over pdpt entries
-    for (int pdir_index = 0; pdir_index < X86_64_PDPTE_SIZE; pdir_index++) {
+    for (int pdir_index = 0; pdir_index < X86_32_PDPTE_SIZE; pdir_index++) {
         // get pdir
-        union x86_32_pdpte_entry *pdir = (union x86_64_pdir_entry *)root_pt + pdir_index;
+        union x86_32_pdpte_entry *pdir = (union x86_32_pdpte_entry *)root_pt + pdir_index;
         if (!pdir->raw) { continue; }
         genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
         lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
