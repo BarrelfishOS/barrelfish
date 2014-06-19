@@ -160,7 +160,7 @@ static errval_t unpin(struct memobj *memobj,
 static errval_t fill(struct memobj *memobj,
                      genvaddr_t offset,
                      struct capref frame,
-                     lpaddr_t frame_offset)
+                     size_t frame_offset)
 {
     struct memobj_fixed *fixed = (struct memobj_fixed*) memobj;
 

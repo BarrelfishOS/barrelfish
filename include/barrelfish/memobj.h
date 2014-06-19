@@ -119,7 +119,7 @@ struct memobj_fixed {
     size_t           chunk_size; ///< the size of the frames
     struct vregion  *vregion;    ///< the associated vregion
     struct capref   *frames;     ///< the tracked frames
-    lpaddr_t        *offsets;    ///< the offset into the tracked frames
+    size_t        *offsets;    ///< the offset into the tracked frames
 };
 
 errval_t memobj_create_pinned(struct memobj_pinned *memobj, size_t size,
