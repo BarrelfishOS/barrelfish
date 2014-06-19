@@ -38,6 +38,7 @@ enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
  * --------------------------------------------------------------------------
  * Handling of OPEN commands
  */
+
 struct xpm_msg_param_open
 {
     struct capref frame;

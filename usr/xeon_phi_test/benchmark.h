@@ -10,22 +10,26 @@
 #ifndef XEON_PHI_MSG_BENCHMARK
 #define XEON_PHI_MSG_BENCHMARK
 
-#define XPHI_BENCH_MSG_NUM 1024
-#define XPHI_BENCH_MSG_SIZE 64
+#define XPHI_BENCH_NUM_REPS 10 // how many repetitions
+#define XPHI_BENCH_NUM_RUNS 100 // how many runs per repetition
+
+
+
+#define XPHI_BENCH_MSG_NUM 1024UL
+#define XPHI_BENCH_MSG_SIZE 64UL
 #define XPHI_BENCH_MSG_BUF_SIZE  (XPHI_BENCH_MSG_NUM*XPHI_BENCH_MSG_SIZE)
 
 #define XPHI_BENCH_BUF_NUM  XPHI_BENCH_MSG_NUM
-#define XPHI_BENCH_BUF_SIZE 4096
+#define XPHI_BENCH_BUF_SIZE 4096UL
 #define XPHI_BENCH_BUF_FRAME_SIZE (XPHI_BENCH_BUF_NUM * XPHI_BENCH_BUF_SIZE)
 
 #define XPHI_BENCH_ASYNC 1
 #define XPHI_BENCH_PROCESS_HOST 1
 #define XPHI_BENCH_PROCESS_CARD 2
 #define XPHI_BENCH_PROCESS XPHI_BENCH_PROCESS_HOST
-#define XPHI_BENCH_PROCESS_RUNS 10
+#define XPHI_BENCH_PROCESS_RUNS 20
 
-#define XPHI_BENCH_NUM_REPS 1 // how many repetitions
-#define XPHI_BENCH_NUM_RUNS 1 // how many runs per repetition
+
 
 #define XPHI_BENCH_BUF_LOC_HOST 1
 #define XPHI_BENCH_BUF_LOC_CARD 2
@@ -84,14 +88,18 @@ struct bench_bufs {
 
 errval_t xphi_bench_init(void);
 
-void xphi_bench_start_processor(void);
+void xphi_bench_start_processor(struct bench_bufs *bufs,
+                                struct ump_chan *uc);
 
-errval_t xphi_bench_start_initator_sync(void);
+errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
+                                        struct ump_chan *uc);
 
-errval_t xphi_bench_start_initator_async(void);
+errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
+                                         struct ump_chan *uc);
 
 static inline void xphi_bench_fill_buffer(struct bench_buf *buf, uint32_t runs)
 {
+    XPHI_BENCH_DBG("reading/writing %u x %lu bytes\n", runs, sizeof(buf->data));
     for (uint32_t j=0; j<runs; ++j) {
         for (uint32_t i = 0; i < sizeof(buf->data); ++i) {
             buf->data[i]=(uint8_t)(i+j);
@@ -101,12 +109,27 @@ static inline void xphi_bench_fill_buffer(struct bench_buf *buf, uint32_t runs)
 
 static inline void xphi_bench_fill_buffer_random(struct bench_buf *buf, uint32_t runs)
 {
+    XPHI_BENCH_DBG("reading/writing %u x %lu bytes\n", runs, sizeof(buf->data));
     for (uint32_t j=0; j<runs; ++j) {
         for (uint32_t i = 0; i < sizeof(buf->data); ++i) {
             uint32_t idx = rand() * sizeof(buf->data);
-            buf->data[idx]=(uint8_t)(i+j);
+            buf->data[idx]=(uint8_t)(buf->data[idx]+i+j);
         }
     }
+}
+
+static inline void xphi_bench_read_buffer(struct bench_buf *buf,
+                                          uint32_t runs,
+                                          uint32_t *count)
+{
+    XPHI_BENCH_DBG("reading %u x %lu bytes\n", runs, sizeof(buf->data));
+    volatile uint32_t counter = 0;
+    for (uint32_t j=0; j<runs; ++j) {
+        for (uint32_t i = 0; i < sizeof(buf->data); ++i) {
+            counter += buf->data[i];
+        }
+    }
+    *count = counter;
 }
 
 #endif /* SERVICE_H_ */

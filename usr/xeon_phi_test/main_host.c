@@ -129,14 +129,20 @@ int main(int argc,
     char iface[30];
     snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_CARD);
 
+    size_t frame_size = XPHI_BENCH_FRAME_SIZE_HOST;
+    if (!frame_size) {
+        frame_size = 4096;
+    }
+
+
     struct capref frame;
     size_t alloced_size = 0;
-    err = frame_alloc(&frame, XPHI_BENCH_FRAME_SIZE_HOST, &alloced_size);
+    err = frame_alloc(&frame, frame_size, &alloced_size);
     assert(err_is_ok(err));
-    assert(alloced_size >= XPHI_BENCH_FRAME_SIZE_HOST);
+    assert(alloced_size >= frame_size);
 
     err = vspace_map_one_frame(&host_buf,
-    XPHI_BENCH_FRAME_SIZE_HOST,
+                               frame_size,
                                frame,
                                NULL,
                                NULL);
@@ -157,12 +163,12 @@ int main(int argc,
     }
 
 #if XPHI_BENCH_PROCESS == XPHI_BENCH_PROCESS_HOST
-    xphi_bench_start_processor();
+    xphi_bench_start_processor(&bufs, &uc);
 #else
 #if XPHI_BENCH_ASYNC
-    xphi_bench_start_initator_async();
+    xphi_bench_start_initator_async(&bufs, &uc);
 #else
-    xphi_bench_start_initator_sync();
+    xphi_bench_start_initator_sync(&bufs, &uc);
 #endif
 #endif
 

@@ -650,12 +650,6 @@ arch_init(uint64_t magic,
         struct xeon_phi_boot_params *bp = (struct xeon_phi_boot_params *)(uintptr_t)mb->config_table;
         printf("cmdline = %x, %lx, %x, %s\n", mb->cmdline, bp->msg_base, bp->cmdline_ptr, (char *)(uintptr_t)bp->cmdline_ptr);
 
-        uint32_t *buf = (uint32_t*)(uintptr_t)mb->config_table;
-        for (uint32_t i = 0; i < 128; i += 8) {
-            printf("%04x: %08x %08x %08x %08x %08x %08x %08x %08x\n",
-                   i*4,buf[i+0],buf[i+1],buf[i+2],buf[i+3],buf[i+4],buf[i+5],buf[i+6],buf[i+7] );
-        }
-
         /*
          * XXX: The multiboot structure when invoked from the xloader will
          *      contain additional information.

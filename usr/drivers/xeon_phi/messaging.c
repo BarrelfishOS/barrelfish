@@ -86,7 +86,7 @@ errval_t messaging_init(struct xeon_phi *phi,
         return err;
     }
 
-    XMESSAGING_DEBUG("Messaginf frame mapped: [%016lx -> %016lx, size = %lx ]\n",
+    XMESSAGING_DEBUG("Messaging frame mapped: [%016lx -> %016lx, size = %lx ]\n",
                      mi->base,
                      (uintptr_t )addr,
                      mi->size);
