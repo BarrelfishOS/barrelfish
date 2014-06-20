@@ -55,33 +55,46 @@ static errval_t msg_open_cb(struct capref msgframe,
 
     debug_printf("initializing ump channel\n");
 
-#if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_HOST
+#ifdef XPHI_BENCH_CHAN_HOST
     void *inbuf = host_buf;
-    void *outbuf = host_buf + XPHI_BENCH_MSG_BUF_SIZE;
-#if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
-    bufs.buf = outbuf + XPHI_BENCH_MSG_BUF_SIZE;
-#else
+    void *outbuf = host_buf + XPHI_BENCH_MSG_FRAME_SIZE;
+#ifdef XPHI_BENCH_BUFFER_CARD
     bufs.buf = card_buf;
-#endif
 #else
-#if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_CARD
+    bufs.buf = outbuf + XPHI_BENCH_MSG_FRAME_SIZE;
+#endif
+#endif
+
+#ifdef XPHI_BENCH_CHAN_CARD
     void *inbuf = card_buf;
-    void *outbuf = card_buf + XPHI_BENCH_MSG_BUF_SIZE;
-#if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
+    void *outbuf = card_buf + XPHI_BENCH_MSG_FRAME_SIZE;
+#ifdef XPHI_BENCH_BUFFER_CARD
+    bufs.buf = outbuf + XPHI_BENCH_MSG_FRAME_SIZE;
+#else
     bufs.buf = host_buf;
-#else
-    bufs.buf = outbuf + XPHI_BENCH_MSG_BUF_SIZE;
 #endif
-#else
+#endif
+
+#ifdef XPHI_BENCH_CHAN_DEFAULT
     void *inbuf = host_buf;
     void *outbuf = card_buf;
-#if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
-    bufs.buf = host_buf + XPHI_BENCH_MSG_BUF_SIZE;
+#ifdef XPHI_BENCH_BUFFER_CARD
+    bufs.buf = card_buf + XPHI_BENCH_MSG_FRAME_SIZE;
 #else
-    bufs.buf = card_buf + XPHI_BENCH_MSG_BUF_SIZE;
+    bufs.buf = host_buf + XPHI_BENCH_MSG_FRAME_SIZE;
+#endif
+#ifdef XPHI_BENCH_CHAN_REVERSED
+    inbuf = card_buf;
+    outbuf = host_buf;
 #endif
 #endif
+
+#ifdef XPHI_BENCH_BUFFER_CARD
+    printf("Testing with buffer card GDDR memory\n");
+#else
+    printf("Testing with buffer own RAM\n");
 #endif
+    xphi_bench_memwrite(bufs.buf);
 
     bufs.num = XPHI_BENCH_BUF_NUM;
     bufs.buf_size = XPHI_BENCH_BUF_SIZE;
@@ -89,9 +102,9 @@ static errval_t msg_open_cb(struct capref msgframe,
     debug_printf("[%p, %p, %p]\n", inbuf, outbuf, bufs.buf);
 
     err = ump_chan_init(&uc, inbuf,
-                        XPHI_BENCH_MSG_BUF_SIZE,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
-                        XPHI_BENCH_MSG_BUF_SIZE);
+                        XPHI_BENCH_MSG_FRAME_SIZE);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not initialize the channel");
     }
@@ -116,7 +129,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not init the service\n");
     }
-    debug_printf("Xeon Phi messaging service initialized");
 
     coreid_t core = XPHI_BENCH_CORE_CARD;
     char *name = "k1om/sbin/xeon_phi_test";
@@ -134,6 +146,7 @@ int main(int argc,
         frame_size = 4096;
     }
 
+    debug_printf("Allocating a frame of size: 0x%lx\n", frame_size);
 
     struct capref frame;
     size_t alloced_size = 0;
@@ -161,15 +174,22 @@ int main(int argc,
     while (!connected) {
         messages_wait_and_handle_next();
     }
-
-#if XPHI_BENCH_PROCESS == XPHI_BENCH_PROCESS_HOST
-    xphi_bench_start_processor(&bufs, &uc);
-#else
-#if XPHI_BENCH_ASYNC
-    xphi_bench_start_initator_async(&bufs, &uc);
-#else
-    xphi_bench_start_initator_sync(&bufs, &uc);
+#ifdef XPHI_BENCH_PROCESS_CARD
+#ifndef XPHI_BENCH_THROUGHPUT
+    xphi_bench_start_initator_rtt(&bufs, &uc);
+    return 0;
 #endif
+#ifdef XPHI_BENCH_SEND_SYNC
+    xphi_bench_start_initator_sync(&bufs, &uc);
+#else
+    xphi_bench_start_initator_async(&bufs, &uc);
+#endif
+#else
+#ifndef XPHI_BENCH_THROUGHPUT
+    xphi_bench_start_echo(&bufs, &uc);
+    return 0;
+#endif
+    xphi_bench_start_processor(&bufs, &uc);
 #endif
 
 }

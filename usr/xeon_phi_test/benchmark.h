@@ -10,68 +10,115 @@
 #ifndef XEON_PHI_MSG_BENCHMARK
 #define XEON_PHI_MSG_BENCHMARK
 
-#define XPHI_BENCH_NUM_REPS 10 // how many repetitions
-#define XPHI_BENCH_NUM_RUNS 100 // how many runs per repetition
+/*
+ * Benchmark settings runs / repetitions
+ */
+#define XPHI_BENCH_NUM_REPS       20  // how many repetitions
+#define XPHI_BENCH_NUM_RUNS       100 // how many runs per repetition
+#define XPHI_BENCH_PROCESS_RUNS   20  // how many times the buffer is read/written
+
+/*
+ * Benchmark flags
+ */
+/// enables the throughput benchmark instead of RTT
+//#define XPHI_BENCH_THROUGHPUT     1
+
+/// enables the processing on the card instead of the host
+#define XPHI_BENCH_PROCESS_CARD 1
+
+/// enables the waiting for a reply instead of keeping sending
+//#define XPHI_BENCH_SEND_SYNC    1
+
+/// sets the buffer location to the card side
+#define XPHI_BENCH_BUFFER_CARD 1
+
+/// sets the messaging channel buffers to card side only
+//#define XPHI_BENCH_CHAN_CARD        1
+
+/// sets the messaging channel buffers to host side only
+//#define XPHI_BENCH_CHAN_HOST        1
+
+/// reverses the in/out buffers if they are located on card and host
+//#define XPHI_BENCH_CHAN_REVERSED    1
 
 
-
+/*
+ * channel size and buffer sizes
+ */
+/// number of messages in the UMP channel
 #define XPHI_BENCH_MSG_NUM 1024UL
+/// size of a message has to be cacheline size
 #define XPHI_BENCH_MSG_SIZE 64UL
-#define XPHI_BENCH_MSG_BUF_SIZE  (XPHI_BENCH_MSG_NUM*XPHI_BENCH_MSG_SIZE)
+/// the resulting size of our message buffer of the UMP channel (per direction)
+#define XPHI_BENCH_MSG_FRAME_SIZE  (XPHI_BENCH_MSG_NUM * XPHI_BENCH_MSG_SIZE)
 
+/// how many buffers we have (we keep it consistent with the number of messages
 #define XPHI_BENCH_BUF_NUM  XPHI_BENCH_MSG_NUM
-#define XPHI_BENCH_BUF_SIZE 4096UL
+/// the size of a single buffer
+#define XPHI_BENCH_BUF_SIZE (1UL<<14)
+/// the resulting size of the buffer frame we have to allocate
 #define XPHI_BENCH_BUF_FRAME_SIZE (XPHI_BENCH_BUF_NUM * XPHI_BENCH_BUF_SIZE)
 
-#define XPHI_BENCH_ASYNC 1
-#define XPHI_BENCH_PROCESS_HOST 1
-#define XPHI_BENCH_PROCESS_CARD 2
-#define XPHI_BENCH_PROCESS XPHI_BENCH_PROCESS_HOST
-#define XPHI_BENCH_PROCESS_RUNS 20
-
-
-
-#define XPHI_BENCH_BUF_LOC_HOST 1
-#define XPHI_BENCH_BUF_LOC_CARD 2
-#define XPHI_BENCH_BUF_LOCATION XPHI_BENCH_BUF_LOC_HOST
-
-
-#define XPHI_BENCH_CHAN_MIX_RECV_SIDE 1
-#define XPHI_BENCH_CHAN_MIX_SEND_SIDE 2
-#define XPHI_BENCH_CHAN_HOST 3
-#define XPHI_BENCH_CHAN_CARD 4
-#define XPHI_BENCH_CHAN_LOCATION XPHI_BENCH_CHAN_HOST
-
+/*
+ * core placements of the two domains
+ *
+ * XXX: keep it consistent with your menu.lst (host side)
+ */
 #define XPHI_BENCH_CORE_HOST 3
-
 #define XPHI_BENCH_CORE_CARD 5
 
-#define XPHI_BENCH_DBU_EN 1
-#if XPHI_BENCH_DBU_EN
-#define XPHI_BENCH_DBG(x...) debug_printf("[bench]" x)
-#else
-#define XPHI_BENCH_DBG(x...)
-#endif
 
-#if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_HOST
-#define XPHI_BENCH_CHAN_SIZE_HOST (2* XPHI_BENCH_MSG_BUF_SIZE)
+/*
+ * calculation of the frame sizes we need to allocate. the possible frame layouts
+ * are:
+ *
+ * - Host:  [UMP | Buffers] Guest: [UMP]
+ * - Host:  [UMP] Guest: [UMP | Buffers]
+ * - Host:  [UMP | UMP | Buffers] Guest: []
+ * - Host:  [UMP | UMP] Guest: [Buffers]
+ * - Host:  [Buffers] Guest: [UMP | UMP]
+ * - Host:  [] Guest: [UMP | UMP | Buffers]
+ *
+ * The buffers can either be on host side or card side.
+ * The message buffers can be on host side, card side or mixed
+ */
+
+#ifdef XPHI_BENCH_CHAN_HOST
+#define XPHI_BENCH_CHAN_SIZE_HOST (2* XPHI_BENCH_MSG_FRAME_SIZE)
 #define XPHI_BENCH_CHAN_SIZE_CARD 0
-#else
-#if XPHI_BENCH_CHAN_LOCATION == XPHI_BENCH_CHAN_CARD
-#define XPHI_BENCH_CHAN_SIZE_HOST 0
-#define XPHI_BENCH_CHAN_SIZE_CARD (2*XPHI_BENCH_MSG_BUF_SIZE)
-#else
-#define XPHI_BENCH_CHAN_SIZE_HOST (XPHI_BENCH_MSG_BUF_SIZE)
-#define XPHI_BENCH_CHAN_SIZE_CARD (XPHI_BENCH_MSG_BUF_SIZE)
-#endif
 #endif
 
-#if XPHI_BENCH_BUF_LOCATION == XPHI_BENCH_BUF_LOC_HOST
-#define XPHI_BENCH_FRAME_SIZE_HOST (XPHI_BENCH_CHAN_SIZE_HOST + XPHI_BENCH_BUF_FRAME_SIZE)
-#define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD)
-#else
+#ifdef XPHI_BENCH_CHAN_CARD
+#define XPHI_BENCH_CHAN_SIZE_HOST 0
+#define XPHI_BENCH_CHAN_SIZE_CARD (2*XPHI_BENCH_MSG_FRAME_SIZE)
+#endif
+
+#ifndef XPHI_BENCH_CHAN_SIZE_HOST
+#define XPHI_BENCH_CHAN_DEFAULT
+#define XPHI_BENCH_CHAN_SIZE_HOST (XPHI_BENCH_MSG_FRAME_SIZE)
+#define XPHI_BENCH_CHAN_SIZE_CARD (XPHI_BENCH_MSG_FRAME_SIZE)
+#endif
+
+
+/*
+ * add up the
+ */
+#ifdef XPHI_BENCH_BUFFER_CARD
 #define XPHI_BENCH_FRAME_SIZE_HOST (XPHI_BENCH_CHAN_SIZE_HOST)
 #define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD + XPHI_BENCH_BUF_FRAME_SIZE)
+#else
+#define XPHI_BENCH_FRAME_SIZE_HOST (XPHI_BENCH_CHAN_SIZE_HOST + XPHI_BENCH_BUF_FRAME_SIZE)
+#define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD)
+#endif
+
+/*
+ * Debugging messages
+ */
+#define XPHI_BENCH_DBU_EN 0
+#if XPHI_BENCH_DBU_EN
+#define XPHI_BENCH_DBG(x...) debug_printf("[bench] " x)
+#else
+#define XPHI_BENCH_DBG(x...)
 #endif
 
 
@@ -88,6 +135,9 @@ struct bench_bufs {
 
 errval_t xphi_bench_init(void);
 
+void xphi_bench_start_echo(struct bench_bufs *bufs,
+                           struct ump_chan *uc);
+
 void xphi_bench_start_processor(struct bench_bufs *bufs,
                                 struct ump_chan *uc);
 
@@ -96,6 +146,11 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
 
 errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
                                          struct ump_chan *uc);
+
+errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
+                                        struct ump_chan *uc);
+
+errval_t xphi_bench_memwrite(void *target);
 
 static inline void xphi_bench_fill_buffer(struct bench_buf *buf, uint32_t runs)
 {
