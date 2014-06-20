@@ -24,7 +24,7 @@
 //#define XPHI_BENCH_THROUGHPUT     1
 
 /// enables the processing on the card instead of the host
-#define XPHI_BENCH_PROCESS_CARD 1
+//#define XPHI_BENCH_PROCESS_CARD 1
 
 /// enables the waiting for a reply instead of keeping sending
 //#define XPHI_BENCH_SEND_SYNC    1
@@ -99,6 +99,11 @@
 #define XPHI_BENCH_CHAN_SIZE_CARD (XPHI_BENCH_MSG_FRAME_SIZE)
 #endif
 
+/*
+ * ram affinity to make sure we are in the right numa node
+ */
+#define XPHI_BENCH_RAM_MINBASE  (16UL*1024*1024*1024)
+#define XPHI_BENCH_RAM_MAXLIMIT (64UL*1024*1024*1024)
 
 /*
  * add up the

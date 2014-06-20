@@ -510,7 +510,8 @@ XEON_PHI_MODULES =\
 	k1om/sbin/startd \
 	k1om/sbin/xeon_phi \
 	k1om/sbin/xeon_phi_test \
-	k1om/sbin/virtio_blk
+	k1om/sbin/virtio_blk \
+	k1om/sbin/ump_latency
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om

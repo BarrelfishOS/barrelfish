@@ -22,6 +22,7 @@
 #include "xeon_phi.h"
 #include "interrupts.h"
 #include "sleep.h"
+#include "smpt.h"
 #include "dma.h"
 #include "sysmem_caps.h"
 
@@ -211,6 +212,8 @@ errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_
     device_init(phi);
 
     dma_init(phi);
+
+    smpt_init(phi);
 
     return SYS_ERR_OK;
 }

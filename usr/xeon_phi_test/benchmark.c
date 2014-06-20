@@ -88,27 +88,32 @@ errval_t xphi_bench_memwrite(void *target)
     debug_printf("starting benchmark...\n");
     uint32_t rep_counter = 0;
     do {
-        debug_printf("  > run %u of %u (memset / memwrite)...\n", rep_counter++,
-        XPHI_BENCH_NUM_REPS);
+        debug_printf("  > run %u of %u memwrite of %lu byt.es..\n", rep_counter++,
+        XPHI_BENCH_NUM_REPS, XPHI_BENCH_BUF_FRAME_SIZE);
 
+        /* using memset */
         tsc_start = rdtsc();
         memset(target, 0, XPHI_BENCH_BUF_FRAME_SIZE);
         result[0] = rdtsc() - tsc_start - bench_tscoverhead();
 
+        /* writing in a loop*/
+        volatile uint8_t *buf = target;
         tsc_start = rdtsc();
-        uint8_t *buf = target;
         for (uint32_t i = 0; i < XPHI_BENCH_BUF_FRAME_SIZE; ++i) {
-            buf[i] = (uint8_t) i;
+            buf[i] = (uint8_t) 1;
         }
         result[1] = rdtsc() - tsc_start - bench_tscoverhead();
 
-        tsc_start = rdtsc();
+        /* reading in a while loop */
         buf = target;
-        uint32_t counter = 0;
-        for (uint32_t i = 0; i < XPHI_BENCH_BUF_FRAME_SIZE; ++i) {
-            counter += buf[i];
-        }
+        buf[XPHI_BENCH_BUF_FRAME_SIZE-1] = 0;
+        tsc_start = rdtsc();
+        while(*(buf++))
+            ;
+
         result[2] = rdtsc() - tsc_start - bench_tscoverhead();
+
+
     } while (!bench_ctl_add_run(ctl, result));
 
     // bench_ctl_dump_csv(ctl, "", tscperus);
@@ -207,7 +212,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
         }
     }
 
-    debug_printf("starting benchmark...\n");
+    debug_printf("starting benchmark: RTT...\n");
     uint32_t rep_counter = 0;
     do {
 
@@ -237,6 +242,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     xphi_bench_print_settings();
     // bench_ctl_dump_csv(ctl, "", tscperus);
     bench_ctl_dump_analysis(ctl, 0, "Sync Throughput", tscperus);
+
     return SYS_ERR_OK;
 }
 
@@ -273,7 +279,7 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
         }
     }
 
-    debug_printf("starting benchmark...\n");
+    debug_printf("starting benchmark: SYNC...\n");
     uint32_t rep_counter = 0;
     do {
         uint64_t b_idx = 0;
@@ -386,7 +392,7 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
         }
     }
 
-    debug_printf("starting benchmark...\n");
+    debug_printf("starting benchmark ASYNC...\n");
 
     uint32_t rep_counter = 0;
     do {

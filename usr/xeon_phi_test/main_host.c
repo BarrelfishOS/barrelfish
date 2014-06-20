@@ -89,12 +89,6 @@ static errval_t msg_open_cb(struct capref msgframe,
 #endif
 #endif
 
-#ifdef XPHI_BENCH_BUFFER_CARD
-    printf("Testing with buffer card GDDR memory\n");
-#else
-    printf("Testing with buffer own RAM\n");
-#endif
-    xphi_bench_memwrite(bufs.buf);
 
     bufs.num = XPHI_BENCH_BUF_NUM;
     bufs.buf_size = XPHI_BENCH_BUF_SIZE;
@@ -150,9 +144,16 @@ int main(int argc,
 
     struct capref frame;
     size_t alloced_size = 0;
+
+    uint64_t minbase, maxlimit;
+    ram_get_affinity(&minbase, &maxlimit);
+
+    /* set the ram affinity to make sure we are in the correct numa node */
+    ram_set_affinity(XPHI_BENCH_RAM_MINBASE, XPHI_BENCH_RAM_MAXLIMIT);
     err = frame_alloc(&frame, frame_size, &alloced_size);
     assert(err_is_ok(err));
     assert(alloced_size >= frame_size);
+    ram_set_affinity(minbase, maxlimit);
 
     err = vspace_map_one_frame(&host_buf,
                                frame_size,
@@ -160,6 +161,8 @@ int main(int argc,
                                NULL,
                                NULL);
     assert(err_is_ok(err));
+
+
 
     err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
     if (err_is_fail(err)) {
@@ -174,23 +177,39 @@ int main(int argc,
     while (!connected) {
         messages_wait_and_handle_next();
     }
+
+
+
 #ifdef XPHI_BENCH_PROCESS_CARD
 #ifndef XPHI_BENCH_THROUGHPUT
     xphi_bench_start_initator_rtt(&bufs, &uc);
-    return 0;
-#endif
+#else
 #ifdef XPHI_BENCH_SEND_SYNC
     xphi_bench_start_initator_sync(&bufs, &uc);
 #else
     xphi_bench_start_initator_async(&bufs, &uc);
 #endif
+#endif
+#ifdef XPHI_BENCH_BUFFER_CARD
+    printf("Testing with buffer card GDDR memory\n");
 #else
+    printf("Testing with buffer own RAM\n");
+#endif
+    xphi_bench_memwrite(bufs.buf);
+#else
+#ifdef XPHI_BENCH_BUFFER_CARD
+    printf("Testing with buffer card GDDR memory\n");
+#else
+    printf("Testing with buffer own RAM\n");
+#endif
+    xphi_bench_memwrite(bufs.buf);
 #ifndef XPHI_BENCH_THROUGHPUT
     xphi_bench_start_echo(&bufs, &uc);
-    return 0;
-#endif
+#else
     xphi_bench_start_processor(&bufs, &uc);
 #endif
+#endif
+
 
 }
 

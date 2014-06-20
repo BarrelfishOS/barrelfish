@@ -15,4 +15,6 @@ interface xeon_phi "Xeon Phi Service Interface" {
 
     rpc register(in uint8 id, out errval msgerr);
    
+   	message dma_register_memory(capref cap);
+
 };

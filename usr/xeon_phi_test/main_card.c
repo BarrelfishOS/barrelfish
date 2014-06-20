@@ -52,8 +52,6 @@ static errval_t msg_open_cb(struct capref msgframe,
         USER_PANIC_ERR(err, "Could not map the frame");
     }
 
-    debug_printf("initializing ump channel\n");
-
 #ifdef XPHI_BENCH_CHAN_HOST
     void *inbuf = host_buf + XPHI_BENCH_MSG_FRAME_SIZE;
     void *outbuf = host_buf;
@@ -99,9 +97,9 @@ static errval_t msg_open_cb(struct capref msgframe,
     bufs.buf_size = XPHI_BENCH_BUF_SIZE;
 
     debug_printf("[%p, %p, %p]\n", inbuf, outbuf, bufs.buf);
-
+    debug_printf("initializing ump channel\n");
     err = ump_chan_init(&uc, inbuf,
-    XPHI_BENCH_MSG_FRAME_SIZE,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     if (err_is_fail(err)) {
@@ -175,24 +173,21 @@ int main(int argc,
     delay_ms(1000);
 #endif
 
-
-
 #ifdef XPHI_BENCH_PROCESS_CARD
 #ifndef XPHI_BENCH_THROUGHPUT
     xphi_bench_start_echo(&bufs, &uc);
-    return 0;
 #else
     xphi_bench_start_processor(&bufs, &uc);
 #endif
 #else
 #ifndef XPHI_BENCH_THROUGHPUT
     xphi_bench_start_initator_rtt(&bufs, &uc);
-    return 0;
-#endif
+#else
 #ifdef XPHI_BENCH_SEND_SYNC
     xphi_bench_start_initator_sync(&bufs, &uc);
 #else
     xphi_bench_start_initator_async(&bufs, &uc);
+#endif
 #endif
 #endif
 }

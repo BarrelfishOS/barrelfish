@@ -48,9 +48,9 @@ void smpt_set_address(struct xeon_phi *phi,
                       lpaddr_t address,
                       uint8_t snooping)
 {
-    uint32_t e_address = (uint32_t)(address >> xeon_phi_smpt_system_page_shift);
+    lpaddr_t e_address = (address >> xeon_phi_smpt_system_page_shift);
     xeon_phi_smpt_entry_t e = xeon_phi_smpt_entry_default;
-    e=xeon_phi_smpt_entry_host_address_insert(e, e_address);
+    e=xeon_phi_smpt_entry_host_address_insert(e, (uint32_t)e_address);
     if (snooping) {
         snooping = xeon_phi_smpt_snooping_enabled;
     } else {
@@ -79,11 +79,13 @@ void smpt_reset(struct xeon_phi *phi)
  */
 errval_t smpt_init(struct xeon_phi *phi)
 {
-    if (phi->smpt->smpt_enabled) {
-        debug_printf("WARNING: SMPT already setup");
-        return SYS_ERR_OK;
+    if (phi->smpt) {
+        if (phi->smpt->smpt_enabled) {
+            debug_printf("WARNING: SMPT already setup");
+            return SYS_ERR_OK;
+        }
     }
-    phi->smpt = malloc(sizeof(struct smpt_info));
+    phi->smpt = calloc(1, sizeof(struct smpt_info));
     if (!phi->smpt) {
         return LIB_ERR_MALLOC_FAIL;
     }
