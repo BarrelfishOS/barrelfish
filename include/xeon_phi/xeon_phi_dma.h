@@ -1,9 +1,5 @@
-/** \file
- *  \brief Xeon Phi Service Interface
- */
-
 /*
- * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2014 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -11,9 +7,14 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface xeon_phi "Xeon Phi Service Interface" {
+#ifndef XEON_PHI_DMA_H
+#define XEON_PHI_DMA_H
 
-    rpc register(in uint8 id, out errval msgerr);
-  
 
-};
+#define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
+
+
+
+
+
+#endif // XEON_PHI_DMA_H

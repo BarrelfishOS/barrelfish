@@ -32,7 +32,7 @@ enum xpm_state
 static iref_t xpm_iref[XEON_PHI_NUM_MAX];
 struct xeon_phi_messaging_binding *xpm_binding[XEON_PHI_NUM_MAX];
 
-enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
+static enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
 
 /*
  * --------------------------------------------------------------------------
@@ -116,7 +116,7 @@ static void xpm_msg_spawn_tx(void *a)
 }
 
 
-struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
+static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
     .open = NULL
 };
 

@@ -28,5 +28,11 @@
                       flounderDefs = ["xeon_phi_messaging"],
                       flounderBindings = ["xeon_phi_messaging"],
                       architectures = ["k1om", "x86_64"]
-                }                
+                },
+  build library { target = "xeon_phi_dma_client",
+                      cFiles = [ "xeon_phi_dma_client.c" ],
+                      flounderDefs = ["xeon_phi_dma"],
+                      flounderBindings = ["xeon_phi_dma"],
+                      architectures = ["k1om", "x86_64"]
+                }                   
 ]

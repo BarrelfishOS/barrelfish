@@ -66,6 +66,8 @@ static void xphi_bench_print_settings(void)
 
 errval_t xphi_bench_memwrite(void *target)
 {
+    return SYS_ERR_OK;
+
     debug_printf("Executing local measurements\n");
 
     errval_t err;
@@ -89,7 +91,8 @@ errval_t xphi_bench_memwrite(void *target)
     uint32_t rep_counter = 0;
     do {
         debug_printf("  > run %u of %u memwrite of %lu byt.es..\n", rep_counter++,
-        XPHI_BENCH_NUM_REPS, XPHI_BENCH_BUF_FRAME_SIZE);
+        XPHI_BENCH_NUM_REPS,
+                     XPHI_BENCH_BUF_FRAME_SIZE);
 
         /* using memset */
         tsc_start = rdtsc();
@@ -106,13 +109,12 @@ errval_t xphi_bench_memwrite(void *target)
 
         /* reading in a while loop */
         buf = target;
-        buf[XPHI_BENCH_BUF_FRAME_SIZE-1] = 0;
+        buf[XPHI_BENCH_BUF_FRAME_SIZE - 1] = 0;
         tsc_start = rdtsc();
-        while(*(buf++))
+        while (*(buf++))
             ;
 
         result[2] = rdtsc() - tsc_start - bench_tscoverhead();
-
 
     } while (!bench_ctl_add_run(ctl, result));
 
@@ -241,7 +243,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     avg_s /= 1000000;
     xphi_bench_print_settings();
     // bench_ctl_dump_csv(ctl, "", tscperus);
-    bench_ctl_dump_analysis(ctl, 0, "Sync Throughput", tscperus);
+    bench_ctl_dump_analysis(ctl, 0, "RTT", tscperus);
 
     return SYS_ERR_OK;
 }

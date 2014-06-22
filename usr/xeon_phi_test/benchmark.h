@@ -24,7 +24,7 @@
 //#define XPHI_BENCH_THROUGHPUT     1
 
 /// enables the processing on the card instead of the host
-//#define XPHI_BENCH_PROCESS_CARD 1
+#define XPHI_BENCH_PROCESS_CARD 1
 
 /// enables the waiting for a reply instead of keeping sending
 //#define XPHI_BENCH_SEND_SYNC    1
@@ -39,7 +39,7 @@
 //#define XPHI_BENCH_CHAN_HOST        1
 
 /// reverses the in/out buffers if they are located on card and host
-//#define XPHI_BENCH_CHAN_REVERSED    1
+#define XPHI_BENCH_CHAN_REVERSED    1
 
 
 /*
@@ -55,7 +55,7 @@
 /// how many buffers we have (we keep it consistent with the number of messages
 #define XPHI_BENCH_BUF_NUM  XPHI_BENCH_MSG_NUM
 /// the size of a single buffer
-#define XPHI_BENCH_BUF_SIZE (1UL<<14)
+#define XPHI_BENCH_BUF_SIZE (1UL << 14)
 /// the resulting size of the buffer frame we have to allocate
 #define XPHI_BENCH_BUF_FRAME_SIZE (XPHI_BENCH_BUF_NUM * XPHI_BENCH_BUF_SIZE)
 
