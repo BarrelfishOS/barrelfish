@@ -7,46 +7,72 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/tests/e10ktest
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "udpecho_e1000",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e1000n" ]
+                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e1000n" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_e10kvf",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e10k_vf" ]
+                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e10k_vf" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_e10k",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e10k" ]
+                      addLibraries = libDeps [ "posixcompat", "lwip_arrakis", "e10k" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e10k_recvfrom",
                       cFiles = [ "udp_echo.c" ],
                       addLibraries = libDeps [ "posixcompat", "arranet", "e10k" ],
-                      addCFlags = [ "-DARRANET_RECVFROM" ]
+                      addCFlags = [ "-DARRANET_RECVFROM" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e10kvf_recvfrom",
                       cFiles = [ "udp_echo.c" ],
                       addLibraries = libDeps [ "posixcompat", "arranet", "e10k_vf" ],
-                      addCFlags = [ "-DARRANET_RECVFROM" ]
+                      addCFlags = [ "-DARRANET_RECVFROM" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e1000_recvfrom",
                       cFiles = [ "udp_echo.c" ],
                       addLibraries = libDeps [ "posixcompat", "arranet", "e1000n" ],
-                      addCFlags = [ "-DARRANET_RECVFROM" ]
+                      addCFlags = [ "-DARRANET_RECVFROM" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e10k",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "arranet", "e10k" ]
+                      addLibraries = libDeps [ "posixcompat", "arranet", "e10k" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e10kvf",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "arranet", "e10k_vf" ]
+                      addLibraries = libDeps [ "posixcompat", "arranet", "e10k_vf" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "udpecho_arranet_e1000",
                       cFiles = [ "udp_echo.c" ],
-                      addLibraries = libDeps [ "posixcompat", "arranet", "e1000n" ]
+                      addLibraries = libDeps [ "posixcompat", "arranet", "e1000n" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderDefs = [ "net_queue_manager" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     }
 ]

@@ -15,7 +15,9 @@ let subdirs = [ "sfxge", "sfxge/common"]
     srcs = concat [ find cInDir sd | sd <- subdirs ]
 in
   [ build application { target = "sfxge",
-                    cFiles = srcs
+                    cFiles = srcs,
+                    flounderDefs = [ "net_queue_manager" ],
+                    architectures = [ "x86_64", "x86_32" ]
 --                    cFiles = ["sfxge/sfxge.c"]
                   }
   ]
