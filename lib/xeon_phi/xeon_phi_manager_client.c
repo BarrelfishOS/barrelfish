@@ -51,7 +51,10 @@ static void xpm_recv_register_response(struct xeon_phi_manager_binding *_binding
                                        size_t n,
                                        xeon_phi_manager_errval_t msgerr)
 {
-    DEBUG_XPMC("Registration response: ID=0x%x, num=0x%lx, err=0x%lx\n", id, n/sizeof(iref_t), msgerr);
+    DEBUG_XPMC("Registration response: ID=0x%x, num=0x%lx, err=0x%lx\n",
+               id,
+               n / sizeof(iref_t),
+               msgerr);
 
     if (err_is_fail(msgerr)) {
         conn_state = XPM_STATE_REGISTER_FAIL;
@@ -158,8 +161,11 @@ static errval_t xpm_bind(void)
     conn_state = XPM_STATE_BINDING;
 
     DEBUG_XPMC("binding... \n");
-    err = xeon_phi_manager_bind(xpm_iref, xpm_bind_cb, NULL,
-                                get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    err = xeon_phi_manager_bind(xpm_iref,
+                                xpm_bind_cb,
+                                NULL,
+                                get_default_waitset(),
+                                IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }

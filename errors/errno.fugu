@@ -1044,6 +1044,7 @@ errors virtio VIRTIO_ERR_ {
 errors xeon_phi XEON_PHI_ERR_ {
     failure DMA_ID_NOT_EXISTS    "The DMA transfer with that ID does not exist ",
     failure DMA_BUSY      	   "All DMA channels are busy",
+    failure DMA_IDLE             "All DMA channels are idle",
     failure DMA_MEM_REGISTERED   "The memory has not been registered",
     failure DMA_RPC_IN_PROGRESS  "There is currently an RPC going on",
     failure DMA_MEM_ALIGN        "The address / bytes has a wrong alignment",

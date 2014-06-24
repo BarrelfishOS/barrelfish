@@ -64,7 +64,6 @@ static void open_iface_call_rx(struct xeon_phi_messaging_binding *_binding,
     }
 }
 
-
 static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
                           uint8_t core,
                           char *name,
@@ -136,8 +135,11 @@ errval_t xeon_phi_messaging_service_init(struct xeon_phi_messaging_cb *fn)
 
     struct waitset *ws = get_default_waitset();
 
-    err = xeon_phi_messaging_export(NULL, svc_export_cb, svc_connect_cb, ws,
-    IDC_EXPORT_FLAGS_DEFAULT);
+    err = xeon_phi_messaging_export(NULL,
+                                    svc_export_cb,
+                                    svc_connect_cb,
+                                    ws,
+                                    IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
@@ -203,9 +205,7 @@ errval_t xeon_phi_messaging_service_start_phi(uint8_t xeon_phi_id)
 #else
     snprintf(buf, 50, "%s", XEON_PHI_MESSAGING_NAME);
 #endif
-    XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n",
-                 messaging_iref,
-                 buf);
+    XPHI_MSG_DBG("Registering iref [%u] with name [%s]\n", messaging_iref, buf);
     err = nameservice_register(buf, messaging_iref);
     if (err_is_fail(err)) {
         return err;

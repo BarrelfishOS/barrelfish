@@ -22,6 +22,17 @@
 
 #define XEON_PHI_DMA_REQ_SIZE_MAX  (((1U) * 1024 * 1024) >> 1)
 
+enum xdma_chan_owner {
+    XDMA_CHAN_CARD_OWNED = 0,
+    XDMA_CHAN_HOST_OWNED
+};
+
+enum xdma_chan_state {
+    XDMA_CHAN_STATE_INVALID,
+    XDMA_CHAN_STATE_DISABLED,
+    XDMA_CHAN_STATE_ENABLED
+};
+
 struct xdma_req_info
 {
     struct xeon_phi_dma_binding *binding;
@@ -40,9 +51,12 @@ struct xdma_channel
     uint16_t tail;           ///< the tail pointer of the ring (cached)
     uint16_t head;           ///< the head pointer of the ring
     uint16_t size;           ///< size of the channel (elements in descriptor ring)
-    struct xdma_req *reqs;   ///< stores request information for the descriptors
+    struct xdma_req_info *rinfo;  ///< stores request information for the descriptors
     uint8_t chanid;          ///< channel id
+    enum xdma_chan_owner owner; ///< the owner of the channel
+    enum xdma_chan_state state;
     uint32_t reqcoutner;     ///< request counter
+    lpaddr_t dstat_wb;
 };
 
 enum xdma_req_type
@@ -162,6 +176,14 @@ errval_t xdma_channel_req_stop(struct xdma_channel *chan,
 /**
  *
  */
+errval_t xdma_channel_intr_handler(struct xdma_channel *chan);
+
+/**
+ *
+ */
 errval_t xdma_channel_poll(struct xdma_channel *chan);
+
+
+
 
 #endif /* XEON_PHI_DMA_DESC_RING_H */

@@ -39,11 +39,13 @@
 #define XEON_PHI_DMA_OWNER_HOST         1
 #define XEON_PHI_DMA_OWNER_CARD         2
 
-
+/// the number of dma descriptors we allocate
+#define XEON_PHI_DMA_DESC_NUM  128
 
 
 /// alignment constraint of the descriptor ring (cache line)
 #define XEON_PHI_DMA_DESC_RING_ALIGN 64
+
 
 
 /**
@@ -54,5 +56,18 @@
  * \return SYS_ERR_OK on success,
  */
 errval_t dma_init(struct xeon_phi *phi);
+
+/**
+ * \brief polls the owned channels for competed transfers
+ *
+ * \param phi the xeon phi to poll
+ *
+ * \returns SYS_ERR_OK if there was a transfer completed and executed correctly
+ *          XEON_PHI_ERR_DMA_IDLE if there was no transfer completed
+ *          errno otherwise
+ */
+errval_t dma_poll_channels(struct xeon_phi *phi);
+
+
 
 #endif /* XEON_PHI_DMA_H */
