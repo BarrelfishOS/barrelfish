@@ -63,6 +63,8 @@
 #define XEON_PHI_SYSMEM_SIZE_BITS 39
 #define XEON_PHI_SYSMEM_SIZE (1ULL << XEON_PHI_SYSMEM_SIZE_BITS)
 
+#define XEON_PHI_MEM_MASK 0xFFFFFFFFFFULL
+
 struct xeon_phi_boot_params
 {
     uint8_t reserved[0x54];

@@ -100,6 +100,7 @@
            "xeon_phi/xeon_phi_apic",
            "xeon_phi/xeon_phi_smpt",
            "xeon_phi/xeon_phi_irq",
+           "xeon_phi/xeon_phi_dma",
            "pci_sr_iov_cap"
          ], arch <- allArchitectures
 ] ++

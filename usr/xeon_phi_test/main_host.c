@@ -30,7 +30,6 @@ struct bench_bufs bufs;
 
 static struct ump_chan uc;
 
-
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
 {
@@ -89,14 +88,13 @@ static errval_t msg_open_cb(struct capref msgframe,
 #endif
 #endif
 
-
     bufs.num = XPHI_BENCH_BUF_NUM;
     bufs.buf_size = XPHI_BENCH_BUF_SIZE;
 
     debug_printf("[%p, %p, %p]\n", inbuf, outbuf, bufs.buf);
 
     err = ump_chan_init(&uc, inbuf,
-                        XPHI_BENCH_MSG_FRAME_SIZE,
+    XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     if (err_is_fail(err)) {
@@ -155,14 +153,10 @@ int main(int argc,
     assert(alloced_size >= frame_size);
     ram_set_affinity(minbase, maxlimit);
 
-    err = vspace_map_one_frame(&host_buf,
-                               frame_size,
-                               frame,
-                               NULL,
+    err = vspace_map_one_frame(&host_buf, frame_size, frame,
+    NULL,
                                NULL);
     assert(err_is_ok(err));
-
-
 
     err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
     if (err_is_fail(err)) {
@@ -177,8 +171,6 @@ int main(int argc,
     while (!connected) {
         messages_wait_and_handle_next();
     }
-
-
 
 #ifdef XPHI_BENCH_PROCESS_CARD
 #ifndef XPHI_BENCH_THROUGHPUT
@@ -209,7 +201,6 @@ int main(int argc,
     xphi_bench_start_processor(&bufs, &uc);
 #endif
 #endif
-
 
 }
 

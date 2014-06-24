@@ -23,6 +23,7 @@
 #define XDEBUG_MESSAGING 1
 #define XDEBUG_SYSMEM    1
 #define XDEBUG_SPAWN     1
+#define XDEBUG_DMA       1
 
 /*
  * --------------------------------------------------------------------------
@@ -73,6 +74,10 @@
 #else
 #define XSPAWN_DEBUG(x...)
 #endif
-
+#if XDEBUG_DMA
+#define XDMA_DEBUG(x...) XDEBUG(" DMA | " x)
+#else
+#define XDMA_DEBUG(x...)
+#endif
 
 #endif /* XEON_PHI_DEBUG_H_ */

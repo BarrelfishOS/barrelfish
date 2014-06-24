@@ -11,9 +11,6 @@
 #define XEON_PHI_DMA_H
 
 
-#define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
-
-
 
 
 

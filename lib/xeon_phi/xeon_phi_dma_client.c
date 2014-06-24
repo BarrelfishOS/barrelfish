@@ -24,21 +24,12 @@
 struct xdma_req
 {
     xeon_phi_dma_id_t id;
+    uint8_t xphi_id;
     struct xeon_phi_dma_cont cont;
     struct xdma_req *next;
     struct xdma_req *prev;
 };
 
-#ifdef __k1om__
-/// service iref
-static iref_t xdma_svc_iref;
-
-/// service binding
-struct xeon_phi_dma_binding *xdma_binding;
-
-/// wait reply flag for RPC like functionality where needed
-uint8_t xdma_wait_reply = 0;
-#else
 /// service irefs
 static iref_t xdma_svc_iref[XEON_PHI_NUM_MAX];
 
@@ -46,9 +37,7 @@ static iref_t xdma_svc_iref[XEON_PHI_NUM_MAX];
 struct xeon_phi_dma_binding *xdma_binding[XEON_PHI_NUM_MAX];
 
 /// wait reply flags for RPC like functionality where needed
-uint8_t xdma_wait_reply[XEON_PHI_NUM_MAX]
-#endif
-
+uint8_t xdma_wait_reply[XEON_PHI_NUM_MAX];
 
 /// pointer to all DMA requests
 static struct xdma_req *requests;
@@ -65,8 +54,6 @@ static struct xdma_req *requests_free;
 /// the number of free requests
 static uint32_t requests_free_count;
 
-
-
 #define DEBUG_XDMA(x...) debug_printf(" [xdma] " x)
 
 enum xpm_state
@@ -79,13 +66,95 @@ enum xpm_state
 
 static enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
 
+static struct xdma_req *xdma_get_pending_request(xeon_phi_dma_id_t id)
+{
+    if (requests_pending_count == 0) {
+        return NULL;
+    }
+    struct xdma_req *req = requests_pending;
+    while (req) {
+        if (req->id == id) {
+            if (req->prev == NULL) {
+                /* beginning */
+                requests_pending = req->next;
+                requests_pending->prev = NULL;
+            } else if (req->next == NULL) {
+                req->prev->next = NULL;
+            } else {
+                req->prev->next = req->next;
+                req->next->prev = req->prev;
+            }
+            req->next = NULL;
+            req->prev = NULL;
+
+            requests_pending_count--;
+
+            return req;
+
+        }
+    }
+    return NULL;
+}
+
+static void xdma_insert_pending_request(struct xdma_req *req)
+{
+    if (requests_pending == NULL) {
+        requests_pending = req;
+        req->next = NULL;
+    } else {
+        requests_pending->prev = req;
+        req->next = requests_pending;
+        requests_pending = req;
+    }
+    req->prev = NULL;
+
+    requests_pending_count++;
+}
+
+static struct xdma_req *xdma_get_free_request(void)
+{
+    if (requests_free_count == 0) {
+        return NULL;
+    }
+
+    struct xdma_req *req = requests_free;
+    requests_free = req->next;
+    req->next = NULL;
+    requests_free_count--;
+    return req;
+
+}
+
+static void xdma_insert_free_request(struct xdma_req *req)
+{
+    req->next = requests_free;
+    requests_free = req;
+    requests_free_count++;
+}
+
 /*
  * forward declarations for the recv messages
  */
 
+static void xdma_register_response_rx(struct xeon_phi_dma_binding *_binding,
+                                      xeon_phi_dma_errval_t msgerr);
+static void xdma_deregister_response_rx(struct xeon_phi_dma_binding *_binding,
+                                        xeon_phi_dma_errval_t msgerr);
+static void xdma_exec_response_rx(struct xeon_phi_dma_binding *_binding,
+                                  xeon_phi_dma_errval_t err,
+                                  xeon_phi_dma_id_t id);
+static void xdma_stop_response_rx(struct xeon_phi_dma_binding *_binding,
+                                  xeon_phi_dma_errval_t err);
+static void xdma_done_rx(struct xeon_phi_dma_binding *_binding,
+                         xeon_phi_dma_id_t id,
+                         xeon_phi_dma_errval_t err);
 
 struct xeon_phi_dma_rx_vtbl xdma_rx_vtbl = {
-    .register_call = NULL
+    .register_response = xdma_register_response_rx,
+    .deregister_response = xdma_deregister_response_rx,
+    .exec_response = xdma_exec_response_rx,
+    .stop_response = xdma_stop_response_rx,
+    .done = xdma_done_rx
 };
 
 /**
@@ -99,19 +168,16 @@ static void xdma_bind_cb(void *st,
                          errval_t err,
                          struct xeon_phi_dma_binding *b)
 {
-
     if (err_is_fail(err)) {
         conn_state = XPM_STATE_BIND_FAIL;
         return;
     }
 
     b->rx_vtbl = xdma_rx_vtbl;
-#ifdef __k1om__
-    xdma_binding = b;
-#else
-    uint8_t xphi_id = (uint8_t)(uintptr_t)st;
+
+    uint8_t xphi_id = (uint8_t) (uintptr_t) st;
     xdma_binding[xphi_id] = b;
-#endif
+
     DEBUG_XDMA("Binding to xdma service ok.\n");
 
     conn_state = XPM_STATE_BIND_OK;
@@ -120,16 +186,6 @@ static void xdma_bind_cb(void *st,
 /**
  * \brief
  */
-#ifdef __k1om__
-static errval_t xdma_connect(void)
-{
-    errval_t err;
-
-    if (xdma_binding != NULL) {
-        return SYS_ERR_OK;
-    }
-
-#else
 static errval_t xdma_connect(uint8_t xphi_id)
 {
     errval_t err;
@@ -138,14 +194,8 @@ static errval_t xdma_connect(uint8_t xphi_id)
         return SYS_ERR_OK;
     }
 
-#endif
-
     char buf[50];
-#if !defined(__k1om__)
     snprintf(buf, 50, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, xphi_id);
-#else
-    snprintf(buf, 50, "%s", XEON_PHI_DMA_SERVICE_NAME);
-#endif
 
     iref_t svc_iref;
 
@@ -158,19 +208,12 @@ static errval_t xdma_connect(uint8_t xphi_id)
     conn_state = XPM_STATE_BINDING;
 
     DEBUG_XDMA("binding to iref [%u]... \n", svc_iref);
-#ifdef __k1om__
-    xdma_svc_iref = svc_iref;
-    err = xeon_phi_dma_bind(xdma_svc_iref, xdma_bind_cb,
-                                     NULL,
-                                      get_default_waitset(),
-                                      IDC_BIND_FLAGS_DEFAULT);
-#else
     xdma_svc_iref[xphi_id] = svc_iref;
-    err = xeon_phi_dma_bind(svc_iref, xdma_bind_cb,
-                                          (void *)(uintptr_t)xphi_id,
-                                          get_default_waitset(),
-                                          IDC_BIND_FLAGS_DEFAULT);
-#endif
+    err = xeon_phi_dma_bind(svc_iref,
+                            xdma_bind_cb,
+                            (void *) (uintptr_t) xphi_id,
+                            get_default_waitset(),
+                            IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
@@ -220,12 +263,48 @@ errval_t xeon_phi_dma_client_init(void)
  * ---------------------------------------------------------------------------
  */
 
-struct xdma_reg_msg_st
+static struct xdma_reg_msg_st
 {
+    struct capref mem;
+    errval_t err;
+    uint8_t xphi_id;
+} xdma_reg_msg_st[XEON_PHI_NUM_MAX];
 
+static void xdma_register_response_rx(struct xeon_phi_dma_binding *_binding,
+                                      xeon_phi_dma_errval_t msgerr)
+{
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
-};
+    DEBUG_XDMA("received register response [%u, %lu]\n", xphi_id, msgerr);
 
+    assert(xdma_reg_msg_st[xphi_id].xphi_id == xphi_id);
+
+    xdma_reg_msg_st[xphi_id].err = msgerr;
+    xdma_wait_reply[xphi_id] = 0x0;
+}
+
+static void xdma_register_call_tx(void *a)
+{
+    errval_t err;
+
+    struct xdma_reg_msg_st *msg_st = a;
+
+    struct xeon_phi_dma_binding *b = xdma_binding[msg_st->xphi_id];
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = xeon_phi_dma_register_call__tx(b, txcont, msg_st->mem);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(xdma_register_call_tx, a);
+            err = b->register_send(b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                msg_st->err = err;
+                xdma_wait_reply[msg_st->xphi_id] = 0x0;
+            }
+        }
+    }
+}
 
 /**
  * \brief registers a physical memory region to be used for DMA transfers
@@ -241,27 +320,37 @@ errval_t xeon_phi_dma_client_register(uint8_t xphi_id,
                                       struct capref mem)
 {
     errval_t err = SYS_ERR_OK;
-    struct xeon_phi_dma_binding *bind;
 
 #ifdef __k1om__
-    if (xdma_binding == NULL) {
-        err = xdma_connect();
-    }
-    bind = xdma_binding;
-#else
+    assert(xphi_id == 0);
+#endif
     if (xdma_binding[xphi_id] == NULL) {
         err = xdma_connect(xphi_id);
-    }
-    bind = xdma_binding[xphi_id];
-#endif
-    if(err_is_fail(err)) {
-        return err;
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
-    return SYS_ERR_OK;
+    if (xdma_wait_reply[xphi_id]) {
+        return XEON_PHI_ERR_DMA_RPC_IN_PROGRESS;
+    }
+
+    xdma_wait_reply[xphi_id] = 0x1;
+
+    struct xdma_reg_msg_st *st = xdma_reg_msg_st + xphi_id;
+
+    st->xphi_id = xphi_id;
+    st->err = SYS_ERR_OK;
+    st->mem = mem;
+
+    xdma_register_call_tx(st);
+
+    while (xdma_wait_reply[xphi_id]) {
+        messages_wait_and_handle_next();
+    }
+
+    return st->err;
 }
-
-
 
 /*
  * ---------------------------------------------------------------------------
@@ -269,35 +358,224 @@ errval_t xeon_phi_dma_client_register(uint8_t xphi_id,
  * ---------------------------------------------------------------------------
  */
 
-struct xdma_dereg_msg_st
+static struct xdma_dereg_msg_st
 {
+    struct capref mem;
+    errval_t err;
+    uint8_t xphi_id;
+} xdma_dereg_msg_st[XEON_PHI_NUM_MAX];
 
+static void xdma_deregister_response_rx(struct xeon_phi_dma_binding *_binding,
+                                        xeon_phi_dma_errval_t msgerr)
+{
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
-};
+    DEBUG_XDMA("received deregister response [%u, %lu]\n", xphi_id, msgerr);
 
+    xdma_wait_reply[xphi_id] = 0x0;
+}
+
+static void xdma_deregister_call_tx(void *a)
+{
+    errval_t err;
+
+    struct xdma_dereg_msg_st *msg_st = a;
+
+    struct xeon_phi_dma_binding *b = xdma_binding[msg_st->xphi_id];
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = xeon_phi_dma_deregister_call__tx(b, txcont, msg_st->mem);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(xdma_deregister_call_tx, a);
+            err = b->register_send(b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                msg_st->err = err;
+                xdma_wait_reply[msg_st->xphi_id] = 0x0;
+            }
+        }
+    }
+}
+
+/**
+ * \brief deregisters a physical memory region to be used for DMA transfers
+ *        this memory region can be in host or card memory
+ *
+ * \param xphi_id id of the xeon phi
+ * \param mem the memory to be deregistered
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on error
+ *
+ * NOTE: this prevents the memory region from being used in future requests
+ *       current active DMA transfers using this memory regions are not stopped.
+ */
+errval_t xeon_phi_dma_client_deregister(uint8_t xphi_id,
+                                        struct capref mem)
+{
+    errval_t err;
+
+#ifdef __k1om__
+    assert(xphi_id == 0);
+#endif
+    if (xdma_binding[xphi_id] == NULL) {
+        err = xdma_connect(xphi_id);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    if (xdma_wait_reply[xphi_id]) {
+        return XEON_PHI_ERR_DMA_RPC_IN_PROGRESS;
+    }
+
+    xdma_wait_reply[xphi_id] = 0x1;
+
+    struct xdma_dereg_msg_st *st = xdma_dereg_msg_st + xphi_id;
+
+    st->xphi_id = xphi_id;
+    st->err = SYS_ERR_OK;
+    st->mem = mem;
+
+    xdma_deregister_call_tx(st);
+
+    while (xdma_wait_reply[xphi_id]) {
+        messages_wait_and_handle_next();
+    }
+
+    return st->err;
+
+    return SYS_ERR_OK;
+}
 
 /*
  * ---------------------------------------------------------------------------
  * DMA start new transfer
  * ---------------------------------------------------------------------------
  */
-struct xdma_reg_start_st
+static struct xdma_reg_start_st
 {
+    lpaddr_t src;
+    lpaddr_t dst;
+    uint64_t bytes;
+    uint8_t xphi_id;
+    xeon_phi_dma_id_t id;
+    errval_t err;
+} xdma_reg_start_st[XEON_PHI_NUM_MAX];
 
+static void xdma_exec_response_rx(struct xeon_phi_dma_binding *_binding,
+                                  xeon_phi_dma_errval_t err,
+                                  xeon_phi_dma_id_t id)
+{
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
-};
+    DEBUG_XDMA("received exec response [%u, %u]\n", xphi_id, id);
 
-/*
- * ---------------------------------------------------------------------------
- * DMA stop transfer
- * ---------------------------------------------------------------------------
+    assert(xdma_reg_msg_st[xphi_id].xphi_id == xphi_id);
+
+    xdma_reg_start_st[xphi_id].err = err;
+    xdma_reg_start_st[xphi_id].id = id;
+
+    xdma_wait_reply[xphi_id] = 0x0;
+}
+
+static void xdma_exec_call_tx(void *a)
+{
+    errval_t err;
+
+    struct xdma_reg_start_st *msg_st = a;
+
+    struct xeon_phi_dma_binding *b = xdma_binding[msg_st->xphi_id];
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = xeon_phi_dma_exec_call__tx(b,
+                                     txcont,
+                                     msg_st->src,
+                                     msg_st->dst,
+                                     msg_st->bytes);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(xdma_exec_call_tx, a);
+            err = b->register_send(b, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                msg_st->err = err;
+                xdma_wait_reply[msg_st->xphi_id] = 0x0;
+            }
+        }
+    }
+}
+
+/**
+ * \brief starts a new DMA transfer
+ *
+ * \param xphi_id id of the xeon phi
+ * \param info pointer to the DMA transfer info structure
+ * \param cont continuation to be called when transfer is done
+ * \param id   returns the ID of the transfer
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on error
  */
-
-struct xdma_reg_stop_st
+errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
+                                   struct xeon_phi_dma_info *info,
+                                   struct xeon_phi_dma_cont cont,
+                                   xeon_phi_dma_id_t *id)
 {
+    errval_t err;
 
+    /*
+     * we only allow multiple of 64 bytes for transfers.
+     * The Xeon Phi DMA controller supports only 64 byte granilarity in
+     * alignment and size.
+     */
+    if ((info->dest & (XEON_PHI_DMA_ALIGNMENT - 1)) || (info->src
+                    & (XEON_PHI_DMA_ALIGNMENT - 1))
+        || (info->size & (XEON_PHI_DMA_ALIGNMENT - 1))) {
+        return XEON_PHI_ERR_DMA_MEM_ALIGN;
+    }
 
-};
+#ifdef __k1om__
+    assert(xphi_id == 0);
+#endif
+    if (xdma_binding[xphi_id] == NULL) {
+        err = xdma_connect(xphi_id);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    if (xdma_wait_reply[xphi_id]) {
+        return XEON_PHI_ERR_DMA_RPC_IN_PROGRESS;
+    }
+
+    struct xdma_req *req = xdma_get_free_request();
+    if (req == NULL) {
+        return XEON_PHI_ERR_DMA_BUSY;
+    }
+
+    struct xdma_reg_start_st *msg_st = xdma_reg_start_st + xphi_id;
+
+    msg_st->bytes = info->size;
+    msg_st->dst = info->dest;
+    msg_st->src = info->src;
+    msg_st->xphi_id = xphi_id;
+
+    xdma_wait_reply[xphi_id] = 0x1;
+
+    xdma_exec_call_tx(msg_st);
+
+    while (xdma_wait_reply[xphi_id]) {
+        messages_wait_and_handle_next();
+    }
+
+    if (id) {
+        *id = msg_st->id;
+    }
+
+    return msg_st->err;
+}
 
 /*
  * ---------------------------------------------------------------------------
@@ -305,12 +583,14 @@ struct xdma_reg_stop_st
  * ---------------------------------------------------------------------------
  */
 
-struct xdma_reg_exec_st
+static uint8_t execute_wait_flag;
+
+static void xdma_execute_handler(xeon_phi_dma_id_t id,
+                                 errval_t err,
+                                 void *st)
 {
-
-
-};
-
+    execute_wait_flag = 0x0;
+}
 
 /**
  * \brief executes a DMA transfer and waits for its completion
@@ -324,8 +604,92 @@ struct xdma_reg_exec_st
 errval_t xeon_phi_dma_client_exec(uint8_t xphi_id,
                                   struct xeon_phi_dma_info *info)
 {
+    errval_t err;
+    xeon_phi_dma_id_t id;
+    struct xeon_phi_dma_cont cont = {
+        .arg = NULL,
+        .cb = xdma_execute_handler
+    };
+
+    execute_wait_flag = 0x1;
+
+    err = xeon_phi_dma_client_start(xphi_id, info, cont, &id);
+
+    while (execute_wait_flag) {
+        messages_wait_and_handle_next();
+    }
+
+    return SYS_ERR_OK;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * DMA stop transfer
+ * ---------------------------------------------------------------------------
+ */
+
+static struct xdma_reg_stop_st
+{
+    struct xdma_req *req;
+    xeon_phi_dma_id_t id;
+    errval_t err;
+} xdma_reg_stop_st[XEON_PHI_NUM_MAX];
+
+static void xdma_stop_response_rx(struct xeon_phi_dma_binding *_binding,
+                                  xeon_phi_dma_errval_t err)
+{
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
+
+    struct xdma_reg_stop_st *req_st = xdma_reg_stop_st + xphi_id;
+
+    DEBUG_XDMA("received stop response [%u, %u]\n", xphi_id, req_st->id);
+}
+
+static void xdma_stop_call_tx(void *a)
+{
 
 }
+
+/**
+ * \brief stops a previously started DMA transfer based on its ID
+ *
+ * \param the ID of the transfer to stop
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on failure
+ */
+errval_t xeon_phi_dma_client_stop(xeon_phi_dma_id_t id)
+{
+
+    struct xdma_req *req = xdma_get_pending_request(id);
+    if (req == NULL) {
+        return XEON_PHI_ERR_DMA_ID_NOT_EXISTS;
+    }
+
+#ifdef __k1om__
+    assert(req->xphi_id == 0);
+#endif
+
+    assert(xdma_binding[req->xphi_id] != NULL);
+
+    if (xdma_wait_reply[req->xphi_id]) {
+        xdma_insert_pending_request(req);
+        return XEON_PHI_ERR_DMA_RPC_IN_PROGRESS;
+    }
+
+    xdma_wait_reply[req->xphi_id] = 0x1;
+
+    struct xdma_reg_stop_st *msg_st = xdma_reg_stop_st + req->xphi_id;
+
+    xdma_stop_call_tx(msg_st);
+
+    while (xdma_wait_reply[req->xphi_id]) {
+        messages_wait_and_handle_next();
+    }
+
+    xdma_insert_free_request(req);
+
+    return msg_st->err;
 }
 
 /*
@@ -334,4 +698,21 @@ errval_t xeon_phi_dma_client_exec(uint8_t xphi_id,
  * ---------------------------------------------------------------------------
  */
 
+static void xdma_done_rx(struct xeon_phi_dma_binding *_binding,
+                         xeon_phi_dma_id_t id,
+                         xeon_phi_dma_errval_t err)
+{
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
+
+    DEBUG_XDMA("received done message [%u, %u]\n", xphi_id, id);
+
+    struct xdma_req *req = xdma_get_pending_request(id);
+    assert(req);
+
+    if (req->cont.cb) {
+        req->cont.cb(id, err, req->cont.arg);
+    }
+
+    xdma_insert_free_request(req);
+}
 

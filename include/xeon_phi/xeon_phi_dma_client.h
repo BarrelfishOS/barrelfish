@@ -13,6 +13,12 @@
 /* for xeon_phi_dma_id_t */
 #include <if/xeon_phi_dma_defs.h>
 
+/// the base name of the exported dma service
+#define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
+
+/// alignment for size and memory addresses
+#define XEON_PHI_DMA_ALIGNMENT 64
+
 /**
  * type definition of the xeon phi done callback
  */
@@ -106,7 +112,12 @@ errval_t xeon_phi_dma_client_exec(uint8_t xphi_id,
 
 
 /**
+ * \brief stops a previously started DMA transfer based on its ID
  *
+ * \param the ID of the transfer to stop
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on failure
  */
 errval_t xeon_phi_dma_client_stop(xeon_phi_dma_id_t id);
 
