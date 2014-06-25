@@ -151,6 +151,10 @@ static inline void xdma_desc_set_key(void *desc)
     assert(!"NYI: xdma_desc_set_key");
 }
 
+static inline void xdma_desc_set_nop(void *desc) {
+    xdma_desc_clear(desc);
+}
+
 /**
  * \brief translates the physical address to the format the DMA engine understands
  */
@@ -160,7 +164,10 @@ static inline lpaddr_t xdma_desc_ring_host2guest(lpaddr_t host_addr)
     return (host_addr | XEON_PHI_SYSMEM_BASE);
 }
 
-
+static inline void xdma_desc_ring_clear(struct xdma_ring *ring)
+{
+    memset(ring->vbase, 0, XEON_PHI_DMA_DESC_SIZE * ring->size);
+}
 
 /**
  * \brief initializes a dma descriptor ring and allocates memory for it

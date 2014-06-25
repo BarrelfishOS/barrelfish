@@ -60,14 +60,13 @@ errval_t dma_init(struct xeon_phi *phi)
         err = xdma_channel_init(chan,
                                 XEON_PHI_DMA_DESC_NUM,
                                 &info->dma_dev,
-                                i + XEON_PHI_DMA_CHAN_OFFSET);
+                                i + XEON_PHI_DMA_CHAN_OFFSET,
+                                XEON_PHI_DMA_USE_POLLING);
         if (err_is_fail(err)) {
             free(info);
             return err;
         }
     }
-
-    XDMA_DEBUG("initializing %u channels\n", XEON_PHI_DMA_CHAN_NUM);
 
     phi->dma = info;
 
@@ -99,4 +98,44 @@ errval_t dma_poll_channels(struct xeon_phi *phi)
     }
     return ret_err;
 }
+
+errval_t dma_impl_test(struct xeon_phi *phi)
+{
+
+
+
+    return SYS_ERR_OK;
+}
+
+#define SBOX_SICR0_DMA(x)  (((x) >> 8) & 0xff)
+
+#if 0
+/*
+ * TODO;
+ * Maybe move the logic into slow interrupt handler
+ */
+void
+host_dma_interrupt_handler(mic_dma_handle_t dma_handle, uint32_t sboxSicr0reg)
+{
+    struct mic_dma_ctx_t *dma_ctx = (struct mic_dma_ctx_t *) dma_handle;
+    uint32_t dma_chan_id;
+    struct dma_channel *ch;
+
+    for (dma_chan_id = 0; dma_chan_id < 8; dma_chan_id++) {
+        if (SBOX_SICR0_DMA(sboxSicr0reg) & (0x1 << dma_chan_id)) {
+            ch = &dma_ctx->dma_channels[dma_chan_id];
+            if (ch->desc_ring)
+                host_dma_lib_interrupt_handler(ch);
+        }
+    }
+}
+
+void
+host_dma_lib_interrupt_handler(struct dma_channel *chan)
+{
+    ack_dma_interrupt(chan);
+    mic_dma_lib_interrupt_handler(chan);
+}
+
+#endif
 

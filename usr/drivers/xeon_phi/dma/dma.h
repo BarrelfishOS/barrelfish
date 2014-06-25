@@ -46,6 +46,7 @@
 /// alignment constraint of the descriptor ring (cache line)
 #define XEON_PHI_DMA_DESC_RING_ALIGN 64
 
+#define XEON_PHI_DMA_USE_POLLING 1
 
 
 /**
@@ -68,6 +69,7 @@ errval_t dma_init(struct xeon_phi *phi);
  */
 errval_t dma_poll_channels(struct xeon_phi *phi);
 
+errval_t dma_impl_test(struct xeon_phi *phi);
 
 
 #endif /* XEON_PHI_DMA_H */

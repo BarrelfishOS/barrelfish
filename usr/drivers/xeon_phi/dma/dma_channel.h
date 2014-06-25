@@ -28,7 +28,7 @@ enum xdma_chan_owner {
 };
 
 enum xdma_chan_state {
-    XDMA_CHAN_STATE_INVALID,
+    XDMA_CHAN_STATE_UNINITIALIZED = 0,
     XDMA_CHAN_STATE_DISABLED,
     XDMA_CHAN_STATE_ENABLED
 };
@@ -38,9 +38,11 @@ struct xdma_req_info
     struct xeon_phi_dma_binding *binding;
     errval_t err;           ///< outcome of the request
     xeon_phi_dma_id_t id;   ///< DMA request ID
-    uint32_t head :1;      ///< flag indicating this is the first entry
-    uint32_t last :1;      ///< flag indicating this is the last entry
-    uint32_t done :1;      ///< flag indicating that this transfer is done
+    uint16_t ndesc;         ///< the number of descriptors
+    uint16_t first;         ///< index of the first
+    uint32_t head :1;       ///< flag indicating this is the first entry
+    uint32_t last :1;       ///< flag indicating this is the last entry
+    uint32_t done :1;       ///< flag indicating that this transfer is done
     struct xdma_req_info *next;
 };
 
@@ -49,10 +51,13 @@ struct xdma_channel
     xeon_phi_dma_t *regs;    ///< Mackerel base
     struct xdma_ring ring;   ///< descriptor ring of this channel
     uint16_t tail;           ///< the tail pointer of the ring (cached)
+    uint16_t last_processed; ///< index of the last processed element
     uint16_t head;           ///< the head pointer of the ring
+    uint16_t write_next;     ///< where to write the next descriptor
     uint16_t size;           ///< size of the channel (elements in descriptor ring)
     struct xdma_req_info *rinfo;  ///< stores request information for the descriptors
     uint8_t chanid;          ///< channel id
+    uint8_t do_poll;         ///< flag setting that we use the polling mode
     enum xdma_chan_owner owner; ///< the owner of the channel
     enum xdma_chan_state state;
     uint32_t reqcoutner;     ///< request counter
@@ -68,6 +73,7 @@ enum xdma_req_type
     XDMA_REQ_TYPE_KEYNON,
     XDMA_REQ_TYPE_KEY
 };
+
 
 struct xdma_req_setup
 {
@@ -115,7 +121,8 @@ static inline xeon_phi_dma_id_t xdma_chan_generate_id(struct xdma_channel *chan)
 errval_t xdma_channel_init(struct xdma_channel *chan,
                            uint16_t ndesc,
                            xeon_phi_dma_t *regs,
-                           uint8_t chanid);
+                           uint8_t chanid,
+                           uint8_t do_poll);
 
 /**
  * \brief frees up the resources used by the channel
@@ -179,7 +186,13 @@ errval_t xdma_channel_req_stop(struct xdma_channel *chan,
 errval_t xdma_channel_intr_handler(struct xdma_channel *chan);
 
 /**
+ * \brief polls the channel for completed DMA transfers
  *
+ * \param chan the DMA channel to poll
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_IDLE if there were no new completed transfers
+ *          XEON_PHI_ERR_DMA_* on failure
  */
 errval_t xdma_channel_poll(struct xdma_channel *chan);
 

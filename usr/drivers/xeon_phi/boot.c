@@ -432,11 +432,12 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
             XBOOT_DEBUG("Firmware signaled with ready bit. \n");
             break;
         }
-        if (time % 50) {
+        if (!(time % 50)) {
             debug_printf("Xeon Phi Booting: Waiting for ready signal %u\n",
                          time_steps);
             time_steps += 5;
         }
+        time++;
     }
 
     if (!xeon_phi_boot_download_status_rdf(&boot_registers)) {
