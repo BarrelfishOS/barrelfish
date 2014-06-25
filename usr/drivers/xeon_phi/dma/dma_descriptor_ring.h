@@ -23,14 +23,14 @@
 #include "dma.h"
 
 /// the maximum length of the descriptor ring 128k-1 rounded to cache line
-#define XEON_PHI_DMA_DESC_RING_MAX (128*1024 - 64)
+#define XEON_PHI_DMA_DESC_RING_MAX (128*1024 - XEON_PHI_DMA_ALIGNMENT)
 
 /// the size of a descriptor entry
 #define XEON_PHI_DMA_DESC_SIZE  16
 
 /// checks if a certain value is aligned to a multiple of cache line
 #define XDMA_ASSERT_ALIGNED(x) \
-    assert((x) && (((uintptr_t)x & (XEON_PHI_DMA_ALIGNMENT - 1)) == 0))
+    assert((x) && ((((uintptr_t)x) & (XEON_PHI_DMA_ALIGNMENT - 1)) == 0))
 
 /**
  *
@@ -82,7 +82,7 @@ static inline void xdma_desc_clear(void *desc)
 static inline void xdma_desc_set_memcpy(void *desc,
                                         lpaddr_t src,
                                         lpaddr_t dst,
-                                        size_t bytes,
+                                        uint32_t bytes,
                                         uint32_t flags)
 {
     xdma_desc_clear(desc);

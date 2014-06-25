@@ -38,7 +38,7 @@ struct xdma_req_info
     struct xeon_phi_dma_binding *binding;
     errval_t err;           ///< outcome of the request
     xeon_phi_dma_id_t id;   ///< DMA request ID
-    uint16_t ndesc;         ///< the number of descriptors
+    uint16_t ndesc;         ///< the number of descriptors used in the request
     uint16_t first;         ///< index of the first
     uint32_t head :1;       ///< flag indicating this is the first entry
     uint32_t last :1;       ///< flag indicating this is the last entry

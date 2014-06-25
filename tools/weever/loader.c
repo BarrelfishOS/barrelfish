@@ -212,16 +212,20 @@ loader(uint64_t magic,
      */
     lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, BASE_PAGE_SIZE)
             ;
-    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->cmdline_ptr, bp->cmdline_size);
-
-    bp->cmdline_ptr = mb_img_start;
-    mb_img_start = ROUND_UP(mb_img_start+bp->cmdline_size, 1<<20);
-    lpaddr_t mb_img_orig = bp->ramdisk_image;
-
-    /* sanity check for the locations */
-    if ((mb_img_start > mb_img_orig) || mb_img_start == 0) {
+    if (mb_img_start + bp->cmdline_size > bp->cmdline_ptr) {
         eabort('E', '1');
     }
+    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->cmdline_ptr, bp->cmdline_size);
+    bp->cmdline_ptr = mb_img_start;
+
+    mb_img_start = ROUND_UP(mb_img_start+bp->cmdline_size, 1<<20);
+    lpaddr_t mb_img_orig = bp->ramdisk_image;
+    if (mb_img_start + bp->ramdisk_size > bp->ramdisk_image) {
+        mb_img_orig = bp->ramdisk_image + bp->ramdisk_size + BASE_PAGE_SIZE;
+        memcpy((void *) mb_img_orig, (void *)(uintptr_t) bp->ramdisk_image, bp->ramdisk_size);
+        print_status('C', '1');
+    }
+
     memcpy((void *) mb_img_start, (void *) mb_img_orig, bp->ramdisk_size);
 
     bp->ramdisk_image = mb_img_start;
@@ -246,7 +250,7 @@ loader(uint64_t magic,
         kernel = multiboot_find_module("kernel");
     }
     if (kernel == NULL) {
-        eabort('E', '2');
+        eabort('E', '3');
     }
 
     /* set the start address where we can allocate ram */
@@ -279,7 +283,7 @@ loader(uint64_t magic,
                      NULL);
 
     if (err_is_fail(err)) {
-        eabort('E', '3');
+        eabort('E', '4');
     }
 
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) kernel->mod_start;

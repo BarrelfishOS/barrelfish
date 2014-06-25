@@ -52,15 +52,17 @@ errval_t dma_init(struct xeon_phi *phi)
         return LIB_ERR_MALLOC_FAIL;
     }
 
+#ifdef __k1om__
+    xeon_phi_dma_initialize(&info->dma_dev, (mackerel_addr_t) (phi->mmio.vbase));
+#else
     xeon_phi_dma_initialize(&info->dma_dev, XEON_PHI_MMIO_TO_SBOX(phi));
-
+#endif
     XDMA_DEBUG("initializing %u channels\n", XEON_PHI_DMA_CHAN_NUM);
     for (uint32_t i = 0; i < XEON_PHI_DMA_CHAN_NUM; ++i) {
         struct xdma_channel *chan = &info->channels[i];
         err = xdma_channel_init(chan,
-                                XEON_PHI_DMA_DESC_NUM,
-                                &info->dma_dev,
-                                i + XEON_PHI_DMA_CHAN_OFFSET,
+        XEON_PHI_DMA_DESC_NUM,
+                                &info->dma_dev, i + XEON_PHI_DMA_CHAN_OFFSET,
                                 XEON_PHI_DMA_USE_POLLING);
         if (err_is_fail(err)) {
             free(info);
@@ -99,11 +101,158 @@ errval_t dma_poll_channels(struct xeon_phi *phi)
     return ret_err;
 }
 
-errval_t dma_impl_test(struct xeon_phi *phi)
+errval_t dma_do_memcpy(lpaddr_t dst,
+                       lpaddr_t src,
+                       size_t bytes);
+errval_t dma_do_memcpy(lpaddr_t dst,
+                       lpaddr_t src,
+                       size_t bytes)
 {
 
+    return SYS_ERR_OK;
+}
 
+#define XDMA_TEST_BUFFER_SIZE (1024*1024)
+#define XDMA_TEST_FRAME_SIZE (2*XDMA_TEST_BUFFER_SIZE)
+errval_t dma_impl_test(struct xeon_phi *phi)
+{
+    errval_t err;
+    struct capref frame;
 
+    err = frame_alloc(&frame, XDMA_TEST_FRAME_SIZE, NULL);
+    assert(err_is_ok(err));
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+
+    void *buf;
+    err = vspace_map_one_frame(&buf, XDMA_TEST_FRAME_SIZE, frame, NULL, NULL);
+    assert(err_is_ok(err));
+
+    lpaddr_t src = id.base;
+    lpaddr_t dst = id.base + XDMA_TEST_BUFFER_SIZE;
+
+    void *src_vbase = buf;
+    void *dst_vbase = (uint8_t *) buf + XDMA_TEST_BUFFER_SIZE;
+    debug_printf(" DMA-TEST | testing write of buffersize %u MB\n",
+    XDMA_TEST_BUFFER_SIZE >> 20);
+    debug_printf(" DMA-TEST | setting src buffer to 0xFF, target buffer to 0x0\n");
+    memset(src_vbase, 0xFF, XDMA_TEST_BUFFER_SIZE);
+    memset(dst_vbase, 0, XDMA_TEST_BUFFER_SIZE);
+
+    debug_printf(" DMA-TEST | setup transfer\n");
+
+    struct xdma_channel *chan = &phi->dma->channels[0];
+    struct xdma_req_setup setup = {
+        .type = XDMA_REQ_TYPE_MEMCPY
+    };
+    setup.info.mem.dst = dst;
+    setup.info.mem.src = src;
+    setup.info.mem.bytes = XDMA_TEST_BUFFER_SIZE;
+    xeon_phi_dma_id_t did;
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+
+    debug_printf(" DMA-TEST | wait for completion\n");
+    uint16_t idlecount = 0xFFFF;
+    while (1) {
+        err = xdma_channel_poll(chan);
+        if (err_is_fail(err)) {
+            if (err_no(err) == XEON_PHI_ERR_DMA_IDLE) {
+                if (!idlecount--) {
+                    break;
+                }
+            }
+        }
+    }
+
+    debug_printf(" DMA-TEST | verify...\n");
+    uint32_t *test = dst_vbase;
+    for (uint32_t i = 0; i < XDMA_TEST_BUFFER_SIZE / sizeof(uint32_t); ++i) {
+        if (*test != 0xFFFFFFFF) {
+            USER_PANIC("expected %x, was %x @ [%u]\n", 0xFFFFFFFF, *test, i);
+        }
+        test++;
+    }
+    debug_printf(" DMA-TEST | SUCCESS!\n");
+
+    debug_printf(" DMA-TEST | reset memory\n");
+    memset(src_vbase, 0xAB, XDMA_TEST_BUFFER_SIZE);
+
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+
+    debug_printf(" DMA-TEST | wait for completion\n");
+    idlecount = 0xFFFF;
+    while (1) {
+        err = xdma_channel_poll(chan);
+        if (err_is_fail(err)) {
+            if (err_no(err) == XEON_PHI_ERR_DMA_IDLE) {
+                if (!idlecount--) {
+                    break;
+                }
+            }
+        }
+    }
+
+    debug_printf(" DMA-TEST | verify...\n");
+    test = dst_vbase;
+    for (uint32_t i = 0; i < XDMA_TEST_BUFFER_SIZE / sizeof(uint32_t); ++i) {
+        if (*test != 0xABABABAB) {
+            USER_PANIC("expected %x, was %x @ [%u]\n", 0xABABABAB, *test, i);
+        }
+        test++;
+    }
+    debug_printf(" DMA-TEST | SUCCESS!\n");
+
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    err = xdma_channel_req_memcpy(chan, &setup, &did);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "outcome of debug");
+    }
+    idlecount = 0xFFFF;
+    while (1) {
+        err = xdma_channel_poll(chan);
+        if (err_is_fail(err)) {
+            if (err_no(err) == XEON_PHI_ERR_DMA_IDLE) {
+                if (!idlecount--) {
+                    break;
+                }
+            }
+        }
+    }
     return SYS_ERR_OK;
 }
 
@@ -125,7 +274,7 @@ host_dma_interrupt_handler(mic_dma_handle_t dma_handle, uint32_t sboxSicr0reg)
         if (SBOX_SICR0_DMA(sboxSicr0reg) & (0x1 << dma_chan_id)) {
             ch = &dma_ctx->dma_channels[dma_chan_id];
             if (ch->desc_ring)
-                host_dma_lib_interrupt_handler(ch);
+            host_dma_lib_interrupt_handler(ch);
         }
     }
 }

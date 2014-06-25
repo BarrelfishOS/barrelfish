@@ -25,6 +25,7 @@
 #include "messaging.h"
 #include "service.h"
 #include "sysmem_caps.h"
+#include "dma/dma.h"
 
 static struct xeon_phi xphi;
 
@@ -55,6 +56,33 @@ static inline errval_t handle_messages(void)
     return SYS_ERR_OK;
 }
 
+static errval_t map_mmio_space(struct xeon_phi *phi)
+{
+    errval_t err;
+    void *mmio;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(mmio_cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    err = vspace_map_one_frame(&mmio, (1UL << id.bits), mmio_cap, NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XDEBUG("mapped mmio register space @ [%p]\n", mmio);
+
+    phi->mmio.bits = id.bits;
+    phi->mmio.vbase = (lvaddr_t)mmio;
+    phi->mmio.cap = mmio_cap;
+    phi->mmio.pbase = id.base;
+    phi->mmio.length = (1UL << id.bits);
+
+    return SYS_ERR_OK;
+}
 
 
 int main(int argc,
@@ -80,6 +108,18 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the cap manager.\n");
     }
 
+    err = map_mmio_space(&xphi);
+    if (err_is_fail(err)){
+        USER_PANIC_ERR(err, "could not map the mmio space");
+    }
+
+    err = dma_init(&xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
+    }
+
+    dma_impl_test(&xphi);
+
     host_base = strtol(argv[0], NULL, 16);
     offset = host_base;
 
@@ -88,7 +128,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }
-
 
     messaging_init(&xphi, host_cap);
     err = xeon_phi_messaging_service_init(&msg_cb);

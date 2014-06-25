@@ -81,6 +81,8 @@ errval_t xeon_phi_dma_desc_ring_alloc(struct xdma_ring *ring,
 #endif
     ring->size = size;
 
+    memset(ring->vbase, 0, frame_size);
+
     return SYS_ERR_OK;
 }
 

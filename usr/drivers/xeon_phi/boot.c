@@ -378,7 +378,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     err = messaging_init(phi, NULL_CAP);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not initialize messagin");
+        USER_PANIC_ERR(err, "Could not initialize messaging");
     }
 
     // load cmdline
