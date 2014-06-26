@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 
 #include <if/xeon_phi_dma_defs.h>
 
@@ -78,7 +79,18 @@ static void dma_register_response_tx(void *a)
 static void dma_register_call_rx(struct xeon_phi_dma_binding *_binding,
                                  struct capref memory)
 {
+    errval_t err;
 
+    XDMA_DEBUG("dma_register_call_rx\n");
+
+    err = xdma_mem_register(_binding, memory);
+
+    struct dma_reg_resp_st *st = malloc(sizeof(struct dma_reg_resp_st));
+    assert(st);
+    st->b = _binding;
+    st->err = err;
+
+    dma_register_response_tx(st);
 }
 
 /*
@@ -115,7 +127,18 @@ static void dma_deregister_response_tx(void *a)
 static void dma_deregister_call_rx(struct xeon_phi_dma_binding *_binding,
                                    struct capref memory)
 {
+    errval_t err;
 
+    XDMA_DEBUG("dma_register_call_rx\n");
+
+    err = xdma_mem_deregister(_binding, memory);
+
+    struct dma_dereg_resp_st *st = malloc(sizeof(struct dma_dereg_resp_st));
+    assert(st);
+    st->b = _binding;
+    st->err = err;
+
+    dma_deregister_response_tx(st);
 }
 
 /*
@@ -154,7 +177,38 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
                              uint64_t dst,
                              uint64_t length)
 {
+    XDMA_DEBUG("dma_exec_call_rx\n");
 
+    struct dma_exec_resp_st *st = malloc(sizeof(struct dma_exec_resp_st));
+    assert(st);
+    st->b = _binding;
+
+    lpaddr_t dma_src = xdma_mem_verify(_binding, src, length);
+    lpaddr_t dma_dst = xdma_mem_verify(_binding, dst, length);
+    if (!dma_src || !dma_dst) {
+        st->err = XEON_PHI_ERR_DMA_MEM_REGISTERED;
+        st->id = 0;
+    }
+
+    struct dma_req_setup setup = {
+        .type = XDMA_REQ_TYPE_MEMCPY,
+        .st = _binding,
+        .cb = dma_service_send_done,
+        .info = {
+            .mem = {
+                .src = src,
+                .dst = dst,
+                .bytes = length,
+                .dma_id = &st->id
+            }
+        }
+    };
+
+    struct xeon_phi *phi = xdma_mem_get_phi(_binding);
+
+    st->err = dma_do_request(phi, &setup);
+
+    dma_exec_response_tx(st);
 }
 
 /*
@@ -192,6 +246,14 @@ static void dma_stop_call_rx(struct xeon_phi_dma_binding *_binding,
                              xeon_phi_dma_id_t id)
 {
 
+    XDMA_DEBUG("dma_stop_call_rx: NOT YET IMPLEMENTED!!!!\n");
+
+    struct dma_stop_resp_st *st = malloc(sizeof(struct dma_stop_resp_st));
+    assert(st);
+    st->b = _binding;
+    st->err = SYS_ERR_OK;
+
+    dma_stop_response_tx(st);
 }
 
 struct xeon_phi_dma_rx_vtbl dma_rx_vtbl = {
@@ -210,12 +272,16 @@ struct xeon_phi_dma_rx_vtbl dma_rx_vtbl = {
 static errval_t svc_connect_cb(void *st,
                                struct xeon_phi_dma_binding *b)
 {
-    XPHI_MSG_DBG("New connection request\n");
+    errval_t err;
+
+    XDMA_DEBUG("New connection request\n");
     b->rx_vtbl = dma_rx_vtbl;
 
-    /*
-     * TODO: set the state
-     */
+    struct xeon_phi *phi = st;
+    err = xdma_mem_init(b, phi);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     return SYS_ERR_OK;
 }
@@ -237,23 +303,23 @@ static void svc_export_cb(void *st,
     svc_state = XPM_SVC_STATE_EXPORT_OK;
 }
 
-errval_t dma_service_init(uint8_t xeon_phi_id)
+errval_t dma_service_init(struct xeon_phi *phi)
 {
     errval_t err;
 
 #ifdef __k1om__
-    assert(xeon_phi_id == 0);
+    assert(phi->id == 0);
 #endif
 
     XDMA_DEBUG("Initializing DMA service\n");
 
     struct waitset *ws = get_default_waitset();
 
-    err = xeon_phi_messaging_export(NULL,
-                                    svc_export_cb,
-                                    svc_connect_cb,
-                                    ws,
-                                    IDC_EXPORT_FLAGS_DEFAULT);
+    err = xeon_phi_dma_export(phi,
+                              svc_export_cb,
+                              svc_connect_cb,
+                              ws,
+                              IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
@@ -270,7 +336,7 @@ errval_t dma_service_init(uint8_t xeon_phi_id)
     svc_state = XPM_SVC_STATE_NS_REGISTERING;
 
     char buf[50];
-    snprintf(buf, 50, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, xeon_phi_id);
+    snprintf(buf, 50, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, phi->id);
 
     XDMA_DEBUG("Registering iref [%u] with name [%s]\n", dma_iref, buf);
     err = nameservice_register(buf, dma_iref);
@@ -305,7 +371,7 @@ static void dma_done_tx(void *a)
 
     struct event_closure txcont = MKCONT(free, a);
 
-    err = xeon_phi_dma_stop_response__tx(st->b, txcont, st->id, st->err);
+    err = xeon_phi_dma_done__tx(st->b, txcont, st->id, st->err);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_done_tx, a);
@@ -316,22 +382,25 @@ static void dma_done_tx(void *a)
     }
 }
 
-errval_t dma_service_send_done(struct xeon_phi_dma_binding *b,
-                               xeon_phi_dma_id_t id,
-                               errval_t err)
+errval_t dma_service_send_done(void *a,
+                           errval_t err,
+                           xeon_phi_dma_id_t id)
 {
-    XDMA_DEBUG("sending done notification: %lu\n", id);
+    XDMA_DEBUG("sending done notification: %lx\n", (uint64_t ) id);
 
-    struct dma_done_st *st = malloc(sizeof(struct dma_done_st));
-    if (st == NULL) {
+    struct xeon_phi_dma_binding *b = a;
+    assert(b);
+
+    struct dma_done_st *msgst = malloc(sizeof(struct dma_done_st));
+    if (msgst == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    st->b = b;
-    st->id = id;
-    st->err = err;
+    msgst->b = b;
+    msgst->id = id;
+    msgst->err = err;
 
-    dma_done_tx(st);
+    dma_done_tx(msgst);
 
     return SYS_ERR_OK;
 }

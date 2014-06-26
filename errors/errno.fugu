@@ -1046,9 +1046,10 @@ errors xeon_phi XEON_PHI_ERR_ {
     failure DMA_BUSY      	   "All DMA channels are busy",
     failure DMA_IDLE             "All DMA channels are idle",
     failure DMA_MEM_REGISTERED   "The memory has not been registered",
-    failure DMA_RPC_IN_PROGRESS  "There is currently an RPC going on",
     failure DMA_MEM_ALIGN        "The address / bytes has a wrong alignment",
+    failure DMA_MEM_OVERLAP      "The memory addresses overlap",
+    failure DMA_RPC_IN_PROGRESS  "There is currently an RPC going on",
     failure DMA_NO_DESC          "There are not enough DMA descriptors left",
     failure DMA_REQ_SIZE         "The requested transfer size is too big",
-    failure DMA_OUT_OF_RANGE     "The physical address is out of range",
+    failure DMA_MEM_OUT_OF_RANGE "The physical address is out of range",
 };

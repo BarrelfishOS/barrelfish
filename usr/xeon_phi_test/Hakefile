@@ -20,7 +20,7 @@
   build application { target = "xeon_phi_test",
                         cFiles = [ "main_card.c", "benchmark.c" ],
                         flounderDefs = ["xeon_phi_messaging"],
-                        addLibraries = libDeps [ "xeon_phi_messaging", "xeon_phi_messaging_client", "bench" ],
+                        addLibraries = libDeps [ "xeon_phi_messaging", "xeon_phi_messaging_client", "bench", "xeon_phi_dma_client" ],
                         architectures = ["k1om"]
                     }
 

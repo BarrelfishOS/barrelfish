@@ -14,6 +14,8 @@
 #ifndef XEON_PHI_DMA_H
 #define XEON_PHI_DMA_H
 
+#include <if/xeon_phi_dma_defs.h>
+
 /// the base name of the exported dma service
 #define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
 
@@ -42,12 +44,59 @@
 /// the number of dma descriptors we allocate
 #define XEON_PHI_DMA_DESC_NUM  128
 
-
 /// alignment constraint of the descriptor ring (cache line)
 #define XEON_PHI_DMA_DESC_RING_ALIGN 64
 
+/// flag if we use polling or interrupts
 #define XEON_PHI_DMA_USE_POLLING 1
 
+///
+typedef errval_t (*xdma_done_cb_t)(void *a,
+                               errval_t err,
+                               xeon_phi_dma_id_t id);
+
+enum dma_req_type
+{
+    XDMA_REQ_TYPE_NOP = 0,
+    XDMA_REQ_TYPE_MEMCPY,
+    XDMA_REQ_TYPE_STATUS,
+    XDMA_REQ_TYPE_GENERAL,
+    XDMA_REQ_TYPE_KEYNON,
+    XDMA_REQ_TYPE_KEY
+};
+
+struct dma_req_setup
+{
+    enum dma_req_type type;
+    xdma_done_cb_t cb;
+    void *st;
+    union
+    {
+        struct
+        {
+            lpaddr_t src;
+            lpaddr_t dst;
+            size_t bytes;
+            xeon_phi_dma_id_t *dma_id;
+        } mem;
+        struct
+        {
+
+        } status;
+        struct
+        {
+
+        } general;
+        struct
+        {
+
+        } keynon;
+        struct
+        {
+
+        } key;
+    } info;
+};
 
 /**
  * \brief Initializes the DMA structure for the Xeon Phi
@@ -57,6 +106,18 @@
  * \return SYS_ERR_OK on success,
  */
 errval_t dma_init(struct xeon_phi *phi);
+
+/**
+ * \brief issues a new DMA request
+ *
+ * \param phi   Xeon Phi to execute the request on
+ * \param setup information about the request
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on failure
+ */
+errval_t dma_do_request(struct xeon_phi *phi,
+                        struct dma_req_setup *setup);
 
 /**
  * \brief polls the owned channels for competed transfers
@@ -69,7 +130,12 @@ errval_t dma_init(struct xeon_phi *phi);
  */
 errval_t dma_poll_channels(struct xeon_phi *phi);
 
-errval_t dma_impl_test(struct xeon_phi *phi);
+errval_t dma_service_init(struct xeon_phi *phi);
 
+errval_t  dma_service_send_done(void *a,
+                           errval_t err,
+                           xeon_phi_dma_id_t id);
+
+errval_t dma_impl_test(struct xeon_phi *phi);
 
 #endif /* XEON_PHI_DMA_H */

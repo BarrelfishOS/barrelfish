@@ -15,6 +15,7 @@
 
 #include <xeon_phi/xeon_phi_messaging.h>
 #include <xeon_phi/xeon_phi_messaging_client.h>
+#include <xeon_phi/xeon_phi_dma_client.h>
 
 uint32_t send_reply = 0x0;
 
@@ -24,11 +25,61 @@ uint8_t connected = 0;
 
 static void *card_buf;
 
+static struct capref card_frame;
+
+static lpaddr_t card_base;
+
+static size_t card_frame_sz;
+
 static void *host_buf;
+
+static struct capref host_frame;
+
+static lpaddr_t host_base;
+
+static size_t host_frame_sz;
 
 struct bench_bufs bufs;
 
 static struct ump_chan uc;
+
+static void do_dma_test(void)
+{
+    debug_printf("starting DMA test...\n");
+
+    errval_t err;
+
+    err = xeon_phi_dma_client_init();
+    assert(err_is_ok(err));
+
+    err = xeon_phi_dma_client_register(0, card_frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register memory");
+    }
+
+    err = xeon_phi_dma_client_register(0, host_frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register memory");
+    }
+
+    struct xeon_phi_dma_info info = {
+        .src  = card_base,
+        .dest = card_base + card_frame_sz / 2,
+        .size = card_frame_sz / 2
+    };
+
+    struct xeon_phi_dma_cont cont;
+
+    err = xeon_phi_dma_client_start(0, &info, cont, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not exec the transfer");
+    }
+
+    err = xeon_phi_dma_client_exec(0, &info);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not exec the transfer");
+    }
+}
 
 static errval_t msg_open_cb(struct capref msgframe,
                             uint8_t chantype)
@@ -44,6 +95,12 @@ static errval_t msg_open_cb(struct capref msgframe,
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n",
                  id.base,
                  1UL << id.bits);
+
+    host_frame = msgframe;
+
+    host_base = id.base;
+
+    host_frame_sz = (1UL << id.bits);
 
     err = vspace_map_one_frame(&host_buf, 1UL << id.bits, msgframe, NULL, NULL);
     if (err_is_fail(err)) {
@@ -136,13 +193,18 @@ int main(int argc,
 
     debug_printf("Allocating a frame of size: %lx\n", frame_size);
 
-    struct capref frame;
     size_t alloced_size = 0;
-    err = frame_alloc(&frame, frame_size, &alloced_size);
+    err = frame_alloc(&card_frame, frame_size, &alloced_size);
     assert(err_is_ok(err));
     assert(alloced_size >= frame_size);
 
-    err = vspace_map_one_frame(&card_buf, frame_size, frame, NULL, NULL);
+    struct frame_identity id;
+    err = invoke_frame_identify(card_frame, &id);
+    assert(err_is_ok(err));
+    card_base = id.base;
+    card_frame_sz = alloced_size;
+
+    err = vspace_map_one_frame(&card_buf, frame_size, card_frame, NULL, NULL);
     assert(err_is_ok(err));
 
     err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
@@ -157,8 +219,10 @@ int main(int argc,
     char iface[30];
     snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_HOST);
 
+    do_dma_test();
+
     debug_printf("sending open message to %s\n", iface);
-    err = xeon_phi_messaging_open(0, iface, frame, XEON_PHI_CHAN_TYPE_UMP);
+    err = xeon_phi_messaging_open(0, iface, card_frame, XEON_PHI_CHAN_TYPE_UMP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
     }

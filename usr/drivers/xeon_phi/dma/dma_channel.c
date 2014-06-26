@@ -384,7 +384,7 @@ errval_t xdma_channel_free(struct xdma_channel *chan)
  *
  */
 errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
-                                 struct xdma_req_setup *setup,
+                                 struct dma_req_setup *setup,
                                  xeon_phi_dma_id_t *id)
 {
     assert(setup->type == XDMA_REQ_TYPE_MEMCPY);
@@ -395,8 +395,8 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
     uint32_t num_desc_needed =
                     (setup->info.mem.bytes + XEON_PHI_DMA_REQ_SIZE_MAX - 1) / XEON_PHI_DMA_REQ_SIZE_MAX;
 
-    XDMA_DEBUG("memcpy request: %lu bytes, %u descriptors\n",
-               setup->info.mem.bytes,
+    XDMA_DEBUG("memcpy request channel %u: %lu bytes, %u descriptors\n",
+               chan->chanid, setup->info.mem.bytes,
                num_desc_needed);
 
     if (num_desc_needed > chan->size) {
@@ -436,7 +436,8 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
             first = 1;
             head = entry;
             rinfo->head = 1;
-            rinfo->binding = setup->binding;
+            rinfo->st = setup->st;
+            rinfo->cb = setup->cb;
             rinfo->ndesc = num_desc_needed;
         }
 
@@ -527,6 +528,8 @@ errval_t xdma_channel_intr_handler(struct xdma_channel *chan)
  */
 errval_t xdma_channel_poll(struct xdma_channel *chan)
 {
+    errval_t err;
+
     if (!chan->do_poll) {
         return SYS_ERR_OK;
     }
@@ -566,9 +569,16 @@ errval_t xdma_channel_poll(struct xdma_channel *chan)
             XDMA_DEBUG("Request 0x%016lx done. Last entry was [%u]\n",
                        (uint64_t )first->id,
                        entry);
-
             chan->last_processed = (entry + 1) % chan->size;
             assert(chan->last_processed <= chan->tail);
+
+            assert(first->head == 1);
+            if (first->cb) {
+                err = first->cb(first->st, SYS_ERR_OK, first->id);
+                if (err_is_fail(err)) {
+                    return err;
+                }
+            }
         }
 
         entry = (entry + 1) % chan->size;

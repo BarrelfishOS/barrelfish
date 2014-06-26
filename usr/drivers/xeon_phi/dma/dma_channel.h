@@ -20,6 +20,7 @@
 #include "dma_descriptor_ring.h"
 
 
+
 #define XEON_PHI_DMA_REQ_SIZE_MAX  (((1U) * 1024 * 1024) >> 1)
 
 enum xdma_chan_owner {
@@ -35,7 +36,8 @@ enum xdma_chan_state {
 
 struct xdma_req_info
 {
-    struct xeon_phi_dma_binding *binding;
+    xdma_done_cb_t cb;
+    void *st;
     errval_t err;           ///< outcome of the request
     xeon_phi_dma_id_t id;   ///< DMA request ID
     uint16_t ndesc;         ///< the number of descriptors used in the request
@@ -64,45 +66,6 @@ struct xdma_channel
     lpaddr_t dstat_wb;
 };
 
-enum xdma_req_type
-{
-    XDMA_REQ_TYPE_NOP = 0,
-    XDMA_REQ_TYPE_MEMCPY,
-    XDMA_REQ_TYPE_STATUS,
-    XDMA_REQ_TYPE_GENERAL,
-    XDMA_REQ_TYPE_KEYNON,
-    XDMA_REQ_TYPE_KEY
-};
-
-
-struct xdma_req_setup
-{
-    enum xdma_req_type type;
-    struct xeon_phi_dma_binding *binding;
-    union
-    {
-        struct
-        {
-            lpaddr_t src;
-            lpaddr_t dst;
-            size_t   bytes;
-        } mem;
-        struct
-        {
-
-        } status;
-        struct
-        {
-
-        } general;
-        struct {
-
-        }keynon;
-        struct {
-
-        }key;
-    } info;
-};
 
 static inline xeon_phi_dma_id_t xdma_chan_generate_id(struct xdma_channel *chan)
 {
@@ -143,35 +106,35 @@ errval_t xdma_channel_free(struct xdma_channel *chan);
  *
  */
 errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
-                                 struct xdma_req_setup *setup,
+                                 struct dma_req_setup *setup,
                                  xeon_phi_dma_id_t *id);
 
 /**
  *
  */
 errval_t xdma_channel_req_status(struct xdma_channel *chan,
-                                 struct xdma_req_setup *setup,
+                                 struct dma_req_setup *setup,
                                  xeon_phi_dma_id_t *id);
 
 /**
  *
  */
 errval_t xdma_channel_req_general(struct xdma_channel *chan,
-                                  struct xdma_req_setup *setup,
+                                  struct dma_req_setup *setup,
                                   xeon_phi_dma_id_t *id);
 
 /**
  *
  */
 errval_t xdma_channel_req_keynoncecent(struct xdma_channel *chan,
-                                       struct xdma_req_setup *setup,
+                                       struct dma_req_setup *setup,
                                        xeon_phi_dma_id_t *id);
 
 /**
  *
  */
 errval_t xdma_channel_req_key(struct xdma_channel *chan,
-                              struct xdma_req_setup *setup,
+                              struct dma_req_setup *setup,
                               xeon_phi_dma_id_t *id);
 
 /**

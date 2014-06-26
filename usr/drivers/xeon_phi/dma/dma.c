@@ -72,7 +72,7 @@ errval_t dma_init(struct xeon_phi *phi)
 
     phi->dma = info;
 
-    return SYS_ERR_OK;
+    return dma_service_init(phi);
 }
 
 /**
@@ -101,15 +101,53 @@ errval_t dma_poll_channels(struct xeon_phi *phi)
     return ret_err;
 }
 
-errval_t dma_do_memcpy(lpaddr_t dst,
-                       lpaddr_t src,
-                       size_t bytes);
-errval_t dma_do_memcpy(lpaddr_t dst,
-                       lpaddr_t src,
-                       size_t bytes)
+/**
+ * \brief issues a new DMA request
+ *
+ * \param phi   Xeon Phi to execute the request on
+ * \param setup information about the request
+ *
+ * \returns SYS_ERR_OK on success
+ *          XEON_PHI_ERR_DMA_* on failure
+ */
+errval_t dma_do_request(struct xeon_phi *phi,
+                        struct dma_req_setup *setup)
 {
+    errval_t err = SYS_ERR_OK;
 
-    return SYS_ERR_OK;
+    struct xdma_channel *chan = &phi->dma->channels[phi->dma->chan_alloc_next++];
+
+    /*
+     * XXX: choosing the channel in a round robin fashion. One may want to select
+     *      the one which is least busy.
+     */
+
+    if(phi->dma->chan_alloc_next >= XEON_PHI_DMA_CHAN_NUM) {
+        phi->dma->chan_alloc_next = 0;
+    }
+
+    switch(setup->type) {
+        case XDMA_REQ_TYPE_NOP:
+            assert(!"NYI");
+            break;
+        case XDMA_REQ_TYPE_MEMCPY:
+            err = xdma_channel_req_memcpy(chan, setup, setup->info.mem.dma_id);
+            break;
+        case XDMA_REQ_TYPE_STATUS:
+            assert(!"NYI");
+            break;
+        case XDMA_REQ_TYPE_GENERAL:
+            assert(!"NYI");
+            break;
+        case XDMA_REQ_TYPE_KEYNON:
+            assert(!"NYI");
+            break;
+        case XDMA_REQ_TYPE_KEY :
+            assert(!"NYI");
+            break;
+    }
+
+    return err;
 }
 
 #define XDMA_TEST_BUFFER_SIZE (1024*1024)
@@ -144,7 +182,7 @@ errval_t dma_impl_test(struct xeon_phi *phi)
     debug_printf(" DMA-TEST | setup transfer\n");
 
     struct xdma_channel *chan = &phi->dma->channels[0];
-    struct xdma_req_setup setup = {
+    struct dma_req_setup setup = {
         .type = XDMA_REQ_TYPE_MEMCPY
     };
     setup.info.mem.dst = dst;

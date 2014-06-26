@@ -15,7 +15,7 @@
 #define XEON_PHI_DMA_SERVICE_H
 
 
-errval_t dma_service_init(void);
+errval_t dma_service_init(struct xeon_phi *phi);
 
 
 

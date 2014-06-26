@@ -54,6 +54,9 @@ static struct xdma_req *requests_free;
 /// the number of free requests
 static uint32_t requests_free_count;
 
+/// initialization flag
+static uint8_t xphi_dma_intialized = 0x0;
+
 #define DEBUG_XDMA(x...) debug_printf(" [xdma] " x)
 
 enum xpm_state
@@ -178,7 +181,9 @@ static void xdma_bind_cb(void *st,
     uint8_t xphi_id = (uint8_t) (uintptr_t) st;
     xdma_binding[xphi_id] = b;
 
-    DEBUG_XDMA("Binding to xdma service ok.\n");
+    b->st = (void *)(uintptr_t)xphi_id;
+
+    DEBUG_XDMA("Binding to xdma [%u] service ok.\n", xphi_id);
 
     conn_state = XPM_STATE_BIND_OK;
 }
@@ -190,6 +195,13 @@ static errval_t xdma_connect(uint8_t xphi_id)
 {
     errval_t err;
 
+    if (!xphi_dma_intialized) {
+        err = xeon_phi_dma_client_init();
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
     if (xdma_binding[xphi_id] != NULL) {
         return SYS_ERR_OK;
     }
@@ -199,7 +211,7 @@ static errval_t xdma_connect(uint8_t xphi_id)
 
     iref_t svc_iref;
 
-    DEBUG_XDMA("Nameservice lookup: %s\n", buf);
+    DEBUG_XDMA("Connecting to Xeon Phi DMA service. NS lookup: %s\n", buf);
     err = nameservice_blocking_lookup(buf, &svc_iref);
     if (err_is_fail(err)) {
         return err;
@@ -555,6 +567,9 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
         return XEON_PHI_ERR_DMA_BUSY;
     }
 
+    req->cont = cont;
+    req->xphi_id = xphi_id;
+
     struct xdma_reg_start_st *msg_st = xdma_reg_start_st + xphi_id;
 
     msg_st->bytes = info->size;
@@ -573,6 +588,8 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
     if (id) {
         *id = msg_st->id;
     }
+
+    req->id = msg_st->id;
 
     return msg_st->err;
 }
