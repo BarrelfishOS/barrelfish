@@ -33,7 +33,7 @@ errval_t service_init(struct xeon_phi *phi);
  * \param irefs the irefs of the other cards
  * \param num   the number of irefs in the array
  */
-errval_t service_register(struct xeon_phi *phi, iref_t *irefs, size_t num);
+errval_t service_register(struct xeon_phi *phi, iref_t *irefs, uint8_t num);
 
 /**
  * \brief starts the service request handling

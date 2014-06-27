@@ -19,7 +19,7 @@
 
 #include <if/xeon_phi_dma_defs.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma.h"
 #include "dma_mem.h"
 #include "dma_channel.h"
@@ -47,6 +47,105 @@ static iref_t dma_iref;
 
 /*
  * ----------------------------------------------------------------------------
+ * Reply Queue
+ * ----------------------------------------------------------------------------
+ */
+#ifdef XDMA_USE_QUEUE
+#define XDMA_REPLY_QUEUE_SIZE 32
+
+struct queue_entry
+{
+    void *st;
+    void (*op)(void *st);
+    struct queue_entry *next;
+};
+
+struct xdma_reply_queue
+{
+    struct queue_entry *head;
+    struct queue_entry *tail;
+};
+
+struct xdma_reply_queue send_queue;
+
+struct queue_entry *send_queue_entries;
+
+struct queue_entry *send_queue_free;
+
+
+static errval_t xdma_reply_queue_send(void (*op)(void *st),
+                               void *st)
+{
+    assert(op);
+    if (send_queue.head == NULL) {
+        op(st);
+        return SYS_ERR_OK;
+    }
+    if (send_queue_free == NULL) {
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+    struct queue_entry *e = send_queue_free;
+    send_queue_free = e->next;
+    e->op = op;
+    e->st = st;
+    e->next = NULL;
+    send_queue.tail->next = e;
+    send_queue.tail = e;
+    return SYS_ERR_OK;
+}
+
+static errval_t xdma_reply_queue_insert(void (*op)(void *st),
+                                 void *st)
+{
+    if (send_queue_free == NULL) {
+        return FLOUNDER_ERR_TX_BUSY;
+    }
+    struct queue_entry *e = send_queue_free;
+    send_queue_free = e->next;
+    e->op = op;
+    e->st = st;
+    e->next = NULL;
+    if (send_queue.head == NULL) {
+        send_queue.head = e;
+        send_queue.tail = e;
+    } else {
+        send_queue.tail->next = e;
+        send_queue.tail = e;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static void xdma_reply_queue_exec(void)
+{
+    if (send_queue.head == NULL) {
+        return;
+    }
+
+    struct queue_entry *e = send_queue.head;
+    if (e == send_queue.tail) {
+        send_queue.tail = NULL;
+        send_queue.head = NULL;
+    } else {
+        assert(e->next);
+        send_queue.head = e->next;
+    }
+
+    e->op(e->st);
+
+    e->next = send_queue_free;
+    send_queue_free = e;
+}
+
+static void xdma_reply_queue_next(void *a)
+{
+    free(a);
+    xdma_reply_queue_exec();
+}
+#endif
+
+/*
+ * ----------------------------------------------------------------------------
  * Memory:  registration
  * ----------------------------------------------------------------------------
  */
@@ -69,6 +168,7 @@ static void dma_register_response_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_register_response_tx, a);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
@@ -117,6 +217,7 @@ static void dma_deregister_response_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_deregister_response_tx, a);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
@@ -161,15 +262,23 @@ static void dma_exec_response_tx(void *a)
 
     struct event_closure txcont = MKCONT(free, a);
 
-    err = xeon_phi_dma_exec_response__tx(st->b, txcont, st->id, st->err);
+    XDMA_DEBUG("xeon_phi_dma_exec_response__tx(%lu, %lx)\n",
+               st->err,
+               (uint64_t )st->id);
+
+    err = xeon_phi_dma_exec_response__tx(st->b, txcont, st->err, st->id);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_exec_response_tx, a);
+            XDMA_DEBUG("dma_exec_response_tx: register sending...\n");
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
         }
+        return;
     }
+    XDMA_DEBUG("dma_exec_response_tx: sent...\n");
 }
 
 static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
@@ -177,32 +286,41 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
                              uint64_t dst,
                              uint64_t length)
 {
+    debug_printf("\n\n\n");
     XDMA_DEBUG("dma_exec_call_rx\n");
 
     struct dma_exec_resp_st *st = malloc(sizeof(struct dma_exec_resp_st));
     assert(st);
     st->b = _binding;
-
     lpaddr_t dma_src = xdma_mem_verify(_binding, src, length);
     lpaddr_t dma_dst = xdma_mem_verify(_binding, dst, length);
     if (!dma_src || !dma_dst) {
         st->err = XEON_PHI_ERR_DMA_MEM_REGISTERED;
         st->id = 0;
+#ifdef XDEBUG_DMA
+        if (!dma_src) {
+            XDMA_DEBUG("Memory range not registered: [0x%016lx] [0x%016lx]\n",
+                       src, src+length);
+        }
+        if (!dma_dst) {
+            XDMA_DEBUG("Memory range not registered: [0x%016lx] [0x%016lx]\n",
+                       dst, dst+length);
+        }
+#endif
+
+        dma_exec_response_tx(st);
+        return;
     }
 
     struct dma_req_setup setup = {
         .type = XDMA_REQ_TYPE_MEMCPY,
         .st = _binding,
         .cb = dma_service_send_done,
-        .info = {
-            .mem = {
-                .src = src,
-                .dst = dst,
-                .bytes = length,
-                .dma_id = &st->id
-            }
-        }
     };
+    setup.info.mem.src = src;
+    setup.info.mem.dst = dst;
+    setup.info.mem.bytes = length;
+    setup.info.mem.dma_id = &st->id;
 
     struct xeon_phi *phi = xdma_mem_get_phi(_binding);
 
@@ -235,9 +353,11 @@ static void dma_stop_response_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_stop_response_tx, a);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
+
         }
     }
 }
@@ -375,16 +495,20 @@ static void dma_done_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_done_tx, a);
+            err = st->b->register_send(st->b, get_default_waitset(), txcont);
+            XDMA_DEBUG("dma_done_tx: register for sending...\n");
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
         }
+        return;
     }
+    XDMA_DEBUG("dma_done_tx: sent...\n");
 }
 
 errval_t dma_service_send_done(void *a,
-                           errval_t err,
-                           xeon_phi_dma_id_t id)
+                               errval_t err,
+                               xeon_phi_dma_id_t id)
 {
     XDMA_DEBUG("sending done notification: %lx\n", (uint64_t ) id);
 

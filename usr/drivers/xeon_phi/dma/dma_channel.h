@@ -69,8 +69,9 @@ struct xdma_channel
 
 static inline xeon_phi_dma_id_t xdma_chan_generate_id(struct xdma_channel *chan)
 {
+
     return ((((uint64_t) chan->chanid) << 56) | (((uint64_t) chan->head) << 32)
-            | (chan->reqcoutner++));
+            | (uint64_t)(chan->reqcoutner++));
 }
 
 /**

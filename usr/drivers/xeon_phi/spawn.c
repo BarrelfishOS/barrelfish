@@ -19,7 +19,7 @@
 
 #include <xeon_phi/xeon_phi_messaging.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "spawn.h"
 
 /**

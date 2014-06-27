@@ -17,7 +17,7 @@
 #include <barrelfish/barrelfish.h>
 #include <pci/pci.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "interrupts.h"
 
 xeon_phi_irq_t irq_registers;

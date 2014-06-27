@@ -19,7 +19,7 @@
 
 #include <dev/xeon_phi/xeon_phi_boot_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "interrupts.h"
 #include "sleep.h"
 #include "smpt.h"

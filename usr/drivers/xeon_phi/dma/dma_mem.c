@@ -17,7 +17,7 @@
 
 #include <if/xeon_phi_dma_defs.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma_mem.h"
 
 struct xdma_mem
@@ -98,8 +98,8 @@ static struct xdma_mem_entry* xdma_mem_find_entry(struct xdma_mem *xmem,
         if (current->paddr > addr) {
             return NULL;
         }
-        if (current->paddr <= addr && (current->paddr = current->size)
-                        <= (addr + size)) {
+        if (current->paddr <= addr && (current->paddr + current->size)
+                        >= (addr + size)) {
             return current;
         }
         current = current->next;

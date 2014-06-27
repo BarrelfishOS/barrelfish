@@ -82,10 +82,12 @@ struct mbar
 
 struct xnode
 {
-    struct xeon_phi_binding *binding;
+    struct xeon_phi_driver_binding *binding;
     iref_t                   iref;
     xnode_state_t state;
     uint8_t         id;
+    lpaddr_t        apt_base;
+    size_t          apt_size;
     struct xeon_phi *local;
 };
 

@@ -22,7 +22,7 @@
 #include <xeon_phi/xeon_phi_manager_client.h>
 #include <xeon_phi/xeon_phi_messaging.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "smpt.h"
 #include "service.h"
 #include "messaging.h"
@@ -44,27 +44,32 @@ int main(int argc,
     debug_printf("Xeon Phi host module started.\n");
 
     uint32_t vendor_id, device_id;
-    uint32_t bus = PCI_DONT_CARE,  dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
+    uint32_t bus = PCI_DONT_CARE, dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc-1], "%x:%x:%x:%x:%x",
-                                 &vendor_id, &device_id,
-                                 &bus, &dev, &fun);
+        uint32_t parsed = sscanf(argv[argc - 1],
+                                 "%x:%x:%x:%x:%x",
+                                 &vendor_id,
+                                 &device_id,
+                                 &bus,
+                                 &dev,
+                                 &fun);
         if (parsed != 5) {
             debug_printf("WARNING: parsing cmdline argument failed. >"
-                            "Switching back to unknown PCI address [0,0,0]");
+                         "Switching back to unknown PCI address [0,0,0]");
             bus = PCI_DONT_CARE;
             dev = PCI_DONT_CARE;
             fun = PCI_DONT_CARE;
         } else {
             if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
                 debug_printf("ERROR: Unexpected vendor / device ID"
-                                "was: [%x, %x] expected: [%x, %x]",
-                                vendor_id, (device_id & 0xFF00), 0x8086, 0x2500);
+                             "was: [%x, %x] expected: [%x, %x]",
+                             vendor_id, (device_id & 0xFF00), 0x8086, 0x2500);
                 return -1;
             }
             debug_printf("Initializing Xeon Phi with PCI address "
-                                 "[%u,%u,%u]\n", bus, dev, fun);
+                         "[%u,%u,%u]\n",
+                         bus, dev, fun);
         }
     } else {
         debug_printf("WARNING: Initializing Xeon Phi with unknown PCI address "
@@ -78,7 +83,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not do the host bootstrap\n");
     }
-
 
     while (bootstrap_done == 0) {
         messages_wait_and_handle_next();
@@ -98,6 +102,16 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
     }
+#if 1
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
+    debug_printf("waiting...\n");
+    while(1) {
+        messages_wait_and_handle_next();
+    }
+#endif
 
     xphi.state = XEON_PHI_STATE_NULL;
 
@@ -106,14 +120,14 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not do the card initialization\n");
     }
 
-    err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not boot the card\n");
-    }
-
     err = service_register(&xphi, irefs, num);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
+
+    err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not boot the card\n");
     }
 
     err = xeon_phi_messaging_service_init(&msg_cb);

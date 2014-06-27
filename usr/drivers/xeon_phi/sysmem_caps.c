@@ -20,7 +20,7 @@
 #include <mm/mm.h>
 #include <xeon_phi/xeon_phi.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "sysmem_caps.h"
 
 /// the number of slots to allocate for the allocator

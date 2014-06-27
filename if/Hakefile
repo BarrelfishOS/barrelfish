@@ -70,7 +70,7 @@
                "unixsock",
                "bcache",
                "replay",
-               "xeon_phi",
+               "xeon_phi_driver",
                "xeon_phi_manager",
                "xeon_phi_messaging",
                "xeon_phi_dma",

@@ -84,4 +84,31 @@ void smpt_reset(struct xeon_phi *phi);
  */
 errval_t smpt_init(struct xeon_phi *phi);
 
+/**
+ * \brief sets the entry of the SMPT for the Xeon Phi with given id
+ *
+ * \param phi   the local Xeon Phi
+ * \param id    ID of the other Xeon Phi
+ * \param addr  the physical (host)address
+ *
+ * \returns 1 on SUCCESS
+ *          0 on attempt to set the own SMPT entry
+ */
+uint8_t smpt_set_coprocessor_address(struct xeon_phi *phi,
+                                     uint8_t id,
+                                     lpaddr_t addr);
+
+/**
+ * \brief calculates the base address of the Xeon Phi GDDR
+ *
+ *        This function will return 0 if the ID is the local card.
+ *
+ * \param phi   the local xeon phi
+ * \param id    the xeon phi id of the other card
+ *
+ * \returns base address of GDDR (0 if local)
+ */
+lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
+                                      uint8_t id);
+
 #endif /* XEON_PHI_SMPT_H */

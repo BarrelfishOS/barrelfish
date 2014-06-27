@@ -40,16 +40,16 @@ struct xeon_phi_dma_binding *xdma_binding[XEON_PHI_NUM_MAX];
 uint8_t xdma_wait_reply[XEON_PHI_NUM_MAX];
 
 /// pointer to all DMA requests
-static struct xdma_req *requests;
+static struct xdma_req *requests = NULL;
 
 /// the current requests being executed
-static struct xdma_req *requests_pending;
+static struct xdma_req *requests_pending = NULL;
 
 /// the number of pending requests
 static uint32_t requests_pending_count;
 
 /// unused / free requests
-static struct xdma_req *requests_free;
+static struct xdma_req *requests_free = NULL;
 
 /// the number of free requests
 static uint32_t requests_free_count;
@@ -77,14 +77,10 @@ static struct xdma_req *xdma_get_pending_request(xeon_phi_dma_id_t id)
     struct xdma_req *req = requests_pending;
     while (req) {
         if (req->id == id) {
-            if (req->prev == NULL) {
-                /* beginning */
-                requests_pending = req->next;
-                requests_pending->prev = NULL;
-            } else if (req->next == NULL) {
-                req->prev->next = NULL;
-            } else {
+            if (req->prev != NULL) {
                 req->prev->next = req->next;
+            }
+            if (req->next != NULL) {
                 req->next->prev = req->prev;
             }
             req->next = NULL;
@@ -93,7 +89,6 @@ static struct xdma_req *xdma_get_pending_request(xeon_phi_dma_id_t id)
             requests_pending_count--;
 
             return req;
-
         }
     }
     return NULL;
@@ -181,7 +176,7 @@ static void xdma_bind_cb(void *st,
     uint8_t xphi_id = (uint8_t) (uintptr_t) st;
     xdma_binding[xphi_id] = b;
 
-    b->st = (void *)(uintptr_t)xphi_id;
+    b->st = (void *) (uintptr_t) xphi_id;
 
     DEBUG_XDMA("Binding to xdma [%u] service ok.\n", xphi_id);
 
@@ -308,14 +303,17 @@ static void xdma_register_call_tx(void *a)
     err = xeon_phi_dma_register_call__tx(b, txcont, msg_st->mem);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            DEBUG_XDMA("xdma_register_call_tx: register for sending\n");
             txcont = MKCONT(xdma_register_call_tx, a);
             err = b->register_send(b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 msg_st->err = err;
                 xdma_wait_reply[msg_st->xphi_id] = 0x0;
             }
+            return;
         }
     }
+    DEBUG_XDMA("xdma_register_call_tx: sent\n");
 }
 
 /**
@@ -482,7 +480,7 @@ static void xdma_exec_response_rx(struct xeon_phi_dma_binding *_binding,
 {
     uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
-    DEBUG_XDMA("received exec response [%u, %u]\n", xphi_id, id);
+    DEBUG_XDMA("received exec response [%u, %lx]\n", xphi_id, id);
 
     assert(xdma_reg_msg_st[xphi_id].xphi_id == xphi_id);
 
@@ -513,6 +511,7 @@ static void xdma_exec_call_tx(void *a)
             err = b->register_send(b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
                 msg_st->err = err;
+                DEBUG_XDMA("could not register for sending\n");
                 xdma_wait_reply[msg_st->xphi_id] = 0x0;
             }
         }
@@ -537,6 +536,9 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
 {
     errval_t err;
 
+    DEBUG_XDMA("new DMA request: [0x%016lx]->[0x%016lx] of 0x%lx bytes \n",
+               info->src, info->dest, (uint64_t)info->size);
+
     /*
      * we only allow multiple of 64 bytes for transfers.
      * The Xeon Phi DMA controller supports only 64 byte granilarity in
@@ -546,6 +548,19 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
                     & (XEON_PHI_DMA_ALIGNMENT - 1))
         || (info->size & (XEON_PHI_DMA_ALIGNMENT - 1))) {
         return XEON_PHI_ERR_DMA_MEM_ALIGN;
+    }
+
+    if (info->dest < info->src) {
+        if ((info->dest + info->size) > info->src) {
+            return XEON_PHI_ERR_DMA_MEM_OVERLAP;
+        }
+    } else if ((info->dest > info->src)) {
+        if ((info->src + info->size)>info->dest) {
+            return XEON_PHI_ERR_DMA_MEM_OVERLAP;
+        }
+    } else {
+        /* they are equal so they will overlap */
+        return XEON_PHI_ERR_DMA_MEM_OVERLAP;
     }
 
 #ifdef __k1om__
@@ -581,6 +596,7 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
 
     xdma_exec_call_tx(msg_st);
 
+    DEBUG_XDMA("xeon_phi_dma_client_start: Waiting for RPC reply [%p]\n", req);
     while (xdma_wait_reply[xphi_id]) {
         messages_wait_and_handle_next();
     }
@@ -590,6 +606,8 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
     }
 
     req->id = msg_st->id;
+
+    xdma_insert_pending_request(req);
 
     return msg_st->err;
 }
@@ -632,6 +650,8 @@ errval_t xeon_phi_dma_client_exec(uint8_t xphi_id,
 
     err = xeon_phi_dma_client_start(xphi_id, info, cont, &id);
 
+    DEBUG_XDMA("wait for transfer done reply\n");
+
     while (execute_wait_flag) {
         messages_wait_and_handle_next();
     }
@@ -659,7 +679,7 @@ static void xdma_stop_response_rx(struct xeon_phi_dma_binding *_binding,
 
     struct xdma_reg_stop_st *req_st = xdma_reg_stop_st + xphi_id;
 
-    DEBUG_XDMA("received stop response [%u, %u]\n", xphi_id, req_st->id);
+    DEBUG_XDMA("received stop response [%u, %lu]\n", xphi_id, req_st->id);
 }
 
 static void xdma_stop_call_tx(void *a)
@@ -721,15 +741,17 @@ static void xdma_done_rx(struct xeon_phi_dma_binding *_binding,
 {
     uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
-    DEBUG_XDMA("received done message [%u, %u]\n", xphi_id, id);
-
     struct xdma_req *req = xdma_get_pending_request(id);
+    DEBUG_XDMA("received done message [%u, %lx] @ %p\n", xphi_id, id, req);
+
     assert(req);
 
     if (req->cont.cb) {
+        DEBUG_XDMA("calling request callback\n");
         req->cont.cb(id, err, req->cont.arg);
     }
 
+    DEBUG_XDMA("freeing request\n");
     xdma_insert_free_request(req);
 }
 

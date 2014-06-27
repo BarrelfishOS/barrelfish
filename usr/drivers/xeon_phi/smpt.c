@@ -18,7 +18,7 @@
 
 #include <dev/xeon_phi/xeon_phi_smpt_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "smpt.h"
 
 /*
@@ -32,6 +32,63 @@
  *
  *      Note: the system memory pagetables are rather coarse grained (16GB)
  */
+
+/**
+ * \brief calculates the base address of the Xeon Phi GDDR
+ *
+ *        This function will return 0 if the ID is the local card.
+ *
+ * \param phi   the local xeon phi
+ * \param id    the xeon phi id of the other card
+ *
+ * \returns base address of GDDR (0 if local)
+ */
+lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
+                                      uint8_t id)
+{
+    if (id == phi->id) {
+        return 0;
+    }
+
+    uint8_t slot = xeon_phi_smpt_system_page_num - 1;
+    if (id < phi->id) {
+        slot = slot - id;
+    } else {
+        slot = slot - id + 1;
+    }
+
+    return XEON_PHI_SYSMEM_BASE + ((lpaddr_t)slot * XEON_PHI_SYSMEM_PAGE_SIZE);
+}
+
+/**
+ * \brief sets the entry of the SMPT for the Xeon Phi with given id
+ *
+ * \param phi   the local Xeon Phi
+ * \param id    ID of the other Xeon Phi
+ * \param addr  the physical (host)address
+ *
+ * \returns 1 on SUCCESS
+ *          0 on attempt to set the own SMPT entry
+ */
+uint8_t smpt_set_coprocessor_address(struct xeon_phi *phi,
+                                     uint8_t id,
+                                     lpaddr_t addr)
+{
+    if (id == phi->id) {
+        return 0;
+    }
+
+    uint8_t slot = xeon_phi_smpt_system_page_num - 1;
+    if (id < phi->id) {
+        slot = slot - id;
+    } else {
+        slot = slot - id + 1;
+    }
+
+    smpt_set_address(phi, slot, addr, 1);
+
+    return 1;
+}
 
 /**
  * \brief Sets an entry in the system memory pagetable to a give address
@@ -50,13 +107,13 @@ void smpt_set_address(struct xeon_phi *phi,
 {
     lpaddr_t e_address = (address >> xeon_phi_smpt_system_page_shift);
     xeon_phi_smpt_entry_t e = xeon_phi_smpt_entry_default;
-    e=xeon_phi_smpt_entry_host_address_insert(e, (uint32_t)e_address);
+    e = xeon_phi_smpt_entry_host_address_insert(e, (uint32_t) e_address);
     if (snooping) {
         snooping = xeon_phi_smpt_snooping_enabled;
     } else {
         snooping = xeon_phi_smpt_snooping_disabled;
     }
-    e=xeon_phi_smpt_entry_snoop_disabled_insert(e, snooping);
+    e = xeon_phi_smpt_entry_snoop_disabled_insert(e, snooping);
 
     smpt_set_entry(phi, slot, e);
 }
@@ -90,12 +147,13 @@ errval_t smpt_init(struct xeon_phi *phi)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    xeon_phi_smpt_initialize(&phi->smpt->smpt_register,
-                             XEON_PHI_MMIO_TO_SBOX(phi));
+    xeon_phi_smpt_initialize(&phi->smpt->smpt_register, XEON_PHI_MMIO_TO_SBOX(phi));
 
     lpaddr_t host_address = 0;
 
-    for (uint32_t i = 0; i < xeon_phi_smpt_system_page_num; ++i) {
+    uint32_t netries = xeon_phi_smpt_system_page_num - XEON_PHI_NUM_MAX;
+
+    for (uint32_t i = 0; i < netries; ++i) {
         smpt_set_address(phi, i, host_address, 1);
         host_address += xeon_phi_smpt_system_page_size;
     }

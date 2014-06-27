@@ -11,9 +11,14 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-interface xeon_phi "Xeon Phi Service Interface" {
+interface xeon_phi_driver "Xeon Phi Service Interface" {
 
-    rpc register(in uint8 id, out errval msgerr);
+    rpc register(in uint8 id, 
+                 in uint64 local_apt_base,
+                 in uint64 local_apt_size, 
+                 out errval msgerr, 
+                 out uint64 other_apt_base,
+                 out uint64 other_apt_size);
   
 
 };

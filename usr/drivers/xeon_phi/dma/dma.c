@@ -18,7 +18,7 @@
 
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma.h"
 #include "dma_channel.h"
 #include "dma_descriptor_ring.h"
@@ -122,11 +122,11 @@ errval_t dma_do_request(struct xeon_phi *phi,
      *      the one which is least busy.
      */
 
-    if(phi->dma->chan_alloc_next >= XEON_PHI_DMA_CHAN_NUM) {
+    if (phi->dma->chan_alloc_next >= XEON_PHI_DMA_CHAN_NUM) {
         phi->dma->chan_alloc_next = 0;
     }
 
-    switch(setup->type) {
+    switch (setup->type) {
         case XDMA_REQ_TYPE_NOP:
             assert(!"NYI");
             break;
@@ -142,7 +142,7 @@ errval_t dma_do_request(struct xeon_phi *phi,
         case XDMA_REQ_TYPE_KEYNON:
             assert(!"NYI");
             break;
-        case XDMA_REQ_TYPE_KEY :
+        case XDMA_REQ_TYPE_KEY:
             assert(!"NYI");
             break;
     }

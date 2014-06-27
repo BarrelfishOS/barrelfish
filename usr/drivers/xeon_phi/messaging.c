@@ -24,7 +24,7 @@
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_messaging.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "messaging.h"
 #include "spawn.h"
 #include "sysmem_caps.h"
@@ -244,12 +244,13 @@ errval_t messaging_poll(struct xeon_phi *phi)
 {
     errval_t err;
 
-    if (phi->msg == NULL) {
-        return -1;
-    }
+    assert(phi->msg != NULL);
+
+    uint8_t had_data = 0x0;
 
     struct xeon_phi_msg_data *data = phi->msg->in;
-    if (data->ctrl.valid == XEON_PHI_MSG_STATE_VALID) {
+    while (data->ctrl.valid == XEON_PHI_MSG_STATE_VALID) {
+        had_data = 0x1;
         err = handle_msg_recv(phi, data);
 
         struct xeon_phi_msg_chan *chan;
@@ -266,10 +267,13 @@ errval_t messaging_poll(struct xeon_phi *phi)
             data = chan->data;
         }
         phi->msg->in = data;
-
     }
 
-    return SYS_ERR_OK;
+    if (had_data) {
+        return SYS_ERR_OK;
+    } else {
+        return LIB_ERR_NO_EVENT;
+    }
 }
 
 /**

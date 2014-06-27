@@ -13,7 +13,7 @@
 
 interface xeon_phi_dma "Xeon Phi DMA Interface" {
 
-    typedef uint32 id;
+    typedef uint64 id;
     
 	/**
 	 * \brief registers a memory region to be used for DMA transfers

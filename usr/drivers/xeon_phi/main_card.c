@@ -20,8 +20,7 @@
 
 #include <xeon_phi/xeon_phi.h>
 
-
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "messaging.h"
 #include "service.h"
 #include "sysmem_caps.h"
@@ -44,18 +43,6 @@ static struct capref sysmem_cap = {
 
 static struct capref host_cap;
 
-static inline errval_t handle_messages(void)
-{
-    errval_t err = event_dispatch_non_block(get_default_waitset());
-    if (err_is_fail(err)) {
-        if (err_no(err) == LIB_ERR_NO_EVENT) {
-            return SYS_ERR_OK;
-        }
-        return err;
-    }
-    return SYS_ERR_OK;
-}
-
 static errval_t map_mmio_space(struct xeon_phi *phi)
 {
     errval_t err;
@@ -67,7 +54,6 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
         return err;
     }
 
-
     err = vspace_map_one_frame(&mmio, (1UL << id.bits), mmio_cap, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
@@ -76,7 +62,7 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     XDEBUG("mapped mmio register space @ [%p]\n", mmio);
 
     phi->mmio.bits = id.bits;
-    phi->mmio.vbase = (lvaddr_t)mmio;
+    phi->mmio.vbase = (lvaddr_t) mmio;
     phi->mmio.cap = mmio_cap;
     phi->mmio.pbase = id.base;
     phi->mmio.length = (1UL << id.bits);
@@ -84,11 +70,10 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     return SYS_ERR_OK;
 }
 
-
 int main(int argc,
          char *argv[])
 {
-    debug_printf("Xeon Phi Mgr module started. %i, %s\n", argc, argv[0]);
+    debug_printf("Xeon Phi module started on node [%u].\n", disp_xeon_phi_id());
 
     errval_t err;
     lpaddr_t host_base;
@@ -109,7 +94,7 @@ int main(int argc,
     }
 
     err = map_mmio_space(&xphi);
-    if (err_is_fail(err)){
+    if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not map the mmio space");
     }
 
@@ -142,10 +127,20 @@ int main(int argc,
 
     XMESSAGING_DEBUG("Start polling for messages...\n");
     while (1) {
+        uint8_t idle = 0x1;
         err = messaging_poll(&xphi);
-        err = handle_messages();
+        idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
+        err = dma_poll_channels(&xphi);
+        idle = idle && (err_no(err) == XEON_PHI_ERR_DMA_IDLE);
+        err = event_dispatch_non_block(get_default_waitset());
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "msg loop");
+            if (err_no(err) == LIB_ERR_NO_EVENT && idle) {
+                thread_yield();
+                continue;
+            }
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "msg loop");
+            }
         }
     }
 

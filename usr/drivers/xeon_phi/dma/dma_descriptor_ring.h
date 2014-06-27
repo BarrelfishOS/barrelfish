@@ -19,7 +19,7 @@
 
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma.h"
 
 /// the maximum length of the descriptor ring 128k-1 rounded to cache line

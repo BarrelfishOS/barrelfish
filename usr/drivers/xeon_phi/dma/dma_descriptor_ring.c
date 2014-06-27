@@ -16,7 +16,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma.h"
 #include "dma_descriptor_ring.h"
 #include "debug.h"

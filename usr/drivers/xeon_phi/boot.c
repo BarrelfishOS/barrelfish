@@ -28,7 +28,7 @@
 
 struct bootinfo *bi = NULL;
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "messaging.h"
 #include "sleep.h"
 
@@ -395,6 +395,10 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load multiboot image");
     }
+
+    struct xeon_phi_boot_params *bp;
+    bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
+    bp->xeon_phi_id = (0xFF00 | (uint16_t)phi->id);
 
     xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 

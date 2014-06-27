@@ -18,7 +18,7 @@
 
 #include <dev/xeon_phi/xeon_phi_serial_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 
 #define XEON_PHI_BUFFER_LENGTH 0x400
 #define XEON_PHI_POLL_GIVEUP   0x100

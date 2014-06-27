@@ -20,7 +20,7 @@
 #include <if/xeon_phi_dma_defs.h>
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
-#include "xeon_phi.h"
+#include "xeon_phi_internal.h"
 #include "dma_channel.h"
 #include "dma_descriptor_ring.h"
 #include "debug.h"
@@ -464,10 +464,11 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
 
     xdma_channel_set_headptr(chan);
 
-    XDMA_DEBUG("memcpy request: id=%lu, head: [%u]\n",
+    XDMA_DEBUG("memcpy request: id=%lx, head: [%u]\n",
                    (uint64_t)dma_id,
                    chan->head);
 
+    assert(id);
     if (id) {
         *id = dma_id;
     }
