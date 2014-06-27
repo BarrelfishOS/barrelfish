@@ -339,6 +339,9 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     disp->udisp = spawn_dispatcher_base;
     disp->disabled = 1;
     disp->fpu_trap = 1;
+#ifdef __k1om__
+    disp->xeon_phi_id = disp_xeon_phi_id();
+#endif
 
     // Copy the name for debugging
     const char *copy_name = strrchr(name, '/');

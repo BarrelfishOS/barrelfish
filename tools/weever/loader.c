@@ -276,6 +276,13 @@ loader(uint64_t magic,
     multiboot_info->config_table = (uint32_t)(uintptr_t)bp;
     multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
 
+    if ((bp->xeon_phi_id & 0xFF00) != 0xFF00) {
+        eabort('E', '4');
+    }
+
+    multiboot_info->xeon_phi_id = (uint8_t)bp->xeon_phi_id;
+
+
     print_status('S', '3');
 
     err = elf64_load(EM_K1OM, linear_alloc, NULL, kernel->mod_start,
@@ -283,7 +290,7 @@ loader(uint64_t magic,
                      NULL);
 
     if (err_is_fail(err)) {
-        eabort('E', '4');
+        eabort('E', '5');
     }
 
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) kernel->mod_start;

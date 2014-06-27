@@ -165,7 +165,7 @@ paging_k1om_reset(void)
 {
     // Map kernel image so we don't lose ground
     if (paging_k1om_map_memory(mem_to_local_phys((lvaddr_t) &_start_kernel),
-    SIZE_KERNEL_IMAGE)
+                               SIZE_KERNEL_IMAGE)
         != 0) {
         panic("error while mapping physical memory!");
     }

@@ -99,6 +99,10 @@ struct multiboot_info {
     uint16_t    vbe_interface_seg;
     uint16_t    vbe_interface_off;
     uint16_t    vbe_interface_len;
+
+#ifdef __k1om__
+    uint8_t     xeon_phi_id;
+#endif
 };
 
 #define MULTIBOOT_MODULE_SIZE(mod)      ((mod).mod_end - (mod).mod_start)

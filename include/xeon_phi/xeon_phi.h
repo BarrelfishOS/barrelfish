@@ -93,7 +93,7 @@ struct xeon_phi_boot_params
     uint32_t ramdisk_image; /// pointer to the multiboot image
     uint32_t ramdisk_size;  /// multiboot image size
     uint32_t bootsect_kludge;
-    uint16_t heap_end_ptr;
+    uint16_t xeon_phi_id;
     uint8_t ext_loader_ver;
     uint8_t ext_loader_type;
     uint32_t payload_offset;

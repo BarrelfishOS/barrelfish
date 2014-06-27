@@ -77,80 +77,110 @@ static struct task_state_segment tss __attribute__ ((aligned (4)));
  * turned off in 64-bit mode. They map flat-mode code and stack segments for
  * both kernel- and user-space and the only Task State Segment (TSS).
  */
-union segment_descriptor gdt[] __attribute__ ((aligned (4))) = { [NULL_SEL] = {  // Null segment
-        .raw = 0 }, [KCODE_SEL] = {   // Kernel code segment
-        .d = {
-            .lo_limit = 0xffff,
-            .lo_base = 0,
-            .type = 0xa,
-            .system_desc = 1,
-            .privilege_level = SEL_KPL,
-            .present = 1,
-            .hi_limit = 0xf,
-            .available = 0,
-            .long_mode = 1,
-            .operation_size = 0,
-            .granularity = 1,
-            .hi_base = 0 } }, [KSTACK_SEL] = {  // Kernel stack segment
-        .d = {
-            .lo_limit = 0xffff,
-            .lo_base = 0,
-            .type = 2,
-            .system_desc = 1,
-            .privilege_level = SEL_KPL,
-            .present = 1,
-            .hi_limit = 0xf,
-            .available = 0,
-            .long_mode = 1,
-            .operation_size = 0,
-            .granularity = 1,
-            .hi_base = 0 } }, [USTACK_SEL] = {  // User stack segment
-        .d = {
-            .lo_limit = 0xffff,
-            .lo_base = 0,
-            .type = 2,
-            .system_desc = 1,
-            .privilege_level = SEL_UPL,
-            .present = 1,
-            .hi_limit = 0xf,
-            .available = 0,
-            .long_mode = 1,
-            .operation_size = 0,
-            .granularity = 1,
-            .hi_base = 0 } }, [UCODE_SEL] = {  // User code segment
-        .d = {
-            .lo_limit = 0xffff,
-            .lo_base = 0,
-            .type = 0xa,
-            .system_desc = 1,
-            .privilege_level = SEL_UPL,
-            .present = 1,
-            .hi_limit = 0xf,
-            .available = 0,
-            .long_mode = 1,
-            .operation_size = 0,
-            .granularity = 1,
-            .hi_base = 0 } }, [TSS_LO_SEL] = {  // Global Task State Segment (TSS), lower 8 bytes
-        .sys_lo = {
-            .lo_limit = sizeof(tss) & 0xffff,
-            .type = SDT_SYSTSS,
-            .privilege_level = SEL_KPL,
-            .present = 1,
-            .hi_limit = (sizeof(tss) >> 16) & 0xf,
-            .available = 0,
-            .granularity = 0, } }, [TSS_HI_SEL] = {  // Global Task State Segment (TSS), upper 8 bytes
-        .sys_hi = { .base = 0 } }, [LDT_LO_SEL] = {  // Local descriptor table (LDT), lower 8 bytes
-        .sys_lo = { .lo_limit = 0,  // # 4k pages (since granularity = 1)
-            .lo_base = 0,  // changed by context switch path when doing lldt
-            .type = 2,  // LDT
-            .privilege_level = SEL_UPL,
-            .present = 1,
-            .hi_limit = 0,
-            .available = 0,
-            .granularity = 1,
-            .hi_base = 0 } }, [LDT_HI_SEL ] = {  // Local descriptor table (LDT), upper 8 bytes
-        .sys_hi = { .base = 0  // changed by context switch path when doing lldt
-                } }, };
+union segment_descriptor gdt[] __attribute__ ((aligned (4))) = {
+    [NULL_SEL] = {  // Null segment
+            .raw = 0
+        },
+    [KCODE_SEL] = {   // Kernel code segment
+            .d = {
+                .lo_limit = 0xffff,
+                .lo_base = 0,
+                .type = 0xa,
+                .system_desc = 1,
+                .privilege_level = SEL_KPL,
+                .present = 1,
+                .hi_limit = 0xf,
+                .available = 0,
+                .long_mode = 1,
+                .operation_size = 0,
+                .granularity = 1,
+                .hi_base = 0
+            }
+        },
+    [KSTACK_SEL] = {  // Kernel stack segment
+            .d = {
+                .lo_limit = 0xffff,
+                .lo_base = 0,
+                .type = 2,
+                .system_desc = 1,
+                .privilege_level = SEL_KPL,
+                .present = 1,
+                .hi_limit = 0xf,
+                .available = 0,
+                .long_mode = 1,
+                .operation_size = 0,
+                .granularity = 1,
+                .hi_base = 0
+            }
+        },
+    [USTACK_SEL] = {  // User stack segment
+            .d = {
+                .lo_limit = 0xffff,
+                .lo_base = 0,
+                .type = 2,
+                .system_desc = 1,
+                .privilege_level = SEL_UPL,
+                .present = 1,
+                .hi_limit = 0xf,
+                .available = 0,
+                .long_mode = 1,
+                .operation_size = 0,
+                .granularity = 1,
+                .hi_base = 0
+            }
+        },
+    [UCODE_SEL] = {  // User code segment
+            .d = {
+                .lo_limit = 0xffff,
+                .lo_base = 0,
+                .type = 0xa,
+                .system_desc = 1,
+                .privilege_level = SEL_UPL,
+                .present = 1,
+                .hi_limit = 0xf,
+                .available = 0,
+                .long_mode = 1,
+                .operation_size = 0,
+                .granularity = 1,
+                .hi_base = 0
+            }
+        },
+    [TSS_LO_SEL] = {  // Global Task State Segment (TSS), lower 8 bytes
+            .sys_lo = {
+                .lo_limit = sizeof(tss) & 0xffff,
+                .type = SDT_SYSTSS,
+                .privilege_level = SEL_KPL,
+                .present = 1,
+                .hi_limit = (sizeof(tss) >> 16) & 0xf,
+                .available = 0,
+                .granularity = 0,
+            }
+        },
+    [TSS_HI_SEL] = {  // Global Task State Segment (TSS), upper 8 bytes
+            .sys_hi = {
+                .base = 0
+            }
+        },
+    [LDT_LO_SEL] = {  // Local descriptor table (LDT), lower 8 bytes
+            .sys_lo = {
+                .lo_limit = 0,  // # 4k pages (since granularity = 1)
+                .lo_base = 0,  // changed by context switch path when doing lldt
+                .type = 2,  // LDT
+                .privilege_level = SEL_UPL,
+                .present = 1,
+                .hi_limit = 0,
+                .available = 0,
+                .granularity = 1,
+                .hi_base = 0
+            }
+        },
+    [LDT_HI_SEL ] = {  // Local descriptor table (LDT), upper 8 bytes
+            .sys_hi = {
+                .base = 0
+            // changed by context switch path when doing lldt
+                }
+        },
+};
 
 union segment_descriptor *ldt_descriptor = &gdt[LDT_LO_SEL];
 
@@ -164,17 +194,17 @@ static union x86_64_pdir_entry boot_pml4[PTABLE_SIZE] __attribute__ ((aligned(BA
  * Bootup low-map PDPT and hi-map PDPT.
  */
 static union x86_64_pdir_entry
-        boot_pdpt[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-        boot_pdpt_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
+                boot_pdpt[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+                boot_pdpt_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * Bootup low-map PDIR, hi-map PDIR, and 1GB PDIR.
  */
 static union x86_64_ptable_entry
-        boot_pdir[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-        boot_pdir_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-        boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
-        boot_pdir_mmio[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
+                boot_pdir[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+                boot_pdir_hi[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+                boot_pdir_1GB[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE))),
+                boot_pdir_mmio[PTABLE_SIZE] __attribute__ ((aligned(BASE_PAGE_SIZE)));
 
 /**
  * This flag is set to true once the IDT is initialized and exceptions can be
@@ -195,9 +225,8 @@ bool idt_initialized = false;
  * \param base  Start address of kernel image in physical address space.
  * \param size  Size of kernel image.
  */
-static void
-paging_init(lpaddr_t base,
-            size_t size)
+static void paging_init(lpaddr_t base,
+                        size_t size)
 {
     lvaddr_t vbase = local_phys_to_mem(base);
 
@@ -231,18 +260,20 @@ paging_init(lpaddr_t base,
                               (lpaddr_t) boot_pdpt);
         paging_k1om_map_table(&boot_pdpt[X86_64_PDPT_BASE(base)],
                               (lpaddr_t) boot_pdir);
-        paging_k1om_map_large(
-                &boot_pdir[X86_64_PDIR_BASE(base)], base,
-                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_k1om_map_large(&boot_pdir[X86_64_PDIR_BASE(base)],
+                              base,
+                              PTABLE_PRESENT | PTABLE_READ_WRITE
+                              | PTABLE_USER_SUPERVISOR);
 
         // Alias the same region at MEMORY_OFFSET
         paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(vbase)],
                               (lpaddr_t) boot_pdpt_hi);
         paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(vbase)],
                               (lpaddr_t) boot_pdir_hi);
-        paging_k1om_map_large(
-                &boot_pdir_hi[X86_64_PDIR_BASE(vbase)], base,
-                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_k1om_map_large(&boot_pdir_hi[X86_64_PDIR_BASE(vbase)],
+                              base,
+                              PTABLE_PRESENT | PTABLE_READ_WRITE
+                              | PTABLE_USER_SUPERVISOR);
 
     }
 
@@ -250,10 +281,11 @@ paging_init(lpaddr_t base,
     paging_k1om_map_table(&boot_pml4[0], (lpaddr_t) boot_pdpt);
     paging_k1om_map_table(&boot_pdpt[0], (lpaddr_t) boot_pdir_1GB);
     for (int i = 0; i < X86_64_PTABLE_SIZE; i++) {
-        paging_k1om_map_large(
-                &boot_pdir_1GB[X86_64_PDIR_BASE(X86_64_MEM_PAGE_SIZE * i)],
-                X86_64_MEM_PAGE_SIZE * i,
-                PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
+        paging_k1om_map_large(&boot_pdir_1GB[X86_64_PDIR_BASE(X86_64_MEM_PAGE_SIZE
+                                              * i)],
+                              X86_64_MEM_PAGE_SIZE * i,
+                              PTABLE_PRESENT | PTABLE_READ_WRITE
+                              | PTABLE_USER_SUPERVISOR);
     }
 
     /*
@@ -262,18 +294,15 @@ paging_init(lpaddr_t base,
      *
      * PML4[0], PDIR[32]
      */
-    paging_k1om_map_table(
-            &boot_pml4[X86_64_PML4_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
-            (lpaddr_t) boot_pdpt_hi);
-    paging_k1om_map_table(
-            &boot_pdpt_hi[X86_64_PDPT_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
-            (lpaddr_t) boot_pdir_mmio);
+    paging_k1om_map_table(&boot_pml4[X86_64_PML4_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+                          (lpaddr_t) boot_pdpt_hi);
+    paging_k1om_map_table(&boot_pdpt_hi[X86_64_PDPT_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+                          (lpaddr_t) boot_pdir_mmio);
 
-    paging_k1om_map_large(
-            &boot_pdir_mmio[X86_64_PDIR_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
-            XEON_PHI_SBOX_BASE,
-            PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR
-            | PTABLE_CACHE_DISABLED);
+    paging_k1om_map_large(&boot_pdir_mmio[X86_64_PDIR_BASE(local_phys_to_mem(XEON_PHI_SBOX_BASE))],
+                          XEON_PHI_SBOX_BASE,
+                          PTABLE_PRESENT | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR
+                          | PTABLE_CACHE_DISABLED);
 
     // Activate new page tables
     paging_k1om_context_switch((lpaddr_t) boot_pml4);
@@ -287,33 +316,34 @@ paging_init(lpaddr_t base,
  * Finally, completes setup of GDT to include TSS base address mapping and
  * loads TSS into task register.
  */
-static void
-gdt_reset(void)
+static void gdt_reset(void)
 {
     lvaddr_t ptss = (lvaddr_t) &tss;
-    struct region_descriptor region = { .rd_limit = sizeof(gdt), .rd_base =
-            (uint64_t) &gdt };
+    struct region_descriptor region = {
+        .rd_limit = sizeof(gdt),
+        .rd_base = (uint64_t) &gdt
+    };
 
     // Load default GDT
     __asm volatile("lgdt %[region]" :: [region] "m" (region));
 
     // Reload segments
     __asm volatile("mov %[null], %%ds      \n\t"
-            "mov %[null], %%es      \n\t"
-            "mov %[ss], %%ss        \n\t"
-            "mov %[null], %%gs      \n\t"
-            "mov %[null], %%fs      \n\t"
-            "pushq %[cs]            \n\t"          // new CS
-            "lea 1f(%%rip), %%rax   \n\t"// jumps to after lret
-            "pushq %%rax            \n\t"// new IP
-            "lretq                  \n\t"// fake return
-            "1:                     \n\t"// we'll continue here
-            : /* No Output */
-            :
-            [null] "r" (0),
-            [ss] "r" (GSEL(KSTACK_SEL, SEL_KPL)),
-            [cs] "i" (GSEL(KCODE_SEL, SEL_KPL))
-            : "rax"
+                    "mov %[null], %%es      \n\t"
+                    "mov %[ss], %%ss        \n\t"
+                    "mov %[null], %%gs      \n\t"
+                    "mov %[null], %%fs      \n\t"
+                    "pushq %[cs]            \n\t"          // new CS
+                    "lea 1f(%%rip), %%rax   \n\t"// jumps to after lret
+                    "pushq %%rax            \n\t"// new IP
+                    "lretq                  \n\t"// fake return
+                    "1:                     \n\t"// we'll continue here
+                    : /* No Output */
+                    :
+                    [null] "r" (0),
+                    [ss] "r" (GSEL(KSTACK_SEL, SEL_KPL)),
+                    [cs] "i" (GSEL(KCODE_SEL, SEL_KPL))
+                    : "rax"
     );
 
     // Complete setup of TSS descriptor (by inserting base address of TSS)
@@ -323,7 +353,7 @@ gdt_reset(void)
 
     // Complete setup of TSS
     tss.rsp[0] = (lvaddr_t) &k1om_kernel_stack[K1OM_KERNEL_STACK_SIZE
-            / sizeof(uintptr_t)];
+                    / sizeof(uintptr_t)];
 
     // Load task state register
     __asm volatile("ltr %%ax" :: "a" (GSEL(TSS_LO_SEL, SEL_KPL)));
@@ -342,9 +372,9 @@ static inline void __attribute__ ((always_inline))
 relocate_stack(lvaddr_t offset)
 {
     __asm volatile("add %[stack], %%rsp\n\t"
-            : /* No output */
-            : [stack] "er" (offset)
-            : "rsp"
+                    : /* No output */
+                    : [stack] "er" (offset)
+                    : "rsp"
     );
 }
 
@@ -356,8 +386,7 @@ relocate_stack(lvaddr_t offset)
  * user-space base selector and RFLAGS mask for SYSCALL/SYSRET fast system
  * calls.
  */
-static inline void
-enable_fast_syscalls(void)
+static inline void enable_fast_syscalls(void)
 {
     // Segment selector bases for both kernel- and user-space for fast
     // system calls
@@ -377,8 +406,7 @@ enable_fast_syscalls(void)
     ia32_efer_sce_wrf(NULL, 1);
 }
 
-static inline void
-enable_tlb_flush_filter(void)
+static inline void enable_tlb_flush_filter(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
@@ -398,8 +426,7 @@ enable_tlb_flush_filter(void)
     ia32_amd_hwcr_ffdis_wrf(NULL, 1);
 }
 
-static inline void
-enable_monitor_mwait(void)
+static inline void enable_monitor_mwait(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
@@ -442,8 +469,8 @@ text_init(void)
     global = (struct global*) local_phys_to_mem((lpaddr_t) global);
 
     // Relocate glbl_core_data to "memory"
-    glbl_core_data = (struct x86_core_data *) local_phys_to_mem(
-            (lpaddr_t) glbl_core_data);
+    glbl_core_data =
+        (struct x86_core_data *) local_phys_to_mem((lpaddr_t) glbl_core_data);
 
     /*
      * We know how much memory we have based on the card model
@@ -496,8 +523,6 @@ text_init(void)
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on k1om apic_id %u\n", apic_id);
 
-
-
     /*
      * there is no such thing as a PIC on the xeon phi
      * XXX: verify!
@@ -544,7 +569,6 @@ text_init(void)
     // AMD64: Check if TLB flush filter is enabled
     enable_tlb_flush_filter();
 
-
     // Enable global pages
     // there are no global page tables, enabling this will result in a GP
     // amd64_cr4_pge_wrf(NULL, 1);
@@ -559,8 +583,6 @@ text_init(void)
     halt();
     // Returning here will crash! -- low pages not mapped anymore!
 }
-
-
 
 /**
  * \brief Architecture-specific initialization function.
@@ -589,9 +611,8 @@ text_init(void)
  * \param magic         Boot magic value
  * \param pointer       Pointer to Multiboot Info or to Global structure
  */
-void
-arch_init(uint64_t magic,
-          void *pointer)
+void arch_init(uint64_t magic,
+               void *pointer)
 {
     /* pointer to the boot param struct set up by the boot loader */
     struct multiboot_info *mb = NULL;
@@ -621,55 +642,57 @@ arch_init(uint64_t magic,
      * If magic value does not match what we expect, we cannot proceed safely.
      */
     switch (magic) {
-    case MULTIBOOT_INFO_MAGIC:
-        /* kernel is started with multiboot information available */
-        mb = (struct multiboot_info *) pointer;
+        case MULTIBOOT_INFO_MAGIC:
+            /* kernel is started with multiboot information available */
+            mb = (struct multiboot_info *) pointer;
 
-        // Construct the global structure and store its address to retrieve it
-        // across relocation
-        memset(&global->locks, 0, sizeof(global->locks));
-        addr_global = (uint64_t) global;
+            // Construct the global structure and store its address to retrieve it
+            // across relocation
+            memset(&global->locks, 0, sizeof(global->locks));
+            addr_global = (uint64_t) global;
 
-        printf("Barrelfish (with multiboot )\n");
-        break;
+            printf("Barrelfish (with multiboot )\n");
+            break;
 
-    case KERNEL_BOOT_MAGIC:
-        /* kernel is started by another kernel */
-        global = (struct global*) pointer;
-        // Store the address of global to retrive it across relocation
-        addr_global = (uint64_t) global;
-        break;
+        case KERNEL_BOOT_MAGIC:
+            /* kernel is started by another kernel */
+            global = (struct global*) pointer;
+            // Store the address of global to retrive it across relocation
+            addr_global = (uint64_t) global;
+            break;
 
-    case K1OM_BOOT_MAGIC:
-        /* kernel is started by the K1OM boot loader */
-        mb = (struct multiboot_info *) pointer;
+        case K1OM_BOOT_MAGIC:
+            /* kernel is started by the K1OM boot loader */
+            mb = (struct multiboot_info *) pointer;
 
-        printf("Barrelfish from weever: MBI: 0x%"PRIxLVADDR", IMG: [0x%x, 0x%x]\n",
-               (lpaddr_t) pointer, mb->mem_lower, mb->mem_upper);
+            printf("Barrelfish from weever: MBI: 0x%"PRIxLVADDR", Xeon Phi: [%u]\n",
+                   (lpaddr_t) pointer,
+                   mb->xeon_phi_id);
 
-        struct xeon_phi_boot_params *bp = (struct xeon_phi_boot_params *)(uintptr_t)mb->config_table;
-        printf("cmdline = %x, %lx, %x, %s\n", mb->cmdline, bp->msg_base, bp->cmdline_ptr, (char *)(uintptr_t)bp->cmdline_ptr);
+            struct xeon_phi_boot_params *bp;
+            bp = (struct xeon_phi_boot_params *) (uintptr_t) mb->config_table;
 
-        /*
-         * XXX: The multiboot structure when invoked from the xloader will
-         *      contain additional information.
-         *
-         *      CMDLINE:    the cmd line as set by the host OS
-         *      MEM_LOWER:  the start of the multiboot image
-         *      MEM_UPPER:  the end of the multiboot image
-         */
-        glbl_core_data->bp = (struct xeon_phi_boot_params *)local_phys_to_mem(mb->config_table);
+            /*
+             * XXX: The multiboot structure when invoked from the xloader will
+             *      contain additional information.
+             *
+             *      CMDLINE:    the cmd line as set by the host OS
+             *      MEM_LOWER:  the start of the multiboot image
+             *      MEM_UPPER:  the end of the multiboot image
+             */
+            glbl_core_data->bp = (struct xeon_phi_boot_params *) local_phys_to_mem(mb
+                            ->config_table);
 
-        // Construct the global structure and store its address to retrieve it
-        // across relocation
-        memset(&global->locks, 0, sizeof(global->locks));
-        addr_global = (uint64_t) global;
+            // Construct the global structure and store its address to retrieve it
+            // across relocation
+            memset(&global->locks, 0, sizeof(global->locks));
+            addr_global = (uint64_t) global;
 
-        break;
+            break;
 
-    default:
-        addr_global = (uint64_t) global;
-        break;
+        default:
+            addr_global = (uint64_t) global;
+            break;
     }
 
     struct Elf64_Shdr *rela, *symtab;
@@ -689,11 +712,12 @@ arch_init(uint64_t magic,
         /*
          * Determine where free RAM starts
          */
-        glbl_core_data->start_free_ram = ROUND_UP(
-                max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
-                BASE_PAGE_SIZE);
+        glbl_core_data->start_free_ram =
+            ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
+                     BASE_PAGE_SIZE);
 
-        printf("Start Free RAM at 0x%x (%i MB)\n", glbl_core_data->start_free_ram,
+        printf("Start Free RAM at 0x%x (%i MB)\n",
+               glbl_core_data->start_free_ram,
                glbl_core_data->start_free_ram >> 20);
 
         glbl_core_data->mods_addr = mb->mods_addr;
@@ -701,10 +725,11 @@ arch_init(uint64_t magic,
         glbl_core_data->cmdline = mb->cmdline;
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
+        glbl_core_data->xeon_phi_id = mb->xeon_phi_id;
     } else {
         /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data = (struct x86_core_data*) (dest
-                - BASE_PAGE_SIZE);
+                        - BASE_PAGE_SIZE);
         multiboot_flags = core_data->multiboot_flags;
         elf = &core_data->elf;
         glbl_core_data = core_data;
@@ -724,14 +749,17 @@ arch_init(uint64_t magic,
 
     // Find relocation section
     rela = elf64_find_section_header_type((struct Elf64_Shdr *) (lpaddr_t) elf->addr,
-                                          elf->num, SHT_RELA);
+                                          elf->num,
+                                          SHT_RELA);
     if (rela == NULL) {
         panic("Kernel image does not include relocation section!");
     }
 
     // Find symbol table section
-    symtab = elf64_find_section_header_type(
-            (struct Elf64_Shdr *) (lpaddr_t) elf->addr, elf->num, SHT_DYNSYM);
+    symtab = elf64_find_section_header_type((struct Elf64_Shdr *) (lpaddr_t) elf
+                                                            ->addr,
+                                            elf->num,
+                                            SHT_DYNSYM);
     if (symtab == NULL) {
         panic("Kernel image does not include symbol table!");
     }
@@ -741,16 +769,16 @@ arch_init(uint64_t magic,
 
     // Relocate kernel image for top of memory
     elf64_relocate(
-            K1OM_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
-            (lvaddr_t) &_start_kernel,
-            (struct Elf64_Rela *) (rela->sh_addr - K1OM_START_KERNEL_PHYS
-                    + &_start_kernel),
-            rela->sh_size,
-            (struct Elf64_Sym *) (symtab->sh_addr - K1OM_START_KERNEL_PHYS
-                    + &_start_kernel),
-            symtab->sh_size,
-            K1OM_START_KERNEL_PHYS,
-            &_start_kernel);
+    K1OM_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
+                   (lvaddr_t) &_start_kernel, (struct Elf64_Rela *) (rela->sh_addr
+                                   - K1OM_START_KERNEL_PHYS
+                                                                     + &_start_kernel),
+                   rela->sh_size, (struct Elf64_Sym *) (symtab->sh_addr
+                                   - K1OM_START_KERNEL_PHYS
+                                                        + &_start_kernel),
+                   symtab->sh_size,
+                   K1OM_START_KERNEL_PHYS,
+                   &_start_kernel);
     /*** Aliased kernel available now -- low memory still mapped ***/
 
     // Relocate stack to aliased location

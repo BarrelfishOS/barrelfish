@@ -43,6 +43,24 @@ struct bench_bufs bufs;
 
 static struct ump_chan uc;
 
+static void done_cb(xeon_phi_dma_id_t id,
+                    errval_t err,
+                    void *st)
+{
+    debug_printf("verifying memory range...%p\n", st);
+    uint32_t *test = st;
+    size_t size =
+        (card_frame_sz < host_frame_sz ? card_frame_sz : host_frame_sz) >> 1;
+    for (uint32_t i = 0; i < size; i += sizeof(uint32_t)) {
+        if (*test != 0xCACACACA) {
+            debug_printf("memory was %x, expected %x, at %lu \n", *test, 0xCACACACA, i * sizeof(uint32_t));
+        }
+        assert(*test == 0xCACACACA);
+        test++;
+    }
+    debug_printf("verifying memory range: SUCCESS!\n");
+}
+
 static void do_dma_test(void)
 {
     debug_printf("starting DMA test...\n");
@@ -62,22 +80,62 @@ static void do_dma_test(void)
         USER_PANIC_ERR(err, "could not register memory");
     }
 
+    memset((void *) card_buf, 0xCA, (card_frame_sz >> 1));
+    memset((void *) card_buf + (card_frame_sz >> 1), 0, (card_frame_sz >> 1));
+
     struct xeon_phi_dma_info info = {
-        .src  = card_base,
-        .dest = card_base + card_frame_sz / 2,
-        .size = card_frame_sz / 2
+        .src = card_base,
+        .dest = card_base + (card_frame_sz >> 1),
+        .size = (card_frame_sz >> 1)
     };
 
-    struct xeon_phi_dma_cont cont;
+    struct xeon_phi_dma_cont cont = {
+        .cb = done_cb,
+        .arg = (void *) card_buf + (card_frame_sz >> 1)
+    };
+
+    debug_printf("\n\n\n++++++++++++++++++++++ Next Request: card-card\n");
 
     err = xeon_phi_dma_client_start(0, &info, cont, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
     }
 
-    err = xeon_phi_dma_client_exec(0, &info);
+    debug_printf("\n\n\n++++++++++++++++++++++ Next Request: card->host\n");
+
+    cont.arg = host_buf;
+    info.dest = host_base;
+    info.size = (card_frame_sz < host_frame_sz ? card_frame_sz : host_frame_sz) >> 1;
+    err = xeon_phi_dma_client_start(0, &info, cont, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
+    }
+
+    //  err = xeon_phi_dma_client_exec(0, &info);
+    //  if (err_is_fail(err)) {
+    //      USER_PANIC_ERR(err, "could not exec the transfer");
+    //  }
+    debug_printf("\n\n\n++++++++++++++++++++++ Next Request\n");
+    info.src = card_base - 0x1000;
+    err = xeon_phi_dma_client_start(0, &info, cont, NULL);
+    assert(err_is_fail(err));
+
+    debug_printf("\n\n\n++++++++++++++++++++++ Next Request\n");
+    info.src = card_base;
+    info.dest = card_base + card_frame_sz;
+    err = xeon_phi_dma_client_start(0, &info, cont, NULL);
+    assert(err_is_fail(err));
+
+    debug_printf("\n\n\n++++++++++++++++++++++ Next Request\n");
+    info.src = card_base + (card_frame_sz >> 1);
+    info.dest = card_base;
+    info.size += (card_frame_sz >> 1) + 0x1000;
+    err = xeon_phi_dma_client_start(0, &info, cont, NULL);
+    assert(err_is_fail(err));
+
+    debug_printf("\n\n\n++++++++++++++++++++++ LOOP\n");
+    while (1) {
+        messages_wait_and_handle_next();
     }
 }
 
@@ -204,7 +262,7 @@ int main(int argc,
     card_base = id.base;
     card_frame_sz = alloced_size;
 
-    err = vspace_map_one_frame(&card_buf, frame_size, card_frame, NULL, NULL);
+    err = vspace_map_one_frame(&card_buf, alloced_size, card_frame, NULL, NULL);
     assert(err_is_ok(err));
 
     err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);

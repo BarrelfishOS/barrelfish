@@ -258,6 +258,25 @@ const char *disp_name(void)
     return disp->name;
 }
 
+
+#ifdef __k1om__
+/**
+ * \brief Returns the Xeon Phi ID this dispatcher is running on
+ *
+ * May be called when the dispatcher is either enabled or disabled.
+ *
+ * \returns unsigned integer containing the Xeon Phi Id
+ */
+uint8_t disp_xeon_phi_id(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_shared_generic* disp =
+        get_dispatcher_shared_generic(handle);
+    return disp->xeon_phi_id;
+}
+#endif
+
+
 /**
  * \brief Page fault entry point
  *
