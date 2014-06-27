@@ -93,7 +93,7 @@ struct xeon_phi_boot_params
     uint32_t ramdisk_image; /// pointer to the multiboot image
     uint32_t ramdisk_size;  /// multiboot image size
     uint32_t bootsect_kludge;
-    uint16_t xeon_phi_id;
+    uint16_t loader_name;
     uint8_t ext_loader_ver;
     uint8_t ext_loader_type;
     uint32_t payload_offset;
@@ -104,7 +104,7 @@ struct xeon_phi_boot_params
     uint32_t hardware_subarch;
     uint64_t hardware_subarch_data;
     uint32_t cmdline_ptr;   /// pointer to the command line
-    uint32_t payload_length;
+    uint32_t xeon_phi_id;
     uint64_t msg_base;      /// pointer to the host message base address
     uint64_t multiboot;     /// pointer to the multiboot information
 }__attribute__((packed));

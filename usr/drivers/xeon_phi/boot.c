@@ -398,7 +398,8 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     struct xeon_phi_boot_params *bp;
     bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
-    bp->xeon_phi_id = (0xFF00 | (uint16_t)phi->id);
+    bp->xeon_phi_id = 0xFF00;
+    bp->xeon_phi_id |= phi->id;
 
     xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 

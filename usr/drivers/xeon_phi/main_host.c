@@ -78,17 +78,6 @@ int main(int argc,
 
     xphi.is_client = 0x0;
 
-#if 0
-    err = host_bootstrap();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not do the host bootstrap\n");
-    }
-
-    while (bootstrap_done == 0) {
-        messages_wait_and_handle_next();
-    }
-#endif
-
     vfs_init();
 
     err = service_init(&xphi);
@@ -102,16 +91,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
     }
-#if 1
-    err = service_register(&xphi, irefs, num);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register with the other drivers");
-    }
-    debug_printf("waiting...\n");
-    while(1) {
-        messages_wait_and_handle_next();
-    }
-#endif
 
     xphi.state = XEON_PHI_STATE_NULL;
 
