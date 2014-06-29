@@ -15,7 +15,11 @@ interface xeon_phi_messaging "Xeon Phi Messaging Interface" {
     
     message open(cap msgframe, uint8 type);
     
+    message open_card(uint8 id, cap msgframe, uint8 type, char iface[length]);
+    
     message open_iface(cap msgframe, uint8 type, char iface[length]);
     
     message spawn(uint8 core, char name[length]);
+    
+    message spawn_card(uint8 id, uint8 core, char name[length]);
 };
