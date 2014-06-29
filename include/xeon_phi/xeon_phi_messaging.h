@@ -46,6 +46,18 @@ struct xeon_phi_msg_virtq
     char iface[44];     ///< interface name (exported by the application)
 };
 
+struct xeon_phi_msg_bootstrap
+{
+    lpaddr_t base;
+    uint8_t  bits;
+    uint8_t  xphi_id;
+    uint8_t  is_client;
+};
+
+struct xeon_phi_msg_ready
+{
+    uint8_t xphi_id;
+};
 
 struct xeon_phi_msg_spawn
 {
@@ -81,9 +93,11 @@ struct xeon_phi_messaging_cb
 {
     errval_t (*open)(struct capref msgframe, uint8_t chantype);
     errval_t (*open_iface)(struct capref msgframe, uint8_t chantype, char *iface);
+    errval_t (*open_card)(uint8_t id, struct capref msgframe, uint8_t chantype, char *iface);
     errval_t (*add_virtq)(struct capref msgframe, uint16_t queue_id);
     errval_t (*add_virtq_iface)(struct capref msgframe, uint16_t queue_id,char *iface);
     errval_t (*spawn)(coreid_t core, char *name);
+    errval_t (*spawn_card)(uint8_t id, coreid_t core, char *name);
 };
 
 /**

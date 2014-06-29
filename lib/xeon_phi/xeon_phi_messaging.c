@@ -17,6 +17,8 @@
 #define XPHI_MSG_DBG(x...) debug_printf(" MSGSVC | " x);
 //#define XPHI_MSG_DBG(x...)
 
+uint8_t xpm_is_phi = 0x0;
+
 /**
  * enumration of all possible states of the service exportation process
  */
@@ -40,12 +42,25 @@ static iref_t messaging_iref;
 /// stores the callbacks to inform the user about arrived messages
 static struct xeon_phi_messaging_cb callbacks;
 
+static void open_card_call_rx(struct xeon_phi_messaging_binding *_binding,
+                              uint8_t id,
+                              struct capref msgframe,
+                              uint8_t type,
+                              char *iface,
+                              size_t length)
+{
+    assert(xpm_is_phi == 0x1);
+    if (callbacks.open_card != NULL) {
+        callbacks.open_card(id, msgframe, type, iface);
+    }
+}
+
 static void open_call_rx(struct xeon_phi_messaging_binding *_binding,
                          struct capref msgframe,
                          uint8_t type)
 {
     XPHI_MSG_DBG("Received channel open request type: %x\n", type);
-
+    assert(xpm_is_phi == 0x0);
     if (callbacks.open != NULL) {
         callbacks.open(msgframe, type);
     }
@@ -59,8 +74,25 @@ static void open_iface_call_rx(struct xeon_phi_messaging_binding *_binding,
 {
     XPHI_MSG_DBG("Received channel OPEN cmd: [%s, 0x%x]\n", iface, type);
 
+    assert(xpm_is_phi == 0x1);
+
     if (callbacks.open_iface != NULL) {
         callbacks.open_iface(msgframe, type, iface);
+    }
+}
+
+static void spawn_card_call_rx(struct xeon_phi_messaging_binding *_binding,
+                               uint8_t id,
+                               uint8_t core,
+                               char *name,
+                               size_t length)
+{
+    XPHI_MSG_DBG("Received spawn request: %s on Xeon Phi %u\n", name, id);
+
+    assert(xpm_is_phi == 0x1);
+
+    if (callbacks.spawn_card != NULL) {
+        callbacks.spawn_card(id, core, name);
     }
 }
 
@@ -70,6 +102,8 @@ static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
                           size_t length)
 {
     XPHI_MSG_DBG("Received spawn request: %s\n", name);
+    assert(xpm_is_phi == 0x1);
+
     if (callbacks.spawn != NULL) {
         callbacks.spawn(core, name);
     }
@@ -78,7 +112,9 @@ static void spawn_call_rx(struct xeon_phi_messaging_binding *_binding,
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
     .open_iface = open_iface_call_rx,
     .open = open_call_rx,
-    .spawn = spawn_call_rx
+    .open_card = open_card_call_rx,
+    .spawn = spawn_call_rx,
+    .spawn_card = spawn_card_call_rx
 };
 
 /*
@@ -186,6 +222,8 @@ errval_t xeon_phi_messaging_service_start(uint8_t start_handler)
         messages_handler_loop();
     }
 
+    xpm_is_phi = 0x0;
+
     return SYS_ERR_OK;
 }
 
@@ -212,6 +250,8 @@ errval_t xeon_phi_messaging_service_start_phi(uint8_t xeon_phi_id)
     }
 
     svc_state = XPM_SVC_STATE_NS_REGISTER_OK;
+
+    xpm_is_phi = 0x1;
 
     return SYS_ERR_OK;
 }

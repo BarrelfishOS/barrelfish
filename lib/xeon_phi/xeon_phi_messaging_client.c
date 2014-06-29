@@ -34,6 +34,7 @@ struct xeon_phi_messaging_binding *xpm_binding[XEON_PHI_NUM_MAX];
 
 static enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
 
+
 /*
  * --------------------------------------------------------------------------
  * Handling of OPEN commands
@@ -98,10 +99,10 @@ static void xpm_msg_spawn_tx(void *a)
     size_t length = strlen(param->name)+1;
 
     err = xeon_phi_messaging_spawn__tx(param->b,
-                                      txcont,
-                                      param->core,
-                                      param->name,
-                                      length);
+                                       txcont,
+                                       param->core,
+                                       param->name,
+                                       length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_spawn_tx, a);
@@ -163,6 +164,10 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
 {
     errval_t err;
 
+#ifdef __k1om__
+    assert(xeon_phi_id == 0);
+#endif
+
     if (xpm_binding[xeon_phi_id] != NULL) {
         return SYS_ERR_OK;
     }
@@ -194,6 +199,8 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
     while (conn_state == XPM_STATE_BINDING) {
         messages_wait_and_handle_next();
     }
+
+    DEBUG_XPMC("binding to iref [%u] done. \n", xpm_iref[xeon_phi_id]);
 
     if (conn_state == XPM_STATE_BIND_FAIL) {
         return FLOUNDER_ERR_BIND;
@@ -259,6 +266,9 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
                                   char *name)
 {
     errval_t err;
+
+    DEBUG_XPMC("Send spawn request %s on core %u.%u\n", name, xeon_phi_id, core);
+
     if (xpm_binding[xeon_phi_id] == NULL) {
         err = xpm_connect(xeon_phi_id);
         if (err_is_fail(err)) {
