@@ -31,6 +31,7 @@ module  /k1om/sbin/spawnd boot bootk1om=0,4,8,12,16
 module  /k1om/sbin/startd boot
 #module /k1om/sbin/routing_setup boot
 module /k1om/sbin/xeon_phi_test
+module /k1om/sbin/xeon_phi_inter
 #module /k1om/sbin/ump_latency
 
 #low gddr memory

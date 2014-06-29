@@ -176,6 +176,7 @@ MODULES_x86_64= \
 	sbin/lshw \
 	sbin/xeon_phi \
 	sbin/xeon_phi_manager \
+	sbin/xeon_phi_inter \
 	sbin/spin \
 	sbin/xeon_phi_test \
 	sbin/virtio_blk_host \
@@ -511,7 +512,8 @@ XEON_PHI_MODULES =\
 	k1om/sbin/xeon_phi \
 	k1om/sbin/xeon_phi_test \
 	k1om/sbin/virtio_blk \
-	k1om/sbin/ump_latency
+	k1om/sbin/ump_latency \
+	k1om/sbin/xeon_phi_inter
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
