@@ -685,6 +685,8 @@ static struct dcb *spawn_init_common(struct spawn_state *st,
     /* tell init the vspace addr of its dispatcher */
     init_disp->udisp = DISPATCHER_BASE;
 
+    init_disp->xeon_phi_id = glbl_core_data->xeon_phi_id;
+
     init_disp_x86_64->disabled_save_area.rdi = DISPATCHER_BASE;
     init_disp_x86_64->disabled_save_area.fs = 0;
     init_disp_x86_64->disabled_save_area.gs = 0;
