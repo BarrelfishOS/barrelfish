@@ -63,7 +63,8 @@ typedef enum xeon_phi_state
     XEON_PHI_STATE_ONLINE   ///< the card has booted and is online
 } xeon_phi_state_t;
 
-typedef enum xnode_state {
+typedef enum xnode_state
+{
     XNODE_STATE_NONE,
     XNODE_STATE_REGISTERING,
     XNODE_STATE_READY,
@@ -83,11 +84,12 @@ struct mbar
 struct xnode
 {
     struct xeon_phi_driver_binding *binding;
-    iref_t                   iref;
+    iref_t iref;
     xnode_state_t state;
-    uint8_t         id;
-    lpaddr_t        apt_base;
-    size_t          apt_size;
+    uint8_t id;
+    lpaddr_t apt_base;
+    size_t apt_size;
+    struct msg_info *msg;
     struct xeon_phi *local;
 };
 
@@ -106,7 +108,7 @@ struct xeon_phi
     iref_t iref;
     uint32_t apicid;        ///< APIC id used for sending the boot interrupt
 
-    uint8_t      connected;
+    uint8_t connected;
     struct xnode topology[XEON_PHI_NUM_MAX];
 
     uint8_t is_client;
@@ -163,14 +165,10 @@ errval_t xeon_phi_reset(struct xeon_phi *phi);
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun);
-
-/**
- * \brief Bootstraps the host driver to get the multiboot images of the
- *        xeon phi loader and the xeon phi multiboot image
- */
-errval_t host_bootstrap(void);
-
+errval_t xeon_phi_init(struct xeon_phi *phi,
+                       uint32_t bus,
+                       uint32_t dev,
+                       uint32_t fun);
 
 /**
  * \brief maps the aperture memory range of the Xeon Phi into the drivers
@@ -193,6 +191,5 @@ errval_t xeon_phi_map_aperture(struct xeon_phi *phi,
  * \return SYS_ERR_OK on success
  */
 errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
-
 
 #endif /* XEON_PHI_H_ */

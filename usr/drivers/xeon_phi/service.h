@@ -24,7 +24,6 @@
  */
 errval_t service_init(struct xeon_phi *phi);
 
-
 /**
  * \brief registers the local service with the other Xeon Phi drivers
  *        in the topology
@@ -33,8 +32,19 @@ errval_t service_init(struct xeon_phi *phi);
  * \param irefs the irefs of the other cards
  * \param num   the number of irefs in the array
  */
-errval_t service_register(struct xeon_phi *phi, iref_t *irefs, uint8_t num);
+errval_t service_register(struct xeon_phi *phi,
+                          iref_t *irefs,
+                          uint8_t num);
 
+/**
+ * \brief registers an intra card communication frame
+ *
+ * \param phi      the local xeon phi card
+ * \param xphi_id  target xeon phi id
+ * \param cap      capability of the messaging frame
+ */
+errval_t service_open(struct xeon_phi *phi,
+                      uint8_t xphi_id);
 /**
  * \brief starts the service request handling
  */

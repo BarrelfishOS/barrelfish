@@ -99,6 +99,17 @@ uint8_t smpt_set_coprocessor_address(struct xeon_phi *phi,
                                      lpaddr_t addr);
 
 /**
+ * \brief calculates the ID of the Xeon Phi based on the physical address
+ *
+ * \param phi  the local Xeon Phi
+ * \param addr physical address to lookup
+ *
+ * \returns the ID of the Xeon Phi this memory address belogngs to
+ */
+uint8_t smtp_get_xeon_phi_id_from_addr(struct xeon_phi *phi,
+                                       lpaddr_t addr);
+
+/**
  * \brief calculates the base address of the Xeon Phi GDDR
  *
  *        This function will return 0 if the ID is the local card.

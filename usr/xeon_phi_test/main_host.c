@@ -154,7 +154,7 @@ int main(int argc,
     ram_set_affinity(minbase, maxlimit);
 
     err = vspace_map_one_frame(&host_buf, frame_size, frame,
-    NULL,
+                               NULL,
                                NULL);
     assert(err_is_ok(err));
 

@@ -34,14 +34,14 @@
  */
 
 /**
- * \brief calculates the base address of the Xeon Phi GDDR
+ * \brief calculates the base address offset of the Xeon Phi GDDR
  *
  *        This function will return 0 if the ID is the local card.
  *
  * \param phi   the local xeon phi
  * \param id    the xeon phi id of the other card
  *
- * \returns base address of GDDR (0 if local)
+ * \returns offset base address of GDDR (0 if local) i
  */
 lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
                                       uint8_t id)
@@ -57,7 +57,37 @@ lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
         slot = slot - id + 1;
     }
 
-    return XEON_PHI_SYSMEM_BASE + ((lpaddr_t)slot * XEON_PHI_SYSMEM_PAGE_SIZE);
+    assert(slot < xeon_phi_smpt_system_page_num);
+
+    XSMPT_DEBUG("Calculating slot for id %u: slot=%u\n", id, slot);
+
+    return ((lpaddr_t) slot * XEON_PHI_SYSMEM_PAGE_SIZE);
+}
+
+/**
+ * \brief calculates the ID of the Xeon Phi based on the physical address
+ *
+ * \param phi  the local Xeon Phi
+ * \param addr physical address to lookup
+ *
+ * \returns the ID of the Xeon Phi this memory address belogngs to
+ */
+uint8_t smtp_get_xeon_phi_id_from_addr(struct xeon_phi *phi,
+                                       lpaddr_t addr)
+{
+    /* align the address first */
+    if (addr >= XEON_PHI_SYSMEM_KNC_BASE) {
+        addr -= XEON_PHI_SYSMEM_BASE;
+        uint64_t slot = (addr / XEON_PHI_SYSMEM_PAGE_SIZE);
+        assert(slot < 32);
+        slot = xeon_phi_smpt_system_page_num - slot ;
+        uint8_t id = xeon_phi_smpt_system_page_num  - slot;
+        if (id > phi->id) {
+            id = id - 1;
+        }
+        return id;
+    }
+    return phi->id;
 }
 
 /**
@@ -84,6 +114,8 @@ uint8_t smpt_set_coprocessor_address(struct xeon_phi *phi,
     } else {
         slot = slot - id + 1;
     }
+
+    XSMPT_DEBUG("Setting Co-processor slot %u to address 0x%016lx\n", slot, addr);
 
     smpt_set_address(phi, slot, addr, 1);
 

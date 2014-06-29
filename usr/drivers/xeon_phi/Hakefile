@@ -53,6 +53,7 @@
                       cFiles = [ "main_card.c",
                                  "sysmem_caps.c",
                                  "spawn.c",
+                                 "smpt.c",
                                  "messaging.c",
                                  "dma/dma.c",
                                  "dma/dma_channel.c",

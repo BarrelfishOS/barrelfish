@@ -34,15 +34,31 @@ struct xeon_phi_arg
 
 static struct xeon_phi_arg recv_thread_arg;
 
-static inline void
-xprintf(uint8_t xid,
-        char *fmt)
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
+static inline void xprintf(uint8_t xid,
+                           char *fmt)
 {
-    printf("\x1b[32m>> XEON_PHI \033[31m%u\033[0m: %s\n", xid, fmt);
+    switch (xid) {
+        case 0:
+            printf(ANSI_COLOR_YELLOW">> XEON_PHI "ANSI_COLOR_RED"%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
+            break;
+        case 1:
+            printf(ANSI_COLOR_MAGENTA">> XEON_PHI "ANSI_COLOR_RED"%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
+            break;
+        default:
+            printf("\x1b[32m>> XEON_PHI \033[31m%u\033[0m: %s\n", xid, fmt);
+            break;
+    }
 }
 
-uint32_t
-xeon_phi_serial_handle_recv(void)
+uint32_t xeon_phi_serial_handle_recv(void)
 {
     xeon_phi_serial_ctrl_t sctrl = xeon_phi_serial_reset;
     xeon_phi_serial_data_t sdata = xeon_phi_serial_reset;
@@ -61,22 +77,22 @@ xeon_phi_serial_handle_recv(void)
     uint8_t value = 0;
     while (i < 4) {
         switch (i) {
-        case 0:
-            has_data = xeon_phi_serial_ctrl_value0_extract(sctrl);
-            value = xeon_phi_serial_data_value0_extract(sdata);
-            break;
-        case 1:
-            has_data = xeon_phi_serial_ctrl_value1_extract(sctrl);
-            value = xeon_phi_serial_data_value1_extract(sdata);
-            break;
-        case 2:
-            has_data = xeon_phi_serial_ctrl_value2_extract(sctrl);
-            value = xeon_phi_serial_data_value2_extract(sdata);
-            break;
-        case 3:
-            has_data = xeon_phi_serial_ctrl_value3_extract(sctrl);
-            value = xeon_phi_serial_data_value3_extract(sdata);
-            break;
+            case 0:
+                has_data = xeon_phi_serial_ctrl_value0_extract(sctrl);
+                value = xeon_phi_serial_data_value0_extract(sdata);
+                break;
+            case 1:
+                has_data = xeon_phi_serial_ctrl_value1_extract(sctrl);
+                value = xeon_phi_serial_data_value1_extract(sdata);
+                break;
+            case 2:
+                has_data = xeon_phi_serial_ctrl_value2_extract(sctrl);
+                value = xeon_phi_serial_data_value2_extract(sdata);
+                break;
+            case 3:
+                has_data = xeon_phi_serial_ctrl_value3_extract(sctrl);
+                value = xeon_phi_serial_data_value3_extract(sdata);
+                break;
         }
 
         if ((has_data & 0x80) || !has_data) {
@@ -84,7 +100,8 @@ xeon_phi_serial_handle_recv(void)
             continue;
         }
         if (has_data != xeon_phi_serial_data) {
-            debug_printf("[xeon phi %d] : ERROR invalid ctrl value.%x\n", xarg->xid,
+            debug_printf("[xeon phi %d] : ERROR invalid ctrl value.%x\n",
+                         xarg->xid,
                          has_data);
         }
         /* always issue a new line */
@@ -116,8 +133,7 @@ xeon_phi_serial_handle_recv(void)
     return 1;
 }
 
-static int
-xeon_phi_recv_handler(void *arg)
+static int xeon_phi_recv_handler(void *arg)
 {
     uint32_t nodata;
 
@@ -152,8 +168,7 @@ xeon_phi_recv_handler(void *arg)
  *
  * The sbox memory region has already been mapped
  */
-errval_t
-xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
+errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
 {
     if (!recv_thread_arg.init) {
         xeon_phi_serial_init(phi);
@@ -170,8 +185,7 @@ xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
  *
  * \param phi   pointer to the card information
  */
-errval_t
-xeon_phi_serial_init(struct xeon_phi *phi)
+errval_t xeon_phi_serial_init(struct xeon_phi *phi)
 {
     memset(&recv_thread_arg, 0, sizeof(struct xeon_phi_arg));
 

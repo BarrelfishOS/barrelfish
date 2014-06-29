@@ -86,6 +86,12 @@ int main(int argc,
     assert(!capref_is_null(sysmem_cap));
 
     xphi.is_client = 0x1;
+    xphi.id = disp_xeon_phi_id();
+
+    for (uint32_t i = 0; i < XEON_PHI_NUM_MAX; ++i) {
+        xphi.topology[i].id = i;
+        xphi.topology[i].local = &xphi;
+    }
 
     XDEBUG("Initializing system memory cap manager...\n");
     err = sysmem_cap_manager_init(sysmem_cap);
@@ -103,7 +109,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
 
-    dma_impl_test(&xphi);
+    //dma_impl_test(&xphi);
 
     host_base = strtol(argv[0], NULL, 16);
     offset = host_base;
@@ -119,6 +125,8 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
     }
+
+
 
     err = xeon_phi_messaging_service_start_phi(0);
     if (err_is_fail(err)) {
@@ -138,7 +146,7 @@ int main(int argc,
                 thread_yield();
                 continue;
             }
-            if (err_is_fail(err)) {
+            if (err_no(err) != LIB_ERR_NO_EVENT) {
                 USER_PANIC_ERR(err, "msg loop");
             }
         }

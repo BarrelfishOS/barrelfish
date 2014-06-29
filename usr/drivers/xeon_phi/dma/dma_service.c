@@ -427,10 +427,6 @@ errval_t dma_service_init(struct xeon_phi *phi)
 {
     errval_t err;
 
-#ifdef __k1om__
-    assert(phi->id == 0);
-#endif
-
     XDMA_DEBUG("Initializing DMA service\n");
 
     struct waitset *ws = get_default_waitset();
@@ -456,7 +452,11 @@ errval_t dma_service_init(struct xeon_phi *phi)
     svc_state = XPM_SVC_STATE_NS_REGISTERING;
 
     char buf[50];
+#ifdef __k1om__
+    snprintf(buf, 50, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, 0);
+#else
     snprintf(buf, 50, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, phi->id);
+#endif
 
     XDMA_DEBUG("Registering iref [%u] with name [%s]\n", dma_iref, buf);
     err = nameservice_register(buf, dma_iref);

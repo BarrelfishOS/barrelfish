@@ -119,6 +119,26 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not export the service");
     }
 
+    if (xphi.id != 0) {
+        XDEBUG("Doing Intra Xeon Phi setup\n");
+        for (uint32_t i = 0; i < xphi.id; ++i) {
+            /* initialize the messaging frame */
+            err = messaging_init_xphi(i, &xphi, NULL_CAP, 0x0);
+            if (err_is_fail(err)) {
+                XDEBUG("Could not initialize messaging\n");
+                continue;
+            }
+
+            err = service_open(&xphi, i);
+            if (err_is_fail(err)) {
+                XDEBUG("Could not initialize messaging\n");
+                continue;
+            }
+        }
+    }
+
+    XDEBUG("initialization done. Going into main message loop\n");
+
     service_start(&xphi);
 
     debug_printf("Xeon Phi host module terminated.\n");
