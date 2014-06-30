@@ -47,10 +47,10 @@ static inline void xprintf(uint8_t xid,
 {
     switch (xid) {
         case 0:
-            printf(ANSI_COLOR_YELLOW">> XEON_PHI "ANSI_COLOR_RED"%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
+            printf(ANSI_COLOR_YELLOW">> XEON_PHI.%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
             break;
         case 1:
-            printf(ANSI_COLOR_MAGENTA">> XEON_PHI "ANSI_COLOR_RED"%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
+            printf(ANSI_COLOR_MAGENTA">> XEON_PHI.%u"ANSI_COLOR_RESET": %s\n", xid, fmt);
             break;
         default:
             printf("\x1b[32m>> XEON_PHI \033[31m%u\033[0m: %s\n", xid, fmt);
