@@ -52,7 +52,9 @@ typedef uint64_t paging_x86_64_flags_t;
 #define X86_64_PTABLE_READ_WRITE       (((paging_x86_64_flags_t)1) << 1)
 #define X86_64_PTABLE_PRESENT          (((paging_x86_64_flags_t)1) << 0)
 
-#define X86_64_PTABLE_SIZE         512     /**< Page directory/table size */
+#define X86_64_PTABLE_BITS         9       /**< Page directory/table size in bits */
+/** Page directory/table size */
+#define X86_64_PTABLE_SIZE         (1UL<<X86_64_PTABLE_BITS)
 #define X86_64_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */
 #define X86_64_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
 
