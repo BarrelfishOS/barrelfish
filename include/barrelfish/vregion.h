@@ -29,7 +29,7 @@ __BEGIN_DECLS
 // XXX: figure out how to do this arch-independent(?) -SG, 2014-06-16
 #define VREGION_FLAGS_LARGE    0x40 // Map large pages, if possible
 #define VREGION_FLAGS_HUGE     0x80 // Map huge pages, if possible
-#define VREGION_FLAGS_MASK     0x8f // Mask of all individual VREGION_FLAGS
+#define VREGION_FLAGS_MASK     0xff // Mask of all individual VREGION_FLAGS
 
 #define VREGION_FLAGS_READ_WRITE \
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE)
