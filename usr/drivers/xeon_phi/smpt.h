@@ -20,6 +20,7 @@
 struct smpt_info {
     xeon_phi_smpt_t         smpt_register;
     xeon_phi_smpt_entry_t   entries[xeon_phi_smpt_system_page_num];
+    lpaddr_t                offsets[xeon_phi_smpt_system_page_num];
     uint8_t                 smpt_enabled;
 };
 
@@ -122,4 +123,15 @@ uint8_t smtp_get_xeon_phi_id_from_addr(struct xeon_phi *phi,
 lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
                                       uint8_t id);
 
+
+/**
+ * \brief sets the offset into the system memory page where the card is mapped
+ *
+ * \param phi    the local xeon phi
+ * \param id     ID of the card
+ * \param offset the offest into the page
+ */
+void smpt_set_coprocessor_offset(struct xeon_phi *phi,
+                                 uint8_t id,
+                                 lpaddr_t offset);
 #endif /* XEON_PHI_SMPT_H */

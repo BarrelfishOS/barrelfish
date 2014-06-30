@@ -25,11 +25,14 @@
 #include "service.h"
 #include "sysmem_caps.h"
 #include "dma/dma.h"
+#include "smpt.h"
 
 static struct xeon_phi xphi;
 
 struct xeon_phi_messaging_cb msg_cb = {
+    .open_card = messaging_send_open_to_xphi,
     .open_iface = messaging_send_open,
+    .spawn_card = messaging_send_spawn_to_xphi,
     .spawn = messaging_send_spawn
 };
 
@@ -109,6 +112,12 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
 
+    err = smpt_init(&xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
+    }
+
+
     //dma_impl_test(&xphi);
 
     host_base = strtol(argv[0], NULL, 16);
@@ -125,8 +134,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
     }
-
-
 
     err = xeon_phi_messaging_service_start_phi(0);
     if (err_is_fail(err)) {

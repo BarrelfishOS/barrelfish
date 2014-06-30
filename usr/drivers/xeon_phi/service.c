@@ -73,7 +73,9 @@ static void msg_open_recv(struct xeon_phi_driver_binding *b,
                    base,
                    node->id);
 
-    err = messaging_send_bootstrap(base, bits, node->id, 0x1);
+    lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34)<<2))<<32 ;
+
+    err = messaging_send_bootstrap(base, offset, bits, node->id, 0x1);
     assert(err_is_ok(err));
 }
 
@@ -242,6 +244,8 @@ static void register_response_recv(struct xeon_phi_driver_binding *_binding,
                        topology->local->id,
                        topology->id,
                        topology->apt_base);
+
+        smpt_set_coprocessor_address(topology->local, topology->id, other_apt_base);
     }
 }
 

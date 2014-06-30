@@ -59,9 +59,38 @@ lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
 
     assert(slot < xeon_phi_smpt_system_page_num);
 
-    XSMPT_DEBUG("Calculating slot for id %u: slot=%u\n", id, slot);
+    XSMPT_DEBUG("Calculating slot for id %u: slot=%u, offset=%016lx\n",
+                id,
+                slot,
+                phi->smpt->offsets[slot]);
 
-    return ((lpaddr_t) slot * XEON_PHI_SYSMEM_PAGE_SIZE);
+    return ((lpaddr_t) slot * XEON_PHI_SYSMEM_PAGE_SIZE) + phi->smpt->offsets[slot];
+}
+
+/**
+ * \brief sets the offset into the system memory page where the card is mapped
+ *
+ * \param phi    the local xeon phi
+ * \param id     ID of the card
+ * \param offset the offest into the page
+ */
+void smpt_set_coprocessor_offset(struct xeon_phi *phi,
+                                 uint8_t id,
+                                 lpaddr_t offset)
+{
+
+    uint8_t slot = xeon_phi_smpt_system_page_num - 1;
+    if (id < phi->id) {
+        slot = slot - id;
+    } else {
+        slot = slot - id + 1;
+    }
+
+    XSMPT_DEBUG("Offset for slot %u:  offset=%016lx\n",
+                        slot,
+                        phi->smpt->offsets[slot]);
+
+    phi->smpt->offsets[slot] = offset;
 }
 
 /**
@@ -80,8 +109,8 @@ uint8_t smtp_get_xeon_phi_id_from_addr(struct xeon_phi *phi,
         addr -= XEON_PHI_SYSMEM_BASE;
         uint64_t slot = (addr / XEON_PHI_SYSMEM_PAGE_SIZE);
         assert(slot < 32);
-        slot = xeon_phi_smpt_system_page_num - slot ;
-        uint8_t id = xeon_phi_smpt_system_page_num  - slot;
+        slot = xeon_phi_smpt_system_page_num - slot;
+        uint8_t id = xeon_phi_smpt_system_page_num - slot;
         if (id > phi->id) {
             id = id - 1;
         }
@@ -140,6 +169,13 @@ void smpt_set_address(struct xeon_phi *phi,
     lpaddr_t e_address = (address >> xeon_phi_smpt_system_page_shift);
     xeon_phi_smpt_entry_t e = xeon_phi_smpt_entry_default;
     e = xeon_phi_smpt_entry_host_address_insert(e, (uint32_t) e_address);
+
+    if ((address >> 32) != e) {
+        assert(address > e);
+        phi->smpt->offsets[slot] = ((address >> 32) - e) << 32;
+        XSMPT_DEBUG("Slot[%u] = 0x%08x + 0x%08lx\n", slot, e, ((address >> 32) - e));
+    }
+
     if (snooping) {
         snooping = xeon_phi_smpt_snooping_enabled;
     } else {
@@ -160,6 +196,27 @@ void smpt_reset(struct xeon_phi *phi)
     }
 }
 
+#ifdef __k1om__
+/**
+ * \brief initializes the SMPT for the Xeon Phi Card
+ *
+ * \return SYS_ERR_OK on success
+ */
+errval_t smpt_init(struct xeon_phi *phi)
+{
+    if (phi->smpt) {
+        if (phi->smpt->smpt_enabled) {
+            debug_printf("WARNING: SMPT already setup");
+            return SYS_ERR_OK;
+        }
+    }
+    phi->smpt = calloc(1, sizeof(struct smpt_info));
+    if (!phi->smpt) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    return SYS_ERR_OK;
+}
+#else
 /**
  * \brief initializes the system memory page tables with a
  *        1:1 mapping
@@ -194,3 +251,4 @@ errval_t smpt_init(struct xeon_phi *phi)
 
     return SYS_ERR_OK;
 }
+#endif

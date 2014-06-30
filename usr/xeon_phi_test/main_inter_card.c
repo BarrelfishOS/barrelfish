@@ -41,7 +41,7 @@ static size_t remote_frame_sz;
 
 struct bench_bufs bufs;
 
-// static struct ump_chan uc;
+static struct ump_chan uc;
 
 static void done_cb(xeon_phi_dma_id_t id,
                     errval_t err,
@@ -110,9 +110,7 @@ static void do_dma_test(void)
     cont.arg = remote_buf;
     info.dest = remote_base;
     info.size =
-                    (local_frame_sz < remote_frame_sz ?
-                                    local_frame_sz : remote_frame_sz)
-                    >> 1;
+        (local_frame_sz < remote_frame_sz ? local_frame_sz : remote_frame_sz) >> 1;
     err = xeon_phi_dma_client_start(0, &info, cont, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
@@ -193,14 +191,20 @@ static errval_t msg_open_cb(struct capref msgframe,
 
     remote_frame_sz = (1UL << id.bits);
 
-    err = vspace_map_one_frame(&remote_buf, 1UL << id.bits, msgframe,
+    err = vspace_map_one_frame(&remote_buf, remote_frame_sz, msgframe,
     NULL,
                                NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
 
-    debug_printf("remote buffer: %s\n", (char *) remote_buf);
+    debug_printf("Initializing UMP channel...\n");
+
+    err = ump_chan_init(&uc, remote_buf, remote_frame_sz, local_buf, local_frame_sz);
+
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not initialize UMP");
+    }
 
     connected = 0x1;
 
@@ -216,7 +220,7 @@ int main(int argc,
 {
     errval_t err;
 
-    debug_printf("Xeon Phi Test started on the card.\n");
+    debug_printf("Xeon Phi Test started on the card %u.\n", disp_xeon_phi_id());
 
     debug_printf("Msg Buf Size = %lx, Buf Frame Size = %lx\n",
     XPHI_BENCH_MSG_FRAME_SIZE,
@@ -235,45 +239,89 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not start the service\n");
     }
 
-    snprintf(local_buf,
-             local_frame_sz,
-             "Hello, this is Node %u speaking",
-             disp_xeon_phi_id());
-
     char iface[30];
     snprintf(iface, 30, "xeon_phi_inter.%u", 2);
 
     if (disp_xeon_phi_id() == 0) {
-        debug_printf("sending open message to %s\n", iface);
-        err = xeon_phi_messaging_open(1, iface, local_frame,
-        XEON_PHI_CHAN_TYPE_UMP);
+        debug_printf("sending open message to %s on node 1\n", iface);
+        err = xeon_phi_messaging_open(1, iface, local_frame, XEON_PHI_CHAN_TYPE_UMP);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }
     }
-
-    do {
-        err = event_dispatch_non_block(get_default_waitset());
-    } while (err_no(err) == LIB_ERR_NO_EVENT);
 
     while (!connected) {
         messages_wait_and_handle_next();
     }
 
     if (disp_xeon_phi_id() != 0) {
-        if (disp_xeon_phi_id() == 0) {
-            debug_printf("sending open message to %s\n", iface);
-            err = xeon_phi_messaging_open(0, iface, local_frame,
-            XEON_PHI_CHAN_TYPE_UMP);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not open channel");
-            }
+        debug_printf("sending open message to %s\n", iface);
+        err = xeon_phi_messaging_open(0, iface, local_frame,
+        XEON_PHI_CHAN_TYPE_UMP);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "could not open channel");
         }
+    } else {
+        debug_printf("Other node reply: %s\n", (char *) local_buf);
     }
-
     if (0) {
         do_dma_test();
     }
 
+    volatile struct ump_message *msg;
+
+    struct ump_control ctrl;
+    volatile uint64_t *bl = local_buf;
+    volatile uint64_t *br = remote_buf;
+    if (disp_xeon_phi_id() == 0) {
+        *br = 0x1234;
+        br++;
+    }
+
+    while (1) {
+        while (!(*bl)) {
+            event_dispatch_non_block(get_default_waitset());
+            thread_yield();
+        }
+        debug_printf("Got Message: %lx\n", *bl);
+        *br = (*bl) + 1;
+        br++;
+        bl++;
+    }
+
+    if (disp_xeon_phi_id() != 0) {
+        debug_printf("Sending messages\n");
+        msg = ump_chan_get_next(&uc, &ctrl);
+        msg->data[0] = 0xAAAA0000;
+        msg->header.control = ctrl;
+        do {
+            event_dispatch_non_block(get_default_waitset());
+            err = ump_chan_recv(&uc, &msg);
+        } while (!err_is_ok(err));
+        uint64_t data = msg->data[0];
+        XPHI_BENCH_DBG("received ump message [%p]\n", data);
+        if (data < 0xAAAA000F) {
+            msg = ump_chan_get_next(&uc, &ctrl);
+            msg->data[0] = data + 1;
+            msg->header.control = ctrl;
+        }
+    } else {
+        debug_printf("receiving messages\n");
+        while (1) {
+            event_dispatch_non_block(get_default_waitset());
+            err = ump_chan_recv(&uc, &msg);
+            if (err_is_ok(err)) {
+                uint64_t data = msg->data[0];
+                XPHI_BENCH_DBG("received ump message [%p]\n", data);
+                msg = ump_chan_get_next(&uc, &ctrl);
+                msg->data[0] = data + 1;
+                msg->header.control = ctrl;
+            }
+        }
+    }
+
+    while (1) {
+        messages_wait_and_handle_next();
+    }
 }
 

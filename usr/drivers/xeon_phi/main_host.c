@@ -76,6 +76,8 @@ int main(int argc,
                      "[0,0,0]\n");
     }
 
+    memset(&xphi, 0, sizeof(xphi));
+
     xphi.is_client = 0x0;
 
     vfs_init();
