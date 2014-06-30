@@ -19,7 +19,9 @@
 
 #define XEON_PHI_MSG_INIT_BITS 12
 #define XEON_PHI_MSG_INIT_SIZE (1UL << XEON_PHI_MSG_INIT_BITS)
-#define XEON_PHI_MSG_CHANS  (XEON_PHI_MSG_INIT_SIZE/2/64)
+#define XEON_PHI_MSG_SIZE 64
+#define XEON_PHI_MSG_CHAN_SIZE  (XEON_PHI_MSG_INIT_SIZE/2)
+#define XEON_PHI_MSG_CHAN_SLOTS (XEON_PHI_MSG_INIT_SIZE/2/XEON_PHI_MSG_SIZE)
 
 #define XEON_PHI_MSG_CMD_OPEN      0x01
 #define XEON_PHI_MSG_CMD_BOOTSTRAP 0x02
@@ -64,20 +66,26 @@ struct xeon_phi_msg_data
     } data;
 };
 
+STATIC_ASSERT_SIZEOF(struct xeon_phi_msg_data, XEON_PHI_MSG_SIZE);
+
 /**
  * represents the information needed to create a new messaging channel
  * between the card and the host
  */
 struct xeon_phi_msg_chan
 {
-    struct xeon_phi_msg_data data[XEON_PHI_MSG_CHANS];
+    struct xeon_phi_msg_data data[XEON_PHI_MSG_CHAN_SLOTS];
 };
+STATIC_ASSERT_SIZEOF(struct xeon_phi_msg_chan, XEON_PHI_MSG_CHAN_SIZE);
+
 
 struct xeon_phi_msg
 {
     struct xeon_phi_msg_chan h2c;
     struct xeon_phi_msg_chan c2h;
 };
+
+STATIC_ASSERT_SIZEOF(struct xeon_phi_msg, XEON_PHI_MSG_INIT_SIZE);
 
 /**
  * represents the information for the messaging channel between the host and
@@ -140,6 +148,7 @@ errval_t messaging_poll(struct xeon_phi *phi);
  * \return SYS_ERR_OK on success
  */
 errval_t messaging_send_bootstrap(lpaddr_t base,
+                                  lpaddr_t offset,
                                   uint8_t bits,
                                   uint8_t xphi_id,
                                   uint8_t is_client);

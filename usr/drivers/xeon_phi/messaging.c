@@ -84,7 +84,10 @@ errval_t messaging_init_xphi(uint8_t xphi,
 {
     errval_t err;
 
-    XMESSAGING_DEBUG("initializing intra Xeon Phi [%u <-> %u]\n", phi->id, xphi);
+    XMESSAGING_DEBUG("initializing intra Xeon Phi [%u <-> %u] client=%u\n",
+                     phi->id,
+                     xphi,
+                     is_client);
 
     assert(xphi < XEON_PHI_NUM_MAX);
     assert(xphi != phi->id);
@@ -148,7 +151,9 @@ errval_t messaging_init_xphi(uint8_t xphi,
     }
 
 #else
-    err = messaging_send_bootstrap(mi->base, id.bits, xphi, mi->is_client);
+    struct xnode *node = &phi->topology[xphi];
+    lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34)<<2))<<32 ;
+    err = messaging_send_bootstrap(mi->base, offset, id.bits, xphi, mi->is_client);
     if (err_is_fail(err)) {
         free(mi);
         return err;
@@ -325,6 +330,8 @@ static errval_t handle_msg_bootstrap(struct xeon_phi *phi,
         return err;
     }
 
+    smpt_set_coprocessor_offset(phi, bootstrap->xphi_id, bootstrap->offset);
+
     err = messaging_init_xphi(bootstrap->xphi_id, phi, frame, bootstrap->is_client);
     if (err_is_fail(err)) {
         return err;
@@ -335,7 +342,6 @@ static errval_t handle_msg_bootstrap(struct xeon_phi *phi,
         err = messaging_send_ready(bootstrap->xphi_id);
         assert(err_is_ok(err));
     }
-
 
     return SYS_ERR_OK;
 }
@@ -404,7 +410,6 @@ static errval_t handle_msg_open(struct xeon_phi *phi,
 
     open->base += offset;
 
-
     err = sysmem_cap_request(open->base, open->bits, &st->frame);
     if (err_is_fail(err)) {
         free(st);
@@ -461,7 +466,7 @@ static errval_t handle_msg_recv(struct xeon_phi *phi,
     }
 
     if (err_is_fail(err)) {
-
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -490,7 +495,7 @@ static errval_t messaging_do_poll(struct xeon_phi *phi,
         data->ctrl.valid = XEON_PHI_MSG_STATE_CLEAR;
 
         data = data + 1;
-        if (data == (chan->data + XEON_PHI_MSG_CHANS)) {
+        if (data == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
             data = chan->data;
         }
         msg_ctrl->in = data;
@@ -520,7 +525,7 @@ errval_t messaging_poll(struct xeon_phi *phi)
     uint8_t is_idle = 0x1;
 #ifdef __k1om__
     for (uint32_t i = 0; i < XEON_PHI_NUM_MAX; ++i) {
-        if (phi->topology[i].state != XNODE_STATE_READY) {
+        if (phi->topology[i].msg == NULL) {
             continue;
         }
         assert(phi->topology[i].id == i);
@@ -549,6 +554,7 @@ errval_t messaging_poll(struct xeon_phi *phi)
  * \return SYS_ERR_OK on success
  */
 errval_t messaging_send_bootstrap(lpaddr_t base,
+                                  lpaddr_t offset,
                                   uint8_t bits,
                                   uint8_t xphi_id,
                                   uint8_t is_client)
@@ -568,6 +574,7 @@ errval_t messaging_send_bootstrap(lpaddr_t base,
     }
 
     msg->data.bootstrap.base = base;
+    msg->data.bootstrap.offset = offset;
     msg->data.bootstrap.bits = bits;
     msg->data.bootstrap.xphi_id = xphi_id;
     msg->data.bootstrap.is_client = is_client;
@@ -588,7 +595,7 @@ errval_t messaging_send_bootstrap(lpaddr_t base,
     }
 
     msg = msg + 1;
-    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+    if (msg == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
         msg = chan->data;
     }
     xeon_phi->msg->out = msg;
@@ -604,14 +611,15 @@ errval_t messaging_send_bootstrap(lpaddr_t base,
  */
 errval_t messaging_send_ready(uint8_t xphi)
 {
-    XMESSAGING_DEBUG("Sending READY message [%u] -> [%u]\n",
-                     xeon_phi->id,
-                     xphi);
+    XMESSAGING_DEBUG("Sending READY message [%u] -> [%u]\n", xeon_phi->id, xphi);
 
     assert(xeon_phi->topology[xphi].msg);
 
+    struct msg_info *mst_ctrl = xeon_phi->topology[xphi].msg;
+
     /* we need to take the host-card channel */
-    struct xeon_phi_msg_data *msg = xeon_phi->topology[xphi].msg->out;
+    struct xeon_phi_msg_data *msg = mst_ctrl->out;
+
 
     // in case the other side has not yet read this message, we have to wait
     while (msg->ctrl.valid != XEON_PHI_MSG_STATE_CLEAR) {
@@ -619,7 +627,6 @@ errval_t messaging_send_ready(uint8_t xphi)
     }
 
     msg->data.ready.xphi_id = xeon_phi->id;
-
 
     msg->ctrl.size = sizeof(struct xeon_phi_msg_ready);
 
@@ -631,17 +638,18 @@ errval_t messaging_send_ready(uint8_t xphi)
 
     /* update the next out pointer */
     struct xeon_phi_msg_chan *chan;
-    if (xeon_phi->is_client) {
-        chan = &xeon_phi->msg->meta->c2h;
+    if (mst_ctrl->is_client) {
+        chan = &mst_ctrl->meta->c2h;
     } else {
-        chan = &xeon_phi->msg->meta->h2c;
+        chan = &mst_ctrl->meta->h2c;
     }
 
     msg = msg + 1;
-    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+
+    if (msg == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
         msg = chan->data;
     }
-    xeon_phi->msg->out = msg;
+    mst_ctrl->out = msg;
 
     return SYS_ERR_OK;
 }
@@ -698,8 +706,10 @@ static errval_t messaging_send_open_common(struct msg_info *msg_ctrl,
         chan = &msg_ctrl->meta->h2c;
     }
 
+    debug_printf("is client= %u\n", msg_ctrl->is_client);
+
     msg = msg + 1;
-    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+    if (msg == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
         msg = chan->data;
     }
     msg_ctrl->out = msg;
@@ -744,7 +754,10 @@ errval_t messaging_send_open_to_xphi(uint8_t xphi,
     return messaging_send_open(frame, type, iface);
 #else
     assert(xphi < XEON_PHI_NUM_MAX);
-    assert(xphi < XEON_PHI_NUM_MAX);
+
+    XMESSAGING_DEBUG("Sending OPEN message [%u] -> [%u]\n", xeon_phi->id, xphi);
+
+    assert(xeon_phi->topology[xphi].msg);
     struct xnode *node = &xeon_phi->topology[xphi];
     if (node->state != XNODE_STATE_READY) {
         return -1;  //TODO: error code
@@ -792,7 +805,7 @@ static errval_t messaging_send_spawn_common(struct msg_info *msg_ctrl,
     }
 
     msg = msg + 1;
-    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+    if (msg == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
         msg = chan->data;
     }
     msg_ctrl->out = msg;
@@ -886,7 +899,7 @@ errval_t messaging_send(struct xeon_phi *phi,
     }
 
     msg = msg + 1;
-    if (msg == (chan->data + XEON_PHI_MSG_CHANS)) {
+    if (msg == (chan->data + XEON_PHI_MSG_CHAN_SLOTS)) {
         msg = chan->data;
     }
     phi->msg->out = msg;

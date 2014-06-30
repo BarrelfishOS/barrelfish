@@ -11,17 +11,17 @@
 #define XEON_PHI_MESSAGING_CLIENT_H
 
 
-
 /**
  * \brief sends a OPEN command message over the Xeon Phi channel
  *
+ * \param xphi  the ID of the Xeon Phi the target domain is running
  * \param iface the name of the iface to talk to
  * \param frame capability representing the allocated frame
  * \param type  type of the channel
  *
  * \return SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
+errval_t xeon_phi_messaging_open(uint8_t xphi,
                                  char *iface,
                                  struct capref frame,
                                  uint8_t type);
@@ -30,12 +30,13 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
  * \brief sends a SPAWN command message over the Xeon Phi channel
  *        to spawn a new domain on the other side
  *
+ * \param xphi  the ID of the Xeon Phi where to start the domain
  * \param core  core ID of the core to spawn the program on
  * \param name  path to the program to spawn
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
+errval_t xeon_phi_messaging_spawn(uint8_t xphi,
                                   coreid_t core,
                                   char *name);
 
@@ -43,11 +44,12 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
  * \brief sends a KILL command over the Xeon Phi channel to terminated
  *        a previously spawned domain
  *
- * \param d the domain ID of the domain to terminate
+ * \param xphi  the ID of the Xeon Phi the target domain is running
+ * \param d     the domain ID of the domain to terminate
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t xeon_phi_messaging_kill(uint8_t xeon_phi_id,
+errval_t xeon_phi_messaging_kill(uint8_t xphi,
                                  domainid_t d);
 
 #endif // XEON_PHI_MESSAGING_CLIENT_H

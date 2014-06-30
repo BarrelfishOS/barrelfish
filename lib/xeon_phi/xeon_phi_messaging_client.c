@@ -45,9 +45,10 @@ struct xpm_msg_param_open
     struct capref frame;
     struct xeon_phi_messaging_binding *b;
     uint8_t type;
+    uint8_t xphi_id;
     char iface[44];
 };
-
+#ifndef __k1om__
 static void xpm_msg_open_tx(void *a)
 {
     errval_t err;
@@ -76,6 +77,37 @@ static void xpm_msg_open_tx(void *a)
         }
     }
 }
+#else
+static void xpm_msg_open_card_tx(void *a)
+{
+    errval_t err;
+
+    struct xpm_msg_param_open *param = a;
+
+    struct event_closure txcont = MKCONT(free, a);
+
+    size_t length = strlen(param->iface)+1;
+
+    err = xeon_phi_messaging_open_card__tx(param->b,
+                                      txcont,
+                                      param->xphi_id,
+                                      param->frame,
+                                      param->type,
+                                      param->iface,
+                                      length);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(xpm_msg_open_card_tx, a);
+            err = param->b->register_send(param->b,
+                                             get_default_waitset(),
+                                             txcont);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "failed to register send\n");
+            }
+        }
+    }
+}
+#endif
 
 /*
  * --------------------------------------------------------------------------
@@ -85,9 +117,10 @@ struct xpm_msg_param_spawn
 {
     struct xeon_phi_messaging_binding *b;
     coreid_t core;
+    uint8_t xphi_id;
     char name[55];
 };
-
+#ifndef __k1om__
 static void xpm_msg_spawn_tx(void *a)
 {
     errval_t err;
@@ -115,7 +148,36 @@ static void xpm_msg_spawn_tx(void *a)
         }
     }
 }
+#else
+static void xpm_msg_spawn_card_tx(void *a)
+{
+    errval_t err;
 
+    struct xpm_msg_param_spawn *param = a;
+
+    struct event_closure txcont = MKCONT(free, a);
+
+    size_t length = strlen(param->name)+1;
+
+    err = xeon_phi_messaging_spawn_card__tx(param->b,
+                                       txcont,
+                                       param->xphi_id,
+                                       param->core,
+                                       param->name,
+                                       length);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(xpm_msg_spawn_card_tx, a);
+            err = param->b->register_send(param->b,
+                                             get_default_waitset(),
+                                             txcont);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "failed to register send\n");
+            }
+        }
+    }
+}
+#endif
 
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
     .open = NULL
@@ -164,10 +226,6 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
 {
     errval_t err;
 
-#ifdef __k1om__
-    assert(xeon_phi_id == 0);
-#endif
-
     if (xpm_binding[xeon_phi_id] != NULL) {
         return SYS_ERR_OK;
     }
@@ -209,6 +267,8 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
     return SYS_ERR_OK;
 }
 
+
+
 /*
  * --------------------------------------------------------------------------
  * Public Interface
@@ -229,8 +289,14 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
                                  uint8_t type)
 {
     errval_t err;
-    if (xpm_binding[xeon_phi_id] == NULL) {
-        err = xpm_connect(xeon_phi_id);
+
+#ifdef __k1om__
+    uint8_t xphi = 0;
+#else
+    uint8_t xphi = xeon_phi_id;
+#endif
+    if (xpm_binding[xphi] == NULL) {
+        err = xpm_connect(xphi);
         if (err_is_fail(err)) {
             return err;
         }
@@ -243,12 +309,16 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
 
     param->frame = frame;
     param->type = type;
-    param->b = xpm_binding[xeon_phi_id];
+    param->b = xpm_binding[xphi];
+    param->xphi_id = xeon_phi_id;
 
     snprintf(param->iface, sizeof(param->iface), "%s", iface);
 
+#ifdef __k1om__
+    xpm_msg_open_card_tx(param);
+#else
     xpm_msg_open_tx(param);
-
+#endif
     return SYS_ERR_OK;
 }
 
@@ -269,8 +339,13 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
 
     DEBUG_XPMC("Send spawn request %s on core %u.%u\n", name, xeon_phi_id, core);
 
-    if (xpm_binding[xeon_phi_id] == NULL) {
-        err = xpm_connect(xeon_phi_id);
+#ifdef __k1om__
+    uint8_t xphi = 0;
+#else
+    uint8_t xphi = xeon_phi_id;
+#endif
+    if (xpm_binding[xphi] == NULL) {
+        err = xpm_connect(xphi);
         if (err_is_fail(err)) {
             return err;
         }
@@ -281,12 +356,15 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    param->b = xpm_binding[xeon_phi_id];
+    param->b = xpm_binding[xphi];
     param->core = core;
+    param->xphi_id = xeon_phi_id;
     snprintf(param->name, sizeof(param->name), "%s", name);
-
+#ifdef __k1om__
+    xpm_msg_spawn_card_tx(param);
+#else
     xpm_msg_spawn_tx(param);
-
+#endif
     return SYS_ERR_OK;
 }
 
@@ -302,8 +380,14 @@ errval_t xeon_phi_messaging_kill(uint8_t xeon_phi_id,
                                  domainid_t d)
 {
     errval_t err;
-    if (xpm_binding[xeon_phi_id] == NULL) {
-        err = xpm_connect(xeon_phi_id);
+
+#ifdef __k1om__
+    uint8_t xphi = 0;
+#else
+    uint8_t xphi = xeon_phi_id;
+#endif
+    if (xpm_binding[xphi] == NULL) {
+        err = xpm_connect(xphi);
         if (err_is_fail(err)) {
             return err;
         }

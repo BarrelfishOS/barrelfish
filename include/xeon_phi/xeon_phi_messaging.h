@@ -49,6 +49,7 @@ struct xeon_phi_msg_virtq
 struct xeon_phi_msg_bootstrap
 {
     lpaddr_t base;
+    lpaddr_t offset;
     uint8_t  bits;
     uint8_t  xphi_id;
     uint8_t  is_client;
