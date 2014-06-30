@@ -378,6 +378,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     core_data->src_core_id       = my_core_id;
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
+#ifdef __k1om__
+    core_data->xeon_phi_id       = disp_xeon_phi_id();
+#endif
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id           = chanid;
 #endif

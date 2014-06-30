@@ -129,7 +129,6 @@ static void state_machine(void)
         }
 
         if (coreid <= MAX_COREID) {
-            debug_printf("Spawing core %i, archid %i\n", coreid, coreid_mappings[coreid].arch_id);
             err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, coreid,
                                                 coreid_mappings[coreid].arch_id,
                                                 CURRENT_CPU_TYPE, kernel_cmdline);
