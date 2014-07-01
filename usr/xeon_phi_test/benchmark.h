@@ -39,7 +39,7 @@
 //#define XPHI_BENCH_CHAN_HOST        1
 
 /// reverses the in/out buffers if they are located on card and host
-#define XPHI_BENCH_CHAN_REVERSED    1
+//#define XPHI_BENCH_CHAN_REVERSED    1
 
 
 /*
@@ -98,6 +98,7 @@
 #define XPHI_BENCH_CHAN_SIZE_HOST (XPHI_BENCH_MSG_FRAME_SIZE)
 #define XPHI_BENCH_CHAN_SIZE_CARD (XPHI_BENCH_MSG_FRAME_SIZE)
 #endif
+
 
 /*
  * ram affinity to make sure we are in the right numa node

@@ -212,7 +212,7 @@ static errval_t msg_open_cb(struct capref msgframe,
     debug_printf("[%p, %p, %p]\n", inbuf, outbuf, bufs.buf);
     debug_printf("initializing ump channel\n");
     err = ump_chan_init(&uc, inbuf,
-    XPHI_BENCH_MSG_FRAME_SIZE,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     if (err_is_fail(err)) {
