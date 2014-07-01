@@ -40,6 +40,8 @@ static enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
  * Handling of OPEN commands
  */
 
+static volatile uint8_t xpm_msg_open_sent = 0x1;
+
 struct xpm_msg_param_open
 {
     struct capref frame;
@@ -48,6 +50,13 @@ struct xpm_msg_param_open
     uint8_t xphi_id;
     char iface[44];
 };
+
+static void xpm_msg_open_sent_cb(void *a)
+{
+    free(a);
+    xpm_msg_open_sent = 0x1;
+}
+
 #ifndef __k1om__
 static void xpm_msg_open_tx(void *a)
 {
@@ -55,7 +64,7 @@ static void xpm_msg_open_tx(void *a)
 
     struct xpm_msg_param_open *param = a;
 
-    struct event_closure txcont = MKCONT(free, a);
+    struct event_closure txcont = MKCONT(xpm_msg_open_sent_cb, a);
 
     size_t length = strlen(param->iface)+1;
 
@@ -84,17 +93,17 @@ static void xpm_msg_open_card_tx(void *a)
 
     struct xpm_msg_param_open *param = a;
 
-    struct event_closure txcont = MKCONT(free, a);
+    struct event_closure txcont = MKCONT(xpm_msg_open_sent_cb, a);
 
     size_t length = strlen(param->iface)+1;
 
     err = xeon_phi_messaging_open_card__tx(param->b,
-                                      txcont,
-                                      param->xphi_id,
-                                      param->frame,
-                                      param->type,
-                                      param->iface,
-                                      length);
+                                          txcont,
+                                          param->xphi_id,
+                                          param->frame,
+                                          param->type,
+                                          param->iface,
+                                          length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_open_card_tx, a);
@@ -302,6 +311,8 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
         }
     }
 
+    xpm_msg_open_sent = 0x0;
+
     struct xpm_msg_param_open *param = malloc(sizeof(struct xpm_msg_param_open));
     if (param == NULL) {
         return LIB_ERR_MALLOC_FAIL;
@@ -319,6 +330,11 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
 #else
     xpm_msg_open_tx(param);
 #endif
+
+    while(!xpm_msg_open_sent) {
+        messages_wait_and_handle_next();
+    }
+
     return SYS_ERR_OK;
 }
 
