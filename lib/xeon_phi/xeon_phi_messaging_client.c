@@ -18,46 +18,74 @@
 
 #include <if/xeon_phi_messaging_defs.h>
 
-#define DEBUG_XPMC(x...) debug_printf(" XPMC | " x)
+#ifdef XEON_PHI_DEBUG_MSG
+#define DEBUG_XPMC(x...) debug_printf(" [xpmsg] " x);
+#else
+#define DEBUG_XPMC(x...)
+#endif
+#define PRINT_XPMC(x...) debug_printf(" [xpmsg] " x);
 
+/**
+ * state enumeration for the connection state
+ */
 enum xpm_state
 {
+    XPM_STATE_INVALID = 0,
     XPM_STATE_NSLOOKUP,
     XPM_STATE_BINDING,
     XPM_STATE_BIND_OK,
     XPM_STATE_BIND_FAIL,
+    XPM_STATE_CONNECTED
 };
 
-/* todo: extend this with array of 8 */
+/// the irefs of the messaging services
 static iref_t xpm_iref[XEON_PHI_NUM_MAX];
+
+/// Xeon Phi Messaging bindings
 struct xeon_phi_messaging_binding *xpm_binding[XEON_PHI_NUM_MAX];
 
-static enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
-
+/// connection states
+static enum xpm_state conn_state[XEON_PHI_NUM_MAX] = {
+    XPM_STATE_INVALID
+};
 
 /*
- * --------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
  * Handling of OPEN commands
+ * ----------------------------------------------------------------------------
  */
 
-static volatile uint8_t xpm_msg_open_sent = 0x1;
-
+/**
+ * stores the state of the open message being transmitted
+ */
 struct xpm_msg_param_open
 {
     struct capref frame;
     struct xeon_phi_messaging_binding *b;
+    errval_t err;
     uint8_t type;
     uint8_t xphi_id;
+    volatile uint8_t sent;
     char iface[44];
 };
 
+/**
+ * \brief message sent callback handler for open messages
+ *
+ * \param a pointer to struct xpm_msg_param_open
+ */
 static void xpm_msg_open_sent_cb(void *a)
 {
-    free(a);
-    xpm_msg_open_sent = 0x1;
+    struct xpm_msg_param_open *st = a;
+    st->err = SYS_ERR_OK;
+    st->sent = 0x1;
 }
 
-#ifndef __k1om__
+/**
+ * \brief sends the open message
+ *
+ * \param a pointer to struct xpm_msg_param_open
+ */
 static void xpm_msg_open_tx(void *a)
 {
     errval_t err;
@@ -66,135 +94,121 @@ static void xpm_msg_open_tx(void *a)
 
     struct event_closure txcont = MKCONT(xpm_msg_open_sent_cb, a);
 
-    size_t length = strlen(param->iface)+1;
+    size_t length = strlen(param->iface) + 1;
 
+#ifndef __k1om__
     err = xeon_phi_messaging_open_iface__tx(param->b,
-                                      txcont,
-                                      param->frame,
-                                      param->type,
-                                      param->iface,
-                                      length);
+                    txcont,
+                    param->frame,
+                    param->type,
+                    param->iface,
+                    length);
+#else
+    err = xeon_phi_messaging_open_card__tx(param->b,
+                                           txcont,
+                                           param->xphi_id,
+                                           param->frame,
+                                           param->type,
+                                           param->iface,
+                                           length);
+#endif
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_open_tx, a);
-            err = param->b->register_send(param->b,
-                                             get_default_waitset(),
-                                             txcont);
+            err = param->b->register_send(param->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "failed to register send\n");
+                param->err = err;
+                param->sent = 0x1;
             }
         }
     }
 }
-#else
-static void xpm_msg_open_card_tx(void *a)
-{
-    errval_t err;
-
-    struct xpm_msg_param_open *param = a;
-
-    struct event_closure txcont = MKCONT(xpm_msg_open_sent_cb, a);
-
-    size_t length = strlen(param->iface)+1;
-
-    err = xeon_phi_messaging_open_card__tx(param->b,
-                                          txcont,
-                                          param->xphi_id,
-                                          param->frame,
-                                          param->type,
-                                          param->iface,
-                                          length);
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            txcont = MKCONT(xpm_msg_open_card_tx, a);
-            err = param->b->register_send(param->b,
-                                             get_default_waitset(),
-                                             txcont);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "failed to register send\n");
-            }
-        }
-    }
-}
-#endif
 
 /*
- * --------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
  * Handling of SPAWN commands
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * stores the spawn related information for sending the message
  */
 struct xpm_msg_param_spawn
 {
     struct xeon_phi_messaging_binding *b;
+    errval_t err;
     coreid_t core;
     uint8_t xphi_id;
+    uint8_t sent;
     char name[55];
 };
-#ifndef __k1om__
+
+/**
+ * \brief callback for the message sent event.
+ *
+ * \param a pointer to struct xpm_msg_param_spawn
+ */
+static void xpm_msg_spawn_sent_cb(void *a)
+{
+    struct xpm_msg_param_spawn *st = a;
+    st->err = SYS_ERR_OK;
+    st->sent = 0x1;
+}
+
+/**
+ * \brief send handler for spawn requests to the messaging service
+ *
+ * \param a pointer to struct xpm_msg_param_spawn
+ */
 static void xpm_msg_spawn_tx(void *a)
 {
     errval_t err;
 
     struct xpm_msg_param_spawn *param = a;
 
-    struct event_closure txcont = MKCONT(free, a);
+    struct event_closure txcont = MKCONT(xpm_msg_spawn_sent_cb, a);
 
-    size_t length = strlen(param->name)+1;
+    size_t length = strlen(param->name) + 1;
 
+    /*
+     * when running on the Xeon Phi, we can spawn the domain on another Xeon Phi
+     * or on the host.
+     */
+#ifndef __k1om__
     err = xeon_phi_messaging_spawn__tx(param->b,
-                                       txcont,
-                                       param->core,
-                                       param->name,
-                                       length);
+                    txcont,
+                    param->core,
+                    param->name,
+                    length);
+#else
+    err = xeon_phi_messaging_spawn_card__tx(param->b,
+                                            txcont,
+                                            param->xphi_id,
+                                            param->core,
+                                            param->name,
+                                            length);
+#endif
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_msg_spawn_tx, a);
-            err = param->b->register_send(param->b,
-                                             get_default_waitset(),
-                                             txcont);
+            err = param->b->register_send(param->b, get_default_waitset(), txcont);
             if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "failed to register send\n");
+                param->err = err;
+                param->sent = 0x1;
             }
         }
     }
 }
-#else
-static void xpm_msg_spawn_card_tx(void *a)
-{
-    errval_t err;
 
-    struct xpm_msg_param_spawn *param = a;
-
-    struct event_closure txcont = MKCONT(free, a);
-
-    size_t length = strlen(param->name)+1;
-
-    err = xeon_phi_messaging_spawn_card__tx(param->b,
-                                       txcont,
-                                       param->xphi_id,
-                                       param->core,
-                                       param->name,
-                                       length);
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            txcont = MKCONT(xpm_msg_spawn_card_tx, a);
-            err = param->b->register_send(param->b,
-                                             get_default_waitset(),
-                                             txcont);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "failed to register send\n");
-            }
-        }
-    }
-}
-#endif
-
+/// Flounder recv vtbl
 static struct xeon_phi_messaging_rx_vtbl xpm_rx_vtbl = {
     .open = NULL
 };
 
 /*
- * --------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
  * Xeon Phi Manager Binding
+ * ----------------------------------------------------------------------------
  */
 
 /**
@@ -208,24 +222,24 @@ static void xpm_bind_cb(void *st,
                         errval_t err,
                         struct xeon_phi_messaging_binding *b)
 {
+    uint8_t xeon_phi_id = (uint8_t) (uintptr_t) st;
 
     if (err_is_fail(err)) {
-        conn_state = XPM_STATE_BIND_FAIL;
+        conn_state[xeon_phi_id] = XPM_STATE_BIND_FAIL;
+        DEBUG_XPMC("binding FAILED.\n");
         return;
     }
 
-    uint8_t xeon_phi_id = (uint8_t)(uintptr_t)st;
-
     assert(xpm_binding[xeon_phi_id] == 0);
 
+    DEBUG_XPMC("binding to Xeon Phi %u succeeded.\n", xeon_phi_id);
+
     b->rx_vtbl = xpm_rx_vtbl;
-    b->st = (void *)(uintptr_t)xeon_phi_id;
+    b->st = (void *) (uintptr_t) xeon_phi_id;
 
     xpm_binding[xeon_phi_id] = b;
 
-    DEBUG_XPMC("Binding ok.\n");
-
-    conn_state = XPM_STATE_BIND_OK;
+    conn_state[xeon_phi_id] = XPM_STATE_BIND_OK;
 }
 
 /**
@@ -246,37 +260,37 @@ static errval_t xpm_connect(uint8_t xeon_phi_id)
     snprintf(buf, 50, "%s", XEON_PHI_MESSAGING_NAME);
 #endif
 
-    DEBUG_XPMC("Nameservice lookup: %s\n", buf);
+    DEBUG_XPMC("nameservice lookup: %s\n", buf);
     err = nameservice_blocking_lookup(buf, &xpm_iref[xeon_phi_id]);
     if (err_is_fail(err)) {
         return err;
     }
 
-    conn_state = XPM_STATE_BINDING;
+    conn_state[xeon_phi_id] = XPM_STATE_BINDING;
 
-    DEBUG_XPMC("binding to iref [%u]... \n", xpm_iref[xeon_phi_id]);
-    err = xeon_phi_messaging_bind(xpm_iref[xeon_phi_id], xpm_bind_cb,
-                                  (void *)(uintptr_t)xeon_phi_id,
+    DEBUG_XPMC("binding to %s @ iref:%u\n", buf, xpm_iref[xeon_phi_id]);
+
+    err = xeon_phi_messaging_bind(xpm_iref[xeon_phi_id],
+                                  xpm_bind_cb,
+                                  (void *) (uintptr_t) xeon_phi_id,
                                   get_default_waitset(),
                                   IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
 
-    while (conn_state == XPM_STATE_BINDING) {
+    while (conn_state[xeon_phi_id] == XPM_STATE_BINDING) {
         messages_wait_and_handle_next();
     }
 
-    DEBUG_XPMC("binding to iref [%u] done. \n", xpm_iref[xeon_phi_id]);
-
-    if (conn_state == XPM_STATE_BIND_FAIL) {
+    if (conn_state[xeon_phi_id] == XPM_STATE_BIND_FAIL) {
         return FLOUNDER_ERR_BIND;
     }
 
+    conn_state[xeon_phi_id] = XPM_STATE_CONNECTED;
+
     return SYS_ERR_OK;
 }
-
-
 
 /*
  * --------------------------------------------------------------------------
@@ -299,6 +313,10 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
 {
     errval_t err;
 
+    /*
+     * if we are running on the Xeon Phi, there is just a single service instace
+     * running, so we enforce the Xeon Phi ID to be zero
+     */
 #ifdef __k1om__
     uint8_t xphi = 0;
 #else
@@ -311,31 +329,25 @@ errval_t xeon_phi_messaging_open(uint8_t xeon_phi_id,
         }
     }
 
-    xpm_msg_open_sent = 0x0;
+    DEBUG_XPMC("open request to %s.%u type=%02x\n", iface, xeon_phi_id, type);
 
-    struct xpm_msg_param_open *param = malloc(sizeof(struct xpm_msg_param_open));
-    if (param == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    struct xpm_msg_param_open param = {
+        .sent = 0x0,
+        .frame = frame,
+        .type = type,
+        .b = xpm_binding[xphi],
+        .xphi_id = xeon_phi_id  // here we have to take the original ID
+    };
 
-    param->frame = frame;
-    param->type = type;
-    param->b = xpm_binding[xphi];
-    param->xphi_id = xeon_phi_id;
+    snprintf(param.iface, sizeof(param.iface), "%s", iface);
 
-    snprintf(param->iface, sizeof(param->iface), "%s", iface);
+    xpm_msg_open_tx(&param);
 
-#ifdef __k1om__
-    xpm_msg_open_card_tx(param);
-#else
-    xpm_msg_open_tx(param);
-#endif
-
-    while(!xpm_msg_open_sent) {
+    while (!param.sent) {
         messages_wait_and_handle_next();
     }
 
-    return SYS_ERR_OK;
+    return param.err;
 }
 
 /**
@@ -353,13 +365,18 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
 {
     errval_t err;
 
-    DEBUG_XPMC("Send spawn request %s on core %u.%u\n", name, xeon_phi_id, core);
-
+    /*
+     * if we are running on the Xeon Phi, there is just a single service instace
+     * running, so we enforce the Xeon Phi ID to be zero
+     */
 #ifdef __k1om__
     uint8_t xphi = 0;
 #else
     uint8_t xphi = xeon_phi_id;
 #endif
+
+    DEBUG_XPMC("spawn request %s on core %u.%u\n", name, xeon_phi_id, core);
+
     if (xpm_binding[xphi] == NULL) {
         err = xpm_connect(xphi);
         if (err_is_fail(err)) {
@@ -367,21 +384,22 @@ errval_t xeon_phi_messaging_spawn(uint8_t xeon_phi_id,
         }
     }
 
-    struct xpm_msg_param_spawn *param = malloc(sizeof(struct xpm_msg_param_spawn));
-    if (param == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+    struct xpm_msg_param_spawn param = {
+        .sent = 0x0,
+        .b = xpm_binding[xphi],
+        .core = core,
+        .xphi_id = xeon_phi_id  // here we have to take the original ID
+    };
+
+    snprintf(param.name, sizeof(param.name), "%s", name);
+
+    xpm_msg_spawn_tx(&param);
+
+    while (!param.sent) {
+        messages_wait_and_handle_next();
     }
 
-    param->b = xpm_binding[xphi];
-    param->core = core;
-    param->xphi_id = xeon_phi_id;
-    snprintf(param->name, sizeof(param->name), "%s", name);
-#ifdef __k1om__
-    xpm_msg_spawn_card_tx(param);
-#else
-    xpm_msg_spawn_tx(param);
-#endif
-    return SYS_ERR_OK;
+    return param.err;
 }
 
 /**
@@ -408,6 +426,8 @@ errval_t xeon_phi_messaging_kill(uint8_t xeon_phi_id,
             return err;
         }
     }
+
+    assert(!"NYI");
 
     return SYS_ERR_OK;
 }

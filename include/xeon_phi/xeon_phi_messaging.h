@@ -128,4 +128,15 @@ errval_t xeon_phi_messaging_service_start(uint8_t start_handler);
  */
 errval_t xeon_phi_messaging_service_start_phi(uint8_t xeon_phi_id);
 
+
+/**
+ * \brief sets the callback functions for the message handlers in the library
+ *
+ * \param fn the new function pointers to set.
+ *
+ * To disable callbacks either have the entry set to NULL or if fn==NULL then
+ * all callbacks are disabled.
+ */
+void xeon_phi_messaging_set_callbacks(struct xeon_phi_messaging_cb *fn);
+
 #endif // XEON_PHI_MESSAGING_H_
