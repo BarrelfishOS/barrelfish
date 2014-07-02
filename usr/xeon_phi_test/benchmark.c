@@ -14,7 +14,7 @@
 #include <barrelfish/ump_chan.h>
 #include <bench/bench.h>
 #include <barrelfish/sys_debug.h>
-
+#include <xeon_phi/xeon_phi_dma_client.h>
 #include "benchmark.h"
 
 static void xphi_bench_print_settings(void)
@@ -90,8 +90,8 @@ errval_t xphi_bench_memwrite(void *target)
     debug_printf("starting benchmark...\n");
     uint32_t rep_counter = 0;
     do {
-        debug_printf("  > run %u of %u memwrite of %lu byt.es..\n", rep_counter++,
-        XPHI_BENCH_NUM_REPS,
+        debug_printf("  > run %u of %u memwrite of %lu bytes..\n", rep_counter++,
+                     XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_BUF_FRAME_SIZE);
 
         /* using memset */
@@ -122,6 +122,101 @@ errval_t xphi_bench_memwrite(void *target)
     bench_ctl_dump_analysis(ctl, 0, "memset()", tscperus);
     bench_ctl_dump_analysis(ctl, 1, "forloop write", tscperus);
     bench_ctl_dump_analysis(ctl, 2, "forloop read", tscperus);
+    return SYS_ERR_OK;
+
+    return SYS_ERR_OK;
+}
+
+static volatile uint8_t dma_done;
+
+static void dma_done_cb(xeon_phi_dma_id_t id,
+                        errval_t err,
+                        void *st)
+{
+    debug_printf("executed...\n");
+    dma_done = 0x1;
+}
+
+errval_t xphi_bench_memcpy(void *dst,
+                           void *src,
+                           size_t size,
+                           lpaddr_t pdst,
+                           lpaddr_t psrc)
+{
+
+    debug_printf("Executing local measurements\n");
+
+    errval_t err;
+
+    bench_init();
+
+    cycles_t tsc_start;
+    cycles_t result[4];
+    uint64_t tscperus;
+    bench_ctl_t *ctl;
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+
+    debug_printf("tscperus = %lu\n", tscperus);
+
+    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 3, XPHI_BENCH_NUM_REPS);
+
+    debug_printf("starting benchmark...\n");
+    uint32_t rep_counter = 0;
+    do {
+        debug_printf("  > run %u of %u memcpy of %lu bytes..\n", rep_counter++,
+                     XPHI_BENCH_NUM_REPS,
+                     size);
+
+
+        /* using memset */
+        debug_printf("memcpy...\n");
+        tsc_start = rdtsc();
+        memcpy(dst, src, size);
+        result[0] = rdtsc() - tsc_start - bench_tscoverhead();
+
+        /* writing in a loop*/
+        debug_printf("forloop...\n");
+        volatile uint64_t *bsrc = src;
+        volatile uint64_t *bdst = dst;
+        tsc_start = rdtsc();
+        for (uint32_t i = 0; i < size / sizeof(uint64_t); ++i) {
+            bdst[i] = bsrc[i];
+        }
+        result[1] = rdtsc() - tsc_start - bench_tscoverhead();
+
+        struct xeon_phi_dma_info info = {
+            .src = psrc,
+            .dest = pdst,
+            .size = size
+        };
+
+        struct xeon_phi_dma_cont cont = {
+            .cb = dma_done_cb,
+            .arg = NULL
+        };
+
+        /* reading in a while loop */
+        dma_done = 0x0;
+        debug_printf("dma...\n");
+        tsc_start = rdtsc();
+        err = xeon_phi_dma_client_start(0, &info, cont, NULL);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "could not exec the transfer");
+        }
+        while(!dma_done) {
+            messages_wait_and_handle_next();
+        }
+        result[2] = rdtsc() - tsc_start - bench_tscoverhead();
+
+    } while (!bench_ctl_add_run(ctl, result));
+
+    // bench_ctl_dump_csv(ctl, "", tscperus);
+    bench_ctl_dump_analysis(ctl, 0, "memcpy()", tscperus);
+    bench_ctl_dump_analysis(ctl, 1, "forloop copy", tscperus);
+    bench_ctl_dump_analysis(ctl, 2, "DMA", tscperus);
     return SYS_ERR_OK;
 
     return SYS_ERR_OK;

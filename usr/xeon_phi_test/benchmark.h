@@ -13,8 +13,8 @@
 /*
  * Benchmark settings runs / repetitions
  */
-#define XPHI_BENCH_NUM_REPS       20  // how many repetitions
-#define XPHI_BENCH_NUM_RUNS       100 // how many runs per repetition
+#define XPHI_BENCH_NUM_REPS       10  // how many repetitions
+#define XPHI_BENCH_NUM_RUNS       1000 // how many runs per repetition
 #define XPHI_BENCH_PROCESS_RUNS   20  // how many times the buffer is read/written
 
 /*
@@ -55,7 +55,7 @@
 /// how many buffers we have (we keep it consistent with the number of messages
 #define XPHI_BENCH_BUF_NUM  XPHI_BENCH_MSG_NUM
 /// the size of a single buffer
-#define XPHI_BENCH_BUF_SIZE (1UL << 14)
+#define XPHI_BENCH_BUF_SIZE (1UL << 16)
 /// the resulting size of the buffer frame we have to allocate
 #define XPHI_BENCH_BUF_FRAME_SIZE (XPHI_BENCH_BUF_NUM * XPHI_BENCH_BUF_SIZE)
 
@@ -109,13 +109,8 @@
 /*
  * add up the
  */
-#ifdef XPHI_BENCH_BUFFER_CARD
-#define XPHI_BENCH_FRAME_SIZE_HOST (XPHI_BENCH_CHAN_SIZE_HOST)
-#define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD + XPHI_BENCH_BUF_FRAME_SIZE)
-#else
 #define XPHI_BENCH_FRAME_SIZE_HOST (XPHI_BENCH_CHAN_SIZE_HOST + XPHI_BENCH_BUF_FRAME_SIZE)
-#define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD)
-#endif
+#define XPHI_BENCH_FRAME_SIZE_CARD (XPHI_BENCH_CHAN_SIZE_CARD + XPHI_BENCH_BUF_FRAME_SIZE)
 
 /*
  * Debugging messages
@@ -157,6 +152,8 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
                                         struct ump_chan *uc);
 
 errval_t xphi_bench_memwrite(void *target);
+
+errval_t xphi_bench_memcpy(void *dst, void *src, size_t size, lpaddr_t pdst, lpaddr_t psrc);
 
 static inline void xphi_bench_fill_buffer(struct bench_buf *buf, uint32_t runs)
 {

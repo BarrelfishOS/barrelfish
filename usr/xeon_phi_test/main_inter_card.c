@@ -52,7 +52,8 @@ static void done_cb(xeon_phi_dma_id_t id,
 {
     debug_printf("verifying memory range...%p\n", st);
     uint32_t *test = st;
-    uint32_t size = (local_frame_sz < remote_frame_sz) ? local_frame_sz : remote_frame_sz;
+    uint32_t size = (local_frame_sz < remote_frame_sz) ?
+                    local_frame_sz : remote_frame_sz;
 
     size = size >> 1;
 
@@ -88,7 +89,8 @@ static void do_dma_test(void)
         USER_PANIC_ERR(err, "could not register memory");
     }
 
-    uint32_t size = (local_frame_sz < remote_frame_sz) ? local_frame_sz : remote_frame_sz;
+    uint32_t size = (local_frame_sz < remote_frame_sz) ?
+                    local_frame_sz : remote_frame_sz;
 
     size = size >> 1;
 
@@ -105,7 +107,6 @@ static void do_dma_test(void)
         .cb = done_cb,
         .arg = remote_buf
     };
-
 
     err = xeon_phi_dma_client_start(0, &info, cont, NULL);
     if (err_is_fail(err)) {
@@ -129,7 +130,7 @@ static void init_buffer_c0(void)
 
 #ifdef XPHI_BENCH_CHAN_CARD
     inbuf = remote_buf;
-   void *outbuf = remote_buf + XPHI_BENCH_MSG_FRAME_SIZE;
+    void *outbuf = remote_buf + XPHI_BENCH_MSG_FRAME_SIZE;
 #ifdef XPHI_BENCH_BUFFER_CARD
     bufs.buf = outbuf + XPHI_BENCH_MSG_FRAME_SIZE;
 #else
@@ -267,7 +268,6 @@ static struct xeon_phi_messaging_cb callbacks = {
     .open = msg_open_cb
 };
 
-
 int main(int argc,
          char **argv)
 {
@@ -323,32 +323,57 @@ int main(int argc,
         do_dma_test();
     }
 
-    err = ump_chan_init(&uc, inbuf, XPHI_BENCH_MSG_FRAME_SIZE, outbuf, XPHI_BENCH_MSG_FRAME_SIZE);
+    err = ump_chan_init(&uc,
+                        inbuf,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
+                        outbuf,
+                        XPHI_BENCH_MSG_FRAME_SIZE);
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize UMP");
     }
 
-
     if (disp_xeon_phi_id() == 1) {
 #ifndef XPHI_BENCH_THROUGHPUT
-    xphi_bench_start_initator_rtt(&bufs, &uc);
+        xphi_bench_start_initator_rtt(&bufs, &uc);
 #else
 #ifdef XPHI_BENCH_SEND_SYNC
-    xphi_bench_start_initator_sync(&bufs, &uc);
+        xphi_bench_start_initator_sync(&bufs, &uc);
 #else
-    xphi_bench_start_initator_async(&bufs, &uc);
+        xphi_bench_start_initator_async(&bufs, &uc);
 #endif
 #endif
     } else {
 #ifndef XPHI_BENCH_THROUGHPUT
-    xphi_bench_start_echo(&bufs, &uc);
+        xphi_bench_start_echo(&bufs, &uc);
 #else
-    xphi_bench_start_processor(&bufs, &uc);
+        xphi_bench_start_processor(&bufs, &uc);
 #endif
     }
 
-    do_dma_test();
+    err = xeon_phi_dma_client_register(0, local_frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register memory");
+    }
+
+    err = xeon_phi_dma_client_register(0, remote_frame);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register memory");
+    }
+
+    debug_printf("executing card local memcpy\n");
+    xphi_bench_memcpy(local_buf + XPHI_BENCH_MSG_FRAME_SIZE,
+                      local_buf + XPHI_BENCH_MSG_FRAME_SIZE + (XPHI_BENCH_BUF_FRAME_SIZE / 2),
+                      XPHI_BENCH_BUF_FRAME_SIZE / 2,
+                      local_base + XPHI_BENCH_MSG_FRAME_SIZE,
+                      local_base + XPHI_BENCH_MSG_FRAME_SIZE + (XPHI_BENCH_BUF_FRAME_SIZE / 2));
+
+    debug_printf("executing intercard memcpy\n");
+    xphi_bench_memcpy(local_buf + XPHI_BENCH_MSG_FRAME_SIZE,
+                      remote_buf + XPHI_BENCH_MSG_FRAME_SIZE,
+                      XPHI_BENCH_BUF_FRAME_SIZE / 2,
+                      local_base + XPHI_BENCH_MSG_FRAME_SIZE,
+                      remote_base + XPHI_BENCH_MSG_FRAME_SIZE);
 
     while (1) {
         messages_wait_and_handle_next();
