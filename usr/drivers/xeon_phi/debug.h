@@ -17,13 +17,13 @@
 #define XDEBUG_ENABLED   1
 #define XDEBUG_BOOT      1
 #define XDEBUG_DMA       1
+#define XDEBUG_DMA_V     0
 #define XDEBUG_INT       1
 #define XDEBUG_SMPT      1
 #define XDEBUG_SERVICE   1
 #define XDEBUG_MESSAGING 1
 #define XDEBUG_SYSMEM    1
 #define XDEBUG_SPAWN     1
-#define XDEBUG_DMA       1
 
 /*
  * --------------------------------------------------------------------------
@@ -35,49 +35,51 @@
 #define XDEBUG_PRINT(x... )
 #endif
 #if XDEBUG_BOOT
-#define XBOOT_DEBUG(x...) XDEBUG(" BOOT | " x)
+#define XBOOT_DEBUG(x...) XDEBUG("boot > " x)
 #else
 #define XBOOT_DEBUG(x...)
 #endif
 #if XDEBUG_DMA
-#define XDMA_DEBUG(x...) XDEBUG(" DMA | " x)
+#define XDMA_DEBUG(x...) XDEBUG(" dma > " x)
+#if XDEBUG_DMA_V
+#define XDMAV_DEBUG(x...) XDEBUG("dmav > " x)
+#else
+#define XDMAV_DEBUG(x...)
+#endif
 #else
 #define XDMA_DEBUG(x...)
 #endif
+
 #if XDEBUG_INT
-#define XINT_DEBUG(x...) XDEBUG(" INT | " x)
+#define XINT_DEBUG(x...) XDEBUG("intr > " x)
 #else
 #define XINT_DEBUG(x...)
 #endif
 #if XDEBUG_SMPT
-#define XSMPT_DEBUG(x...) XDEBUG(" SMPT | " x)
+#define XSMPT_DEBUG(x...) XDEBUG("smpt > " x)
 #else
 #define XSMPT_DEBUG(x...)
 #endif
 #if XDEBUG_SERVICE
-#define XSERVICE_DEBUG(x...) XDEBUG(" SVC | " x)
+#define XSERVICE_DEBUG(x...) XDEBUG(" svc > " x)
 #else
 #define XSERVICE_DEBUG(x...)
 #endif
 #if XDEBUG_MESSAGING
-#define XMESSAGING_DEBUG(x...) XDEBUG(" MSG | " x)
+#define XMESSAGING_DEBUG(x...) XDEBUG(" msg > " x)
 #else
 #define XMESSAGING_DEBUG(x...)
 #endif
 #if XDEBUG_SYSMEM
-#define XSYSMEM_DEBUG(x...) XDEBUG(" SYSM | " x)
+#define XSYSMEM_DEBUG(x...) XDEBUG("sysm > " x)
 #else
 #define XSYSMEM_DEBUG(x...)
 #endif
 #if XDEBUG_SPAWN
-#define XSPAWN_DEBUG(x...) XDEBUG(" SPAWN | " x)
+#define XSPAWN_DEBUG(x...) XDEBUG("spawn > " x)
 #else
 #define XSPAWN_DEBUG(x...)
 #endif
-#if XDEBUG_DMA
-#define XDMA_DEBUG(x...) XDEBUG(" DMA | " x)
-#else
-#define XDMA_DEBUG(x...)
-#endif
+
 
 #endif /* XEON_PHI_DEBUG_H_ */

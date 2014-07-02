@@ -39,6 +39,7 @@ static struct xeon_phi *card;
 #define PCI_SUBSYSTEM_DEVICE    0x2500
 
 #define PCI_SUBSYSTEM_VENDOR    0x8086
+
 /*
  * These are the possible device IDs of the Xeon PHi according to the
  * Intel MPSS implementation.
@@ -102,7 +103,7 @@ static void pci_init_card(struct device_mem* bar_info,
     errval_t err;
 
     if (initialized) {
-        debug_printf("WARNING> Device already initialized\n");
+        debug_printf("WARNING > Device already initialized\n");
         return;
     }
 

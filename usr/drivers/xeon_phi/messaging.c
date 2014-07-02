@@ -259,13 +259,11 @@ struct msg_open_state
 
 static void msg_send_open_cb(void *a)
 {
-    XMESSAGING_DEBUG("sent..\n");
     free(a);
 }
 
 static void msg_send_open(void *a)
 {
-    XMESSAGING_DEBUG("send open..\n");
     errval_t err;
     struct msg_open_state *st = a;
     assert(st);
@@ -274,9 +272,7 @@ static void msg_send_open(void *a)
     struct event_closure txcont = MKCONT(msg_send_open_cb, a);
 
     err = xeon_phi_messaging_open__tx(st->b, txcont, st->frame, st->type);
-
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "error sending msg_string message\n");
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
             txcont = MKCONT(msg_send_open, st);

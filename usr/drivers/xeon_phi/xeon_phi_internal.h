@@ -102,7 +102,7 @@ struct xeon_phi
     lvaddr_t os_offset;     ///< offset of the OS image into the aperture
     uint32_t os_size;       ///< the size of the OS image
     char *cmdline;          ///< pointer to the bootloader cmdline
-    uint32_t cmdlen;     ///< the length of the cmd line
+    uint32_t cmdlen;        ///< the length of the cmd line
 
     uint8_t id;             ///< card id for identifying the card
     iref_t iref;
@@ -114,9 +114,9 @@ struct xeon_phi
     uint8_t is_client;
 
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
-    struct irq_info *irq;  ///< pointer to the IRQ information struct
-    struct dma_info *dma;  ///< pointer to the DMA information struct
-    struct msg_info *msg;
+    struct irq_info *irq;   ///< pointer to the IRQ information struct
+    struct dma_info *dma;   ///< pointer to the DMA information struct
+    struct msg_info *msg;   ///< pointer to the Messaging information struct
 };
 
 /**
