@@ -701,7 +701,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 }
 
                 // Process extended device capabilities if existing
-                if (pcie && extended_caps) {
+                if (pcie && extended_caps && addr.bus < pcie_get_endbus()) {
                     uint32_t *ad = (uint32_t *) pcie_confspace_access(addr);
                     assert(ad != NULL);
                     uint16_t cap_ptr = 0x100;
