@@ -11,16 +11,12 @@
 #define XEON_PHI_MANAGER_SERVICE_H_
 
 
-#define DEBUG_SVC(x...) debug_printf("SVC | " x);
-//#define DEBUG_SVC(x...)
-
 /**
  * \brief   starts Xeon Phi manager service
  *
  * \return  SYS_ERR_OK on succes
  */
 errval_t service_start(void);
-
 
 
 

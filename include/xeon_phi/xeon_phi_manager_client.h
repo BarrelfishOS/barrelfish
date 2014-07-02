@@ -10,30 +10,40 @@
 #ifndef XEON_PHI_MANAGER_CLIENT_H
 #define XEON_PHI_MANAGER_CLIENT_H
 
-#define XEON_PHI_MANAGER_SERVICE_NAME "xeon_phi_manager"
+/*
+ * ----------------------------------------------------------------------------
+ * This library is to be used solely by the Xeon Phi drivers to talk to the
+ * Xeon Phi manager domain in order to setup the Xeon Phi IDs and the
+ * inter-Xeon Phi driver connections.
+ * ----------------------------------------------------------------------------
+ */
 
-#define DEBUG_XPMC(x...) debug_printf(" XPMC | " x)
 
 /**
- * \brief   registers the Xeon Phi driver card with the Xeon Phi Manager
- *          this function blocks until we have a connection to the manager
+ * \brief registers the Xeon Phi driver card with the Xeon Phi Manager
  *
- * \param   svc_iref    the iref of the drivers service
- * \param   id          the own card id
- * \param   num         returns the number of returned irefs / number of cards
- * \param   cards       returns the array of irefs
+ * \param svc_iref  iref of the own exported Xeon Phi driver interface
+ * \param id        returns the assigned Xeon Phi card ID
+ * \param num       returns the size of the cards array
+ * \param irefs     returns array of irefs to the other cards
  *
- * \return SYS_ERR_OK on success
+ * NOTE: this is a blocking function. The function will only return after
+ *       the Xeon Phi manager connection has been fully established and the
+ *       registration protocol has been executed.
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
  */
 errval_t xeon_phi_manager_client_register(iref_t svc_iref,
                                           uint8_t *id,
                                           uint8_t *num,
-                                          iref_t **cards);
+                                          iref_t **irefs);
 
 /**
- * \brief   deregisters the Xeon Phi driver with the Xeon Phi Manager
+ * \brief  deregisters the Xeon Phi driver with the Xeon Phi Manager
  *
  * \return SYS_ERR_OK on success
+ *         errval on failure
  */
 errval_t xeon_phi_manager_client_deregister(void);
 

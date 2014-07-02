@@ -7,7 +7,6 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
@@ -15,84 +14,110 @@
 
 #include <if/xeon_phi_manager_defs.h>
 
+/// the name of the Xeon Phi Manager service
+#define XEON_PHI_MANAGER_SERVICE_NAME "xeon_phi_manager"
+
+/// Enabling the debug output of the Xeon Phi Manager client
+#ifdef XEON_PHI_DEBUG_MANAGER
+#define DEBUG_XPMC(x...) debug_printf(" [xpmc] " x)
+#else
+#define DEBUG_XPMC(x...)
+#endif
+
+/**
+ * represents the connection state of the Xeon Phi Manager client with the
+ * Xeon Phi Manager
+ */
 enum xpm_state
 {
+    XPM_STATE_INVALID = 0,
     XPM_STATE_NSLOOKUP,
     XPM_STATE_BINDING,
     XPM_STATE_BIND_OK,
     XPM_STATE_BIND_FAIL,
     XPM_STATE_REGISTERING,
     XPM_STATE_REGISTER_OK,
-    XPM_STATE_REGISTER_FAIL
+    XPM_STATE_REGISTER_FAIL,
+    XPM_STATE_CONNECTED
 };
 
+/// iref of the Xeon Phi manager service
 static iref_t xpm_iref = 0;
-struct xeon_phi_manager_binding *xpm_binding = NULL;
 
-enum xpm_state conn_state = XPM_STATE_NSLOOKUP;
+/// Flounder binind go the Xeon Phi manager
+static struct xeon_phi_manager_binding *xpm_binding = NULL;
+
+/// connection state
+static enum xpm_state conn_state = XPM_STATE_INVALID;
 
 /*
  * --------------------------------------------------------------------------
  * Registration Protocol
+ * ----------------------------------------------------------------------------
  */
 
+/**
+ * contains the necessary data for the Xeon Phi manager connection
+ */
 struct xpm_register_data
 {
-    uint8_t id;
-    iref_t *cards;
-    uint8_t num;
-};
+    iref_t svc_iref;                  ///< our exported service iref
+    errval_t err;                     ///< error code of the registration
+    uint8_t id;                       ///< our own Xeon Phi ID.
+    xeon_phi_manager_cards_t irefs;   ///< irefs to the other Xeon Phi drivers
+} xpm_reg_data;
 
-static struct xpm_register_data reg_data;
-
-static void xpm_recv_register_response(struct xeon_phi_manager_binding *_binding,
+/**
+ * \brief callback function for register response messages
+ *
+ * \param binding  Xeon Phi Manager Flounder Binding
+ * \param id       Assigned Xeon Phi ID
+ * \param irefs    Returned irefs to the other Xeon Phi drivers
+ * \param msgerr   Error code of teh operation
+ */
+static void xpm_recv_register_response(struct xeon_phi_manager_binding *binding,
                                        uint8_t id,
-                                       uint8_t *cards,
-                                       size_t n,
+                                       xeon_phi_manager_cards_t irefs,
                                        xeon_phi_manager_errval_t msgerr)
 {
-    DEBUG_XPMC("Registration response: ID=0x%x, num=0x%lx, err=0x%lx\n",
-               id,
-               n / sizeof(iref_t),
-               msgerr);
+    assert(binding == xpm_binding);
+
+    xpm_reg_data.err = msgerr;
 
     if (err_is_fail(msgerr)) {
+        DEBUG_XPMC("register: received response FAILURE.\n");
         conn_state = XPM_STATE_REGISTER_FAIL;
         return;
     }
 
-    if (n % sizeof(iref_t)) {
-        // the data seems to be corrupt
-        conn_state = XPM_STATE_REGISTER_FAIL;
-    }
+    DEBUG_XPMC("register: received response: id=%u, #irefs=%u\n", id, irefs.num);
 
-    reg_data.id = id;
-    reg_data.num = n / sizeof(iref_t);
-    reg_data.cards = (iref_t *) cards;
+    assert(xpm_reg_data.svc_iref == ((iref_t *)&irefs.card0)[irefs.num-1]);
 
-    xpm_binding->st = &reg_data;
+    xpm_reg_data.id = id;
+    xpm_reg_data.irefs = irefs;
+
+    xpm_binding->st = &xpm_reg_data;
 
     conn_state = XPM_STATE_REGISTER_OK;
 }
 
-static void xpm_send_register_request_cb(void *a)
-{
-
-}
-
-static void xpm_send_register_request(void *a)
+/**
+ * \brief sends the registration message to the Xeon Phi Manager service
+ *
+ * \param st send state (NULL)
+ */
+static void xpm_send_register_request(void *st)
 {
     errval_t err;
-    iref_t *svc_iref = a;
 
     conn_state = XPM_STATE_REGISTERING;
 
-    DEBUG_XPMC("Registering with Xeon Phi manager...\n");
+    DEBUG_XPMC("register: sending request. iref=%u\n", xpm_reg_data.svc_iref);
 
-    struct event_closure txcont = MKCONT(xpm_send_register_request_cb, NULL);
+    struct event_closure txcont = NOP_CONT;
 
-    err = xeon_phi_manager_register_call__tx(xpm_binding, txcont, *svc_iref);
-
+    err = xeon_phi_manager_register_call__tx(xpm_binding, txcont, xpm_reg_data.svc_iref);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(xpm_send_register_request, xpm_binding);
@@ -101,48 +126,54 @@ static void xpm_send_register_request(void *a)
                                              txcont);
             if (err_is_fail(err)) {
                 conn_state = XPM_STATE_REGISTER_FAIL;
+                xpm_reg_data.err = err;
             }
         }
     }
 }
 
+/// receive vtbl
 struct xeon_phi_manager_rx_vtbl xpm_rx_vtbl = {
     .register_response = xpm_recv_register_response
 };
 
 /*
- * --------------------------------------------------------------------------
- * Xeon Phi Manager Binding
+ * ----------------------------------------------------------------------------
+ * Xeon Phi Manager binding functions
+ * ----------------------------------------------------------------------------
  */
 
 /**
- * \brief
+ * \brief Flounder bind callback
  *
- * \param
- * \param
- * \param
+ * \param st      state associated with the binding
+ * \param err     error code of the binding attempt
+ * \param binding Xeon Phi Manager Flounder binding
  */
 static void xpm_bind_cb(void *st,
                         errval_t err,
-                        struct xeon_phi_manager_binding *b)
+                        struct xeon_phi_manager_binding *binding)
 {
 
     if (err_is_fail(err)) {
         conn_state = XPM_STATE_BIND_FAIL;
+        xpm_reg_data.err = err;
         return;
     }
 
-    xpm_binding = b;
-
+    xpm_binding = binding;
     xpm_binding->rx_vtbl = xpm_rx_vtbl;
 
-    DEBUG_XPMC("Binding ok.\n");
-
     conn_state = XPM_STATE_BIND_OK;
+
+    DEBUG_XPMC("binding to "XEON_PHI_MANAGER_SERVICE_NAME" succeeded\n");
 }
 
 /**
- * \brief
+ * \brief binds to the Xeon Phi Manager service
+ *
+ * \returns SYS_ERR_OK on success
+ *          FLOUNDER_ERR_* on failure
  */
 static errval_t xpm_bind(void)
 {
@@ -152,7 +183,11 @@ static errval_t xpm_bind(void)
         return SYS_ERR_OK;
     }
 
-    DEBUG_XPMC("Nameservice lookup: "XEON_PHI_MANAGER_SERVICE_NAME"\n");
+    assert(conn_state== XPM_STATE_INVALID);
+
+    conn_state = XPM_STATE_NSLOOKUP;
+
+    DEBUG_XPMC("nameservice lookup: "XEON_PHI_MANAGER_SERVICE_NAME"\n");
     err = nameservice_blocking_lookup(XEON_PHI_MANAGER_SERVICE_NAME, &xpm_iref);
     if (err_is_fail(err)) {
         return err;
@@ -160,42 +195,50 @@ static errval_t xpm_bind(void)
 
     conn_state = XPM_STATE_BINDING;
 
-    DEBUG_XPMC("binding... \n");
+    DEBUG_XPMC("binding: "XEON_PHI_MANAGER_SERVICE_NAME" @ iref:%u\n", xpm_iref);
+
     err = xeon_phi_manager_bind(xpm_iref,
                                 xpm_bind_cb,
                                 NULL,
                                 get_default_waitset(),
                                 IDC_BIND_FLAGS_DEFAULT);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
+    return err;
 }
 
 /*
- * --------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
  * Public Interface
+ * ----------------------------------------------------------------------------
  */
 
 /**
- * \brief   registers the Xeon Phi driver card with the Xeon Phi Manager
- *          this function blocks until we have a connection to the manager
+ * \brief registers the Xeon Phi driver card with the Xeon Phi Manager
  *
- * \param   svc_iref    the iref of the drivers service
- * \param   id          the own card id
- * \param   num         returns the number of returned irefs / number of cards
- * \param   cards       returns the array of irefs
+ * \param svc_iref  iref of the own exported Xeon Phi driver interface
+ * \param id        returns the assigned Xeon Phi card ID
+ * \param num       returns the size of the cards array
+ * \param irefs     returns array of irefs to the other cards
  *
- * \return SYS_ERR_OK on success
+ * NOTE: this is a blocking function. The function will only return after
+ *       the Xeon Phi manager connection has been fully established and the
+ *       registration protocol has been executed.
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
  */
 errval_t xeon_phi_manager_client_register(iref_t svc_iref,
                                           uint8_t *id,
                                           uint8_t *num,
-                                          iref_t **cards)
+                                          iref_t **irefs)
 {
-    DEBUG_XPMC("Registring with Xeon Phi Manager\n");
     errval_t err;
+
+    if (conn_state >= XPM_STATE_REGISTER_OK) {
+        return SYS_ERR_OK;
+    }
+
+    DEBUG_XPMC("Registration with Xeon Phi Manager service.\n");
+
     err = xpm_bind();
     if (err_is_fail(err)) {
         return err;
@@ -209,24 +252,23 @@ errval_t xeon_phi_manager_client_register(iref_t svc_iref,
         return FLOUNDER_ERR_BIND;
     }
 
-    xpm_send_register_request(&svc_iref);
+    xpm_reg_data.svc_iref = svc_iref;
+
+    xpm_send_register_request(NULL);
 
     while (conn_state == XPM_STATE_REGISTERING) {
         messages_wait_and_handle_next();
     }
 
     if (conn_state == XPM_STATE_REGISTER_FAIL) {
-        // TODO ERROR CODE
-        DEBUG_XPMC("Registration failed.\n");
-        return -1;
+        return xpm_reg_data.err;
     }
 
-    assert(xpm_binding->st == &reg_data);
+    assert(xpm_binding->st == &xpm_reg_data);
 
-    struct xpm_register_data *rd = xpm_binding->st;
-    *id = rd->id;
-    *num = rd->num;
-    *cards = rd->cards;
+    *id = xpm_reg_data.id;
+    *num = xpm_reg_data.irefs.num;
+    *irefs = &xpm_reg_data.irefs.card0;
 
     xpm_binding->st = NULL;
 
@@ -240,5 +282,6 @@ errval_t xeon_phi_manager_client_register(iref_t svc_iref,
  */
 errval_t xeon_phi_manager_client_deregister(void)
 {
+    assert(!"NYI");
     return SYS_ERR_OK;
 }

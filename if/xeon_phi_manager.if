@@ -13,8 +13,34 @@
 
 interface xeon_phi_manager "Xeon Phi Manager Interface" {
     
+    /**
+     * array of irefs to other Xeon Phi Driver services
+     */
+    typedef struct {
+        uint8 num;
+        iref card0;
+        iref card1;
+        iref card2;
+        iref card3;
+        iref card4;
+        iref card5;
+        iref card6;
+        iref card7;
+    } cards;
+        
+    /**
+     * \brief register RPC to initiate the registration protocol of the Xeon Phi
+     *        driver with the Xeon Phi manager.
+     * 
+     * \param svc    own exported Xeon Phi Driver interface
+     * \param id     returned Xeon Phi ID assigned by the manager
+     * \param irefs  array of irefs to other Xeon Phi driver services
+     * \param msgerr error code from Xeon Phi manager
+     */
+    rpc register(in iref svc, out uint8 id, out cards irefs, out errval msgerr);
     
-    rpc register(in iref svc, out uint8 id, out uint8 cards[n], out errval msgerr);
-    
+    /*
+     * 
+     */
     rpc terminate();
 };

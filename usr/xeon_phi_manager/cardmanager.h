@@ -32,6 +32,6 @@ errval_t cm_new_xeon_phi(struct xeon_phi_manager_binding *binding,
  *
  * \return SYS_ERR_OK
  */
-errval_t cm_get_irefs(iref_t **iref, uint8_t *num);
+errval_t cm_get_irefs(iref_t *iref, uint8_t *num);
 
-#endif /* SERVICE_H_ */
+#endif /* XEON_PHI_MANAGER_CARDS_H_ */
