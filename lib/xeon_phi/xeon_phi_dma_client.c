@@ -16,7 +16,11 @@
 
 #include <if/xeon_phi_dma_defs.h>
 
-#define DEBUG_XDMA(x...) debug_printf(" [xdma] " x)
+#ifdef XEON_PHI_DEBUG_DMA
+#define DEBUG_XDMA(x...) debug_printf(" [xpdma] " x)
+#else
+#define DEBUG_XDMA(x...)
+#endif
 
 /// The maximum number of concurrent DMA requests
 #define REQUESTS_COUNT_MAX 16
@@ -464,8 +468,10 @@ static struct xdma_reg_stop_st
 static void xdma_stop_response_rx(struct xeon_phi_dma_binding *_binding,
                                   xeon_phi_dma_errval_t err)
 {
-    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
+#ifdef XEON_PHI_DEBUG_DMA
+    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
+#endif
     DEBUG_XDMA("received stop response from Xeon Phi %u: %s\n",
                xphi_id, err_getstring(err));
 
@@ -516,8 +522,6 @@ static void xdma_done_rx(struct xeon_phi_dma_binding *_binding,
                          xeon_phi_dma_id_t id,
                          xeon_phi_dma_errval_t err)
 {
-    uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
-
     struct xdma_req *req = xdma_get_pending_request(id);
     DEBUG_XDMA("received done message [%u, %lx] @ %p\n", xphi_id, id, req);
 

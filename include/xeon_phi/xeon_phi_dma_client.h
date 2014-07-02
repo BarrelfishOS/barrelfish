@@ -31,9 +31,9 @@ typedef void (*xeon_phi_dma_done_t)(xeon_phi_dma_id_t id,
  */
 struct xeon_phi_dma_info
 {
-    lpaddr_t src;
-    lpaddr_t dest;
-    size_t size;
+    lpaddr_t src;   ///< physical address of the source
+    lpaddr_t dest;  ///< physical address of the destination
+    size_t size;    ///< size of the transfer in bytes
 };
 
 /**
@@ -41,8 +41,8 @@ struct xeon_phi_dma_info
  */
 struct xeon_phi_dma_cont
 {
-    xeon_phi_dma_done_t cb;
-    void *arg;
+    xeon_phi_dma_done_t cb; ///< callback function
+    void *arg;              ///< argument for the callback
 };
 
 /**

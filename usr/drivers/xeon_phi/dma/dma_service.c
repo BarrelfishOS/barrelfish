@@ -181,8 +181,6 @@ static void dma_register_call_rx(struct xeon_phi_dma_binding *_binding,
 {
     errval_t err;
 
-    XDMA_DEBUG("dma_register_call_rx\n");
-
     err = xdma_mem_register(_binding, memory);
 
     struct dma_reg_resp_st *st = malloc(sizeof(struct dma_reg_resp_st));
@@ -230,8 +228,6 @@ static void dma_deregister_call_rx(struct xeon_phi_dma_binding *_binding,
 {
     errval_t err;
 
-    XDMA_DEBUG("dma_register_call_rx\n");
-
     err = xdma_mem_deregister(_binding, memory);
 
     struct dma_dereg_resp_st *st = malloc(sizeof(struct dma_dereg_resp_st));
@@ -254,6 +250,8 @@ struct dma_exec_resp_st
     errval_t err;
 };
 
+struct dma_exec_resp_st exec_resp_err;
+
 static void dma_exec_response_tx(void *a)
 {
     errval_t err;
@@ -261,10 +259,6 @@ static void dma_exec_response_tx(void *a)
     struct dma_exec_resp_st *st = a;
 
     struct event_closure txcont = MKCONT(free, a);
-
-    XDMA_DEBUG("xeon_phi_dma_exec_response__tx(%lu, %lx)\n",
-               st->err,
-               (uint64_t )st->id);
 
     err = xeon_phi_dma_exec_response__tx(st->b, txcont, st->err, st->id);
     if (err_is_fail(err)) {
@@ -278,7 +272,6 @@ static void dma_exec_response_tx(void *a)
         }
         return;
     }
-    XDMA_DEBUG("dma_exec_response_tx: sent...\n");
 }
 
 static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
@@ -286,8 +279,8 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
                              uint64_t dst,
                              uint64_t length)
 {
-    debug_printf("\n\n\n");
-    XDMA_DEBUG("dma_exec_call_rx\n");
+    XDMA_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n",
+                           src, dst, length);
 
     struct dma_exec_resp_st *st = malloc(sizeof(struct dma_exec_resp_st));
     assert(st);
@@ -366,7 +359,7 @@ static void dma_stop_call_rx(struct xeon_phi_dma_binding *_binding,
                              xeon_phi_dma_id_t id)
 {
 
-    XDMA_DEBUG("dma_stop_call_rx: NOT YET IMPLEMENTED!!!!\n");
+    debug_printf(" DMA | dma_stop_call_rx: NOT YET IMPLEMENTED!!!!\n");
 
     struct dma_stop_resp_st *st = malloc(sizeof(struct dma_stop_resp_st));
     assert(st);
@@ -389,12 +382,18 @@ struct xeon_phi_dma_rx_vtbl dma_rx_vtbl = {
  * ----------------------------------------------------------------------------
  */
 
+/**
+ * \brief Xeon Phi DMA service connect handler
+ *
+ * \param st pointer to struct xeon_phi
+ * \param b  Flounder binding
+ */
 static errval_t svc_connect_cb(void *st,
                                struct xeon_phi_dma_binding *b)
 {
     errval_t err;
 
-    XDMA_DEBUG("New connection request\n");
+    XDMA_DEBUG("New connection to the DMA service.\n");
     b->rx_vtbl = dma_rx_vtbl;
 
     struct xeon_phi *phi = st;
@@ -440,7 +439,7 @@ errval_t dma_service_init(struct xeon_phi *phi)
         return err;
     }
 
-    XDMA_DEBUG("Waiting for export...\n");
+    XDMAV_DEBUG("Waiting for export...\n");
     while (svc_state == XPM_SVC_STATE_EXPORTING) {
         messages_wait_and_handle_next();
     }
@@ -496,22 +495,18 @@ static void dma_done_tx(void *a)
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(dma_done_tx, a);
             err = st->b->register_send(st->b, get_default_waitset(), txcont);
-            XDMA_DEBUG("dma_done_tx: register for sending...\n");
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not send reply");
             }
         }
         return;
     }
-    XDMA_DEBUG("dma_done_tx: sent...\n");
 }
 
 errval_t dma_service_send_done(void *a,
                                errval_t err,
                                xeon_phi_dma_id_t id)
 {
-    XDMA_DEBUG("sending done notification: %lx\n", (uint64_t ) id);
-
     struct xeon_phi_dma_binding *b = a;
     assert(b);
 

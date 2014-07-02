@@ -34,6 +34,10 @@ enum xdma_chan_state {
     XDMA_CHAN_STATE_ENABLED
 };
 
+#define XDMA_REQ_FLAG_FIRST 0x80000000
+#define XDMA_REQ_FLAG_LAST  0x00000001
+#define XDMA_REQ_FLAG_DONE  0x00000002
+
 struct xdma_req_info
 {
     xdma_done_cb_t cb;
@@ -42,9 +46,7 @@ struct xdma_req_info
     xeon_phi_dma_id_t id;   ///< DMA request ID
     uint16_t ndesc;         ///< the number of descriptors used in the request
     uint16_t first;         ///< index of the first
-    uint32_t head :1;       ///< flag indicating this is the first entry
-    uint32_t last :1;       ///< flag indicating this is the last entry
-    uint32_t done :1;       ///< flag indicating that this transfer is done
+    uint32_t flags;         ///< request flags
     struct xdma_req_info *next;
 };
 

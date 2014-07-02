@@ -263,7 +263,7 @@ errval_t xdma_mem_deregister(struct xeon_phi_dma_binding *binding,
         return err;
     }
 
-    XDMA_DEBUG("De-registring DMA memory range [0x%016lx, 0x%016lx]\n",
+    XDMAV_DEBUG("De-registring DMA memory range [0x%016lx, 0x%016lx]\n",
                frame_id.base,
                frame_id.base + (1UL << frame_id.bits));
 
@@ -306,7 +306,7 @@ lpaddr_t xdma_mem_verify(struct xeon_phi_dma_binding *binding,
     struct xdma_mem *xmem = binding->st;
     assert(xmem);
 
-    XDMA_DEBUG("Verify DMA memory range [0x%016lx, 0x%016lx]\n", addr, addr + size);
+    XDMAV_DEBUG("Verify DMA memory range [0x%016lx, 0x%016lx]\n", addr, addr + size);
 
     lpaddr_t dma_addr = xdma_mem_verify_base_address(xmem->phi, addr, size);
     if (dma_addr == 0) {
