@@ -13,9 +13,10 @@
 /*
  * Benchmark settings runs / repetitions
  */
-#define XPHI_BENCH_NUM_REPS       10  // how many repetitions
+#define XPHI_BENCH_NUM_REPS       50  // how many repetitions
 #define XPHI_BENCH_NUM_RUNS       1000 // how many runs per repetition
-#define XPHI_BENCH_PROCESS_RUNS   20  // how many times the buffer is read/written
+#define XPHI_BENCH_PROCESS_RUNS   10  // how many times the buffer is read/written
+#define XPHI_BENCH_CHECK_STOP     1
 
 /*
  * Benchmark flags
@@ -85,18 +86,18 @@
 
 #ifdef XPHI_BENCH_CHAN_HOST
 #define XPHI_BENCH_CHAN_SIZE_HOST (2* XPHI_BENCH_MSG_FRAME_SIZE)
-#define XPHI_BENCH_CHAN_SIZE_CARD 0
+#define XPHI_BENCH_CHAN_SIZE_CARD (2* XPHI_BENCH_MSG_FRAME_SIZE)
 #endif
 
 #ifdef XPHI_BENCH_CHAN_CARD
-#define XPHI_BENCH_CHAN_SIZE_HOST 0
-#define XPHI_BENCH_CHAN_SIZE_CARD (2*XPHI_BENCH_MSG_FRAME_SIZE)
+#define XPHI_BENCH_CHAN_SIZE_HOST (2* XPHI_BENCH_MSG_FRAME_SIZE)
+#define XPHI_BENCH_CHAN_SIZE_CARD (2* XPHI_BENCH_MSG_FRAME_SIZE)
 #endif
 
 #ifndef XPHI_BENCH_CHAN_SIZE_HOST
 #define XPHI_BENCH_CHAN_DEFAULT
-#define XPHI_BENCH_CHAN_SIZE_HOST (XPHI_BENCH_MSG_FRAME_SIZE)
-#define XPHI_BENCH_CHAN_SIZE_CARD (XPHI_BENCH_MSG_FRAME_SIZE)
+#define XPHI_BENCH_CHAN_SIZE_HOST (2* XPHI_BENCH_MSG_FRAME_SIZE)
+#define XPHI_BENCH_CHAN_SIZE_CARD (2* XPHI_BENCH_MSG_FRAME_SIZE)
 #endif
 
 
@@ -122,6 +123,7 @@
 #define XPHI_BENCH_DBG(x...)
 #endif
 
+#define XPHI_BENCH_STOP_FLAG 0xFF00FF00FF00FF00UL
 
 struct bench_buf {
     uint8_t data[XPHI_BENCH_BUF_SIZE];

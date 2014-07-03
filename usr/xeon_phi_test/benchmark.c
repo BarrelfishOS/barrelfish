@@ -23,7 +23,7 @@ static void xphi_bench_print_settings(void)
     XPHI_BENCH_CORE_HOST,
            XPHI_BENCH_CORE_CARD);
     printf("Buffer size = %lu bytes, processing runs %u\n",
-    XPHI_BENCH_MSG_FRAME_SIZE,
+    XPHI_BENCH_BUF_SIZE,
            XPHI_BENCH_PROCESS_RUNS);
     printf("Bytes per run: %lu kB\n",
            (XPHI_BENCH_NUM_RUNS * XPHI_BENCH_BUF_SIZE) / 1024);
@@ -36,31 +36,34 @@ static void xphi_bench_print_settings(void)
 
 #ifdef XPHI_BENCH_CHAN_CARD
 #ifdef XPHI_BENCH_BUFFER_CARD
-    printf("Memory Setup:     Host [ ]   Card [ UMP | UMP | BUFFERS ] \n");
+    printf("Memory Setup (Normal):     Host [  ]                      Card [ UMP | UMP | BUFFERS ] \n");
+    printf("Memory Setup (Reversed):   Host [ UMP | UMP | BUFFERS ]   Card [ ] \n");
 #else
-    printf("Memory Setup:     Host [ BUFFERS ]   Card [ UMP | UMP ] \n");
+    printf("Memory Setup (Normal):     Host [ BUFFERS ]               Card [ UMP | UMP ] \n");
+    printf("Memory Setup (Reversed):   Host [ UMP | UMP | BUFFERS ]   Card [  ] \n");
 #endif
 #endif
 
 #ifdef XPHI_BENCH_CHAN_HOST
 #ifdef XPHI_BENCH_BUFFER_CARD
-    printf("Memory Setup:     Host [UMP | UMP]   Card [ BUFFERS ] \n");
+    printf("Memory Setup (Normal):     Host [ UMP | UMP ]             Card [ BUFFERS ] \n");
+    printf("Memory Setup (Reversed):   Host [ UMP | UMP | BUFFERS ]   Card [ ] \n");
 #else
-    printf("Memory Setup:     Host [ UMP | UMP | BUFFERS ]   Card [ ] \n");
+    printf("Memory Setup (Normal):     Host [ BUFFERS ]   Card [ UMP | UMP ] \n");
+    printf("Memory Setup (Reversed):   Host [ ]           Card [ UMP | UMP | BUFFERS ] \n");
 #endif
 #endif
 
 #ifdef XPHI_BENCH_CHAN_DEFAULT
 #ifdef XPHI_BENCH_BUFFER_CARD
-    printf("Memory Setup:     Host [ UMP ]   Card [ UMP | BUFFERS ] \n");
+    printf("Memory Setup (Normal):     Host [ UMP ]             Card [ UMP | BUFFERS ] \n");
+    printf("Memory Setup (Reversed):   Host [ UMP | BUFFERS ]   Card [ UMP ] \n");
 #else
-    printf("Memory Setup:     Host [ UMP | BUFFERS ]   Card [ UMP ] \n");
+    printf("Memory Setup (Normal):     Host [ UMP | BUFFERS ]   Card [ UMP ] \n");
+    printf("Memory Setup (Reversed):   Host [ UMP ]             Card [ UMP | BUFFERS ] \n");
 #endif
-#ifdef XPHI_BENCH_CHAN_REVERSED
-    printf("UMP Channel Setup: Recv Remote, Send Local\n");
-#else
-    printf("UMP Channel Setup: Recv Local, Send Remote\n");
-#endif
+    printf("UMP Channel Setup (Normal):   Recv Remote, Send Local\n");
+    printf("UMP Channel Setup (Reversed): Recv Local, Send Remote\n");
 #endif
 }
 
@@ -91,7 +94,7 @@ errval_t xphi_bench_memwrite(void *target)
     uint32_t rep_counter = 0;
     do {
         debug_printf("  > run %u of %u memwrite of %lu bytes..\n", rep_counter++,
-                     XPHI_BENCH_NUM_REPS,
+        XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_BUF_FRAME_SIZE);
 
         /* using memset */
@@ -133,7 +136,7 @@ static void dma_done_cb(xeon_phi_dma_id_t id,
                         errval_t err,
                         void *st)
 {
-    debug_printf("executed...\n");
+    XPHI_BENCH_DBG("DMA request executed...\n");
     dma_done = 0x1;
 }
 
@@ -167,18 +170,15 @@ errval_t xphi_bench_memcpy(void *dst,
     uint32_t rep_counter = 0;
     do {
         debug_printf("  > run %u of %u memcpy of %lu bytes..\n", rep_counter++,
-                     XPHI_BENCH_NUM_REPS,
+        XPHI_BENCH_NUM_REPS,
                      size);
 
-
         /* using memset */
-        debug_printf("memcpy...\n");
         tsc_start = rdtsc();
         memcpy(dst, src, size);
         result[0] = rdtsc() - tsc_start - bench_tscoverhead();
 
         /* writing in a loop*/
-        debug_printf("forloop...\n");
         volatile uint64_t *bsrc = src;
         volatile uint64_t *bdst = dst;
         tsc_start = rdtsc();
@@ -200,13 +200,12 @@ errval_t xphi_bench_memcpy(void *dst,
 
         /* reading in a while loop */
         dma_done = 0x0;
-        debug_printf("dma...\n");
         tsc_start = rdtsc();
         err = xeon_phi_dma_client_start(0, &info, cont, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not exec the transfer");
         }
-        while(!dma_done) {
+        while (!dma_done) {
             messages_wait_and_handle_next();
         }
         result[2] = rdtsc() - tsc_start - bench_tscoverhead();
@@ -218,8 +217,6 @@ errval_t xphi_bench_memcpy(void *dst,
     bench_ctl_dump_analysis(ctl, 1, "forloop copy", tscperus);
     bench_ctl_dump_analysis(ctl, 2, "DMA", tscperus);
     return SYS_ERR_OK;
-
-    return SYS_ERR_OK;
 }
 
 void xphi_bench_start_echo(struct bench_bufs *bufs,
@@ -228,6 +225,7 @@ void xphi_bench_start_echo(struct bench_bufs *bufs,
     errval_t err;
 
     volatile struct ump_message *msg;
+    volatile struct ump_message *msg_recv;
 
     struct ump_control ctrl;
     msg = ump_chan_get_next(uc, &ctrl);
@@ -237,14 +235,25 @@ void xphi_bench_start_echo(struct bench_bufs *bufs,
     msg->data[0] = 123;
     msg->header.control = ctrl;
 
-    debug_printf("start receiving messages.\n");
-    while (1) {
-        err = ump_chan_recv(uc, &msg);
+    debug_printf("xphi_bench_start_echo: receiving messages.\n");
+#ifdef XPHI_BENCH_CHECK_STOP
+    uint64_t data = 0x0;
+    while (data != XPHI_BENCH_STOP_FLAG) {
+#else
+        while(true) {
+#endif
+        err = ump_chan_recv(uc, &msg_recv);
         if (err_is_ok(err)) {
-            XPHI_BENCH_DBG("received ump message [%p]\n", msg);
+            XPHI_BENCH_DBG("received ump message [%p]\n", msg_recv);
             msg = ump_chan_get_next(uc, &ctrl);
             msg->header.control = ctrl;
+#ifdef XPHI_BENCH_CHECK_STOP
+            data = msg_recv->data[0];
+#endif
         }
+    }
+    if (data == XPHI_BENCH_STOP_FLAG) {
+        debug_printf("xphi_bench_start_echo: received stop flag.\n");
     }
 }
 
@@ -254,7 +263,8 @@ void xphi_bench_start_processor(struct bench_bufs *bufs,
     errval_t err;
 
     volatile struct ump_message *msg;
-    uint64_t buf_idx;
+
+    uint64_t buf_idx = 0;
 
     struct ump_control ctrl;
     msg = ump_chan_get_next(uc, &ctrl);
@@ -264,8 +274,12 @@ void xphi_bench_start_processor(struct bench_bufs *bufs,
     msg->data[0] = 123;
     msg->header.control = ctrl;
 
-    debug_printf("start receiving messages.\n");
-    while (1) {
+    debug_printf("xphi_bench_start_processor: receiving messages.\n");
+#ifdef XPHI_BENCH_CHECK_STOP
+    while (buf_idx != XPHI_BENCH_STOP_FLAG) {
+#else
+        while(true) {
+#endif
         err = ump_chan_recv(uc, &msg);
         if (err_is_ok(err)) {
             buf_idx = msg->data[0];
@@ -276,6 +290,9 @@ void xphi_bench_start_processor(struct bench_bufs *bufs,
             msg->data[0] = buf_idx;
             msg->header.control = ctrl;
         }
+    }
+    if (buf_idx == XPHI_BENCH_STOP_FLAG) {
+        debug_printf("xphi_bench_start_processor: received stop flag\n");
     }
 }
 
@@ -289,7 +306,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     bench_init();
 
     cycles_t tsc_start;
-    cycles_t result, sum = 0;
+    cycles_t result;
     uint64_t tscperus;
     bench_ctl_t *ctl;
 
@@ -299,7 +316,9 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
 
     debug_printf("tscperus = %lu\n", tscperus);
 
-    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
+    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS,
+                         1,
+                         XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
 
     debug_printf("waiting for ready signal\n");
     while (1) {
@@ -309,30 +328,31 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
         }
     }
 
+    struct ump_control ctrl;
+
     debug_printf("starting benchmark: RTT...\n");
     uint32_t rep_counter = 0;
     do {
-
-        debug_printf("  > run %u of %u with %u moves...\n", rep_counter++,
-        XPHI_BENCH_NUM_REPS,
-                     XPHI_BENCH_NUM_RUNS);
-        uint32_t irun = 0;
-        struct ump_control ctrl;
-
+        if (!(rep_counter++ % XPHI_BENCH_NUM_RUNS)) {
+            debug_printf("  > run %u of %u...\n",
+                         rep_counter,
+                         XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
+        }
+        tsc_start = rdtsc();
+        msg = ump_chan_get_next(uc, &ctrl);
+        msg->header.control = ctrl;
         do {
-            tsc_start = rdtsc();
-            msg = ump_chan_get_next(uc, &ctrl);
-            msg->header.control = ctrl;
-            do {
-                err = ump_chan_recv(uc, &msg);
-            } while (err_is_fail(err));
-            result = rdtsc();
-            sum += (result - tsc_start - bench_tscoverhead());
-            irun++;
-        } while (irun < (XPHI_BENCH_NUM_RUNS));
-
-        result = sum / XPHI_BENCH_NUM_RUNS;
+            err = ump_chan_recv(uc, &msg);
+        } while (err_is_fail(err));
+        result = rdtsc();
+        result = (result - tsc_start - bench_tscoverhead());
     } while (!bench_ctl_add_run(ctl, &result));
+
+#ifdef XPHI_BENCH_CHECK_STOP
+    msg = ump_chan_get_next(uc, &ctrl);
+    msg->data[0] = XPHI_BENCH_STOP_FLAG;
+    msg->header.control = ctrl;
+#endif
 
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
@@ -376,6 +396,8 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
         }
     }
 
+    struct ump_control ctrl;
+
     debug_printf("starting benchmark: SYNC...\n");
     uint32_t rep_counter = 0;
     do {
@@ -387,7 +409,6 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
 
         tsc_start = rdtsc();
 
-        struct ump_control ctrl;
         msg = ump_chan_get_next(uc, &ctrl);
         struct bench_buf *buf = &bufs->buf[b_idx];
         xphi_bench_fill_buffer(buf, 1);
@@ -437,6 +458,12 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
         result = result - tsc_start - bench_tscoverhead();
 
     } while (!bench_ctl_add_run(ctl, &result));
+
+#ifdef XPHI_BENCH_CHECK_STOP
+    msg = ump_chan_get_next(uc, &ctrl);
+    msg->data[0] = XPHI_BENCH_STOP_FLAG;
+    msg->header.control = ctrl;
+#endif
 
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
@@ -491,6 +518,8 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
 
     debug_printf("starting benchmark ASYNC...\n");
 
+    struct ump_control ctrl;
+
     uint32_t rep_counter = 0;
     do {
         uint64_t b_idx = 0;
@@ -498,7 +527,7 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
         XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_NUM_RUNS);
         tsc_start = rdtsc();
-        struct ump_control ctrl;
+
         uint32_t irun = 0;
         uint32_t n_recv = 0;
         struct bench_buf *buf;
@@ -548,6 +577,12 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
 
         assert(in_transit == 0);
     } while (!bench_ctl_add_run(ctl, &result));
+
+#ifdef XPHI_BENCH_CHECK_STOP
+    msg = ump_chan_get_next(uc, &ctrl);
+    msg->data[0] = XPHI_BENCH_STOP_FLAG;
+    msg->header.control = ctrl;
+#endif
 
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
