@@ -46,7 +46,7 @@ errval_t xeon_phi_dma_desc_ring_alloc(struct xdma_ring *ring,
      */
     uint64_t minbase, maxlimit;
     ram_get_affinity(&minbase, &maxlimit);
-    ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE);
+    ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
     size_t frame_size = ((size_t) size) * XEON_PHI_DMA_DESC_SIZE;
@@ -74,11 +74,7 @@ errval_t xeon_phi_dma_desc_ring_alloc(struct xdma_ring *ring,
     struct frame_identity id;
     err = invoke_frame_identify(ring->cap, &id);
     assert(err_is_ok(err));
-#ifdef __k1om__
     ring->pbase = id.base;
-#else
-    ring->pbase = xdma_desc_ring_host2guest(id.base);
-#endif
     ring->size = size;
 
     memset(ring->vbase, 0, frame_size);

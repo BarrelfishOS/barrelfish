@@ -24,6 +24,7 @@
 
 #include "xeon_phi_internal.h"
 #include "smpt.h"
+#include "dma/dma.h"
 #include "service.h"
 #include "messaging.h"
 #include "sysmem_caps.h"
@@ -109,6 +110,11 @@ int main(int argc,
     err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not boot the card\n");
+    }
+
+    err = dma_init(&xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
     }
 
     err = xeon_phi_messaging_service_init(&msg_cb);

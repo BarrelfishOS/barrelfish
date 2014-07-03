@@ -59,9 +59,10 @@ errval_t dma_init(struct xeon_phi *phi)
 #endif
     XDMA_DEBUG("initializing %u channels\n", XEON_PHI_DMA_CHAN_NUM);
     for (uint32_t i = 0; i < XEON_PHI_DMA_CHAN_NUM; ++i) {
+
         struct xdma_channel *chan = &info->channels[i];
         err = xdma_channel_init(chan,
-        XEON_PHI_DMA_DESC_NUM,
+                                XEON_PHI_DMA_DESC_NUM,
                                 &info->dma_dev, i + XEON_PHI_DMA_CHAN_OFFSET,
                                 XEON_PHI_DMA_USE_POLLING);
         if (err_is_fail(err)) {

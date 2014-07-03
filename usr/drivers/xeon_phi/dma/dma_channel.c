@@ -32,14 +32,19 @@ static inline void xdma_channel_set_headptr(struct xdma_channel *chan)
 {
     assert(chan->head < chan->size);
     XDMAV_DEBUG("chan %u: setting head pointer of to: %u\n",
-               chan->chanid,
-               chan->head);
+                chan->chanid,
+                chan->head);
     xeon_phi_dma_dhpr_index_wrf(chan->regs, chan->chanid, chan->head);
 }
 
 static inline uint16_t xdma_channel_get_tailptr(struct xdma_channel *chan)
 {
     return xeon_phi_dma_dtpr_index_rdf(chan->regs, chan->chanid);
+}
+
+static inline void xdma_channel_set_tailptr(struct xdma_channel *chan)
+{
+    return xeon_phi_dma_dtpr_index_wrf(chan->regs, chan->chanid, chan->tail);
 }
 
 static inline void xdma_channel_set_error_mask(struct xdma_channel *chan,
@@ -144,6 +149,7 @@ static void xdma_channel_set_state(struct xdma_channel *chan,
     } else {
         enabled_val = 0x0;
     }
+
     switch (chan->chanid) {
         case 0x0:
             dcr = xeon_phi_dma_dcr_ce0_insert(dcr, enabled_val);
@@ -226,8 +232,9 @@ static errval_t xdma_channel_set_ring(struct xdma_channel *chan)
 
     chan->size = chan->ring.size;
 
-    chan->tail = xdma_channel_get_tailptr(chan);
-    chan->last_processed = chan->tail;
+    chan->tail = 0;
+    chan->last_processed = 0;
+    xdma_channel_set_tailptr(chan);
 
     xdma_channel_set_state(chan, XDMA_CHAN_STATE_ENABLED);
 
@@ -315,7 +322,7 @@ errval_t xdma_channel_init(struct xdma_channel *chan,
 {
     errval_t err;
 
-    XDMA_DEBUG("intialize channel %u with %u desc\n", chanid, ndesc);
+    XDMA_DEBUG("initializing channel %u with %u desc\n", chanid, ndesc);
 
     assert(chan->state == XDMA_CHAN_STATE_UNINITIALIZED);
 
@@ -332,6 +339,16 @@ errval_t xdma_channel_init(struct xdma_channel *chan,
     chan->do_poll = do_poll;
     chan->write_next = -1;
 
+    /* set the error mask */
+    xdma_channel_set_error_mask(chan, 0);
+    xdma_channel_ack_intr(chan);
+
+#ifdef __k1om__
+    xdma_channel_set_owner(chan, XDMA_CHAN_CARD_OWNED);
+#else
+    xdma_channel_set_owner(chan, XDMA_CHAN_HOST_OWNED);
+#endif
+
     err = xeon_phi_dma_desc_ring_alloc(&chan->ring, ndesc);
     if (err_is_fail(err)) {
         return err;
@@ -340,21 +357,11 @@ errval_t xdma_channel_init(struct xdma_channel *chan,
     err = xdma_channel_set_ring(chan);
     assert(err_is_ok(err)); /* should not fail */
 
-    /* set the error mask */
-    xdma_channel_set_error_mask(chan, 0);
-
-    /*
-     * TODO: request interrupt
-     */
-
-    /*
-     * initialize the configuration register
-     */
-#ifdef __k1om__
-    xdma_channel_set_owner(chan, XDMA_CHAN_CARD_OWNED);
-#else
-    xdma_channel_set_owner(chan, XDMA_CHAN_HOST_OWNED);
-#endif
+    if (do_poll) {
+        xdma_channel_mask_intr(chan, 0x1);
+    } else {
+        xdma_channel_mask_intr(chan, 0x0);
+    }
 
     xdma_channel_set_state(chan, XDMA_CHAN_STATE_ENABLED);
 
@@ -393,11 +400,14 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
     assert(!(setup->info.mem.bytes & (XEON_PHI_DMA_ALIGNMENT-1)));
 
     uint32_t num_desc_needed =
-                    (setup->info.mem.bytes + XEON_PHI_DMA_REQ_SIZE_MAX - 1) / XEON_PHI_DMA_REQ_SIZE_MAX;
+        (setup->info.mem.bytes + XEON_PHI_DMA_REQ_SIZE_MAX - 1) / XEON_PHI_DMA_REQ_SIZE_MAX;
 
-    XDMAV_DEBUG("memcpy request channel %u: %lu bytes, %u descriptors\n",
-               chan->chanid, setup->info.mem.bytes,
-               num_desc_needed);
+    XDMAV_DEBUG("memcpy [%016lx]->[%016lx], chan=%u, %lu bytes, %u desc\n",
+                setup->info.mem.src,
+                setup->info.mem.dst,
+                chan->chanid,
+                setup->info.mem.bytes,
+                num_desc_needed);
 
     if (num_desc_needed > chan->size) {
         /* the request would have more descriptors than we support */
@@ -424,7 +434,8 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
     do {
         assert(last);
         uint32_t length = (bytes > XEON_PHI_DMA_REQ_SIZE_MAX ?
-                                    XEON_PHI_DMA_REQ_SIZE_MAX : bytes);
+        XEON_PHI_DMA_REQ_SIZE_MAX :
+                                                               bytes);
 
         assert(xdma_channel_has_space(chan, 1));
 
@@ -451,7 +462,9 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
         }
 
         XDMAV_DEBUG("memcpy setting entry @ [%p]: [%u] {0x08%x}\n",
-                          desc, entry, rinfo->flags);
+                    desc,
+                    entry,
+                    rinfo->flags);
 
         xdma_desc_set_memcpy(desc, src, dst, length, 0);
 
@@ -465,8 +478,8 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
     xdma_channel_set_headptr(chan);
 
     XDMAV_DEBUG("memcpy request: id=%lx, head: [%u]\n",
-                   (uint64_t)dma_id,
-                   chan->head);
+                (uint64_t )dma_id,
+                chan->head);
 
     assert(id);
     if (id) {
@@ -542,8 +555,9 @@ errval_t xdma_channel_poll(struct xdma_channel *chan)
     }
 
     XDMAV_DEBUG("processing %u finished DMA descriptors [%u, %u]\n",
-               num_process, chan->last_processed, chan->tail);
-
+                num_process,
+                chan->last_processed,
+                chan->tail);
 
     uint16_t entry = (chan->last_processed) % chan->size;
 
@@ -565,9 +579,9 @@ errval_t xdma_channel_poll(struct xdma_channel *chan)
 
         if (rinfo->flags & XDMA_REQ_FLAG_LAST) {
             /* this is the last element of the request */
-            XDMA_DEBUG("Request 0x%016lx done. Last entry was [%u]\n",
-                       (uint64_t )first->id,
-                       entry);
+            XDMAV_DEBUG("Request 0x%016lx done. Last entry was [%u]\n",
+                        (uint64_t )first->id,
+                        entry);
             chan->last_processed = (entry + 1) % chan->size;
 
             assert(chan->last_processed <= chan->tail);

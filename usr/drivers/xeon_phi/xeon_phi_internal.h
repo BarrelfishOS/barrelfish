@@ -79,6 +79,7 @@ struct mbar
     size_t length;      ///< length of the mapped area
     struct capref cap;  ///< capability of the mbar
     uint8_t bits;       ///< size of the capability in bits
+    size_t  bytes;      ///< size of the region in bytes
 };
 
 struct xnode

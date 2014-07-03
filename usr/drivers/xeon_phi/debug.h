@@ -17,7 +17,7 @@
 #define XDEBUG_ENABLED   1
 #define XDEBUG_BOOT      1
 #define XDEBUG_DMA       1
-#define XDEBUG_DMA_V     0
+#define XDEBUG_DMA_V     1
 #define XDEBUG_INT       1
 #define XDEBUG_SMPT      1
 #define XDEBUG_SERVICE   1

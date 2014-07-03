@@ -49,7 +49,7 @@ static lpaddr_t xdma_mem_verify_base_address(struct xeon_phi *phi,
     return addr;
 #else
     lpaddr_t apt_lo = phi->apt.pbase;
-    lpaddr_t apt_hi = phi->apt.pbase + phi->apt.length;
+    lpaddr_t apt_hi = phi->apt.pbase + phi->apt.bytes;
     if ((addr >= apt_lo) && ((addr + size) <= apt_hi)) {
         /* we are within the GDDR range */
         return addr - apt_lo;
@@ -206,6 +206,8 @@ errval_t xdma_mem_register(struct xeon_phi_dma_binding *binding,
     if (err_is_fail(err)) {
         return err;
     }
+
+
 
     XDMA_DEBUG("Registring DMA memory range [0x%016lx, 0x%016lx]\n",
                frame_id.base,

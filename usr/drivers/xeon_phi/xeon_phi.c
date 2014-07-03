@@ -135,6 +135,7 @@ static void pci_init_card(struct device_mem* bar_info,
     }
     card->apt.bits = id.bits;
     card->apt.pbase = id.base;
+    card->apt.bytes = bar_info[XEON_PHI_APT_BAR].bytes;
 
     assert(bar_info[XEON_PHI_MMIO_BAR].nr_caps == 1);
     assert(!capref_is_null(bar_info[XEON_PHI_MMIO_BAR].frame_cap[0]));
@@ -146,7 +147,7 @@ static void pci_init_card(struct device_mem* bar_info,
     }
     card->mmio.bits = id.bits;
     card->mmio.pbase = id.base;
-
+    card->mmio.bytes = bar_info[XEON_PHI_MMIO_BAR].bytes;
 
     err = xeon_phi_map_aperture(card, XEON_PHI_APERTURE_INIT_SIZE);
     if (err_is_fail(err)) {
@@ -211,8 +212,6 @@ errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_
     interrupts_init(phi);
 
     device_init(phi);
-
-    dma_init(phi);
 
     smpt_init(phi);
 

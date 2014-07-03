@@ -279,7 +279,7 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
                              uint64_t dst,
                              uint64_t length)
 {
-    XDMA_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n",
+    XDMAV_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n",
                            src, dst, length);
 
     struct dma_exec_resp_st *st = malloc(sizeof(struct dma_exec_resp_st));
@@ -310,8 +310,8 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
         .st = _binding,
         .cb = dma_service_send_done,
     };
-    setup.info.mem.src = src;
-    setup.info.mem.dst = dst;
+    setup.info.mem.src = dma_src;
+    setup.info.mem.dst = dma_dst;
     setup.info.mem.bytes = length;
     setup.info.mem.dma_id = &st->id;
 
