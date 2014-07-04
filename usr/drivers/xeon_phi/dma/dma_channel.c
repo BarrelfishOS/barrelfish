@@ -216,19 +216,24 @@ static errval_t xdma_channel_set_ring(struct xdma_channel *chan)
 
     xdma_channel_set_state(chan, XDMA_CHAN_STATE_DISABLED);
 
-    xeon_phi_dma_drar_t drar = 0x0;
+    xeon_phi_dma_drar_hi_t drar_hi = 0x0;
+    xeon_phi_dma_drar_lo_t drar_lo = 0x0;
 
-    drar = xeon_phi_dma_drar_size_insert(drar, chan->size >> 2);
+    uint16_t num_desc = chan->size >> xeon_phi_dma_drar_size_shift;
+
+    drar_hi = xeon_phi_dma_drar_hi_size_insert(drar_hi, num_desc);
 
     if (chan->owner == XDMA_CHAN_HOST_OWNED) {
-        drar = xeon_phi_dma_drar_sysbit_insert(drar, 0x1);
+        drar_hi = xeon_phi_dma_drar_hi_sysbit_insert(drar_hi, 0x1);
         uint32_t sysmem_page = (chan->ring.pbase >> XEON_PHI_SYSMEM_PAGE_BITS);
-        drar = xeon_phi_dma_drar_page_insert(drar, sysmem_page);
+        drar_hi = xeon_phi_dma_drar_hi_page_insert(drar_hi, sysmem_page);
+        drar_hi = xeon_phi_dma_drar_hi_base_insert(drar_hi, chan->ring.pbase >> 32);
     }
 
-    drar = xeon_phi_dma_drar_base_insert(drar, chan->ring.pbase >> 6);
+    drar_lo = xeon_phi_dma_drar_lo_base_insert(drar_lo, chan->ring.pbase >> 6);
 
-    xeon_phi_dma_drar_wr(chan->regs, chan->chanid, drar);
+    xeon_phi_dma_drar_lo_wr(chan->regs, chan->chanid, drar_lo);
+    xeon_phi_dma_drar_hi_wr(chan->regs, chan->chanid, drar_hi);
 
     chan->size = chan->ring.size;
 
@@ -481,7 +486,6 @@ errval_t xdma_channel_req_memcpy(struct xdma_channel *chan,
                 (uint64_t )dma_id,
                 chan->head);
 
-    assert(id);
     if (id) {
         *id = dma_id;
     }
