@@ -847,6 +847,11 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
 
     xdma_rpc_wait_done(xphi_id);
 
+    if (err_is_fail(msg_st->err)) {
+        xdma_insert_free_request(req);
+        return msg_st->err;
+    }
+
     req->id = msg_st->id;
 
     xdma_insert_pending_request(req);

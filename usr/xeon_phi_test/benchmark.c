@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/ump_chan.h>
@@ -77,7 +78,7 @@ errval_t xphi_bench_memwrite(void *target)
 
     bench_init();
 
-    cycles_t tsc_start;
+    cycles_t tsc_start, tsc_end;
     cycles_t result[4];
     uint64_t tscperus;
     bench_ctl_t *ctl;
@@ -98,26 +99,41 @@ errval_t xphi_bench_memwrite(void *target)
                      XPHI_BENCH_BUF_FRAME_SIZE);
 
         /* using memset */
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         memset(target, 0, XPHI_BENCH_BUF_FRAME_SIZE);
-        result[0] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[0] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[0] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
         /* writing in a loop*/
         volatile uint8_t *buf = target;
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         for (uint32_t i = 0; i < XPHI_BENCH_BUF_FRAME_SIZE; ++i) {
             buf[i] = (uint8_t) 1;
         }
-        result[1] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[1] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[1] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
         /* reading in a while loop */
         buf = target;
         buf[XPHI_BENCH_BUF_FRAME_SIZE - 1] = 0;
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         while (*(buf++))
             ;
 
-        result[2] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[2] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[2] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
     } while (!bench_ctl_add_run(ctl, result));
 
@@ -153,7 +169,7 @@ errval_t xphi_bench_memcpy(void *dst,
 
     bench_init();
 
-    cycles_t tsc_start;
+    cycles_t tsc_start, tsc_end;
     cycles_t result[4];
     uint64_t tscperus;
     bench_ctl_t *ctl;
@@ -174,18 +190,28 @@ errval_t xphi_bench_memcpy(void *dst,
                      size);
 
         /* using memset */
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         memcpy(dst, src, size);
-        result[0] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[0] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[0] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
         /* writing in a loop*/
         volatile uint64_t *bsrc = src;
         volatile uint64_t *bdst = dst;
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         for (uint32_t i = 0; i < size / sizeof(uint64_t); ++i) {
             bdst[i] = bsrc[i];
         }
-        result[1] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[1] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[1] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
         struct xeon_phi_dma_info info = {
             .src = psrc,
@@ -200,7 +226,7 @@ errval_t xphi_bench_memcpy(void *dst,
 
         /* reading in a while loop */
         dma_done = 0x0;
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         err = xeon_phi_dma_client_start(0, &info, cont, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not exec the transfer");
@@ -208,7 +234,12 @@ errval_t xphi_bench_memcpy(void *dst,
         while (!dma_done) {
             messages_wait_and_handle_next();
         }
-        result[2] = rdtsc() - tsc_start - bench_tscoverhead();
+        tsc_end = bench_tsc();
+        if (tsc_end < tsc_start) {
+            result[2] = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+        } else {
+            result[2] = (tsc_end - tsc_start - bench_tscoverhead());
+        }
 
     } while (!bench_ctl_add_run(ctl, result));
 
@@ -316,9 +347,8 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
 
     debug_printf("tscperus = %lu\n", tscperus);
 
-    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS,
-                         1,
-                         XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
+    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1,
+    XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
 
     debug_printf("waiting for ready signal\n");
     while (1) {
@@ -334,18 +364,22 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     uint32_t rep_counter = 0;
     do {
         if (!(rep_counter++ % XPHI_BENCH_NUM_RUNS)) {
-            debug_printf("  > run %u of %u...\n",
-                         rep_counter,
-                         XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
+            debug_printf("  > run %u of %u...\n", rep_counter,
+            XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
         }
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
         msg = ump_chan_get_next(uc, &ctrl);
         msg->header.control = ctrl;
         do {
             err = ump_chan_recv(uc, &msg);
         } while (err_is_fail(err));
-        result = rdtsc();
-        result = (result - tsc_start - bench_tscoverhead());
+        result = bench_tsc();
+        if (result < tsc_start) {
+            result = (LONG_MAX - tsc_start) + result - bench_tscoverhead();
+        } else {
+            result = (result - tsc_start - bench_tscoverhead());
+        }
+
     } while (!bench_ctl_add_run(ctl, &result));
 
 #ifdef XPHI_BENCH_CHECK_STOP
@@ -357,7 +391,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
     xphi_bench_print_settings();
-    // bench_ctl_dump_csv(ctl, "", tscperus);
+// bench_ctl_dump_csv(ctl, "", tscperus);
     bench_ctl_dump_analysis(ctl, 0, "RTT", tscperus);
 
     return SYS_ERR_OK;
@@ -407,7 +441,7 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
         XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_NUM_RUNS);
 
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
 
         msg = ump_chan_get_next(uc, &ctrl);
         struct bench_buf *buf = &bufs->buf[b_idx];
@@ -454,9 +488,12 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
                 n_recv++;
             }
         }
-        result = rdtsc();
-        result = result - tsc_start - bench_tscoverhead();
-
+        result = bench_tsc();
+        if (result < tsc_start) {
+            result = (LONG_MAX - tsc_start) + result - bench_tscoverhead();
+        } else {
+            result = (result - tsc_start - bench_tscoverhead());
+        }
     } while (!bench_ctl_add_run(ctl, &result));
 
 #ifdef XPHI_BENCH_CHECK_STOP
@@ -468,7 +505,7 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
     xphi_bench_print_settings();
-    // bench_ctl_dump_csv(ctl, "", tscperus);
+// bench_ctl_dump_csv(ctl, "", tscperus);
     bench_ctl_dump_analysis(ctl, 0, "Sync Throughput", tscperus);
     printf("Average seconds: %f\n", avg_s);
     printf("Average throughput: %f GByte/s\n",
@@ -526,7 +563,7 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
         debug_printf("  > run %u of %u with %u moves...\n", rep_counter++,
         XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_NUM_RUNS);
-        tsc_start = rdtsc();
+        tsc_start = bench_tsc();
 
         uint32_t irun = 0;
         uint32_t n_recv = 0;
@@ -572,8 +609,15 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
             }
         }
 
-        result = rdtsc();
-        result = result - tsc_start - bench_tscoverhead();
+        result = bench_tsc();
+        if (result-tsc_start > bench_tscoverhead()) {
+            debug_printf("%lu %lu", result-tsc_start, bench_tscoverhead());
+        }
+        if (result < tsc_start) {
+            result = (LONG_MAX - tsc_start) + result - bench_tscoverhead();
+        } else {
+            result = (result - tsc_start - bench_tscoverhead());
+        }
 
         assert(in_transit == 0);
     } while (!bench_ctl_add_run(ctl, &result));
@@ -587,7 +631,7 @@ errval_t xphi_bench_start_initator_async(struct bench_bufs *bufs,
     double avg_s = bench_avg(ctl->data, ctl->result_count) / tscperus;
     avg_s /= 1000000;
     xphi_bench_print_settings();
-    // bench_ctl_dump_csv(ctl, "", tscperus);
+// bench_ctl_dump_csv(ctl, "", tscperus);
     bench_ctl_dump_analysis(ctl, 0, "ASync Throughput", tscperus);
     printf("Average seconds: %f\n", avg_s);
     printf("Average throughput: %f GByte/s\n",

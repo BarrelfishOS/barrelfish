@@ -1047,6 +1047,7 @@ errors xeon_phi XEON_PHI_ERR_ {
     failure MSG_NOT_INITIALIZED  "Messaging service has not been initialized",
     failure DMA_NOT_INITIALIZED  "DMA library has not been initialized",
     failure DMA_ID_NOT_EXISTS    "The DMA transfer with that ID does not exist ",
+    failure DMA_NOT_SUPPORTED    "The DMA transfer is not supported.",
     failure DMA_BUSY             "All DMA channels are busy",
     failure DMA_IDLE             "All DMA channels are idle",
     failure DMA_MEM_REGISTERED   "The memory has not been registered",

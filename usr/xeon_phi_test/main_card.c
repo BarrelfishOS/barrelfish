@@ -183,11 +183,11 @@ int main(int argc,
     debug_printf("Initializing UMP channel...\n");
 
     err = ump_chan_init(&uc, inbuf,
-    XPHI_BENCH_MSG_FRAME_SIZE,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     err = ump_chan_init(&uc_rev, inbuf_rev,
-    XPHI_BENCH_MSG_FRAME_SIZE,
+                        XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf_rev,
                         XPHI_BENCH_MSG_FRAME_SIZE);
 
@@ -256,7 +256,7 @@ int main(int argc,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
     debug_printf("---------- host -> card ---------\n");
     xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                       card_buf  + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                    card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     XPHI_BENCH_BUF_FRAME_SIZE / 2,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);

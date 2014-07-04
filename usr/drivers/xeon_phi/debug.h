@@ -16,8 +16,8 @@
  */
 #define XDEBUG_ENABLED   1
 #define XDEBUG_BOOT      1
-#define XDEBUG_DMA       1
-#define XDEBUG_DMA_V     1
+#define XDEBUG_DMA       0
+#define XDEBUG_DMA_V     0
 #define XDEBUG_INT       1
 #define XDEBUG_SMPT      1
 #define XDEBUG_SERVICE   1
@@ -48,6 +48,7 @@
 #endif
 #else
 #define XDMA_DEBUG(x...)
+#define XDMAV_DEBUG(x...)
 #endif
 
 #if XDEBUG_INT

@@ -248,9 +248,16 @@ struct dma_exec_resp_st
     struct xeon_phi_dma_binding *b;
     xeon_phi_dma_id_t id;
     errval_t err;
+    volatile uint8_t sent;
 };
 
 struct dma_exec_resp_st exec_resp_err;
+
+static void dma_exec_response_sent(void *a)
+{
+    struct dma_exec_resp_st *st = a;
+    st->sent = 0x1;
+}
 
 static void dma_exec_response_tx(void *a)
 {
@@ -258,7 +265,7 @@ static void dma_exec_response_tx(void *a)
 
     struct dma_exec_resp_st *st = a;
 
-    struct event_closure txcont = MKCONT(free, a);
+    struct event_closure txcont = MKCONT(dma_exec_response_sent, a);
 
     err = xeon_phi_dma_exec_response__tx(st->b, txcont, st->err, st->id);
     if (err_is_fail(err)) {
@@ -282,14 +289,15 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
     XDMAV_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n",
                            src, dst, length);
 
-    struct dma_exec_resp_st *st = malloc(sizeof(struct dma_exec_resp_st));
-    assert(st);
-    st->b = _binding;
+    struct dma_exec_resp_st st;
+
+    st.b = _binding;
+    st.sent = 0x0;
     lpaddr_t dma_src = xdma_mem_verify(_binding, src, length);
     lpaddr_t dma_dst = xdma_mem_verify(_binding, dst, length);
     if (!dma_src || !dma_dst) {
-        st->err = XEON_PHI_ERR_DMA_MEM_REGISTERED;
-        st->id = 0;
+        st.err = XEON_PHI_ERR_DMA_MEM_REGISTERED;
+        st.id = 0;
 #ifdef XDEBUG_DMA
         if (!dma_src) {
             XDMA_DEBUG("Memory range not registered: [0x%016lx] [0x%016lx]\n",
@@ -301,7 +309,17 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
         }
 #endif
 
-        dma_exec_response_tx(st);
+        dma_exec_response_tx(&st);
+        return;
+    }
+
+    /*
+     * DMA transfers from host to host are not supported.
+     */
+    if (dma_src > XEON_PHI_SYSMEM_BASE && dma_dst > XEON_PHI_SYSMEM_BASE) {
+        st.err = XEON_PHI_ERR_DMA_NOT_SUPPORTED;
+        st.id = 0;
+        dma_exec_response_tx(&st);
         return;
     }
 
@@ -313,13 +331,23 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
     setup.info.mem.src = dma_src;
     setup.info.mem.dst = dma_dst;
     setup.info.mem.bytes = length;
-    setup.info.mem.dma_id = &st->id;
+    setup.info.mem.dma_id = &st.id;
 
     struct xeon_phi *phi = xdma_mem_get_phi(_binding);
 
-    st->err = dma_do_request(phi, &setup);
+    st.err = dma_do_request(phi, &setup);
 
-    dma_exec_response_tx(st);
+    dma_exec_response_tx(&st);
+
+    /*
+     * XXX: we must wait until the message has been sent, otherwise we may
+     *      trigger sending the done message when we poll in the main message
+     *      loop. This causes the client library to receive a done message
+     *      of an invalid id.
+     */
+    while(!st.sent) {
+        messages_wait_and_handle_next();
+    }
 }
 
 /*

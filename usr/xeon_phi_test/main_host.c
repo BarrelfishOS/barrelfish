@@ -261,9 +261,6 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not register memory");
     }
 
-#undef XPHI_BENCH_BUF_FRAME_SIZE
-#define XPHI_BENCH_BUF_FRAME_SIZE 0x2000
-
     debug_printf("---------- card -> host ---------\n");
     xphi_bench_memcpy(card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
