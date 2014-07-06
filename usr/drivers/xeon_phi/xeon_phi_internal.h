@@ -30,8 +30,12 @@
 /// the number of MSIX interrupts we use
 #define XEON_PHI_MSIX_NUM     1
 
+/// the initial aperture size mapped to boot the card
 #define XEON_PHI_APERTURE_INIT_SIZE (1024*1024*1024)
 
+
+#define XEON_PHI_IS_CLIENT 0x0
+#define XEON_PHI_IS_HOST   0x1
 /*
  * This defines are used to reference the MMIO registers on the host side.
  *

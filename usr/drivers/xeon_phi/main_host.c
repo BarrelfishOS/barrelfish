@@ -29,21 +29,35 @@
 #include "messaging.h"
 #include "sysmem_caps.h"
 
-volatile uint32_t bootstrap_done = 0;
-
 struct xeon_phi xphi;
 
+/**
+ * callbacks for the messaging channel
+ */
 struct xeon_phi_messaging_cb msg_cb = {
     .open_iface = messaging_send_open,
     .spawn = messaging_send_spawn
 };
 
+/**
+ * \brief Main function of the Xeon Phi Driver (Host Side)
+ */
 int main(int argc,
          char *argv[])
 {
     errval_t err;
-    debug_printf("Xeon Phi host module started.\n");
 
+    XDEBUG("Xeon Phi host module started.\n");
+
+    memset(&xphi, 0, sizeof(xphi));
+
+    /*
+     * Parsing of cmdline arguments.
+     *
+     * When started by Kaluga, the last element of the cmdline will contain
+     * the basic PCI information of the device.
+     * VENDORID:DEVICEID:BUS:DEV:FUN
+     */
     uint32_t vendor_id, device_id;
     uint32_t bus = PCI_DONT_CARE, dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
 
@@ -56,30 +70,28 @@ int main(int argc,
                                  &dev,
                                  &fun);
         if (parsed != 5) {
-            debug_printf("WARNING: parsing cmdline argument failed. >"
-                         "Switching back to unknown PCI address [0,0,0]");
+            XDEBUG("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
             bus = PCI_DONT_CARE;
             dev = PCI_DONT_CARE;
             fun = PCI_DONT_CARE;
         } else {
             if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
-                debug_printf("ERROR: Unexpected vendor / device ID"
-                             "was: [%x, %x] expected: [%x, %x]",
-                             vendor_id, (device_id & 0xFF00), 0x8086, 0x2500);
+                USER_PANIC("unexpected vendor / device id: [%x, %x]",
+                           vendor_id,
+                           device_id);
                 return -1;
             }
-            debug_printf("Initializing Xeon Phi with PCI address "
+            XDEBUG("Initializing Xeon Phi with PCI address "
                          "[%u,%u,%u]\n",
                          bus, dev, fun);
         }
     } else {
-        debug_printf("WARNING: Initializing Xeon Phi with unknown PCI address "
+        XDEBUG("WARNING: Initializing Xeon Phi with unknown PCI address "
                      "[0,0,0]\n");
     }
 
-    memset(&xphi, 0, sizeof(xphi));
-
-    xphi.is_client = 0x0;
+    /* set the client flag to false */
+    xphi.is_client = XEON_PHI_IS_CLIENT;
 
     vfs_init();
 
@@ -127,16 +139,22 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not export the service");
     }
 
+    /*
+     * in case there are more than one Xeon Phi present in the system, indicated
+     * by an id > 0, the driver will register itself with the other Xeon Phi
+     * driver instances running in the system and initializes the inter-Phi
+     * messaging frame
+     */
     if (xphi.id != 0) {
-        XDEBUG("Doing Intra Xeon Phi setup\n");
+        XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
         for (uint32_t i = 0; i < xphi.id; ++i) {
             /* initialize the messaging frame */
-            err = messaging_init_xphi(i, &xphi, NULL_CAP, 0x0);
+            err = messaging_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
             if (err_is_fail(err)) {
                 XDEBUG("Could not initialize messaging\n");
                 continue;
             }
-
+            /* register the messaging frame */
             err = service_open(&xphi, i);
             if (err_is_fail(err)) {
                 XDEBUG("Could not initialize messaging\n");
@@ -147,9 +165,10 @@ int main(int argc,
 
     XDEBUG("initialization done. Going into main message loop\n");
 
+    /* starts the basic handler service. This function should not return */
     service_start(&xphi);
 
-    debug_printf("Xeon Phi host module terminated.\n");
+    XDEBUG("Xeon Phi host module terminated.\n");
 
     return 0;
 }
