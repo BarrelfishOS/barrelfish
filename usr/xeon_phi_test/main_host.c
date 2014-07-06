@@ -274,13 +274,12 @@ int main(int argc,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
     debug_printf("-------- host local ------------\n");
-     xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+    xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                        host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE
                      + (XPHI_BENCH_BUF_FRAME_SIZE / 2),
                      XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE
-                     + (XPHI_BENCH_BUF_FRAME_SIZE / 2));
+                     0,
+                     0);
 #endif
 }
 

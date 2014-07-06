@@ -225,7 +225,7 @@ int main(int argc,
         debug_printf("---------------- normal run -----------------\n");
         xphi_bench_start_initator_sync(&bufs, &uc);
         debug_printf("---------------- reversed run -----------------\n");
-        xphi_bench_start_initator_sync(&bufs-rev, &uc_rev);
+        xphi_bench_start_initator_sync(&bufs_rev, &uc_rev);
 #else
         debug_printf("---------------- normal run -----------------\n");
         xphi_bench_start_initator_async(&bufs, &uc);
