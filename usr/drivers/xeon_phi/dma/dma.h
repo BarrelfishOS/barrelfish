@@ -16,6 +16,8 @@
 
 #include <if/xeon_phi_dma_defs.h>
 
+#include "dma_benchmark.h"
+
 /// the base name of the exported dma service
 #define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
 
@@ -42,7 +44,7 @@
 #define XEON_PHI_DMA_OWNER_CARD         2
 
 /// the number of dma descriptors we allocate
-#define XEON_PHI_DMA_DESC_NUM  128
+#define XEON_PHI_DMA_DESC_NUM  512
 
 /// alignment constraint of the descriptor ring (cache line)
 #define XEON_PHI_DMA_DESC_RING_ALIGN 64

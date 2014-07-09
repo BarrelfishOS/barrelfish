@@ -68,6 +68,9 @@ static struct xdma_req *requests = NULL;
 /// the current requests being executed
 static struct xdma_req *requests_pending = NULL;
 
+///
+static xeon_phi_dma_id_t last_done_id[XEON_PHI_NUM_MAX];
+
 /// unused / free requests
 static struct xdma_req *requests_free = NULL;
 
@@ -237,7 +240,7 @@ static void xdma_register_response_rx(struct xeon_phi_dma_binding *_binding,
     assert(xdma_reg_msg_st[xphi_id].xphi_id == xphi_id);
 
     DEBUG_XDMA("received register response from Xeon Phi %u: %s\n",
-               xphi_id, err_getstring(msgerr));
+                    xphi_id, err_getstring(msgerr));
 
     xdma_reg_msg_st[xphi_id].err = msgerr;
 
@@ -301,7 +304,7 @@ static void xdma_deregister_response_rx(struct xeon_phi_dma_binding *_binding,
     uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 
     DEBUG_XDMA("received deregister response from Xeon Phi %u: %s\n",
-               xphi_id, err_getstring(msgerr));
+                    xphi_id, err_getstring(msgerr));
 
     xdma_rpc_done(xphi_id);
 }
@@ -369,7 +372,7 @@ static void xdma_exec_response_rx(struct xeon_phi_dma_binding *_binding,
     assert(xdma_reg_msg_st[xphi_id].xphi_id == xphi_id);
 
     DEBUG_XDMA("received exec response from Xeon Phi %u: %s\n",
-               xphi_id, err_getstring(err));
+                    xphi_id, err_getstring(err));
 
     xdma_reg_start_st[xphi_id].err = err;
     xdma_reg_start_st[xphi_id].id = id;
@@ -473,7 +476,7 @@ static void xdma_stop_response_rx(struct xeon_phi_dma_binding *_binding,
     uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
 #endif
     DEBUG_XDMA("received stop response from Xeon Phi %u: %s\n",
-               xphi_id, err_getstring(err));
+                    xphi_id, err_getstring(err));
 
 }
 
@@ -525,7 +528,19 @@ static void xdma_done_rx(struct xeon_phi_dma_binding *_binding,
     struct xdma_req *req = xdma_get_pending_request(id);
     DEBUG_XDMA("received done message [%u, %lx] @ %p\n", xphi_id, id, req);
 
-    assert(req);
+    if (req == NULL) {
+        /*
+         * XXX: this is a work around if we receive the done rx before the
+         *      the reply of the start is handled. We allow one "already done"
+         *      transfer to be queued. This usually happends for very small
+         *      transfers < 4kB
+         */
+        uint8_t xphi_id = (uint8_t) (uintptr_t) _binding->st;
+        assert(last_done_id[xphi_id] == 0);
+        last_done_id[xphi_id] = id;
+        return;
+    }
+    //assert(req);
 
     if (req->cont.cb) {
         req->cont.cb(id, err, req->cont.arg);
@@ -796,7 +811,7 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
     }
 
     DEBUG_XDMA("New DMA request: [0x%016lx]->[0x%016lx] of 0x%lx bytes \n",
-               info->src, info->dest, (uint64_t )info->size);
+                    info->src, info->dest, (uint64_t )info->size);
 
     /*
      * we only allow multiple of 64 bytes for transfers.
@@ -852,13 +867,23 @@ errval_t xeon_phi_dma_client_start(uint8_t xphi_id,
         return msg_st->err;
     }
 
-    req->id = msg_st->id;
-
-    xdma_insert_pending_request(req);
-
     if (id) {
         *id = msg_st->id;
     }
+
+    if (last_done_id[xphi_id] == msg_st->id) {
+        last_done_id[xphi_id] = 0x0;
+
+        if (req->cont.cb) {
+            req->cont.cb(msg_st->id, msg_st->err, req->cont.arg);
+        }
+        xdma_insert_free_request(req);
+        return msg_st->err;
+    }
+
+    req->id = msg_st->id;
+
+    xdma_insert_pending_request(req);
 
     return msg_st->err;
 }

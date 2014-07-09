@@ -23,7 +23,8 @@
 #include "dma.h"
 
 /// the maximum length of the descriptor ring 128k-1 rounded to cache line
-#define XEON_PHI_DMA_DESC_RING_MAX (128*1024 - XEON_PHI_DMA_ALIGNMENT)
+//#define XEON_PHI_DMA_DESC_RING_MAX (128*1024 - XEON_PHI_DMA_ALIGNMENT)
+#define XEON_PHI_DMA_DESC_RING_MAX ((1<<16) - XEON_PHI_DMA_ALIGNMENT)
 
 /// the size of a descriptor entry
 #define XEON_PHI_DMA_DESC_SIZE  16

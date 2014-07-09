@@ -89,7 +89,7 @@ errval_t dma_poll_channels(struct xeon_phi *phi)
 {
     errval_t err, ret_err = XEON_PHI_ERR_DMA_IDLE;
     for (uint32_t i = 0; i < XEON_PHI_DMA_CHAN_NUM; ++i) {
-        err = xdma_channel_poll(&phi->dma->channels[i]);
+        err = xdma_channel_poll(phi->dma->channels + i);
         if (err_is_fail(err)) {
             if (err_no(err) == XEON_PHI_ERR_DMA_IDLE) {
                 continue;
@@ -150,7 +150,7 @@ errval_t dma_do_request(struct xeon_phi *phi,
 
     return err;
 }
-
+#if 0
 #define XDMA_TEST_BUFFER_SIZE (1024*1024)
 #define XDMA_TEST_FRAME_SIZE (2*XDMA_TEST_BUFFER_SIZE)
 errval_t dma_impl_test(struct xeon_phi *phi)
@@ -297,7 +297,7 @@ errval_t dma_impl_test(struct xeon_phi *phi)
 
 #define SBOX_SICR0_DMA(x)  (((x) >> 8) & 0xff)
 
-#if 0
+
 /*
  * TODO;
  * Maybe move the logic into slow interrupt handler

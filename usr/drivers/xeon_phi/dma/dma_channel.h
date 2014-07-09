@@ -34,9 +34,10 @@ enum xdma_chan_state {
     XDMA_CHAN_STATE_ENABLED
 };
 
-#define XDMA_REQ_FLAG_FIRST 0x80000000
-#define XDMA_REQ_FLAG_LAST  0x00000001
-#define XDMA_REQ_FLAG_DONE  0x00000002
+#define XDMA_REQ_FLAG_VALID 0xAA000000
+#define XDMA_REQ_FLAG_FIRST 0x00000001
+#define XDMA_REQ_FLAG_LAST  0x00000002
+#define XDMA_REQ_FLAG_DONE  0x00000004
 
 struct xdma_req_info
 {
@@ -44,21 +45,18 @@ struct xdma_req_info
     void *st;
     errval_t err;           ///< outcome of the request
     xeon_phi_dma_id_t id;   ///< DMA request ID
-    uint16_t ndesc;         ///< the number of descriptors used in the request
-    uint16_t first;         ///< index of the first
     uint32_t flags;         ///< request flags
-    struct xdma_req_info *next;
 };
 
 struct xdma_channel
 {
     xeon_phi_dma_t *regs;    ///< Mackerel base
     struct xdma_ring ring;   ///< descriptor ring of this channel
+    uint16_t size;           ///< size of the channel (elements in descriptor ring)
     uint16_t tail;           ///< the tail pointer of the ring (cached)
     uint16_t last_processed; ///< index of the last processed element
-    uint16_t head;           ///< the head pointer of the ring
-    uint16_t write_next;     ///< where to write the next descriptor
-    uint16_t size;           ///< size of the channel (elements in descriptor ring)
+    uint32_t head;           ///< the head pointer of the ring
+    uint32_t write_next;     ///< where to write the next descriptor
     struct xdma_req_info *rinfo;  ///< stores request information for the descriptors
     uint8_t chanid;          ///< channel id
     uint8_t do_poll;         ///< flag setting that we use the polling mode
@@ -72,7 +70,7 @@ struct xdma_channel
 static inline xeon_phi_dma_id_t xdma_chan_generate_id(struct xdma_channel *chan)
 {
 
-    return ((((uint64_t) chan->chanid) << 56) | (((uint64_t) chan->head) << 32)
+    return ((((uint64_t) chan->chanid+1) << 56) | (((uint64_t) chan->head) << 32)
             | (uint64_t)(chan->reqcoutner++));
 }
 

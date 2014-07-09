@@ -21,6 +21,8 @@
 #include "dma_descriptor_ring.h"
 #include "debug.h"
 
+#define IS_POW2(num) (((num) != 0) && (((num) & (~(num) + 1)) == (num)))
+
 /**
  * \brief initializes a dma descriptor ring and allocates memory for it
  *
@@ -38,6 +40,7 @@ errval_t xeon_phi_dma_desc_ring_alloc(struct xdma_ring *ring,
     memset(ring, 0, sizeof(*ring));
 
     assert(size < (XEON_PHI_DMA_DESC_RING_MAX));
+    assert(IS_POW2(size));
 
 #ifndef __k1om__
     /*

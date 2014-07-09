@@ -248,10 +248,11 @@ struct dma_exec_resp_st
     struct xeon_phi_dma_binding *b;
     xeon_phi_dma_id_t id;
     errval_t err;
-    volatile uint8_t sent;
+    uint8_t sent;
 };
 
 struct dma_exec_resp_st exec_resp_err;
+
 
 static void dma_exec_response_sent(void *a)
 {
@@ -345,7 +346,8 @@ static void dma_exec_call_rx(struct xeon_phi_dma_binding *_binding,
      *      loop. This causes the client library to receive a done message
      *      of an invalid id.
      */
-    while(!st.sent) {
+    volatile uint8_t *sent_flag = &st.sent;
+    while(!(*sent_flag)) {
         messages_wait_and_handle_next();
     }
 }
