@@ -17,7 +17,7 @@ import Data.Char
 
 import qualified CAbsSyntax as C
 import Syntax (Interface (Interface))
-import GHBackend (flounder_backends, export_fn_name, bind_fn_name)
+import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name)
 import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
 import qualified UMP (bind_type, bind_fn_name)
@@ -50,11 +50,16 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     export_fn_def ifn,
     C.Blank,
 
+    C.MultiComment [ "Accept function (Export over already shared frame)" ],
+    accept_fn_def ifn,
+    C.Blank,
+
     C.MultiComment [ "Generic bind function" ],
     -- the two bind functions use the idc drivers in a different order
     bind_cont_def ifn (bind_cont_name ifn) (bind_backends ifn (bind_cont_name ifn)),
     bind_cont_def ifn (bind_cont_name2 ifn) (multihop_bind_backends ifn (bind_cont_name2 ifn)),
-    bind_fn_def ifn]
+    bind_fn_def ifn,
+    connect_fn_def ifn]
 
 export_fn_def :: String -> C.Unit
 export_fn_def n = 
@@ -97,6 +102,32 @@ export_fn_def n =
         -- XXX: UMP_IPI uses the UMP connect callback
         drv_connect_callback "ump_ipi" = drv_connect_callback "ump"
         drv_connect_callback drv = drv ++ "_connect_callback"
+
+accept_fn_def :: String -> C.Unit
+accept_fn_def n = 
+    C.FunctionDef C.NoScope (C.TypeName "errval_t") (accept_fn_name n) params [
+        C.Return $ C.Call (drv_accept_fn_name "ump" n)  [(C.Variable intf_frameinfo_var), C.Variable "st", C.Variable intf_cont_var, C.Variable "ws", C.Variable "flags"]
+    ]
+    where 
+        params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
+                   C.Param (C.Ptr $ C.TypeName "void") "st",
+       --          C.Param (C.Ptr $ C.TypeName "idc_export_callback_fn") "export_cb",
+                   C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+                   C.Param (C.Ptr $ C.Struct "waitset") "ws",
+                   C.Param (C.TypeName "idc_export_flags_t") "flags"]
+        
+
+connect_fn_def :: String -> C.Unit
+connect_fn_def n = 
+    C.FunctionDef C.NoScope (C.TypeName "errval_t") (connect_fn_name n) params [
+        C.Return $ C.Call (drv_connect_fn_name "ump" n)  [C.Variable intf_frameinfo_var, C.Variable intf_cont_var, C.Variable "st", C.Variable "ws", C.Variable "flags"]
+    ]
+    where 
+        params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
+                   C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+                   C.Param (C.Ptr $ C.TypeName "void") "st",
+                   C.Param (C.Ptr $ C.Struct "waitset") "ws",
+                   C.Param (C.TypeName "idc_bind_flags_t") "flags"]
 
 
 -- bind continuation function
