@@ -95,7 +95,7 @@ errval_t xphi_bench_memwrite(void *target)
     uint32_t rep_counter = 0;
     do {
         debug_printf("  > run %u of %u memwrite of %lu bytes..\n", rep_counter++,
-                     XPHI_BENCH_NUM_REPS,
+        XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_BUF_FRAME_SIZE);
 
         /* using memset */
@@ -152,6 +152,11 @@ static void dma_done_cb(xeon_phi_dma_id_t id,
                         errval_t err,
                         void *st)
 {
+    xeon_phi_dma_id_t *id2 = st;
+    if (id != *id2) {
+        debug_printf("id %016lx, %016lx\n", id, *id2);
+    }
+    assert(id == *id2);
     XPHI_BENCH_DBG("DMA request executed...\n");
     dma_done = 0x1;
 }
@@ -168,17 +173,19 @@ static inline cycles_t calculate_time(cycles_t tsc_start,
     return result;
 }
 
-errval_t xphi_bench_memcpy(void *dst,
-                           void *src,
-                           size_t size,
-                           lpaddr_t pdst,
-                           lpaddr_t psrc)
+static errval_t measure_memcpy(void *dst,
+                               void *src)
 {
     errval_t err;
     cycles_t tsc_start, tsc_end;
-    cycles_t result[4];
     uint64_t tscperus;
     bench_ctl_t *ctl;
+
+    cycles_t result;
+
+    debug_printf("--------------------------------\n");
+    debug_printf("Measuring memcpy...\n");
+    debug_printf("--------------------------------\n");
 
     bench_init();
 
@@ -186,68 +193,179 @@ errval_t xphi_bench_memcpy(void *dst,
     assert(err_is_ok(err));
     tscperus /= 1000;
 
-    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 3, XPHI_BENCH_NUM_REPS);
+    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS-2; ++i) {
+        size_t size = (1UL << i);
+
+        ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
+
+        uint8_t idx = 0;
+        //debug_printf("Benchmark: Run %u, size = %lu bytes, [%016lx] -> [%016lx]\n", idx, size, src, dst);
+        do {
+            tsc_start = bench_tsc();
+            memcpy(dst, src, size);
+            tsc_end = bench_tsc();
+            result = calculate_time(tsc_start, tsc_end);
+            idx++;
+        } while (!bench_ctl_add_run(ctl, &result));
+        char buf[50];
+
+        snprintf(buf, sizeof(buf), "%u", i);
+        bench_ctl_dump_analysis(ctl, 0, buf, tscperus);
+
+        bench_ctl_destroy(ctl);
+    }
+    debug_printf("--------------------------------\n");
+    return SYS_ERR_OK;
+}
+
+static errval_t measure_forloop(void *dst,
+                                void *src)
+{
+    errval_t err;
+    cycles_t tsc_start, tsc_end;
+    uint64_t tscperus;
+    bench_ctl_t *ctl;
+
+    cycles_t result;
+
+    debug_printf("--------------------------------\n");
+    debug_printf("Measuring Forloop...\n");
+    debug_printf("--------------------------------\n");
+
+    bench_init();
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+
+    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS-2; ++i) {
+        size_t size = (1UL << i);
+
+        ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
+
+        uint8_t idx = 0;
+        //debug_printf("Benchmark: Run %u, size = %lu bytes, [%016lx] -> [%016lx]\n", idx, size, src, dst);
+        do {
+            volatile uint64_t *bsrc = src;
+            volatile uint64_t *bdst = dst;
+            tsc_start = bench_tsc();
+            for (uint32_t j = 0; j < size / sizeof(uint64_t); ++j) {
+                bdst[j] = bsrc[j];
+            }
+            tsc_end = bench_tsc();
+            result = calculate_time(tsc_start, tsc_end);
+            idx++;
+        } while (!bench_ctl_add_run(ctl, &result));
+        char buf[50];
+
+        snprintf(buf, sizeof(buf), "%u", i);
+        bench_ctl_dump_analysis(ctl, 0, buf, tscperus);
+
+        bench_ctl_destroy(ctl);
+    }
+    debug_printf("--------------------------------\n");
+    return SYS_ERR_OK;
+}
+
+static errval_t measure_dma(lpaddr_t pdst,
+                            lpaddr_t psrc)
+{
+    errval_t err;
+    cycles_t tsc_start, tsc_end;
+    uint64_t tscperus;
+    bench_ctl_t *ctl;
+
+    cycles_t result;
+    debug_printf("--------------------------------\n");
+    debug_printf("Measuring DMA...\n");
+    debug_printf("--------------------------------\n");
+    // avoid host-host DMA.
+    if (psrc == 0) {
+        debug_printf("skipping host-host transfer\n");
+        return SYS_ERR_OK;
+    }
+
+    bench_init();
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+
+    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS; ++i) {
+        size_t size = (1UL << i);
+
+        ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
+
+        uint8_t idx = 0;
+        //debug_printf("Benchmark: Run %u, size = %lu bytes, [%016lx] -> [%016lx]\n", idx, size, src, dst);
+        do {
+
+            /* Test 3: DMA Transfer */
+            struct xeon_phi_dma_info info = {
+                .src = psrc,
+                .dest = pdst,
+                .size = size
+            };
+
+            xeon_phi_dma_id_t id;
+
+            struct xeon_phi_dma_cont cont = {
+                .cb = dma_done_cb,
+                .arg = &id
+            };
+
+            dma_done = 0x0;
+
+            tsc_start = bench_tsc();
+            err = xeon_phi_dma_client_start(0, &info, cont, &id);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not exec the transfer");
+            }
+            while (!dma_done) {
+                messages_wait_and_handle_next();
+            }
+            tsc_end = bench_tsc();
+            result = calculate_time(tsc_start, tsc_end);
+            idx++;
+        } while (!bench_ctl_add_run(ctl, &result));
+        char buf[50];
+
+        snprintf(buf, sizeof(buf), "%u", i);
+        bench_ctl_dump_analysis(ctl, 0, buf, tscperus);
+
+        bench_ctl_destroy(ctl);
+    }
+
+    debug_printf("--------------------------------\n");
+
+    return SYS_ERR_OK;
+}
+
+errval_t xphi_bench_memcpy(void *dst,
+                           void *src,
+                           size_t size,
+                           lpaddr_t pdst,
+                           lpaddr_t psrc)
+{
+    errval_t err;
+    uint64_t tscperus;
+
+    bench_init();
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
 
     debug_printf("Starting memcpy benchmark. tsc/us=%lu, cpysize=%lu bytes\n",
-                 tscperus, (uint64_t) size);
+                 tscperus,
+                 (uint64_t) size);
 
-    uint32_t rep_counter = 0;
+    if (0) {
+    measure_memcpy(dst, src);
 
-    do {
-        debug_printf("  > run %u of %u\n", rep_counter++, XPHI_BENCH_NUM_REPS);
-
-        /* Test 1: libc memset */
-        tsc_start = bench_tsc();
-        memcpy(dst, src, size);
-        tsc_end = bench_tsc();
-        result[0] = calculate_time(tsc_start, tsc_end);
-
-        /* Test 2: Manual implementation using loop */
-        volatile uint64_t *bsrc = src;
-        volatile uint64_t *bdst = dst;
-        tsc_start = bench_tsc();
-        for (uint32_t i = 0; i < size / sizeof(uint64_t); ++i) {
-            bdst[i] = bsrc[i];
-        }
-        tsc_end = bench_tsc();
-        result[1] = calculate_time(tsc_start, tsc_end);
-
-        // avoid host-host DMA.
-        if (psrc == 0) {
-            result[2] = 1;
-            continue;
-        }
-
-        /* Test 3: DMA Transfer */
-        struct xeon_phi_dma_info info = {
-            .src = psrc,
-            .dest = pdst,
-            .size = size
-        };
-
-        struct xeon_phi_dma_cont cont = {
-            .cb = dma_done_cb,
-            .arg = NULL
-        };
-
-        dma_done = 0x0;
-
-        tsc_start = bench_tsc();
-        err = xeon_phi_dma_client_start(0, &info, cont, NULL);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "could not exec the transfer");
-        }
-        while (!dma_done) {
-            messages_wait_and_handle_next();
-        }
-        tsc_end = bench_tsc();
-        result[2] = calculate_time(tsc_start, tsc_end);
-    } while (!bench_ctl_add_run(ctl, result));
-
-    // bench_ctl_dump_csv(ctl, "", tscperus);
-    bench_ctl_dump_analysis(ctl, 0, "memcpy()", tscperus);
-    bench_ctl_dump_analysis(ctl, 1, "forloop copy", tscperus);
-    bench_ctl_dump_analysis(ctl, 2, "DMA", tscperus);
+    measure_forloop(dst, src);
+    }
+    measure_dma(pdst, psrc);
 
     return SYS_ERR_OK;
 }
@@ -347,7 +465,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     tscperus /= 1000;
 
     ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1,
-                         XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
+    XPHI_BENCH_NUM_REPS * XPHI_BENCH_NUM_RUNS);
 
     debug_printf("RTT benchmark: waiting for ready signal.\n");
     while (1) {
@@ -428,7 +546,7 @@ errval_t xphi_bench_start_initator_sync(struct bench_bufs *bufs,
         uint64_t b_idx = 0;
 
         debug_printf("  > run %u of %u with %u moves...\n", rep_counter++,
-                     XPHI_BENCH_NUM_REPS,
+        XPHI_BENCH_NUM_REPS,
                      XPHI_BENCH_NUM_RUNS);
 
         tsc_start = bench_tsc();

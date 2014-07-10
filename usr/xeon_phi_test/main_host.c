@@ -261,19 +261,38 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not register memory");
     }
 
-    debug_printf("---------- card -> host ---------\n");
-    xphi_bench_memcpy(card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
-    debug_printf("---------- host -> card ---------\n");
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
+    debug_printf("DMA-BENCH: CARD -> HOST \n");
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
+
     xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_buf  + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     XPHI_BENCH_BUF_FRAME_SIZE / 2,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
-    debug_printf("-------- host local ------------\n");
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
+    debug_printf("DMA-BENCH: HOST -> CARD \n");
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
+    xphi_bench_memcpy(card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                    host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                    XPHI_BENCH_BUF_FRAME_SIZE / 2,
+                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                    host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
+    debug_printf("DMA-BENCH: HOST LOCAL \n");
+    debug_printf("\n");
+    debug_printf("========================================\n");
+    debug_printf("\n");
     xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                        host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE
                      + (XPHI_BENCH_BUF_FRAME_SIZE / 2),

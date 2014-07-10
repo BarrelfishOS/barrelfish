@@ -260,16 +260,26 @@ int main(int argc,
     if (disp_xeon_phi_id() == 1) {
         debug_printf("+++++++ DMA / MEMCOPY Benchmark ++++++++\n");
 
-        debug_printf("---------- card local ---------\n");
-        xphi_bench_memcpy(local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE
-                          + (XPHI_BENCH_BUF_FRAME_SIZE / 2),
+        debug_printf("\n");
+        debug_printf("========================================\n");
+        debug_printf("\n");
+        debug_printf("DMA-BENCH: LOCAL -> REMOTE \n");
+        debug_printf("\n");
+        debug_printf("========================================\n");
+        debug_printf("\n");
+        xphi_bench_memcpy(remote_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                          local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                           XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                          local_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          local_base + 2* XPHI_BENCH_MSG_FRAME_SIZE
-                          + (XPHI_BENCH_BUF_FRAME_SIZE / 2));
+                          remote_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+                          local_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
 
-        debug_printf("---------- card -> card ---------\n");
+        debug_printf("\n");
+        debug_printf("========================================\n");
+        debug_printf("\n");
+        debug_printf("DMA-BENCH: REMOTE -> LOCAL \n");
+        debug_printf("\n");
+        debug_printf("========================================\n");
+        debug_printf("\n");
         xphi_bench_memcpy(local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                           remote_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                           XPHI_BENCH_BUF_FRAME_SIZE / 2,

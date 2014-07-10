@@ -56,9 +56,12 @@
 /// how many buffers we have (we keep it consistent with the number of messages
 #define XPHI_BENCH_BUF_NUM  XPHI_BENCH_MSG_NUM
 /// the size of a single buffer
-#define XPHI_BENCH_BUF_SIZE (1UL << 16)
+#define XPHI_BENCH_BUF_SIZE (1UL << 18)
 /// the resulting size of the buffer frame we have to allocate
 #define XPHI_BENCH_BUF_FRAME_SIZE (XPHI_BENCH_BUF_NUM * XPHI_BENCH_BUF_SIZE)
+
+#define XPHI_BENCH_SIZE_MIN_BITS 6
+#define XPHI_BENCH_SIZE_MAX_BITS 27
 
 /*
  * core placements of the two domains
