@@ -24,7 +24,10 @@
 
 #define XEON_PHI_DMA_BENCH_HOST_BASE ((512UL+64UL)*1024*1024*1024)
 #define XEON_PHI_DMA_BENCH_CARD_BASE (5UL*1024*1024*1024)
+
 #define XEON_PHI_DMA_BENCH_CARD_BASE2 ((512UL+496UL + 5UL)*1024*1024*1024)
+/* XXX: there is an offset of 8G to be added when runnig the benchmark on the card0 */
+//#define XEON_PHI_DMA_BENCH_CARD_BASE2 ((512UL+496UL + 8UL + 5UL)*1024*1024*1024)
 
 
 struct dma_info;

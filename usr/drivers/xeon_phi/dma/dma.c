@@ -150,7 +150,7 @@ errval_t dma_do_request(struct xeon_phi *phi,
 
     return err;
 }
-#if 0
+
 #define XDMA_TEST_BUFFER_SIZE (1024*1024)
 #define XDMA_TEST_FRAME_SIZE (2*XDMA_TEST_BUFFER_SIZE)
 errval_t dma_impl_test(struct xeon_phi *phi)
@@ -295,6 +295,7 @@ errval_t dma_impl_test(struct xeon_phi *phi)
     return SYS_ERR_OK;
 }
 
+#if 0
 #define SBOX_SICR0_DMA(x)  (((x) >> 8) & 0xff)
 
 
