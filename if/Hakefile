@@ -80,6 +80,8 @@
                "arrakis",
                "e10k_vf",
                "empty"
+               "flounderbootstrap",
+               "empty"
            ],
              arch <- allArchitectures
 ] ++
