@@ -15,7 +15,7 @@
     cFiles = [ "bs_user.c", "benchmark.c", "bs_connector.c" ],
     addLibraries = libDeps [ "bulk_transfer"],
     flounderDefs = [ "block_service" ],
-    flounderBindings = [ "block_service" ],
+    flounderBindings = [ "block_service", "bulk_ctrl" ],
     architectures = [ "x86_64", "x86_32" ]
   }
 ]

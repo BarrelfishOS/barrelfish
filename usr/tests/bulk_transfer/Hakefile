@@ -11,18 +11,18 @@
 [ build application { target = "bulk_mini",
                       cFiles = [ "bulk_mini.c" ],
                       addLibraries =  [ "bulk_transfer" ],
-                      architectures = ["x86_64"]
+                      architectures = ["x86_64"],
+                      mackerelDevices = [ "e10k", "e10k_q" ] -- used by bulk_transfer
                  },
   build application { target = "bulk_netproxy",
                       cFiles = [ "bulk_netproxy.c", "sleep.c" ],
-                      addLibraries =  [ "bulk_transfer", "lwip",
-				"bench" ],
-	     			  mackerelDevices = [ "e10k", "e10k_q" ],
+                      addLibraries =  [ "bulk_transfer", "lwip", "bench" ],
+                      mackerelDevices = [ "e10k", "e10k_q" ],
                       architectures = ["x86_64"]
                  },
   build application { target = "bulk_nettrans",
                       cFiles = [ "bulk_nettrans.c" ],
-	     			  mackerelDevices = [ "e10k", "e10k_q" ],
+                      mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries =  [ "bulk_transfer" ],
                       architectures = ["x86_64"]
                  },
@@ -31,6 +31,7 @@
                       cFiles = [ "bulk_shm.c" ],
                       flounderBindings = [ "bulk_ctrl" ],
                       addLibraries = [ "bulk_transfer" ],
+                      mackerelDevices = [ "e10k", "e10k_q" ], -- used by bulk_transfer
                       architectures = ["x86_64"]
                  }
 

@@ -17,7 +17,8 @@
     addLibraries = libDeps [ "bulk_transfer", "lwip", "net_if_raw", "bench"],
     flounderDefs = [ "block_service", "bulk_ctrl", "net_queue_manager" ],
     flounderBindings = [ "block_service", "bulk_ctrl" ],
-    architectures = [ "x86_64", "x86_32" ]
+    architectures = [ "x86_64", "x86_32" ],
+    mackerelDevices = [ "e10k", "e10k_q" ] --  used by bulk_transfer
   },
 
   build application {
@@ -28,6 +29,7 @@
     addLibraries = libDeps [ "bulk_transfer", "lwip", "bench" ],
     flounderDefs = [ "block_service", "bulk_ctrl", "net_queue_manager" ],
     flounderBindings = [ "block_service", "bulk_ctrl" ],
-    architectures = [ "x86_64", "x86_32" ]
+    architectures = [ "x86_64", "x86_32" ],
+    mackerelDevices = [ "e10k", "e10k_q" ] -- used by bulk_transfer
   }
 ]
