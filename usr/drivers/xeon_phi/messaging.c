@@ -752,8 +752,10 @@ errval_t messaging_send_open_to_xphi(uint8_t xphi,
     assert(xphi < XEON_PHI_NUM_MAX);
 
     XMESSAGING_DEBUG("Sending OPEN message [%u] -> [%u]\n", xeon_phi->id, xphi);
+    if (xeon_phi->topology[xphi].msg == NULL) {
+        return XEON_PHI_ERR_MSG_NOT_REACHABLE;
+    }
 
-    assert(xeon_phi->topology[xphi].msg);
     struct xnode *node = &xeon_phi->topology[xphi];
     if (node->state != XNODE_STATE_READY) {
         return -1;  //TODO: error code
