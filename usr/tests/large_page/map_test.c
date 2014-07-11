@@ -37,10 +37,45 @@ int main(void)
 
     for (int k = 0; k < RUNS; k++) {
         debug_printf("Running 2M test\n");
-        // map with alignment and huge flag (don't need memobj and vregion)
+        // map with alignment and large flag (don't need memobj)
         err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
                 VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE,
                 X86_64_HUGE_PAGE_SIZE, NULL, &vregion);
+        if (err_is_fail(err)) {
+            debug_printf("vspace_map: %s\n", err_getstring(err));
+            return 1;
+        }
+
+        debug_printf("vaddr: %p\n", vbuf);
+
+        // touch every 4k page in region
+        buf = vbuf;
+        for (int i = 0; i < X86_64_HUGE_PAGE_SIZE / X86_64_BASE_PAGE_SIZE; i++) {
+            buf[i*BASE_PAGE_SIZE] = i % 256;
+        }
+        // clear out caches
+        sys_debug_flush_cache();
+        errors = 0;
+        for (int i = 0; i < X86_64_HUGE_PAGE_SIZE / X86_64_BASE_PAGE_SIZE; i++) {
+            if (buf[i*BASE_PAGE_SIZE] != i % 256) {
+                debug_printf("mismatch in page %d: expected %d, was %d\n",
+                        i, i % 256, buf[i*BASE_PAGE_SIZE]);
+                errors++;
+            }
+        }
+        debug_printf("2M test %s\n", errors ? "FAILED" : "PASSED");
+        if (errors) {
+            debug_printf("  %d errors\n", errors);
+        }
+
+        vregion_destroy(vregion);
+    }
+    for (int k = 0; k < RUNS; k++) {
+        debug_printf("Running 4k/2M test\n");
+        // map with large flag
+        err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
+                VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE,
+                0 /* no alignment requirement */, NULL, &vregion);
         if (err_is_fail(err)) {
             debug_printf("vspace_map: %s\n", err_getstring(err));
             return 1;
