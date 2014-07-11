@@ -36,7 +36,7 @@ int main(void)
     }
 
     for (int k = 0; k < RUNS; k++) {
-        debug_printf("Running 2M test\n");
+        debug_printf("Running 2M/1G test\n");
         // map with alignment and large flag (don't need memobj)
         err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
                 VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE,
@@ -71,7 +71,7 @@ int main(void)
         vregion_destroy(vregion);
     }
     for (int k = 0; k < RUNS; k++) {
-        debug_printf("Running 4k/2M test\n");
+        debug_printf("Running 4k+2M/4k test\n");
         // map with large flag
         err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
                 VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE,
@@ -98,7 +98,7 @@ int main(void)
                 errors++;
             }
         }
-        debug_printf("2M test %s\n", errors ? "FAILED" : "PASSED");
+        debug_printf("4k+2M test %s\n", errors ? "FAILED" : "PASSED");
         if (errors) {
             debug_printf("  %d errors\n", errors);
         }
@@ -109,7 +109,7 @@ int main(void)
     uint32_t eax, ebx, ecx, edx;
     cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
     if ((edx >> 26) & 1) {
-        debug_printf("Running 1G test\n");
+        debug_printf("Running 1G/1G test\n");
         err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
                 VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_HUGE,
                 X86_64_HUGE_PAGE_SIZE, NULL, &vregion);
