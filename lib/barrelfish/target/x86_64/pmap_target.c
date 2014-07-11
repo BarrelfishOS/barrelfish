@@ -577,13 +577,15 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     // TODO: overestimating needed slabs shouldn't hurt much in the long run,
     // and would keep the code easier to read and possibly faster due to less
     // branching
-    if (flags&VREGION_FLAGS_LARGE) {
+    if ((flags & VREGION_FLAGS_LARGE) &&
+        (vaddr & X86_64_LARGE_PAGE_MASK) == 0) {
         //case large pages (2MB)
         size   += LARGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, LARGE_PAGE_SIZE);
         offset -= LARGE_PAGE_OFFSET(offset);
         max_slabs = max_slabs_for_mapping_large(size);
-    } else if (flags&VREGION_FLAGS_HUGE) {
+    } else if ((flags & VREGION_FLAGS_HUGE) &&
+               (vaddr & X86_64_HUGE_PAGE_MASK) == 0) {
         // case huge pages (1GB)
         size   += HUGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, HUGE_PAGE_SIZE);
@@ -659,7 +661,7 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (outpage) {
         *outpage = page;
     }
-    if (pt) {
+    if (pt && page) {
         return true;
     } else {
         return false;
@@ -672,35 +674,30 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
     errval_t err;
     struct vnode *pt = NULL, *page = NULL;
 
-    find_mapping(pmap, vaddr, &pt, &page);
+    if (!find_mapping(pmap, vaddr, &pt, &page)) {
+        return LIB_ERR_PMAP_FIND_VNODE;
+    }
+    assert(pt && pt->is_vnode && page && !page->is_vnode);
 
-    assert(pt->is_vnode && !page->is_vnode);
+    if (page->u.frame.pte_count == pte_count) {
+        err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry,
+                page->u.frame.pte_count);
+        if (err_is_fail(err)) {
+            printf("vnode_unmap returned error: %s (%d)\n",
+                    err_getstring(err), err_no(err));
+            return err_push(err, LIB_ERR_VNODE_UNMAP);
+        }
 
-    if (pt) {
-        if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry,
-                              page->u.frame.pte_count);
+        // Free up the resources
+        if (delete_cap) {
+            err = cap_destroy(page->u.frame.cap);
             if (err_is_fail(err)) {
-                printf("vnode_unmap returned error: %s (%d)\n",
-                        err_getstring(err), err_no(err));
-                return err_push(err, LIB_ERR_VNODE_UNMAP);
+                printf("delete_cap\n");
+                return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
             }
-
-            // Free up the resources
-            if (delete_cap) {
-                err = cap_destroy(page->u.frame.cap);
-                if (err_is_fail(err)) {
-                    printf("delete_cap\n");
-                    return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
-                }
-            }
-            remove_vnode(pt, page);
-            slab_free(&pmap->slab, page);
         }
-        else {
-            printf("else, pmap find\n");
-            return LIB_ERR_PMAP_FIND_VNODE;
-        }
+        remove_vnode(pt, page);
+        slab_free(&pmap->slab, page);
     }
 
     return SYS_ERR_OK;
@@ -765,7 +762,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     {
         // fast path
         err = do_single_unmap(x86, vaddr, size / page_size, false);
-        if (err_is_fail(err)) {
+        if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error fast path\n");
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -775,7 +772,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         uint32_t c = X86_64_PTABLE_SIZE - table_base;
 
         err = do_single_unmap(x86, vaddr, c, false);
-        if (err_is_fail(err)) {
+        if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error first leaf\n");
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -785,7 +782,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         while (get_addr_prefix(vaddr, map_bits) < get_addr_prefix(vend, map_bits)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE, true);
-            if (err_is_fail(err)) {
+            if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error while loop\n");
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -800,7 +797,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         assert(c < X86_64_PTABLE_SIZE);
         if (c) {
             err = do_single_unmap(x86, vaddr, c, true);
-            if (err_is_fail(err)) {
+            if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error remaining part\n");
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
