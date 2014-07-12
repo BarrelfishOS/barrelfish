@@ -288,51 +288,24 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t table_base = X86_64_PTABLE_BASE(vaddr);
     uint8_t map_bits  = X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
     bool debug_out    = false;
-    vregion_flags_t mixed_mapping = 0;
-    if ((flags & VREGION_FLAGS_LARGE) &&
-        (vaddr & X86_64_LARGE_PAGE_MASK) == 0) {
-        // large page branch (2MB)
-        page_size  = X86_64_LARGE_PAGE_SIZE;
-        table_base = X86_64_PDIR_BASE(vaddr);
-        map_bits   = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
-        if (flags & VREGION_FLAGS_HUGE) {
-            // take out huge flag from vregion flags and set mixed_mapping
-            // hint.
-            flags &= ~VREGION_FLAGS_HUGE;
-            mixed_mapping = VREGION_FLAGS_HUGE;
-        }
-        debug_out  = false;
-    } else if ((flags & VREGION_FLAGS_HUGE) &&
-               (vaddr & X86_64_HUGE_PAGE_MASK) == 0) {
-        // huge page branch (1GB); no mixed mappings for this configuration
+    if ((flags & VREGION_FLAGS_HUGE) &&
+        (vaddr & X86_64_HUGE_PAGE_MASK) == 0)
+    {
+        // huge page branch (1GB)
         page_size  = X86_64_HUGE_PAGE_SIZE;
         table_base = X86_64_PDPT_BASE(vaddr);
         map_bits   = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
         debug_out  = false;
+        // remove large flag, if we're doing huge mapping
         flags     &= ~VREGION_FLAGS_LARGE;
-    } else if (flags & (VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE)) {
-        const char *flagstr = NULL;
-        switch (flags & (VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE)) {
-            case VREGION_FLAGS_LARGE:
-                flagstr = "VREGION_FLAGS_LARGE";
-                break;
-            case VREGION_FLAGS_HUGE:
-                flagstr = "VREGION_FLAGS_HUGE";
-                break;
-            case VREGION_FLAGS_HUGE|VREGION_FLAGS_LARGE:
-                flagstr = "VREGION_FLAGS_HUGE|VREGION_FLAGS_LARGE";
-                break;
-            default:
-                flagstr = "0";
-                break;
-        }
-        debug_printf("Treating '%s' as a hint for mixed-page-size mapping\n",
-                flagstr);
-        // take out actual large/huge flags for mixed mapping code
-        // and set mixed_mapping hint to set of large/huge flags that were
-        // present in original flags
-        mixed_mapping = flags & (VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE);
-        flags        &= ~(VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE);
+    } else if ((flags & VREGION_FLAGS_LARGE) &&
+               (vaddr & X86_64_LARGE_PAGE_MASK) == 0)
+    {
+        // large page branch (2MB)
+        page_size  = X86_64_LARGE_PAGE_SIZE;
+        table_base = X86_64_PDIR_BASE(vaddr);
+        map_bits   = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
+        debug_out  = false;
     }
 
     // round to the next full page
@@ -362,7 +335,6 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 #endif
 
     // all mapping on one leaf table?
-    // TODO: needs some work for mixed-size mappings
     if (is_same_pdir(vaddr, vend) ||
         (flags & VREGION_FLAGS_LARGE && is_same_pdpt(vaddr, vend)) ||
         (flags & VREGION_FLAGS_HUGE && is_same_pml4(vaddr, vend))) {
@@ -598,7 +570,6 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
         offset -= BASE_PAGE_OFFSET(offset);
         max_slabs = max_slabs_for_mapping(size);
     }
-
 
     // Refill slab allocator if necessary
     size_t slabs_free = slab_freecount(&x86->slab);
