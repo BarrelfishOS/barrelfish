@@ -292,8 +292,8 @@ frameinfo_struct :: String -> [MessageDef] -> C.Unit
 frameinfo_struct n ml = C.StructDecl (intf_frameinfo_type n) fields
   where
     fields = [
-        C.ParamComment "Pointer to incoming message buffer",
-        C.Param (C.Struct "capref") "frame",
+        C.ParamComment "Physical address of send buffer",
+        C.Param (C.TypeName "lpaddr_t") "sendbase",
         C.ParamBlank,
         C.ParamComment "Pointer to incoming message buffer",
         C.Param (C.Ptr C.Void) "inbuf",
