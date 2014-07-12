@@ -65,11 +65,9 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
                 // TODO: check if the system allows 1GB mappings
                 page_size = X86_64_HUGE_PAGE_SIZE;
-                
-                                
                 // check offset within frame
                 genpaddr_t off = offset;
-              
+
                 if (off + pte_count * X86_64_HUGE_PAGE_SIZE > get_size(src)) {
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
@@ -87,8 +85,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         case ObjType_VNode_x86_64_pdir:
             // superpage support
             if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
-                page_size = X86_64_LARGE_PAGE_SIZE;               
-                                
+                page_size = X86_64_LARGE_PAGE_SIZE;
+
                 // check offset within frame
                 genpaddr_t off = offset;
               
@@ -104,7 +102,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 flags_large |= X86_64_PTABLE_FLAGS(flags);
                 // Unconditionally mark the page present
                 flags_large |= X86_64_PTABLE_PRESENT;
-                
+
             }
             break;
         default:
@@ -138,10 +136,10 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             printf("slot in use\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
-        
+
         // determine if we map a large/huge page or a normal entry
         if (page_size == X86_64_LARGE_PAGE_SIZE)
-        {  
+        {
             //a large page is mapped
             paging_x86_64_map_large((union x86_64_ptable_entry *)entry, src_lp + offset, flags_large);
         } else if (page_size == X86_64_HUGE_PAGE_SIZE) {
@@ -395,7 +393,7 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, 
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
