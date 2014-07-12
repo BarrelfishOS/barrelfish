@@ -37,6 +37,9 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
             if (only_pages) {
                 return has_vnode(n, 0, PTABLE_SIZE, true);
             }
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("1: found page table inside our region\n");
+#endif
             return true;
         } else if (n->is_vnode) {
             // all other vnodes do not overlap with us, so go to next
@@ -52,12 +55,27 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
         // 3) end_entry inside n (end_entry >= n->entry && end_entry < end)
         uint32_t end = n->entry + n->u.frame.pte_count;
         if (entry < n->entry && end_entry >= end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("2: found a strict subset of our region: (%"
+                    PRIu32"--%"PRIu32") < (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
             return true;
         }
         if (entry >= n->entry && entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("3: found a region starting inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
             return true;
         }
         if (end_entry > n->entry && end_entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("4: found a region ending inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
             return true;
         }
     }
