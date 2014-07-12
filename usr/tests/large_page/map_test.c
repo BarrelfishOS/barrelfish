@@ -63,7 +63,7 @@ int main(void)
                 errors++;
             }
         }
-        debug_printf("2M test %s\n", errors ? "FAILED" : "PASSED");
+        debug_printf("2M/1G test %s\n", errors ? "FAILED" : "PASSED");
         if (errors) {
             debug_printf("  %d errors\n", errors);
         }
@@ -71,11 +71,11 @@ int main(void)
         vregion_destroy(vregion);
     }
     for (int k = 0; k < RUNS; k++) {
-        debug_printf("Running 4k+2M/4k test\n");
+        debug_printf("Running 2M/2M test\n");
         // map with large flag
         err = vspace_map_one_frame_attr_aligned(&vbuf, retsize, frame,
                 VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE,
-                0 /* no alignment requirement */, NULL, &vregion);
+                X86_64_LARGE_PAGE_SIZE, NULL, &vregion);
         if (err_is_fail(err)) {
             debug_printf("vspace_map: %s\n", err_getstring(err));
             return 1;
@@ -98,7 +98,7 @@ int main(void)
                 errors++;
             }
         }
-        debug_printf("4k+2M test %s\n", errors ? "FAILED" : "PASSED");
+        debug_printf("2M/2M test %s\n", errors ? "FAILED" : "PASSED");
         if (errors) {
             debug_printf("  %d errors\n", errors);
         }
@@ -133,7 +133,7 @@ int main(void)
                 errors++;
             }
         }
-        debug_printf("1G test %s\n", errors ? "FAILED" : "PASSED");
+        debug_printf("1G/1G test %s\n", errors ? "FAILED" : "PASSED");
         if (errors) {
             debug_printf("  %d errors\n", errors);
         }
