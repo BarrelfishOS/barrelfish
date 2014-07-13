@@ -9,6 +9,6 @@
 
 interface flounderbootstrap "Test interface" {
         message init(cap frame);
-        message ack(uint32 arg, string s);
+        message ack();
         message test(uint32 msg);
 };

@@ -11,182 +11,206 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#define _USE_XOPEN /* for strdup() */
 #include <string.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/debug.h>
-#include <if/flounderbootstrap_defs.h>
 
-#if 0
+#include <if/flounderbootstrap_defs.h>
 
 static const char *my_service_name = "flounderbootstrap";
 
+struct flounderbootstrap_binding *binding;
 
+struct flounderbootstrap_binding *test_b;
 
+uint8_t is_server = 0x0;
+
+static void *addr;
+
+#define CHANNEL_SIZE BASE_PAGE_SIZE
+
+#define BOOTSTRAP_FRAME_SIZE (2 * CHANNEL_SIZE)
+
+struct flounderbootstrap_frameinfo frame_info;
+
+struct capref frame;
+
+static void bind_bootstrap_cb(void *st,
+                              errval_t err,
+                              struct flounderbootstrap_binding *b);
+
+/* */
+
+struct tx_msg_st
+{
+    struct capref cap;
+    uint32_t msg;
+};
+
+static void tx_init(void *a)
+{
+    errval_t err;
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = flounderbootstrap_init__tx(binding, txcont, frame);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(tx_init, a);
+            err = binding->register_send(binding, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not send\n");
+            }
+        }
+    }
+}
+
+static void tx_ack(void *a)
+{
+    errval_t err;
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = flounderbootstrap_ack__tx(binding, txcont);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(tx_ack, NULL);
+            err = binding->register_send(binding, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not send\n");
+            }
+        }
+    }
+}
+
+static void tx_test(void *a)
+{
+    errval_t err;
+
+    struct event_closure txcont = MKCONT(NULL, a);
+
+    err = flounderbootstrap_test__tx(test_b, txcont, 0xcafebabe);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            txcont = MKCONT(tx_test, a);
+            err = binding->register_send(binding, get_default_waitset(), txcont);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not send\n");
+            }
+        }
+    }
+}
 
 /* ------------------------ COMMON MESSAGE HANDLERS ------------------------ */
 
-static void rx_basic(struct test_binding *b, uint32_t arg)
+static void rx_init(struct flounderbootstrap_binding *b,
+                    struct capref cap)
 {
-    printf("rx_basic %"PRIu32"\n", arg);
+    errval_t err;
+
+    debug_printf("rx_init message\n");
+
+    frame = cap;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to identify the frame");
+    }
+
+    assert((1UL << id.bits) >= (2 * CHANNEL_SIZE));
+
+    frame_info.sendbase = id.base;
+
+    err = vspace_map_one_frame(&addr, (1UL << id.bits), cap, NULL, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to map the frame");
+    }
+
+    frame_info.outbuf = addr;
+    frame_info.outbufsize = CHANNEL_SIZE;
+    frame_info.inbuf = ((uint8_t *)addr) + CHANNEL_SIZE;
+    frame_info.inbufsize = CHANNEL_SIZE;
+
+    debug_printf("Bootstrap channel: IN[%p], OUT[%p]\n", frame_info.inbuf, frame_info.outbuf);
+
+
+    debug_printf("BOOTSTRAP: CONNECT\n");
+    struct waitset *ws = get_default_waitset();
+    err = flounderbootstrap_connect(&frame_info, bind_bootstrap_cb, NULL, ws, IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not connect \n");
+    }
+
+    debug_printf("BOOTSTRAP: CONNECT succeeded.\n");
+
+    tx_ack(NULL);
 }
 
-static void rx_str(struct test_binding *b, uint32_t arg, char *s)
+static void rx_ack(struct flounderbootstrap_binding *b)
 {
-    printf("rx_str %"PRIu32" '%s'\n", arg, s);
-    free(s);
+    debug_printf("rx_ack message\n");
+    while(test_b == NULL) {
+        messages_wait_and_handle_next();
+    }
+
+    tx_test(NULL);
 }
 
-static void rx_caps(struct test_binding *b, uint32_t arg,
-                    struct capref cap1, struct capref cap2)
+uint32_t counter = 0x10;
+
+static void rx_test(struct flounderbootstrap_binding *b,
+                    uint32_t arg)
 {
-    char buf1[256], buf2[256];
-    debug_print_cap_at_capref(buf1, sizeof(buf1), cap1);
-    debug_print_cap_at_capref(buf2, sizeof(buf2), cap2);
-    buf1[sizeof(buf1) - 1] = '\0';
-    buf2[sizeof(buf2) - 1] = '\0';
-    printf("rx_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
+    if (is_server) {
+        debug_printf("SERVER: rx_test message: %x\n", arg);
+    } else {
+        debug_printf("CLIENT: rx_test message: %x\n", arg);
+    }
+
+    assert(b == test_b);
+
+    if (counter--) {
+        tx_test(NULL);
+    }
 }
 
-static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
-{
-    printf("rx_buf (%zu bytes)\n", buflen);
-    free(buf);
-}
-
-static struct test_rx_vtbl rx_vtbl = {
-    .basic = rx_basic,
-    .str = rx_str,
-    .caps = rx_caps,
-    .buf = rx_buf,
+static struct flounderbootstrap_rx_vtbl rx_vtbl = {
+    .init = rx_init,
+    .ack = rx_ack,
+    .test = rx_test,
 };
 
 /* ------------------------------ CLIENT ------------------------------ */
 
-struct client_state {
-    struct test_binding *binding;
-    int nextmsg;
-    char *str;
-    struct capref cap1, cap2;
-};
-
-// send the next message in our sequence
-static void send_cont(void *arg)
+static void connect_bootstrap_cb(void *st,
+                                 errval_t err,
+                                 struct flounderbootstrap_binding *b)
 {
-    struct client_state *myst = arg;
-    struct test_binding *b = myst->binding;
-    struct event_closure txcont = MKCONT(send_cont, myst);
-    errval_t err;
+    debug_printf("BOOTSTRAP:  connect callback\n");
 
-    printf("client sending msg %d\n", myst->nextmsg);
+    b->rx_vtbl = rx_vtbl;
 
-    switch(myst->nextmsg) {
-    case 0:
-        err = test_basic__tx(b, txcont, 7);
-        break;
-
-    case 1:
-        // send a static string
-        err = test_str__tx(b, txcont, 9, shortstr);
-        break;
-
-    case 2:
-        // send a "dynamically allocated" string
-        myst->str = strdup(shortstr);
-        err = test_str__tx(b, txcont, 37, myst->str);
-        break;
-
-    case 3:
-        // deallocate the string we sent in the previous message
-        free(myst->str);
-
-        // send a long string
-        err = test_str__tx(b, txcont, 42, longstr);
-        break;
-
-    case 4:
-        // create some caps to send (assume it all works)
-        err = frame_alloc(&myst->cap1, BASE_PAGE_SIZE, NULL);
-        assert(err_is_ok(err));
-
-        err = slot_alloc(&myst->cap2);
-        assert(err_is_ok(err));
-
-        err = vnode_create(myst->cap2, ObjType_VNode_x86_64_ptable);
-        assert(err_is_ok(err));
-
-        err = test_caps__tx(b, txcont, 69, myst->cap1, myst->cap2);
-        break;
-
-    case 5:
-        // delete the caps, now they've been sent
-        err = cap_destroy(myst->cap1);
-        assert(err_is_ok(err));
-
-        err = cap_destroy(myst->cap2);
-        assert(err_is_ok(err));
-
-        // send a "buffer"
-        err = test_buf__tx(b, txcont, (uint8_t *)longstr, strlen(longstr));
-        break;
-
-    case 6:
-        // here is where we would deallocate the buffer, if it wasn't static
-        printf("client all done!\n");
-        return;
-
-    default:
-        err = LIB_ERR_NOT_IMPLEMENTED; // TODO: Make meaningful
-        assert(!"shouldn't happen");
-    }
-
-    if (err_is_ok(err)) {
-        myst->nextmsg++;
-    } else {
-        DEBUG_ERR(err, "error sending message %d", myst->nextmsg);
-
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            assert(!"binding is busy for tx?!");
-
-            // this error should never happen to us, because we serialise all
-            // sends with the continuation, however it may happen in another
-            // situation if the binding is already busy sending. in this case,
-            // the user can use something like:
-
-            struct waitset *ws = get_default_waitset();
-            err = b->register_send(b, ws, txcont);
-            if (err_is_fail(err)) {
-                // note that only one continuation may be registered at a time
-                DEBUG_ERR(err, "register_send on binding failed!");
-            }
-        }
-
-        abort();
-    }
+    test_b = b;
 }
 
-static void bind_cb(void *st, errval_t err, struct test_binding *b)
+static void bind_cb(void *st,
+                    errval_t err,
+                    struct flounderbootstrap_binding *b)
 {
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bind failed");
     }
 
-    printf("client bound!\n");
+    debug_printf("client bound!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
 
-    // construct local per-binding state
-    struct client_state *myst = malloc(sizeof(struct client_state));
-    assert(myst != NULL);
-    myst->nextmsg = 0;
-    myst->binding = b;
-    b->st = myst;
+    binding = b;
 
-    // start sending stuff to the service
-    send_cont(myst);
+    tx_init(NULL);
 }
 
 static void start_client(void)
@@ -194,15 +218,50 @@ static void start_client(void)
     iref_t iref;
     errval_t err;
 
-    printf("client looking up '%s' in name service...\n", my_service_name);
+    debug_printf("allocating frame for bootstraping test\n");
+    err = frame_alloc(&frame, BOOTSTRAP_FRAME_SIZE, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not allocate frame\n");
+    }
+
+    err = vspace_map_one_frame(&addr, BOOTSTRAP_FRAME_SIZE, frame, NULL, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not map the frame\n");
+    }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "frameid failed");
+    }
+    frame_info.sendbase = id.base + CHANNEL_SIZE;
+    frame_info.inbuf = ((uint8_t *)addr);
+    frame_info.inbufsize = CHANNEL_SIZE;
+    frame_info.outbuf = ((uint8_t *)addr) + CHANNEL_SIZE;
+    frame_info.outbufsize = CHANNEL_SIZE;
+
+    debug_printf("Bootstrap channel: IN[%p], OUT[%p]\n", frame_info.inbuf, frame_info.outbuf);
+
+    struct waitset *ws = get_default_waitset();
+
+    debug_printf("Bootstraping: ACCEPT\n");
+    err = flounderbootstrap_accept(&frame_info, NULL, connect_bootstrap_cb, ws, IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not accept.\n");
+    }
+
+    debug_printf("Bootstraping: ACCEPT succeded.\n");
+
+    debug_printf("client looking up '%s' in name service...\n", my_service_name);
     err = nameservice_blocking_lookup(my_service_name, &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    printf("client binding to %"PRIuIREF"...\n", iref);
-    err = test_bind(iref, bind_cb, NULL /* state pointer for bind_cb */,
-                    get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    debug_printf("client binding to %"PRIuIREF"...\n", iref);
+    err = flounderbootstrap_bind(iref, bind_cb, NULL ,
+                                 get_default_waitset(),
+                                 IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bind failed");
     }
@@ -210,27 +269,44 @@ static void start_client(void)
 
 /* ------------------------------ SERVER ------------------------------ */
 
-static void export_cb(void *st, errval_t err, iref_t iref)
+static void bind_bootstrap_cb(void *st,
+                              errval_t err,
+                              struct flounderbootstrap_binding *b)
+{
+    debug_printf("BOOTSTRAP:  bind callback\n");
+
+    b->rx_vtbl = rx_vtbl;
+
+    test_b = b;
+}
+
+static void export_cb(void *st,
+                      errval_t err,
+                      iref_t iref)
 {
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
     }
-
-    printf("service exported at iref %"PRIuIREF"\n", iref);
 
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
+
+    debug_printf("service %s exported at iref %"PRIuIREF"\n", my_service_name, iref);
 }
 
-static errval_t connect_cb(void *st, struct test_binding *b)
+static errval_t connect_cb(void *st,
+                           struct flounderbootstrap_binding *b)
 {
-    printf("service got a connection!\n");
+    debug_printf("client connected!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
+
+    assert(binding == NULL);
+    binding = b;
 
     // accept the connection (we could return an error to refuse it)
     return SYS_ERR_OK;
@@ -240,20 +316,27 @@ static void start_server(void)
 {
     errval_t err;
 
-    err = test_export(NULL /* state pointer for connect/export callbacks */,
-                      export_cb, connect_cb, get_default_waitset(),
-                      IDC_EXPORT_FLAGS_DEFAULT);
+    debug_printf("Starting server...\n");
+
+    is_server = 0x1;
+
+    err = flounderbootstrap_export(NULL,
+                                   export_cb,
+                                   connect_cb,
+                                   get_default_waitset(),
+                                   IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
     }
 }
-#endif
+
 /* ------------------------------ MAIN ------------------------------ */
 
-int main(int argc, char *argv[])
+int main(int argc,
+         char *argv[])
 {
     errval_t err;
-#if 0
+
     if (argc == 2 && strcmp(argv[1], "client") == 0) {
         start_client();
     } else if (argc == 2 && strcmp(argv[1], "server") == 0) {
@@ -262,7 +345,7 @@ int main(int argc, char *argv[])
         printf("Usage: %s client|server\n", argv[0]);
         return EXIT_FAILURE;
     }
-#endif
+
     struct waitset *ws = get_default_waitset();
     while (1) {
         err = event_dispatch(ws);
