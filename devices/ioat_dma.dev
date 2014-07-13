@@ -7,7 +7,7 @@
  */
 
 /*
- * cb_dma.dev
+ * ioat_dma.dev
  *
  * DESCRIPTION: Crystal Beach DMA  Engine register descriptor 
  * 
@@ -16,7 +16,7 @@
  * 
  */
 
-device cb_dma msbfirst ( addr config, addr bar ) "Crystal Beach DMA regsiters" {
+device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) registers" {
 
     /*
      * Section 1.2.1.3, Table 1-1: Functions Specifically Handled by the Processor
