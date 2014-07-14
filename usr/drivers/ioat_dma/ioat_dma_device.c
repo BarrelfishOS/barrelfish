@@ -25,15 +25,20 @@ static void ioat_dma_do_interrupt(void *arg)
 
 }
 
-static errval_t device_setup_interrupts(struct ioat_dma_device *dev)
+static errval_t device_setup_interrupts(struct ioat_dma_device *dev,
+                                        enum ioat_dma_irq irq_type)
 {
     errval_t err;
 
-    dev->irq_type = IOAT_DMA_IRQ_TYPE;
+    uint16_t msi_count;
+
+    ioat_dma_intrctrl_t intcrtl = 0;
+    intcrtl = ioat_dma_intrctrl_intp_en_insert(intcrtl, 1);
+
+    dev->irq_type = irq_type;
     switch (dev->irq_type) {
         case IOAT_DMA_IRQ_MSIX:
-            ;
-            uint16_t msi_count;
+            assert(!"NYI");
             err = pci_msix_enable(&msi_count);
 
             IODEV_DEBUG("Initializing %u MSI-X Vectors\n", msi_count);
@@ -53,11 +58,15 @@ static errval_t device_setup_interrupts(struct ioat_dma_device *dev)
         case IOAT_DMA_IRQ_MSI:
             break;
         case IOAT_DMA_IRQ_INTX:
+
             break;
         default:
             /* disabled */
+            intcrtl = 0
             break;
     }
+
+    ioat_dma_intrctrl_wr(&dev->device, intcrtl);
 
     return SYS_ERR_OK;
 }
@@ -149,22 +158,9 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
         return err;
     }
 
-
-#if 0
-
-    err = device->self_test(device);
-
-    ioat_set_tcp_copy_break(262144);
-
-    err = ioat_register(device);
-    if (err)
-    return err;
-
-    ioat_kobject_add(device, &ioat2_ktype);
-
-    if (dca)
-    device->dca = ioat3_dca_init(pdev, device->reg_base);
-#endif
+    if (dev->flags & IOAT_DMA_DEV_F_DCA) {
+        /*TODO: DCA initialization device->dca = ioat3_dca_init(pdev, device->reg_base);*/
+    }
 
     return SYS_ERR_OK;
 }
@@ -361,7 +357,7 @@ errval_t ioat_dma_device_discovery(struct pci_addr addr,
                 return err;
             }
 
-            dev_cnt = i + 1;
+            dev_cnt = i;
             break;
         }
 
