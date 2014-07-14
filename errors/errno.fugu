@@ -1060,3 +1060,9 @@ errors xeon_phi XEON_PHI_ERR_ {
     failure DMA_REQ_SIZE         "The requested transfer size is too big",
     failure DMA_MEM_OUT_OF_RANGE "The physical address is out of range",
 };
+
+errors ioat IOAT_ERR_ {
+    failure PCI_ADDRESS           "The PCI address of the device is not as expected",
+    failure DEVICE_UNSUPPORTED    "Device ID not supported /  wrong configuration",
+    
+};

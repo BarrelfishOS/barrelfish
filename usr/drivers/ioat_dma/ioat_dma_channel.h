@@ -11,10 +11,7 @@
 #define IOAT_DMA_CHANNEL_H
 
 
-struct ioat_dma_channel
-{
-
-};
+struct ioat_dma_channel;
 
 /**
  * \brief initializes a new DMA channel and allocates the channel resources
@@ -24,9 +21,12 @@ struct ioat_dma_channel
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_chan_init(struct ioat_dma_chan **chan);
+errval_t ioat_dma_channel_init(struct ioat_dma_device *dev);
 
-void ioat_dma_chan_free(struct ioat_dma_chan *chan);
+errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan);
 
+void ioat_dma_chan_free(struct ioat_dma_channel *chan);
+
+errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan);
 
 #endif /* IOAT_DMA_CHANNEL_H */

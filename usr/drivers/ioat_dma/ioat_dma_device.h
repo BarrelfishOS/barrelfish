@@ -12,6 +12,14 @@
 
 #include <dev/ioat_dma_dev.h>
 
+#define PCI_ADDR_DONT_CARE 0x10000
+
+
+struct pci_addr {
+    uint32_t bus;
+    uint32_t device;
+    uint32_t function;
+};
 
 enum ioat_dma_dev_st {
     IOAT_DMA_DEV_ST_UNINITIALIZED,
@@ -58,31 +66,53 @@ enum ioat_dma_dev_st {
 
 #define IOAT_DMA_CHAN_COUNT 8
 
-typedef uint16_t ioat_dma_devid_t;
+#define IOAT_DMA_BAR_COUNT 1
 
+typedef uint8_t ioat_dma_devid_t;
+
+enum ioat_dma_irq {
+    IOAT_DMA_IRQ_DISABLED,
+    IOAT_DMA_IRQ_MSIX,
+    IOAT_DMA_IRQ_MSI,
+    IOAT_DMA_IRQ_INTX,
+};
+
+/* device flags */
+#define IOAT_DMA_DEV_F_DCA  0x00000001
+#define IOAT_DMA_DEV_F_RAID 0x00000002
+
+struct ioat_dma_fn
+{
+
+};
 
 struct ioat_dma_device
 {
     ioat_dma_devid_t devid;
     enum ioat_dma_dev_st state;
     struct {
-        lvaddr_t vbase;
+        void    *vbase;
         lpaddr_t pbase;
         uint8_t  bits;
         uint64_t bytes;
         struct capref cap;
     } mmio;
     ioat_dma_t device;
+    ioat_dma_cbver_t version;
+    uint32_t xfer_size_max;
+    struct ioat_dma_fn fn;
     struct ioat_dma_channel *channels;
     uint8_t chan_num;
+    uint32_t flags;
     struct ioat_dma_ctrl *dma_ctrl;
+    enum ioat_dma_irq irq_type;
 };
 
-errval_t ioat_dma_device_init(uint16_t device_id,
-                              struct pci_address addr,
+errval_t ioat_dma_device_init(struct pci_addr addr,
+                              uint16_t device_id,
                               struct ioat_dma_device *dev);
 
-errval_t ioat_dma_device_discovery(struct pci_address addr,
+errval_t ioat_dma_device_discovery(struct pci_addr addr,
                                    uint16_t device_id,
                                    struct ioat_dma_ctrl *ctrl);
 

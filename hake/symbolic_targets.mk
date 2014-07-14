@@ -180,7 +180,8 @@ MODULES_x86_64= \
 	sbin/spin \
 	sbin/xeon_phi_test \
 	sbin/virtio_blk_host \
-	sbin/virtio_blk
+	sbin/virtio_blk \
+	sbin/ioat_dma
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \

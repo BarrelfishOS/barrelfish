@@ -10,8 +10,13 @@
  *
  */
 
-int main(int argc, char *argv[])
-{
-    return 0;
-}
+#include <barrelfish/barrelfish.h>
 
+#include "ioat_dma_descriptors.h"
+
+errval_t ioat_dma_desc_alloc_init(size_t element_size,
+                                  size_t align)
+{
+    assert(!"NYI");
+    return SYS_ERR_OK;
+}

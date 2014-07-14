@@ -10,10 +10,20 @@
 #ifndef IOAT_DMA_H
 #define IOAT_DMA_H
 
+
+struct ioat_dma_device;
+struct ioat_dma_channel;
+
+
+#define IOAT_DMA_DCA_ENABLE 1
+
+#define IOAT_DMA_IRQ_TYPE IOAT_DMA_IRQ_DISABLED
+
 struct ioat_dma_ctrl
 {
     uint16_t device_num;
     struct ioat_dma_device *devices;
+    uint8_t dca_enabled;
 };
 
 

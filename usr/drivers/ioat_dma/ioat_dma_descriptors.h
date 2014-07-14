@@ -10,18 +10,30 @@
 #ifndef IOAT_DMA_DESCRIPTORS_H
 #define IOAT_DMA_DESCRIPTORS_H
 
+struct ioat_dma_desc_pool;
 
 /// the minimum amount of DMA descriptors to allocate
 #define IOAT_DMA_DESC_COUNT
 
+#define IOAT_DMA_DESC_SIZE 0
 
-errval_t ioat_dma_desc_alloc();
+#define IOAT_DMA_DESC_ALIGN 64
 
-errval_t ioat_dma_desc_free();
+/**
+ *
+ */
+errval_t ioat_dma_desc_alloc_init(size_t element_size,
+                                  size_t align);
 
-errval_t ioat_dma_desc_chain_alloc();
 
-errval_t ioat_dma_desc_chain_free();
+
+void *ioat_dma_desc_alloc(void );
+
+errval_t ioat_dma_desc_free(void);
+
+errval_t ioat_dma_desc_chain_alloc(void);
+
+errval_t ioat_dma_desc_chain_free(void);
 
 
 

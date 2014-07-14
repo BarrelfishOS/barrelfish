@@ -19,8 +19,8 @@
 		"ioat_dma_descriptors.c"                      
 	],
 	flounderBindings = [ "dma" ],
-	mackerelDevices = [ "ioat_dma" ],
+	mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
 	addLibraries = libDeps [ "pci", "dma" ],
 	architectures = [ "x86_64"]
-  }
+  }  
 ]
