@@ -18,13 +18,16 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
 {
     assert(mi != NULL);
     errval_t err = SYS_ERR_OK;
+    coreid_t core;
     /*
      *  XXX: there may be more device using this driver, so starting it a second time
      *       may be needed.
      */
-    if (is_started(mi) && strcmp("xeon_phi",mi->binary)) {
+    if (!can_start(mi)) {
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
+
+    core = where + get_core_id_offset(mi);
 
     if (!is_auto_driver(mi)) {
         return KALUGA_ERR_DRIVER_NOT_AUTO;
@@ -36,8 +39,7 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
     char **argv = mi->argv;
     bool cleanup = false;
 
-    err = oct_read(record,
-                    "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+    err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
                     &bus, &dev, &fun, &vendor_id, &device_id);
 
     if (err_is_ok(err)) {
@@ -56,13 +58,8 @@ errval_t default_start_function(coreid_t where, struct module_info* mi,
         argv[mi->argc+1] = NULL;
         cleanup = true;
     }
-
-    if (is_started(mi) && !strcmp("xeon_phi",mi->binary)) {
-        where += 20;
-    }
-
-    err = spawn_program(where, mi->path, argv,
-                    environ, 0, &mi->did);
+    err = spawn_program(core, mi->path, argv,
+                    environ, 0, get_did_ptr(mi));
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
@@ -109,7 +106,7 @@ errval_t start_networking(coreid_t core,
                         driver->argv + 1,
                         environ,
                         0,
-                        &driver->did);
+                        get_did_ptr(driver));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;
@@ -127,7 +124,7 @@ errval_t start_networking(coreid_t core,
 
     // Spawn netd and ngd_mng
     netd->argv[0] = card_argument;
-    err = spawn_program(core, netd->path, netd->argv, environ, 0, &netd->did);
+    err = spawn_program(core, netd->path, netd->argv, environ, 0, get_did_ptr(netd));
 
     ngd_mng->argv[0] = card_argument;
     err = spawn_program(core,
@@ -135,7 +132,7 @@ errval_t start_networking(coreid_t core,
                         ngd_mng->argv,
                         environ,
                         0,
-                        &ngd_mng->did);
+                        get_did_ptr(ngd_mng));
 
     free(card_argument);
     return err;
