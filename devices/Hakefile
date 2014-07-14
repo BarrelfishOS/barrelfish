@@ -102,6 +102,7 @@
            "xeon_phi/xeon_phi_irq",
            "xeon_phi/xeon_phi_dma",
            "ioat_dma",
+           "ioat_dma_chan",
            "pci_sr_iov_cap"
          ], arch <- allArchitectures
 ] ++

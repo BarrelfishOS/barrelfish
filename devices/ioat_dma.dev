@@ -16,7 +16,7 @@
  * 
  */
 
-device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) registers" {
+device ioat_dma msbfirst ( addr cfg_base, addr bar ) "IOAT DMA (Crystal Beach) registers" {
 
     /*
      * Section 1.2.1.3, Table 1-1: Functions Specifically Handled by the Processor
@@ -53,13 +53,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.1
      */
-    register vid ro addr(config, 0x0) "Vendor Identification Number (0x8086)"
+    register vid ro addr(cfg_base, 0x0) "Vendor Identification Number (0x8086)"
         type(uint16);
 
     /*
      * 8.4.2
      */
-    register did ro addr(config, 0x2) "Device Identification Number" {
+    register did ro addr(cfg_base, 0x2) "Device Identification Number" {
         devid    8 "Device ID always 0x0E";
         function 8 "Function number: 0-7";
     }; 
@@ -67,14 +67,14 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.3
      */    
-    register pcicmd addr(config, 0x4) "PCI Command Register" {
+    register pcicmd addr(cfg_base, 0x4) "PCI Command Register" {
         _            5 rsvd "reserved";
         intx_disable 1 rw   "";
-        _            1 ro   "Always reads zero";
+        _            1 rsvd   "Always reads zero";
         serre        1 ro   "";
-        _            1 ro   "Always reads zero";
+        _            1 rsvd "Always reads zero";
         perre        1 ro   "";
-        _            1 ro   "Always reads zero";
+        _            1 rsvd "Always reads zero";
         mwie         1 ro   "";
         sce          1 ro   "";
         bme          1 rw   "";
@@ -85,15 +85,15 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.4
      */    
-    register pcists addr(config, 0x6) "PCI Status Register" {
+    register pcists addr(cfg_base, 0x6) "PCI Status Register" {
         dpe     1 rw1c  "";
         sse     1 ro    "";
         rma     1 ro    "";
         rta     1 ro    "";
         sta     1 rw1c  "";
-        _       2 ro    "Always reads zero";
+        _       2 rsvd  "Always reads zero";
         mdpe    1 rw1c  "";
-        _       3 ro    "Always reads zero";
+        _       3 rsvd  "Always reads zero";
         caplist 1 ro    "indicates the presence of a capabilities list structure";
         intxsts 1 ro    "";
         _       3 rsvd  "reserved";
@@ -102,7 +102,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.5 / 8.4.6
      */ 
-    register rid_ccr ro addr(config, 0x8) "Revision ID and PCI Class" {
+    register rid_ccr ro addr(cfg_base, 0x8) "Revision ID and PCI Class" {
         class      8 "Base class: Generic device";
         subclass   8 "Sub class: Generic device";
         rlpi       8 "Register level programming interface (set to 00)";
@@ -112,13 +112,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.7
      */     
-    register clsr ro addr(config, 0xc) "Cache Line Size (always 64b)" 
+    register clsr ro addr(cfg_base, 0xc) "Cache Line Size (always 64b)" 
         type(uint8);
 
     /*
      * 8.4.8
      */     
-    register hdr ro addr(config, 0xe) "PCI Header Register" {
+    register hdr ro addr(cfg_base, 0xe) "PCI Header Register" {
         mfd         1 ro    "Multifunction device (always 1)";
         cfglayout   1 ro    "Configuration layout (always 0, endpoint)";
         _           6 rsvd  "reserved";
@@ -127,7 +127,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.9 Crystal Beach Base Address Register.
      */     
-    register cb_bar addr(config, 0x10) "Crystal Beach Base Address Register" {
+    register cb_bar addr(cfg_base, 0x10) "Crystal Beach Base Address Register" {
         bar      50 rw   "16 KB aligned 64-bit base address for MMIO regs";
         _        10 rsvd "reserved";
         prefetch  1 ro   "DMA registers are non-prefetchable (always 0)";
@@ -138,25 +138,25 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.10
      */     
-    register svid ro addr(config, 0x2c) "Vendor Identification Number (0x8086)"
+    register svid ro addr(cfg_base, 0x2c) "Vendor Identification Number (0x8086)"
         type(uint16);
 
     /*
      * 8.4.11
      */     
-    register sdid ro addr(config, 0x2e) "Subsystem Identification Number"
+    register sdid ro addr(cfg_base, 0x2e) "Subsystem Identification Number"
         type(uint16);
 
     /*
      * 8.4.12
      */     
-    register capptr ro addr(config, 0x34) "Capability Pointer (first cap structure)"
+    register capptr ro addr(cfg_base, 0x34) "Capability Pointer (first cap structure)"
         type(uint8);
 
     /*
      * 8.4.13
      */     
-    register intl rw addr(config, 0x3c) "Interrupt Line (N/A)"
+    register intl rw addr(cfg_base, 0x3c) "Interrupt Line (N/A)"
         type(uint8);
 
     /*
@@ -165,13 +165,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      * The value of this register depends on the function number
      * 0x1-0x4
      */     
-    register intpin rw addr(config, 0x3d) "Interrupt pin (Function dependent)"
+    register intpin rw addr(cfg_base, 0x3d) "Interrupt pin (Function dependent)"
         type(uint8);
 
     /*
      * 8.4.15 - This DEVCFG is for Function 0 only
      */     
-    register devcfg addr(config, 0x60) "Device Configuration Register" {
+    register devcfg addr(cfg_base, 0x60) "Device Configuration Register" {
         numrd_xor   4 rw   "Number of outstanding requests (set to 0 for max)";
         f1extop     1 rw   "switches in the Function 1 Device ID";
         f0extop     1 rw   "switches in the Function 0 Device ID";
@@ -184,13 +184,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.16
      */     
-    register msixcapid ro addr(config, 0x80) "MSI-X Capability ID"
+    register msixcapid ro addr(cfg_base, 0x80) "MSI-X Capability ID"
         type(uint8);
 
     /*
      * 8.4.17
      */     
-    register msixnxtptr ro addr(config, 0x81) "MSI-X Next Pointer"
+    register msixnxtptr ro addr(cfg_base, 0x81) "MSI-X Next Pointer"
         type(uint8);
 
     constants msixctrl "MSI-X Control values" {
@@ -201,7 +201,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.18
      */     
-    register msixmsgctl addr(config, 0x82) "MSI-X Message Control" {
+    register msixmsgctl addr(cfg_base, 0x82) "MSI-X Message Control" {
         msi_x_en        1 rw    "Select MSI-X instead of INTx method";
         function_mask   1 rw    "Vector mask control";
         _               3 rsvd  "reserved";
@@ -211,7 +211,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.19 - MSI-X Table Offset and BAR Indicator.
      */     
-    register tableoff_bir ro addr(config, 0x84) "MSI-X Table Offset and BAR Indicator" {
+    register tableoff_bir ro addr(cfg_base, 0x84) "MSI-X Table Offset and BAR Indicator" {
         offset 29 "Offset of the MSI-X structure from the CB_BAR base";
         bir     3 "Offset of the CB BAR in the Config Space";
     };
@@ -219,30 +219,30 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.20
      */     
-    register pbaoff_bir ro addr(config, 0x88) "MSI-X PBA Offset" {
+    register pbaoff_bir ro addr(cfg_base, 0x88) "MSI-X PBA Offset" {
         offset 29 "Offset of the MSI-X PBA structure from the CB_BAR base";
         bir     3 "Offset of the CB BAR in the Config Space";
     };
 
     /*
      * 8.4.21 - The PCI Express Capability List register enumerates the PCI 
-     *          Express Capability structure in the PCI 3.0 configuration space
+     *          Express Capability structure in the PCI 3.0 cfg_baseuration space
      */     
-    register capid ro addr(config, 0x90) "Capability ID"
+    register capid ro addr(cfg_base, 0x90) "Capability ID"
         type(uint8);
 
     /*
      * 8.4.22 - The PCI Express Capability List register enumerates the PCI 
-     *          Express Capability structure in the PCI 3.0 configuration space
+     *          Express Capability structure in the PCI 3.0 cfg_baseuration space
      */     
-    register nextptr addr(config, 0x91) "Capability Next Pointer"
+    register nextptr addr(cfg_base, 0x91) "Capability Next Pointer"
         type(uint8);
 
     /*
      * 8.4.23 - The PCI Express Capabilities register identifies the PCI Express 
     *           device type and associated capabilities
      */     
-    register expcap ro addr(config, 0x92) "PCI Express Device Type" {
+    register expcap ro addr(cfg_base, 0x92) "PCI Express Device Type" {
         _           2 "Reserved";
         irq_msg_num 5 "N/A" ;
         slot_impl   1 "N/A";
@@ -254,7 +254,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      * 8.4.24 - The PCI Express Device Capabilities register identifies device 
      *          specific information for the device.
      */     
-    register devcap ro addr(config, 0x94) "PCI Express Device Capability Register" {
+    register devcap ro addr(cfg_base, 0x94) "PCI Express Device Capability Register" {
         _            3 "Reserved";
         flr          1 "FLR supported";
         pwr_scale    2 "Captured slot power limit scale";
@@ -275,7 +275,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      * 8.4.25 - The PCI Express Device Control register controls PCI Express 
      *          specific capabilities parameters associated with the device.
      */     
-    register devcon addr(config, 0x98) "The PCI Express Device Control register" {
+    register devcon addr(cfg_base, 0x98) "The PCI Express Device Control register" {
         flr         1 rw "Initiate FLR: reset only per FLR ECN";
         max_rd_sz   3 ro "Maximum read request size";
         no_snoop    1 rw "Enable the no-snoop functionality";
@@ -295,7 +295,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         
      *          PCI Express device specific parameters associated with the device
      */     
-    register devsts ro addr(config, 0x9a) "Device Status Register" {
+    register devsts ro addr(cfg_base, 0x9a) "Device Status Register" {
         _           10 "reserved";
         tr_pending   1 "Transaction pending";
         aux_power    1 "Auxiliary power detected";
@@ -308,7 +308,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.27 - Device Capability register 2
      */     
-    register devcap2 ro addr(config, 0xb4) "Device Capability Register 2" {
+    register devcap2 ro addr(cfg_base, 0xb4) "Device Capability Register 2" {
         _                     27 "Reserved";
         compl_timeout_disable  1 "Completion timeout disable supported";
         compl_timeout_values   4 "Completion timeout values supported";
@@ -318,7 +318,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.28 - Device Configuration Register 2
      */      
-    register devcon2 addr(config, 0xb8) "Device Configuration Register 2" {
+    register devcon2 addr(cfg_base, 0xb8) "Device Configuration Register 2" {
         _                     11 rsvd "Reserved";
         compl_timeout_disable  1 rw   "Completion timeout disable";
         compl_timeout_values   4 ro   "Completion timeout values";
@@ -331,7 +331,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         and other power management related support. The following PM 
      *         registers / capabilities are added for software compliance.
      */     
-    register pmcap ro addr(config, 0xe0) "Power Management Capability" {
+    register pmcap ro addr(cfg_base, 0xe0) "Power Management Capability" {
         _           5 "Reserved";
         d2_sup      1 "D2 om state supported";
         d1_sup      1 "D2 om state supported";
@@ -357,7 +357,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         This register provides status and control information for PM events 
      *         in the PCI Express port of the IIO.
      */     
-    register pmcsr addr(config, 0xe4) "Power Management Control and Status." {
+    register pmcsr addr(cfg_base, 0xe4) "Power Management Control and Status." {
         data         8 ro   "Data field";
         clk_ctrl_en  1 ro   "Bus power clock control enabled";
         b2_b3_sup    1 ro   "B2-B3 Support";
@@ -375,7 +375,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.31 - DMA Cluster Uncorrectable Error Status (for function 0 only)
      */     
-    register dmauncerrsts addr(config, 0x148) "DMA Cluster Uncorrectable Error Status" {
+    register dmauncerrsts addr(cfg_base, 0x148) "DMA Cluster Uncorrectable Error Status" {
         _        19 rsvd  "reserved";
         syndrome  1 rw1cs "Syndrome multiple errors";
         _         1 rsvd  "reserved";
@@ -391,7 +391,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.32 - DMA Cluster Uncorrectable Error Mask. (for function 0 only)
      */      
-    register dmauncerrmsk addr(config, 0x14c) "DMA Cluster Uncorrectable Error Mask" {
+    register dmauncerrmsk addr(cfg_base, 0x14c) "DMA Cluster Uncorrectable Error Mask" {
         _        19 rsvd "reserved";
         syndrome  1 rw   "Syndrome multiple errors";
         _         1 rsvd "reserved";
@@ -410,7 +410,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         This register controls severity of uncorrectable DMA unit errors 
      *         between fatal and non-fatal.
      */     
-    register dmauncerrsev addr(config, 0x150) "DMA Cluster Uncorrectable Error Severity." {
+    register dmauncerrsev addr(cfg_base, 0x150) "DMA Cluster Uncorrectable Error Severity." {
         _        19 rsvd "reserved";
         syndrome  1 rw   "Syndrome multiple errors";
         _         1 rsvd "reserved";
@@ -426,7 +426,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.34 - DMA Cluster Uncorrectable Error Pointer. (for function 0 only)
      */     
-    register dmauncerrptr ro addr(config, 0x154) "DMA Cluster Uncorrectable Error Pointer" {
+    register dmauncerrptr ro addr(cfg_base, 0x154) "DMA Cluster Uncorrectable Error Pointer" {
         _         3 "Reserved";
         uncerrptr 5 "oints to the first uncorrectable error logged in the DMAUNCERRSTS register.";
     };
@@ -434,7 +434,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.35 - DMA Cluster Global Error Pointe(for function 0 only)
      */     
-    register dmaglberrptr addr(config, 0x160) "DMA Cluster Global Error Pointer" {
+    register dmaglberrptr addr(cfg_base, 0x160) "DMA Cluster Global Error Pointer" {
         _        4 "Reserved";
         glbl_err 4 "Points to 8 possible sources of uncorrectable rrors";
 
@@ -445,7 +445,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         
      *          R1CS for function 0, otherwise RO
      */     
-    register chanerr_int addr(config, 0x180) "Internal DMA Channel Error Status Registers." {
+    register chanerr_int addr(cfg_base, 0x180) "Internal DMA Channel Error Status Registers." {
         _          13 rsvd  "reserved";
         desccnterr  1 rw1cs "Descriptor Count error";
         xorqerr     1 rw1cs "Xor error";
@@ -478,7 +478,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         
      *          R1CS for function 0, otherwise RO
      */     
-    register chanerrmsk_int addr(config, 0x184) "Internal DMA Channel Error Mask Registers." {
+    register chanerrmsk_int addr(cfg_base, 0x184) "Internal DMA Channel Error Mask Registers." {
         _          13 rsvd  "reserved";
         desccnterr  1 rw1cs "Descriptor Count error";
         xorqerr     1 rw1cs "Xor error";
@@ -506,7 +506,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         
      *          R1CS for function 0, otherwise RO
      */     
-    register chanerrsev_int addr(config, 0x188) "Internal DMA Channel Error Severity Registers." {
+    register chanerrsev_int addr(cfg_base, 0x188) "Internal DMA Channel Error Severity Registers." {
         _          13 rsvd  "reserved";
         desccnterr  1 rw1cs "Descriptor Count error";
         xorqerr     1 rw1cs "Xor error";
@@ -532,7 +532,7 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     /*
      * 8.4.39 - DMA Channel Error Pointer
      */     
-    register chanerrptr ro addr(config, 0x18c) "DMA Channel Error Pointer." {
+    register chanerrptr ro addr(cfg_base, 0x18c) "DMA Channel Error Pointer." {
         _            3 "reserved";
         chan_err_ptr 5 "DMA Channel error pointer";
     };
@@ -561,8 +561,10 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         Note: This will always reads 8, since there are 1 channel per
      *               function, but 8 functions per device
      */   
-    register chancnt ro addr(bar, 0x0) "Channel Count"
-        type(uint8); 
+    register chancnt ro addr(bar, 0x0) "Channel Count" {
+        _   3 rsvd "reserved";
+        num 5 ro   "Number of channels present"; 
+    };
 
     /*
      * 8.5.2 - Transfer Capacity
@@ -571,8 +573,10 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *         transfer size supported on all channels. This is in bits.
      *         CPU supports maximum 1MB (default value 0x14)
      */  
-    register xfercap ro addr(bar, 0x1) "Transfer Capacity"
-        type(uint8);
+    register xfercap ro addr(bar, 0x1) "Transfer Capacity"{
+        _   3 rsvd "reserved";
+        max 5 ro   "Maximum transfer capability"; 
+    };
 
     /*
      * 8.5.3 - DMA General Control
@@ -601,6 +605,12 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     register attnstatus ro addr(bar, 0x4) "Attention Status Register" {
         _        31 "Reserved";
         chanattn  1 "Channel Attention. Represents the interrupt status";
+    };
+
+    constants cbversions "Crystal Beach Major Versions" {
+        cbver_1x = 0x1 "Crystal Beach Version 1.xx";
+        cbver_2x = 0x2 "Crystal Beach Version 2.xx";
+        cbver_3x = 0x3 "Crystal Beach Version 3.xx";
     };
 
     /*
@@ -643,13 +653,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      */  
     register dmacapability addr(bar, 0x10) "DMA Capability Register" {
         _           22 rsvd "Reserved";
-        xor_raid6    1 ro   "XOR Raid 6";
-        xor_raid5    1 ro   "XOR Raid 5";
+        pq           1 ro   "Parity and Quotient Opcodes for RAID 5 / 6";
+        xor          1 ro   "Only XOR for RAID 5 / 6 supported";
         ext_apic_id  1 ro   "32bit APIC IDs are supported (otherwise 8bit APIC)";
         block_fill   1 ro   "Block fill OP code is supported";
         move_crc     1 ro   "Move and CRC op codes are supported";
         dca          1 rw   "Direct Cache Access is supported";
-        xor          1 ro   "XOR Opcodes are supported";
+        _            1 rsvd "These opcodes have been deprecated in CB DMA v3";
         markerskip   1 ro   "Marker skipping is supported";
         crc          1 ro   "CRC generation supported";
         pagebreak    1 ro   "Transfers crossing physical pages supported";
@@ -667,9 +677,12 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
     register cbprio ro addr(bar, 0x40) "CB DMA Priority Register"
         type(uint8);
 
-    constants chanctrl_vals "Field values for Channel Control" {
+    constants chanctrl_snoop "Field values for Snoop Control" {
         chanctrl_snoop_disabled = 0x1 "Disabled snooping";
         chanctrl_snoop_enabled  = 0x0 "Enable snooping";
+    };
+    
+    constants chanctrl_features "Field values for Channel Features" {
         chanctrl_f_enable       = 0x1 "Feature field is enabled";
         chanctrl_f_disable      = 0x0 "Feature field is disabled";
     };
@@ -710,11 +723,13 @@ device ioat_dma msbfirst ( addr config, addr bar ) "IOAT DMA (Crystal Beach) reg
      *          will result in an Fatal error affiliated.
      */  
     register chancmd addr(bar, 0x84) "DMA Channel Command Register." {
-        _     2 rsvd "Reserved";
-        reset 1 rw   "Reset DMA channel";
-        _     2 rsvd "Reserved";
-        susp  1 rw   "Suspend the DMA channel";
-        _     2 rsvd "Reserved";
+        _      2 rsvd "Reserved";
+        reset  1 rw   "Reset DMA channel";
+        resume 1 rw   "resume";
+        abort  1 rw   "Abort";
+        susp   1 rw   "Suspend the DMA channel";
+        append 1 rw   "Append";
+        start  1 rw   "Start";
     }; 
 
     /*
