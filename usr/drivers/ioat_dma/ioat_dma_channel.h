@@ -12,6 +12,9 @@
 
 
 struct ioat_dma_channel;
+struct ioat_dma_request;
+
+typedef uint16_t ioat_dma_chan_id_t;
 
 /**
  * \brief initializes a new DMA channel and allocates the channel resources
@@ -28,5 +31,29 @@ errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan);
 void ioat_dma_chan_free(struct ioat_dma_channel *chan);
 
 errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan);
+
+
+
+/*
+ * ---
+ */
+
+/**
+ * \brief returns a channel to be used form the give device
+ *
+ * \param dev IOAT DMA device
+ *
+ * \returns IOAT DMA Channel
+ */
+struct ioat_dma_channel *ioat_dma_channel_get(struct ioat_dma_device *dev);
+
+ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan);
+
+struct ioat_dma_desc_alloc *ioat_dma_channel_get_desc_alloc(struct ioat_dma_channel * chan);
+
+errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan);
+
+errval_t ioat_dma_channel_submit(struct ioat_dma_channel *chan,
+                                 struct ioat_dma_request *req);
 
 #endif /* IOAT_DMA_CHANNEL_H */

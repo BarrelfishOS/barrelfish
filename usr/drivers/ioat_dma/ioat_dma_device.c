@@ -62,7 +62,7 @@ static errval_t device_setup_interrupts(struct ioat_dma_device *dev,
             break;
         default:
             /* disabled */
-            intcrtl = 0
+            intcrtl = 0;
             break;
     }
 
@@ -90,8 +90,6 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
     IODEV_DEBUG("Initializing Crystal Beach 3 DMA Device.\n");
 
     ioat_dma_dmacapability_t cap = ioat_dma_dmacapability_rd(&dev->device);
-
-    debug_printf("cap - %x\n", cap);
 
     if (ioat_dma_cbver_minor_extract(dev->version) == 2) {
         IODEV_DEBUG("Disabling XOR and PQ.\n");
@@ -153,7 +151,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
         return err;
     }
 
-    err = device_setup_interrupts(dev);
+    err = device_setup_interrupts(dev, IOAT_DMA_IRQ_TYPE);
     if (err_is_fail(err)) {
         return err;
     }
@@ -345,7 +343,9 @@ errval_t ioat_dma_device_discovery(struct pci_addr addr,
         dev[i].dma_ctrl = ctrl;
         if (ctrl->dca_enabled) {
             dev[i].flags = IOAT_DMA_DEV_F_DCA;
+
         }
+        dev[i].devid = i;
         err = ioat_dma_device_init(addr, dev_ids[i], dev + i);
         if (err_is_fail(err)) {
             /*

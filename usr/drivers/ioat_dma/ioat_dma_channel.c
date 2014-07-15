@@ -21,7 +21,7 @@
 
 #include "debug.h"
 
-typedef uint16_t ioat_dma_chan_id_t;
+
 
 struct ioat_dma_channel
 {
@@ -29,7 +29,7 @@ struct ioat_dma_channel
     ioat_dma_chan_id_t chan_id;
     ioat_dma_chan_t channel;
     uint8_t irq_vector;
-    size_t  irq_msix;
+    size_t irq_msix;
 };
 
 static void ioat_dma_chan_do_interrupt_msix(void *arg)
@@ -41,8 +41,7 @@ errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan)
 {
     errval_t err;
 
-    err = pci_setup_inthandler(ioat_dma_chan_do_interrupt_msix,
-                               chan,
+    err = pci_setup_inthandler(ioat_dma_chan_do_interrupt_msix, chan,
                                &chan->irq_vector);
 
     err = pci_msix_vector_init(chan->irq_msix, 0, chan->irq_vector);
@@ -97,8 +96,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
     errval_t err;
 
     IOCHAN_DEBUG("Initializing %u channels max. xfer size is %u bytes\n",
-                 dev->chan_num,
-                 dev->xfer_size_max);
+                 dev->chan_num, dev->xfer_size_max);
 
     dev->channels = calloc(dev->chan_num, sizeof(struct ioat_dma_channel));
     if (dev->channels == NULL) {
@@ -111,7 +109,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
 
     for (uint8_t i = 0; i < dev->chan_num; ++i) {
         struct ioat_dma_channel *chan = dev->channels + i;
-        chan->chan_id = (((uint16_t) dev->devid) << 8) | i;
+        chan->chan_id = (((uint16_t) dev->devid + 1) << 8) | i;
         chan->dev = dev;
         mackerel_addr_t chan_base = (mackerel_addr_t) dev->mmio.vbase;
         ioat_dma_chan_initialize(&chan->channel, chan_base + ((i + 1) * 0x80));
@@ -127,3 +125,40 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
 
     return SYS_ERR_OK;
 }
+
+ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan)
+{
+    return chan->chan_id;
+}
+
+
+/**
+ * \brief returns a channel to be used form the give device
+ *
+ * \param dev IOAT DMA device
+ *
+ * \returns IOAT DMA Channel
+ */
+struct ioat_dma_channel *ioat_dma_channel_get(struct ioat_dma_device *dev)
+{
+    if (dev->chan_next == dev->chan_num) {
+        dev->chan_next = 0;
+    }
+    return &dev->channels[dev->chan_next++];
+}
+
+struct ioat_dma_desc_alloc *ioat_dma_channel_get_desc_alloc(struct ioat_dma_channel *chan)
+{
+    return chan->dev->dma_ctrl->alloc;
+}
+
+errval_t ioat_dma_channel_submit(struct ioat_dma_channel *chan,
+                                 struct ioat_dma_request *req)
+{
+    IOCHAN_DEBUG("Submitting request [0x%016lx] to channel 0x%04x\n",
+                 (lvaddr_t)req, chan->chan_id);
+
+
+    return SYS_ERR_OK;
+}
+

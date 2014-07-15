@@ -103,6 +103,7 @@ struct ioat_dma_device
     struct ioat_dma_fn fn;
     struct ioat_dma_channel *channels;
     uint8_t chan_num;
+    uint8_t chan_next;
     uint32_t flags;
     struct ioat_dma_ctrl *dma_ctrl;
     enum ioat_dma_irq irq_type;
@@ -115,5 +116,7 @@ errval_t ioat_dma_device_init(struct pci_addr addr,
 errval_t ioat_dma_device_discovery(struct pci_addr addr,
                                    uint16_t device_id,
                                    struct ioat_dma_ctrl *ctrl);
+
+errval_t ioat_dma_device_poll_channels(struct ioat_dma_device *dev);
 
 #endif /* IOAT_DMA_CHANNEL_H */

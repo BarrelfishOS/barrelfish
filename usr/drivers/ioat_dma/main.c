@@ -18,11 +18,40 @@
 
 #include "ioat_dma.h"
 #include "ioat_dma_device.h"
+#include "ioat_dma_request.h"
 #include "ioat_dma_descriptors.h"
 
 #include "debug.h"
 
 struct ioat_dma_ctrl dma_ctrl;
+
+#define BUFFER_SIZE (1<<21)
+
+static void impl_test(void)
+{
+    errval_t err;
+
+    debug_printf("Doing an implementation test\n");
+
+    struct capref frame;
+    err = frame_alloc(&frame, 2 * BUFFER_SIZE, NULL);
+    assert(err_is_ok(err));
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+
+    struct ioat_dma_req_setup setup = {
+        .type = IOAT_DMA_REQ_TYPE_MEMCPY,
+        .src = id.base,
+        .dst = id.base + BUFFER_SIZE,
+        .bytes = BUFFER_SIZE,
+    };
+
+    err = ioat_dma_request_memcpy(dma_ctrl.devices, &setup);
+    assert(err_is_ok(err));
+
+}
 
 int main(int argc,
          char *argv[])
@@ -48,30 +77,30 @@ int main(int argc,
     };
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc - 1],
-                                 "%x:%x:%x:%x:%x",
-                                 &vendor_id,
-                                 &device_id,
-                                 &addr.bus,
-                                 &addr.device,
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor_id,
+                                 &device_id, &addr.bus, &addr.device,
                                  &addr.function);
         if (parsed != 5) {
             IODEBUG("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
         } else {
             if (vendor_id != 0x8086 || (((device_id & 0xFFF0) != PCI_DEVICE_IOAT_IVB0)
                             && ((device_id & 0xFFF0) != PCI_DEVICE_IOAT_HSW0))) {
-                USER_PANIC("unexpected vendor / device id: [%x, %x]",
-                           vendor_id,
+                USER_PANIC("unexpected vendor / device id: [%x, %x]", vendor_id,
                            device_id);
                 return -1;
             }
-            IODEBUG("Initializing I/O AT DMA device with PCI address "
-                   "[%u,%u,%u]\n",
-                   addr.bus, addr.device, addr.function);
+            IODEBUG("Initializing I/O AT DMA device with PCI address [%u,%u,%u]\n",
+                    addr.bus, addr.device, addr.function);
         }
     } else {
         IODEBUG("WARNING: Initializing I/O AT DMA device with unknown PCI address "
-               "[0,0,0]\n");
+                "[0,0,0]\n");
+    }
+
+    err = ioat_dma_desc_alloc_init(IOAT_DMA_DESC_SIZE, IOAT_DMA_DESC_ALIGN,
+                                   IOAT_DMA_DESC_COUNT, &dma_ctrl.alloc);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "DMA Descriptor allocator initialization failed.\n");
     }
 
     err = ioat_dma_device_discovery(addr, device_id, &dma_ctrl);
@@ -79,10 +108,9 @@ int main(int argc,
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
 
-    err = ioat_dma_desc_alloc_init(IOAT_DMA_DESC_SIZE, IOAT_DMA_DESC_ALIGN);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "DMA Descriptor allocator initialization failed.\n");
-    }
+    /* TODO: start service */
+
+    impl_test();
 
     return 0;
 }

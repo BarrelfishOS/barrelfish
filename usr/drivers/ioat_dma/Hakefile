@@ -16,7 +16,8 @@
 		"main.c",
 		"ioat_dma_device.c",
 		"ioat_dma_channel.c",
-		"ioat_dma_descriptors.c"                      
+		"ioat_dma_descriptors.c",
+		"ioat_dma_request.c"                          
 	],
 	flounderBindings = [ "dma" ],
 	mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],

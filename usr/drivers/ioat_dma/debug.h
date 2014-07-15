@@ -17,9 +17,10 @@
 #define IODEBUG_ENABLED   1
 #define IODEBUG_INT       1
 #define IODEBUG_CHAN      1
-#define IODEBUG_TRANS     1
+#define IODEBUG_REQ     1
 #define IODEBUG_SVC       1
 #define IODEBUG_DEV       1
+#define IODEBUG_DESC      1
 
 /*
  * --------------------------------------------------------------------------
@@ -31,29 +32,34 @@
 #define IODEBUG(x... )
 #endif
 #if IODEBUG_INT
-#define IOINT_DEBUG(x...) IODEBUG("intr > " x)
+#define IOINT_DEBUG(x...) IODEBUG("[intr] " x)
 #else
 #define IOINT_DEBUG(x...)
 #endif
 #if IODEBUG_CHAN
-#define IOCHAN_DEBUG(x...) IODEBUG("chan > " x)
+#define IOCHAN_DEBUG(x...) IODEBUG("[chan] " x)
 #else
 #define IOCHAN_DEBUG(x...)
 #endif
-#if IODEBUG_TRANS
-#define IOTRA_DEBUG(x...) IODEBUG("xfer > " x)
+#if IODEBUG_REQ
+#define IOREQ_DEBUG(x...) IODEBUG("[ req] " x)
 #else
-#define IOTRA_DEBUG(x...)
+#define IOREQ_DEBUG(x...)
 #endif
 #if IODEBUG_SVC
-#define IOSVC_DEBUG(x...) IODEBUG("svc > " x)
+#define IOSVC_DEBUG(x...) IODEBUG("[ svc] " x)
 #else
 #define IOSVC_DEBUG(x...)
 #endif
 #if IODEBUG_DEV
-#define IODEV_DEBUG(x...) IODEBUG("device > " x)
+#define IODEV_DEBUG(x...) IODEBUG("[ dev] " x)
 #else
 #define IODEV_DEBUG(x...)
+#endif
+#if IODEBUG_DESC
+#define IODESC_DEBUG(x...) IODEBUG("[desc] " x)
+#else
+#define IODESC_DEBUG(x...)
 #endif
 
 #endif /* XEON_PHI_DEBUG_H_ */

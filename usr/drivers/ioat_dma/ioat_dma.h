@@ -24,6 +24,7 @@ struct ioat_dma_ctrl
     uint16_t device_num;
     struct ioat_dma_device *devices;
     uint8_t dca_enabled;
+    struct ioat_dma_desc_alloc *alloc;
 };
 
 
