@@ -1052,5 +1052,56 @@ device ioat_dma msbfirst ( addr cfg_base, addr bar ) "IOAT DMA (Crystal Beach) r
         chmsipend      1 rw "Pending Bit (when set) indicates that the DMA engine has a pending MSI-X";
     }; 
 
+    
+    
+    /*
+     * Descriptor types derrived from the Linux IOAT implementation
+     */
+    
+    /*
+     * Descriptor sizes
+     * 
+     * XXX: there are super extended descriptors which are longer in size...
+     */
+    constants desc_sizes "IOAT DMA Descriptor Sizes" {
+        descriptor_size = 64 "Size of the DMA descriptor";
+    };
+    
+    /*
+     * Possible opcodes
+     */
+    constants desc_opcodes "IOAT DMA Descriptor OP Codes" {
+        desc_op_copy    = 0x00 "Copy Operation";
+        desc_op_xor     = 0x87 "For Xor Descriptor";
+        desc_op_xor_val = 0x88 "For Xor descriptor";
+    };
+    
+    datatype desc_ctrl lsbfirst(32) "IOAT DMA Descriptor control field" {
+        int_en          1 "Interrupt enable";
+        src_snoop_dis   1 "Disable snooping of source address";
+        dest_snoop_dis  1 "Disable snooping of destination address";
+        compl_write     1 "";
+        fence           1 "";
+        null            1 "";
+        src_brk         1 "";
+        dest_brk        1 "";
+        bundle          1 "";
+        dest_dca        1 "";
+        hint            1 "";
+        _              13 "Reserved";
+        op              8 "OP Code to execute";
+    };
+    
+    datatype desc lsbfirst(32) "IOAT DMA Descriptor" {
+        size     32 "Size of the transfer";
+        ctrl     32 "Descriptor control field";
+        src      64 "Physical address of the source";
+        dst      64 "Physical address of the destination";
+        next     64 "Physical address of the next descriptor";
+        _        64 "Reserved";
+        _        64 "Reserved";
+        user1    64 "";
+        user2    64 "";
+    };
 };
 
