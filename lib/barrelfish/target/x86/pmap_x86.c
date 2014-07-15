@@ -38,6 +38,10 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
                 return has_vnode(n, 0, PTABLE_SIZE, true);
             }
             return true;
+        } else if (n->is_vnode) {
+            // all other vnodes do not overlap with us, so go to next
+            assert(n->entry < entry || n->entry >= end_entry);
+            continue;
         }
         // this remains the same regardless of `only_pages`.
         // n is frame [n->entry .. end)
@@ -168,6 +172,10 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
     uint32_t end_entry = entry + len;
     for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
         if (n->entry >= entry && n->entry < end_entry) {
+            // sanity check and skip leaf entries
+            if (!n->is_vnode) {
+                continue;
+            }
             // here we know that all vnodes we're interested in are
             // page tables
             assert(n->is_vnode);

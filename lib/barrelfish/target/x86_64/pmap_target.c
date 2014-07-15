@@ -211,6 +211,12 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                               size_t offset, size_t pte_count,
                               vregion_flags_t flags)
 {
+    if (pte_count == 0) {
+        debug_printf("do_single_map: pte_count == 0, called from %p\n",
+                __builtin_return_address(0));
+        return SYS_ERR_OK;
+    }
+    assert(pte_count > 0);
     // translate flags
     paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
 
