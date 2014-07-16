@@ -1064,5 +1064,11 @@ errors xeon_phi XEON_PHI_ERR_ {
 errors ioat IOAT_ERR_ {
     failure PCI_ADDRESS           "The PCI address of the device is not as expected",
     failure DEVICE_UNSUPPORTED    "Device ID not supported /  wrong configuration",
-    
+    failure ARG_INVALID           "Supplied argument was not valid",
+    failure CHAN_ERROR            "Hardware channel error",
+    failure NO_DESCRIPTORS        "There are too less descriptors available",
+    failure NO_REQUESTS           "There are no request descriptors left",
+    failure CHAN_BUSY             "The channel is busy and cannot accept more",
+    failure CHAN_IDLE             "There were no finished requests on the channel",
+    failure REQUEST_UNFINISHED    "The request is still in operation",
 };

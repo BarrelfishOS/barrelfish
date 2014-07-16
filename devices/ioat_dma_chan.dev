@@ -84,15 +84,16 @@ device ioat_dma_chan msbfirst ( addr chan_base ) "IOAT DMA (Crystal Beach) Chann
      *          counter each time that it completes (or skips) a descriptor.This
      *          register is RW if CHANCNT register is 1 otherwise this register is RO.
      */  
-    register dcount addr(chan_base, 0x06) "DMA Descriptor Count Register"
+    register dmacount addr(chan_base, 0x06) "DMA Descriptor Count Register"
         type(uint16);
 
     
     constants trans_state "DMA Transfer States" {
-        trans_state_idle  = 0x1 "Idle, All DMA transfers done";
-        trans_state_susp  = 0x2 "Suspended";
-        trans_state_halt  = 0x3 "Halted, operation aborted (error)";
-        trans_state_armed = 0x4 "Armed State";
+        trans_state_active = 0x0 "The transfer is active";
+        trans_state_idle   = 0x1 "Idle, All DMA transfers done";
+        trans_state_susp   = 0x2 "Suspended";
+        trans_state_halt   = 0x3 "Halted, operation aborted (error)";
+        trans_state_armed  = 0x4 "Armed State";
     };
 
     /*
