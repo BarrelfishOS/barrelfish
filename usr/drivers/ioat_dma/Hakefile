@@ -14,9 +14,11 @@
 	target = "ioat_dma",
 	cFiles = [ 
 		"main.c",
+		"ioat_dma.c",
 		"ioat_dma_device.c",
 		"ioat_dma_channel.c",
 		"ioat_dma_descriptors.c",
+		"ioat_dma_ring.c",
 		"ioat_dma_request.c"                          
 	],
 	flounderBindings = [ "dma" ],

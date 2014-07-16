@@ -12,7 +12,7 @@
 
 #include <dev/ioat_dma_dev.h>
 
-struct ioat_dma_desc_alloc;
+struct ioat_dma_descriptor;
 struct ioat_dma_request;
 
 #define IOAT_DMA_DESC_MAP_FLAGS VREGION_FLAGS_READ_WRITE
@@ -29,69 +29,60 @@ struct ioat_dma_request;
 
 /*
  * ----------------------------------------------------------------------------
- * Descriptor allocation / free
+ * DMA Descriptor Allocation / Free
  * ----------------------------------------------------------------------------
  */
 
 /**
- * \brief allocates and initializes a new descriptor allocator for descriptors
- *        of a give size.
+ * \brief allocates a number of hardware DMA descriptors and fills them into the
+ *        array of descriptor pointers
  *
- * \param size      size of the descriptors in bytes
- * \param align     alignment constraint for the descriptors
- * \param count     number of initial descriptors to allocate
- * \param ret_alloc returns a pointer to the allocator
+ * \param size  descriptor size
+ * \param align alignment constraints of the descriptors
+ * \param count number of descriptors to allocate
+ * \param desc  pointer to the array of descriptor pointers
  *
  * \returns SYS_ERR_OK on success
- *          errval on failure
+ *          errval on error
  */
-errval_t ioat_dma_desc_alloc_init(uint16_t size,
-                                  uint16_t align,
-                                  uint32_t count,
-                                  struct ioat_dma_desc_alloc **ret_alloc);
+errval_t ioat_dma_desc_alloc(uint16_t size,
+                             uint16_t align,
+                             uint16_t count,
+                             struct ioat_dma_descriptor **desc);
 
 
-/**
- * \brief allocates a new descriptor from the allocator
- *
- * \param alloc the allocator to get the descriptors
- *
- * \returns pointer to the memory region of the descriptor
- *          NULL on failure
- *
- * Note: this function will automatically grow the allocator if there are
- *       no descriptors free
+/*
+ * ----------------------------------------------------------------------------
+ * DMA Descriptor Setup Functions
+ * ----------------------------------------------------------------------------
  */
-struct ioat_dma_descriptor *ioat_dma_desc_alloc(struct ioat_dma_desc_alloc *alloc);
 
 /**
- * \brief frees a previously allocated DMA descriptor
+ * \brief initializes the hardware specific part of the descriptor to be used
+ *        for memcpy descriptors
  *
- * \param desc the descriptor to be returned
+ * \param desc  IOAT DMA descriptor
+ * \param src   Source address of the transfer
+ * \param dst   destination address of the transfer
+ * \param size  number of bytes to copy
+ * \param ctrl  control flags
+ *
+ * XXX: this function assumes that the size of the descriptor has already been
+ *      checked and must match the maximum transfer size of the channel
  */
-void ioat_dma_desc_free(struct ioat_dma_descriptor *desc);
+void ioat_dma_desc_fill_memcpy(struct ioat_dma_descriptor *desc,
+                               lpaddr_t src,
+                               lpaddr_t dst,
+                               uint32_t size,
+                               ioat_dma_desc_ctrl_t ctrl);
 
 /**
- * \brief allocates a a descriptor chain from the allocator
+ * \brief initializes the hardware specific part of the descriptor to be used
+ *        for nop descriptors (null descriptors)
  *
- * \param alloc the allocator to get the descriptors
- * \param count number of descriptors in the chain
- *
- * \returns pointer to the head of the descriptor chain
- *          NULL on failure
- *
- * Note: this function will automatically grow the allocator if there are
- *       no descriptors free
+ * \param desc  IOAT DMA descriptor
  */
-struct ioat_dma_descriptor *ioat_dma_desc_chain_alloc(struct ioat_dma_desc_alloc *alloc,
-                                                      uint32_t count);
-
-/**
- * \brief frees a previously allocated DMA descriptor chain
- *
- * \param desc head of the descriptor chain to be freed
- */
-void ioat_dma_desc_chain_free(struct ioat_dma_descriptor *head);
+void ioat_dma_desc_fill_nop(struct ioat_dma_descriptor *desc);
 
 
 /*
@@ -157,22 +148,85 @@ void ioat_dma_desc_set_next(struct ioat_dma_descriptor *desc,
                             struct ioat_dma_descriptor *next);
 
 
-/**
- * \brief initializes the hardware specific part of the descriptor
- *
- * \param desc  IOAT DMA descriptor
- * \param src   Source address of the transfer
- * \param dst   destination address of the transfer
- * \param size  number of bytes to copy
- * \param ctrl  control flags
- *
- * XXX: this function assumes that the size of the descriptor has already been
- *      checked and must match the maximum transfer size of the channel
- */
-void ioat_dma_desc_init(struct ioat_dma_descriptor *desc,
-                        lpaddr_t src,
-                        lpaddr_t dst,
-                        uint32_t size,
-                        ioat_dma_desc_ctrl_t ctrl);
+#if 0
 
+
+
+
+
+
+/*
+ * ----------------------------------------------------------------------------
+ * Descriptor allocation / free
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief allocates and initializes a new descriptor allocator for descriptors
+ *        of a give size.
+ *
+ * \param size      size of the descriptors in bytes
+ * \param align     alignment constraint for the descriptors
+ * \param count     number of initial descriptors to allocate
+ * \param ret_alloc returns a pointer to the allocator
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_desc_alloc_init(uint16_t size,
+                                  uint16_t align,
+                                  uint32_t count,
+                                  struct ioat_dma_desc_alloc **ret_alloc);
+
+
+
+/**
+ * \brief allocates a new descriptor from the allocator
+ *
+ * \param alloc the allocator to get the descriptors
+ *
+ * \returns pointer to the memory region of the descriptor
+ *          NULL on failure
+ *
+ * Note: this function will automatically grow the allocator if there are
+ *       no descriptors free
+ */
+struct ioat_dma_descriptor *ioat_dma_desc_alloc(struct ioat_dma_desc_alloc *alloc);
+
+/**
+ * \brief frees a previously allocated DMA descriptor
+ *
+ * \param desc the descriptor to be returned
+ */
+void ioat_dma_desc_free(struct ioat_dma_descriptor *desc);
+
+/**
+ * \brief allocates a a descriptor chain from the allocator
+ *
+ * \param alloc the allocator to get the descriptors
+ * \param count number of descriptors in the chain
+ *
+ * \returns pointer to the head of the descriptor chain
+ *          NULL on failure
+ *
+ * Note: this function will automatically grow the allocator if there are
+ *       no descriptors free
+ */
+struct ioat_dma_descriptor *ioat_dma_desc_chain_alloc(struct ioat_dma_desc_alloc *alloc,
+                                                      uint32_t count);
+
+/**
+ * \brief frees a previously allocated DMA descriptor chain
+ *
+ * \param desc head of the descriptor chain to be freed
+ */
+void ioat_dma_desc_chain_free(struct ioat_dma_descriptor *head);
+
+
+
+
+
+
+
+#endif
 #endif /* IOAT_DMA_CHANNEL_H */

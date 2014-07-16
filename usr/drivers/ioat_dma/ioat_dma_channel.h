@@ -14,6 +14,9 @@
 struct ioat_dma_channel;
 struct ioat_dma_request;
 
+#define IOAT_DMA_CHANNEL_COMPL_SIZE 4096
+#define IOAT_DMA_CHANNEL_COMPL_FLAGS VREGION_FLAGS_READ_WRITE
+
 typedef uint16_t ioat_dma_chan_id_t;
 
 /**
@@ -53,7 +56,23 @@ struct ioat_dma_desc_alloc *ioat_dma_channel_get_desc_alloc(struct ioat_dma_chan
 
 errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan);
 
-errval_t ioat_dma_channel_submit(struct ioat_dma_channel *chan,
-                                 struct ioat_dma_request *req);
+uint16_t ioat_dma_channel_submit_pending(struct ioat_dma_channel *chan);
+
+bool ioat_dma_channel_is_active(struct ioat_dma_channel *chan);
+
+bool ioat_dma_channel_is_idle(struct ioat_dma_channel *chan);
+
+bool ioat_dma_channel_is_halted(struct ioat_dma_channel *chan);
+
+bool ioat_dma_channel_is_suspended(struct ioat_dma_channel *chan);
+
+struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan);
+
+uint32_t ioat_dma_channel_get_max_xfer_size(struct ioat_dma_channel *chan);
+
+
+void ioat_dma_channel_enq_request(struct ioat_dma_channel *chan,
+                                  struct ioat_dma_request *req);
+
 
 #endif /* IOAT_DMA_CHANNEL_H */

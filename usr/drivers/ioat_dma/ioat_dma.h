@@ -19,6 +19,17 @@ struct ioat_dma_channel;
 
 #define IOAT_DMA_IRQ_TYPE IOAT_DMA_IRQ_DISABLED
 
+/**
+ * represents a mapped piece of memory
+ */
+struct ioat_dma_mem
+{
+    void    *addr;
+    lpaddr_t paddr;
+    size_t   bytes;
+    struct capref frame;
+};
+
 struct ioat_dma_ctrl
 {
     uint16_t device_num;
@@ -26,6 +37,29 @@ struct ioat_dma_ctrl
     uint8_t dca_enabled;
     struct ioat_dma_desc_alloc *alloc;
 };
+
+
+/**
+ * \brief allocates and maps a memory region to be used for DMA purposes
+ *
+ * \param bytes minimum size of the memory region in bytes
+ * \param flags VREGION flags how the region gets mapped
+ * \param mem   returns the mapping information
+ *
+  * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t ioat_dma_mem_alloc(size_t bytes,
+                            vregion_flags_t flags,
+                            struct ioat_dma_mem *mem);
+
+/**
+ * \brief tries to free the allocated memory region
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t ioat_dma_mem_free(struct ioat_dma_mem *mem);
 
 
 #endif /* IOAT_DMA_H */

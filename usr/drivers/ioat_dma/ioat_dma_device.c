@@ -56,13 +56,15 @@ static errval_t device_setup_interrupts(struct ioat_dma_device *dev,
             }
             break;
         case IOAT_DMA_IRQ_MSI:
+            IODEV_DEBUG("Initializing MSI interrupts \n");
             break;
         case IOAT_DMA_IRQ_INTX:
-
+            IODEV_DEBUG("Initializing INTx interrupts \n");
             break;
         default:
             /* disabled */
             intcrtl = 0;
+            IODEV_DEBUG("Disabling interrupts \n");
             break;
     }
 

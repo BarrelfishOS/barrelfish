@@ -19,12 +19,14 @@ typedef void (*ioat_dma_cb_t)(void);
 
 typedef uint64_t ioat_dma_req_id_t;
 
-enum ioat_dma_req_type {
+enum ioat_dma_req_type
+{
     IOAT_DMA_REQ_TYPE_INVALID,
     IOAT_DMA_REQ_TYPE_MEMCPY
 };
 
-enum ioat_dma_req_state {
+enum ioat_dma_req_state
+{
     IOAT_DMA_REQ_ST_INVALID,
     IOAT_DMA_REQ_ST_PREPARED,
     IOAT_DMA_REQ_ST_SUBMITTED,
@@ -32,35 +34,39 @@ enum ioat_dma_req_state {
     IOAT_DMA_REQ_ST_ERR
 };
 
-
-
 struct ioat_dma_req_setup
 {
     enum ioat_dma_req_type type;
     lpaddr_t src;
     lpaddr_t dst;
-    size_t   bytes;
+    size_t bytes;
     ioat_dma_cb_t done_cb;
     void *arg;
+    uint8_t ctrl_intr : 1;
+    uint8_t ctrl_fence : 1;
 };
 
 struct ioat_dma_request
 {
     ioat_dma_req_id_t id;
+    struct ioat_dma_req_setup setup;
     struct ioat_dma_descriptor *desc_head;
     struct ioat_dma_descriptor *desc_tail;
     struct ioat_dma_request *next;
-    ioat_dma_cb_t done_cb;
-    void *arg;
 };
 
 errval_t ioat_dma_request_cleanup(struct ioat_dma_request *req);
 
 bool ioat_dma_request_done(struct ioat_dma_request *req);
 
+errval_t ioat_dma_request_process(struct ioat_dma_request *req);
+
+errval_t ioat_dma_request_memcpy_channel(struct ioat_dma_channel *chan,
+                                         struct ioat_dma_req_setup *setup);
 
 errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
                                  struct ioat_dma_req_setup *setup);
 
+void ioat_dma_request_nop(struct ioat_dma_channel *chan);
 
 #endif /* IOAT_DMA_REQUEST_H */

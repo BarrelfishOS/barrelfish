@@ -18,24 +18,19 @@
 #include "ioat_dma_device.h"
 #include "ioat_dma_channel.h"
 #include "ioat_dma_request.h"
+#include "ioat_dma_ring.h"
 #include "ioat_dma_descriptors.h"
 
 #include "debug.h"
 
 
-
-uint64_t req_counter = 1;
-
-static ioat_dma_req_id_t generate_req_id(struct ioat_dma_channel *chan)
-{
-    ioat_dma_req_id_t id = ioat_dma_channel_get_id(chan);
-    return (id << 48) | (req_counter++);
-}
-
-
+/*
+ * ---------------------------------------------------------------------------
+ * Request Management
+ * ---------------------------------------------------------------------------
+ */
 
 static struct ioat_dma_request *req_free_list = NULL;
-
 
 static struct ioat_dma_request *request_alloc(void)
 {
@@ -51,79 +46,132 @@ static struct ioat_dma_request *request_alloc(void)
     return ret;
 }
 
+/*
 static void request_free(struct ioat_dma_request *req)
 {
     req->next = req_free_list;
     req_free_list = req;
 }
+*/
 
 
-static uint32_t req_num_desc_needed(uint32_t max_xfer_size,
-                                    size_t bytes)
+/*
+ * ---------------------------------------------------------------------------
+ * Request ID generation
+ * ---------------------------------------------------------------------------
+ */
+
+static uint64_t req_counter = 1;
+
+static ioat_dma_req_id_t generate_req_id(struct ioat_dma_channel *chan)
 {
-    bytes += (max_xfer_size - 1);
-    return (uint32_t) (bytes/max_xfer_size);
+    ioat_dma_req_id_t id = ioat_dma_channel_get_id(chan);
+    return (id << 48) | (req_counter++);
 }
 
 
-errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
-                                 struct ioat_dma_req_setup *setup)
+/*
+ * ---------------------------------------------------------------------------
+ * Helper Functions
+ * ---------------------------------------------------------------------------
+ */
+
+inline static uint32_t req_num_desc_needed(struct ioat_dma_channel *chan,
+                                           size_t bytes)
 {
-    errval_t err;
+    uint32_t max_xfer_size = ioat_dma_channel_get_max_xfer_size(chan);
+    bytes += (max_xfer_size - 1);
+    return (uint32_t) (bytes / max_xfer_size);
+}
 
-    IOREQ_DEBUG("New DMA Memcpy request: [0x%016lx]->[0x%016lx] of %lu bytes\n",
-                setup->src, setup->dst, setup->bytes);
+/*
+ * ===========================================================================
+ * Public Interface
+ * ===========================================================================
+ */
 
-    struct ioat_dma_channel *chan = ioat_dma_channel_get(dev);
+errval_t ioat_dma_request_memcpy_channel(struct ioat_dma_channel *chan,
+                                         struct ioat_dma_req_setup *setup)
+{
+       uint32_t num_desc = req_num_desc_needed(chan, setup->bytes);
 
-    uint32_t num_desc = req_num_desc_needed(dev->xfer_size_max, setup->bytes);
+    IOREQ_DEBUG("DMA Memcpy request: [0x%016lx]->[0x%016lx] of %lu bytes (%u desc)\n",
+                setup->src, setup->dst, setup->bytes, num_desc);
 
-    IOREQ_DEBUG("%u descriptors\n",  num_desc);
+    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(chan);
+    if (num_desc > ioat_dma_ring_get_space(ring)) {
+        return IOAT_ERR_NO_DESCRIPTORS;
+    }
 
-    /* todo: get request */
     struct ioat_dma_request *req = request_alloc();
     if (req == NULL) {
-        return -1;
+        return IOAT_ERR_NO_REQUESTS;
     }
 
-    struct ioat_dma_desc_alloc *alloc = ioat_dma_channel_get_desc_alloc(chan);
+    ioat_dma_desc_ctrl_array_t ctrl = {
+        0
+    };
 
-    struct ioat_dma_descriptor *head = ioat_dma_desc_chain_alloc(alloc, num_desc);
-    if (head == NULL) {
-        request_free(req);
-        return -1;
-    }
-
-    ioat_dma_desc_ctrl_array_t ctrl = { 0 };
-    /* todo: fill ctrl */
-
-    struct ioat_dma_descriptor *desc = head;
-    size_t bytes = 0;
+    struct ioat_dma_descriptor *desc;
     size_t length = setup->bytes;
-    for (uint32_t i = 0; i < num_desc; ++i) {
-        if (length > dev->xfer_size_max) {
-            bytes = dev->xfer_size_max;
-        } else {
-            bytes = length;
-        }
-        ioat_dma_desc_init(desc, setup->src, setup->dst, bytes, ctrl);
-        ioat_dma_desc_set_request(desc, req);
-        length -= bytes;
-        desc = ioat_dma_desc_get_next(desc);
-    }
+    lpaddr_t src = setup->src;
+    lpaddr_t dst = setup->dst;
+    size_t bytes, max_xfer_size = ioat_dma_channel_get_max_xfer_size(chan);
+    do {
+        desc = ioat_dma_ring_get_next_desc(ring);
 
-    req->desc_head = head;
-    req->desc_tail = desc;
-    req->done_cb = setup->done_cb;
-    req->arg = setup->arg;
+        if (!req->desc_head) {
+            req->desc_head = desc;
+        }
+        if (length < max_xfer_size) {
+            /* the last one */
+            bytes = length;
+            req->desc_tail = desc;
+
+            ioat_dma_desc_ctrl_fence_insert(ctrl, setup->ctrl_fence);
+            ioat_dma_desc_ctrl_int_en_insert(ctrl, setup->ctrl_intr);
+            ioat_dma_desc_ctrl_compl_write_insert(ctrl, 0x1);
+        } else {
+            bytes = max_xfer_size;
+        }
+
+        ioat_dma_desc_fill_memcpy(desc, src, dst, bytes, ctrl);
+        ioat_dma_desc_set_request(desc, req);
+
+        length -= bytes;
+        src += bytes;
+        dst += bytes;
+    } while(length > 0);
+
+    req->setup = *setup;
     req->id = generate_req_id(chan);
 
-    err = ioat_dma_channel_submit(chan, req);
-    if (err_is_fail(err)) {
-        request_free(req);
-        ioat_dma_desc_chain_free(head);
-        return SYS_ERR_OK;
-    }
+    ioat_dma_channel_enq_request(chan, req);
 
+    return SYS_ERR_OK;
+}
+
+inline errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
+                                        struct ioat_dma_req_setup *setup)
+{
+    struct ioat_dma_channel *chan = ioat_dma_channel_get(dev);
+    return ioat_dma_request_memcpy_channel(chan, setup);
+}
+
+void ioat_dma_request_nop(struct ioat_dma_channel *chan)
+{
+
+    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(chan);
+    assert(ring);
+
+    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_next_desc(ring);
+
+    IOREQ_DEBUG("New DMA NOP request: descriptor=%p\n", desc);
+
+    ioat_dma_desc_fill_nop(desc);
+}
+
+errval_t ioat_dma_request_process(struct ioat_dma_request *req)
+{
     return SYS_ERR_OK;
 }

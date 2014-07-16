@@ -97,12 +97,6 @@ int main(int argc,
                 "[0,0,0]\n");
     }
 
-    err = ioat_dma_desc_alloc_init(IOAT_DMA_DESC_SIZE, IOAT_DMA_DESC_ALIGN,
-                                   IOAT_DMA_DESC_COUNT, &dma_ctrl.alloc);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "DMA Descriptor allocator initialization failed.\n");
-    }
-
     err = ioat_dma_device_discovery(addr, device_id, &dma_ctrl);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "DMA Device discovery failed");
