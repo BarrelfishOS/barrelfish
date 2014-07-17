@@ -23,11 +23,12 @@
 
 /*
  * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -77,6 +78,7 @@ errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret)
         err = mca->top->alloc(mca->top, &cap);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&ca->mutex);
+            debug_printf("top allocator out of slots; can't refill\n");
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
         thread_mutex_unlock(&ca->mutex); // cnode_create_raw uses ram_alloc

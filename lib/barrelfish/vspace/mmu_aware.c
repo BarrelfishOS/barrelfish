@@ -8,11 +8,12 @@
 
 /*
  * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -33,8 +34,16 @@
  */
 errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
 {
+    return vspace_mmu_aware_init_aligned(state, size, 0,
+            VREGION_FLAGS_READ_WRITE);
+}
+
+errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
+        size_t size, size_t alignment, vregion_flags_t flags)
+{
     state->size = size;
     state->consumed = 0;
+    state->alignment = alignment;
 
     errval_t err;
 
@@ -44,9 +53,9 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
         return err_push(err, LIB_ERR_MEMOBJ_CREATE_ANON);
     }
 
-    err = vregion_map(&state->vregion, get_current_vspace(),
-                      &state->memobj.m, 0, size,
-                      VREGION_FLAGS_READ_WRITE);
+    err = vregion_map_aligned(&state->vregion, get_current_vspace(),
+                              &state->memobj.m, 0, size,
+                              flags, alignment);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VREGION_MAP);
     }

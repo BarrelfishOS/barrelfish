@@ -5,11 +5,12 @@
 
 /*
  * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef LIBBARRELFISH_VSPACE_MMU_AWARE_H
@@ -27,6 +28,7 @@ struct vspace_mmu_vregion_list {
 /// Struct to support mmu_aware memory management
 struct vspace_mmu_aware {
     size_t size;
+    size_t alignment;
     size_t consumed;
     struct vregion vregion;           ///< Needs just one vregion
     struct memobj_anon memobj;        ///< Needs just one memobj
@@ -35,6 +37,9 @@ struct vspace_mmu_aware {
 };
 
 errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size);
+errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
+                                       size_t size, size_t alignment,
+                                       vregion_flags_t flags);
 errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
                               struct capref frame, size_t req_size,
                               void **retbuf, size_t *retsize);
