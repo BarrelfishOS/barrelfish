@@ -294,8 +294,18 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t table_base = X86_64_PTABLE_BASE(vaddr);
     uint8_t map_bits  = X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
     bool debug_out    = false;
+
+    // get base address and size of frame
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_DO_MAP);
+    }
+
     if ((flags & VREGION_FLAGS_HUGE) &&
-        (vaddr & X86_64_HUGE_PAGE_MASK) == 0)
+        (vaddr & X86_64_HUGE_PAGE_MASK) == 0 &&
+        fi.bits >= X86_64_HUGE_PAGE_BITS &&
+        ((fi.base & X86_64_HUGE_PAGE_MASK) == 0))
     {
         // huge page branch (1GB)
         page_size  = X86_64_HUGE_PAGE_SIZE;
@@ -305,27 +315,22 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         // remove large flag, if we're doing huge mapping
         flags     &= ~VREGION_FLAGS_LARGE;
     } else if ((flags & VREGION_FLAGS_LARGE) &&
-               (vaddr & X86_64_LARGE_PAGE_MASK) == 0)
+               (vaddr & X86_64_LARGE_PAGE_MASK) == 0 &&
+               fi.bits >= X86_64_LARGE_PAGE_BITS &&
+               ((fi.base & X86_64_LARGE_PAGE_MASK) == 0))
     {
         // large page branch (2MB)
         page_size  = X86_64_LARGE_PAGE_SIZE;
         table_base = X86_64_PDIR_BASE(vaddr);
         map_bits   = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
         debug_out  = false;
+    } else {
+        // remove large/huge flags
+        flags &= ~(VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE);
     }
 
-    // round to the next full page
+    // round to the next full page and calculate end address and #ptes
     size = ROUND_UP(size, page_size);
-    struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PMAP_DO_MAP);
-    }
-    if (fi.base + offset + size > fi.base + (1UL<<fi.bits)) {
-        return err_push(LIB_ERR_PMAP_FRAME_SIZE, LIB_ERR_PMAP_DO_MAP);
-    }
-    // here we know that we can fit pte_count pages of size page_size into
-    // frame at offset
     size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
@@ -336,7 +341,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
 #if 0
-    if (debug_out) {
+    if (true || debug_out) {
         genpaddr_t paddr = fi.base + offset;
 
         debug_printf("do_map: 0x%"
@@ -556,20 +561,30 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
+    }
+
     size_t max_slabs;
     // Adjust the parameters to page boundaries
     // TODO: overestimating needed slabs shouldn't hurt much in the long run,
     // and would keep the code easier to read and possibly faster due to less
     // branching
     if ((flags & VREGION_FLAGS_LARGE) &&
-        (vaddr & X86_64_LARGE_PAGE_MASK) == 0) {
+        (vaddr & X86_64_LARGE_PAGE_MASK) == 0 &&
+        (fi.base & X86_64_LARGE_PAGE_MASK) == 0 &&
+        (1UL<<fi.bits) >= offset+size) {
         //case large pages (2MB)
         size   += LARGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, LARGE_PAGE_SIZE);
         offset -= LARGE_PAGE_OFFSET(offset);
         max_slabs = max_slabs_for_mapping_large(size);
     } else if ((flags & VREGION_FLAGS_HUGE) &&
-               (vaddr & X86_64_HUGE_PAGE_MASK) == 0) {
+               (vaddr & X86_64_HUGE_PAGE_MASK) == 0 &&
+               (fi.base & X86_64_HUGE_PAGE_MASK) == 0 &&
+               (1UL<<fi.bits) >= offset+size) {
         // case huge pages (1GB)
         size   += HUGE_PAGE_OFFSET(offset);
         size    = ROUND_UP(size, HUGE_PAGE_SIZE);
