@@ -37,7 +37,7 @@
 #define IOINT_DEBUG(x...)
 #endif
 #if IODEBUG_CHAN
-#define IOCHAN_DEBUG(x...) IODEBUG("[chan] " x)
+#define IOCHAN_DEBUG(x...) IODEBUG("[chan.%04x] " x)
 #else
 #define IOCHAN_DEBUG(x...)
 #endif

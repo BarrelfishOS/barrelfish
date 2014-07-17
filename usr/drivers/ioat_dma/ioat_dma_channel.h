@@ -19,6 +19,19 @@ struct ioat_dma_request;
 
 typedef uint16_t ioat_dma_chan_id_t;
 
+enum ioat_dma_chan_st
+{
+    IOAT_DMA_CHAN_ST_INVALID,
+    IOAT_DMA_CHAN_ST_RESETTING,
+    IOAT_DMA_CHAN_ST_UNINITIALEZED,
+    IOAT_DMA_CHAN_ST_PREPARED,
+    IOAT_DMA_CHAN_ST_RUNNING,
+    IOAT_DMA_CHAN_ST_ERROR,
+    IOAT_DMA_CHAN_ST_SUSPENDED,
+
+    IOAT_DMA_CHAN_ST_INIT_FAIL,
+};
+
 /**
  * \brief initializes a new DMA channel and allocates the channel resources
  *
@@ -36,6 +49,18 @@ void ioat_dma_chan_free(struct ioat_dma_channel *chan);
 errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan);
 
 
+/**
+ * \brief returns a channel to be used form the give device based on the channel
+ *        index
+ *
+ * \param dev IOAT DMA device
+ * \param idx channel index
+ *
+ * \returns IOAT DMA Channel
+ *          NULL if the index exceeds the number of channels
+ */
+struct ioat_dma_channel *ioat_dma_channel_get_by_idx(struct ioat_dma_device *dev,
+                                                     uint8_t idx);
 
 /*
  * ---
@@ -55,6 +80,10 @@ ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan);
 struct ioat_dma_desc_alloc *ioat_dma_channel_get_desc_alloc(struct ioat_dma_channel * chan);
 
 errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan);
+
+errval_t ioat_dma_channel_start(struct ioat_dma_channel *chan);
+
+errval_t ioat_dma_channel_restart(struct ioat_dma_channel *chan);
 
 uint16_t ioat_dma_channel_submit_pending(struct ioat_dma_channel *chan);
 

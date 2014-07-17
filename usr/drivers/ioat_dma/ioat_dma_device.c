@@ -216,7 +216,7 @@ static void device_init(struct device_mem* bar_info,
             curr_err = IOAT_ERR_DEVICE_UNSUPPORTED;
     }
 
-    if (err_is_fail(err)) {
+    if (err_is_fail(curr_err)) {
         curr_dev->state = IOAT_DMA_DEV_ST_ERR;
         return;
     }
@@ -376,3 +376,38 @@ errval_t ioat_dma_device_discovery(struct pci_addr addr,
     return SYS_ERR_OK;
 }
 
+inline void ioat_dma_device_set_intr_delay(struct ioat_dma_device *dev,
+                                           uint16_t usec)
+{
+    ioat_dma_intrdelay_delay_us_wrf(&dev->device, usec);
+}
+
+errval_t ioat_dma_device_poll_channels(struct ioat_dma_device *dev)
+{
+    errval_t err;
+
+    uint8_t idle = 0x1;
+
+    for (uint8_t i = 0; i < dev->chan_num; ++i) {
+        struct ioat_dma_channel *chan;
+        chan = ioat_dma_channel_get_by_idx(dev, i);
+        assert(chan);
+        err = ioat_dma_channel_poll(chan);
+        switch(err_no(err)) {
+            case IOAT_ERR_CHAN_IDLE:
+                idle = idle && 0x1;
+                break;
+            case SYS_ERR_OK:
+                idle = 0;
+                break;
+            default:
+                return err;
+        }
+    }
+
+    if (idle) {
+        return IOAT_ERR_DEVICE_IDLE;
+    }
+
+    return SYS_ERR_OK;
+}

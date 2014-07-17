@@ -71,6 +71,12 @@ static inline uint16_t ioat_dma_ring_get_space(struct ioat_dma_ring *ring)
     return ioat_dma_ring_get_size(ring) - ioat_dma_ring_get_active(ring);
 }
 
+uint16_t ioat_dma_ring_get_head(struct ioat_dma_ring *ring);
+
+uint16_t ioat_dma_ring_get_tail(struct ioat_dma_ring *ring);
+
+uint16_t ioat_dma_ring_get_issued(struct ioat_dma_ring *ring);
+
 
 /*
  * ----------------------------------------------------------------------------
@@ -97,6 +103,8 @@ struct ioat_dma_descriptor *ioat_dma_ring_get_next_desc(struct ioat_dma_ring *ri
  */
 struct ioat_dma_descriptor *ioat_dma_ring_get_desc(struct ioat_dma_ring *ring,
                                                    uint16_t index);
+
+struct ioat_dma_descriptor *ioat_dma_ring_get_tail_desc(struct ioat_dma_ring *ring);
 
 /**
  * \brief submits the pending descriptors to the hardware

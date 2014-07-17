@@ -14,10 +14,12 @@
 
 struct ioat_dma_request;
 
-/// callback to be called when the request is finished
-typedef void (*ioat_dma_cb_t)(void);
-
 typedef uint64_t ioat_dma_req_id_t;
+
+/// callback to be called when the request is finished
+typedef void (*ioat_dma_cb_t)(errval_t, ioat_dma_req_id_t, void *);
+
+
 
 enum ioat_dma_req_type
 {
@@ -49,6 +51,7 @@ struct ioat_dma_req_setup
 struct ioat_dma_request
 {
     ioat_dma_req_id_t id;
+    enum ioat_dma_req_state state;
     struct ioat_dma_req_setup setup;
     struct ioat_dma_descriptor *desc_head;
     struct ioat_dma_descriptor *desc_tail;
@@ -68,5 +71,13 @@ errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
                                  struct ioat_dma_req_setup *setup);
 
 void ioat_dma_request_nop(struct ioat_dma_channel *chan);
+
+static inline bool ioat_dma_request_is_last(struct ioat_dma_request *req,
+                                            struct ioat_dma_descriptor *desc)
+{
+    return (req->desc_tail == desc);
+}
+
+
 
 #endif /* IOAT_DMA_REQUEST_H */

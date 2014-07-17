@@ -119,4 +119,7 @@ errval_t ioat_dma_device_discovery(struct pci_addr addr,
 
 errval_t ioat_dma_device_poll_channels(struct ioat_dma_device *dev);
 
+void ioat_dma_device_set_intr_delay(struct ioat_dma_device *dev,
+                                    uint16_t usec);
+
 #endif /* IOAT_DMA_CHANNEL_H */

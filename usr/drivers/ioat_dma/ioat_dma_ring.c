@@ -29,7 +29,7 @@ struct ioat_dma_ring
     uint16_t head;          ///< allocated index
     uint16_t issued;        ///< hardware notification point
     uint16_t tail;          ///< cleanup index
-    uint16_t dmacount;      ///< identical to 'head' except for occasionally resetting to zero
+    uint16_t dmacount;  ///< identical to 'head' except for occasionally resetting to zero
     uint16_t alloc_order;   ///< log2 of the number of allocated descriptors
     uint16_t produce;       ///< number of descriptors to produce at submit time
     struct ioat_dma_descriptor **desc;  ///< descriptor pointer array
@@ -73,7 +73,7 @@ errval_t ioat_dma_ring_alloc(uint8_t size_bits,
 
     ring->chan = chan;
     ring->size = ndesc;
-    ring->desc = (void *)(ring + 1);
+    ring->desc = (void *) (ring + 1);
 
     err = ioat_dma_desc_alloc(IOAT_DMA_DESC_SIZE, IOAT_DMA_DESC_ALIGN, ndesc,
                               ring->desc);
@@ -113,6 +113,21 @@ inline uint16_t ioat_dma_ring_get_pendig(struct ioat_dma_ring *ring)
     return (ring->head - ring->issued) & (ring->size - 1);
 }
 
+inline uint16_t ioat_dma_ring_get_head(struct ioat_dma_ring *ring)
+{
+    return ring->head;
+}
+
+inline uint16_t ioat_dma_ring_get_tail(struct ioat_dma_ring *ring)
+{
+    return ring->tail;
+}
+
+inline uint16_t ioat_dma_ring_get_issued(struct ioat_dma_ring *ring)
+{
+    return ring->issued;
+}
+
 /*
  * ----------------------------------------------------------------------------
  * Ring Manipulation
@@ -120,7 +135,8 @@ inline uint16_t ioat_dma_ring_get_pendig(struct ioat_dma_ring *ring)
  */
 
 /**
- * \brief gets the next descriptor based on the head pointer
+ * \brief gets the next descriptor based on the head pointer used for issuing
+ *        new DMA requests
  *
  * \param ring the DMA ring
  *
@@ -128,7 +144,29 @@ inline uint16_t ioat_dma_ring_get_pendig(struct ioat_dma_ring *ring)
  */
 inline struct ioat_dma_descriptor *ioat_dma_ring_get_next_desc(struct ioat_dma_ring *ring)
 {
-    return ioat_dma_ring_get_desc(ring, ring->head++);
+    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_desc(ring, ring->head++);
+
+    IODESC_DEBUG("ring getting next head desc:%p @ [%016lx], new head:%u\n", desc,
+                 ioat_dma_desc_get_paddr(desc), ring->head);
+
+    return desc;
+}
+
+/**
+ * \brief gets a pointer to the tail request used for processing the done queue
+ *
+ * \param ring the DMA ring
+ *
+ * \returns pointer to a DMA descriptor
+ */
+inline struct ioat_dma_descriptor *ioat_dma_ring_get_tail_desc(struct ioat_dma_ring *ring)
+{
+    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_desc(ring, ring->tail++);
+
+    IODESC_DEBUG("ring getting tail desc:%p @ [%016lx], new tail: %u\n", desc,
+                 ioat_dma_desc_get_paddr(desc), ring->tail);
+
+    return desc;
 }
 
 /**

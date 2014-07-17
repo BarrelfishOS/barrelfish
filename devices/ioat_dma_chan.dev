@@ -18,6 +18,22 @@
 
 device ioat_dma_chan msbfirst ( addr chan_base ) "IOAT DMA (Crystal Beach) Channel registers" {
 
+    constants cmpl_status_shift "Completion Status Shift Value" {
+        compl_addr_shift = 0x6 "Completion addrss shift";
+    };
+    
+    constants cmpl_status_mask width(64) "Completion Status Mask Value" {
+        status_mask = 0x3f "Mask for the status fields";
+    };
+    
+    datatype compl_status msbfirst (64) "Completion writeback data area" {
+        compl_desc 58 "Completed Descriptor Address";
+        _           1 "Reserved";
+        soft_err    1 "Software Error";
+        unaff_err   1 "Unaffiliated error";
+        status      3 "Channel status field";
+    };
+    
     constants chanctrl_snoop "Field values for Snoop Control" {
         chanctrl_snoop_disabled = 0x1 "Disabled snooping";
         chanctrl_snoop_enabled  = 0x0 "Enable snooping";

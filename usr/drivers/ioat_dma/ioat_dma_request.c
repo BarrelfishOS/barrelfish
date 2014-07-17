@@ -23,7 +23,6 @@
 
 #include "debug.h"
 
-
 /*
  * ---------------------------------------------------------------------------
  * Request Management
@@ -39,21 +38,20 @@ static struct ioat_dma_request *request_alloc(void)
     if (req_free_list) {
         ret = req_free_list;
         req_free_list = ret->next;
+
+        IOREQ_DEBUG("meta: reusing request %p. freelist:%p\n", ret, req_free_list);
+
         return ret;
     }
-    ret = calloc(1, sizeof(*ret));
-
-    return ret;
+    return calloc(1, sizeof(*ret));
 }
 
-/*
 static void request_free(struct ioat_dma_request *req)
 {
+    IOREQ_DEBUG("meta: freeing request %p.\n", req);
     req->next = req_free_list;
     req_free_list = req;
 }
-*/
-
 
 /*
  * ---------------------------------------------------------------------------
@@ -68,7 +66,6 @@ static ioat_dma_req_id_t generate_req_id(struct ioat_dma_channel *chan)
     ioat_dma_req_id_t id = ioat_dma_channel_get_id(chan);
     return (id << 48) | (req_counter++);
 }
-
 
 /*
  * ---------------------------------------------------------------------------
@@ -93,18 +90,22 @@ inline static uint32_t req_num_desc_needed(struct ioat_dma_channel *chan,
 errval_t ioat_dma_request_memcpy_channel(struct ioat_dma_channel *chan,
                                          struct ioat_dma_req_setup *setup)
 {
-       uint32_t num_desc = req_num_desc_needed(chan, setup->bytes);
+    uint32_t num_desc = req_num_desc_needed(chan, setup->bytes);
 
     IOREQ_DEBUG("DMA Memcpy request: [0x%016lx]->[0x%016lx] of %lu bytes (%u desc)\n",
                 setup->src, setup->dst, setup->bytes, num_desc);
 
     struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(chan);
+
     if (num_desc > ioat_dma_ring_get_space(ring)) {
+        IOREQ_DEBUG("Too less space in ring: %u / %u\n", num_desc,
+                    ioat_dma_ring_get_space(ring));
         return IOAT_ERR_NO_DESCRIPTORS;
     }
 
     struct ioat_dma_request *req = request_alloc();
     if (req == NULL) {
+        IOREQ_DEBUG("No request descriptors for holding request data\n");
         return IOAT_ERR_NO_REQUESTS;
     }
 
@@ -123,7 +124,7 @@ errval_t ioat_dma_request_memcpy_channel(struct ioat_dma_channel *chan,
         if (!req->desc_head) {
             req->desc_head = desc;
         }
-        if (length < max_xfer_size) {
+        if (length <= max_xfer_size) {
             /* the last one */
             bytes = length;
             req->desc_tail = desc;
@@ -136,15 +137,21 @@ errval_t ioat_dma_request_memcpy_channel(struct ioat_dma_channel *chan,
         }
 
         ioat_dma_desc_fill_memcpy(desc, src, dst, bytes, ctrl);
-        ioat_dma_desc_set_request(desc, req);
+        ioat_dma_desc_set_request(desc, NULL);
 
         length -= bytes;
         src += bytes;
         dst += bytes;
-    } while(length > 0);
+    } while (length > 0);
 
     req->setup = *setup;
     req->id = generate_req_id(chan);
+
+    /* set the request pointer in the last descriptor */
+    ioat_dma_desc_set_request(desc, req);
+
+    assert(req->desc_tail);
+    assert(ioat_dma_desc_get_request(req->desc_tail));
 
     ioat_dma_channel_enq_request(chan, req);
 
@@ -173,5 +180,24 @@ void ioat_dma_request_nop(struct ioat_dma_channel *chan)
 
 errval_t ioat_dma_request_process(struct ioat_dma_request *req)
 {
+    IOREQ_DEBUG("Processing done request [%016lx]:\n", req->id);
+
+    errval_t err;
+
+    switch (req->state) {
+        case IOAT_DMA_REQ_ST_DONE:
+            err = SYS_ERR_OK;
+            break;
+        default:
+            err = -1;  // todo: error code
+            break;
+    }
+
+    if (req->setup.done_cb) {
+        req->setup.done_cb(err, req->id, req->setup.arg);
+    }
+
+    request_free(req);
+
     return SYS_ERR_OK;
 }

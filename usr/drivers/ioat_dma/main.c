@@ -25,7 +25,14 @@
 
 struct ioat_dma_ctrl dma_ctrl;
 
-#define BUFFER_SIZE (1<<21)
+#define BUFFER_SIZE (1<<22)
+
+static void impl_test_cb(errval_t err, ioat_dma_req_id_t id, void *arg)
+{
+    debug_printf("impl_test_cb\n");
+    assert(memcmp(arg, arg + BUFFER_SIZE, BUFFER_SIZE) == 0);
+    debug_printf("test ok\n");
+}
 
 static void impl_test(void)
 {
@@ -41,16 +48,32 @@ static void impl_test(void)
     err = invoke_frame_identify(frame, &id);
     assert(err_is_ok(err));
 
+    void *buf;
+    err = vspace_map_one_frame(&buf, 1UL << id.bits, frame, NULL, NULL);
+    assert(err_is_ok(err));
+
+    memset(buf, 0, 1UL << id.bits);
+    memset(buf, 0xA5, BUFFER_SIZE);
+
     struct ioat_dma_req_setup setup = {
         .type = IOAT_DMA_REQ_TYPE_MEMCPY,
         .src = id.base,
         .dst = id.base + BUFFER_SIZE,
         .bytes = BUFFER_SIZE,
+        .done_cb = impl_test_cb,
+        .arg = buf
     };
+    int reps = 10;
+    do {
+        debug_printf("!!!!!! NEW ROUND\n");
+        err = ioat_dma_request_memcpy(dma_ctrl.devices, &setup);
+        assert(err_is_ok(err));
 
-    err = ioat_dma_request_memcpy(dma_ctrl.devices, &setup);
-    assert(err_is_ok(err));
-
+        uint32_t i = 10;
+        while(i--) {
+            ioat_dma_device_poll_channels(dma_ctrl.devices);
+        }
+    }while(reps--);
 }
 
 int main(int argc,

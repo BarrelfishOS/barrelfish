@@ -1064,6 +1064,7 @@ errors xeon_phi XEON_PHI_ERR_ {
 errors ioat IOAT_ERR_ {
     failure PCI_ADDRESS           "The PCI address of the device is not as expected",
     failure DEVICE_UNSUPPORTED    "Device ID not supported /  wrong configuration",
+    failure DEVICE_IDLE           "The device is idle, no transfers finished",
     failure ARG_INVALID           "Supplied argument was not valid",
     failure CHAN_ERROR            "Hardware channel error",
     failure NO_DESCRIPTORS        "There are too less descriptors available",

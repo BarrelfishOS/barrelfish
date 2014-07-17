@@ -21,24 +21,13 @@
 #include "ioat_dma_channel.h"
 #include "ioat_dma_ring.h"
 #include "ioat_dma_request.h"
+#include "ioat_dma_descriptors.h"
 
 #include "debug.h"
 
-enum ioat_dma_chan_st
-{
-    IOAT_DMA_CHAN_ST_INVALID,
-    IOAT_DMA_CHAN_ST_COMPL_PENDING,
-    IOAT_DMA_CHAN_ST_COMPL_ACK,
-    IOAT_DMA_CHAN_ST_RESETTING,
-    IOAT_DMA_CHAN_ST_INIT_FAIL,
-    IOAT_DMA_CHAN_ST_RESHAPING,
-    IOAT_DMA_CHAN_ST_RUNNING,
-    IOAT_DMA_CHAN_ST_ACTIVE
-};
-
 struct ioat_dma_channel
 {
-    ioat_dma_chan_id_t chan_id;      ///< unique channel id
+    ioat_dma_chan_id_t id;           ///< unique channel id
     ioat_dma_chan_t channel;         ///< Mackerel address
     struct ioat_dma_device *dev;     ///< the DMA device this channel belongs to
     size_t max_xfer_size;            ///< maximum transfer size of this channel
@@ -72,11 +61,13 @@ errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan)
 
 errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan)
 {
+    chan->state = IOAT_DMA_CHAN_ST_RESETTING;
+
     /* mask possible errors */
     ioat_dma_chan_err_t chanerr = ioat_dma_chan_err_rd(&chan->channel);
     ioat_dma_chan_err_wr(&chan->channel, chanerr);
 
-    IOCHAN_DEBUG("Reseting channel %x. Chanerrors=[%08x]\n", chan->chan_id, chanerr);
+    IOCHAN_DEBUG("Reseting channel. Chanerrors=[%08x]\n", chan->id, chanerr);
 
     /* TODO: Clear any pending errors in pci config space */
 #if 0
@@ -100,6 +91,8 @@ errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan)
         thread_yield();
     }
 
+    chan->state = IOAT_DMA_CHAN_ST_UNINITIALEZED;
+
     /* broadwell may need some additional work here */
     return SYS_ERR_OK;
 }
@@ -117,7 +110,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
     errval_t err;
 
     IOCHAN_DEBUG("Initializing %u channels max. xfer size is %u bytes\n",
-                 dev->chan_num, dev->xfer_size_max);
+                 0, dev->chan_num, dev->xfer_size_max);
 
     dev->channels = calloc(dev->chan_num, sizeof(struct ioat_dma_channel));
     if (dev->channels == NULL) {
@@ -130,7 +123,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
 
     for (uint8_t i = 0; i < dev->chan_num; ++i) {
         struct ioat_dma_channel *chan = dev->channels + i;
-        chan->chan_id = (((uint16_t) dev->devid + 1) << 8) | i;
+        chan->id = (((uint16_t) dev->devid + 1) << 8) | i;
         chan->dev = dev;
         chan->max_xfer_size = dev->xfer_size_max;
 
@@ -146,13 +139,14 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
         }
 
         err = ioat_dma_mem_alloc(IOAT_DMA_CHANNEL_COMPL_SIZE,
-        IOAT_DMA_CHANNEL_COMPL_FLAGS,
+                                 IOAT_DMA_CHANNEL_COMPL_FLAGS,
                                  &chan->completion);
         if (err_is_fail(err)) {
             return err;
         }
 
         memset(chan->completion.addr, 0, IOAT_DMA_CHANNEL_COMPL_SIZE);
+
         /* write the completion address */
         ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.paddr);
         ioat_dma_chan_cmpl_hi_wr(&chan->channel, chan->completion.paddr >> 32);
@@ -170,11 +164,13 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
         chan_ctrl = ioat_dma_chan_ctrl_intp_dis_insert(chan_ctrl, 0x1);
         ioat_dma_chan_ctrl_wr(&chan->channel, chan_ctrl);
 
+        chan->state = IOAT_DMA_CHAN_ST_PREPARED;
+
         /*
          * do a check if the channel operates correctly by issuing a NOP
          */
 
-        IOCHAN_DEBUG("Performing selftest on channel with NOP\n");
+        IOCHAN_DEBUG("performing selftest on channel with NOP\n", chan->id);
 
         ioat_dma_request_nop(chan);
         err = ioat_dma_channel_submit_pending(chan);
@@ -190,12 +186,12 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
                  && !ioat_dma_channel_is_idle(chan));
 
         if (ioat_dma_channel_is_active(chan) || ioat_dma_channel_is_idle(chan)) {
-            IOCHAN_DEBUG("Channel worked properly: %016lx\n",
+            IOCHAN_DEBUG("channel worked properly: %016lx\n", chan->id,
                          *(uint64_t* )chan->completion.addr);
             return SYS_ERR_OK;
         } else {
             uint32_t error = ioat_dma_chan_err_rd(&chan->channel);
-            IOCHAN_DEBUG("Channel error ERROR: %08x\n", error);
+            IOCHAN_DEBUG(" channel error ERROR: %08x\n", chan->id, error);
             ioat_dma_mem_free(&chan->completion);
             return IOAT_ERR_CHAN_ERROR;
         }
@@ -206,7 +202,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev)
 
 ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan)
 {
-    return chan->chan_id;
+    return chan->id;
 }
 
 /**
@@ -224,15 +220,36 @@ struct ioat_dma_channel *ioat_dma_channel_get(struct ioat_dma_device *dev)
     return &dev->channels[dev->chan_next++];
 }
 
+/**
+ * \brief returns a channel to be used form the give device based on the channel
+ *        index
+ *
+ * \param dev IOAT DMA device
+ * \param idx channel index
+ *
+ * \returns IOAT DMA Channel
+ *          NULL if the index exceeds the number of channels
+ */
+struct ioat_dma_channel *ioat_dma_channel_get_by_idx(struct ioat_dma_device *dev,
+                                                     uint8_t idx)
+{
+    if (idx < dev->chan_num) {
+        return &dev->channels[idx];
+    }
+    return NULL;
+}
+
 struct ioat_dma_desc_alloc *ioat_dma_channel_get_desc_alloc(struct ioat_dma_channel *chan)
 {
     return chan->dev->dma_ctrl->alloc;
 }
 
-static inline void channel_set_chain_addr(struct ioat_dma_channel *chan,
-                                          lpaddr_t chain_addr)
+static inline void channel_set_chain_addr(struct ioat_dma_channel *chan)
 {
-    IOCHAN_DEBUG("  setting chain addr to [%016lx]\n", chain_addr);
+    lpaddr_t chain_addr = ioat_dma_ring_get_chain_addr(chan->ring);
+
+    IOCHAN_DEBUG(" setting chain addr to [%016lx]\n", chan->id, chain_addr);
+
     ioat_dma_chan_chainaddr_lo_wr(&chan->channel, (uint32_t) chain_addr);
     ioat_dma_chan_chainaddr_hi_wr(&chan->channel, chain_addr >> 32);
 }
@@ -277,20 +294,59 @@ inline bool ioat_dma_channel_is_suspended(struct ioat_dma_channel *chan)
     return tr_st == ioat_dma_chan_trans_state_susp;
 }
 
+static inline lpaddr_t channel_get_completion_addr(struct ioat_dma_channel *chan)
+{
+    lpaddr_t compl_addr = ioat_dma_chan_sts_hi_rd(&chan->channel);
+    compl_addr <<= 32;
+    compl_addr |= (ioat_dma_chan_sts_lo_rd(&chan->channel));
+
+    return (compl_addr & (~ioat_dma_chan_status_mask));
+}
+
+static inline lpaddr_t channel_has_completed_descr(struct ioat_dma_channel *chan)
+{
+    lpaddr_t curr_compl = channel_get_completion_addr(chan);
+    if (curr_compl != chan->last_completion) {
+        return curr_compl;
+    } else {
+        return 0;
+    }
+
+}
+
+errval_t ioat_dma_channel_start(struct ioat_dma_channel *chan)
+{
+    if (chan->state == IOAT_DMA_CHAN_ST_ERROR) {
+        return ioat_dma_channel_restart(chan);
+    }
+    IOCHAN_DEBUG(" starting channel.\n", chan->id);
+    chan->state = IOAT_DMA_CHAN_ST_RUNNING;
+    channel_set_chain_addr(chan);
+
+    return SYS_ERR_OK;
+}
+
+errval_t ioat_dma_channel_restart(struct ioat_dma_channel *chan)
+{
+    return SYS_ERR_OK;
+}
+
 uint16_t ioat_dma_channel_submit_pending(struct ioat_dma_channel *chan)
 {
+    errval_t err;
+
     uint16_t pending = ioat_dma_ring_get_pendig(chan->ring);
 
-    IOCHAN_DEBUG("Submitting %u pending descriptors to channel 0x%04x\n", pending,
-                 chan->chan_id);
+    IOCHAN_DEBUG(" submitting %u pending desc\n", chan->id, pending);
+
+    if (chan->state != IOAT_DMA_CHAN_ST_RUNNING) {
+        err = ioat_dma_channel_start(chan);
+    }
     if (pending > 0) {
-        lpaddr_t chain_addr = ioat_dma_ring_get_chain_addr(chan->ring);
-        channel_set_chain_addr(chan, chain_addr);
+        uint16_t dmacnt = ioat_dma_ring_submit_pending(chan->ring);
+        ioat_dma_chan_dmacount_wr(&chan->channel, dmacnt);
 
-        uint16_t head = ioat_dma_ring_submit_pending(chan->ring);
-
-        IOCHAN_DEBUG("  setting dma_count to [%u]\n", head);
-        ioat_dma_chan_dmacount_wr(&chan->channel, head);
+        IOCHAN_DEBUG(" setting dma_count to [%u]\n", chan->id, dmacnt);
     }
 
     return pending;
@@ -309,8 +365,8 @@ inline uint32_t ioat_dma_channel_get_max_xfer_size(struct ioat_dma_channel *chan
 void ioat_dma_channel_enq_request(struct ioat_dma_channel *chan,
                                   struct ioat_dma_request *req)
 {
-    IOCHAN_DEBUG("Enqueuing request [%016lx] on channel [%04x]\n", req->id,
-                 chan->chan_id);
+    IOCHAN_DEBUG(" request : enq tail [%016lx]\n",chan->id,  req->id);
+
     req->next = NULL;
     if (chan->req_head == NULL) {
         chan->req_head = req;
@@ -319,6 +375,8 @@ void ioat_dma_channel_enq_request(struct ioat_dma_channel *chan,
         chan->req_tail->next = req;
         chan->req_tail = req;
     }
+
+    ioat_dma_channel_submit_pending(chan);
 }
 
 static inline struct ioat_dma_request *channel_deq_request_head(struct ioat_dma_channel *chan)
@@ -331,6 +389,9 @@ static inline struct ioat_dma_request *channel_deq_request_head(struct ioat_dma_
     if (chan->req_head == NULL) {
         chan->req_tail = NULL;
     }
+
+    IOCHAN_DEBUG(" request : deq head [%016lx]\n",chan->id,  req->id);
+
     return req;
 }
 
@@ -342,38 +403,97 @@ static inline void channel_enq_request_head(struct ioat_dma_channel *chan,
     if (chan->req_tail == NULL) {
         chan->req_tail = req;
     }
+
+    IOCHAN_DEBUG(" request : enq head [%016lx]\n",chan->id,  req->id);
+}
+
+static errval_t channel_process_descriptors(struct ioat_dma_channel *chan,
+                                            lpaddr_t compl_addr_phys)
+{
+    errval_t err;
+
+    if (!compl_addr_phys) {
+        return IOAT_ERR_CHAN_IDLE;
+    }
+
+    IOCHAN_DEBUG(" processing [%016lx] head: %u, tail: %u, issued: %u\n",
+                 chan->id, compl_addr_phys, ioat_dma_ring_get_head(chan->ring),
+                 ioat_dma_ring_get_tail(chan->ring),
+                 ioat_dma_ring_get_issued(chan->ring));
+
+    uint16_t active_count = ioat_dma_ring_get_active(chan->ring);
+
+    struct ioat_dma_descriptor *desc;
+    struct ioat_dma_request *req, *req_head;
+
+    uint16_t processed = 0;
+    uint8_t request_done = 0;
+
+    for (uint16_t i = 0; i < active_count; i++) {
+        desc = ioat_dma_ring_get_tail_desc(chan->ring);
+
+        /*
+         * check if there is a request associated with the descriptor
+         * this indicates the last descriptor of a request
+         */
+        req = ioat_dma_desc_get_request(desc);
+        if (req) {
+            req_head = channel_deq_request_head(chan);
+            assert(req_head == req);
+            err = ioat_dma_request_process(req);
+            if (err_is_fail(err)) {
+                channel_enq_request_head(chan, req_head);
+                return err;
+            }
+            request_done = 1;
+        }
+
+        /* this was the last completed descriptor */
+        if (ioat_dma_desc_get_paddr(desc) == compl_addr_phys) {
+            processed = i;
+            break;
+        }
+    }
+
+    chan->last_completion = compl_addr_phys;
+
+    /* do a 5us delay per pending descriptor */
+    ioat_dma_device_set_intr_delay(chan->dev, (5 * active_count - processed));
+
+    if (request_done) {
+        return SYS_ERR_OK;
+    }
+
+    return IOAT_ERR_REQUEST_UNFINISHED;
 }
 
 errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan)
 {
     errval_t err;
 
+    if (ioat_dma_channel_is_halted(chan)) {
+        IOCHAN_DEBUG("channel is in error state\n", chan->id);
+    }
+
     /* process finished descriptors */
     if (chan->req_head == NULL) {
         return IOAT_ERR_CHAN_IDLE;
     }
 
-    uint32_t compl_count = 0;
-
-    do {
-        struct ioat_dma_request *req = channel_deq_request_head(chan);
-        err = ioat_dma_request_process(req);
-        if (err_is_fail(err)) {
-            channel_enq_request_head(chan, req);
-            if (err_no(err) != IOAT_ERR_REQUEST_UNFINISHED) {
-                return err;
-            }
-            break;
-        }
-        compl_count++;
-    } while(chan->req_head == NULL);
-
-    if (compl_count) {
-        return SYS_ERR_OK;
-    } else {
+    lpaddr_t compl_addr_phys = channel_has_completed_descr(chan);
+    if (!compl_addr_phys) {
         return IOAT_ERR_CHAN_IDLE;
     }
 
-
+    err = channel_process_descriptors(chan, compl_addr_phys);
+    switch (err_no(err)) {
+        case SYS_ERR_OK:
+            /* this means we processed a descriptor request */
+            return SYS_ERR_OK;
+        case IOAT_ERR_REQUEST_UNFINISHED:
+            return IOAT_ERR_CHAN_IDLE;
+        default:
+            return err;
+    }
 }
 
