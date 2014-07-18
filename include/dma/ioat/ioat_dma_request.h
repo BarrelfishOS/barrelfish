@@ -13,6 +13,8 @@
 struct ioat_dma_channel;
 struct ioat_dma_request;
 
+
+
 /*
  * ----------------------------------------------------------------------------
  * Request Execution

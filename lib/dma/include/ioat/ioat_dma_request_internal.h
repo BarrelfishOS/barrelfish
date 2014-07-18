@@ -10,8 +10,18 @@
 #ifndef IOAT_DMA_REQUEST_INTERNAL_H
 #define IOAT_DMA_REQUEST_INTERNAL_H
 
+#include <dma_request_internal.h>
 #include <dma/ioat/ioat_dma_request.h>
 
-void ioat_request_foobar(void);
+
+/**
+ * \brief handles the processing of completed DMA requests
+ *
+ * \param req   the DMA request to process
+ *
+ * \returns SYS_ERR_OK on sucess
+ *          errval on failure
+ */
+errval_t ioat_dma_request_process(struct ioat_dma_request *req);
 
 #endif /* IOAT_DMA_REQUEST_INTERNAL_H */

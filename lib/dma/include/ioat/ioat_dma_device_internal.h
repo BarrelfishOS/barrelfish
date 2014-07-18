@@ -13,8 +13,8 @@
 #include <dma_mem_utils.h>
 
 #include <dma_device_internal.h>
-
 #include <dma/ioat/ioat_dma_device.h>
+
 #include <dev/ioat_dma_dev.h>
 
 

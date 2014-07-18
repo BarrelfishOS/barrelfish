@@ -16,15 +16,20 @@ struct dma_channel;
 /// IOAT DMA channel id
 typedef uint8_t dma_dev_id_t;
 
-/// representation of a PCI address (with more bits)
+/// representation of a PCI address (with more bits than libpci)
 struct pci_addr {
     uint32_t bus;
     uint32_t device;
     uint32_t function;
 };
 
+/**
+ * Device types. Which DMA engine we have.
+ */
 typedef enum dma_dev_type {
-
+    DMA_DEV_TYPE_INVALID,
+    DMA_DEV_TYPE_IOAT,
+    DMA_DEV_TYPE_XEON_PHI
 } dma_dev_type_t;
 
 /**
@@ -39,19 +44,6 @@ typedef enum dma_dev_st {
     DMA_DEV_ST_ERR             ///< an error occurred
 } dma_dev_st_t;
 
-
-/**
- * Enumeration of possible interrupt types supported by the hardware
- */
-typedef enum dma_irq {
-    DMA_IRQ_DISABLED,          ///< interrupts are disabled
-    DMA_IRQ_MSIX,              ///< use MSI-X interrupts
-    DMA_IRQ_MSI,               ///< use MSI interrupts
-    DMA_IRQ_INTX,              ///< use normal INTx interrupts
-} dma_irq_t;
-
-/// interrupt handler function
-typedef void (*dma_irq_fn_t)(struct dma_channel *dev, void *);
 
 /*
  * ----------------------------------------------------------------------------
@@ -94,6 +86,72 @@ errval_t dma_device_release(struct dma_device *dev);
 
 /*
  * ----------------------------------------------------------------------------
+ * Getters / Setters
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief gets the ID of the DMA device
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA device ID
+ */
+dma_dev_id_t dma_device_get_id(struct dma_device *dev);
+
+
+/**
+ * \brief gets the state of the DMA device
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA device state
+ */
+dma_dev_st_t dma_device_get_state(struct dma_device *dev);
+
+
+/**
+ * \brief gets the virtual address of the mapped MMIO register space
+ *
+ * \param dev   DMA device
+ *
+ * \returns MMIO register vbase
+ */
+lvaddr_t dma_device_get_mmio_vbase(struct dma_device *dev);
+
+
+/**
+ * \brief gets the number of channels this device has
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA channel count
+ */
+uint8_t dma_device_get_channel_count(struct dma_device *dev);
+
+/**
+ * \brief obtains the channel associated with the given index
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA channel if index exists
+ *          NULL if index exceeds channel count
+ */
+struct dma_channel *dma_device_get_channe_by_idx(struct dma_device *dev,
+                                                 uint8_t idx);
+
+/**
+ * \brief gets a DMA channel from this device in a round robin fashion
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA channel
+ */
+struct dma_channel *dma_device_get_channel(struct dma_device *dev);
+
+
+/*
+ * ----------------------------------------------------------------------------
  * Interrupt management
  * ----------------------------------------------------------------------------
  */
@@ -101,15 +159,15 @@ errval_t dma_device_release(struct dma_device *dev);
 /**
  * \brief enables the interrupts for the device
  *
- * \param dev   IOAT DMA device
- * \param type  interrupt type
- * \param fn    interrupt handler function
- * \param arg   argument supplied to the handler function
+ * \param dev     IOAT DMA device
+ * \param type    interrupt type
+ * \param handler interrupt handler function
+ * \param arg     argument supplied to the handler function
  */
 errval_t dma_device_intr_enable(struct dma_device *dev,
-                                     dma_irq_t type,
-                                     dma_irq_fn_t fn,
-                                     void *arg);
+                                dma_irq_t type,
+                                dma_irq_fn_t handler,
+                                void *arg);
 
 /**
  * \brief disables the interrupts for the device
@@ -126,62 +184,6 @@ void dma_device_intr_disable(struct dma_device *dev);
  */
 void dma_device_set_intr_delay(struct dma_device *dev,
                                uint16_t usec);
-
-/*
- * ----------------------------------------------------------------------------
- * Device Operation Functions
- * ----------------------------------------------------------------------------
- */
-
-/**
- * \brief gets the device state from the IOAT DMA device
- *
- * \param dev   IOAT DMA device
- *
- * \returns device state enumeration
- */
-dma_dev_st_t dma_device_get_state(struct dma_device *dev);
-
-
-/**
- * \brief returns the channel count of this device
- *
- * \param dev   IOAT DMA device
- *
- * \returns number of channels this device has
- */
-uint8_t dma_device_get_channel_count(struct dma_device *dev);
-
-/**
- * \brief returns the device ID from the IOAT device
- *
- * \param dev   IOAT DMA device
- *
- * \returns IOAT DMA device ID
- */
-dma_dev_id_t dma_device_get_id(struct dma_device *dev);
-
-/**
- * \brief returns the channel belonging with the given ID
- *
- * \param dev   IOAT DMA device
- * \param id    channel id
- *
- * return IOAT DMA channel handle
- *        NULL if no such channel exist
- */
-struct dma_channel *dma_device_get_channel(struct dma_device *dev,
-                                           uint16_t id);
-
-/**
- * \brief returns a channel from the device based on a round robin fashion
- *
- * \param dev   IOAT DMA device
- *
- * return IOAT DMA channel handle
- */
-struct dma_channel *dma_device_get_next_channel(struct dma_device *dev);
-
 
 
 #endif  /* LIB_DMA_CHANNEL_H */

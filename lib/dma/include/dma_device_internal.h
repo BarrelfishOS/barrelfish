@@ -12,23 +12,24 @@
 
 #include <dma/dma_device.h>
 
-struct dma_dev_int
+
+/**
+ * Represents the generic part of a DMA device
+ */
+struct dma_device
 {
     dma_dev_id_t id;                ///< device id
     dma_dev_st_t state;             ///< device state
-    struct {
-        void *vbase;                ///< virtual base of the mapped region
-        lpaddr_t pbase;             ///< physical base of the region
-        uint64_t bytes;             ///< size of the region in bytes
-        struct capref cap;          ///< devframe capability
-    } mmio;                         ///< MMIO register mappings
+
+    struct dma_mem mmio;            ///< MMIO register mappings
 
     struct {
         struct dma_channel **c;     ///< DMA channel pointers
-        uint8_t num;                ///< Number of channels of this device
+        uint8_t count;              ///< Number of channels of this device
         uint8_t next;               ///< Next channel to allocate for requests
     } channels;                     ///< Channel information
-    dma_irq_t irq_type;        ///< DMA interrupt type
+
+    dma_irq_t irq_type;
 };
 
 #endif /* DMA_DEVICE_INTERNAL_H */

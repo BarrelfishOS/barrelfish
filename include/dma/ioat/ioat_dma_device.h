@@ -164,7 +164,7 @@ struct ioat_dma_channel *ioat_dma_device_get_next_channel(struct ioat_dma_device
  * \param dev   IOAT DMA device
  *
  * \returns SYS_ERR_OK on success
- *          IOAT_ERR_DEVICE_IDLE if there is nothing completed on the channels
+ *          DMA_ERR_DEVICE_IDLE if there is nothing completed on the channels
  *          errval on error
  */
 errval_t ioat_dma_device_poll_channels(struct ioat_dma_device *dev);

@@ -12,12 +12,28 @@
 
 #include <dma/dma_request.h>
 
-struct dma_req_int
+/**
+ * generic representation of DMA requests
+ */
+struct dma_request
 {
-    struct dma_request req;
-
+    dma_req_id_t id;            ///<
+    dma_req_st_t state;         ///<
+    struct dma_req_setup setup; ///<
+    struct dma_request *next;   ///<
 };
 
+dma_req_id_t dma_request_generate_req_id(struct dma_channel *chan);
 
+
+/**
+ * \brief handles the processing of completed DMA requests
+ *
+ * \param req   the DMA request to process
+ *
+ * \returns SYS_ERR_OK on sucess
+ *          errval on failure
+ */
+errval_t dma_request_process(struct dma_request *req);
 
 #endif /* DMA_REQUEST_INTERNAL_H */

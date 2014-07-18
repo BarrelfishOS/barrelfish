@@ -10,6 +10,10 @@
 #ifndef LIB_IOAT_DMA_H
 #define LIB_IOAT_DMA_H
 
+struct ioat_dma_device;
+struct ioat_dma_channel;
+struct ioat_dma_request;
+
 /*
  * switch for changing the operation mode of the IOAT DMA driver
  * The options are:

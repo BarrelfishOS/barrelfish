@@ -26,10 +26,10 @@
  *
  * \returns SYS_ERR_OK on success
  */
-errval_t ioat_channel_init(struct ioat_dma_device *dev,
-                           uint8_t id,
-                           uint32_t max_xfer,
-                           struct ioat_dma_channel **ret_chan);
+errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
+                               uint8_t id,
+                               uint32_t max_xfer,
+                               struct dma_channel **ret_chan);
 
 
 

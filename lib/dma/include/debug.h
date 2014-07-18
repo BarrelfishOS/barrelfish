@@ -15,6 +15,16 @@
 
 /*
  * ---------------------------------------------------------------------------
+ *  Generic DMA debug switches
+ */
+#define DMA_DEBUG_ENABLED         1
+#define DMA_DEBUG_CHAN_ENABLED    1
+#define DMA_DEBUG_DEVICE_ENABLED  1
+#define DMA_DEBUG_REQUEST_ENABLED 1
+#define DMA_DEBUG_INTR_ENABLED    1
+
+/*
+ * ---------------------------------------------------------------------------
  *  IOAT debug switches
  */
 #define IOAT_DEBUG_ENABLED         1
@@ -23,13 +33,44 @@
 #define IOAT_DEBUG_REQUEST_ENABLED 1
 #define IOAT_DEBUG_DESC_ENABLED    1
 #define IOAT_DEBUG_INTR_ENABLED    1
-#define IOAT_DEBUG_DCA_ENABLED    1
+#define IOAT_DEBUG_DCA_ENABLED     1
 
 /*
  * ---------------------------------------------------------------------------
  *  DMA client debug switches
  */
 #define DMA_CLIENT_DEBUG_ENABLED 1
+
+/*
+ * --------------------------------------------------------------------------
+ *  Generic DMA debug output generation
+ */
+
+#if (LIB_DMA_DEBUG_ENABLED && DMA_DEBUG_ENABLED)
+#define DMA_DEBUG_PRINT(x...) debug_printf(x)
+#else
+#define DMA_DEBUG_PRINT(x... )
+#endif
+#if DMA_DEBUG_INTR_ENABLED
+#define DMAINT_DEBUG(x...) DMA_DEBUG_PRINT("[dma intr] " x)
+#else
+#define DMAINT_DEBUG(x...)
+#endif
+#if DMA_DEBUG_CHAN_ENABLED
+#define DMACHAN_DEBUG(x...) DMA_DEBUG_PRINT("[dma chan.%04x] " x)
+#else
+#define DMACHAN_DEBUG(x...)
+#endif
+#if DMA_DEBUG_REQUEST_ENABLED
+#define DMAREQ_DEBUG(x...) DMA_DEBUG_PRINT("[dma  req] " x)
+#else
+#define DMAREQ_DEBUG(x...)
+#endif
+#if DMA_DEBUG_DEVICE_ENABLED
+#define DMADEV_DEBUG(x...) DMA_DEBUG_PRINT("[dma  dev.%02x] " x)
+#else
+#define DMADEV_DEBUG(x...)
+#endif
 
 
 /*

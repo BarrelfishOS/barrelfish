@@ -12,6 +12,7 @@
 
 #include <dma/ioat/ioat_dma_ring.h>
 
+
 /// maximum ring size in bits
 #define IOAT_DESC_RING_SIZE_MAX 16
 

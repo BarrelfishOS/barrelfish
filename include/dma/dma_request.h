@@ -10,15 +10,15 @@
 #ifndef LIB_DMA_REQUEST_H
 #define LIB_DMA_REQUEST_H
 
-struct ioat_dma_request;
+struct dma_request;
 
 /// IOAT DMA request ID
 typedef uint64_t dma_req_id_t;
 
 /// callback to be called when the request is finished
-typedef void (*dma_cb_t)(errval_t,
-                         dma_req_id_t,
-                         void *);
+typedef void (*dma_req_cb_t)(errval_t,
+                             dma_req_id_t,
+                             void *);
 
 /**
  * enumeration of the possible request types
@@ -35,11 +35,11 @@ typedef enum dma_req_type
  */
 typedef enum dma_req_st
 {
-    IOAT_DMA_REQ_ST_INVALID,    ///< request is invalid
-    IOAT_DMA_REQ_ST_PREPARED,   ///< request is prepared
-    IOAT_DMA_REQ_ST_SUBMITTED,  ///< request is submitted to hardware
-    IOAT_DMA_REQ_ST_DONE,       ///< request has been executed
-    IOAT_DMA_REQ_ST_ERR         ///< request execution failed
+    DMA_REQ_ST_INVALID,    ///< request is invalid
+    DMA_REQ_ST_PREPARED,   ///< request is prepared
+    DMA_REQ_ST_SUBMITTED,  ///< request is submitted to hardware
+    DMA_REQ_ST_DONE,       ///< request has been executed
+    DMA_REQ_ST_ERR         ///< request execution failed
 } dma_req_st_t;
 
 /**
@@ -48,8 +48,8 @@ typedef enum dma_req_st
 struct dma_req_setup
 {
     dma_req_type_t type;           ///< specifies the request type
-    dma_cb_t done_cb;              ///< callback for executed request
-    void *arg;                     ///< argument for the callback
+    dma_req_cb_t done_cb;          ///< callback for executed request
+    void *cb_arg;                  ///< argument for the callback
     union
     {
         struct
@@ -60,38 +60,86 @@ struct dma_req_setup
             uint8_t ctrl_intr :1;  ///< do an interrupt upon completion
             uint8_t ctrl_fence :1; ///< do a mem fence upon completion
         } memcpy;                  ///< memcpy request
+        struct {
+
+        } nop;
 
     } args;                        ///< request setup arguments
 
 };
 
-/**
- * common structure for all DMA requests
+/*
+ * ----------------------------------------------------------------------------
+ * Request Execution
+ * ----------------------------------------------------------------------------
  */
-struct dma_request
-{
-    dma_req_id_t id;            ///<
-    dma_req_st_t state;         ///<
-    struct dma_req_setup setup; ///<
-};
 
 /**
  *
  */
 errval_t dma_request_memcpy(struct dma_req_setup *setup);
 
+/**
+ *
+ */
 errval_t dma_request_nop(struct dma_req_setup *setup);
 
+/**
+ *
+ */
 errval_t dma_request_exec(struct dma_req_setup *setup);
 
+/**
+ *
+ */
 dma_req_st_t dma_request_get_state(struct dma_request *req);
 
-static inline dma_req_id_t dma_request_id_build(struct dma_channel *chan)
+/*
+ * ----------------------------------------------------------------------------
+ * Helper Functions
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief builds the DMA request ID for a request counter value on a give channel
+ *
+ * \param chan  the DMA channel
+ * \param req   request counter value
+ *
+ * \return DMA request ID
+ */
+static inline dma_req_id_t dma_request_id_build(struct dma_channel *chan,
+                                                uint64_t req)
 {
-    dma_req_id_t id = dma_channel_get_id(chan);
+    dma_req_id_t id = (dma_req_id_t)dma_channel_get_id(chan);
     id <<= 48;
-    id |= (0x0000FFFFFFFFFFFF & dma_channel_incr_req_counter(chan));
+    id |= (0x0000FFFFFFFFFFFFULL & req);
     return id;
 }
+
+/**
+ * \brief obtains the DMA channel ID from the request ID
+ *
+ * \param id the DMA request ID
+ *
+ * \return DMA channel ID
+ */
+static inline dma_chan_id_t dma_request_id_get_channel_id(dma_req_id_t id)
+{
+    return (dma_chan_id_t)((id >> 48) & 0xFFFF);
+}
+
+/**
+ * \brief obtains the DMA device ID from the request ID
+ *
+ * \param id the DMA request ID
+ *
+ * \return DMA device ID
+ */
+static inline dma_chan_id_t dma_request_id_get_device_id(dma_req_id_t id)
+{
+    return dma_channel_id_get_device_id(dma_request_id_get_channel_id(id));
+}
+
 
 #endif  /* LIB_DMA_REQUEST_H */

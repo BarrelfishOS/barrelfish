@@ -10,8 +10,6 @@
 #ifndef LIB_IOAT_DMA_RING_H
 #define LIB_IOAT_DMA_RING_H
 
-struct ioat_dma_channel;
-struct ioat_dma_descriptor;
 struct ioat_dma_ring;
 
 /// the minimum amount of DMA descriptors to allocate in bits
@@ -88,6 +86,15 @@ uint16_t ioat_dma_ring_get_tail(struct ioat_dma_ring *ring);
  * \returns issued element index
  */
 uint16_t ioat_dma_ring_get_issued(struct ioat_dma_ring *ring);
+
+/**
+ * \brief returns the DMA count of the ring for setting the DMA count register
+ *
+ * \param ring  IOAT DMA descriptor ring
+ *
+ * \returns dmacount value
+ */
+uint16_t ioat_dma_ring_get_dmacount(struct ioat_dma_ring *ring);
 
 /**
  * \brief gets the next descriptor based on the index

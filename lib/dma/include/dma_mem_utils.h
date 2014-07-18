@@ -10,16 +10,8 @@
 #ifndef LIB_DMA_MEM_UTILS_H
 #define LIB_DMA_MEM_UTILS_H
 
-/**
- * represents a mapped piece of memory for DMA management purposes
- */
-struct dma_mem
-{
-    void    *addr;
-    lpaddr_t paddr;
-    size_t   bytes;
-    struct capref frame;
-};
+/* forward declaration */
+struct dma_mem;
 
 /**
  * \brief allocates and maps a memory region to be used for DMA purposes

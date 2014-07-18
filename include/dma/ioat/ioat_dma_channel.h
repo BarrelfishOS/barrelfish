@@ -10,38 +10,97 @@
 #ifndef LIB_IOAT_DMA_CHANNEL_H
 #define LIB_IOAT_DMA_CHANNEL_H
 
-struct ioat_dma_channel;
-struct ioat_dma_request;
-
-
-
-
-
 /**
  * \brief Resets a IOAT DMA channel
  *
  * \param chan  IOAT DMA channel to be reset
  *
  * \returns SYS_ERR_OK on success
- *          IOAT_ERR_CHAN_RESET on reset timeout
+ *          DMA_ERR_CHAN_RESET on reset timeout
  */
 errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan);
 
-
-/*
- * ----------------------------------------------------------------------------
- * Getter / Setter Functions
- * ----------------------------------------------------------------------------
+/**
+ * \brief Starts a channel and sets it into the running state
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
  */
+errval_t ioat_dma_channel_start(struct ioat_dma_channel *chan);
 
 /**
- * \brief returns the IOAT DMA channel ID
+ * \brief Restarts a channel and sets it into the running state
+ *        this is to be used upon error condition
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_channel_restart(struct ioat_dma_channel *chan);
+
+
+/**
+ * \brief Submits the pending descriptors to the hardware queue
  *
  * \param chan  IOAT DMA channel
  *
- * \returns IOAT DMA channel ID of the supplied channel
+ * \returns number of submitted descriptors
  */
-ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan);
+uint16_t ioat_dma_channel_submit_pending(struct ioat_dma_channel *chan);
+
+/**
+ * \brief polls the IOAT DMA channel for completed events
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns SYS_ERR_OK if there was something processed
+ *
+ */
+errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan);
+
+/*
+ * ----------------------------------------------------------------------------
+ * Channel Status
+ * ----------------------------------------------------------------------------
+ */
+
+bool ioat_dma_channel_is_active(struct ioat_dma_channel *chan);
+
+/**
+ * \brief reads the CHANSTS register and and checks if the channel is idle
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns true if channel is idle
+ *          false if not
+ */
+bool ioat_dma_channel_is_idle(struct ioat_dma_channel *chan);
+
+/**
+ * \brief reads the CHANSTS register and and checks if the channel is halted
+ *        i.e. if there was an error condition
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns true if channel is halted (there was an error)
+ *          false if not
+ */
+bool ioat_dma_channel_is_halted(struct ioat_dma_channel *chan);
+
+/**
+ * \brief reads the CHANSTS register and and checks if the channel is suspended
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns true if channel is suspended
+ *          false if not
+ */
+bool ioat_dma_channel_is_suspended(struct ioat_dma_channel *chan);
+
+
 
 /**
  * \brief returns the associated IOAT DMA descriptor ring of a channel
@@ -52,15 +111,6 @@ ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan);
  */
 struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan);
 
-
-/**
- * \brief returns the maximum number of bytes per DMA descritpor
- *
- * \param chan IOAT DMA channel
- *
- * \returns maximum number of bytes
- */
-uint32_t ioat_dma_channel_get_max_xfer_size(struct ioat_dma_channel *chan);
 
 /*
  * ----------------------------------------------------------------------------
