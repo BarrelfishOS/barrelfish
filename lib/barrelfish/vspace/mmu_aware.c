@@ -93,13 +93,29 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     } else {
         req_size -= state->mapoffset - state->offset;
     }
+    size_t alloc_size = req_size;
     size_t ret_size = 0;
 
-    if(req_size > 0) {
+    if (req_size > 0) {
+        if ((state->mapoffset & LARGE_PAGE_MASK) == 0 &&
+            state->alignment >= LARGE_PAGE_SIZE)
+        {
+            // this is an opportunity to switch to 2M pages
+            // we know that we can use large pages without jumping through hoops
+            // if state->alignment is at least LARGE_PAGE_SIZE as we always create
+            // the vregion with VREGION_FLAGS_LARGE.
+            alloc_size = ROUND_UP(req_size, LARGE_PAGE_SIZE);
+        }
         // Create frame of appropriate size
-        err = frame_create(frame, req_size, &ret_size);
+retry:
+        err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
+                // we can only get 4k frames for now; retry with 4k
+                if (alloc_size > BASE_PAGE_SIZE && origsize < BASE_PAGE_SIZE) {
+                    alloc_size = BASE_PAGE_SIZE;
+                    goto retry;
+                }
                 return err_push(err, LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS);
             }
             return err_push(err, LIB_ERR_FRAME_CREATE);
