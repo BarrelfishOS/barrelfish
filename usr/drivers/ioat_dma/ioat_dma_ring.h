@@ -16,19 +16,12 @@ struct ioat_dma_ring;
 struct ioat_dma_descriptor;
 
 
-#define IOAT_DMA_DESC_MAP_FLAGS VREGION_FLAGS_READ_WRITE
-
 /// the minimum amount of DMA descriptors to allocate in bits
 #define IOAT_DMA_DESC_RING_SIZE 8
 
 /// maximum ring size in bits
 #define IOAT_DMA_DESC_RING_SIZE_MAX 16
 
-/// the size of the basic descriptor
-#define IOAT_DMA_DESC_SIZE 64
-
-/// minimum alignment constraint for the descriptors
-#define IOAT_DMA_DESC_ALIGN 64
 
 
 /*

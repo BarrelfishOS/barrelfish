@@ -31,23 +31,5 @@
  */
 errval_t ioat_dma_init(uint8_t dca_enabled);
 
-/**
- * \brief enables direct cache access
- */
-void ioat_dma_dca_enable(void);
-
-/**
- * \brief disables direct cache access
- */
-void ioat_dma_dca_disable(void);
-
-
-/**
- * \brief checks whether DCA is enabled
- *
- * \returns 1 if DCA is enabled
- *          0 if DCA is disabled
- */
-uint8_t ioat_dma_dca_is_enabled(void);
 
 #endif  /* LIB_IOAT_DMA_H */

@@ -13,13 +13,29 @@
 #include <dma_mem_utils.h>
 
 #include <ioat/ioat_dma_internal.h>
+#include <ioat/ioat_dma_dca_internal.h>
 #include <ioat/ioat_dma_device_internal.h>
 #include <ioat/ioat_dma_channel_internal.h>
 
 #include <debug.h>
 
+/**
+ * IOAT DMA device representation
+ */
+struct ioat_dma_device
+{
+    struct dma_dev_int common;
+
+    ioat_dma_t device;                  ///< mackerel device base
+    ioat_dma_cbver_t version;           ///< Crystal Beach version number
+
+    struct dma_mem complstatus;         ///< memory region for channels CHANSTS
+
+    uint32_t flags;
+};
+
 /// counter for device ID enumeration
-static ioat_dma_devid_t device_id = 1;
+static dma_dev_id_t device_id = 1;
 
 /*
  * ----------------------------------------------------------------------------
@@ -30,14 +46,14 @@ static ioat_dma_devid_t device_id = 1;
 static errval_t device_init_ioat_v1(struct ioat_dma_device *dev)
 {
     IOATDEV_DEBUG("devices of Crystal Beach Version 1.xx are currently not supported.\n",
-                  dev->id);
+                  dev->common.id);
     return IOAT_ERR_DEVICE_UNSUPPORTED;
 }
 
 static errval_t device_init_ioat_v2(struct ioat_dma_device *dev)
 {
     IOATDEV_DEBUG("devices of Crystal Beach Version 2.xx are currently not supported.\n",
-                  dev->id);
+                  dev->common.id);
     return IOAT_ERR_DEVICE_UNSUPPORTED;
 }
 
@@ -45,30 +61,30 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
 {
     errval_t err;
 
-    IOATDEV_DEBUG("initialize Crystal Beach 3 DMA device\n", dev->id);
+    IOATDEV_DEBUG("initialize Crystal Beach 3 DMA device\n", dev->common.id);
 
     ioat_dma_dmacapability_t cap = ioat_dma_dmacapability_rd(&dev->device);
 
     if (ioat_dma_cbver_minor_extract(dev->version) == 2) {
         IOATDEV_DEBUG("disabling XOR and PQ opcodes for Crystal Beach 3.2\n",
-                      dev->id);
+                      dev->common.id);
         cap = ioat_dma_dmacapability_xor_insert(cap, 0x0);
         cap = ioat_dma_dmacapability_pq_insert(cap, 0x0);
     } else if (ioat_dma_cbver_minor_extract(dev->version) == 3) {
         IOATDEV_DEBUG("devices of Crystal Beach Version 3.3 are not supported.\n",
-                      dev->id);
+                      dev->common.id);
         return IOAT_ERR_DEVICE_UNSUPPORTED;
     }
 
     /* if DCA is enabled, we cannot support the RAID functions */
     if (ioat_dma_dca_is_enabled()) {
-        IOATDEV_DEBUG("Disabling XOR and PQ while DCA is enabled\n", dev->id);
+        IOATDEV_DEBUG("Disabling XOR and PQ while DCA is enabled\n", dev->common.id);
         cap = ioat_dma_dmacapability_xor_insert(cap, 0x0);
         cap = ioat_dma_dmacapability_pq_insert(cap, 0x0);
     }
 
     if (ioat_dma_dmacapability_xor_extract(cap)) {
-        IOATDEV_DEBUG("device supports XOR RAID.\n", dev->id);
+        IOATDEV_DEBUG("device supports XOR RAID.\n", dev->common.id);
 
         dev->flags |= IOAT_DMA_DEV_F_RAID;
 
@@ -82,7 +98,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
     }
 
     if (ioat_dma_dmacapability_pq_extract(cap)) {
-        IOATDEV_DEBUG("device supports PQ RAID.\n", dev->id);
+        IOATDEV_DEBUG("device supports PQ RAID.\n", dev->common.id);
 
         dev->flags |= IOAT_DMA_DEV_F_RAID;
 
@@ -110,21 +126,21 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
         return err;
     }
 
-    dev->channels.num = ioat_dma_chancnt_num_rdf(&dev->device);
+    dev->common.channels.num = ioat_dma_chancnt_num_rdf(&dev->device);
 
-    dev->channels.c = calloc(dev->channels.num, sizeof(*dev->channels.c));
-    if (dev->channels.c == NULL) {
+    dev->common.channels.c = calloc(dev->common.channels.num, sizeof(*dev->common.channels.c));
+    if (dev->common.channels.c == NULL) {
         dma_mem_free(&dev->complstatus);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     /* channel enumeration */
 
-    IOATDEV_DEBUG("channel enumeration. discovered %u channels\n", dev->id, dev->channels.num);
+    IOATDEV_DEBUG("channel enumeration. discovered %u channels\n", dev->common.id, dev->common.channels.num);
 
     uint32_t max_xfer_size = (1 << ioat_dma_xfercap_max_rdf(&dev->device));
-    for (uint8_t i = 0; i < dev->channels.num; ++i) {
-        err = ioat_channel_init(dev, i, max_xfer_size, &dev->channels.c[i]);
+    for (uint8_t i = 0; i < dev->common.channels.num; ++i) {
+        err = ioat_channel_init(dev, i, max_xfer_size, &dev->common.channels.c[i]);
     }
 
 
@@ -145,7 +161,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
 void ioat_device_get_complsts_addr(struct ioat_dma_device *dev,
                                        struct dma_mem *mem)
 {
-    if (dev->state != IOAT_DMA_DEV_ST_CHAN_ENUM) {
+    if (dev->common.state != IOAT_DMA_DEV_ST_CHAN_ENUM) {
         memset(mem, 0, sizeof(*mem));
     }
 
@@ -153,8 +169,8 @@ void ioat_device_get_complsts_addr(struct ioat_dma_device *dev,
 
     *mem = dev->complstatus;
     mem->bytes = IOAT_DMA_COMPLSTATUS_SIZE;
-    mem->paddr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->channels.next);
-    mem->addr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->channels.next++);
+    mem->paddr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->common.channels.next);
+    mem->addr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->common.channels.next++);
     mem->frame = NULL_CAP;
 }
 
@@ -190,6 +206,8 @@ errval_t ioat_dma_device_init(struct capref mmio,
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    struct dma_device_int *dma_dev = &ioat_device->common;
+
     struct frame_identity mmio_id;
     err = invoke_frame_identify(mmio, &mmio_id);
     if (err_is_fail(err)) {
@@ -197,16 +215,16 @@ errval_t ioat_dma_device_init(struct capref mmio,
         return err;
     }
 
-    ioat_device->id = device_id++;
-    ioat_device->mmio.pbase = mmio_id.base;
-    ioat_device->mmio.bytes = (1UL << mmio_id.bits);
-    ioat_device->mmio.cap = mmio;
+    dma_dev->id = device_id++;
+    dma_dev->mmio.pbase = mmio_id.base;
+    dma_dev->mmio.bytes = (1UL << mmio_id.bits);
+    dma_dev->mmio.cap = mmio;
 
     IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%u kB}\n",
-                  ioat_device->id, mmio_id.base, 1 << mmio_id.bits);
+                  dma_dev->id, mmio_id.base, 1 << mmio_id.bits);
 
-    err = vspace_map_one_frame_attr(&ioat_device->mmio.vbase,
-                                    ioat_device->mmio.bytes, ioat_device->mmio.cap,
+    err = vspace_map_one_frame_attr(&dma_dev->mmio.vbase,
+                                    dma_dev->mmio.bytes, dma_dev->mmio.cap,
                                     VREGION_FLAGS_READ_WRITE_NOCACHE,
                                     NULL, NULL);
     if (err_is_fail(err)) {
@@ -214,12 +232,12 @@ errval_t ioat_dma_device_init(struct capref mmio,
         return err;
     }
 
-    ioat_dma_initialize(&ioat_device->device, NULL, ioat_device->mmio.vbase);
+    ioat_dma_initialize(&ioat_device->device, NULL, dma_dev->mmio.vbase);
 
     ioat_device->version = ioat_dma_cbver_rd(&ioat_device->device);
 
     IOATDEV_DEBUG("device registers mapped at 0x%016lx. IOAT version: %u.%u\n",
-                  ioat_device->id, (lvaddr_t )ioat_device->mmio.vbase,
+                  dma_dev->id, (lvaddr_t )dma_dev->mmio.vbase,
                   ioat_dma_cbver_major_extract(ioat_device->version),
                   ioat_dma_cbver_minor_extract(ioat_device->version));
 
@@ -238,7 +256,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     }
 
     if (err_is_fail(err)) {
-        vspace_unmap(ioat_device->mmio.vbase);
+        vspace_unmap(dma_dev->mmio.vbase);
         free(ioat_device);
     }
 
@@ -369,7 +387,19 @@ ioat_dma_dev_st_t ioat_dma_device_get_state(struct ioat_dma_device *dev)
  */
 inline uint8_t ioat_dma_device_get_channel_count(struct ioat_dma_device *dev)
 {
-    return dev->channels.num;
+    return dev->common.channels.num;
+}
+
+/**
+ * \brief returns the device ID from the IOAT device
+ *
+ * \param dev   IOAT DMA device
+ *
+ * \returns IOAT DMA device ID
+ */
+inline ioat_dma_devid_t ioat_dma_device_get_id(struct ioat_dma_device *dev)
+{
+    return dev->common.id;
 }
 
 /**
@@ -385,18 +415,34 @@ struct ioat_dma_channel *ioat_dma_device_get_channel(struct ioat_dma_device *dev
                                                      uint16_t id)
 {
     /* channel ID belongs not to this device */
-    if ((id >> 8) != dev->id) {
+    if ((id >> 8) != dev->common.id) {
         return NULL;
     }
 
     /* channel index exceeds channel number */
-    if ((id & 0xFF) > dev->channels.num) {
+    if ((id & 0xFF) > dev->common.channels.num) {
         return NULL;
     }
     assert(!"NYI");
 
     return NULL;
 }
+
+/**
+ * \brief returns a channel from the device based on a round robin fashion
+ *
+ * \param dev   IOAT DMA device
+ *
+ * return IOAT DMA channel handle
+ */
+struct ioat_dma_channel *ioat_dma_device_get_next_channel(struct ioat_dma_device *dev)
+{
+    if (dev->common.channels.next >= dev->common.channels.num) {
+        dev->common.channels.next = 0;
+    }
+    return dev->common.channels.c[dev->common.channels.next++];
+}
+
 
 /**
  * \brief polls the channels of the IOAT DMA device

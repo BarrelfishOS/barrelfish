@@ -7,6 +7,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <string.h>
+
 #include <barrelfish/barrelfish.h>
 
 #include <dma_mem_utils.h>
@@ -23,7 +25,7 @@
  */
 errval_t dma_mem_alloc(size_t bytes,
                        vregion_flags_t flags,
-                       struct ioat_dma_mem *mem)
+                       struct dma_mem *mem)
 {
     errval_t err;
 
@@ -39,7 +41,7 @@ errval_t dma_mem_alloc(size_t bytes,
     struct frame_identity id;
     err = invoke_frame_identify(mem->frame, &id);
     if (err_is_fail(err)) {
-        ioat_dma_mem_free(mem);
+        dma_mem_free(mem);
         return err;
     }
 
@@ -48,7 +50,7 @@ errval_t dma_mem_alloc(size_t bytes,
     err = vspace_map_one_frame_attr(&mem->addr, mem->bytes, mem->frame, flags, NULL,
                                     NULL);
     if (err_is_fail(err)) {
-        ioat_dma_mem_free(mem);
+        dma_mem_free(mem);
         return err;
     }
 
@@ -61,7 +63,7 @@ errval_t dma_mem_alloc(size_t bytes,
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_mem_free(struct ioat_dma_mem *mem)
+errval_t dma_mem_free(struct dma_mem *mem)
 {
     errval_t err;
 

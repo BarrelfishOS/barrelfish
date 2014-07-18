@@ -1067,6 +1067,7 @@ errors ioat IOAT_ERR_ {
     failure DEVICE_IDLE           "The device is idle, no transfers finished",
     failure ARG_INVALID           "Supplied argument was not valid",
     failure CHAN_ERROR            "Hardware channel error",
+    failure RESET_TIMEOUT         "The reset attempt timed out",
     failure NO_DESCRIPTORS        "There are too less descriptors available",
     failure NO_REQUESTS           "There are no request descriptors left",
     failure CHAN_BUSY             "The channel is busy and cannot accept more",

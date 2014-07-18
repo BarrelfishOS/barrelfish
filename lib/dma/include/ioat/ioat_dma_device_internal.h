@@ -10,38 +10,14 @@
 #ifndef IOAT_DMA_DEVICE_INTERNAL_H
 #define IOAT_DMA_DEVICE_INTERNAL_H
 
+#include <dma_mem_utils.h>
+
+#include <dma_device_internal.h>
+
 #include <dma/ioat/ioat_dma_device.h>
 #include <dev/ioat_dma_dev.h>
 
-/**
- * IOAT DMA device representation
- */
-struct ioat_dma_device
-{
-    ioat_dma_devid_t id;                ///< device ID
-    ioat_dma_t device;                  ///< mackerel device base
-    ioat_dma_cbver_t version;           ///< Crystal Beach version number
-    enum ioat_dma_dev_st state;         ///< device state
 
-    struct {
-        void    *vbase;                 ///< virtual base of the mapped region
-        lpaddr_t pbase;                 ///< physical base of the region
-        uint64_t bytes;                 ///< size of the region in bytes
-        struct capref cap;              ///< devframe capability
-    } mmio;                             ///< MMIO register mappings
-
-    struct {
-        struct ioat_dma_channel **c;    ///< DMA channel pointers
-        uint8_t num;                    ///< Number of channels of this device
-        uint8_t next;                   ///< Next channel to allocate for requests
-    } channels;                         ///< Channel information
-
-    struct dma_mem complstatus;         ///< memory region for channels CHANSTS
-
-    uint32_t flags;
-    struct ioat_dma_ctrl *dma_ctrl;
-    enum ioat_dma_irq irq_type;
-};
 
 
 /* device flags */

@@ -12,19 +12,30 @@
 --------------------------------------------------------------------------
 
 [ build library { 
-	target = "dma",
+    target = "dma",
     cFiles = [
-        "dma_memory_manager.c",
-        "dma_service.c"
+      "dma_memory_manager.c",
+      "dma_mem_utils.c",
+      "dma_client.c",
+      "ioat/ioat_dma_channel.c",
+      "ioat/ioat_dma_dca.c",
+      "ioat/ioat_dma_descriptors.c",
+      "ioat/ioat_dma_device.c",
+      "ioat/ioat_dma_request.c",
+      "ioat/ioat_dma_ring.c",
+      "ioat/ioat_dma.c"
     ],
-	flounderBindings = [ "dma" ]
+    addIncludes = [ "include" ],
+    flounderBindings = [ "dma" ],
+    mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ]
   },
   
   build library { 
-  	target = "dma_client",
-	cFiles = [ 
-		"dma_client.c" 
-	],
-	flounderBindings = [ "dma" ]
+    target = "dma_client",
+    cFiles = [ 
+      "dma_client.c" 
+    ],
+    addIncludes = [ "include" ],
+    flounderBindings = [ "dma" ]
   }
 ]

@@ -1,5 +1,4 @@
 /*
-/*
  * Copyright (c) 2014 ETH Zurich.
  * All rights reserved.
  *

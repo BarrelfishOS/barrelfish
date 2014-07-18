@@ -10,7 +10,9 @@
 #ifndef IOAT_DMA_CHANNEL_INTERNAL_H
 #define IOAT_DMA_CHANNEL_INTERNAL_H
 
+#include <dma_channel_internal.h>
 #include <dma/ioat/ioat_dma_channel.h>
+
 
 
 /**

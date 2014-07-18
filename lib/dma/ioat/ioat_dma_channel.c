@@ -26,7 +26,7 @@ struct ioat_dma_channel
     ioat_dma_chan_t channel;         ///< Mackerel address
     struct ioat_dma_device *dev;     ///< the DMA device this channel belongs to
     size_t max_xfer_size;            ///< maximum transfer size of this channel
-    enum ioat_dma_chan_st state;     ///< channel state
+    ioat_dma_chan_st_t state;        ///< channel state
     lpaddr_t last_completion;        ///<
     struct dma_mem completion;
     struct ioat_dma_ring *ring;      ///< Descriptor ring
@@ -36,6 +36,109 @@ struct ioat_dma_channel
     struct ioat_dma_request *req_head;
     struct ioat_dma_request *req_tail;
 };
+
+/*
+ * ============================================================================
+ * Public Internal Interface
+ * ============================================================================
+ */
+
+/**
+ * \brief Resets a IOAT DMA channel
+ *
+ * \param chan  IOAT DMA channel to be reset
+ *
+ * \returns SYS_ERR_OK on success
+ *          IOAT_ERR_CHAN_RESET on reset timeout
+ */
+errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan)
+{
+    IOATCHAN_DEBUG("reset channel.\n", chan->id);
+
+    if (chan->state == IOAT_DMA_CHAN_ST_ERROR) {
+        ioat_dma_chan_err_t chanerr = ioat_dma_chan_err_rd(&chan->channel);
+        ioat_dma_chan_err_wr(&chan->channel, chanerr);
+        IOATCHAN_DEBUG("Reseting channel from error state: [%08x]\n", chan->id,
+                       chanerr);
+
+        /*
+         * TODO: clear the ioat_dma_pci_chanerr register in PCI config space
+         *       (same approach as above)
+         *       -> How to access this ?
+         */
+    }
+    chan->state = IOAT_DMA_CHAN_ST_RESETTING;
+
+    /* perform reset */
+    ioat_dma_chan_cmd_reset_wrf(&chan->channel, 0x1);
+
+    uint16_t reset_counter = 0xFFF;
+    do {
+        if (!ioat_dma_chan_cmd_reset_rdf(&chan->channel)) {
+            break;
+        }
+        thread_yield();
+    } while(reset_counter--);
+
+    if (ioat_dma_chan_cmd_reset_rdf(&chan->channel)) {
+        /* reset failed */
+        return IOAT_ERR_RESET_TIMEOUT;
+    }
+
+    /* XXX: Intel BD architecture will need some additional work here */
+
+    chan->state = IOAT_DMA_CHAN_ST_UNINITIALEZED;
+
+    return SYS_ERR_OK;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * Getter / Setter Functions
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief returns the IOAT DMA channel ID
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns IOAT DMA channel ID of the supplied channel
+ */
+inline ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan)
+{
+    return chan->id;
+}
+
+/**
+ * \brief returns the associated IOAT DMA descriptor ring of a channel
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns IOAT DMA descriptor ring handle
+ */
+inline struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan)
+{
+    return chan->ring;
+}
+
+/**
+ * \brief returns the maximum number of bytes per DMA descritpor
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns maximum number of bytes
+ */
+inline uint32_t ioat_dma_channel_get_max_xfer_size(struct ioat_dma_channel *chan)
+{
+    return chan->max_xfer_size;
+}
+
+/*
+ * ============================================================================
+ * Library Internal Interface
+ * ============================================================================
+ */
 
 /**
  * \brief initializes and allocates resources for a new channel DMA channel
@@ -53,17 +156,16 @@ errval_t ioat_channel_init(struct ioat_dma_device *dev,
                            uint32_t max_xfer,
                            struct ioat_dma_channel **ret_chan)
 {
-#if 0
+
     errval_t err;
 
     IOATCHAN_DEBUG("initialize channel with  max. xfer size of %u bytes\n", id,
                    max_xfer);
 
-    struct ioat_dma_channel *chan = malloc(sizeof(*chan));
+    struct ioat_dma_channel *chan = calloc(1, sizeof(*chan));
     if (chan == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-
 
     chan->id = ioat_dma_channel_build_id(ioat_dma_device_get_id(dev), id);
     chan->dev = dev;
@@ -73,7 +175,7 @@ errval_t ioat_channel_init(struct ioat_dma_device *dev,
     ioat_dma_chan_initialize(&chan->channel, chan_base + ((id + 1) * 0x80));
 
     ioat_dma_chan_dcactrl_target_cpu_wrf(&chan->channel,
-                                         ioat_dma_chan_dca_ctr_target_any);
+    ioat_dma_chan_dca_ctr_target_any);
 
     err = ioat_dma_channel_reset(chan);
     if (err_is_fail(err)) {
@@ -81,7 +183,6 @@ errval_t ioat_channel_init(struct ioat_dma_device *dev,
     }
 
     ioat_device_get_complsts_addr(dev, &chan->completion);
-
 
     /* write the completion address */
     ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.paddr);
@@ -105,7 +206,7 @@ errval_t ioat_channel_init(struct ioat_dma_device *dev,
     /*
      * do a check if the channel operates correctly by issuing a NOP
      */
-
+#if 0
     IOATCHAN_DEBUG("performing selftest on channel with NOP\n", chan->id);
 
     ioat_dma_request_nop(chan);
@@ -115,16 +216,15 @@ errval_t ioat_channel_init(struct ioat_dma_device *dev,
         return err;
     }
 
-
     uint32_t j = 0xFFFF;
     do {
         thread_yield();
-    } while (j-- && !ioat_dma_channel_is_active(chan)
-             && !ioat_dma_channel_is_idle(chan));
+    }while (j-- && !ioat_dma_channel_is_active(chan)
+                    && !ioat_dma_channel_is_idle(chan));
 
     if (ioat_dma_channel_is_active(chan) || ioat_dma_channel_is_idle(chan)) {
         IOATCHAN_DEBUG("channel worked properly: %016lx\n", chan->id,
-                     *(uint64_t*) chan->completion.addr);
+                        *(uint64_t*) chan->completion.addr);
         return SYS_ERR_OK;
     } else {
         uint32_t error = ioat_dma_chan_err_rd(&chan->channel);

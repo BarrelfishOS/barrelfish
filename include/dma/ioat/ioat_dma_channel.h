@@ -10,24 +10,69 @@
 #ifndef LIB_IOAT_DMA_CHANNEL_H
 #define LIB_IOAT_DMA_CHANNEL_H
 
-typedef uint16_t ioat_dma_chan_id_t;
+struct ioat_dma_channel;
+struct ioat_dma_request;
 
-enum ioat_dma_chan_st
-{
-    IOAT_DMA_CHAN_ST_INVALID,
-    IOAT_DMA_CHAN_ST_RESETTING,
-    IOAT_DMA_CHAN_ST_UNINITIALEZED,
-    IOAT_DMA_CHAN_ST_PREPARED,
-    IOAT_DMA_CHAN_ST_RUNNING,
-    IOAT_DMA_CHAN_ST_ERROR,
-    IOAT_DMA_CHAN_ST_SUSPENDED,
-    IOAT_DMA_CHAN_ST_INIT_FAIL,
-};
 
-static inline ioat_dma_chan_id_t ioat_dma_channel_build_id(ioat_dma_devid_t dev,
-                                                           uint8_t id)
-{
-    return ((((uint16_t) dev) << 8) | id);
-}
+
+
+
+/**
+ * \brief Resets a IOAT DMA channel
+ *
+ * \param chan  IOAT DMA channel to be reset
+ *
+ * \returns SYS_ERR_OK on success
+ *          IOAT_ERR_CHAN_RESET on reset timeout
+ */
+errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan);
+
+
+/*
+ * ----------------------------------------------------------------------------
+ * Getter / Setter Functions
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief returns the IOAT DMA channel ID
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns IOAT DMA channel ID of the supplied channel
+ */
+ioat_dma_chan_id_t ioat_dma_channel_get_id(struct ioat_dma_channel *chan);
+
+/**
+ * \brief returns the associated IOAT DMA descriptor ring of a channel
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns IOAT DMA descriptor ring handle
+ */
+struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan);
+
+
+/**
+ * \brief returns the maximum number of bytes per DMA descritpor
+ *
+ * \param chan IOAT DMA channel
+ *
+ * \returns maximum number of bytes
+ */
+uint32_t ioat_dma_channel_get_max_xfer_size(struct ioat_dma_channel *chan);
+
+/*
+ * ----------------------------------------------------------------------------
+ * Request Management
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ *
+ */
+void ioat_dma_channel_request_enqueue(struct ioat_dma_channel *chan,
+                                      struct ioat_dma_request *req);
+
 
 #endif  /* LIB_IOAT_DMA_DEVICE_H */

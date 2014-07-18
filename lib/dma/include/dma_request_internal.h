@@ -7,11 +7,17 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef IOAT_DMA_REQUEST_INTERNAL_H
-#define IOAT_DMA_REQUEST_INTERNAL_H
+#ifndef DMA_REQUEST_INTERNAL_H
+#define DMA_REQUEST_INTERNAL_H
 
-#include <dma/ioat/ioat_dma_request.h>
+#include <dma/dma_request.h>
 
-void ioat_request_foobar(void);
+struct dma_req_int
+{
+    struct dma_request req;
 
-#endif /* IOAT_DMA_REQUEST_INTERNAL_H */
+};
+
+
+
+#endif /* DMA_REQUEST_INTERNAL_H */

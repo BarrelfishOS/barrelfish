@@ -7,11 +7,6 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef IOAT_DMA_REQUEST_INTERNAL_H
-#define IOAT_DMA_REQUEST_INTERNAL_H
-
-#include <dma/ioat/ioat_dma_request.h>
-
-void ioat_request_foobar(void);
-
-#endif /* IOAT_DMA_REQUEST_INTERNAL_H */
+#include <string.h>
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
