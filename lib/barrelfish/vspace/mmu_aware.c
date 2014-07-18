@@ -19,6 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/vspace_mmu_aware.h>
 #include <barrelfish/core_state.h>
+#include <string.h>
 
 /// Minimum free memory before we return it to memory server
 #define MIN_MEM_FOR_FREE        (1 * 1024 * 1024)
@@ -137,6 +138,74 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     state->offset += origsize;
     state->consumed += origsize;
 
+    return SYS_ERR_OK;
+}
+
+errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
+                                struct capref frame, size_t size)
+{
+    errval_t err;
+    struct vregion *vregion;
+    struct capref oldframe;
+    void *vbuf;
+    // create copy of new region
+    err = slot_alloc(&oldframe);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_copy(oldframe, frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = vspace_map_one_frame_attr_aligned(&vbuf, size, oldframe,
+            VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE, LARGE_PAGE_SIZE,
+            NULL, &vregion);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    // copy over data to new frame
+    genvaddr_t gen_base = vregion_get_base_addr(&state->vregion);
+    memcpy(vbuf, (void*)gen_base, state->mapoffset);
+
+    err = vregion_destroy(vregion);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t offset = 0;
+    // Unmap backing frames for [0, size) in state.vregion
+    do {
+        err = state->memobj.m.f.unfill(&state->memobj.m, 0, &oldframe,
+                &offset);
+        if (err_is_fail(err) &&
+            err_no(err) != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET)
+        {
+            return err_push(err, LIB_ERR_MEMOBJ_UNMAP_REGION);
+        }
+        struct frame_identity fi;
+        // increase address
+        err = invoke_frame_identify(oldframe, &fi);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        offset += (1UL<<fi.bits);
+        err = cap_destroy(oldframe);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } while(offset < state->mapoffset);
+
+    // Map new frame in
+    err = state->memobj.m.f.fill(&state->memobj.m, 0, frame, size);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_FILL);
+    }
+    err = state->memobj.m.f.pagefault(&state->memobj.m, &state->vregion, 0, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
+    }
+
+    state->mapoffset = size;
     return SYS_ERR_OK;
 }
 

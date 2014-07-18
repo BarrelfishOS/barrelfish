@@ -4,7 +4,8 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007-2012, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -243,6 +244,12 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     err = ram_alloc_set(NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
+    }
+
+    // switch morecore to intended configuration
+    err = morecore_reinit();
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MORECORE_INIT);
     }
 
 #ifdef CONFIG_TRACE

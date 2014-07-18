@@ -40,6 +40,8 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size);
 errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
                                        size_t size, size_t alignment,
                                        vregion_flags_t flags);
+errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
+                                struct capref frame, size_t size);
 errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
                               struct capref frame, size_t req_size,
                               void **retbuf, size_t *retsize);

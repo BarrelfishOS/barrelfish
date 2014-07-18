@@ -126,3 +126,24 @@ errval_t morecore_init(void)
 
     return SYS_ERR_OK;
 }
+
+errval_t morecore_reinit(void)
+{
+    errval_t err;
+    struct morecore_state *state = get_morecore_state();
+
+    size_t mapoffset = state->mmu_state.mapoffset;
+    size_t remapsize = ROUND_UP(mapoffset, state->mmu_state.alignment);
+    if (remapsize == mapoffset) {
+        // don't need to do anything if we only recreate the exact same
+        // mapping
+        return SYS_ERR_OK;
+    }
+    struct capref frame;
+    size_t retsize;
+    err = frame_alloc(&frame, remapsize, &retsize);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return vspace_mmu_aware_reset(&state->mmu_state, frame, remapsize);
+}
