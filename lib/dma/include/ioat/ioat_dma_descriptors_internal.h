@@ -7,8 +7,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef IOAT_DMA_REQUEST_INTERNAL_H
-#define IOAT_DMA_REQUEST_INTERNAL_H
+#ifndef IOAT_DMA_DESCRIPTORS_INTERNAL_H
+#define IOAT_DMA_DESCRIPTORS_INTERNAL_H
 
 #include <dma/ioat/ioat_dma_descriptors.h>
 
@@ -58,7 +58,7 @@ errval_t ioat_desc_free(struct ioat_dma_descriptor *desc);
  *
  * \param desc IOAT DMA descriptor
  */
-ioat_dma_desc_t ioat_desc_get_desc(struct ioat_dma_descriptor *desc);
+ioat_dma_desc_t ioat_desc_get_desc_handle(struct ioat_dma_descriptor *desc);
 
 /**
  * \brief sets the corresponding request
@@ -87,4 +87,4 @@ void ioat_desc_set_next(struct ioat_dma_descriptor *desc,
  */
 lpaddr_t ioat_desc_get_paddr(struct ioat_dma_descriptor *desc);
 
-#endif /* IOAT_DMA_REQUEST_INTERNAL_H */
+#endif /* IOAT_DMA_DESCRIPTORS_INTERNAL_H */

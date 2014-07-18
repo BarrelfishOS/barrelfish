@@ -11,7 +11,6 @@
 #define LIB_IOAT_DMA_DESCRIPTORS_H
 
 struct ioat_dma_descriptor;
-struct ioat_dma_request;
 
 /// flags how the descriptors are mapped
 #define IOAT_DMA_DESC_MAP_FLAGS VREGION_FLAGS_READ_WRITE

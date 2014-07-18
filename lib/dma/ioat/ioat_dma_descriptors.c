@@ -49,7 +49,7 @@
 #define IOAT_DMA_DESC_FLAG_ERR       0x80
 
 /**
- * IOAT DMA Descriptor Meta structure. This wrapps around the hardware descriptor
+ * IOAT DMA Descriptor Meta structure. This wraps around the hardware descriptor
  * and is used to keep track of the descriptors.
  */
 struct ioat_dma_descriptor
@@ -61,7 +61,6 @@ struct ioat_dma_descriptor
     struct ioat_dma_request *req;       ///< pointer to the DMA request
     struct dma_mem *mem;                ///< the dma memory information
 };
-
 
 /*
  * ============================================================================
@@ -106,29 +105,29 @@ errval_t ioat_desc_alloc(uint16_t size,
         return err;
     }
 
-    memset(mem->addr, 0, count * size);
+    memset((void*)mem->vaddr, 0, count * size);
 
     IOATDESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
                  (uint64_t ) mem->bytes, mem->paddr);
 
     lpaddr_t desc_paddr = mem->paddr;
-    uint8_t *desc_vaddr = mem->addr;
+    uint8_t *desc_vaddr = (uint8_t*)mem->vaddr;
 
     /* set the last virtual address pointer */
     dma_desc[count-1].desc = desc_vaddr + ((count-1)*size);
 
     for (uint32_t i = 0; i < count; ++i) {
-
-        if (i == (count -1)) {
-            assert(dma_desc[i].desc == desc_vaddr);
-        }
-
         /* initialize the fields */
         dma_desc[i].desc = desc_vaddr;
         dma_desc[i].paddr = desc_paddr;
         dma_desc[i].req = NULL;
         dma_desc[i].flags = IOAT_DMA_DESC_FLAG_VALID;
         dma_desc[i].mem = mem;
+
+        /* mark the first one */
+        if (i == 0) {
+            dma_desc[i].flags |= IOAT_DMA_DESC_FLAG_HEAD;
+        }
 
         /* do the linkage */
         ioat_desc_set_next(&dma_desc[(i-1) & (count - 1)], &dma_desc[i]);
@@ -157,7 +156,22 @@ errval_t ioat_desc_alloc(uint16_t size,
  */
 errval_t ioat_desc_free(struct ioat_dma_descriptor *desc)
 {
-    assert(!"NYI");
+    errval_t err;
+
+    if (desc->flags & IOAT_DMA_DESC_FLAG_HEAD) {
+        return DMA_ERR_ARG_INVALID;
+    }
+
+    struct dma_mem *mem = desc->mem;
+
+    err = dma_mem_free(mem);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    free(desc);
+    free(mem);
+
     return SYS_ERR_OK;
 }
 
@@ -210,7 +224,7 @@ inline void ioat_desc_set_request(struct ioat_dma_descriptor *desc,
  *
  * \param desc IOAT DMA descriptor
  */
-inline ioat_dma_desc_t ioat_desc_get_desc(struct ioat_dma_descriptor *desc)
+inline ioat_dma_desc_t ioat_desc_get_desc_handle(struct ioat_dma_descriptor *desc)
 {
     return desc->desc;
 }
