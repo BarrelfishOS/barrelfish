@@ -13,7 +13,13 @@
 struct ioat_dma_channel;
 struct ioat_dma_request;
 
-
+/**
+ * \brief pointer type conversion
+ */
+static inline struct ioat_dma_request *dma_request_to_ioat(struct dma_request *req)
+{
+    return (struct ioat_dma_request *)req;
+}
 
 /*
  * ----------------------------------------------------------------------------
@@ -42,12 +48,8 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-static inline errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
-                                               struct dma_req_setup *setup)
-{
-    struct ioat_dma_channel *chan = ioat_dma_device_get_next_channel(dev);
-    return ioat_dma_request_memcpy_chan(chan, setup);
-}
+errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
+                                 struct dma_req_setup *setup);
 
 /**
  * \brief issues a NOP / NULL descriptor request on the given channel
@@ -66,11 +68,7 @@ void ioat_dma_request_nop_chan(struct ioat_dma_channel *chan);
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-static inline void ioat_dma_request_nop(struct ioat_dma_device *dev)
-{
-    struct ioat_dma_channel *chan = ioat_dma_device_get_next_channel(dev);
-    ioat_dma_request_nop_chan(chan);
-}
+void ioat_dma_request_nop(struct ioat_dma_device *dev);
 
 /*
  * ----------------------------------------------------------------------------

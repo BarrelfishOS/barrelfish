@@ -30,10 +30,10 @@
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t ioat_desc_alloc(uint16_t size,
-                         uint16_t align,
-                         uint16_t count,
-                         struct ioat_dma_descriptor **desc);
+errval_t ioat_dma_desc_alloc(uint16_t size,
+                             uint16_t align,
+                             uint16_t count,
+                             struct ioat_dma_descriptor **desc);
 
 /**
  * \brief brief frees up the array of previously allocated descriptors
@@ -44,7 +44,7 @@ errval_t ioat_desc_alloc(uint16_t size,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_desc_free(struct ioat_dma_descriptor *desc);
+errval_t ioat_dma_desc_free(struct ioat_dma_descriptor *desc);
 
 /*
  * ----------------------------------------------------------------------------
@@ -58,14 +58,14 @@ errval_t ioat_desc_free(struct ioat_dma_descriptor *desc);
  *
  * \param desc IOAT DMA descriptor
  */
-ioat_dma_desc_t ioat_desc_get_desc_handle(struct ioat_dma_descriptor *desc);
+ioat_dma_desc_t ioat_dma_desc_get_desc_handle(struct ioat_dma_descriptor *desc);
 
 /**
  * \brief sets the corresponding request
  *
  * \param desc IOAT DMA descriptor
  */
-void ioat_desc_set_request(struct ioat_dma_descriptor *desc,
+void ioat_dma_desc_set_request(struct ioat_dma_descriptor *desc,
                                struct ioat_dma_request *req);
 
 /**
@@ -75,8 +75,8 @@ void ioat_desc_set_request(struct ioat_dma_descriptor *desc,
  * \param desc descriptor to set the next field
  * \param next following descriptor
  */
-void ioat_desc_set_next(struct ioat_dma_descriptor *desc,
-                        struct ioat_dma_descriptor *next);
+void ioat_dma_desc_set_next(struct ioat_dma_descriptor *desc,
+                            struct ioat_dma_descriptor *next);
 
 /**
  * \brief returns the physical address of the descriptor
@@ -85,6 +85,14 @@ void ioat_desc_set_next(struct ioat_dma_descriptor *desc,
  *
  * \returns physical address of the descriptor
  */
-lpaddr_t ioat_desc_get_paddr(struct ioat_dma_descriptor *desc);
+lpaddr_t ioat_dma_desc_get_paddr(struct ioat_dma_descriptor *desc);
+
+/**
+ * \brief returns a virtual address pointer to the location where the descriptor
+ *        is mapped
+ *
+ * \param desc IOAT DMA descriptor
+ */
+ioat_dma_desc_t ioat_dma_desc_get_desc(struct ioat_dma_descriptor *desc);
 
 #endif /* IOAT_DMA_DESCRIPTORS_INTERNAL_H */

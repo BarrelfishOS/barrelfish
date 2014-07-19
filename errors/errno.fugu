@@ -1061,8 +1061,8 @@ errors xeon_phi XEON_PHI_ERR_ {
     failure DMA_MEM_OUT_OF_RANGE "The physical address is out of range",
 };
 
-errors ioat IOAT_ERR_ {
-    failure PCI_ADDRESS           "The PCI address of the device is not as expected",
+errors dma DMA_ERR_ {
+	failure PCI_ADDRESS           "The PCI address of the device is not as expected",
     failure DEVICE_UNSUPPORTED    "Device ID not supported /  wrong configuration",
     failure DEVICE_IDLE           "The device is idle, no transfers finished",
     failure ARG_INVALID           "Supplied argument was not valid",
@@ -1072,5 +1072,5 @@ errors ioat IOAT_ERR_ {
     failure NO_REQUESTS           "There are no request descriptors left",
     failure CHAN_BUSY             "The channel is busy and cannot accept more",
     failure CHAN_IDLE             "There were no finished requests on the channel",
-    failure REQUEST_UNFINISHED    "The request is still in operation",
+    failure REQUEST_UNFINISHED    "The request is still in operation",	
 };

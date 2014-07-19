@@ -30,7 +30,7 @@
  *
  * \returns pointer to a DMA descriptor
  */
-struct ioat_dma_descriptor *ioat_ring_get_next_desc(struct ioat_dma_ring *ring);
+struct ioat_dma_descriptor *ioat_dma_ring_get_next_desc(struct ioat_dma_ring *ring);
 
 
 /**
@@ -41,7 +41,7 @@ struct ioat_dma_descriptor *ioat_ring_get_next_desc(struct ioat_dma_ring *ring);
  *
  * \returns pointer to a DMA descriptor
  */
-struct ioat_dma_descriptor *ioat_ring_get_tail_desc(struct ioat_dma_ring *ring);
+struct ioat_dma_descriptor *ioat_dma_ring_get_tail_desc(struct ioat_dma_ring *ring);
 
 /**
  * \brief submits the pending descriptors to the hardware
@@ -50,7 +50,7 @@ struct ioat_dma_descriptor *ioat_ring_get_tail_desc(struct ioat_dma_ring *ring);
  *
  * \returns the current head of the descriptors
  */
-uint16_t ioat_ring_submit_pending(struct ioat_dma_ring *ring);
+uint16_t ioat_dma_ring_submit_pending(struct ioat_dma_ring *ring);
 
 /**
  * \brief obtains the physical address of the descriptor chain
@@ -60,6 +60,6 @@ uint16_t ioat_ring_submit_pending(struct ioat_dma_ring *ring);
  *
  * \returns physical address of the pending descriptor chain
  */
-lpaddr_t ioat_ring_get_chain_addr(struct ioat_dma_ring *ring);
+lpaddr_t ioat_dma_ring_get_chain_addr(struct ioat_dma_ring *ring);
 
 #endif /* IOAT_DMA_RING_INTERNAL_H */

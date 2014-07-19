@@ -15,6 +15,14 @@ struct ioat_dma_device;
 struct ioat_dma_channel;
 
 
+/**
+ * \brief pointer type conversion
+ */
+static inline struct ioat_dma_device *dma_device_to_ioat(struct dma_device *dev)
+{
+    return (struct ioat_dma_device *)dev;
+}
+
 
 /*
  * ----------------------------------------------------------------------------
@@ -107,55 +115,6 @@ void ioat_dma_device_set_intr_delay(struct ioat_dma_device *dev,
  * Device Operation Functions
  * ----------------------------------------------------------------------------
  */
-
-/**
- * \brief gets the device state from the IOAT DMA device
- *
- * \param dev   IOAT DMA device
- *
- * \returns device state enumeration
- */
-dma_dev_st_t ioat_dma_device_get_state(struct ioat_dma_device *dev);
-
-
-/**
- * \brief returns the channel count of this device
- *
- * \param dev   IOAT DMA device
- *
- * \returns number of channels this device has
- */
-uint8_t ioat_dma_device_get_channel_count(struct ioat_dma_device *dev);
-
-/**
- * \brief returns the device ID from the IOAT device
- *
- * \param dev   IOAT DMA device
- *
- * \returns IOAT DMA device ID
- */
-dma_dev_id_t ioat_dma_device_get_id(struct ioat_dma_device *dev);
-
-/**
- * \brief returns the channel belonging with the given ID
- *
- * \param dev   IOAT DMA device
- * \param id    channel id
- *
- * return IOAT DMA channel handle
- *        NULL if no such channel exist
- */
-struct ioat_dma_channel *ioat_dma_device_get_channel(struct ioat_dma_device *dev,
-                                                     uint16_t id);
-
-/**
- * \brief returns a channel from the device based on a round robin fashion
- *
- * \param dev   IOAT DMA device
- *
- * return IOAT DMA channel handle
- */
-struct ioat_dma_channel *ioat_dma_device_get_next_channel(struct ioat_dma_device *dev);
 
 
 /**

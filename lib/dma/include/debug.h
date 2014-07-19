@@ -62,12 +62,12 @@
 #define DMACHAN_DEBUG(x...)
 #endif
 #if DMA_DEBUG_REQUEST_ENABLED
-#define DMAREQ_DEBUG(x...) DMA_DEBUG_PRINT("[dma  req] " x)
+#define DMAREQ_DEBUG(x...) DMA_DEBUG_PRINT("[dma req] " x)
 #else
 #define DMAREQ_DEBUG(x...)
 #endif
 #if DMA_DEBUG_DEVICE_ENABLED
-#define DMADEV_DEBUG(x...) DMA_DEBUG_PRINT("[dma  dev.%02x] " x)
+#define DMADEV_DEBUG(x...) DMA_DEBUG_PRINT("[dma dev.%02x] " x)
 #else
 #define DMADEV_DEBUG(x...)
 #endif

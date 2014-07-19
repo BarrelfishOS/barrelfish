@@ -16,6 +16,8 @@ struct dma_channel;
 /// IOAT DMA channel id
 typedef uint8_t dma_dev_id_t;
 
+#define PCI_ADDR_DONT_CARE 0x10000
+
 /// representation of a PCI address (with more bits than libpci)
 struct pci_addr {
     uint32_t bus;
@@ -117,7 +119,7 @@ dma_dev_st_t dma_device_get_state(struct dma_device *dev);
  *
  * \returns MMIO register vbase
  */
-lvaddr_t dma_device_get_mmio_vbase(struct dma_device *dev);
+void *dma_device_get_mmio_vbase(struct dma_device *dev);
 
 
 /**

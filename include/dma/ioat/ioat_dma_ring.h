@@ -107,6 +107,7 @@ uint16_t ioat_dma_ring_get_dmacount(struct ioat_dma_ring *ring);
 struct ioat_dma_descriptor *ioat_dma_ring_get_desc(struct ioat_dma_ring *ring,
                                                    uint16_t index);
 
+
 /*
  * ----------------------------------------------------------------------------
  * Ring Status Queries

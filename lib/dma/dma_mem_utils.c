@@ -11,6 +11,7 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <dma_internal.h>
 #include <dma_mem_utils.h>
 
 /**
@@ -30,7 +31,7 @@ errval_t dma_mem_alloc(size_t bytes,
     errval_t err;
 
     if (mem == NULL) {
-        return IOAT_ERR_ARG_INVALID;
+        return DMA_ERR_ARG_INVALID;
     }
 
     err = frame_alloc(&mem->frame, bytes, &mem->bytes);
@@ -47,12 +48,15 @@ errval_t dma_mem_alloc(size_t bytes,
 
     mem->paddr = id.base;
 
-    err = vspace_map_one_frame_attr(&mem->addr, mem->bytes, mem->frame, flags, NULL,
+    void *addr;
+    err = vspace_map_one_frame_attr(&addr, mem->bytes, mem->frame, flags, NULL,
                                     NULL);
     if (err_is_fail(err)) {
         dma_mem_free(mem);
         return err;
     }
+
+    mem->vaddr = (lvaddr_t)addr;
 
     return SYS_ERR_OK;
 }
@@ -67,8 +71,8 @@ errval_t dma_mem_free(struct dma_mem *mem)
 {
     errval_t err;
 
-    if (mem->addr) {
-        err = vspace_unmap(mem->addr);
+    if (mem->vaddr) {
+        err = vspace_unmap((void*)mem->vaddr);
         if (err_is_fail(err)) {
             /* todo: error handling ignoring for now */
         }

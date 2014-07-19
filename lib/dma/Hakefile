@@ -17,6 +17,9 @@
       "dma_memory_manager.c",
       "dma_mem_utils.c",
       "dma_client.c",
+      "dma_device.c",
+      "dma_channel.c",
+      "dma_request.c",
       "ioat/ioat_dma_channel.c",
       "ioat/ioat_dma_dca.c",
       "ioat/ioat_dma_descriptors.c",
@@ -26,7 +29,8 @@
       "ioat/ioat_dma.c"
     ],
     addIncludes = [ "include" ],
-    flounderBindings = [ "dma" ],
+    flounderBindings = [ "dma", "ioat_dma_mgr" ],
+    flounderDefs = [ "dma" ],
     mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ]
   },
   
@@ -34,6 +38,15 @@
     target = "dma_client",
     cFiles = [ 
       "dma_client.c" 
+    ],
+    addIncludes = [ "include" ],
+    flounderBindings = [ "dma" ]
+  },
+  
+    build library { 
+    target = "dma_service",
+    cFiles = [ 
+      "dma_service.c" 
     ],
     addIncludes = [ "include" ],
     flounderBindings = [ "dma" ]

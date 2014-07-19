@@ -36,4 +36,13 @@ dma_req_id_t dma_request_generate_req_id(struct dma_channel *chan);
  */
 errval_t dma_request_process(struct dma_request *req);
 
+/**
+ * \brief sets the next DMA request of the given request
+ *
+ * \param req   DMA request
+ * \param next  DMA request
+ */
+void dma_request_set_next(struct dma_request *req,
+                          struct dma_request *next);
+
 #endif /* DMA_REQUEST_INTERNAL_H */

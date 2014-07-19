@@ -29,8 +29,24 @@
 errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
                                uint8_t id,
                                uint32_t max_xfer,
-                               struct dma_channel **ret_chan);
+                               struct ioat_dma_channel **ret_chan);
 
+/**
+ * \brief enqueues a request onto the IOAT DMA channel and submits it to the
+ *        hardware
+ *
+ * \param chan  IOAT DMA channel
+ * \param req   IOAT DMA request to be submitted
+ *
+ * \returns SYS_ERR_OK on success
+ *          DMA_ERR_* on failure
+ */
+errval_t ioat_dma_channel_submit_request(struct ioat_dma_channel *chan,
+                                         struct ioat_dma_request *req);
 
+/**
+ * \brief initializes the MSI-X interrupts for the channel
+ */
+errval_t ioat_dma_channel_irq_setup_msix(struct ioat_dma_channel *chan);
 
 #endif /* IOAT_DMA_CHANNEL_INTERNAL_H */

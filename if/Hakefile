@@ -32,6 +32,7 @@
                "hpet",
                "interdisp",
                "intermon",
+               "ioat_dma_mgr",
                "keyboard",
                "lock",
                "mem",

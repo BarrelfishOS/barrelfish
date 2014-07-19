@@ -17,9 +17,6 @@
 
 #include <dev/ioat_dma_dev.h>
 
-
-
-
 /* device flags */
 #define IOAT_DMA_DEV_F_DCA  0x00000001
 #define IOAT_DMA_DEV_F_RAID 0x00000002
@@ -28,16 +25,29 @@
  * size and mapping information for che completion status field
  * this is where the DMA channel will write the address of the last completed
  * descriptor (a copy of CHANSTS register)
- *
  */
-#define IOAT_DMA_COMPLSTATUS_SIZE BASE_PAGE_SIZE
-#define IOAT_DMA_COMPLSTATUS_ELEMENT_SIZE 64
-#define IOAT_DMA_COMPLSTATUS_FLAGS VREGION_FLAGS_READ_WRITE
+#define IOAT_DMA_COMPLSTATUS_SIZE           BASE_PAGE_SIZE
+#define IOAT_DMA_COMPLSTATUS_ELEMENT_SIZE   64
+#define IOAT_DMA_COMPLSTATUS_FLAGS          VREGION_FLAGS_READ_WRITE
+
+/**
+ * \brief returns a dma_mem struct containing the memory location for the
+ *        channel's completion status writeback
+ *
+ * \param dev   IOAT DMA device
+ * \param mem   filled in memory information
+ */
+void ioat_dma_device_get_complsts_addr(struct ioat_dma_device *dev,
+                                       struct dma_mem *mem);
 
 
-void ioat_device_get_complsts_addr(struct ioat_dma_device *dev,
-                                   struct dma_mem *mem);
-
-mackerel_addr_t ioat_device_get_mmio_base(struct ioat_dma_device *dev);
+/**
+ * \brief globally enables the interrupts for the given device
+ *
+ * \param dev   IOAT DMA device
+ * \param type  the interrupt type to enable
+ */
+errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
+                                   dma_irq_t type);
 
 #endif /* IOAT_DMA_DEVICE_INTERNAL_H */

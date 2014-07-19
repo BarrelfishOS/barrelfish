@@ -70,6 +70,41 @@ struct dma_req_setup
 
 /*
  * ----------------------------------------------------------------------------
+ * Getter / Setter Functions
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief returns the state of a DMA request
+ *
+ * \param req   DMA request
+ *
+ * \returns DMA request state
+ */
+dma_req_st_t dma_request_get_state(struct dma_request *req);
+
+/**
+ * \brief returns the ID of a DMA request
+ *
+ * \param req   DMA request
+ *
+ * \returns DMA request ID
+ */
+dma_req_id_t dma_request_get_id(struct dma_request *req);
+
+
+/**
+ * \brief returns the next DMA request of the given request
+ *
+ * \param req   DMA request
+ *
+ * \returns DMA request if there was one
+ *          NULL if the request is at the end of the chain
+ */
+struct dma_request *dma_request_get_next(struct dma_request *req);
+
+/*
+ * ----------------------------------------------------------------------------
  * Request Execution
  * ----------------------------------------------------------------------------
  */
@@ -89,10 +124,6 @@ errval_t dma_request_nop(struct dma_req_setup *setup);
  */
 errval_t dma_request_exec(struct dma_req_setup *setup);
 
-/**
- *
- */
-dma_req_st_t dma_request_get_state(struct dma_request *req);
 
 /*
  * ----------------------------------------------------------------------------

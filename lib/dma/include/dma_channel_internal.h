@@ -35,8 +35,65 @@ struct dma_channel
         struct dma_request *head;   ///< start of the request list
         struct dma_request *tail;   ///< end of the request list
     } req_list;                     ///< list of submitted requests
+
+    uint64_t req_counter;           ///< number of requests issued sofar
 };
 
+/*
+ * ----------------------------------------------------------------------------
+ * Request List Management
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief returns the first request on the submitted request queue of the channel
+ *
+ * \param chan  DMA channel
+ *
+ * \returns pointer to the DMA request
+ *          NULL if queue was empty
+ */
+struct dma_request *dma_channel_deq_request_head(struct dma_channel *chan);
+
+/**
+ * \brief inserts a request into the head of a channel's request list
+ *
+ * \param chan  DMA channel
+ * \param req   DMA request to be inserted
+ */
+void dma_channel_enq_request_head(struct dma_channel *chan,
+                                  struct dma_request *req);
+
+/**
+ * \brief inserts a request at the end of the channels request list
+ *
+ * \param chan  DMA channel
+ * \param req   DMA request to be inserted
+ */
+void dma_channel_enq_request_tail(struct dma_channel *chan,
+                                  struct dma_request *req);
+
+/**
+ * \brief Submits the pending descriptors to the hardware queue
+ *
+ * \param chan  IOAT DMA channel
+ *
+ * \returns number of submitted descriptors
+ */
+uint16_t dma_channel_submit_pending(struct dma_channel *chan);
+
+
+/**
+ * \brief returns the next DMA request counter value to generate the req id.
+ *
+ * \param chan  DMA channel
+ *
+ * \returns request counter value
+ */
+static inline uint64_t dma_channel_incr_req_count(struct dma_channel *chan)
+{
+    return ++chan->req_counter;
+}
 
 
 #endif /* DMA_CHANNEL_INTERNAL_H */
