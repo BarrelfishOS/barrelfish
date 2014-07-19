@@ -927,12 +927,12 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                                                 pciaddr_t base64 = bar_high.base;
                                                 base64 <<= 32;
-                                                base64 |= bar.base;
+                                                base64 |= bar.base << 7;
 
                                                 pciaddr_t origbase64 =
                                                         barorigaddr_high.base;
                                                 origbase64 <<= 32;
-                                                origbase64 |= barorigaddr.base;
+                                                origbase64 |= barorigaddr.base << 7;
 
                                                 PCI_DEBUG(
                                                         "(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
