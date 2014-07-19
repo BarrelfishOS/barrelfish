@@ -7,59 +7,54 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef XEON_PHI_DEBUG_H_
-#define XEON_PHI_DEBUG_H_
+#ifndef IOAT_DEBUG_H_
+#define IOAT_DEBUG_H_
 
 
 /*
  * Debug output switches
  */
-#define IODEBUG_ENABLED   1
-#define IODEBUG_INT       1
-#define IODEBUG_CHAN      1
-#define IODEBUG_REQ     1
-#define IODEBUG_SVC       1
-#define IODEBUG_DEV       1
-#define IODEBUG_DESC      1
+#define DEBUG_ENABLED   1
+#define DEBUG_DEVICE    1
+#define DEBUG_INTR      1
+#define DEBUG_DMA_SVC   1
+#define DEBUG_MGR_SVC   1
+
 
 /*
  * --------------------------------------------------------------------------
  * Debug output generation
  */
-#if IODEBUG_ENABLED
-#define IODEBUG(x...) debug_printf(x)
+#if DEBUG_ENABLED
+#define DEBUGPRINT(x...) debug_printf(x)
 #else
-#define IODEBUG(x... )
+#define DEBUGPRINT(x... )
 #endif
-#if IODEBUG_INT
-#define IOINT_DEBUG(x...) IODEBUG("[intr] " x)
+#if DEBUG_DEVICE
+#define DEV_DEBUG(x...) DEBUGPRINT("device | " x)
 #else
-#define IOINT_DEBUG(x...)
+#define DEV_DEBUG(x...)
 #endif
-#if IODEBUG_CHAN
-#define IOCHAN_DEBUG(x...) IODEBUG("[chan.%04x] " x)
+#if DEBUG_INTR
+#define INTR_DEBUG(x...) DEBUGPRINT("intr  | " x)
 #else
-#define IOCHAN_DEBUG(x...)
+#define INTR_DEBUG(x...)
 #endif
-#if IODEBUG_REQ
-#define IOREQ_DEBUG(x...) IODEBUG("[ req] " x)
+#if DEBUG_DMA_SVC
+#define DMA_DEBUG(x...) DEBUGPRINT("dmasvc | " x)
 #else
-#define IOREQ_DEBUG(x...)
+#define DMA_DEBUG(x...)
 #endif
-#if IODEBUG_SVC
-#define IOSVC_DEBUG(x...) IODEBUG("[ svc] " x)
+#if DEBUG_MGR_SVC
+#define MGR_DEBUG(x...) DEBUGPRINT("mgrsvc | " x)
 #else
-#define IOSVC_DEBUG(x...)
-#endif
-#if IODEBUG_DEV
-#define IODEV_DEBUG(x...) IODEBUG("[ dev] " x)
-#else
-#define IODEV_DEBUG(x...)
-#endif
-#if IODEBUG_DESC
-#define IODESC_DEBUG(x...) IODEBUG("[desc] " x)
-#else
-#define IODESC_DEBUG(x...)
+#define MGR_DEBUG(x...)
 #endif
 
-#endif /* XEON_PHI_DEBUG_H_ */
+#define ERRPRINT(x...) debug_printf(x)
+
+#define DEV_ERR(x...) ERRPRINT("device | ERROR: " x)
+#define DMA_ERR(x...) ERRPRINT("dmasvc | ERROR: " x)
+#define DMA_MGR(x...) ERRPRINT("mgrsvc | ERROR: " x)
+
+#endif /* IOAT_DEBUG_H_ */

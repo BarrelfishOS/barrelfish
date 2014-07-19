@@ -9,24 +9,23 @@
  *
  *
  */
-
+#include <stdio.h>
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
 
 #include <pci/devids.h>
 
-#include "ioat_dma.h"
-#include "ioat_dma_device.h"
-#include "ioat_dma_request.h"
-#include "ioat_dma_descriptors.h"
+#include <dma/dma.h>
+#include <dma/dma_device.h>
+#include <dma/ioat/ioat_dma.h>
 
+#include "device.h"
 #include "debug.h"
-
-struct ioat_dma_ctrl dma_ctrl;
 
 #define BUFFER_SIZE (1<<22)
 
+#if 0
 static void impl_test_cb(errval_t err, ioat_dma_req_id_t id, void *arg)
 {
     debug_printf("impl_test_cb\n");
@@ -75,6 +74,7 @@ static void impl_test(void)
         }
     }while(reps--);
 }
+#endif
 
 int main(int argc,
          char *argv[])
@@ -83,7 +83,7 @@ int main(int argc,
 
     debug_printf("I/O AT DMA driver started\n");
 
-    memset(&dma_ctrl, 0, sizeof(dma_ctrl));
+
 
     /*
      * Parsing of cmdline arguments.
@@ -93,42 +93,54 @@ int main(int argc,
      * VENDORID:DEVICEID:BUS:DEV:FUN
      */
     uint32_t vendor_id, device_id;
+
     struct pci_addr addr = {
         .bus = PCI_ADDR_DONT_CARE,
         .device = PCI_ADDR_DONT_CARE,
         .device = PCI_ADDR_DONT_CARE
     };
 
+    enum device_type devtype = IOAT_DEVICE_INVAL;
+
     if (argc > 1) {
         uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor_id,
                                  &device_id, &addr.bus, &addr.device,
                                  &addr.function);
         if (parsed != 5) {
-            IODEBUG("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
+            DEBUGPRINT("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
         } else {
-            if (vendor_id != 0x8086 || (((device_id & 0xFFF0) != PCI_DEVICE_IOAT_IVB0)
-                            && ((device_id & 0xFFF0) != PCI_DEVICE_IOAT_HSW0))) {
-                USER_PANIC("unexpected vendor / device id: [%x, %x]", vendor_id,
-                           device_id);
-                return -1;
+            if (vendor_id != 0x8086) {
+                USER_PANIC("unexpected vendor [%x]", vendor_id);
             }
-            IODEBUG("Initializing I/O AT DMA device with PCI address [%u,%u,%u]\n",
-                    addr.bus, addr.device, addr.function);
+            switch((device_id & 0xFFF0)) {
+                case PCI_DEVICE_IOAT_IVB0 :
+                    devtype = IOAT_DEVICE_IVB;
+                    break;
+                case PCI_DEVICE_IOAT_HSW0:
+                    devtype = IOAT_DEVICE_HSW;
+                    break;
+                default:
+                    USER_PANIC("unexpected device [%x]", device_id);
+                    break;
+            }
+
+            DEBUGPRINT("Initializing I/O AT DMA device with PCI address [%u,%u,%u]\n",
+                       addr.bus, addr.device, addr.function);
         }
     } else {
-        IODEBUG("WARNING: Initializing I/O AT DMA device with unknown PCI address "
-                "[0,0,0]\n");
+        DEBUGPRINT("WARNING: Initializing I/O AT DMA device with unknown PCI address "
+                   "[0,0,0]\n");
     }
 
-    err = ioat_dma_device_discovery(addr, device_id, &dma_ctrl);
+
+    err =  ioat_device_discovery(addr, devtype, IOAT_DMA_OPERATION);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
 
     /* TODO: start service */
 
-    impl_test();
-
+    //impl_test();
     return 0;
 }
 

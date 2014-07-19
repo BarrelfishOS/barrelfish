@@ -14,16 +14,13 @@
 	target = "ioat_dma",
 	cFiles = [ 
 		"main.c",
-		"ioat_dma.c",
-		"ioat_dma_device.c",
-		"ioat_dma_channel.c",
-		"ioat_dma_descriptors.c",
-		"ioat_dma_ring.c",
-		"ioat_dma_request.c"                          
+		"device.c",
+		"dma_service.c",
+		"ioat_mgr_service.c"                         
 	],
 	flounderBindings = [ "dma" ],
 	mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
-	addLibraries = libDeps [ "pci", "dma" ],
+	addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
 	architectures = [ "x86_64"]
   }  
 ]
