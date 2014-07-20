@@ -18,10 +18,14 @@
 
 #include <dma/dma.h>
 #include <dma/dma_device.h>
+#include <dma/dma_service.h>
 #include <dma/ioat/ioat_dma.h>
 
 #include "device.h"
 #include "debug.h"
+
+
+static struct dma_service_cb dma_svc_cb;
 
 #define BUFFER_SIZE (1<<22)
 
@@ -138,9 +142,24 @@ int main(int argc,
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
 
-    /* TODO: start service */
+#if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_SERVICE
+    /* start the DMA  */
+    err = dma_service_init("dma.service.name", &dma_svc_cb);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to start the DMA service");
+    }
+#endif
 
-    //impl_test();
+#if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_LIBRARY
+
+#endif
+
+    while(1) {
+        messages_wait_and_handle_next();
+    }
+
+    debug_printf("I/O AT DMA driver terminated\n");
+
     return 0;
 }
 

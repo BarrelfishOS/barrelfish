@@ -17,6 +17,7 @@
 #include <dma/ioat/ioat_dma_device.h>
 
 #include "device.h"
+#include "ioat_mgr_service.h"
 #include "debug.h"
 
 static uint8_t device_count = 0;
@@ -59,12 +60,20 @@ static void pci_dev_init_service(struct device_mem *bar_info,
 static void pci_dev_init_manager(struct device_mem *bar_info,
                           int nr_mapped_bars)
 {
+    errval_t err;
+
     DEV_DEBUG("Initialize device @ [%016lx] with %u bars\n",
                   bar_info->paddr, nr_mapped_bars);
 
     if (nr_mapped_bars != 1) {
         DEV_ERR("number of mapped bars is wrong. Skipping initialization\n");
         return;
+    }
+
+    err = ioat_mgr_svc_add_device(bar_info->frame_cap);
+    if (err_is_fail(err)) {
+        DEV_ERR("Device coult not be added to the manager: %s\n",
+                err_getstring(err));
     }
 }
 
@@ -142,6 +151,13 @@ errval_t ioat_device_discovery(struct pci_addr addr,
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    if (is_dev_mgr == IOAT_DMA_OPERATION_LIBRARY) {
+        err = ioat_mgr_svc_init();
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
     /**
      * enumerating all the devices
      *
@@ -149,7 +165,7 @@ errval_t ioat_device_discovery(struct pci_addr addr,
      * Bus x, Device 4, Function 0..7
      */
     for (uint8_t i = 0; i < dev_cnt; ++i) {
-        if (is_dev_mgr) {
+        if (is_dev_mgr == IOAT_DMA_OPERATION_LIBRARY) {
             /*
              * discover devices as manager i.e. don't initialize them as they
              * are handed over to the domains upon request
