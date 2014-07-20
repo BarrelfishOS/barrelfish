@@ -1076,5 +1076,7 @@ errors dma DMA_ERR_ {
     failure MEM_OVERLAP           "The memory regions overlap",
     failure MEM_NOT_REGISTERED    "The memory region was not registered",
     failure MEM_OUT_OF_RANGE      "Memory region is out of supported range",
+    failure SVC_REJECT      	  "Service request was rejected",
+    failure SVC_RESOURCES         "No resources to handle the service",
     	
 };
