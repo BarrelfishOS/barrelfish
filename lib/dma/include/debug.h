@@ -22,6 +22,8 @@
 #define DMA_DEBUG_DEVICE_ENABLED  1
 #define DMA_DEBUG_REQUEST_ENABLED 1
 #define DMA_DEBUG_INTR_ENABLED    1
+#define DMA_DEBUG_SVC_ENABLED     1
+#define DMA_DEBUG_MEM_ENABLED     1
 
 /*
  * ---------------------------------------------------------------------------
@@ -71,6 +73,16 @@
 #else
 #define DMADEV_DEBUG(x...)
 #endif
+#if DMA_DEBUG_SVC_ENABLED
+#define DMASVC_DEBUG(x...) DMA_DEBUG_PRINT("[dma svc] " x)
+#else
+#define DMASVC_DEBUG(x...)
+#endif
+#if DMA_DEBUG_MEM_ENABLED
+#define DMAMEM_DEBUG(x...) DMA_DEBUG_PRINT("[dma mem] " x)
+#else
+#define DMAMEM_DEBUG(x...)
+#endif
 
 
 /*
@@ -94,12 +106,12 @@
 #define IOATCHAN_DEBUG(x...)
 #endif
 #if IOAT_DEBUG_REQUEST_ENABLED
-#define IOATREQ_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat  req] " x)
+#define IOATREQ_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat req] " x)
 #else
 #define IOATREQ_DEBUG(x...)
 #endif
 #if IOAT_DEBUG_DEVICE_ENABLED
-#define IOATDEV_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat  dev.%02x] " x)
+#define IOATDEV_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat dev.%02x] " x)
 #else
 #define IOATDEV_DEBUG(x...)
 #endif
@@ -109,7 +121,7 @@
 #define IOATDESC_DEBUG(x...)
 #endif
 #if IOAT_DEBUG_DCA_ENABLED
-#define IOATDCA_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat  dca] " x)
+#define IOATDCA_DEBUG(x...) IOAT_DEBUG_PRINT("[ioat dca] " x)
 #else
 #define IOATDCA_DEBUG(x...)
 #endif

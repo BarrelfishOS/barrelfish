@@ -14,7 +14,7 @@
 [ build library { 
     target = "dma",
     cFiles = [
-      "dma_memory_manager.c",
+      "dma_mem_mgr.c",
       "dma_mem_utils.c",
       "dma_client.c",
       "dma_device.c",
@@ -46,6 +46,7 @@
     build library { 
     target = "dma_service",
     cFiles = [ 
+      "dma_mem_mgr.c",
       "dma_service.c" 
     ],
     addIncludes = [ "include" ],

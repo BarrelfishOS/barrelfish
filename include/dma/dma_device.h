@@ -13,9 +13,6 @@
 struct dma_device;
 struct dma_channel;
 
-/// IOAT DMA channel id
-typedef uint8_t dma_dev_id_t;
-
 #define PCI_ADDR_DONT_CARE 0x10000
 
 /// representation of a PCI address (with more bits than libpci)

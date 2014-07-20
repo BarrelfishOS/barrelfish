@@ -15,6 +15,18 @@ struct dma_device;
 struct dma_channel;
 struct dma_request;
 
+/* type declarations for the IDs */
+
+/// IOAT DMA device id
+typedef uint8_t dma_dev_id_t;
+
+/// DMA channel id
+typedef uint16_t dma_chan_id_t;
+
+/// IOAT DMA request ID
+typedef uint64_t dma_req_id_t;
+
+
 /**
  * Enumeration of possible interrupt types supported by the hardware
  */

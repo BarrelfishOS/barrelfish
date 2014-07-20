@@ -12,9 +12,6 @@
 
 struct dma_request;
 
-/// IOAT DMA request ID
-typedef uint64_t dma_req_id_t;
-
 /// callback to be called when the request is finished
 typedef void (*dma_req_cb_t)(errval_t,
                              dma_req_id_t,

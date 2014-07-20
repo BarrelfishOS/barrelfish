@@ -12,9 +12,6 @@
 
 struct dma_channel;
 
-/// DMA channel id
-typedef uint16_t dma_chan_id_t;
-
 /// DMA channel state
 typedef enum dma_chan_st
 {

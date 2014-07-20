@@ -45,16 +45,8 @@ interface dma "Generic DMA service interface" {
      * \param OUT err    result of the transfer request
      * \param OUT id     returns the id of the transfer
      */
-    rpc exec(in uint64 src, in uint64 dst, in uint64 length, 
-             out errval err, out id id);
-    
-    /**
-     * \brief stops a initiated DMA transfer
-     * 
-     * \param IN  id    the id of the completed transfer
-     * \param OUT err   the result of
-     */
-    rpc stop(in id id, out errval err);
+    rpc memcpy(in uint64 src, in uint64 dst, in uint64 length, 
+               out errval err, out id id);
     
     /**
      * \brief DMA transfer done notification
