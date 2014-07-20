@@ -70,8 +70,7 @@ enable_busmaster(uint8_t bus,
                  uint8_t fun,
                  bool pcie);
 
-static uint32_t
-bar_mapping_size(pci_hdr0_bar32_t bar)
+static uint32_t bar_mapping_size(pci_hdr0_bar32_t bar)
 {
     if (bar.base == 0) {
         return 0;
@@ -85,8 +84,7 @@ bar_mapping_size(pci_hdr0_bar32_t bar)
     }
 }
 
-static pciaddr_t
-bar_mapping_size64(uint64_t base)
+static pciaddr_t bar_mapping_size64(uint64_t base)
 {
     if (base == 0) {
         return 0;
@@ -105,17 +103,15 @@ bar_mapping_size64(uint64_t base)
     }
 }
 
-void
-pci_init_datastructures(void)
+void pci_init_datastructures(void)
 {
     memset(dev_caps, 0, sizeof(dev_caps));
 }
 
-int
-pci_bar_to_caps_index(uint8_t bus,
-                      uint8_t dev,
-                      uint8_t fun,
-                      uint8_t BAR)
+int pci_bar_to_caps_index(uint8_t bus,
+                          uint8_t dev,
+                          uint8_t fun,
+                          uint8_t BAR)
 {
     uint8_t i;
     for (i = 0; i < PCI_NBARS && dev_caps[bus][dev][fun][i].assigned; i++) {
@@ -126,42 +122,38 @@ pci_bar_to_caps_index(uint8_t bus,
     return -1;
 }
 
-int
-pci_get_nr_caps_for_bar(uint8_t bus,
-                        uint8_t dev,
-                        uint8_t fun,
-                        uint8_t idx)
-{
-    return (dev_caps[bus][dev][fun][idx].nr_caps);
-}
-
-struct capref
-pci_get_cap_for_device(uint8_t bus,
-                       uint8_t dev,
-                       uint8_t fun,
-                       uint8_t idx,
-                       int cap_nr)
-{
-    return (dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
-}
-uint8_t
-pci_get_cap_type_for_device(uint8_t bus,
+int pci_get_nr_caps_for_bar(uint8_t bus,
                             uint8_t dev,
                             uint8_t fun,
                             uint8_t idx)
 {
+    return (dev_caps[bus][dev][fun][idx].nr_caps);
+}
+
+struct capref pci_get_cap_for_device(uint8_t bus,
+                                     uint8_t dev,
+                                     uint8_t fun,
+                                     uint8_t idx,
+                                     int cap_nr)
+{
+    return (dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
+}
+uint8_t pci_get_cap_type_for_device(uint8_t bus,
+                                    uint8_t dev,
+                                    uint8_t fun,
+                                    uint8_t idx)
+{
     return (dev_caps[bus][dev][fun][idx].type);
 }
 
-static errval_t
-alloc_device_bar(uint8_t idx,
-                 uint8_t bus,
-                 uint8_t dev,
-                 uint8_t fun,
-                 uint8_t BAR,
-                 pciaddr_t base,
-                 pciaddr_t high,
-                 pcisize_t size)
+static errval_t alloc_device_bar(uint8_t idx,
+                                 uint8_t bus,
+                                 uint8_t dev,
+                                 uint8_t fun,
+                                 uint8_t BAR,
+                                 pciaddr_t base,
+                                 pciaddr_t high,
+                                 pcisize_t size)
 {
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
 
@@ -174,7 +166,8 @@ alloc_device_bar(uint8_t idx,
     restart: ;
     pcisize_t framesize = 1UL << bits;
     c->nr_caps = size / framesize;
-    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE": %lu\n", size, c->nr_caps);
+    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE": %lu\n", size,
+              c->nr_caps);
 
     c->phys_cap = malloc(c->nr_caps * sizeof(struct capref));
     if (c->phys_cap == NULL) {
@@ -191,9 +184,9 @@ alloc_device_bar(uint8_t idx,
         assert(err_is_ok(err));
         err = error_code;
         if (err_is_fail(err)) {
-            PCI_DEBUG(
-                    "mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR"," " end = %"PRIxPCIADDR"\n",
-                    bits, base + i * framesize, base + (i + 1) * framesize);
+            PCI_DEBUG("mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR","
+                      " end = %"PRIxPCIADDR"\n", bits, base + i * framesize,
+                      base + (i + 1) * framesize);
             if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
                 /* try again with smaller page-sized caps */
                 for (int j = 0; j < i; j++) {
@@ -222,9 +215,8 @@ alloc_device_bar(uint8_t idx,
     for (int i = 0; i < c->nr_caps; i++) {
         err = devframe_type(&c->frame_cap[i], c->phys_cap[i], bits);
         if (err_is_fail(err)) {
-            PCI_DEBUG(
-                    "devframe_type() failed: bits = %hhu, base = %"PRIxPCIADDR ", doba = %"PRIxPCIADDR"\n",
-                    bits, base, base + (1UL << bits));
+            PCI_DEBUG("devframe_type() failed: bits = %hhu, base = %"PRIxPCIADDR
+                      ", doba = %"PRIxPCIADDR"\n", bits, base, base + (1UL << bits));
             return err;
         }
     }
@@ -239,15 +231,14 @@ alloc_device_bar(uint8_t idx,
 
 //XXX: FIXME: HACK: BAD!!! Only needed to allocate a full I/O range cap to
 //                         the VESA graphics driver
-static errval_t
-assign_complete_io_range(uint8_t idx,
-                         uint8_t bus,
-                         uint8_t dev,
-                         uint8_t fun,
-                         uint8_t BAR)
+static errval_t assign_complete_io_range(uint8_t idx,
+                                         uint8_t bus,
+                                         uint8_t dev,
+                                         uint8_t fun,
+                                         uint8_t BAR)
 {
     dev_caps[bus][dev][fun][idx].frame_cap = (struct capref*) malloc(
-            sizeof(struct capref));
+                    sizeof(struct capref));
     errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap[0]));
     assert(err_is_ok(err));
     err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap[0], cap_io);
@@ -261,19 +252,18 @@ assign_complete_io_range(uint8_t idx,
     return SYS_ERR_OK;
 }
 
-errval_t
-device_init(bool enable_irq,
-            uint8_t coreid,
-            int vector,
-            uint32_t class_code,
-            uint32_t sub_class,
-            uint32_t prog_if,
-            uint32_t vendor_id,
-            uint32_t device_id,
-            uint32_t *bus,
-            uint32_t *dev,
-            uint32_t *fun,
-            int *nr_allocated_bars)
+errval_t device_init(bool enable_irq,
+                     uint8_t coreid,
+                     int vector,
+                     uint32_t class_code,
+                     uint32_t sub_class,
+                     uint32_t prog_if,
+                     uint32_t vendor_id,
+                     uint32_t device_id,
+                     uint32_t *bus,
+                     uint32_t *dev,
+                     uint32_t *fun,
+                     int *nr_allocated_bars)
 {
     *nr_allocated_bars = 0;
 
@@ -334,11 +324,11 @@ device_init(bool enable_irq,
 
 //find the device: Unify all values
     error_code = skb_execute_query(
-            "device(PCIE,addr(%s, %s, %s), %s, %s, %s, %s, %s, _),"
-            "writeln(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
-            s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code, s_sub_class,
-            s_prog_if, s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
-            s_sub_class, s_prog_if);
+                    "device(PCIE,addr(%s, %s, %s), %s, %s, %s, %s, %s, _),"
+                    "writeln(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
+                    s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
+                    s_sub_class, s_prog_if, s_bus, s_dev, s_fun, s_vendor_id,
+                    s_device_id, s_class_code, s_sub_class, s_prog_if);
     if (error_code != 0) {
 
         PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
@@ -351,16 +341,17 @@ device_init(bool enable_irq,
     }
 
     err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
-    ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
-                          s_pcie, bus, dev, fun, &vendor_id, &device_id, &class_code,
-                          &sub_class, &prog_if);
+                          ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
+                          s_pcie, bus, dev, fun, &vendor_id, &device_id,
+                          &class_code, &sub_class, &prog_if);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "skb read output\n");
 
         PCI_DEBUG("device_init(): Could not read the SKB's output for the device\n");
         PCI_DEBUG("device_init(): SKB returned: %s\n", skb_get_output());
-        PCI_DEBUG("device_init(): SKB error returned: %s\n", skb_get_error_output());
+        PCI_DEBUG("device_init(): SKB error returned: %s\n",
+                  skb_get_error_output());
         return err_push(err, PCI_ERR_DEVICE_INIT);
     }
     if (strncmp(s_pcie, "pcie", strlen("pcie")) == 0) {
@@ -370,15 +361,16 @@ device_init(bool enable_irq,
     }
 
     PCI_DEBUG("device_init(): Found device at %u:%u:%u\n", *bus, *dev, *fun);
-//get the implemented BARs for the found device
-    error_code = skb_execute_query(
-            "pci_get_implemented_BAR_addresses(%"PRIu32",%"PRIu32",%"PRIu32
-            ",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",L),"
-            "length(L,Len),writeln(L)",
-            *bus, *dev, *fun, vendor_id, device_id, class_code, sub_class, prog_if);
+    //get the implemented BARs for the found device
+    error_code = skb_execute_query("pci_get_implemented_BAR_addresses(%"PRIu32
+                                   ",%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32",%"
+                                   PRIu32",%"PRIu32",%"PRIu32",L),length(L,Len)"
+                                   ",writeln(L)", *bus, *dev, *fun, vendor_id,
+                                   device_id, class_code, sub_class, prog_if);
 
     if (error_code != 0) {
-        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %d\n", error_code);
+        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %d\n",
+                  error_code);
 
         PCI_DEBUG("SKB returned: %s\n", skb_get_output());
         PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
@@ -390,16 +382,13 @@ device_init(bool enable_irq,
     skb_read_list_init(&status);
 
     //iterate over all buselements
-    while (skb_read_list(&status, "baraddr(%d, %"PRIuPCIADDR", "
-    "%"PRIuPCIADDR", "
-    "%"PRIuPCISIZE")",
-                         &bar_nr, &bar_base, &bar_high, &bar_size)) {
+    while (skb_read_list(&status, "baraddr(%d, %"PRIuPCIADDR", %"PRIuPCIADDR", "
+                         "%"PRIuPCISIZE")", &bar_nr, &bar_base, &bar_high, &bar_size)) {
         err = alloc_device_bar(*nr_allocated_bars, *bus, *dev, *fun, bar_nr,
                                bar_base, bar_high, bar_size);
 
-        PCI_DEBUG(
-                "device_init(): BAR %d: base = %"PRIxPCIADDR ", size = %"PRIxPCISIZE"\n",
-                bar_nr, bar_base, bar_size);
+        PCI_DEBUG("device_init(): BAR %d: base = %"PRIxPCIADDR ", size = %"
+                  PRIxPCISIZE"\n", bar_nr, bar_base, bar_size);
 
         if (err_is_fail(err)) {
             PCI_DEBUG("device_init(): Could not allocate cap for BAR %d\n", bar_nr);
@@ -422,7 +411,8 @@ device_init(bool enable_irq,
     if (enable_irq) {
         int irq = setup_interrupt(*bus, *dev, *fun);
         PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
-        PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid, vector);
+        PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n", irq, coreid,
+                  vector);
         struct acpi_rpc_client* cl = get_acpi_rpc_client();
         errval_t ret_error;
         err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector,
@@ -430,7 +420,7 @@ device_init(bool enable_irq,
         assert(err_is_ok(err));
         assert(err_is_ok(ret_error));  // FIXME
 //        printf("IRQ for this device is %d\n", irq);
-                //DEBUG_ERR(err, "enable_and_route_interrupt");
+                        //DEBUG_ERR(err, "enable_and_route_interrupt");
         pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
     }
 
@@ -440,14 +430,16 @@ device_init(bool enable_irq,
     return SYS_ERR_OK;
 }
 
-void
-pci_enable_interrupt_for_device(uint32_t bus,
-                                uint32_t dev,
-                                uint32_t fun,
-                                bool pcie)
+void pci_enable_interrupt_for_device(uint32_t bus,
+                                     uint32_t dev,
+                                     uint32_t fun,
+                                     bool pcie)
 {
-    struct pci_address addr = { .bus = (uint8_t) (bus & 0xff), .device =
-            (uint8_t) (dev & 0xff), .function = (uint8_t) (fun % 0xff) };
+    struct pci_address addr = {
+        .bus = (uint8_t) (bus & 0xff),
+        .device = (uint8_t) (dev & 0xff),
+        .function = (uint8_t) (fun % 0xff)
+    };
 
     pci_hdr0_t hdr;
     pci_hdr0_initialize(&hdr, addr);
@@ -477,13 +469,14 @@ pci_enable_interrupt_for_device(uint32_t bus,
  * bus number is set to A + 3. This way, buses are spaced 2 apart,
  * which is sometimes required for SR-IOV hot-plugged buses.
  */
-static void
-assign_bus_numbers(struct pci_address parentaddr,
-                   uint8_t *busnum,
-                   uint8_t maxchild,
-                   char* handle)
+static void assign_bus_numbers(struct pci_address parentaddr,
+                               uint8_t *busnum,
+                               uint8_t maxchild,
+                               char* handle)
 {
-    struct pci_address addr = { .bus = parentaddr.bus };
+    struct pci_address addr = {
+        .bus = parentaddr.bus
+    };
 
     pcie_enable();
 
@@ -590,7 +583,8 @@ assign_bus_numbers(struct pci_address parentaddr,
                 acpi_pci_address_t xaddr = {
                     .bus = addr.bus,
                     .device = addr.device,
-                    .function = addr.function, };
+                    .function = addr.function,
+                };
                 cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 1,
                                         &error_code, &child);
                 if (err_is_fail(error_code)) {
@@ -602,10 +596,10 @@ assign_bus_numbers(struct pci_address parentaddr,
                 (*busnum) += 2;
                 assert(*busnum <= maxchild);
 
-                PCI_DEBUG(
-                        "program busses for bridge (%hhu,%hhu,%hhu)\n" "primary: %hhu, secondary: %hhu, subordinate: %hhu\n",
-                        addr.bus, addr.device, addr.function, addr.bus, *busnum,
-                        (*busnum) + 1);
+                PCI_DEBUG("program busses for bridge (%hhu,%hhu,%hhu)\n"
+                          "primary: %hhu, secondary: %hhu, subordinate: %hhu\n",
+                          addr.bus, addr.device, addr.function, addr.bus, *busnum,
+                          (*busnum) + 1);
 
                 // Disable master abort mode on the bridge
                 pci_hdr1_brdg_ctrl_mabort_wrf(&bhdr, 0);
@@ -620,17 +614,20 @@ assign_bus_numbers(struct pci_address parentaddr,
                 bcfg.sub_bus = 0xff;
                 pci_hdr1_bcfg_wr(&bhdr, bcfg);
 
-                skb_add_fact(
-                        "bridge(%s,addr(%u,%u,%u),%u,%u,%u,%u,%u, secondary(%hhu)).",
-                        (pcie ? "pcie" : "pci"), addr.bus, addr.device,
-                        addr.function, vendor, device_id, classcode.clss,
-                        classcode.subclss, classcode.prog_if, *busnum);
+                skb_add_fact("bridge(%s,addr(%u,%u,%u),%u,%u,%u,%u,%u, secondary(%hhu)).",
+                             (pcie ? "pcie" : "pci"), addr.bus, addr.device,
+                             addr.function, vendor, device_id, classcode.clss,
+                             classcode.subclss, classcode.prog_if, *busnum);
+
                 //use the original hdr (pci_hdr0_t) here
                 query_bars(hdr, addr, true);
 
                 // assign bus numbers to secondary bus
-                struct pci_address bridge_addr = { .bus = *busnum, .device = addr
-                        .device, .function = addr.function };
+                struct pci_address bridge_addr = {
+                    .bus = *busnum,
+                    .device = addr.device,
+                    .function = addr.function
+                };
                 assign_bus_numbers(bridge_addr, busnum, maxchild, child);
                 // Restore the old state of pcie. The above call changes this
                 // state according to the devices under this bridge
@@ -647,7 +644,8 @@ assign_bus_numbers(struct pci_address parentaddr,
             //is this a normal PCI device?
             if (hdr_type.fmt == pci_hdr0_nonbridge) {
                 PCI_DEBUG("Found device (%u, %u, %u), vendor = %x, device = %x\n",
-                          addr.bus, addr.device, addr.function, vendor, device_id);
+                          addr.bus, addr.device, addr.function, vendor,
+                          device_id);
 
                 pci_hdr0_t devhdr;
                 pci_hdr0_initialize(&devhdr, addr);
@@ -660,13 +658,14 @@ assign_bus_numbers(struct pci_address parentaddr,
                 // octopus start
                 char* record = NULL;
                 static char* device_fmt = "hw.pci.device. { "
-                        "bus: %u, device: %u, function: %u, "
-                        "vendor: %u, device_id: %u, class: %u, "
-                        "subclass: %u, prog_if: %u }";
+                                "bus: %u, device: %u, function: %u, "
+                                "vendor: %u, device_id: %u, class: %u, "
+                                "subclass: %u, prog_if: %u }";
+
                 errval_t err = oct_mset(SET_SEQUENTIAL, device_fmt, addr.bus,
                                         addr.device, addr.function, vendor,
-                                        device_id, classcode.clss, classcode.subclss,
-                                        classcode.prog_if);
+                                        device_id, classcode.clss,
+                                        classcode.subclss, classcode.prog_if);
 
                 assert(err_is_ok(err));
                 free(record);
@@ -680,21 +679,21 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                     // Walk capabilities list
                     while (cap_ptr != 0) {
-                        assert(cap_ptr % 4 == 0
-                               && cap_ptr >= 0x40
+                        assert(cap_ptr % 4 == 0 && cap_ptr >= 0x40
                                && cap_ptr < 0x100);
-                        uint32_t capword = pci_read_conf_header(&addr, cap_ptr / 4);
+                        uint32_t capword = pci_read_conf_header(&addr,
+                                                                cap_ptr / 4);
 
                         switch (capword & 0xff) {
-                        case 0x10:	// PCI Express
-                            PCI_DEBUG("PCI Express device\n");
-                            extended_caps = true;
-                            break;
+                            case 0x10:	// PCI Express
+                                PCI_DEBUG("PCI Express device\n");
+                                extended_caps = true;
+                                break;
 
-                        default:
-                            PCI_DEBUG("Unknown PCI device capability 0x%x at 0x%x\n",
-                                      capword & 0xff, cap_ptr);
-                            break;
+                            default:
+                                PCI_DEBUG("Unknown PCI device capability 0x%x at 0x%x\n",
+                                          capword & 0xff, cap_ptr);
+                                break;
                         }
 
                         cap_ptr = (capword >> 8) & 0xff;
@@ -709,22 +708,20 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                     while (cap_ptr != 0) {
                         uint32_t capword = *(ad + (cap_ptr / 4));
-                        assert(cap_ptr % 4 == 0
-                               && cap_ptr >= 0x100
+                        assert(cap_ptr % 4 == 0 && cap_ptr >= 0x100
                                && cap_ptr < 0x1000);
 
                         switch (capword & 0xffff) {  // Switch on capability ID
-                        case 0:
-                            // No extended caps
-                            break;
+                            case 0:
+                                // No extended caps
+                                break;
 
-                        case 16:
-                            // SR-IOV capability
-                            {
+                            case 16:
+                                // SR-IOV capability
+                                {
                                 pci_sr_iov_cap_t sr_iov_cap;
-                                pci_sr_iov_cap_initialize(
-                                        &sr_iov_cap,
-                                        (mackerel_addr_t) (ad + (cap_ptr / 4)));
+                                pci_sr_iov_cap_initialize(&sr_iov_cap,
+                                     (mackerel_addr_t) (ad + (cap_ptr / 4)));
 
                                 PCI_DEBUG("Found SR-IOV capability\n");
 
@@ -764,25 +761,20 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                                 if (max_numvfs > 0) {
                                     // Set maximum number of VFs
-                                    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd(
-                                            &sr_iov_cap);
+                                    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd( &sr_iov_cap);
                                     uint16_t numvfs = MIN(totalvfs, max_numvfs);
                                     //			uint16_t numvfs = 8;
-                                    PCI_DEBUG(
-                                            "Maximum supported VFs: %u. Enabling: %u\n",
-                                            totalvfs, numvfs);
+                                    PCI_DEBUG("Maximum supported VFs: %u. Enabling: %u\n",
+                                              totalvfs, numvfs);
                                     pci_sr_iov_cap_numvfs_wr(&sr_iov_cap, numvfs);
 
-                                    uint16_t offset = pci_sr_iov_cap_offset_rd(
-                                            &sr_iov_cap);
-                                    uint16_t stride = pci_sr_iov_cap_stride_rd(
-                                            &sr_iov_cap);
-                                    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(
-                                            &sr_iov_cap);
+                                    uint16_t offset = pci_sr_iov_cap_offset_rd(&sr_iov_cap);
+                                    uint16_t stride = pci_sr_iov_cap_stride_rd(&sr_iov_cap);
+                                    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(&sr_iov_cap);
 
-                                    PCI_DEBUG(
-                                            "VF offset is 0x%x, stride is 0x%x, device ID is 0x%x\n",
-                                            offset, stride, vf_devid);
+                                    PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
+                                              "device ID is 0x%x\n",
+                                              offset, stride, vf_devid);
 
 #if 0
                                     // Make sure we enable the PF
@@ -795,8 +787,7 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                                     // Start VFs (including memory spaces)
                                     pci_sr_iov_cap_ctrl_vf_mse_wrf(&sr_iov_cap, 1);
-                                    pci_sr_iov_cap_ctrl_vf_enable_wrf(&sr_iov_cap,
-                                                                      1);
+                                    pci_sr_iov_cap_ctrl_vf_enable_wrf(&sr_iov_cap, 1);
 
                                     // Spec says to wait here for at least 100ms
                                     err = barrelfish_usleep(100000);
@@ -804,42 +795,47 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                                     // Add all VFs
                                     for (int vfn = 0; vfn < numvfs; vfn++) {
-                                        uint8_t busnr = addr.bus
-                                                        + ((((addr.device << 3)
-                                                             + addr.function)
-                                                            + offset + stride * vfn)
-                                                           >> 8);
+                                        uint8_t busnr = addr.bus + ((((addr.device << 3)
+                                                                 + addr.function)
+                                                                 + offset
+                                                                 + stride * vfn)
+                                                                 >> 8);
                                         uint8_t devfn = (((addr.device << 3)
-                                                          + addr.function)
-                                                         + offset + stride * vfn)
+                                                        + addr.function)
+                                                        + offset
+                                                        + stride * vfn)
                                                         & 0xff;
                                         struct pci_address vf_addr = {
                                             .bus = busnr,
                                             .device = devfn >> 3,
-                                            .function = devfn & 7, };
+                                            .function = devfn & 7,
+                                        };
 
                                         PCI_DEBUG("Adding VF (%u, %u, %u)\n",
                                                   vf_addr.bus, vf_addr.device,
                                                   vf_addr.function);
 
-                                        skb_add_fact(
-                                                "device(%s,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
-                                                (pcie ? "pcie" : "pci"), vf_addr.bus,
-                                                vf_addr.device, vf_addr.function,
-                                                vendor, vf_devid, classcode.clss,
-                                                classcode.subclss, classcode.prog_if,
-                                                0);
+                                        skb_add_fact("device(%s,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
+                                                     (pcie ? "pcie" : "pci"),
+                                                     vf_addr.bus,
+                                                     vf_addr.device,
+                                                     vf_addr.function, vendor,
+                                                     vf_devid, classcode.clss,
+                                                     classcode.subclss,
+                                                     classcode.prog_if, 0);
 
                                         // octopus start
-                                        device_fmt =
-                                                "hw.pci.device. { "
-                                                        "bus: %u, device: %u, function: %u, "
-                                                        "vendor: %u, device_id: %u, class: %u, "
-                                                        "subclass: %u, prog_if: %u }";
-                                        err = oct_mset(SET_SEQUENTIAL, device_fmt,
-                                                       vf_addr.bus, vf_addr.device,
-                                                       vf_addr.function, vendor,
-                                                       vf_devid, classcode.clss,
+                                        device_fmt ="hw.pci.device. { "
+                                                     "bus: %u, device: %u, function: %u, "
+                                                     "vendor: %u, device_id: %u, class: %u, "
+                                                     "subclass: %u, prog_if: %u }";
+                                        err = oct_mset(SET_SEQUENTIAL,
+                                                       device_fmt,
+                                                       vf_addr.bus,
+                                                       vf_addr.device,
+                                                       vf_addr.function,
+                                                       vendor, vf_devid,
+                                                       classcode.clss,
                                                        classcode.subclss,
                                                        classcode.prog_if);
 
@@ -851,36 +847,31 @@ assign_bus_numbers(struct pci_address parentaddr,
                                         // can calculate all offsets, but we're
                                         // lazy...
                                         pci_hdr0_bar32_t bar, barorigaddr;
-                                        for (int i = 0;
-                                                i < pci_sr_iov_cap_vf_bar_length;
-                                                i++) {
+                                        for (int i = 0; i < pci_sr_iov_cap_vf_bar_length; i++) {
                                             union pci_hdr0_bar32_un orig_value;
-                                            orig_value.raw =
-                                                    pci_sr_iov_cap_vf_bar_rd(
-                                                            &sr_iov_cap, i);
+                                            orig_value.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i);
                                             barorigaddr = orig_value.val;
 
                                             // probe BAR to see if it is implemented
-                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i,
-                                            BAR_PROBE);
+                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i, BAR_PROBE);
 
-                                            bar =
-                                                    (union pci_hdr0_bar32_un ) {
-                                                                .raw =
-                                                                        pci_sr_iov_cap_vf_bar_rd(
-                                                                                &sr_iov_cap,
-                                                                                i) }
-                                                                    .val;
+                                            union pci_hdr0_bar32_un bar_value;
+                                            bar_value.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i);
+                                            bar = (union pci_hdr0_bar32_un ) {
+                                                        .raw =bar_value.raw
+                                                   }.val;
 
                                             //write original value back to the BAR
-                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i,
-                                                                     orig_value.raw);
+                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap,
+                                                                 i, orig_value.raw);
 
                                             /*
-                                             * XXX: this may be a bug, the entire register should be zero
-                                             *      if the bar is not implemented.
+                                             * We need to check the entire register
+                                             * here to make sure the bar is not
+                                             * implemented as it could lie in the
+                                             * high 64 bit range...
                                              */
-                                            if (bar.base == 0) {
+                                            if (bar_value.raw == 0) {
                                                 // BAR not implemented
                                                 continue;
                                             }
@@ -897,111 +888,74 @@ assign_bus_numbers(struct pci_address parentaddr,
 
                                             if (bar.tpe == pci_hdr0_bar_64bit) {
                                                 //read the upper 32bits of the address
-                                                pci_hdr0_bar32_t bar_high,
-                                                        barorigaddr_high;
+                                                pci_hdr0_bar32_t bar_high, barorigaddr_high;
                                                 union pci_hdr0_bar32_un orig_value_high;
-                                                orig_value_high.raw =
-                                                        pci_sr_iov_cap_vf_bar_rd(
-                                                                &sr_iov_cap, i + 1);
-                                                barorigaddr_high = orig_value_high
-                                                        .val;
+                                                orig_value_high.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
+                                                barorigaddr_high = orig_value_high.val;
 
                                                 // probe BAR to determine the mapping size
-                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap,
-                                                                         i + 1,
-                                                                         BAR_PROBE);
+                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i + 1, BAR_PROBE);
 
-                                                bar_high =
-                                                        (union pci_hdr0_bar32_un ) {
-                                                                    .raw =
-                                                                            pci_sr_iov_cap_vf_bar_rd(
-                                                                                    &sr_iov_cap,
-                                                                                    i
-                                                                                    + 1) }
-                                                                        .val;
+                                                bar_high = (union pci_hdr0_bar32_un ) {
+                                                              .raw =pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap,i + 1)
+                                                            }.val;
 
                                                 //write original value back to the BAR
-                                                pci_sr_iov_cap_vf_bar_wr(
-                                                        &sr_iov_cap, i + 1,
-                                                        orig_value_high.raw);
+                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap,
+                                                          i + 1, orig_value_high.raw);
 
                                                 pciaddr_t base64 = bar_high.base;
                                                 base64 <<= 32;
                                                 base64 |= bar.base << 7;
 
-                                                pciaddr_t origbase64 =
-                                                        barorigaddr_high.base;
+                                                pciaddr_t origbase64 = barorigaddr_high.base;
                                                 origbase64 <<= 32;
                                                 origbase64 |= barorigaddr.base << 7;
 
-                                                PCI_DEBUG(
-                                                        "(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
-                                                        vf_addr.bus,
-                                                        vf_addr.device,
-                                                        vf_addr.function,
-                                                        i,
-                                                        (origbase64 << 7) + bar_mapping_size64(base64) * vfn,
-                                                        bar_mapping_size64(base64),
-                                                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                                                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%"
+                                                          PRIxPCIADDR ", size %" PRIx64 ", %s\n",
+                                                          vf_addr.bus, vf_addr.device,
+                                                          vf_addr.function, i,
+                                                          (origbase64 << 7) + bar_mapping_size64(base64) * vfn,
+                                                          bar_mapping_size64(base64),
+                                                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
-                                                skb_add_fact(
-                                                        "bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
-                                                        "16'%" PRIx64 ", vf, %s, %d).",
-                                                        vf_addr.bus,
-                                                        vf_addr.device,
-                                                        vf_addr.function,
-                                                        i,
-                                                        (origbase64 << 7)
-                                                        + bar_mapping_size64(base64)
-                                                          * vfn,
-                                                        bar_mapping_size64(base64),
-                                                        (bar.prefetch == 1 ?
-                                                                "prefetchable" :
-                                                                "nonprefetchable"),
-                                                        type);
+                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"
+                                                             PRIxPCIADDR", ""16'%" PRIx64 ", vf, %s, %d).",
+                                                             vf_addr.bus, vf_addr.device, vf_addr.function, i,
+                                                             (origbase64 << 7) + bar_mapping_size64(base64) * vfn,
+                                                             bar_mapping_size64(base64),
+                                                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                                                             type);
 
                                                 i++;  //step one forward, because it is a 64bit BAR
                                             } else {
-                                                PCI_DEBUG(
-                                                        "(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
-                                                        vf_addr.bus,
-                                                        vf_addr.device,
-                                                        vf_addr.function,
-                                                        i,
-                                                        (barorigaddr.base << 7) + bar_mapping_size(bar) * vfn,
-                                                        bar_mapping_size(bar),
-                                                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                                                PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
+                                                          vf_addr.bus, vf_addr.device, vf_addr.function, i,
+                                                          (barorigaddr.base << 7) + bar_mapping_size(bar) * vfn,
+                                                          bar_mapping_size(bar),
+                                                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
                                                 //32bit BAR
-                                                skb_add_fact(
-                                                        "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", vf, %s, %d).",
-                                                        vf_addr.bus,
-                                                        vf_addr.device,
-                                                        vf_addr.function,
-                                                        i,
-                                                        (uint32_t) ((barorigaddr.base
-                                                                     << 7)
-                                                                    + bar_mapping_size(
-                                                                            bar)
-                                                                      * vfn),
-                                                        (uint32_t) bar_mapping_size(
-                                                                bar),
-                                                        (bar.prefetch == 1 ?
-                                                                "prefetchable" :
-                                                                "nonprefetchable"),
-                                                        type);
+                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%"
+                                                             PRIx32 ", vf, %s, %d).", vf_addr.bus,
+                                                             vf_addr.device, vf_addr.function, i,
+                                                             (uint32_t) ((barorigaddr.base << 7)
+                                                                         + bar_mapping_size( bar) * vfn),
+                                                             (uint32_t) bar_mapping_size(bar),
+                                                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                                                             type);
                                             }
                                         }
                                     }
                                 }
                             }
-                            break;
+                                break;
 
-                        default:
-                            PCI_DEBUG(
-                                    "Unknown extended PCI device capability 0x%x at 0x%x\n",
-                                    capword & 0xffff, cap_ptr);
-                            break;
+                            default:
+                                PCI_DEBUG("Unknown extended PCI device capability 0x%x at 0x%x\n",
+                                          capword & 0xffff, cap_ptr);
+                                break;
                         }
 
                         cap_ptr = capword >> 20;
@@ -1049,8 +1003,8 @@ static void get_bridges(struct pci_address myad)
                 pci_hdr1_bcfg_t bcfg = pci_hdr1_bcfg_rd(&bhdr);
 
                 PCI_DEBUG("Found bridge (%u,%u,%u), primary %u, secondary %u, subordinate %u\n",
-                        addr.bus, addr.device, addr.function,
-                        bcfg.pri_bus, bcfg.sec_bus, bcfg.sub_bus);
+                                addr.bus, addr.device, addr.function,
+                                bcfg.pri_bus, bcfg.sec_bus, bcfg.sub_bus);
 
                 struct pci_address bridge_addr= {
                     .bus = bcfg.sec_bus, .device = addr.device,
@@ -1064,10 +1018,9 @@ static void get_bridges(struct pci_address myad)
 }
 #endif
 
-void
-pci_add_root(struct pci_address addr,
-             uint8_t maxchild,
-             char* handle)
+void pci_add_root(struct pci_address addr,
+                  uint8_t maxchild,
+                  char* handle)
 {
     uint8_t busnum = addr.bus;
     /* get_bridges(addr); */
@@ -1075,19 +1028,16 @@ pci_add_root(struct pci_address addr,
     /* get_bridges(addr); */
 }
 
-errval_t
-pci_setup_root_complex(void)
+errval_t pci_setup_root_complex(void)
 {
     errval_t err;
     char* record = NULL;
     char** names = NULL;
     size_t len = 0;
+
     // TODO: react to new rootbridges
-    err =
-            oct_get_names(
-                    &names,
-                    &len,
-                    "r'hw.pci.rootbridge.[0-9]+' { acpi_node: _, bus: _, device: _, function: _, maxbus: _ }");
+    err = oct_get_names(&names, &len, "r'hw.pci.rootbridge.[0-9]+' "
+                        "{ acpi_node: _, bus: _, device: _, function: _, maxbus: _ }");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "get names");
         goto out;
@@ -1104,7 +1054,7 @@ pci_setup_root_complex(void)
         char* acpi_node = NULL;  // freed in pci_add_root
         int64_t bus, device, function, maxbus;
         static char* format =
-                "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
+                        "_ { acpi_node: %s, bus: %d, device: %d, function: %d, maxbus: %d }";
         err = oct_read(record, format, &acpi_node, &bus, &device, &function,
                        &maxbus);
         if (err_is_fail(err)) {
@@ -1137,10 +1087,9 @@ pci_setup_root_complex(void)
 //           PCI header like for any PCI device. PCI HDR0 is misused
 //           here for the bridges.
 
-static void
-query_bars(pci_hdr0_t devhdr,
-           struct pci_address addr,
-           bool pci2pci_bridge)
+static void query_bars(pci_hdr0_t devhdr,
+                       struct pci_address addr,
+                       bool pci2pci_bridge)
 {
     pci_hdr0_bar32_t bar, barorigaddr;
 
@@ -1155,7 +1104,7 @@ query_bars(pci_hdr0_t devhdr,
 
         uint32_t bar_value = pci_hdr0_bars_rd(&devhdr, i);
 
-        bar = (union pci_hdr0_bar32_un ) { .raw = bar_value } .val;
+        bar = (union pci_hdr0_bar32_un ) { .raw = bar_value }.val;
 
         //write original value back to the BAR
         pci_hdr0_bars_wr(&devhdr, i, orig_value.raw);
@@ -1213,53 +1162,46 @@ query_bars(pci_hdr0_t devhdr,
                 origbase64 <<= 32;
                 origbase64 |= (uint32_t) (barorigaddr.base << 7);
 
-                PCI_DEBUG(
-                        "(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
-                        addr.bus, addr.device, addr.function, i, origbase64,
-                        bar_mapping_size64(base64),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %"
+                          PRIx64 ", %s\n", addr.bus, addr.device, addr.function,
+                          i, origbase64, bar_mapping_size64(base64),
+                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
-                skb_add_fact(
-                        "bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
-                        "16'%" PRIx64 ", mem, %s, %d).",
-                        addr.bus, addr.device, addr.function, i, origbase64,
-                        bar_mapping_size64(base64),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                        type);
+                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
+                             "16'%" PRIx64 ", mem, %s, %d).", addr.bus,
+                             addr.device, addr.function, i, origbase64,
+                             bar_mapping_size64(base64),
+                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                             type);
 
                 i++;  //step one forward, because it is a 64bit BAR
             } else {
                 //32bit BAR
-                skb_add_fact(
-                        "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", mem, %s, %d).",
-                        addr.bus, addr.device, addr.function, i,
-                        (uint32_t) (barorigaddr.base << 7),
-                        (uint32_t) bar_mapping_size(bar),
-                        (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                        type);
+                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32
+                             ", mem, %s, %d).", addr.bus, addr.device, addr.function,
+                             i, (uint32_t) (barorigaddr.base << 7),
+                             (uint32_t) bar_mapping_size(bar),
+                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                             type);
             }
         } else {
             //bar(addr(bus, device, function), barnr, orig address, size, space).
             //where space = mem | io
-            skb_add_fact(
-                    "bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
-                    "nonprefetchable, 32).",
-                    addr.bus, addr.device, addr.function, i,
-                    (uint32_t) (barorigaddr.base << 7),
-                    (uint32_t) bar_mapping_size(bar));
+            skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "
+                         "nonprefetchable, 32).", addr.bus, addr.device, addr.function, i,
+                         (uint32_t) (barorigaddr.base << 7), (uint32_t) bar_mapping_size(bar));
         }
     }
 }
 
-static void
-program_bridge_window(uint8_t bus,
-                      uint8_t dev,
-                      uint8_t fun,
-                      pciaddr_t base,
-                      pciaddr_t high,
-                      bool pcie,
-                      bool mem,
-                      bool pref)
+static void program_bridge_window(uint8_t bus,
+                                  uint8_t dev,
+                                  uint8_t fun,
+                                  pciaddr_t base,
+                                  pciaddr_t high,
+                                  bool pcie,
+                                  bool mem,
+                                  bool pref)
 {
     struct pci_address addr;
     pci_hdr1_prefbl_t pref_reg;
@@ -1309,7 +1251,10 @@ program_bridge_window(uint8_t bus,
         } else {
             assert((base & 0xffffffff00000000) == 0);
             assert((high & 0xffffffff00000000) == 0);
-            pci_hdr1_membl_t membl = { .base = base >> 16, .limit = high >> 16, };
+            pci_hdr1_membl_t membl = {
+                .base = base >> 16,
+                .limit = high >> 16,
+            };
             pci_hdr1_membl_wr(&bridgehdr, membl);
             /* pci_hdr1_mem_base_wr(&bridgehdr, base >> 16); */
             /* pci_hdr1_mem_limit_wr(&bridgehdr, high >> 16); */
@@ -1325,16 +1270,15 @@ program_bridge_window(uint8_t bus,
     pci_hdr1_command_wr(&bridgehdr, cmd);
 }
 
-static void
-program_device_bar(uint8_t bus,
-                   uint8_t dev,
-                   uint8_t fun,
-                   int bar,
-                   pciaddr_t base,
-                   pcisize_t size,
-                   int bits,
-                   bool memspace,
-                   bool pcie)
+static void program_device_bar(uint8_t bus,
+                               uint8_t dev,
+                               uint8_t fun,
+                               int bar,
+                               pciaddr_t base,
+                               pcisize_t size,
+                               int bits,
+                               bool memspace,
+                               bool pcie)
 {
     struct pci_address addr;
     addr.bus = bus;
@@ -1379,11 +1323,10 @@ program_device_bar(uint8_t bus,
     pci_hdr0_command_wr(&devhdr, cmd);
 }
 
-static void
-enable_busmaster(uint8_t bus,
-                 uint8_t dev,
-                 uint8_t fun,
-                 bool pcie)
+static void enable_busmaster(uint8_t bus,
+                             uint8_t dev,
+                             uint8_t fun,
+                             bool pcie)
 {
     struct pci_address addr;
     addr.bus = bus;
@@ -1405,8 +1348,7 @@ enable_busmaster(uint8_t bus,
     pci_hdr0_command_wr(&devhdr, cmd);
 }
 
-void
-pci_program_bridges(void)
+void pci_program_bridges(void)
 {
     char element_type[7];  // "device" | "bridge"
     char bar_secondary[16];  //[0-6] | secondary(<0-255>)
@@ -1541,23 +1483,18 @@ pci_program_bridges(void)
     //iterate over all buselements
     for (int i = 0; i < nr_elements; i++) {
         // search the beginning of the next buselement
-        while ((conv_ptr < output + output_length)
-               && (strncmp(conv_ptr, "buselement", strlen("buselement")) != 0)) {
+        while ((conv_ptr < output + output_length) && (strncmp(
+                        conv_ptr, "buselement", strlen("buselement"))
+                                                       != 0)) {
             conv_ptr++;
         }
         //convert the string to single elements and numbers
-        nr_conversions = sscanf(conv_ptr, "buselement(%[a-z], "
-                                "addr(%hhu, %hhu, %hhu), "
-                                "%[a-z0-9()], "
-                                "%"PRIuPCIADDR", "
-        "%"PRIuPCIADDR", "
-        "%"PRIuPCISIZE", "
-        "%[a-z], "
-        "%[a-z], "
-        "%[a-z], "
-        "%d",
-                                element_type, &bus, &dev, &fun, bar_secondary, &base,
-                                &high, &size, space, prefetch, pcie_pci, &bits);
+        nr_conversions = sscanf(conv_ptr, "buselement(%[a-z], addr(%hhu, %hhu, %hhu), "
+                                "%[a-z0-9()], %"PRIuPCIADDR", %"PRIuPCIADDR", "
+                                "%"PRIuPCISIZE", %[a-z], %[a-z], %[a-z], %d",
+                                element_type, &bus, &dev, &fun, bar_secondary,
+                                &base, &high, &size, space, prefetch, pcie_pci,
+                                &bits);
         conv_ptr++;
         if (nr_conversions != 12) {
             printf("Could not parse output for device or bridge number %d\n"
@@ -1594,16 +1531,19 @@ pci_program_bridges(void)
                 printf("Could not determine BAR number while programming BAR\n");
                 continue;
             }
-            PCI_DEBUG(
-                    "programming %s addr(%hhu, %hhu, %hhu), BAR %d, with base = " "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE" in" "space = %s, prefetch = %s, %s...\n",
-                    element_type, bus, dev, fun, bar, base, high, size, space,
-                    prefetch, pcie ? "PCIe" : "PCI");
+            PCI_DEBUG("programming %s addr(%hhu, %hhu, %hhu), BAR %d, with base = "
+                      "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE
+                      " in" "space = %s, prefetch = %s, %s...\n",
+                      element_type, bus, dev, fun, bar, base, high, size, space,
+                      prefetch, pcie ? "PCIe" : "PCI");
             program_device_bar(bus, dev, fun, bar, base, size, bits, mem, pcie);
 
         } else {
-            PCI_DEBUG(
-                    "programming %s addr(%hhu, %hhu, %hhu), with base = " "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE " in space = %s, prefetch = %s...\n",
-                    element_type, bus, dev, fun, base, high, size, space, prefetch);
+            PCI_DEBUG("programming %s addr(%hhu, %hhu, %hhu), with base = "
+                      "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE
+                      " in space = %s, prefetch = %s...\n",
+                      element_type, bus, dev, fun, base, high, size, space,
+                      prefetch);
             //a bridge expects the high address excluding the last byte which
             //is the base for the next bridge => decrement by one
             high--;
@@ -1612,16 +1552,15 @@ pci_program_bridges(void)
     }
 }
 
-static uint32_t
-setup_interrupt(uint32_t bus,
-                uint32_t dev,
-                uint32_t fun)
+static uint32_t setup_interrupt(uint32_t bus,
+                                uint32_t dev,
+                                uint32_t fun)
 {
     char str[256], ldev[128];
 
     snprintf(str, 256, "[\"irq_routing.pl\"], assigndeviceirq(addr(%"PRIu32
-    ", %"PRIu32", %"PRIu32")).",
-             bus, dev, fun);
+                       ", %"PRIu32", %"PRIu32")).",
+                       bus, dev, fun);
     char *output, *error_out;
     int32_t int_err;
     errval_t err = skb_evaluate(str, &output, &error_out, &int_err);
