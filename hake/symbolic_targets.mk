@@ -181,7 +181,9 @@ MODULES_x86_64= \
 	sbin/xeon_phi_test \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/ioat_dma
+	sbin/ioat_dma \
+	sbin/dma_test \
+	sbin/dma_mgr 
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \

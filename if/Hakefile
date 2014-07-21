@@ -21,6 +21,7 @@
                "bulkbench",
                "diskd",
                "dma",
+               "dma_mgr",
                "e10k",
                "ehci",
                "net_queue_manager",
