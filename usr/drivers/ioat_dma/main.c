@@ -19,6 +19,7 @@
 #include <dma/dma.h>
 #include <dma/dma_device.h>
 #include <dma/dma_service.h>
+#include <dma/dma_manager_client.h>
 #include <dma/ioat/ioat_dma.h>
 
 #include "device.h"
@@ -136,18 +137,25 @@ int main(int argc,
                    "[0,0,0]\n");
     }
 
-
     err =  ioat_device_discovery(addr, devtype, IOAT_DMA_OPERATION);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_SERVICE
-    /* start the DMA  */
-    err = dma_service_init("dma.service.name", &dma_svc_cb);
+
+    /// TODO: figure out a good value for this
+    iref_t svc_iref;
+    err = dma_service_init(&dma_svc_cb, &svc_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to start the DMA service");
     }
+
+    err = dma_manager_register_driver(0, 1ULL<<40, DMA_DEV_TYPE_IOAT, svc_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to regsiter with the DMA manager\n");
+    }
+
 #endif
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_LIBRARY

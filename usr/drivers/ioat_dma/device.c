@@ -21,7 +21,7 @@
 #include "debug.h"
 
 static uint8_t device_count = 0;
-static struct ioat_dma_device **devices = NULL;
+struct ioat_dma_device **devices;
 
 static void handle_device_interrupt(void *arg)
 {

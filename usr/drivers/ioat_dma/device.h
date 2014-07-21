@@ -60,7 +60,7 @@ enum device_type {
 
 errval_t ioat_device_discovery(struct pci_addr addr,
                                enum device_type devtype,
-                               uint8_t mgr_svc);
+                               uint8_t is_dev_mgr);
 
 
 #endif /* IOAT_DEVICE_H_ */
