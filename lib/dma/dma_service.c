@@ -12,7 +12,7 @@
 
 #include <if/dma_defs.h>
 
-#include <dma/dma.h>
+#include <dma_internal.h>
 #include <dma/dma_service.h>
 
 #include <debug.h>
@@ -380,8 +380,8 @@ static void dma_memcpy_call_rx(struct dma_binding *_binding,
                                uint64_t length)
 {
 
-    DMASVC_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n", src,
-                 dst, length);
+    DMASVC_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n", src, dst,
+                 length);
 
     struct dma_svc_reply_st *reply = reply_st_alloc();
     if (reply == NULL) {
@@ -495,16 +495,17 @@ static void svc_export_cb(void *st,
  */
 
 /**
- * \brief initializes the DMA service
+ * \brief initializes the DMA service and registers with the DMA manager
  *
- * \param svc_name  The name of the service for nameservice registration
  * \param cb        Callback function pointers
+ * \param svc_iref  Returns the exported iref
+ *
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_service_init(const char *svc_name,
-                          struct dma_service_cb *cb)
+errval_t dma_service_init(struct dma_service_cb *cb,
+                          iref_t *svc_iref)
 {
     errval_t err, export_err;
 
@@ -513,6 +514,50 @@ errval_t dma_service_init(const char *svc_name,
     dma_reply_txq.head = NULL;
     dma_reply_txq.tail = NULL;
 
+    err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
+                     get_default_waitset(),
+                     IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    while (dma_svc_state == DMA_SVC_STATE_EXPORTING) {
+        messages_wait_and_handle_next();
+    }
+
+    if (dma_svc_state == DMA_SVC_STATE_EXPORT_FAIL) {
+        return export_err;
+    }
+
+    dma_svc_state = DMA_SVC_STATE_RUNNING;
+    event_handlers = cb;
+
+    if (svc_iref) {
+        *svc_iref = dma_svc_iref;
+    }
+    DMASVC_DEBUG("DMA service up and running.\n");
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief initializes the DMA service and exports it to the nameservice
+ *
+ * \param svc_name  The name of the service for nameservice registration
+ * \param cb        Callback function pointers
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_service_init_with_name(char *svc_name,
+                                    struct dma_service_cb *cb)
+{
+    errval_t err, export_err;
+
+    DMASVC_DEBUG("Initializing DMA service...\n");
+
+    dma_reply_txq.head = NULL;
+    dma_reply_txq.tail = NULL;
 
     err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
                      get_default_waitset(),

@@ -24,6 +24,8 @@
 #define DMA_DEBUG_INTR_ENABLED    1
 #define DMA_DEBUG_SVC_ENABLED     1
 #define DMA_DEBUG_MEM_ENABLED     1
+#define DMA_DEBUG_CLIENT_ENABLED  1
+#define DMA_DEBUG_MGR_ENABLED     1
 
 /*
  * ---------------------------------------------------------------------------
@@ -82,6 +84,16 @@
 #define DMAMEM_DEBUG(x...) DMA_DEBUG_PRINT("[dma mem] " x)
 #else
 #define DMAMEM_DEBUG(x...)
+#endif
+#if DMA_DEBUG_CLIENT_ENABLED
+#define DMACLIENT_DEBUG(x...) DMA_DEBUG_PRINT("[dma client] " x)
+#else
+#define DMACLIENT_DEBUG(x...)
+#endif
+#if DMA_DEBUG_MGR_ENABLED
+#define DMAMGR_DEBUG(x...) DMA_DEBUG_PRINT("[dma mgr] " x)
+#else
+#define DMAMGR_DEBUG(x...)
 #endif
 
 

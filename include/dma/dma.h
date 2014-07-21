@@ -26,7 +26,6 @@ typedef uint16_t dma_chan_id_t;
 /// IOAT DMA request ID
 typedef uint64_t dma_req_id_t;
 
-
 /**
  * Enumeration of possible interrupt types supported by the hardware
  */
@@ -36,6 +35,15 @@ typedef enum dma_irq {
     DMA_IRQ_MSI,          ///< use MSI interrupts
     DMA_IRQ_INTX,         ///< use normal INTx interrupts
 } dma_irq_t;
+
+/**
+ * Device types. Which DMA engine we have.
+ */
+typedef enum dma_dev_type {
+    DMA_DEV_TYPE_INVALID=0,
+    DMA_DEV_TYPE_IOAT=1,
+    DMA_DEV_TYPE_XEON_PHI=2
+} dma_dev_type_t;
 
 
 /// interrupt handler function type definition
@@ -51,6 +59,12 @@ struct dma_mem
     uint64_t bytes;         ///< size of the region in bytes
     struct capref frame;    ///< frame capability backing this region
 };
+
+/*
+ * service name defines
+ */
+#define DMA_SVC_NAME_IOAT       "ioat_dma_svc"
+#define DMA_SVC_NAME_XEON_PHI   "xeon_phi_dma_svc"
 
 
 #endif  /* LIB_DMA_H */

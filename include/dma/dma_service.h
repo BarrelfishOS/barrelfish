@@ -39,7 +39,19 @@ struct dma_service_cb
 };
 
 /**
- * \brief initializes the DMA service
+ * \brief initializes the DMA service and registers with the DMA manager
+ *
+ * \param cb        Callback function pointers
+ * \param svc_iref  Returns the exported iref
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_service_init(struct dma_service_cb *cb,
+                          iref_t *svc_iref);
+
+/**
+ * \brief initializes the DMA service and exports it to the nameservice
  *
  * \param svc_name  The name of the service for nameservice registration
  * \param cb        Callback function pointers
@@ -47,8 +59,8 @@ struct dma_service_cb
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_service_init(const char *svc_name,
-                          struct dma_service_cb *cb);
+errval_t dma_service_init_with_name(char *svc_name,
+                                    struct dma_service_cb *cb);
 
 /**
  * \brief sends a done notification about the transfer that has completed

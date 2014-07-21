@@ -23,15 +23,6 @@ struct pci_addr {
 };
 
 /**
- * Device types. Which DMA engine we have.
- */
-typedef enum dma_dev_type {
-    DMA_DEV_TYPE_INVALID,
-    DMA_DEV_TYPE_IOAT,
-    DMA_DEV_TYPE_XEON_PHI
-} dma_dev_type_t;
-
-/**
  * Device State Enumeration
  */
 typedef enum dma_dev_st {
