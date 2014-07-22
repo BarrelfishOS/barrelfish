@@ -11,7 +11,7 @@
 #include <barrelfish/barrelfish.h>
 
 #include <dma_internal.h>
-#include <dma_mem_mgr.h>
+#include <dma/dma_mem_mgr.h>
 
 #include <debug.h>
 
