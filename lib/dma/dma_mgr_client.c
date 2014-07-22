@@ -147,7 +147,7 @@ errval_t dma_manager_register_driver(lpaddr_t mem_low,
         }
     }
 
-    DMAMGR_DEBUG("register driver: [%016lx, %016lx, %"PRIxIREF"]\n", mem_low,
+    DMAMGR_DEBUG("register driver: {%016lx, %016lx} @ %"PRIxIREF"\n", mem_low,
                  mem_high, iref);
 
     //XXX need to figure this out otherwise
@@ -202,4 +202,5 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
 
     return msgerr;
 }
+
 

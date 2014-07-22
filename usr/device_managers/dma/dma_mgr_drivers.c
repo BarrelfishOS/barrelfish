@@ -19,8 +19,6 @@
 #include "dma_mgr.h"
 #include "debug.h"
 
-
-
 struct dma_service
 {
     struct dma_mgr_driver_info info;
@@ -40,7 +38,7 @@ static void service_insert(struct dma_service *svc)
     }
 
     struct dma_service *current = dma_services;
-    while(current) {
+    while (current) {
         if (current->info.mem_low > svc->info.mem_low) {
             if (current->prev) {
                 svc->prev = current->prev;
@@ -57,12 +55,13 @@ static void service_insert(struct dma_service *svc)
     }
 }
 
-static inline uint8_t get_diff(uint8_t a, uint8_t b)
+static inline uint8_t get_diff(uint8_t a,
+                               uint8_t b)
 {
     if (a > b) {
-        return a-b;
+        return a - b;
     } else {
-        return b-a;
+        return b - a;
     }
 }
 
@@ -70,17 +69,20 @@ static struct dma_service *service_lookup(lpaddr_t mem_low,
                                           size_t size,
                                           uint8_t numa_node)
 {
+
     struct dma_service *current = dma_services;
     struct dma_service *best = NULL;
-    while(current) {
+    while (current) {
         if (current->info.mem_low <= mem_low) {
-            if(current->info.mem_high >= (mem_low + size)) {
+            if (current->info.mem_high >= (mem_low + size)) {
                 /* we have a match */
                 if (best == NULL) {
                     best = current;
                 } else {
-                    uint8_t best_numa_diff = get_diff(numa_node, best->info.numa_node);
-                    uint8_t curr_numa_diff = get_diff(numa_node, current->info.numa_node);
+                    uint8_t best_numa_diff = get_diff(numa_node,
+                                                      best->info.numa_node);
+                    uint8_t curr_numa_diff = get_diff(numa_node,
+                                                      current->info.numa_node);
                     if (curr_numa_diff < best_numa_diff) {
                         best = current;
                     }
@@ -100,7 +102,6 @@ static struct dma_service *service_lookup(lpaddr_t mem_low,
 
 errval_t driver_store_init(void)
 {
-
     return SYS_ERR_OK;
 }
 
@@ -114,6 +115,10 @@ errval_t driver_store_insert(lpaddr_t mem_low,
     if (driver == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
+    DS_DEBUG("insert: {%016lx, %016lx, %u, %u} @ %x\n", mem_low, mem_high, numa_node,
+             type, iref);
+
     driver->info.mem_low = mem_low;
     driver->info.mem_high = mem_high;
     driver->info.numa_node = numa_node;
@@ -125,16 +130,22 @@ errval_t driver_store_insert(lpaddr_t mem_low,
     return SYS_ERR_OK;
 }
 
-
 errval_t driver_store_lookup(lpaddr_t mem_low,
                              size_t size,
                              uint8_t numa_node,
                              struct dma_mgr_driver_info **info)
 {
+
+    DS_DEBUG("lookup: {%016lx, %016lx, %u}\n", mem_low, size, numa_node);
+
     struct dma_service *svc = service_lookup(mem_low, size, numa_node);
     if (svc == NULL) {
         return DMA_ERR_SVC_VOID;
     }
+
+    DS_DEBUG("lookup: {%016lx, %016lx, %u} @ %x\n", mem_low, size, numa_node,
+             svc->info.iref);
+
     *info = &svc->info;
 
     return SYS_ERR_OK;

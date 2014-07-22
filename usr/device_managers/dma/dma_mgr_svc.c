@@ -138,8 +138,7 @@ static errval_t send_reply_enqueue(struct svc_reply_st *st)
 
     /* register if queue was empty i.e. head == tail */
     if (svc_reply_txq.tail == svc_reply_txq.head) {
-        return st->b->register_send(st->b, get_default_waitset(),
-                                    MKCONT(send_reply_cont, NULL));
+        st->op(st);
     }
 
     return SYS_ERR_OK;
@@ -181,6 +180,8 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
                                  uint8_t type,
                                  iref_t iref)
 {
+    errval_t err;
+
     SVC_DEBUG("register call: [%016lx, %016lx]\n", mem_low, mem_high);
 
     struct svc_reply_st *state = reply_st_alloc();
@@ -191,7 +192,17 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
 
     state->err = driver_store_insert(mem_low, mem_high, numa_node, type, iref);
 
-    svc_register_response_tx(state);
+    if (err_is_ok(state->err)) {
+        char buf[30];
+        snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER, type, numa_node);
+        SVC_DEBUG("registering with nameservice {%s}\n", buf);
+        err = nameservice_register(buf, 0x123);
+        if (err_is_fail(err)) {
+            SVC_DEBUG("registering failed: %s\n", err_getstring(err));
+        }
+    }
+
+    send_reply_enqueue(state);
 }
 
 /*
@@ -212,6 +223,7 @@ static void svc_lookup_response_tx(void *a)
         err = dma_mgr_lookup_driver_response__tx(st->b, MKCONT(send_reply_done, a),
                                                  st->err, 0, 0, 0, 0, 0);
     } else {
+        assert(di);
         err = dma_mgr_lookup_driver_response__tx(st->b, MKCONT(send_reply_done, a),
                                                  st->err, di->mem_low, di->mem_high,
                                                  di->numa_node, di->type, di->iref);
@@ -247,7 +259,7 @@ static void svc_lookup_call_rx(struct dma_mgr_binding *_binding,
 
     st->err = driver_store_lookup(addr, size, numa_node, &st->args.lookup);
 
-    svc_lookup_response_tx(st);
+    send_reply_enqueue(st);
 }
 
 struct dma_mgr_rx_vtbl svc_rx_vtbl = {
