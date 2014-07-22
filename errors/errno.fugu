@@ -1079,5 +1079,8 @@ errors dma DMA_ERR_ {
     failure SVC_REJECT      	    "Service request was rejected",
     failure SVC_RESOURCES         "No resources to handle the service",
     failure SVC_VOID              "There is no service that could serve the request",
+    failure SVC_NO_CONNECTION     "There is no connection established",
+    failure SVC_BUSY              "Connecton is busy with an RPC",
+    
     	
 };
