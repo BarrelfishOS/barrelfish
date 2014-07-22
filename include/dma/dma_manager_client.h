@@ -15,6 +15,8 @@
 /// name of the DMA manager service
 #define DMA_MGR_SVC_NAME "dma_mgr_svc"
 
+#define DMA_MGR_REGISTERED_DRIVER "dma_driver"
+
 struct dma_mgr_driver_info
 {
     lpaddr_t mem_low;

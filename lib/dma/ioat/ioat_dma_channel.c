@@ -232,6 +232,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     dma_chan->state = DMA_CHAN_ST_PREPARED;
 
+    *ret_chan = chan;
+
     /*
      * do a check if the channel operates correctly by issuing a NOP
      */
@@ -260,10 +262,10 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
         uint32_t error = ioat_dma_chan_err_rd(&chan->channel);
         IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id, error);
         dma_mem_free(&chan->completion);
+        free(chan);
+        *ret_chan = NULL;
         return DMA_ERR_CHAN_ERROR;
     }
-
-    *ret_chan = chan;
 
     return SYS_ERR_OK;
 }
@@ -451,7 +453,6 @@ errval_t ioat_dma_channel_submit_request(struct ioat_dma_channel *chan,
 
     dma_channel_enq_request_tail(&chan->common, (struct dma_request *) req);
 
-    assert(!"revise");
     ioat_dma_channel_issue_pending(chan);
 
     return SYS_ERR_OK;

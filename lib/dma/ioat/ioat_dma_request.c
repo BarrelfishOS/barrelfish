@@ -103,6 +103,8 @@ errval_t ioat_dma_request_process(struct ioat_dma_request *req)
 {
     errval_t err;
 
+    req->common.state = DMA_REQ_ST_DONE;
+
     err = dma_request_process(&req->common);
     if (err_is_fail(err)) {
         return err;
@@ -124,12 +126,14 @@ errval_t ioat_dma_request_process(struct ioat_dma_request *req)
  *
  * \param chan  IOAT DMA channel
  * \param setup request setup information
+ * \param id    returns the generated request id
  *
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
 errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
-                                      struct dma_req_setup *setup)
+                                      struct dma_req_setup *setup,
+                                      dma_req_id_t *id)
 {
     struct dma_channel *dma_chan = (struct dma_channel *) chan;
 
@@ -191,6 +195,8 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
     req->common.setup = *setup;
     req->common.id = dma_request_generate_req_id((struct dma_channel *) chan);
 
+    *id = req->common.id;
+
     /* set the request pointer in the last descriptor */
     ioat_dma_desc_set_request(desc, req);
 
@@ -205,17 +211,19 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
  *
  * \param dev   IOAT DMA device
  * \param setup request setup information
+ * \param id    returns the generated request id
  *
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-inline errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
-                                        struct dma_req_setup *setup)
+errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id)
 {
     struct ioat_dma_channel *chan;
     struct dma_device *dma_dev = (struct dma_device *)dev;
     chan = (struct ioat_dma_channel *)dma_device_get_channel(dma_dev);
-    return ioat_dma_request_memcpy_chan(chan, setup);
+    return ioat_dma_request_memcpy_chan(chan, setup, id);
 }
 
 /**

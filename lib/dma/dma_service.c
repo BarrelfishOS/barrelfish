@@ -22,8 +22,8 @@
  */
 struct dma_svc_st
 {
-    struct dma_mem_mgr *mem_mgr;
     void *usr_st;
+    struct dma_binding *binding;
 };
 
 /**
@@ -247,8 +247,7 @@ static errval_t send_reply_enqueue(struct dma_svc_reply_st *st)
 
     /* register if queue was empty i.e. head == tail */
     if (dma_reply_txq.tail == dma_reply_txq.head) {
-        return st->b->register_send(st->b, get_default_waitset(),
-                                    MKCONT(send_reply_cont, NULL));
+        st->op(st);
     }
 
     return SYS_ERR_OK;
@@ -267,6 +266,7 @@ static void dma_register_response_tx(void *a)
     struct dma_svc_reply_st *st = a;
 
     err = dma_register_response__tx(st->b, MKCONT(send_reply_done, a), st->err);
+    assert(err_is_ok(err));
     switch (err_no(err)) {
         case SYS_ERR_OK:
             break;
@@ -285,21 +285,23 @@ static void dma_register_response_tx(void *a)
 static void dma_register_call_rx(struct dma_binding *_binding,
                                  struct capref memory)
 {
-    errval_t err;
+    dma_svc_handle_t svc_handle = _binding->st;
 
-    struct dma_svc_st *st = _binding->st;
-
-    err = event_handlers->addregion(st->usr_st, memory);
-
-    struct dma_svc_reply_st *state = reply_st_alloc();
-    if (state == NULL) {
-        /* todo: error handling */
+    struct dma_svc_reply_st *reply = reply_st_alloc();
+    if (reply == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
     }
 
-    state->b = _binding;
-    state->err = err;
+    reply->b = _binding;
+    reply->op = dma_register_response_tx;
 
-    dma_register_response_tx(st);
+    if (event_handlers->addregion) {
+        event_handlers->addregion(svc_handle, memory);
+    } else {
+        reply->err = DMA_ERR_SVC_REJECT;
+    }
+
+    send_reply_enqueue(reply);
 }
 
 /*
@@ -315,6 +317,7 @@ static void dma_deregister_response_tx(void *a)
     struct dma_svc_reply_st *st = a;
 
     err = dma_deregister_response__tx(st->b, MKCONT(send_reply_done, a), st->err);
+    assert(err_is_ok(err));
     switch (err_no(err)) {
         case SYS_ERR_OK:
             break;
@@ -333,16 +336,23 @@ static void dma_deregister_response_tx(void *a)
 static void dma_deregister_call_rx(struct dma_binding *_binding,
                                    struct capref memory)
 {
-    errval_t err;
+    dma_svc_handle_t svc_handle = _binding->st;
 
-    err = event_handlers->removeregion(_binding, memory);
+    struct dma_svc_reply_st *reply = reply_st_alloc();
+    if (reply == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
 
-    struct dma_svc_reply_st *st = reply_st_alloc();
-    assert(st);
-    st->b = _binding;
-    st->err = err;
+    reply->b = _binding;
+    reply->op = dma_deregister_response_tx;
 
-    dma_deregister_response_tx(st);
+    if (event_handlers->removeregion) {
+        event_handlers->removeregion(svc_handle, memory);
+    } else {
+        reply->err = DMA_ERR_SVC_REJECT;
+    }
+
+    send_reply_enqueue(reply);
 }
 
 /*
@@ -359,6 +369,7 @@ static void dma_memcpy_response_tx(void *a)
 
     err = dma_memcpy_response__tx(st->b, MKCONT(send_reply_done, a), st->err,
                                   st->args.request.id);
+    assert(err_is_ok(err));
     switch (err_no(err)) {
         case SYS_ERR_OK:
             break;
@@ -383,6 +394,8 @@ static void dma_memcpy_call_rx(struct dma_binding *_binding,
     DMASVC_DEBUG("memcopy request [0x%016lx]->[0x%016lx] of size 0x%lx\n", src, dst,
                  length);
 
+    dma_svc_handle_t svc_handle = _binding->st;
+
     struct dma_svc_reply_st *reply = reply_st_alloc();
     if (reply == NULL) {
         USER_PANIC("ran out of reply state resources\n");
@@ -392,13 +405,13 @@ static void dma_memcpy_call_rx(struct dma_binding *_binding,
     reply->op = dma_memcpy_response_tx;
 
     if (event_handlers->memcpy) {
-        reply->err = event_handlers->memcpy(_binding, dst, src, length,
+        reply->err = event_handlers->memcpy(svc_handle, dst, src, length,
                                             &reply->args.request.id);
     } else {
         reply->err = DMA_ERR_SVC_REJECT;
     }
 
-    dma_memcpy_response_tx(reply);
+    send_reply_enqueue(reply);
 }
 
 struct dma_rx_vtbl dma_rx_vtbl = {
@@ -421,6 +434,7 @@ static void dma_done_tx(void *a)
 
     err = dma_done__tx(st->b, MKCONT(send_reply_done, a), st->args.request.id,
                        st->err);
+    assert(err_is_ok(err));
     switch (err_no(err)) {
         case SYS_ERR_OK:
             break;
@@ -464,9 +478,11 @@ static errval_t svc_connect_cb(void *st,
         /* reject the connection */
         DMASVC_DEBUG("application rejected the connection: %s\n",
                      err_getstring(err));
+        free(state);
         return DMA_ERR_SVC_REJECT;
     }
 
+    state->binding = binding;
     binding->st = state;
     binding->rx_vtbl = dma_rx_vtbl;
 
@@ -535,6 +551,7 @@ errval_t dma_service_init(struct dma_service_cb *cb,
     if (svc_iref) {
         *svc_iref = dma_svc_iref;
     }
+
     DMASVC_DEBUG("DMA service up and running.\n");
 
     return SYS_ERR_OK;
@@ -545,12 +562,14 @@ errval_t dma_service_init(struct dma_service_cb *cb,
  *
  * \param svc_name  The name of the service for nameservice registration
  * \param cb        Callback function pointers
+ * \param svc_iref  Returns the exported iref
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t dma_service_init_with_name(char *svc_name,
-                                    struct dma_service_cb *cb)
+                                    struct dma_service_cb *cb,
+                                    iref_t *svc_iref)
 {
     errval_t err, export_err;
 
@@ -585,10 +604,12 @@ errval_t dma_service_init_with_name(char *svc_name,
         return err;
     }
 
-    dma_svc_state = DMA_SVC_STATE_RUNNING;
     event_handlers = cb;
+    *svc_iref = dma_svc_iref;
 
     DMASVC_DEBUG("DMA service up and running.\n");
+
+    dma_svc_state = DMA_SVC_STATE_RUNNING;
 
     return SYS_ERR_OK;
 }
@@ -603,7 +624,7 @@ errval_t dma_service_init_with_name(char *svc_name,
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_service_send_done(struct dma_binding *binding,
+errval_t dma_service_send_done(dma_svc_handle_t svc_handle,
                                errval_t err,
                                dma_req_id_t id)
 {
@@ -612,11 +633,12 @@ errval_t dma_service_send_done(struct dma_binding *binding,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    msgst->b = binding;
+    msgst->b = svc_handle->binding;
     msgst->args.request.id = id;
     msgst->err = err;
+    msgst->op = dma_done_tx;
 
-    dma_done_tx(msgst);
+    send_reply_enqueue(msgst);
 
     return SYS_ERR_OK;
 }

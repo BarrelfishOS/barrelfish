@@ -19,8 +19,10 @@ struct dma_request
 {
     dma_req_id_t id;            ///<
     dma_req_st_t state;         ///<
+    errval_t err;
     struct dma_req_setup setup; ///<
     struct dma_request *next;   ///<
+    struct dma_request *prev;   ///<
 };
 
 dma_req_id_t dma_request_generate_req_id(struct dma_channel *chan);

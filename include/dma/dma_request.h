@@ -10,6 +10,8 @@
 #ifndef LIB_DMA_REQUEST_H
 #define LIB_DMA_REQUEST_H
 
+#include <dma/dma_channel.h>
+
 struct dma_request;
 
 /// callback to be called when the request is finished
@@ -47,6 +49,7 @@ struct dma_req_setup
     dma_req_type_t type;           ///< specifies the request type
     dma_req_cb_t done_cb;          ///< callback for executed request
     void *cb_arg;                  ///< argument for the callback
+    struct dma_client *client;     ///< the DMA client to be used (if set)
     union
     {
         struct
@@ -102,24 +105,82 @@ struct dma_request *dma_request_get_next(struct dma_request *req);
 
 /*
  * ----------------------------------------------------------------------------
+ * Memory Registration
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief registers a memory region for future use
+ *
+ * \param frame the memory frame to register
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_register_memory(struct capref frame);
+
+/**
+ * \brief registers a memory region for future use
+ *
+ * \param frame     the memory frame to register
+ * \param client    DMA client to use for registration
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_register_memory_fixed(struct capref frame,
+                                           struct dma_client *client);
+
+/**
+ * \brief deregisters a previously registered memory region
+ *
+ * \param frame the memory frame to register
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_deregister_memory(struct capref frame);
+
+/**
+ * \brief deregisters a previously registered memory region
+ *
+ * \param frame     the memory frame to register
+ * \param client    DMA client to use for registration
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_deregister_memory_fixed(struct capref frame,
+                                             struct dma_client *client);
+
+/*
+ * ----------------------------------------------------------------------------
  * Request Execution
  * ----------------------------------------------------------------------------
  */
 
 /**
+ * \brief issues a new DMA memcpy request based on the setup information
  *
+ * \param setup DMA request setup information
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
  */
 errval_t dma_request_memcpy(struct dma_req_setup *setup);
 
-/**
- *
- */
-errval_t dma_request_nop(struct dma_req_setup *setup);
 
 /**
+ * \brief issues a new DMA memcpy request based on the setup information
  *
+ * \param setup DMA request setup information
+  * \param client    DMA client to use for the request
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
  */
-errval_t dma_request_exec(struct dma_req_setup *setup);
+errval_t dma_request_memcpy_fixed(struct dma_req_setup *setup,
+                                  struct dma_client *client);
 
 
 /*

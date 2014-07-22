@@ -78,8 +78,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
 
     /* if DCA is enabled, we cannot support the RAID functions */
     if (ioat_dma_dca_is_enabled()) {
-        IOATDEV_DEBUG("Disabling XOR and PQ while DCA is enabled\n",
-                      dev->common.id);
+        IOATDEV_DEBUG("Disabling XOR and PQ while DCA is enabled\n", dev->common.id);
         cap = ioat_dma_dmacapability_xor_insert(cap, 0x0);
         cap = ioat_dma_dmacapability_pq_insert(cap, 0x0);
     }
@@ -302,7 +301,10 @@ errval_t ioat_dma_device_init(struct capref mmio,
     if (err_is_fail(err)) {
         vspace_unmap((void*) dma_dev->mmio.vaddr);
         free(ioat_device);
+        return err;
     }
+
+    *dev = ioat_device;
 
     return err;
 }

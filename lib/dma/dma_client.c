@@ -13,8 +13,14 @@
 
 #include <dma/dma_manager_client.h>
 #include <dma_internal.h>
+#include <dma_request_internal.h>
 #include <dma_client_internal.h>
 #include <debug.h>
+
+#include <if/dma_defs.h>
+
+
+static uint8_t dma_client_initialized = 0x0;
 
 /**
  * state enumeration for the Flounder connection to the service
@@ -30,15 +36,251 @@ enum dma_svc_state
 
 struct dma_client
 {
-    struct dma_binding *svc_b;
+    struct dma_binding *svc_b;       ///< the DMA service binding
     enum dma_svc_state svc_st;       ///<
-    struct dma_mgr_driver_info info;
+    struct dma_mgr_driver_info info;  ///< if
     errval_t err;                    ///<
+    uint8_t wait_reply;              ///< RPC is in progress
+    struct dma_request *rpc;         ///< currently pending requests
+    struct dma_request *requests;    ///< currently pending requests
+    dma_req_id_t last_done_id;       ///<
     struct dma_client *next;         ///<
     struct dma_client *prev;         ///<
 };
 
-//static uint8_t dma_client_initialized = 0x0;
+/*
+ * ---------------------------------------------------------------------------
+ * Request Cache /  Helper Functions
+ * ---------------------------------------------------------------------------
+ */
+static struct dma_request *dma_request_cache = NULL;
+
+static struct dma_request *request_alloc(void)
+{
+    if (dma_request_cache) {
+        struct dma_request *st = dma_request_cache;
+        dma_request_cache = dma_request_cache->next;
+        return st;
+    }
+    return calloc(1, sizeof(struct dma_request));
+}
+
+static inline void request_free(struct dma_request *st)
+{
+    st->next = dma_request_cache;
+    dma_request_cache = st;
+}
+
+/**
+ * \brief retrieves the pending request with the given ID
+ *
+ * \param id DMA transfer ID of this request
+ *
+ * \returns pointer to the pending request if request found
+ *          NULL if there is no such request
+ */
+static struct dma_request *request_get_pending(struct dma_client *client,
+                                               dma_req_id_t id)
+{
+    struct dma_request *req = client->requests;
+
+    while (req) {
+        if (req->id == id) {
+            if (req->prev != NULL) {
+                req->prev->next = req->next;
+            } else {
+                client->requests = req->next;
+            }
+            if (req->next != NULL) {
+                req->next->prev = req->prev;
+            }
+            req->next = NULL;
+            req->prev = NULL;
+
+            return req;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * \brief inserts a request into the pending request list
+ *
+ * \param req the request to be inserted
+ */
+static void request_insert_pending(struct dma_client *client,
+                                   struct dma_request *req)
+{
+    debug_printf("request_insert_pending: %lx\n", req->id);
+    if (client->requests == NULL) {
+        client->requests = req;
+        req->next = NULL;
+    } else {
+        client->requests->prev = req;
+        req->next = client->requests;
+        client->requests = req;
+    }
+    req->prev = NULL;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * Transmit State Cache
+ * ---------------------------------------------------------------------------
+ */
+struct svc_msg_st
+{
+    void (*op)(void *arg);          ///<
+    struct svc_msg_st *next;        ///<
+    struct dma_binding *b;      ///<
+    errval_t err;                   ///<
+
+    /* union of arguments */
+    union
+    {
+        struct capref cap;
+        struct dma_request *req;
+    } args;
+};
+
+static struct svc_msg_st *svc_msg_st_cache = NULL;
+
+static struct svc_msg_st *msg_st_alloc(void)
+{
+    if (svc_msg_st_cache) {
+        struct svc_msg_st *st = svc_msg_st_cache;
+        svc_msg_st_cache = svc_msg_st_cache->next;
+        return st;
+    }
+    return calloc(1, sizeof(struct svc_msg_st));
+}
+
+static inline void msg_st_free(struct svc_msg_st *st)
+{
+    st->next = svc_msg_st_cache;
+    svc_msg_st_cache = st;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * TX Queue
+ * ----------------------------------------------------------------------------
+ */
+
+static struct
+{
+    struct svc_msg_st *head;
+    struct svc_msg_st *tail;
+} svc_msg_txq;
+
+static void send_reply_cont(void *a)
+{
+    struct svc_msg_st *st = (struct svc_msg_st *) a;
+
+    /* we are likely to be able to send the reply so send it */
+    assert(svc_msg_txq.head == st);
+
+    svc_msg_txq.head->op(st);
+}
+
+static void send_reply_done(void *a)
+{
+    errval_t err;
+
+    struct svc_msg_st *st = (struct svc_msg_st *) a;
+
+    debug_printf("send_reply_done: [%p][%p]   {%p}\n", svc_msg_txq.head,
+                 svc_msg_txq.tail, st);
+
+    /* callback when the message has been sent */
+    if (svc_msg_txq.head == NULL) {
+        msg_st_free((struct svc_msg_st *) a);
+        return;
+    }
+    assert(svc_msg_txq.head == st);
+
+    svc_msg_txq.head = svc_msg_txq.head->next;
+    if (svc_msg_txq.head == NULL) {
+        svc_msg_txq.tail = NULL;
+    } else {
+        struct svc_msg_st *next = svc_msg_txq.head;
+        /* it should not matter if we already registered */
+        err = svc_msg_txq.head->b->register_send(svc_msg_txq.head->b,
+                                                 get_default_waitset(),
+                                                 MKCONT(send_reply_cont, next));
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "clould not register");
+        }
+    }
+    msg_st_free(st);
+}
+
+static errval_t send_reply_enqueue(struct svc_msg_st *st)
+{
+    st->next = NULL;
+
+    debug_printf("send_reply_enqueue: [%p][%p]\n", svc_msg_txq.head,
+                 svc_msg_txq.tail);
+
+    if (svc_msg_txq.tail == NULL) {
+        svc_msg_txq.head = st;
+    } else {
+        svc_msg_txq.tail->next = st;
+    }
+    svc_msg_txq.tail = st;
+
+    /* register if queue was empty i.e. head == tail */
+    if (svc_msg_txq.tail == svc_msg_txq.head) {
+        st->op(st);
+    }
+
+    return SYS_ERR_OK;
+}
+
+/*
+ * ---------------------------------------------------------------------------
+ * RPC management
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * \brief starts a new RPC to the Xeon Phi DMA service
+ *
+ * \param xphi the ID of the Xeon Phi
+ *
+ * \returns 1 if the RPC transaction could be started
+ *          0 if there was already a transaction in process
+ */
+static inline uint8_t rpc_start(struct dma_client *client)
+{
+    if (!client->wait_reply) {
+        client->wait_reply = 0x1;
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * \brief waits until the started transaction is finished
+ *
+ * \param xphi  the ID of the Xeon Phi
+ */
+static inline void rpc_wait_done(struct dma_client *client)
+{
+    while (client->wait_reply) {
+        messages_wait_and_handle_next();
+    }
+}
+
+/**
+ * \brief signals the completion of the RPC
+ *
+ * \param xphi  the ID of the Xeon Phi
+ */
+static inline void rpc_done(struct dma_client *client)
+{
+    client->wait_reply = 0x0;
+}
 
 /*
  * ---------------------------------------------------------------------------
@@ -110,10 +352,74 @@ static struct dma_client *dma_svc_conn_get_by_addr(lpaddr_t base,
 
 /*
  * ---------------------------------------------------------------------------
+ * Message callbacks
+ * ---------------------------------------------------------------------------
+ */
+
+static void done_msg_rx(struct dma_binding *_binding,
+                        dma_id_t id,
+                        dma_errval_t msgerr)
+{
+    DMACLIENT_DEBUG("done_msg_rx: %lx, %s\n", id, err_getstring(msgerr));
+    struct dma_client *client = _binding->st;
+    struct dma_request *req = request_get_pending(client, id);
+    assert(req);
+
+    if (req->setup.done_cb) {
+        req->setup.done_cb(msgerr, id, req->setup.cb_arg);
+    }
+
+    request_free(req);
+}
+
+static void register_response_rx(struct dma_binding *_binding,
+                                 dma_errval_t msgerr)
+{
+    DMACLIENT_DEBUG("register_response_rx: %s\n", err_getstring(msgerr));
+    struct dma_client *client = _binding->st;
+    client->err = msgerr;
+    rpc_done(client);
+}
+
+static void deregister_response_rx(struct dma_binding *_binding,
+                                   dma_errval_t msgerr)
+{
+    DMACLIENT_DEBUG("deregister_response_rx: %s\n", err_getstring(msgerr));
+    struct dma_client *client = _binding->st;
+    client->err = msgerr;
+    rpc_done(client);
+}
+
+static void memcpy_response_rx(struct dma_binding *_binding,
+                               dma_errval_t err,
+                               dma_id_t id)
+{
+    DMACLIENT_DEBUG("memcpy_response_rx: %lx %s\n", id, err_getstring(err));
+    struct dma_client *client = _binding->st;
+    client->err = err;
+    assert(client->rpc);
+    if (err_is_fail(err)) {
+        client->rpc->state = DMA_REQ_ST_ERR;
+    } else {
+        client->rpc->state = DMA_REQ_ST_SUBMITTED;
+    }
+    client->rpc->id = id;
+    rpc_done(client);
+}
+
+struct dma_rx_vtbl dma_rxvtbl = {
+    .register_response = register_response_rx,
+    .deregister_response = deregister_response_rx,
+    .memcpy_response = memcpy_response_rx,
+    .done = done_msg_rx
+};
+
+/*
+ * ---------------------------------------------------------------------------
  * Service Binding
  * ---------------------------------------------------------------------------
  */
-#if 0
+
 static void bind_cb(void *st,
                     errval_t err,
                     struct dma_binding *b)
@@ -124,19 +430,21 @@ static void bind_cb(void *st,
     client->err = err;
 
     if (err_is_fail(err)) {
-        DMACLIENT_DEBUG("svc bind: connection to {%s} failed.\n", client->svc_name);
+        DMACLIENT_DEBUG("svc bind: connection to iref [%"PRIxIREF"] failed.\n",
+                        client->info.iref);
         client->svc_st = DMA_CLIENT_STATE_BIND_FAIL;
         return;
     }
 
+    b->rx_vtbl = dma_rxvtbl;
+    b->st = client;
     client->svc_b = b;
 
-    DMACLIENT_DEBUG("svc bind: connection to {%s} established.\n", client->svc_name);
+    DMACLIENT_DEBUG("svc bind: connection to iref [%"PRIxIREF"] established.\n",
+                    client->info.iref);
 
     client->svc_st = DMA_CLIENT_STATE_BIND_OK;
 }
-
-
 
 static errval_t dma_service_bind(struct dma_client *client)
 {
@@ -146,26 +454,22 @@ static errval_t dma_service_bind(struct dma_client *client)
         return SYS_ERR_OK;
     }
 
-    if (!dma_client_initialized) {
-        err = dma_client_init();
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
-
-    client->svc_st = DMA_CLIENT_STATE_NS_LOOKUP;
+    struct waitset *ws = get_default_waitset();
 
     client->svc_st = DMA_CLIENT_STATE_BINDING;
 
     DMACLIENT_DEBUG("svc bind: binding to iref [%"PRIxIREF"]\n", client->info.iref);
-    struct waitset *ws = get_default_waitset();
+
     err = dma_bind(client->info.iref, bind_cb, client, ws, IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         return err;
     }
 
     while (client->svc_st == DMA_CLIENT_STATE_BINDING) {
-        messages_wait_and_handle_next();
+        err = event_dispatch(ws);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     if (client->svc_st == DMA_CLIENT_STATE_BIND_FAIL) {
@@ -174,11 +478,9 @@ static errval_t dma_service_bind(struct dma_client *client)
 
     client->svc_st = DMA_CLIENT_STATE_CONNECTED;
 
-    dma_svc_conn_insert(client);
-
     return SYS_ERR_OK;
 }
-#endif
+
 /*
  * ============================================================================
  * Public Interface
@@ -190,8 +492,220 @@ static errval_t dma_service_bind(struct dma_client *client)
  */
 errval_t dma_client_init(void)
 {
+    svc_msg_txq.head = NULL;
+    svc_msg_txq.tail = NULL;
+
+    dma_client_initialized = 0x1;
+
     return SYS_ERR_OK;
 }
+
+/*
+ * ----------------------------------------------------------------------------
+ * Memory Registration
+ * ----------------------------------------------------------------------------
+ */
+
+static void register_call_tx(void *a)
+{
+    errval_t err;
+
+    struct svc_msg_st *st = a;
+
+    debug_printf("register_call_tx\n");
+
+    err = dma_register_call__tx(st->b, MKCONT(send_reply_done, a), st->args.cap);
+    assert(err_is_ok(err));
+    switch (err_no(err)) {
+        case SYS_ERR_OK:
+            break;
+        case FLOUNDER_ERR_TX_BUSY:
+            err = send_reply_enqueue(a);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not send reply");
+            }
+            break;
+        default:
+            USER_PANIC_ERR(err, "could not send reply");
+            break;
+    }
+}
+
+/**
+ * \brief registers a memory region with a specified client connection
+ *
+ * \param conn  DMA client connection
+ * \param frame the memory frame to register
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t dma_client_register_memory(struct dma_client *conn,
+                                    struct capref frame)
+{
+    if (!dma_client_initialized) {
+        dma_client_init();
+    }
+
+    if (!rpc_start(conn)) {
+        return DMA_ERR_SVC_BUSY;
+    }
+
+    conn->err = SYS_ERR_OK;
+
+    struct svc_msg_st *st = msg_st_alloc();
+    if (st == NULL) {
+        rpc_done(conn);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    st->op = register_call_tx;
+    st->b = conn->svc_b;
+    st->args.cap = frame;
+
+
+    send_reply_enqueue(st);
+
+    rpc_wait_done(conn);
+
+    return conn->err;
+}
+
+/**
+ * \brief deregisters a previously registered memory region from the connection
+ *
+ * \param conn  DMA client connection
+ * \param frame the memory frame to deregister
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t dma_client_deregister_memory(struct dma_client *conn,
+                                      struct capref frame)
+{
+    if (!dma_client_initialized) {
+        dma_client_init();
+    }
+    assert(conn->svc_b);
+
+    return SYS_ERR_OK;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * Request Execution
+ * ----------------------------------------------------------------------------
+ */
+
+static void memcpy_call_tx(void *a)
+{
+    errval_t err;
+
+    struct svc_msg_st *st = a;
+    struct dma_req_setup *setup = &st->args.req->setup;
+
+    err = dma_memcpy_call__tx(st->b, MKCONT(send_reply_done, a),
+                              setup->args.memcpy.src, setup->args.memcpy.dst,
+                              setup->args.memcpy.bytes);
+    assert(err_is_ok(err));
+    switch (err_no(err)) {
+        case SYS_ERR_OK:
+            break;
+        case FLOUNDER_ERR_TX_BUSY:
+            err = send_reply_enqueue(a);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "could not send reply");
+            }
+            break;
+        default:
+            USER_PANIC_ERR(err, "could not send reply");
+            break;
+    }
+}
+
+/**
+ * \brief issues a memcopy request to the service using the connection
+ *
+ * \param setup DMA request setup information
+ *
+ * \returns SYS_ERR_OK on success
+ *
+ * NOTE: the connection information has to be present in the setup struct
+ */
+errval_t dma_client_memcpy(struct dma_req_setup *setup)
+{
+    errval_t err;
+
+    if (!dma_client_initialized) {
+        dma_client_init();
+    }
+
+    if (setup->client == NULL) {
+        return DMA_ERR_SVC_NO_CONNECTION;
+    }
+
+    struct dma_client *client = setup->client;
+
+    assert(client->svc_b);
+
+    DMACLIENT_DEBUG("memcpy request [%016lx] -> [%016lx] of %lu bytes\n",
+                    setup->args.memcpy.src, setup->args.memcpy.dst,
+                    setup->args.memcpy.bytes);
+
+    if (!rpc_start(setup->client)) {
+        return DMA_ERR_SVC_BUSY;
+    }
+
+    struct dma_request *req = request_alloc();
+    if (req == NULL) {
+        rpc_done(setup->client);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct svc_msg_st *st = msg_st_alloc();
+    if (st == NULL) {
+        request_free(req);
+        rpc_done(setup->client);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    req->setup = *setup;
+    req->state = DMA_REQ_ST_PREPARED;
+
+    client->rpc = req;
+    st->args.req = req;
+    st->op = memcpy_call_tx;
+    st->b = setup->client->svc_b;
+
+    send_reply_enqueue(st);
+
+    rpc_wait_done(setup->client);
+
+    err = req->err;
+
+    if (err_is_fail(err)) {
+
+        request_free(req);
+        return err;
+    }
+
+    if (client->last_done_id == req->id) {
+        client->last_done_id = 0x0;
+        if (setup->done_cb) {
+            setup->done_cb(err, req->id, setup->cb_arg);
+        }
+        request_free(req);
+        return err;
+    }
+
+    request_insert_pending(client, req);
+
+    return err;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * Connection Management
+ * ----------------------------------------------------------------------------
+ */
 
 /**
  * \brief gets a connection to the DMA service based on the src and dst addresses
@@ -222,11 +736,86 @@ struct dma_client *dma_client_get_connection_by_addr(lpaddr_t src,
         return NULL;
     }
 
+    struct dma_client *ret = src_client;
+
     if (dst_client->info.type == DMA_DEV_TYPE_XEON_PHI) {
-        return dst_client;
+        ret = dst_client;
     } else if (src_client->info.type == DMA_DEV_TYPE_XEON_PHI) {
-        return src_client;
+        ret = src_client;
     }
+
+    if (ret->svc_b == NULL) {
+        /* we need to initiate the connection first. */
+        dma_service_bind(ret);
+    }
+
     /* TODO: check NUMA */
-    return src_client;
+    return ret;
 }
+
+/**
+ * \brief waits until a device driver for the supplied device type is ready
+ *
+ * \param device    DMA device type
+ *
+ * \returns SYS_ERR_OK when the driver is ready
+ *          errval if there was something wrong
+ */
+errval_t dma_client_wait_for_driver(dma_dev_type_t device,
+                                    uint8_t numa_node)
+{
+    errval_t err;
+
+    char buf[30];
+    snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER, (uint8_t) device,
+             numa_node);
+
+    DMAMGR_DEBUG("waiting for driver: {%s}\n", buf);
+
+    iref_t dummy_iref;
+    err = nameservice_blocking_lookup(buf, &dummy_iref);
+    if (err_is_fail(err)) {
+
+    }
+
+    return err;
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * Connection Information
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief gets the DMA device type of a connection
+ *
+ * \param conn  DMA client connection
+ *
+ * \returns DMA device type
+ */
+dma_dev_type_t dma_client_get_device_type(struct dma_client *conn)
+{
+    return conn->info.type;
+}
+
+/**
+ * \brief returns the supported range of a connection
+ *
+ * \param conn      DMA client connection
+ * \param mem_min   minimum physical address supported
+ * \param mem_max   maximum physical address supported
+ *
+ */
+void dma_client_get_supported_range(struct dma_client *conn,
+                                    lpaddr_t *mem_min,
+                                    lpaddr_t *mem_max)
+{
+    if (mem_min) {
+        *mem_min = conn->info.mem_low;
+    }
+    if (mem_max) {
+        *mem_max = conn->info.mem_high;
+    }
+}
+

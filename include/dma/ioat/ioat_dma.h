@@ -29,6 +29,8 @@ struct ioat_dma_request;
 #define IOAT_DMA_OPERATION_LIBRARY 1
 #define IOAT_DMA_OPERATION IOAT_DMA_OPERATION_SERVICE
 
+/// the service name for the exported devices
+#define IOAT_DMA_SERVICE_NAME "ioat_dma_svc"
 
 /**
  * \brief initializes the DMA library

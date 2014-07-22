@@ -13,7 +13,7 @@
 #include <dma_device_internal.h>
 #include <dma_channel_internal.h>
 #include <dma_request_internal.h>
-
+#include <dma/dma_client.h>
 #include <debug.h>
 
 /*
@@ -46,7 +46,7 @@ errval_t dma_request_process(struct dma_request *req)
             err = SYS_ERR_OK;
             break;
         default:
-            err = -1;  // todo: error code
+            err = DMA_ERR_CHAN_ERROR;  // todo: error code
             break;
     }
 
@@ -111,3 +111,141 @@ inline void dma_request_set_next(struct dma_request *req,
 {
     req->next = next;
 }
+
+/*
+ * ============================================================================
+ * Public Interface
+ * ============================================================================
+ */
+
+/*
+ * ----------------------------------------------------------------------------
+ * Memory Registration
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief registers a memory region for future use
+ *
+ * \param frame the memory frame to register
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_register_memory(struct capref frame)
+{
+    errval_t err;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct dma_client *client = dma_client_get_connection_by_addr(id.base, id.base,
+                                                                  (1UL << id.bits));
+    if (client == NULL) {
+        return DMA_ERR_SVC_VOID;
+    }
+
+    return dma_request_register_memory_fixed(frame, client);
+}
+
+/**
+ * \brief registers a memory region for future use
+ *
+ * \param frame     the memory frame to register
+ * \param client    DMA client to use for registration
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_register_memory_fixed(struct capref frame,
+                                           struct dma_client *client)
+{
+    return dma_client_register_memory(client, frame);
+}
+
+/**
+ * \brief deregisters a previously registered memory region
+ *
+ * \param frame the memory frame to register
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_deregister_memory(struct capref frame)
+{
+    errval_t err;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct dma_client *client = dma_client_get_connection_by_addr(id.base, id.base,
+                                                                  (1UL << id.bits));
+    if (client == NULL) {
+        return DMA_ERR_SVC_VOID;
+    }
+
+    return dma_request_deregister_memory_fixed(frame, client);
+}
+
+/**
+ * \brief deregisters a previously registered memory region
+ *
+ * \param frame     the memory frame to register
+ * \param client    DMA client to use for registration
+ *
+ * \returns SYS_ERR_OK on succes
+ *          errval on error
+ */
+errval_t dma_request_deregister_memory_fixed(struct capref frame,
+                                             struct dma_client *client)
+{
+    return dma_client_deregister_memory(client, frame);
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * Request Execution
+ * ----------------------------------------------------------------------------
+ */
+
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param setup DMA request setup information
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memcpy(struct dma_req_setup *setup)
+{
+
+    /* check for overlap */
+    if (setup->args.memcpy.dst < setup->args.memcpy.src) {
+        if ((setup->args.memcpy.dst + setup->args.memcpy.bytes) > setup->args.memcpy.src) {
+            return DMA_ERR_MEM_OVERLAP;
+        }
+    } else if ((setup->args.memcpy.dst > setup->args.memcpy.src)) {
+        if ((setup->args.memcpy.src + setup->args.memcpy.bytes) > setup->args.memcpy.dst) {
+            return DMA_ERR_MEM_OVERLAP;
+        }
+    } else {
+        /* they are equal so they will overlap */
+        return DMA_ERR_MEM_OVERLAP;
+    }
+
+    if (setup->client == NULL) {
+        setup->client = dma_client_get_connection_by_addr(setup->args.memcpy.src,
+                                                          setup->args.memcpy.dst,
+                                                          setup->args.memcpy.bytes);
+    }
+    if (setup->client) {
+        return DMA_ERR_SVC_VOID;
+    }
+
+    return dma_client_memcpy(setup);
+}
+
