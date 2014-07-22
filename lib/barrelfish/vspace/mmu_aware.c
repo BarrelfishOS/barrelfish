@@ -222,11 +222,11 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
     genvaddr_t min_offset = 0;
     bool success = false;
 
-    assert(vspace_lvaddr_to_genvaddr(base) > vregion_get_base_addr(&state->vregion));
+    assert(vspace_lvaddr_to_genvaddr(base) >= vregion_get_base_addr(&state->vregion));
     assert(base + bytes == (lvaddr_t)eaddr);
 
-    assert(bytes < state->consumed);
-    assert(bytes < state->offset);
+    assert(bytes <= state->consumed);
+    assert(bytes <= state->offset);
 
     // Reduce offset
     state->offset -= bytes;
