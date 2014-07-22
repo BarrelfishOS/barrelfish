@@ -10,6 +10,8 @@
 #ifndef IOAT_DEVICE_H_
 #define IOAT_DEVICE_H_
 
+#include <dma/dma_device.h>
+
 enum device_type {
     IOAT_DEVICE_INVAL,
     IOAT_DEVICE_IVB,
@@ -61,6 +63,10 @@ enum device_type {
 errval_t ioat_device_discovery(struct pci_addr addr,
                                enum device_type devtype,
                                uint8_t is_dev_mgr);
+
+struct ioat_dma_device *ioat_device_get_next(void);
+
+errval_t ioat_device_poll(void);
 
 
 #endif /* IOAT_DEVICE_H_ */

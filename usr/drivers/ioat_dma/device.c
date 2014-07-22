@@ -22,25 +22,25 @@
 
 static uint8_t device_count = 0;
 struct ioat_dma_device **devices;
+static uint8_t device_next = 0;
 
 static void handle_device_interrupt(void *arg)
 {
 
-    struct ioat_dma_device *dev = *((struct ioat_dma_device **)arg);
-    struct dma_device *dma_dev =  (struct dma_device *)dev;
+    struct ioat_dma_device *dev = *((struct ioat_dma_device **) arg);
+    struct dma_device *dma_dev = (struct dma_device *) dev;
 
     INTR_DEBUG("interrupt! device %u", dma_device_get_id(dma_dev));
 
 }
 
-
 static void pci_dev_init_service(struct device_mem *bar_info,
-                          int nr_mapped_bars)
+                                 int nr_mapped_bars)
 {
     errval_t err;
 
-    DEV_DEBUG("Initialize device @ [%016lx] with %u bars\n",
-              bar_info->paddr, nr_mapped_bars);
+    DEV_DEBUG("Initialize device @ [%016lx] with %u bars\n", bar_info->paddr,
+              nr_mapped_bars);
 
     if (nr_mapped_bars != 1) {
         DEV_ERR("number of mapped bars is wrong. Skipping initialization\n");
@@ -58,12 +58,12 @@ static void pci_dev_init_service(struct device_mem *bar_info,
 }
 
 static void pci_dev_init_manager(struct device_mem *bar_info,
-                          int nr_mapped_bars)
+                                 int nr_mapped_bars)
 {
     errval_t err;
 
-    DEV_DEBUG("Initialize device @ [%016lx] with %u bars\n",
-                  bar_info->paddr, nr_mapped_bars);
+    DEV_DEBUG("Initialize device @ [%016lx] with %u bars\n", bar_info->paddr,
+              nr_mapped_bars);
 
     if (nr_mapped_bars != 1) {
         DEV_ERR("number of mapped bars is wrong. Skipping initialization\n");
@@ -171,19 +171,22 @@ errval_t ioat_device_discovery(struct pci_addr addr,
              * are handed over to the domains upon request
              */
             err = pci_register_driver_noirq(pci_dev_init_manager,
-                                            PCI_DONT_CARE, PCI_DONT_CARE,
-                                            PCI_DONT_CARE, PCI_VENDOR_INTEL,
-                                            dev_ids[i], addr.bus, addr.device,
-                                            addr.function+i);
+            PCI_DONT_CARE,
+                                            PCI_DONT_CARE,
+                                            PCI_DONT_CARE,
+                                            PCI_VENDOR_INTEL, dev_ids[i], addr.bus,
+                                            addr.device, addr.function + i);
         } else {
             /*
              * discover devices as a service i.e. initialize and map devices
              */
             err = pci_register_driver_irq(pci_dev_init_service, PCI_DONT_CARE,
-                                          PCI_DONT_CARE, PCI_DONT_CARE,
-                                          PCI_VENDOR_INTEL, dev_ids[i], addr.bus,
-                                          addr.device, addr.function+i,
-                                          handle_device_interrupt, &devices[i]);
+            PCI_DONT_CARE,
+                                          PCI_DONT_CARE,
+                                          PCI_VENDOR_INTEL,
+                                          dev_ids[i], addr.bus, addr.device,
+                                          addr.function + i, handle_device_interrupt,
+                                          devices[i]);
         }
         if (err_is_fail(err)) {
             if (i == 0) {
@@ -200,5 +203,37 @@ errval_t ioat_device_discovery(struct pci_addr addr,
 
     free(dev_ids);
 
+    return SYS_ERR_OK;
+}
+
+struct ioat_dma_device *ioat_device_get_next(void)
+{
+    if (device_next >= device_count) {
+        device_next = 0;
+    }
+    return devices[device_next++];
+}
+
+errval_t ioat_device_poll(void)
+{
+    errval_t err;
+
+    uint8_t idle = 0x1;
+    for (uint8_t i = 0; i < device_count; ++i) {
+        err = ioat_dma_device_poll_channels(devices[i]);
+        switch (err_no(err)) {
+            case SYS_ERR_OK:
+                idle &= 0;
+                break;
+            case DMA_ERR_DEVICE_IDLE:
+                idle &= 1;
+                break;
+            default:
+                return err;
+        }
+    }
+    if (idle) {
+        return DMA_ERR_DEVICE_IDLE;
+    }
     return SYS_ERR_OK;
 }

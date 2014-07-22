@@ -23,14 +23,19 @@
 #include <dma/ioat/ioat_dma.h>
 
 #include "device.h"
+#include "dma_service.h"
 #include "debug.h"
 
-
-static struct dma_service_cb dma_svc_cb;
-
-#define BUFFER_SIZE (1<<22)
+static struct dma_service_cb dma_svc_cb = {
+    .connect = dma_svc_connect_cb,
+    .addregion = dma_svc_addregion_cb,
+    .removeregion = dma_svc_removeregion_cb,
+    .memcpy = dma_svc_memcpy_cb
+};
 
 #if 0
+#define BUFFER_SIZE (1<<22)
+
 static void impl_test_cb(errval_t err, ioat_dma_req_id_t id, void *arg)
 {
     debug_printf("impl_test_cb\n");
@@ -88,8 +93,6 @@ int main(int argc,
 
     debug_printf("I/O AT DMA driver started\n");
 
-
-
     /*
      * Parsing of cmdline arguments.
      *
@@ -117,15 +120,16 @@ int main(int argc,
             if (vendor_id != 0x8086) {
                 USER_PANIC("unexpected vendor [%x]", vendor_id);
             }
-            switch((device_id & 0xFFF0)) {
-                case PCI_DEVICE_IOAT_IVB0 :
+            switch ((device_id & 0xFFF0)) {
+                case PCI_DEVICE_IOAT_IVB0:
                     devtype = IOAT_DEVICE_IVB;
                     break;
                 case PCI_DEVICE_IOAT_HSW0:
                     devtype = IOAT_DEVICE_HSW;
                     break;
                 default:
-                    USER_PANIC("unexpected device [%x]", device_id);
+                    USER_PANIC("unexpected device [%x]", device_id)
+                    ;
                     break;
             }
 
@@ -137,36 +141,71 @@ int main(int argc,
                    "[0,0,0]\n");
     }
 
-    err =  ioat_device_discovery(addr, devtype, IOAT_DMA_OPERATION);
+    err = ioat_device_discovery(addr, devtype, IOAT_DMA_OPERATION);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_SERVICE
 
-    /// TODO: figure out a good value for this
     iref_t svc_iref;
-    err = dma_service_init(&dma_svc_cb, &svc_iref);
+    char svc_name[30];
+    uint8_t numa_node = (disp_get_core_id() >= 20);
+    snprintf(svc_name, 30, "%s.%u", IOAT_DMA_SERVICE_NAME, numa_node);
+    err = dma_service_init_with_name(svc_name, &dma_svc_cb, &svc_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to start the DMA service");
     }
 
-    err = dma_manager_register_driver(0, 1ULL<<40, DMA_DEV_TYPE_IOAT, svc_iref);
+    err = dma_manager_register_driver(0, 1ULL << 40, DMA_DEV_TYPE_IOAT, svc_iref);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to regsiter with the DMA manager\n");
+        USER_PANIC_ERR(err, "Failed to register with the DMA manager\n");
     }
+
+    DEBUGPRINT("Driver registered with DMA manager. Serving requests now.\n");
 
 #endif
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_LIBRARY
 
 #endif
-
-    while(1) {
-        messages_wait_and_handle_next();
+    uint8_t idle = 0x1;
+    uint32_t idle_counter = 0xFF;
+    while (1) {
+        err = ioat_device_poll();
+        switch (err_no(err)) {
+            case DMA_ERR_DEVICE_IDLE:
+                idle = idle && 0x1;
+                break;
+            case SYS_ERR_OK:
+                idle = 0;
+                break;
+            default:
+                debug_printf("I/O AT DMA driver terminated: in poll, %s\n",
+                             err_getstring(err));
+                return err;
+        }
+        err = event_dispatch_non_block(get_default_waitset());
+        switch (err_no(err)) {
+            case SYS_ERR_OK:
+                idle = 0;
+                break;
+            case LIB_ERR_NO_EVENT:
+                idle &= 1;
+                break;
+            default:
+                debug_printf("I/O AT DMA driver terminated in dispatch,  %s\n",
+                             err_getstring(err));
+                return err;
+        }
+        if (idle) {
+            idle_counter--;
+        }
+        if (idle_counter == 0) {
+            idle_counter = 0xFF;
+            thread_yield();
+        }
     }
-
-    debug_printf("I/O AT DMA driver terminated\n");
 
     return 0;
 }

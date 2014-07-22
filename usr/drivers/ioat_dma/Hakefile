@@ -11,16 +11,16 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-	target = "ioat_dma",
-	cFiles = [ 
-		"main.c",
-		"device.c",
-		"dma_service.c",
-		"ioat_mgr_service.c"                         
-	],
-	flounderBindings = [ "dma" ],
-	mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
-	addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
-	architectures = [ "x86_64"]
+    target = "ioat_dma",
+    cFiles = [ 
+        "main.c",
+        "device.c",
+        "dma_service.c",
+        "ioat_mgr_service.c"                         
+    ],
+    flounderBindings = [ "dma" ],
+    mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
+    addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
+    architectures = [ "x86_64"]
   }  
 ]
