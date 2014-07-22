@@ -13,21 +13,98 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 
 #include <dma/dma.h>
+#include <dma/dma_request.h>
 #include <dma/dma_client.h>
 
+#define DMA_BUFFER_SIZE  16
+#define DMA_BUFFER_COUNT 4
 
+#define EXPECT_SUCCESS(err, msg) if (err_is_fail(err)) {USER_PANIC_ERR(err, msg);}
+
+static struct capref frame;
+static size_t frame_size;
+static lpaddr_t frame_addr;
+static void *frame_virt;
+static uint8_t *buffers[DMA_BUFFER_COUNT];
+static lpaddr_t phys[DMA_BUFFER_COUNT];
+
+static void prepare(void)
+{
+    errval_t err;
+
+    debug_printf("Preparing resources...\n");
+
+    err = frame_alloc(&frame, DMA_BUFFER_COUNT * (DMA_BUFFER_SIZE << 20),
+                      &frame_size);
+    EXPECT_SUCCESS(err, "allocating frame");
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    EXPECT_SUCCESS(err, "Frame identify");
+
+    assert(frame_size == (1UL << id.bits));
+    frame_addr = id.base;
+
+    err = vspace_map_one_frame(&frame_virt, frame_size, frame, NULL, NULL);
+    EXPECT_SUCCESS(err, "Mapping of frame");
+
+    uint8_t *b = frame_virt;
+    lpaddr_t p = frame_addr;
+    for (uint32_t i = 0; i < DMA_BUFFER_COUNT; ++i) {
+        buffers[i] = b;
+        phys[i] = p;
+        b += ((DMA_BUFFER_SIZE << 20));
+        p += ((DMA_BUFFER_SIZE << 20));
+    }
+
+    debug_printf("preparation done.\n");
+}
 
 int main(int argc,
          char *argv[])
 {
+    errval_t err;
 
     debug_printf("DMA Test domain started\n");
 
-    dma_client_get_connection_by_addr(0x100000, 0x200000, 0x100000);
+    prepare();
 
-    while(1) {
+#if 0
+    char svc_name[30];
+    uint8_t numa_node = (disp_get_core_id() >= 20);
+    snprintf(svc_name, 30, "ioat_dma_svc.%u", numa_node);
+    iref_t iref;
+    err = nameservice_blocking_lookup(svc_name, &iref);
+#endif
+
+    err = dma_client_wait_for_driver(DMA_DEV_TYPE_IOAT, 0);
+    EXPECT_SUCCESS(err, "waiting for driver");
+
+    struct dma_client *client;
+
+    client = dma_client_get_connection_by_addr(frame_addr, frame_addr, frame_size);
+
+    err = dma_client_register_memory(client, frame);
+    EXPECT_SUCCESS(err, "registering memory");
+
+    struct dma_req_setup setup = {
+        .client = client,
+        .args =  {
+            .memcpy = {
+                .src = phys[0],
+                .dst = phys[1],
+                .bytes = DMA_BUFFER_SIZE
+            }
+        }
+    };
+
+    err = dma_client_memcpy(&setup);
+    EXPECT_SUCCESS(err, "registering memory");
+
+    while (1) {
         messages_wait_and_handle_next();
     }
 
