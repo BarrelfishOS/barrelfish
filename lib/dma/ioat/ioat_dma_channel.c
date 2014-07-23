@@ -259,8 +259,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
                        *(uint64_t* ) chan->completion.vaddr);
         return SYS_ERR_OK;
     } else {
-        uint32_t error = ioat_dma_chan_err_rd(&chan->channel);
-        IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id, error);
+        IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id, ioat_dma_chan_err_rd(&chan->channel));
         dma_mem_free(&chan->completion);
         free(chan);
         *ret_chan = NULL;
