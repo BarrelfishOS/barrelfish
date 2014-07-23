@@ -10,6 +10,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <flounder/flounder_txqueue.h>
 
 #include <dma/dma_manager_client.h>
 #include <dma_internal.h>
@@ -18,7 +19,6 @@
 #include <debug.h>
 
 #include <if/dma_defs.h>
-
 
 static uint8_t dma_client_initialized = 0x0;
 
@@ -37,6 +37,7 @@ enum dma_svc_state
 struct dma_client
 {
     struct dma_binding *svc_b;       ///< the DMA service binding
+    struct tx_queue txq;             ///< Flounder TX Queue
     enum dma_svc_state svc_st;       ///<
     struct dma_mgr_driver_info info;  ///< if
     errval_t err;                    ///<
@@ -130,10 +131,7 @@ static void request_insert_pending(struct dma_client *client,
  */
 struct svc_msg_st
 {
-    void (*op)(void *arg);          ///<
-    struct svc_msg_st *next;        ///<
-    struct dma_binding *b;      ///<
-    errval_t err;                   ///<
+    struct txq_msg_st common;
 
     /* union of arguments */
     union
@@ -142,100 +140,6 @@ struct svc_msg_st
         struct dma_request *req;
     } args;
 };
-
-static struct svc_msg_st *svc_msg_st_cache = NULL;
-
-static struct svc_msg_st *msg_st_alloc(void)
-{
-    if (svc_msg_st_cache) {
-        struct svc_msg_st *st = svc_msg_st_cache;
-        svc_msg_st_cache = svc_msg_st_cache->next;
-        return st;
-    }
-    return calloc(1, sizeof(struct svc_msg_st));
-}
-
-static inline void msg_st_free(struct svc_msg_st *st)
-{
-    st->next = svc_msg_st_cache;
-    svc_msg_st_cache = st;
-}
-
-/*
- * ----------------------------------------------------------------------------
- * TX Queue
- * ----------------------------------------------------------------------------
- */
-
-static struct
-{
-    struct svc_msg_st *head;
-    struct svc_msg_st *tail;
-} svc_msg_txq;
-
-static void send_reply_cont(void *a)
-{
-    struct svc_msg_st *st = (struct svc_msg_st *) a;
-
-    /* we are likely to be able to send the reply so send it */
-    assert(svc_msg_txq.head == st);
-
-    svc_msg_txq.head->op(st);
-}
-
-static void send_reply_done(void *a)
-{
-    errval_t err;
-
-    struct svc_msg_st *st = (struct svc_msg_st *) a;
-
-    debug_printf("send_reply_done: [%p][%p]   {%p}\n", svc_msg_txq.head,
-                 svc_msg_txq.tail, st);
-
-    /* callback when the message has been sent */
-    if (svc_msg_txq.head == NULL) {
-        msg_st_free((struct svc_msg_st *) a);
-        return;
-    }
-    assert(svc_msg_txq.head == st);
-
-    svc_msg_txq.head = svc_msg_txq.head->next;
-    if (svc_msg_txq.head == NULL) {
-        svc_msg_txq.tail = NULL;
-    } else {
-        struct svc_msg_st *next = svc_msg_txq.head;
-        /* it should not matter if we already registered */
-        err = svc_msg_txq.head->b->register_send(svc_msg_txq.head->b,
-                                                 get_default_waitset(),
-                                                 MKCONT(send_reply_cont, next));
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "clould not register");
-        }
-    }
-    msg_st_free(st);
-}
-
-static errval_t send_reply_enqueue(struct svc_msg_st *st)
-{
-    st->next = NULL;
-
-    debug_printf("send_reply_enqueue: [%p][%p]\n", svc_msg_txq.head,
-                 svc_msg_txq.tail);
-
-    if (svc_msg_txq.tail == NULL) {
-        svc_msg_txq.head = st;
-    } else {
-        svc_msg_txq.tail->next = st;
-    }
-    svc_msg_txq.tail = st;
-
-    /* register if queue was empty i.e. head == tail */
-    if (svc_msg_txq.tail == svc_msg_txq.head) {
-        st->op(st);
-    }
-
-    return SYS_ERR_OK;
-}
 
 /*
  * ---------------------------------------------------------------------------
@@ -287,6 +191,8 @@ static inline void rpc_done(struct dma_client *client)
  * Connection List Management
  * ---------------------------------------------------------------------------
  */
+
+/// list of known drivers running
 static struct dma_client *dma_svc_conn = NULL;
 
 static void dma_svc_conn_insert(struct dma_client *client)
@@ -436,6 +342,9 @@ static void bind_cb(void *st,
         return;
     }
 
+    txq_init(&client->txq, b, b->waitset, (txq_register_fn_t) b->register_send,
+             sizeof(struct svc_msg_st));
+
     b->rx_vtbl = dma_rxvtbl;
     b->st = client;
     client->svc_b = b;
@@ -492,9 +401,6 @@ static errval_t dma_service_bind(struct dma_client *client)
  */
 errval_t dma_client_init(void)
 {
-    svc_msg_txq.head = NULL;
-    svc_msg_txq.tail = NULL;
-
     dma_client_initialized = 0x1;
 
     return SYS_ERR_OK;
@@ -506,28 +412,18 @@ errval_t dma_client_init(void)
  * ----------------------------------------------------------------------------
  */
 
-static void register_call_tx(void *a)
+static void register_call_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct svc_msg_st *st = a;
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
 
     debug_printf("register_call_tx\n");
 
-    err = dma_register_call__tx(st->b, MKCONT(send_reply_done, a), st->args.cap);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(a);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    err = dma_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                st->args.cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
     }
 }
 
@@ -552,22 +448,37 @@ errval_t dma_client_register_memory(struct dma_client *conn,
 
     conn->err = SYS_ERR_OK;
 
-    struct svc_msg_st *st = msg_st_alloc();
-    if (st == NULL) {
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&conn->txq);
+    if (msg_st == NULL) {
         rpc_done(conn);
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    st->op = register_call_tx;
-    st->b = conn->svc_b;
+    msg_st->send = register_call_tx;
+
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
     st->args.cap = frame;
 
-
-    send_reply_enqueue(st);
+    txq_send(msg_st);
 
     rpc_wait_done(conn);
 
     return conn->err;
+}
+
+static void deregister_call_tx(struct txq_msg_st *msg_st)
+{
+    errval_t err;
+
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
+
+    debug_printf("register_call_tx\n");
+
+    err = dma_deregister_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                  st->args.cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
+    }
 }
 
 /**
@@ -584,7 +495,19 @@ errval_t dma_client_deregister_memory(struct dma_client *conn,
     if (!dma_client_initialized) {
         dma_client_init();
     }
-    assert(conn->svc_b);
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&conn->txq);
+    if (msg_st == NULL) {
+        rpc_done(conn);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->send = deregister_call_tx;
+
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
+    st->args.cap = frame;
+
+    txq_send(msg_st);
 
     return SYS_ERR_OK;
 }
@@ -595,29 +518,18 @@ errval_t dma_client_deregister_memory(struct dma_client *conn,
  * ----------------------------------------------------------------------------
  */
 
-static void memcpy_call_tx(void *a)
+static void memcpy_call_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct svc_msg_st *st = a;
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
     struct dma_req_setup *setup = &st->args.req->setup;
 
-    err = dma_memcpy_call__tx(st->b, MKCONT(send_reply_done, a),
+    err = dma_memcpy_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                               setup->args.memcpy.src, setup->args.memcpy.dst,
                               setup->args.memcpy.bytes);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(a);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
     }
 }
 
@@ -660,29 +572,29 @@ errval_t dma_client_memcpy(struct dma_req_setup *setup)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    struct svc_msg_st *st = msg_st_alloc();
-    if (st == NULL) {
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&client->txq);
+    if (msg_st == NULL) {
         request_free(req);
-        rpc_done(setup->client);
+        rpc_done(client);
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    msg_st->send = memcpy_call_tx;
+
+    struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
+
     req->setup = *setup;
     req->state = DMA_REQ_ST_PREPARED;
-
     client->rpc = req;
     st->args.req = req;
-    st->op = memcpy_call_tx;
-    st->b = setup->client->svc_b;
 
-    send_reply_enqueue(st);
+    txq_send(msg_st);
 
     rpc_wait_done(setup->client);
 
     err = req->err;
 
     if (err_is_fail(err)) {
-
         request_free(req);
         return err;
     }

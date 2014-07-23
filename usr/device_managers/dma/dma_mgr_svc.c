@@ -14,7 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-
+#include <flounder/flounder_txqueue.h>
 #include <dma/dma_manager_client.h>
 
 #include <if/dma_mgr_defs.h>
@@ -49,10 +49,7 @@ static iref_t svc_iref;
  */
 struct svc_reply_st
 {
-    void (*op)(void *arg);          ///<
-    struct svc_reply_st *next;      ///<
-    struct dma_mgr_binding *b;      ///<
-    errval_t err;                   ///<
+    struct txq_msg_st common;
 
     /* union of arguments */
     union
@@ -61,115 +58,20 @@ struct svc_reply_st
     } args;
 };
 
-static struct svc_reply_st *dma_reply_st_cache = NULL;
-
-static struct svc_reply_st *reply_st_alloc(void)
-{
-    if (dma_reply_st_cache) {
-        struct svc_reply_st *st = dma_reply_st_cache;
-        dma_reply_st_cache = dma_reply_st_cache->next;
-        return st;
-    }
-    return calloc(1, sizeof(struct svc_reply_st));
-}
-
-static inline void reply_st_free(struct svc_reply_st *st)
-{
-    st->next = dma_reply_st_cache;
-    dma_reply_st_cache = st;
-}
-
-/*
- * ----------------------------------------------------------------------------
- * Reply send queue
- * ----------------------------------------------------------------------------
- */
-
-static struct
-{
-    struct svc_reply_st *head;
-    struct svc_reply_st *tail;
-} svc_reply_txq;
-
-static void send_reply_cont(void *a)
-{
-    struct svc_reply_st *st = (struct svc_reply_st *) a;
-
-    /* we are likely to be able to send the reply so send it */
-    assert(svc_reply_txq.head == st);
-
-    svc_reply_txq.head->op(st);
-}
-
-static void send_reply_done(void *a)
-{
-    struct svc_reply_st *st = (struct svc_reply_st *) a;
-
-    /* callback when the message has been sent */
-    if (svc_reply_txq.head == NULL) {
-        reply_st_free((struct svc_reply_st *) a);
-        return;
-    }
-    assert(svc_reply_txq.head == st);
-
-    svc_reply_txq.head = svc_reply_txq.head->next;
-    if (svc_reply_txq.head == NULL) {
-        svc_reply_txq.tail = NULL;
-    } else {
-        struct svc_reply_st *next = svc_reply_txq.head;
-        /* it should not matter if we already registered */
-        svc_reply_txq.head->b->register_send(svc_reply_txq.head->b,
-                                             get_default_waitset(),
-                                             MKCONT(send_reply_cont, next));
-    }
-    reply_st_free(st);
-}
-
-static errval_t send_reply_enqueue(struct svc_reply_st *st)
-{
-    st->next = NULL;
-
-    if (svc_reply_txq.tail == NULL) {
-        svc_reply_txq.head = st;
-    } else {
-        svc_reply_txq.tail->next = st;
-    }
-    svc_reply_txq.tail = st;
-
-    /* register if queue was empty i.e. head == tail */
-    if (svc_reply_txq.tail == svc_reply_txq.head) {
-        st->op(st);
-    }
-
-    return SYS_ERR_OK;
-}
-
 /*
  * ----------------------------------------------------------------------------
  * Driver Registration
  * ----------------------------------------------------------------------------
  */
 
-static void svc_register_response_tx(void *a)
+static void svc_register_response_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct svc_reply_st *st = a;
-
-    err = dma_mgr_register_driver_response__tx(st->b, MKCONT(send_reply_done, a),
-                                               st->err);
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    err = dma_mgr_register_driver_response__tx(msg_st->queue->binding,
+                                               TXQCONT(msg_st), msg_st->err);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
     }
 }
 
@@ -184,15 +86,18 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
 
     SVC_DEBUG("register call: [%016lx, %016lx]\n", mem_low, mem_high);
 
-    struct svc_reply_st *state = reply_st_alloc();
-    assert(state);
+    struct tx_queue *txq = _binding->st;
 
-    state->b = _binding;
-    state->op = svc_register_response_tx;
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(txq);
+    if (msg_st == NULL) {
+        USER_PANIC("could not allocate reply state\n");
+    }
 
-    state->err = driver_store_insert(mem_low, mem_high, numa_node, type, iref);
+    msg_st->send = svc_register_response_tx;
 
-    if (err_is_ok(state->err)) {
+    msg_st->err = driver_store_insert(mem_low, mem_high, numa_node, type, iref);
+
+    if (err_is_ok(msg_st->err)) {
         char buf[30];
         snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER, type, numa_node);
         SVC_DEBUG("registering with nameservice {%s}\n", buf);
@@ -202,7 +107,7 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
         }
     }
 
-    send_reply_enqueue(state);
+    txq_send(msg_st);
 }
 
 /*
@@ -211,36 +116,24 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void svc_lookup_response_tx(void *a)
+static void svc_lookup_response_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct svc_reply_st *st = a;
+    struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
 
     struct dma_mgr_driver_info *di = st->args.lookup;
 
-    if (err_is_fail(st->err)) {
-        err = dma_mgr_lookup_driver_response__tx(st->b, MKCONT(send_reply_done, a),
-                                                 st->err, 0, 0, 0, 0, 0);
+    if (err_is_fail(msg_st->err)) {
+        err = dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
+                                                 TXQCONT(msg_st), msg_st->err, 0, 0,
+                                                 0, 0, 0);
     } else {
         assert(di);
-        err = dma_mgr_lookup_driver_response__tx(st->b, MKCONT(send_reply_done, a),
-                                                 st->err, di->mem_low, di->mem_high,
+        err = dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
+                                                 TXQCONT(msg_st), msg_st->err,
+                                                 di->mem_low, di->mem_high,
                                                  di->numa_node, di->type, di->iref);
-    }
-
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
     }
 }
 
@@ -251,15 +144,20 @@ static void svc_lookup_call_rx(struct dma_mgr_binding *_binding,
 {
     SVC_DEBUG("lookup call: [%016lx, %016lx]\n", addr, size);
 
-    struct svc_reply_st *st = reply_st_alloc();
-    assert(st);
+    struct tx_queue *txq = _binding->st;
 
-    st->b = _binding;
-    st->op = svc_lookup_response_tx;
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(txq);
+    if (msg_st == NULL) {
+        USER_PANIC("could not allocate reply state\n");
+    }
 
-    st->err = driver_store_lookup(addr, size, numa_node, &st->args.lookup);
+    msg_st->send = svc_lookup_response_tx;
 
-    send_reply_enqueue(st);
+    struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
+
+    msg_st->err = driver_store_lookup(addr, size, numa_node, &st->args.lookup);
+
+    txq_send(msg_st);
 }
 
 struct dma_mgr_rx_vtbl svc_rx_vtbl = {
@@ -279,6 +177,17 @@ static errval_t svc_connect_cb(void *st,
     SVC_DEBUG("New connection to the DMA service\n");
 
     binding->rx_vtbl = svc_rx_vtbl;
+
+    struct tx_queue *txq = calloc(1, sizeof(*txq));
+    if (txq == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    txq_init(txq, binding, binding->waitset,
+             (txq_register_fn_t) binding->register_send,
+             sizeof(struct svc_reply_st));
+
+    binding->st = txq;
 
     return SYS_ERR_OK;
 }
@@ -318,9 +227,6 @@ errval_t dma_mgr_svc_start(void)
     errval_t err, export_err;
 
     SVC_DEBUG("Initializing DMA service...\n");
-
-    svc_reply_txq.head = NULL;
-    svc_reply_txq.tail = NULL;
 
     err = dma_mgr_export(&export_err, svc_export_cb, svc_connect_cb,
                          get_default_waitset(),

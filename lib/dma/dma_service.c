@@ -9,7 +9,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-
+#include <flounder/flounder_txqueue.h>
 #include <if/dma_defs.h>
 
 #include <dma_internal.h>
@@ -23,6 +23,7 @@
 struct dma_svc_st
 {
     void *usr_st;
+    struct tx_queue queue;
     struct dma_binding *binding;
 };
 
@@ -51,114 +52,13 @@ struct dma_service_cb *event_handlers;
 
 /*
  * ----------------------------------------------------------------------------
- * Reply Queue
- * ----------------------------------------------------------------------------
- */
-#ifdef XDMA_USE_QUEUE
-#define XDMA_REPLY_QUEUE_SIZE 32
-
-struct queue_entry
-{
-    void *st;
-    void (*op)(void *st);
-    struct queue_entry *next;
-};
-
-struct xdma_reply_queue
-{
-    struct queue_entry *head;
-    struct queue_entry *tail;
-};
-
-struct xdma_reply_queue send_queue;
-
-struct queue_entry *send_queue_entries;
-
-struct queue_entry *send_queue_free;
-
-static errval_t xdma_reply_queue_send(void (*op)(void *st),
-                void *st)
-{
-    assert(op);
-    if (send_queue.head == NULL) {
-        op(st);
-        return SYS_ERR_OK;
-    }
-    if (send_queue_free == NULL) {
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-    struct queue_entry *e = send_queue_free;
-    send_queue_free = e->next;
-    e->op = op;
-    e->st = st;
-    e->next = NULL;
-    send_queue.tail->next = e;
-    send_queue.tail = e;
-    return SYS_ERR_OK;
-}
-
-static errval_t xdma_reply_queue_insert(void (*op)(void *st),
-                void *st)
-{
-    if (send_queue_free == NULL) {
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-    struct queue_entry *e = send_queue_free;
-    send_queue_free = e->next;
-    e->op = op;
-    e->st = st;
-    e->next = NULL;
-    if (send_queue.head == NULL) {
-        send_queue.head = e;
-        send_queue.tail = e;
-    } else {
-        send_queue.tail->next = e;
-        send_queue.tail = e;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static void xdma_reply_queue_exec(void)
-{
-    if (send_queue.head == NULL) {
-        return;
-    }
-
-    struct queue_entry *e = send_queue.head;
-    if (e == send_queue.tail) {
-        send_queue.tail = NULL;
-        send_queue.head = NULL;
-    } else {
-        assert(e->next);
-        send_queue.head = e->next;
-    }
-
-    e->op(e->st);
-
-    e->next = send_queue_free;
-    send_queue_free = e;
-}
-
-static void xdma_reply_queue_next(void *a)
-{
-    free(a);
-    xdma_reply_queue_exec();
-}
-#endif
-
-/*
- * ----------------------------------------------------------------------------
  * Reply State Cache
  * ----------------------------------------------------------------------------
  */
+
 struct dma_svc_reply_st
 {
-    void (*op)(void *arg);          ///<
-    struct dma_svc_reply_st *next;  ///<
-    struct dma_binding *b;          ///<
-    errval_t err;                   ///<
-
+    struct txq_msg_st common;
     /* union of arguments */
     union
     {
@@ -170,115 +70,21 @@ struct dma_svc_reply_st
     } args;
 };
 
-static struct dma_svc_reply_st *dma_reply_st_cache = NULL;
-
-static struct dma_svc_reply_st *reply_st_alloc(void)
-{
-    if (dma_reply_st_cache) {
-        struct dma_svc_reply_st *st = dma_reply_st_cache;
-        dma_reply_st_cache = dma_reply_st_cache->next;
-        return st;
-    }
-    return calloc(1, sizeof(struct dma_svc_reply_st));
-}
-
-static inline void reply_st_free(struct dma_svc_reply_st *st)
-{
-    st->next = dma_reply_st_cache;
-    dma_reply_st_cache = st;
-}
-
-/*
- * ----------------------------------------------------------------------------
- * Reply send queue
- * ----------------------------------------------------------------------------
- */
-
-static struct
-{
-    struct dma_svc_reply_st *head;
-    struct dma_svc_reply_st *tail;
-} dma_reply_txq;
-
-static void send_reply_cont(void *a)
-{
-    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *) a;
-
-    /* we are likely to be able to send the reply so send it */
-    assert(dma_reply_txq.head == st);
-
-    dma_reply_txq.head->op(st);
-}
-
-static void send_reply_done(void *a)
-{
-    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *) a;
-
-    /* callback when the message has been sent */
-    if (dma_reply_txq.head == NULL) {
-        reply_st_free((struct dma_svc_reply_st *) a);
-        return;
-    }
-    assert(dma_reply_txq.head == st);
-
-    dma_reply_txq.head = dma_reply_txq.head->next;
-    if (dma_reply_txq.head == NULL) {
-        dma_reply_txq.tail = NULL;
-    } else {
-        struct dma_svc_reply_st *next = dma_reply_txq.head;
-        /* it should not matter if we already registered */
-        dma_reply_txq.head->b->register_send(dma_reply_txq.head->b,
-                                             get_default_waitset(),
-                                             MKCONT(send_reply_cont, next));
-    }
-    reply_st_free(st);
-}
-
-static errval_t send_reply_enqueue(struct dma_svc_reply_st *st)
-{
-    st->next = NULL;
-
-    if (dma_reply_txq.tail == NULL) {
-        dma_reply_txq.head = st;
-    } else {
-        dma_reply_txq.tail->next = st;
-    }
-    dma_reply_txq.tail = st;
-
-    /* register if queue was empty i.e. head == tail */
-    if (dma_reply_txq.tail == dma_reply_txq.head) {
-        st->op(st);
-    }
-
-    return SYS_ERR_OK;
-}
-
 /*
  * ----------------------------------------------------------------------------
  * Memory:  registration
  * ----------------------------------------------------------------------------
  */
 
-static void dma_register_response_tx(void *a)
+static void dma_register_response_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct dma_svc_reply_st *st = a;
+    struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_register_response__tx(st->b, MKCONT(send_reply_done, a), st->err);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    err = dma_register_response__tx(b, TXQCONT(msg_st), msg_st->err);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
     }
 }
 
@@ -287,21 +93,20 @@ static void dma_register_call_rx(struct dma_binding *_binding,
 {
     dma_svc_handle_t svc_handle = _binding->st;
 
-    struct dma_svc_reply_st *reply = reply_st_alloc();
-    if (reply == NULL) {
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_handle->queue);
+    if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    reply->b = _binding;
-    reply->op = dma_register_response_tx;
+    msg_st->send = dma_register_response_tx;
 
     if (event_handlers->addregion) {
         event_handlers->addregion(svc_handle, memory);
     } else {
-        reply->err = DMA_ERR_SVC_REJECT;
+        msg_st->err = DMA_ERR_SVC_REJECT;
     }
 
-    send_reply_enqueue(reply);
+    txq_send(msg_st);
 }
 
 /*
@@ -310,26 +115,15 @@ static void dma_register_call_rx(struct dma_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void dma_deregister_response_tx(void *a)
+static void dma_deregister_response_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct dma_svc_reply_st *st = a;
+    struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_deregister_response__tx(st->b, MKCONT(send_reply_done, a), st->err);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    err = dma_deregister_response__tx(b, TXQCONT(msg_st), msg_st->err);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
     }
 }
 
@@ -338,21 +132,20 @@ static void dma_deregister_call_rx(struct dma_binding *_binding,
 {
     dma_svc_handle_t svc_handle = _binding->st;
 
-    struct dma_svc_reply_st *reply = reply_st_alloc();
-    if (reply == NULL) {
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_handle->queue);
+    if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    reply->b = _binding;
-    reply->op = dma_deregister_response_tx;
+    msg_st->send = dma_deregister_response_tx;
 
     if (event_handlers->removeregion) {
         event_handlers->removeregion(svc_handle, memory);
     } else {
-        reply->err = DMA_ERR_SVC_REJECT;
+        msg_st->err = DMA_ERR_SVC_REJECT;
     }
 
-    send_reply_enqueue(reply);
+    txq_send(msg_st);
 }
 
 /*
@@ -361,27 +154,17 @@ static void dma_deregister_call_rx(struct dma_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void dma_memcpy_response_tx(void *a)
+static void dma_memcpy_response_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct dma_svc_reply_st *st = a;
+    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *)msg_st;
+    struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_memcpy_response__tx(st->b, MKCONT(send_reply_done, a), st->err,
+    err = dma_memcpy_response__tx(b, TXQCONT(msg_st), msg_st->err,
                                   st->args.request.id);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
     }
 }
 
@@ -396,22 +179,23 @@ static void dma_memcpy_call_rx(struct dma_binding *_binding,
 
     dma_svc_handle_t svc_handle = _binding->st;
 
-    struct dma_svc_reply_st *reply = reply_st_alloc();
-    if (reply == NULL) {
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_handle->queue);
+    if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    reply->b = _binding;
-    reply->op = dma_memcpy_response_tx;
+    msg_st->send = dma_memcpy_response_tx;
+
+    struct dma_svc_reply_st *reply = (struct dma_svc_reply_st *) msg_st;
 
     if (event_handlers->memcpy) {
-        reply->err = event_handlers->memcpy(svc_handle, dst, src, length,
-                                            &reply->args.request.id);
+        msg_st->err = event_handlers->memcpy(svc_handle, dst, src, length,
+                                             &reply->args.request.id);
     } else {
-        reply->err = DMA_ERR_SVC_REJECT;
+        msg_st->err = DMA_ERR_SVC_REJECT;
     }
 
-    send_reply_enqueue(reply);
+    txq_send(msg_st);
 }
 
 struct dma_rx_vtbl dma_rx_vtbl = {
@@ -426,27 +210,16 @@ struct dma_rx_vtbl dma_rx_vtbl = {
  * ----------------------------------------------------------------------------
  */
 
-static void dma_done_tx(void *a)
+static void dma_done_tx(struct txq_msg_st *msg_st)
 {
     errval_t err;
 
-    struct dma_svc_reply_st *st = a;
+    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *)msg_st;
+    struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_done__tx(st->b, MKCONT(send_reply_done, a), st->args.request.id,
-                       st->err);
-    assert(err_is_ok(err));
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case FLOUNDER_ERR_TX_BUSY:
-            err = send_reply_enqueue(st);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not send reply");
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "could not send reply");
-            break;
+    err = dma_done__tx(b, TXQCONT(msg_st), st->args.request.id, msg_st->err);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
     }
 }
 
@@ -468,10 +241,14 @@ static errval_t svc_connect_cb(void *st,
         return DMA_ERR_SVC_REJECT;
     }
 
-    struct dma_svc_st *state = malloc(sizeof(*st));
+    struct dma_svc_st *state = malloc(sizeof(*state));
     if (state == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
+    txq_init(&state->queue, binding, binding->waitset,
+             (txq_register_fn_t) binding->register_send,
+             sizeof(struct dma_svc_reply_st));
 
     err = event_handlers->connect(&state->usr_st);
     if (err_is_fail(err)) {
@@ -485,6 +262,8 @@ static errval_t svc_connect_cb(void *st,
     state->binding = binding;
     binding->st = state;
     binding->rx_vtbl = dma_rx_vtbl;
+
+    debug_printf("returning...\n");
 
     return SYS_ERR_OK;
 }
@@ -526,9 +305,6 @@ errval_t dma_service_init(struct dma_service_cb *cb,
     errval_t err, export_err;
 
     DMASVC_DEBUG("Initializing DMA service...\n");
-
-    dma_reply_txq.head = NULL;
-    dma_reply_txq.tail = NULL;
 
     err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
                      get_default_waitset(),
@@ -574,9 +350,6 @@ errval_t dma_service_init_with_name(char *svc_name,
     errval_t err, export_err;
 
     DMASVC_DEBUG("Initializing DMA service...\n");
-
-    dma_reply_txq.head = NULL;
-    dma_reply_txq.tail = NULL;
 
     err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
                      get_default_waitset(),
@@ -628,17 +401,19 @@ errval_t dma_service_send_done(dma_svc_handle_t svc_handle,
                                errval_t err,
                                dma_req_id_t id)
 {
-    struct dma_svc_reply_st *msgst = reply_st_alloc();
-    if (msgst == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_handle->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
     }
 
-    msgst->b = svc_handle->binding;
-    msgst->args.request.id = id;
-    msgst->err = err;
-    msgst->op = dma_done_tx;
+    msg_st->err = err;
+    msg_st->send = dma_done_tx;
 
-    send_reply_enqueue(msgst);
+    struct dma_svc_reply_st *reply = (struct dma_svc_reply_st *) msg_st;
+
+    reply->args.request.id = id;
+
+    txq_send(msg_st);
 
     return SYS_ERR_OK;
 }
