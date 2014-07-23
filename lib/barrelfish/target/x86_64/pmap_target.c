@@ -329,6 +329,12 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
+    if (offset+size > (1ULL<<fi.bits)) {
+        debug_printf("do_map: offset=%zu; size=%zu; frame size=%zu\n",
+                offset, size, ((size_t)1<<fi.bits));
+        return LIB_ERR_PMAP_FRAME_SIZE;
+    }
+
 #if 0
     if (debug_out) {
         genpaddr_t paddr = fi.base + offset;
