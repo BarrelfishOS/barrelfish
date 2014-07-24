@@ -46,14 +46,14 @@ static dma_dev_id_t device_id = 1;
 static errval_t device_init_ioat_v1(struct ioat_dma_device *dev)
 {
     IOATDEV_DEBUG("devices of Crystal Beach Version 1.xx are currently not supported.\n",
-                    dev->common.id);
+                  dev->common.id);
     return DMA_ERR_DEVICE_UNSUPPORTED;
 }
 
 static errval_t device_init_ioat_v2(struct ioat_dma_device *dev)
 {
     IOATDEV_DEBUG("devices of Crystal Beach Version 2.xx are currently not supported.\n",
-                    dev->common.id);
+                  dev->common.id);
     return DMA_ERR_DEVICE_UNSUPPORTED;
 }
 
@@ -67,12 +67,12 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
 
     if (ioat_dma_cbver_minor_extract(dev->version) == 2) {
         IOATDEV_DEBUG("disabling XOR and PQ opcodes for Crystal Beach 3.2\n",
-                        dev->common.id);
+                      dev->common.id);
         cap = ioat_dma_dmacapability_xor_insert(cap, 0x0);
         cap = ioat_dma_dmacapability_pq_insert(cap, 0x0);
     } else if (ioat_dma_cbver_minor_extract(dev->version) == 3) {
         IOATDEV_DEBUG("devices of Crystal Beach Version 3.3 are not supported.\n",
-                        dev->common.id);
+                      dev->common.id);
         return DMA_ERR_DEVICE_UNSUPPORTED;
     }
 
@@ -138,7 +138,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
     /* channel enumeration */
 
     IOATDEV_DEBUG("channel enumeration. discovered %u channels\n", dev->common.id,
-                    dev->common.channels.count);
+                  dev->common.channels.count);
 
     uint32_t max_xfer_size = (1 << ioat_dma_xfercap_max_rdf(&dev->device));
 
@@ -263,7 +263,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     dma_dev->mmio.frame = mmio;
 
     IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%u kB}\n",
-                    dma_dev->id, mmio_id.base, 1 << mmio_id.bits);
+                  dma_dev->id, mmio_id.base, 1 << mmio_id.bits);
 
     err = vspace_map_one_frame_attr((void**) &dma_dev->mmio.vaddr,
                                     dma_dev->mmio.bytes, dma_dev->mmio.frame,
@@ -280,9 +280,9 @@ errval_t ioat_dma_device_init(struct capref mmio,
     ioat_device->version = ioat_dma_cbver_rd(&ioat_device->device);
 
     IOATDEV_DEBUG("device registers mapped at 0x%016lx. IOAT version: %u.%u\n",
-                    dma_dev->id, dma_dev->mmio.vaddr,
-                    ioat_dma_cbver_major_extract(ioat_device->version),
-                    ioat_dma_cbver_minor_extract(ioat_device->version));
+                  dma_dev->id, dma_dev->mmio.vaddr,
+                  ioat_dma_cbver_major_extract(ioat_device->version),
+                  ioat_dma_cbver_minor_extract(ioat_device->version));
 
     switch (ioat_dma_cbver_major_extract(ioat_device->version)) {
         case ioat_dma_cbver_1x:

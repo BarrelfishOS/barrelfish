@@ -12,7 +12,6 @@
 #include <ioat/ioat_dma_internal.h>
 #include <ioat/ioat_dma_dca_internal.h>
 
-
 /*
  * ===========================================================================
  * Public Interface

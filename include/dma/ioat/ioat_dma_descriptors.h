@@ -47,7 +47,7 @@ struct ioat_dma_descriptor;
  * XXX: this function assumes that the size of the descriptor has already been
  *      checked and must match the maximum transfer size of the channel
  */
-void ioat_dma_desc_fill_memcpy(struct ioat_dma_descriptor *desc,
+void ioat_dma_desc_fill_memcpy(struct dma_descriptor *desc,
                                lpaddr_t src,
                                lpaddr_t dst,
                                uint32_t size,
@@ -59,33 +59,6 @@ void ioat_dma_desc_fill_memcpy(struct ioat_dma_descriptor *desc,
  *
  * \param desc  IOAT DMA descriptor
  */
-void ioat_dma_desc_fill_nop(struct ioat_dma_descriptor *desc);
-
-/*
- * ----------------------------------------------------------------------------
- * Getters / Setters
- * ----------------------------------------------------------------------------
- */
-
-/**
- * \brief returns the corresponding IOAT DMA request this descriptor belongs
- *
- * \param desc IOAT DMA descriptor
- *
- * \brief pointer to the request
- *        NULL if there is none
- */
-struct ioat_dma_request *ioat_dma_desc_get_request(struct ioat_dma_descriptor *desc);
-
-/**
- * \brief returns a pointer to the next descriptor in the descriptor chain
- *
- * \param desc IOAT DMA descriptor
- *
- * \returns next descriptor
- *          NULL if the end of chain
- */
-struct ioat_dma_descriptor *ioat_dma_desc_get_next(struct ioat_dma_descriptor *desc);
-
+void ioat_dma_desc_fill_nop(struct dma_descriptor *desc);
 
 #endif  /* LIB_IOAT_DMA_DESCRIPTORS_H */

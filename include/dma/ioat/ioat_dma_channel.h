@@ -113,7 +113,7 @@ errval_t ioat_dma_channel_poll(struct dma_channel *chan);
  *
  * \returns IOAT DMA descriptor ring handle
  */
-struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan);
+struct dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan);
 
 /**
  * \brief updates the channel status flag by reading the CHANSTS register

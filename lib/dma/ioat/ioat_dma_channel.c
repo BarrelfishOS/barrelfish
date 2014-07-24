@@ -12,10 +12,10 @@
 
 #include <dma_mem_utils.h>
 
+#include <dma_ring_internal.h>
 #include <ioat/ioat_dma_internal.h>
 #include <ioat/ioat_dma_device_internal.h>
 #include <ioat/ioat_dma_channel_internal.h>
-#include <ioat/ioat_dma_ring_internal.h>
 #include <ioat/ioat_dma_descriptors_internal.h>
 #include <ioat/ioat_dma_request_internal.h>
 
@@ -29,7 +29,7 @@ struct ioat_dma_channel
 
     lpaddr_t last_completion;        ///<
     struct dma_mem completion;
-    struct ioat_dma_ring *ring;      ///< Descriptor ring
+    struct dma_ring *ring;      ///< Descriptor ring
     uint64_t status;                 ///< channel status
     uint8_t irq_vector;
     size_t irq_msix;
@@ -42,10 +42,9 @@ struct ioat_dma_channel
  */
 static inline void channel_set_chain_addr(struct ioat_dma_channel *chan)
 {
-    lpaddr_t chain_addr = ioat_dma_ring_get_chain_addr(chan->ring);
+    lpaddr_t chain_addr = dma_ring_get_chain_addr(chan->ring);
 
-    IOATCHAN_DEBUG("setting chain addr to [%016lx]\n", chan->common.id,
-                   chain_addr);
+    IOATCHAN_DEBUG("setting chain addr to [%016lx]\n", chan->common.id, chain_addr);
 
     ioat_dma_chan_chainaddr_lo_wr(&chan->channel, (uint32_t) chain_addr);
     ioat_dma_chan_chainaddr_hi_wr(&chan->channel, chain_addr >> 32);
@@ -107,32 +106,30 @@ static errval_t channel_process_descriptors(struct ioat_dma_channel *chan,
     }
 
     IOATCHAN_DEBUG("processing [%016lx] head: %u, tail: %u, issued: %u\n",
-                   chan->common.id, compl_addr_phys,
-                   ioat_dma_ring_get_head(chan->ring),
-                   ioat_dma_ring_get_tail(chan->ring),
-                   ioat_dma_ring_get_issued(chan->ring));
+                   chan->common.id, compl_addr_phys, dma_ring_get_head(chan->ring),
+                   dma_ring_get_tail(chan->ring), dma_ring_get_issued(chan->ring));
 
-    uint16_t active_count = ioat_dma_ring_get_active(chan->ring);
+    uint16_t active_count = dma_ring_get_active(chan->ring);
 
-    struct ioat_dma_descriptor *desc;
-    struct ioat_dma_request *req;
+    struct dma_descriptor *desc;
+    struct dma_request *req;
     struct dma_request *req_head;
 
     uint16_t processed = 0;
     uint8_t request_done = 0;
 
     for (uint16_t i = 0; i < active_count; i++) {
-        desc = ioat_dma_ring_get_tail_desc(chan->ring);
+        desc = dma_ring_get_tail_desc(chan->ring);
 
         /*
          * check if there is a request associated with the descriptor
          * this indicates the last descriptor of a request
          */
-        req = ioat_dma_desc_get_request(desc);
+        req = dma_desc_get_request(desc);
         if (req) {
             req_head = dma_channel_deq_request_head(&chan->common);
-            assert(req_head == (struct dma_request * )req);
-            err = ioat_dma_request_process(req);
+            assert(req_head == req);
+            err = ioat_dma_request_process((struct ioat_dma_request *) req);
             if (err_is_fail(err)) {
                 dma_channel_enq_request_head(&chan->common, req_head);
                 return err;
@@ -141,7 +138,7 @@ static errval_t channel_process_descriptors(struct ioat_dma_channel *chan,
         }
 
         /* this was the last completed descriptor */
-        if (ioat_dma_desc_get_paddr(desc) == compl_addr_phys) {
+        if (dma_desc_get_paddr(desc) == compl_addr_phys) {
             processed = i;
             break;
         }
@@ -217,10 +214,22 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.paddr);
     ioat_dma_chan_cmpl_hi_wr(&chan->channel, chan->completion.paddr >> 32);
 
-    err = ioat_dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, &chan->ring, chan);
+    err = dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, IOAT_DMA_DESC_ALIGN,
+    IOAT_DMA_DESC_SIZE,
+                         &chan->ring, dma_chan);
     if (err_is_fail(err)) {
         dma_mem_free(&chan->completion);
         return err;
+    }
+
+    /* we have to do the hardware linkage */
+    struct dma_descriptor *dcurr, *dnext;
+    for (uint32_t i = 0; i < (1 << IOAT_DMA_DESC_RING_SIZE); ++i) {
+        dcurr = dma_ring_get_desc(chan->ring, i);
+        dnext = dma_desc_get_next(dcurr);
+        assert(dnext);
+        ioat_dma_desc_next_insert(dma_desc_get_desc_handle(dcurr),
+                                  dma_desc_get_paddr(dnext));
     }
 
     ioat_dma_chan_ctrl_t chan_ctrl = 0;
@@ -261,7 +270,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
                        *(uint64_t* ) chan->completion.vaddr);
         return SYS_ERR_OK;
     } else {
-        IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id, ioat_dma_chan_err_rd(&chan->channel));
+        IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id,
+                       ioat_dma_chan_err_rd(&chan->channel));
         dma_mem_free(&chan->completion);
         free(chan);
         *ret_chan = NULL;
@@ -282,16 +292,16 @@ uint16_t ioat_dma_channel_issue_pending(struct ioat_dma_channel *chan)
 {
     errval_t err;
 
-    uint16_t pending = ioat_dma_ring_get_pendig(chan->ring);
+    uint16_t pending = dma_ring_get_pendig(chan->ring);
 
-    IOATCHAN_DEBUG("issuing %u pending descriptors to hardware\n",
-                   chan->common.id, pending);
+    IOATCHAN_DEBUG("issuing %u pending descriptors to hardware\n", chan->common.id,
+                   pending);
 
     if (chan->common.state != DMA_CHAN_ST_RUNNING) {
         err = ioat_dma_channel_start(chan);
     }
     if (pending > 0) {
-        uint16_t dmacnt = ioat_dma_ring_submit_pending(chan->ring);
+        uint16_t dmacnt = dma_ring_submit_pending(chan->ring);
         ioat_dma_chan_dmacount_wr(&chan->channel, dmacnt);
 
         IOATCHAN_DEBUG(" setting dma_count to [%u]\n", chan->common.id, dmacnt);
@@ -329,8 +339,8 @@ errval_t ioat_dma_channel_reset(struct ioat_dma_channel *chan)
     if (dma_chan->state == DMA_CHAN_ST_ERROR) {
         ioat_dma_chan_err_t chanerr = ioat_dma_chan_err_rd(&chan->channel);
         ioat_dma_chan_err_wr(&chan->channel, chanerr);
-        IOATCHAN_DEBUG("Reseting channel from error state: [%08x]\n",
-                       dma_chan->id, chanerr);
+        IOATCHAN_DEBUG("Reseting channel from error state: [%08x]\n", dma_chan->id,
+                       chanerr);
 
         /*
          * errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
@@ -473,7 +483,7 @@ errval_t ioat_dma_channel_poll(struct dma_channel *chan)
 {
     errval_t err;
 
-    struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *)chan;
+    struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *) chan;
 
     uint64_t status = ioat_dma_channel_get_status(ioat_chan);
 
@@ -517,7 +527,7 @@ errval_t ioat_dma_channel_poll(struct dma_channel *chan)
  *
  * \returns IOAT DMA descriptor ring handle
  */
-inline struct ioat_dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan)
+inline struct dma_ring *ioat_dma_channel_get_ring(struct ioat_dma_channel *chan)
 {
     return chan->ring;
 }

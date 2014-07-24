@@ -9,14 +9,12 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
-#include <dev/ioat_dma_dev.h>
-
 #include <dma_internal.h>
 #include <dma_mem_utils.h>
 
-#include <ioat/ioat_dma_internal.h>
-#include <ioat/ioat_dma_descriptors_internal.h>
-#include <ioat/ioat_dma_ring_internal.h>
+#include <dma_internal.h>
+#include <dma_descriptor_internal.h>
+#include <dma_ring_internal.h>
 
 #include <debug.h>
 
@@ -25,18 +23,16 @@
 /**
  * represents the IOAT DMA ring with its internal state
  */
-struct ioat_dma_ring
+struct dma_ring
 {
     uint16_t size;          ///< size of the descriptor ring
     uint16_t head;          ///< allocated index
     uint16_t issued;        ///< hardware notification point
     uint16_t tail;          ///< cleanup index
     uint16_t dmacount;      ///< value to be written into dmacount register
-    uint16_t alloc_order;   ///< log2 of the number of allocated descriptors
-    uint16_t produce;       ///< number of descriptors to produce at submit time
 
-    struct ioat_dma_descriptor **desc;  ///< descriptor pointer array
-    struct ioat_dma_channel *chan;      ///< channel associated with this ring
+    struct dma_descriptor **desc;  ///< descriptor pointer array
+    struct dma_channel *chan;      ///< channel associated with this ring
 };
 
 /*
@@ -59,12 +55,12 @@ struct ioat_dma_ring
  *
  * \returns pointer to a DMA descriptor
  */
-inline struct ioat_dma_descriptor *ioat_dma_ring_get_next_desc(struct ioat_dma_ring *ring)
+inline struct dma_descriptor *dma_ring_get_next_desc(struct dma_ring *ring)
 {
-    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_desc(ring, ring->head++);
+    struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->head++);
 
-    IOATDESC_DEBUG("ring getting next head desc:%p @ [%016lx], new head:%u\n",
-                   desc, ioat_dma_desc_get_paddr(desc), ring->head);
+    DMADESC_DEBUG("ring getting next head desc:%p @ [%016lx], new head:%u\n", desc,
+                  dma_desc_get_paddr(desc), ring->head);
 
     return desc;
 }
@@ -78,12 +74,12 @@ inline struct ioat_dma_descriptor *ioat_dma_ring_get_next_desc(struct ioat_dma_r
  * \returns pointer to a DMA descriptor
  *
  */
-inline struct ioat_dma_descriptor *ioat_dma_ring_get_tail_desc(struct ioat_dma_ring *ring)
+inline struct dma_descriptor *dma_ring_get_tail_desc(struct dma_ring *ring)
 {
-    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_desc(ring, ring->tail++);
+    struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->tail++);
 
-    IOATDESC_DEBUG("ring getting tail desc:%p @ [%016lx], new tail: %u\n", desc,
-                   ioat_dma_desc_get_paddr(desc), ring->tail);
+    DMADESC_DEBUG("ring getting tail desc:%p @ [%016lx], new tail: %u\n", desc,
+                  dma_desc_get_paddr(desc), ring->tail);
 
     return desc;
 }
@@ -95,16 +91,16 @@ inline struct ioat_dma_descriptor *ioat_dma_ring_get_tail_desc(struct ioat_dma_r
  *
  * \returns the current head of the descriptors (dmacount)
  */
-uint16_t ioat_dma_ring_submit_pending(struct ioat_dma_ring *ring)
+uint16_t dma_ring_submit_pending(struct dma_ring *ring)
 {
-    uint16_t num_pending = ioat_dma_ring_get_pendig(ring);
+    uint16_t num_pending = dma_ring_get_pendig(ring);
 
     if (num_pending != 0) {
         ring->dmacount += num_pending;
         ring->issued = ring->head;
 
-        IOATDESC_DEBUG("ring submit pending dmacount: %u, head = %u\n",
-                       ring->dmacount, ring->head);
+        DMADESC_DEBUG("ring submit pending dmacount: %u, head = %u\n",
+                      ring->dmacount, ring->head);
     }
 
     return ring->dmacount;
@@ -118,9 +114,21 @@ uint16_t ioat_dma_ring_submit_pending(struct ioat_dma_ring *ring)
  *
  * \returns physical address of the pending descriptor chain
  */
-inline lpaddr_t ioat_dma_ring_get_chain_addr(struct ioat_dma_ring *ring)
+inline lpaddr_t dma_ring_get_chain_addr(struct dma_ring *ring)
 {
-    return ioat_dma_desc_get_paddr(ioat_dma_ring_get_desc(ring, ring->issued));
+    return dma_desc_get_paddr(dma_ring_get_desc(ring, ring->issued));
+}
+
+/**
+ * \brief obtains the physical address of the descriptor ring
+ *
+ * \param ring the DMA ring
+ *
+ * \returns physical address of the pending descriptor chain
+ */
+lpaddr_t dma_ring_get_base_addr(struct dma_ring *ring)
+{
+    return dma_desc_get_paddr(dma_ring_get_desc(ring, 0));
 }
 
 /*
@@ -136,43 +144,48 @@ inline lpaddr_t ioat_dma_ring_get_chain_addr(struct ioat_dma_ring *ring)
  */
 
 /**
- * \brief allocates a descriptor ring
+ * \brief allocates a descriptor ring of a given element count and descriptor
+ *        sizes
  *
- * \param size_bits the size of the ring in bits
- * \param ret_ring  where the ring pointer is returned
+ * \param ndesc_bits number of descriptors for this ring in bits
+ * \param desc_align alignment constraints of the descriptors
+ * \param desc_size  size of the descriptors in bytes
+ * \param ret_ring   where the ring pointer is returned
+ * \param chan       DMA channel of this ring
  *
  * \returns SYS_ERR_OK on succes
  *          errval on error
  */
-errval_t ioat_dma_ring_alloc(uint8_t size_bits,
-                             struct ioat_dma_ring **ret_ring,
-                             struct ioat_dma_channel *chan)
+errval_t dma_ring_alloc(uint8_t ndesc_bits,
+                        uint32_t desc_align,
+                        uint32_t desc_size,
+                        struct dma_ring **ret_ring,
+                        struct dma_channel *chan)
 {
     errval_t err;
 
-    IOATDESC_DEBUG("allocating descriptor ring of size %u\n", (1 << size_bits));
+    DMADESC_DEBUG("allocating descriptor ring of size %u\n", (1 << ndesc_bits));
 
-    struct ioat_dma_ring *ring;
+    struct dma_ring *ring;
 
-    if (size_bits > IOAT_DESC_RING_SIZE_MAX) {
-        size_bits = IOAT_DESC_RING_SIZE_MAX;
+    if (ndesc_bits > DMA_RING_SIZE_MAX) {
+        ndesc_bits = DMA_RING_SIZE_MAX;
     }
 
-    uint16_t ndesc = (1UL << size_bits);
+    uint16_t ndesc = (1UL << ndesc_bits);
 
-    ring = malloc(sizeof(struct ioat_dma_ring) + ndesc * sizeof(void *));
+    ring = malloc(sizeof(struct dma_ring) + ndesc * sizeof(void *));
     if (ring == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    memset(ring, 0, sizeof(struct ioat_dma_ring) + ndesc * sizeof(void *));
+    memset(ring, 0, sizeof(struct dma_ring) + ndesc * sizeof(void *));
 
     ring->chan = chan;
     ring->size = ndesc;
     ring->desc = (void *) (ring + 1);
 
-    err = ioat_dma_desc_alloc(IOAT_DMA_DESC_SIZE, IOAT_DMA_DESC_ALIGN, ndesc,
-                          ring->desc);
+    err = dma_desc_alloc(desc_size, desc_align, ndesc_bits, ring->desc);
     if (err_is_fail(err)) {
         free(ring);
         return err;
@@ -191,13 +204,13 @@ errval_t ioat_dma_ring_alloc(uint8_t size_bits,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_ring_free(struct ioat_dma_ring *ring)
+errval_t dma_ring_free(struct dma_ring *ring)
 {
     errval_t err;
 
-    IOATDESC_DEBUG("freeing descriptor ring %p\n", ring);
+    DMADESC_DEBUG("freeing descriptor ring %p\n", ring);
 
-    err = ioat_dma_desc_free(ring->desc[0]);
+    err = dma_desc_free(ring->desc[0]);
     if (err_is_fail(err)) {
         return err;
     }
@@ -222,7 +235,7 @@ errval_t ioat_dma_ring_free(struct ioat_dma_ring *ring)
  *
  * \returns number of active descriptors
  */
-inline uint16_t ioat_dma_ring_get_active(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_active(struct dma_ring *ring)
 {
     return (ring->head - ring->tail) & (ring->size - 1);
 }
@@ -234,7 +247,7 @@ inline uint16_t ioat_dma_ring_get_active(struct ioat_dma_ring *ring)
  *
  * \returns number of pending descriptors
  */
-inline uint16_t ioat_dma_ring_get_pendig(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_pendig(struct dma_ring *ring)
 {
     return (ring->head - ring->issued) & (ring->size - 1);
 }
@@ -252,7 +265,7 @@ inline uint16_t ioat_dma_ring_get_pendig(struct ioat_dma_ring *ring)
  *
  * \returns number of descriptors in the ring
  */
-inline uint16_t ioat_dma_ring_get_size(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_size(struct dma_ring *ring)
 {
     return ring->size;
 }
@@ -264,7 +277,7 @@ inline uint16_t ioat_dma_ring_get_size(struct ioat_dma_ring *ring)
  *
  * \returns head element index
  */
-inline uint16_t ioat_dma_ring_get_head(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_head(struct dma_ring *ring)
 {
     return ring->head;
 }
@@ -276,7 +289,7 @@ inline uint16_t ioat_dma_ring_get_head(struct ioat_dma_ring *ring)
  *
  * \returns tail element index
  */
-inline uint16_t ioat_dma_ring_get_tail(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_tail(struct dma_ring *ring)
 {
     return ring->tail;
 }
@@ -288,7 +301,7 @@ inline uint16_t ioat_dma_ring_get_tail(struct ioat_dma_ring *ring)
  *
  * \returns issued element index
  */
-inline uint16_t ioat_dma_ring_get_issued(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_issued(struct dma_ring *ring)
 {
     return ring->issued;
 }
@@ -300,7 +313,7 @@ inline uint16_t ioat_dma_ring_get_issued(struct ioat_dma_ring *ring)
  *
  * \returns dmacount value
  */
-inline uint16_t ioat_dma_ring_get_dmacount(struct ioat_dma_ring *ring)
+inline uint16_t dma_ring_get_dmacount(struct dma_ring *ring)
 {
     return ring->dmacount;
 }
@@ -313,8 +326,9 @@ inline uint16_t ioat_dma_ring_get_dmacount(struct ioat_dma_ring *ring)
  *
  * \returns pointer to a DMA descriptor
  */
-inline struct ioat_dma_descriptor *ioat_dma_ring_get_desc(struct ioat_dma_ring *ring,
-                                                          uint16_t index)
+inline struct dma_descriptor *dma_ring_get_desc(struct dma_ring *ring,
+                                                uint16_t index)
 {
     return ring->desc[index & (ring->size - 1)];
 }
+

@@ -30,7 +30,6 @@ void ioat_set_dca_enabled(void)
     dca_do_initialization = 1;
 }
 
-
 /*
  * ===========================================================================
  * Public Interface
@@ -42,8 +41,6 @@ void ioat_set_dca_enabled(void)
  *  Enabling / Disabling DCA
  * ----------------------------------------------------------------------------
  */
-
-
 
 /**
  * \brief enables direct cache access
@@ -57,7 +54,6 @@ errval_t ioat_dma_dca_enable(void)
     return SYS_ERR_OK;
 }
 
-
 /**
  * \brief disables direct cache access
  */
@@ -66,7 +62,6 @@ errval_t ioat_dma_dca_disable(void)
     assert(!"NYI");
     return SYS_ERR_OK;
 }
-
 
 /**
  * \brief checks whether DCA is enabled

@@ -9,11 +9,11 @@
 #include<barrelfish/barrelfish.h>
 
 #include <ioat/ioat_dma_internal.h>
+#include <dma_ring_internal.h>
 #include <ioat/ioat_dma_device_internal.h>
 #include <ioat/ioat_dma_channel_internal.h>
 #include <ioat/ioat_dma_request_internal.h>
 #include <ioat/ioat_dma_descriptors_internal.h>
-#include <ioat/ioat_dma_ring_internal.h>
 
 #include <debug.h>
 
@@ -23,8 +23,8 @@
 struct ioat_dma_request
 {
     struct dma_request common;
-    struct ioat_dma_descriptor *desc_head;
-    struct ioat_dma_descriptor *desc_tail;
+    struct dma_descriptor *desc_head;
+    struct dma_descriptor *desc_tail;
 };
 
 /*
@@ -50,8 +50,7 @@ static struct ioat_dma_request *request_alloc(void)
         ret = (struct ioat_dma_request *) req_free_list;
         req_free_list = ret->common.next;
 
-        DMAREQ_DEBUG("meta: reusing request %p. freelist:%p\n", ret,
-                     req_free_list);
+        DMAREQ_DEBUG("meta: reusing request %p. freelist:%p\n", ret, req_free_list);
 
         return ret;
     }
@@ -145,11 +144,11 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
                   setup->args.memcpy.src, setup->args.memcpy.dst,
                   setup->args.memcpy.bytes, num_desc);
 
-    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(ioat_chan);
+    struct dma_ring *ring = ioat_dma_channel_get_ring(ioat_chan);
 
-    if (num_desc > ioat_dma_ring_get_space(ring)) {
+    if (num_desc > dma_ring_get_space(ring)) {
         IOATREQ_DEBUG("Too less space in ring: %u / %u\n", num_desc,
-                      ioat_dma_ring_get_space(ring));
+                      dma_ring_get_space(ring));
         return DMA_ERR_NO_DESCRIPTORS;
     }
 
@@ -163,13 +162,13 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
         0
     };
 
-    struct ioat_dma_descriptor *desc;
+    struct dma_descriptor *desc;
     size_t length = setup->args.memcpy.bytes;
     lpaddr_t src = setup->args.memcpy.src;
     lpaddr_t dst = setup->args.memcpy.dst;
     size_t bytes, max_xfer_size = dma_channel_get_max_xfer_size(chan);
     do {
-        desc = ioat_dma_ring_get_next_desc(ring);
+        desc = dma_ring_get_next_desc(ring);
 
         if (!req->desc_head) {
             req->desc_head = desc;
@@ -187,7 +186,7 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
         }
 
         ioat_dma_desc_fill_memcpy(desc, src, dst, bytes, ctrl);
-        ioat_dma_desc_set_request(desc, NULL);
+        dma_desc_set_request(desc, NULL);
 
         length -= bytes;
         src += bytes;
@@ -200,10 +199,10 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
     *id = req->common.id;
 
     /* set the request pointer in the last descriptor */
-    ioat_dma_desc_set_request(desc, req);
+    dma_desc_set_request(desc, &req->common);
 
     assert(req->desc_tail);
-    assert(ioat_dma_desc_get_request(req->desc_tail));
+    assert(dma_desc_get_request(req->desc_tail));
 
     return ioat_dma_channel_submit_request(ioat_chan, req);
 }
@@ -238,10 +237,10 @@ errval_t ioat_dma_request_memcpy(struct dma_device *dev,
 void ioat_dma_request_nop_chan(struct ioat_dma_channel *chan)
 {
 
-    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(chan);
+    struct dma_ring *ring = ioat_dma_channel_get_ring(chan);
     assert(ring);
 
-    struct ioat_dma_descriptor *desc = ioat_dma_ring_get_next_desc(ring);
+    struct dma_descriptor *desc = dma_ring_get_next_desc(ring);
     assert(desc);
     IOATREQ_DEBUG("New DMA NOP request: descriptor=%p\n", desc);
 
@@ -260,7 +259,7 @@ void ioat_dma_request_nop_chan(struct ioat_dma_channel *chan)
 inline void ioat_dma_request_nop(struct ioat_dma_device *dev)
 {
     struct ioat_dma_channel *chan;
-    struct dma_device *dma_dev = (struct dma_device *)dev;
-    chan = (struct ioat_dma_channel *)dma_device_get_channel(dma_dev);
+    struct dma_device *dma_dev = (struct dma_device *) dev;
+    chan = (struct ioat_dma_channel *) dma_device_get_channel(dma_dev);
     ioat_dma_request_nop_chan(chan);
 }
