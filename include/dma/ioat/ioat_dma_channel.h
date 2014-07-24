@@ -97,7 +97,7 @@ uint16_t ioat_dma_channel_issue_pending(struct ioat_dma_channel *chan);
  * \returns SYS_ERR_OK if there was something processed
  *
  */
-errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan);
+errval_t ioat_dma_channel_poll(struct dma_channel *chan);
 
 
 /*

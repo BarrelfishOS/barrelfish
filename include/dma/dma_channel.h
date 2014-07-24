@@ -24,6 +24,18 @@ typedef enum dma_chan_st
     DMA_CHAN_ST_SUSPENDED
 } dma_chan_st_t;
 
+/**
+ * \brief polls the DMA channel for completed events
+ *
+ * \param chan  DMA Channel
+ *
+ * \returns SYS_ERR_OK if there was something processed
+ *          DMA_ERR_CHAN_IDLE if there was no request on the channel
+ *          DMA_ERR_REQUEST_UNFINISHED if the request has not been completed yet
+ *
+ */
+errval_t dma_channel_poll(struct dma_channel *chan);
+
 /*
  * ----------------------------------------------------------------------------
  * Getter / Setter Methods

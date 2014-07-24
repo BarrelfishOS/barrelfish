@@ -25,6 +25,9 @@ errval_t driver_store_lookup(lpaddr_t mem_low,
                              uint8_t numa_node,
                              struct dma_mgr_driver_info **info);
 
+errval_t driver_store_lookup_by_iref(iref_t iref,
+                                     struct dma_mgr_driver_info **info);
+
 /**
  * \brief initializes the DMA manager service service
  *

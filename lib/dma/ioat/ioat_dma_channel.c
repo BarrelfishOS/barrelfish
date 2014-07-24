@@ -231,6 +231,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     ioat_dma_chan_ctrl_wr(&chan->channel, chan_ctrl);
 
     dma_chan->state = DMA_CHAN_ST_PREPARED;
+    dma_chan->f.memcpy = ioat_dma_request_memcpy_chan;
+    dma_chan->f.poll = ioat_dma_channel_poll;
 
     *ret_chan = chan;
 
@@ -463,30 +465,34 @@ errval_t ioat_dma_channel_submit_request(struct ioat_dma_channel *chan,
  * \param chan  IOAT DMA channel
  *
  * \returns SYS_ERR_OK if there was something processed
+ *          DMA_ERR_CHAN_IDLE if there was no request on the channel
+ *          DMA_ERR_REQUEST_UNFINISHED if the request has not been completed yet
  *
  */
-errval_t ioat_dma_channel_poll(struct ioat_dma_channel *chan)
+errval_t ioat_dma_channel_poll(struct dma_channel *chan)
 {
     errval_t err;
 
-    uint64_t status = ioat_dma_channel_get_status(chan);
+    struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *)chan;
+
+    uint64_t status = ioat_dma_channel_get_status(ioat_chan);
 
     if (ioat_dma_channel_is_halted(status)) {
-        IOATCHAN_DEBUG("channel is in error state\n", chan->common.id);
+        IOATCHAN_DEBUG("channel is in error state\n", chan->id);
         assert(!"NYI: error event handling");
     }
 
     /* check if there can be something to process */
-    if (chan->common.req_list.head == NULL) {
+    if (chan->req_list.head == NULL) {
         return DMA_ERR_CHAN_IDLE;
     }
 
-    lpaddr_t compl_addr_phys = channel_has_completed_descr(chan);
+    lpaddr_t compl_addr_phys = channel_has_completed_descr(ioat_chan);
     if (!compl_addr_phys) {
         return DMA_ERR_CHAN_IDLE;
     }
 
-    err = channel_process_descriptors(chan, compl_addr_phys);
+    err = channel_process_descriptors(ioat_chan, compl_addr_phys);
     switch (err_no(err)) {
         case SYS_ERR_OK:
             /* this means we processed a descriptor request */

@@ -13,7 +13,6 @@
 #include <dma_device_internal.h>
 #include <dma_channel_internal.h>
 #include <dma_request_internal.h>
-#include <dma/dma_client.h>
 #include <debug.h>
 
 /*
@@ -132,37 +131,13 @@ inline void dma_request_set_next(struct dma_request *req,
  * \returns SYS_ERR_OK on succes
  *          errval on error
  */
-errval_t dma_request_register_memory(struct capref frame)
+errval_t dma_register_memory(struct dma_device *dev,
+                             struct capref frame)
 {
-    errval_t err;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
-    if (err_is_fail(err)) {
-        return err;
+    if (dev->f.register_memory == NULL) {
+        return DMA_ERR_REQUEST_UNSUPPORTED;
     }
-    struct dma_client *client = dma_client_get_connection_by_addr(id.base, id.base,
-                                                                  (1UL << id.bits));
-    if (client == NULL) {
-        return DMA_ERR_SVC_VOID;
-    }
-
-    return dma_request_register_memory_fixed(frame, client);
-}
-
-/**
- * \brief registers a memory region for future use
- *
- * \param frame     the memory frame to register
- * \param client    DMA client to use for registration
- *
- * \returns SYS_ERR_OK on succes
- *          errval on error
- */
-errval_t dma_request_register_memory_fixed(struct capref frame,
-                                           struct dma_client *client)
-{
-    return dma_client_register_memory(client, frame);
+    return dev->f.register_memory(dev, frame);
 }
 
 /**
@@ -173,37 +148,13 @@ errval_t dma_request_register_memory_fixed(struct capref frame,
  * \returns SYS_ERR_OK on succes
  *          errval on error
  */
-errval_t dma_request_deregister_memory(struct capref frame)
+errval_t dma_request_deregister_memory(struct dma_device *dev,
+                                       struct capref frame)
 {
-    errval_t err;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
-    if (err_is_fail(err)) {
-        return err;
+    if (dev->f.deregister_memory == NULL) {
+        return DMA_ERR_REQUEST_UNSUPPORTED;
     }
-    struct dma_client *client = dma_client_get_connection_by_addr(id.base, id.base,
-                                                                  (1UL << id.bits));
-    if (client == NULL) {
-        return DMA_ERR_SVC_VOID;
-    }
-
-    return dma_request_deregister_memory_fixed(frame, client);
-}
-
-/**
- * \brief deregisters a previously registered memory region
- *
- * \param frame     the memory frame to register
- * \param client    DMA client to use for registration
- *
- * \returns SYS_ERR_OK on succes
- *          errval on error
- */
-errval_t dma_request_deregister_memory_fixed(struct capref frame,
-                                             struct dma_client *client)
-{
-    return dma_client_deregister_memory(client, frame);
+    return dev->f.deregister_memory(dev, frame);
 }
 
 /*
@@ -215,14 +166,17 @@ errval_t dma_request_deregister_memory_fixed(struct capref frame,
 /**
  * \brief issues a new DMA memcpy request based on the setup information
  *
+ * \param chan  DMA channel
  * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_request_memcpy(struct dma_req_setup *setup)
+errval_t dma_request_memcpy_chan(struct dma_channel *chan,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id)
 {
-
     /* check for overlap */
     if (setup->args.memcpy.dst < setup->args.memcpy.src) {
         if ((setup->args.memcpy.dst + setup->args.memcpy.bytes) > setup->args.memcpy.src) {
@@ -237,15 +191,28 @@ errval_t dma_request_memcpy(struct dma_req_setup *setup)
         return DMA_ERR_MEM_OVERLAP;
     }
 
-    if (setup->client == NULL) {
-        setup->client = dma_client_get_connection_by_addr(setup->args.memcpy.src,
-                                                          setup->args.memcpy.dst,
-                                                          setup->args.memcpy.bytes);
-    }
-    if (setup->client) {
-        return DMA_ERR_SVC_VOID;
+    if (chan->f.memcpy == NULL) {
+        return DMA_ERR_REQUEST_UNSUPPORTED;
     }
 
-    return dma_client_memcpy(setup);
+    return chan->f.memcpy(chan, setup, id);
+}
+
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param dev   DMA device
+ * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memcpy(struct dma_device *dev,
+                            struct dma_req_setup *setup,
+                            dma_req_id_t *id)
+{
+    struct dma_channel *chan = dma_device_get_channel(dev);
+    return dma_request_memcpy_chan(chan, setup, id);
 }
 

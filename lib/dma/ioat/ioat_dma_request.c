@@ -131,19 +131,21 @@ errval_t ioat_dma_request_process(struct ioat_dma_request *req)
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
+errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
                                       struct dma_req_setup *setup,
                                       dma_req_id_t *id)
 {
-    struct dma_channel *dma_chan = (struct dma_channel *) chan;
+    assert(chan->device->type == DMA_DEV_TYPE_IOAT);
 
-    uint32_t num_desc = req_num_desc_needed(chan, setup->args.memcpy.bytes);
+    struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *) chan;
+
+    uint32_t num_desc = req_num_desc_needed(ioat_chan, setup->args.memcpy.bytes);
 
     IOATREQ_DEBUG("DMA Memcpy request: [0x%016lx]->[0x%016lx] of %lu bytes (%u desc)\n",
                   setup->args.memcpy.src, setup->args.memcpy.dst,
                   setup->args.memcpy.bytes, num_desc);
 
-    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(chan);
+    struct ioat_dma_ring *ring = ioat_dma_channel_get_ring(ioat_chan);
 
     if (num_desc > ioat_dma_ring_get_space(ring)) {
         IOATREQ_DEBUG("Too less space in ring: %u / %u\n", num_desc,
@@ -165,7 +167,7 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
     size_t length = setup->args.memcpy.bytes;
     lpaddr_t src = setup->args.memcpy.src;
     lpaddr_t dst = setup->args.memcpy.dst;
-    size_t bytes, max_xfer_size = dma_channel_get_max_xfer_size(dma_chan);
+    size_t bytes, max_xfer_size = dma_channel_get_max_xfer_size(chan);
     do {
         desc = ioat_dma_ring_get_next_desc(ring);
 
@@ -193,7 +195,7 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
     } while (length > 0);
 
     req->common.setup = *setup;
-    req->common.id = dma_request_generate_req_id((struct dma_channel *) chan);
+    req->common.id = dma_request_generate_req_id((struct dma_channel *) ioat_chan);
 
     *id = req->common.id;
 
@@ -203,7 +205,7 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
     assert(req->desc_tail);
     assert(ioat_dma_desc_get_request(req->desc_tail));
 
-    return ioat_dma_channel_submit_request(chan, req);
+    return ioat_dma_channel_submit_request(ioat_chan, req);
 }
 
 /**
@@ -216,13 +218,11 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
+errval_t ioat_dma_request_memcpy(struct dma_device *dev,
                                  struct dma_req_setup *setup,
                                  dma_req_id_t *id)
 {
-    struct ioat_dma_channel *chan;
-    struct dma_device *dma_dev = (struct dma_device *)dev;
-    chan = (struct ioat_dma_channel *)dma_device_get_channel(dma_dev);
+    struct dma_channel *chan = dma_device_get_channel(dev);
     return ioat_dma_request_memcpy_chan(chan, setup, id);
 }
 

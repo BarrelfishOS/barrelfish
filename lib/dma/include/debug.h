@@ -44,6 +44,9 @@
  *  DMA client debug switches
  */
 #define DMA_CLIENT_DEBUG_ENABLED 1
+#define DMA_CLIENT_DEBUG_CHAN_ENABLED    1
+#define DMA_CLIENT_DEBUG_DEVICE_ENABLED  1
+#define DMA_CLIENT_DEBUG_REQUEST_ENABLED 1
 
 /*
  * --------------------------------------------------------------------------
@@ -142,6 +145,26 @@
  * --------------------------------------------------------------------------
  *  DMA Client debug output generation
  */
+#if (LIB_DMA_DEBUG_ENABLED && DMA_CLIENT_DEBUG_ENABLED)
+#define CLIENT_DEBUG_PRINT(x...) debug_printf(x)
+#else
+#define CLIENT_DEBUG_PRINT(x... )
+#endif
+#if DMA_CLIENT_DEBUG_CHAN_ENABLED
+#define CLIENTCHAN_DEBUG(x...) CLIENT_DEBUG_PRINT("[client chan.%02x] " x)
+#else
+#define CLIENTCHAN_DEBUG(x...)
+#endif
+#if DMA_CLIENT_DEBUG_DEVICE_ENABLED
+#define CLIENTDEV_DEBUG(x...) CLIENT_DEBUG_PRINT("[client dev.%02x] " x)
+#else
+#define CLIENTDEV_DEBUG(x...)
+#endif
+#if DMA_CLIENT_DEBUG_REQUEST_ENABLED
+#define CLIENTREQ_DEBUG(x...) CLIENT_DEBUG_PRINT("[client req] " x)
+#else
+#define CLIENTREQ_DEBUG(x...)
+#endif
 
 
 

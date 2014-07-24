@@ -7,16 +7,15 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef LIB_IOAT_DMA_BENCH_H
-#define LIB_IOAT_DMA_BENCH_H
+#ifndef DMA_CLIENT_DEVICE_INTERNAL_H
+#define DMA_CLIENT_DEVICE_INTERNAL_H
 
-#include <dma/dma_bench.h>
+#include <dma_mem_utils.h>
 
-struct ioat_dma_device;
+#include <dma_device_internal.h>
+#include <dma/client/dma_client_device.h>
 
-errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev);
 
 
-errval_t ioat_dma_bench_run(struct ioat_dma_device *dev, lpaddr_t src, lpaddr_t dst);
 
-#endif /* IOAT_DMA_BENCH_INTERNAL_H */
+#endif /* DMA_CLIENT_DEVICE_INTERNAL_H */

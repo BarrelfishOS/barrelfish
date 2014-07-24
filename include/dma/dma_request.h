@@ -24,9 +24,16 @@ typedef void (*dma_req_cb_t)(errval_t,
  */
 typedef enum dma_req_type
 {
-    IOAT_DMA_REQ_TYPE_INVALID,  ///< invalid request
-    IOAT_DMA_REQ_TYPE_NOP,      ///< NULL / NOP request
-    IOAT_DMA_REQ_TYPE_MEMCPY    ///< Memcpy request
+    DMA_REQ_TYPE_INVALID = 0,  ///< invalid request
+    DMA_REQ_TYPE_MEM_REGISTER, ///<
+    DMA_REQ_TYPE_MEM_REMOVE,   ///<
+    DMA_REQ_TYPE_NOP,          ///< NULL / NOP request
+    DMA_REQ_TYPE_MEMCPY,       ///< Memcpy request
+    DMA_REQ_TYPE_STATUS,
+    DMA_REQ_TYPE_GENERAL,
+    DMA_REQ_TYPE_KEYNON,
+    DMA_REQ_TYPE_KEY,
+
 } dma_req_type_t;
 
 /**
@@ -49,7 +56,6 @@ struct dma_req_setup
     dma_req_type_t type;           ///< specifies the request type
     dma_req_cb_t done_cb;          ///< callback for executed request
     void *cb_arg;                  ///< argument for the callback
-    struct dma_client *client;     ///< the DMA client to be used (if set)
     union
     {
         struct
@@ -63,6 +69,19 @@ struct dma_req_setup
         struct {
 
         } nop;
+
+        struct {
+
+        } status;
+        struct {
+
+        } general;
+        struct {
+
+        } keynon;
+        struct {
+
+        } key;
 
     } args;                        ///< request setup arguments
 
@@ -117,19 +136,8 @@ struct dma_request *dma_request_get_next(struct dma_request *req);
  * \returns SYS_ERR_OK on succes
  *          errval on error
  */
-errval_t dma_request_register_memory(struct capref frame);
-
-/**
- * \brief registers a memory region for future use
- *
- * \param frame     the memory frame to register
- * \param client    DMA client to use for registration
- *
- * \returns SYS_ERR_OK on succes
- *          errval on error
- */
-errval_t dma_request_register_memory_fixed(struct capref frame,
-                                           struct dma_client *client);
+errval_t dma_register_memory(struct dma_device *dev,
+                             struct capref frame);
 
 /**
  * \brief deregisters a previously registered memory region
@@ -139,19 +147,8 @@ errval_t dma_request_register_memory_fixed(struct capref frame,
  * \returns SYS_ERR_OK on succes
  *          errval on error
  */
-errval_t dma_request_deregister_memory(struct capref frame);
-
-/**
- * \brief deregisters a previously registered memory region
- *
- * \param frame     the memory frame to register
- * \param client    DMA client to use for registration
- *
- * \returns SYS_ERR_OK on succes
- *          errval on error
- */
-errval_t dma_request_deregister_memory_fixed(struct capref frame,
-                                             struct dma_client *client);
+errval_t dma_request_deregister_memory(struct dma_device *dev,
+                                       struct capref frame);
 
 /*
  * ----------------------------------------------------------------------------
@@ -162,26 +159,30 @@ errval_t dma_request_deregister_memory_fixed(struct capref frame,
 /**
  * \brief issues a new DMA memcpy request based on the setup information
  *
+ * \param chan  DMA channel
  * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_request_memcpy(struct dma_req_setup *setup);
-
+errval_t dma_request_memcpy_chan(struct dma_channel *chan,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id);
 
 /**
  * \brief issues a new DMA memcpy request based on the setup information
  *
+ * \param dev   DMA device
  * \param setup DMA request setup information
-  * \param client    DMA client to use for the request
+ * \param id    returns the DMA request ID
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t dma_request_memcpy_fixed(struct dma_req_setup *setup,
-                                  struct dma_client *client);
-
+errval_t dma_request_memcpy(struct dma_device *dev,
+                            struct dma_req_setup *setup,
+                            dma_req_id_t *id);
 
 /*
  * ----------------------------------------------------------------------------

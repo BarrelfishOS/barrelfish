@@ -193,7 +193,7 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
 
     err = dma_mgr_client.vtbl.lookup_driver(&dma_mgr_client, addr, size, numa_node,
                                             &msgerr, &info->mem_low, &info->mem_high,
-                                            &info->numa_node, (uint8_t*)&info->type,
+                                            &info->numa_node, (uint8_t*) &info->type,
                                             &info->iref);
     if (err_is_fail(err)) {
         DMAMGR_DEBUG("register driver: RPC failed %s\n", err_getstring(err));
@@ -203,4 +203,62 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
     return msgerr;
 }
 
+/**
+ * \brief queries the DMA driver manager based on the service iref
+ *
+ * \param iref      iref ot the exported driver service
+ * \param info      returns the driver info
+ *
+ * \returns SYS_ERR_OK on success
+ *          DMA_ERR_* on failure
+ */
+errval_t dma_manager_lookup_by_iref(iref_t iref,
+                                    struct dma_mgr_driver_info *info)
+{
+    errval_t err, msgerr;
+
+    if (dma_mgr_connected == 0) {
+        err = dma_manager_connect();
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    DMAMGR_DEBUG("lookup driver by iref:%"PRIxIREF"\n", iref);
+
+    err = dma_mgr_client.vtbl.lookup_driver_by_iref(&dma_mgr_client, iref, &msgerr,
+                                                    &info->mem_low, &info->mem_high,
+                                                    &info->numa_node,
+                                                    (uint8_t*) &info->type);
+    if (err_is_fail(err)) {
+        DMAMGR_DEBUG("register driver: RPC failed %s\n", err_getstring(err));
+        return err;
+    }
+
+    info->iref = iref;
+
+    return msgerr;
+}
+
+/**
+ * \brief waits until a device driver for the supplied device type is ready
+ *
+ * \param device    DMA device type
+ * \param numa_node Numanode of the DMA device driver
+ *
+ * \returns SYS_ERR_OK when the driver is ready
+ *          errval if there was something wrong
+ */
+errval_t dma_manager_wait_for_driver(dma_dev_type_t device,
+                                     uint8_t numa_node)
+{
+    char buf[30];
+    snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER, (uint8_t) device,
+             numa_node);
+
+    DMAMGR_DEBUG("waiting for driver: {%s}\n", buf);
+
+    iref_t dummy_iref;
+    return nameservice_blocking_lookup(buf, &dummy_iref);
+}
 

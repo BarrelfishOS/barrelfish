@@ -17,7 +17,8 @@
 
 #include <dma/dma.h>
 #include <dma/dma_request.h>
-#include <dma/dma_client.h>
+#include <dma/client/dma_client_device.h>
+#include <dma/dma_manager_client.h>
 
 #define DMA_BUFFER_SIZE  16
 #define DMA_BUFFER_COUNT 4
@@ -30,6 +31,12 @@ static lpaddr_t frame_addr;
 static void *frame_virt;
 static uint8_t *buffers[DMA_BUFFER_COUNT];
 static lpaddr_t phys[DMA_BUFFER_COUNT];
+
+static void done_cb(errval_t err, dma_req_id_t id, void *arg)
+{
+    debug_printf("done_cb: %016lx, %s\n",id, err_getstring(err));
+    assert(memcmp(buffers[0], buffers[1], (DMA_BUFFER_SIZE << 20)) == 0);
+}
 
 static void prepare(void)
 {
@@ -80,28 +87,42 @@ int main(int argc,
     err = nameservice_blocking_lookup(svc_name, &iref);
 #endif
 
-    err = dma_client_wait_for_driver(DMA_DEV_TYPE_IOAT, 0);
+    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_IOAT, 0);
     EXPECT_SUCCESS(err, "waiting for driver");
 
-    struct dma_client *client;
+    struct dma_client_info info = {
+        .type = DMA_CLIENT_INFO_TYPE_NAME,
+        .device_type = DMA_DEV_TYPE_IOAT,
+        .args = {
+            .name = "ioat_dma_svc.0"
+        }
+    };
 
-    client = dma_client_get_connection_by_addr(frame_addr, frame_addr, frame_size);
+    struct dma_client_device *dev;
+    err = dma_client_device_init(&info, &dev);
 
-    err = dma_client_register_memory(client, frame);
-    EXPECT_SUCCESS(err, "registering memory");
+    err = dma_register_memory((struct dma_device *)dev, frame);
+    EXPECT_SUCCESS(err, "registering memory\n");
+
+    memset(buffers[0], 0x5A, (DMA_BUFFER_SIZE << 20));
+    memset(buffers[1], 0, (DMA_BUFFER_SIZE << 20));
+    assert(memcmp(buffers[0], buffers[1], (DMA_BUFFER_SIZE << 20)) != 0);
+
+    dma_req_id_t id;
 
     struct dma_req_setup setup = {
-        .client = client,
+        .done_cb = done_cb,
+        .cb_arg = NULL,
         .args =  {
             .memcpy = {
                 .src = phys[0],
                 .dst = phys[1],
-                .bytes = DMA_BUFFER_SIZE
+                .bytes = (DMA_BUFFER_SIZE << 20)
             }
         }
     };
 
-    err = dma_client_memcpy(&setup);
+    err = dma_request_memcpy((struct dma_device *)dev, &setup, &id);
     EXPECT_SUCCESS(err, "registering memory");
 
     while (1) {

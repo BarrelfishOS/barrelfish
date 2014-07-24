@@ -21,7 +21,7 @@
 #include <dma/dma_service.h>
 #include <dma/dma_manager_client.h>
 #include <dma/ioat/ioat_dma.h>
-
+#include <dma/dma_bench.h>
 #include "device.h"
 #include "dma_service.h"
 #include "debug.h"
@@ -145,6 +145,11 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "DMA Device discovery failed");
     }
+
+#if DMA_BENCH_RUN_BENCHMARK
+    struct ioat_dma_device *dev = ioat_device_get_next();
+    dma_bench_run_default(dev);
+#endif
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_SERVICE
 

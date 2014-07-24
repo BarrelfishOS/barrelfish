@@ -263,8 +263,6 @@ static errval_t svc_connect_cb(void *st,
     binding->st = state;
     binding->rx_vtbl = dma_rx_vtbl;
 
-    debug_printf("returning...\n");
-
     return SYS_ERR_OK;
 }
 

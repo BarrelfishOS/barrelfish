@@ -53,9 +53,50 @@ struct dma_request *dma_channel_deq_request_head(struct dma_channel *chan)
     }
 
     DMACHAN_DEBUG("request : deq head [%016lx] count=%u\n", chan->id,
-                   dma_request_get_id(req), chan->req_list.count);
+                  dma_request_get_id(req), chan->req_list.count);
 
     return req;
+}
+
+/**
+ * \brief returns the request with the given request ID
+ *
+ * \param chan  DMA channel
+ * \param id    DMA request id
+ *
+ * \returns pointer to the DMA request
+ *          NULL if queue was empty
+ */
+struct dma_request *dma_channel_deq_request_by_id(struct dma_channel *chan,
+                                                  dma_req_id_t id)
+{
+    struct dma_request *req = chan->req_list.head;
+    if (req == NULL) {
+        assert(chan->req_list.count == 0);
+        return NULL;
+    }
+    while(req) {
+        if (req->id == id) {
+            if (req->prev != NULL) {
+                req->prev->next = req->next;
+            }
+
+            if (req->next != NULL) {
+                req->next->prev = req->prev;
+            }
+            chan->req_list.count--;
+            if (chan->req_list.count == 0) {
+                assert(chan->req_list.head == chan->req_list.tail);
+                chan->req_list.head = NULL;
+                chan->req_list.head = NULL;
+            }
+            req->next = NULL;
+            req->prev = NULL;
+            return req;
+        }
+        req = req->next;
+    }
+    return NULL;
 }
 
 /**
@@ -78,7 +119,7 @@ void dma_channel_enq_request_head(struct dma_channel *chan,
     }
 
     DMACHAN_DEBUG("request : enq head [%016lx] count=%u\n", chan->id,
-                   dma_request_get_id(req), chan->req_list.count);
+                  dma_request_get_id(req), chan->req_list.count);
 }
 
 /**
@@ -105,12 +146,29 @@ void dma_channel_enq_request_tail(struct dma_channel *chan,
     chan->req_list.count++;
 }
 
-
 /*
  * ============================================================================
  * Public Interface
  * ============================================================================
  */
+
+/**
+ * \brief polls the DMA channel for completed events
+ *
+ * \param chan  DMA Channel
+ *
+ * \returns SYS_ERR_OK if there was something processed
+ *          DMA_ERR_CHAN_IDLE if there was no request on the channel
+ *          DMA_ERR_REQUEST_UNFINISHED if the request has not been completed yet
+ *
+ */
+errval_t dma_channel_poll(struct dma_channel *chan)
+{
+    if (chan->f.poll) {
+        return chan->f.poll(chan);
+    }
+    return DMA_ERR_DEVICE_UNSUPPORTED;
+}
 
 /*
  * ----------------------------------------------------------------------------

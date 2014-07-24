@@ -42,7 +42,8 @@ typedef enum dma_irq {
 typedef enum dma_dev_type {
     DMA_DEV_TYPE_INVALID=0,
     DMA_DEV_TYPE_IOAT=1,
-    DMA_DEV_TYPE_XEON_PHI=2
+    DMA_DEV_TYPE_XEON_PHI=2,
+    DMA_DEV_TYPE_CLIENT=3
 } dma_dev_type_t;
 
 

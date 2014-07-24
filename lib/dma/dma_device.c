@@ -18,6 +18,24 @@
  * ===========================================================================
  */
 
+/**
+ * \brief polls the channels of the IOAT DMA device
+ *
+ * \param dev   IOAT DMA device
+ *
+ * \returns SYS_ERR_OK on success
+ *          DMA_ERR_DEVICE_IDLE if there is nothing completed on the channels
+ *          errval on error
+ */
+errval_t dma_device_poll_channels(struct dma_device *dev)
+{
+    if (dev->f.poll) {
+        return dev->f.poll(dev);
+    }
+
+    return DMA_ERR_DEVICE_UNSUPPORTED;
+}
+
 /*
  * ----------------------------------------------------------------------------
  * Getters / Setters
@@ -36,6 +54,17 @@ inline dma_dev_id_t dma_device_get_id(struct dma_device *dev)
     return dev->id;
 }
 
+/**
+ * \brief gets the DMA device type of the DMA device
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA device type
+ */
+inline dma_dev_id_t dma_device_get_type(struct dma_device *dev)
+{
+    return dev->type;
+}
 
 /**
  * \brief gets the state of the DMA device

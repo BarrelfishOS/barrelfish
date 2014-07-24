@@ -19,6 +19,7 @@ struct dma_request
 {
     dma_req_id_t id;            ///<
     dma_req_st_t state;         ///<
+    dma_req_type_t type;
     errval_t err;
     struct dma_req_setup setup; ///<
     struct dma_request *next;   ///<

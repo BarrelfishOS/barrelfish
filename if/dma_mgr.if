@@ -44,5 +44,20 @@ interface dma_mgr "DMA Manager Interface" {
                       out uint64 mem_high, 
                       out uint8 numa_node, 
                       out uint8 type,
-                      out iref svc_iref);    
+                      out iref svc_iref);
+    
+    /**
+     * \brief queries the DMA device manager if there is a service with the
+     *        needed memory range
+     * 
+     * \param IN  iref        low end of the supported memory range
+     * \param OUT msgerr      the result of the operation
+     * \param OUT driver_info information about the driver
+     */
+    rpc lookup_driver_by_iref(in iref iref,
+                              out errval msgerr,
+                              out uint64 mem_low, 
+                              out uint64 mem_high, 
+                              out uint8 numa_node, 
+                              out uint8 type); 
 };

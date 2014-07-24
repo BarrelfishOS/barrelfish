@@ -220,7 +220,7 @@ errval_t ioat_device_poll(void)
 
     uint8_t idle = 0x1;
     for (uint8_t i = 0; i < device_count; ++i) {
-        err = ioat_dma_device_poll_channels(devices[i]);
+        err = ioat_dma_device_poll_channels((struct dma_device *)devices[i]);
         switch (err_no(err)) {
             case SYS_ERR_OK:
                 idle &= 0;

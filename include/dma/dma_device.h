@@ -73,6 +73,16 @@ errval_t dma_device_acquire(struct dma_device **dev);
  */
 errval_t dma_device_release(struct dma_device *dev);
 
+/**
+ * \brief polls the channels of the IOAT DMA device
+ *
+ * \param dev   IOAT DMA device
+ *
+ * \returns SYS_ERR_OK on success
+ *          DMA_ERR_DEVICE_IDLE if there is nothing completed on the channels
+ *          errval on error
+ */
+errval_t dma_device_poll_channels(struct dma_device *dev);
 
 /*
  * ----------------------------------------------------------------------------
@@ -89,6 +99,14 @@ errval_t dma_device_release(struct dma_device *dev);
  */
 dma_dev_id_t dma_device_get_id(struct dma_device *dev);
 
+/**
+ * \brief gets the DMA device type of the DMA device
+ *
+ * \param dev   DMA device
+ *
+ * \returns DMA device type
+ */
+dma_dev_id_t dma_device_get_type(struct dma_device *dev);
 
 /**
  * \brief gets the state of the DMA device

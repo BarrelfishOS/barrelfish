@@ -94,6 +94,18 @@ static struct dma_service *service_lookup(lpaddr_t mem_low,
     return best;
 }
 
+static struct dma_service *service_lookup_iref(iref_t iref)
+{
+    struct dma_service *current = dma_services;
+    while(current) {
+        if (current->info.iref == iref) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
 /*
  * ============================================================================
  *
@@ -126,6 +138,21 @@ errval_t driver_store_insert(lpaddr_t mem_low,
     driver->info.iref = iref;
 
     service_insert(driver);
+
+    return SYS_ERR_OK;
+}
+
+errval_t driver_store_lookup_by_iref(iref_t iref,
+                                     struct dma_mgr_driver_info **info)
+{
+    DS_DEBUG("lookup: iref:%"PRIxIREF"\n", iref);
+
+    struct dma_service *svc = service_lookup_iref(iref);
+    if (svc == NULL) {
+        return DMA_ERR_SVC_VOID;
+    }
+
+    *info = &svc->info;
 
     return SYS_ERR_OK;
 }

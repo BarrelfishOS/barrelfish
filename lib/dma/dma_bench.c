@@ -8,15 +8,17 @@
  */
 #include <limits.h>
 #include <string.h>
+#include <stdio.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
 
 #include <dma_internal.h>
-#include <dma/ioat/ioat_dma_bench.h>
-#include <ioat/ioat_dma_device_internal.h>
-#include <ioat/ioat_dma_request_internal.h>
-#include <ioat/ioat_dma_channel_internal.h>
+#include <dma/dma_bench.h>
+#include <dma_device_internal.h>
+#include <dma_channel_internal.h>
+#include <dma_request_internal.h>
 
 #include <debug.h>
 
@@ -51,7 +53,7 @@ static inline cycles_t calculate_time(cycles_t tsc_start,
  * ============================================================================
  */
 
-errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
+errval_t dma_bench_run_default(struct dma_device *dev)
 {
     debug_printf("DMA BENCHMARK started\n");
     debug_printf("================================\n");
@@ -60,7 +62,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_BASE,
+    dma_bench_run(dev, DMA_BENCH_HOST_BASE,
                   DMA_BENCH_HOST_BASE + DMA_BENCH_BUFFER_SIZE);
 
     debug_printf("\n");
@@ -71,7 +73,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_BASE, DMA_BENCH_HOST_BASE2);
+    dma_bench_run(dev, DMA_BENCH_HOST_BASE, DMA_BENCH_HOST_BASE2);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
@@ -79,7 +81,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_BASE2, DMA_BENCH_HOST_BASE);
+    dma_bench_run(dev, DMA_BENCH_HOST_BASE2, DMA_BENCH_HOST_BASE);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
@@ -87,7 +89,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_BASE2,DMA_BENCH_HOST_BASE2+ DMA_BENCH_BUFFER_SIZE);
+    dma_bench_run(dev, DMA_BENCH_HOST_BASE2,DMA_BENCH_HOST_BASE2+ DMA_BENCH_BUFFER_SIZE);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
@@ -95,7 +97,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_BASE, DMA_BENCH_HOST_XEON_PHI_BASE);
+    dma_bench_run(dev, DMA_BENCH_HOST_BASE, DMA_BENCH_HOST_XEON_PHI_BASE);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
@@ -103,7 +105,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    ioat_dma_bench_run(dev, DMA_BENCH_HOST_XEON_PHI_BASE,DMA_BENCH_HOST_XEON_PHI_BASE + DMA_BENCH_BUFFER_SIZE);
+    dma_bench_run(dev, DMA_BENCH_HOST_XEON_PHI_BASE,DMA_BENCH_HOST_XEON_PHI_BASE + DMA_BENCH_BUFFER_SIZE);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
@@ -113,7 +115,7 @@ errval_t ioat_dma_bench_run_default(struct ioat_dma_device *dev)
     return SYS_ERR_OK;
 }
 
-errval_t ioat_dma_bench_run(struct ioat_dma_device *dev, lpaddr_t src, lpaddr_t dst)
+errval_t dma_bench_run(struct dma_device *dev, lpaddr_t src, lpaddr_t dst)
 {
     errval_t err;
      cycles_t tsc_start, tsc_end;
@@ -155,7 +157,7 @@ errval_t ioat_dma_bench_run(struct ioat_dma_device *dev, lpaddr_t src, lpaddr_t 
 
              tsc_start = bench_tsc();
 
-             err = ioat_dma_request_memcpy_chan((struct ioat_dma_channel *)chan, &setup, &id);
+             err = dma_request_memcpy_chan(chan, &setup, &id);
              if (err_is_fail(err)) {
                  USER_PANIC_ERR(err, "could not set the memcy request");
              }
@@ -163,7 +165,7 @@ errval_t ioat_dma_bench_run(struct ioat_dma_device *dev, lpaddr_t src, lpaddr_t 
              volatile uint8_t *done_flag = &dma_done;
 
              while (*done_flag == 0x0) {
-                 err = ioat_dma_channel_poll((struct ioat_dma_channel *)chan);
+                 err = dma_channel_poll(chan);
              }
 
              tsc_end = bench_tsc();

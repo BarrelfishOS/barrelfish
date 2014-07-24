@@ -12,6 +12,26 @@
 
 #include <dma/dma_channel.h>
 
+struct dma_req_setup;
+
+/*
+ *
+ */
+typedef errval_t (*memcpy_fn_t)(struct dma_channel *chan,
+                                struct dma_req_setup *setup,
+                                dma_req_id_t *id);
+
+typedef errval_t (*chan_poll_fn_t)(struct dma_channel *chan);
+
+/**
+ *
+ */
+struct dma_channel_fn
+{
+    memcpy_fn_t memcpy;
+    chan_poll_fn_t poll;
+};
+
 /**
  * Represents the generic part of a DMA channel
  */
@@ -36,7 +56,9 @@ struct dma_channel
         struct dma_request *tail;   ///< end of the request list
     } req_list;                     ///< list of submitted requests
 
-    uint64_t req_counter;           ///< number of requests issued sofar
+    uint64_t req_counter;           ///< number of requests issued so far
+
+    struct dma_channel_fn f;        ///< function pointers to channels
 };
 
 /*
@@ -54,6 +76,18 @@ struct dma_channel
  *          NULL if queue was empty
  */
 struct dma_request *dma_channel_deq_request_head(struct dma_channel *chan);
+
+/**
+ * \brief returns the request with the given request ID
+ *
+ * \param chan  DMA channel
+ * \param id    DMA request id
+ *
+ * \returns pointer to the DMA request
+ *          NULL if queue was empty
+ */
+struct dma_request *dma_channel_deq_request_by_id(struct dma_channel *chan,
+                                                  dma_req_id_t id);
 
 /**
  * \brief inserts a request into the head of a channel's request list

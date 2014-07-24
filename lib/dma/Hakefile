@@ -16,11 +16,11 @@
     cFiles = [
       "dma_mem_mgr.c",
       "dma_mem_utils.c",
-      "dma_client.c",
       "dma_mgr_client.c",
       "dma_device.c",
       "dma_channel.c",
       "dma_request.c",
+      "dma_bench.c",
       "ioat/ioat_dma_channel.c",
       "ioat/ioat_dma_dca.c",
       "ioat/ioat_dma_descriptors.c",
@@ -28,7 +28,9 @@
       "ioat/ioat_dma_request.c",
       "ioat/ioat_dma_ring.c",
       "ioat/ioat_dma.c",
-      "ioat/ioat_dma_bench.c"
+      "client/dma_client_device.c",
+      "client/dma_client_channel.c",
+      "client/dma_client_request.c"
     ],
     addIncludes = [ "include" ],
     addLibraries = libDeps [ "bench" ],
@@ -36,15 +38,6 @@
     flounderDefs = [ "dma" ],
     flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
     mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ]
-  },
-  
-  build library { 
-    target = "dma_client",
-    cFiles = [ 
-      "dma_client.c" 
-    ],
-    addIncludes = [ "include" ],
-    flounderBindings = [ "dma" ]
   },
   
   build library { 

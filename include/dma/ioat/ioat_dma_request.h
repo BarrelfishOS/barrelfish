@@ -40,7 +40,7 @@ static inline struct ioat_dma_request *dma_request_to_ioat(struct dma_request *r
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
+errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
                                       struct dma_req_setup *setup,
                                       dma_req_id_t *id);
 
@@ -54,7 +54,7 @@ errval_t ioat_dma_request_memcpy_chan(struct ioat_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t ioat_dma_request_memcpy(struct ioat_dma_device *dev,
+errval_t ioat_dma_request_memcpy(struct dma_device *dev,
                                  struct dma_req_setup *setup,
                                  dma_req_id_t *id);
 

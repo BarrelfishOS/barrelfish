@@ -135,6 +135,34 @@ static void svc_lookup_response_tx(struct txq_msg_st *msg_st)
                                                  di->mem_low, di->mem_high,
                                                  di->numa_node, di->type, di->iref);
     }
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending message failed unexpectedly");
+    }
+}
+
+static void svc_lookup_by_iref_response_tx(struct txq_msg_st *msg_st)
+{
+    errval_t err;
+
+    struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
+
+    struct dma_mgr_driver_info *di = st->args.lookup;
+
+    if (err_is_fail(msg_st->err)) {
+        err = dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
+                                                         TXQCONT(msg_st),
+                                                         msg_st->err, 0, 0, 0, 0);
+    } else {
+        assert(di);
+        err = dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
+                                                         TXQCONT(msg_st),
+                                                         msg_st->err, di->mem_low,
+                                                         di->mem_high, di->numa_node,
+                                                         di->type);
+    }
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending message failed unexpectedly");
+    }
 }
 
 static void svc_lookup_call_rx(struct dma_mgr_binding *_binding,
@@ -160,9 +188,31 @@ static void svc_lookup_call_rx(struct dma_mgr_binding *_binding,
     txq_send(msg_st);
 }
 
+static void svc_lookup_by_iref_call_rx(struct dma_mgr_binding *_binding,
+                                       iref_t iref)
+{
+    SVC_DEBUG("lookup call by iref: %"PRIxIREF"\n", iref);
+
+    struct tx_queue *txq = _binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(txq);
+    if (msg_st == NULL) {
+        USER_PANIC("could not allocate reply state\n");
+    }
+
+    msg_st->send = svc_lookup_by_iref_response_tx;
+
+    struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
+
+    msg_st->err = driver_store_lookup_by_iref(iref, &st->args.lookup);
+
+    txq_send(msg_st);
+}
+
 struct dma_mgr_rx_vtbl svc_rx_vtbl = {
     .register_driver_call = svc_register_call_rx,
     .lookup_driver_call = svc_lookup_call_rx,
+    .lookup_driver_by_iref_call = svc_lookup_by_iref_call_rx
 };
 
 /*

@@ -65,4 +65,29 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
                                    lpaddr_t size,
                                    struct dma_mgr_driver_info *info);
 
+/**
+ * \brief queries the DMA driver manager based on the service iref
+ *
+ * \param iref      iref ot the exported driver service
+ * \param info      returns the driver info
+ *
+ * \returns SYS_ERR_OK on success
+ *          DMA_ERR_* on failure
+ */
+errval_t dma_manager_lookup_by_iref(iref_t iref,
+                                    struct dma_mgr_driver_info *info);
+
+/**
+ * \brief waits until a device driver for the supplied device type is ready
+ *
+ * \param device    DMA device type
+ * \param numa_node Numanode of the DMA device driver
+ *
+ * \returns SYS_ERR_OK when the driver is ready
+ *          errval if there was something wrong
+ */
+errval_t dma_manager_wait_for_driver(dma_dev_type_t device,
+                                     uint8_t numa_node);
+
+
 #endif  /* LIB_DMA_CLIENT_H */

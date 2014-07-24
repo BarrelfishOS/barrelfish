@@ -313,7 +313,7 @@ static void memcpy_response_rx(struct dma_binding *_binding,
     rpc_done(client);
 }
 
-struct dma_rx_vtbl dma_rxvtbl = {
+static struct dma_rx_vtbl dma_rxvtbl = {
     .register_response = register_response_rx,
     .deregister_response = deregister_response_rx,
     .memcpy_response = memcpy_response_rx,

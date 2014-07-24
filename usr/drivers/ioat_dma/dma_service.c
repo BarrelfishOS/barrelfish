@@ -152,7 +152,7 @@ errval_t dma_svc_memcpy_cb(dma_svc_handle_t svc_handle,
     assert(dev);
 
     struct dma_req_setup setup = {
-        .type = IOAT_DMA_REQ_TYPE_MEMCPY,
+        .type = DMA_REQ_TYPE_MEMCPY,
         .done_cb = memcpy_req_cb,
         .cb_arg = svc_handle,
         .args = {
@@ -164,7 +164,7 @@ errval_t dma_svc_memcpy_cb(dma_svc_handle_t svc_handle,
         }
     };
 
-    ioat_dma_request_memcpy(dev, &setup, id);
+    ioat_dma_request_memcpy((struct dma_device *)dev, &setup, id);
 
     return SYS_ERR_OK;
 }

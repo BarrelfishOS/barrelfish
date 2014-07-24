@@ -126,7 +126,7 @@ void ioat_dma_device_set_intr_delay(struct ioat_dma_device *dev,
  *          DMA_ERR_DEVICE_IDLE if there is nothing completed on the channels
  *          errval on error
  */
-errval_t ioat_dma_device_poll_channels(struct ioat_dma_device *dev);
+errval_t ioat_dma_device_poll_channels(struct dma_device *dev);
 
 
 
