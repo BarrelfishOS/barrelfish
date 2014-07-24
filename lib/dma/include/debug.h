@@ -26,7 +26,7 @@
 #define DMA_DEBUG_MEM_ENABLED     1
 #define DMA_DEBUG_CLIENT_ENABLED  1
 #define DMA_DEBUG_MGR_ENABLED     1
-
+#define DMA_DEBUG_DESC_ENABLED    1
 /*
  * ---------------------------------------------------------------------------
  *  IOAT debug switches
@@ -38,6 +38,17 @@
 #define IOAT_DEBUG_DESC_ENABLED    1
 #define IOAT_DEBUG_INTR_ENABLED    1
 #define IOAT_DEBUG_DCA_ENABLED     1
+
+/*
+ * ---------------------------------------------------------------------------
+ *  Xeon Phi debug switches
+ */
+#define XEON_PHI_DEBUG_ENABLED     1
+#define XPHI_DEBUG_CHAN_ENABLED    1
+#define XPHI_DEBUG_DEVICE_ENABLED  1
+#define XPHI_DEBUG_REQUEST_ENABLED 1
+#define XPHI_DEBUG_DESC_ENABLED    1
+#define XPHI_DEBUG_INTR_ENABLED    1
 
 /*
  * ---------------------------------------------------------------------------
@@ -98,7 +109,11 @@
 #else
 #define DMAMGR_DEBUG(x...)
 #endif
-
+#if DMA_DEBUG_DESC_ENABLED
+#define DMADESC_DEBUG(x...) IOAT_DEBUG_PRINT("[dma desc] " x)
+#else
+#define DMADESC_DEBUG(x...)
+#endif
 
 /*
  * --------------------------------------------------------------------------
@@ -140,6 +155,44 @@
 #else
 #define IOATDCA_DEBUG(x...)
 #endif
+
+
+/*
+ * --------------------------------------------------------------------------
+ *  XPHI Debug output generation
+ */
+
+#if (LIB_DMA_DEBUG_ENABLED && XEON_PHI_DEBUG_ENABLED)
+#define XPHI_DEBUG_PRINT(x...) debug_printf(x)
+#else
+#define XPHI_DEBUG_PRINT(x... )
+#endif
+#if XPHI_DEBUG_INTR_ENABLED
+#define XPHIINT_DEBUG(x...) XPHI_DEBUG_PRINT("[xdma intr] " x)
+#else
+#define XPHIINT_DEBUG(x...)
+#endif
+#if XPHI_DEBUG_CHAN_ENABLED
+#define XPHICHAN_DEBUG(x...) XPHI_DEBUG_PRINT("[xdma chan.%04x] " x)
+#else
+#define XPHICHAN_DEBUG(x...)
+#endif
+#if XPHI_DEBUG_REQUEST_ENABLED
+#define XPHIREQ_DEBUG(x...) XPHI_DEBUG_PRINT("[xdma req] " x)
+#else
+#define XPHIREQ_DEBUG(x...)
+#endif
+#if XPHI_DEBUG_DEVICE_ENABLED
+#define XPHIDEV_DEBUG(x...) XPHI_DEBUG_PRINT("[xdma dev.%02x] " x)
+#else
+#define XPHIDEV_DEBUG(x...)
+#endif
+#if XPHI_DEBUG_DESC_ENABLED
+#define XPHIDESC_DEBUG(x...) XPHI_DEBUG_PRINT("[xdma desc] " x)
+#else
+#define XPHIDESC_DEBUG(x...)
+#endif
+
 
 /*
  * --------------------------------------------------------------------------

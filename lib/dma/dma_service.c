@@ -248,6 +248,7 @@ static errval_t svc_connect_cb(void *st,
 
     txq_init(&state->queue, binding, binding->waitset,
              (txq_register_fn_t) binding->register_send,
+             (txq_can_send_fn_t) binding->can_send,
              sizeof(struct dma_svc_reply_st));
 
     err = event_handlers->connect(&state->usr_st);

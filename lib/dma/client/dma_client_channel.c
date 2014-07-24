@@ -259,7 +259,7 @@ static void chan_init_bind_cb(void *st,
     }
 
     txq_init(&chan->txq, b, b->waitset, (txq_register_fn_t) b->register_send,
-             sizeof(struct svc_msg_st));
+             (txq_can_send_fn_t) b->can_send, sizeof(struct svc_msg_st));
 
     chan->binding = b;
     chan->client_st = DMA_CLIENT_STATE_BIND_OK;

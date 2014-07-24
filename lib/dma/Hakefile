@@ -20,14 +20,20 @@
       "dma_device.c",
       "dma_channel.c",
       "dma_request.c",
+      "dma_ring.c",
+      "dma_descriptor.c",
       "dma_bench.c",
       "ioat/ioat_dma_channel.c",
       "ioat/ioat_dma_dca.c",
       "ioat/ioat_dma_descriptors.c",
       "ioat/ioat_dma_device.c",
       "ioat/ioat_dma_request.c",
-      "ioat/ioat_dma_ring.c",
       "ioat/ioat_dma.c",
+      "xeon_phi/xeon_phi_dma.c",
+      "xeon_phi/xeon_phi_dma_device.c",
+      "xeon_phi/xeon_phi_dma_channel.c",
+      "xeon_phi/xeon_phi_dma_request.c",
+      "xeon_phi/xeon_phi_dma_descriptors.c",
       "client/dma_client_device.c",
       "client/dma_client_channel.c",
       "client/dma_client_request.c"
@@ -37,7 +43,11 @@
     flounderBindings = [ "dma", "ioat_dma_mgr", "dma_mgr" ],
     flounderDefs = [ "dma" ],
     flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
-    mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ]
+    mackerelDevices = [ 
+      "ioat_dma", 
+      "ioat_dma_chan", 
+      "xeon_phi/xeon_phi_dma", 
+      "xeon_phi/xeon_phi_dma_chan" ]
   },
   
   build library { 
