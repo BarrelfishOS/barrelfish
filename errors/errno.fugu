@@ -1073,6 +1073,7 @@ errors dma DMA_ERR_ {
     failure CHAN_BUSY             "The channel is busy and cannot accept more",
     failure CHAN_IDLE             "There were no finished requests on the channel",
     failure REQUEST_UNFINISHED    "The request is still in operation",
+    failure REQUEST_UNSUPPORTED   "Request is not supported by this device/channel",
     failure MEM_OVERLAP           "The memory regions overlap",
     failure MEM_NOT_REGISTERED    "The memory region was not registered",
     failure MEM_OUT_OF_RANGE      "Memory region is out of supported range",
