@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 
 #include <dma/dma.h>
@@ -122,9 +123,20 @@ int main(int argc,
         }
     };
 
-    err = dma_request_memcpy((struct dma_device *)dev, &setup, &id);
-    EXPECT_SUCCESS(err, "registering memory");
 
+    uint32_t count = 0x1F;
+    while(count--) {
+
+        printf("\n\n=============================================\n\n");
+
+        err = dma_request_memcpy((struct dma_device *)dev, &setup, &id);
+        EXPECT_SUCCESS(err, "memcpy memory");
+        err = event_dispatch_non_block(get_default_waitset());
+        if (err_no(err) == LIB_ERR_NO_EVENT) {
+            err = SYS_ERR_OK;
+        }
+        EXPECT_SUCCESS(err, "event dispatch");
+    }
     while (1) {
         messages_wait_and_handle_next();
     }
