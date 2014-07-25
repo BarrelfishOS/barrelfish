@@ -104,7 +104,7 @@ static void done_msg_rx(struct dma_binding *_binding,
     struct dma_client_channel *chan = _binding->st;
 
     CLIENTCHAN_DEBUG("done_msg_rx: %lx %s\n", chan->common.id, id,
-                         err_getstring(msgerr));
+                     err_getstring(msgerr));
 
     struct dma_request *req = dma_channel_deq_request_by_id(&chan->common, id);
     /*
@@ -137,7 +137,7 @@ static void register_response_rx(struct dma_binding *_binding,
     struct dma_client_channel *chan = _binding->st;
 
     CLIENTCHAN_DEBUG("register_response_rx: %s\n", chan->common.id,
-                         err_getstring(msgerr));
+                     err_getstring(msgerr));
 
     chan->error = msgerr;
     if (err_is_fail(msgerr)) {
@@ -155,7 +155,7 @@ static void deregister_response_rx(struct dma_binding *_binding,
     chan->error = msgerr;
 
     CLIENTCHAN_DEBUG("deregister_response_rx: %s\n", chan->common.id,
-                         err_getstring(msgerr));
+                     err_getstring(msgerr));
 
     if (err_is_fail(msgerr)) {
         chan->rpc->state = DMA_REQ_ST_ERR;
@@ -198,45 +198,30 @@ static struct dma_rx_vtbl dma_rxvtbl = {
  * ----------------------------------------------------------------------------
  */
 
-static void dma_client_channel_register_call_tx(struct txq_msg_st *msg_st)
+static errval_t dma_client_channel_register_call_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
 
-    err = dma_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                st->args.cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
-    }
+    return dma_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                 st->args.cap);
 }
 
-static void dma_client_channel_deregister_call_tx(struct txq_msg_st *msg_st)
+static errval_t dma_client_channel_deregister_call_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
 
-    err = dma_deregister_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                  st->args.cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
-    }
+    return dma_deregister_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                   st->args.cap);
 }
 
-static void dma_client_channel_memcpy_call_tx(struct txq_msg_st *msg_st)
+static errval_t dma_client_channel_memcpy_call_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
     struct dma_req_setup *setup = &st->args.req->setup;
 
-    err = dma_memcpy_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                              setup->args.memcpy.src, setup->args.memcpy.dst,
-                              setup->args.memcpy.bytes);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly sending failed\n");
-    }
+    return dma_memcpy_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                               setup->args.memcpy.src, setup->args.memcpy.dst,
+                               setup->args.memcpy.bytes);
 }
 
 /*
@@ -259,7 +244,7 @@ static void chan_init_bind_cb(void *st,
     }
 
     txq_init(&chan->txq, b, b->waitset, (txq_register_fn_t) b->register_send,
-             (txq_can_send_fn_t) b->can_send, sizeof(struct svc_msg_st));
+             sizeof(struct svc_msg_st));
 
     chan->binding = b;
     chan->client_st = DMA_CLIENT_STATE_BIND_OK;
