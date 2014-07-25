@@ -10,14 +10,14 @@
 #ifndef XEON_PHI_DMA_DESCRIPTORS_INTERNAL_H
 #define XEON_PHI_DMA_DESCRIPTORS_INTERNAL_H
 
+#include <dma_descriptor_internal.h>
 #include <dma/xeon_phi/xeon_phi_dma_descriptors.h>
 
+/// alignment shift amount for the size fields
+#define XEON_PHI_DMA_ALIGN_SHIFT 6
 
-/*
- * ----------------------------------------------------------------------------
- * Allocation / Deallocation
- * ----------------------------------------------------------------------------
- */
+/// alignment constraints for descriptors and sizes
+#define XEON_PHI_DMA_ALIGNMENT 64
 
 
 #endif /* XEON_PHI_DMA_DESCRIPTORS_INTERNAL_H */

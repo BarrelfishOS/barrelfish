@@ -37,7 +37,7 @@ struct xeon_phi_dma_channel
  * \param mask if 0 unmask or enabling the interrupts
  *             if 1 masking or disabling the interrupts
  */
-static uint32_t xdma_channel_mask_intr(struct xeon_phi_dma_channel *chan,
+static uint32_t channel_mask_intr(struct xeon_phi_dma_channel *chan,
                                        uint8_t mask)
 {
     uint8_t mask_val = (mask) ? 0x1 : 0x0;
@@ -56,10 +56,10 @@ static uint32_t xdma_channel_mask_intr(struct xeon_phi_dma_channel *chan,
  *
  * \param chan  Xeon Phi DMA channel
  */
-static inline void xdma_channel_ack_intr(struct xeon_phi_dma_channel *chan)
+static inline void channel_ack_intr(struct xeon_phi_dma_channel *chan)
 {
-    xdma_channel_mask_intr(chan, 1);
-    xdma_channel_mask_intr(chan, 0);
+    channel_mask_intr(chan, 1);
+    channel_mask_intr(chan, 0);
 }
 
 /**
@@ -68,11 +68,13 @@ static inline void xdma_channel_ack_intr(struct xeon_phi_dma_channel *chan)
  * \param chan Xeon Phi DMA channel
  * \param mask bitmask for the errors
  */
-static inline void xdma_channel_set_error_mask(struct xeon_phi_dma_channel *chan,
+static inline void channel_set_error_mask(struct xeon_phi_dma_channel *chan,
                                                uint32_t mask)
 {
     xeon_phi_dma_chan_dcherr_wr(&chan->channel, mask);
 }
+
+
 
 /*
  * ============================================================================
@@ -99,27 +101,43 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
 
     errval_t err;
 
+    struct dma_device *dma_dev = (struct dma_device *)dev;
+
+    uint8_t idx = id + XEON_PHI_DMA_DEVICE_CHAN_OFFSET;
+    assert(idx < XEON_PHI_DMA_DEVICE_CHAN_TOTAL);
+
     struct xeon_phi_dma_channel *chan = calloc(1, sizeof(*chan));
     if (chan == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    chan->common.device = (struct dma_device *)dev;
+    chan->common.id = dma_channel_id_build(dma_device_get_id(dma_dev), idx);
+    chan->common.max_xfer_size = max_xfer;
+
+
 #ifdef __k1om__
     chan->owner = XEON_PHI_DMA_OWNER_CARD;
+    xeon_phi_dma_device_set_channel_owner(dev, idx, XEON_PHI_DMA_OWNER_CARD);
 #else
     chan->owner = XEON_PHI_DMA_OWNER_HOST;
+    xeon_phi_dma_device_set_channel_owner(dev, idx, XEON_PHI_DMA_OWNER_HOST);
 #endif
 
     xeon_phi_dma_chan_initialize(&chan->channel,
-                                 xeon_phi_dma_device_get_channel_vbase(dev, id));
+                                 xeon_phi_dma_device_get_channel_vbase(dev, idx));
 
-    xdma_channel_set_error_mask(chan, 0);
-    xdma_channel_ack_intr(chan);
+    channel_set_error_mask(chan, 0);
+    channel_ack_intr(chan);
 
     err = dma_ring_alloc(XEON_PHI_DMA_RING_SIZE, XEON_PHI_DMA_DESC_ALIGN,
                          XEON_PHI_DMA_DESC_SIZE, &chan->ring, &chan->common);
 
-    xdma_channel_mask_intr(chan, 0x1);
+    channel_mask_intr(chan, 0x1);
+
+    chan->common.state = DMA_CHAN_ST_PREPARED;
+
+    xeon_phi_dma_device_set_channel_state(dev, idx, 0x1);
 
     return SYS_ERR_OK;
 }

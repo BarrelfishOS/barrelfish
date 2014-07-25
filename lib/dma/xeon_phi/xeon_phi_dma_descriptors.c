@@ -18,43 +18,14 @@
 
 #include <debug.h>
 
+#define ASSERT_ALIGNED(x) \
+    assert((x) && ((((uintptr_t)x) & (XEON_PHI_DMA_ALIGNMENT - 1)) == 0))
 
-/*
- * ============================================================================
- * Library Internal Interface
- * ============================================================================
- */
-
-#if 0
-/*
- * ----------------------------------------------------------------------------
- * Descriptor getters / setters
- * ----------------------------------------------------------------------------
- */
-
-/**
- * \brief sets the next pointer of the descriptor and does the corresponding
- *        hardware linkage
- *
- * \param desc descriptor to set the next field
- * \param next following descriptor
- */
-inline void xeon_phi_dma_desc_set_next(struct xeon_phi_dma_descriptor *desc,
-                struct xeon_phi_dma_descriptor *next)
+static inline void clear_descriptor(void *descriptor)
 {
-    xeon_phi_dma_desc_next_insert(desc->desc, next->paddr);
-    desc->next = next;
-}
-
-/**
- * \brief returns a virtual address pointer to the location where the descriptor
- *        is mapped
- *
- * \param desc XEON_PHI DMA descriptor
- */
-inline xeon_phi_dma_desc_t xeon_phi_dma_desc_get_desc_handle(struct xeon_phi_dma_descriptor *desc)
-{
-    return desc->desc;
+    uint64_t *desc = descriptor;
+    desc[0] = 0;
+    desc[1] = 0;
 }
 
 /*
@@ -64,112 +35,98 @@ inline xeon_phi_dma_desc_t xeon_phi_dma_desc_get_desc_handle(struct xeon_phi_dma
  */
 
 /**
- * \brief initializes the hardware specific part of the descriptor
+ * \brief initializes the hardware specific part of the descriptor to be used
+ *        for memcpy descriptors
  *
- * \param desc  XEON_PHI DMA descriptor
+ * \param desc  Xeon Phi descriptor
  * \param src   Source address of the transfer
  * \param dst   destination address of the transfer
  * \param size  number of bytes to copy
- * \param ctrl  control flags
+ * \param flags control flags
  *
  * XXX: this function assumes that the size of the descriptor has already been
  *      checked and must match the maximum transfer size of the channel
  */
-inline void xeon_phi_dma_desc_fill_memcpy(struct xeon_phi_dma_descriptor *desc,
-                lpaddr_t src,
-                lpaddr_t dst,
-                uint32_t size,
-                xeon_phi_dma_desc_ctrl_t ctrl)
+inline void xeon_phi_dma_desc_fill_memcpy(struct dma_descriptor *desc,
+                                          lpaddr_t src,
+                                          lpaddr_t dst,
+                                          uint32_t size,
+                                          uint32_t flags)
 {
-    xeon_phi_dma_desc_size_insert(desc->desc, size);
-    xeon_phi_dma_desc_ctrl_insert(desc->desc, *((uint32_t *) ctrl));
-    xeon_phi_dma_desc_src_insert(desc->desc, src);
-    xeon_phi_dma_desc_dst_insert(desc->desc, dst);
+    uint8_t *d = dma_desc_get_desc_handle(desc);
+
+    clear_descriptor(d);
+
+    ASSERT_ALIGNED(src);
+    ASSERT_ALIGNED(dst);
+    ASSERT_ALIGNED(size);
+
+    xeon_phi_dma_desc_memcpy_src_insert(d, src);
+    xeon_phi_dma_desc_memcpy_dst_insert(d, dst);
+    xeon_phi_dma_desc_memcpy_length_insert(d, (size >> XEON_PHI_DMA_ALIGN_SHIFT));
+    xeon_phi_dma_desc_memcpy_dtype_insert(d, xeon_phi_dma_desc_memcpy);
 }
 
 /**
  * \brief initializes the hardware specific part of the descriptor to be used
  *        for nop descriptors (null descriptors)
  *
- * \param desc  XEON_PHI DMA descriptor
+ * \param desc  Xeon Phi descriptor
  */
-inline void xeon_phi_dma_desc_fill_nop(struct xeon_phi_dma_descriptor *desc)
+inline void xeon_phi_dma_desc_fill_nop(struct dma_descriptor *desc)
 {
-    uint32_t ctrl = 0;
-    xeon_phi_dma_desc_ctrl_t dma_ctrl = (xeon_phi_dma_desc_ctrl_t)(&ctrl);
-    xeon_phi_dma_desc_ctrl_int_en_insert(dma_ctrl, 0x1);
-    xeon_phi_dma_desc_ctrl_null_insert(dma_ctrl, 0x1);
-    xeon_phi_dma_desc_ctrl_compl_write_insert(dma_ctrl, 0x1);
-
-    xeon_phi_dma_desc_size_insert(desc->desc, 1);   // size must be non zero
-    xeon_phi_dma_desc_ctrl_insert(desc->desc, ctrl);
-    xeon_phi_dma_desc_src_insert(desc->desc, 0);
-    xeon_phi_dma_desc_dst_insert(desc->desc, 0);
-}
-
-/*
- * ----------------------------------------------------------------------------
- * Descriptor getters / setters
- * ----------------------------------------------------------------------------
- */
-
-/**
- * \brief returns the corresponding XEON_PHI DMA request this descriptor belongs
- *
- * \param desc XEON_PHI DMA descriptor
- *
- * \brief pointer to the request
- *        NULL if there is none
- */
-inline struct xeon_phi_dma_request *xeon_phi_dma_desc_get_request(struct xeon_phi_dma_descriptor *desc)
-{
-    return desc->req;
+    clear_descriptor(dma_desc_get_desc_handle(desc));
 }
 
 /**
- * \brief returns a pointer to the next descriptor in a chain
+ * \brief initializes the hardware specific part of the descriptor to be used
+ *        for general descriptors
  *
- * \param desc XEON_PHI DMA descriptor
- *
- * \returns next descriptor
- *          NULL if the end of chain
+ * \param desc  Xeon Phi descriptor
+ * \param dst   destination address
+ * \param data  Data payload for the request (request specific)
  */
-struct xeon_phi_dma_descriptor *xeon_phi_dma_desc_get_next(struct xeon_phi_dma_descriptor *desc)
+inline void xeon_phi_dma_desc_fill_general(struct dma_descriptor *desc,
+                                           lpaddr_t dst,
+                                           uint64_t data)
 {
-    return desc->next;
+    uint8_t *d = dma_desc_get_desc_handle(desc);
+
+    clear_descriptor(d);
+
+    ASSERT_ALIGNED(dst);
+
+    xeon_phi_dma_desc_general_data_insert(d, data);
+    xeon_phi_dma_desc_general_dst_insert(d, dst);
+
+    xeon_phi_dma_desc_general_dtype_insert(d, xeon_phi_dma_desc_general);
 }
 
 /**
- * \brief returns the physical address of the descriptor
+ * \brief initializes the hardware specific part of the descriptor to be used
+ *        for status descriptors
  *
- * \param desc XEON_PHI DMA descriptor
- *
- * \returns physical address of the descriptor
+ * \param desc  Xeon Phi descriptor
+ * \param dst   destination address
+ * \param data  Data payload for the request (request specific)
+ * \param flags Descriptor flags
  */
-inline lpaddr_t xeon_phi_dma_desc_get_paddr(struct xeon_phi_dma_descriptor *desc)
+inline void xeon_phi_dma_desc_fill_status(struct dma_descriptor *desc,
+                                          lpaddr_t dst,
+                                          uint64_t data,
+                                          uint32_t flags)
 {
-    return desc->paddr;
-}
+    uint8_t *d = dma_desc_get_desc_handle(desc);
 
-/**
- * \brief returns a virtual address pointer to the location where the descriptor
- *        is mapped
- *
- * \param desc XEON_PHI DMA descriptor
- */
-inline xeon_phi_dma_desc_t xeon_phi_dma_desc_get_desc(struct xeon_phi_dma_descriptor *desc)
-{
-    return desc->desc;
-}
+    clear_descriptor(d);
 
-/**
- * \brief sets the corresponding request
- *
- * \param desc XEON_PHI DMA descriptor
- */
-inline void xeon_phi_dma_desc_set_request(struct xeon_phi_dma_descriptor *desc,
-                struct xeon_phi_dma_request *req)
-{
-    desc->req = req;
+    ASSERT_ALIGNED(dst);
+
+    xeon_phi_dma_desc_status_data_insert(d, data);
+    xeon_phi_dma_desc_status_dst_insert(d, dst);
+    if (flags & XEON_PHI_DMA_DESC_FLAG_INTR) {
+        xeon_phi_dma_desc_status_intr_insert(d, 0x1);
+    }
+
+    xeon_phi_dma_desc_status_dtype_insert(d, xeon_phi_dma_desc_status);
 }
-#endif

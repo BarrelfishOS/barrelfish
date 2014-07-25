@@ -22,6 +22,12 @@ struct xeon_phi_dma_request;
 /// size of the Xeon PHI DMA descriptor ring in bits
 #define XEON_PHI_DMA_RING_SIZE 8
 
+
+typedef enum xeon_phi_dma_owner {
+    XEON_PHI_DMA_OWNER_CARD = 0,
+    XEON_PHI_DMA_OWNER_HOST
+} xeon_phi_dma_owner_t;
+
 /**
  * \brief initializes the DMA library
  */

@@ -66,9 +66,112 @@ errval_t xeon_phi_dma_device_irq_setup(struct xeon_phi_dma_device *dev,
 void *xeon_phi_dma_device_get_channel_vbase(struct xeon_phi_dma_device *dev,
                                             uint8_t idx)
 {
-    idx += XEON_PHI_DMA_DEVICE_CHAN_OFFSET;
-    assert(idx < XEON_PHI_DMA_DEVICE_CHAN_TOTAL);
-    return (void *)(dev->common.mmio.vaddr + (idx * 0x80));
+    return (void *) (dev->common.mmio.vaddr + (idx * 0x80) + XEON_PHI_DMA_OFFSET);
+}
+
+/**
+ * \brief sets the channel owner register of the Xeon Phi DMA device
+ *
+ * \param dev   Xeon Phi DMA device
+ * \param idx   channel index
+ * \param owner owner of the channel
+ */
+void xeon_phi_dma_device_set_channel_owner(struct xeon_phi_dma_device *dev,
+                                           uint8_t idx,
+                                           xeon_phi_dma_owner_t owner)
+{
+    uint8_t owner_val;
+    if (owner == XEON_PHI_DMA_OWNER_CARD) {
+        owner_val = 0;
+
+    } else {
+        owner_val = 1;
+    }
+
+    xeon_phi_dma_dcr_t dcr = xeon_phi_dma_dcr_rd(&dev->device);
+
+    switch (idx) {
+        case 0x0:
+            dcr = xeon_phi_dma_dcr_co0_insert(dcr, owner_val);
+            break;
+        case 0x1:
+            dcr = xeon_phi_dma_dcr_co1_insert(dcr, owner_val);
+            break;
+        case 0x2:
+            dcr = xeon_phi_dma_dcr_co2_insert(dcr, owner_val);
+            break;
+        case 0x3:
+            dcr = xeon_phi_dma_dcr_co3_insert(dcr, owner_val);
+            break;
+        case 0x4:
+            dcr = xeon_phi_dma_dcr_co4_insert(dcr, owner_val);
+            break;
+        case 0x5:
+            dcr = xeon_phi_dma_dcr_co5_insert(dcr, owner_val);
+            break;
+        case 0x6:
+            dcr = xeon_phi_dma_dcr_co6_insert(dcr, owner_val);
+            break;
+        case 0x7:
+            dcr = xeon_phi_dma_dcr_co7_insert(dcr, owner_val);
+            break;
+    }
+
+    xeon_phi_dma_dcr_wr(&dev->device, dcr);
+}
+
+/**
+ * \brief Enables / Disables the Xeon Phi DMA channel
+ *
+ * \param chan      Xeon Phi DMA channel
+ * \param idx       channel index
+ * \param enabled   flag to set the channel enabled
+ */
+void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
+                                           uint8_t idx,
+                                           uint8_t enabled)
+{
+    uint8_t id = idx - XEON_PHI_DMA_DEVICE_CHAN_OFFSET;
+
+    xeon_phi_dma_dcr_t dcr = xeon_phi_dma_dcr_rd(&dev->device);
+
+    uint8_t enabled_val;
+    if (enabled) {
+        dev->common.channels.c[id]->state = DMA_CHAN_ST_RUNNING;
+        enabled_val = 0x1;
+    } else {
+        dev->common.channels.c[id]->state = DMA_CHAN_ST_SUSPENDED;
+        enabled_val = 0x0;
+    }
+
+    switch (idx) {
+        case 0x0:
+            dcr = xeon_phi_dma_dcr_ce0_insert(dcr, enabled_val);
+            break;
+        case 0x1:
+            dcr = xeon_phi_dma_dcr_ce1_insert(dcr, enabled_val);
+            break;
+        case 0x2:
+            dcr = xeon_phi_dma_dcr_ce2_insert(dcr, enabled_val);
+            break;
+        case 0x3:
+            dcr = xeon_phi_dma_dcr_ce3_insert(dcr, enabled_val);
+            break;
+        case 0x4:
+            dcr = xeon_phi_dma_dcr_ce4_insert(dcr, enabled_val);
+            break;
+        case 0x5:
+            dcr = xeon_phi_dma_dcr_ce5_insert(dcr, enabled_val);
+            break;
+        case 0x6:
+            dcr = xeon_phi_dma_dcr_ce6_insert(dcr, enabled_val);
+            break;
+        case 0x7:
+            dcr = xeon_phi_dma_dcr_ce7_insert(dcr, enabled_val);
+            break;
+    }
+
+    xeon_phi_dma_dcr_wr(&dev->device, dcr);
 }
 
 /*
@@ -109,13 +212,12 @@ errval_t xeon_phi_dma_device_init(mackerel_addr_t mmio_base,
     dma_dev->id = device_id++;
     dma_dev->irq_type = DMA_IRQ_DISABLED;
     dma_dev->type = DMA_DEV_TYPE_XEON_PHI;
-    dma_dev->mmio.vaddr = (lvaddr_t)mmio_base;
+    dma_dev->mmio.vaddr = (lvaddr_t) mmio_base;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 
-
     XPHIDEV_DEBUG("initializing %u channels", device_id,
-                  XEON_PHI_DMA_DEVICE_CHANNELS);
+                    XEON_PHI_DMA_DEVICE_CHANNELS);
 
     dma_dev->channels.count = XEON_PHI_DMA_DEVICE_CHANNELS;
     dma_dev->channels.c = calloc(XEON_PHI_DMA_DEVICE_CHANNELS,
@@ -221,7 +323,7 @@ errval_t xeon_phi_dma_device_poll_channels(struct dma_device *dev)
 
     struct xeon_phi_dma_channel * chan;
     for (uint8_t i = 0; i < dev->channels.count; ++i) {
-        chan = (struct xeon_phi_dma_channel *)dev->channels.c[i];
+        chan = (struct xeon_phi_dma_channel *) dev->channels.c[i];
         err = xeon_phi_dma_channel_poll(chan);
         switch (err_no(err)) {
             case DMA_ERR_CHAN_IDLE:

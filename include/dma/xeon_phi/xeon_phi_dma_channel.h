@@ -12,13 +12,6 @@
 
 #include <dma/dma_channel.h>
 
-typedef enum xeon_phi_dma_owner {
-    XEON_PHI_DMA_OWNER_CARD = 0,
-    XEON_PHI_DMA_OWNER_HOST
-} xeon_phi_dma_owner_t;
-
-
-
 
 /**
  * \brief pointer type conversion

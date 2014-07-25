@@ -17,7 +17,6 @@
 
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
-
 /**
  * \brief globally enables the interrupts for the given device
  *
@@ -26,7 +25,6 @@
  */
 errval_t xeon_phi_dma_device_irq_setup(struct xeon_phi_dma_device *dev,
                                        dma_irq_t type);
-
 
 /**
  * \brief gets the Xeon Phi virtual base address of the DMA channel with
@@ -40,5 +38,26 @@ errval_t xeon_phi_dma_device_irq_setup(struct xeon_phi_dma_device *dev,
 void *xeon_phi_dma_device_get_channel_vbase(struct xeon_phi_dma_device *dev,
                                             uint8_t idx);
 
+/**
+ * \brief Enables / Disables the Xeon Phi DMA channel
+ *
+ * \param chan      Xeon Phi DMA channel
+ * \param idx       channel index
+ * \param enabled   flag to set the channel enabled
+ */
+void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
+                                           uint8_t idx,
+                                           uint8_t enabled);
+
+/**
+ * \brief sets the channel owner register of the Xeon Phi DMA device
+ *
+ * \param dev   Xeon Phi DMA device
+ * \param idx   channel index
+ * \param owner owner of the channel
+ */
+void xeon_phi_dma_device_set_channel_owner(struct xeon_phi_dma_device *dev,
+                                           uint8_t idx,
+                                           xeon_phi_dma_owner_t owner);
 
 #endif /* XEON_PHI_DMA_DEVICE_INTERNAL_H */

@@ -32,6 +32,9 @@ struct xeon_phi_dma_channel;
 /// the number of DMA channels for the host
 #define XEON_PHI_DMA_DEVICE_CHAN_HOST 4
 
+/// Offset of the DMA register region into the Xeon Phi MMIO base
+#define XEON_PHI_DMA_OFFSET 0xA000
+
 #ifdef __k1om__
 #define XEON_PHI_DMA_DEVICE_CHANNELS (XEON_PHI_DMA_DEVICE_CHAN_TOTAL- XEON_PHI_DMA_DEVICE_CHAN_HOST)
 #define XEON_PHI_DMA_DEVICE_CHAN_OFFSET XEON_PHI_DMA_DEVICE_CHAN_HOST
