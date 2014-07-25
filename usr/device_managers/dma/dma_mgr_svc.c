@@ -64,15 +64,12 @@ struct svc_reply_st
  * ----------------------------------------------------------------------------
  */
 
-static void svc_register_response_tx(struct txq_msg_st *msg_st)
+static errval_t svc_register_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
 
-    err = dma_mgr_register_driver_response__tx(msg_st->queue->binding,
-                                               TXQCONT(msg_st), msg_st->err);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
-    }
+    return dma_mgr_register_driver_response__tx(msg_st->queue->binding,
+                                                TXQCONT(msg_st), msg_st->err);
+
 }
 
 static void svc_register_call_rx(struct dma_mgr_binding *_binding,
@@ -116,52 +113,41 @@ static void svc_register_call_rx(struct dma_mgr_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void svc_lookup_response_tx(struct txq_msg_st *msg_st)
+static errval_t svc_lookup_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
-
     struct dma_mgr_driver_info *di = st->args.lookup;
 
     if (err_is_fail(msg_st->err)) {
-        err = dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
-                                                 TXQCONT(msg_st), msg_st->err, 0, 0,
-                                                 0, 0, 0);
+        return dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
+                                                  TXQCONT(msg_st), msg_st->err, 0, 0,
+                                                  0, 0, 0);
     } else {
         assert(di);
-        err = dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
-                                                 TXQCONT(msg_st), msg_st->err,
-                                                 di->mem_low, di->mem_high,
-                                                 di->numa_node, di->type, di->iref);
-    }
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending message failed unexpectedly");
+        return dma_mgr_lookup_driver_response__tx(msg_st->queue->binding,
+                                                  TXQCONT(msg_st), msg_st->err,
+                                                  di->mem_low, di->mem_high,
+                                                  di->numa_node, di->type, di->iref);
     }
 }
 
-static void svc_lookup_by_iref_response_tx(struct txq_msg_st *msg_st)
+static errval_t svc_lookup_by_iref_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct svc_reply_st *st = (struct svc_reply_st *) msg_st;
 
     struct dma_mgr_driver_info *di = st->args.lookup;
 
     if (err_is_fail(msg_st->err)) {
-        err = dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
-                                                         TXQCONT(msg_st),
-                                                         msg_st->err, 0, 0, 0, 0);
+        return dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
+                                                          TXQCONT(msg_st),
+                                                          msg_st->err, 0, 0, 0, 0);
     } else {
         assert(di);
-        err = dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
-                                                         TXQCONT(msg_st),
-                                                         msg_st->err, di->mem_low,
-                                                         di->mem_high, di->numa_node,
-                                                         di->type);
-    }
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending message failed unexpectedly");
+        return dma_mgr_lookup_driver_by_iref_response__tx(msg_st->queue->binding,
+                                                          TXQCONT(msg_st),
+                                                          msg_st->err, di->mem_low,
+                                                          di->mem_high,
+                                                          di->numa_node, di->type);
     }
 }
 

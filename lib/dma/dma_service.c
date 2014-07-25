@@ -76,16 +76,11 @@ struct dma_svc_reply_st
  * ----------------------------------------------------------------------------
  */
 
-static void dma_register_response_tx(struct txq_msg_st *msg_st)
+static errval_t dma_register_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_register_response__tx(b, TXQCONT(msg_st), msg_st->err);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
-    }
+    return dma_register_response__tx(b, TXQCONT(msg_st), msg_st->err);
 }
 
 static void dma_register_call_rx(struct dma_binding *_binding,
@@ -115,16 +110,11 @@ static void dma_register_call_rx(struct dma_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void dma_deregister_response_tx(struct txq_msg_st *msg_st)
+static errval_t dma_deregister_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
     struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_deregister_response__tx(b, TXQCONT(msg_st), msg_st->err);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
-    }
+    return dma_deregister_response__tx(b, TXQCONT(msg_st), msg_st->err);
 }
 
 static void dma_deregister_call_rx(struct dma_binding *_binding,
@@ -154,18 +144,13 @@ static void dma_deregister_call_rx(struct dma_binding *_binding,
  * ----------------------------------------------------------------------------
  */
 
-static void dma_memcpy_response_tx(struct txq_msg_st *msg_st)
+static errval_t dma_memcpy_response_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
-    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *)msg_st;
+    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *) msg_st;
     struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_memcpy_response__tx(b, TXQCONT(msg_st), msg_st->err,
-                                  st->args.request.id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
-    }
+    return dma_memcpy_response__tx(b, TXQCONT(msg_st), msg_st->err,
+                                   st->args.request.id);
 }
 
 static void dma_memcpy_call_rx(struct dma_binding *_binding,
@@ -210,17 +195,12 @@ struct dma_rx_vtbl dma_rx_vtbl = {
  * ----------------------------------------------------------------------------
  */
 
-static void dma_done_tx(struct txq_msg_st *msg_st)
+static errval_t dma_done_tx(struct txq_msg_st *msg_st)
 {
-    errval_t err;
-
-    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *)msg_st;
+    struct dma_svc_reply_st *st = (struct dma_svc_reply_st *) msg_st;
     struct dma_binding *b = msg_st->queue->binding;
 
-    err = dma_done__tx(b, TXQCONT(msg_st), st->args.request.id, msg_st->err);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unexpectedly could not send\n");
-    }
+    return dma_done__tx(b, TXQCONT(msg_st), st->args.request.id, msg_st->err);
 }
 
 /*
@@ -248,7 +228,6 @@ static errval_t svc_connect_cb(void *st,
 
     txq_init(&state->queue, binding, binding->waitset,
              (txq_register_fn_t) binding->register_send,
-             (txq_can_send_fn_t) binding->can_send,
              sizeof(struct dma_svc_reply_st));
 
     err = event_handlers->connect(&state->usr_st);
