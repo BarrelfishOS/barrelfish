@@ -134,7 +134,7 @@ errval_t morecore_reinit(void)
 
     size_t mapoffset = state->mmu_state.mapoffset;
     size_t remapsize = ROUND_UP(mapoffset, state->mmu_state.alignment);
-    if (remapsize == mapoffset) {
+    if (remapsize <= mapoffset) {
         // don't need to do anything if we only recreate the exact same
         // mapping
         return SYS_ERR_OK;
