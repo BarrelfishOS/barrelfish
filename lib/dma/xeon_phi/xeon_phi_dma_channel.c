@@ -245,17 +245,18 @@ static errval_t channel_set_ring(struct xeon_phi_dma_channel *chan,
 static errval_t channel_process_descriptors(struct xeon_phi_dma_channel *chan,
                                             uint16_t tail)
 {
-    struct dma_ring *ring = chan->ring;
+    errval_t err = DMA_ERR_REQUEST_UNFINISHED;
 
+    struct dma_ring *ring = chan->ring;
     while(dma_ring_get_tail(ring) < tail) {
         struct dma_descriptor *desc = dma_ring_get_tail_desc(ring);
         struct dma_request *req =  dma_desc_get_request(desc);
         if (req) {
-            debug_printf("Processing request\n");
+            err = xeon_phi_dma_request_process((struct xeon_phi_dma_request *)req);
         }
     }
 
-    return SYS_ERR_OK;
+    return err;
 }
 
 /*
