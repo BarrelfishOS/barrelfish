@@ -23,7 +23,7 @@
 #include "xeon_phi_internal.h"
 #include "service.h"
 #include "messaging.h"
-#include "dma/dma.h"
+#include "dma_service.h"
 #include "smpt.h"
 
 static uint32_t is_exported;
@@ -465,8 +465,8 @@ errval_t service_start(struct xeon_phi *phi)
         uint8_t idle = 0x1;
         err = messaging_poll(phi);
         idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
-        err = dma_poll_channels(phi);
-        idle = idle && (err_no(err) == XEON_PHI_ERR_DMA_IDLE);
+        err = xdma_service_poll(phi);
+        idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
         err = handle_messages(idle);
         if (err_is_fail(err)) {
             return err;

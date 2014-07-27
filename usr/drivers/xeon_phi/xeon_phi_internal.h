@@ -47,9 +47,9 @@
 #define XEON_PHI_HOST_SBOX_OFFSET      0x00010000
 
 #define XEON_PHI_MMIO_TO_SBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_SBOX_OFFSET))
+    ((void *)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_SBOX_OFFSET))
 #define XEON_PHI_MMIO_TO_DBOX(phi) \
-    ((mackerel_addr_t)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_DBOX_OFFSET))
+    ((void *)((lvaddr_t)(phi->mmio.vbase)+XEON_PHI_HOST_DBOX_OFFSET))
 
 /*
  * --------------------------------------------------------------------------
@@ -120,7 +120,7 @@ struct xeon_phi
 
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;   ///< pointer to the IRQ information struct
-    struct dma_info *dma;   ///< pointer to the DMA information struct
+    struct dma_device *dma;   ///< pointer to the DMA information struct
     struct msg_info *msg;   ///< pointer to the Messaging information struct
 };
 

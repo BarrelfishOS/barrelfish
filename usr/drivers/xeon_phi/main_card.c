@@ -22,9 +22,8 @@
 
 #include "xeon_phi_internal.h"
 #include "messaging.h"
-#include "service.h"
+#include "dma_service.h"
 #include "sysmem_caps.h"
-#include "dma/dma.h"
 #include "smpt.h"
 
 static struct xeon_phi xphi;
@@ -107,7 +106,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not map the mmio space");
     }
 
-    err = dma_init(&xphi);
+    err = xdma_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
@@ -145,7 +144,7 @@ int main(int argc,
         uint8_t idle = 0x1;
         err = messaging_poll(&xphi);
         idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
-        err = dma_poll_channels(&xphi);
+        err = xdma_service_poll(&xphi);
         idle = idle && (err_no(err) == XEON_PHI_ERR_DMA_IDLE);
         err = event_dispatch_non_block(get_default_waitset());
         if (err_is_fail(err)) {

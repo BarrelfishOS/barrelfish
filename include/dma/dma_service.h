@@ -23,7 +23,7 @@ typedef struct dma_svc_st* dma_svc_handle_t;
 struct dma_service_cb
 {
     /** informs about the new connection on the service */
-    errval_t (*connect)(void **user_st);
+    errval_t (*connect)(void *arg, void **user_st);
 
     /** registers a memory region to be used */
     errval_t (*addregion)(dma_svc_handle_t svc_handle,
@@ -45,12 +45,14 @@ struct dma_service_cb
  * \brief initializes the DMA service and registers with the DMA manager
  *
  * \param cb        Callback function pointers
+ * \param arg       Argument passed to the connect callback
  * \param svc_iref  Returns the exported iref
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t dma_service_init(struct dma_service_cb *cb,
+                          void *arg,
                           iref_t *svc_iref);
 
 /**
@@ -58,6 +60,7 @@ errval_t dma_service_init(struct dma_service_cb *cb,
  *
  * \param svc_name  The name of the service for nameservice registration
  * \param cb        Callback function pointers
+ * \param arg       Argument passed to the connect callback
  * \param svc_iref  Returns the exported iref
  *
  * \returns SYS_ERR_OK on success
@@ -65,6 +68,7 @@ errval_t dma_service_init(struct dma_service_cb *cb,
  */
 errval_t dma_service_init_with_name(char *svc_name,
                                     struct dma_service_cb *cb,
+                                    void *arg,
                                     iref_t *svc_iref);
 
 /**

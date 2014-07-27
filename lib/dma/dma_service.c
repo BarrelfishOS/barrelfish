@@ -44,6 +44,9 @@ enum dma_svc_state
 /// represents the current state of the exporting process
 static enum dma_svc_state dma_svc_state = DMA_SVC_STATE_EXPORTING;
 
+/// error while exporting
+static errval_t dma_svc_err;
+
 /// our own iref of the exported service
 static iref_t dma_svc_iref;
 
@@ -209,6 +212,13 @@ static errval_t dma_done_tx(struct txq_msg_st *msg_st)
  * ----------------------------------------------------------------------------
  */
 
+struct export_arg
+{
+    errval_t err;
+    void *user_st;
+};
+
+
 static errval_t svc_connect_cb(void *st,
                                struct dma_binding *binding)
 {
@@ -230,7 +240,7 @@ static errval_t svc_connect_cb(void *st,
              (txq_register_fn_t) binding->register_send,
              sizeof(struct dma_svc_reply_st));
 
-    err = event_handlers->connect(&state->usr_st);
+    err = event_handlers->connect(st, &state->usr_st);
     if (err_is_fail(err)) {
         /* reject the connection */
         DMASVC_DEBUG("application rejected the connection: %s\n",
@@ -250,7 +260,7 @@ static void svc_export_cb(void *st,
                           errval_t err,
                           iref_t iref)
 {
-    *((errval_t *) st) = err;
+    dma_svc_err = err;
 
     if (err_is_fail(err)) {
         dma_svc_state = DMA_SVC_STATE_EXPORT_FAIL;
@@ -271,20 +281,22 @@ static void svc_export_cb(void *st,
  * \brief initializes the DMA service and registers with the DMA manager
  *
  * \param cb        Callback function pointers
+ * \param arg       Argument passed to the connect callback
  * \param svc_iref  Returns the exported iref
- *
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t dma_service_init(struct dma_service_cb *cb,
+                          void *arg,
                           iref_t *svc_iref)
 {
-    errval_t err, export_err;
+    errval_t err;
 
     DMASVC_DEBUG("Initializing DMA service...\n");
 
-    err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
+
+    err = dma_export(arg, svc_export_cb, svc_connect_cb,
                      get_default_waitset(),
                      IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -296,7 +308,7 @@ errval_t dma_service_init(struct dma_service_cb *cb,
     }
 
     if (dma_svc_state == DMA_SVC_STATE_EXPORT_FAIL) {
-        return export_err;
+        return dma_svc_err;
     }
 
     dma_svc_state = DMA_SVC_STATE_RUNNING;
@@ -316,6 +328,7 @@ errval_t dma_service_init(struct dma_service_cb *cb,
  *
  * \param svc_name  The name of the service for nameservice registration
  * \param cb        Callback function pointers
+ * \param arg       Argument passed to the connect callback
  * \param svc_iref  Returns the exported iref
  *
  * \returns SYS_ERR_OK on success
@@ -323,13 +336,14 @@ errval_t dma_service_init(struct dma_service_cb *cb,
  */
 errval_t dma_service_init_with_name(char *svc_name,
                                     struct dma_service_cb *cb,
+                                    void *arg,
                                     iref_t *svc_iref)
 {
-    errval_t err, export_err;
+    errval_t err;
 
     DMASVC_DEBUG("Initializing DMA service...\n");
 
-    err = dma_export(&export_err, svc_export_cb, svc_connect_cb,
+    err = dma_export(arg, svc_export_cb, svc_connect_cb,
                      get_default_waitset(),
                      IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -341,7 +355,7 @@ errval_t dma_service_init_with_name(char *svc_name,
     }
 
     if (dma_svc_state == DMA_SVC_STATE_EXPORT_FAIL) {
-        return export_err;
+        return dma_svc_err;
     }
 
     dma_svc_state = DMA_SVC_STATE_NS_REGISTERING;

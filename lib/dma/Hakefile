@@ -71,6 +71,29 @@
     flounderBindings = [ "dma", "dma_mgr" ],
     flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
     flounderDefs = [ "dma" ]
+  },
+  
+  build library { 
+    target = "dma_client",
+    cFiles = [
+      "dma_mem_mgr.c",
+      "dma_mem_utils.c",
+      "dma_mgr_client.c",
+      "dma_device.c",
+      "dma_channel.c",
+      "dma_request.c",
+      "dma_ring.c",
+      "dma_descriptor.c",
+      "dma_bench.c",
+      "client/dma_client_device.c",
+      "client/dma_client_channel.c",
+      "client/dma_client_request.c"
+    ],
+    addIncludes = [ "include" ],
+    addLibraries = libDeps [ "bench" ],
+    flounderBindings = [ "dma", "dma_mgr" ],
+    flounderDefs = [ "dma" ],
+    flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ]
   }
 ]
 
