@@ -6,18 +6,20 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/xeon_phi_manager
+-- Hakefile for /usr/device_managers/xeon_phi
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "xeon_phi_manager",
-                        cFiles = [ "main.c", 
-                                   "service.c",
-                                   "cardmanager.c" ],
-		    flounderDefs = ["xeon_phi_manager"],
-		    flounderBindings = ["xeon_phi_manager"],
-		    architectures = ["x86_64"]
-		    
-                    }
+[ build application { 
+	target = "xeon_phi_mgr",
+ 	architectures = [ "x86_64" ],
+ 	cFiles = [ 
+ 	  "main.c", 
+ 	  "service.c", 
+ 	  "cardmanager.c" 
+ 	],
+	flounderDefs = [ "xeon_phi_manager" ],
+	flounderBindings = [ "xeon_phi_manager" ]
+  }
 ]
 
