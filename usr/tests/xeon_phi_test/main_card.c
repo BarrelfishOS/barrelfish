@@ -49,6 +49,73 @@ static void *outbuf;
 static void *inbuf_rev;
 static void *outbuf_rev;
 
+#ifndef XPHI_BENCH_PROCESS_CARD
+
+static volatile uint8_t dma_done;
+
+static void dma_done_cb(dma_req_id_t id,
+                        errval_t err,
+                        void *st)
+{
+    dma_req_id_t *id2 = st;
+    if (id != *id2) {
+        debug_printf("id %016lx, %016lx\n", id, *id2);
+    }
+    assert(id == *id2);
+    XPHI_BENCH_DBG("DMA request executed...\n");
+    size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
+    assert(memcmp(host_buf, card_buf, size) == 0);
+    dma_done = 0x1;
+}
+
+static errval_t dma_test(struct dma_device *dev)
+{
+    errval_t err;
+
+    dma_req_id_t id;
+
+    size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
+
+    struct dma_req_setup setup = {
+        .done_cb = dma_done_cb,
+        .cb_arg = &id,
+        .args = {
+            .memcpy = {
+                .src = host_base,
+                .dst = card_base,
+                .bytes = size
+            }
+        }
+    };
+
+    memset(host_buf, 0xA5, size);
+
+    dma_done = 0x0;
+
+    err = dma_request_memcpy(dev, &setup, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not exec the transfer");
+    }
+    while (!dma_done) {
+        messages_wait_and_handle_next();
+    }
+
+    memset(card_buf, 0x5A, size);
+
+    setup.args.memcpy.src = card_base;
+    setup.args.memcpy.dst = host_base;
+    err = dma_request_memcpy(dev, &setup, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not exec the transfer");
+    }
+    while (!dma_done) {
+        messages_wait_and_handle_next();
+    }
+
+    return SYS_ERR_OK;
+}
+#endif
+
 static void init_buffer_c0(void)
 {
 #ifdef XPHI_BENCH_CHAN_HOST
@@ -232,7 +299,6 @@ int main(int argc,
 #endif
 
 #ifndef XPHI_BENCH_PROCESS_CARD
-    debug_printf("+++++++ DMA / MEMCOPY Benchmark ++++++++\n");
 
     err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 0);
     if (err_is_fail(err)) {
@@ -264,6 +330,11 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register memory");
     }
+
+    debug_printf("+++++++ Verify DMA Functionality ++++++++\n");
+    dma_test(dev);
+
+    debug_printf("+++++++ DMA / MEMCOPY Benchmark ++++++++\n");
 
     debug_printf("\n");
     debug_printf("========================================\n");
