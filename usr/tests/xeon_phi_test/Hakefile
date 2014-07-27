@@ -1,0 +1,76 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/xeon_phi_test
+--
+--------------------------------------------------------------------------
+
+[ build application { 
+	target = "xeon_phi_test",
+	architectures = [ "x86_64" ],
+	cFiles = [ 
+	  "main_host.c", 
+	  "benchmark.c" 
+	],
+	flounderDefs = [ "xeon_phi_messaging" ],
+	addLibraries = libDeps [ 
+	  "xeon_phi_messaging", 
+	  "xeon_phi_messaging_client", 
+	  "bench", 
+	  "dma_client" 
+	]
+  },
+  
+  build application { 
+    target = "xeon_phi_test",
+    architectures = ["k1om"],
+    cFiles = [ 
+      "main_card.c", 
+      "benchmark.c" 
+    ],
+    flounderDefs = [ "xeon_phi_messaging" ],
+    addLibraries = libDeps [ 
+      "xeon_phi_messaging", 
+      "xeon_phi_messaging_client", 
+      "bench", 
+      "dma_client" 
+    ]
+  },
+  
+build application { 
+    target = "xeon_phi_inter",
+	architectures = [ "x86_64" ],
+    cFiles = [ 
+      "main_inter_host.c", 
+      "benchmark.c" 
+    ],
+    flounderDefs = [ "xeon_phi_messaging" ],
+    addLibraries = libDeps [ 
+      "xeon_phi_messaging", 
+      "xeon_phi_messaging_client", 
+      "bench", 
+      "xeon_phi_dma_client" 
+    ]
+  },
+  
+  build application { 
+    target = "xeon_phi_inter",
+    architectures = [ "k1om" ],
+    cFiles = [ 
+      "main_inter_card.c", 
+      "benchmark.c" 
+    ],
+    flounderDefs = [ "xeon_phi_messaging" ],
+    addLibraries = libDeps [ 
+      "xeon_phi_messaging", 
+      "xeon_phi_messaging_client", 
+      "bench", "dma_client" 
+    ]
+  }
+]
+
