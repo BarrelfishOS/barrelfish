@@ -157,7 +157,7 @@ int main(int argc,
     char svc_name[30];
     uint8_t numa_node = (disp_get_core_id() >= 20);
     snprintf(svc_name, 30, "%s.%u", IOAT_DMA_SERVICE_NAME, numa_node);
-    err = dma_service_init_with_name(svc_name, &dma_svc_cb, &svc_iref);
+    err = dma_service_init_with_name(svc_name, &dma_svc_cb, NULL, &svc_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to start the DMA service");
     }

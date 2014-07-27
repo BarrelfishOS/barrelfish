@@ -18,7 +18,7 @@
  * \returns SYS_ERR_OK if the connection is accepted
  *          errval if connection is rejected
  */
-errval_t dma_svc_connect_cb(void **user_st);
+errval_t dma_svc_connect_cb(void *arg, void **user_st);
 
 
 /**
