@@ -234,8 +234,11 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 
     iref_t svc_iref;
     char svc_name[30];
-    uint8_t numa_node = (disp_get_core_id() >= 20);
-    snprintf(svc_name, 30, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, numa_node);
+#ifdef __k1om__
+    snprintf(svc_name, 30, "%s", XEON_PHI_DMA_SERVICE_NAME);
+#else
+    snprintf(svc_name, 30, "%s.%u", XEON_PHI_DMA_SERVICE_NAME, phi->id);
+#endif
     err = dma_service_init_with_name(svc_name, &dma_svc_cb, phi, &svc_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to start the DMA service");
