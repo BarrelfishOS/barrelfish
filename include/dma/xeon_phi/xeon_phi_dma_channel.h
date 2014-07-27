@@ -13,6 +13,9 @@
 #include <dma/dma_channel.h>
 
 
+#define XEON_PHI_DMA_CHANNEL_ENABLE  1
+#define XEON_PHI_DMA_CHANNEL_DISABLE 0
+
 /**
  * \brief pointer type conversion
  */
@@ -96,7 +99,7 @@ uint16_t xeon_phi_dma_channel_issue_pending(struct xeon_phi_dma_channel *chan);
  * \returns SYS_ERR_OK if there was something processed
  *
  */
-errval_t xeon_phi_dma_channel_poll(struct xeon_phi_dma_channel *chan);
+errval_t xeon_phi_dma_channel_poll(struct dma_channel *chan);
 
 
 /*
@@ -112,14 +115,7 @@ errval_t xeon_phi_dma_channel_poll(struct xeon_phi_dma_channel *chan);
  *
  * \returns Xeon Phi DMA descriptor ring handle
  */
-struct xeon_phi_dma_ring *xeon_phi_dma_channel_get_ring(struct xeon_phi_dma_channel *chan);
-
-/**
- * \brief updates the channel status flag by reading the CHANSTS register
- *
- * \param chan Xeon Phi DMA channel
- */
-uint64_t xeon_phi_dma_channel_get_status(struct xeon_phi_dma_channel *chan);
+struct dma_ring *xeon_phi_dma_channel_get_ring(struct xeon_phi_dma_channel *chan);
 
 /*
  * ----------------------------------------------------------------------------

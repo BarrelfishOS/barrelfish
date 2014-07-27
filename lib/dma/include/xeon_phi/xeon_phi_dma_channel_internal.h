@@ -13,6 +13,10 @@
 #include <dma_channel_internal.h>
 #include <dma/xeon_phi/xeon_phi_dma_channel.h>
 
+#define XEON_PHI_DMA_CHANNEL_DSTAT_SIZE 64
+
+#include <dev/xeon_phi/xeon_phi_dma_chan_dev.h>
+
 /**
  * \brief initializes and allocates resources for a new channel DMA channel
  *        belonging to a device
@@ -28,6 +32,15 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
                                    uint8_t id,
                                    uint32_t max_xfer,
                                    struct xeon_phi_dma_channel **ret_chan);
+
+/**
+ * \brief returns the status writeback address
+ *
+ * \param chan Xeon Phi DMA channel
+ *
+ * \returns physical address of the dstat WB address
+ */
+lpaddr_t xeon_phi_dma_channel_get_dstat_wb(struct xeon_phi_dma_channel *chan);
 
 /**
  * \brief enqueues a request onto the IOAT DMA channel and submits it to the

@@ -7,6 +7,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <xeon_phi/xeon_phi.h>
 
 #include <dev/xeon_phi/xeon_phi_dma_chan_dev.h>
 
@@ -21,14 +22,21 @@
 
 #include <debug.h>
 
+
 struct xeon_phi_dma_channel
 {
     struct dma_channel common;
     xeon_phi_dma_chan_t channel;         ///< Mackerel address
-    lpaddr_t last_processed;            ///<
-    struct dma_ring *ring;      ///< Descriptor ring
+    struct dma_mem dstat;
+    struct dma_ring *ring;              ///< Descriptor ring
+    uint16_t last_processed;
     xeon_phi_dma_owner_t owner;
 };
+
+static inline uint8_t channel_has_intr_pending(struct xeon_phi_dma_channel *chan)
+{
+    return xeon_phi_dma_chan_dcar_irq_status_rdf(&chan->channel);
+}
 
 /**
  * \brief sets the interrupt status according to the mask flag
@@ -38,7 +46,7 @@ struct xeon_phi_dma_channel
  *             if 1 masking or disabling the interrupts
  */
 static uint32_t channel_mask_intr(struct xeon_phi_dma_channel *chan,
-                                       uint8_t mask)
+                                  uint8_t mask)
 {
     uint8_t mask_val = (mask) ? 0x1 : 0x0;
 
@@ -69,12 +77,186 @@ static inline void channel_ack_intr(struct xeon_phi_dma_channel *chan)
  * \param mask bitmask for the errors
  */
 static inline void channel_set_error_mask(struct xeon_phi_dma_channel *chan,
-                                               uint32_t mask)
+                                          uint32_t mask)
 {
-    xeon_phi_dma_chan_dcherr_wr(&chan->channel, mask);
+    xeon_phi_dma_chan_dcherrmsk_wr(&chan->channel, mask);
+}
+
+/**
+ * \brief reads the tail pointer register of the Xeon Phi DMA channel
+ *
+ * \param chan  Xeon Phi DMA channel
+ *
+ * \returns tail pointer value
+ */
+static inline uint16_t channel_read_tail(struct xeon_phi_dma_channel *chan)
+{
+    return xeon_phi_dma_chan_dtpr_index_rdf(&chan->channel);
+}
+
+/**
+ * \brief updates the tail pointer register of the channel
+ *
+ * \param chan  Xeon Phi DMA channel
+ * \param tail  the new tailpointer index
+ */
+static inline void channel_write_tail(struct xeon_phi_dma_channel *chan,
+                                      uint16_t tail)
+{
+    XPHICHAN_DEBUG("setting tail pointer to [%u]\n", chan->common.id, tail);
+    xeon_phi_dma_chan_dtpr_index_wrf(&chan->channel, tail);
+}
+
+/**
+ * \brief reads the head pointer register of the Xeon Phi DMA channel
+ *
+ * \param chan  Xeon Phi DMA channel
+ *
+ * \returns head pointer value
+ */
+static inline uint16_t channel_read_head(struct xeon_phi_dma_channel *chan)
+{
+    return xeon_phi_dma_chan_dhpr_index_rdf(&chan->channel);
+}
+
+/**
+ * \brief updates the head pointer register of the channel
+ *
+ * \param chan  Xeon Phi DMA channel
+ * \param head  the new headpointer index
+ */
+static inline void channel_write_head(struct xeon_phi_dma_channel *chan,
+                                      uint16_t head)
+{
+    XPHICHAN_DEBUG("setting head pointer to [%u]\n", chan->common.id, head);
+    xeon_phi_dma_chan_dhpr_index_wrf(&chan->channel, head);
+}
+
+/**
+ * \brief updates the DMA statistics writeback register of the channel
+ *
+ * \param chan      Xeon Phi DMA channel
+ * \param dstat_wb  physical address where the data is written
+ */
+static inline void channel_set_dstat_wb(struct xeon_phi_dma_channel *chan,
+                                        lpaddr_t dstat_wb)
+{
+    if (chan->owner == XEON_PHI_DMA_OWNER_HOST) {
+        dstat_wb |= XEON_PHI_SYSMEM_BASE;
+    }
+
+    XPHICHAN_DEBUG("setting channel_set_dstat_wb to 0x%016lx\n", chan->common.id,
+                   dstat_wb);
+    xeon_phi_dma_chan_dstatwb_lo_wr(&chan->channel, (uint32_t) dstat_wb);
+    xeon_phi_dma_chan_dstatwb_hi_wr(&chan->channel, (uint32_t) (dstat_wb >> 32));
+}
+
+/**
+ * \brief obtains the address of the DMA stat writeback location
+ *
+ * \param chan Xeon Phi DMA channel
+ *
+ * \returns physical address of the writeback location
+ */
+static inline lpaddr_t channel_get_dstab_wb(struct xeon_phi_dma_channel *chan)
+{
+    lpaddr_t addr = xeon_phi_dma_chan_dstatwb_hi_rd(&chan->channel);
+    addr = addr << 32;
+    addr |= xeon_phi_dma_chan_dstatwb_lo_rd(&chan->channel);
+    return addr;
+}
+
+/**
+ * \brief Channel statistics: number of completed transfers
+ *
+ * \param chan Xeon Phi DMA channel
+ *
+ * \returns #completed transfers
+ */
+static inline uint16_t channel_get_completions(struct xeon_phi_dma_channel *chan)
+{
+    return xeon_phi_dma_chan_dstat_completions_rdf(&chan->channel);
+}
+
+/**
+ * \brief sets the previously allocated descriptor ring to be used
+ *        with that channel
+ *
+ * \param chan  Xeon Phi DMA channel
+ */
+static errval_t channel_set_ring(struct xeon_phi_dma_channel *chan,
+                                 struct dma_ring *ring)
+{
+    struct xeon_phi_dma_device *xdev;
+    uint16_t size = dma_ring_get_size(ring);
+    lpaddr_t ring_base = dma_ring_get_base_addr(ring);
+    uint8_t idx = chan->common.id;
+    assert(idx < XEON_PHI_DMA_DEVICE_CHAN_TOTAL);
+
+    if ((size & 0x3) || (ring_base & 0x3F)) {
+        return DMA_ERR_ALIGNMENT;
+    }
+
+    XPHICHAN_DEBUG("setting ring base to [0x%016lx] with size 0x%x\n",
+                   chan->common.id, ring_base, size);
+
+    assert(!(size & 0x3));
+    assert(!(ring_base & 0x3F));
+
+    xdev = (struct xeon_phi_dma_device *) chan->common.device;
+    xeon_phi_dma_device_set_channel_state(xdev, idx,
+    XEON_PHI_DMA_CHANNEL_DISABLE);
+
+    xeon_phi_dma_chan_drar_hi_t drar_hi = 0x0;
+    xeon_phi_dma_chan_drar_lo_t drar_lo = 0x0;
+
+    uint16_t num_desc = size >> xeon_phi_dma_drar_size_shift;
+
+    drar_hi = xeon_phi_dma_chan_drar_hi_size_insert(drar_hi, num_desc);
+
+    if (chan->owner == XEON_PHI_DMA_OWNER_HOST) {
+        XPHICHAN_DEBUG("Channel is host owned. setting bit\n", chan->common.id);
+        /*
+         * if the channel is host owned we need to set the system bit
+         * and the system memory page accordingly
+         */
+        drar_hi = xeon_phi_dma_chan_drar_hi_sysbit_insert(drar_hi, 0x1);
+        uint32_t sysmem_page = (ring_base >> XEON_PHI_SYSMEM_PAGE_BITS);
+        drar_hi = xeon_phi_dma_chan_drar_hi_page_insert(drar_hi, sysmem_page);
+        drar_hi = xeon_phi_dma_chan_drar_hi_base_insert(drar_hi, ring_base >> 32);
+    }
+
+    drar_lo = xeon_phi_dma_chan_drar_lo_base_insert(drar_lo, ring_base >> 6);
+
+    XPHICHAN_DEBUG("setting ring base to [%08x][%08x]\n", chan->common.id,
+                   drar_hi, drar_lo);
+
+    xeon_phi_dma_chan_drar_lo_wr(&chan->channel, drar_lo);
+    xeon_phi_dma_chan_drar_hi_wr(&chan->channel, drar_hi);
+
+    channel_write_tail(chan, 0x0);
+
+    xeon_phi_dma_device_set_channel_state(xdev, idx, XEON_PHI_DMA_CHANNEL_ENABLE);
+
+    return SYS_ERR_OK;
 }
 
 
+static errval_t channel_process_descriptors(struct xeon_phi_dma_channel *chan,
+                                            uint16_t tail)
+{
+    struct dma_ring *ring = chan->ring;
+
+    while(dma_ring_get_tail(ring) < tail) {
+        struct dma_descriptor *desc = dma_ring_get_tail_desc(ring);
+        struct dma_request *req =  dma_desc_get_request(desc);
+        if (req) {
+            debug_printf("Processing request\n");
+        }
+    }
+
+    return SYS_ERR_OK;
+}
 
 /*
  * ============================================================================
@@ -101,7 +283,7 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
 
     errval_t err;
 
-    struct dma_device *dma_dev = (struct dma_device *)dev;
+    struct dma_device *dma_dev = (struct dma_device *) dev;
 
     uint8_t idx = id + XEON_PHI_DMA_DEVICE_CHAN_OFFSET;
     assert(idx < XEON_PHI_DMA_DEVICE_CHAN_TOTAL);
@@ -111,10 +293,19 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    chan->common.device = (struct dma_device *)dev;
+    chan->common.device = (struct dma_device *) dev;
     chan->common.id = dma_channel_id_build(dma_device_get_id(dma_dev), idx);
     chan->common.max_xfer_size = max_xfer;
+    chan->common.f.memcpy = xeon_phi_dma_request_memcpy_chan;
+    chan->common.f.poll = xeon_phi_dma_channel_poll;
 
+    XPHICHAN_DEBUG("initializig channel with max_xfer=%u\n", chan->common.id,
+                   max_xfer);
+
+    xeon_phi_dma_chan_initialize(&chan->channel,
+                                 xeon_phi_dma_device_get_channel_vbase(dev, idx));
+
+    channel_ack_intr(chan);
 
 #ifdef __k1om__
     chan->owner = XEON_PHI_DMA_OWNER_CARD;
@@ -124,30 +315,48 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
     xeon_phi_dma_device_set_channel_owner(dev, idx, XEON_PHI_DMA_OWNER_HOST);
 #endif
 
-    xeon_phi_dma_chan_initialize(&chan->channel,
-                                 xeon_phi_dma_device_get_channel_vbase(dev, idx));
+    err = dma_ring_alloc(XEON_PHI_DMA_RING_SIZE, XEON_PHI_DMA_DESC_ALIGN,
+                         XEON_PHI_DMA_DESC_SIZE, 0x1, &chan->common,
+                         &chan->ring);
+    if (err_is_fail(err)) {
+        free(chan);
+        return err;
+    }
+
+    xeon_phi_dma_device_set_channel_state(dev, idx,
+        XEON_PHI_DMA_CHANNEL_DISABLE);
+
+    xeon_phi_dma_device_get_dstat_addr(dev, &chan->dstat);
+    channel_set_dstat_wb(chan, chan->dstat.paddr);
 
     channel_set_error_mask(chan, 0);
-    channel_ack_intr(chan);
 
-    err = dma_ring_alloc(XEON_PHI_DMA_RING_SIZE, XEON_PHI_DMA_DESC_ALIGN,
-                         XEON_PHI_DMA_DESC_SIZE, &chan->ring, &chan->common);
+    XPHICHAN_DEBUG("setting ring: [%016lx] @ %p\n", chan->common.id,
+                   dma_ring_get_base_addr(chan->ring), chan->ring);
+
+    err = channel_set_ring(chan, chan->ring);
+    if (err_is_fail(err)) {
+        free(chan);
+        return err;
+    }
 
     channel_mask_intr(chan, 0x1);
 
     chan->common.state = DMA_CHAN_ST_PREPARED;
+
+    if (ret_chan) {
+        *ret_chan = chan;
+    }
 
     xeon_phi_dma_device_set_channel_state(dev, idx, 0x1);
 
     return SYS_ERR_OK;
 }
 
-#if 0
-
 /**
  * \brief Submits the pending descriptors to the hardware queue
  *
- * \param chan  IOAT DMA channel
+ * \param chan  Xeon Phi DMA channel
  *
  * \returns number of submitted descriptors
  */
@@ -155,22 +364,37 @@ uint16_t xeon_phi_dma_channel_issue_pending(struct xeon_phi_dma_channel *chan)
 {
     errval_t err;
 
-    uint16_t pending = xeon_phi_dma_ring_get_pendig(chan->ring);
+    uint16_t pending = dma_ring_get_pendig(chan->ring);
 
-    IOATCHAN_DEBUG("issuing %u pending descriptors to hardware\n",
-                    chan->common.id, pending);
+    XPHICHAN_DEBUG("issuing %u pending descriptors to hardware\n",
+                   chan->common.id, pending);
 
     if (chan->common.state != DMA_CHAN_ST_RUNNING) {
         err = xeon_phi_dma_channel_start(chan);
     }
     if (pending > 0) {
-        uint16_t dmacnt = xeon_phi_dma_ring_submit_pending(chan->ring);
-        xeon_phi_dma_chan_dmacount_wr(&chan->channel, dmacnt);
-
-        IOATCHAN_DEBUG(" setting dma_count to [%u]\n", chan->common.id, dmacnt);
+        uint16_t head = dma_ring_submit_pending(chan->ring);
+        assert(head < dma_ring_get_size(chan->ring));
+        channel_write_head(chan, head);
     }
 
     return pending;
+}
+
+/**
+ * \brief returns the status writeback address
+ *
+ * \param chan Xeon Phi DMA channel
+ *
+ * \returns physical address of the dstat WB address
+ */
+lpaddr_t xeon_phi_dma_channel_get_dstat_wb(struct xeon_phi_dma_channel *chan)
+{
+    lpaddr_t dstat_wb = chan->dstat.paddr;
+    if (chan->owner == XEON_PHI_DMA_OWNER_HOST) {
+        dstat_wb += XEON_PHI_SYSMEM_BASE;
+    }
+    return dstat_wb;
 }
 
 /*
@@ -195,46 +419,6 @@ uint16_t xeon_phi_dma_channel_issue_pending(struct xeon_phi_dma_channel *chan)
  */
 errval_t xeon_phi_dma_channel_reset(struct xeon_phi_dma_channel *chan)
 {
-    struct dma_channel *dma_chan = &chan->common;
-
-    IOATCHAN_DEBUG("reset channel.\n", dma_chan->id);
-
-    if (dma_chan->state == DMA_CHAN_ST_ERROR) {
-        xeon_phi_dma_chan_err_t chanerr = xeon_phi_dma_chan_err_rd(&chan->channel);
-        xeon_phi_dma_chan_err_wr(&chan->channel, chanerr);
-        IOATCHAN_DEBUG("Reseting channel from error state: [%08x]\n",
-                        dma_chan->id, chanerr);
-
-        /*
-         * errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
-
-         errval_t pci_write_conf_header(uint32_t dword, uint32_t val);
-         * TODO: clear the xeon_phi_dma_pci_chanerr register in PCI config space
-         *       (same approach as above)
-         *       -> How to access this ?
-         */
-    }
-    dma_chan->state = DMA_CHAN_ST_RESETTING;
-
-    /* perform reset */
-    xeon_phi_dma_chan_cmd_reset_wrf(&chan->channel, 0x1);
-
-    uint16_t reset_counter = 0xFFF;
-    do {
-        if (!xeon_phi_dma_chan_cmd_reset_rdf(&chan->channel)) {
-            break;
-        }
-        thread_yield();
-    }while (reset_counter--);
-
-    if (xeon_phi_dma_chan_cmd_reset_rdf(&chan->channel)) {
-        /* reset failed */
-        return DMA_ERR_RESET_TIMEOUT;
-    }
-
-    /* XXX: Intel BD architecture will need some additional work here */
-
-    dma_chan->state = DMA_CHAN_ST_UNINITIALEZED;
 
     return SYS_ERR_OK;
 }
@@ -273,10 +457,9 @@ errval_t xeon_phi_dma_channel_start(struct xeon_phi_dma_channel *chan)
         return SYS_ERR_OK;
     }
 
-    IOATCHAN_DEBUG("starting channel.\n", chan->common.id);
+    XPHICHAN_DEBUG("starting channel.\n", chan->common.id);
 
-    chan->common.state = DMA_CHAN_ST_RUNNING;
-    channel_set_chain_addr(chan);
+    assert(!"NYI");
 
     return SYS_ERR_OK;
 }
@@ -320,10 +503,10 @@ errval_t xeon_phi_dma_channel_suspend(struct xeon_phi_dma_channel *chan)
  *          DMA_ERR_* on failure
  */
 errval_t xeon_phi_dma_channel_submit_request(struct xeon_phi_dma_channel *chan,
-                struct xeon_phi_dma_request *req)
+                                             struct xeon_phi_dma_request *req)
 {
-    IOATCHAN_DEBUG("submit request [%016lx]\n", chan->common.id,
-                    dma_request_get_id((struct dma_request * )req));
+    XPHICHAN_DEBUG("submit request [%016lx]\n", chan->common.id,
+                   dma_request_get_id((struct dma_request * )req));
 
     dma_channel_enq_request_tail(&chan->common, (struct dma_request *) req);
 
@@ -346,27 +529,24 @@ errval_t xeon_phi_dma_channel_poll(struct dma_channel *chan)
 {
     errval_t err;
 
-    struct xeon_phi_dma_channel *xeon_phi_chan = (struct xeon_phi_dma_channel *)chan;
+    struct xeon_phi_dma_channel *xchan = (struct xeon_phi_dma_channel *) chan;
 
-    uint64_t status = xeon_phi_dma_channel_get_status(xeon_phi_chan);
+    uint16_t tail = channel_read_tail(xchan);
 
-    if (xeon_phi_dma_channel_is_halted(status)) {
-        IOATCHAN_DEBUG("channel is in error state\n", chan->id);
-        assert(!"NYI: error event handling");
+    if (xeon_phi_dma_chan_dcherr_rd(&xchan->channel)) {
+        USER_PANIC("Handling of error state not implemented!\n");
     }
 
-    /* check if there can be something to process */
     if (chan->req_list.head == NULL) {
         return DMA_ERR_CHAN_IDLE;
     }
 
-    lpaddr_t compl_addr_phys = channel_has_completed_descr(xeon_phi_chan);
-    if (!compl_addr_phys) {
+    if (tail == xchan->last_processed) {
         return DMA_ERR_CHAN_IDLE;
     }
 
-    err = channel_process_descriptors(xeon_phi_chan, compl_addr_phys);
-    switch (err_no(err)) {
+    err =  channel_process_descriptors(xchan, tail);
+    switch(err_no(err)) {
         case SYS_ERR_OK:
         /* this means we processed a descriptor request */
         return SYS_ERR_OK;
@@ -390,24 +570,8 @@ errval_t xeon_phi_dma_channel_poll(struct dma_channel *chan)
  *
  * \returns IOAT DMA descriptor ring handle
  */
-inline struct xeon_phi_dma_ring *xeon_phi_dma_channel_get_ring(struct xeon_phi_dma_channel *chan)
+inline struct dma_ring *xeon_phi_dma_channel_get_ring(struct xeon_phi_dma_channel *chan)
 {
     return chan->ring;
 }
 
-/**
- * \brief updates the channel status flag by reading the CHANSTS register
- *
- * \param chan IOAT DMA channel
- */
-inline uint64_t xeon_phi_dma_channel_get_status(struct xeon_phi_dma_channel *chan)
-{
-    uint32_t status_lo = xeon_phi_dma_chan_sts_lo_rd(&chan->channel);
-    chan->status = xeon_phi_dma_chan_sts_hi_rd(&chan->channel);
-    chan->status <<= 32;
-    chan->status |= status_lo;
-
-    return chan->status;
-}
-
-#endif
