@@ -51,6 +51,11 @@ static void service_insert(struct dma_service *svc)
             current->prev = svc;
             break;
         }
+        if (current->next == NULL) {
+            current->next = svc;
+            svc->prev = current;
+            break;
+        }
         current = current->next;
     }
 }
@@ -149,6 +154,7 @@ errval_t driver_store_lookup_by_iref(iref_t iref,
 
     struct dma_service *svc = service_lookup_iref(iref);
     if (svc == NULL) {
+        DS_DEBUG("no such service: iref:%"PRIxIREF"\n", iref);
         return DMA_ERR_SVC_VOID;
     }
 
