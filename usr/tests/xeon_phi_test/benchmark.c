@@ -15,7 +15,11 @@
 #include <barrelfish/ump_chan.h>
 #include <bench/bench.h>
 #include <barrelfish/sys_debug.h>
-#include <xeon_phi/xeon_phi_dma_client.h>
+#include <dma/dma.h>
+#include <dma/dma_request.h>
+#include <dma/client/dma_client_device.h>
+#include <dma/dma_manager_client.h>
+
 #include "benchmark.h"
 
 static void xphi_bench_print_settings(void)
@@ -148,16 +152,15 @@ errval_t xphi_bench_memwrite(void *target)
 
 static volatile uint8_t dma_done;
 
-static void dma_done_cb(xeon_phi_dma_id_t id,
+static void dma_done_cb(dma_req_id_t id,
                         errval_t err,
                         void *st)
 {
-    xeon_phi_dma_id_t *id2 = st;
+    dma_req_id_t *id2 = st;
     if (id != *id2) {
         debug_printf("id %016lx, %016lx\n", id, *id2);
     }
-    assert(id == *id2);
-    XPHI_BENCH_DBG("DMA request executed...\n");
+    assert(id == *id2); XPHI_BENCH_DBG("DMA request executed...\n");
     dma_done = 0x1;
 }
 
@@ -193,7 +196,8 @@ static errval_t measure_memcpy(void *dst,
     assert(err_is_ok(err));
     tscperus /= 1000;
 
-    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS-2; ++i) {
+    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS - 2;
+                    ++i) {
         size_t size = (1UL << i);
 
         ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
@@ -238,7 +242,8 @@ static errval_t measure_forloop(void *dst,
     assert(err_is_ok(err));
     tscperus /= 1000;
 
-    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS-2; ++i) {
+    for (int i = XPHI_BENCH_SIZE_MIN_BITS; i <= XPHI_BENCH_SIZE_MAX_BITS - 2;
+                    ++i) {
         size_t size = (1UL << i);
 
         ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, XPHI_BENCH_NUM_REPS);
@@ -267,7 +272,8 @@ static errval_t measure_forloop(void *dst,
     return SYS_ERR_OK;
 }
 
-static errval_t measure_dma(lpaddr_t pdst,
+static errval_t measure_dma(struct dma_device *dev,
+                            lpaddr_t pdst,
                             lpaddr_t psrc)
 {
     errval_t err;
@@ -300,24 +306,24 @@ static errval_t measure_dma(lpaddr_t pdst,
         //debug_printf("Benchmark: Run %u, size = %lu bytes, [%016lx] -> [%016lx]\n", idx, size, src, dst);
         do {
 
-            /* Test 3: DMA Transfer */
-            struct xeon_phi_dma_info info = {
-                .src = psrc,
-                .dest = pdst,
-                .size = size
-            };
+            dma_req_id_t id;
 
-            xeon_phi_dma_id_t id;
-
-            struct xeon_phi_dma_cont cont = {
-                .cb = dma_done_cb,
-                .arg = &id
+            struct dma_req_setup setup = {
+                .done_cb = dma_done_cb,
+                .cb_arg = &id,
+                .args = {
+                    .memcpy = {
+                        .src = psrc,
+                        .dst = pdst,
+                        .bytes = size
+                    }
+                }
             };
 
             dma_done = 0x0;
 
             tsc_start = bench_tsc();
-            err = xeon_phi_dma_client_start(0, &info, cont, &id);
+            err = dma_request_memcpy(dev, &setup, &id);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "could not exec the transfer");
             }
@@ -341,7 +347,8 @@ static errval_t measure_dma(lpaddr_t pdst,
     return SYS_ERR_OK;
 }
 
-errval_t xphi_bench_memcpy(void *dst,
+errval_t xphi_bench_memcpy(struct dma_device *dev,
+                           void *dst,
                            void *src,
                            size_t size,
                            lpaddr_t pdst,
@@ -357,15 +364,14 @@ errval_t xphi_bench_memcpy(void *dst,
     tscperus /= 1000;
 
     debug_printf("Starting memcpy benchmark. tsc/us=%lu, cpysize=%lu bytes\n",
-                 tscperus,
-                 (uint64_t) size);
+                 tscperus, (uint64_t) size);
 
     if (0) {
-    measure_memcpy(dst, src);
+        measure_memcpy(dst, src);
 
-    measure_forloop(dst, src);
+        measure_forloop(dst, src);
     }
-    measure_dma(pdst, psrc);
+    measure_dma(dev, pdst, psrc);
 
     return SYS_ERR_OK;
 }

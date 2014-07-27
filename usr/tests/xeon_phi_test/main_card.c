@@ -13,9 +13,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <dma/xeon_phi/xeon_phi_dma.h>
+#include <dma/dma_request.h>
+#include <dma/client/dma_client_device.h>
+#include <dma/dma_manager_client.h>
+
 #include <xeon_phi/xeon_phi_messaging.h>
 #include <xeon_phi/xeon_phi_messaging_client.h>
-#include <xeon_phi/xeon_phi_dma_client.h>
 
 uint32_t send_reply = 0x0;
 
@@ -117,8 +121,7 @@ static errval_t msg_open_cb(struct capref msgframe,
         USER_PANIC_ERR(err, "could not identify the frame");
     }
 
-    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n",
-                 id.base,
+    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
                  1UL << id.bits);
 
     host_frame = msgframe;
@@ -183,11 +186,11 @@ int main(int argc,
     debug_printf("Initializing UMP channel...\n");
 
     err = ump_chan_init(&uc, inbuf,
-                        XPHI_BENCH_MSG_FRAME_SIZE,
+    XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     err = ump_chan_init(&uc_rev, inbuf_rev,
-                        XPHI_BENCH_MSG_FRAME_SIZE,
+    XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf_rev,
                         XPHI_BENCH_MSG_FRAME_SIZE);
 
@@ -230,12 +233,34 @@ int main(int argc,
 
 #ifndef XPHI_BENCH_PROCESS_CARD
     debug_printf("+++++++ DMA / MEMCOPY Benchmark ++++++++\n");
-    err = xeon_phi_dma_client_register(0, host_frame);
+
+    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "waiting for drive");
+    }
+
+    struct dma_client_info info = {
+        .type = DMA_CLIENT_INFO_TYPE_NAME,
+        .device_type = DMA_DEV_TYPE_XEON_PHI,
+        .args = {
+            .name = XEON_PHI_DMA_SERVICE_NAME
+        }
+    };
+
+    struct dma_client_device *xdev;
+    err = dma_client_device_init(&info, &xdev);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize client device");
+    }
+
+    struct dma_device *dev = (struct dma_device *)xdev;
+
+    err = dma_register_memory((struct dma_device *) dev, card_frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register memory");
     }
 
-    err = xeon_phi_dma_client_register(0, card_frame);
+    err = dma_register_memory((struct dma_device *) dev, host_frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register memory");
     }
@@ -248,7 +273,7 @@ int main(int argc,
     debug_printf("========================================\n");
     debug_printf("\n");
 
-    xphi_bench_memcpy(card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+    xphi_bench_memcpy((struct dma_device *) dev, card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE
                     + (XPHI_BENCH_BUF_FRAME_SIZE / 2),
                     XPHI_BENCH_BUF_FRAME_SIZE / 2,
@@ -263,7 +288,7 @@ int main(int argc,
     debug_printf("\n");
     debug_printf("========================================\n");
     debug_printf("\n");
-    xphi_bench_memcpy(host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+    xphi_bench_memcpy((struct dma_device *) dev,host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     XPHI_BENCH_BUF_FRAME_SIZE / 2,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
@@ -277,7 +302,7 @@ int main(int argc,
     debug_printf("========================================\n");
     debug_printf("\n");
 
-    xphi_bench_memcpy(card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+    xphi_bench_memcpy((struct dma_device *) dev,card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
                     XPHI_BENCH_BUF_FRAME_SIZE / 2,
                     card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,

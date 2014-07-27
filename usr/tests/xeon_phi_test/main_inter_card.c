@@ -13,9 +13,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <dma/xeon_phi/xeon_phi_dma.h>
+#include <dma/dma_request.h>
+#include <dma/client/dma_client_device.h>
+#include <dma/dma_manager_client.h>
+
 #include <xeon_phi/xeon_phi_messaging.h>
 #include <xeon_phi/xeon_phi_messaging_client.h>
-#include <xeon_phi/xeon_phi_dma_client.h>
 
 uint32_t send_reply = 0x0;
 
@@ -64,8 +68,8 @@ static void init_buffer_c0(void)
 #ifdef XPHI_BENCH_CHAN_DEFAULT
     inbuf = remote_buf;
     outbuf = local_buf;
-    inbuf_rev = outbuf+XPHI_BENCH_MSG_FRAME_SIZE;
-    outbuf_rev = inbuf+XPHI_BENCH_MSG_FRAME_SIZE;
+    inbuf_rev = outbuf + XPHI_BENCH_MSG_FRAME_SIZE;
+    outbuf_rev = inbuf + XPHI_BENCH_MSG_FRAME_SIZE;
 #endif
 
 #ifdef XPHI_BENCH_BUFFER_CARD
@@ -121,8 +125,7 @@ static errval_t msg_open_cb(struct capref msgframe,
         USER_PANIC_ERR(err, "could not identify the frame");
     }
 
-    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n",
-                 id.base,
+    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
                  1UL << id.bits);
 
     remote_frame = msgframe;
@@ -178,7 +181,8 @@ int main(int argc,
 
     if (disp_xeon_phi_id() == 0) {
         debug_printf("sending open message to %s on node 1\n", iface);
-        err = xeon_phi_messaging_open(1, iface, local_frame, XEON_PHI_CHAN_TYPE_UMP);
+        err = xeon_phi_messaging_open(1, iface, local_frame,
+        XEON_PHI_CHAN_TYPE_UMP);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }
@@ -202,13 +206,13 @@ int main(int argc,
     }
 
     err = ump_chan_init(&uc, inbuf,
-                        XPHI_BENCH_MSG_FRAME_SIZE,
+    XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
     err = ump_chan_init(&uc_rev, inbuf_rev,
-                            XPHI_BENCH_MSG_FRAME_SIZE,
-                            outbuf_rev,
-                            XPHI_BENCH_MSG_FRAME_SIZE);
+    XPHI_BENCH_MSG_FRAME_SIZE,
+                        outbuf_rev,
+                        XPHI_BENCH_MSG_FRAME_SIZE);
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize UMP");
@@ -247,12 +251,33 @@ int main(int argc,
 #endif
     }
 
-    err = xeon_phi_dma_client_register(0, local_frame);
+    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "waiting for drive");
+    }
+
+    struct dma_client_info info = {
+        .type = DMA_CLIENT_INFO_TYPE_NAME,
+        .device_type = DMA_DEV_TYPE_XEON_PHI,
+        .args = {
+            .name = XEON_PHI_DMA_SERVICE_NAME
+        }
+    };
+
+    struct dma_client_device *xdev;
+    err = dma_client_device_init(&info, &xdev);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize client device");
+    }
+
+    struct dma_device *dev = (struct dma_device *) xdev;
+
+    err = dma_register_memory((struct dma_device *) dev, local_frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register memory");
     }
 
-    err = xeon_phi_dma_client_register(0, remote_frame);
+    err = dma_register_memory((struct dma_device *) dev, remote_frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not register memory");
     }
@@ -267,11 +292,11 @@ int main(int argc,
         debug_printf("\n");
         debug_printf("========================================\n");
         debug_printf("\n");
-        xphi_bench_memcpy(remote_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+        xphi_bench_memcpy(dev, remote_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
+                          local_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
                           XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                          remote_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          local_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
+                          remote_base + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
+                          local_base + 2 * XPHI_BENCH_MSG_FRAME_SIZE);
 
         debug_printf("\n");
         debug_printf("========================================\n");
@@ -280,11 +305,11 @@ int main(int argc,
         debug_printf("\n");
         debug_printf("========================================\n");
         debug_printf("\n");
-        xphi_bench_memcpy(local_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          remote_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
+        xphi_bench_memcpy(dev, local_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
+                          remote_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
                           XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                          local_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                          remote_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
+                          local_base + 2 * XPHI_BENCH_MSG_FRAME_SIZE,
+                          remote_base + 2 * XPHI_BENCH_MSG_FRAME_SIZE);
     }
 
     debug_printf("benchmark done.");

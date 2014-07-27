@@ -54,7 +54,7 @@ build application {
       "xeon_phi_messaging", 
       "xeon_phi_messaging_client", 
       "bench", 
-      "xeon_phi_dma_client" 
+      "dma_client"
     ]
   },
   
@@ -69,7 +69,8 @@ build application {
     addLibraries = libDeps [ 
       "xeon_phi_messaging", 
       "xeon_phi_messaging_client", 
-      "bench", "dma_client" 
+      "bench", 
+      "dma_client" 
     ]
   }
 ]

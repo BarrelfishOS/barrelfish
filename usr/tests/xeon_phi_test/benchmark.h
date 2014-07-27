@@ -158,7 +158,12 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
 
 errval_t xphi_bench_memwrite(void *target);
 
-errval_t xphi_bench_memcpy(void *dst, void *src, size_t size, lpaddr_t pdst, lpaddr_t psrc);
+errval_t xphi_bench_memcpy(struct dma_device *dev,
+                           void *dst,
+                           void *src,
+                           size_t size,
+                           lpaddr_t pdst,
+                           lpaddr_t psrc);
 
 static inline void xphi_bench_fill_buffer(struct bench_buf *buf, uint32_t runs)
 {

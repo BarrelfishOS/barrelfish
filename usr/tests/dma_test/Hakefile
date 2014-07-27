@@ -12,10 +12,10 @@
 
 [ build application { 
 	target = "dma_test",
+	architectures = [ "x86_64"],
 	cFiles = [ 
 	     "dma_test.c"                    
 	],
-	addLibraries = libDeps [  "dma", "dma_client" ],
-	architectures = [ "x86_64"]
+	addLibraries = libDeps [  "dma_client" ]
   }  
 ]
