@@ -26,8 +26,8 @@ struct xeon_phi_dma_device
 {
     struct dma_device common;
 
-    xeon_phi_dma_t device;                  ///< mackerel device base
-
+    xeon_phi_dma_t device;          ///< mackerel device base
+    struct dma_mem dstat;     ///< memory region for channels dstat_wb
     uint32_t flags;
 };
 
@@ -39,6 +39,26 @@ static dma_dev_id_t device_id = 1;
  * Library Internal Interface
  * ===========================================================================
  */
+
+/**
+ * \brief fills in the memory information structure for the channel's dstat
+ *        address
+ *
+ * \param dev   Xeon Phi DMA device
+ * \param mem   Memory structure to fill in
+ */
+void xeon_phi_dma_device_get_dstat_addr(struct xeon_phi_dma_device *dev,
+                                        struct dma_mem *mem)
+{
+    assert(dev->dstat.vaddr);
+
+    *mem = dev->dstat;
+    mem->bytes = XEON_PHI_DMA_CHANNEL_DSTAT_SIZE;
+    mem->paddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next);
+    mem->frame = NULL_CAP
+    ;
+    mem->vaddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next++);
+}
 
 /**
  * \brief globally enables the interrupts for the given device
@@ -66,7 +86,9 @@ errval_t xeon_phi_dma_device_irq_setup(struct xeon_phi_dma_device *dev,
 void *xeon_phi_dma_device_get_channel_vbase(struct xeon_phi_dma_device *dev,
                                             uint8_t idx)
 {
-    return (void *) (dev->common.mmio.vaddr + (idx * 0x80) + XEON_PHI_DMA_OFFSET);
+    XPHIDEV_DEBUG("getting channel vbase for %u, offset=%x\n", dev->common.id,
+                  idx, (idx * 0x40) + XEON_PHI_DMA_OFFSET);
+    return (void *) (dev->common.mmio.vaddr + (idx * 0x40) + XEON_PHI_DMA_OFFSET);
 }
 
 /**
@@ -82,9 +104,10 @@ void xeon_phi_dma_device_set_channel_owner(struct xeon_phi_dma_device *dev,
 {
     uint8_t owner_val;
     if (owner == XEON_PHI_DMA_OWNER_CARD) {
+        XPHIDEV_DEBUG("settings owner of channel %u to card.\n", dev->common.id, idx);
         owner_val = 0;
-
     } else {
+        XPHIDEV_DEBUG("settings owner of channel %u to host.\n", dev->common.id, idx);
         owner_val = 1;
     }
 
@@ -137,10 +160,16 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
 
     uint8_t enabled_val;
     if (enabled) {
-        dev->common.channels.c[id]->state = DMA_CHAN_ST_RUNNING;
+        XPHIDEV_DEBUG("Enabling channel. [%u, %u]\n", dev->common.id, idx, id);
+        if (dev->common.channels.c[id]) {
+            dev->common.channels.c[id]->state = DMA_CHAN_ST_RUNNING;
+        }
         enabled_val = 0x1;
     } else {
-        dev->common.channels.c[id]->state = DMA_CHAN_ST_SUSPENDED;
+        XPHIDEV_DEBUG("Disabling channel. [%u, %u]\n", dev->common.id, idx, id);
+        if (dev->common.channels.c[id]) {
+            dev->common.channels.c[id]->state = DMA_CHAN_ST_SUSPENDED;
+        }
         enabled_val = 0x0;
     }
 
@@ -195,7 +224,7 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xeon_phi_dma_device_init(mackerel_addr_t mmio_base,
+errval_t xeon_phi_dma_device_init(void *mmio_base,
                                   struct xeon_phi_dma_device **dev)
 {
     errval_t err;
@@ -207,17 +236,27 @@ errval_t xeon_phi_dma_device_init(mackerel_addr_t mmio_base,
 
     struct dma_device *dma_dev = (struct dma_device *) xdev;
 
-    XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p", device_id, mmio_base);
+    XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
+                  mmio_base);
+
+    err = dma_mem_alloc(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
+                        XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
+                        &xdev->dstat);
+    if (err_is_fail(err)) {
+        free(xdev);
+        return err;
+    }
 
     dma_dev->id = device_id++;
     dma_dev->irq_type = DMA_IRQ_DISABLED;
     dma_dev->type = DMA_DEV_TYPE_XEON_PHI;
     dma_dev->mmio.vaddr = (lvaddr_t) mmio_base;
+    dma_dev->f.poll = xeon_phi_dma_device_poll_channels;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 
-    XPHIDEV_DEBUG("initializing %u channels", device_id,
-                    XEON_PHI_DMA_DEVICE_CHANNELS);
+    XPHIDEV_DEBUG("initializing %u channels\n", device_id,
+                  XEON_PHI_DMA_DEVICE_CHANNELS);
 
     dma_dev->channels.count = XEON_PHI_DMA_DEVICE_CHANNELS;
     dma_dev->channels.c = calloc(XEON_PHI_DMA_DEVICE_CHANNELS,
@@ -239,14 +278,11 @@ errval_t xeon_phi_dma_device_init(mackerel_addr_t mmio_base,
             free(xdev);
             return err;
         }
-
-        /*
-         * set the channel owner
-         */
-
     }
 
     *dev = xdev;
+
+    XPHIDEV_DEBUG("Xeon Phi DMA device initialized\n", dma_dev->id);
 
     return err;
 }
@@ -317,14 +353,10 @@ errval_t xeon_phi_dma_device_poll_channels(struct dma_device *dev)
 {
     errval_t err;
 
-    assert(!"CHECK");
-
     uint8_t idle = 0x1;
 
-    struct xeon_phi_dma_channel * chan;
     for (uint8_t i = 0; i < dev->channels.count; ++i) {
-        chan = (struct xeon_phi_dma_channel *) dev->channels.c[i];
-        err = xeon_phi_dma_channel_poll(chan);
+        err = xeon_phi_dma_channel_poll(dev->channels.c[i]);
         switch (err_no(err)) {
             case DMA_ERR_CHAN_IDLE:
                 idle = idle && 0x1;

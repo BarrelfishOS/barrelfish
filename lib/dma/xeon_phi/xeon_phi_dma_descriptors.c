@@ -61,10 +61,30 @@ inline void xeon_phi_dma_desc_fill_memcpy(struct dma_descriptor *desc,
     ASSERT_ALIGNED(dst);
     ASSERT_ALIGNED(size);
 
+    if (flags & XEON_PHI_DMA_DESC_FLAG_INTR) {
+        xeon_phi_dma_desc_memcpy_intr_insert(d, 0x1);
+    }
+    if (flags & XEON_PHI_DMA_DESC_FLAG_TWB) {
+        xeon_phi_dma_desc_memcpy_twb_insert(d, 0x1);
+    }
+    if (flags & XEON_PHI_DMA_DESC_FLAG_C) {
+        xeon_phi_dma_desc_memcpy_c_insert(d, 0x1);
+    }
+    if (flags & XEON_PHI_DMA_DESC_FLAG_CO) {
+        xeon_phi_dma_desc_memcpy_co_insert(d, 0x1);
+    }
+    if (flags & XEON_PHI_DMA_DESC_FLAG_ECY) {
+        xeon_phi_dma_desc_memcpy_ecy_insert(d, 0x1);
+    }
+
+    xeon_phi_dma_desc_memcpy_intr_insert(d, 0x1);
+    xeon_phi_dma_desc_memcpy_twb_insert(d, 0x1);
+
     xeon_phi_dma_desc_memcpy_src_insert(d, src);
     xeon_phi_dma_desc_memcpy_dst_insert(d, dst);
     xeon_phi_dma_desc_memcpy_length_insert(d, (size >> XEON_PHI_DMA_ALIGN_SHIFT));
     xeon_phi_dma_desc_memcpy_dtype_insert(d, xeon_phi_dma_desc_memcpy);
+
 }
 
 /**
@@ -99,7 +119,8 @@ inline void xeon_phi_dma_desc_fill_general(struct dma_descriptor *desc,
     xeon_phi_dma_desc_general_data_insert(d, data);
     xeon_phi_dma_desc_general_dst_insert(d, dst);
 
-    xeon_phi_dma_desc_general_dtype_insert(d, xeon_phi_dma_desc_general);
+    xeon_phi_dma_desc_general_dtype_insert(d,
+    xeon_phi_dma_desc_general);
 }
 
 /**
@@ -128,5 +149,6 @@ inline void xeon_phi_dma_desc_fill_status(struct dma_descriptor *desc,
         xeon_phi_dma_desc_status_intr_insert(d, 0x1);
     }
 
-    xeon_phi_dma_desc_status_dtype_insert(d, xeon_phi_dma_desc_status);
+    xeon_phi_dma_desc_status_dtype_insert(d,
+    xeon_phi_dma_desc_status);
 }

@@ -36,7 +36,7 @@ static inline struct xeon_phi_dma_request *dma_request_to_xphi(struct dma_reques
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_dma_request_memcpy_chan(struct xeon_phi_dma_channel *chan,
+errval_t xeon_phi_dma_request_memcpy_chan(struct dma_channel *chan,
                                           struct dma_req_setup *setup,
                                           dma_req_id_t *id);
 
@@ -50,9 +50,9 @@ errval_t xeon_phi_dma_request_memcpy_chan(struct xeon_phi_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_request_memcpy(struct xeon_phi_dma_device *dev,
-                                 struct dma_req_setup *setup,
-                                 dma_req_id_t *id);
+errval_t xeon_phi_dma_request_memcpy(struct dma_device *dev,
+                                     struct dma_req_setup *setup,
+                                     dma_req_id_t *id);
 
 /**
  * \brief issues a status request to the given channel
@@ -64,7 +64,7 @@ errval_t xeon_phi_request_memcpy(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_dma_request_status_chan(struct xeon_phi_dma_channel *chan,
+errval_t xeon_phi_dma_request_status_chan(struct dma_channel *chan,
                                           struct dma_req_setup *setup,
                                           dma_req_id_t *id);
 
@@ -78,7 +78,7 @@ errval_t xeon_phi_dma_request_status_chan(struct xeon_phi_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_request_status(struct xeon_phi_dma_device *dev,
+errval_t xeon_phi_request_status(struct dma_device *dev,
                                  struct dma_req_setup *setup,
                                  dma_req_id_t *id);
 
@@ -92,7 +92,7 @@ errval_t xeon_phi_request_status(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_dma_request_general_chan(struct xeon_phi_dma_channel *chan,
+errval_t xeon_phi_dma_request_general_chan(struct dma_channel *chan,
                                            struct dma_req_setup *setup,
                                            dma_req_id_t *id);
 
@@ -106,7 +106,7 @@ errval_t xeon_phi_dma_request_general_chan(struct xeon_phi_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_request_general(struct xeon_phi_dma_device *dev,
+errval_t xeon_phi_request_general(struct dma_device *dev,
                                   struct dma_req_setup *setup,
                                   dma_req_id_t *id);
 
@@ -120,7 +120,7 @@ errval_t xeon_phi_request_general(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_dma_request_keynoncecent_chan(struct xeon_phi_dma_channel *chan,
+errval_t xeon_phi_dma_request_keynoncecent_chan(struct dma_channel *chan,
                                                 struct dma_req_setup *setup,
                                                 dma_req_id_t *id);
 
@@ -134,7 +134,7 @@ errval_t xeon_phi_dma_request_keynoncecent_chan(struct xeon_phi_dma_channel *cha
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_request_keynoncecent(struct xeon_phi_dma_device *dev,
+errval_t xeon_phi_request_keynoncecent(struct dma_device *dev,
                                        struct dma_req_setup *setup,
                                        dma_req_id_t *id);
 
@@ -148,7 +148,7 @@ errval_t xeon_phi_request_keynoncecent(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_dma_request_keynoncecent(struct xeon_phi_dma_channel *chan,
+errval_t xeon_phi_dma_request_keynoncecent(struct dma_channel *chan,
                                            struct dma_req_setup *setup,
                                            dma_req_id_t *id);
 
@@ -162,7 +162,7 @@ errval_t xeon_phi_dma_request_keynoncecent(struct xeon_phi_dma_channel *chan,
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xeon_phi_request_key(struct xeon_phi_dma_device *dev,
+errval_t xeon_phi_request_key(struct dma_device *dev,
                               struct dma_req_setup *setup,
                               dma_req_id_t *id);
 
@@ -172,7 +172,7 @@ errval_t xeon_phi_request_key(struct xeon_phi_dma_device *dev,
  * \param chan  Xeon Phi DMA channel
  * \param setup request setup information
  */
-void xeon_phi_dma_request_nop_chan(struct xeon_phi_dma_channel *chan);
+void xeon_phi_dma_request_nop_chan(struct dma_channel *chan);
 
 /**
  * \brief issues a NOP / NULL descriptor request on the given device
@@ -183,7 +183,7 @@ void xeon_phi_dma_request_nop_chan(struct xeon_phi_dma_channel *chan);
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-void xeon_phi_dma_request_nop(struct xeon_phi_dma_device *dev);
+void xeon_phi_dma_request_nop(struct dma_device *dev);
 
 /*
  * ----------------------------------------------------------------------------

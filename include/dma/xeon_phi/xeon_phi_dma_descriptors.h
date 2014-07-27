@@ -25,8 +25,17 @@ struct dma_descriptor;
 /// the size of the Xeon Phi descriptor
 #define XEON_PHI_DMA_DESC_ALIGN 16
 
-///
+/*
+ * ----------------------------------------------------------------------------
+ * DMA Descriptor Flags
+ * ----------------------------------------------------------------------------
+ */
 #define XEON_PHI_DMA_DESC_FLAG_INTR 0x01
+#define XEON_PHI_DMA_DESC_FLAG_TWB  0x02
+#define XEON_PHI_DMA_DESC_FLAG_C    0x04
+#define XEON_PHI_DMA_DESC_FLAG_CO   0x08
+#define XEON_PHI_DMA_DESC_FLAG_ECY  0x10
+
 /*
  * ----------------------------------------------------------------------------
  * DMA Descriptor Allocation / Free
@@ -129,3 +138,5 @@ static inline lpaddr_t xdma_desc_ring_host2guest(lpaddr_t host_addr)
 }
 
 #endif  /* LIB_XEON_PHI_DMA_DESCRIPTORS_H */
+
+

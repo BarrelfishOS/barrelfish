@@ -17,6 +17,21 @@
 
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
+#define XEON_PHI_DMA_DEVICE_DSTAT_SIZE \
+                (XEON_PHI_DMA_DEVICE_CHAN_TOTAL * XEON_PHI_DMA_CHANNEL_DSTAT_SIZE)
+
+#define XEON_PHI_DMA_DEVICE_DSTAT_FLAGS VREGION_FLAGS_READ_WRITE
+
+/**
+ * \brief fills in the memory information structure for the channel's dstat
+ *        address
+ *
+ * \param dev   Xeon Phi DMA device
+ * \param mem   Memory structure to fill in
+ */
+void xeon_phi_dma_device_get_dstat_addr(struct xeon_phi_dma_device *dev,
+                                        struct dma_mem *mem);
+
 /**
  * \brief globally enables the interrupts for the given device
  *

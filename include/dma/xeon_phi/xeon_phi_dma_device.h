@@ -10,6 +10,8 @@
 #ifndef LIB_XEON_PHI_DMA_DEVICE_H
 #define LIB_XEON_PHI_DMA_DEVICE_H
 
+#include <dma/dma_device.h>
+
 /// forward declaration of the device
 struct xeon_phi_dma_device;
 struct xeon_phi_dma_channel;
@@ -66,7 +68,7 @@ static inline struct xeon_phi_dma_device *dma_device_to_ioat(struct dma_device *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xeon_phi_dma_device_init(mackerel_addr_t mmio_base,
+errval_t xeon_phi_dma_device_init(void * mmio_base,
                                   struct xeon_phi_dma_device **dev);
 
 /**
