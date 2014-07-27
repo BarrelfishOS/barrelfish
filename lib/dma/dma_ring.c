@@ -6,7 +6,6 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <string.h>
 #include <barrelfish/barrelfish.h>
 
 #include <dma_internal.h>
@@ -25,12 +24,12 @@
  */
 struct dma_ring
 {
-    uint16_t size;          ///< size of the descriptor ring
-    uint16_t head;          ///< allocated index
-    uint16_t issued;        ///< hardware notification point
-    uint16_t tail;          ///< cleanup index
-    uint16_t dmacount;      ///< value to be written into dmacount register
-
+    uint16_t size;                 ///< size of the descriptor ring
+    uint16_t write_next;           ///< next descriptor to be allocated
+    uint16_t issued;               ///< hardware notification point
+    uint16_t tail;                 ///< cleanup index
+    uint16_t head;                 ///< head of the descriptor chain
+    uint8_t  use_modulo;           ///< return values module ringsize
     struct dma_descriptor **desc;  ///< descriptor pointer array
     struct dma_channel *chan;      ///< channel associated with this ring
 };
@@ -57,10 +56,10 @@ struct dma_ring
  */
 inline struct dma_descriptor *dma_ring_get_next_desc(struct dma_ring *ring)
 {
-    struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->head++);
+    struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->write_next++);
 
     DMADESC_DEBUG("ring getting next head desc:%p @ [%016lx], new head:%u\n", desc,
-                  dma_desc_get_paddr(desc), ring->head);
+                  dma_desc_get_paddr(desc), ring->write_next);
 
     return desc;
 }
@@ -96,14 +95,16 @@ uint16_t dma_ring_submit_pending(struct dma_ring *ring)
     uint16_t num_pending = dma_ring_get_pendig(ring);
 
     if (num_pending != 0) {
-        ring->dmacount += num_pending;
-        ring->issued = ring->head;
+        ring->head += num_pending;
+        ring->issued = ring->write_next;
 
         DMADESC_DEBUG("ring submit pending dmacount: %u, head = %u\n",
-                      ring->dmacount, ring->head);
+                      ring->head, ring->write_next);
     }
-
-    return ring->dmacount;
+    if (ring->use_modulo) {
+        return (ring->head & (ring->size -1));
+    }
+    return ring->head;
 }
 
 /**
@@ -150,8 +151,9 @@ lpaddr_t dma_ring_get_base_addr(struct dma_ring *ring)
  * \param ndesc_bits number of descriptors for this ring in bits
  * \param desc_align alignment constraints of the descriptors
  * \param desc_size  size of the descriptors in bytes
- * \param ret_ring   where the ring pointer is returned
+ * \param use_modulo return the head pointer modulo ring size
  * \param chan       DMA channel of this ring
+ * \param ret_ring   where the ring pointer is returned
  *
  * \returns SYS_ERR_OK on succes
  *          errval on error
@@ -159,8 +161,9 @@ lpaddr_t dma_ring_get_base_addr(struct dma_ring *ring)
 errval_t dma_ring_alloc(uint8_t ndesc_bits,
                         uint32_t desc_align,
                         uint32_t desc_size,
-                        struct dma_ring **ret_ring,
-                        struct dma_channel *chan)
+                        uint8_t  use_modulo,
+                        struct dma_channel *chan,
+                        struct dma_ring **ret_ring)
 {
     errval_t err;
 
@@ -174,16 +177,15 @@ errval_t dma_ring_alloc(uint8_t ndesc_bits,
 
     uint16_t ndesc = (1UL << ndesc_bits);
 
-    ring = malloc(sizeof(struct dma_ring) + ndesc * sizeof(void *));
+    ring = calloc(1, sizeof(struct dma_ring) + ndesc * sizeof(void *));
     if (ring == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    memset(ring, 0, sizeof(struct dma_ring) + ndesc * sizeof(void *));
-
     ring->chan = chan;
     ring->size = ndesc;
     ring->desc = (void *) (ring + 1);
+    ring->use_modulo = use_modulo;
 
     err = dma_desc_alloc(desc_size, desc_align, ndesc_bits, ring->desc);
     if (err_is_fail(err)) {
@@ -237,7 +239,7 @@ errval_t dma_ring_free(struct dma_ring *ring)
  */
 inline uint16_t dma_ring_get_active(struct dma_ring *ring)
 {
-    return (ring->head - ring->tail) & (ring->size - 1);
+    return (ring->write_next - ring->tail) & (ring->size - 1);
 }
 
 /**
@@ -249,7 +251,7 @@ inline uint16_t dma_ring_get_active(struct dma_ring *ring)
  */
 inline uint16_t dma_ring_get_pendig(struct dma_ring *ring)
 {
-    return (ring->head - ring->issued) & (ring->size - 1);
+    return (ring->write_next - ring->issued) & (ring->size - 1);
 }
 
 /*
@@ -273,49 +275,52 @@ inline uint16_t dma_ring_get_size(struct dma_ring *ring)
 /**
  * \brief returns the head pointer index of the ring
  *
- * \param ring  IOAT DMA descriptor ring
+ * \param ring  DMA descriptor ring
  *
  * \returns head element index
  */
-inline uint16_t dma_ring_get_head(struct dma_ring *ring)
+inline uint16_t dma_ring_get_write_next(struct dma_ring *ring)
 {
-    return ring->head;
+    return (ring->write_next & (ring->size - 1));
 }
 
 /**
  * \brief returns the tail pointer index of the ring
  *
- * \param ring  IOAT DMA descriptor ring
+ * \param ring  DMA descriptor ring
  *
  * \returns tail element index
  */
 inline uint16_t dma_ring_get_tail(struct dma_ring *ring)
 {
-    return ring->tail;
+    return (ring->tail & (ring->size - 1));
 }
 
 /**
  * \brief returns the issued pointer index of the ring
  *
- * \param ring  IOAT DMA descriptor ring
+ * \param ring  DMA descriptor ring
  *
  * \returns issued element index
  */
 inline uint16_t dma_ring_get_issued(struct dma_ring *ring)
 {
-    return ring->issued;
+    return (ring->issued & (ring->size - 1));
 }
 
 /**
  * \brief returns the DMA count of the ring for setting the DMA count register
  *
- * \param ring  IOAT DMA descriptor ring
+ * \param ring  DMA descriptor ring
  *
  * \returns dmacount value
  */
-inline uint16_t dma_ring_get_dmacount(struct dma_ring *ring)
+inline uint16_t dma_ring_get_head(struct dma_ring *ring)
 {
-    return ring->dmacount;
+    if (ring->use_modulo) {
+        return (ring->head & (ring->size - 1));
+    }
+    return ring->head;
 }
 
 /**

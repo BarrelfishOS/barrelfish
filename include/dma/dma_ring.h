@@ -30,8 +30,9 @@ struct dma_channel;
  * \param ndesc_bits number of descriptors for this ring in bits
  * \param desc_align alignment constraints of the descriptors
  * \param desc_size  size of the descriptors in bytes
- * \param ret_ring   where the ring pointer is returned
+ * \param use_modulo return the head pointer modulo ring size
  * \param chan       DMA channel of this ring
+ * \param ret_ring   where the ring pointer is returned
  *
  * \returns SYS_ERR_OK on succes
  *          errval on error
@@ -39,8 +40,9 @@ struct dma_channel;
 errval_t dma_ring_alloc(uint8_t ndesc_bits,
                         uint32_t desc_align,
                         uint32_t desc_size,
-                        struct dma_ring **ret_ring,
-                        struct dma_channel *chan);
+                        uint8_t  use_modulo,
+                        struct dma_channel *chan,
+                        struct dma_ring **ret_ring);
 
 /**
  * \brief frees a previously allocated descriptor ring
@@ -74,7 +76,7 @@ uint16_t dma_ring_get_size(struct dma_ring *ring);
  *
  * \returns head element index
  */
-uint16_t dma_ring_get_head(struct dma_ring *ring);
+uint16_t dma_ring_get_write_next(struct dma_ring *ring);
 
 /**
  * \brief returns the tail pointer index of the ring
@@ -101,7 +103,7 @@ uint16_t dma_ring_get_issued(struct dma_ring *ring);
  *
  * \returns dmacount value
  */
-uint16_t dma_ring_get_dmacount(struct dma_ring *ring);
+uint16_t dma_ring_get_head(struct dma_ring *ring);
 
 /**
  * \brief gets the next descriptor based on the index
