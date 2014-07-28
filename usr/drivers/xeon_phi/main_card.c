@@ -145,10 +145,10 @@ int main(int argc,
         err = messaging_poll(&xphi);
         idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
         err = xdma_service_poll(&xphi);
-        idle = idle && (err_no(err) == XEON_PHI_ERR_DMA_IDLE);
+        idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
         err = event_dispatch_non_block(get_default_waitset());
         if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_NO_EVENT && idle) {
+            if ((err_no(err) == LIB_ERR_NO_EVENT) && idle) {
                 thread_yield();
                 continue;
             }

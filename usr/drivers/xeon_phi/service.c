@@ -33,12 +33,19 @@ static iref_t svc_iref;
 static inline errval_t handle_messages(uint8_t idle)
 {
     errval_t err;
-    uint32_t data = xeon_phi_serial_handle_recv();
-    data = data && idle;
+
+    uint32_t data = 0x0;
+    uint32_t serial_recv = 0xF;
+    while(serial_recv--) {
+        data |= xeon_phi_serial_handle_recv();
+    }
+
+    idle &= (!data);
+
     err = event_dispatch_non_block(get_default_waitset());
     if (err_is_fail(err)) {
         if (err_no(err) == LIB_ERR_NO_EVENT) {
-            if (!data) {
+            if (idle) {
                 thread_yield();
             }
             return SYS_ERR_OK;
