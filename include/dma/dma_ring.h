@@ -151,7 +151,7 @@ uint16_t dma_ring_get_pendig(struct dma_ring *ring);
  */
 static inline uint16_t dma_ring_get_space(struct dma_ring *ring)
 {
-    return dma_ring_get_size(ring) - dma_ring_get_active(ring);
+    return dma_ring_get_size(ring) - dma_ring_get_active(ring) - 1;
 }
 
 #endif  /* LIB_DMA_RING_H */

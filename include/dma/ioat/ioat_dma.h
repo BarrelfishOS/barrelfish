@@ -33,7 +33,7 @@ struct ioat_dma_request;
 #define IOAT_DMA_SERVICE_NAME "ioat_dma_svc"
 
 /// Number of elements the IOAT descriptor ring has (in bits)
-#define IOAT_DMA_DESC_RING_SIZE 8
+#define IOAT_DMA_DESC_RING_SIZE 10
 
 /**
  * \brief initializes the DMA library

@@ -20,7 +20,7 @@ struct xeon_phi_dma_request;
 #define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
 
 /// size of the Xeon PHI DMA descriptor ring in bits
-#define XEON_PHI_DMA_RING_SIZE 8
+#define XEON_PHI_DMA_RING_SIZE 12
 
 
 typedef enum xeon_phi_dma_owner {
