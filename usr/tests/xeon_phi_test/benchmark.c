@@ -152,8 +152,8 @@ errval_t xphi_bench_memwrite(void *target)
 
 static volatile uint8_t dma_done;
 
-static void dma_done_cb(dma_req_id_t id,
-                        errval_t err,
+static void dma_done_cb(errval_t err,
+                        dma_req_id_t id,
                         void *st)
 {
     dma_req_id_t *id2 = st;

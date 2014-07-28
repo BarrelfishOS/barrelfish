@@ -48,34 +48,39 @@ static void *outbuf;
 static void *inbuf_rev;
 static void *outbuf_rev;
 
-static volatile uint8_t dma_done;
+static volatile uint8_t dma_completed;
 
-static void dma_done_cb(dma_req_id_t id,
-                        errval_t err,
+static void dma_done_cb(errval_t err,
+                        dma_req_id_t id,
                         void *st)
 {
-    dma_req_id_t *id2 = st;
-    if (id != *id2) {
-        debug_printf("id %016lx, %016lx\n", id, *id2);
-    }
-    assert(id == *id2);
-    XPHI_BENCH_DBG("DMA request executed...\n");
     size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
-    assert(memcmp(host_buf, card_buf, size) == 0);
-    dma_done = 0x1;
+    size = (size <= (1UL << 21) ? size : (1UL << 21));
+    debug_printf("DMA request %016lx executed...[%08x]-[%08x] result: %s\n", id,
+                 *((uint32_t *) host_buf), *((uint32_t *) card_buf),
+                 (memcmp(host_buf, card_buf, size) ? "FAIL" : "SUCCESS"));
+    dma_completed = 0x1;
 }
 
 static errval_t dma_test(struct dma_device *dev)
 {
     errval_t err;
 
+    debug_printf("''''''''''''''''''''''''''''''''''''''''''''\n");
+    debug_printf("DMA TEST & Verification\n");
+    debug_printf(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n");
+
     dma_req_id_t id;
+
+    uint32_t test = 0xcafebabe;
 
     size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
 
+    size = (size <= (1UL << 21) ? size : (1UL << 21));
+
     struct dma_req_setup setup = {
         .done_cb = dma_done_cb,
-        .cb_arg = &id,
+        .cb_arg = &test,
         .args = {
             .memcpy = {
                 .src = host_base,
@@ -87,25 +92,33 @@ static errval_t dma_test(struct dma_device *dev)
 
     memset(host_buf, 0xA5, size);
 
-    dma_done = 0x0;
-
+    dma_completed = 0x0;
+    debug_printf("issuing first request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
     err = dma_request_memcpy(dev, &setup, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
     }
-    while (!dma_done) {
+    debug_printf("request %016lx issued.\n", id);
+
+    while (!dma_completed) {
         messages_wait_and_handle_next();
     }
+
+    dma_completed = 0x0;
 
     memset(card_buf, 0x5A, size);
 
     setup.args.memcpy.src = card_base;
     setup.args.memcpy.dst = host_base;
+    debug_printf("issuing second request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
     err = dma_request_memcpy(dev, &setup, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
     }
-    while (!dma_done) {
+
+    debug_printf("request %016lx issued.\n", id);
+
+    while (!dma_completed) {
         messages_wait_and_handle_next();
     }
 

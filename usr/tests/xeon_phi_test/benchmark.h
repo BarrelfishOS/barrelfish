@@ -68,7 +68,7 @@
  *
  * XXX: keep it consistent with your menu.lst (host side)
  */
-#define XPHI_BENCH_CORE_HOST 3
+#define XPHI_BENCH_CORE_HOST 6
 #define XPHI_BENCH_CORE_CARD 5
 
 
