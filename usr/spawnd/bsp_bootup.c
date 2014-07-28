@@ -150,7 +150,6 @@ static void state_machine(void)
     }
 
     case 2: { // wait for all spawnd's to come up
-        debug_printf("case 2\n");
         for (uintptr_t c = 0; c <= MAX_COREID; c++) {
             if (coreid_mappings[c].present && c != my_core_id) {
                 err = nsb_wait_n(c, SERVICE_BASENAME);

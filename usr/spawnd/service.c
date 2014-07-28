@@ -30,7 +30,7 @@
 
 
 static errval_t spawn(char *path, char *const argv[], char *argbuf,
-                      size_t argbytes, char *const envp[], 
+                      size_t argbytes, char *const envp[],
                       struct capref inheritcn_cap, struct capref argcn_cap,
                       domainid_t *domainid)
 {
@@ -54,7 +54,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     uint8_t *image = malloc(info.size);
     if (image == NULL) {
         vfs_close(fh);
-        return err_push(err, SPAWN_ERR_LOAD);        
+        return err_push(err, SPAWN_ERR_LOAD);
     }
 
     size_t pos = 0, readlen;
@@ -198,7 +198,7 @@ static void retry_use_local_memserv_response(void *a)
 
     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         // try again
-        err = b->register_send(b, get_default_waitset(), 
+        err = b->register_send(b, get_default_waitset(),
                                MKCONT(retry_use_local_memserv_response,a));
     }
     if (err_is_fail(err)) {
@@ -214,10 +214,10 @@ static void use_local_memserv_handler(struct spawn_binding *b)
 
     errval_t err;
     err = b->tx_vtbl.use_local_memserv_response(b, NOP_CONT);
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending use_local_memserv reply");
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = b->register_send(b, get_default_waitset(), 
+            err = b->register_send(b, get_default_waitset(),
                                MKCONT(retry_use_local_memserv_response, b));
             if (err_is_fail(err)) {
                 // note that only one continuation may be registered at a time
@@ -225,7 +225,7 @@ static void use_local_memserv_handler(struct spawn_binding *b)
             }
         }
     }
-}    
+}
 
 struct pending_spawn_response {
     struct spawn_binding *b;
@@ -244,7 +244,7 @@ static void retry_spawn_domain_response(void *a)
 
     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         // try again
-        err = b->register_send(b, get_default_waitset(), 
+        err = b->register_send(b, get_default_waitset(),
                                MKCONT(retry_spawn_domain_response,a));
     }
     if (err_is_fail(err)) {
@@ -259,15 +259,15 @@ static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
                             domainid_t domainid)
 {
     errval_t err;
- 
+
     err = b->tx_vtbl.spawn_domain_response(b, NOP_CONT, rerr, domainid);
 
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn_domain reply\n");
 
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             // this will be freed in the retry handler
-            struct pending_spawn_response *sr = 
+            struct pending_spawn_response *sr =
                 malloc(sizeof(struct pending_spawn_response));
             if (sr == NULL) {
                 return LIB_ERR_MALLOC_FAIL;
@@ -275,7 +275,7 @@ static errval_t spawn_reply(struct spawn_binding *b, errval_t rerr,
             sr->b = b;
             sr->err = rerr;
             sr->domainid = domainid;
-            err = b->register_send(b, get_default_waitset(), 
+            err = b->register_send(b, get_default_waitset(),
                                    MKCONT(retry_spawn_domain_response, sr));
             if (err_is_fail(err)) {
                 // note that only one continuation may be registered at a time
@@ -581,7 +581,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
 
-#if !defined(USE_KALUGA_DVM) || defined(__arm__) || defined(__scc__)
+#if !defined(USE_KALUGA_DVM) || defined(__arm__) || defined(__scc__) || defined(__k1om__)
     // let the master know we are ready
     err = nsb_register_n(my_core_id, SERVICE_BASENAME);
     if (err_is_fail(err)) {
