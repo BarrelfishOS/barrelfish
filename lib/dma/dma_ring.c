@@ -29,7 +29,7 @@ struct dma_ring
     uint16_t issued;               ///< hardware notification point
     uint16_t tail;                 ///< cleanup index
     uint16_t head;                 ///< head of the descriptor chain
-    uint8_t  use_modulo;           ///< return values module ringsize
+    uint8_t use_modulo;           ///< return values module ringsize
     struct dma_descriptor **desc;  ///< descriptor pointer array
     struct dma_channel *chan;      ///< channel associated with this ring
 };
@@ -59,7 +59,7 @@ inline struct dma_descriptor *dma_ring_get_next_desc(struct dma_ring *ring)
     struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->write_next++);
 
     DMADESC_DEBUG("ring getting next head desc:%p @ [%016lx], new head:%u\n", desc,
-                  dma_desc_get_paddr(desc), ring->write_next);
+                  dma_desc_get_paddr(desc), (ring->write_next & (ring->size - 1)));
 
     return desc;
 }
@@ -78,7 +78,7 @@ inline struct dma_descriptor *dma_ring_get_tail_desc(struct dma_ring *ring)
     struct dma_descriptor *desc = dma_ring_get_desc(ring, ring->tail++);
 
     DMADESC_DEBUG("ring getting tail desc:%p @ [%016lx], new tail: %u\n", desc,
-                  dma_desc_get_paddr(desc), ring->tail);
+                  dma_desc_get_paddr(desc), (ring->tail & (ring->size - 1)));
 
     return desc;
 }
@@ -98,11 +98,12 @@ uint16_t dma_ring_submit_pending(struct dma_ring *ring)
         ring->head += num_pending;
         ring->issued = ring->write_next;
 
-        DMADESC_DEBUG("ring submit pending dmacount: %u, head = %u\n",
-                      ring->head, ring->write_next);
+        DMADESC_DEBUG("ring submit pending head: %u, head = %u\n",
+                      (ring->head & (ring->size - 1)),
+                      (ring->write_next & (ring->size - 1)));
     }
     if (ring->use_modulo) {
-        return (ring->head & (ring->size -1));
+        return (ring->head & (ring->size - 1));
     }
     return ring->head;
 }
@@ -161,7 +162,7 @@ lpaddr_t dma_ring_get_base_addr(struct dma_ring *ring)
 errval_t dma_ring_alloc(uint8_t ndesc_bits,
                         uint32_t desc_align,
                         uint32_t desc_size,
-                        uint8_t  use_modulo,
+                        uint8_t use_modulo,
                         struct dma_channel *chan,
                         struct dma_ring **ret_ring)
 {

@@ -173,8 +173,8 @@ static void memcpy_response_rx(struct dma_binding *_binding,
     struct dma_client_channel *chan = _binding->st;
     chan->error = err;
 
-    CLIENTCHAN_DEBUG("memcpy_response_rx: %lx %s\n", chan->common.id, id,
-                     err_getstring(err));
+    CLIENTCHAN_DEBUG("memcpy_response_rx: id=%016lx, err: %s\n",
+                     chan->common.id, id, err_getstring(err));
 
     if (err_is_fail(err)) {
         chan->rpc->state = DMA_REQ_ST_ERR;
@@ -402,7 +402,8 @@ errval_t dma_client_channel_submit_request(struct dma_channel *chan,
             } else {
                 req->state = DMA_REQ_ST_SUBMITTED;
             }
-            CLIENTCHAN_DEBUG("request is enqueued on list\n", chan->id);
+            CLIENTCHAN_DEBUG("request %016lx is enqueued on list\n", chan->id,
+                             req->id);
             dma_channel_enq_request_tail(chan, req);
             break;
         default:

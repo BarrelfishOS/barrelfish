@@ -11,7 +11,7 @@
 #define LIB_DMA_DEBUG_H
 
 /// master debug switch
-#define LIB_DMA_DEBUG_ENABLED      1
+#define LIB_DMA_DEBUG_ENABLED     0
 
 /*
  * ---------------------------------------------------------------------------

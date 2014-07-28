@@ -248,13 +248,15 @@ static errval_t channel_process_descriptors(struct xeon_phi_dma_channel *chan,
     errval_t err = DMA_ERR_REQUEST_UNFINISHED;
 
     struct dma_ring *ring = chan->ring;
-    while(dma_ring_get_tail(ring) < tail) {
+    while(dma_ring_get_tail(ring) != tail) {
         struct dma_descriptor *desc = dma_ring_get_tail_desc(ring);
         struct dma_request *req =  dma_desc_get_request(desc);
         if (req) {
             err = xeon_phi_dma_request_process((struct xeon_phi_dma_request *)req);
         }
     }
+
+    chan->last_processed = dma_ring_get_tail(ring);
 
     return err;
 }
@@ -325,7 +327,7 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
     }
 
     xeon_phi_dma_device_set_channel_state(dev, idx,
-        XEON_PHI_DMA_CHANNEL_DISABLE);
+                                          XEON_PHI_DMA_CHANNEL_DISABLE);
 
     xeon_phi_dma_device_get_dstat_addr(dev, &chan->dstat);
     channel_set_dstat_wb(chan, chan->dstat.paddr);

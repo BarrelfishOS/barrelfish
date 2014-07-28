@@ -196,7 +196,7 @@ errval_t dma_client_request_memcpy_chan(struct dma_channel *chan,
         return err;
     }
 
-    if (req->common.state != DMA_REQ_ST_ERR && id) {
+    if (id) {
         *id = req->common.id;
     }
 
