@@ -166,6 +166,7 @@ struct mem_region {
 struct bootinfo {
 #ifdef __k1om__
     uint64_t host_msg;
+    uint8_t host_msg_bits;
 #endif
     /// Number of entries in regions array
     size_t              regions_length;

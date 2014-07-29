@@ -101,8 +101,9 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         messages_wait_and_handle_next();
     }
 #ifdef __k1om__
-    char args[19];
-    snprintf(args, sizeof(args), "0x%016lx", bi->host_msg);
+    char args[40];
+    snprintf(args, sizeof(args), "0x%016lx 0x%02x", bi->host_msg,
+             bi->host_msg_bits);
     char *mgr_argv[MAX_CMDLINE_ARGS + 1];
     spawn_tokenize_cmdargs(args, mgr_argv, ARRAY_LENGTH(mgr_argv));
     err = spawn_domain_with_args("xeon_phi", mgr_argv,environ);

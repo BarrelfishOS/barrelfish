@@ -774,6 +774,7 @@ struct dcb *spawn_bsp_init(const char *name,
     bootinfo->mem_spawn_core = NEEDED_KERNEL_SPACE;  // Size of kernel
 
     bootinfo->host_msg = glbl_core_data->bp->msg_base;
+    bootinfo->host_msg_bits = glbl_core_data->bp->msg_size_bits;
 
     return init_dcb;
 }

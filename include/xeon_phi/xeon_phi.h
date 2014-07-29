@@ -109,6 +109,7 @@ struct xeon_phi_boot_params
     uint32_t cmdline_ptr;   /// pointer to the command line
     uint32_t xeon_phi_id;
     uint64_t msg_base;      /// pointer to the host message base address
+    uint8_t msg_size_bits;      /// size of the messaging channel
     uint64_t multiboot;     /// pointer to the multiboot information
 }__attribute__((packed));
 
