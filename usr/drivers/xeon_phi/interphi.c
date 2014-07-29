@@ -29,6 +29,7 @@
 #include "xeon_phi_internal.h"
 #include "interphi.h"
 #include "smpt.h"
+#include "service.h"
 #include "sysmem_caps.h"
 
 /**
@@ -125,15 +126,15 @@ static inline void rpc_wait_done(struct msg_info *mi)
         err = event_dispatch_non_block(get_default_waitset());
         switch (err_no(err)) {
             case SYS_ERR_OK:
-                break;
+            break;
             case LIB_ERR_NO_EVENT:
-                if (!data) {
-                    thread_yield();
-                }
-                break;
+            if (!data) {
+                thread_yield();
+            }
+            break;
             default:
-                USER_PANIC_ERR(err, "in event dispatch\n");
-                break;
+            USER_PANIC_ERR(err, "in event dispatch\n");
+            break;
         }
 
 #else
@@ -427,6 +428,12 @@ static void bootstrap_response_rx(struct interphi_binding *_binding,
                                   interphi_errval_t msgerr)
 {
     XINTER_DEBUG("bootstrap_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xnode *local_node = _binding->st;
+
+    local_node->msg->rpc_err = msgerr;
+
+    rpc_done(local_node->msg);
 }
 
 struct interphi_rx_vtbl rx_vtbl = {
@@ -586,7 +593,7 @@ errval_t interphi_init_xphi(uint8_t xphi,
 
     mi->is_client = is_client;
 
-    frame_size = (1UL << id.base);
+    frame_size = (1UL << id.bits);
 
 #ifdef __k1om__
     /*
@@ -640,6 +647,14 @@ errval_t interphi_init_xphi(uint8_t xphi,
     err = interphi_bootstrap(phi, id.base, id.bits, offset, xphi, mi->is_client);
     if (err_is_fail(err)) {
         free(mi);
+        return err;
+    }
+
+    XINTER_DEBUG("Local bootstrap succeeded. Sending to other node.\n");
+
+    err = service_bootstrap(phi, xphi, mi->frame);
+    if (err_is_fail(err)) {
+        XINTER_DEBUG("Could not initialize messaging\n");
         return err;
     }
 #endif

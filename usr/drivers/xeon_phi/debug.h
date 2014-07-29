@@ -24,6 +24,7 @@
 #define XDEBUG_MESSAGING 1
 #define XDEBUG_SYSMEM    1
 #define XDEBUG_SPAWN     1
+#define XDEBUG_INTERPHI  1
 
 /*
  * --------------------------------------------------------------------------
@@ -81,6 +82,12 @@
 #else
 #define XSPAWN_DEBUG(x...)
 #endif
+#if XDEBUG_INTERPHI
+#define XINTER_DEBUG(x...) XDEBUG("inter > " x)
+#else
+#define XINTER_DEBUG(x...)
+#endif
+
 
 
 #endif /* XEON_PHI_DEBUG_H_ */

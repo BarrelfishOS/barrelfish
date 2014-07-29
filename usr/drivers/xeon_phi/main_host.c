@@ -27,6 +27,7 @@
 #include "dma_service.h"
 #include "service.h"
 #include "messaging.h"
+#include "interphi.h"
 #include "sysmem_caps.h"
 
 struct xeon_phi xphi;
@@ -124,6 +125,8 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not boot the card\n");
     }
 
+    interphi_wait_for_client(&xphi);
+
     err = xdma_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
@@ -149,17 +152,17 @@ int main(int argc,
         XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
         for (uint32_t i = 0; i < xphi.id; ++i) {
             /* initialize the messaging frame */
-            err = messaging_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
+            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
             if (err_is_fail(err)) {
                 XDEBUG("Could not initialize messaging\n");
                 continue;
             }
             /* register the messaging frame */
-            err = service_open(&xphi, i);
-            if (err_is_fail(err)) {
-                XDEBUG("Could not initialize messaging\n");
-                continue;
-            }
+          //  err = service_bootstrap(&xphi, i);
+          //  if (err_is_fail(err)) {
+          //      XDEBUG("Could not initialize messaging\n");
+           //     continue;
+            //}
         }
     }
 

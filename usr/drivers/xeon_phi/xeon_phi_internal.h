@@ -71,6 +71,7 @@ typedef enum xnode_state
 {
     XNODE_STATE_NONE,
     XNODE_STATE_REGISTERING,
+    XNODE_STATE_WAIT_CONNECTION,
     XNODE_STATE_READY,
     XNODE_STATE_FAILURE
 } xnode_state_t;
@@ -91,6 +92,8 @@ struct xnode
     struct xeon_phi_driver_binding *binding;
     iref_t iref;
     xnode_state_t state;
+    uint8_t bootstrap_done;
+    errval_t err;
     uint8_t id;
     lpaddr_t apt_base;
     size_t apt_size;

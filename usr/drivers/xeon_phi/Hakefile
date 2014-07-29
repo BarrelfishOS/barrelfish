@@ -12,22 +12,23 @@
 
 [ 
   build application { 
-	target = "xeon_phi",
-	architectures= ["x86_64"],
+    target = "xeon_phi",
+    architectures= ["x86_64"],
     cFiles = [ 
       "main_host.c",
       "xeon_phi.c", 
-	  "boot.c", 
-	  "serial.c", 
-	  "interrupts.c", 
-	  "service.c",
-	  "spawn.c", 
-	  "smpt.c",
-	  "sysmem_caps.c",
-	  "messaging.c", 
-	  "sleep.c",
-	  "dma_service.c"
-	],
+      "boot.c", 
+      "serial.c", 
+      "interrupts.c", 
+      "interphi.c",
+      "service.c",
+      "spawn.c", 
+      "smpt.c",
+      "sysmem_caps.c",
+      "messaging.c", 
+      "sleep.c",
+      "dma_service.c"
+    ],
     addLibraries = libDeps [
       "skb", 
       "pci", 
@@ -43,11 +44,13 @@
       "mm"
     ],
     flounderDefs = [
+      "interphi", 
       "xeon_phi_manager", 
       "xeon_phi_driver", 
       "xeon_phi_messaging"
     ],
     flounderBindings = [
+      "interphi",
       "xeon_phi_driver", 
       "xeon_phi_messaging"
     ],
@@ -63,34 +66,37 @@
   build application { 
     target = "xeon_phi",
     architectures= ["k1om"],
-	cFiles = [ 
-	  "main_card.c",
-	  "sysmem_caps.c",
-	  "spawn.c",
-	  "smpt.c",
-	  "messaging.c",
-	  "dma_service.c" 
-	],                      
-	flounderDefs = [
-	  "xeon_phi_messaging"
-	],
-	flounderBindings = [
-	  "xeon_phi_messaging"
-	],
-	addLibraries = libDeps [ 
-	  "mm", 
-	  "spawndomain", 
-	  "dma",
-	  "dma_service",
-	  "xeon_phi_messaging", 
-	  "bench" ],
-	mackerelDevices = [ 
-	  "xeon_phi/xeon_phi_apic", 
-	  "xeon_phi/xeon_phi_boot", 
-	  "xeon_phi/xeon_phi_serial",
-	  "xeon_phi/xeon_phi_smpt", 
-	  "xeon_phi/xeon_phi_irq"
-	]
+    cFiles = [ 
+      "main_card.c",
+      "sysmem_caps.c",
+      "interphi.c",
+      "spawn.c",
+      "smpt.c",
+      "messaging.c",
+      "dma_service.c" 
+    ],                      
+    flounderDefs = [
+      "interphi",
+      "xeon_phi_messaging"
+    ],
+    flounderBindings = [
+      "interphi", 
+      "xeon_phi_messaging"
+    ],
+    addLibraries = libDeps [ 
+      "mm", 
+      "spawndomain", 
+      "dma",
+      "dma_service",
+      "xeon_phi_messaging", 
+      "bench" ],
+    mackerelDevices = [ 
+      "xeon_phi/xeon_phi_apic", 
+      "xeon_phi/xeon_phi_boot", 
+      "xeon_phi/xeon_phi_serial",
+      "xeon_phi/xeon_phi_smpt", 
+      "xeon_phi/xeon_phi_irq"
+    ]
   }
 ]
 

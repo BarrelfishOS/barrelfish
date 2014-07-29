@@ -22,6 +22,7 @@
 
 #include "xeon_phi_internal.h"
 #include "messaging.h"
+#include "interphi.h"
 #include "dma_service.h"
 #include "sysmem_caps.h"
 #include "smpt.h"
@@ -78,8 +79,6 @@ int main(int argc,
     debug_printf("Xeon Phi module started on node [%u].\n", disp_xeon_phi_id());
 
     errval_t err;
-    lpaddr_t host_base;
-    genvaddr_t offset;
 
     mmio_cap.cnode = cnode_task;
     sysmem_cap.cnode = cnode_task;
@@ -116,19 +115,24 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
     }
 
-
     //dma_impl_test(&xphi);
 
-    host_base = strtol(argv[0], NULL, 16);
-    offset = host_base;
+    lpaddr_t host_msg_base = strtol(argv[0], NULL, 16);
+    uint8_t host_msg_size = strtol(argv[1], NULL, 16);
 
-    XMESSAGING_DEBUG("Getting the host messaging cap...\n");
-    err = sysmem_cap_request(host_base, XEON_PHI_MSG_INIT_BITS, &host_cap);
+    XMESSAGING_DEBUG("Getting the host messaging cap...[%016lx, %02x]\n",
+                     host_msg_base, host_msg_size);
+
+    err = sysmem_cap_request(host_msg_base, host_msg_size, &host_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }
 
-    messaging_init(&xphi, host_cap);
+    err = interphi_init(&xphi, host_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not initialize the interphi communication\n");
+    }
+
     err = xeon_phi_messaging_service_init(&msg_cb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
@@ -142,8 +146,6 @@ int main(int argc,
     XMESSAGING_DEBUG("Start polling for messages...\n");
     while (1) {
         uint8_t idle = 0x1;
-        err = messaging_poll(&xphi);
-        idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
         err = xdma_service_poll(&xphi);
         idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
         err = event_dispatch_non_block(get_default_waitset());

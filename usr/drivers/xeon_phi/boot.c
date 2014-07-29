@@ -29,7 +29,7 @@
 struct bootinfo *bi = NULL;
 
 #include "xeon_phi_internal.h"
-#include "messaging.h"
+#include "interphi.h"
 #include "sleep.h"
 
 #define BOOT_TIMEOUT 3000
@@ -282,13 +282,6 @@ static errval_t load_cmdline(struct xeon_phi *phi,
 
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
-    if (phi->msg) {
-        cmdlen += sprintf(buf + cmdlen,
-                          "msg_base=%lx, msg_size=%lx",
-                          phi->msg->base,
-                          phi->msg->size);
-    }
-
     if (phi->cmdline) {
         cmdlen += sprintf(buf + cmdlen, "%s", phi->cmdline);
     }
@@ -376,7 +369,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     // round to next page
     offset = ALIGN(phi->os_offset + phi->os_size);
 
-    err = messaging_init(phi, NULL_CAP);
+    err = interphi_init(phi, NULL_CAP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize messaging");
     }
