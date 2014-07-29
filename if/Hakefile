@@ -32,6 +32,7 @@
                "glue_bench",
                "hpet",
                "interdisp",
+               "interphi",
                "intermon",
                "ioat_dma_mgr",
                "keyboard",
