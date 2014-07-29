@@ -43,8 +43,10 @@ errval_t service_register(struct xeon_phi *phi,
  * \param xphi_id  target xeon phi id
  * \param cap      capability of the messaging frame
  */
-errval_t service_open(struct xeon_phi *phi,
-                      uint8_t xphi_id);
+errval_t service_bootstrap(struct xeon_phi *phi,
+                           uint8_t xphi_id,
+                           struct capref frame);
+
 /**
  * \brief starts the service request handling
  */

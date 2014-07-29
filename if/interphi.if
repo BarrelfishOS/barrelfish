@@ -51,8 +51,6 @@ interface interphi "Interface between host and card side driver" {
                   in uint8 xid,
                   in uint8 is_client,
                   out errval msgerr);
-    /**
-     * 
-     */
+
 //    rpc msg_open(cap msgframe, uint8 type, char iface[length]);
 };

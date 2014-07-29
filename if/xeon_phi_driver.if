@@ -20,5 +20,5 @@ interface xeon_phi_driver "Xeon Phi Service Interface" {
                  out uint64 other_apt_base,
                  out uint64 other_apt_size);
   
-    message open(uint64 base, uint8 bits); 
+    rpc bootstrap(in uint64 base, in uint8 bits, out errval msgerr); 
 };

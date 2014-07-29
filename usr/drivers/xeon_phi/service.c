@@ -18,10 +18,10 @@
 #include <xeon_phi/xeon_phi.h>
 
 #include <if/xeon_phi_driver_defs.h>
-#include <if/xeon_phi_messaging_defs.h>
 
 #include "xeon_phi_internal.h"
 #include "service.h"
+#include "interphi.h"
 #include "messaging.h"
 #include "dma_service.h"
 #include "smpt.h"
@@ -30,13 +30,15 @@ static uint32_t is_exported;
 
 static iref_t svc_iref;
 
+errval_t bootstrap_errors[XEON_PHI_NUM_MAX];
+
 static inline errval_t handle_messages(uint8_t idle)
 {
     errval_t err;
 
     uint32_t data = 0x0;
     uint32_t serial_recv = 0xF;
-    while(serial_recv--) {
+    while (serial_recv--) {
         data |= xeon_phi_serial_handle_recv();
     }
 
@@ -65,25 +67,66 @@ struct msg_open_st
     struct xeon_phi_driver_binding *b;
     uint64_t base;
     uint8_t bits;
+    errval_t err;
 };
 
-static void msg_open_recv(struct xeon_phi_driver_binding *b,
-                          uint64_t base,
-                          uint8_t bits)
+static void bootstrap_response_tx(void *a)
+{
+    errval_t err;
+
+    struct msg_open_st *st = a;
+
+    struct event_closure txcont = MKCONT(free, a);
+
+    err = xeon_phi_driver_bootstrap_response__tx(st->b, txcont, st->err);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            struct waitset *ws = get_default_waitset();
+            txcont = MKCONT(bootstrap_response_tx, a);
+            err = st->b->register_send(st->b, ws, txcont);
+            if (err_is_fail(err)) {
+                XSERVICE_DEBUG("Could not send!");
+            }
+        }
+    }
+}
+
+static void bootstrap_response_rx(struct xeon_phi_driver_binding *b,
+                                  errval_t msgerr)
+{
+    struct xnode *node = b->st;
+    struct xeon_phi *phi = node->local;
+
+    XSERVICE_DEBUG("Xeon Phi Node %u recv bootstrap_response_rx: %s\n",
+                   phi->id, err_getstring(msgerr));
+
+    node->bootstrap_done = 0x1;
+    node->err = msgerr;
+}
+
+static void bootstrap_call_rx(struct xeon_phi_driver_binding *b,
+                              uint64_t base,
+                              uint8_t bits)
 {
     errval_t err;
 
     struct xnode *node = b->st;
     struct xeon_phi *phi = node->local;
-    XSERVICE_DEBUG("Xeon Phi Node %u recv OPEN BOOTSTRAP: [0x%016lx] from %u\n",
-                   phi->id,
-                   base,
-                   node->id);
+    XSERVICE_DEBUG("Xeon Phi Node %u bootstrap_call_rx: [0x%016lx] from %u\n",
+                   phi->id, base, node->id);
 
-    lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34)<<2))<<32 ;
+    lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34) << 2)) << 32;
 
-    err = messaging_send_bootstrap(base, offset, bits, node->id, 0x1);
-    assert(err_is_ok(err));
+    err = interphi_bootstrap(node->local, base, bits, offset, node->id, 0x1);
+
+    struct msg_open_st *st = malloc(sizeof(*st));
+    if (st == NULL) {
+        USER_PANIC("could not allocate state");
+    }
+
+    st->err = err;
+
+    bootstrap_response_tx(st);
 }
 
 static void msg_open_tx(void *a)
@@ -94,7 +137,7 @@ static void msg_open_tx(void *a)
 
     struct event_closure txcont = MKCONT(free, a);
 
-    err = xeon_phi_driver_open__tx(st->b, txcont, st->base, st->bits);
+    err = xeon_phi_driver_bootstrap_call__tx(st->b, txcont, st->base, st->bits);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -113,8 +156,9 @@ static void msg_open_tx(void *a)
  * \param phi      the local xeon phi card
  * \param xphi_id  target xeon phi id
  */
-errval_t service_open(struct xeon_phi *phi,
-                      uint8_t xphi_id)
+errval_t service_bootstrap(struct xeon_phi *phi,
+                           uint8_t xphi_id,
+                           struct capref frame)
 {
     assert(xphi_id < XEON_PHI_NUM_MAX);
 
@@ -123,33 +167,42 @@ errval_t service_open(struct xeon_phi *phi,
         return SYS_ERR_OK;
     }
 
+    XSERVICE_DEBUG("service_bootstrap xid:%u.\n", xphi_id);
+
     struct xnode *node = &phi->topology[xphi_id];
+
+    assert(node->bootstrap_done == 0);
 
     errval_t err;
     struct frame_identity id;
-    err = invoke_frame_identify(node->msg->frame, &id);
+    err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
+
     if (node->state != XNODE_STATE_READY) {
         return -1;  // TODO: error code
     }
-
-    assert(!capref_is_null(node->msg->frame));
 
     struct msg_open_st *st = malloc(sizeof(struct msg_open_st));
     if (st == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    node->err = SYS_ERR_OK;
+
     st->b = node->binding;
-    st->base = node->msg->base;
+    st->base = id.base;
     st->bits = id.bits;
 
     msg_open_tx(st);
 
-    return SYS_ERR_OK;
+    while(!node->bootstrap_done) {
+        handle_messages(0x1);
+    }
+
+    return node->err;
 }
 
 /*
@@ -178,11 +231,8 @@ static void register_response_send(void *a)
 
     struct xeon_phi *phi = topology->local;
 
-    err = xeon_phi_driver_register_response__tx(topology->binding,
-                                                txcont,
-                                                err,
-                                                phi->apt.pbase,
-                                                phi->apt.length);
+    err = xeon_phi_driver_register_response__tx(topology->binding, txcont, err,
+                                                phi->apt.pbase, phi->apt.length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -217,9 +267,7 @@ static void register_call_recv(struct xeon_phi_driver_binding *_binding,
     };
 
     XSERVICE_DEBUG("Xeon Phi Node %u: New register call: id=0x%x @ [0x%016lx]\n",
-                   phi->id,
-                   id,
-                   other_apt_base);
+                   phi->id, id, other_apt_base);
 
     _binding->st = &phi->topology[id];
 
@@ -248,9 +296,7 @@ static void register_response_recv(struct xeon_phi_driver_binding *_binding,
         topology->apt_base = other_apt_base;
         topology->apt_size = other_apt_size;
         XSERVICE_DEBUG("Xeon Phi node %u: Registering response. Node %u @ 0x%016lx\n",
-                       topology->local->id,
-                       topology->id,
-                       topology->apt_base);
+                       topology->local->id, topology->id, topology->apt_base);
 
         smpt_set_coprocessor_address(topology->local, topology->id, other_apt_base);
     }
@@ -273,11 +319,8 @@ static void register_call_send(void *a)
 
     topology->state = XNODE_STATE_REGISTERING;
 
-    err = xeon_phi_driver_register_call__tx(topology->binding,
-                                            txcont,
-                                            phi->id,
-                                            phi->apt.pbase,
-                                            phi->apt.length);
+    err = xeon_phi_driver_register_call__tx(topology->binding, txcont, phi->id,
+                                            phi->apt.pbase, phi->apt.length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -294,7 +337,8 @@ static void register_call_send(void *a)
 static struct xeon_phi_driver_rx_vtbl xps_rx_vtbl = {
     .register_call = register_call_recv,
     .register_response = register_response_recv,
-    .open = msg_open_recv
+    .bootstrap_call = bootstrap_call_rx,
+    .bootstrap_response = bootstrap_response_rx
 };
 
 /*
@@ -316,8 +360,7 @@ static errval_t svc_register(struct xnode *node)
 {
     errval_t err;
 
-    XSERVICE_DEBUG("Initiate binding to Xeon Phi node %i @ iref=0x%x\n",
-                   node->id,
+    XSERVICE_DEBUG("Initiate binding to Xeon Phi node %i @ iref=0x%x\n", node->id,
                    node->iref);
 
     err = xeon_phi_driver_bind(node->iref, svc_bind_cb, node, get_default_waitset(),
@@ -377,9 +420,7 @@ errval_t service_init(struct xeon_phi *phi)
         phi->topology[i].state = XNODE_STATE_NONE;
     }
 
-    err = xeon_phi_driver_export(phi,
-                                 svc_export_cb,
-                                 svc_connect_cb,
+    err = xeon_phi_driver_export(phi, svc_export_cb, svc_connect_cb,
                                  get_default_waitset(),
                                  IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -470,8 +511,6 @@ errval_t service_start(struct xeon_phi *phi)
 
     while (1) {
         uint8_t idle = 0x1;
-        err = messaging_poll(phi);
-        idle = idle && (err_no(err) == LIB_ERR_NO_EVENT);
         err = xdma_service_poll(phi);
         idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
         err = handle_messages(idle);
