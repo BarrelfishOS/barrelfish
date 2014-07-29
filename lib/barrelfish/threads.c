@@ -427,7 +427,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     }
 
     // FIXME: make arch-specific
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__k1om__)
     // create segment for TCB
     errval_t err = ldt_alloc_segment(newthread, &newthread->thread_seg_selector);
     if (err_is_fail(err)) {
