@@ -66,7 +66,7 @@ static struct bootinfo *bi;
  *    #CNODE_BITS >= MAXCHILDBITS           (cnode enough for max branching factor)
  *    (1UL << #CNODE_BITS) ** 2 >= #NNODES  (total number of slots is enough)
  */
-#define CNODE_BITS      12
+#define CNODE_BITS      13
 #define NCNODES         (1UL << CNODE_BITS)     ///< Maximum number of CNodes
 
 /// Watermark at which we must refill the slab allocator used for nodes
