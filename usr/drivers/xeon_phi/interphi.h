@@ -89,7 +89,7 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
 /**
  * \brief sends a spawn request to the Xeon Phi driver
  *
- * \param phi       Xeon Phi
+ * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
  * \param cmdline   Commandline of the domain to spawn
  * \param domain    Domain identifier returned
@@ -97,7 +97,7 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
  * \returns SYS_ERR_OK on success
  *          errval on faiure
  */
-errval_t interphi_spawn(struct xeon_phi *phi,
+errval_t interphi_spawn(struct xnode *node,
                         uint8_t core,
                         char *cmdline,
                         uint64_t *domain);
@@ -106,7 +106,7 @@ errval_t interphi_spawn(struct xeon_phi *phi,
 /**
  * \brief sends a spawn request to the Xeon Phi driver
  *
- * \param phi       Xeon Phi
+ * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
  * \param cmdline   Commandline of the domain to spawn
  * \param cap       Cap to hand over to the domain at boot
@@ -115,7 +115,7 @@ errval_t interphi_spawn(struct xeon_phi *phi,
  * \returns SYS_ERR_OK on success
  *          errval on faiure
  */
-errval_t interphi_spawn_with_cap(struct xeon_phi *phi,
+errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint8_t core,
                                  char *cmdline,
                                  struct capref cap,
@@ -124,15 +124,32 @@ errval_t interphi_spawn_with_cap(struct xeon_phi *phi,
 /**
  * \brief sends a kill request for a domain
  *
- * \param phi       Xeon Phi
+ * \param node      Target Xeon Phi node
  * \param domain    Domain identifier
  *
  * \returns SYS_ERR_OK on success
- *          errval on faiure
+ *          errval on failure
  */
-errval_t interphi_kill(struct xeon_phi *phi,
-                       uint64_t domain);
+errval_t interphi_kill(struct xnode *node,
+                       xphi_dom_id_t domain);
 
-
+/**
+ * \brief sends a channel open messages to another Xeon Phi driver
+ *
+ * \param node      Xeon Phi Node to send the message to
+ * \param target    target domain id
+ * \param iface     target domain interface name
+ * \param source    source domain id
+ * \param msgframe  capability of the messaging frame
+ * \param type      Channel type
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t interphi_chan_open(struct xnode *node,
+                            xphi_dom_id_t target,
+                            char *iface,
+                            xphi_dom_id_t source,
+                            struct capref msgframe,
+                            xphi_chan_type_t type);
 
 #endif /* XEON_PHI_INTERPHI_H */

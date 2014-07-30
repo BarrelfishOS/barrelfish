@@ -30,7 +30,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap);
  * \brief Returns a previously requested system memory capability to the
  *        cap manager
  */
-errval_t sysmem_cap_return(void);
+errval_t sysmem_cap_return(struct capref frame);
 
 /**
  * \brief Requests a certain system memory capability based on the base and

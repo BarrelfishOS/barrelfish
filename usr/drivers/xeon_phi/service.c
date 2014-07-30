@@ -22,7 +22,6 @@
 #include "xeon_phi_internal.h"
 #include "service.h"
 #include "interphi.h"
-#include "messaging.h"
 #include "dma_service.h"
 #include "smpt.h"
 
@@ -45,14 +44,17 @@ static inline errval_t handle_messages(uint8_t idle)
     idle &= (!data);
 
     err = event_dispatch_non_block(get_default_waitset());
-    if (err_is_fail(err)) {
-        if (err_no(err) == LIB_ERR_NO_EVENT) {
+    switch(err_no(err)) {
+        case SYS_ERR_OK:
+            break;
+        case LIB_ERR_NO_EVENT:
             if (idle) {
                 thread_yield();
             }
-            return SYS_ERR_OK;
-        }
-        return err;
+            break;
+        default:
+            USER_PANIC_ERR(err, "unexpected error while event dispatch");
+            break;
     }
     return SYS_ERR_OK;
 }
@@ -112,6 +114,7 @@ static void bootstrap_call_rx(struct xeon_phi_driver_binding *b,
 
     struct xnode *node = b->st;
     struct xeon_phi *phi = node->local;
+
     XSERVICE_DEBUG("Xeon Phi Node %u bootstrap_call_rx: [0x%016lx] from %u\n",
                    phi->id, base, node->id);
 
@@ -125,11 +128,12 @@ static void bootstrap_call_rx(struct xeon_phi_driver_binding *b,
     }
 
     st->err = err;
+    st->b = node->binding;
 
     bootstrap_response_tx(st);
 }
 
-static void msg_open_tx(void *a)
+static void bootstrap_call_tx(void *a)
 {
     errval_t err;
 
@@ -141,7 +145,7 @@ static void msg_open_tx(void *a)
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
-            txcont = MKCONT(msg_open_tx, a);
+            txcont = MKCONT(bootstrap_call_tx, a);
             err = st->b->register_send(st->b, ws, txcont);
             if (err_is_fail(err)) {
                 XSERVICE_DEBUG("Could not send!");
@@ -167,7 +171,7 @@ errval_t service_bootstrap(struct xeon_phi *phi,
         return SYS_ERR_OK;
     }
 
-    XSERVICE_DEBUG("service_bootstrap xid:%u.\n", xphi_id);
+    XSERVICE_DEBUG("sending bootstrap to node {xid:%u}.\n", xphi_id);
 
     struct xnode *node = &phi->topology[xphi_id];
 
@@ -179,7 +183,6 @@ errval_t service_bootstrap(struct xeon_phi *phi,
     if (err_is_fail(err)) {
         return err;
     }
-
 
     if (node->state != XNODE_STATE_READY) {
         return -1;  // TODO: error code
@@ -196,7 +199,9 @@ errval_t service_bootstrap(struct xeon_phi *phi,
     st->base = id.base;
     st->bits = id.bits;
 
-    msg_open_tx(st);
+    bootstrap_call_tx(st);
+
+    XSERVICE_DEBUG("waiting for bootstrap done:%u.\n", xphi_id);
 
     while(!node->bootstrap_done) {
         handle_messages(0x1);
@@ -210,18 +215,13 @@ errval_t service_bootstrap(struct xeon_phi *phi,
  * Intra Xeon Phi Driver Communication Regigistration
  */
 
-static void register_response_sent_cb(void *a)
-{
-
-}
-
 static void register_response_send(void *a)
 {
     errval_t err;
 
     struct xnode *topology = a;
 
-    struct event_closure txcont = MKCONT(register_response_sent_cb, a);
+    struct event_closure txcont = MKCONT(NULL, a);
 
     if (topology->state == XNODE_STATE_READY) {
         err = SYS_ERR_OK;

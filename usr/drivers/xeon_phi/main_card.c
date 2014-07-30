@@ -21,20 +21,13 @@
 #include <xeon_phi/xeon_phi.h>
 
 #include "xeon_phi_internal.h"
-#include "messaging.h"
 #include "interphi.h"
 #include "dma_service.h"
 #include "sysmem_caps.h"
 #include "smpt.h"
+#include "xphi_service.h"
 
 static struct xeon_phi xphi;
-
-struct xeon_phi_messaging_cb msg_cb = {
-    .open_card = messaging_send_open_to_xphi,
-    .open_iface = messaging_send_open,
-    .spawn_card = messaging_send_spawn_to_xphi,
-    .spawn = messaging_send_spawn
-};
 
 static struct capref mmio_cap = {
     .slot = TASKCN_SLOT_IO
@@ -133,14 +126,9 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the interphi communication\n");
     }
 
-    err = xeon_phi_messaging_service_init(&msg_cb);
+    err = xeon_phi_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
-    }
-
-    err = xeon_phi_messaging_service_start_phi(0);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not export the service");
     }
 
     XMESSAGING_DEBUG("Start polling for messages...\n");

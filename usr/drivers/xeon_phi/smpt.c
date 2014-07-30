@@ -59,9 +59,7 @@ lpaddr_t smpt_get_coprocessor_address(struct xeon_phi *phi,
 
     assert(slot < xeon_phi_smpt_system_page_num);
 
-    XSMPT_DEBUG("Calculating slot for id %u: slot=%u, offset=%016lx\n",
-                id,
-                slot,
+    XSMPT_DEBUG("Calculating slot for id %u: slot=%u, offset=%016lx\n", id, slot,
                 phi->smpt->offsets[slot]);
 
     return ((lpaddr_t) slot * XEON_PHI_SYSMEM_PAGE_SIZE) + phi->smpt->offsets[slot];
@@ -86,9 +84,8 @@ void smpt_set_coprocessor_offset(struct xeon_phi *phi,
         slot = slot - id + 1;
     }
 
-    XSMPT_DEBUG("Offset for slot %u:  offset=%016lx\n",
-                        slot,
-                        phi->smpt->offsets[slot]);
+    XSMPT_DEBUG("Offset for slot %u:  offset=%016lx\n", slot,
+                phi->smpt->offsets[slot]);
 
     phi->smpt->offsets[slot] = offset;
 }

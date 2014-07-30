@@ -18,27 +18,21 @@
 
 #include <vfs/vfs.h>
 #include <pci/pci.h>
+#include <pci/devids.h>
 
+#include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
-#include <xeon_phi/xeon_phi_messaging.h>
 
 #include "xeon_phi_internal.h"
 #include "smpt.h"
 #include "dma_service.h"
 #include "service.h"
-#include "messaging.h"
+#include "xphi_service.h"
 #include "interphi.h"
 #include "sysmem_caps.h"
 
 struct xeon_phi xphi;
 
-/**
- * callbacks for the messaging channel
- */
-struct xeon_phi_messaging_cb msg_cb = {
-    .open_iface = messaging_send_open,
-    .spawn = messaging_send_spawn
-};
 
 /**
  * \brief Main function of the Xeon Phi Driver (Host Side)
@@ -132,14 +126,9 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
     }
 
-    err = xeon_phi_messaging_service_init(&msg_cb);
+    err = xeon_phi_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
-    }
-
-    err = xeon_phi_messaging_service_start_phi(xphi.id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not export the service");
     }
 
     /*
@@ -157,12 +146,6 @@ int main(int argc,
                 XDEBUG("Could not initialize messaging\n");
                 continue;
             }
-            /* register the messaging frame */
-          //  err = service_bootstrap(&xphi, i);
-          //  if (err_is_fail(err)) {
-          //      XDEBUG("Could not initialize messaging\n");
-           //     continue;
-            //}
         }
     }
 

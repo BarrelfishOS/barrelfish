@@ -50,7 +50,6 @@
 #define XEON_PHI_GBOX_CHANNEL2_BASE  0x800
 #define XEON_PHI_GBOX_CHANNEL3_BASE  0x1000
 
-
 #define XEON_PHI_SBOX_SIZE (64*1024)
 #define XEON_PHI_SBOX_SIZE_BITS (16)
 
@@ -66,8 +65,6 @@
 #define XEON_PHI_SYSMEM_PAGE_BITS 34
 
 #define XEON_PHI_SYSMEM_KNC_BASE (XEON_PHI_SYSMEM_BASE + 25 * XEON_PHI_SYSMEM_PAGE_SIZE)
-
-
 
 #define XEON_PHI_MEM_MASK 0xFFFFFFFFFFULL
 
@@ -93,7 +90,7 @@ struct xeon_phi_boot_params
     uint8_t loadflags;
     uint16_t setup_move_size;
     uint32_t code32_start;
-    uint32_t ramdisk_image; /// pointer to the multiboot image
+    uint32_t ramdisk_image;  /// pointer to the multiboot image
     uint32_t ramdisk_size;  /// multiboot image size
     uint32_t bootsect_kludge;
     uint16_t loader_name;
@@ -112,5 +109,44 @@ struct xeon_phi_boot_params
     uint8_t msg_size_bits;      /// size of the messaging channel
     uint64_t multiboot;     /// pointer to the multiboot information
 }__attribute__((packed));
+
+
+typedef uint8_t xphi_chan_type_t;
+
+typedef uint8_t xphi_id_t;
+
+typedef uint64_t xphi_dom_id_t;
+
+static inline xphi_dom_id_t xeon_phi_domain_build_id(xphi_id_t xid,
+                                                     uint8_t core,
+                                                     uint8_t is_host,
+                                                     domainid_t domid)
+{
+    xphi_dom_id_t did = xid;
+    did <<= 8;
+    did |= core;
+    did <<= 32;
+    did |=domid;
+    if (is_host) {
+        did |= (1UL << 63);
+    }
+    return did;
+}
+
+static inline xphi_id_t xeon_phi_domain_get_xid(xphi_dom_id_t domid)
+{
+    return (0xFF & (domid >> 40));
+}
+
+static inline xphi_id_t xeon_phi_domain_get_core(xphi_dom_id_t domid)
+{
+    return (0xFF & (domid >> 32));
+}
+
+static inline uint8_t xeon_phi_domain_is_on_host(xphi_dom_id_t domid)
+{
+    return !!((1UL << 63) & domid);
+}
+
 
 #endif // XEON_PHI_XEON_PHI_H_

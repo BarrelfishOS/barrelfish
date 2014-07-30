@@ -22,10 +22,9 @@
       "interrupts.c", 
       "interphi.c",
       "service.c",
-      "spawn.c", 
       "smpt.c",
       "sysmem_caps.c",
-      "messaging.c", 
+      "xphi_service.c",
       "sleep.c",
       "dma_service.c"
     ],
@@ -40,19 +39,18 @@
       "lwip",
       "bench", 
       "xeon_phi_manager_client", 
-      "xeon_phi_messaging", 
       "mm"
     ],
     flounderDefs = [
       "interphi", 
+      "xeon_phi",
       "xeon_phi_manager", 
-      "xeon_phi_driver", 
-      "xeon_phi_messaging"
+      "xeon_phi_driver"
     ],
     flounderBindings = [
       "interphi",
-      "xeon_phi_driver", 
-      "xeon_phi_messaging"
+      "xeon_phi",
+      "xeon_phi_driver"
     ],
     mackerelDevices = [ 
       "xeon_phi/xeon_phi_apic", 
@@ -70,26 +68,25 @@
       "main_card.c",
       "sysmem_caps.c",
       "interphi.c",
-      "spawn.c",
+      "xphi_service.c",
       "smpt.c",
-      "messaging.c",
       "dma_service.c" 
     ],                      
     flounderDefs = [
       "interphi",
-      "xeon_phi_messaging"
+      "xeon_phi"
     ],
     flounderBindings = [
       "interphi", 
-      "xeon_phi_messaging"
+      "xeon_phi"
     ],
     addLibraries = libDeps [ 
       "mm", 
       "spawndomain", 
       "dma",
       "dma_service",
-      "xeon_phi_messaging", 
-      "bench" ],
+      "bench" 
+    ],
     mackerelDevices = [ 
       "xeon_phi/xeon_phi_apic", 
       "xeon_phi/xeon_phi_boot", 

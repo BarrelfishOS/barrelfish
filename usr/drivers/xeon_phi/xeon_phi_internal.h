@@ -116,10 +116,12 @@ struct xeon_phi
     iref_t iref;
     uint32_t apicid;        ///< APIC id used for sending the boot interrupt
 
-    uint8_t connected;
+    uint8_t connected;      ///< number of connected xphis
     struct xnode topology[XEON_PHI_NUM_MAX];
 
     uint8_t is_client;
+
+    iref_t xphi_svc_iref;
 
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;   ///< pointer to the IRQ information struct

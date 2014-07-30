@@ -80,11 +80,11 @@ static void register_response_send(void *a)
 
     struct event_closure txcont = MKCONT(register_response_sent_cb, a);
 
-    err = xeon_phi_manager_register_response__tx(rd->b,
-                                                 txcont,
-                                                 rd->id,
-                                                 rd->irefs,
-                                                 rd->err);
+    err = xeon_phi_manager_register_driver_response__tx(rd->b,
+                                                        txcont,
+                                                        rd->id,
+                                                        rd->irefs,
+                                                        rd->err);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             txcont = MKCONT(register_response_send, a);
@@ -121,7 +121,7 @@ static void register_call_recv(struct xeon_phi_manager_binding *_binding,
 }
 
 static struct xeon_phi_manager_rx_vtbl xpm_rx_vtbl = {
-    .register_call = register_call_recv
+    .register_driver_call = register_call_recv
 };
 
 /*

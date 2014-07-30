@@ -23,7 +23,6 @@
 #include "interrupts.h"
 #include "sleep.h"
 #include "smpt.h"
-#include "dma/dma.h"
 #include "sysmem_caps.h"
 
 static uint32_t initialized = 0;
