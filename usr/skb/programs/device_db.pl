@@ -79,7 +79,7 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 4,
     core_offset: 20,
-    multi_instance: 0,
+    multi_instance: 1,
     interrupt_load: 0.5,
     platforms: ['x86_64']
 }.

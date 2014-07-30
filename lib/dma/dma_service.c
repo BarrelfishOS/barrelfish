@@ -32,6 +32,7 @@ struct dma_svc_st
  */
 enum dma_svc_state
 {
+    DMA_SVC_STATE_INVALID,
     DMA_SVC_STATE_EXPORTING,
     DMA_SVC_STATE_EXPORT_OK,
     DMA_SVC_STATE_EXPORT_FAIL,
