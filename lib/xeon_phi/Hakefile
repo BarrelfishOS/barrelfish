@@ -12,32 +12,22 @@
 --------------------------------------------------------------------------
 
 [ build library { 
-	target = "xeon_phi_manager_client",
-	architectures = ["x86_64"],
-	cFiles = [ "xeon_phi_manager_client.c" ],
+    target = "xeon_phi_manager_client",
+    architectures = ["x86_64"],
+    cFiles = [ "xeon_phi_manager_client.c" ],
     flounderDefs = ["xeon_phi_manager"],
-    flounderBindings = ["xeon_phi_manager"]
+    flounderBindings = ["xeon_phi_manager"],
+    flounderExtraBindings = [ ("xeon_phi_manager",["rpcclient"]) ]
   },
                 
   build library { 
-  	target = "xeon_phi_messaging",
+    target = "xeon_phi_client",
     architectures = [
       "k1om", 
       "x86_64"
     ],
-    cFiles = [ "xeon_phi_messaging.c" ],
-    flounderDefs = ["xeon_phi_messaging"],
-    flounderBindings = ["xeon_phi_messaging"]
-  },
-  
-  build library { 
-  	target = "xeon_phi_messaging_client",
-    architectures = [
-      "k1om", 
-      "x86_64"
-    ],
-    cFiles = [ "xeon_phi_messaging_client.c" ],
-    flounderDefs = ["xeon_phi_messaging"],
-    flounderBindings = ["xeon_phi_messaging"]
-  }                  
+    cFiles = [ "xeon_phi_client.c" ],
+    flounderDefs = ["xeon_phi"],
+    flounderBindings = ["xeon_phi"]
+  }
 ]

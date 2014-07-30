@@ -37,10 +37,12 @@ interface xeon_phi_manager "Xeon Phi Manager Interface" {
      * \param irefs  array of irefs to other Xeon Phi driver services
      * \param msgerr error code from Xeon Phi manager
      */
-    rpc register(in iref svc, out uint8 id, out cards irefs, out errval msgerr);
+    rpc register_driver(in iref svc, out uint8 id, out cards irefs, out errval msgerr);
     
     /*
      * 
      */
     rpc terminate();
+    
+    rpc lookup(in uint8 xid, out iref svc, out errval msgerr);
 };

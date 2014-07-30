@@ -13,10 +13,6 @@
 
 interface interphi "Interface between host and card side driver" {
     
-    /*
-     * Spawning of Domains
-     */
-    
     /**
      * \
      */
@@ -52,5 +48,32 @@ interface interphi "Interface between host and card side driver" {
                   in uint8 is_client,
                   out errval msgerr);
 
-//    rpc msg_open(cap msgframe, uint8 type, char iface[length]);
+    rpc chan_open(in uint64 source_did,
+                  in char iface[length],
+                  in uint64 msgbase,
+                  in uint8 msgbits,
+                  in uint8 type,
+                  out errval msgerr);
+    
+    rpc chan_open_did(in uint64 source_did,
+                      in uint64 target_did,
+                      in uint64 msgbase,
+                      in uint8 msgbits,
+                      in uint8 type,
+                      out errval msgerr);
+    /*
+     * host driver only
+     */
+    
+    
+    rpc register(in uint8 id, 
+                 in uint64 local_apt_base,
+                 in uint64 local_apt_size, 
+                 out errval msgerr, 
+                 out uint64 other_apt_base,
+                 out uint64 other_apt_size);
+    
+    rpc bootstrap_remote(in uint64 base, 
+                         in uint8 bits, 
+                         out errval msgerr); 
 };

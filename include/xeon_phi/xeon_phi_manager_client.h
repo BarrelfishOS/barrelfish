@@ -47,4 +47,15 @@ errval_t xeon_phi_manager_client_register(iref_t svc_iref,
  */
 errval_t xeon_phi_manager_client_deregister(void);
 
+/**
+ * \brief looks up the iref of a Xeon Phi with the given id
+ *
+ * \param xid       Xeon Phi ID
+ * \param svc_iref  the returned svc_iref of the xeon phi
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xeon_phi_manager_lookup(xphi_id_t xid,
+                                 iref_t *svc_iref);
+
 #endif // XEON_PHI_MANAGER_CLIENT_H
