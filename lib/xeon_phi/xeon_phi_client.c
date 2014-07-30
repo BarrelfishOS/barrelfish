@@ -68,6 +68,7 @@ struct xphi_msg_st
         {
             char *name;
             domainid_t domid;
+            coreid_t core;
         } reg;
         struct
         {
@@ -154,7 +155,8 @@ static errval_t register_call_tx(struct txq_msg_st *msg_st)
     struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
     size_t length = strlen(st->args.reg.name) + 1;
     return xeon_phi_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                      st->args.reg.domid, st->args.reg.name, length);
+                                      st->args.reg.domid, st->args.reg.core,
+                                      st->args.reg.name, length);
 }
 
 static errval_t spawn_call_tx(struct txq_msg_st *msg_st)
@@ -170,8 +172,9 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
 {
     struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
     size_t length = strlen(st->args.spawn.cmdline) + 1;
-    return xeon_phi_spawn_with_cap_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                            st->args.spawn.xid, st->args.spawn.core,
+    return xeon_phi_spawn_with_cap_call__tx(msg_st->queue->binding,
+                                            TXQCONT(msg_st), st->args.spawn.xid,
+                                            st->args.spawn.core,
                                             st->args.spawn.cmdline, length,
                                             st->args.spawn.cap);
 }
@@ -207,8 +210,8 @@ static errval_t chan_open_request_did_call_tx(struct txq_msg_st *msg_st)
 
 static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
 {
-    return xeon_phi_chan_open_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           msg_st->err);
+    return xeon_phi_chan_open_response__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), msg_st->err);
 }
 
 /*
@@ -310,7 +313,8 @@ static void chan_open_call_rx(struct xeon_phi_binding *b,
                               struct capref msgframe,
                               uint8_t type)
 {
-    DEBUG_XPHI("chan_open_request_call_rx: from domain:%lx, type:%u\n", domain, type);
+    DEBUG_XPHI("chan_open_request_call_rx: from domain:%lx, type:%u\n", domain,
+               type);
 
     struct xeon_phi_client *cl = b->st;
     assert(cl);
@@ -367,6 +371,7 @@ static errval_t xphi_client_register(struct xeon_phi_client *cl)
 
     struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
     svc_st->args.reg.domid = disp_get_domain_id();
+    svc_st->args.reg.core = disp_get_core_id();
 
     size_t namelen = strlen(disp_name()) + 4;
     svc_st->args.reg.name = malloc(namelen);
@@ -455,7 +460,8 @@ static errval_t xphi_client_init(xphi_id_t xid)
         return err;
     }
 
-    DEBUG_XPHI("initializing client to xid:%u @ iref:%"PRIxIREF"\n", xid, svc_iref);
+    DEBUG_XPHI("initializing client to xid:%u @ iref:%"PRIxIREF"\n", xid,
+               svc_iref);
 
     cl->state = XPM_SVC_STATE_BINDING;
     cl->xid = xid;
@@ -498,8 +504,6 @@ static errval_t xphi_client_init(xphi_id_t xid)
         xphi_svc[i] = cl;
     }
 #endif
-
-
 
     return SYS_ERR_OK;
 }
@@ -585,7 +589,8 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
         DEBUG_XPHI("spawning %s on core:%u @ xid:%u\n", cmdline, core, xid);
         msg_st->send = spawn_call_tx;
     } else {
-        DEBUG_XPHI("spawning  %s with cap on core:%u @ xid:%u\n", cmdline, core, xid);
+        DEBUG_XPHI("spawning  %s with cap on core:%u @ xid:%u\n", cmdline, core,
+                   xid);
         msg_st->send = spawn_with_cap_call_tx;
     }
 
@@ -698,12 +703,12 @@ errval_t xeon_phi_client_chan_open(xphi_id_t xid,
 
     msg_st->cleanup = NULL;
     if (domid) {
-        DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n", domid,
-                   chantype, xid);
+        DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n",
+                   domid, chantype, xid);
         msg_st->send = chan_open_request_did_call_tx;
     } else {
-        DEBUG_XPHI("xeon_phi_client_chan_open: iface:%s, type:%u, @ xid:%u\n", iface,
-                   chantype, xid);
+        DEBUG_XPHI("xeon_phi_client_chan_open: iface:%s, type:%u, @ xid:%u\n",
+                   iface, chantype, xid);
         msg_st->send = chan_open_request_call_tx;
     }
 

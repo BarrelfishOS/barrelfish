@@ -79,12 +79,14 @@ struct xphi_svc_st *xphi_svc_clients;
 
 static void xphi_svc_clients_insert(struct xphi_svc_st *new)
 {
+    XSERVICE_DEBUG("inserting client: {%s} domainid:%lx]n", new->name, new->domainid);
     new->next = xphi_svc_clients;
     xphi_svc_clients = new;
 }
 
 static struct xphi_svc_st *xphi_svc_clients_lookup_by_name(char *name)
 {
+    XSERVICE_DEBUG("lookup client: {%s}\n", name);
     struct xphi_svc_st *current = xphi_svc_clients;
     while (current) {
         if (strcmp(name, current->name) == 0) {
@@ -98,6 +100,7 @@ static struct xphi_svc_st *xphi_svc_clients_lookup_by_name(char *name)
 
 static struct xphi_svc_st *xphi_svc_clients_lookup_by_did(uint64_t did)
 {
+    XSERVICE_DEBUG("lookup client: domainid:%lx\n",did);
     struct xphi_svc_st *current = xphi_svc_clients;
     while (current) {
         if (current->domainid == did) {
@@ -128,7 +131,8 @@ static errval_t chan_open_call_tx(struct txq_msg_st* msg_st)
 static errval_t chan_open_request_did_response_tx(struct txq_msg_st* msg_st)
 {
     return xeon_phi_chan_open_request_did_response__tx(msg_st->queue->binding,
-                                                       TXQCONT(msg_st), msg_st->err);
+                                                       TXQCONT(msg_st),
+                                                       msg_st->err);
 }
 
 static errval_t chan_open_request_response_tx(struct txq_msg_st* msg_st)
@@ -175,6 +179,7 @@ static errval_t register_response_tx(struct txq_msg_st* msg_st)
 
 static void register_call_rx(struct xeon_phi_binding *binding,
                              domainid_t domain,
+                             coreid_t core,
                              char *name,
                              size_t length)
 {
@@ -197,7 +202,13 @@ static void register_call_rx(struct xeon_phi_binding *binding,
         return;
     }
 
-    svc_st->domainid = domain;
+#ifdef __k1om__
+    uint8_t is_host = 0x0;
+#else
+    uint8_t is_host = 0x1;
+#endif
+    svc_st->domainid = xeon_phi_domain_build_id(svc_st->phi->id, core, is_host,
+                                                domain);
     svc_st->name = malloc(length + 1);
     memcpy(svc_st->name, name, length);
     svc_st->name[length - 1] = 0;
@@ -241,8 +252,8 @@ static void chan_open_request_did_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_chan_open(node, domain, NULL, svc_st->domainid, msgframe,
-                                     type);
+    msg_st->err = interphi_chan_open(node, domain, NULL, svc_st->domainid,
+                                     msgframe, type);
 
     txq_send(msg_st);
 }
@@ -357,7 +368,8 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn(node, core, cmdline, &xphi_st->args.spawn.domainid);
+    msg_st->err = interphi_spawn(node, core, cmdline,
+                                 &xphi_st->args.spawn.domainid);
 
     txq_send(msg_st);
 }
@@ -455,8 +467,8 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
     }
 
 #ifdef __k1om__
-    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n", XEON_PHI_SERVICE_NAME,
-                   phi->xphi_svc_iref);
+    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n",
+                   XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
     err = nameservice_register(XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
 #else
     char iface[30];
@@ -481,7 +493,8 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     struct xphi_svc_st *st = NULL;
     if (target_domain) {
         st = xphi_svc_clients_lookup_by_did(target_domain);
-        XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n", st);
+        XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n",
+                       st);
     } else if (iface) {
         st = xphi_svc_clients_lookup_by_name(iface);
         XSERVICE_DEBUG("xeon_phi_service_open_channel: iface, st:%p\n", st);
