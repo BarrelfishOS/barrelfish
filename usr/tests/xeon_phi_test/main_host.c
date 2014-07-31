@@ -15,8 +15,9 @@
 #include <bench/bench.h>
 #include <barrelfish/sys_debug.h>
 
-#include <xeon_phi/xeon_phi_messaging.h>
-#include <xeon_phi/xeon_phi_messaging_client.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_client.h>
+
 #include <dma/xeon_phi/xeon_phi_dma.h>
 #include <dma/dma_request.h>
 #include <dma/client/dma_client_device.h>
@@ -93,7 +94,8 @@ static errval_t dma_test(struct dma_device *dev)
     memset(host_buf, 0xA5, size);
 
     dma_completed = 0x0;
-    debug_printf("issuing first request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
+    debug_printf("issuing first request. [%08x]-[%08x]\n", *((uint32_t *) host_buf),
+                 *((uint32_t *) card_buf));
     err = dma_request_memcpy(dev, &setup, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
@@ -110,7 +112,8 @@ static errval_t dma_test(struct dma_device *dev)
 
     setup.args.memcpy.src = card_base;
     setup.args.memcpy.dst = host_base;
-    debug_printf("issuing second request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
+    debug_printf("issuing second request. [%08x]-[%08x]\n", *((uint32_t *) host_buf),
+                 *((uint32_t *) card_buf));
     err = dma_request_memcpy(dev, &setup, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not exec the transfer");
@@ -195,8 +198,9 @@ static void init_buffer_c0(void)
 #endif
 }
 
-static errval_t msg_open_cb(struct capref msgframe,
-                            uint8_t chantype)
+static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            struct capref msgframe,
+                            uint8_t type)
 {
     errval_t err;
 
@@ -231,7 +235,7 @@ static errval_t msg_open_cb(struct capref msgframe,
     return SYS_ERR_OK;
 }
 
-static struct xeon_phi_messaging_cb callbacks = {
+static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
 
@@ -246,15 +250,13 @@ int main(int argc,
     XPHI_BENCH_MSG_FRAME_SIZE,
                  XPHI_BENCH_BUF_FRAME_SIZE);
 
-    err = xeon_phi_messaging_service_init(&callbacks);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not init the service\n");
-    }
+    xeon_phi_client_set_callbacks(&callbacks);
 
     coreid_t core = XPHI_BENCH_CORE_CARD;
     char *name = "k1om/sbin/xeon_phi_test";
 
-    err = xeon_phi_messaging_spawn(0, core, name);
+    xphi_dom_id_t domid;
+    err = xeon_phi_client_spawn(0, core, name, NULL_CAP, &domid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }
@@ -265,14 +267,9 @@ int main(int argc,
     err = alloc_local();
     assert(err_is_ok(err));
 
-    err = xeon_phi_messaging_open(0, iface, host_frame, XEON_PHI_CHAN_TYPE_UMP);
+    err = xeon_phi_client_chan_open(0, domid, host_frame, 2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
-    }
-
-    err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not start the service\n");
     }
 
     while (!connected) {
@@ -281,14 +278,10 @@ int main(int argc,
 
     debug_printf("Initializing UMP channel...\n");
 
-    err = ump_chan_init(&uc, inbuf,
-    XPHI_BENCH_MSG_FRAME_SIZE,
-                        outbuf,
+    err = ump_chan_init(&uc, inbuf, XPHI_BENCH_MSG_FRAME_SIZE, outbuf,
                         XPHI_BENCH_MSG_FRAME_SIZE);
-    err = ump_chan_init(&uc_rev, inbuf_rev,
-    XPHI_BENCH_MSG_FRAME_SIZE,
-                        outbuf_rev,
-                        XPHI_BENCH_MSG_FRAME_SIZE);
+    err = ump_chan_init(&uc_rev, inbuf_rev,  XPHI_BENCH_MSG_FRAME_SIZE,
+                        outbuf_rev,XPHI_BENCH_MSG_FRAME_SIZE);
 
 #ifdef XPHI_BENCH_PROCESS_CARD
 #ifndef XPHI_BENCH_THROUGHPUT

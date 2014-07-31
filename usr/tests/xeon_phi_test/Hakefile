@@ -11,19 +11,17 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-	target = "xeon_phi_test",
-	architectures = [ "x86_64" ],
-	cFiles = [ 
-	  "main_host.c", 
-	  "benchmark.c" 
-	],
-	flounderDefs = [ "xeon_phi_messaging" ],
-	addLibraries = libDeps [ 
-	  "xeon_phi_messaging", 
-	  "xeon_phi_messaging_client", 
-	  "bench", 
-	  "dma_client" 
-	]
+    target = "xeon_phi_test",
+    architectures = [ "x86_64" ],
+    cFiles = [ 
+      "main_host.c", 
+      "benchmark.c" 
+    ],
+    addLibraries = libDeps [ 
+      "xeon_phi_client", 
+      "bench", 
+      "dma_client" 
+    ]
   },
   
   build application { 
@@ -33,26 +31,22 @@
       "main_card.c", 
       "benchmark.c" 
     ],
-    flounderDefs = [ "xeon_phi_messaging" ],
     addLibraries = libDeps [ 
-      "xeon_phi_messaging", 
-      "xeon_phi_messaging_client", 
+      "xeon_phi_client", 
       "bench", 
       "dma_client" 
     ]
   },
   
-build application { 
+  build application { 
     target = "xeon_phi_inter",
-	architectures = [ "x86_64" ],
+    architectures = [ "x86_64" ],
     cFiles = [ 
       "main_inter_host.c", 
       "benchmark.c" 
     ],
-    flounderDefs = [ "xeon_phi_messaging" ],
     addLibraries = libDeps [ 
-      "xeon_phi_messaging", 
-      "xeon_phi_messaging_client", 
+      "xeon_phi_client",  
       "bench", 
       "dma_client"
     ]
@@ -65,10 +59,8 @@ build application {
       "main_inter_card.c", 
       "benchmark.c" 
     ],
-    flounderDefs = [ "xeon_phi_messaging" ],
     addLibraries = libDeps [ 
-      "xeon_phi_messaging", 
-      "xeon_phi_messaging_client", 
+      "xeon_phi_client",  
       "bench", 
       "dma_client" 
     ]

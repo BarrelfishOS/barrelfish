@@ -15,8 +15,8 @@
 #include <bench/bench.h>
 #include <barrelfish/sys_debug.h>
 
-#include <xeon_phi/xeon_phi_messaging.h>
-#include <xeon_phi/xeon_phi_messaging_client.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_client.h>
 
 
 int main(int argc,
@@ -29,12 +29,15 @@ int main(int argc,
     coreid_t core = 2;
     char *name = "k1om/sbin/xeon_phi_inter";
 
-    err = xeon_phi_messaging_spawn(0, core, name);
+    xphi_dom_id_t domid0;
+
+    err = xeon_phi_client_spawn(0, core, name, NULL_CAP, &domid0);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }
 
-    err = xeon_phi_messaging_spawn(1, core, name);
+    xphi_dom_id_t domid1;
+    err = xeon_phi_client_spawn(1, core, name, NULL_CAP, &domid1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }

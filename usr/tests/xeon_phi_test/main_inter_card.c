@@ -18,8 +18,9 @@
 #include <dma/client/dma_client_device.h>
 #include <dma/dma_manager_client.h>
 
-#include <xeon_phi/xeon_phi_messaging.h>
-#include <xeon_phi/xeon_phi_messaging_client.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_client.h>
+#include <xeon_phi/xeon_phi_domain.h>
 
 uint32_t send_reply = 0x0;
 
@@ -48,6 +49,8 @@ static void *outbuf_rev;
 
 static struct bench_bufs bufs;
 static struct bench_bufs bufs_rev;
+
+static xphi_dom_id_t domid;
 
 static void init_buffer_c0(void)
 {
@@ -114,10 +117,13 @@ static errval_t alloc_local(void)
     return err;
 }
 
-static errval_t msg_open_cb(struct capref msgframe,
-                            uint8_t chantype)
+static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            struct capref msgframe,
+                            uint8_t type)
 {
     errval_t err;
+
+    domid = domain;
 
     struct frame_identity id;
     err = invoke_frame_identify(msgframe, &id);
@@ -148,7 +154,7 @@ static errval_t msg_open_cb(struct capref msgframe,
     return SYS_ERR_OK;
 }
 
-static struct xeon_phi_messaging_cb callbacks = {
+static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
 
@@ -163,7 +169,9 @@ int main(int argc,
     XPHI_BENCH_MSG_FRAME_SIZE,
                  XPHI_BENCH_BUF_FRAME_SIZE);
 
-    err = xeon_phi_messaging_service_init(&callbacks);
+    xeon_phi_client_set_callbacks(&callbacks);
+
+    err = xeon_phi_client_init(disp_xeon_phi_id());
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not init the service\n");
     }
@@ -171,18 +179,14 @@ int main(int argc,
     err = alloc_local();
     assert(err_is_ok(err));
 
-    err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not start the service\n");
-    }
-
-    char iface[30];
-    snprintf(iface, 30, "xeon_phi_inter.%u", 2);
-
     if (disp_xeon_phi_id() == 0) {
+        char *iface = xeon_phi_domain_build_iface("xeon_phi_inter", 1, 2);
+        err = xeon_phi_domain_blocking_lookup(iface, &domid);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "looking up domain id\n");
+        }
         debug_printf("sending open message to %s on node 1\n", iface);
-        err = xeon_phi_messaging_open(1, iface, local_frame,
-        XEON_PHI_CHAN_TYPE_UMP);
+        err = xeon_phi_client_chan_open(1, domid, local_frame, 2);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }
@@ -195,9 +199,7 @@ int main(int argc,
     debug_printf("Initializing UMP channel...\n");
 
     if (disp_xeon_phi_id() != 0) {
-        debug_printf("sending open message to %s on node 0\n", iface);
-        err = xeon_phi_messaging_open(0, iface, local_frame,
-        XEON_PHI_CHAN_TYPE_UMP);
+        err = xeon_phi_client_chan_open(0, domid, local_frame, 2);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }

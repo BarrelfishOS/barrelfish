@@ -18,8 +18,8 @@
 #include <dma/client/dma_client_device.h>
 #include <dma/dma_manager_client.h>
 
-#include <xeon_phi/xeon_phi_messaging.h>
-#include <xeon_phi/xeon_phi_messaging_client.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_client.h>
 
 uint32_t send_reply = 0x0;
 
@@ -190,8 +190,9 @@ static errval_t alloc_local(void)
     return err;
 }
 
-static errval_t msg_open_cb(struct capref msgframe,
-                            uint8_t chantype)
+static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            struct capref msgframe,
+                            uint8_t type)
 {
     errval_t err;
 
@@ -222,7 +223,7 @@ static errval_t msg_open_cb(struct capref msgframe,
     return SYS_ERR_OK;
 }
 
-static struct xeon_phi_messaging_cb callbacks = {
+static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
 
@@ -237,18 +238,12 @@ int main(int argc,
     XPHI_BENCH_MSG_FRAME_SIZE,
                  XPHI_BENCH_BUF_FRAME_SIZE);
 
-    err = xeon_phi_messaging_service_init(&callbacks);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not init the service\n");
-    }
+    xeon_phi_client_set_callbacks(&callbacks);
 
     err = alloc_local();
     assert(err_is_ok(err));
 
-    err = xeon_phi_messaging_service_start(XEON_PHI_MESSAGING_NO_HANDLER);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not start the service\n");
-    }
+    xeon_phi_client_init(disp_xeon_phi_id());
 
     while (!connected) {
         messages_wait_and_handle_next();
@@ -258,7 +253,7 @@ int main(int argc,
     snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_HOST);
 
     debug_printf("sending open message to %s\n", iface);
-    err = xeon_phi_messaging_open(0, iface, card_frame, XEON_PHI_CHAN_TYPE_UMP);
+    //err = xeon_phi_client_chan_open(0, 0, iface, card_frame, 2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
     }
