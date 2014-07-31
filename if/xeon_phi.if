@@ -13,6 +13,17 @@
 
 interface xeon_phi "Xeon Phi Messaging Interface" {
     
+    rpc domain_lookup(in char name[length],
+                      in coreid core,
+                      in uint8 xid,
+                      out uint64 domid,
+                      out errval msgerr);
+    
+    rpc domain_wait(in char name[length],
+                    in coreid core,
+                    in uint8 xid,
+                    out uint64 domid,
+                    out errval msgerr);
     
     rpc register(in domainid domain, 
     			 in coreid core,
@@ -47,14 +58,10 @@ interface xeon_phi "Xeon Phi Messaging Interface" {
     rpc chan_open_request(in uint8 xphi, 
                           in cap msgframe, 
                           in uint8 type, 
-                          in char iface[length],
+                          in uint64 domain,
                           out errval msgerr);
     
-    rpc chan_open_request_did(in uint8 xphi, 
-                              in cap msgframe, 
-                              in uint8 type, 
-                              in uint64 domain,
-                              out errval msgerr);
+
     
     rpc chan_open(in uint64 domain,
                   in cap msgframe, 

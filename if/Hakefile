@@ -76,7 +76,6 @@
                "replay",
                "xeon_phi_driver",
                "xeon_phi_manager",
-               "xeon_phi_messaging",
                "xeon_phi",
                "virtio",
                "block_service",

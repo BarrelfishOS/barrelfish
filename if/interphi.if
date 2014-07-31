@@ -13,6 +13,20 @@
 
 interface interphi "Interface between host and card side driver" {
     
+    rpc domain_lookup(in char name[length],
+                      out uint64 domid,
+                      out errval msgerr);
+    
+    rpc domain_wait(in char name[length],
+                    in uint64 state,
+                    out uint64 domid,
+                    out uint64 state,
+                    out errval msgerr);
+    
+    rpc domain_register(in char name[length],
+                        in uint64 domid,
+                        out errval msgerr);
+    
     /**
      * \
      */
@@ -47,20 +61,13 @@ interface interphi "Interface between host and card side driver" {
                   in uint8 xid,
                   in uint8 is_client,
                   out errval msgerr);
-
+    
     rpc chan_open(in uint64 source_did,
-                  in char iface[length],
+                  in uint64 target_did,
                   in uint64 msgbase,
                   in uint8 msgbits,
                   in uint8 type,
                   out errval msgerr);
-    
-    rpc chan_open_did(in uint64 source_did,
-                      in uint64 target_did,
-                      in uint64 msgbase,
-                      in uint8 msgbits,
-                      in uint8 type,
-                      out errval msgerr);
     /*
      * host driver only
      */
