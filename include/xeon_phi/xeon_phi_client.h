@@ -71,7 +71,6 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
  */
 errval_t xeon_phi_client_chan_open(xphi_id_t xid,
                                    xphi_dom_id_t domid,
-                                   char *iface,
                                    struct capref msgframe,
                                    xphi_chan_type_t chantype);
 
