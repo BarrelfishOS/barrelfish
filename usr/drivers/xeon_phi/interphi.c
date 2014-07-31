@@ -96,6 +96,7 @@ struct interphi_msg_st
         {
             char *name;
             xphi_dom_id_t domid;
+            uintptr_t state;
         } domain;
     } args;
 };
@@ -204,27 +205,33 @@ static struct txq_msg_st *rpc_preamble(struct msg_info *mi)
  */
 
 #ifdef __k1om__
+
 static errval_t domain_wait_call_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
     size_t length = strlen(st->args.domain.name) + 1;
 
-    return interphi_domain_lookup_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           st->args.domain.name, length);
+    return interphi_domain_wait_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                         st->args.domain.name, length,
+                                         st->args.domain.state);
 }
-#endif
 
-#ifndef __k1om__
+#else
+
 static errval_t domain_wait_response_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
-    return interphi_domain_lookup_response__tx(msg_st->queue->binding,
-                                               TXQCONT(msg_st),
-                                               st->args.domain.domid, msg_st->err);
+    return interphi_domain_wait_response__tx(msg_st->queue->binding,
+                                             TXQCONT(msg_st),
+                                             st->args.domain.domid,
+                                             st->args.domain.state,
+                                             msg_st->err);
 }
 #endif
+
+#ifdef __k1om__
 
 static errval_t domain_lookup_call_tx(struct txq_msg_st *msg_st)
 {
@@ -232,20 +239,25 @@ static errval_t domain_lookup_call_tx(struct txq_msg_st *msg_st)
 
     size_t length = strlen(st->args.domain.name) + 1;
 
-    return interphi_domain_lookup_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           st->args.domain.name, length);
+    return interphi_domain_lookup_call__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), st->args.domain.name,
+                                           length);
 }
 
-#ifndef __k1om__
+#else
+
 static errval_t domain_lookup_response_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
     return interphi_domain_lookup_response__tx(msg_st->queue->binding,
-                                               TXQCONT(msg_st),
-                                               st->args.domain.domid, msg_st->err);
+                    TXQCONT(msg_st),
+                    st->args.domain.domid, msg_st->err);
 }
+
 #endif
+
+#ifdef __k1om__
 
 static errval_t domain_register_call_tx(struct txq_msg_st *msg_st)
 {
@@ -253,17 +265,20 @@ static errval_t domain_register_call_tx(struct txq_msg_st *msg_st)
 
     size_t length = strlen(st->args.domain.name) + 1;
 
-    return interphi_domain_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+    return interphi_domain_register_call__tx(msg_st->queue->binding,
+                                             TXQCONT(msg_st),
                                              st->args.domain.name, length,
                                              st->args.domain.domid);
 }
 
-#ifndef __k1om__
+#else
+
 static errval_t domain_register_response_tx(struct txq_msg_st *msg_st)
 {
     return interphi_domain_register_response__tx(msg_st->queue->binding,
-                                                 TXQCONT(msg_st), SYS_ERR_OK);
+                    TXQCONT(msg_st), SYS_ERR_OK);
 }
+
 #endif
 
 static errval_t spawn_response_tx(struct txq_msg_st *msg_st)
@@ -301,7 +316,8 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
 
     size_t length = strlen(st->args.spawn_call.cmdline);
 
-    return interphi_spawn_with_cap_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+    return interphi_spawn_with_cap_call__tx(msg_st->queue->binding,
+                                            TXQCONT(msg_st),
                                             st->args.spawn_call.core,
                                             st->args.spawn_call.cmdline, length,
                                             st->args.spawn_call.cap_base,
@@ -324,8 +340,8 @@ static errval_t kill_call_tx(struct txq_msg_st *msg_st)
 
 static errval_t bootstrap_response_tx(struct txq_msg_st *msg_st)
 {
-    return interphi_bootstrap_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           msg_st->err);
+    return interphi_bootstrap_response__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), msg_st->err);
 }
 
 static errval_t bootstrap_call_tx(struct txq_msg_st *msg_st)
@@ -346,14 +362,14 @@ static errval_t chan_open_call_tx(struct txq_msg_st *msg_st)
 
     return interphi_chan_open_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                        st->args.open.source, st->args.open.target,
-                                       st->args.open.msgbase, st->args.open.msgbits,
-                                       st->args.open.type);
+                                       st->args.open.msgbase,
+                                       st->args.open.msgbits, st->args.open.type);
 }
 
 static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
 {
-    return interphi_chan_open_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           msg_st->err);
+    return interphi_chan_open_response__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), msg_st->err);
 }
 
 /*
@@ -385,12 +401,22 @@ static void domain_wait_call_rx(struct interphi_binding *_binding,
     msg_st->send = domain_wait_response_tx;
     msg_st->cleanup = NULL;
 
-    msg_st->err = domain_wait(name, local_node, (void *)state);
-    if (err_is_fail(msg_st->err)) {
-        txq_send(msg_st);
-    } else {
-        /* reply gets triggered when the octopus trigger fires */
-        txq_msg_st_free(msg_st);
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    msg_st->err = domain_wait(name, local_node, (void *)state, &st->args.domain.domid);
+    switch(err_no(msg_st->err)) {
+        case SYS_ERR_OK:
+            /* there was a record, reply */
+            txq_send(msg_st);
+            break;
+        case OCT_ERR_NO_RECORD:
+            /* trigger installed */
+            txq_msg_st_free(msg_st);
+            break;
+        default:
+            /* error condition */
+            txq_send(msg_st);
+            break;
     }
 #endif
 }
@@ -401,13 +427,12 @@ static void domain_wait_response_rx(struct interphi_binding *_binding,
                                     errval_t msgerr)
 {
 #ifdef __k1om__
-    XINTER_DEBUG("domain_wait_response_rx: %lx, %s\n", domain,
-                 err_getstring(msgerr));
+    XINTER_DEBUG("domain_wait_response_rx: domid:%lx, st:%p,  %s\n", domain,
+                 (void * )state, err_getstring(msgerr));
 
-    struct xnode *local_node = _binding->st;
+    struct xphi_svc_st *st = (struct xphi_svc_st *) state;
 
-    local_node->msg->rpc_err = msgerr;
-    rpc_done(local_node->msg);
+    xeon_phi_service_domain_wait_response(st, msgerr, domain);
 #else
     USER_PANIC("domain_wait_call_rx: not supported on the host\n");
 #endif
@@ -661,8 +686,8 @@ static void bootstrap_call_rx(struct interphi_binding *_binding,
                               uint8_t xid,
                               uint8_t is_client)
 {
-    XINTER_DEBUG("bootstrap_call_rx: {%016lx, %02x} of:%016lx, xid:%u, c:%u\n", base,
-                 bits, offset, xid, is_client);
+    XINTER_DEBUG("bootstrap_call_rx: {%016lx, %02x} of:%016lx, xid:%u, c:%u\n",
+                 base, bits, offset, xid, is_client);
 
     struct xnode *local_node = _binding->st;
 
@@ -964,15 +989,17 @@ errval_t interphi_init_xphi(uint8_t xphi,
         mi->fi.outbuf = addr;
         mi->fi.sendbase = id.base;
 
-        err = interphi_connect(&mi->fi, interphi_bind_cb, &phi->topology[xphi], ws,
-        IDC_EXPORT_FLAGS_DEFAULT);
+        err = interphi_connect(&mi->fi, interphi_bind_cb, &phi->topology[xphi],
+                               ws,
+                               IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         mi->fi.inbuf = addr;
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
 
-        err = interphi_accept(&mi->fi, &phi->topology[xphi], interphi_connect_cb, ws,
-        IDC_EXPORT_FLAGS_DEFAULT);
+        err = interphi_accept(&mi->fi, &phi->topology[xphi], interphi_connect_cb,
+                              ws,
+                              IDC_EXPORT_FLAGS_DEFAULT);
     }
     if (err_is_fail(err)) {
         vspace_unmap(addr);
@@ -1054,8 +1081,8 @@ errval_t interphi_init(struct xeon_phi *phi,
         return err;
     }
 
-    XINTER_DEBUG("Messaging frame mapped: [%016lx->%016lx, size = %lx]\n", id.base,
-                 (uintptr_t )addr, frame_size);
+    XINTER_DEBUG("Messaging frame mapped: [%016lx->%016lx, size = %lx]\n",
+                 id.base, (uintptr_t )addr, frame_size);
 
     mi->is_client = phi->is_client;
 
@@ -1082,8 +1109,8 @@ errval_t interphi_init(struct xeon_phi *phi,
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
 
-        err = interphi_accept(&mi->fi, &phi->topology[phi->id], interphi_connect_cb,
-                              ws, IDC_EXPORT_FLAGS_DEFAULT);
+        err = interphi_accept(&mi->fi, &phi->topology[phi->id],
+                              interphi_connect_cb, ws, IDC_EXPORT_FLAGS_DEFAULT);
     }
     if (err_is_fail(err)) {
         vspace_unmap(addr);
@@ -1366,8 +1393,9 @@ errval_t interphi_domain_register(struct xnode *node,
                                   char *name,
                                   xphi_dom_id_t domid)
 {
-    XINTER_DEBUG("domain register {%s} with domainid:%lx @ xnode:%u\n", name, domid,
-                 node->id);
+#ifdef __k1om__
+    XINTER_DEBUG("domain register {%s} with domainid:%lx @ xnode:%u\n", name,
+                 domid, node->id);
 
     assert(node->msg);
 
@@ -1389,6 +1417,11 @@ errval_t interphi_domain_register(struct xnode *node,
     rpc_wait_done(mi);
 
     return mi->rpc_err;
+#else
+    USER_PANIC("interphi_domain_lookup: not supporte on host.\n");
+
+    return SYS_ERR_OK;
+#endif
 }
 
 /**
@@ -1405,6 +1438,7 @@ errval_t interphi_domain_lookup(struct xnode *node,
                                 char *name,
                                 xphi_dom_id_t *retdomid)
 {
+#ifdef __k1om__
     XINTER_DEBUG("domain lookup {%s} @ xnode:%u\n", name, node->id);
 
     struct msg_info *mi = node->msg;
@@ -1425,6 +1459,11 @@ errval_t interphi_domain_lookup(struct xnode *node,
     rpc_wait_done(mi);
 
     return mi->rpc_err;
+#else
+    USER_PANIC("interphi_domain_lookup: not supporte on host.\n");
+
+    return SYS_ERR_OK;
+#endif
 }
 
 /**
@@ -1432,15 +1471,17 @@ errval_t interphi_domain_lookup(struct xnode *node,
  *
  * \param node  Xeon Phi Node to send the message to
  * \param name  Name of the Domain
- * \param domid returned Xeon Phi Domain ID
+ * \param state user state
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t interphi_domain_wait(struct xnode *node,
-                              char *name)
+                              char *name,
+                              void *state)
 {
-    XINTER_DEBUG("domain lookup {%s} @ xnode:%u\n", name, node->id);
+#ifdef __k1om__
+    XINTER_DEBUG("domain wait {%s} @ xnode:%u\n", name, node->id);
 
     assert(node->msg);
 
@@ -1455,15 +1496,18 @@ errval_t interphi_domain_wait(struct xnode *node,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    msg_st->send = domain_lookup_call_tx;
+    msg_st->send = domain_wait_call_tx;
     msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     svc_st->args.domain.name = name;
+    svc_st->args.domain.state = (uintptr_t) state;
 
     txq_send(msg_st);
-
+#else
+    USER_PANIC("interphi_domain_wait: not supporte on host\n");
+#endif
     return SYS_ERR_OK;
 }
 
@@ -1472,16 +1516,19 @@ errval_t interphi_domain_wait(struct xnode *node,
  *
  * \param node  Xeon Phi Node
  * \param domid Xeon Phi Domain ID
+ * \param err   Outcome of the reply
  * \param state State pointer supplied by the card.
  *
  * \returns SYS_ERR_OK on success
  */
 errval_t interphi_domain_wait_reply(struct xnode *node,
+                                    errval_t err,
                                     void *state,
                                     xphi_dom_id_t domid)
 {
 #ifndef __k1om__
-    XINTER_DEBUG("domain interphi_domain_wait_reply domid:%lx @ xnode:%u\n", domid, node->id);
+    XINTER_DEBUG("domain interphi_domain_wait_reply domid:%lx @ xnode:%u, st:%p\n",
+                 domid, node->id, state);
 
     struct msg_info *mi = node->msg;
     if (mi->binding == NULL) {
@@ -1496,10 +1543,12 @@ errval_t interphi_domain_wait_reply(struct xnode *node,
 
     msg_st->send = domain_wait_response_tx;
     msg_st->cleanup = NULL;
+    msg_st->err = err;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     svc_st->args.domain.domid = domid;
+    svc_st->args.domain.state = (uintptr_t)state;
 
     txq_send(msg_st);
 

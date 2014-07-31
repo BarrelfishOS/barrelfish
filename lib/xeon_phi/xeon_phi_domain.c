@@ -18,12 +18,15 @@
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_domain.h>
+#include <xeon_phi/xeon_phi_client.h>
 
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
 #include <if/monitor_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
+
+#include "xeon_phi_client_internal.h"
 
 /**
  * \brief builds the iface name representation
@@ -38,13 +41,45 @@ char *xeon_phi_domain_build_iface(const char *name,
                                   xphi_id_t xid,
                                   coreid_t core)
 {
-    size_t namelen = strlen(name) + 8;
-    char *ret = malloc(namelen);
-    if (ret == NULL) {
-        return NULL;
+    char *iface;
+    size_t ifacelen;
+
+    if (core != XEON_PHI_DOMAIN_DONT_CARE) {
+        if (xid != XEON_PHI_DOMAIN_DONT_CARE) {
+            ifacelen = strlen(name) + 8;
+            iface = malloc(ifacelen);
+            if (iface == NULL) {
+                return NULL;
+            }
+            snprintf(iface, ifacelen, "%s.%02x.%02x", name, xid, core);
+        } else {
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.[0-9][0-9]\\.%u'", name, core);
+            iface = malloc(ifacelen);
+            if (iface == NULL) {
+                return NULL;
+            }
+            snprintf(iface, ifacelen, "r'^%s\\.[0-9][0-9]\\.%u'", name, core);
+        }
+    } else {
+        if (xid != XEON_PHI_DOMAIN_DONT_CARE) {
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.%02x\\.'", name, xid);
+            iface = malloc(ifacelen);
+            if (iface == NULL) {
+                return NULL;
+            }
+            snprintf(iface, ifacelen, "r'^%s\\.%02x\\.'", name, xid);
+        } else {
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.'", name);
+            iface = malloc(ifacelen);
+            if (iface == NULL) {
+                return NULL;
+            }
+            snprintf(iface, ifacelen, "r'^%s\\.'", name);
+        }
+
     }
-    snprintf(ret, namelen, "%s.%02x.%02x", name, xid, core);
-    return ret;
+
+    return iface;
 }
 
 /**
@@ -56,9 +91,10 @@ char *xeon_phi_domain_build_iface(const char *name,
 errval_t xeon_phi_domain_lookup(const char *iface,
                                 xphi_dom_id_t *retdomid)
 {
+#ifdef __k1om__
+    return xeon_phi_client_domain_lookup(iface, retdomid);
+#else
     errval_t err;
-
-    debug_printf("xeon_phi_domain_lookup: %s\n", iface);
 
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
@@ -75,7 +111,7 @@ errval_t xeon_phi_domain_lookup(const char *iface,
     err = error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
-            err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
+            err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         }
         goto out;
     }
@@ -83,7 +119,7 @@ errval_t xeon_phi_domain_lookup(const char *iface,
     xphi_dom_id_t domid = 0;
     err = oct_read(record, "_ { domid: %d }", &domid);
     if (err_is_fail(err) || domid == 0) {
-        err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
+        err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
     }
 
@@ -92,7 +128,9 @@ errval_t xeon_phi_domain_lookup(const char *iface,
     }
 
     out: free(record);
+
     return err;
+#endif
 }
 
 /**
@@ -104,9 +142,10 @@ errval_t xeon_phi_domain_lookup(const char *iface,
 errval_t xeon_phi_domain_blocking_lookup(const char *iface,
                                          xphi_dom_id_t *retdomid)
 {
+#ifdef __k1om__
+    return xeon_phi_client_domain_wait(iface, retdomid);
+#else
     errval_t err;
-
-    debug_printf("xeon_phi_domain_blocking_lookup: %s\n", iface);
 
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
@@ -122,26 +161,25 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
     err = error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
-            err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
+            err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         }
         goto out;
     }
 
-    debug_printf("record: [[%s]]\n", record);
-
     xphi_dom_id_t domid = 0;
     err = oct_read(record, "_ { domid: %d }", &domid);
     if (err_is_fail(err)) {
-        err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
+        err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
     }
-
     if (retdomid != NULL) {
         *retdomid = domid;
     }
 
-    out: free(record);
+    out:
+    free(record);
     return err;
+#endif
 }
 
 /**
@@ -153,9 +191,10 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
 errval_t xeon_phi_domain_register(const char *iface,
                                   xphi_dom_id_t domid)
 {
+#ifdef __k1om__
+    return -1;
+#else
     errval_t err = SYS_ERR_OK;
-
-    debug_printf("xeon_phi_domain_register: %s with domid:%0lx\n", iface, domid);
 
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
@@ -165,13 +204,11 @@ errval_t xeon_phi_domain_register(const char *iface,
     // Format record
     static const char* format = "%s { domid: %"PRIu64" }";
     size_t len = snprintf(NULL, 0, format, iface, domid);
-    char* record = malloc(len + 1);
+    char* record = malloc(len+1);
     if (record == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    snprintf(record, len + 1, format, iface, domid);
-
-    debug_printf("record: [[%s]]\n", record);
+    snprintf(record, len+1, format, iface, domid);
 
     char* ret = NULL;
     octopus_trigger_id_t tid;
@@ -182,6 +219,9 @@ errval_t xeon_phi_domain_register(const char *iface,
     }
     err = error_code;
 
-    out: free(record);
+    out:
+    free(record);
     return err;
+#endif
 }
+

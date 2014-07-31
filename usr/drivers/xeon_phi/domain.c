@@ -15,15 +15,44 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <octopus/octopus.h>
 
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
 #include <if/monitor_defs.h>
-#include <octopus/getset.h> // for oct_read TODO
-#include <octopus/trigger.h> // for NOP_TRIGGER
 
 #include "xeon_phi_internal.h"
 #include "domain.h"
+#include "interphi.h"
+
+struct wait_state
+{
+    void *usr_state;
+    struct xnode *node;
+    octopus_trigger_id_t tid;
+};
+
+static void domain_wait_trigger_handler(octopus_mode_t mode,
+                                        char* record,
+                                        void* state)
+{
+    errval_t err;
+
+    struct wait_state *ws = state;
+
+    oct_remove_trigger(ws->tid);
+
+    xphi_dom_id_t domid = 0;
+    err = oct_read(record, "_ { domid: %d }", &domid);
+    if (err_is_fail(err) || domid == 0) {
+        err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
+    }
+
+    interphi_domain_wait_reply(ws->node, err, ws->usr_state, domid);
+
+    free(state);
+    free(record);
+}
 
 /**
  * \brief Non-blocking name service lookup
@@ -44,16 +73,14 @@ errval_t domain_lookup(const char *iface,
     char* record = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.get(r, iface, NOP_TRIGGER
-    ,
-                      &record, &tid, &error_code);
+    err = r->vtbl.get(r, iface, NOP_TRIGGER, &record, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }
     err = error_code;
     if (err_is_fail(err)) {
         if (err_no(err) == OCT_ERR_NO_RECORD) {
-            err = err_push(err, LIB_ERR_NAMESERVICE_UNKNOWN_NAME);
+            err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         }
         goto out;
     }
@@ -61,7 +88,7 @@ errval_t domain_lookup(const char *iface,
     xphi_dom_id_t domid = 0;
     err = oct_read(record, "_ { domid: %d }", &domid);
     if (err_is_fail(err) || domid == 0) {
-        err = err_push(err, LIB_ERR_NAMESERVICE_INVALID_NAME);
+        err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
         goto out;
     }
 
@@ -81,10 +108,41 @@ errval_t domain_lookup(const char *iface,
  */
 errval_t domain_wait(const char *iface,
                      struct xnode *node,
-                     void *state)
+                     void *state,
+                     xphi_dom_id_t *retdom)
 {
-    assert(!"NYI");
-    return SYS_ERR_OK;
+    errval_t err;
+
+    struct octopus_thc_client_binding_t* c = oct_get_thc_client();
+    if (c == NULL) {
+        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    }
+
+    struct wait_state *ws = malloc(sizeof(*ws));
+    if (ws == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    ws->usr_state = state;
+    ws->node = node;
+
+    octopus_mode_t m = OCT_ON_SET;
+    octopus_trigger_t iface_set_trigger = oct_mktrigger(
+                    OCT_ERR_NO_RECORD, octopus_BINDING_EVENT, m,
+                    domain_wait_trigger_handler, ws);
+
+    char* record = NULL;
+    errval_t error_code;
+    err = c->call_seq.get(c, iface, iface_set_trigger, &record, &ws->tid,
+                      &error_code);
+
+    free(record);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return error_code;
 }
 
 /**
@@ -112,14 +170,10 @@ errval_t domain_register(const char *iface,
     }
     snprintf(record, len + 1, format, iface, domid);
 
-    debug_printf("record: [[%s]]\n", record);
-
     char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER
-    ,
-                      0, &ret, &tid, &error_code);
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }

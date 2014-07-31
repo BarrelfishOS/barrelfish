@@ -184,24 +184,27 @@ errval_t interphi_domain_lookup(struct xnode *node,
  *
  * \param node  Xeon Phi Node to send the message to
  * \param name  Name of the Domain
- * \param domid returned Xeon Phi Domain ID
+ * \param state user state
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t interphi_domain_wait(struct xnode *node,
-                              char *name);
+                              char *name,
+                              void *state);
 
 /**
  * \brief sends a reply when the Octopus trigger fired
  *
  * \param node  Xeon Phi Node
  * \param domid Xeon Phi Domain ID
+ * \param err   Outcome of the reply
  * \param state State pointer supplied by the card.
  *
  * \returns SYS_ERR_OK on success
  */
 errval_t interphi_domain_wait_reply(struct xnode *node,
+                                    errval_t err,
                                     void *state,
                                     xphi_dom_id_t domid);
 

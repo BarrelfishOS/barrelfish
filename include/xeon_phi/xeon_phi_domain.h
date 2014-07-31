@@ -10,7 +10,10 @@
 #ifndef XEON_PHI_DOMAIN_H_
 #define XEON_PHI_DOMAIN_H_
 
-#define XEON_PHI_DOMAIN_HOST 0xFF
+
+#define XEON_PHI_DOMAIN_DONT_CARE 0xFF
+
+#define XEON_PHI_DOMAIN_HOST 0x10
 
 /**
  * \brief builds the iface name representation

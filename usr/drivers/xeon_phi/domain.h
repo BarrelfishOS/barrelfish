@@ -24,10 +24,12 @@ errval_t domain_lookup(const char *iface,
  *
  * \param iface     Name of the domain
  * \param retdomid  returns the Xeon Phi Domain ID
+ * \param state     User state pointer
  */
 errval_t domain_wait(const char *iface,
                      struct xnode *node,
-                     void *state);
+                     void *state,
+                     xphi_dom_id_t *retdom);
 
 /**
  * \brief Register with name service

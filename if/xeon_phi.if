@@ -14,21 +14,17 @@
 interface xeon_phi "Xeon Phi Messaging Interface" {
     
     rpc domain_lookup(in char name[length],
-                      in coreid core,
-                      in uint8 xid,
                       out uint64 domid,
                       out errval msgerr);
     
     rpc domain_wait(in char name[length],
-                    in coreid core,
-                    in uint8 xid,
                     out uint64 domid,
                     out errval msgerr);
     
-    rpc register(in domainid domain, 
-    			 in coreid core,
-                 in char name[length],
-                 out errval msgerr);
+    rpc domain_register(in domainid domain, 
+    				    in coreid core,
+                        in char name[length],
+                        out errval msgerr);
     
     /*
      * Spawning of Domains

@@ -33,17 +33,5 @@
     addLibraries = libDeps [ "octopus" ],
     flounderDefs = ["xeon_phi"],
     flounderBindings = ["xeon_phi"]
-  },
-  
-  build library { 
-    target = "xeon_phi_domain",
-    architectures = [
-      "k1om", 
-      "x86_64"
-    ],
-    cFiles = [ 
-      "xeon_phi_domain.c"
-    ],
-    addLibraries = libDeps [ "octopus" ]
   }
 ]

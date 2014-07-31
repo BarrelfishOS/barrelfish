@@ -11,12 +11,15 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <octopus/octopus.h>
 #include <flounder/flounder_txqueue.h>
 
 #include <if/xeon_phi_defs.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
+
+#include "xeon_phi_client_internal.h"
 
 #ifndef XEON_PHI_DEBUG_MSG
 #define DEBUG_XPHI(x...) debug_printf("[xphi-client] " x);
@@ -69,7 +72,7 @@ struct xphi_msg_st
             const char *name;
             domainid_t domid;
             coreid_t core;
-        } reg;
+        } domain;
         struct
         {
             xphi_id_t xid;
@@ -143,14 +146,34 @@ static inline void rpc_done(struct xeon_phi_client *cl)
  * ----------------------------------------------------------------------------
  */
 
-static errval_t register_call_tx(struct txq_msg_st *msg_st)
+static errval_t domain_register_call_tx(struct txq_msg_st *msg_st)
 {
     struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
-    size_t length = strlen(st->args.reg.name) + 1;
-    return xeon_phi_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                      st->args.reg.domid, st->args.reg.core,
-                                      st->args.reg.name, length);
+    size_t length = strlen(st->args.domain.name) + 1;
+    return xeon_phi_domain_register_call__tx(msg_st->queue->binding,
+                                             TXQCONT(msg_st),
+                                             st->args.domain.domid,
+                                             st->args.domain.core,
+                                             st->args.domain.name, length);
 }
+#ifdef __k1om__
+static errval_t domain_lookup_call_tx(struct txq_msg_st *msg_st)
+{
+    struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
+    size_t length = strlen(st->args.domain.name) + 1;
+    return xeon_phi_domain_lookup_call__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), st->args.domain.name,
+                                           length);
+}
+
+static errval_t domain_wait_call_tx(struct txq_msg_st *msg_st)
+{
+    struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
+    size_t length = strlen(st->args.domain.name) + 1;
+    return xeon_phi_domain_wait_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                         st->args.domain.name, length);
+}
+#endif
 
 static errval_t spawn_call_tx(struct txq_msg_st *msg_st)
 {
@@ -165,8 +188,9 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
 {
     struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
     size_t length = strlen(st->args.spawn.cmdline) + 1;
-    return xeon_phi_spawn_with_cap_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                            st->args.spawn.xid, st->args.spawn.core,
+    return xeon_phi_spawn_with_cap_call__tx(msg_st->queue->binding,
+                                            TXQCONT(msg_st), st->args.spawn.xid,
+                                            st->args.spawn.core,
                                             st->args.spawn.cmdline, length,
                                             st->args.spawn.cap);
 }
@@ -190,8 +214,8 @@ static errval_t chan_open_request_call_tx(struct txq_msg_st *msg_st)
 
 static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
 {
-    return xeon_phi_chan_open_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           msg_st->err);
+    return xeon_phi_chan_open_response__tx(msg_st->queue->binding,
+                                           TXQCONT(msg_st), msg_st->err);
 }
 
 /*
@@ -199,8 +223,40 @@ static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
  * Receive Handlers
  * ----------------------------------------------------------------------------
  */
-static void register_response_rx(struct xeon_phi_binding *b,
-                                 errval_t msgerr)
+static void domain_lookup_response_rx(struct xeon_phi_binding *b,
+                                      xphi_dom_id_t domid,
+                                      errval_t msgerr)
+{
+    DEBUG_XPHI("domain_lookup_response_rx: %lx,  %s\n", domid,
+               err_getstring(msgerr));
+
+    struct xeon_phi_client *cl = b->st;
+    assert(cl);
+
+    cl->rpc_err = msgerr;
+    cl->rpc_data = domid;
+
+    rpc_done(cl);
+}
+
+static void domain_wait_response_rx(struct xeon_phi_binding *b,
+                                    xphi_dom_id_t domid,
+                                    errval_t msgerr)
+{
+    DEBUG_XPHI("domain_wait_response_rx: %lx,  %s\n", domid,
+               err_getstring(msgerr));
+
+    struct xeon_phi_client *cl = b->st;
+    assert(cl);
+
+    cl->rpc_err = msgerr;
+    cl->rpc_data = domid;
+
+    rpc_done(cl);
+}
+
+static void domain_register_response_rx(struct xeon_phi_binding *b,
+                                        errval_t msgerr)
 {
     DEBUG_XPHI("register_response_rx: %s\n", err_getstring(msgerr));
 
@@ -208,7 +264,7 @@ static void register_response_rx(struct xeon_phi_binding *b,
     assert(cl);
     assert(cl->state == XPM_SVC_STATE_REGISTERING);
 
-    cl->err = msgerr;
+    cl->rpc_err = msgerr;
 
     rpc_done(cl);
 }
@@ -279,7 +335,8 @@ static void chan_open_call_rx(struct xeon_phi_binding *b,
                               struct capref msgframe,
                               uint8_t type)
 {
-    DEBUG_XPHI("chan_open_request_call_rx: from domain:%lx, type:%u\n", domain, type);
+    DEBUG_XPHI("chan_open_request_call_rx: from domain:%lx, type:%u\n", domain,
+               type);
 
     struct xeon_phi_client *cl = b->st;
     assert(cl);
@@ -302,7 +359,9 @@ static void chan_open_call_rx(struct xeon_phi_binding *b,
 }
 
 struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
-    .register_response = register_response_rx,
+    .domain_register_response = domain_register_response_rx,
+    .domain_lookup_response = domain_lookup_response_rx,
+    .domain_wait_response = domain_wait_response_rx,
     .spawn_response = spawn_response_rx,
     .spawn_with_cap_response = spawn_with_cap_response_rx,
     .kill_response = kill_response_rx,
@@ -331,15 +390,15 @@ static errval_t xphi_client_register(struct xeon_phi_client *cl)
     }
 
     msg_st->cleanup = NULL;
-    msg_st->send = register_call_tx;
+    msg_st->send = domain_register_call_tx;
 
     struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
-    svc_st->args.reg.domid = disp_get_domain_id();
-    svc_st->args.reg.core = disp_get_core_id();
-    svc_st->args.reg.name = disp_name();
+    svc_st->args.domain.domid = disp_get_domain_id();
+    svc_st->args.domain.core = disp_get_core_id();
+    svc_st->args.domain.name = disp_name();
 
-    DEBUG_XPHI("registration {%s} with domid:%x\n", svc_st->args.reg.name,
-               svc_st->args.reg.domid);
+    DEBUG_XPHI("registration {%s} with domid:%x\n", svc_st->args.domain.name,
+               svc_st->args.domain.domid);
 
     txq_send(msg_st);
 
@@ -420,7 +479,8 @@ static errval_t xphi_client_init(xphi_id_t xid)
         return err;
     }
 
-    DEBUG_XPHI("initializing client to xid:%u @ iref:%"PRIxIREF"\n", xid, svc_iref);
+    DEBUG_XPHI("initializing client to xid:%u @ iref:%"PRIxIREF"\n", xid,
+               svc_iref);
 
     cl->state = XPM_SVC_STATE_BINDING;
     cl->xid = xid;
@@ -548,7 +608,8 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
         DEBUG_XPHI("spawning %s on core:%u @ xid:%u\n", cmdline, core, xid);
         msg_st->send = spawn_call_tx;
     } else {
-        DEBUG_XPHI("spawning  %s with cap on core:%u @ xid:%u\n", cmdline, core, xid);
+        DEBUG_XPHI("spawning  %s with cap on core:%u @ xid:%u\n", cmdline, core,
+                   xid);
         msg_st->send = spawn_with_cap_call_tx;
     }
 
@@ -586,8 +647,17 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
 errval_t xeon_phi_client_kill(xphi_id_t xid,
                               xphi_dom_id_t domid)
 {
+    errval_t err;
+
     if (xid >= XEON_PHI_NUM_MAX) {
         return XEON_PHI_ERR_INVALID_ID;
+    }
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     struct xeon_phi_client *cl = xphi_svc[xid];
@@ -642,8 +712,19 @@ errval_t xeon_phi_client_chan_open(xphi_id_t xid,
                                    struct capref msgframe,
                                    xphi_chan_type_t chantype)
 {
+    errval_t err;
+    assert(domid);
+    assert(!capref_is_null(msgframe));
+
     if (xid >= XEON_PHI_NUM_MAX) {
         return XEON_PHI_ERR_INVALID_ID;
+    }
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     struct xeon_phi_client *cl = xphi_svc[xid];
@@ -659,11 +740,10 @@ errval_t xeon_phi_client_chan_open(xphi_id_t xid,
     }
 
     msg_st->cleanup = NULL;
-    if (domid) {
-        DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n",
-                   domid, chantype, xid);
-        msg_st->send = chan_open_request_call_tx;
-    }
+
+    DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n", domid,
+               chantype, xid);
+    msg_st->send = chan_open_request_call_tx;
 
     struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
 
@@ -677,5 +757,147 @@ errval_t xeon_phi_client_chan_open(xphi_id_t xid,
     rpc_wait_done(cl);
 
     return cl->rpc_err;
+}
+
+/**
+ * \brief looks up the domain ID given the information
+ *
+ * \param iface     Interface name of the domain
+ * \param retdom    returned domain id
+ *
+ * \returns SYS_ERR_OK on success,
+ *          XEON_PHI_ERR_CLIENT_DOMAIN_VOID,
+ *          errval on error
+ */
+errval_t xeon_phi_client_domain_lookup(const char *iface,
+                                       xphi_dom_id_t *retdom)
+{
+#ifndef __k1om__
+    USER_PANIC("xeon_phi_client_domain_wait: not supporte on the host\n");
+    return SYS_ERR_OK;
+#else
+    errval_t err;
+
+    uint8_t xid = disp_xeon_phi_id();
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    struct xeon_phi_client *cl = xphi_svc[xid];
+
+    if (!rpc_start(cl)) {
+        return XEON_PHI_ERR_CLIENT_BUSY;
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&cl->txq);
+    if (msg_st == NULL) {
+        rpc_done(cl);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->cleanup = NULL;
+
+    DEBUG_XPHI("xeon_phi_client_domain_lookup: iface:%s\n", iface);
+
+    msg_st->send = domain_lookup_call_tx;
+
+    struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
+
+    svc_st->args.domain.name = iface;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(cl);
+
+    if (err_is_ok(cl->rpc_err)) {
+        if (retdom) {
+            *retdom = cl->rpc_data;
+        }
+    }
+
+    return cl->rpc_err;
+#endif
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief looks up the domain ID given the information and waits
+ *        until the domain registers
+ *
+ * \param iface     Interface name of the domain
+ * \param retdom    returned domain id
+ *
+ * \returns SYS_ERR_OK on success,
+ *          XEON_PHI_ERR_CLIENT_DOMAIN_VOID,
+ *          errval on error
+ */
+errval_t xeon_phi_client_domain_wait(const char *iface,
+                                     xphi_dom_id_t *retdom)
+{
+#ifndef __k1om__
+    USER_PANIC("xeon_phi_client_domain_wait: not supporte on the host\n");
+    return SYS_ERR_OK;
+#else
+    errval_t err;
+
+    uint8_t xid = disp_xeon_phi_id();
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    static char* format = "%s { domid: _ }";
+    int length = snprintf(NULL, 0, format, iface);
+
+    char* query = malloc(length + 1);
+    if (query == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    snprintf(query, length + 1, format, iface);
+
+    struct xeon_phi_client *cl = xphi_svc[xid];
+    if (!rpc_start(cl)) {
+        free(query);
+        return XEON_PHI_ERR_CLIENT_BUSY;
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&cl->txq);
+    if (msg_st == NULL) {
+        rpc_done(cl);
+        free(query);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->cleanup = NULL;
+
+    DEBUG_XPHI("xeon_phi_client_domain_wait: iface:%s\n", iface);
+
+    msg_st->send = domain_wait_call_tx;
+
+    struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
+
+    svc_st->args.domain.name = query;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(cl);
+
+    if (err_is_ok(cl->rpc_err)) {
+        if (retdom) {
+            *retdom = cl->rpc_data;
+        }
+    }
+
+    free(query);
+
+    return cl->rpc_err;
+#endif
 }
 

@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-
+#include <octopus/octopus.h>
 #include <vfs/vfs.h>
 #include <pci/pci.h>
 #include <pci/devids.h>
@@ -32,7 +32,6 @@
 #include "sysmem_caps.h"
 
 struct xeon_phi xphi;
-
 
 /**
  * \brief Main function of the Xeon Phi Driver (Host Side)
@@ -57,13 +56,8 @@ int main(int argc,
     uint32_t bus = PCI_DONT_CARE, dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc - 1],
-                                 "%x:%x:%x:%x:%x",
-                                 &vendor_id,
-                                 &device_id,
-                                 &bus,
-                                 &dev,
-                                 &fun);
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor_id,
+                                 &device_id, &bus, &dev, &fun);
         if (parsed != 5) {
             XDEBUG("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
             bus = PCI_DONT_CARE;
@@ -71,24 +65,28 @@ int main(int argc,
             fun = PCI_DONT_CARE;
         } else {
             if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
-                USER_PANIC("unexpected vendor / device id: [%x, %x]",
-                           vendor_id,
+                USER_PANIC("unexpected vendor / device id: [%x, %x]", vendor_id,
                            device_id);
                 return -1;
             }
             XDEBUG("Initializing Xeon Phi with PCI address "
-                         "[%u,%u,%u]\n",
-                         bus, dev, fun);
+                   "[%u,%u,%u]\n",
+                   bus, dev, fun);
         }
     } else {
         XDEBUG("WARNING: Initializing Xeon Phi with unknown PCI address "
-                     "[0,0,0]\n");
+               "[0,0,0]\n");
     }
 
     /* set the client flag to false */
     xphi.is_client = XEON_PHI_IS_CLIENT;
 
     vfs_init();
+
+    err = oct_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initializing octopus\n");
+    }
 
     err = service_init(&xphi);
     if (err_is_fail(err)) {
@@ -141,7 +139,9 @@ int main(int argc,
         XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
         for (uint32_t i = 0; i < xphi.id; ++i) {
             /* initialize the messaging frame */
-            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
+            err = interphi_init_xphi(i, &xphi, NULL_CAP
+            ,
+                                     XEON_PHI_IS_CLIENT);
             if (err_is_fail(err)) {
                 XDEBUG("Could not initialize messaging\n");
                 continue;
