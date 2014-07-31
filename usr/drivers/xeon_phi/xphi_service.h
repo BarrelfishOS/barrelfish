@@ -9,6 +9,7 @@
 #ifndef XEON_PHI_XPHI_SERVICE_H_
 #define XEON_PHI_XPHI_SERVICE_H_
 
+
 /**
  *
  */
@@ -17,7 +18,6 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi);
 errval_t xeon_phi_service_open_channel(struct capref cap,
                                        uint8_t type,
                                        uint64_t target_domain,
-                                       xphi_dom_id_t src_domain,
-                                       char *iface);
+                                       xphi_dom_id_t src_domain);
 
 #endif /* XEON_PHI_XPHI_SERVICE_H_ */

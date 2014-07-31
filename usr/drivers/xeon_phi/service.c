@@ -93,6 +93,8 @@ static void bootstrap_response_tx(void *a)
     }
 }
 
+
+
 static void bootstrap_response_rx(struct xeon_phi_driver_binding *b,
                                   errval_t msgerr)
 {
@@ -153,6 +155,8 @@ static void bootstrap_call_tx(void *a)
         }
     }
 }
+
+
 
 /**
  * \brief registers an intra card communication frame

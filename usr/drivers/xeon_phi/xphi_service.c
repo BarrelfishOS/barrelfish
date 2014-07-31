@@ -12,6 +12,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <flounder/flounder_txqueue.h>
 #include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_domain.h>
 
 #include <if/xeon_phi_defs.h>
 
@@ -79,28 +80,15 @@ struct xphi_svc_st *xphi_svc_clients;
 
 static void xphi_svc_clients_insert(struct xphi_svc_st *new)
 {
-    XSERVICE_DEBUG("inserting client: {%s} domainid:%lx]n", new->name, new->domainid);
+    XSERVICE_DEBUG("inserting client: {%s} domainid:%lx\n", new->name,
+                   new->domainid);
     new->next = xphi_svc_clients;
     xphi_svc_clients = new;
 }
 
-static struct xphi_svc_st *xphi_svc_clients_lookup_by_name(char *name)
-{
-    XSERVICE_DEBUG("lookup client: {%s}\n", name);
-    struct xphi_svc_st *current = xphi_svc_clients;
-    while (current) {
-        if (strcmp(name, current->name) == 0) {
-            return current;
-        }
-        current = current->next;
-    }
-
-    return current;
-}
-
 static struct xphi_svc_st *xphi_svc_clients_lookup_by_did(uint64_t did)
 {
-    XSERVICE_DEBUG("lookup client: domainid:%lx\n",did);
+    XSERVICE_DEBUG("lookup client: domainid:%lx\n", did);
     struct xphi_svc_st *current = xphi_svc_clients;
     while (current) {
         if (current->domainid == did) {
@@ -126,13 +114,6 @@ static errval_t chan_open_call_tx(struct txq_msg_st* msg_st)
                                        xphi_st->args.open.domainid,
                                        xphi_st->args.open.cap,
                                        xphi_st->args.open.type);
-}
-
-static errval_t chan_open_request_did_response_tx(struct txq_msg_st* msg_st)
-{
-    return xeon_phi_chan_open_request_did_response__tx(msg_st->queue->binding,
-                                                       TXQCONT(msg_st),
-                                                       msg_st->err);
 }
 
 static errval_t chan_open_request_response_tx(struct txq_msg_st* msg_st)
@@ -187,6 +168,7 @@ static void register_call_rx(struct xeon_phi_binding *binding,
                    domain);
 
     struct xphi_svc_st *svc_st = binding->st;
+    struct xeon_phi *phi = svc_st->phi;
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
     if (msg_st == NULL) {
@@ -204,19 +186,40 @@ static void register_call_rx(struct xeon_phi_binding *binding,
 
 #ifdef __k1om__
     uint8_t is_host = 0x0;
+    svc_st->name = xeon_phi_domain_build_iface(name, disp_xeon_phi_id(), core);
 #else
     uint8_t is_host = 0x1;
+    svc_st->name = xeon_phi_domain_build_iface(name, XEON_PHI_DOMAIN_HOST, core);
 #endif
-    svc_st->domainid = xeon_phi_domain_build_id(svc_st->phi->id, core, is_host,
+    svc_st->domainid = xeon_phi_domain_build_id(phi->id, core, is_host,
                                                 domain);
-    svc_st->name = malloc(length + 1);
-    memcpy(svc_st->name, name, length);
-    svc_st->name[length - 1] = 0;
-    free(name);
-
     xphi_svc_clients_insert(svc_st);
 
+    msg_st->err = xeon_phi_domain_register(svc_st->name, svc_st->domainid);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+
+#ifdef __k1om__
+    XSERVICE_DEBUG("registering with %u other nodes.\n", phi->connected);
+    for (uint8_t i = 0; i < XEON_PHI_NUM_MAX; ++i) {
+        struct xnode *node = &phi->topology[i];
+        if (node->state != XNODE_STATE_READY) {
+            continue;
+        }
+        interphi_domain_register(node, svc_st->name, svc_st->domainid);
+    }
+#else
+    /* on the host we just send it to the client driver */
+    interphi_domain_register(&phi->topology[phi->id], svc_st->name, svc_st->domainid);
+
+    /* TODO: send it to the other instances on the host */
+#endif
+
     msg_st->err = SYS_ERR_OK;
+
+    free(name);
 
     txq_send(msg_st);
 }
@@ -225,51 +228,19 @@ static void chan_open_response_rx(struct xeon_phi_binding *binding,
                                   errval_t msgerr)
 {
     XSERVICE_DEBUG("chan_open_response_rx\n");
-    assert(!"NYI> Handlie");
-}
-
-static void chan_open_request_did_call_rx(struct xeon_phi_binding *binding,
-                                          uint8_t xphi,
-                                          struct capref msgframe,
-                                          uint8_t type,
-                                          uint64_t domain)
-{
-    XSERVICE_DEBUG("chan_open_request_did_call_rx: xphi:%u, domain:%lx\n", xphi,
-                   domain);
-
-    struct xphi_svc_st *svc_st = binding->st;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
-    if (msg_st == NULL) {
-        USER_PANIC("ran out of reply state resources\n");
-    }
-
-    msg_st->send = chan_open_request_did_response_tx;
-    msg_st->cleanup = NULL;
-
-#ifdef __k1om__
-    struct xnode *node = &svc_st->phi->topology[xphi];
-#else
-    struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
-#endif
-    msg_st->err = interphi_chan_open(node, domain, NULL, svc_st->domainid,
-                                     msgframe, type);
-
-    txq_send(msg_st);
+    //assert(!"NYI> Handlie");
 }
 
 static void chan_open_request_call_rx(struct xeon_phi_binding *binding,
                                       uint8_t xphi,
                                       struct capref msgframe,
                                       uint8_t type,
-                                      char *iface,
-                                      size_t length)
+                                      uint64_t domain)
 {
-    XSERVICE_DEBUG("chan_open_request_call_rx: xphi:%u, iface:%s\n", xphi, iface);
+    XSERVICE_DEBUG("chan_open_request_did_call_rx: xphi:%u, domain:%lx\n", xphi,
+                   domain);
 
     struct xphi_svc_st *svc_st = binding->st;
-    assert(svc_st);
-    assert(svc_st->phi);
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
     if (msg_st == NULL) {
@@ -284,8 +255,7 @@ static void chan_open_request_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_chan_open(node, 0, iface, svc_st->domainid, msgframe,
-                                     type);
+    msg_st->err = interphi_chan_open(node, domain, svc_st->domainid, msgframe, type);
 
     txq_send(msg_st);
 }
@@ -368,8 +338,7 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn(node, core, cmdline,
-                                 &xphi_st->args.spawn.domainid);
+    msg_st->err = interphi_spawn(node, core, cmdline, &xphi_st->args.spawn.domainid);
 
     txq_send(msg_st);
 }
@@ -380,7 +349,6 @@ static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .spawn_with_cap_call = spawn_with_cap_call_rx,
     .kill_call = kill_call_rx,
     .chan_open_request_call = chan_open_request_call_rx,
-    .chan_open_request_did_call = chan_open_request_did_call_rx,
     .chan_open_response = chan_open_response_rx
 };
 
@@ -467,8 +435,8 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
     }
 
 #ifdef __k1om__
-    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n",
-                   XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
+    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n", XEON_PHI_SERVICE_NAME,
+                   phi->xphi_svc_iref);
     err = nameservice_register(XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
 #else
     char iface[30];
@@ -487,19 +455,12 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
 errval_t xeon_phi_service_open_channel(struct capref cap,
                                        uint8_t type,
                                        xphi_dom_id_t target_domain,
-                                       xphi_dom_id_t src_domain,
-                                       char *iface)
+                                       xphi_dom_id_t src_domain)
 {
     struct xphi_svc_st *st = NULL;
     if (target_domain) {
         st = xphi_svc_clients_lookup_by_did(target_domain);
-        XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n",
-                       st);
-    } else if (iface) {
-        st = xphi_svc_clients_lookup_by_name(iface);
-        XSERVICE_DEBUG("xeon_phi_service_open_channel: iface, st:%p\n", st);
-    } else {
-        return XEON_PHI_ERR_CLIENT_DOMAIN_VOID;
+        XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n", st);
     }
 
     if (st == NULL) {

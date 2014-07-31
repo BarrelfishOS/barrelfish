@@ -25,10 +25,12 @@
 #include <if/interphi_defs.h>
 
 #include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_domain.h>
 
 #include "xeon_phi_internal.h"
 #include "interphi.h"
 #include "smpt.h"
+#include "domain.h"
 #include "service.h"
 #include "xphi_service.h"
 #include "sysmem_caps.h"
@@ -90,6 +92,11 @@ struct interphi_msg_st
             xphi_dom_id_t target;
             xphi_chan_type_t type;
         } open;
+        struct
+        {
+            char *name;
+            xphi_dom_id_t domid;
+        } domain;
     } args;
 };
 
@@ -163,11 +170,102 @@ static inline void rpc_done(struct msg_info *mi)
     mi->wait_reply = 0x0;
 }
 
+static struct txq_msg_st *rpc_preamble(struct msg_info *mi)
+{
+    assert(mi);
+
+    if (mi->binding == NULL) {
+        assert(!"NYI");
+    }
+
+    if (!rpc_start(mi)) {
+        XINTER_DEBUG("waiting until previous rpc is finished\n");
+        rpc_wait_done(mi);
+        rpc_start(mi);
+    }
+
+    mi->rpc_err = SYS_ERR_OK;
+    mi->rpc_data = 0x0;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&mi->queue);
+    if (msg_st == NULL) {
+        rpc_done(mi);
+    }
+
+    msg_st->cleanup = NULL;
+
+    return msg_st;
+}
+
 /*
  * ----------------------------------------------------------------------------
  * Message Send Handlers
  * ----------------------------------------------------------------------------
  */
+
+#ifdef __k1om__
+static errval_t domain_wait_call_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    size_t length = strlen(st->args.domain.name) + 1;
+
+    return interphi_domain_lookup_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                           st->args.domain.name, length);
+}
+#endif
+
+#ifndef __k1om__
+static errval_t domain_wait_response_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    return interphi_domain_lookup_response__tx(msg_st->queue->binding,
+                                               TXQCONT(msg_st),
+                                               st->args.domain.domid, msg_st->err);
+}
+#endif
+
+static errval_t domain_lookup_call_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    size_t length = strlen(st->args.domain.name) + 1;
+
+    return interphi_domain_lookup_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                           st->args.domain.name, length);
+}
+
+#ifndef __k1om__
+static errval_t domain_lookup_response_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    return interphi_domain_lookup_response__tx(msg_st->queue->binding,
+                                               TXQCONT(msg_st),
+                                               st->args.domain.domid, msg_st->err);
+}
+#endif
+
+static errval_t domain_register_call_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+
+    size_t length = strlen(st->args.domain.name) + 1;
+
+    return interphi_domain_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                             st->args.domain.name, length,
+                                             st->args.domain.domid);
+}
+
+#ifndef __k1om__
+static errval_t domain_register_response_tx(struct txq_msg_st *msg_st)
+{
+    return interphi_domain_register_response__tx(msg_st->queue->binding,
+                                                 TXQCONT(msg_st), SYS_ERR_OK);
+}
+#endif
+
 static errval_t spawn_response_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
@@ -246,12 +344,10 @@ static errval_t chan_open_call_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
-    size_t length = strlen(st->args.open.iface) + 1;
-
     return interphi_chan_open_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                       st->args.open.source, st->args.open.iface,
-                                       length, st->args.open.msgbase,
-                                       st->args.open.msgbits, st->args.open.type);
+                                       st->args.open.source, st->args.open.target,
+                                       st->args.open.msgbase, st->args.open.msgbits,
+                                       st->args.open.type);
 }
 
 static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
@@ -260,28 +356,155 @@ static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
                                            msg_st->err);
 }
 
-static errval_t chan_open_did_call_tx(struct txq_msg_st *msg_st)
-{
-    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
-
-    return interphi_chan_open_did_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                           st->args.open.source,
-                                           st->args.open.target,
-                                           st->args.open.msgbase,
-                                           st->args.open.msgbits, st->args.open.type);
-}
-
-static errval_t chan_open_did_response_tx(struct txq_msg_st *msg_st)
-{
-    return interphi_chan_open_did_response__tx(msg_st->queue->binding,
-                                               TXQCONT(msg_st), msg_st->err);
-}
-
 /*
  * ----------------------------------------------------------------------------
  * Message Callbacks
  * ----------------------------------------------------------------------------
  */
+
+static void domain_wait_call_rx(struct interphi_binding *_binding,
+                                char *name,
+                                size_t length,
+                                uintptr_t state)
+{
+#ifdef __k1om__
+    USER_PANIC("domain_wait_call_rx: not supported on the Xeon Phi\n");
+#else
+    XINTER_DEBUG("domain_wait_call_rx: {%s}\n", name);
+
+    struct xnode *local_node = _binding->st;
+
+    struct xeon_phi *phi = local_node->local;
+    assert(phi);
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&local_node->msg->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = domain_wait_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = domain_wait(name, local_node, (void *)state);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+    } else {
+        /* reply gets triggered when the octopus trigger fires */
+        txq_msg_st_free(msg_st);
+    }
+#endif
+}
+
+static void domain_wait_response_rx(struct interphi_binding *_binding,
+                                    xphi_dom_id_t domain,
+                                    uintptr_t state,
+                                    errval_t msgerr)
+{
+#ifdef __k1om__
+    XINTER_DEBUG("domain_wait_response_rx: %lx, %s\n", domain,
+                 err_getstring(msgerr));
+
+    struct xnode *local_node = _binding->st;
+
+    local_node->msg->rpc_err = msgerr;
+    rpc_done(local_node->msg);
+#else
+    USER_PANIC("domain_wait_call_rx: not supported on the host\n");
+#endif
+}
+
+static void domain_lookup_call_rx(struct interphi_binding *_binding,
+                                  char *name,
+                                  size_t length)
+{
+#ifdef __k1om__
+    USER_PANIC("domain_lookup_call_rx: not supported on the Xeon Phi\n");
+#else
+    XINTER_DEBUG("domain_lookup_call_rx: {%s}\n", name);
+
+    struct xnode *local_node = _binding->st;
+
+    struct xeon_phi *phi = local_node->local;
+    assert(phi);
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&local_node->msg->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = domain_lookup_response_tx;
+    msg_st->cleanup = NULL;
+
+    struct interphi_msg_st *st = (struct interphi_msg_st *)msg_st;
+
+    msg_st->err = domain_lookup(name, &st->args.domain.domid);
+
+    txq_send(msg_st);
+#endif
+}
+
+static void domain_lookup_response_rx(struct interphi_binding *_binding,
+                                      xphi_dom_id_t domain,
+                                      errval_t msgerr)
+{
+#ifdef __k1om__
+    XINTER_DEBUG("domain_lookup_response_rx: %lx, %s\n", domain,
+                 err_getstring(msgerr));
+
+    struct xnode *local_node = _binding->st;
+
+    local_node->msg->rpc_err = msgerr;
+    rpc_done(local_node->msg);
+#else
+    USER_PANIC("domain_lookup_response_rx: not supported on the host\n");
+#endif
+}
+
+static void domain_register_call_rx(struct interphi_binding *_binding,
+                                    char *name,
+                                    size_t length,
+                                    xphi_dom_id_t domid)
+{
+#ifdef __k1om__
+    /* register calls on the K1OM are not valid */
+    USER_PANIC("domain_register_call_rx: not supported on the Xeon Phi\n");
+#else
+    XINTER_DEBUG("domain_register_call_rx: {%s} @ domid:%lx\n", name, domid);
+
+    struct xnode *local_node = _binding->st;
+
+    struct xeon_phi *phi = local_node->local;
+    assert(phi);
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&local_node->msg->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->err = SYS_ERR_OK;
+    msg_st->send = domain_register_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = domain_register(name, domid);
+
+    txq_send(msg_st);
+#endif
+}
+
+static void domain_register_response_rx(struct interphi_binding *_binding,
+                                        errval_t msgerr)
+{
+#ifdef __k1om__
+    XINTER_DEBUG("domain_register_response_rx:%s\n", err_getstring(msgerr));
+
+    struct xnode *local_node = _binding->st;
+
+    local_node->msg->rpc_err = msgerr;
+    rpc_done(local_node->msg);
+#else
+    USER_PANIC("domain_register_response_rx: not supported on the host\n");
+#endif
+}
 
 static void spawn_call_rx(struct interphi_binding *_binding,
                           uint8_t core,
@@ -489,13 +712,12 @@ static void bootstrap_response_rx(struct interphi_binding *_binding,
 
 static void chan_open_call_rx(struct interphi_binding *_binding,
                               uint64_t source_did,
-                              char *iface,
-                              size_t length,
+                              uint64_t target_did,
                               uint64_t msgbase,
                               uint8_t msgbits,
                               uint8_t type)
 {
-    XINTER_DEBUG("chan_open_did_call_rx: %lx -> {%s}\n", source_did, iface);
+    XINTER_DEBUG("chan_open_did_call_rx: %lx -> %lx\n", source_did, target_did);
 
     struct xnode *local_node = _binding->st;
 
@@ -522,66 +744,16 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
         return;
     }
 
-    msg_st->err = xeon_phi_service_open_channel(msgcap, type, 0, source_did, iface);
+    msg_st->err = xeon_phi_service_open_channel(msgcap, type, target_did,
+                                                source_did);
     if (err_is_fail(msg_st->err)) {
         sysmem_cap_return(msgcap);
     }
-
     txq_send(msg_st);
 }
 
 static void chan_open_response_rx(struct interphi_binding *_binding,
                                   errval_t msgerr)
-{
-    XINTER_DEBUG("chan_open_response_rx: %s\n", err_getstring(msgerr));
-
-    struct xnode *local_node = _binding->st;
-
-    local_node->msg->rpc_err = msgerr;
-
-    rpc_done(local_node->msg);
-}
-
-static void chan_open_did_call_rx(struct interphi_binding *_binding,
-                                  uint64_t source_did,
-                                  uint64_t target_did,
-                                  uint64_t msgbase,
-                                  uint8_t msgbits,
-                                  uint8_t type)
-{
-    XINTER_DEBUG("chan_open_did_call_rx: %lx -> %lx\n", source_did, target_did);
-
-    struct xnode *local_node = _binding->st;
-
-    struct xeon_phi *phi = local_node->local;
-    assert(phi);
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&local_node->msg->queue);
-    if (msg_st == NULL) {
-        USER_PANIC("ran out of reply state resources\n");
-    }
-
-    msg_st->send = chan_open_did_response_tx;
-    msg_st->cleanup = NULL;
-
-    struct capref msgcap;
-
-    msg_st->err = sysmem_cap_request(msgbase, msgbits, &msgcap);
-    if (err_is_fail(msg_st->err)) {
-        txq_send(msg_st);
-        return;
-    }
-
-    msg_st->err = xeon_phi_service_open_channel(msgcap, type, target_did, source_did,
-    NULL);
-    if (err_is_fail(msg_st->err)) {
-        sysmem_cap_return(msgcap);
-    }
-    txq_send(msg_st);
-}
-
-static void chan_open_did_response_rx(struct interphi_binding *_binding,
-                                      errval_t msgerr)
 {
     XINTER_DEBUG("chan_open_did_response_rx: %s\n", err_getstring(msgerr));
 
@@ -593,10 +765,14 @@ static void chan_open_did_response_rx(struct interphi_binding *_binding,
 }
 
 struct interphi_rx_vtbl rx_vtbl = {
+    .domain_lookup_call = domain_lookup_call_rx,
+    .domain_lookup_response = domain_lookup_response_rx,
+    .domain_wait_call = domain_wait_call_rx,
+    .domain_wait_response = domain_wait_response_rx,
+    .domain_register_call = domain_register_call_rx,
+    .domain_register_response = domain_register_response_rx,
     .chan_open_call = chan_open_call_rx,
     .chan_open_response = chan_open_response_rx,
-    .chan_open_did_call = chan_open_did_call_rx,
-    .chan_open_did_response = chan_open_did_response_rx,
     .spawn_call = spawn_call_rx,
     .spawn_response = spawn_response_rx,
     .spawn_with_cap_call = spawn_with_cap_call_rx,
@@ -629,6 +805,10 @@ static void interphi_bind_cb(void *st,
     txq_init(&node->msg->queue, _binding, _binding->waitset,
              (txq_register_fn_t) _binding->register_send,
              sizeof(struct interphi_msg_st));
+
+    /*
+     * TODO: update pending messages
+     */
 
     node->state = XNODE_STATE_READY;
 }
@@ -785,14 +965,14 @@ errval_t interphi_init_xphi(uint8_t xphi,
         mi->fi.sendbase = id.base;
 
         err = interphi_connect(&mi->fi, interphi_bind_cb, &phi->topology[xphi], ws,
-                               IDC_EXPORT_FLAGS_DEFAULT);
+        IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         mi->fi.inbuf = addr;
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
 
         err = interphi_accept(&mi->fi, &phi->topology[xphi], interphi_connect_cb, ws,
-                              IDC_EXPORT_FLAGS_DEFAULT);
+        IDC_EXPORT_FLAGS_DEFAULT);
     }
     if (err_is_fail(err)) {
         vspace_unmap(addr);
@@ -800,6 +980,8 @@ errval_t interphi_init_xphi(uint8_t xphi,
         free(mi);
         return err;
     }
+
+    phi->connected++;
 
 #else
     struct xnode *node = &phi->topology[xphi];
@@ -910,6 +1092,8 @@ errval_t interphi_init(struct xeon_phi *phi,
         return err;
     }
 
+    phi->connected = 1;
+
     if (!phi->is_client) {
         struct xeon_phi_boot_params *bp;
         bp = (struct xeon_phi_boot_params *) (phi->apt.vbase + phi->os_offset);
@@ -952,22 +1136,14 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
 
     XINTER_DEBUG("sending bootstrap to card. [%u] client:%u\n", xid, is_client);
 
-    if (!rpc_start(phi->msg)) {
-        XINTER_DEBUG("waiting until previous rpc is finished\n");
-        rpc_wait_done(phi->msg);
-        rpc_start(phi->msg);
-    }
+    struct msg_info *mi = phi->msg;
 
-    phi->msg->rpc_err = SYS_ERR_OK;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&phi->msg->queue);
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
-        rpc_done(phi->msg);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     msg_st->send = bootstrap_call_tx;
-    msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
@@ -1001,28 +1177,14 @@ errval_t interphi_spawn(struct xnode *node,
                         uint64_t *domain)
 {
     XINTER_DEBUG("spawning %s on core %u\n", cmdline, core);
+    struct msg_info *mi = node->msg;
 
-    if (node->msg->binding == NULL) {
-        assert(!"NYI");
-    }
-
-    if (!rpc_start(node->msg)) {
-        XINTER_DEBUG("waiting until previous rpc is finished\n");
-        rpc_wait_done(node->msg);
-        rpc_start(node->msg);
-    }
-
-    node->msg->rpc_err = SYS_ERR_OK;
-    node->msg->rpc_data = 0x0;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&node->msg->queue);
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
-        rpc_done(node->msg);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     msg_st->send = spawn_call_tx;
-    msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
@@ -1061,12 +1223,9 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint64_t *domain)
 {
     errval_t err;
+    struct msg_info *mi = node->msg;
 
     XINTER_DEBUG("spawning %s with cap on core %u\n", cmdline, core);
-
-    if (node->msg->binding == NULL) {
-        assert(!"NYI");
-    }
 
     struct frame_identity id;
     err = invoke_frame_identify(cap, &id);
@@ -1074,23 +1233,12 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
         return err;
     }
 
-    if (!rpc_start(node->msg)) {
-        XINTER_DEBUG("waiting until previous rpc is finished\n");
-        rpc_wait_done(node->msg);
-        rpc_start(node->msg);
-    }
-
-    node->msg->rpc_err = SYS_ERR_OK;
-    node->msg->rpc_data = 0x0;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&node->msg->queue);
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
-        rpc_done(node->msg);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     msg_st->send = spawn_with_cap_call_tx;
-    msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
@@ -1124,31 +1272,16 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
 errval_t interphi_kill(struct xnode *node,
                        xphi_dom_id_t domain)
 {
-
-    struct msg_info *mi = node->msg;
-    if (mi->binding == NULL) {
-        assert(!"NYI");
-    }
-
     XINTER_DEBUG("sending kill signal for domain:%lu\n", domain);
 
-    if (!rpc_start(mi)) {
-        XINTER_DEBUG("waiting until previous rpc is finished\n");
-        rpc_wait_done(node->msg);
-        rpc_start(node->msg);
-    }
+    struct msg_info *mi = node->msg;
 
-    mi->rpc_err = SYS_ERR_OK;
-    mi->rpc_data = 0x0;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&mi->queue);
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
-        rpc_done(node->msg);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     msg_st->send = kill_call_tx;
-    msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
@@ -1175,19 +1308,15 @@ errval_t interphi_kill(struct xnode *node,
  */
 errval_t interphi_chan_open(struct xnode *node,
                             xphi_dom_id_t target,
-                            char *iface,
                             xphi_dom_id_t source,
                             struct capref msgframe,
                             xphi_chan_type_t type)
 {
     errval_t err;
 
-    XINTER_DEBUG("sending channel open to domain {%s / %lx}\n", iface, target);
+    XINTER_DEBUG("sending channel open to domain {%lx}\n", target);
 
     struct msg_info *mi = node->msg;
-    if (mi->binding == NULL) {
-        assert(!"NYI");
-    }
 
     struct frame_identity id;
     err = invoke_frame_identify(msgframe, &id);
@@ -1195,22 +1324,10 @@ errval_t interphi_chan_open(struct xnode *node,
         return err;
     }
 
-    if (!rpc_start(mi)) {
-        XINTER_DEBUG("waiting until previous rpc is finished\n");
-        rpc_wait_done(node->msg);
-        rpc_start(node->msg);
-    }
-
-    mi->rpc_err = SYS_ERR_OK;
-    mi->rpc_data = 0x0;
-
-    struct txq_msg_st *msg_st = txq_msg_st_alloc(&mi->queue);
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
-        rpc_done(node->msg);
         return LIB_ERR_MALLOC_FAIL;
     }
-
-    msg_st->cleanup = NULL;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
@@ -1220,11 +1337,8 @@ errval_t interphi_chan_open(struct xnode *node,
     svc_st->args.open.type = type;
 
     if (target) {
-        msg_st->send = chan_open_did_call_tx;
-        svc_st->args.open.target = target;
-    } else if (iface) {
         msg_st->send = chan_open_call_tx;
-        svc_st->args.open.iface = iface;
+        svc_st->args.open.target = target;
     } else {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);
@@ -1236,4 +1350,161 @@ errval_t interphi_chan_open(struct xnode *node,
     rpc_wait_done(mi);
 
     return mi->rpc_err;
+}
+
+/**
+ * \brief registers a ready domain with the Xeon Phi Domain Service
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name to register
+ * \param domid Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_register(struct xnode *node,
+                                  char *name,
+                                  xphi_dom_id_t domid)
+{
+    XINTER_DEBUG("domain register {%s} with domainid:%lx @ xnode:%u\n", name, domid,
+                 node->id);
+
+    assert(node->msg);
+
+    struct msg_info *mi = node->msg;
+
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
+    if (msg_st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    msg_st->send = domain_register_call_tx;
+
+    struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
+
+    svc_st->args.domain.domid = domid;
+    svc_st->args.domain.name = name;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(mi);
+
+    return mi->rpc_err;
+}
+
+/**
+ * \brief checks if a domain is running and returns its domain id if it is.
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name of the Domain
+ * \param domid returned Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_lookup(struct xnode *node,
+                                char *name,
+                                xphi_dom_id_t *retdomid)
+{
+    XINTER_DEBUG("domain lookup {%s} @ xnode:%u\n", name, node->id);
+
+    struct msg_info *mi = node->msg;
+
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
+    if (msg_st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->send = domain_lookup_call_tx;
+
+    struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
+
+    svc_st->args.domain.name = name;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(mi);
+
+    return mi->rpc_err;
+}
+
+/**
+ * \brief checks if a domain is running and installs a trigger to reply
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name of the Domain
+ * \param domid returned Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_wait(struct xnode *node,
+                              char *name)
+{
+    XINTER_DEBUG("domain lookup {%s} @ xnode:%u\n", name, node->id);
+
+    assert(node->msg);
+
+    struct msg_info *mi = node->msg;
+    if (mi->binding == NULL) {
+        assert(!"NYI");
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&mi->queue);
+    if (msg_st == NULL) {
+        rpc_done(node->msg);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->send = domain_lookup_call_tx;
+    msg_st->cleanup = NULL;
+
+    struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
+
+    svc_st->args.domain.name = name;
+
+    txq_send(msg_st);
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief sends a reply when the Octopus trigger fired
+ *
+ * \param node  Xeon Phi Node
+ * \param domid Xeon Phi Domain ID
+ * \param state State pointer supplied by the card.
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t interphi_domain_wait_reply(struct xnode *node,
+                                    void *state,
+                                    xphi_dom_id_t domid)
+{
+#ifndef __k1om__
+    XINTER_DEBUG("domain interphi_domain_wait_reply domid:%lx @ xnode:%u\n", domid, node->id);
+
+    struct msg_info *mi = node->msg;
+    if (mi->binding == NULL) {
+        assert(!"NYI");
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&mi->queue);
+    if (msg_st == NULL) {
+        rpc_done(node->msg);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->send = domain_wait_response_tx;
+    msg_st->cleanup = NULL;
+
+    struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
+
+    svc_st->args.domain.domid = domid;
+
+    txq_send(msg_st);
+
+#else
+    USER_PANIC("interphi_domain_wait_reply: Not supported on Xeon Phi\n");
+#endif
+    return SYS_ERR_OK;
 }

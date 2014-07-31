@@ -147,9 +147,62 @@ errval_t interphi_kill(struct xnode *node,
  */
 errval_t interphi_chan_open(struct xnode *node,
                             xphi_dom_id_t target,
-                            char *iface,
                             xphi_dom_id_t source,
                             struct capref msgframe,
                             xphi_chan_type_t type);
+
+/**
+ * \brief registers a ready domain with the Xeon Phi Domain Service
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name to register
+ * \param domid Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_register(struct xnode *node,
+                                  char *name,
+                                  xphi_dom_id_t domid);
+
+/**
+ * \brief checks if a domain is running and returns its domain id if it is.
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name of the Domain
+ * \param domid returned Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_lookup(struct xnode *node,
+                                char *name,
+                                xphi_dom_id_t *retdomid);
+
+/**
+ * \brief checks if a domain is running and installs a trigger to reply
+ *
+ * \param node  Xeon Phi Node to send the message to
+ * \param name  Name of the Domain
+ * \param domid returned Xeon Phi Domain ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t interphi_domain_wait(struct xnode *node,
+                              char *name);
+
+/**
+ * \brief sends a reply when the Octopus trigger fired
+ *
+ * \param node  Xeon Phi Node
+ * \param domid Xeon Phi Domain ID
+ * \param state State pointer supplied by the card.
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t interphi_domain_wait_reply(struct xnode *node,
+                                    void *state,
+                                    xphi_dom_id_t domid);
 
 #endif /* XEON_PHI_INTERPHI_H */

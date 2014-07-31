@@ -24,6 +24,7 @@
       "service.c",
       "smpt.c",
       "sysmem_caps.c",
+      "domain.c",
       "xphi_service.c",
       "sleep.c",
       "dma_service.c"
@@ -38,7 +39,9 @@
       "vfs",
       "lwip",
       "bench", 
-      "xeon_phi_manager_client", 
+      "xeon_phi_manager_client",
+      "xeon_phi_domain",
+      "octopus",
       "mm"
     ],
     flounderDefs = [
@@ -83,9 +86,10 @@
     addLibraries = libDeps [ 
       "mm", 
       "spawndomain", 
+      "xeon_phi_domain",
       "dma",
       "dma_service",
-      "bench" 
+      "bench"
     ],
     mackerelDevices = [ 
       "xeon_phi/xeon_phi_apic", 

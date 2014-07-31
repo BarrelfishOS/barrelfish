@@ -15,8 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-
-#include <if/xeon_phi_messaging_defs.h>
+#include <barrelfish/waitset.h>
 
 #include <xeon_phi/xeon_phi.h>
 
