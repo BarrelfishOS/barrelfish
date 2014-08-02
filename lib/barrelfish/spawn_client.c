@@ -247,6 +247,10 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
                                     envstr, envstrlen,
                                     &msgerr, &domain_id);
+    } else if (capref_is_null(inheritcn_cap)) {
+        err = cl->vtbl.spawn_domain_with_argcap(cl, path, argstr, argstrlen,
+                                              envstr, envstrlen,
+                                              argcn_cap, &msgerr, &domain_id);
     } else {
         err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
                                               envstr, envstrlen, inheritcn_cap,

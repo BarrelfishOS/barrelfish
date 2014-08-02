@@ -19,6 +19,13 @@ interface spawn "Interface to spawn domains" {
                                in char envbuf[envbytes], in cap inheritcn_cap,
                                in cap argcn_cap, out errval err,
                                out domainid domain_id);
+    
+    /*
+     * XXX: little hack to allow spawning with caps using UMP
+     */                     
+    rpc spawn_domain_with_argcap(in string path, in char argvbuf[argvbytes],
+                               in char envbuf[envbytes], in cap argcn_cap, 
+                               out errval err, out domainid domain_id);
 
     rpc use_local_memserv();
     rpc kill(in domainid domain_id, out errval err);
