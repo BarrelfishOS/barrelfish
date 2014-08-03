@@ -65,6 +65,7 @@ struct xphi_svc_msg_st
         struct
         {
             xphi_dom_id_t domainid;
+            uint64_t usrdata;
             struct capref cap;
             uint8_t type;
         } open;
@@ -117,6 +118,7 @@ static errval_t chan_open_call_tx(struct txq_msg_st* msg_st)
 
     return xeon_phi_chan_open_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                        xphi_st->args.open.domainid,
+                                       xphi_st->args.open.usrdata,
                                        xphi_st->args.open.cap,
                                        xphi_st->args.open.type);
 }
@@ -149,6 +151,12 @@ static errval_t spawn_response_tx(struct txq_msg_st* msg_st)
 
     return xeon_phi_spawn_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                        xphi_st->args.spawn.domainid, msg_st->err);
+}
+
+static errval_t domain_init_response_tx(struct txq_msg_st* msg_st)
+{
+    return xeon_phi_domain_init_response__tx(msg_st->queue->binding,
+                                             TXQCONT(msg_st), msg_st->err);
 }
 
 static errval_t domain_register_response_tx(struct txq_msg_st* msg_st)
@@ -232,13 +240,48 @@ static void domain_wait_call_rx(struct xeon_phi_binding *binding,
 }
 
 static void domain_register_call_rx(struct xeon_phi_binding *binding,
-                                    domainid_t domain,
-                                    coreid_t core,
                                     char *name,
-                                    size_t length)
+                                    size_t length,
+                                    xphi_dom_id_t domid)
 {
-    XSERVICE_DEBUG("domain_register_call_rx: %s @ domainid:%"PRIuDOMAINID"\n",
-                   name, domain);
+    XSERVICE_DEBUG("domain_init_call_rx: %s @ domainid:%lx\n", name, domid);
+
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = domain_register_response_tx;
+    msg_st->cleanup = NULL;
+
+    svc_st->domainid = domid;
+    svc_st->name = name;
+
+#ifdef __k1om__
+    struct xeon_phi *phi = svc_st->phi;
+    msg_st->err = interphi_domain_register(&phi->topology[phi->id], name, domid);
+#else
+    msg_st->err = domain_register(name, domid);
+#endif
+
+    free(name);
+
+    txq_send(msg_st);
+}
+
+static void domain_init_call_rx(struct xeon_phi_binding *binding,
+                                domainid_t domain,
+                                coreid_t core,
+                                char *name,
+                                size_t length)
+{
+    XSERVICE_DEBUG("domain_init_call_rx: %s @ domainid:%"PRIuDOMAINID"\n", name,
+                   domain);
+
+    assert(domain != XEON_PHI_DOMAIN_DONT_CARE);
+    assert(core != XEON_PHI_DOMAIN_DONT_CARE);
 
     struct xphi_svc_st *svc_st = binding->st;
     struct xeon_phi *phi = svc_st->phi;
@@ -248,7 +291,7 @@ static void domain_register_call_rx(struct xeon_phi_binding *binding,
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    msg_st->send = domain_register_response_tx;
+    msg_st->send = domain_init_response_tx;
     msg_st->cleanup = NULL;
 
     if (svc_st->next != NULL) {
@@ -286,7 +329,8 @@ static void chan_open_request_call_rx(struct xeon_phi_binding *binding,
                                       uint8_t xphi,
                                       struct capref msgframe,
                                       uint8_t type,
-                                      uint64_t domain)
+                                      uint64_t domain,
+                                      uint64_t usrdata)
 {
     XSERVICE_DEBUG("chan_open_request_did_call_rx: xphi:%u, domain:%lx\n", xphi,
                    domain);
@@ -306,8 +350,8 @@ static void chan_open_request_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_chan_open(node, domain, svc_st->domainid, msgframe,
-                                     type);
+    msg_st->err = interphi_chan_open(node, domain, svc_st->domainid, usrdata,
+                                     msgframe, type);
 
     txq_send(msg_st);
 }
@@ -346,6 +390,8 @@ static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
 {
     struct xphi_svc_st *svc_st = binding->st;
 
+    XSERVICE_DEBUG("spawn_with_cap_call_rx: %s of length %lu\n", cmdline, length);
+
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
     if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
@@ -361,8 +407,10 @@ static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn_with_cap(node, core, cmdline, cap,
+    msg_st->err = interphi_spawn_with_cap(node, core, cmdline, length, cap,
                                           &xphi_st->args.spawn.domainid);
+
+    free(cmdline);
 
     txq_send(msg_st);
 }
@@ -374,6 +422,8 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
                           size_t length)
 {
     struct xphi_svc_st *svc_st = binding->st;
+
+    XSERVICE_DEBUG("spawn_call_rx: %s of length %lu\n", cmdline, length);
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
     if (msg_st == NULL) {
@@ -390,13 +440,16 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn(node, core, cmdline,
+    msg_st->err = interphi_spawn(node, core, cmdline, length,
                                  &xphi_st->args.spawn.domainid);
+
+    free(cmdline);
 
     txq_send(msg_st);
 }
 
 static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
+    .domain_init_call = domain_init_call_rx,
     .domain_register_call = domain_register_call_rx,
     .domain_lookup_call = domain_lookup_call_rx,
     .domain_wait_call = domain_wait_call_rx,
@@ -493,6 +546,9 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
     XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n",
                    XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
     err = nameservice_register(XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
+    if (err_is_fail(err)) {
+        return err;
+    }
 #else
     char iface[30];
     snprintf(iface, sizeof(iface), "%s.%u", XEON_PHI_SERVICE_NAME, phi->id);
@@ -510,14 +566,13 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
 errval_t xeon_phi_service_open_channel(struct capref cap,
                                        uint8_t type,
                                        xphi_dom_id_t target_domain,
-                                       xphi_dom_id_t src_domain)
+                                       xphi_dom_id_t src_domain,
+                                       uint64_t userdata)
 {
     struct xphi_svc_st *st = NULL;
-    if (target_domain) {
-        st = xphi_svc_clients_lookup_by_did(target_domain);
-        XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n",
-                       st);
-    }
+
+    st = xphi_svc_clients_lookup_by_did(target_domain);
+    XSERVICE_DEBUG("xeon_phi_service_open_channel: target_domain, st:%p\n", st);
 
     if (st == NULL) {
         return XEON_PHI_ERR_CLIENT_DOMAIN_VOID;
@@ -536,6 +591,7 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     xphi_st->args.open.cap = cap;
     xphi_st->args.open.type = type;
     xphi_st->args.open.domainid = src_domain;
+    xphi_st->args.open.usrdata = userdata;
 
     txq_send(msg_st);
 

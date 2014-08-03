@@ -243,13 +243,13 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to start the DMA service");
     }
-#ifndef __k1om__
+
     err = dma_manager_register_driver(0, 1ULL << 40, DMA_DEV_TYPE_XEON_PHI,
                                       svc_iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to register with the DMA manager\n");
     }
-#endif
+
     return SYS_ERR_OK;
 }
 

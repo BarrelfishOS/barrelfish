@@ -18,8 +18,9 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi);
 
 errval_t xeon_phi_service_open_channel(struct capref cap,
                                        uint8_t type,
-                                       uint64_t target_domain,
-                                       xphi_dom_id_t src_domain);
+                                       xphi_dom_id_t target_domain,
+                                       xphi_dom_id_t src_domain,
+                                       uint64_t userdata);
 
 errval_t xeon_phi_service_domain_wait_response(struct xphi_svc_st *st,
                                                errval_t err,
