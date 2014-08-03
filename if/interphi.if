@@ -64,6 +64,7 @@ interface interphi "Interface between host and card side driver" {
     
     rpc chan_open(in uint64 source_did,
                   in uint64 target_did,
+                  in uint64 usrdata,
                   in uint64 msgbase,
                   in uint8 msgbits,
                   in uint8 type,

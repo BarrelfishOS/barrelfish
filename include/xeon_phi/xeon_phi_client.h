@@ -13,6 +13,7 @@
 #define XEON_PHI_SERVICE_NAME "xeon_phi_svc"
 
 typedef errval_t (*xphi_chan_open_t)(xphi_dom_id_t domain,
+                                     uint64_t usrdata,
                                      struct capref msgframe,
                                      uint8_t type);
 
@@ -40,7 +41,8 @@ errval_t xeon_phi_client_init(xphi_id_t xid);
  *
  * \param xid       Xeon Phi ID to start the domain
  * \param core      Core to start
- * \param cmdline   Program cmdline
+ * \param path      Program to spawn
+ * \param argv      Program arguments
  * \param cap       Capability to pass
  * \param domid     returns the domain id of the spawned domain
  *
@@ -49,7 +51,8 @@ errval_t xeon_phi_client_init(xphi_id_t xid);
  */
 errval_t xeon_phi_client_spawn(xphi_id_t xid,
                                coreid_t core,
-                               char *cmdline,
+                               char *path,
+                               char *argv[],
                                struct capref cap,
                                xphi_dom_id_t *domid);
 
@@ -58,6 +61,7 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
  *
  * \param xid       Xeon Phi ID
  * \param domid     Domain ID
+ * \param usrdata   Supplied data for the other side
  * \param iface     Interface name of the domain
  * \param msgframe  Message frame
  * \param chantype  Type of the channel
@@ -71,6 +75,7 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
  */
 errval_t xeon_phi_client_chan_open(xphi_id_t xid,
                                    xphi_dom_id_t domid,
+                                   uint64_t usrdata,
                                    struct capref msgframe,
                                    xphi_chan_type_t chantype);
 

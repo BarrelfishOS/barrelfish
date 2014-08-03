@@ -91,7 +91,8 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
  *
  * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
- * \param cmdline   Commandline of the domain to spawn
+ * \param cmdline   Commandline of the domain to spawn (marshalled)
+ * \param cmdlen    length of the command line
  * \param domain    Domain identifier returned
  *
  * \returns SYS_ERR_OK on success
@@ -100,7 +101,9 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
 errval_t interphi_spawn(struct xnode *node,
                         uint8_t core,
                         char *cmdline,
+                        size_t cmdlen,
                         uint64_t *domain);
+
 
 
 /**
@@ -108,7 +111,8 @@ errval_t interphi_spawn(struct xnode *node,
  *
  * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
- * \param cmdline   Commandline of the domain to spawn
+ * \param cmdline   Commandline of the domain to spawn (marshalled args)
+ * \param cmdlen    length of the cmd line
  * \param cap       Cap to hand over to the domain at boot
  * \param domain    Domain identifier returned
  *
@@ -118,6 +122,7 @@ errval_t interphi_spawn(struct xnode *node,
 errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint8_t core,
                                  char *cmdline,
+                                 size_t cmdlen,
                                  struct capref cap,
                                  uint64_t *domain);
 
@@ -138,8 +143,8 @@ errval_t interphi_kill(struct xnode *node,
  *
  * \param node      Xeon Phi Node to send the message to
  * \param target    target domain id
- * \param iface     target domain interface name
  * \param source    source domain id
+ * \param usedata   usr specified data
  * \param msgframe  capability of the messaging frame
  * \param type      Channel type
  *
@@ -148,6 +153,7 @@ errval_t interphi_kill(struct xnode *node,
 errval_t interphi_chan_open(struct xnode *node,
                             xphi_dom_id_t target,
                             xphi_dom_id_t source,
+                            uint64_t usrdata,
                             struct capref msgframe,
                             xphi_chan_type_t type);
 

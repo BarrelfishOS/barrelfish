@@ -64,6 +64,7 @@ struct interphi_msg_st
         {
             uint8_t core;
             char *cmdline;
+            size_t cmdlen;
             uint64_t cap_base;
             uint8_t cap_size_bits;
         } spawn_call;
@@ -89,6 +90,7 @@ struct interphi_msg_st
             uint8_t msgbits;
             char *iface;
             xphi_dom_id_t source;
+            uint64_t usrdata;
             xphi_dom_id_t target;
             xphi_chan_type_t type;
         } open;
@@ -200,6 +202,33 @@ static struct txq_msg_st *rpc_preamble(struct msg_info *mi)
 
 /*
  * ----------------------------------------------------------------------------
+ * Helper functions
+ * ----------------------------------------------------------------------------
+ */
+static errval_t spawn_cmdline_extract_argv(char *cmdline,
+                                           size_t cmdlen,
+                                           char *argv[],
+                                           uint8_t argcmax)
+{
+       int i = 0;
+       size_t pos = 0;
+       while (pos < cmdlen && i < argcmax) {
+           argv[i++] = &cmdline[pos];
+           char *end = memchr(&cmdline[pos], '\0', cmdlen - pos);
+           if (end == NULL) {
+               return SPAWN_ERR_GET_CMDLINE_ARGS;
+
+           }
+           pos = end - cmdline + 1;
+       }
+       assert(i <= argcmax);
+       argv[i] = NULL;
+
+    return SYS_ERR_OK;
+}
+
+/*
+ * ----------------------------------------------------------------------------
  * Message Send Handlers
  * ----------------------------------------------------------------------------
  */
@@ -224,10 +253,10 @@ static errval_t domain_wait_response_tx(struct txq_msg_st *msg_st)
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
     return interphi_domain_wait_response__tx(msg_st->queue->binding,
-                                             TXQCONT(msg_st),
-                                             st->args.domain.domid,
-                                             st->args.domain.state,
-                                             msg_st->err);
+                    TXQCONT(msg_st),
+                    st->args.domain.domid,
+                    st->args.domain.state,
+                    msg_st->err);
 }
 #endif
 
@@ -293,11 +322,10 @@ static errval_t spawn_call_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
-    size_t length = strlen(st->args.spawn_call.cmdline);
-
     return interphi_spawn_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                    st->args.spawn_call.core,
-                                   st->args.spawn_call.cmdline, length);
+                                   st->args.spawn_call.cmdline,
+                                   st->args.spawn_call.cmdlen);
 }
 
 static errval_t spawn_with_cap_response_tx(struct txq_msg_st *msg_st)
@@ -314,12 +342,11 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
-    size_t length = strlen(st->args.spawn_call.cmdline);
-
     return interphi_spawn_with_cap_call__tx(msg_st->queue->binding,
                                             TXQCONT(msg_st),
                                             st->args.spawn_call.core,
-                                            st->args.spawn_call.cmdline, length,
+                                            st->args.spawn_call.cmdline,
+                                            st->args.spawn_call.cmdlen,
                                             st->args.spawn_call.cap_base,
                                             st->args.spawn_call.cap_size_bits);
 }
@@ -362,6 +389,7 @@ static errval_t chan_open_call_tx(struct txq_msg_st *msg_st)
 
     return interphi_chan_open_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                        st->args.open.source, st->args.open.target,
+                                       st->args.open.usrdata,
                                        st->args.open.msgbase,
                                        st->args.open.msgbits, st->args.open.type);
 }
@@ -416,8 +444,9 @@ static void domain_wait_call_rx(struct interphi_binding *_binding,
         default:
             /* error condition */
             txq_send(msg_st);
-            break;
+        break;
     }
+    free(name);
 #endif
 }
 
@@ -463,6 +492,8 @@ static void domain_lookup_call_rx(struct interphi_binding *_binding,
     struct interphi_msg_st *st = (struct interphi_msg_st *)msg_st;
 
     msg_st->err = domain_lookup(name, &st->args.domain.domid);
+
+    free(name);
 
     txq_send(msg_st);
 #endif
@@ -512,6 +543,8 @@ static void domain_register_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = domain_register(name, domid);
 
+    free(name);
+
     txq_send(msg_st);
 #endif
 }
@@ -536,7 +569,8 @@ static void spawn_call_rx(struct interphi_binding *_binding,
                           char *cmdline,
                           size_t length)
 {
-    XINTER_DEBUG("spawn_call_rx: {%s} @ core:%u\n", cmdline, core);
+    XINTER_DEBUG("spawn_call_rx: {%s} of length %lu, @ core:%u\n", cmdline,
+                 length, core);
 
     struct xnode *local_node = _binding->st;
 
@@ -548,16 +582,21 @@ static void spawn_call_rx(struct interphi_binding *_binding,
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    msg_st->err = SYS_ERR_OK;
     msg_st->send = spawn_response_tx;
     msg_st->cleanup = NULL;
 
+    char *argv[MAX_CMDLINE_ARGS+1];
+    msg_st->err = spawn_cmdline_extract_argv(cmdline, length, argv, MAX_CMDLINE_ARGS);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+    argv[MAX_CMDLINE_ARGS] = NULL;
+
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
-    char *argv[1];
-    argv[0] = NULL;
-
     domainid_t domid;
+
     msg_st->err = spawn_program(core, cmdline, argv, NULL, 0, &domid);
     if (err_is_ok(msg_st->err)) {
 #ifdef __k1om__
@@ -568,6 +607,9 @@ static void spawn_call_rx(struct interphi_binding *_binding,
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(phi->id, core,
                                                                  is_host, domid);
     }
+
+    free(cmdline);
+
     txq_send(msg_st);
 }
 
@@ -591,7 +633,8 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
                                    uint64_t cap_base,
                                    uint8_t cap_size_bits)
 {
-    XINTER_DEBUG("spawn_with_cap_call_rx: {%s} @ core:%u\n", cmdline, core);
+    XINTER_DEBUG("spawn_with_cap_call_rx: {%s} of length %lu @ core:%u\n", cmdline,
+                 length, core);
 
     struct xnode *local_node = _binding->st;
 
@@ -603,14 +646,18 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
         USER_PANIC("ran out of reply state resources\n");
     }
 
-    msg_st->err = SYS_ERR_OK;
     msg_st->send = spawn_with_cap_response_tx;
     msg_st->cleanup = NULL;
 
-    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+    char *argv[MAX_CMDLINE_ARGS+1];
+    msg_st->err = spawn_cmdline_extract_argv(cmdline, length, argv, MAX_CMDLINE_ARGS);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+    argv[MAX_CMDLINE_ARGS] = NULL;
 
-    char *argv[1];
-    argv[0] = NULL;
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
     struct capref cap;
     msg_st->err = sysmem_cap_request(cap_base, cap_size_bits, &cap);
@@ -618,14 +665,22 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
         txq_send(msg_st);
         return;
     }
-    domainid_t domid;
-    msg_st->err = spawn_program_with_caps(core, cmdline, argv, NULL, NULL_CAP
-    ,
-                                          cap, 0, &domid);
 
+    domainid_t domid;
+    msg_st->err = spawn_program_with_caps(core, cmdline, argv, NULL, NULL_CAP,
+                                          cap, 0, &domid);
     if (err_is_ok(msg_st->err)) {
-        st->args.spawn_reply.domainid = ((uint64_t) phi->id) << 48 | domid;
+#ifdef __k1om__
+        st->args.spawn_reply.domainid = xeon_phi_domain_build_id(
+                        disp_xeon_phi_id(), core, 0, domid);
+#else
+        st->args.spawn_reply.domainid = xeon_phi_domain_build_id(
+                        XEON_PHI_DOMAIN_HOST, core, 1, domid);
+#endif
     }
+
+    free(cmdline);
+
     txq_send(msg_st);
 }
 
@@ -720,6 +775,8 @@ static void bootstrap_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = interphi_init_xphi(xid, phi, msg_frame, is_client);
 
+
+
     txq_send(msg_st);
 }
 
@@ -738,6 +795,7 @@ static void bootstrap_response_rx(struct interphi_binding *_binding,
 static void chan_open_call_rx(struct interphi_binding *_binding,
                               uint64_t source_did,
                               uint64_t target_did,
+                              uint64_t usrdata,
                               uint64_t msgbase,
                               uint8_t msgbits,
                               uint8_t type)
@@ -770,7 +828,7 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
     }
 
     msg_st->err = xeon_phi_service_open_channel(msgcap, type, target_did,
-                                                source_did);
+                                                source_did, usrdata);
     if (err_is_fail(msg_st->err)) {
         sysmem_cap_return(msgcap);
     }
@@ -830,10 +888,6 @@ static void interphi_bind_cb(void *st,
     txq_init(&node->msg->queue, _binding, _binding->waitset,
              (txq_register_fn_t) _binding->register_send,
              sizeof(struct interphi_msg_st));
-
-    /*
-     * TODO: update pending messages
-     */
 
     node->state = XNODE_STATE_READY;
 }
@@ -980,32 +1034,40 @@ errval_t interphi_init_xphi(uint8_t xphi,
 
     struct waitset *ws = get_default_waitset();
 
-    phi->topology[xphi].msg = mi;
-    phi->topology[xphi].local = phi;
-    phi->topology[xphi].state = XNODE_STATE_WAIT_CONNECTION;
+    struct xnode *node = &phi->topology[xphi];
+
+    node->msg = mi;
+    node->local = phi;
+    node->state = XNODE_STATE_WAIT_CONNECTION;
 
     if (mi->is_client) {
         mi->fi.inbuf = ((uint8_t*) addr) + mi->fi.inbufsize;
         mi->fi.outbuf = addr;
         mi->fi.sendbase = id.base;
 
-        err = interphi_connect(&mi->fi, interphi_bind_cb, &phi->topology[xphi],
-                               ws,
-                               IDC_EXPORT_FLAGS_DEFAULT);
+        err = interphi_connect(&mi->fi, interphi_bind_cb, node,
+                               ws, IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         mi->fi.inbuf = addr;
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
 
-        err = interphi_accept(&mi->fi, &phi->topology[xphi], interphi_connect_cb,
-                              ws,
-                              IDC_EXPORT_FLAGS_DEFAULT);
+        err = interphi_accept(&mi->fi, node, interphi_connect_cb,
+                              ws, IDC_EXPORT_FLAGS_DEFAULT);
     }
     if (err_is_fail(err)) {
         vspace_unmap(addr);
         cap_destroy(mi->frame);
         free(mi);
         return err;
+    }
+
+    if (mi->is_client) {
+        XINTER_DEBUG("Waiting for connect callback...\n");
+        while(!node->msg->binding) {
+            messages_wait_and_handle_next();
+        }
+        XINTER_DEBUG("connected to pier.\n");
     }
 
     phi->connected++;
@@ -1119,6 +1181,8 @@ errval_t interphi_init(struct xeon_phi *phi,
         return err;
     }
 
+
+
     phi->connected = 1;
 
     if (!phi->is_client) {
@@ -1192,7 +1256,8 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
  *
  * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
- * \param cmdline   Commandline of the domain to spawn
+ * \param cmdline   Commandline of the domain to spawn (marshalled)
+ * \param cmdlen    length of the command line
  * \param domain    Domain identifier returned
  *
  * \returns SYS_ERR_OK on success
@@ -1201,6 +1266,7 @@ errval_t interphi_bootstrap(struct xeon_phi *phi,
 errval_t interphi_spawn(struct xnode *node,
                         uint8_t core,
                         char *cmdline,
+                        size_t cmdlen,
                         uint64_t *domain)
 {
     XINTER_DEBUG("spawning %s on core %u\n", cmdline, core);
@@ -1216,6 +1282,7 @@ errval_t interphi_spawn(struct xnode *node,
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     svc_st->args.spawn_call.cmdline = cmdline;
+    svc_st->args.spawn_call.cmdlen = cmdlen;
     svc_st->args.spawn_call.core = core;
 
     txq_send(msg_st);
@@ -1236,7 +1303,8 @@ errval_t interphi_spawn(struct xnode *node,
  *
  * \param node      Xeon Phi Node
  * \param core      which core to spawn the domain on
- * \param cmdline   Commandline of the domain to spawn
+ * \param cmdline   Commandline of the domain to spawn (marshalled args)
+ * \param cmdlen    length of the cmd line
  * \param cap       Cap to hand over to the domain at boot
  * \param domain    Domain identifier returned
  *
@@ -1246,6 +1314,7 @@ errval_t interphi_spawn(struct xnode *node,
 errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint8_t core,
                                  char *cmdline,
+                                 size_t cmdlen,
                                  struct capref cap,
                                  uint64_t *domain)
 {
@@ -1270,6 +1339,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     svc_st->args.spawn_call.cmdline = cmdline;
+    svc_st->args.spawn_call.cmdlen = cmdlen;
     svc_st->args.spawn_call.core = core;
     svc_st->args.spawn_call.cap_size_bits = id.bits;
     svc_st->args.spawn_call.cap_base = id.base;
@@ -1326,8 +1396,8 @@ errval_t interphi_kill(struct xnode *node,
  *
  * \param node      Xeon Phi Node to send the message to
  * \param target    target domain id
- * \param iface     target domain interface name
  * \param source    source domain id
+ * \param usedata   usr specified data
  * \param msgframe  capability of the messaging frame
  * \param type      Channel type
  *
@@ -1336,6 +1406,7 @@ errval_t interphi_kill(struct xnode *node,
 errval_t interphi_chan_open(struct xnode *node,
                             xphi_dom_id_t target,
                             xphi_dom_id_t source,
+                            uint64_t usrdata,
                             struct capref msgframe,
                             xphi_chan_type_t type)
 {
@@ -1361,6 +1432,7 @@ errval_t interphi_chan_open(struct xnode *node,
     svc_st->args.open.msgbase = id.base;
     svc_st->args.open.msgbits = id.bits;
     svc_st->args.open.source = source;
+    svc_st->args.open.usrdata = usrdata;
     svc_st->args.open.type = type;
 
     if (target) {
@@ -1528,7 +1600,7 @@ errval_t interphi_domain_wait_reply(struct xnode *node,
 {
 #ifndef __k1om__
     XINTER_DEBUG("domain interphi_domain_wait_reply domid:%lx @ xnode:%u, st:%p\n",
-                 domid, node->id, state);
+                    domid, node->id, state);
 
     struct msg_info *mi = node->msg;
     if (mi->binding == NULL) {
