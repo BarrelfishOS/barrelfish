@@ -49,6 +49,8 @@ static void *outbuf;
 static void *inbuf_rev;
 static void *outbuf_rev;
 
+static xphi_dom_id_t domainid;
+
 #ifndef XPHI_BENCH_PROCESS_CARD
 
 static volatile uint8_t dma_completed;
@@ -191,6 +193,7 @@ static errval_t alloc_local(void)
 }
 
 static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            uint64_t usrdata,
                             struct capref msgframe,
                             uint8_t type)
 {
@@ -215,6 +218,8 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
+
+    domainid = domain;
 
     init_buffer_c0();
 
@@ -252,8 +257,7 @@ int main(int argc,
     char iface[30];
     snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_HOST);
 
-    debug_printf("sending open message to %s\n", iface);
-    //err = xeon_phi_client_chan_open(0, 0, iface, card_frame, 2);
+    err = xeon_phi_client_chan_open(0, domainid, 0, card_frame, 2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
     }

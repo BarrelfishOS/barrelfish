@@ -199,6 +199,7 @@ static void init_buffer_c0(void)
 }
 
 static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            uint64_t usrdata,
                             struct capref msgframe,
                             uint8_t type)
 {
@@ -256,7 +257,7 @@ int main(int argc,
     char *name = "k1om/sbin/xeon_phi_test";
 
     xphi_dom_id_t domid;
-    err = xeon_phi_client_spawn(0, core, name, NULL_CAP, &domid);
+    err = xeon_phi_client_spawn(0, core, name, NULL,  NULL_CAP, &domid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }
@@ -267,7 +268,7 @@ int main(int argc,
     err = alloc_local();
     assert(err_is_ok(err));
 
-    err = xeon_phi_client_chan_open(0, domid, host_frame, 2);
+    err = xeon_phi_client_chan_open(0, domid, 0, host_frame, 2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not open channel");
     }

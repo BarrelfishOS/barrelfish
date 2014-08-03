@@ -64,6 +64,20 @@
       "bench", 
       "dma_client" 
     ]
+  },
+  
+  build application { 
+    target = "xphi_nameservice_test",
+    architectures = [ 
+      "k1om",
+      "x86_64"
+    ],
+    cFiles = [ 
+      "nameservice_test.c"
+    ],
+    addLibraries = libDeps [ 
+      "xeon_phi_client"
+    ]
   }
 ]
 

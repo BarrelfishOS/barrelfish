@@ -40,7 +40,7 @@
       "lwip",
       "bench", 
       "xeon_phi_manager_client",
-      "xeon_phi_domain",
+      "xeon_phi_client",
       "octopus",
       "mm"
     ],
@@ -86,7 +86,7 @@
     addLibraries = libDeps [ 
       "mm", 
       "spawndomain", 
-      "xeon_phi_domain",
+      "xeon_phi_client",
       "dma",
       "dma_service",
       "bench"

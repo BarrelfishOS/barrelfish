@@ -118,6 +118,7 @@ static errval_t alloc_local(void)
 }
 
 static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            uint64_t usrdata,
                             struct capref msgframe,
                             uint8_t type)
 {
@@ -131,8 +132,8 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
         USER_PANIC_ERR(err, "could not identify the frame");
     }
 
-    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
-                 1UL << id.bits);
+    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx, ud:%lx\n", id.base,
+                 1UL << id.bits, usrdata);
 
     remote_frame = msgframe;
 
@@ -186,7 +187,7 @@ int main(int argc,
             USER_PANIC_ERR(err, "looking up domain id\n");
         }
         debug_printf("sending open message to %s on node 1\n", iface);
-        err = xeon_phi_client_chan_open(1, domid, local_frame, 2);
+        err = xeon_phi_client_chan_open(1, domid, 0xcafebabe, local_frame, 2);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }
@@ -199,7 +200,7 @@ int main(int argc,
     debug_printf("Initializing UMP channel...\n");
 
     if (disp_xeon_phi_id() != 0) {
-        err = xeon_phi_client_chan_open(0, domid, local_frame, 2);
+        err = xeon_phi_client_chan_open(0, domid, 0xdeadbeef, local_frame, 2);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "could not open channel");
         }
@@ -253,7 +254,7 @@ int main(int argc,
 #endif
     }
 
-    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 0);
+    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, disp_xeon_phi_id());
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "waiting for drive");
     }
