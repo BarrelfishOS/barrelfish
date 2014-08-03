@@ -363,14 +363,6 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
     free(path);
 }
 
-static void spawn_with_argcap_handler(struct spawn_binding *b, char *path,
-                                    char *argbuf, size_t argbytes,
-                                    char *envbuf, size_t envbytes,
-                                    struct capref argcn_cap)
-{
-    spawn_with_caps_handler(b, path, argbuf, argbytes, envbuf, envbytes,
-                            NULL_CAP, argcn_cap);
-}
 
 static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
                           size_t argbytes, char *envbuf, size_t envbytes)
@@ -561,7 +553,6 @@ static void status_handler(struct spawn_binding *b, domainid_t domainid)
 
 static struct spawn_rx_vtbl rx_vtbl = {
     .spawn_domain_call = spawn_handler,
-    .spawn_domain_with_argcap_call = spawn_with_argcap_handler,
     .spawn_domain_with_caps_call = spawn_with_caps_handler,
     .use_local_memserv_call = use_local_memserv_handler,
     .kill_call = kill_handler,
