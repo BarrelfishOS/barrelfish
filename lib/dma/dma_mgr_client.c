@@ -137,6 +137,15 @@ errval_t dma_manager_register_driver(lpaddr_t mem_low,
                                      uint8_t type,
                                      iref_t iref)
 {
+#ifdef __k1om__
+    char buf[30];
+    snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER,
+             (uint8_t) DMA_DEV_TYPE_XEON_PHI, disp_xeon_phi_id());
+
+    DMAMGR_DEBUG("registering Xeon Phi Driver: {%s}\n", buf);
+
+    return nameservice_register(buf, iref);
+#else
     errval_t err;
     errval_t msgerr;
 
@@ -148,19 +157,20 @@ errval_t dma_manager_register_driver(lpaddr_t mem_low,
     }
 
     DMAMGR_DEBUG("register driver: {%016lx, %016lx} @ %"PRIxIREF"\n", mem_low,
-                 mem_high, iref);
+                    mem_high, iref);
 
     //XXX need to figure this out otherwise
     uint8_t numa_node = (disp_get_core_id() >= 20);
 
     err = dma_mgr_client.vtbl.register_driver(&dma_mgr_client, mem_low, mem_high,
-                                              numa_node, type, iref, &msgerr);
+                    numa_node, type, iref, &msgerr);
     if (err_is_fail(err)) {
         DMAMGR_DEBUG("register driver: RPC failed %s\n", err_getstring(err));
         return err;
     }
 
     return msgerr;
+#endif
 }
 
 /**
@@ -178,6 +188,28 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
                                    lpaddr_t size,
                                    struct dma_mgr_driver_info *info)
 {
+#ifdef __k1om__
+    errval_t err;
+
+    if (addr + size > (1UL << 40)) {
+        return DMA_ERR_MEM_OUT_OF_RANGE;
+    }
+
+    char buf[30];
+    snprintf(buf, 30, "%s_%u_%u", DMA_MGR_REGISTERED_DRIVER,
+             (uint8_t) DMA_DEV_TYPE_XEON_PHI, disp_xeon_phi_id());
+
+    err = nameservice_lookup(buf, &info->iref);
+    if (err_is_fail(err)) {
+        return DMA_ERR_SVC_VOID;
+    }
+    info->mem_high = (1UL << 40);
+    info->mem_low = 0;
+    info->numa_node = disp_xeon_phi_id();
+    info->type = DMA_DEV_TYPE_XEON_PHI;
+    return SYS_ERR_OK;
+#else
+
     errval_t err, msgerr;
 
     if (dma_mgr_connected == 0) {
@@ -191,16 +223,17 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
 
     uint8_t numa_node = (disp_get_core_id() >= 20);
 
-    err = dma_mgr_client.vtbl.lookup_driver(&dma_mgr_client, addr, size, numa_node,
-                                            &msgerr, &info->mem_low, &info->mem_high,
-                                            &info->numa_node, (uint8_t*) &info->type,
-                                            &info->iref);
+    err = dma_mgr_client.vtbl.lookup_driver(&dma_mgr_client, addr, size,
+                    numa_node, &msgerr, &info->mem_low,
+                    &info->mem_high, &info->numa_node,
+                    (uint8_t*) &info->type, &info->iref);
     if (err_is_fail(err)) {
         DMAMGR_DEBUG("register driver: RPC failed %s\n", err_getstring(err));
         return err;
     }
 
     return msgerr;
+#endif
 }
 
 /**
@@ -215,6 +248,14 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
 errval_t dma_manager_lookup_by_iref(iref_t iref,
                                     struct dma_mgr_driver_info *info)
 {
+#ifdef __k1om__
+    info->mem_high = (1UL << 40);
+    info->mem_low = 0;
+    info->numa_node = disp_xeon_phi_id();
+    info->type = DMA_DEV_TYPE_XEON_PHI;
+    info->iref = iref;
+    return SYS_ERR_OK;
+#else
     errval_t err, msgerr;
 
     if (dma_mgr_connected == 0) {
@@ -226,8 +267,9 @@ errval_t dma_manager_lookup_by_iref(iref_t iref,
 
     DMAMGR_DEBUG("lookup driver by iref:%"PRIxIREF"\n", iref);
 
-    err = dma_mgr_client.vtbl.lookup_driver_by_iref(&dma_mgr_client, iref, &msgerr,
-                                                    &info->mem_low, &info->mem_high,
+    err = dma_mgr_client.vtbl.lookup_driver_by_iref(&dma_mgr_client, iref,
+                                                    &msgerr, &info->mem_low,
+                                                    &info->mem_high,
                                                     &info->numa_node,
                                                     (uint8_t*) &info->type);
     if (err_is_fail(err)) {
@@ -238,6 +280,7 @@ errval_t dma_manager_lookup_by_iref(iref_t iref,
     info->iref = iref;
 
     return msgerr;
+#endif
 }
 
 /**
