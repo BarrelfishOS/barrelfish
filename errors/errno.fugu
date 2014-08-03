@@ -1092,6 +1092,10 @@ errors dma DMA_ERR_ {
     failure SVC_VOID              "There is no service that could serve the request",
     failure SVC_NO_CONNECTION     "There is no connection established",
     failure SVC_BUSY              "Connecton is busy with an RPC",
-    
-    	
+};
+
+errors xomp XOMP_ERR_ {
+	failure INVALID_WORKER_ARGS   "The command line arguments are not XOMP worker",
+	failure INVALID_MSG_FRAME     "The supplied messaging frame was invalid",
+	failure SPAWN_WORKER_FAILED   "Spawning of the worker failed",
 };
