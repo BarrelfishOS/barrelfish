@@ -7,6 +7,7 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <barrelfish/barrelfish.h>
+#include <flounder/flounder_txqueue.h>
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
 #include <xomp/xomp.h>
@@ -26,20 +27,82 @@ static void *msgbuf;
 
 static xomp_wid_t worker_id;
 
+struct tx_queue txq;
+
+struct xomp_msg_st
+{
+    struct txq_msg_st common;
+    /* union of arguments */
+    union
+    {
+        struct
+        {
+            uint64_t arg;
+            uint64_t id;
+        } done_notify;
+    } args;
+};
+
 /*
  * ----------------------------------------------------------------------------
  * XOMP channel send handlers
  * ----------------------------------------------------------------------------
  */
 
+static errval_t done_notify_tx(struct txq_msg_st *msg_st)
+{
+    struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
+
+    return xomp_done_notify__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                st->args.done_notify.id, msg_st->err);
+}
+
+static errval_t done_with_arg_tx(struct txq_msg_st *msg_st)
+{
+    struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
+
+    return xomp_done_with_arg__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                  st->args.done_notify.id,
+                                  st->args.done_notify.arg, msg_st->err);
+}
+
 /*
  * ----------------------------------------------------------------------------
  * XOMP channel receive handlers
  * ----------------------------------------------------------------------------
  */
+static void do_work_rx(struct xomp_binding *b,
+                       uint64_t fn,
+                       uint64_t arg,
+                       uint64_t id,
+                       uint64_t flags)
+{
+    XWP_DEBUG("do_work_rx: fn:%lx, id:%lx\n", fn, id);
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
+    assert(msg_st != NULL);
+
+    msg_st->err = SYS_ERR_OK;
+
+    if (arg) {
+        msg_st->send = done_with_arg_tx;
+    } else {
+        msg_st->send = done_notify_tx;
+    }
+
+    uint32_t work_id = id & 0xF;
+
+    uint32_t *data = (uint32_t *)arg;
+
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)); ++i) {
+        data[i] = data[i] + 1;
+    }
+
+    txq_send(msg_st);
+}
 
 static struct xomp_rx_vtbl rx_vtbl = {
-    .do_work_response = NULL
+    .do_work = do_work_rx
 };
 
 /*
@@ -62,6 +125,9 @@ static void master_bind_cb(void *st,
     is_bound = 0x1;
 
     XWI_DEBUG("bound to master: %s\n", err_getstring(err));
+
+    txq_init(&txq, xb, xb->waitset, (txq_register_fn_t) xb->register_send,
+             sizeof(struct xomp_msg_st));
 
     xb->rx_vtbl = rx_vtbl;
     xbinding = xb;
@@ -97,7 +163,7 @@ errval_t xomp_worker_parse_cmdline(uint8_t argc,
         if (strcmp("-xompworker", argv[i]) == 0) {
             parsed++;
         } else if (strncmp("-wid=", argv[i], 5) == 0) {
-            retwid = strtol(argv[i]+5, NULL, 16);
+            retwid = strtol(argv[i] + 5, NULL, 16);
             parsed++;
         }
     }

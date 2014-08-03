@@ -9,8 +9,10 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <flounder/flounder_txqueue.h>
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
+#include <xeon_phi/xeon_phi_domain.h>
 #include <xomp/xomp.h>
 #include <xomp/xomp_master.h>
 
@@ -18,20 +20,31 @@
 
 #include "xomp_debug.h"
 
+typedef uint32_t xomp_task_id_t;
+
+struct xomp_task
+{
+    xomp_task_id_t id;
+    uint32_t nworkers;
+    uint32_t done;
+};
+
+static volatile uint32_t done;
 
 typedef enum xomp_worker_state
 {
-    XOMP_WORKER_ST_INVALID,
-    XOMP_WORKER_ST_SPAWNING,
-    XOMP_WORKER_ST_SPAWNED,
-    XOMP_WORKER_ST_READY,
-    XOMP_WORKER_ST_BUSY,
-    XOMP_WORKER_ST_FAILURE
+    XOMP_WORKER_ST_INVALID = 0,
+    XOMP_WORKER_ST_FAILURE = 1,
+    XOMP_WORKER_ST_SPAWNING = 2,
+    XOMP_WORKER_ST_SPAWNED = 3,
+    XOMP_WORKER_ST_READY = 4,
+    XOMP_WORKER_ST_BUSY = 5
 } xomp_worker_st_t;
 
 struct xomp_worker
 {
     xomp_wid_t id;
+    struct tx_queue txq;
     struct xomp_binding *binding;
     struct capref msgframe;
     lpaddr_t msgbase;
@@ -61,11 +74,35 @@ char worker_id_buf[23];
 
 static char *worker_path;
 
+struct xomp_msg_st
+{
+    struct txq_msg_st common;
+    /* union of arguments */
+    union
+    {
+        struct
+        {
+            uint64_t fn;
+            uint64_t arg;
+            uint64_t id;
+            uint64_t flags;
+        } do_work;
+    } args;
+};
+
 /*
  * ----------------------------------------------------------------------------
  * XOMP channel send handlers
  * ----------------------------------------------------------------------------
  */
+static errval_t do_work_tx(struct txq_msg_st *msg_st)
+{
+    struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
+
+    return xomp_do_work__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                            st->args.do_work.fn, st->args.do_work.arg,
+                            st->args.do_work.id, st->args.do_work.flags);
+}
 
 /*
  * ----------------------------------------------------------------------------
@@ -73,8 +110,26 @@ static char *worker_path;
  * ----------------------------------------------------------------------------
  */
 
+static void done_with_arg_rx(struct xomp_binding *b,
+                             uint64_t id,
+                             uint64_t arg,
+                             errval_t msgerr)
+{
+    XMP_DEBUG("done_with_arg_rx: arg:%lx, id:%lx\n", arg, id);
+    done++;
+}
+
+static void done_notify_rx(struct xomp_binding *b,
+                           uint64_t id,
+                           errval_t msgerr)
+{
+    XMP_DEBUG("done_notify_rx: id:%lx\n", id);
+    done++;
+}
+
 static struct xomp_rx_vtbl rx_vtbl = {
-    .do_work_response = NULL
+    .done_notify = done_notify_rx,
+    .done_with_arg = done_with_arg_rx
 };
 
 /*
@@ -104,6 +159,9 @@ static void worker_connect_cb(void *st,
 
     xb->rx_vtbl = rx_vtbl;
     xb->st = worker;
+
+    txq_init(&worker->txq, xb, xb->waitset, (txq_register_fn_t) xb->register_send,
+             sizeof(struct xomp_msg_st));
 
     worker->binding = xb;
     worker->state = XOMP_WORKER_ST_SPAWNED;
@@ -191,7 +249,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 
         worker->msgbase = id.base;
-        worker->id = i; /* TODO: build a good id */
+        worker->id = 0xffaa0000 + i; /* TODO: build a good id */
 
         err = vspace_map_one_frame(&worker->msgbuf, XOMP_MSG_FRAME_SIZE,
                                    worker->msgframe, NULL, NULL);
@@ -211,7 +269,8 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             .outbufsize = XOMP_MSG_CHAN_SIZE
         };
 
-        err = xomp_accept(&fi, worker, worker_connect_cb, get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
+        err = xomp_accept(&fi, worker, worker_connect_cb, get_default_waitset(),
+                          IDC_EXPORT_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             /* TODO: Clean up */
             return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
@@ -219,13 +278,14 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
         worker->state = XOMP_WORKER_ST_SPAWNING;
 
-        snprintf(worker_id_buf, sizeof(worker_id_buf), "-wid=%016"PRIx64, worker->id);
+        snprintf(worker_id_buf, sizeof(worker_id_buf), "-wid=%016"PRIx64,
+                 worker->id);
         on_phi++;
 
         XMI_DEBUG("spawning {%s} on xid:%u, core:%u\n", worker_path, xid, on_phi);
 
-        err = xeon_phi_client_spawn(xid, on_phi, worker_path, argval, worker->msgframe,
-                                    &worker->domainid);
+        err = xeon_phi_client_spawn(xid, on_phi, worker_path, argval,
+                                    worker->msgframe, &worker->domainid);
         if (err_is_fail(err)) {
             /* TODO: cleanup */
             return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
@@ -236,9 +296,10 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 
         if (worker->state == XOMP_WORKER_ST_FAILURE) {
-
             return XOMP_ERR_SPAWN_WORKER_FAILED;
         }
+
+        worker->state = XOMP_WORKER_ST_READY;
 
         if (on_phi == nphi) {
             xid++;
@@ -253,15 +314,38 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
  * \brief Adds a memory region to be used for work
  *
  * \param frame Frame to be shared
- * \param vbase virtual base address where the frame should be mapped
+ * \param info  information about the frame i.e. virtual address to map
+ * \oaram type  Type of the frame
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t xomp_master_add_memory(struct capref frame,
-                                lvaddr_t vbase)
+                                uint64_t info,
+                                xomp_frame_type_t type)
 {
-    assert(!"NYI: adding memory");
+    errval_t err;
+
+    XMI_DEBUG("adding memory of type %u @ info: %016lx\n", type, info);
+
+    for (uint32_t i = 0; i < xmaster.numworker; ++i) {
+        struct xomp_worker *worker = &xmaster.workers[i];
+        XMI_DEBUG(" worker: %lx\n", worker->id);
+
+        if (worker->state < XOMP_WORKER_ST_READY) {
+            XMI_DEBUG("skipping worker %lx, not ready\n", worker->id);
+            continue;
+        }
+
+        xphi_id_t xid = xeon_phi_domain_get_xid(worker->domainid);
+        err = xeon_phi_client_chan_open(xid, worker->domainid, info, frame, type);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to add the frame to the user. disabling it.\n");
+            worker->state = XOMP_WORKER_ST_FAILURE;
+            continue;
+        }
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -279,6 +363,41 @@ errval_t xomp_master_do_work(lvaddr_t fn,
                              lvaddr_t arg,
                              uint32_t nthreads)
 {
-    assert(!"NYI: do work");
+    uint32_t current = 0;
+    for (uint32_t i = 0; i < nthreads; ++i) {
+        while(current < xmaster.numworker) {
+            if (xmaster.workers[current].state == XOMP_WORKER_ST_READY) {
+                break;
+            }
+            current++;
+        }
+
+
+        struct xomp_worker *worker = &xmaster.workers[current];
+        XMI_DEBUG(" worker: %lx\n", worker->id);
+
+
+        struct txq_msg_st *msg_st = txq_msg_st_alloc(&worker->txq);
+        if (msg_st == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+
+        msg_st->send = do_work_tx;
+        msg_st->cleanup = NULL;
+
+        struct xomp_msg_st *st = (struct xomp_msg_st *)msg_st;
+        st->args.do_work.arg = arg;
+        st->args.do_work.fn = fn;
+        st->args.do_work.id = (0xdeadbeefUL << 32) | i;
+        st->args.do_work.flags = 0;
+
+        txq_send(msg_st);
+        current++;
+    }
+
+    while (done < nthreads) {
+        messages_wait_and_handle_next();
+    }
+
     return SYS_ERR_OK;
 }

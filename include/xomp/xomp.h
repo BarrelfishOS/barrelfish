@@ -20,6 +20,13 @@
 
 typedef uint64_t xomp_wid_t;
 
+typedef enum xomp_frame_type {
+    XOMP_FRAME_TYPE_SHARED_RW,
+    XOMP_FRAME_TYPE_SHARED_RO,
+    XOMP_FRAME_TYPE_MSG,
+
+} xomp_frame_type_t;
+
 /*
  *
  */

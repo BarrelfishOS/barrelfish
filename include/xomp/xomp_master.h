@@ -40,12 +40,15 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers);
  * \brief Adds a memory region to be used for work
  *
  * \param frame Frame to be shared
- * \param vbase virtual base address where the frame should be mapped
+ * \param info  information about the frame i.e. virtual address to map
+ * \oaram type  Type of the frame
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xomp_master_add_memory(struct capref frame, lvaddr_t vbase);
+errval_t xomp_master_add_memory(struct capref frame,
+                                uint64_t info,
+                                xomp_frame_type_t type);
 
 /**
  * \brief executes some work on each worker domains

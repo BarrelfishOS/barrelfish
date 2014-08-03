@@ -12,7 +12,16 @@
  */
 
 interface xomp "Xeon Phi openMP interface" {
-	rpc do_work(in uint64 fn, 
-				in uint64 arg,
-				out errval msgerr); 
+    
+    message do_work(uint64 fn, 
+                    uint64 arg,
+                    uint64 id,
+                    uint64 flags);
+                
+    message done_notify(uint64 id,
+                        errval msgerr);
+             
+    message done_with_arg(uint64 id,
+                      uint64 arg,
+                      errval msgerr);
 };

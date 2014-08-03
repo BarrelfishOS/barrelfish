@@ -61,7 +61,7 @@ static errval_t initialize_master(int argc,
         data[i] = i;
     }
 
-    err = xomp_master_add_memory(frame, (lvaddr_t)addr);
+    err = xomp_master_add_memory(frame, (lvaddr_t)addr, XOMP_FRAME_TYPE_SHARED_RW);
     if (err_is_fail(err)) {
         return err;
     }
