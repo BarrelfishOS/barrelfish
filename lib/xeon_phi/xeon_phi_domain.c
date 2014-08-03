@@ -53,7 +53,7 @@ char *xeon_phi_domain_build_iface(const char *name,
             }
             snprintf(iface, ifacelen, "%s.%02x.%02x", name, xid, core);
         } else {
-            ifacelen = snprintf(NULL, 0, "r'^%s\\.[0-9][0-9]\\.%u'", name, core);
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.[0-9][0-9]\\.%u'", name, core) + 1;
             iface = malloc(ifacelen);
             if (iface == NULL) {
                 return NULL;
@@ -62,14 +62,14 @@ char *xeon_phi_domain_build_iface(const char *name,
         }
     } else {
         if (xid != XEON_PHI_DOMAIN_DONT_CARE) {
-            ifacelen = snprintf(NULL, 0, "r'^%s\\.%02x\\.'", name, xid);
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.%02x\\.'", name, xid)+1;
             iface = malloc(ifacelen);
             if (iface == NULL) {
                 return NULL;
             }
             snprintf(iface, ifacelen, "r'^%s\\.%02x\\.'", name, xid);
         } else {
-            ifacelen = snprintf(NULL, 0, "r'^%s\\.'", name);
+            ifacelen = snprintf(NULL, 0, "r'^%s\\.'", name)+1;
             iface = malloc(ifacelen);
             if (iface == NULL) {
                 return NULL;

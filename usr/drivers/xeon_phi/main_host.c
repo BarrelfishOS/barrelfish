@@ -29,6 +29,7 @@
 #include "service.h"
 #include "xphi_service.h"
 #include "interphi.h"
+#include "domain.h"
 #include "sysmem_caps.h"
 
 struct xeon_phi xphi;
@@ -139,15 +140,21 @@ int main(int argc,
         XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
         for (uint32_t i = 0; i < xphi.id; ++i) {
             /* initialize the messaging frame */
-            err = interphi_init_xphi(i, &xphi, NULL_CAP
-            ,
-                                     XEON_PHI_IS_CLIENT);
+            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
             if (err_is_fail(err)) {
                 XDEBUG("Could not initialize messaging\n");
                 continue;
             }
         }
     }
+
+
+    char buf[20];
+    snprintf(buf, 20, "xeon_phi.%u.ready", xphi.id);
+
+    XDEBUG("register ready: %s\n", buf);
+    err = domain_register(buf, 0xcafebabe);
+    assert(err_is_ok(err));
 
     XDEBUG("initialization done. Going into main message loop\n");
 
