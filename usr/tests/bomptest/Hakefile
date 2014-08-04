@@ -14,7 +14,7 @@ let template = application {
                          addCFlags = [ "-DBOMP", "-fopenmp" ],
                          addIncludes = [ "/lib/bomp" ],
                          addLibraries = [ "bomp", "bench", "trace" ],
-                         architectures = [ "x86_64" ]
+                         architectures = [ "x86_64", "k1om" ]
                        }
 
 in

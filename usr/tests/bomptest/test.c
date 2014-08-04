@@ -28,6 +28,8 @@ int main(int argc, char *argv[])
     volatile uint64_t workcnt = 0;
     int nthreads;
 
+    debug_printf("bomptest started.\n");
+
     bench_init();
 
 #if CONFIG_TRACE
