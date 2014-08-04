@@ -57,7 +57,9 @@ static errval_t initialize_master(int argc,
     }
 
     uint32_t *data = addr;
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)); ++i) {
+    *data = (WORK_SIZE / sizeof(uint32_t))-2;
+    data += 2;
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t))-2; ++i) {
         data[i] = i;
     }
 
@@ -66,16 +68,24 @@ static errval_t initialize_master(int argc,
         return err;
     }
 
+    debug_printf("=========================================================\n");
+    debug_printf("Distributing work:\n");
+
     err = xomp_master_do_work((lvaddr_t)do_process, (lvaddr_t)addr, NUM_WORKERS);
     if (err_is_fail(err)) {
         return err;
     }
+    debug_printf("=========================================================\n");
+    debug_printf("Verification:\n");
 
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)); ++i) {
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t))-2; ++i) {
         if(data[i] != i+1) {
             USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, data[i], i+1);
         }
     }
+    debug_printf("=========================================================\n");
+    debug_printf("SUCCESS!:\n");
+    debug_printf("=========================================================\n");
 
     return SYS_ERR_OK;
 }
