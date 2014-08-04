@@ -108,7 +108,7 @@ Header *get_malloc_freep(void)
     return get_morecore_state()->header_freep;
 }
 
-errval_t morecore_init(void)
+errval_t morecore_init(size_t alignment)
 {
     errval_t err;
     struct morecore_state *state = get_morecore_state();
@@ -116,7 +116,7 @@ errval_t morecore_init(void)
     thread_mutex_init(&state->mutex);
 
     err = vspace_mmu_aware_init_aligned(&state->mmu_state, HEAP_REGION,
-            BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+            alignment, VREGION_FLAGS_READ_WRITE | MORECORE_VREGION_FLAGS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }

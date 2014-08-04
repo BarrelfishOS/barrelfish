@@ -193,7 +193,14 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         // TODO: the kernel boots us with a deterministic pmap structure: use it
     }
 
-    err = morecore_init();
+    if (init_domain) {
+        // we cannot use large pages in the init domains because we are not
+        // connected to the memory server and need to work with the 4k pages
+        // in the base cn.
+        err = morecore_init(BASE_PAGE_SIZE);
+    } else {
+        err = morecore_init(MORECORE_PAGESIZE);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT);
     }

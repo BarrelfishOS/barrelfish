@@ -20,7 +20,7 @@
 
 __BEGIN_DECLS
 
-errval_t morecore_init(void);
+errval_t morecore_init(size_t alignment);
 void morecore_use_optimal(void);
 errval_t morecore_reinit(void);
 

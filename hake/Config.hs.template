@@ -1,5 +1,6 @@
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2010, 2012, ETH Zurich.
+-- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -42,6 +43,13 @@ newlib_malloc :: String
 --newlib_malloc = "sbrk"     -- use sbrk and newlib's malloc()
 --newlib_malloc = "dlmalloc" -- use dlmalloc
 newlib_malloc = "oldmalloc"
+
+-- Configure pagesize for libbarrelfish's morecore implementation
+-- x86_64 accepts "small", "large", and "huge" for 4kB, 2MB and 1GB pages
+-- respectively. x86_32 accepts "small" and "large" for 4kB and 2MB/4MB pages
+-- respectively. All other architectures default to their default page size.
+morecore_pagesize :: String
+morecore_pagesize = "large"
 
 -- Use a frame pointer
 use_fp :: Bool

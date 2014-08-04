@@ -1,5 +1,6 @@
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2012, ETH Zurich
+-- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -35,6 +36,25 @@
             getsrcs "ump" = [ "ump_chan.c", "ump_endpoint.c" ]
             getsrcs "multihop" = [ "multihop_chan.c" ]
             getsrcs _ = []
+
+      morecore_pagesize "x86_64" = case Config.morecore_pagesize of
+          "large" -> "LARGE_PAGE_SIZE"
+          "huge"  -> "HUGE_PAGE_SIZE"
+          _       -> "BASE_PAGE_SIZE"
+      morecore_pagesize "x86_32" = case Config.morecore_pagesize of
+          "large" -> "LARGE_PAGE_SIZE"
+          _       -> "BASE_PAGE_SIZE"
+      morecore_pagesize _ = "BASE_PAGE_SIZE"
+
+      morecore_vregion_flags "x86_64" = case Config.morecore_pagesize of
+          "large" -> "VREGION_FLAGS_LARGE"
+          "huge"  -> "VREGION_FLAGS_HUGE"
+          _       -> ""
+      morecore_vregion_flags "x86_32" = case Config.morecore_pagesize of
+          "large" -> "VREGION_FLAGS_LARGE"
+          _       -> ""
+      morecore_vregion_flags _ = ""
+
 
       -- sources specific to the architecture family
       archfam_srcs "x86_32"  = [ "arch/x86_32/debug.c" ,
@@ -85,6 +105,9 @@
                                               ("mem", ["rpcclient"]),
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"])],
+                    addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch),
+                                  "-DMORECORE_VREGION_FLAGS="++(morecore_vregion_flags arch)
+                                ],
                     addIncludes = [ "include", "include" ./. arch_dir ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }
