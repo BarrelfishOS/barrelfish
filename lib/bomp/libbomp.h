@@ -28,11 +28,12 @@ struct bomp_work {
     void (*fn)(void *);
     void *data;
     unsigned thread_id;
+    unsigned num_threads;
     struct bomp_barrier *barrier;
 };
 
 struct bomp_thread_local_data {
-    void *thr; // thread reference 
+    void *thr; // thread reference
     struct bomp_work *work;
 };
 

@@ -10,9 +10,34 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build library { target = "bomp", 
-                  cFiles = [ "bf_backend.c", "processing.c", "parallel.c", 
-                             "omp.c" ]
-                } 
+[ build library { 
+    target = "bomp", 
+    cFiles = [ 
+      "bf_backend.c", 
+      "processing.c", 
+      "parallel.c", 
+      "omp.c" 
+    ]
+  },
+                  
+  build library { 
+    target = "xomp", 
+    cFiles = [
+      "xomp_master.c",
+      "xomp_worker.c", 
+      "xphi_backend.c", 
+      "parallel.c", 
+      "omp.c" 
+    ],
+    addLibraries = libDeps [ 
+      "xeon_phi_client"
+    ],
+    flounderDefs = ["xomp"],
+    flounderBindings = ["xomp"],
+    architectures = [
+      "x86_64", 
+      "k1om"
+    ]
+  }            
 ] 
 

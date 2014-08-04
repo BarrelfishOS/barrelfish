@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
         static int a[N];
 
 #ifndef POSIX
-	bomp_custom_init();
+	bomp_custom_init(NULL);
 #endif
         assert(argc == 2);
         omp_set_num_threads(atoi(argv[1]));

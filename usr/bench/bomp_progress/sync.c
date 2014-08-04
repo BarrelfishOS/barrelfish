@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   if(argc == 2) {
       nthreads = atoi(argv[1]);
       backend_span_domain(nthreads, STACK_SIZE);
-      bomp_custom_init();
+      bomp_custom_init(NULL);
       omp_set_num_threads(nthreads);
   } else {
       assert(!"Specify number of threads");

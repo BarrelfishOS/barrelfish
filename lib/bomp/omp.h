@@ -20,7 +20,7 @@ void backend_span_domain(int nos_threads, size_t stack_size);
 void backend_span_domain_default(int nos_threads);
 void backend_create_time(int cores);
 
-void bomp_custom_init(void);
+void bomp_custom_init(void *args);
 void omp_set_num_threads (int);
 int omp_get_num_threads (void);
 int omp_get_max_threads (void);

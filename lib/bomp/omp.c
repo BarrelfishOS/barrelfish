@@ -20,10 +20,10 @@ unsigned bomp_num_threads = 1;
 bool bomp_dynamic_behaviour = false;
 bool bomp_nested_behaviour = false;
 
-void bomp_custom_init(void)
+void bomp_custom_init(void *args)
 {
     parallel_init();
-    backend_init();
+    backend_init(args);
 }
 
 void omp_set_num_threads(int num_threads)

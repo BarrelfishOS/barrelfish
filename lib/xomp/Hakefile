@@ -12,7 +12,7 @@
 --------------------------------------------------------------------------
 
 [ build library { 
-    target = "xomp",
+    target = "xomp_old",
     architectures = [
       "x86_64", 
       "k1om"

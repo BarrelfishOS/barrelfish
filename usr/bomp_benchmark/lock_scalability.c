@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 {
         int i=0;
 
-	bomp_custom_init();
+	bomp_custom_init(NULL);
         omp_set_num_threads(4);
 
 #ifndef POSIX
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
         uint64_t begin = rdtsc();
 
-        #pragma omp parallel 
+        #pragma omp parallel
         {
 #pragma omp for private(i)
 		   for(i=0;i<1000000;i++)

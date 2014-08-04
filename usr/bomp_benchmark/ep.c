@@ -1,42 +1,42 @@
 /*--------------------------------------------------------------------
-  
+
   NAS Parallel Benchmarks 2.3 OpenMP C versions - EP
 
   This benchmark is an OpenMP C version of the NPB EP code.
-  
+
   The OpenMP C versions are developed by RWCP and derived from the serial
   Fortran versions in "NPB 2.3-serial" developed by NAS.
 
   Permission to use, copy, distribute and modify this software for any
   purpose with or without fee is hereby granted.
   This software is provided "as is" without express or implied warranty.
-  
+
   Send comments on the OpenMP C versions to pdp-openmp@rwcp.or.jp
 
   Information on OpenMP activities at RWCP is available at:
 
            http://pdplab.trc.rwcp.or.jp/pdperf/Omni/
-  
+
   Information on NAS Parallel Benchmarks 2.3 is available at:
-  
+
            http://www.nas.nasa.gov/NAS/NPB/
 
 --------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 
-  Author: P. O. Frederickson 
+  Author: P. O. Frederickson
           D. H. Bailey
           A. C. Woo
 
   OpenMP C version: S. Satoh
-  
+
 --------------------------------------------------------------------*/
 
 #include "npb-C.h"
 #include "npbparams.h"
 
 /* parameters */
-#define	MK	        16 
+#define	MK	        16
 #define	MM		(M - MK)
 #define	NN		(1 << MM)
 #define	NK		(1 << MK)
@@ -82,7 +82,7 @@ c   point print statement (internal file)
 */
 #ifndef POSIX
 #ifndef NOBOMP
-    bomp_custom_init();
+    bomp_custom_init(NULL);
 #endif
 #endif
     omp_set_num_threads(1);
@@ -97,8 +97,8 @@ c   point print statement (internal file)
     verified = FALSE;
 
 /*
-c   Compute the number of "batches" of random number pairs generated 
-c   per processor. Adjust if the number of processors does not evenly 
+c   Compute the number of "batches" of random number pairs generated
+c   per processor. Adjust if the number of processors does not evenly
 c   divide the total number
 */
     np = NN;
@@ -112,10 +112,10 @@ c   sure these initializations cannot be eliminated as dead code.
     vranlc(0, &(dum[0]), dum[1], &(dum[2]));
     dum[0] = randlc(&(dum[1]), dum[2]);
 
-    for (i = 0; i < 2*NK; i++) 
+    for (i = 0; i < 2*NK; i++)
     {
 	x[i] = -1.0e99;
-    }        
+    }
 
     printf("Reached here ");
     Mops = log(sqrt(fabs(max(1.0, 1.0))));
@@ -144,7 +144,7 @@ c   sure these initializations cannot be eliminated as dead code.
     for ( i = 0; i <= NQ - 1; i++) {
 	q[i] = 0.0;
     }
-      
+
 /*
 c   Each instance of this loop may be performed independently. We compute
 c   the k offsets separately to take into account the fact that some nodes
@@ -160,7 +160,7 @@ c   have more numbers to generate than others
 
     for (i = 0; i < NQ; i++) qq[i] = 0.0;
 
-#pragma omp for reduction(+:sx,sy) schedule(static)  
+#pragma omp for reduction(+:sx,sy) schedule(static)
     for (k = 1; k <= np; k++) {
 	kk = k_offset + k;
 	t1 = S;
@@ -183,8 +183,8 @@ c   have more numbers to generate than others
 	if (TIMERS_ENABLED == TRUE) timer_stop(3);
 
 /*
-c       Compute Gaussian deviates by acceptance-rejection method and 
-c       tally counts in concentric square annuli.  This loop is not 
+c       Compute Gaussian deviates by acceptance-rejection method and
+c       tally counts in concentric square annuli.  This loop is not
 c       vectorizable.
 */
 	if (TIMERS_ENABLED == TRUE) timer_start(2);
@@ -212,8 +212,8 @@ c       vectorizable.
 #if defined(_OPENMP)
 #pragma omp master
     nthreads = omp_get_num_threads();
-#endif /* _OPENMP */    
-} /* end of parallel region */    
+#endif /* _OPENMP */
+} /* end of parallel region */
 
     for (i = 0; i <= NQ-1; i++) {
         gc = gc + q[i];
@@ -262,9 +262,9 @@ c       vectorizable.
     for (i = 0; i  <= NQ-1; i++) {
 	printf("%3d %15.0f\n", i, q[i]);
     }
-	  
+
     c_print_results("EP", CLASS, M+1, 0, 0, nit, nthreads,
-		  tm, Mops, 	
+		  tm, Mops,
 		  "Random numbers generated",
 		  verified, NPBVERSION, COMPILETIME,
 		  CS1, CS2, CS3, CS4, CS5, CS6, CS7);
