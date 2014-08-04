@@ -10,19 +10,30 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { 
-    target = "xomp_test",
-    architectures = [ 
-      "x86_64",
-      "k1om"
-    ],
+let template = application { 
+  addCFlags = [ 
+    "-DBOMP", 
+    "-fopenmp" 
+  ],
+  addIncludes = [ 
+    "/lib/bomp" 
+  ],
+  addLibraries = [ 
+    "xomp", 
+    "bench", 
+    "trace" 
+  ],
+  architectures = [ 
+    "x86_64", 
+    "k1om" 
+  ]
+} 
+in 
+[ build template { 
+    target = "xomp_test", 
     cFiles = [ 
       "main.c",
-      "processing.c"
-    ],
-    addLibraries = libDeps [ 
-      "xomp"
-    ]
+      "processing.c" 
+    ] 
   }
 ]
-

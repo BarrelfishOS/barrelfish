@@ -9,40 +9,28 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <omp.h>
 #include <xomp/xomp.h>
 
 #include <flounder/flounder_support_ump.h>
 
 #include "xomptest.h"
 
-static uint8_t is_master = 0x1;
-
-xomp_wid_t worker_id = 0x0;
-
+#define NTHREADS 3
+#define STACKSIZE 0
 
 #define NUM_WORKERS 2
 #define WORK_SIZE   (4 * BASE_PAGE_SIZE)
 
+static uint32_t *arr = NULL;
+
+#ifndef __k1om__
 
 static errval_t initialize_master(int argc,
-                                  char *argv[])
+                char *argv[])
 {
     errval_t err;
     debug_printf("Initializing Master\n");
-
-
-#ifdef __k1om__
-    err = xomp_master_init(1, "/k1om/sbin/xomp_test", argc, argv);
-#else
-    err = xomp_master_init(2, "/k1om/sbin/xomp_test", argc, argv);
-#endif
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Master initialization\n");
-    }
-    err = xomp_master_spawn_workers(NUM_WORKERS);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Master spawning workers\n");
-    }
 
     struct capref frame;
     err = frame_alloc(&frame, WORK_SIZE, NULL);
@@ -56,31 +44,35 @@ static errval_t initialize_master(int argc,
         return err;
     }
 
-    uint32_t *data = addr;
-    *data = (WORK_SIZE / sizeof(uint32_t))-2;
-    data += 2;
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t))-2; ++i) {
-        data[i] = i;
-    }
-
-    err = xomp_master_add_memory(frame, (lvaddr_t)addr, XOMP_FRAME_TYPE_SHARED_RW);
+    err = xomp_master_add_memory(frame, (lvaddr_t) addr, XOMP_FRAME_TYPE_SHARED_RW);
     if (err_is_fail(err)) {
         return err;
     }
 
+    uint32_t *data = addr;
+    *data = (WORK_SIZE / sizeof(uint32_t)) - 2;
+    data += 2;
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
+        data[i] = i;
+    }
+
+    arr = data;
+
+    return SYS_ERR_OK;
+#if 0
     debug_printf("=========================================================\n");
     debug_printf("Distributing work:\n");
 
-    err = xomp_master_do_work((lvaddr_t)do_process, (lvaddr_t)addr, NUM_WORKERS);
+    err = xomp_master_process_array((lvaddr_t) do_process, (lvaddr_t) addr, NUM_WORKERS);
     if (err_is_fail(err)) {
         return err;
     }
     debug_printf("=========================================================\n");
     debug_printf("Verification:\n");
 
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t))-2; ++i) {
-        if(data[i] != i+1) {
-            USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, data[i], i+1);
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
+        if (data[i] != i + 1) {
+            USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, data[i], i + 1);
         }
     }
     debug_printf("=========================================================\n");
@@ -88,55 +80,93 @@ static errval_t initialize_master(int argc,
     debug_printf("=========================================================\n");
 
     return SYS_ERR_OK;
+#endif
+}
+#endif
+
+static void process_array(uint32_t *a)
+{
+    if (a == NULL) {
+        return;
+    }
+#pragma omp parallel for
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
+        a[i]++;
+    }
 }
 
+#ifdef __k1om__
 int main(int argc,
          char *argv[])
 {
     errval_t err;
 
-    debug_printf("XOMP Test started. %u\n", argc);
-
-    for (uint32_t i = 0; i < argc; ++i) {
-        debug_printf("argv[%u]=%s\n", i, argv[i]);
-    }
-
-    debug_printf("##### do_process() is located at %016lx\n", (lvaddr_t) do_process);
-
-    debug_printf("parsing arguments\n");
-
-    for (uint32_t i = 1; i < argc; ++i) {
-        if (strcmp("-xompworker", argv[i]) == 0) {
-            is_master = 0x0;
-        } else {
-            debug_printf("unknown parameter: %s\n", argv[i]);
-        }
-    }
+    debug_printf("XOMP worker started.\n");
 
     xomp_wid_t wid;
     err = xomp_worker_parse_cmdline(argc, argv, &wid);
-    switch(err_no(err)) {
-        case SYS_ERR_OK:
-            assert(!is_master);
-            debug_printf("Initializing Worker: %"PRIu64"\n", wid);
-
-            err = xomp_worker_init(wid);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not initialize the worker\n");
-            }
-            break;
-        default:
-            assert(is_master);
-            err = initialize_master(argc, argv);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "initializing master");
-            }
-            break;
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not parse the command line");
     }
 
+    err = xomp_worker_init(wid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the worker\n");
+    }
+
+    process_array(arr);
+
+    while (1) {
+        messages_wait_and_handle_next();
+    }
+
+}
+#else
+int main(int argc,
+                char *argv[])
+{
+    errval_t err;
+
+    debug_printf("XOMP Test started. (MASTER) %u\n", argc);
+
+    struct xomp_master_args args = {
+        .num_phi = 2,
+        .path = "/k1om/sbin/xomp_test",
+        .argc = argc,
+        .argv = argv
+    };
+
+    bomp_custom_init(&args);
+
+    backend_span_domain(NTHREADS, 0);
+
+    omp_set_num_threads(NTHREADS);
+
+    err = initialize_master(argc, argv);
+
+    debug_printf("#elements: %lu", (WORK_SIZE / sizeof(uint32_t)) - 2);
+
+    debug_printf("omp parallel start>>> \n");
+    debug_printf("=========================================================\n");
+
+    process_array(arr);
+
+    debug_printf("=========================================================\n");
+    debug_printf("<<< omp parallel end\n");
+
+    debug_printf("Verifying");
+
+    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
+        if (arr[i] != i + 1) {
+            USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, arr[i], i + 1);
+        }
+    }
+
+    debug_printf("SUCCESSS!!!!!\n");
     while (1) {
         messages_wait_and_handle_next();
     }
 
     return 0;
 }
+#endif
