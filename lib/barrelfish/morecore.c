@@ -115,8 +115,15 @@ errval_t morecore_init(size_t alignment)
 
     thread_mutex_init(&state->mutex);
 
+    // setup flags that match the alignment
+    vregion_flags_t morecore_flags = VREGION_FLAGS_READ_WRITE;
+#if __x86_64__
+    morecore_flags |= (alignment == HUGE_PAGE_SIZE ? VREGION_FLAGS_HUGE : 0);
+#endif
+    morecore_flags |= (alignment == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
+
     err = vspace_mmu_aware_init_aligned(&state->mmu_state, HEAP_REGION,
-            alignment, VREGION_FLAGS_READ_WRITE | MORECORE_VREGION_FLAGS);
+            alignment, morecore_flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }

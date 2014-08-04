@@ -37,6 +37,7 @@
             getsrcs "multihop" = [ "multihop_chan.c" ]
             getsrcs _ = []
 
+      -- configure default morecore pagesize based on Config.hs
       morecore_pagesize "x86_64" = case Config.morecore_pagesize of
           "large" -> "LARGE_PAGE_SIZE"
           "huge"  -> "HUGE_PAGE_SIZE"
@@ -45,15 +46,6 @@
           "large" -> "LARGE_PAGE_SIZE"
           _       -> "BASE_PAGE_SIZE"
       morecore_pagesize _ = "BASE_PAGE_SIZE"
-
-      morecore_vregion_flags "x86_64" = case Config.morecore_pagesize of
-          "large" -> "VREGION_FLAGS_LARGE"
-          "huge"  -> "VREGION_FLAGS_HUGE"
-          _       -> ""
-      morecore_vregion_flags "x86_32" = case Config.morecore_pagesize of
-          "large" -> "VREGION_FLAGS_LARGE"
-          _       -> ""
-      morecore_vregion_flags _ = ""
 
 
       -- sources specific to the architecture family
@@ -105,9 +97,7 @@
                                               ("mem", ["rpcclient"]),
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"])],
-                    addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch),
-                                  "-DMORECORE_VREGION_FLAGS="++(morecore_vregion_flags arch)
-                                ],
+                    addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     addIncludes = [ "include", "include" ./. arch_dir ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }

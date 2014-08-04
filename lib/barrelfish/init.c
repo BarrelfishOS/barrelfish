@@ -199,7 +199,37 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         // in the base cn.
         err = morecore_init(BASE_PAGE_SIZE);
     } else {
-        err = morecore_init(MORECORE_PAGESIZE);
+        // grab pagesize config from argv if available
+        size_t morecore_pagesize = MORECORE_PAGESIZE;
+        int i = 1;
+        bool found = false;
+        for (; i < params->argc; i++) {
+            if (!found) {
+                if (!strncmp(params->argv[i], "morecore=", 9)) {
+                    morecore_pagesize = atoi(params->argv[i]+9);
+                    // check for valid page size
+                    switch (morecore_pagesize) {
+#ifdef __x86_64__
+                        case HUGE_PAGE_SIZE:
+#endif
+                        case BASE_PAGE_SIZE:
+                        case LARGE_PAGE_SIZE:
+                            break;
+                        default:
+                            morecore_pagesize = MORECORE_PAGESIZE;
+                    }
+                    found = true;
+                }
+            } else {
+                // found so move all other args one to the front
+                params->argv[i-1] = params->argv[i];
+            }
+        }
+        if (found) {
+            params->argc -= 1;
+        }
+
+        err = morecore_init(morecore_pagesize);
     }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT);
