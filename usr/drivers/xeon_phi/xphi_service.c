@@ -24,11 +24,17 @@
 
 #define XEON_PHI_SERVICE_NAME "xeon_phi_svc"
 
+#define RPC_STATE_IDLE     0x00
+#define RPC_STATE_PROGRESS 0x01
+#define RPC_STATE_DONE     0x80
+
 struct xphi_svc_st
 {
     struct xeon_phi *phi;
     struct tx_queue queue;
     char *name;
+    errval_t rpc_err;
+    uint8_t rpc_state;
     uint64_t domainid;
     struct xeon_phi_binding *binding;
     struct xphi_svc_st *next;
@@ -108,6 +114,39 @@ static struct xphi_svc_st *xphi_svc_clients_lookup_by_did(uint64_t did)
 
 /*
  * ----------------------------------------------------------------------------
+ * Message handling
+ * ----------------------------------------------------------------------------
+ */
+static inline void handle_messages(void)
+{
+#ifndef __k1om__
+    errval_t err;
+    uint32_t data = 0x0;
+    uint32_t serial_recv = 0xF;
+    while (serial_recv--) {
+        data |= xeon_phi_serial_handle_recv();
+    }
+
+    err = event_dispatch_non_block(get_default_waitset());
+    switch (err_no(err)) {
+        case SYS_ERR_OK:
+        break;
+        case LIB_ERR_NO_EVENT:
+        if (!data) {
+            thread_yield();
+        }
+        break;
+        default:
+        USER_PANIC_ERR(err, "in event dispatch\n");
+        break;
+    }
+#else
+    messages_wait_and_handle_next();
+#endif
+}
+
+/*
+ * ----------------------------------------------------------------------------
  * Send handlers
  * ----------------------------------------------------------------------------
  */
@@ -155,8 +194,8 @@ static errval_t spawn_response_tx(struct txq_msg_st* msg_st)
 
 static errval_t domain_init_response_tx(struct txq_msg_st* msg_st)
 {
-    return xeon_phi_domain_init_response__tx(msg_st->queue->binding,
-                                             TXQCONT(msg_st), msg_st->err);
+    return xeon_phi_domain_init_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                             msg_st->err);
 }
 
 static errval_t domain_register_response_tx(struct txq_msg_st* msg_st)
@@ -177,8 +216,7 @@ static errval_t domain_wait_response_tx(struct txq_msg_st* msg_st)
 {
     struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *) msg_st;
 
-    return xeon_phi_domain_wait_response__tx(msg_st->queue->binding,
-                                             TXQCONT(msg_st),
+    return xeon_phi_domain_wait_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                              st->args.domain.domid, msg_st->err);
 }
 
@@ -321,8 +359,12 @@ static void domain_init_call_rx(struct xeon_phi_binding *binding,
 static void chan_open_response_rx(struct xeon_phi_binding *binding,
                                   errval_t msgerr)
 {
-    XSERVICE_DEBUG("chan_open_response_rx\n");
-    //assert(!"NYI> Handlie");
+    XSERVICE_DEBUG("chan_open_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xphi_svc_st *svc_st = binding->st;
+
+    svc_st->rpc_state |= RPC_STATE_DONE;
+    svc_st->rpc_err |= msgerr;
 }
 
 static void chan_open_request_call_rx(struct xeon_phi_binding *binding,
@@ -543,8 +585,8 @@ errval_t xeon_phi_service_init(struct xeon_phi *phi)
     }
 
 #ifdef __k1om__
-    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n",
-                   XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
+    XSERVICE_DEBUG("registering {%s} with iref:%"PRIxIREF"\n", XEON_PHI_SERVICE_NAME,
+                   phi->xphi_svc_iref);
     err = nameservice_register(XEON_PHI_SERVICE_NAME, phi->xphi_svc_iref);
     if (err_is_fail(err)) {
         return err;
@@ -578,6 +620,12 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
         return XEON_PHI_ERR_CLIENT_DOMAIN_VOID;
     }
 
+    while (st->rpc_state != RPC_STATE_IDLE) {
+        handle_messages();
+    }
+
+    st->rpc_state = RPC_STATE_PROGRESS;
+
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&st->queue);
     if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
@@ -595,7 +643,13 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
 
     txq_send(msg_st);
 
-    return SYS_ERR_OK;
+    while (!(st->rpc_state & RPC_STATE_DONE)) {
+        handle_messages();
+    }
+
+    st->rpc_state = RPC_STATE_IDLE;
+
+    return st->rpc_err;
 }
 
 errval_t xeon_phi_service_domain_wait_response(struct xphi_svc_st *st,
