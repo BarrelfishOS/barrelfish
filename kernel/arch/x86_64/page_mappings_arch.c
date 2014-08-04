@@ -482,8 +482,9 @@ void paging_dump_tables(struct dcb *dispatcher)
 {
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
     union x86_64_ptable_entry *pt;
-    // loop over pdpts (ignore kernel space 508--511)
-    for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-4; pdpt_index++) {
+    // loop over pdpts (ignore kernel space)
+    int first_kernel_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
+    for (int pdpt_index = 0; pdpt_index < first_kernel_pml4e; pdpt_index++) {
 
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
         if (!pdpt->raw) { continue; }
@@ -498,7 +499,7 @@ void paging_dump_tables(struct dcb *dispatcher)
             // check if pdir or huge page
             if (pt->huge.always1) {
                 // is huge page mapping
-                genpaddr_t paddr = pt->huge.base_addr << 30;
+                genpaddr_t paddr = (genpaddr_t)pt->huge.base_addr << HUGE_PAGE_BITS;
                 printf("%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, paddr);
                 // goto next pdpt entry
                 continue;
@@ -511,10 +512,10 @@ void paging_dump_tables(struct dcb *dispatcher)
                 union x86_64_pdir_entry *ptable = (union x86_64_pdir_entry *)pdir_lv + ptable_index;
                 pt = (union x86_64_ptable_entry *)ptable;
                 if (!ptable->raw) { continue; }
-                // check if pdir or huge page
+                // check if ptable or large page
                 if (pt->large.always1) {
-                    // is huge page mapping
-                    genpaddr_t paddr = pt->large.base_addr << 21;
+                    // is large page mapping
+                    genpaddr_t paddr = (genpaddr_t)pt->large.base_addr << LARGE_PAGE_BITS;
                     printf("%d.%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, ptable_index, paddr);
                     // goto next pdir entry
                     continue;
