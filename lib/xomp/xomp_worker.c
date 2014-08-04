@@ -43,6 +43,71 @@ struct xomp_msg_st
     } args;
 };
 
+#ifdef __k1om__
+/*
+ * ----------------------------------------------------------------------------
+ * Xeon Phi Channel callbacks
+ * ----------------------------------------------------------------------------
+ */
+static errval_t msg_open_cb(xphi_dom_id_t domain,
+                            uint64_t usrdata,
+                            struct capref frame,
+                            uint8_t type)
+{
+    errval_t err;
+
+    XWI_DEBUG("msg_open_cb: from domid:%lx, usrdata:%lx\n", domain, usrdata);
+
+    uint32_t map_flags = 0x0;
+    lvaddr_t addr = 0x0;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    switch ((xomp_frame_type_t) type) {
+        case XOMP_FRAME_TYPE_MSG:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RW:
+            addr = (lvaddr_t) usrdata;
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RO:
+            map_flags = VREGION_FLAGS_READ;
+            break;
+        default:
+            USER_PANIC("unknown type: %u", type)
+            break;
+    }
+    if (addr) {
+        err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
+                                              map_flags, NULL, NULL);
+    } else {
+        err = vspace_map_one_frame_attr((void **) &addr, (1UL << id.bits), frame,
+                                        map_flags, NULL, NULL);
+    }
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx]\n", id.base, addr);
+
+    if ((xomp_frame_type_t) type == XOMP_FRAME_TYPE_MSG) {
+        USER_PANIC("NYI: initializing messaging");
+    }
+
+    return SYS_ERR_OK;
+}
+
+static struct xeon_phi_callbacks callbacks = {
+    .open = msg_open_cb
+};
+
+#endif
+
 /*
  * ----------------------------------------------------------------------------
  * XOMP channel send handlers
@@ -62,8 +127,8 @@ static errval_t done_with_arg_tx(struct txq_msg_st *msg_st)
     struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
 
     return xomp_done_with_arg__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                  st->args.done_notify.id,
-                                  st->args.done_notify.arg, msg_st->err);
+                                  st->args.done_notify.id, st->args.done_notify.arg,
+                                  msg_st->err);
 }
 
 /*
@@ -93,8 +158,12 @@ static void do_work_rx(struct xomp_binding *b,
     uint32_t work_id = id & 0xF;
 
     uint32_t *data = (uint32_t *)arg;
-
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)); ++i) {
+    uint32_t work_size = *data;
+    data += 2;
+    if (work_id) {
+        data += (work_size / 2);
+    }
+    for (uint32_t i = 0; i < (work_size / 2); ++i) {
         data[i] = data[i] + 1;
     }
 
@@ -226,6 +295,8 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     if (err_is_fail(err)) {
         return err;
     }
+
+    xeon_phi_client_set_callbacks(&callbacks);
 #else
     USER_PANIC("workers should be run on the xeon phi\n");
 #endif
