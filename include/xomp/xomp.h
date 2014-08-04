@@ -16,7 +16,9 @@
  * XOMP channel settings
  */
 #define XOMP_MSG_CHAN_SIZE 4096
+#define XOMP_TLS_SIZE 4096
 #define XOMP_MSG_FRAME_SIZE (2* XOMP_MSG_CHAN_SIZE)
+#define XOMP_FRAME_SIZE (XOMP_MSG_FRAME_SIZE + XOMP_TLS_SIZE)
 
 typedef uint64_t xomp_wid_t;
 
@@ -26,6 +28,20 @@ typedef enum xomp_frame_type {
     XOMP_FRAME_TYPE_MSG,
 
 } xomp_frame_type_t;
+
+typedef uint32_t xomp_task_id_t;
+
+struct xomp_task
+{
+    xomp_task_id_t id;
+    uint32_t nworkers;
+    uint32_t done;
+    void *barrier;
+    void *arg;
+    void (*fn) (void *);
+};
+
+void xomp_set_tls(void *xdata);
 
 /*
  *

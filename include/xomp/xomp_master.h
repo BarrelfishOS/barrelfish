@@ -10,6 +10,14 @@
 #ifndef LIB_XOMP_MASTER_H_
 #define LIB_XOMP_MASTER_H_
 
+struct xomp_master_args
+{
+    uint8_t num_phi;
+    char *path;
+    uint8_t argc;
+    char **argv;
+};
+
 /**
  * \brief initializes the Xeon Phi openMP library
  *
@@ -53,13 +61,11 @@ errval_t xomp_master_add_memory(struct capref frame,
 /**
  * \brief executes some work on each worker domains
  *
- * \param fn
- * \param arg
- * \param nthreads
+ * \param task information about the task
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xomp_master_do_work(lvaddr_t fn, lvaddr_t arg, uint32_t nthreads);
+errval_t xomp_master_do_work(struct xomp_task *task);
 
 #endif // LIB_XOMP_MASTER_H_
