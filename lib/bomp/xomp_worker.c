@@ -173,8 +173,6 @@ static void do_work_rx(struct xomp_binding *b,
         msg_st->send = done_notify_tx;
     }
 
-    debug_printf("calling: %016lx with arg %016lx\n", fn, (lvaddr_t)work->data);
-
     workerfn_t fnct = (workerfn_t)fn;
     fnct((void *)work->data);
 

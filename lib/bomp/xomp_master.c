@@ -77,13 +77,23 @@ static inline void xbomp_barrier_enter_no_wait(struct bomp_barrier *barrier)
 
 static inline void xbomp_barrier_enter(struct bomp_barrier *barrier)
 {
+    errval_t err;
     int cycle = barrier->cycle;
     if (__sync_fetch_and_add(&barrier->counter, 1) == (barrier->max - 1)) {
         barrier->counter = 0;
         barrier->cycle = !barrier->cycle;
     } else {
         while (cycle == barrier->cycle) {
-            messages_wait_and_handle_next();
+            err = event_dispatch_non_block(get_default_waitset());
+            switch(err_no(err)) {
+                case SYS_ERR_OK:
+                    break;
+                case LIB_ERR_NO_EVENT :
+                    thread_yield();
+                    break;
+                default:
+                    USER_PANIC_ERR(err, "in event dispatch");
+            }
         }
     }
 }
@@ -321,6 +331,8 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
         }
 
+        XMI_DEBUG("waiting for client to connect...\n");
+
         while (worker->state == XOMP_WORKER_ST_SPAWNING) {
             messages_wait_and_handle_next();
         }
@@ -390,7 +402,7 @@ errval_t xomp_master_add_memory(struct capref frame,
 errval_t xomp_master_do_work(struct xomp_task *task)
 {
 
-    for (uint32_t i = 1; i < task->nworkers; ++i) {
+    for (uint32_t i = 0; i < task->nworkers; ++i) {
         struct xomp_worker *worker = &xmaster.workers[xmaster.next_worker++];
         if (xmaster.next_worker == xmaster.numworker) {
             xmaster.next_worker = 0;
@@ -400,18 +412,12 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         work->fn = task->fn;
         work->data = work + 1;
         work->barrier = NULL;
-        work->thread_id = i;
-        work->num_threads = task->nworkers;
+        work->thread_id = i+1;
+        work->num_threads = task->total_threads;
 
         memset(work->data, 0, 64);
         XMI_DEBUG(" copying 64bytes from %p to %p\n", work->data, task->arg);
         memcpy(work->data, task->arg, 64);
-
-        uint64_t *data = task->arg;
-
-        XMI_DEBUG("data: [%lx] [%lx] [%lx]\n", data[0], data[1], data[2]);
-
-        XMI_DEBUG(" worker: %lx\n", worker->id);
 
         struct txq_msg_st *msg_st = txq_msg_st_alloc(&worker->txq);
         if (msg_st == NULL) {
@@ -425,8 +431,8 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         msg_st->cleanup = NULL;
 
         struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
-        st->args.do_work.arg = (uint64_t)work->data; //(uint64_t) task->arg;
-        st->args.do_work.fn = 0x400580; //(uint64_t) task->fn;
+        st->args.do_work.arg = (uint64_t) work->data;  //(uint64_t) task->arg;
+        st->args.do_work.fn = 0x400580;  //(uint64_t) task->fn;
         st->args.do_work.id = (uint64_t) task;
         st->args.do_work.flags = 0;
 
@@ -436,15 +442,12 @@ errval_t xomp_master_do_work(struct xomp_task *task)
     return SYS_ERR_OK;
 }
 
-#define DEBUG debug_printf("processing: %s\n", __func__);
-
 static int count = 0;
 volatile unsigned g_thread_numbers = 1;
 static struct bomp_thread_local_data **g_array_thread_local_data;
 
 void xomp_set_tls(void *xdata)
 {
-    DEBUG
     struct bomp_thread_local_data *local;
     struct bomp_work *work_data = (struct bomp_work*) xdata;
 
@@ -462,12 +465,24 @@ void xomp_set_tls(void *xdata)
 #define THREAD_OFFSET   0
 /* #define THREAD_OFFSET   12 */
 
-void bomp_start_processing(void (*fn)(void *),
+static int bomp_thread_fn(void *xdata)
+{
+    struct bomp_work *work_data = xdata;
+
+    backend_set_numa(work_data->thread_id);
+
+    xomp_set_tls(work_data);
+    work_data->fn(work_data->data);
+
+    /* Wait for the Barrier */
+    bomp_barrier_wait(work_data->barrier);
+    return 0;
+}
+
+void bomp_start_processing(void (*fn) (void *),
                            void *data,
                            unsigned nthreads)
 {
-    DEBUG
-
     XMP_DEBUG("start processing fn:%p, data:%p, threads:%u\n", fn, data, nthreads);
 
     errval_t err;
@@ -478,16 +493,20 @@ void bomp_start_processing(void (*fn)(void *),
     struct bomp_work *xdata;
     struct bomp_barrier *barrier;
 
+    uint32_t phi_threads = (nthreads) / (1 + num_phi);
+    uint32_t host_threads = nthreads - (num_phi * phi_threads);
+
+    XMP_DEBUG("thread configuration: host:%u, phi: %ux%u\n", host_threads, num_phi,
+              phi_threads);
+
     g_thread_numbers = nthreads;
 
-    char *memory =
-        calloc(1,
-               sizeof(struct bomp_thread_local_data *) + sizeof(struct bomp_barrier)
-               + sizeof(struct bomp_work));
+    char *memory = calloc(1, nthreads * sizeof(void *) + sizeof(*barrier)
+                            + nthreads * sizeof(*xdata));
     assert(memory != NULL);
 
     g_array_thread_local_data = (struct bomp_thread_local_data **) memory;
-    memory += sizeof(struct bomp_thread_local_data *);
+    memory += nthreads * sizeof(struct bomp_thread_local_data *);
 
     /* Create a barier for the work that will be carried out by the threads */
     barrier = (struct bomp_barrier *) memory;
@@ -497,6 +516,7 @@ void bomp_start_processing(void (*fn)(void *),
     /* For main thread */
     xdata = (struct bomp_work *) memory;
     memory += sizeof(struct bomp_work);
+
     xdata->fn = fn;
     xdata->data = data;
     xdata->thread_id = 0;
@@ -507,36 +527,47 @@ void bomp_start_processing(void (*fn)(void *),
     assert(task);
     task->arg = data;
     task->barrier = barrier;
-    task->nworkers = nthreads;
+    task->nworkers = (num_phi * phi_threads);
+    task->total_threads = nthreads;
     task->fn = fn;
-    task->done = 1; // set the main thread to done
+    task->done = 1;  // set the main thread to done
+
+    XMP_DEBUG("distributing work to Xeon Phi\n");
 
     err = xomp_master_do_work(task);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to distribute workers\n");
     }
 
+    XMP_DEBUG("distributing work to host threads\n");
+    for (uint32_t i = 1; i < host_threads; i++) {
+        xdata = (struct bomp_work *)memory;
+        memory += sizeof(struct bomp_work);
+
+        xdata->fn = fn;
+        xdata->data = data;
+        xdata->thread_id = (task->nworkers) + i;
+        xdata->barrier = barrier;
+
+        /* Create threads */
+        backend_run_func_on(i, bomp_thread_fn, xdata);
+    }
+
 }
 
 void bomp_end_processing(void)
 {
-    DEBUG
     /* Cleaning of thread_local and work data structures */
     int i = 0;
     count++;
 
-    debug_printf("bomp_end_processing: waiting for barrier\n");
-
     xbomp_barrier_enter(g_array_thread_local_data[i]->work->barrier);
-
-    debug_printf("bomp_end_processing: barrier clear\n");
 
     /* Clear the barrier created */
     bomp_clear_barrier(g_array_thread_local_data[i]->work->barrier);
 
     free(g_array_thread_local_data);
 
-    // XXX: free(g_array_thread_local_data); why not? -AB
     g_array_thread_local_data = NULL;
     g_thread_numbers = 1;
 }

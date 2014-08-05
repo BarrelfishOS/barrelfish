@@ -29,6 +29,9 @@
       "parallel.c", 
       "omp.c" 
     ],
+    addCFlags = [ 
+      "-DXOMP"
+    ],
     addLibraries = libDeps [ 
       "xeon_phi_client"
     ],

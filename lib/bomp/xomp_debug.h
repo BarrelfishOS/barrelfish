@@ -11,7 +11,7 @@
 #define LIB_XOMP_DEBUG_H_
 
 /// XOMP main debug switch
-#define XOMP_DEBUG_ENABLED 1
+#define XOMP_DEBUG_ENABLED 0
 
 /// XOMP subsystems debug switches
 #define XOMP_DEBUG_MASTER_ENABLED 1
