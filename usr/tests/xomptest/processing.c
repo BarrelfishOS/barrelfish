@@ -11,7 +11,27 @@
 
 #include "xomptest.h"
 
-void do_process(void)
+void do_process(uint32_t *src,
+                uint32_t *dst)
 {
 
+    if (src == NULL || dst == 0) {
+        return;
+    }
+#pragma omp parallel for
+    for (int j = 0; j < IT; j++) {
+        for (int i = 0; i < MAX; i += IT) {
+            dst[i + j] = src[i + j];
+        }
+    }
+}
+
+void do_process_single(uint32_t *src,
+                       uint32_t *dst)
+{
+    for (int j = 0; j < IT; j++) {
+        for (int i = 0; i < MAX; i += IT) {
+            dst[i + j] = src[i + j];
+        }
+    }
 }

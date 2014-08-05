@@ -7,8 +7,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <string.h>
+#include <limits.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <bench/bench.h>
 #include <omp.h>
 #include <xomp/xomp.h>
 
@@ -16,13 +18,9 @@
 
 #include "xomptest.h"
 
-#define NTHREADS 3
-#define STACKSIZE 0
 
-#define NUM_WORKERS 2
-#define WORK_SIZE   (4 * BASE_PAGE_SIZE)
-
-static uint32_t *arr = NULL;
+static uint32_t *asrc = NULL;
+static uint32_t *adst = NULL;
 
 #ifndef __k1om__
 
@@ -30,7 +28,7 @@ static errval_t initialize_master(int argc,
                 char *argv[])
 {
     errval_t err;
-    debug_printf("Initializing Master\n");
+    debug_printf("Initializing Master: elements:%u\n", MAX);
 
     struct capref frame;
     err = frame_alloc(&frame, WORK_SIZE, NULL);
@@ -49,14 +47,15 @@ static errval_t initialize_master(int argc,
         return err;
     }
 
-    uint32_t *data = addr;
-    *data = (WORK_SIZE / sizeof(uint32_t)) - 2;
-    data += 2;
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
-        data[i] = i;
+    asrc = addr;
+    adst = asrc + MAX;
+
+    for (uint32_t i = 0; i < MAX; ++i) {
+        asrc[i] = i;
+        adst[i] = 0;
     }
 
-    arr = data;
+    debug_printf("Initialization done.\n");
 
     return SYS_ERR_OK;
 #if 0
@@ -82,18 +81,20 @@ static errval_t initialize_master(int argc,
     return SYS_ERR_OK;
 #endif
 }
+
+static inline cycles_t calculate_time(cycles_t tsc_start,
+                cycles_t tsc_end)
+{
+    cycles_t result;
+    if (tsc_end < tsc_start) {
+        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+    } else {
+        result = (tsc_end - tsc_start - bench_tscoverhead());
+    }
+    return result;
+}
 #endif
 
-static void process_array(uint32_t *a)
-{
-    if (a == NULL) {
-        return;
-    }
-#pragma omp parallel for
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
-        a[i]++;
-    }
-}
 
 #ifdef __k1om__
 int main(int argc,
@@ -114,7 +115,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not initialize the worker\n");
     }
 
-    process_array(arr);
+    do_process(asrc, adst);
 
     while (1) {
         messages_wait_and_handle_next();
@@ -128,6 +129,8 @@ int main(int argc,
     errval_t err;
 
     debug_printf("XOMP Test started. (MASTER) %u\n", argc);
+
+    bench_init();
 
     struct xomp_master_args args = {
         .num_phi = 2,
@@ -143,26 +146,64 @@ int main(int argc,
     omp_set_num_threads(NTHREADS);
 
     err = initialize_master(argc, argv);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initializing mastser");
+    }
 
-    debug_printf("#elements: %lu", (WORK_SIZE / sizeof(uint32_t)) - 2);
+    cycles_t tsc_start, tsc_end;
+    cycles_t result;
+    uint64_t tscperus;
+    bench_ctl_t *ctl;
 
-    debug_printf("omp parallel start>>> \n");
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+
+
+    debug_printf("BENCHMARK: single loop\n");
+    debug_printf("=========================================================\n");
+    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_N_RUNS);
+    do {
+        tsc_start = bench_tsc();
+        for (int j=0; j<IT; j++) {
+            for (int i=0; i<MAX; i+=IT) {
+                adst[i+j] = asrc[i+j];
+            }
+        }
+        tsc_end = bench_tsc();
+        result = calculate_time(tsc_start, tsc_end);
+    }while (!bench_ctl_add_run(ctl, &result));
+
+    bench_ctl_dump_analysis(ctl, 0, "single", tscperus);
+
+    bench_ctl_destroy(ctl);
+
     debug_printf("=========================================================\n");
 
-    process_array(arr);
+    debug_printf("BENCHMARK: omp loop\n");
+    debug_printf("=========================================================\n");
+    ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_N_RUNS);
+    do {
+        tsc_start = bench_tsc();
+        do_process(asrc, adst);
+        tsc_end = bench_tsc();
+        result = calculate_time(tsc_start, tsc_end);
+    }while (!bench_ctl_add_run(ctl, &result));
+
+    bench_ctl_dump_analysis(ctl, 0, "omp", tscperus);
+    bench_ctl_destroy(ctl);
 
     debug_printf("=========================================================\n");
-    debug_printf("<<< omp parallel end\n");
 
-    debug_printf("Verifying");
+   /* debug_printf("Verifying");
 
-    for (uint32_t i = 0; i < (WORK_SIZE / sizeof(uint32_t)) - 2; ++i) {
-        if (arr[i] != i + 1) {
-            USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, arr[i], i + 1);
+    for (uint32_t i = 0; i < MAX; ++i) {
+        if (adst[i] != asrc[i]) {
+            USER_PANIC("test failed: data[%u]=%u, expected %u\n", i, adst[i], asrc[i]);
         }
     }
 
-    debug_printf("SUCCESSS!!!!!\n");
+    debug_printf("SUCCESSS!!!!!\n");*/
     while (1) {
         messages_wait_and_handle_next();
     }

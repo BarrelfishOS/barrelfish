@@ -10,6 +10,21 @@
 #ifndef XOMPTTEST_H_
 #define XOMPTTEST_H_
 
-void do_process(void);
+// cache-line size / sizeof(int) == 64 Bytes / 4 Bytes == 16
+#define IT 16
+#define MAX 100000000
+#define WORK_SIZE   (2 * MAX * sizeof(uint32_t))
+
+#define BENCH_N_RUNS 10
+#define NTHREADS 30
+#define STACKSIZE 0
+
+#define BOMP_NTHREADS NTHREADS
+
+void do_process(uint32_t *src,
+                uint32_t *dst);
+
+void do_process_single(uint32_t *src,
+                       uint32_t *dst);
 
 #endif /* XOMPTTEST_H_ */
