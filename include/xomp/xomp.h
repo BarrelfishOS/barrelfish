@@ -35,6 +35,7 @@ struct xomp_task
 {
     xomp_task_id_t id;
     uint32_t nworkers;
+    uint32_t total_threads;
     uint32_t done;
     void *barrier;
     void *arg;
