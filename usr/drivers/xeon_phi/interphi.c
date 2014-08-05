@@ -597,6 +597,10 @@ static void spawn_call_rx(struct interphi_binding *_binding,
 
     domainid_t domid;
 
+    /*
+     * TODO: check if we have that core present...
+     */
+
     msg_st->err = spawn_program(core, cmdline, argv, NULL, 0, &domid);
     if (err_is_ok(msg_st->err)) {
 #ifdef __k1om__
@@ -775,8 +779,6 @@ static void bootstrap_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = interphi_init_xphi(xid, phi, msg_frame, is_client);
 
-
-
     txq_send(msg_st);
 }
 
@@ -800,7 +802,7 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
                               uint8_t msgbits,
                               uint8_t type)
 {
-    XINTER_DEBUG("chan_open_did_call_rx: %lx -> %lx\n", source_did, target_did);
+    XINTER_DEBUG("chan_open_call_rx: %lx -> %lx\n", source_did, target_did);
 
     struct xnode *local_node = _binding->st;
 
@@ -876,7 +878,9 @@ static void interphi_bind_cb(void *st,
                              errval_t err,
                              struct interphi_binding *_binding)
 {
-    XINTER_DEBUG("interphi_bind_cb: driver connection bound.\n");
+    XINTER_DEBUG("interphi_bind_cb: driver bound  %s\n", err_getstring(err));
+
+    assert(_binding);
 
     struct xnode *node = st;
 
@@ -1064,7 +1068,7 @@ errval_t interphi_init_xphi(uint8_t xphi,
 
     if (mi->is_client) {
         XINTER_DEBUG("Waiting for connect callback...\n");
-        while(!node->msg->binding) {
+        while(node->state == XNODE_STATE_WAIT_CONNECTION) {
             messages_wait_and_handle_next();
         }
         XINTER_DEBUG("connected to pier.\n");

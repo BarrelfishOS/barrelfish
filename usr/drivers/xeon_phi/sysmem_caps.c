@@ -26,7 +26,7 @@
 /// the number of slots to allocate for the allocator
 #define NUM_SLOTS 2048
 
-#define NUM_CHILDREN 4
+#define NUM_CHILDREN 2
 
 /*
  * XXX: This manager relies on the 1:1 mapping of the system memory
@@ -74,15 +74,9 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
      * Important: the type has to be DevFrame, we do not want to zero out the
      *            host memory!
      */
-    err = mm_init(&sysmem_manager,
-                  ObjType_DevFrame,
-                  ret.base,
-                  ret.bits,
-                  NUM_CHILDREN,
-                  slab_default_refill,
-                  slot_alloc_dynamic,
-                  &sysmem_allocator,
-                  false);
+    err = mm_init(&sysmem_manager, ObjType_DevFrame, ret.base, ret.bits,
+                  NUM_CHILDREN, slab_default_refill, slot_alloc_dynamic,
+                  &sysmem_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
@@ -102,9 +96,14 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
  */
 errval_t sysmem_cap_return(struct capref frame)
 {
-    assert(!"NYI: Returning a unused cap.");
+    errval_t err;
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-    return SYS_ERR_OK;
+    return mm_free(&sysmem_manager, frame, id.base, id.bits);
 }
 
 /**
@@ -139,11 +138,15 @@ errval_t sysmem_cap_request(lpaddr_t base,
     // transform the address into the host memory range
     base += base_offset;
 
-    err = mm_alloc_range(&sysmem_manager, bits,
-                         base, base+(1UL << bits), frame, NULL);
+    err = mm_alloc_range(&sysmem_manager, bits, base, base + (1UL << bits), frame,
+                         NULL);
+
     if (err_is_fail(err)) {
-        // TODO: we may allow double allocation?
-        return err;
+        XSYSMEM_DEBUG("Try reallocation for  [0x%016lx, %i]\n", base, bits);
+        err = mm_realloc_range(&sysmem_manager, bits, base, frame);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
     return SYS_ERR_OK;
 }

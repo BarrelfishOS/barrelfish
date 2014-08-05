@@ -16,6 +16,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/nameservice_client.h>
 
 #include <xeon_phi/xeon_phi.h>
 
@@ -105,6 +106,12 @@ int main(int argc,
     err = smpt_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
+    }
+
+    /* wait until the kernels are booted and spawnds are ready */
+    err = nameservice_blocking_lookup("all_spawnds_up", NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "all_spawnds_up.\n");
     }
 
     //dma_impl_test(&xphi);

@@ -180,6 +180,7 @@ errval_t domain_register(const char *iface,
     err = error_code;
 
     out: free(record);
+
     return err;
 }
 

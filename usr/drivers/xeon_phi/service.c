@@ -99,10 +99,9 @@ static void bootstrap_response_rx(struct xeon_phi_driver_binding *b,
                                   errval_t msgerr)
 {
     struct xnode *node = b->st;
-    struct xeon_phi *phi = node->local;
 
     XSERVICE_DEBUG("Xeon Phi Node %u recv bootstrap_response_rx: %s\n",
-                   phi->id, err_getstring(msgerr));
+                   node->local->id, err_getstring(msgerr));
 
     node->bootstrap_done = 0x1;
     node->err = msgerr;
@@ -115,10 +114,9 @@ static void bootstrap_call_rx(struct xeon_phi_driver_binding *b,
     errval_t err;
 
     struct xnode *node = b->st;
-    struct xeon_phi *phi = node->local;
 
     XSERVICE_DEBUG("Xeon Phi Node %u bootstrap_call_rx: [0x%016lx] from %u\n",
-                   phi->id, base, node->id);
+                   node->local->id, base, node->id);
 
     lpaddr_t offset = ((node->apt_base >> 32) - ((node->apt_base >> 34) << 2)) << 32;
 
@@ -380,10 +378,8 @@ static errval_t svc_register(struct xnode *node)
 static errval_t svc_connect_cb(void *st,
                                struct xeon_phi_driver_binding *b)
 {
-    struct xeon_phi *phi = st;
-
     XSERVICE_DEBUG("Xeon Phi Node %u got a new connection to other node.\n",
-                   phi->id);
+                   (struct xeon_phi * st)->id);
 
     b->st = st;
     b->rx_vtbl = xps_rx_vtbl;

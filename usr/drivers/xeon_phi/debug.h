@@ -19,12 +19,12 @@
 #define XDEBUG_DMA       0
 #define XDEBUG_DMA_V     0
 #define XDEBUG_INT       1
-#define XDEBUG_SMPT      1
-#define XDEBUG_SERVICE   1
-#define XDEBUG_MESSAGING 1
-#define XDEBUG_SYSMEM    1
-#define XDEBUG_SPAWN     1
-#define XDEBUG_INTERPHI  1
+#define XDEBUG_SMPT      0
+#define XDEBUG_SERVICE   0
+#define XDEBUG_MESSAGING 0
+#define XDEBUG_SYSMEM    0
+#define XDEBUG_SPAWN     0
+#define XDEBUG_INTERPHI  0
 
 /*
  * --------------------------------------------------------------------------
