@@ -6,8 +6,9 @@ tags
 
 .settings
 /.dist-buildwrapper
-toolchain/*
 /build
 .cproject
 .project
 
+/.metadata/
+/toolchain/
