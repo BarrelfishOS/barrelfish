@@ -144,6 +144,45 @@ errval_t trace_my_setup(void)
 
 static bool request_done = false;
 
+static bool parse_argv(struct spawn_domain_params *params, size_t *morecore_alignment)
+{
+    // grab pagesize config from argv if available
+    size_t morecore_pagesize = MORECORE_PAGESIZE;
+    int i = 1;
+    bool found = false;
+    for (; i < params->argc; i++) {
+        if (!found) {
+            if (!strncmp(params->argv[i], "morecore=", 9)) {
+                morecore_pagesize = strtol(params->argv[i]+9, NULL, 0);
+                // check for valid page size
+                switch (morecore_pagesize) {
+#ifdef __x86_64__
+                    case HUGE_PAGE_SIZE:
+#endif
+                    case BASE_PAGE_SIZE:
+                    case LARGE_PAGE_SIZE:
+                        break;
+                    default:
+                        morecore_pagesize = MORECORE_PAGESIZE;
+                }
+                found = true;
+            }
+        } else {
+            // found so move all other args one to the front
+            params->argv[i-1] = params->argv[i];
+        }
+    }
+    if (found) {
+        params->argc -= 1;
+    }
+
+    if (morecore_alignment) {
+        *morecore_alignment = morecore_pagesize;
+    }
+
+    return found;
+}
+
 /** \brief Initialise libbarrelfish.
  *
  * This runs on a thread in every domain, after the dispatcher is setup but
@@ -199,36 +238,8 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         // in the base cn.
         err = morecore_init(BASE_PAGE_SIZE);
     } else {
-        // grab pagesize config from argv if available
-        size_t morecore_pagesize = MORECORE_PAGESIZE;
-        int i = 1;
-        bool found = false;
-        for (; i < params->argc; i++) {
-            if (!found) {
-                if (!strncmp(params->argv[i], "morecore=", 9)) {
-                    morecore_pagesize = atoi(params->argv[i]+9);
-                    // check for valid page size
-                    switch (morecore_pagesize) {
-#ifdef __x86_64__
-                        case HUGE_PAGE_SIZE:
-#endif
-                        case BASE_PAGE_SIZE:
-                        case LARGE_PAGE_SIZE:
-                            break;
-                        default:
-                            morecore_pagesize = MORECORE_PAGESIZE;
-                    }
-                    found = true;
-                }
-            } else {
-                // found so move all other args one to the front
-                params->argv[i-1] = params->argv[i];
-            }
-        }
-        if (found) {
-            params->argc -= 1;
-        }
-
+        size_t morecore_pagesize = 0;
+        parse_argv(params, &morecore_pagesize);
         err = morecore_init(morecore_pagesize);
     }
     if (err_is_fail(err)) {
