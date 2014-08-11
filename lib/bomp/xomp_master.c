@@ -18,6 +18,8 @@
 
 #include <xomp/xomp.h>
 
+#include <if/xomp_defs.h>
+
 #include "libbomp.h"
 #include "backend.h"
 #include "xomp_debug.h"
@@ -199,14 +201,14 @@ static inline uint32_t xomp_master_get_local_threads(uint32_t nthreads)
     if (remote_only) {
         return 0;
     } else {
-        return nthreads - (num_phi * ((nthreads) / (1 + num_phi)));
+        return nthreads - (num_phi * ((nthreads) / (1 + num_phi))) - 1;
     }
 }
 
 static inline uint32_t xomp_master_get_remote_threads(uint32_t nthreads)
 {
     if (remote_only) {
-        return nthreads;
+        return nthreads - 1;
     } else {
         return ((nthreads) / (1 + num_phi)) * num_phi;
     }
@@ -718,14 +720,13 @@ errval_t xomp_master_do_work(struct xomp_task *task)
 
     assert(local_threads <= xmaster.local.num);
     assert(remote_threads <= xmaster.remote.num);
+    assert((local_threads + remote_threads + 1) == task->total_threads);
 
-    for (uint32_t i = 1; i < task->total_threads; ++i) {
+
+    for (uint32_t i = 0; i < task->total_threads-1; ++i) {
         struct xomp_worker *worker = NULL;
 
         if (i < local_threads) {
-            if (local_threads-- == 0) {
-                USER_PANIC("too many host threads used");
-            }
             worker = &xmaster.local.workers[xmaster.local.next++];
             if (xmaster.local.next == xmaster.local.num) {
                 xmaster.local.next = 0;
@@ -734,14 +735,11 @@ errval_t xomp_master_do_work(struct xomp_task *task)
             fn = (uint64_t) task->fn;
             assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
         } else {
-            if (remote_threads-- == 0) {
-                USER_PANIC("too many xphi threads used");
-            }
             worker = &xmaster.remote.workers[xmaster.remote.next++];
             if (xmaster.remote.next == xmaster.remote.num) {
                 xmaster.remote.next = 0;
             }
-            fn = 0x400a70;
+            fn = 0x401740;
             XMP_DEBUG("wid: %lx, overwriting function %p with %lx\n",
                       worker->id, task->fn, fn);
             assert(worker->type == XOMP_WORKER_TYPE_REMOTE);
@@ -756,7 +754,7 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         work->fn = task->fn;
         work->data = work + 1;
         work->barrier = NULL;
-        work->thread_id = i;
+        work->thread_id = i+1;
         work->num_threads = task->total_threads;
 
         /* XXX: hack, we do not know how big the data section is... */

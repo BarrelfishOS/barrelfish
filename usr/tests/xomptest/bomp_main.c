@@ -42,10 +42,13 @@ int main(int argc,
 
     bench_init();
 
+    debug_printf("Bomp init...\n");
     bomp_custom_init(NULL);
 
+    debug_printf("spawning domains...%u\n", BOMP_NTHREADS);
     backend_span_domain(BOMP_NTHREADS, 0);
 
+    debug_printf("setting threads...%u\n", BOMP_NTHREADS);
     omp_set_num_threads(BOMP_NTHREADS);
 
     cycles_t tsc_start, tsc_end;

@@ -14,6 +14,8 @@
 
 #include <xomp/xomp.h>
 
+#include <if/xomp_defs.h>
+
 #include "libbomp.h"
 #include "backend.h"
 #include "xomp_debug.h"

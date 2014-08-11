@@ -6,24 +6,29 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#include <barrelfish/barrelfish.h>
+extern "C" {
+    #include <barrelfish_kpi/types.h>
+    #include <errors/errno.h>
+    #include <xomp/xomp.h>
+    #include "xomptest.h"
+}
+
+#include <iostream>
+
 #include <omp.h>
-#include <xomp/xomp.h>
 
-#include <flounder/flounder_support_ump.h>
-
-#include "xomptest.h"
+using namespace std;
 
 void do_process(uint32_t *src,
                 uint32_t *dst)
 {
-
+    cout << "do_process C++ called " << endl;
     if (src == NULL || dst == 0) {
         return;
     }
 #pragma omp parallel for
-    for (int j = 0; j < IT; j++) {
-        for (int i = 0; i < MAX; i += IT) {
+    for (unsigned int j = 0; j < IT; j++) {
+        for (unsigned int i = 0; i < MAX; i += IT) {
             dst[i + j] = src[i + j];
         }
     }
@@ -38,17 +43,17 @@ int main(int argc,
     err = xomp_worker_parse_cmdline(argc, argv, &wid);
     switch (err_no(err)) {
         case SYS_ERR_OK:
-            debug_printf("XOMP Test started. (WORKER) %u\n", argc);
+            std::cout << "XOMP Test started. (WORKER) #args:" << argc << std::endl;
             err = xomp_worker_init(wid);
             if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "could not initialize the worker\n");
+                std::cout <<  "could not initialize the worker: " << err_getstring(err) << std::endl;
             }
             break;
         case XOMP_ERR_BAD_INVOCATION:
-            debug_printf("XOMP Test started. (MASTER) %u\n", argc);
+            std::cout << "XOMP Test started. (MASTER) #args:" << argc << std::endl;
             err = start_master(argc, argv);
             if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "start_master");
+                std::cout <<  "could not start the master: " << err_getstring(err) << std::endl;
             }
             break;
         default:
@@ -56,12 +61,10 @@ int main(int argc,
     }
 
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "during initialization");
+        std::cout <<  "error while initializing" << err_getstring(err) << std::endl;
     }
 
-    while (1) {
-        messages_wait_and_handle_next();
-    }
+    handle_messages();
 
     return 0;
 }

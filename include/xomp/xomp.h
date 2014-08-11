@@ -10,8 +10,6 @@
 #ifndef LIB_XOMP_H_
 #define LIB_XOMP_H_
 
-#include <if/xomp_defs.h>
-
 /// arguments passed to worker domains
 #define XOMP_WORKER_ARG "--xompworker"
 

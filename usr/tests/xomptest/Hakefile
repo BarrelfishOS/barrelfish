@@ -36,9 +36,11 @@
   },
   
   build application { 
-    target = "bomp_bench", 
+    target = "xomp_test_cpp", 
+    cxxFiles = [ 
+      "main.cpp"
+    ],
     cFiles = [ 
-      "bomp_main.c",
       "processing.c" 
     ],
     addCFlags = [ 
@@ -49,7 +51,7 @@
       "/lib/bomp" 
     ],
     addLibraries = [ 
-      "bomp", 
+      "xomp", 
       "bench", 
       "trace" 
     ],
