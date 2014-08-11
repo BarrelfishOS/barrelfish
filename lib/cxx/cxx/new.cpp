@@ -14,7 +14,11 @@
 #include "new"
 
 #ifndef __has_include
+#ifdef LIBCXXABI
+#define __has_include(inc) 1
+#else
 #define __has_include(inc) 0
+#endif
 #endif
 
 #ifdef __APPLE__

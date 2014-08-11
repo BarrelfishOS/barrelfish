@@ -79,13 +79,13 @@
   #define _LIBUNWIND_ABORT(msg) assert_rtn(__func__, __FILE__, __LINE__, msg)
 
   #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 1
-  #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   0
+  #define _LIBUNWIND_SUPPORT_DWARF_UNWIND   1
   #define _LIBUNWIND_SUPPORT_DWARF_INDEX    0
 #endif
 
 
 // Macros that define away in non-Debug builds
-#ifdef NDEBUG
+#if 0
   #define _LIBUNWIND_DEBUG_LOG(msg, ...)
   #define _LIBUNWIND_TRACE_API(msg, ...)
   #define _LIBUNWIND_TRACING_UNWINDING 0
@@ -95,8 +95,8 @@
   #ifdef __cplusplus
     extern "C" {
   #endif
-    extern  bool logAPIs();
-    extern  bool logUnwinding();
+    extern  bool logAPIs(void);
+    extern  bool logUnwinding(void);
   #ifdef __cplusplus
     }
   #endif
@@ -109,7 +109,7 @@
              } while (0)
   #define _LIBUNWIND_TRACE_API(msg, ...) \
             do { \
-              if ( logAPIs() ) _LIBUNWIND_LOG(msg, __VA_ARGS__); \
+              printf(msg, __VA_ARGS__); \
             } while(0)
   #define _LIBUNWIND_TRACE_UNWINDING(msg, ...) \
             do { \

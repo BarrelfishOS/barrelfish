@@ -69,7 +69,7 @@ private:
       return (pint_t)((sint_t)registers.getRegister((int)prolog.cfaRegister) +
              prolog.cfaRegisterOffset);
     if (prolog.cfaExpression != 0)
-      return evaluateExpression((pint_t)prolog.cfaExpression, addressSpace, 
+      return evaluateExpression((pint_t)prolog.cfaExpression, addressSpace,
                                 registers, 0);
     assert(0 && "getCFA(): unknown location");
     __builtin_unreachable();
@@ -223,7 +223,7 @@ DwarfInstructions<A, R>::evaluateExpression(pint_t expression, A &addressSpace,
   pint_t length = (pint_t)addressSpace.getULEB128(p, expressionEnd);
   expressionEnd = p + length;
   if (log)
-    fprintf(stderr, "evaluateExpression(): length=%"PRIu64"\n", (uint64_t)length);
+    fprintf(stderr, "evaluateExpression(): length=%" PRIu64 "\n", (uint64_t)length);
   pint_t stack[100];
   pint_t *sp = stack;
   *(++sp) = initialStackValue;

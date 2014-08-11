@@ -127,8 +127,8 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
       unw_get_proc_name(&cursor, functionName, 512, &offset);
       unw_get_proc_info(&cursor, &frameInfo);
       _LIBUNWIND_TRACE_UNWINDING(
-          " _backtrace: start_ip=0x%llX, func=%s, lsda=0x%llX, context=%p\n",
-          (long long)frameInfo.start_ip, functionName, (long long)frameInfo.lsda,
+          " _backtrace: start_ip=0x%" PRIx64 ", func=%s, lsda=0x%" PRIx64 ", context=%p\n",
+          frameInfo.start_ip, functionName, frameInfo.lsda,
           &cursor);
     }
 
@@ -171,7 +171,7 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context *context) {
   unw_cursor_t *cursor = (unw_cursor_t *)context;
   unw_word_t result;
   unw_get_reg(cursor, UNW_REG_SP, &result);
-  _LIBUNWIND_TRACE_API("_Unwind_GetCFA(context=%p) => 0x%llX\n", context,
+  _LIBUNWIND_TRACE_API("_Unwind_GetCFA(context=%p) => 0x%" PRIx64 "\n", context,
                   (uint64_t) result);
   return (uintptr_t)result;
 }

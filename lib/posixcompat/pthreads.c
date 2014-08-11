@@ -20,9 +20,26 @@ struct pthread_mutex {
     int locked;
 };
 
+
+
+
 struct pthread_cond {
     struct thread_cond cond;
 };
+
+#define PTHREADS_RWLOCK_MAGIC 0xdeadbeef
+
+struct pthread_rwlock
+{
+  pthread_mutex_t mtxExclusiveAccess;
+  pthread_mutex_t mtxSharedAccessCompleted;
+  pthread_cond_t cndSharedAccessCompleted;
+  int nSharedAccessCount;
+  int nExclusiveAccessCount;
+  int nCompletedSharedAccessCount;
+  int nMagic;
+};
+
 
 struct pthread {
     struct thread *thread;
@@ -438,4 +455,205 @@ int pthread_equal(pthread_t pt1, pthread_t pt2)
         return 1;
     }
     return pt1->thread == pt2->thread;
+}
+
+int pthread_rwlock_init(pthread_rwlock_t *rwlock,
+            const pthread_rwlockattr_t *attr)
+{
+    pthread_rwlock_t rwl;
+
+    rwl = calloc(1, sizeof(struct pthread_rwlock));
+    if (rwl == NULL) {
+        return ENOMEM;
+    }
+
+    rwl->nMagic = PTHREADS_RWLOCK_MAGIC;
+    rwl->mtxExclusiveAccess = PTHREAD_MUTEX_INITIALIZER;
+    rwl->mtxSharedAccessCompleted = PTHREAD_MUTEX_INITIALIZER;
+
+    pthread_cond_init (&rwl->cndSharedAccessCompleted, NULL);
+    *rwlock = rwl;
+
+    return 0;
+}
+
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
+{
+    int result, result1;
+    pthread_rwlock_t rwl;
+
+    if (rwlock == NULL || *rwlock == NULL) {
+        return (EINVAL);
+    }
+
+    if (*rwlock == PTHREAD_RWLOCK_INITIALIZER) {
+        result = pthread_rwlock_init(rwlock, NULL);
+        if (result) {
+            return result;
+        }
+    }
+
+    rwl = *rwlock;
+
+    if (rwl->nMagic != PTHREADS_RWLOCK_MAGIC) {
+        return EINVAL;
+    }
+
+    if (rwl->nExclusiveAccessCount == 0) {
+        if ((result = pthread_mutex_lock (&(rwl->mtxSharedAccessCompleted))) != 0) {
+            return result;
+        }
+
+        if (++rwl->nCompletedSharedAccessCount == 0) {
+            result = pthread_cond_signal (&(rwl->cndSharedAccessCompleted));
+        }
+
+        result1 = pthread_mutex_unlock (&(rwl->mtxSharedAccessCompleted));
+    } else {
+        rwl->nExclusiveAccessCount--;
+        result = pthread_mutex_unlock (&(rwl->mtxSharedAccessCompleted));
+        result1 = pthread_mutex_unlock (&(rwl->mtxExclusiveAccess));
+    }
+
+    return ((result != 0) ? result : result1);
+}
+
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
+{
+    int result;
+    pthread_rwlock_t rwl;
+
+    if (rwlock == NULL || *rwlock == NULL) {
+        return (EINVAL);
+    }
+
+    if (*rwlock == PTHREAD_RWLOCK_INITIALIZER) {
+        result = pthread_rwlock_init(rwlock, NULL);
+        if (result) {
+            return result;
+        }
+    }
+
+    rwl = *rwlock;
+
+    if (rwl->nMagic != PTHREADS_RWLOCK_MAGIC) {
+        return EINVAL;
+    }
+
+    if ((result = pthread_mutex_lock (&(rwl->mtxExclusiveAccess))) != 0) {
+        return result;
+    }
+
+    if ((result = pthread_mutex_lock (&(rwl->mtxSharedAccessCompleted))) != 0) {
+        (void) pthread_mutex_unlock (&(rwl->mtxExclusiveAccess));
+        return result;
+    }
+
+    if (rwl->nExclusiveAccessCount == 0) {
+        if (rwl->nCompletedSharedAccessCount > 0) {
+            rwl->nSharedAccessCount -= rwl->nCompletedSharedAccessCount;
+            rwl->nCompletedSharedAccessCount = 0;
+        }
+
+        if (rwl->nSharedAccessCount > 0) {
+            rwl->nCompletedSharedAccessCount = -rwl->nSharedAccessCount;
+
+            /*
+             * This routine may be a cancelation point
+             * according to POSIX 1003.1j section 18.1.2.
+             */
+           // pthread_cleanup_push (ptw32_rwlock_cancelwrwait, (void *) rwl);
+
+            do {
+                result = pthread_cond_wait (&(rwl->cndSharedAccessCompleted),
+                                            &(rwl->mtxSharedAccessCompleted));
+            } while (result == 0 && rwl->nCompletedSharedAccessCount < 0);
+
+            //pthread_cleanup_pop ((result != 0) ? 1 : 0);
+
+            if (result == 0) {
+                rwl->nSharedAccessCount = 0;
+            }
+        }
+    }
+
+    if (result == 0) {
+        rwl->nExclusiveAccessCount++;
+    }
+
+    return result;
+}
+
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
+{
+  int result;
+  pthread_rwlock_t rwl;
+
+  if (rwlock == NULL || *rwlock == NULL) {
+      return EINVAL;
+  }
+
+  /*
+   * We do a quick check to see if we need to do more work
+   * to initialise a static rwlock. We check
+   * again inside the guarded section of ptw32_rwlock_check_need_init()
+   * to avoid race conditions.
+   */
+   if (*rwlock == PTHREAD_RWLOCK_INITIALIZER) {
+        result = pthread_rwlock_init(rwlock, NULL);
+        if (result) {
+            return result;
+        }
+    }
+
+  rwl = *rwlock;
+
+  if (rwl->nMagic != PTHREADS_RWLOCK_MAGIC) {
+      return EINVAL;
+  }
+
+  if ((result = pthread_mutex_lock (&(rwl->mtxExclusiveAccess))) != 0) {
+      return result;
+  }
+
+  if (++rwl->nSharedAccessCount == 0xFFFFFFFF) {
+      if ((result = pthread_mutex_lock (&(rwl->mtxSharedAccessCompleted))) != 0) {
+          (void) pthread_mutex_unlock (&(rwl->mtxExclusiveAccess));
+          return result;
+      }
+
+      rwl->nSharedAccessCount -= rwl->nCompletedSharedAccessCount;
+      rwl->nCompletedSharedAccessCount = 0;
+
+      if ((result = pthread_mutex_unlock (&(rwl->mtxSharedAccessCompleted))) != 0) {
+          (void) pthread_mutex_unlock (&(rwl->mtxExclusiveAccess));
+          return result;
+      }
+  }
+
+  return (pthread_mutex_unlock (&(rwl->mtxExclusiveAccess)));
+}
+
+
+int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
+{
+    if (ctrl == NULL || init == NULL) {
+        return EINVAL;
+    }
+
+
+    pthread_mutex_lock(&ctrl->mutex);
+
+
+    if (!ctrl->state)
+    {
+        //pthread_cleanup_push(ptw32_mcs_lock_release, &node);
+        (*init)();
+        //pthread_cleanup_pop(0);
+        ctrl->state = 1;
+    }
+
+    pthread_mutex_unlock(&ctrl->mutex);
+
+    return 0;
 }

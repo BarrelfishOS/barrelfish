@@ -16,6 +16,9 @@
 
 #include <unistd.h>
 
+/* Tell we have POSIX threads.  */
+#define _POSIX_THREADS  200809L
+
 #if defined(_POSIX_THREADS) && _POSIX_THREADS > 0
 #  define LIBCXXABI_SINGLE_THREADED 0
 #else

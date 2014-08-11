@@ -14,7 +14,11 @@
 #include "system_error"
 
 #ifndef __has_include
+#ifdef LIBCXXABI
+#define __has_include(inc) 1
+#else
 #define __has_include(inc) 0
+#endif
 #endif
 
 /* For _LIBCPPABI_VERSION */

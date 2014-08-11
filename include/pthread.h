@@ -221,11 +221,8 @@ int		pthread_mutex_trylock(pthread_mutex_t *);
 int		pthread_mutex_timedlock(pthread_mutex_t *,
 			const struct timespec *);
 int		pthread_mutex_unlock(pthread_mutex_t *);
-#ifdef __cplusplus
-#define     pthread_once            _pthread_once
-#else
-int		pthread_once(pthread_once_t *, void (*) (void));
-#endif
+#define     pthread_once(a,b)            _pthread_once(a,b)
+int     _pthread_once(pthread_once_t *, void (*) (void));
 int		pthread_rwlock_destroy(pthread_rwlock_t *);
 int		pthread_rwlock_init(pthread_rwlock_t *,
 			const pthread_rwlockattr_t *);

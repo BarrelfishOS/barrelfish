@@ -13,7 +13,11 @@
 #include "new"
 
 #ifndef __has_include
+#ifdef LIBCXXABI
+#define __has_include(inc) 1
+#else
 #define __has_include(inc) 0
+#endif
 #endif
 
 #ifdef __APPLE__
@@ -43,7 +47,7 @@
 namespace std
 {
 
-#if defined(LIBCXXRT) && !defined(__GLIBCXX__) && !defined(__EMSCRIPTEN__)
+#if !defined(LIBCXXRT) && !defined(__GLIBCXX__) && !defined(__EMSCRIPTEN__)
 bool uncaught_exception() _NOEXCEPT
 {
 #if defined(__APPLE__) || defined(_LIBCPPABI_VERSION)
