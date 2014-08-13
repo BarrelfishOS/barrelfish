@@ -35,7 +35,6 @@
 
 // XXX: Global defs for Barrelfish: revisit for archs other than x86
 #ifdef BARRELFISH
-#   define __ISO_C_VISIBLE 1999
 #   define _C99_SOURCE 1
 #   define _GLIBCXX_USE_C99_DYNAMIC 1
 #	define __LITTLE_ENDIAN__	1
