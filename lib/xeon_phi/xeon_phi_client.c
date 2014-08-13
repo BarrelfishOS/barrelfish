@@ -22,7 +22,7 @@
 
 #include "xeon_phi_client_internal.h"
 
-#ifndef XEON_PHI_DEBUG_MSG
+#ifdef XEON_PHI_DEBUG_MSG
 #define DEBUG_XPHI(x...) debug_printf("[xphi-client] " x);
 #else
 #define DEBUG_XPHI(x...)
