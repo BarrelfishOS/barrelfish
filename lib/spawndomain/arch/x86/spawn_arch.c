@@ -208,6 +208,12 @@ errval_t spawn_arch_load(struct spawninfo *si,
         return err;
     }
 
+    err = elf_get_eh_info(binary, binary_size, &si->eh_frame, &si->eh_frame_size,
+                          &si->eh_frame_hdr, &si->eh_frame_hdr_size);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     return SYS_ERR_OK;
 }
 

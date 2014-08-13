@@ -922,6 +922,43 @@ void disp_set_core_id(coreid_t core_id)
     disp->core_id = core_id;
 }
 
+/**
+ * \brief returns the address and the size of the EH frame
+ *
+ * \param eh_frame      returned virtual address of the EH frame
+ * \param eh_frame_size returned size of the EH frame
+ */
+void disp_get_eh_frame(lvaddr_t *eh_frame,
+                       size_t *eh_frame_size)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    if (eh_frame) {
+        *eh_frame = disp->eh_frame;
+    }
+    if (eh_frame_size) {
+        *eh_frame_size = disp->eh_frame_size;
+    }
+}
+
+/**
+ * \brief returns the address and the size of the EH frame header
+ *
+ * \param eh_frame      returned virtual address of the EH frame
+ * \param eh_frame_size returned size of the EH frame
+ */
+void disp_get_eh_frame_hdr(lvaddr_t *eh_frame_hdr,
+                       size_t *eh_frame_hdr_size)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    if (eh_frame_hdr) {
+        *eh_frame_hdr = disp->eh_frame_hdr;
+    }
+    if (eh_frame_hdr_size) {
+        *eh_frame_hdr_size = disp->eh_frame_hdr_size;
+    }
+}
 
 /**
  * \brief returns the core_id stored in disp_priv struct

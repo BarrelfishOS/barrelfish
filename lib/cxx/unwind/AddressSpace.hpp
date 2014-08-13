@@ -311,6 +311,8 @@ inline LocalAddressSpace::pint_t LocalAddressSpace::getEncodedP(pint_t &addr,
   #endif
 #endif
 
+#ifndef BARRELFISH
+
 inline bool LocalAddressSpace::findUnwindSections(pint_t targetAddr,
                                                   UnwindInfoSections &info) {
 #if __APPLE__
@@ -335,15 +337,20 @@ inline bool LocalAddressSpace::findUnwindSections(pint_t targetAddr,
   if (info.arm_section && info.arm_section_length)
     return true;
 #endif
-
+#ifdef BARRELFISH
+#error Should be in cpp file..
+#endif
   return false;
 }
+#endif
 
 
 inline bool LocalAddressSpace::findOtherFDE(pint_t targetAddr, pint_t &fde) {
 #if __APPLE__
   return checkKeyMgrRegisteredFDEs(targetAddr, *((void**)&fde));
 #else
+  printf("LocalAddressSpace::findOtherFDE\n");
+
   // TO DO: if OS has way to dynamically register FDEs, check that.
   (void)targetAddr;
   (void)fde;
@@ -354,6 +361,9 @@ inline bool LocalAddressSpace::findOtherFDE(pint_t targetAddr, pint_t &fde) {
 inline bool LocalAddressSpace::findFunctionName(pint_t addr, char *buf,
                                                 size_t bufLen,
                                                 unw_word_t *offset) {
+#ifdef BARRELFISH
+    return false;
+#else
   Dl_info dyldInfo;
   if (dladdr((void *)addr, &dyldInfo)) {
     if (dyldInfo.dli_sname != NULL) {
@@ -363,6 +373,7 @@ inline bool LocalAddressSpace::findFunctionName(pint_t addr, char *buf,
     }
   }
   return false;
+#endif
 }
 
 

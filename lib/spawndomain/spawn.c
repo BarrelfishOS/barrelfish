@@ -335,6 +335,12 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Place core_id */
     disp_gen->core_id = core_id;
 
+    /* place eh information */
+    disp_gen->eh_frame = si->eh_frame;
+    disp_gen->eh_frame_size = si->eh_frame_size;
+    disp_gen->eh_frame_hdr = si->eh_frame_hdr;
+    disp_gen->eh_frame_hdr_size = si->eh_frame_hdr_size;
+
     /* Setup dispatcher and make it runnable */
     disp->udisp = spawn_dispatcher_base;
     disp->disabled = 1;
@@ -854,6 +860,7 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_ELF_MAP);
     }
+
 
     /* Determine cpu type */
     err = spawn_determine_cputype(si, binary);

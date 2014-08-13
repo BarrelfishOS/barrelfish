@@ -418,26 +418,24 @@ _Unwind_GetLanguageSpecificData(struct _Unwind_Context *context) {
 
 /// Called by personality handler during phase 2 to get register values.
 _LIBUNWIND_EXPORT uintptr_t _Unwind_GetGR(struct _Unwind_Context *context,
-                                          int index) {
+                                          int idx) {
   unw_cursor_t *cursor = (unw_cursor_t *)context;
   unw_word_t result;
-  unw_get_reg(cursor, index, &result);
+  unw_get_reg(cursor, idx, &result);
   _LIBUNWIND_TRACE_API("_Unwind_GetGR(context=%p, reg=%d) => 0x%" PRIx64 "\n",
-    context,
-                  index, (uint64_t) result);
+    					context, idx, (uint64_t) result);
   return (uintptr_t)result;
 }
 
 
 
 /// Called by personality handler during phase 2 to alter register values.
-_LIBUNWIND_EXPORT void _Unwind_SetGR(struct _Unwind_Context *context, int index,
+_LIBUNWIND_EXPORT void _Unwind_SetGR(struct _Unwind_Context *context, int idx,
                                      uintptr_t new_value) {
-  _LIBUNWIND_TRACE_API("_Unwind_SetGR(context=%p, reg=%d, "
-                             "value=0x%0" PRIx64 ")\n", context,
-                             index, (uint64_t) new_value);
+  _LIBUNWIND_TRACE_API("_Unwind_SetGR(context=%p, reg=%d, value=0x%0" PRIx64 ")\n", 
+  						context, idx, (uint64_t) new_value);
   unw_cursor_t *cursor = (unw_cursor_t *)context;
-  unw_set_reg(cursor, index, new_value);
+  unw_set_reg(cursor, idx, new_value);
 }
 
 

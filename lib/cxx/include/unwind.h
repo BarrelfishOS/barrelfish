@@ -354,6 +354,10 @@ extern void *__deregister_frame_info(const void *fde)
 extern void *__deregister_frame_info_bases(const void *fde)
     LIBUNWIND_UNAVAIL;
 
+
+void bf_unwind_get_eh(uint64_t *eh_frame, uint64_t *eh_frame_size);
+void bf_unwind_get_eh_hdr(uint64_t *eh_frame_hdr, uint64_t *eh_frame_hdr_size);
+
 #ifdef __cplusplus
 }
 #endif

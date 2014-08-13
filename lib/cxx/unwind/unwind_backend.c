@@ -246,3 +246,35 @@ _RuneLocale _DefaultRuneLocale = {
 
 _RuneLocale *_CurrentRuneLocale = &_DefaultRuneLocale;
 
+#include <barrelfish/barrelfish.h>
+
+void bf_unwind_get_eh(uint64_t *eh_frame, uint64_t *eh_frame_size)
+{
+    lvaddr_t eh;
+    size_t eh_size;
+
+    disp_get_eh_frame(&eh, &eh_size);
+
+    if (eh_frame) {
+        *eh_frame = eh;
+    }
+    if (eh_frame_size) {
+        *eh_frame_size = eh_size;
+    }
+}
+
+void bf_unwind_get_eh_hdr(uint64_t *eh_frame_hdr, uint64_t *eh_frame_hdr_size)
+{
+    lvaddr_t eh;
+    size_t eh_size;
+
+    disp_get_eh_frame_hdr(&eh, &eh_size);
+
+    if (eh_frame_hdr) {
+        *eh_frame_hdr = eh;
+    }
+    if (eh_frame_hdr_size) {
+        *eh_frame_hdr_size = eh_size;
+    }
+}
+

@@ -56,6 +56,12 @@ struct spawninfo {
     // TLS data
     genvaddr_t tls_init_base;
     size_t tls_init_len, tls_total_len;
+
+    // Error handling data
+    genvaddr_t eh_frame;
+    size_t eh_frame_size;
+    genvaddr_t eh_frame_hdr;
+    size_t eh_frame_hdr_size;
 };
 
 __BEGIN_DECLS

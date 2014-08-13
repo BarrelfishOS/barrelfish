@@ -15,6 +15,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "config.h"
 #include "unwind_ext.h"
@@ -34,7 +35,7 @@
 
 #if _LIBUNWIND_BUILD_SJLJ_APIS
 
-struct _Unwind_FunctionContext {
+typedef struct _Unwind_FunctionContext {
   // next function in stack of handlers
   struct _Unwind_FunctionContext *prev;
 
@@ -51,8 +52,18 @@ struct _Unwind_FunctionContext {
   // variable length array, contains registers to restore
   // 0 = r7, 1 = pc, 2 = sp
   void                           *jbuf[];
-};
+}*_Unwind_FunctionContext_t;
 
+struct _Unwind_FunctionContext *__Unwind_SjLj_GetTopOfFunctionStack(void) {
+    _LIBUNWIND_TRACE_UNWINDING("__Unwind_SjLj_GetTopOfFunctionStack\n");
+  return (struct _Unwind_FunctionContext *) pthread_getspecific(PTHREAD_KEY_LIBCXX_SJLJ);
+}
+
+
+void __Unwind_SjLj_SetTopOfFunctionStack(struct _Unwind_FunctionContext *fc) {
+    _LIBUNWIND_TRACE_UNWINDING("__Unwind_SjLj_GetTopOfFunctionStack: %p\n", fc);
+  pthread_setspecific(PTHREAD_KEY_LIBCXX_SJLJ, fc);
+}
 
 /// Called at start of each function that catches exceptions
 _LIBUNWIND_EXPORT void
@@ -463,6 +474,11 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context *context) {
     return (uintptr_t) ufc->jbuf[2];
   }
   return 0;
+}
+
+_LIBUNWIND_EXPORT void
+_Unwind_Resume(_Unwind_Exception *exception_object) {
+    _Unwind_SjLj_Resume(exception_object);
 }
 
 #endif // _LIBUNWIND_BUILD_SJLJ_APIS

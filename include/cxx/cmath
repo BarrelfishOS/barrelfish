@@ -525,9 +525,9 @@ isnormal(_A1 __x) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_isgreater(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_isgreater(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
-    return isgreater(__x, __y);
+    return isgreater(___x, ___y);
 }
 
 #undef isgreater
@@ -540,10 +540,10 @@ typename std::enable_if
     std::is_arithmetic<_A2>::value,
     bool
 >::type
-isgreater(_A1 __x, _A2 __y) _NOEXCEPT
+isgreater(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
     typedef typename std::__promote<_A1, _A2>::type type;
-    return __libcpp_isgreater((type)__x, (type)__y);
+    return __libcpp_isgreater((type)___x, (type)___y);
 }
 
 #endif  // isgreater
@@ -555,9 +555,9 @@ isgreater(_A1 __x, _A2 __y) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_isgreaterequal(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_isgreaterequal(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
-    return isgreaterequal(__x, __y);
+    return isgreaterequal(___x, ___y);
 }
 
 #undef isgreaterequal
@@ -570,10 +570,10 @@ typename std::enable_if
     std::is_arithmetic<_A2>::value,
     bool
 >::type
-isgreaterequal(_A1 __x, _A2 __y) _NOEXCEPT
+isgreaterequal(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
     typedef typename std::__promote<_A1, _A2>::type type;
-    return __libcpp_isgreaterequal((type)__x, (type)__y);
+    return __libcpp_isgreaterequal((type)___x, (type)___y);
 }
 
 #endif  // isgreaterequal
@@ -585,9 +585,9 @@ isgreaterequal(_A1 __x, _A2 __y) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_isless(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_isless(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
-    return isless(__x, __y);
+    return isless(___x, ___y);
 }
 
 #undef isless
@@ -615,9 +615,9 @@ isless(_A1 __x, _A2 __y) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_islessequal(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_islessequal(_A1 ___x, _A2 ___y) _NOEXCEPT
 {
-    return islessequal(__x, __y);
+    return islessequal(___x, ___y);
 }
 
 #undef islessequal
@@ -645,9 +645,9 @@ islessequal(_A1 __x, _A2 __y) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_islessgreater(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_islessgreater(_A1 _x, _A2 _y) _NOEXCEPT
 {
-    return islessgreater(__x, __y);
+    return islessgreater(_x, _y);
 }
 
 #undef islessgreater
@@ -675,9 +675,9 @@ islessgreater(_A1 __x, _A2 __y) _NOEXCEPT
 template <class _A1, class _A2>
 _LIBCPP_ALWAYS_INLINE
 bool
-__libcpp_isunordered(_A1 __x, _A2 __y) _NOEXCEPT
+__libcpp_isunordered(_A1 _x, _A2 _y) _NOEXCEPT
 {
-    return isunordered(__x, __y);
+    return isunordered(_x, _y);
 }
 
 #undef isunordered

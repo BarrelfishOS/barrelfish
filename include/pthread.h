@@ -140,6 +140,10 @@ struct _pthread_cleanup_info {
 	__uintptr_t	pthread_cleanup_pad[8];
 };
 
+// key indices for known entries
+#define PTHREAD_KEY_SELF 0
+#define PTHREAD_KEY_LIBCXX_SJLJ 1
+
 /*
  * Thread function prototype definitions:
  */

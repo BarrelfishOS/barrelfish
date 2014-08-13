@@ -156,3 +156,117 @@ genvaddr_t elf_virtual_base(lvaddr_t base)
 
     return elfbase;
 }
+
+static errval_t elf32_get_eh_info(lvaddr_t elfbase, size_t elfsize,
+                                  lvaddr_t *eh_frame, size_t *eh_frame_size,
+                                  lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size)
+{
+    struct Elf32_Shdr *shdr;
+
+    lvaddr_t addr = 0;
+    size_t size = 0;
+
+    shdr= elf32_find_section_header_name(elfbase, elfsize, ".eh_frame");
+    if (shdr != NULL) {
+        size = shdr->sh_size;
+        addr = shdr->sh_addr;
+    }
+
+    if (eh_frame) {
+        *eh_frame = addr;
+    }
+    if (eh_frame_size) {
+        *eh_frame_size = size;
+    }
+
+    size = 0;
+    addr = 0;
+
+    shdr= elf32_find_section_header_name(elfbase, elfsize, ".eh_frame_hdr");
+    if (shdr != NULL) {
+        size = shdr->sh_size;
+        addr = shdr->sh_addr;
+    }
+
+    if (eh_frame_hdr) {
+        *eh_frame_hdr = addr;
+    }
+    if (eh_frame_hdr_size) {
+        *eh_frame_hdr_size = size;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t elf64_get_eh_info(lvaddr_t elfbase, size_t elfsize,
+                                  lvaddr_t *eh_frame, size_t *eh_frame_size,
+                                  lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size)
+{
+    struct Elf64_Shdr *shdr;
+
+    lvaddr_t addr = 0;
+    size_t size = 0;
+
+    shdr= elf64_find_section_header_name(elfbase, elfsize, ".eh_frame");
+    if (shdr != NULL) {
+        size = shdr->sh_size;
+        addr = shdr->sh_addr;
+    }
+
+    if (eh_frame) {
+        *eh_frame = addr;
+    }
+    if (eh_frame_size) {
+        *eh_frame_size = size;
+    }
+
+    size = 0;
+    addr = 0;
+
+    shdr= elf64_find_section_header_name(elfbase, elfsize, ".eh_frame_hdr");
+    if (shdr != NULL) {
+        size = shdr->sh_size;
+        addr = shdr->sh_addr;
+    }
+
+    if (eh_frame_hdr) {
+        *eh_frame_hdr = addr;
+    }
+    if (eh_frame_hdr_size) {
+        *eh_frame_hdr_size = size;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief obtains the error handling frame information form the elf image
+ *
+ * \param elfbase            virtual base address of the mapped elf
+ * \param elfsize            size of the elf in bytes
+ * \param eh_frame           returns the virtual address of the eh_frame
+ * \param eh_frame_size      returns the size of the eh_frame
+ * \param eh_frame_hdr       returns the virtual address of the eh_frame_hdr
+ * \param eh_frame_hdr_size  returns the size of the eh_frame_hdr
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t elf_get_eh_info(lvaddr_t elfbase, size_t elfsize,
+                         lvaddr_t *eh_frame, size_t *eh_frame_size,
+                         lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size)
+{
+    struct Elf64_Ehdr *ehead = (struct Elf64_Ehdr *)elfbase;
+    if (IS_ELF(*ehead)) {
+        switch (ehead->e_ident[EI_CLASS]) {
+          case ELFCLASS64:
+            return elf64_get_eh_info(elfbase, elfsize, eh_frame, eh_frame_size,
+                                     eh_frame_hdr, eh_frame_hdr_size);
+            break;
+          case ELFCLASS32:
+            return  elf32_get_eh_info(elfbase, elfsize, eh_frame, eh_frame_size,
+                                      eh_frame_hdr, eh_frame_hdr_size);
+            break;
+        }
+    }
+    return ELF_ERR_HEADER;
+}

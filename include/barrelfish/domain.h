@@ -33,6 +33,8 @@ struct arrakis_rpc_client;
 struct waitset *get_default_waitset(void);
 void disp_set_core_id(coreid_t core_id);
 coreid_t disp_get_core_id(void);
+void disp_get_eh_frame(lvaddr_t *eh_frame, size_t *eh_frame_size);
+void disp_get_eh_frame_hdr(lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size);
 domainid_t disp_get_domain_id(void);
 coreid_t disp_handle_get_core_id(dispatcher_handle_t handle);
 void set_monitor_binding(struct monitor_binding *b);

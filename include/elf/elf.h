@@ -740,10 +740,11 @@ typedef errval_t (*elf_allocator_fn)(void *state, genvaddr_t base,
                                      size_t size, uint32_t flags, void **ret);
 
 errval_t elf64_load(uint16_t em_machine, elf_allocator_fn allocate_func,
-                    void *state, lvaddr_t base,
-                    size_t size, genvaddr_t *retentry,
+                    void *state, lvaddr_t base, size_t size,
+                    genvaddr_t *retentry,
                     genvaddr_t *ret_tlsbase, size_t *ret_tlsinitlen,
                     size_t *ret_tlstotallen);
+
 errval_t elf32_load(uint16_t em_machine, elf_allocator_fn allocate_func,
                     void *state, lvaddr_t base,
                     size_t size, genvaddr_t *retentry,
@@ -761,9 +762,23 @@ errval_t elf_load_tls(uint16_t em_machine, elf_allocator_fn allocate_func,
 
 size_t  elf_virtual_size(lvaddr_t base);
 
+errval_t elf_get_eh_info(lvaddr_t elfbase, size_t elfsize,
+                         lvaddr_t *eh_frame, size_t *eh_frame_size,
+                         lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size);
+
+
+
 genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead);
 genvaddr_t elf_virtual_base64(struct Elf64_Ehdr *ehead);
 genvaddr_t elf_virtual_base(lvaddr_t base);
+
+/**
+ * \brief
+ */
+
+genvaddr_t elf64_find_symbold_addr_by_name(genvaddr_t  elf_base,
+                                           size_t      elf_bytes,
+                                           const char* section_name);
 
 __END_DECLS
 
