@@ -67,7 +67,7 @@ inDir af tf dir suffix =
 cInDir :: [String] -> String -> String -> [String]
 cInDir af tf dir = inDir af tf dir ".c"
 cxxInDir :: [String] -> String -> String -> [String]
-cxxInDir af tf dir = inDir af tf dir ".cpp"
+cxxInDir af tf dir = (inDir af tf dir ".cpp") ++ (inDir af tf dir ".cc")
 sInDir :: [String] -> String -> String -> [String]
 sInDir af tf dir = inDir af tf dir ".S"
 
