@@ -39,6 +39,8 @@ commonCFlags = [ Str s | s <- [ "-std=c99",
 
 commonCxxFlags = [ Str s | s <- [ "-nostdinc++",
                                   "-fexceptions",
+                                  "-nodefaultlibs",
+                                  "-fasynchronous-unwind-tables",
                                   "-DLIBCXX_CXX_ABI=libcxxabi",
                                   "-I" ] ]
                  ++ [ NoDep SrcTree "src" "/include/cxx" ]
