@@ -258,7 +258,9 @@ errval_t elf64_load(uint16_t em_machine, elf_allocator_fn allocate_func,
         || head->e_ident[EI_CLASS] != ELFCLASS64
         || head->e_ident[EI_DATA] != ELFDATA2LSB
         || head->e_ident[EI_VERSION] != EV_CURRENT
-        || head->e_ident[EI_OSABI] != ELFOSABI_SYSV
+        /* C++ programs have Linux/GNU ABI information. */
+        || (head->e_ident[EI_OSABI] != ELFOSABI_SYSV
+                        && head->e_ident[EI_OSABI] != ELFOSABI_LINUX)
         || head->e_ident[EI_ABIVERSION] != 0
         || (head->e_type != ET_EXEC && head->e_type != ET_DYN)
         || head->e_machine != em_machine

@@ -772,14 +772,6 @@ genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead);
 genvaddr_t elf_virtual_base64(struct Elf64_Ehdr *ehead);
 genvaddr_t elf_virtual_base(lvaddr_t base);
 
-/**
- * \brief
- */
-
-genvaddr_t elf64_find_symbold_addr_by_name(genvaddr_t  elf_base,
-                                           size_t      elf_bytes,
-                                           const char* section_name);
-
 __END_DECLS
 
 #endif // ELF_H
