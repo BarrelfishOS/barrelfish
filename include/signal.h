@@ -158,21 +158,21 @@ typedef struct __siginfo {
         union   {
                 struct {
                         int     _trapno;/* machine specific trap code */
-                } _fault;                                               
-                struct { 
+                } _fault;
+                struct {
                         int     _timerid;
                         int     _overrun;
-                } _timer;                
-                struct { 
+                } _timer;
+                struct {
                         int     _mqd;
-                } _mesgq;            
-                struct { 
+                } _mesgq;
+                struct {
                         long    _band;          /* band event for SIGPOLL */
-                } _poll;                        /* was this ever used ? */  
-                struct {                                                  
+                } _poll;                        /* was this ever used ? */
+                struct {
                         long    __spare1__;
                         int     __spare2__[7];
-                } __spare__;                  
+                } __spare__;
         } _reason;
 } siginfo_t;
 
@@ -189,7 +189,6 @@ typedef struct __siginfo {
  *  (2) The fields sa_handler and sa_sigaction may overlap, and a conforming
  *      application should not use both simultaneously.
  */
-
 struct sigaction {
   int         sa_flags;       /* Special flags to affect behavior of signal */
   sigset_t    sa_mask;        /* Additional set of signals to be blocked */
@@ -220,8 +219,9 @@ int sigdelset(sigset_t *set, int signo);
 int sigemptyset(sigset_t *set);
 int sigfillset(sigset_t *set);
 int sigismember(const sigset_t *set, int signo);
-int sigaction(int signum, const struct sigaction *act,
+int __sigaction(int signum, const struct sigaction *act,
               struct sigaction *oldact);
+#define sigaction(a,b,c) __sigaction(a,b,c)
 int raise(int sig);
 __END_DECLS
 

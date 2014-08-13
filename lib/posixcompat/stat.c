@@ -28,10 +28,10 @@ void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf)
         buf->st_mode |= S_IFDIR;
     } else if (info->type == VFS_FILE) {
         buf->st_mode |= S_IFREG;
-    }        
+    }
 }
 
-int stat(const char *pathname, struct stat *buf)
+int __stat(const char *pathname, struct stat *buf)
 {
     struct vfs_fileinfo info;
     vfs_handle_t vh;

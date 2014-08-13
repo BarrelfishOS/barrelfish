@@ -111,7 +111,7 @@ int sigismember(const sigset_t *set, int signo)
     return ((set->__bits[_SIG_WORD(signo)] & _SIG_BIT(signo)) ? 1 : 0);
 }
 
-int sigaction(int signum, const struct sigaction *act,
+int __sigaction(int signum, const struct sigaction *act,
               struct sigaction *oldact)
 {
     POSIXCOMPAT_DEBUG("Warning: sigaction(%d, %p, %p) ignored\n",

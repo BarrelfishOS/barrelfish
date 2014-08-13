@@ -84,7 +84,8 @@
                              "inet_pton.c" ],
                   flounderDefs = [ "unixsock", "octopus", "monitor", "terminal" ],
                   flounderBindings = [ "unixsock", "octopus" ],
-		  flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
-                  flounderTHCStubs = [ "octopus" ]
+		          flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
+                  flounderTHCStubs = [ "octopus" ],
+                  addLibraries = [ "ahci", "vfs_nonfs" ] 
                 }
 ]
