@@ -15,6 +15,8 @@
 #ifndef OMP_H
 #define OMP_H
 
+#include <stddef.h> // for size_t
+
 void bomp_env_init(void);
 void backend_span_domain(int nos_threads, size_t stack_size);
 void backend_span_domain_default(int nos_threads);

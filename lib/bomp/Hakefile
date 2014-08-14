@@ -16,7 +16,8 @@
       "bf_backend.c", 
       "processing.c", 
       "parallel.c", 
-      "omp.c" 
+      "omp.c",
+      "loop.c"
     ]
   },
                   

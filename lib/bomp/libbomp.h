@@ -58,4 +58,11 @@ void GOMP_parallel_end(void);
 void GOMP_critical_start(void);
 void GOMP_critical_end(void);
 
+bool GOMP_loop_dynamic_start (long start, long end, long incr, long chunk_size,
+                              long *istart, long *iend);
+bool GOMP_loop_dynamic_next (long *istart, long *iend);
+void GOMP_loop_end_nowait (void);
+void GOMP_loop_end (void);
+
+
 #endif	/* _LIBBOMP_H */
