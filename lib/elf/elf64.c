@@ -131,6 +131,167 @@ elf64_find_section_header_name(genvaddr_t  elf_base,
 }
 
 /**
+ * \brief finds the symbol by name
+ *
+ * \param elf_base  virtual address where the elf image is mapped
+ * \param elf_bytes size of the mapped elf image
+ * \param name      name of the symbol to look for
+ * \param contains  if non zero, search for containing rather than exact match
+ * \param type      type of the symbol STT_*
+ * \param index     index where to start and returns the index of the symbol
+ *
+ * \returns pointer to the symbol
+ *          NULL if there is none
+ */
+struct Elf64_Sym *
+elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name,
+                          uint8_t contains, uint8_t type,
+                          uintptr_t *index)
+{
+    struct Elf64_Sym *sym = NULL;
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+    const char *symname = NULL;
+
+    lvaddr_t elfbase = (lvaddr_t)elf_base;
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return NULL;
+    }
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
+
+    uintptr_t start = 0, idx = 0;
+    if (index) {
+        idx = *index;
+        start = idx * sizeof(struct Elf64_Sym);
+    }
+
+    for (uintptr_t i = start; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
+        idx++;
+
+        // getting the symbol
+        sym = (struct Elf64_Sym *)(symbase + i);
+
+        // check for matching type
+        if ((sym->st_info & 0x0F) != type) {
+            continue;
+        }
+
+        // find the section of the associated string table
+        struct Elf64_Shdr *strtab = shead+symtab->sh_link;
+
+        // get the pointer to the symbol name from string table + string index
+        symname = (const char *)elfbase + strtab->sh_offset + sym->st_name;
+
+        if (!contains) {
+            if (strcmp(symname, name)==0) {
+                /* we have a match */
+                break;
+            }
+        } else {
+            if (strstr(symname,name) != NULL) {
+                break;
+            }
+        }
+    }
+
+    if (sym != NULL) {
+        if (index) {
+            *index = idx;
+        }
+    }
+    return sym;
+}
+
+const char *elf64_get_symbolname(struct Elf64_Ehdr *head,
+                                 struct Elf64_Sym *sym)
+{
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return NULL;
+    }
+
+    uintptr_t elfbase = (uintptr_t)head;
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    // find the section of the associacted string table
+    struct Elf64_Shdr *strtab = shead+symtab->sh_link;
+
+    // get the pointer to the symbol name from string table + string index
+    return (const char *)elfbase + strtab->sh_offset + sym->st_name;
+}
+
+
+/**
+ * \brief finds the symbol by its address
+ *
+ * \param elf_base  virtual address where the elf image is mapped
+ * \param elf_bytes size of the mapped elf image
+ * \param addr      virtual address of the symbol
+ * \param index     returns the index of the symbol
+ *
+ * \returns pointer to the symbol
+ *          NULL if there is none
+ */
+struct Elf64_Sym *
+elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
+                          lvaddr_t addr, uintptr_t *index)
+{
+    struct Elf64_Sym *sym = NULL;
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+
+    lvaddr_t elfbase = (lvaddr_t)elf_base;
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return NULL;
+    }
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
+
+    uintptr_t idx = 0;
+    for (uintptr_t i = 0; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
+        // getting the symbol
+        sym = (struct Elf64_Sym *)(symbase + i);
+
+        /* XXX: not handling relocatable symbols */
+        if (sym->st_value == addr) {
+            break;
+        }
+
+        idx++;
+    }
+
+    if (sym != NULL) {
+        if (index) {
+            *index = idx;
+        }
+    }
+    return sym;
+}
+
+
+/**
  * \brief Return pointer to relocation section ELF header.
  *
  * This function finds and returns a pointer to the first ELF section

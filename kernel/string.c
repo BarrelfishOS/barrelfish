@@ -29,6 +29,14 @@ memset (void *s, int c, size_t n)
 }
 #endif
 
+char *
+strstr(const char *a, const char *b)
+{
+    // XXX: to make libelf compile for kernel
+    assert(!"NYI");
+    return NULL;
+}
+
 void *
 memchr(const void *s, int c, size_t n)
 {

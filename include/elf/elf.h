@@ -727,6 +727,31 @@ struct Elf32_Shdr *
 elf32_find_section_header_name(genvaddr_t elf_base, size_t elf_bytes,
                                const char* section_name);
 
+struct Elf64_Shdr *
+elf64_find_symtab(genvaddr_t elf_base, size_t elf_bytes);
+struct Elf32_Shdr *
+elf32_find_symtab(genvaddr_t elf_base, size_t elf_bytes);
+
+struct Elf64_Sym *
+elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type,
+                          uintptr_t *index);
+struct Elf32_Sym *
+elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name,
+                          uint8_t contains, uint8_t type,
+                          uintptr_t *index);
+struct Elf64_Sym *
+elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
+                          lvaddr_t addr, uintptr_t *index);
+struct Elf32_Sym *
+elf32_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
+                          lvaddr_t addr, uintptr_t *index);
+const char *
+elf64_get_symbolname(struct Elf64_Ehdr *head, struct Elf64_Sym *sym);
+const char *
+elf32_get_symbolname(struct Elf32_Ehdr *head, struct Elf32_Sym *sym);
+
 void elf64_relocate(genvaddr_t dst, genvaddr_t src,
                     struct Elf64_Rela * SAFE NONNULL rela, size_t size,
                     struct Elf64_Sym * SAFE NONNULL symtab, size_t symsize,

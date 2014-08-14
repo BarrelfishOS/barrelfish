@@ -28,6 +28,11 @@ int printf(const char *fmt, ...)
     return -1;
 }
 
+char    *strstr(const char *a, const char *b)
+{
+    return NULL;
+}
+
 void *
 memset (void *s, int c, size_t n)
 {
