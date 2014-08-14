@@ -156,7 +156,7 @@ elf32_find_section_header_vaddr(struct Elf32_Shdr *shdr,
  * \param name      name of the symbol to look for
  * \param contains  if non zero, search for containing rather than exact match
  * \param type      type of the symbol STT_*
- * \param index     index where to start and returns the index of the symbol
+ * \param sindex     index where to start and returns the index of the symbol
  *
  * \returns pointer to the symbol
  *          NULL if there is none
@@ -165,7 +165,7 @@ struct Elf32_Sym *
 elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
                           const char *name,
                           uint8_t contains, uint8_t type,
-                          uintptr_t *index)
+                          uintptr_t *sindex)
 {
     struct Elf32_Sym *sym = NULL;
     struct Elf32_Shdr *shead;
@@ -187,8 +187,8 @@ elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
 
     uintptr_t start = 0, idx = 0;
-    if (index) {
-        idx = *index;
+    if (sindex) {
+        idx = *sindex;
         start = idx * sizeof(struct Elf32_Sym);
     }
 
@@ -222,8 +222,8 @@ elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     }
 
     if (sym != NULL) {
-        if (index) {
-            *index = idx;
+        if (sindex) {
+            *sindex = idx;
         }
     }
     return sym;
@@ -242,7 +242,7 @@ elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
  */
 struct Elf32_Sym *
 elf32_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
-                          lvaddr_t addr, uintptr_t *index)
+                          lvaddr_t addr, uintptr_t *sindex)
 {
     struct Elf32_Sym *sym = NULL;
     struct Elf32_Shdr *shead;
@@ -276,8 +276,8 @@ elf32_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
     }
 
     if (sym != NULL) {
-        if (index) {
-            *index = idx;
+        if (sindex) {
+            *sindex = idx;
         }
     }
     return sym;

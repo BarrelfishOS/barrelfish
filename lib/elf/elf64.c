@@ -138,7 +138,7 @@ elf64_find_section_header_name(genvaddr_t  elf_base,
  * \param name      name of the symbol to look for
  * \param contains  if non zero, search for containing rather than exact match
  * \param type      type of the symbol STT_*
- * \param index     index where to start and returns the index of the symbol
+ * \param sindex    index where to start and returns the index of the symbol
  *
  * \returns pointer to the symbol
  *          NULL if there is none
@@ -147,7 +147,7 @@ struct Elf64_Sym *
 elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
                           const char *name,
                           uint8_t contains, uint8_t type,
-                          uintptr_t *index)
+                          uintptr_t *sindex)
 {
     struct Elf64_Sym *sym = NULL;
     struct Elf64_Shdr *shead;
@@ -169,8 +169,8 @@ elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
 
     uintptr_t start = 0, idx = 0;
-    if (index) {
-        idx = *index;
+    if (sindex) {
+        idx = *sindex;
         start = idx * sizeof(struct Elf64_Sym);
     }
 
@@ -204,8 +204,8 @@ elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     }
 
     if (sym != NULL) {
-        if (index) {
-            *index = idx;
+        if (sindex) {
+            *sindex = idx;
         }
     }
     return sym;
@@ -242,14 +242,14 @@ const char *elf64_get_symbolname(struct Elf64_Ehdr *head,
  * \param elf_base  virtual address where the elf image is mapped
  * \param elf_bytes size of the mapped elf image
  * \param addr      virtual address of the symbol
- * \param index     returns the index of the symbol
+ * \param sindex    returns the index of the symbol
  *
  * \returns pointer to the symbol
  *          NULL if there is none
  */
 struct Elf64_Sym *
 elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
-                          lvaddr_t addr, uintptr_t *index)
+                          lvaddr_t addr, uintptr_t *sindex)
 {
     struct Elf64_Sym *sym = NULL;
     struct Elf64_Shdr *shead;
@@ -283,8 +283,8 @@ elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
     }
 
     if (sym != NULL) {
-        if (index) {
-            *index = idx;
+        if (sindex) {
+            *sindex = idx;
         }
     }
     return sym;
