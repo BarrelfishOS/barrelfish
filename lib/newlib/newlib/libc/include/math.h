@@ -142,12 +142,13 @@ extern double fmod _PARAMS((double, double));
 #if !defined(__STRICT_ANSI__) || defined(__cplusplus) || __STDC_VERSION__ >= 199901L
 
 /* ISO C99 types and macros. */
-
 #ifndef FLT_EVAL_METHOD
 #define FLT_EVAL_METHOD 0
+#endif /* FLT_EVAL_METHOD */
+#if FLT_EVAL_METHOD==0
 typedef float float_t;
 typedef double double_t;
-#endif /* FLT_EVAL_METHOD */
+#endif
 
 #define FP_NAN         0
 #define FP_INFINITE    1
