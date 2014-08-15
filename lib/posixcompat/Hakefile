@@ -86,6 +86,6 @@
                   flounderBindings = [ "unixsock", "octopus" ],
 		          flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
                   flounderTHCStubs = [ "octopus" ],
-                  addLibraries = [ "ahci", "vfs_nonfs" ] 
+                  addLibraries = [ "ahci", "vfs_nonfs", "term_server" ] 
                 }
 ]
