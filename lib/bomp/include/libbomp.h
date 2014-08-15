@@ -37,14 +37,40 @@ struct bomp_thread_local_data {
     struct bomp_work *work;
 };
 
-extern volatile unsigned g_thread_numbers;
+struct omp_state
+{
+    bomp_lock_t critical_lock;
+    bomp_lock_t atomic_lock;
+    volatile int nested;
+    bomp_num_threads = 1;
+    bomp_dynamic_behaviour = false;
+    bomp_nested_behaviour = false;
+};
+
+
+extern struct omp_state
+
 extern unsigned bomp_num_threads;
 extern bool bomp_dynamic_behaviour;
 extern bool bomp_nested_behaviour;
 
 void parallel_init(void);
+
+
+#ifdef XOMP
+extern volatile unsigned g_xomp_num_threads;
+
+void xomp_start_processing(void (*fn)(void *),
+                           void *data,
+                           unsigned nthreads);
+void xomp_end_processing(void);
+#define bomp_start_processing(a,b,c) xomp_start_processing(a,b,c)
+#define bomp_end_processing() xomp_end_processing()
+#else
 void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads);
 void bomp_end_processing(void);
+extern volatile unsigned g_thread_numbers;
+#endif
 
 /* These functions are called from GCC-generated code */
 void GOMP_ordered_start(void);

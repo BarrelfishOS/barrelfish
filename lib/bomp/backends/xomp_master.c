@@ -16,13 +16,12 @@
 #include <xeon_phi/xeon_phi_client.h>
 #include <xeon_phi/xeon_phi_domain.h>
 
+#include <bomp_internal.h>
 #include <xomp/xomp.h>
 
 #include <if/xomp_defs.h>
 
-#include "libbomp.h"
-#include "backend.h"
-#include "xomp_debug.h"
+#include <xomp_debug.h>
 
 /**
  * \brief worker state enumeration.
@@ -30,12 +29,12 @@
  * Describes the possible states a worker can be in.
  */
 typedef enum xomp_worker_state {
-    XOMP_WORKER_ST_INVALID  = 0,    ///< this worker has not been initialized
-    XOMP_WORKER_ST_FAILURE  = 1,    ///< an error occurred during an operation
+    XOMP_WORKER_ST_INVALID = 0,    ///< this worker has not been initialized
+    XOMP_WORKER_ST_FAILURE = 1,    ///< an error occurred during an operation
     XOMP_WORKER_ST_SPAWNING = 2,    ///< worker is being spawned
-    XOMP_WORKER_ST_SPAWNED  = 3,    ///< worker is spawned and connected to master
-    XOMP_WORKER_ST_READY    = 4,    ///< worker is ready to service requests
-    XOMP_WORKER_ST_BUSY     = 5     ///< worker is busy servicing requests
+    XOMP_WORKER_ST_SPAWNED = 3,    ///< worker is spawned and connected to master
+    XOMP_WORKER_ST_READY = 4,    ///< worker is ready to service requests
+    XOMP_WORKER_ST_BUSY = 5     ///< worker is busy servicing requests
 } xomp_worker_st_t;
 
 /**
@@ -44,9 +43,9 @@ typedef enum xomp_worker_state {
  * Describes the possible worker types i.e. where the domain is running on
  */
 typedef enum xomp_worker_type {
-    XOMP_WORKER_TYPE_INVALID  = 0,  ///< invalid worker type (not initialized)
-    XOMP_WORKER_TYPE_LOCAL    = 1,  ///< worker runs local to master
-    XOMP_WORKER_TYPE_REMOTE   = 2   ///< worker runs remote to master
+    XOMP_WORKER_TYPE_INVALID = 0,  ///< invalid worker type (not initialized)
+    XOMP_WORKER_TYPE_LOCAL = 1,  ///< worker runs local to master
+    XOMP_WORKER_TYPE_REMOTE = 2   ///< worker runs remote to master
 } xomp_worker_type_t;
 
 /**
@@ -122,16 +121,16 @@ static iref_t svc_iref;
 static uint8_t num_phi = 0;
 
 /// only use remote workers, no locals
-static uint8_t remote_only = 0x0;
+static xomp_wloc_t worker_loc = XOMP_WORKER_LOC_MIXED;
 
 /// stride for core allocation (in case of hyperthreads)
 static coreid_t core_stride;
 
 /// arguments to supply to the local spawned workers
-static struct xomp_spawn_args spawn_args_local;
+static struct xomp_spawn spawn_args_local;
 
 /// arguments to supply to the remote spawned workers
-static struct xomp_spawn_args spawn_args_remote;
+static struct xomp_spawn spawn_args_remote;
 
 /// buffer for the worker id argument
 char worker_id_buf[24];
@@ -139,11 +138,6 @@ char worker_id_buf[24];
 /// buffer for the iref argument
 char iref_buf[19];
 
-/*
- * ----------------------------------------------------------------------------
- * XOMP barriers
- * ----------------------------------------------------------------------------
- */
 
 /**
  * \brief enters the barrier when a worker finished his work, this function
@@ -159,38 +153,6 @@ static inline void xbomp_barrier_enter_no_wait(struct bomp_barrier *barrier)
     }
 }
 
-/**
- * \brief enters the barrier for the master thread and waits until all
- *        workers also entered the barrier
- *
- * \param barrier   The barrier to enter
- */
-static inline void xbomp_barrier_enter(struct bomp_barrier *barrier)
-{
-    errval_t err;
-    int cycle = barrier->cycle;
-
-    if (__sync_fetch_and_add(&barrier->counter, 1) == (barrier->max - 1)) {
-        barrier->counter = 0;
-        barrier->cycle = !barrier->cycle;
-        return;
-    }
-
-    while (cycle == barrier->cycle) {
-        /* dispatch the events such that we recv the done messages */
-        err = event_dispatch_non_block(get_default_waitset());
-        switch (err_no(err)) {
-            case SYS_ERR_OK:
-                break;
-            case LIB_ERR_NO_EVENT:
-                thread_yield();
-                break;
-            default:
-                USER_PANIC_ERR(err, "in event dispatch");
-        }
-    }
-}
-
 /*
  * ----------------------------------------------------------------------------
  * Helper functions
@@ -198,20 +160,31 @@ static inline void xbomp_barrier_enter(struct bomp_barrier *barrier)
  */
 static inline uint32_t xomp_master_get_local_threads(uint32_t nthreads)
 {
-    if (remote_only) {
-        return 0;
-    } else {
-        return nthreads - (num_phi * ((nthreads) / (1 + num_phi))) - 1;
+    switch (worker_loc) {
+        case XOMP_WORKER_LOC_LOCAL:
+            return nthreads - 1;
+        case XOMP_WORKER_LOC_MIXED:
+            return nthreads - (num_phi * ((nthreads) / (1 + num_phi))) - 1;
+        case XOMP_WORKER_LOC_REMOTE:
+            return 0;
     }
+    USER_PANIC("unknown worker location!");
+    return 0;
 }
 
 static inline uint32_t xomp_master_get_remote_threads(uint32_t nthreads)
 {
-    if (remote_only) {
-        return nthreads - 1;
-    } else {
-        return ((nthreads) / (1 + num_phi)) * num_phi;
+    switch (worker_loc) {
+        case XOMP_WORKER_LOC_LOCAL:
+            return 0;
+        case XOMP_WORKER_LOC_MIXED:
+            return ((nthreads) / (1 + num_phi)) * num_phi;
+        case XOMP_WORKER_LOC_REMOTE:
+            return nthreads - 1;
     }
+
+    USER_PANIC("unknown worker location!");
+    return 0;
 }
 
 /*
@@ -383,7 +356,7 @@ static void worker_connect_cb(void *st,
  *          errval on failure
  */
 
-errval_t xomp_master_init(struct xomp_master_args *args)
+errval_t xomp_master_init(struct xomp_args *args)
 {
     errval_t err;
 
@@ -392,11 +365,22 @@ errval_t xomp_master_init(struct xomp_master_args *args)
         return SYS_ERR_OK;
     }
 
-    XMI_DEBUG("Initializing XOMP master with nphi:%u\n", args->num_phi);
+    if (args->type == XOMP_ARG_TYPE_WORKER) {
+        return -1;  // TODO: ERRNO
+    }
 
-    num_phi = args->num_phi;
-    core_stride = args->core_stride;
-    remote_only = args->remote_only;
+    if (args->type == XOMP_ARG_TYPE_UNIFORM) {
+        num_phi = args->args.uniform.nphi;
+        core_stride = args->args.uniform.core_stride;
+        worker_loc = args->args.uniform.worker_loc;
+    } else {
+        num_phi = args->args.distinct.nphi;
+        core_stride = args->args.distinct.core_stride;
+        worker_loc = args->args.distinct.worker_loc;
+    }
+
+    XMI_DEBUG("Initializing XOMP master with nthreads:%u, nphi:%u\n",
+                    args->args.uniform.nthreads, args->args.uniform.nphi);
 
     /* exporting the interface for local workers */
     err = xomp_export(NULL, xomp_svc_export_cb, xomp_svc_connect_cb,
@@ -409,9 +393,17 @@ errval_t xomp_master_init(struct xomp_master_args *args)
         messages_wait_and_handle_next();
     }
 
-    /* local initialization */
+    char **argv = NULL;
 
-    spawn_args_local = args->local;
+    if (args->type == XOMP_ARG_TYPE_UNIFORM) {
+        spawn_args_local.argc = args->args.uniform.argc;
+        spawn_args_remote.argc = args->args.uniform.argc;
+        argv = args->args.uniform.argv;
+    } else {
+        spawn_args_local.argc = args->args.distinct.local.argc;
+        argv = args->args.distinct.local.argv;
+    }
+
     spawn_args_local.argv = calloc(spawn_args_local.argc + 3, sizeof(char *));
 
     if (spawn_args_local.argv == NULL) {
@@ -419,7 +411,7 @@ errval_t xomp_master_init(struct xomp_master_args *args)
     }
 
     for (uint8_t i = 0; i < spawn_args_local.argc; ++i) {
-        spawn_args_local.argv[i] = args->local.argv[i];
+        spawn_args_local.argv[i] = argv[i];
     }
 
     spawn_args_local.argv[spawn_args_local.argc++] = XOMP_WORKER_ARG;
@@ -431,7 +423,11 @@ errval_t xomp_master_init(struct xomp_master_args *args)
 
     /* remote initialization */
 
-    spawn_args_remote = args->remote;
+    if (args->type == XOMP_ARG_TYPE_DISTINCT) {
+        argv = args->args.distinct.remote.argv;
+        spawn_args_remote.argc = args->args.distinct.remote.argc;
+    }
+
     spawn_args_remote.argv = calloc(spawn_args_remote.argc + 2, sizeof(char *));
 
     if (spawn_args_remote.argv == NULL) {
@@ -440,7 +436,7 @@ errval_t xomp_master_init(struct xomp_master_args *args)
     }
 
     for (uint8_t i = 0; i < spawn_args_remote.argc; ++i) {
-        spawn_args_remote.argv[i] = args->remote.argv[i];
+        spawn_args_remote.argv[i] = argv[i];
     }
 
     spawn_args_remote.argv[spawn_args_remote.argc++] = XOMP_WORKER_ARG;
@@ -537,7 +533,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 
         XMI_DEBUG("messaging frame mapped: [%016lx] @ [%016lx]\n",
-                            worker->msgbase, (lvaddr_t )worker->msgbuf);
+                        worker->msgbase, (lvaddr_t )worker->msgbuf);
 
         snprintf(worker_id_buf, sizeof(worker_id_buf), "--wid=%016"PRIx64,
                  worker->id);
@@ -549,7 +545,8 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
                             core);
             domainid_t did;
             err = spawn_program_with_caps(core, spawn_args_local.path,
-                                          spawn_args_local.argv, NULL, NULL_CAP,
+                                          spawn_args_local.argv, NULL, NULL_CAP
+                                          ,
                                           worker->msgframe, 0, &did);
             worker->domainid = did;
             worker->type = XOMP_WORKER_TYPE_LOCAL;
@@ -696,6 +693,46 @@ errval_t xomp_master_add_memory(struct capref frame,
 }
 
 /**
+ * \brief builds the argument path based on the own binary name
+ *
+ * \param local  pointer where to store the local path
+ * \param remote pointer where to store the remote path
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xomp_master_build_path(char **local,
+                                char **remote)
+{
+    size_t length, size = 0;
+
+    size += snprintf(NULL, 0, "/x86_64/sbin/%s", disp_name()) + 1;
+    size += snprintf(NULL, 0, "/k1om/sbin/%s", disp_name()) + 1;
+
+    char *path = malloc(size);
+    if (path == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    length = snprintf(path, size, "/x86_64/sbin/%s", disp_name());
+    path[length] = '\0';
+    size -= (++length);
+
+    if (local) {
+        *local = path;
+    }
+
+    path += length;
+    length = snprintf(path, size, "/k1om/sbin/%s", disp_name());
+    path[length] = '\0';
+
+    if (remote) {
+        *remote = path;
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief executes some work on each worker domains
  *
  * \param task information about the task
@@ -703,7 +740,6 @@ errval_t xomp_master_add_memory(struct capref frame,
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-
 errval_t xomp_master_do_work(struct xomp_task *task)
 {
     if (!xomp_master_initialized) {
@@ -716,22 +752,20 @@ errval_t xomp_master_do_work(struct xomp_task *task)
     uint32_t local_threads = xomp_master_get_local_threads(task->total_threads);
 
     XMP_DEBUG("Executing task with %u workers host:%u, xphi:%ux%u]\n",
-               task->total_threads, local_threads, num_phi, remote_threads);
+                    task->total_threads, local_threads, num_phi, remote_threads);
 
     assert(local_threads <= xmaster.local.num);
     assert(remote_threads <= xmaster.remote.num);
     assert((local_threads + remote_threads + 1) == task->total_threads);
 
-
-    for (uint32_t i = 0; i < task->total_threads-1; ++i) {
+    for (uint32_t i = 0; i < task->total_threads - 1; ++i) {
         struct xomp_worker *worker = NULL;
 
         if (i < local_threads) {
             worker = &xmaster.local.workers[xmaster.local.next++];
             if (xmaster.local.next == xmaster.local.num) {
                 xmaster.local.next = 0;
-            }
-            XMP_DEBUG("host worker id:%lx\n", worker->id);
+            }XMP_DEBUG("host worker id:%lx\n", worker->id);
             fn = (uint64_t) task->fn;
             assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
         } else {
@@ -741,7 +775,7 @@ errval_t xomp_master_do_work(struct xomp_task *task)
             }
             fn = 0x401740;
             XMP_DEBUG("wid: %lx, overwriting function %p with %lx\n",
-                      worker->id, task->fn, fn);
+                            worker->id, task->fn, fn);
             assert(worker->type == XOMP_WORKER_TYPE_REMOTE);
         }
 
@@ -754,7 +788,7 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         work->fn = task->fn;
         work->data = work + 1;
         work->barrier = NULL;
-        work->thread_id = i+1;
+        work->thread_id = i + 1;
         work->num_threads = task->total_threads;
 
         /* XXX: hack, we do not know how big the data section is... */
@@ -784,105 +818,3 @@ errval_t xomp_master_do_work(struct xomp_task *task)
     return SYS_ERR_OK;
 }
 
-static int count = 0;
-volatile unsigned g_thread_numbers = 1;
-
-static struct bomp_thread_local_data **g_array_thread_local_data;
-
-void xomp_set_tls(void *xdata)
-{
-
-    struct bomp_thread_local_data *local;
-
-    struct bomp_work *work_data = (struct bomp_work*) xdata;
-
-    /* Populate the Thread Local Storage data */
-
-    local = calloc(1, sizeof(struct bomp_thread_local_data));
-    assert(local != NULL);
-    local->thr = backend_get_thread();
-    local->work = work_data;
-
-    if (g_array_thread_local_data) {
-        g_array_thread_local_data[work_data->thread_id] = local;
-    }
-
-    backend_set_tls(local);
-}
-
-void bomp_start_processing(void (*fn)(void *),
-                           void *data,
-                           unsigned nthreads)
-{
-    XMP_DEBUG("start processing fn:%p, data:%p, threads:%u\n", fn, data, nthreads);
-
-    errval_t err;
-
-    /* Create Threads and ask them to process the function specified */
-    /* Let them die as soon as they are done */
-
-    struct bomp_work *xdata;
-
-    struct bomp_barrier *barrier;
-
-    g_thread_numbers = nthreads;
-
-    char *memory = calloc(1, sizeof(void *) + sizeof(*barrier) + sizeof(*xdata));
-    assert(memory != NULL);
-
-    g_array_thread_local_data = (struct bomp_thread_local_data **) memory;
-
-    memory += sizeof(struct bomp_thread_local_data *);
-
-    /* Create a barier for the work that will be carried out by the threads */
-
-    barrier = (struct bomp_barrier *) memory;
-
-    memory += sizeof(struct bomp_barrier);
-    bomp_barrier_init(barrier, nthreads);
-
-    /* For main thread */
-
-    xdata = (struct bomp_work *) memory;
-
-    memory += sizeof(struct bomp_work);
-
-    xdata->fn = fn;
-    xdata->data = data;
-    xdata->thread_id = 0;
-    xdata->barrier = barrier;
-    xomp_set_tls(xdata);
-
-    struct xomp_task *task = calloc(1, sizeof(struct xomp_task));
-    assert(task);
-    task->arg = data;
-    task->barrier = barrier;
-    task->total_threads = nthreads;
-    task->fn = fn;
-    task->done = 1;  // set the main thread to done
-
-    XMP_DEBUG("distributing work to Xeon Phi\n");
-
-    err = xomp_master_do_work(task);
-
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to distribute workers\n");
-    }
-}
-
-void bomp_end_processing(void)
-{
-    /* Cleaning of thread_local and work data structures */
-    int i = 0;
-    count++;
-
-    xbomp_barrier_enter(g_array_thread_local_data[i]->work->barrier);
-
-    /* Clear the barrier created */
-    bomp_clear_barrier(g_array_thread_local_data[i]->work->barrier);
-
-    free(g_array_thread_local_data);
-
-    g_array_thread_local_data = NULL;
-    g_thread_numbers = 1;
-}

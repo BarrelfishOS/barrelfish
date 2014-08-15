@@ -10,20 +10,6 @@
 #ifndef LIB_XOMP_MASTER_H_
 #define LIB_XOMP_MASTER_H_
 
-struct xomp_spawn_args {
-    uint8_t argc;
-    char **argv;
-    char *path;
-};
-
-struct xomp_master_args
-{
-    uint8_t remote_only;
-    uint8_t num_phi;
-    coreid_t core_stride;
-    struct xomp_spawn_args local;
-    struct xomp_spawn_args remote;
-};
 
 /**
  * \brief initializes the Xeon Phi openMP library
@@ -33,7 +19,7 @@ struct xomp_master_args
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xomp_master_init(struct xomp_master_args *args);
+errval_t xomp_master_init(struct xomp_args *args);
 
 /**
  * \brief Spawns the worker threads on the Xeon Phi
@@ -68,5 +54,15 @@ errval_t xomp_master_add_memory(struct capref frame,
  *          errval on error
  */
 errval_t xomp_master_do_work(struct xomp_task *task);
+
+/**
+ * \brief builds the argument path based on the own binary name
+ *
+ * \param local  pointer where to store the local path
+ * \param remote pointer where to store the remote path
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xomp_master_build_path(char **local, char **remote);
 
 #endif // LIB_XOMP_MASTER_H_

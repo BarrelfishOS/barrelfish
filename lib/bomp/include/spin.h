@@ -20,8 +20,7 @@
 #include <omp.h>
 
 /** \brief spinlock */
-// why 64-bit? this means we need an extra prefix on the lock ops... -AB
-typedef volatile unsigned long bomp_lock_t;
+typedef volatile unsigned int bomp_lock_t;
 
 static inline void bomp_lock(bomp_lock_t *lock)
 {

@@ -21,11 +21,8 @@
       "-DBOMP", 
       "-fopenmp" 
     ],
-    addIncludes = [ 
-      "/lib/bomp" 
-    ],
     addLibraries = [ 
-      "xomp", 
+      "bomp", 
       "bench", 
       "trace" 
     ],
@@ -47,11 +44,8 @@
       "-DBOMP", 
       "-fopenmp" 
     ],
-    addIncludes = [ 
-      "/lib/bomp" 
-    ],
     addLibraries = [ 
-      "xomp", 
+      "bomp", 
       "bench", 
       "trace" 
     ],

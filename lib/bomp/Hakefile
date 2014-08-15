@@ -12,29 +12,12 @@
 
 [ build library { 
     target = "bomp", 
-    cFiles = [ 
-      "bf_backend.c", 
-      "processing.c", 
-      "parallel.c", 
-      "omp.c",
-      "loop.c"
-    ]
-  },
-                  
-  build library { 
-    target = "xomp", 
-    cFiles = [
-      "xomp_master.c",
-      "xomp_worker.c", 
-      "xphi_backend.c", 
-      "parallel.c", 
-      "omp.c" 
-    ],
-    addCFlags = [ 
-      "-DXOMP"
-    ],
+    cFiles = concat [ find cInDir dir | dir <- [".", "backends"] ], 
     addLibraries = libDeps [ 
       "xeon_phi_client"
+    ],
+    addIncludes = [
+      "include"
     ],
     flounderDefs = ["xomp"],
     flounderBindings = ["xomp"],

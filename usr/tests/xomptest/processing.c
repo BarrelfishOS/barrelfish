@@ -77,25 +77,21 @@ errval_t start_master(int argc,
     errval_t err;
 
     bench_init();
-    struct xomp_master_args args = {
-        .num_phi = 2,
-        .remote_only = 0x0,
-        .core_stride = 1,
-        .local = {
-            .path = "/x86_64/sbin/xomp_test_cpp",
-            .argc = argc,
-            .argv = argv
-        },
-        .remote = {
-            .path = "/k1om/sbin/xomp_test_cpp",
-            .argc = argc,
-            .argv = argv
+    struct xomp_args args = {
+        .type = XOMP_ARG_TYPE_UNIFORM,
+        .args = {
+            .uniform = {
+                .nthreads = 0,
+                .worker_loc = XOMP_WORKER_LOC_MIXED,
+                .nphi = 2,
+                .core_stride = 0,
+                .argc = argc,
+                .argv = argv
+            }
         }
     };
 
-    bomp_custom_init(&args);
-
-    backend_span_domain(NTHREADS, 0);
+    bomp_xomp_init(&args);
 
     omp_set_num_threads(NTHREADS);
 

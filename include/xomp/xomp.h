@@ -39,8 +39,23 @@ typedef uint32_t xomp_task_id_t;
 typedef enum xomp_frame_type {
     XOMP_FRAME_TYPE_SHARED_RW,
     XOMP_FRAME_TYPE_SHARED_RO,
+    XOMP_FRAME_TYPE_REPL_RW,
+    XOMP_FRAME_TYPE_REPL_RO,
     XOMP_FRAME_TYPE_MSG
 } xomp_frame_type_t;
+
+/// controls where the worker are spawned
+typedef enum xomp_worker_loc {
+    XOMP_WORKER_LOC_MIXED,  ///< spawn remote and local
+    XOMP_WORKER_LOC_REMOTE, ///< spawn remote only
+    XOMP_WORKER_LOC_LOCAL   ///< spawn local only
+} xomp_wloc_t;
+
+typedef enum xomp_arg_type {
+    XOMP_ARG_TYPE_WORKER,
+    XOMP_ARG_TYPE_UNIFORM,
+    XOMP_ARG_TYPE_DISTINCT,
+} xomp_arg_t;
 
 /// XOMP worker function
 typedef void (*xomp_worker_fn_t) (void *);
@@ -59,11 +74,42 @@ struct xomp_task
 };
 
 /**
- * \brief sets the thread local storage for the master / worker domains
  *
- * \oparam xdata    Pointer to the thread local data struct
  */
-void xomp_set_tls(void *xdata);
+struct xomp_spawn {
+    uint8_t argc;
+    char **argv;
+    char *path;
+};
+
+/**
+ *
+ */
+struct xomp_args
+{
+    xomp_arg_t type;
+    union {
+        struct {
+            xomp_wid_t id;
+        } worker;
+        struct {
+            uint32_t nthreads;
+            xomp_wloc_t worker_loc;
+            uint8_t nphi;
+            coreid_t core_stride;
+            uint8_t argc;
+            char **argv;
+        } uniform;
+        struct {
+            uint32_t nthreads;
+            xomp_wloc_t worker_loc;
+            uint8_t nphi;
+            coreid_t core_stride;
+            struct xomp_spawn local;
+            struct xomp_spawn remote;
+        } distinct;
+    } args;
+};
 
 /* include the master and worker */
 #include <xomp/xomp_master.h>

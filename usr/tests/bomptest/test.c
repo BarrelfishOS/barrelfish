@@ -42,8 +42,7 @@ int main(int argc, char *argv[])
 
     if(argc == 2) {
         nthreads = atoi(argv[1]);
-        backend_span_domain(nthreads, STACK_SIZE);
-        bomp_custom_init(NULL);
+        bomp_bomp_init(nthreads);
         omp_set_num_threads(nthreads);
     } else {
         assert(!"Specify number of threads");
@@ -52,6 +51,7 @@ int main(int argc, char *argv[])
     trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BENCH_START, 0);
 
     uint64_t start = bench_tsc();
+    debug_printf("bomp_test: parallel loop");
 #pragma omp parallel
     while(rdtsc() < start + 805000000ULL) {
         workcnt++;
@@ -61,6 +61,29 @@ int main(int argc, char *argv[])
     trace_event(TRACE_SUBSYS_ROUTE, TRACE_EVENT_ROUTE_BENCH_STOP, 0);
 
     printf("done. time taken: %" PRIu64 " cycles.\n", end - start);
+
+    uint32_t *src = calloc(1024, sizeof(uint32_t));
+    uint32_t *dst = calloc(1024, sizeof(uint32_t));
+
+    printf("Test 2...\n");
+
+    for (int i = 0; i < 1024; ++i) {
+        src[i] = i;
+    }
+
+    printf("parallel for..\n");
+    #pragma omp parallel
+    for (int i = 0; i < 1024; ++i) {
+        dst[i] = src[i];
+    }
+
+    printf("Verification...");
+    for (int i = 0; i < 1024; ++i) {
+        assert(src[i] == dst[i]);
+    }
+
+    printf("OK.\n");
+
 
 #if CONFIG_TRACE
         char *buf = malloc(4096*4096);

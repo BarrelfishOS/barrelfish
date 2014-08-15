@@ -54,9 +54,7 @@ int main(int argc, char *argv[])
 
   if(argc == 3) {
       nthreads = atoi(argv[2]);
-
-      backend_span_domain(nthreads, STACK_SIZE);
-      bomp_custom_init(NULL);
+      bomp_bomp_init(nthreads);
       omp_set_num_threads(nthreads);
   }
 

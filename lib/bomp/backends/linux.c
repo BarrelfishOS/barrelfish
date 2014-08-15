@@ -13,10 +13,13 @@
  */
 
 #include <pthread.h>
-#include <numa.h>
 #include <stdio.h>
-#include "backend.h"
-#include "omp.h"
+#include <bomp_internal.h>
+
+struct bomp_state *lomp_st;
+
+#ifndef BARRELFISH
+#include <numa.h>
 
 void backend_set_numa(unsigned id)
 {
@@ -41,7 +44,7 @@ void *backend_get_tls(void)
 {
     return pthread_getspecific(pthread_key);
 }
- 
+
 void backend_set_tls(void *data)
 {
     pthread_setspecific(pthread_key, data);
@@ -90,3 +93,11 @@ struct thread *backend_thread_create_varstack(bomp_thread_func_t start_func,
     start_func(arg);
     return NULL;
 }
+#endif
+
+struct bomp_state * bomp_get_backend_state_linux(void)
+{
+    return lomp_st;
+}
+
+

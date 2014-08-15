@@ -12,13 +12,13 @@
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
 
+#include <bomp_internal.h>
 #include <xomp/xomp.h>
+#include <xomp_debug.h>
 
 #include <if/xomp_defs.h>
 
-#include "libbomp.h"
-#include "backend.h"
-#include "xomp_debug.h"
+
 
 /// XOMP control channel to the master
 static struct xomp_binding *xbinding;
@@ -194,7 +194,7 @@ static void do_work_rx(struct xomp_binding *b,
     XWP_DEBUG("do_work_rx: threadid = %u, nthreads = %u\n", work->thread_id,
               work->num_threads);
 
-    g_thread_numbers = work->num_threads;
+    g_bomp_state->num_threads = work->num_threads;
 
     struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
     st->args.done_notify.id = id;
@@ -361,7 +361,8 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     else {
         tls = ((uint8_t *) msgbuf) + XOMP_MSG_FRAME_SIZE;
     }
-    xomp_set_tls(tls);
+
+    bomp_set_tls(tls);
 
     XWI_DEBUG("messaging frame mapped: [%016lx] @ [%016lx]\n", id.base,
               (lvaddr_t )msgbuf);
