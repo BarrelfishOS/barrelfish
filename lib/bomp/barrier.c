@@ -8,6 +8,10 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * These functions implement the BARRIER construct
+ */
+
 void GOMP_barrier(void)
 {
     assert(g_bomp_state);

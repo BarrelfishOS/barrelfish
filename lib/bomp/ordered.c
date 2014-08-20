@@ -8,6 +8,11 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * This functions implement the ORDERED construct
+ */
+
+
 void GOMP_ordered_start(void)
 {
     /* nop */

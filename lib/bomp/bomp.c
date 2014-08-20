@@ -48,7 +48,7 @@ int bomp_switch_backend(bomp_backend_t backend)
     return SYS_ERR_OK;
 }
 
-
+#include <icv.h>
 void bomp_common_init(struct bomp_state *st)
 {
     bomp_mutex_init(&st->critical_lock);
@@ -57,6 +57,8 @@ void bomp_common_init(struct bomp_state *st)
     st->behaviour_nested = 0;
     st->behaviour_dynamic = 0;
     st->bomp_threads = 1;
+    bomp_icv_init_from_env(&st->icv_task);
+    bomp_icv_dev_init_from_env(&st->icv_dev);
 }
 
 void bomp_set_tls(void *xdata)

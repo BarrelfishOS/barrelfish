@@ -8,6 +8,29 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * this implements the FOR constructs
+ *
+ * #pragma omp parallel for
+ * for (i = lb; i <= ub; i++)
+ *  body;
+ *
+ * becomes
+ *
+ * void subfunction (void *data) {
+ *   long _s0, _e0;
+ *   while (GOMP_loop_static_next (&_s0, &_e0)) {
+ *      long _e1 = _e0, i;
+ *      for (i = _s0; i < _e1; i++)
+ *          body;
+ *   }
+ *   GOMP_loop_end_nowait ();
+ * }
+ * GOMP_parallel_loop_static (subfunction, NULL, 0, lb, ub+1, 1, 0);
+ * subfunction (NULL);
+ * GOMP_parallel_end ();
+ */
+
 bool GOMP_loop_ordered_runtime_start(long start,
                                      long end,
                                      long incr,

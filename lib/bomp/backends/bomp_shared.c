@@ -57,10 +57,8 @@ static int bomp_thread_fn(void *xdata)
 
     bomp_set_tls(work_data);
     work_data->fn(work_data->data);
-
     /* Wait for the Barrier */
     bomp_barrier_wait(work_data->barrier);
-
     thread_detach(thread_self());
     return 0;
 }
@@ -142,6 +140,7 @@ static int remote_init(void *dumm)
     assert(err_is_ok(err));
 
     thread_sem_post(&init_sem);
+    thread_detach(thread_self());
     return 0;
 }
 
@@ -206,11 +205,22 @@ static void bomp_synchronize(void)
 
 int bomp_bomp_init(uint32_t nthreads)
 {
+
+    if (bomp_st != NULL) {
+        debug_printf("bomp_bomp_init: already initialized\n");
+        return 0;
+    }
+
+    debug_printf("bomp_bomp_init: nthreads=%u\n", nthreads);
+
     bomp_st = calloc(1, sizeof(struct bomp_state));
     if (bomp_st == NULL) {
         return -1;
     }
 
+    g_thread_limit = nthreads;
+
+    bomp_st->backend_type = BOMP_BACKEND_BOMP;
     bomp_st->backend.get_thread = (backend_get_thread_fn_t) thread_self;
     bomp_st->backend.get_tls = thread_get_tls;
     bomp_st->backend.set_tls = thread_set_tls;
@@ -219,12 +229,13 @@ int bomp_bomp_init(uint32_t nthreads)
     bomp_st->backend.synchronize = bomp_synchronize;
     bomp_st->backend.start_processing = bomp_start_processing;
     bomp_st->backend.end_processing = bomp_end_processing;
-
     bomp_common_init(bomp_st);
-
-    bomp_span_domain(nthreads, THREADS_DEFAULT_STACK_BYTES);
-
     g_bomp_state = bomp_st;
+    debug_printf("bomp_span_domain...");
+    bomp_span_domain(nthreads, THREADS_DEFAULT_STACK_BYTES);
+    debug_printf("bomp_span_domain...done");
+
+
 
     return 0;
 }

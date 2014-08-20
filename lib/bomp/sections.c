@@ -8,6 +8,36 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * This functions implement the SECTIONS construct
+ *
+ * #pragma omp sections
+ * {
+ *  #pragma omp section
+ *  stmt1;
+ *  #pragma omp section
+ *  stmt2;
+ *  #pragma omp section
+ *  stmt3;
+ *  }
+ * becomes
+ *
+ * for (i = GOMP_sections_start (3); i != 0; i = GOMP_sections_next ())
+ *  switch (i) {
+ *    case 1:
+ *      stmt1;
+ *      break;
+ *    case 2:
+ *      stmt2;
+ *      break;
+ *    case 3:
+ *      stmt3;
+ *      break;
+ *    }
+ *
+ *    GOMP_barrier ();
+ */
+
 unsigned GOMP_sections_start(unsigned count)
 {
     assert(!"NYI");

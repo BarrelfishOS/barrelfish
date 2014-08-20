@@ -8,16 +8,45 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * These functions implement the PARALLEL construct
+ *
+ * #pragma omp parallel
+ * {
+ *  body;
+ * }
+ *
+ * is translated into
+ * void subfunction (void *data)
+ * {
+ *  use data;
+ *  body;
+ *  }
+ *  setup data;
+ *  GOMP_parallel_start (subfunction, &data, num_threads);
+ *  subfunction (&data);
+ *  GOMP_parallel_end ();
+ */
+
 void GOMP_parallel_start(void (*fn)(void *),
                          void *data,
                          unsigned nthreads)
 {
     assert(g_bomp_state != NULL);
 
+    /*
+     * TODO:
+     * 1) work out how many threads can be usedfor executing the parallel task
+     * 2) create a new team for solving the task
+     * 3) start the team work
+     */
+
     /* Identify the number of threads that can be spawned and start the processing */
     if (!omp_in_parallel()) {
+        g_bomp_state->bomp_threads = omp_get_max_threads();
         if (nthreads == 0 || (g_bomp_state->behaviour_dynamic
                                 && g_bomp_state->num_threads < nthreads)) {
+
             nthreads = g_bomp_state->bomp_threads;
         }
         g_bomp_state->backend.start_processing(fn, data, nthreads);
@@ -27,6 +56,10 @@ void GOMP_parallel_start(void (*fn)(void *),
 
 void GOMP_parallel_end(void)
 {
+    /*
+     * TODO:
+     * 1)
+     */
     assert(g_bomp_state != NULL);
     if (g_bomp_state->nested == 1) {
         g_bomp_state->backend.end_processing();
@@ -39,9 +72,20 @@ void GOMP_parallel(void (*fn)(void *),
                    unsigned num_threads,
                    unsigned int flags)
 {
+    /*
+     * TODO:
+     * 1)  work out how many threads
+     * 2)  allocate and start a new team
+     * 3) call the function
+     * 4) call parallel end
+     */
     assert(!"NYI");
+
+    fn(data);
+    GOMP_parallel_end();
 }
 
+#if OMP_VERSION >= OMP_VERSION_40
 bool GOMP_cancel(int which,
                  bool do_cancel)
 {
@@ -54,3 +98,4 @@ bool GOMP_cancellation_point(int which)
     assert(!"NYI");
     return 0;
 }
+#endif

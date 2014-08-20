@@ -8,6 +8,17 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * These functions implement the OpenMP CRITICAL construct
+ *
+ * With a specified name, use omp set lock and omp unset lock with name being
+ * transformed into a variable declared like
+ *
+ * omp_lock_t gomp_critical_user_<name> __attribute__((common))
+ * Ideally the ABI would specify that all zero is a valid unlocked state, and
+ * so we wouldn’t need to initialize this at startup.
+ */
+
 void GOMP_critical_start(void)
 {
     assert(g_bomp_state);

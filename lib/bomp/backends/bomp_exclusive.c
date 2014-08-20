@@ -1,6 +1,9 @@
 /**
  * \file
- * \brief Implementation of backend functions on barrelfish
+ * \brief Implementation of the backend functions for domain exclusive address
+ *        spaces
+ *
+ * This backend of libbomp deals with worker domains instead of threads.
  */
 
 /*
@@ -34,7 +37,7 @@ static struct bomp_state *xomp_st;
  *
  * \param barrier   The barrier to enter
  */
-static inline void xbomp_barrier_enter(struct bomp_barrier *barrier)
+static inline void xomp_barrier_enter(struct bomp_barrier *barrier)
 {
     errval_t err;
     int cycle = barrier->cycle;
@@ -137,7 +140,7 @@ static void xomp_end_processing(void)
     /* Cleaning of thread_local and work data structures */
     int i = 0;
 
-    xbomp_barrier_enter(g_bomp_state->tld[i]->work->barrier);
+    xomp_barrier_enter(g_bomp_state->tld[i]->work->barrier);
 
     /* Clear the barrier created */
     bomp_clear_barrier(g_bomp_state->tld[i]->work->barrier);
@@ -153,7 +156,7 @@ int bomp_xomp_init(void *arg)
 {
     errval_t err;
 
-    printf("bomp: initializing xomp backned\n");
+    debug_printf("libbomp: initializing xomp backned\n");
 
     struct xomp_args *args = arg;
 
@@ -161,7 +164,7 @@ int bomp_xomp_init(void *arg)
     if (xomp_st == NULL) {
         return -1;
     }
-
+    xomp_st->backend_type = BOMP_BACKEND_XOMP;
     xomp_st->backend.get_thread = (backend_get_thread_fn_t)thread_self;
     xomp_st->backend.get_tls = thread_get_tls;
     xomp_st->backend.set_tls = thread_set_tls;
@@ -170,6 +173,9 @@ int bomp_xomp_init(void *arg)
     xomp_st->backend.synchronize = xomp_synchronize;
     xomp_st->backend.start_processing = xomp_start_processing;
     xomp_st->backend.end_processing = xomp_end_processing;
+
+    bomp_common_init(xomp_st);
+    g_bomp_state = xomp_st;
 
     switch (args->type) {
         case XOMP_ARG_TYPE_WORKER:
@@ -190,25 +196,23 @@ int bomp_xomp_init(void *arg)
     }
 
     if (args->type == XOMP_ARG_TYPE_WORKER) {
+        debug_printf("libbomp: worker waiting for tasks\n");
         while(1) {
             messages_wait_and_handle_next();
         }
+        return -1;
     }
 
-    bomp_common_init(xomp_st);
-
-    uint32_t nworkers = 0;
     if (args->type == XOMP_ARG_TYPE_UNIFORM) {
-        nworkers = args->args.uniform.nthreads;
+        g_thread_limit = args->args.uniform.nthreads;
     } else {
-        nworkers = args->args.distinct.nthreads;
+        g_thread_limit = args->args.distinct.nthreads;
     }
-    err = xomp_master_spawn_workers(nworkers);
+
+    err = xomp_master_spawn_workers(g_thread_limit);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Master spawning workers\n");
     }
-
-    g_bomp_state = xomp_st;
 
     return 0;
 }

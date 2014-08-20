@@ -8,6 +8,40 @@
  */
 #include <bomp_internal.h>
 
+/*
+ * this functions implement the SINGLE construct
+ *
+ *  #pragma omp single
+ *  {
+ *    body;
+ *  }
+ *
+ * becomes
+ *
+ *  if (GOMP_single_start ())
+ *      body;
+ *  GOMP_barrier ();
+ *
+ *  and
+ *
+ *  #pragma omp single copyprivate(x)
+ *  {
+ *    body;
+ *  }
+ *
+ *  becomse
+ *
+ *  datap = GOMP_single_copy_start ();
+ *  if (datap == NULL) {
+ *      body;
+ *      data.x = x;
+ *      GOMP_single_copy_end (&data);
+ *  } else {
+ *      x = datap->x;
+ *  }
+ *  GOMP_barrier ();
+ */
+
 /* This function should return true for just the first thread */
 bool GOMP_single_start(void)
 {

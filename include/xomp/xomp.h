@@ -46,6 +46,7 @@ typedef enum xomp_frame_type {
 
 /// controls where the worker are spawned
 typedef enum xomp_worker_loc {
+    XOMP_WORKER_LOC_INVALID = 0,
     XOMP_WORKER_LOC_MIXED,  ///< spawn remote and local
     XOMP_WORKER_LOC_REMOTE, ///< spawn remote only
     XOMP_WORKER_LOC_LOCAL   ///< spawn local only

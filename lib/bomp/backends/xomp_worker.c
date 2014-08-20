@@ -189,7 +189,6 @@ static void do_work_rx(struct xomp_binding *b,
     msg_st->err = SYS_ERR_OK;
 
     struct bomp_work *work = tls;
-    work->data = work + 1;
 
     XWP_DEBUG("do_work_rx: threadid = %u, nthreads = %u\n", work->thread_id,
               work->num_threads);
@@ -208,8 +207,8 @@ static void do_work_rx(struct xomp_binding *b,
 
     xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
-    fnct(work->data);
 
+    fnct(work->data);
 
     txq_send(msg_st);
 }
@@ -236,8 +235,6 @@ static void master_bind_cb(void *st,
                            errval_t err,
                            struct xomp_binding *xb)
 {
-    is_bound = 0x1;
-
     XWI_DEBUG("bound to master: %s\n", err_getstring(err));
 
     txq_init(&txq, xb, xb->waitset, (txq_register_fn_t) xb->register_send,
@@ -245,6 +242,8 @@ static void master_bind_cb(void *st,
 
     xb->rx_vtbl = rx_vtbl;
     xbinding = xb;
+
+    is_bound = 0x1;
 }
 
 /*
@@ -362,10 +361,14 @@ errval_t xomp_worker_init(xomp_wid_t wid)
         tls = ((uint8_t *) msgbuf) + XOMP_MSG_FRAME_SIZE;
     }
 
-    bomp_set_tls(tls);
-
     XWI_DEBUG("messaging frame mapped: [%016lx] @ [%016lx]\n", id.base,
               (lvaddr_t )msgbuf);
+
+    struct bomp_thread_local_data *tlsinfo = malloc(sizeof(*tlsinfo));
+    tlsinfo->thr = thread_self();
+    tlsinfo->work = (struct bomp_work *)tls;
+    tlsinfo->work->data = tlsinfo->work+1;
+    g_bomp_state->backend.set_tls(tlsinfo);
 
 #ifdef __k1om__
     err = xeon_phi_client_init(disp_xeon_phi_id());
