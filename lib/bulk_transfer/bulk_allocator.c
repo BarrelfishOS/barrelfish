@@ -172,6 +172,7 @@ errval_t bulk_alloc_free(struct bulk_allocator *alloc)
     if (err_is_fail(err)) {
         debug_printf("BUFFER UNMAP FAILED!\n");
     }
+
     debug_printf("ABOUT TO MAP AGAIN\n");
     err = bulk_buffer_map(buf);
     if (err_is_fail(err)) {
@@ -202,8 +203,16 @@ errval_t bulk_alloc_free(struct bulk_allocator *alloc)
     if (err_is_fail(err)) {
         debug_printf("change state failed");
     }
-    debug_printf("ABOUT TO READ\n");
 
+
+
+    debug_printf("ABOUT TO READ\n");
+    debug_printf("ABOUT TO MAP STATE:\n");
+    e = buf->address;
+        err = bulk_buffer_map(buf);
+        if (err_is_fail(err)) {
+            debug_printf("change state failed");
+        }
     for (int i = 0; i < 4096; ++i) {
         tmp = e[i];
     }

@@ -66,11 +66,11 @@
                "xmplrpc",
                "xmplthc",
                "unixsock",
-	           "bcache",
-	           "replay",
-	           "block_service", 
-	           "bulk_ctrl",
-	           "empty"
+               "bcache",
+	            "replay",
+	            "block_service", 
+	            "bulk_ctrl",
+	            "empty"
 	       ],
              arch <- allArchitectures
 ] ++

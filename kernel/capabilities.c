@@ -896,7 +896,6 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         return err;
     }
 
-
     /* Copy is done */
     if(!mint) {
         // Handle mapping here only for non-mint operations

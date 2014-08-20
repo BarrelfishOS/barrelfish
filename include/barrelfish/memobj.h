@@ -137,6 +137,7 @@ errval_t memobj_create_one_frame_lazy(struct memobj_one_frame_lazy *memobj,
 errval_t memobj_create_one_frame_one_map(struct memobj_one_frame_one_map *memobj,
                                          size_t size, memobj_flags_t flags);
 
+
 errval_t memobj_create_fixed(struct memobj_fixed *memobj, size_t size,
                              memobj_flags_t flags, size_t count,
                              size_t chunk_size);

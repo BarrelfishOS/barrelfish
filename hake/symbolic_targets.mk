@@ -174,6 +174,7 @@ MODULES_x86_64= \
 	sbin/block_server \
 	sbin/block_server_client \
 
+
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
 	sbin/barriers \
