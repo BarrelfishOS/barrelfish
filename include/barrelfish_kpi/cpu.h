@@ -32,7 +32,7 @@ enum cpu_type {
 
 static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 5, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
     switch(cpu_type) {
     case CPU_K1OM:      return "k1om";
     case CPU_X86_64:    return "x86_64";

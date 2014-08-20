@@ -19,14 +19,13 @@ import System.Directory
 import System.Exit
 import GHC hiding (Target)
 import GHC.Paths ( libdir )
-import DynFlags  (defaultFatalMessager, defaultFlushOut,
+import DynFlags ( defaultLogAction,
                   xopt_set,
                   ExtensionFlag (Opt_DeriveDataTypeable) )
 import Data.Dynamic
 import Data.Maybe
 import Data.List
 import Control.Monad
-import Control.Parallel.Strategies
 
 import RuleDefs
 import HakeTypes
@@ -212,7 +211,7 @@ resolveRelativePathName' d a f root =
 --
 makeDirectories :: [(String, HRule)] -> String
 makeDirectories r = 
-    let alldirs = makeDirs1 (Rules [ rl | (f,rl) <- r ]) `using` parListChunk 200 rdeepseq
+    let alldirs = makeDirs1 (Rules [ rl | (f,rl) <- r ])
         marker d = d ./. ".marker"
     in unlines ([ "# Directories follow" ] ++
                 [ "hake_dirs: " ++ (marker d) ++ "\n\n" ++
@@ -220,7 +219,7 @@ makeDirectories r =
                   "\tmkdir -p " ++ d ++ "\n" ++
                   "\ttouch " ++ (marker d) ++ "\n"
                 | d <- nub alldirs])
-
+       
 makeDirs1 :: HRule -> [String]
 makeDirs1 (Rules hrules) = concat [ makeDirs1 r | r <- hrules]
 makeDirs1 (Include tok) = 
@@ -266,7 +265,7 @@ allowedArchs = all (\a -> a `elem` (Config.architectures ++ specialArchitectures
 --
 makeMakefile :: [(String, HRule)] -> String
 makeMakefile r = 
-  unlines $ intersperse "" ([makeMakefileSection f rl | (f,rl) <- r] `using` parList rdeepseq)
+  unlines $ intersperse "" [makeMakefileSection f rl | (f,rl) <- r]
 
 makeMakefileSection :: String -> HRule -> String
 makeMakefileSection fname rules = 
@@ -364,7 +363,7 @@ evalHakeFiles o allfiles hakefiles =
                     ".", 
                     (opt_bfsourcedir o) ./. "hake" ]
     in do 
-      defaultErrorHandler defaultFatalMessager defaultFlushOut $ do
+      defaultErrorHandler defaultLogAction $ do
          runGhc (Just libdir) $ do
            dflags <- getSessionDynFlags
 	   let dflags1 = foldl xopt_set dflags [ Opt_DeriveDataTypeable ]

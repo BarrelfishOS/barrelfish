@@ -26,7 +26,6 @@ import qualified BitFieldDriver
 import qualified ShiftDriver
 import Checks
 import Dev
-import Control.Exception
 
 --
 -- Command line options and parsing code
