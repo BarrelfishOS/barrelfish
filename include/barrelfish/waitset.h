@@ -23,6 +23,7 @@ __BEGIN_DECLS
 #include <errors/errno.h>
 
 #include <stdbool.h>
+#include <barrelfish/types.h>
 
 struct waitset;
 struct thread;

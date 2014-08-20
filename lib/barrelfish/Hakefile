@@ -21,7 +21,7 @@
                       "terminal.c", "spawn_client.c", "vspace/vspace.c", 
                       "vspace/vregion.c", "vspace/memobj_one_frame.c",
                       "vspace/memobj_one_frame_lazy.c",
-                      "vspace/utils.c",
+                      "vspace/utils.c", "vspace/memobj_fixed.c",
                       "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
                       "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
                       "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",

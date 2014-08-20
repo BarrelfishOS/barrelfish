@@ -963,3 +963,32 @@ errors cache FS_CACHE_ {
 errors common ERR_ {
     failure NOTIMP              "Not implemented",
 };
+
+errors bulk_transfer BULK_TRANSFER_ {
+    failure MEM                 "Internal not enough memory error",
+    failure CHAN_CREATE         "Channel create operation failed.",
+    failure CHAN_BIND           "Channel bind operation failed.",
+    failure CHAN_ASSIGN_POOL    "Channel assign pool operation failed.",
+    failure CHAN_STATE          "Channel has a wrong state",
+    failure CHAN_TRUST          "Channel has a invalid trust level.",
+    failure CHAN_INVALID_EP     "Channel has an invalid endpoint.",
+    failure POOL_INVALD         "The pool does not match.",
+    failure POOL_NOT_ASSIGNED   "The pool has not yet been assigned to a channel.",
+    failure POOL_MAP            "Mapping of the pool failed",
+    failure POOL_UNMAP          "The Unmapping of the pool failed",
+    failure POOL_ALREADY_ASSIGNED "The pool has already been assigned to this channel.",
+    failure POOL_ALREADY_REMAPPED "The pool has already been remapped.",
+    failure BUFFER_NOT_OWNED    "The supplied buffer is not owned by this domain.",
+    failure BUFFER_INVALID      "The buffer is not valid.",
+    failure BUFFER_ALREADY_MAPPED "The buffer is already mapped.",
+    failure BUFFER_STATE        "The buffer has a wrong state.",
+    failure BUFFER_REFCOUNT     "The buffer has a wrong reference count.",
+    failure BUFFER_NOT_A_COPY   "The released buffer is not a copy.",
+    failure BUFFER_MAP          "The mapping of the buffer failed",
+    failure BUFFER_UNMAP        "The unmapping of the buffer failed.",
+    failure ALLOC_BUFFER_SIZE   "The supplied buffer size is not valid.",
+    failure ALLOC_BUFFER_COUNT  "The supplied buffer count is not valid.",
+    
+    
+};
+

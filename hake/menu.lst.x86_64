@@ -46,6 +46,10 @@ module /x86_64/sbin/e1000n auto
 module /x86_64/sbin/NGD_mng auto
 module /x86_64/sbin/netd auto
 
+## Block Service
+module /x86_64/sbin/block_server
+module /x86_64/sbin/block_server_client
+
 # General user domains
 module	/x86_64/sbin/serial
 module  /x86_64/sbin/fish nospawn

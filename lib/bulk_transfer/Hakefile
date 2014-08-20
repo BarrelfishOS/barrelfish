@@ -1,0 +1,31 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/bulk_transfer
+-- 
+--
+--------------------------------------------------------------------------
+
+[
+    build library { 
+        target = "bulk_transfer",
+        cFiles = [ "bulk_allocator.c",
+                   "bulk_transfer.c", 
+                   "bulk_buffer.c", 
+                   "bulk_channel.c",
+                   "bulk_endpoint.c", 
+                   "control_channel.c", 
+                   "bulk_pool.c", 
+                   "backends/net/bulk_net_endpoint.c",
+                   "backends/net/bulk_net_channel.c",
+                   "backends/local/control_channel.c"
+                 ],
+        flounderDefs = [ "bulk_ctrl" ],
+        flounderBindings = [ "bulk_ctrl" ]
+    }
+]

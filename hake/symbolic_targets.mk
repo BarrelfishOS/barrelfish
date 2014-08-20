@@ -171,6 +171,8 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
+	sbin/block_server \
+	sbin/block_server_client \
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \

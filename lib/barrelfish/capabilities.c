@@ -237,7 +237,7 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 /**
  * \brief Retype a capability into one or more new capabilities
  *
- * \param dest_start    Location of first desination slot, which must be empty
+ * \param dest_start    Location of first destination slot, which must be empty
  * \param src           Source capability to retype
  * \param new_type      Kernel object type to retype to.
  * \param size_bits     Size of created objects as a power of two
