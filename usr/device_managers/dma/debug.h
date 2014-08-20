@@ -14,7 +14,7 @@
 /*
  * Debug output switches
  */
-#define DEBUG_ENABLED     1
+#define DEBUG_ENABLED     0
 #define DEBUG_SVC_ENABLED 1
 #define DEBUG_DS_ENABLED 1
 

@@ -434,7 +434,6 @@ errval_t ioat_dma_device_poll_channels(struct dma_device *dev)
         err = ioat_dma_channel_poll(dev->channels.c[i]);
         switch (err_no(err)) {
             case DMA_ERR_CHAN_IDLE:
-                idle = idle && 0x1;
                 break;
             case SYS_ERR_OK:
                 idle = 0;

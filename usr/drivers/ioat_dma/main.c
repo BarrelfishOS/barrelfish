@@ -174,13 +174,11 @@ int main(int argc,
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_LIBRARY
 
 #endif
-    uint8_t idle = 0x1;
-    uint32_t idle_counter = 0xFF;
     while (1) {
+        uint8_t idle = 0x1;
         err = ioat_device_poll();
         switch (err_no(err)) {
             case DMA_ERR_DEVICE_IDLE:
-                idle = idle && 0x1;
                 break;
             case SYS_ERR_OK:
                 idle = 0;
@@ -196,7 +194,6 @@ int main(int argc,
                 idle = 0;
                 break;
             case LIB_ERR_NO_EVENT:
-                idle &= 1;
                 break;
             default:
                 debug_printf("I/O AT DMA driver terminated in dispatch,  %s\n",
@@ -204,13 +201,11 @@ int main(int argc,
                 return err;
         }
         if (idle) {
-            idle_counter--;
-        }
-        if (idle_counter == 0) {
-            idle_counter = 0xFF;
             thread_yield();
         }
     }
+
+    debug_printf("I/O AT DMA driver terminated");
 
     return 0;
 }

@@ -16,9 +16,6 @@ struct xeon_phi_dma_device;
 struct xeon_phi_dma_channel;
 struct xeon_phi_dma_request;
 
-/// the service name for the exported devices
-#define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
-
 /// size of the Xeon PHI DMA descriptor ring in bits
 #define XEON_PHI_DMA_RING_SIZE 12
 

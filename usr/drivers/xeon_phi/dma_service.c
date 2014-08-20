@@ -11,6 +11,7 @@
 #include <dma/xeon_phi/xeon_phi_dma.h>
 #include <dma/xeon_phi/xeon_phi_dma_device.h>
 #include <dma/xeon_phi/xeon_phi_dma_request.h>
+#include <dma/dma.h>
 #include <dma/dma_service.h>
 #include <dma/dma_mem_mgr.h>
 #include <dma/dma_manager_client.h>

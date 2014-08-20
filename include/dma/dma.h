@@ -15,6 +15,14 @@ struct dma_device;
 struct dma_channel;
 struct dma_request;
 
+/* service name for the driver services */
+
+/// the service name for the exported devices
+#define IOAT_DMA_SERVICE_NAME "ioat_dma_svc"
+
+/// the service name for the exported devices
+#define XEON_PHI_DMA_SERVICE_NAME "xeon_phi_dma_svc"
+
 /* type declarations for the IDs */
 
 /// IOAT DMA device id

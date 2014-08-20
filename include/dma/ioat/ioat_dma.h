@@ -29,9 +29,6 @@ struct ioat_dma_request;
 #define IOAT_DMA_OPERATION_LIBRARY 1
 #define IOAT_DMA_OPERATION IOAT_DMA_OPERATION_SERVICE
 
-/// the service name for the exported devices
-#define IOAT_DMA_SERVICE_NAME "ioat_dma_svc"
-
 /// Number of elements the IOAT descriptor ring has (in bits)
 #define IOAT_DMA_DESC_RING_SIZE 10
 

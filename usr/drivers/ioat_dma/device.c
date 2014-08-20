@@ -27,10 +27,10 @@ static uint8_t device_next = 0;
 static void handle_device_interrupt(void *arg)
 {
 
-    struct ioat_dma_device *dev = *((struct ioat_dma_device **) arg);
-    struct dma_device *dma_dev = (struct dma_device *) dev;
+//    struct ioat_dma_device *dev = *((struct ioat_dma_device **) arg);
+//    struct dma_device *dma_dev = (struct dma_device *) dev;
 
-    INTR_DEBUG("interrupt! device %u", dma_device_get_id(dma_dev));
+    INTR_DEBUG("interrupt! device %u", dma_device_get_id(arg));
 
 }
 
@@ -223,10 +223,9 @@ errval_t ioat_device_poll(void)
         err = ioat_dma_device_poll_channels((struct dma_device *)devices[i]);
         switch (err_no(err)) {
             case SYS_ERR_OK:
-                idle &= 0;
+                idle = 0;
                 break;
             case DMA_ERR_DEVICE_IDLE:
-                idle &= 1;
                 break;
             default:
                 return err;
