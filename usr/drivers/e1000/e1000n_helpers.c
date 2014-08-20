@@ -96,6 +96,8 @@ e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
             return e1000_82575;
         case E1000_DEVICE_82576EG:
             return e1000_82576;
+        case E1000_DEVICE_I210:
+            return e1000_I210;
         default:
             E1000_DEBUG("Unsupported device: vendor: 0x%x,  device id: 0x%x\n", PCI_VENDOR_INTEL, device_id);
             return e1000_undefined;

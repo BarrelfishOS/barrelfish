@@ -2,10 +2,10 @@
 
 %if false
   Trace Definitions: DSL for trace definitions (subsystems and events)
-   
+
   Copyright (c) 2013 ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
@@ -13,7 +13,7 @@
 
 > module Main where
 
-> import Text.PrettyPrint.HughesPJ as Pprinter 
+> import Text.PrettyPrint.HughesPJ as Pprinter
 
 > import System.Environment
 > import System.Exit
@@ -34,15 +34,15 @@
 
 > printEventJSON :: (String, (EventField, Integer)) -> String
 > printEventJSON (subsystemName, (EventField name desc, number)) =
->	"\t\t" ++ show number ++ " : \"" ++ displayName ++ "\""
+>	"\t\t" ++ show number ++ " : [\"" ++ name ++ "\", \"" ++ theDesc ++ "\" ]"
 >	where
->		displayName = -- Use desc if it is not the empty string, else use the name used in the #define
+>		theDesc =
 >			if length desc == 0
 >				then name
 >				else desc
 
 > printSubsysJSON :: (SubsystemClass, Integer) -> String
-> printSubsysJSON (SubsystemClass name events, number) = 
+> printSubsysJSON (SubsystemClass name events, number) =
 >	show number ++ " : {\n\t" ++ subsysString ++ ",\n\t\"events\" : {\n" ++ eventStrings ++ "\n\t}\n}"
 >	where
 > 		subsysString = "\"name\" : \"" ++ name ++ "\""
@@ -65,14 +65,14 @@ in Aquarium, we need to add the corresponding information here with the function
 >	"#define TRACE_EVENT_" ++ map toUpper subsystemName ++ "_" ++ map toUpper name ++ "\t" ++ show number ++ "\n"
 
 > printSubsys :: (SubsystemClass, Integer) -> String
-> printSubsys (SubsystemClass name events, number) = 
+> printSubsys (SubsystemClass name events, number) =
 >	subsysString ++ eventStrings ++ "\n"
 >	where
 > 		subsysString = "#define TRACE_SUBSYS_" ++ map toUpper name ++ "\t" ++ show number ++  "\n"
 >		eventStrings = concat (map printEvent (zip (repeat name) (zip events [0..])))
 
 > printTraceFileC :: [SubsystemClass] -> String
-> printTraceFileC subsystems = 
+> printTraceFileC subsystems =
 >	(concat (map printSubsys (zip subsystems [0..]))) ++ "\n\n#define TRACE_NUM_SUBSYSTEMS\t" ++ (show (length subsystems)) ++ "\n"
 
 
@@ -85,7 +85,7 @@ in Aquarium, we need to add the corresponding information here with the function
 >                         case input of
 >                           Left err -> do
 >                                       hPutStrLn stderr "parse error at: "
->                                       hPutStrLn stderr (show err) 
+>                                       hPutStrLn stderr (show err)
 >                                       exitWith (ExitFailure 1)
 >                           Right ast -> do
 >                                        let macro = map toUpper (takeBaseName hdrF) ++ "_BARRELFISH__"

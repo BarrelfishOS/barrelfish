@@ -101,3 +101,23 @@ errval_t sys_debug_hardware_timer_hertz_read(uintptr_t* v)
     *v = sr.value;
     return sr.error;
 }
+
+errval_t sys_debug_hardware_global_timer_read(uint64_t *ret)
+{
+    struct sysret sr;
+
+    uint32_t l, h;
+
+    do {
+        h = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_GLOBAL_TIMER_HIGH).value;
+        l = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_GLOBAL_TIMER_LOW).value;
+        // read high again, in case it changed
+        sr = syscall2(SYSCALL_DEBUG, DEBUG_HARDWARE_GLOBAL_TIMER_HIGH);
+    } while(h != sr.value && err_is_ok(sr.error));
+
+    if(err_is_ok(sr.error) && ret) {
+        *ret = (((uint64_t) h) << 32) | ((uint32_t) l);
+    }
+
+    return sr.error;
+}

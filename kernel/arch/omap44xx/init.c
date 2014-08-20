@@ -794,6 +794,7 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
         }
     }
 
+    gt_init();
     tsc_init();
     printf("tsc_init done --\n");
 #ifndef __gem5__

@@ -37,6 +37,7 @@ void do_resume(uint32_t *regs)
     cp15_invalidate_i_and_d_caches();
 
     __asm volatile(
+        "clrex\n\t"
         // lr = r14, used as tmp register.
         // Load cpsr into lr and move regs to next entry (postindex op)
         // LDR = read word from memory

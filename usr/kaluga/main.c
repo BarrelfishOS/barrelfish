@@ -163,6 +163,11 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}");
         assert(err_is_ok(err));
     }
+    mi = find_module("sdma");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
+        assert(err_is_ok(err));
+    }
     mi = find_module("usb_manager");
     if (mi != NULL) {
 #define USB_ARM_EHCI_IRQ 109

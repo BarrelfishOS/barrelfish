@@ -59,7 +59,7 @@ syscall_entry:
 	/* Load pointer to endpoint cap */
 	shl	$OBJBITS_CTE, %rsi
 	mov	OFFSETOF_CAP_CNODE_CNODE(%rdi), %rcx
-	mov       $0xfffffe0000000000, %rdi              // phys_to_mem()
+	mov	$0xfffffe0000000000, %rdi	// phys_to_mem()
 	add	%rdi, %rcx
 	add	%rsi, %rcx
 

@@ -73,8 +73,10 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
         e1000_eecd_ee_req_wrf(dev->device, 1);
     }
 
-    while (!e1000_eecd_ee_gnt_rdf(dev->device)) {
-        usec_delay(1000);
+    if (dev->mac_type != e1000_I210) {
+        while (!e1000_eecd_ee_gnt_rdf(dev->device)) {
+            usec_delay(1000);
+        }
     }
 
     /* EEPROM present */
@@ -90,6 +92,7 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
         case e1000_82573:
         case e1000_82574:
         case e1000_82575:
+		case e1000_I210:
             /* These devices have SPI or Microwire EEPROMs */
             eerd_ms = e1000_eerd_ms_start_insert(eerd_ms, 1);
             eerd_ms = e1000_eerd_ms_addr_insert(eerd_ms, offset);
@@ -557,6 +560,7 @@ static void e1000_set_tipg(e1000_device_t *dev)
         break;
     case e1000_82575:
     case e1000_82576:
+    case e1000_I210:
         tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82575_TIPG_IPGR1);
         tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82575_TIPG_IPGR2);
         break;
@@ -629,6 +633,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 
     err = e1000_reset(dev);
     if (err) {
+        E1000_DEBUG("Error during e1000_reset! Exiting.");
         exit(1);
     }
 
@@ -719,7 +724,9 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 
     /* --------------------- receive setup --------------------- */
     /* receive descriptor control */
-    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+    if (dev->mac_type == e1000_82575 
+        || dev->mac_type == e1000_82576
+        || dev->mac_type == e1000_I210) {
         e1000_rxdctl_82575_t rxdctl = 0;
 
         rxdctl = e1000_rxdctl_82575_enable_insert(rxdctl, 1);
@@ -763,7 +770,9 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
     e1000_configure_rx(dev);
 
     /* --------------------- transmit setup --------------------- */
-    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+    if (dev->mac_type == e1000_82575 
+        || dev->mac_type == e1000_82576
+        || dev->mac_type == e1000_I210) {
         e1000_txdctl_82575_t txdctl = 0;
         txdctl = e1000_txdctl_82575_enable_insert(txdctl, 1);
         txdctl = e1000_txdctl_82575_priority_insert(txdctl, 1);
@@ -819,7 +828,9 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
      * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
      * The value 0 will disable interrupt throttling
      */
-    if (dev->mac_type == e1000_82575 || dev->mac_type == e1000_82576) {
+    if (dev->mac_type == e1000_82575 
+        || dev->mac_type == e1000_82576
+        || dev->mac_type == e1000_I210) {
         e1000_eitr_interval_wrf(dev->device, 0, 5580);
         //e1000_eitr_interval_wrf(dev->device, 0, 10);
     }

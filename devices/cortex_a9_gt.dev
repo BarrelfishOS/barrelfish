@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2013, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * cortex_a9_gt.dev
+ *
+ * DESCRIPTION: Cortex A9 Global Timer
+ *
+ * This is derived from:
+ *
+ * Cortex-A9 MPCore Technical Reference Manual
+ * (DDI0407G_cortex_a9_mpcore_r4p1_trm.pdf)
+ *
+ * This implements private timers and watchdogs
+ */
+ 
+ device cortex_a9_gt msbfirst ( addr base ) "Cortex A9 Global Timer" {
+ 	
+ 	register TimerCounterLow addr(base, 0x0) "Global Timer Counter Register (Lower Word)" type(uint32);
+  	register TimerCounterHigh addr(base, 0x4) "Global Timer Counter Register (Upper Word)" type(uint32);
+ 	
+ 	register TimerControl addr(base, 0x8) "Global Timer Control Register" {
+ 		_				16	rsvd;
+ 		prescale		8	rw		"Prescale factor";
+ 		_				4	rsvd;
+  		auto_increment	1	rw		"Single shot or increment mode";
+ 		int_enable		1	rw		"Interrupt enable bit";
+ 		comp_enable		1	rw		"Enable comparision between counter and comparator register";
+ 		timer_enable	1	rw		"Timer enable bit";
+ 	};
+ 	
+ 	register TimerIntStat addr(base, 0xc) "Global Timer Interrupt Status Register" {
+ 		_				31	rsvd;
+ 		event_flag		1	rw;
+ 	};
+ 	
+  	register TimerComparatorLow addr(base, 0x10) "Global Timer Comparator Register (Lower Word)" type(uint32);
+  	register TimerComparatorHigh addr(base, 0x14) "Global Timer Comparator Register (Upper Word)" type(uint32);
+  	
+    register TimerAutoIncrement addr(base, 0x18) "Global Timer Comparator Auto-Increment Register" type(uint32);
+ 	
+ };

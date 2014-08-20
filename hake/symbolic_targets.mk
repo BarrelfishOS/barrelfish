@@ -577,6 +577,10 @@ PANDABOARD_MODULES=\
 	armv7/sbin/memtest \
 	armv7/sbin/kaluga \
 	armv7/sbin/fish \
+	armv7/sbin/sdma \
+	armv7/sbin/sdmatest \
+	armv7/sbin/sdma_bench \
+	armv7/sbin/bulk_sdma \
 	armv7/sbin/usb_manager \
 	armv7/sbin/usb_keyboard \
 	armv7/sbin/serial \

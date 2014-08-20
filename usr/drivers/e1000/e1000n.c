@@ -851,7 +851,7 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
             e1000_mac_type_t check_mac_type = e1000_get_mac_type(ven, devid);
 
             if (check_mac_type != e1000_undefined) {
-                E1000_DEBUG("Using device. vendor: 0x%"PRIx64", device id: 0%"PRIx64".\n", ven, devid);
+                E1000_DEBUG("Using device. vendor: 0x%"PRIx64", device id: 0%"PRIx64" function: 0%"PRIx64".\n", ven, devid, fun);
                 mac_type = check_mac_type;
                 bus = pcibus;
                 class = cls;
@@ -999,7 +999,9 @@ int e1000n_driver_init(int argc, char **argv)
     e1000_device.device = &e1000;
     e1000_device.mac_type = mac_type;
     e1000_device.device_id = deviceid;
-    if (e1000_device.mac_type == e1000_82575 || e1000_device.mac_type == e1000_82576) {
+    if (e1000_device.mac_type == e1000_82575 
+        || e1000_device.mac_type == e1000_82576
+        || e1000_device.mac_type == e1000_I210) {
         // These cards do not have a bsex reg entry
         // therefore, we can't use 16384 buffer size.
         // If we use smaller buffers than 2048 bytes the

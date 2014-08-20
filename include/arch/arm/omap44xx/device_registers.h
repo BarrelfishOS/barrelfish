@@ -55,4 +55,7 @@
 #define OMAP44XX_MAP_L4_PER_UART4                       0x4806E000
 #define OMAP44XX_MAP_L4_PER_UART4_SIZE                  0x1000
 
+// 4KB BYTES
+#define OMAP44XX_SDMA 0x4A056000
+
 #endif // DEVICE_REGISTERS_H_

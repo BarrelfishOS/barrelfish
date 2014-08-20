@@ -417,6 +417,7 @@ let
                          "pl130_gic", 
                          "sp804_pit", 
                          "cortex_a9_pit", 
+                         "cortex_a9_gt",
                          "a9scu", 
                          "omap/omap_uart", 
                          "omap/omap44xx_id", 
