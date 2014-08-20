@@ -207,7 +207,7 @@ loader(uint64_t magic,
     lpaddr_t mb_img_orig = boot_hdr->ramdisk_image;
 
     /* sanity check for the locations */
-    if (mb_img_start > mb_img_orig) {
+    if (mb_img_start > mb_img_orig || mb_img_start == 0) {
         eabort('E', '1');
     }
     memcpy((void *) mb_img_start, (void *) mb_img_orig, boot_hdr->ramdisk_size);
@@ -256,6 +256,8 @@ loader(uint64_t magic,
     /* we use the config table to store the pointer to struct boot param */
     multiboot_info->config_table = (uint32_t)(uintptr_t)bootparam;
     multiboot_info->flags |= MULTIBOOT_INFO_FLAG_HAS_CONFIG;
+
+    boot_hdr->multiboot = (uint64_t)multiboot_info;
 
     print_status('S', '3');
 

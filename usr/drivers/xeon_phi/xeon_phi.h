@@ -137,6 +137,11 @@ struct xeon_phi
     struct mbar mmio;       ///< pointer to the MMIO address range
     struct mbar apt;        ///< pointer to the aperture address range
 
+    lvaddr_t os_offset;     ///< offset of the OS image into the aperture
+    uint32_t os_size;       ///< the size of the OS image
+    char *cmdline;          ///< pointer to the bootloader cmdline
+    uint32_t cmdlen;     ///< the length of the cmd line
+
     uint8_t id;             ///< card id for identifying the card
     iref_t iref;
     uint32_t apicid;        ///< APIC id used for sending the boot interrupt
@@ -144,11 +149,12 @@ struct xeon_phi
     uint8_t      connected;
     struct xnode topology[XEON_PHI_NUM_MAX];
 
-    char *cmdline;          ///< pointer to the bootloader cmdline
+
 
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;  ///< pointer to the IRQ information struct
-    struct dma_infi *dma;  ///< pointer to the DMA information struct
+    struct dma_info *dma;  ///< pointer to the DMA information struct
+    struct msg_info *msg;
 };
 
 /**

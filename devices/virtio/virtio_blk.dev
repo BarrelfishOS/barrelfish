@@ -27,10 +27,9 @@ device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
         _                   1 "Reserved";
         flush               1 "Cache flush command support (Legacy)";
         topology            1 "Device exports information on optimal IO alignment";
-        /* reserved bits */
-        _                  12 "";
+        _                  12 "Reserved";
         notify_on_empty     1 "(Legacy) The device MUST issue an interrupt if the device runs out of available descriptors"; 
-        _                   2 "";
+        _                   2 "Reserved";
         any_layout          1 "(Legacy) his feature indicates that the device accepts arbitrary descriptor layouts";
         ring_indirect_desc  1 "river can use descriptors with the VIRTQ_DESC_F_INDIRECT";
         ring_event_idx      1 "enables the used_event and the avail_event fields";
@@ -42,7 +41,7 @@ device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
      * Note: 
      */
     datatype req lsbfirst(32)  "Request header" {
-        rtype    32 "The type of the request";
+        rtype   32 "The type of the request";
         ioprio  32 "The IO prioroty (Legacy)";
         sector  64 "The sector where to write/read";
         /* data */
@@ -112,7 +111,7 @@ device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
    };
    
    register phys_block_exp addr(base, 0x18) "Toplogy: Logical Blocks" {
-       exp 8 "Number of logical blocks per physical block";
+      exp 8 "Number of logical blocks per physical block";
    };
    
    register align_offset addr(base, 0x19) "Topology: Align Offset" {

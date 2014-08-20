@@ -75,6 +75,15 @@ bus_driver{
     platforms: ['x86_64', 'x86_32']
 }.
 
+pci_driver{
+    binary: "xeon_phi",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 0,
+    interrupt_load: 0.5,
+    platforms: ['x86_64']
+}.
+
 %
 % Driver selection logic
 %

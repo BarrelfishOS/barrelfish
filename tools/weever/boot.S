@@ -222,7 +222,7 @@ ENTRY(startup_64)
            /* jump to the kernel entry point */
           movq      $K1OM_BOOT_MAGIC, %rax
           movq      multiboot_info, %rbx
-          movq kernel_entry, %rcx
+          movq      kernel_entry, %rcx
           jmp       *%rcx
 
           .data

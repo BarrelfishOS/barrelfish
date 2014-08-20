@@ -26,6 +26,7 @@
 struct bootinfo *bi = NULL;
 
 #include "xeon_phi.h"
+#include "messaging.h"
 #include "sleep.h"
 
 #define BOOT_TIMEOUT 3000
@@ -45,7 +46,6 @@ struct bootinfo *bi = NULL;
 #define MIN(a, b)   ( ((a) < (b)) ? (a) : (b) )
 #define ALIGN(x) ((x + BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE-1))
 
-
 static xeon_phi_boot_t boot_registers;
 static xeon_phi_apic_t apic_registers;
 
@@ -57,9 +57,8 @@ static xeon_phi_apic_t apic_registers;
  */
 static inline lvaddr_t get_load_offset(struct xeon_phi *phi)
 {
-    return ((lvaddr_t)xeon_phi_boot_download_offset_rdf(&boot_registers))<<12;
+    return ((lvaddr_t) xeon_phi_boot_download_offset_rdf(&boot_registers)) << 12;
 }
-
 
 static uint64_t get_adapter_memsize(void)
 {
@@ -89,16 +88,13 @@ static uint64_t get_adapter_memsize(void)
  * \param phi           the xeon phi card information
  * \param xloader_img   name of the bootloader image
  * \param ret_imgsize   returned image size
- * \param ret_cmdoffset returned offset to load the next piece onto the card
  *
  * Note: it is important that the bootloader just uses statically allocated
  *       memory and does not exceed its image size with additional memory.
  *       Otherwise the CMD line or the multiboot image will be overwritten.
  */
 static errval_t load_bootloader(struct xeon_phi *phi,
-                                char *xloader_img,
-                                uint32_t *ret_imgsize,
-                                lvaddr_t *ret_loadoffset)
+                                char *xloader_img)
 {
     errval_t err;
     /*
@@ -128,23 +124,12 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
 
-    XBOOT_DEBUG("bootloader offset = 0x%lx\n", phi->apt.vbase + loadoffset);
-
-    printf("Loading xloader onto card...\n");
-    XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->apt.vbase,
-                loadoffset,
-                imgsize);
+    XBOOT_DEBUG("Loading xloader onto card... offset = 0x%lx\n", loadoffset);
 
     memcpy((void *) (phi->apt.vbase + loadoffset), (void *) binary, imgsize);
 
-    if (ret_loadoffset) {
-        *ret_loadoffset = loadoffset;
-    }
-
-    if (ret_imgsize) {
-        *ret_imgsize = imgsize;
-    }
+    phi->os_offset = loadoffset;
+    phi->os_size = imgsize;
 
     return SYS_ERR_OK;
 }
@@ -154,13 +139,11 @@ static errval_t load_bootloader(struct xeon_phi *phi,
  */
 static errval_t load_multiboot_image(struct xeon_phi *phi,
                                      char *multiboot_img,
-                                     lvaddr_t load_offset,
-                                     uint32_t os_offset)
+                                     lvaddr_t load_offset)
 {
     errval_t err;
 
-    XBOOT_DEBUG("multiboot offset = 0x%lx\n", phi->apt.vbase + load_offset);
-
+    assert(phi->os_offset != 0);
     /*
      * find the boot loader image in the host multiboot
      */
@@ -179,11 +162,8 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
 
     imgsize = module->mrmod_size;
 
-    printf("Loading multiboot image onto card...\n");
-    XBOOT_DEBUG("aper_base=0x%lx, offset = 0x%lx, size=0x%lx\n",
-                phi->apt.vbase,
-                load_offset,
-                imgsize);
+    XBOOT_DEBUG("loading multiboot image onto card... offset = 0x%lx\n",
+                load_offset);
 
     memcpy((void *) (phi->apt.vbase + load_offset), (void *) image, imgsize);
 
@@ -191,10 +171,10 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
      * we are using the Linux style way in booting. The following will update
      * the corresponding fields in struct boot_param of the header.
      */
-    uint32_t *ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + os_offset + 0x218);
-    *ramfs_addr_ptr = load_offset;
-    ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + os_offset + 0x21c);
-    *ramfs_addr_ptr = imgsize;
+    uint32_t *ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x218);
+    *ramfs_addr_ptr = (uint32_t)load_offset;
+    ramfs_addr_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x21c);
+    *ramfs_addr_ptr = (uint32_t)imgsize;
 
     return SYS_ERR_OK;
 }
@@ -207,22 +187,26 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
  * \param   ret_size    size of the cmdline in bytes
  */
 static errval_t load_cmdline(struct xeon_phi *phi,
-                             lvaddr_t load_offset,
-                             uint32_t *ret_size)
+                             lvaddr_t load_offset)
 {
     uint32_t cmdlen = 0;
 
-    XBOOT_DEBUG("cmdline offset = 0x%lx\n", phi->apt.vbase + load_offset);
+    XBOOT_DEBUG("copying cmdline onto card, offset = 0x%lx\n", load_offset);
 
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
-    if (phi->cmdline) {
-        cmdlen += sprintf(buf+cmdlen, "%s foobar=%i", phi->cmdline, 123);
-    } else {
-        cmdlen += sprintf(buf+cmdlen, "foobar=%i", 123);
+    if (phi->msg) {
+        cmdlen += sprintf(buf + cmdlen,
+                          "msg_base=%lx, msg_size=%lx",
+                          phi->msg->base,
+                          phi->msg->size);
     }
 
-    cmdlen += sprintf(buf+cmdlen, "card_id=%i", phi->id);
+    if (phi->cmdline) {
+        cmdlen += sprintf(buf + cmdlen, "%s", phi->cmdline);
+    }
+
+    cmdlen += sprintf(buf + cmdlen, "card_id=%i", phi->id);
 
     /*
      * id
@@ -231,34 +215,33 @@ static errval_t load_cmdline(struct xeon_phi *phi,
      * TODO: Add multihop / communication information here..
      */
 
-    if (ret_size) {
-        *ret_size = cmdlen;
-    }
+
+    phi->cmdline = buf;
+    phi->cmdlen = cmdlen;
+
+    uint32_t *cmdline_ptr = (uint32_t *) (phi->apt.vbase + phi->os_offset + 0x228);
+    *cmdline_ptr = (uint32_t)((uint64_t)phi->cmdline);
 
     return SYS_ERR_OK;
 }
 
-static errval_t bootstrap_notify(struct xeon_phi *phi,
-                                 uint32_t os_imgsize)
+static errval_t bootstrap_notify(struct xeon_phi *phi)
 {
     // set the bootimage size to tell the bootloader
-    xeon_phi_boot_os_size_rawwr(&boot_registers, os_imgsize);
+    xeon_phi_boot_os_size_rawwr(&boot_registers, phi->os_size);
 
     uint64_t memsize = get_adapter_memsize();
 
     uint64_t reserved = (memsize * MEMORY_RESERVE_PERCENT / 100);
-
 
     // Keep in mind maximum uos reserve size is uint32_t, so we never overflow
     reserved = MIN(reserved, UOS_RESERVE_SIZE_MAX);
     reserved = MAX(reserved, UOS_RESERVE_SIZE_MIN);
 
     // Always align uos reserve size to a page
-    reserved = (reserved & ~(BASE_PAGE_SIZE-1));
+    reserved = (reserved & ~(BASE_PAGE_SIZE - 1));
 
-    XBOOT_DEBUG("memsize = 0x%lx, reserved size = 0x%lx\n", memsize, reserved);
-
-    xeon_phi_boot_res_size_rawwr(&boot_registers, (uint32_t)reserved);
+    xeon_phi_boot_res_size_rawwr(&boot_registers, (uint32_t) reserved);
 
     // sending the bootstrap interrupt
     xeon_phi_apic_icr_lo_t icr_lo = xeon_phi_apic_icr_lo_default;
@@ -286,8 +269,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
                        char *multiboot_img)
 {
     errval_t err;
-    lvaddr_t offset, os_offset;
-    uint32_t size, osimg_size;
+    lvaddr_t offset;
 
     if (bi == NULL) {
         return SYS_ERR_ILLEGAL_INVOCATION;
@@ -298,32 +280,33 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
                              XEON_PHI_MMIO_TO_DBOX(phi));
     xeon_phi_apic_initialize(&apic_registers, XEON_PHI_MMIO_TO_SBOX(phi));
 
-
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
-    XBOOT_DEBUG("APICID = %u\n", phi->apicid);
 
     // load the coprocessor OS
-    err = load_bootloader(phi, xloader_img, &osimg_size, &offset);
+    err = load_bootloader(phi, xloader_img);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load bootloader image");
     }
 
-    os_offset = offset;
-
     // round to next page
-    offset = ALIGN(osimg_size + offset);
+    offset = ALIGN(phi->os_offset + phi->os_size);
+
+    err = messaging_init(phi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not initialize messagin");
+    }
 
     // load cmdline
-    err = load_cmdline(phi, offset, &size);
+    err = load_cmdline(phi, offset);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load multiboot image");
     }
 
     // round to next page
-    offset = ALIGN(offset);
+    offset = ALIGN(offset+phi->cmdlen);
 
     // load multiboot image
-    err = load_multiboot_image(phi, multiboot_img, offset, os_offset);
+    err = load_multiboot_image(phi, multiboot_img, offset);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not load multiboot image");
     }
@@ -335,16 +318,17 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     xeon_phi_serial_init(phi);
 
     // notify the bootstrap
-    bootstrap_notify(phi, osimg_size);
+    bootstrap_notify(phi);
 
     xeon_phi_boot_postcode_t postcode;
     xeon_phi_boot_postcodes_t pc, pc_prev = 0;
     uint32_t counter = BOOT_COUNTER;
-    while(--counter) {
+    while (--counter) {
         postcode = xeon_phi_boot_postcode_rd(&boot_registers);
         pc = xeon_phi_boot_postcode_code_extract(postcode);
         if (pc_prev != pc) {
-            debug_printf("Xeon Phi Booting: %s\n", xeon_phi_boot_postcodes_describe(pc));
+            debug_printf("Xeon Phi Booting: %s\n",
+                         xeon_phi_boot_postcodes_describe(pc));
         }
         if (postcode == xeon_phi_boot_postcode_done) {
             break;
@@ -355,15 +339,17 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     XBOOT_DEBUG("Bootstrap has finished execution. Waiting for Firmware...\n");
 
     uint32_t time = 0, time_steps = 0;
-    while(time < BOOT_TIMEOUT) {
+    while (time < BOOT_TIMEOUT) {
         /* read all the pending messages */
         xeon_phi_serial_handle_recv();
         milli_sleep(100);
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
+            XBOOT_DEBUG("Firmware signaled with ready bit. \n");
             break;
         }
         if (time % 50) {
-            debug_printf("Xeon Phi Booting: Waiting for ready signal %u\n", time_steps);
+            debug_printf("Xeon Phi Booting: Waiting for ready signal %u\n",
+                         time_steps);
             time_steps += 5;
         }
     }

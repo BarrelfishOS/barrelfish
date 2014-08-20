@@ -73,20 +73,15 @@ device xeon_phi_dma lsbfirst ( addr base ) "Intel Xeon Phi DMA System" {
      * Register Access: CRU
      * Number: 8
      */
-	regarray drar_lo rw addr(base, 0xA014) [0x0, 0x40, 0x80, 0xC0, 0x100, 0x140, 0x180, 0x1C0] "DMA Descriptor Ring Attributes Register Lo" {
-        r 32 "";
+    regarray drar rw addr(base, 0xA014) [0x0, 0x40, 0x80, 0xC0, 0x100, 0x140, 0x180, 0x1C0] "DMA Descriptor Ring Attributes Register Lo" {
+        _     6 "";
+        base 30 "base address";
+        _     2 "";
+        size 15 "size of the descriptor ring";
+        page  5 "";
+        _     6 "";       	
     };
 	
-	/*
-     * Protection Level: Ring 0
-     * Visibility: Host / Coprocessor
-     * Reset Dmain: GRPB_REset
-     * Register Access: CRU
-     * Number: 8
-     */
-	regarray drar_hi rw addr(base, 0xA018) [0x0, 0x40, 0x80, 0xC0, 0x100, 0x140, 0x180, 0x1C0] "DMA Descriptor Ring Attributes Register Hi" {
-        r 32 "";
-    };
 	
 	/*
      * Protection Level: Ring 0

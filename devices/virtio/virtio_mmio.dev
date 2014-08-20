@@ -36,7 +36,7 @@ device virtio_mmio lsbfirst ( addr base ) "Virtio MMIO Transport Specification" 
     };
     
     constants virtio_deviceid width(32) "Virtio Device IDs" {
-        reserved         = 0x0 "Invalid Device ID";
+        reserved        = 0x0 "Invalid Device ID";
         network_card    = 0x1 "Network Interface Device";
         block_device    = 0x2 "Block Device";
         console         = 0x3 "Serial Console Device";

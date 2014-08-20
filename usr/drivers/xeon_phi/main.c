@@ -69,7 +69,7 @@ int main(int argc,
         DEBUG_ERR(err, "could not register with the other drivers");
     }
 
-    service_start();
+    service_start(&xphi);
 
     debug_printf("Xeon Phi host module terminated.\n");
 

@@ -17,13 +17,15 @@
 //#include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
 
-struct dma_info {
-
-};
+#define XEON_PHI_DMA_CHAN_NUM 8
 
 struct dma_channel {
 
 
+};
+
+struct dma_info {
+    struct dma_channel chan[XEON_PHI_DMA_CHAN_NUM];
 };
 
 errval_t dma_request_alloc(void);

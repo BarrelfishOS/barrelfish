@@ -38,6 +38,6 @@ errval_t service_register(struct xeon_phi *phi, iref_t *irefs, size_t num);
 /**
  * \brief starts the service request handling
  */
-errval_t service_start(void);
+errval_t service_start(struct xeon_phi *phi);
 
 #endif // XEON_PHI_SERVICE_H_
