@@ -102,8 +102,7 @@ stdLibs arch =
       In InstallTree arch "/lib/libcollections.a" ]
 
 stdCxxLibs arch = 
-    [ In InstallTree arch "/lib/libcxx.a",
-      In InstallTree arch "/lib/libposixcompat.a"]
+    [ In InstallTree arch "/lib/libcxx.a" ]
     ++ stdLibs arch 
 
 options arch archFamily = Options { 

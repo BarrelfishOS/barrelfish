@@ -31,7 +31,7 @@
       "xeon_phi_domain.c"
     ],
     addLibraries = libDeps [ "octopus" ],
-    flounderDefs = ["xeon_phi"],
+    flounderDefs = ["xeon_phi", "octopus"],
     flounderBindings = ["xeon_phi"]
   }
 ]

@@ -1061,7 +1061,7 @@ liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager", "contmng" ,"procon" , "net_if_raw", "bfdmuxvm"]
-libnfs_deps           = LibDeps $ [ LibDep "nfs" ]
+libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps]
 libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
                                   LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
 libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
