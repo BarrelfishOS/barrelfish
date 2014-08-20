@@ -657,7 +657,16 @@ arch_init(uint64_t magic,
         /* kernel is started by the K1OM boot loadeer */
         bp = (struct boot_params *) pointer;
 
-        printf("Barrelfish (with K1OM boot_params)\n");
+        printf("Barrelfish (with K1OM boot_params) 0x%"PRIxLVADDR"\n", (uintptr_t)pointer);
+
+        mb = (struct multiboot_info *) pointer;
+        printf("mb->flags= %u\n", mb->flags);
+        printf("mb-> vbe_interface_len= %u\n", mb-> vbe_interface_len);
+
+
+
+        while(1)
+            ;
 
         // Construct the global structure and store its address to retrieve it
         // across relocation

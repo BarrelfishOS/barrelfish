@@ -30,13 +30,21 @@ kernel_start:
           /* Initialize the stack pointer */
           lea       (k1om_kernel_stack + K1OM_KERNEL_STACK_SIZE)(%rip), %rsp
 
+          /*
+           * Just say Hi to the host
+           */
+          movabsq $0x08007DAB5C, %r14
+          movl    $0x0A46423E, (%r14)
+          movabsq $0x08007DAB40, %r14
+          movl    $2054847098, (%r14)
+
           /* Reset EFLAGS */
           pushq     $0
           popf
 
           /* Enter architecture-specific init -- this should never return */
-          movl      %eax, %edi          /* Multiboot magic value */
-          movl      %ebx, %esi          /* Pointer to multiboot info struct */
+          movq      %rax, %rdi          /* Multiboot magic value */
+          movq      %rbx, %rsi          /* Pointer to multiboot info struct */
           call      arch_init
 
           /* Halt -- this should never be reached */

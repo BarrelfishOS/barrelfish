@@ -7,7 +7,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#if 1
+#if 0
 #include <target/k1om/offsets_target.h>
 
 /*OUTPUT_FORMAT("elf64-x86-64") */
@@ -100,14 +100,15 @@ SECTIONS
 
 #include <target/k1om/offsets_target.h>
 
-OUTPUT_FORMAT("elf64-x86-64")
-OUTPUT_ARCH("i386:x86-64")
+OUTPUT_FORMAT("elf64-k1om") 
+OUTPUT_ARCH(k1om) 
 
-_start_kernel = X86_64_START_KERNEL_PHYS;
+_start_kernel = K1OM_START_KERNEL_PHYS;
 
+ENTRY(kernel_start)
 SECTIONS {
         . = ALIGN(4k);
-        .text X86_64_START_KERNEL_PHYS : ALIGN(4k)
+        .text K1OM_START_KERNEL_PHYS : ALIGN(4k)
         {
                 *(.text);
         }

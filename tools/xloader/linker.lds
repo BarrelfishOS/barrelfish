@@ -25,20 +25,19 @@ SECTIONS
   _ehead = . ;
  }
   
- .head64.text 0x300 : {
+ .head64.text : {
   _head64 = . ;
   *(.head64.text)
   _ehead64 = . ;
  }
-  . = ALIGN(4k);
   
- .text : ALIGN(4k) {
+ .text : {
   _start_kernel = .; /* Text */
   *(.text)
   *(.text.*)
   _end_kernel_text = . ;
  }
- . = ALIGN(4k);
+ 
  .rodata : {
   _rodata = . ;
   *(.rodata) /* read-only data */
@@ -53,7 +52,7 @@ SECTIONS
   _egot = .;
  }
   
- .bss : ALIGN(4k) {
+ .bss :  {
   _bss = . ;
   *(.bss)
   *(.bss.*)
@@ -61,16 +60,28 @@ SECTIONS
   . = ALIGN(8); /* For convenience during zeroing */
   _ebss = .;
  }
- . = ALIGN((1 << 12));
- _end_kernel = .;
+
 . = ALIGN((1 << 12));
 .pgtable : {
   _pgtable = . ;
   *(.pgtable)
   _epgtable = . ;
  }
+ 
+.shstrtab : {
+*(.bss)
+}  
+       
+ .symtab  : {
+*(.symtab)
+}  
+       
+  .strtab : {
+*(.strtab)
+}  
+ 
 _end_bootloader = .;
-
+ _end_kernel = .;
  
  /***** These sections get discarded *****/
         /DISCARD/ :
@@ -80,6 +91,15 @@ _end_bootloader = .;
                 *(.eh_frame_hdr);
                 *(.note.gnu.build-id);
                 *(.interp);
+                *(.debug_str);
+                *(.debug_ranges);
+                *(.debug_loc);
+                *(.debug_aranges);
+                *(.debug_abbrev);
+                *(.debug_info);
+                *(.debug_line);
+                *(.comment);
+                *(.note);
 /*              *(.dynsym); */
 /*              *(.dynstr); */
 /*              *(.hash); */

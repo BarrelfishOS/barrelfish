@@ -5,17 +5,21 @@ if [ $# != 2 ]; then
     exit 1
 fi
 
+ALIGNMENT=4096
+
 MENU_LST=$1
 OUTPUT_PREFIX=$2
+
+ALIGNMENT=4096
 
 # Prefix prepended to each output file within the directory
 # $OUTPUT_PREFIX (for safety, this means we can clean the directory
 # by removing everything with this prefix)
-FILE_PREFIX=mb_img_
+FILE_PREFIX=mb
 
 # Set up output direcotry
 if [ -e $OUTPUT_PREFIX  ] && [ ! -d $OUTPUT_PREFIX ]; then
-    echo "  Error: $OUTPUT_PREFIX exists, but is not a directory"
+    echo "  !Error: $OUTPUT_PREFIX exists, but is not a directory"
     exit 1
 fi
 
@@ -30,19 +34,44 @@ if [ ! -d $OUTPUT_PREFIX/ ]; then
 fi
 
 # Get list of binaries to translate
-BINS=$(grep -e'^kernel' -e'^module' $MENU_LST | awk '{print $2}')
-
-# For each binary generate an object file in the output directory.
-# The flags to objcopy cause it to place the binary image of the input
-# file into an .rodataIDX section in the generated object file where
-# IDX is a counter incremented for each binary.  
-IDX=1
-for BIN in $BINS; do
-  SLASH=${BIN////_}
-  BIN_OUT="$OUTPUT_PREFIX/${FILE_PREFIX}_$SLASH"
-  echo '  +'$BIN '->' $BIN_OUT
-  k1om-mpss-linux-objcopy -I binary -O elf64-k1om -B k1om --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
-  IDX=$(($IDX+1))
-done
 
 
+MBIMG=$OUTPUT_PREFIX/${FILE_PREFIX}img
+MBHEADER=$OUTPUT_PREFIX/${FILE_PREFIX}$MENU_LST
+
+
+OFFSET=0
+
+
+echo "  Start parsing multiboot"
+while read line           
+do           
+  # remove leading spaces
+  MBMOD=$(echo $line | sed 's/^ *//')
+  TYPE=$(echo $MBMOD | cut -f1 -d ' ')
+  
+  if [[ "$TYPE" == "#" ]]; then
+    continue
+  fi
+  
+
+  if [[ "$TYPE" == "mmap" ]]; then
+    echo $line >> $MBHEADER
+    continue
+  fi
+
+  if [[ "$TYPE" == "module" ]] || [[ "$TYPE" == "kernel" ]]; then
+    BIN=$(echo $MBMOD | cut -f2 -d ' ')
+    CMD=$(echo $MBMOD | cut -f3-99 -d ' ')
+  
+    FILESIZE=$(stat -c%s ".$BIN")
+    PADDING=$(echo "($ALIGNMENT-($FILESIZE%$ALIGNMENT))" | bc)  
+    echo '   +'$BIN ': Size='$FILESIZE', Padding Size='$PADDING' , Offset='$OFFSET
+    cat "."$BIN >>  $MBIMG
+    for ((i=0; i < $PADDING; i=i+1)) do
+       echo -en "\0" >> $MBIMG
+    done
+    echo $TYPE" "$BIN" "$OFFSET" "$FILESIZE" "$CMD >> $MBHEADER
+    OFFSET=$(echo "$OFFSET+$PADDING" | bc)
+  fi
+done <$MENU_LST	

@@ -159,6 +159,7 @@ ENTRY(startup_32)
  */
 
           movl      $LOAD_PHYSICAL_ADDR, %ebx
+          movl      %ebp, %ebx
 
 
                     /*
@@ -172,9 +173,9 @@ ENTRY(startup_32)
 
 
 
-                mov %cr4,%eax
-                      orl $(X86_CR4_PAE),%eax
-                      mov %eax,%cr4
+          mov %cr4,%eax
+          orl $(X86_CR4_PAE),%eax
+          mov %eax,%cr4
 
  /*
   * Build early 4G boot pagetable
@@ -302,11 +303,11 @@ ENTRY(startup_64)
           movl      %eax, %fs
           movl      %eax, %gs
           lldt      %ax
-          movl    $0x20, %eax
+          movl      $0x20, %eax
           ltr       %ax
 
-                      /* a little "printf" to show that we are running */
-                      movabsq $0x08007DAB5C, %r14
+          /* a little "printf" to show that we are running */
+          movabsq $0x08007DAB5C, %r14
           movl    $0x0A58553E, (%r14)
           movabsq $0x08007DAB40, %r14
           movl    $2054847098, (%r14)
@@ -326,14 +327,14 @@ ENTRY(startup_64)
 
           /* Start with the delta to where the kernel will run at. */
 
-          movq      $LOAD_PHYSICAL_ADDR, %rbp
+         // movq      $LOAD_PHYSICAL_ADDR, %rbp
 
           /* Target address to relocate to for decompression */
           //leaq      z_extract_offset(%rbp), %rbx
-          movq                %rbp, %rbx
+          //movq                %rbp, %rbx
 
           /* Set up the stack */
-       //   leaq      boot_stack_end(%rbx), %rsp
+          leaq      boot_stack_end(%rbx), %rsp
 
           /* Zero EFLAGS */
           pushq     $0
@@ -361,32 +362,40 @@ ENTRY(startup_64)
 /*
  * Jump to the relocated address.
  */
+ #if 0
           leaq      relocated(%rbx), %rax
           jmp       *%rax
 
           .text
           .section  ".head64.text","ax"
 relocated:
-
+#endif
 
 /*
  * Clear BSS (stack is currently empty)
  */
+ #if 0
           xorl      %eax, %eax
           leaq    _bss(%rip), %rdi
           leaq    _ebss(%rip), %rcx
           subq      %rdi, %rcx
           shrq      $3, %rcx
           rep       stosq
-
+#endif
           /* Reset EFLAGS */
           pushq     $0
           popf
 
 		  /* store the boot info struct pointer and the magic value */
-          movl      $K1OM_BOOT_MAGIC, %eax
-          movl      %esi, %ebx
+          movq      $K1OM_BOOT_MAGIC, %rdi
+          //movl      %esi, %eax
+          //movq      %r14, %rsi
           call      loader
+
+          movq      $K1OM_BOOT_MAGIC, %rax
+          leaq      (multiboot_info), %rbx
+          movq kernel_entry, %rcx
+          jmp       *%rcx
 
           .data
           .align 16
@@ -419,4 +428,5 @@ boot_stack_end:
           .balign 4096
 pgtable:
           .fill 7*4096, 1, 0
+
 
