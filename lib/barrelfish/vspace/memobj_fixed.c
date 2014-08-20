@@ -105,9 +105,9 @@ static errval_t protect(struct memobj *memobj,
     genvaddr_t base = vregion_get_base_addr(vregion);
     genvaddr_t vregion_offset = vregion_get_offset(vregion);
     errval_t err;
-
+    size_t ret_size;
     err = pmap->f.modify_flags(pmap, base + offset + vregion_offset, range,
-                    flags, &range);
+                               flags, &ret_size);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
     }
@@ -153,18 +153,18 @@ static errval_t unpin(struct memobj *memobj,
  * \param memobj  The memory object
  * \param offset  Offset into the memory object
  * \param frame   The frame cap for the offset
- * \param size    The size of frame cap
+ * \param offset  The offset into the frame cap
  *
  * Pagefault relies on frames inserted in order
  */
 static errval_t fill(struct memobj *memobj,
                      genvaddr_t offset,
                      struct capref frame,
-                     size_t size)
+                     lpaddr_t frame_offset)
 {
     struct memobj_fixed *fixed = (struct memobj_fixed*) memobj;
 
-    if (offset % fixed->chunk_size || size != fixed->chunk_size) {
+    if (offset % fixed->chunk_size) {
         return LIB_ERR_MEMOBJ_FILL;
     }
 
@@ -178,6 +178,7 @@ static errval_t fill(struct memobj *memobj,
     }
 
     fixed->frames[slot] = frame;
+    fixed->offsets[slot] = frame_offset;
 
     return SYS_ERR_OK;
 }
@@ -212,7 +213,7 @@ static errval_t unfill(struct memobj *memobj,
         genvaddr_t vregion_offset = vregion_get_offset(vregion);
 
         err = pmap->f.unmap(pmap, vregion_base + vregion_offset + offset,
-                        fixed->chunk_size, &retsize);
+                            fixed->chunk_size, &retsize);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -272,7 +273,8 @@ static errval_t pagefault(struct memobj *memobj,
     vregion_flags_t flags = vregion_get_flags(vregion);
 
     err = pmap->f.map(pmap, base + vregion_offset + offset, fixed->frames[slot],
-                    0, fixed->chunk_size, flags, NULL, NULL);
+                      fixed->offsets[slot], fixed->chunk_size, flags,
+                      NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
@@ -309,7 +311,7 @@ size_t size,
  * The frames are mapped in on demand.
  */
 errval_t memobj_create_fixed(struct memobj_fixed *fixed,
-                             size_t size,
+size_t size,
                              memobj_flags_t flags,
                              size_t count,
                              size_t chunk_size)
@@ -327,7 +329,6 @@ errval_t memobj_create_fixed(struct memobj_fixed *fixed,
     memobj->f.pagefault = pagefault;
     memobj->f.pager_free = pager_free;
 
-
     assert(size == count * chunk_size);
     assert((chunk_size % BASE_PAGE_SIZE)==0);
 
@@ -339,12 +340,19 @@ errval_t memobj_create_fixed(struct memobj_fixed *fixed,
     /* specific portion */
     fixed->count = count;
     fixed->chunk_size = chunk_size;
+    fixed->vregion = NULL;
 
     fixed->frames = malloc(count * sizeof(struct capref));
     if (!fixed->frames) {
         return LIB_ERR_MALLOC_FAIL;
     }
     memset(fixed->frames, 0, count * sizeof(struct capref));
+
+    fixed->offsets = malloc(count * sizeof(lpaddr_t));
+    if (!fixed->offsets) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    memset(fixed->offsets, 0, count * sizeof(lpaddr_t));
 
     return SYS_ERR_OK;
 }
@@ -363,5 +371,6 @@ errval_t memobj_destroy_fixed(struct memobj *memobj)
 
     err = vregion_destroy(vregion);
     free(m->frames);
+    free(m->offsets);
     return err;
 }

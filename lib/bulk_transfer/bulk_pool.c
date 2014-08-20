@@ -20,6 +20,138 @@
 #include "bulk_pool.h"
 #include "bulk_buffer.h"
 
+static void bulk_pool_generate_id(struct bulk_pool_id* id)
+{
+    /*
+     * todo: get a system wide unique domain identifier
+     *       get a domain local sequence id
+     */
+
+    static uint32_t local_id = 0;
+
+    assert(id);
+
+    id->machine = 0;
+    //XXX: disp_get_domain_id() is core-local, but we don't want
+    //to put the core ID into the machine part
+    id->dom = (disp_get_core_id() << 16) | disp_get_domain_id();
+    id->local = local_id++;
+}
+
+static struct bulk_pool_list *pool_list = NULL;
+
+/**
+ * returns a pointer to the pool with the given id
+ *
+ * @param   id  the id of the pool to look up
+ *
+ * @return  NULL if the pool is not present in the domain
+ */
+struct bulk_pool *bulk_pool_domain_list_get(struct bulk_pool_id *id)
+{
+    struct bulk_pool_list *list = pool_list;
+    while (list) {
+        if (bulk_pool_cmp_id(&list->pool->id, id) == 0) {
+            return list->pool;
+        }
+        list = list->next;
+    }
+    return NULL;
+}
+
+/**
+ * inserts a pool into the domain global bulk pool list
+ *
+ * @param   pool    the pool to insert
+ */
+errval_t bulk_pool_domain_list_insert(struct bulk_pool *pool)
+{
+    struct bulk_pool_list *new_pool = malloc(sizeof(struct bulk_pool_list));
+    if (!new_pool) {
+        return BULK_TRANSFER_MEM;
+    }
+
+    new_pool->next = NULL;
+    new_pool->pool = pool;
+
+    if (pool_list == NULL) {
+        pool_list = new_pool;
+        return SYS_ERR_OK;
+    }
+
+    struct bulk_pool_list *list = pool_list;
+    struct bulk_pool_list *prev = NULL;
+
+    while (list) {
+        switch (bulk_pool_cmp_id(&list->pool->id, &pool->id)) {
+            case -1:
+                /* the ID of the pool in the list is lower, check next */
+                prev = list;
+                list = list->next;
+                continue;
+            case 0:
+                /* we have a match */
+                free(new_pool);
+                return SYS_ERR_OK;
+            case 1:
+                /* the ID of the pool in the list is bigger, insert before */
+                if (prev) {
+                    new_pool->next = prev->next;
+                    prev->next = new_pool;
+                } else {
+                    new_pool->next = pool_list;
+                    pool_list = new_pool;
+                }
+                return SYS_ERR_OK;
+            default:
+                break;
+        }
+    }
+
+    /* insert at the end */
+    prev->next = new_pool;
+
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * removes the pool from the channel's pool list
+ *
+ * @param pool      the poo to remove
+ */
+errval_t bulk_pool_domain_list_remove(struct bulk_pool *pool)
+{
+    struct bulk_pool_list *list = pool_list;
+    struct bulk_pool_list *prev = NULL;
+
+    while (list) {
+        switch (bulk_pool_cmp_id(&list->pool->id, &pool->id)) {
+            case -1:
+                /* the ID of the pool in the list is lower, check next */
+                continue;
+            case 0:
+                /* we have a match, remove it */
+                if (prev) {
+                    prev->next = list->next;
+                } else {
+                    pool_list = list->next;
+                }
+                free(list);
+                return SYS_ERR_OK;
+            case 1:
+                /* the ID of the pool in the list is bigger, insert before */
+                return BULK_TRANSFER_POOL_NOT_ASSIGNED;
+            default:
+                break;
+        }
+        prev = list;
+        list = list->next;
+    }
+
+    return BULK_TRANSFER_POOL_NOT_ASSIGNED;
+}
+
 /**
  * compares two bulk pool ids
  *
@@ -78,7 +210,7 @@ uint8_t bulk_pool_is_assigned(struct bulk_pool *pool,
     struct bulk_pool_list *list = channel->pools;
 
     while (list) {
-        switch ((bulk_pool_cmp_id(&list->pool->id, &pool->id) == 0)) {
+        switch (bulk_pool_cmp_id(&list->pool->id, &pool->id)) {
             case -1:
                 /* the ID of the pool in the list is lower, check next */
                 continue;
@@ -99,141 +231,121 @@ uint8_t bulk_pool_is_assigned(struct bulk_pool *pool,
 }
 
 /**
- * checks if the pool is already remapped i.e. the per-buffer caps have been
- * created
+ * gets a pointer to the pool on this channel
  *
- * @return false    if there are no caps per buffer
- *         true     if the caps have been created
+ * @param id        the poolid we want the pool
+ * @param channel   the channel to look for the pools
  */
-static uint8_t bulk_pool_is_remapped(struct bulk_pool *pool)
+struct bulk_pool *bulk_pool_get(struct bulk_pool_id *id,
+                                struct bulk_channel *channel)
 {
-    struct capref *pool_cap = &pool->pool_cap;
-    struct capref *buf_cap = &pool->buffers[0]->cap;
-
-    if (pool_cap->slot == buf_cap->slot) {
-        /**
-         * if the pool is remapped a new cnode is created with the buffer caps,
-         * thus the first buffer capability should have another cnode address
-         * as the pool has indicating the pool has been remapped.
-         */
-        if (pool_cap->cnode.address == buf_cap->cnode.address) {
-            return 0;
+    struct bulk_pool_list *list = channel->pools;
+    while (list) {
+        if (bulk_pool_cmp_id(&list->pool->id, id) == 0) {
+            return list->pool;
         }
-        return 1;
+        list = list->next;
     }
-    return 1;
+    return NULL;
 }
+
 /**
- * does the remapping of the pool if the trust level changes from fully trusted
- * to a lower one. This function is called by the backend.
+ * adds a pool to a channel's pool list
  *
- * @param pool  the pool to remap
+ * @param pool      the pool to assing to the channel
+ * @param channel   the channel to assign the the pool to
  */
-errval_t bulk_pool_remap(struct bulk_pool *pool)
+errval_t bulk_pool_assign(struct bulk_pool *pool, struct bulk_channel *channel)
 {
-
-    /* TODO: REMOVE this function */
-    assert(!"DEPRECATED: should not be used anymore");
-
-    errval_t err;
-
-    /* check if the pool is already remapped  */
-    if (bulk_pool_is_remapped(pool)) {
-        return BULK_TRANSFER_POOL_ALREADY_REMAPPED;
+    assert(channel);
+    struct bulk_pool_list *new_pool = malloc(sizeof(struct bulk_pool_list));
+    if (!new_pool) {
+        return BULK_TRANSFER_MEM;
     }
 
-    /* get the vspace / vregions / memobj pointers */
-    struct vspace *vspace = get_current_vspace();
-    struct vregion *vregion = vspace_get_region(vspace,
-                    (void *) pool->base_address);
-    struct memobj *memobj = vregion_get_memobj(vregion);
+    struct bulk_pool_internal *pool_int = (struct bulk_pool_internal *) pool;
 
-    /*
-     * remove the pool capability from the memobj by unfilling it,
-     * this also does the unmap of the vregions
-     */
-    struct capref pool_cap;
-    genvaddr_t ret_offset;
+    new_pool->next = NULL;
+    new_pool->pool = pool;
 
-    err = memobj->f.unfill(memobj, 0, &pool_cap, &ret_offset);
-    if (err_is_fail(err)) {
-        /*
-         * XXX: this error should basically not happen here...
-         */
-        assert(err != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET);
-        return err_push(err, LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET);
+    if (!channel->pools) {
+        channel->pools = new_pool;
+        return SYS_ERR_OK;
     }
 
-    /* sanity check that the removed offset is in fact zero */
-    assert(ret_offset == 0);
+    struct bulk_pool_list *list = channel->pools;
+    struct bulk_pool_list *prev = NULL;
 
-    err = memobj->f.unfill(memobj, 0, &pool_cap, &ret_offset);
-    if (err != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET) {
-        /*
-         * Note that a pool that has not been remapped only contains one
-         * frame. Thus this call to unfill has to return with the error
-         * code. Otherwise there is something wrong with the pool's memobj...
-         */
-        return BULK_TRANSFER_POOL_INVALD;
-    }
-
-    /*
-     * the pool cap has been successfully removed from the pool's memobj
-     * and we can start creating the buffer caps in a new cnode.
-     */
-    struct capref cnode_cap;
-    struct capref buf_cap = { .slot = 0 };
-
-    err = cnode_create(&cnode_cap, &buf_cap.cnode, pool->num_buffers, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CNODE_CREATE);
-    }
-    /* determine the size bits for the buffer */
-    size_t size = 12;
-    size_t buf_size = pool->buffer_size >> 12;
-    while (buf_size >>= 1) {
-        ++size;
-    }
-    /* retype the pool cap into the buffer caps of the new cnode */
-    err = cap_retype(buf_cap, pool->pool_cap, ObjType_Frame, size);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    for (int i = 0; i < pool->num_buffers; ++i) {
-        struct bulk_buffer *buf = pool->buffers[i];
-
-        size_t offset = i * pool->buffer_size;
-
-        /* update capability information of the buffer */
-        buf_cap.slot = i;
-        buf->cap_offset = 0;
-        buf->cap = buf_cap;
-
-        err = memobj->f.fill(memobj, offset, buf->cap, pool->buffer_size);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MEMOBJ_FILL);
+    while (list) {
+        switch (bulk_pool_cmp_id(&list->pool->id, &pool->id)) {
+            case -1:
+                /* the ID of the pool in the list is lower, check next */
+                prev = list;
+                list = list->next;
+                continue;
+            case 0:
+                /* we have a match */
+                return BULK_TRANSFER_POOL_ALREADY_ASSIGNED;
+            case 1:
+                /* the ID of the pool in the list is bigger, insert before */
+                if (prev) {
+                    new_pool->next = prev->next;
+                    prev->next = new_pool;
+                } else {
+                    new_pool->next = channel->pools;
+                    channel->pools = new_pool;
+                }
+                pool_int->refcnt++;
+                return SYS_ERR_OK;
+            default:
+                break;
         }
-
-        vregion = vspace_get_region(vspace, buf->address);
-        err = memobj->f.map_region(memobj, vregion);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MEMOBJ_MAP_REGION);
-        }
-
-        /* create the actual mapping by faulting on it */
-        err = memobj->f.pagefault(memobj, vregion, offset, 0);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
-        }
-        /*
-         * TODO: do we want to abort the processing if one of the operations
-         *       fails for one of the buffers or just mark the buffer as
-         *       invalid and go on?
-         */
     }
 
+    /* insert at the end */
+    prev->next = new_pool;
+    pool_int->refcnt++;
     return SYS_ERR_OK;
+}
+
+/**
+ * removes the pool from the channel's pool list
+ *
+ * @param pool      the poo to remove
+ * @param channel   the channel to remove the pool from
+ */
+errval_t bulk_pool_remove(struct bulk_pool *pool, struct bulk_channel *channel)
+{
+    assert(channel);
+
+    struct bulk_pool_list *list = channel->pools;
+    struct bulk_pool_list *prev = NULL;
+
+    while (list) {
+        switch (bulk_pool_cmp_id(&list->pool->id, &pool->id)) {
+            case -1:
+                /* the ID of the pool in the list is lower, check next */
+                continue;
+            case 0:
+                /* we have a match, remove it */
+                if (prev) {
+                    prev->next = list->next;
+                } else {
+                    channel->pools = list->next;
+                }
+                free(list);
+                return SYS_ERR_OK;
+            case 1:
+                /* the ID of the pool in the list is bigger, insert before */
+                return BULK_TRANSFER_POOL_NOT_ASSIGNED;
+            default:
+                break;
+        }
+        prev = list;
+        list = list->next;
+    }
+
+    return BULK_TRANSFER_POOL_NOT_ASSIGNED;
 }
 
 /**
@@ -241,6 +353,7 @@ errval_t bulk_pool_remap(struct bulk_pool *pool)
  *
  * @param pool  the pool to unmap
  */
+// XXX Are caps deleted?
 errval_t bulk_pool_unmap(struct bulk_pool *pool)
 {
     assert(pool);
@@ -260,10 +373,12 @@ errval_t bulk_pool_unmap(struct bulk_pool *pool)
     struct capref ret_cap;
     genvaddr_t ret_addr;
 
-    /* unfill and unmap the frames */
-    for (int i=0; i < pool->num_buffers; ++i) {
-        genvaddr_t offset = i * pool->buffer_size;
+    struct bulk_buffer *buf;
 
+    /* unfill and unmap the frames */
+    for (int i = 0; i < pool->num_buffers; ++i) {
+        genvaddr_t offset = i * pool->buffer_size;
+        buf = pool->buffers[i];
         err = memobj->f.unfill(memobj, offset, &ret_cap, &ret_addr);
         if (err_is_fail(err)) {
             if (err == LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET) {
@@ -272,7 +387,13 @@ errval_t bulk_pool_unmap(struct bulk_pool *pool)
             /* TODO: Error handling */
             return err;
         }
+        cap_delete(buf->cap);
+        buf->cap = NULL_CAP;
     }
+
+    /* delete the pool cap and the cnode cap */
+    cap_destroy(pool->pool_cap);
+    cap_destroy(pool_int->cnode_cap);
 
     err = vregion_destroy(vregion);
     if (err_is_fail(err)) {
@@ -283,18 +404,24 @@ errval_t bulk_pool_unmap(struct bulk_pool *pool)
 }
 
 /**
- * Does the mapping of a pool depending on the trust level. If it is not trusted,
- * only the memory range is allocated and the vregions for the buffers created,
+ * Does the mapping of a pool depending on the trust level.
+ * Reserves virtual memory, and allocates a memobj for the pool.
  * In the trusted case, the pool is backed with the pool cap and mapped.
+ * In the nontrusted case, the pool cap is split into seperate buffer caps and
+ * mapped.
+ * If there is no pool_cap, only the virtual memory is allocated.
+ *
+ * XXX : trust_uninitialized is currently treated like the trusted case,
+ * which is probably not the best idea. should we treat it as an error or just
+ * ignore it?
  *
  * @param pool  the pool to map
  */
 errval_t bulk_pool_map(struct bulk_pool *pool)
 {
     assert(pool);
-
+    struct bulk_pool_internal *pool_int = (struct bulk_pool_internal *) pool;
     errval_t err;
-
     if (pool->base_address != 0) {
         /* the pool already has an base address thus is mapped */
 
@@ -318,7 +445,7 @@ errval_t bulk_pool_map(struct bulk_pool *pool)
 
     // Create a memobj
     err = memobj_create_fixed(memobj_fixed, pool_size, 0, pool->num_buffers,
-                    pool->buffer_size);
+                              pool->buffer_size);
 
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_MEMOBJ_CREATE_ANON);
@@ -334,82 +461,113 @@ errval_t bulk_pool_map(struct bulk_pool *pool)
     }
     pool->base_address = vspace_genvaddr_to_lvaddr(address);
 
-    if (pool->trust == BULK_TRUST_FULL
-                    || pool->trust == BULK_TRUST_UNINITIALIZED) {
-        if (capref_is_null(pool->pool_cap)) {
-            return SYS_ERR_CAP_NOT_FOUND;
-        }
-
-        /*
-         * the pool cap has been successfully removed from the pool's memobj
-         * and we can start creating the buffer caps in a new cnode.
-         */
-        struct capref cnode_cap;
-        struct capref buf_cap = { .slot = 0 };
-
-        err = cnode_create(&cnode_cap, &buf_cap.cnode, pool->num_buffers, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CNODE_CREATE);
-        }
-        /* determine the size bits for the buffer */
-        size_t size = 12;
-        size_t buf_size = pool->buffer_size >> 12;
-        while (buf_size >>= 1) {
-            ++size;
-        }
-        /* retype the pool cap into the buffer caps of the new cnode */
-        err = cap_retype(buf_cap, pool->pool_cap, ObjType_Frame, size);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_RETYPE);
-        }
-
-        for (int i = 0; i < pool->num_buffers; ++i) {
-            struct bulk_buffer *buf = pool->buffers[i];
-
-            /* update capability information of the buffer */
-            buf_cap.slot = i;
-            buf->cap_offset = 0;
-            buf->cap = buf_cap;
-
-            err = memobj->f.fill(memobj, i * pool->buffer_size, buf->cap,
-                            pool->buffer_size);
-            if (err_is_fail(err)) {
-                /* TODO: error handling */
-                return err_push(err, LIB_ERR_MEMOBJ_FILL);
-            }
-        }
-    }
-
-    /* we have the address range, now we have to */
+    /* we have the address range, now we have to associate a vregion with it*/
     struct vregion *vregion = malloc(sizeof(struct vregion));
     if (!vregion) {
         return BULK_TRANSFER_MEM;
     }
 
     err = vregion_map_fixed(vregion, get_current_vspace(), memobj, 0, pool_size,
-                    address, VREGION_FLAGS_READ_WRITE);
+                            address, VREGION_FLAGS_READ_WRITE);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MEMOBJ_MAP_REGION);
     }
 
-    struct bulk_pool_internal *pool_int = (struct bulk_pool_internal *) pool;
     pool_int->vregion = vregion;
 
-    for (int i = 0; i < pool->num_buffers; ++i) {
+    if (pool->trust == BULK_TRUST_FULL
+                    || pool->trust == BULK_TRUST_UNINITIALIZED) {
+        if (capref_is_null(pool->pool_cap)) {
+            return SYS_ERR_CAP_NOT_FOUND;
+        }
+        //XXX: treating uninitialized just like full trust does not sound like a
+        //      good idea...
 
-        size_t offset = (i * pool->buffer_size);
+        /* start creating caps for each buffer */
+        struct capref buf_cap = {
+            .slot = 0 };
 
-        if (pool->trust == BULK_TRUST_FULL
-                        || pool->trust == BULK_TRUST_UNINITIALIZED) {
+        err = cnode_create(&pool_int->cnode_cap, &buf_cap.cnode,
+                           pool->num_buffers, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CNODE_CREATE);
+        }
+
+        /* copy the pool cap for each buffer into the new cnode and set
+         * appropriate offset */
+        for (int i = 0; i < pool->num_buffers; ++i) {
+            struct bulk_buffer *buf = pool->buffers[i];
+            buf_cap.slot = i;
+            size_t offset = (i * pool->buffer_size);
+
+            err = cap_copy(buf_cap, pool->pool_cap);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_CAP_COPY);
+            }
+
+            err = bulk_buffer_assign_cap(buf, buf_cap, offset);
+            assert(err_is_ok(err)); /* this should not fail */
+
+            err = memobj->f.fill(memobj, offset, buf->cap,
+                                 buf->cap_offset);
+            if (err_is_fail(err)) {
+                /* TODO: error handling */
+                return err_push(err, LIB_ERR_MEMOBJ_FILL);
+            }
+            buf->address = (void *) vspace_genvaddr_to_lvaddr(address + offset);
             err = memobj->f.pagefault(memobj, vregion, offset, 0);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
             }
-            struct bulk_buffer *buf = pool->buffers[i];
+
             buf->state = BULK_BUFFER_READ_WRITE;
+        }
+    } else if (pool->trust == BULK_TRUST_NONE && !capref_is_null(pool->pool_cap)) {
+        /* start creating caps for each buffer */
+        struct capref buf_cap = {
+            .slot = 0 };
+
+        err = cnode_create(&pool_int->cnode_cap, &buf_cap.cnode,
+                           pool->num_buffers, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CNODE_CREATE);
+        }
+        /* determine the size bits per buffer */
+        size_t size_bits = 12;
+        size_t buf_size = pool->buffer_size >> 12;
+        while (buf_size >>= 1) {
+            ++size_bits;
+        }
+        //split pool cap into smaller caps for each buffer
+        err = cap_retype(buf_cap, pool->pool_cap, ObjType_Frame, size_bits);
+        assert(err_is_ok(err));//TODO: handle error instead
+
+        /* set the capref for each buffer into the new cnode and set
+         * appropriate offset in memobj */
+        for (int i = 0; i < pool->num_buffers; ++i) {
+            struct bulk_buffer *buf = pool->buffers[i];
+            buf_cap.slot = i;
+            size_t offset = (i * pool->buffer_size);
+
+            err = bulk_buffer_assign_cap(buf, buf_cap, 0);
+            assert(err_is_ok(err)); /* this should not fail */
+
+            err = memobj->f.fill(memobj, offset, buf->cap,
+                                 buf->cap_offset);
+            if (err_is_fail(err)) {
+                /* TODO: error handling - delete all our new caps? */
+                return err_push(err, LIB_ERR_MEMOBJ_FILL);
+            }
             buf->address = (void *) vspace_genvaddr_to_lvaddr(address + offset);
+            err = memobj->f.pagefault(memobj, vregion, offset, 0);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
+            }
+
+            buf->state = BULK_BUFFER_READ_WRITE;
         }
     }
+
     return SYS_ERR_OK;
 }
 
@@ -439,8 +597,82 @@ errval_t bulk_pool_init_bufs(struct bulk_pool *pool)
     for (int i = 0; i < buffer_count; ++i) {
         (bufs + i)->state = BULK_BUFFER_INVALID;
         (bufs + i)->pool = pool;
+        (bufs + i)->bufferid = i;
         pool->buffers[i] = bufs + i;
     }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * allocates the data structures for the pool.
+ *
+ * @param   pool            storage for pointer to newly allocated pool
+ * @param   buffer_count    the number of buffers in the pool
+ * @param   buffer_size     the size of a single buffer
+ * @param   id              pool id
+ */
+errval_t bulk_pool_alloc_with_id(struct bulk_pool **pool,
+                                 size_t buffer_count,
+                                 size_t buffer_size,
+                                 struct bulk_pool_id id)
+{
+    errval_t err;
+    struct bulk_pool_internal *pool_int;
+
+    /* allocate memory for the pool struct */
+
+    pool_int = malloc(sizeof(struct bulk_pool_internal));
+
+    if (pool_int == NULL) {
+        return BULK_TRANSFER_MEM;
+    }
+
+    memset(pool_int, 0, sizeof(struct bulk_pool_internal));
+
+    pool_int->pool.id = id;
+
+    pool_int->pool.buffer_size = buffer_size;
+    pool_int->pool.num_buffers = buffer_count;
+    pool_int->pool.trust = BULK_TRUST_UNINITIALIZED;
+
+    err = bulk_pool_init_bufs(&pool_int->pool);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    bulk_pool_domain_list_insert(&pool_int->pool);
+    *pool = &pool_int->pool;
+    return SYS_ERR_OK;
+}
+
+/**
+ * allocates the data structures for the pool with new id.
+ *
+ * @param   pool            storage for pointer to newly allocated pool
+ * @param   buffer_count    the number of buffers in the pool
+ * @param   buffer_size     the size of a single buffer
+ */
+errval_t bulk_pool_alloc(struct bulk_pool **pool,
+                         size_t buffer_count,
+                         size_t buffer_size)
+{
+    struct bulk_pool_id id;
+    bulk_pool_generate_id(&id);
+    return bulk_pool_alloc_with_id(pool, buffer_count, buffer_size, id);
+}
+
+/**
+ * frees up the resources needed by the pool note
+ *
+ * @param pool  the pool to dealloc
+ */
+errval_t bulk_pool_dealloc(struct bulk_pool *pool)
+{
+    /* all the buffers were malloced once */
+    free(pool->buffers[0]);
+    free(pool->buffers);
+    free(pool);
 
     return SYS_ERR_OK;
 }

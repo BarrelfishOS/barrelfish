@@ -216,6 +216,7 @@ void icmp_input(struct pbuf *p, struct netif *inp)
             /* At this point, all checks are OK. */
             /* We generate an answer by switching the dest and src ip addresses,
              * setting the icmp type to ECHO_RESPONSE and updating the checksum. */
+            p->nicflags = 0;
             iecho = p->payload;
             tmpaddr.addr = iphdr->src.addr;
             iphdr->src.addr = iphdr->dest.addr;

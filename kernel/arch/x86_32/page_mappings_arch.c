@@ -402,7 +402,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
         paging_x86_32_modify_flags(entry, flags);
     }
 
-    return SYS_ERR_OK;
+    return paging_tlb_flush_range(mapping, pages);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

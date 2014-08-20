@@ -14,6 +14,7 @@
 */
 
 interface block_service "block service interface" {
-    message write(uint32 start_block, uint32 count);
-    message read(uint32 start_block, uint32 count);
+    message read(uint32 start_block, uint32 count, uint32 seqn);
+    message setup(iref tx_iref, iref rx_iref);
+    message status(errval err, uint32 seqn, uint32 req);
 };

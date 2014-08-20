@@ -19,14 +19,6 @@
 
 #include "network_common.h"
 
-/**
- * struct representing a connection from the block server client to the
- * block server.
- */
-struct bs_conn {
-
-
-};
 
 errval_t block_net_init(uint16_t port);
 

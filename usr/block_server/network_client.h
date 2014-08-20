@@ -15,23 +15,53 @@
 #ifndef BLOCK_NETWORK_CLIENT_H
 #define BLOCK_NETWORK_CLIENT_H
 
-struct block_net_server
-{
-    char *ip;
-    uint16_t port;
-/* other fields needed to represent the connection */
-};
+#include <bulk_transfer/bulk_transfer.h>
 
-errval_t block_net_connect(struct block_net_server *server);
+#include <lwip/tcp.h>
 
-errval_t block_net_disconnect(struct block_net_server *server);
+#include "network_common.h"
+#include "block_server.h"
 
-errval_t block_net_read(struct block_net_server *server, size_t block_start,
-                        size_t count, void *ret_data);
+/**
+ *
+ */
+errval_t block_net_connect(struct block_net_service *server,
+                           struct ip_addr *ip,
+                           uint16_t port);
 
-errval_t block_net_write(struct block_net_server *server, size_t block_start,
-                         size_t count, void *data);
+/**
+ *
+ */
+errval_t block_net_disconnect(struct block_net_service *server);
 
-struct block_net_server *block_net_server_lookup(size_t block_start);
+/**
+ *
+ */
+errval_t block_net_read(struct block_net_service *server,
+                        size_t block_start,
+                        size_t count,
+                        uint32_t seqn,
+                        struct bulk_continuation cont);
+
+/**
+ *
+ */
+errval_t block_net_write(struct block_net_service *server,
+                         size_t count,
+                         struct bulk_buffer **buf,
+                         struct bs_meta_data *meta,
+                         struct bulk_continuation cont);
+
+errval_t block_net_pass(struct block_net_service *server,
+                        size_t count,
+                        struct bulk_buffer **buf,
+                        struct bs_meta_data *meta,
+                        struct bulk_continuation cont);
+
+errval_t block_net_release(struct block_net_service *server,
+                           size_t count,
+                           struct bulk_buffer **buf,
+                           struct bs_meta_data *meta,
+                           struct bulk_continuation cont);
 
 #endif /* BLOCK_NETWORK_CLIENT_H */

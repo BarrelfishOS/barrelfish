@@ -966,14 +966,17 @@ errors common ERR_ {
 
 errors bulk_transfer BULK_TRANSFER_ {
     failure MEM                 "Internal not enough memory error",
+    failure NO_CALLBACK         "No callback was set",
     failure CHAN_CREATE         "Channel create operation failed.",
     failure CHAN_BIND           "Channel bind operation failed.",
     failure CHAN_ASSIGN_POOL    "Channel assign pool operation failed.",
     failure CHAN_STATE          "Channel has a wrong state",
     failure CHAN_TRUST          "Channel has a invalid trust level.",
     failure CHAN_INVALID_EP     "Channel has an invalid endpoint.",
+    failure CHAN_DIRECTION      "The channel has the wrong direction for this operation.",
     failure POOL_INVALD         "The pool does not match.",
     failure POOL_NOT_ASSIGNED   "The pool has not yet been assigned to a channel.",
+    failure POOL_ASSIGN_VETO    "The assignment request of the pool has been vetoed.",
     failure POOL_MAP            "Mapping of the pool failed",
     failure POOL_UNMAP          "The Unmapping of the pool failed",
     failure POOL_ALREADY_ASSIGNED "The pool has already been assigned to this channel.",
@@ -988,6 +991,11 @@ errors bulk_transfer BULK_TRANSFER_ {
     failure BUFFER_UNMAP        "The unmapping of the buffer failed.",
     failure ALLOC_BUFFER_SIZE   "The supplied buffer size is not valid.",
     failure ALLOC_BUFFER_COUNT  "The supplied buffer count is not valid.",
+    failure INVALID_ARGUMENT    "The supplied argument is invalid.",
+    failure SM_NO_PENDING_MSG   "No pending message associated with that tid",
+    failure SM_EXCLUSIVE_WS     "BULK_SM: Exclusive waitset required per channel.",
+    failure NET_MAX_QUEUES      "The number of maximum queues is reached",
+    failure NET_POOL_USED       "The pool is already used over a no-copy channel.",
     
     
 };

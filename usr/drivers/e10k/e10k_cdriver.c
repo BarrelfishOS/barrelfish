@@ -39,6 +39,7 @@ struct queue_state {
     struct capref txhwb_frame;
     struct capref rx_frame;
     uint32_t rxbufsz;
+    uint32_t rxhdrsz;
 
     size_t msix_index;
     int16_t msix_intvec;
@@ -97,6 +98,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb,
                               struct capref rx,
                               uint32_t rxbufsz,
+                              uint32_t rxhdrsz,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_interrupts,
@@ -560,6 +562,10 @@ static void device_init(void)
     // Accept broadcasts
     e10k_fctrl_bam_wrf(d, 1);
 
+    // Enable Jumbo frames
+    e10k_hlreg0_jumboen_wrf(d, 1);
+    e10k_maxfrs_mfs_wrf(d, 15872);
+
     // Make sure Rx CRC strip is consistently enabled in HLREG0 and RDRXCTL
     e10k_hlreg0_rxcrcstrp_wrf(d, 1);
     // Note: rscfrstsz has to be set to 0 (is mbz)
@@ -704,9 +710,20 @@ static void queue_hw_init(uint8_t n)
     e10k_rdlen_1_wr(d, n, rx_size);
 
     e10k_srrctl_1_bsz_pkt_wrf(d, n, queues[n].rxbufsz / 1024);
-    e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
-                                               //       all cases?
-    e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+    uint32_t hdrsz = queues[n].rxhdrsz;
+    if (hdrsz == 0) {
+        hdrsz = 128;
+    }
+    assert(hdrsz % 64 == 0);
+    assert(hdrsz >= 128 && hdrsz <= 1024);
+
+    e10k_srrctl_1_bsz_hdr_wrf(d, n, hdrsz / 64);
+    // Enable header split if desired
+    if (queues[n].rxhdrsz != 0) {
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_hdrsp);
+    } else {
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+    }
     e10k_srrctl_1_drop_en_wrf(d, n, 1);
 
     // Set RSC status
@@ -714,11 +731,15 @@ static void queue_hw_init(uint8_t n)
         e10k_rscctl_1_maxdesc_wrf(d, n, 3);
         e10k_rscctl_1_rsc_en_wrf(d, n, 1);
         // TODO: (how) does this work for queues >=64?
-        e10k_psrtype_split_tcp_wrf(d, n, 1);
     } else {
         e10k_rscctl_1_maxdesc_wrf(d, n, 0);
         e10k_rscctl_1_rsc_en_wrf(d, n, 0);
     }
+    e10k_psrtype_split_tcp_wrf(d, n, 1); // required for RSC
+    e10k_psrtype_split_udp_wrf(d, n, 1);
+    e10k_psrtype_split_ip4_wrf(d, n, 1);
+    e10k_psrtype_split_ip6_wrf(d, n, 1);
+    e10k_psrtype_split_l2_wrf(d, n, 1);
 
     // Initialize queue pointers (empty)
     e10k_rdt_1_wr(d, n, queues[n].rx_head);
@@ -1030,6 +1051,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               struct capref txhwb_frame,
                               struct capref rx_frame,
                               uint32_t rxbufsz,
+                              uint32_t rxhdrsz,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_irq,
@@ -1052,6 +1074,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;
     queues[n].rxbufsz = rxbufsz;
+    queues[n].rxhdrsz = rxhdrsz;
     queues[n].msix_index = -1;
     queues[n].msix_intvec = msix_intvec;
     queues[n].msix_intdest = msix_intdest;

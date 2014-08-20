@@ -106,6 +106,16 @@ uint8_t bulk_buffer_is_copy(struct bulk_buffer *buffer);
  */
 uint8_t bulk_buffer_is_valid(struct bulk_buffer *buffer);
 
+/**
+ * Sets a cap + offset pair for a buffer.
+ *
+ * @param buffer     the buffer
+ * @param cap        cap to assign
+ * @param cap_offset offset in the cap
+ */
+errval_t bulk_buffer_assign_cap(struct bulk_buffer *buffer,
+                                struct capref       cap,
+                                size_t              cap_offset);
 
 
 

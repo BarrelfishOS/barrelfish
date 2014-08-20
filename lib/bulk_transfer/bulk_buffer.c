@@ -50,13 +50,18 @@ errval_t bulk_buffer_map(struct bulk_buffer *buffer)
     struct vregion *vregion = pool_int->vregion;
     struct memobj *memobj = vregion_get_memobj(vregion);
 
-    size_t offset = (lvaddr_t) buffer->address - buffer->pool->base_address;
     size_t size = buffer->pool->buffer_size;
+    size_t offset = size * buffer->bufferid;
+    //if we have never seen this buffer before, it's address will not be set yet
+    buffer->address = (void *) vspace_genvaddr_to_lvaddr(
+                                        buffer->pool->base_address + offset);
 
     /* the capability was revoked thus we have to insert it again */
-    err = memobj->f.fill(memobj, offset, buffer->cap, size);
+    err = memobj->f.fill(memobj, offset, buffer->cap, buffer->cap_offset);
     if (err_is_fail(err)) {
         /* TODO: error handling */
+        debug_printf("offset = %p, base=%p", (void *) offset,
+                     (void *) buffer->pool->base_address);
         return err_push(err, LIB_ERR_MEMOBJ_FILL);
     }
 
@@ -68,7 +73,7 @@ errval_t bulk_buffer_map(struct bulk_buffer *buffer)
 
     if (buffer->state != BULK_BUFFER_READ_WRITE) {
         err = memobj->f.protect(memobj, vregion, offset, size,
-                        VREGION_FLAGS_READ);
+        VREGION_FLAGS_READ);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_MEMOBJ_PROTECT);
         }
@@ -89,6 +94,7 @@ errval_t bulk_buffer_map(struct bulk_buffer *buffer)
 errval_t bulk_buffer_unmap(struct bulk_buffer *buffer)
 {
     assert(buffer);
+    assert(buffer->state == BULK_BUFFER_INVALID);
 
     errval_t err;
     struct bulk_pool_internal *pool_int;
@@ -100,9 +106,6 @@ errval_t bulk_buffer_unmap(struct bulk_buffer *buffer)
 
     pool_int = (struct bulk_pool_internal *) buffer->pool;
 
-    /*
-     * TODO: add the vregion pointer to the private part of the pool
-     */
     struct vregion *vregion = pool_int->vregion;
     struct memobj *memobj = vregion_get_memobj(vregion);
 
@@ -139,12 +142,17 @@ errval_t bulk_buffer_unmap(struct bulk_buffer *buffer)
 static errval_t bulk_buffer_remap(struct bulk_buffer *buffer)
 {
     assert(buffer);
-
+    assert(buffer->state != BULK_BUFFER_INVALID);
     errval_t err;
 
-    struct vspace *vspace = get_current_vspace();
-    struct vregion *vregion = vspace_get_region(vspace,
-                    (void *) buffer->address);
+    if (buffer->pool->trust == BULK_TRUST_FULL) {
+        return SYS_ERR_OK;
+    }
+
+    struct bulk_pool_internal *pool_int = (struct bulk_pool_internal *) buffer
+                    ->pool;
+
+    struct vregion *vregion = pool_int->vregion;
     struct memobj *memobj = vregion_get_memobj(vregion);
 
     size_t offset = (lvaddr_t) buffer->address - buffer->pool->base_address;
@@ -220,9 +228,8 @@ errval_t bulk_buffer_change_state(struct bulk_buffer *buffer,
         return SYS_ERR_OK;
     }
 
-    buffer->state = new_state;
-
     if (st == BULK_BUFFER_READ_WRITE) {
+        buffer->state = new_state;
         switch (new_state) {
             case BULK_BUFFER_RO_OWNED:
             case BULK_BUFFER_READ_ONLY:
@@ -236,6 +243,7 @@ errval_t bulk_buffer_change_state(struct bulk_buffer *buffer,
                 break;
         }
     } else if (bulk_buffer_is_read_only(buffer)) {
+        buffer->state = new_state;
         switch (new_state) {
             case BULK_BUFFER_READ_WRITE:
                 err = bulk_buffer_remap(buffer);
@@ -248,6 +256,7 @@ errval_t bulk_buffer_change_state(struct bulk_buffer *buffer,
                 break;
         }
     } else if (st == BULK_BUFFER_INVALID) {
+        buffer->state = new_state;
         err = bulk_buffer_map(buffer);
     }
 
@@ -258,3 +267,27 @@ errval_t bulk_buffer_change_state(struct bulk_buffer *buffer,
 
     return SYS_ERR_OK;
 }
+
+/**
+ * Sets a cap + offset pair for a buffer.
+ *
+ * @param buffer     the buffer
+ * @param cap        cap to assign
+ * @param cap_offset offset in the cap
+ */
+errval_t bulk_buffer_assign_cap(struct bulk_buffer *buffer,
+                                struct capref       cap,
+                                size_t              cap_offset)
+{
+    errval_t err;
+    struct frame_identity fid = { 0, 0 };
+
+    buffer->cap = cap;
+    buffer->cap_offset = cap_offset;
+
+    err = invoke_frame_identify(cap, &fid);
+    buffer->phys = fid.base + cap_offset;
+
+    return err;
+}
+

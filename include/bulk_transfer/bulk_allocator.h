@@ -33,6 +33,7 @@ struct bulk_buffer_mng {
  */
 struct bulk_allocator {
     struct bulk_pool       *pool;
+    struct bulk_buffer_mng *mngs;
     size_t                  num_free;
     struct bulk_buffer_mng *free_buffers;
 };
@@ -45,6 +46,8 @@ struct bulk_pool_constraints {
     uintptr_t range_min;
     uintptr_t range_max;
     uintptr_t alignment;
+    //TRUST_NONE or TRUST_HALF implies seperate capabilities per buffer
+    enum bulk_trust_level   trust;
 };
 
 

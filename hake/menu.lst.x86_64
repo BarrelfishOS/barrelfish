@@ -49,6 +49,7 @@ module /x86_64/sbin/netd auto
 ## Block Service
 module /x86_64/sbin/block_server
 module /x86_64/sbin/block_server_client
+module /x86_64/sbin/bs_user
 
 # General user domains
 module	/x86_64/sbin/serial

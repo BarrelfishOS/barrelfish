@@ -15,30 +15,31 @@
 #ifndef BLOCK_STORAGE_H
 #define BLOCK_STORAGE_H
 
-/// The default size of a single block
-#define DEFAULT_BLOCK_SIZE 4096
 
-/// The default number of blocks
-#define DEFAULT_BLOCK_COUNT 1024
 
-struct block
+struct bs_block
 {
-/* todo: reference to a bulk block */
+    size_t id;
+    size_t size;
+    void *data;
 };
 
 struct block_storage
 {
+    uint8_t ready;
     size_t num_blocks;
     size_t block_size;
-    struct block *blocks;
+    struct bs_block *blocks;
 };
+
+size_t block_storage_get_block_size(void);
 
 errval_t block_storage_init(size_t num_blocks, size_t block_size);
 
 errval_t block_storage_dealloc(void);
 
-errval_t block_storage_get(size_t bid, void **ret_block);
+errval_t block_storage_read(size_t bid, void *dst);
 
-errval_t block_storage_set(size_t bid, struct block *blk);
+errval_t block_storage_write(size_t bid, void *src);
 
 #endif /* BLOCK_STORAGE_H */

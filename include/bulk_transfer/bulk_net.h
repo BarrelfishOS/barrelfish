@@ -16,13 +16,52 @@
 #define BULK_NET_H
 
 #include <bulk_transfer/bulk_transfer.h>
+#include <barrelfish/event_queue.h>
 
+#include <lwip/tcp.h>
 
+#include <dev/e10k_dev.h>
 
-/* TODO: correct inlude */
-struct ip_addr  {
-                int foo;
+struct bulk_net_msgdesc;
+struct e10k_binding;
+struct e10k_queue;
+
+struct stack_allocator {
+    size_t size;
+    size_t top;
+    void **stack;
 };
+
+struct bulk_e10k {
+    bool                    ready;
+    size_t                  buffer_size;
+    size_t                  ring_size;
+    uint8_t                 qi;
+    uint8_t                 int_core;
+    uint8_t                 int_vector;
+    struct e10k_binding    *binding;
+    e10k_t                  d;
+    struct e10k_queue      *q;
+    uint64_t                mac;
+    struct capref           rxframe;
+    struct capref           txframe;
+    struct capref           txhwbframe;
+    void                  (*received)(struct bulk_e10k *,
+                                      struct bulk_net_msgdesc *);
+    void                  (*transmitted)(struct bulk_e10k *,
+                                         void *);
+
+    struct event_queue      event_queue;
+    struct stack_allocator  rx_event_alloc;
+    struct stack_allocator  tx_event_alloc;
+
+    struct waitset          *waitset;
+    struct waitset_chanstate wscs;
+
+    void                   *opaque;
+};
+
+
 
 /**
  * endpoint descriptor for the bulk network interface.
@@ -38,8 +77,12 @@ struct bulk_net_endpoint_descriptor {
     /* start of implementation specific part */
     struct ip_addr                  ip;          ///< ip address
     uint16_t                        port;        ///< port
-    uint64_t                        rx_queue_id; ///< rx queue (control channel)
-    uint64_t                        tx_queue_id; ///< tx queue (control channel)
+    /* from transparent endpoint */
+    char                           *cardname;
+    uint8_t                         queue;
+    uint8_t                         max_queues;
+    size_t                          buffer_size;
+    size_t                          buffer_count;
     /*
      * XXX: do we want to add the connection information here as well?
      *      e.g. tcp_pcb ?
@@ -53,92 +96,14 @@ struct bulk_net_ep_setup {
     struct ip_addr  ip;         ///< the ip address of the endpoint
     uint16_t        port;       ///< the port of the endpoint
     /* possibly queue id */
-    uint64_t        rx_queue_id; ///< rx queue (control channel)
-    uint64_t        tx_queue_id; ///< tx queue (control channel)
+    uint8_t         queue;
+    uint8_t         max_queues;
+    size_t          buffer_size;
+    size_t          buffer_count;
+    char           *cardname;
+    bool            no_copy;
 };
 
-
-/**
- * enumeration of possible message types over the control channel
- */
-enum bulk_net_msg_type {
-    BULK_NET_MSG_BIND,          ///< binding to the channel
-    BULK_NET_MSG_POOL_ASSIGN,   ///< pool has been assigned to the channel
-    BULK_NET_MSG_POOL_REMOVE,   ///< pool has been removed from the channel
-    BULK_NET_MSG_DATA           ///< data arrives over the channel
-};
-
-struct bulk_net_header {
-    enum bulk_net_msg_type  type;
-    size_t                  size;
-};
-
-struct bulk_net_msg {
-    struct bulk_net_header header;
-    /* meta data of the bulk data */
-    union {
-        struct {
-            struct bulk_pool_id id;
-            size_t buffer_size;
-            size_t num_buffers;
-        } pool_assign;
-
-        struct {
-            struct bulk_pool_id id;
-        } pool_remove;
-
-        struct {
-            struct bulk_net_ep_setup ep_setup;
-            struct bulk_channel_setup channel_setup;
-        } bind;
-
-        struct {
-
-
-        } data;
-
-    } msg;
-};
-
-
-/*
- * ---------------------------------------------------------------------------
- * Implementation Specific Interface Functions >>>
- *
- * TODO: make asynchronous
- */
-errval_t bulk_net_channel_pass(struct bulk_channel *channel,
-                               struct bulk_buffer  *buffer,
-                               void                *meta,
-                               struct bulk_continuation cont);
-
-errval_t bulk_net_channel_copy(struct bulk_channel *channel,
-                               struct bulk_buffer  *buffer,
-                               void                *meta,
-                               struct bulk_continuation cont);
-
-errval_t bulk_net_channel_release(struct bulk_channel *channel,
-                                  struct bulk_buffer  *buffer,
-                                  struct bulk_continuation cont);
-
-errval_t bulk_net_channel_move(struct bulk_channel *channel,
-                               struct bulk_buffer   *buffer,
-                               void                 *meta,
-                               struct bulk_continuation cont);
-
-errval_t bulk_net_channel_assign_pool(struct bulk_channel *channel,
-                                      struct bulk_pool    *pool);
-
-errval_t bulk_net_channel_bind(struct bulk_channel *channel);
-
-errval_t bulk_net_channel_create(struct bulk_channel *channel);
-
-struct bulk_implementation *bulk_net_get_implementation(void);
-
-/*
- * <<< Implementation Specific Interface Functions
- * ---------------------------------------------------------------------------
- */
 
 /**
  * Creates a new bulk endpoint which uses the network backend
@@ -166,5 +131,5 @@ errval_t bulk_net_ep_destroy(struct bulk_net_endpoint_descriptor *ep_desc);
  * @param port      the port where the otherside listens to
  */
 errval_t bulk_net_ep_create_remote(struct bulk_net_endpoint_descriptor *ep_desc,
-                                   struct ip_addr ip, uint16_t port);
+                                   struct bulk_net_ep_setup            *setup);
 #endif /* BULK_NET_H */

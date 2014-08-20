@@ -17,6 +17,9 @@
 #include <bulk_transfer/bulk_transfer.h>
 #include <bulk_transfer/bulk_net.h>
 
+#include "bulk_net_backend.h"
+
+static char *default_cardname = "e10k";
 
 /**
  * Creates a new bulk endpoint which uses the network backend
@@ -31,19 +34,45 @@ errval_t bulk_net_ep_create(struct bulk_net_endpoint_descriptor *ep_desc,
 {
     assert(ep_desc);
 
-    ep_desc->ip = setup->ip;
+    if (setup->port == 0 || setup->queue == 0) {
+        return BULK_TRANSFER_INVALID_ARGUMENT;
+    }
+
+    ep_desc->ip.addr = htonl(setup->ip.addr);
     ep_desc->port = setup->port;
+    ep_desc->queue = setup->queue;
 
-    ep_desc->ep_generic.f = bulk_net_get_implementation();
+    if (setup->cardname) {
+        ep_desc->cardname = setup->cardname;
+    } else {
+        ep_desc->cardname = default_cardname;
+    }
+
+    if (setup->buffer_size == 0) {
+        ep_desc->buffer_size = BULK_NET_DEFAULT_BUFFER_SIZE;
+    } else {
+        ep_desc->buffer_size = setup->buffer_size;
+    }
+
+    if (setup->buffer_count == 0) {
+        ep_desc->buffer_count = BULK_NET_DEFAULT_BUFFER_COUNT;
+    } else {
+        ep_desc->buffer_count = setup->buffer_count;
+    }
+
+    if (setup->max_queues == 0) {
+        ep_desc->max_queues = BULK_NET_DEFAULT_QUEUES;
+    } else {
+        ep_desc->max_queues = setup->max_queues;
+    }
 
 
-    /*
-     * XXX: Do we want to initialize the network queues and the
-     *      tcp connection at this point ?
-     *      Alternatively just prepare it and finalize it when the channel
-     *      gets created,
-     *      - RA
-     */
+    if(setup->no_copy) {
+        ep_desc->ep_generic.f = bulk_net_get_impl_no_copy();
+    } else {
+        ep_desc->ep_generic.f = bulk_net_get_impl();
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -77,22 +106,46 @@ errval_t bulk_net_ep_destroy(struct bulk_net_endpoint_descriptor *ep_desc)
  * a nameservice like lookup should return the correct endpoint descriptor.
  */
 errval_t bulk_net_ep_create_remote(struct bulk_net_endpoint_descriptor *ep_desc,
-                                   struct ip_addr ip, uint16_t port)
+                                   struct bulk_net_ep_setup            *setup)
 {
     assert(ep_desc);
 
 
-    ep_desc->ip = ip;
-    ep_desc->port = port;
+    assert(ep_desc);
 
-    ep_desc->ep_generic.f = bulk_net_get_implementation();
+      if (setup->port == 0 || setup->queue == 0) {
+          return BULK_TRANSFER_INVALID_ARGUMENT;
+      }
 
-    /*
-     * this endpoint is used to specify the remote endpoint to bind to.
-     * no need to create a listener for new connections
-     *
-     * potential receiving queues are created upon channel bind
-     */
+      ep_desc->ip.addr = htonl(setup->ip.addr);
+      ep_desc->port = setup->port;
+      ep_desc->queue = setup->queue;
+
+      if (setup->cardname) {
+          ep_desc->cardname = setup->cardname;
+      } else {
+          ep_desc->cardname = default_cardname;
+      }
+
+      if (setup->buffer_size == 0) {
+          ep_desc->buffer_size = BULK_NET_DEFAULT_BUFFER_SIZE;
+      } else {
+          ep_desc->buffer_size = setup->buffer_size;
+      }
+
+      if (setup->buffer_count == 0) {
+          ep_desc->buffer_count = BULK_NET_DEFAULT_BUFFER_COUNT;
+      } else {
+          ep_desc->buffer_count = setup->buffer_count;
+      }
+
+
+      if(setup->no_copy) {
+          ep_desc->ep_generic.f = bulk_net_get_impl_no_copy();
+      } else {
+          ep_desc->ep_generic.f = bulk_net_get_impl();
+      }
+
 
     return SYS_ERR_OK;
 }

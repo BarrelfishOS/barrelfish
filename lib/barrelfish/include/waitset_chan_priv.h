@@ -27,9 +27,9 @@ errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan);
 errval_t waitset_chan_register_disabled(struct waitset *ws,
                                         struct waitset_chanstate *chan,
                                         struct event_closure closure);
-errval_t waitset_chan_register_polled(struct waitset *ws,
+/*errval_t waitset_chan_register_polled(struct waitset *ws,
                                       struct waitset_chanstate *chan,
-                                      struct event_closure closure);
+                                      struct event_closure closure);*/
 errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
                                                struct waitset_chanstate *chan,
                                                struct event_closure closure,

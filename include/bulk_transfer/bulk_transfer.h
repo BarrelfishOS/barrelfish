@@ -55,6 +55,7 @@ enum bulk_channel_state {
     BULK_STATE_UNINITIALIZED,  ///< channel not initialized, no endpoint assigned
     BULK_STATE_INITIALIZED,    ///< local endpoint assigned, ready for binding
     BULK_STATE_BINDING,        ///< binding is in progress
+    BULK_STATE_BIND_NEGOTIATE, ///< channel properties are negotiated (role, trust)
     BULK_STATE_CONNECTED,      ///< binding is completed and ready for use
     BULK_STATE_TEARDOWN,       ///< teardown is initiated
     BULK_STATE_CLOSED          ///< the channel has been closed
@@ -76,6 +77,22 @@ struct bulk_continuation {
     void *arg;
 };
 
+#define MK_BULK_CONT(h,a) ((struct bulk_continuation) {.handler=(h), .arg=(a)})
+#define BULK_CONT_NOP     MK_BULK_CONT(NULL, NULL)
+
+/**
+ * Helper function to call a bulk continuation with given arguments.
+ */
+static inline void bulk_continuation_call(struct bulk_continuation cont,
+                                          errval_t                 err,
+                                          struct bulk_channel      *channel)
+{
+    if (cont.handler) {
+        cont.handler(cont.arg, err, channel);
+    }
+}
+
+
 /**
  * Function pointers provided by an implementation of the bulk transfer
  * mechanism over a specific backend. Functions correspond closely to the
@@ -88,12 +105,14 @@ struct bulk_continuation {
 struct bulk_implementation {
     errval_t (*channel_create)(struct bulk_channel  *channel);
 
-    errval_t (*channel_bind)(struct bulk_channel  *channel);
+    errval_t (*channel_bind)(struct bulk_channel  *channel,
+                             struct bulk_continuation cont);
 
     errval_t (*channel_destroy)(struct bulk_channel  *channel);
 
     errval_t (*assign_pool)(struct bulk_channel *channel,
-                            struct bulk_pool    *pool);
+                            struct bulk_pool    *pool,
+                            struct bulk_continuation cont);
 
     errval_t (*remove_pool)(struct bulk_channel *channel,
                             struct bulk_pool    *pool,
@@ -137,9 +156,8 @@ struct bulk_channel_constraints {
 struct bulk_channel_callbacks {
     /**
      * For exporting side: other endpoint successfully bound
-     * For binding side: binding succeeded
      */
-    void (*bind_done)(struct bulk_channel *channel, errval_t err);
+    errval_t (*bind_received)(struct bulk_channel *channel);
 
     /**
      * the other side wants to teardown the channel
@@ -154,13 +172,13 @@ struct bulk_channel_callbacks {
      *         error code is sent to the other side (veto).
      */
     errval_t (*pool_assigned)(struct bulk_channel *channel,
-                              struct bulk_pool *pool);
+                              struct bulk_pool    *pool);
 
     /**
      * The other endpoint wants to remove a pool from this channel
      */
     errval_t (*pool_removed)(struct bulk_channel *channel,
-                             struct bulk_pool *pool);
+                             struct bulk_pool    *pool);
 
     /** Incoming moved buffer (sink) */
     void (*move_received)(struct bulk_channel *channel,
@@ -248,7 +266,7 @@ struct bulk_endpoint_descriptor {
  */
 struct bulk_pool_id {
     uint32_t    machine;
-    domainid_t  dom;
+    uint32_t    dom;//warning: disp_get_domain_id() is core-local
     uint32_t    local;
 };
 
@@ -276,8 +294,6 @@ struct bulk_pool {
     size_t                   buffer_size;
     /**  pool trust level depending on first assignment */
     enum bulk_trust_level    trust;
-    /** pointer to an implementation dependent data structure */
-    void                    *impl_data;
     /** capability for the entire pool */
     struct capref            pool_cap;
     /** the maximum number of buffers in this pool */
@@ -300,8 +316,12 @@ struct bulk_pool_list {
 struct bulk_buffer {
     /** the virtual address of the buffer */
     void                     *address;
+    /** the physical address */
+    uintptr_t                 phys;
     /** XXX: maybe we have to use the pool_id here */
     struct bulk_pool         *pool;
+    /** index of this buffer within the pool's array of buffers */
+    uint32_t                  bufferid;
     /** capability for this buffer */
     struct capref             cap;
     /** offset in the capability  */
@@ -381,7 +401,8 @@ errval_t bulk_channel_create(struct bulk_channel              *channel,
 errval_t bulk_channel_bind(struct bulk_channel              *channel,
                            struct bulk_endpoint_descriptor  *remote_ep_desc,
                            struct bulk_channel_callbacks    *callbacks,
-                           struct bulk_channel_bind_params  *params);
+                           struct bulk_channel_bind_params  *params,
+                           struct bulk_continuation cont);
 
 
 /**
@@ -393,7 +414,8 @@ errval_t bulk_channel_bind(struct bulk_channel              *channel,
  * * There is the pool assigned callback that serves as a continuation for this.
  */
 errval_t bulk_channel_assign_pool(struct bulk_channel *channel,
-                                  struct bulk_pool    *pool);
+                                  struct bulk_pool    *pool,
+                                  struct bulk_continuation cont);
 
 /**
  * Remove a pool from a channel
@@ -411,7 +433,8 @@ errval_t bulk_channel_remove_pool(struct bulk_channel       *channel,
  *
  * @param channel        Channel to be freed
  */
-errval_t bulk_channel_destroy(struct bulk_channel      *channel);
+errval_t bulk_channel_destroy(struct bulk_channel      *channel,
+                              struct bulk_continuation cont);
 
 /*
  * ---------------------------------------------------------------------------

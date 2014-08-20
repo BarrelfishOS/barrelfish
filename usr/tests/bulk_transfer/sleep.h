@@ -1,10 +1,9 @@
-/**
- * \file
- * \brief Unidirectional bulk data transfer via shared memory
+/** \file
+ *  \brief Simple sleep call
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2010-2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,7 +11,11 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <barrelfish/barrelfish.h>
+#ifndef __SLEEP_H__
+#define __SLEEP_H_
 
-#include <bulk_transfer/bulk_transfer.h>
+void sleep_init(void);
+void cycle_sleep(uint64_t cycles);
+void milli_sleep(uint64_t ms);
 
+#endif

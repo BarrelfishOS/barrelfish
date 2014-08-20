@@ -221,3 +221,36 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
     // if we get here, we have not found a matching cap
     return SYS_ERR_CAP_NOT_FOUND;
 }
+
+errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
+{
+    // reconstruct first virtual address for TLB flushing
+    struct cte *leaf_pt;
+    errval_t err;
+    err = mdb_find_cap_for_address(frame->mapping_info.pte, &leaf_pt);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    genvaddr_t vaddr;
+    size_t entry = (frame->mapping_info.pte - get_address(&leaf_pt->cap)) /
+        sizeof(union x86_64_ptable_entry);
+    err = compile_vaddr(leaf_pt, entry, &vaddr);
+    if (err_is_fail(err)) {
+        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
+            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
+        }
+        else {
+            return err;
+        }
+    }
+    debug(SUBSYS_PAGING, "flushing TLB entries for vaddrs 0x%"
+            PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
+            vaddr, vaddr+(pages * BASE_PAGE_SIZE));
+    // flush TLB entries for all modified pages
+    for (int i = 0; i < pages; i++) {
+        do_one_tlb_flush(vaddr);
+        vaddr += BASE_PAGE_SIZE;
+    }
+
+    return SYS_ERR_OK;
+}

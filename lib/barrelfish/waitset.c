@@ -167,6 +167,9 @@ static inline void ump_endpoint_poll(struct waitset_chanstate *chan)
 }
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
 
+void bulk_e10k_poll(struct waitset_chanstate *chan) __attribute__((weak));
+void bulk_e10k_poll(struct waitset_chanstate *chan) { }
+
 /// Helper function that knows how to poll the given channel, based on its type
 static void poll_channel(struct waitset_chanstate *chan)
 {
@@ -176,6 +179,9 @@ static void poll_channel(struct waitset_chanstate *chan)
         ump_endpoint_poll(chan);
         break;
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
+    case CHANTYPE_BULK_E10K:
+         bulk_e10k_poll(chan);
+        break;
 
     default:
         assert(!"invalid channel type to poll!");

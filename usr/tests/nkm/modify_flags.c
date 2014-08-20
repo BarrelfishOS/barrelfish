@@ -53,7 +53,6 @@ int main(void)
         }
         assert(base[i] == i % 255);
     }
-    sys_debug_flush_cache();
     // change region to read only
     debug_printf("changing region %p perms to readonly\n", base);
     err = memobj->f.protect(memobj, vregion, 0, retsize, VREGION_FLAGS_READ);

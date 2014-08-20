@@ -173,6 +173,12 @@ MODULES_x86_64= \
 	sbin/lshw \
 	sbin/block_server \
 	sbin/block_server_client \
+	sbin/bs_user \
+	sbin/bulk_shm \
+	sbin/bulk_transfer_passthrough \
+	sbin/bulkbench_micro_echo \
+	sbin/bulkbench_micro_throughput \
+	sbin/bulkbench_micro_rtt \
 
 
 # the following are broken in the newidc system

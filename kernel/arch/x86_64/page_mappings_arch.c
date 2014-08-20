@@ -345,7 +345,7 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, 
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
@@ -420,7 +420,8 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
         paging_x86_64_modify_flags(entry, flags);
     }
 
-    return SYS_ERR_OK;
+    /* flush affected TLB entries and return */
+    return paging_tlb_flush_range(mapping, pages);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

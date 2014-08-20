@@ -47,6 +47,7 @@ errval_t bulk_channel_create(struct bulk_channel *channel,
     channel->meta_size = setup->meta_size;
     channel->waitset = setup->waitset;
     channel->user_state = setup->user_state;
+    channel->pools = NULL;
 
     return local_ep_desc->f->channel_create(channel);
 }
@@ -62,11 +63,13 @@ errval_t bulk_channel_create(struct bulk_channel *channel,
 errval_t bulk_channel_bind(struct bulk_channel *channel,
                            struct bulk_endpoint_descriptor *remote_ep_desc,
                            struct bulk_channel_callbacks *callbacks,
-                           struct bulk_channel_bind_params *params)
+                           struct bulk_channel_bind_params *params,
+                           struct bulk_continuation cont)
 {
     if (channel->state != BULK_STATE_UNINITIALIZED) {
         return BULK_TRANSFER_CHAN_STATE;
     }
+
     channel->state = BULK_STATE_UNINITIALIZED;
     channel->ep = remote_ep_desc;
     channel->callbacks = callbacks;
@@ -76,8 +79,9 @@ errval_t bulk_channel_bind(struct bulk_channel *channel,
     channel->constraints = params->constraints;
     channel->waitset = params->waitset;
     channel->user_state = params->user_state;
+    channel->pools = NULL;
 
-    return remote_ep_desc->f->channel_bind(channel);
+    return remote_ep_desc->f->channel_bind(channel, cont);
 }
 
 /**
@@ -86,7 +90,8 @@ errval_t bulk_channel_bind(struct bulk_channel *channel,
  * @param channel        Channel to be freed
  * @param free_resources Flag if the resources i.e. pools also should be freed
  */
-errval_t bulk_channel_destroy(struct bulk_channel *channel)
+errval_t bulk_channel_destroy(struct bulk_channel *channel,
+                              struct bulk_continuation cont)
 {
     assert(!"NYI: bulk_channel_destroy");
     switch (channel->state) {
@@ -123,7 +128,8 @@ errval_t bulk_channel_destroy(struct bulk_channel *channel)
  * @param pool    Pool to assign (must not be assigned to this channel yet)
  */
 errval_t bulk_channel_assign_pool(struct bulk_channel *channel,
-                                  struct bulk_pool *pool)
+                                  struct bulk_pool *pool,
+                                  struct bulk_continuation cont)
 {
     assert(channel);
     assert(pool);
@@ -143,6 +149,7 @@ errval_t bulk_channel_assign_pool(struct bulk_channel *channel,
     }
 
     if (bulk_pool_is_assigned(pool, channel)) {
+        debug_printf("bulk_channel_assign_pool: pool already assigned to channel\n");
         /*
          * XXX: do we treat this as a no-op or should we return an
          *      BULK_TRANSFER_POOL_ALREADY_ASSIGNED ?
@@ -151,34 +158,12 @@ errval_t bulk_channel_assign_pool(struct bulk_channel *channel,
         return SYS_ERR_OK;
     }
 
-    struct bulk_pool_list *new_pool = malloc(sizeof(struct bulk_pool_list));
-    if (new_pool == NULL) {
-        return BULK_TRANSFER_MEM;
-    }
-    new_pool->pool = pool;
-    new_pool->next = NULL;
+    /*
+     * Note, the pool can only be added to the list of pools, once the other
+     * side has acked the assignment request.
+     */
 
-    /* add the pool to the ordered list of pools */
-    struct bulk_pool_list *list = channel->pools;
-    struct bulk_pool_list *prev = NULL;
-    while (list) {
-        if (bulk_pool_cmp_id(&pool->id, &list->pool->id) == 1) {
-            if (prev == NULL) {
-                channel->pools = new_pool;
-            } else {
-                new_pool->next = list;
-                prev->next = new_pool;
-            }
-            break;
-        }
-        prev = list;
-        list = list->next;
-    }
-    if (channel->pools == NULL) {
-        channel->pools = new_pool;
-    }
-
-    return channel->ep->f->assign_pool(channel, pool);
+    return channel->ep->f->assign_pool(channel, pool, cont);
 }
 
 /**
@@ -250,6 +235,10 @@ errval_t bulk_channel_move(struct bulk_channel *channel,
         return BULK_TRANSFER_CHAN_STATE;
     }
 
+    if (channel->direction != BULK_DIRECTION_TX) {
+        return BULK_TRANSFER_CHAN_DIRECTION;
+    }
+
     if (!bulk_pool_is_assigned(buffer->pool, channel)) {
         return BULK_TRANSFER_POOL_NOT_ASSIGNED;
     }
@@ -258,11 +247,12 @@ errval_t bulk_channel_move(struct bulk_channel *channel,
         return BULK_TRANSFER_BUFFER_NOT_OWNED;
     }
 
-    err = bulk_buffer_unmap(buffer);
+    err = bulk_buffer_change_state(buffer, BULK_BUFFER_INVALID);
     if (err_is_fail(err)) {
         /*
          * XXX: what do we do if the unmap fails?
          */
+        USER_PANIC_ERR(err, "failed to change the buffer state");
     }
 
     return channel->ep->f->move(channel, buffer, meta, cont);
@@ -293,11 +283,12 @@ errval_t bulk_channel_pass(struct bulk_channel *channel,
         return BULK_TRANSFER_BUFFER_NOT_OWNED;
     }
 
-    err = bulk_buffer_unmap(buffer);
+    err = bulk_buffer_change_state(buffer, BULK_BUFFER_INVALID);
     if (err_is_fail(err)) {
         /*
          * XXX: what do we do if the unmap fails?
          */
+        USER_PANIC_ERR(err, "failed to change the buffer state");
     }
 
     return channel->ep->f->pass(channel, buffer, meta, cont);
@@ -320,6 +311,10 @@ errval_t bulk_channel_copy(struct bulk_channel *channel,
         return BULK_TRANSFER_CHAN_STATE;
     }
 
+    if (channel->direction != BULK_DIRECTION_TX) {
+        return BULK_TRANSFER_CHAN_DIRECTION;
+    }
+
     if (!bulk_pool_is_assigned(buffer->pool, channel)) {
         return BULK_TRANSFER_POOL_NOT_ASSIGNED;
     }
@@ -332,8 +327,10 @@ errval_t bulk_channel_copy(struct bulk_channel *channel,
     if (bulk_buffer_is_owner(buffer)) {
         new_state = BULK_BUFFER_RO_OWNED;
     }
-    err = bulk_buffer_change_state(buffer, new_state);
 
+    buffer->local_ref_count++;
+
+    err = bulk_buffer_change_state(buffer, new_state);
     if (err_is_fail(err)) {
         return BULK_TRANSFER_BUFFER_STATE;
     }
@@ -351,6 +348,8 @@ errval_t bulk_channel_release(struct bulk_channel *channel,
     assert(channel);
     assert(buffer);
 
+    errval_t err;
+
     if (channel->state != BULK_STATE_CONNECTED) {
         return BULK_TRANSFER_CHAN_STATE;
     }
@@ -361,6 +360,11 @@ errval_t bulk_channel_release(struct bulk_channel *channel,
 
     if (!bulk_buffer_is_owner(buffer) && !bulk_buffer_can_release(buffer)) {
         return BULK_TRANSFER_BUFFER_REFCOUNT;
+    }
+
+    err = bulk_buffer_change_state(buffer, BULK_BUFFER_INVALID);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to change the buffer state");
     }
 
     return channel->ep->f->release(channel, buffer, cont);

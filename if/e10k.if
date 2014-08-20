@@ -26,6 +26,7 @@ interface e10k "e10k queue management interface" {
                                cap    txhwb,
                                cap    rx,
                                uint32 rxbufsz,
+                               uint32 rxhdrsz,
                                int16  msix_intvec,
                                uint8  msix_intdest,
                                bool   use_irq,

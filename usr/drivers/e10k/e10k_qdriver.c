@@ -566,7 +566,7 @@ static void idc_register_queue_memory(uint8_t queue,
     }
 
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
-                                       tx, txhwb, rx, rxbufsz, msix_intvec,
+                                       tx, txhwb, rx, rxbufsz, 0, msix_intvec,
                                        msix_intdest, use_interrupts, use_rsc);
     // TODO: handle busy
     assert(err_is_ok(r));

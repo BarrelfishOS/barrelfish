@@ -2256,6 +2256,10 @@ device e10k lsbfirst ( addr base ) "Intel 82599 10 GbE Controller" {
   register rlec rc addr(base, 0x04040) "Receive Length Error Count"
     type(uint32);
 
+  // 8.2.3.23.23
+  register prc1522 rc addr(base, 0x04070) "Packets Received [1024 to Max Bytes] Count"
+    type(uint32);
+
   // 8.2.23.26
   register gprc ro addr(base, 0x04074) "Good packets recieved count"
     type(uint32);
