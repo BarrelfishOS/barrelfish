@@ -204,6 +204,66 @@ void spawn_dist_domains(void)
     }
 }
 
+void spawn_arrakis_domains(void)
+{
+    struct spawn_info si;
+    size_t bmpos = 0;
+    errval_t err;
+    int r;
+
+    coreid_t my_coreid = disp_get_core_id();
+
+    while (true) {
+
+        r = prepare_spawn(&bmpos, &si);
+        if (r == 0) {
+            return;
+        } else if (r == -1) {
+            DEBUG_ERR(STARTD_ERR_BOOTMODULES,
+                      "failed to read bootmodules entry");
+        }
+
+        /* Only spawn special arrakis modules */
+        if (si.argc >= 2 && strcmp(si.argv[1], "arrakis") == 0) {
+
+            coreid_t coreid;
+            int extra_args;
+
+            // get core id
+            if (si.argc >= 3 && strncmp(si.argv[2], "core=", 5) == 0) {
+
+                char *p = strchr(si.argv[2], '=');
+                assert(p != NULL);
+                coreid = strtol(p + 1, NULL, 10);
+                extra_args = 2;
+
+            } else {
+                coreid = my_coreid;
+                extra_args = 1;
+            }
+
+            // discard 'dist-serv' and 'core=x' argument
+            for (int i = 1; i <= si.argc - extra_args; i++) {
+                si.argv[i] = si.argv[i+extra_args];
+            }
+            si.argc--;
+
+            debug_printf("starting arrakis domain %s on core %d\n", si.name, coreid);
+
+            domainid_t new_domain;
+            err = spawn_arrakis_program(coreid, si.name, si.argv, environ,
+					NULL_CAP, NULL_CAP, 0, &new_domain);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "spawn of %s failed", si.name);
+                continue;
+            }
+        }
+
+        free(si.cmdargs);
+        free(si.name);
+    }
+}
+
 void spawn_app_domains(void)
 {
     struct spawn_info si;
@@ -241,6 +301,7 @@ void spawn_app_domains(void)
         if (si.argc >= 2 && (strcmp(si.argv[1], "boot") == 0
                           || strcmp(si.argv[1], "dist-serv") == 0
                           || strcmp(si.argv[1], "nospawn") == 0
+                          || strcmp(si.argv[1], "arrakis") == 0
                           || strcmp(si.argv[1], "auto") == 0)) {
             spawn_here = false;
         }

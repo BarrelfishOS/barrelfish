@@ -426,8 +426,8 @@ static void send_user_interrupt(int irq)
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
                 get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
-            printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
-                   DISP_NAME_LEN, disp->name);
+            printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow on IRQ %d\n",
+                   DISP_NAME_LEN, disp->name, irq);
         } else {
             printk(LOG_ERR, "Unexpected error delivering IRQ\n");
         }
@@ -818,10 +818,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
     // APIC timer interrupt: handle in kernel and reschedule
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {
         apic_eoi();
-        assert(kernel_ticks_enabled);
-        update_kernel_now();
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
-        wakeup_check(kernel_now);
+	assert(kernel_ticks_enabled);
+	update_kernel_now();
+	trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
+	wakeup_check(kernel_now);
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
         // Handle performance counter overflow
         // Reset counters
@@ -840,19 +840,19 @@ static __attribute__ ((used)) void handle_irq(int vector)
             };
             strncpy(data.name, disp->name, PERFMON_DISP_NAME_LEN);
 
-            // Call overflow handler represented by endpoint
+                // Call overflow handler represented by endpoint
             extern struct capability perfmon_callback_ep;
-            errval_t err;
-            size_t payload_len = sizeof(struct perfmon_overflow_data)/
-                sizeof(uintptr_t)+1;
-            err = lmp_deliver_payload(&perfmon_callback_ep,
-                                      NULL,
-                                      (uintptr_t*) &data,
-                                      payload_len,
-                                      false);
+	    errval_t err;
+	    size_t payload_len = sizeof(struct perfmon_overflow_data)/
+	      sizeof(uintptr_t)+1;
+	    err = lmp_deliver_payload(&perfmon_callback_ep,
+				      NULL,
+				      (uintptr_t*) &data,
+				      payload_len,
+				      false);
 
-            // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
-            assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);
+                // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
+                assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);
         } else {
             // This should never happen, as interrupts are disabled in kernel
             printf("Performance counter overflow interrupt from "
@@ -917,7 +917,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
  * \param cpu_save_area  Pointer to save area for registers stacked by CPU
  * \param disp_save_area Pointer to save area in dispatcher
  */
-static __attribute__ ((used)) void
+static __attribute__ ((used, noreturn)) void
 generic_handle_irq(int vector,
                    uintptr_t * NONNULL COUNT(X86_SAVE_AREA_SIZE) cpu_save_area,
                    struct registers_x86_64 *disp_save_area)
@@ -942,6 +942,7 @@ generic_handle_irq(int vector,
     }
 
     handle_irq(vector);
+    resume(disp_save_area);
 }
 
 /* Utility function for code below; initialises a gate_descriptor */

@@ -29,8 +29,8 @@
  * $FreeBSD: src/sys/sys/limits.h,v 1.10 2005/12/02 07:45:28 davidxu Exp $
  */
 
-#ifndef _SYS_LIMITS_H_
-#define	_SYS_LIMITS_H_
+#ifndef _LIMITS_H_
+#define	_LIMITS_H_
 
 #include <sys/cdefs.h>
 #include <machine/_limits.h>
@@ -113,8 +113,10 @@
 #undef ULONG_LONG_MAX
 #define ULONG_LONG_MAX (LONG_LONG_MAX * 2ULL + 1ULL)
 
-// Barrelfish addition
-// I'm not sure where this belongs, but limits.h must provide it -AB
-#define PATH_MAX 1330
+#if __POSIX_VISIBLE
+#ifdef CONFIG_NEWLIB
+#include <sys/syslimits.h>
+#endif
+#endif
 
 #endif /* !_SYS_LIMITS_H_ */

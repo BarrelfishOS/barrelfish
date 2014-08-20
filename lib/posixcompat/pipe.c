@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,6 +12,8 @@
 
 int pipe(int pipefd[2])
 {
-    USER_PANIC("pipe() NYI");
-    return (-1);
+    // XXX: Emulate pipe via a pair of AF_UNIX sockets
+    // This means they are bi-directional, but this is fine, as pipe()
+    // doesn't specify bi-directionality.
+    return socketpair(AF_UNIX, SOCK_STREAM, 0, pipefd);
 }

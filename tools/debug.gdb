@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2007, 2008, 2009, ETH Zurich.
+# Copyright (c) 2007, 2008, 2009, 2013, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -11,6 +11,19 @@
 # $arg0 is the name of the relevant console
 define debug_hw
   target remote | console -f $arg0
+end
+
+# Resets kernel symbols previously set with debug_kernel_at.
+# Used when context switching to a different user binary.
+define reset_kernel_symbols_fn
+  file $arg0
+  symbol-file
+  add-symbol-file $arg0 $text_addr -s .rodata $rodata_addr -s .data $data_addr -s .data.rel $data_rel_addr -s .data.rel.local $data_rel_local_addr -s .bss $bss_addr
+end
+
+# Helper function that uses the stored kernel filename.
+define reset_kernel_symbols
+  source barrelfish_reset_kernel_symbols.tmp
 end
 
 # Command to debug kernel at an arbitrary location. $arg0 specifies
@@ -30,7 +43,17 @@ define debug_kernel_at
   set $data_rel_local_addr = $arg1 + $data_rel_local_offset
   set $bss_addr = $arg1 + $bss_offset
 
-  file $arg0
-  symbol-file
-  add-symbol-file $arg0 $text_addr -s .rodata $rodata_addr -s .data $data_addr -s .data.rel $data_rel_addr -s .data.rel.local $data_rel_local_addr -s .bss $bss_addr
+  shell echo reset_kernel_symbols_fn $arg0 > barrelfish_reset_kernel_symbols.tmp
+  reset_kernel_symbols
+end
+
+define get_section_start
+  shell echo set \$cur_section_start = 0x`objdump -h $arg1 | awk "\\$2 == \"$arg0\" { print \\$4 }"` > barrelfish_debug.tmp
+  source barrelfish_debug.tmp
+end
+
+define switch-user-binary
+  reset_kernel_symbols
+  get_section_start .text $arg0
+  add-symbol-file $arg0 $cur_section_start
 end

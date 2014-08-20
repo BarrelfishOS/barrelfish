@@ -47,6 +47,7 @@ typedef	__size_t	size_t;
 struct iovec {
 	void	*iov_base;	/* Base address. */
 	size_t	 iov_len;	/* Length. */
+        void    *iov_opaque;	/* XXX: Arranet extension. */
 };
 
 #endif /* !_SYS__IOVEC_H_ */

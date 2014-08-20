@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012, ETH Zurich.
+ * Copyright (c) 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <vfs/fdtab.h>
+#include <lwip/sockets.h>
 #include "posixcompat.h"
 #include "unixsock.h"
 #include "pty.h"
@@ -49,8 +50,13 @@ int fcntl(int fd, int cmd, ...)
             default:
                 /* do nothing */
                 break;
-            }
-        }
+	    }
+	}
+	break;
+
+    case F_GETFD:
+        // XXX: No flags are supported ATM
+        retval = 0;
         break;
 
     case F_SETFD:
@@ -80,6 +86,10 @@ int fcntl(int fd, int cmd, ...)
                 }
                 break;
 
+            case FDTAB_TYPE_LWIP_SOCKET:
+                retval = lwip_fcntl(e->fd, cmd, flags);
+                break;
+
             case FDTAB_TYPE_PTS:
             case FDTAB_TYPE_PTM:
                 {
@@ -89,11 +99,11 @@ int fcntl(int fd, int cmd, ...)
                 break;
 
             default:
-                return -1;
+                retval = -1;
+                break;
             }
-
-            break;
         }
+        break;
 
     case F_GETFL:
         {
@@ -101,10 +111,20 @@ int fcntl(int fd, int cmd, ...)
 
             switch(e->type) {
             case FDTAB_TYPE_FILE:
+                // no flags set
+                retval = 0;
+                break;
+
             case FDTAB_TYPE_LWIP_SOCKET:
+                retval = lwip_fcntl(e->fd, cmd, 0);
+                break;
+
+            case FDTAB_TYPE_UNIX_SOCKET:
                 {
-                    // no flags set
-                    return 0;
+                    // XXX: We only handle non-blocking here
+                    struct _unix_socket *us = e->handle;
+                    retval = 0;
+                    retval |= us->nonblocking ? O_NONBLOCK : 0;
                 }
                 break;
 
@@ -117,10 +137,11 @@ int fcntl(int fd, int cmd, ...)
 
             default:
                 assert(!"NYI");
-                return -1;
+                retval = -1;
                 break;
             }
         }
+        break;
 
     default:
         assert(!"NYI");

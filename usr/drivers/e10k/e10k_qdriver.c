@@ -19,21 +19,34 @@
 #include <trace/trace.h>
 
 #include <if/e10k_defs.h>
-#include <dev/e10k_dev.h>
+#ifndef VF
+#       include <dev/e10k_dev.h>
+#else
+#       include <dev/e10k_vf_dev.h>
+#endif
 #include <dev/e10k_q_dev.h>
 #include <pci/pci.h>
+
+#ifdef LIBRARY
+#       include <netif/e1000.h>
+#endif
 
 #include "helper.h"
 #include "e10k_queue.h"
 
-
+#ifdef PRINT_QUEUES
+static void *glbl_rx_virt = NULL;
+static size_t glbl_rx_size = 0;
+#endif
 
 /******************************************************************************/
 /* Compile time parameters */
 
 /* Size of the TX and RX rings */
-#define NTXDESCS 512
+/* #define NTXDESCS 1024 */
+#define NTXDESCS 2048
 #define NRXDESCS 2048
+//#define NRXDESCS 512
 
 /* Size of RX buffers */
 #define RXBUFSZ 2048
@@ -112,10 +125,14 @@ static bool standalone = false;
 static struct e10k_binding *binding = NULL;
 
 /** Queue index for this manager instance */
-static int qi = -1;
+int qi = -1;
 
 /** Mackerel handle for device */
+#ifndef VF
 static e10k_t *d = NULL;
+#else
+static e10k_vf_t *d = NULL;
+#endif
 
 /** Queue handle for queue management library */
 static e10k_queue_t *q;
@@ -133,7 +150,15 @@ static int initialized = 0;
 static bool cache_coherence = true;
 
 /** Indicates whether TX head index write back should be used */
+#ifndef VF
 static bool use_txhwb = true;
+#else
+// XXX: TX HWB doesn't work on the VF. Probably a bug in the
+// driver. It stalls the output queue after a few packets have gone
+// out. The Linux VF driver doesn't seem to use TX HWB.
+// If you fix this, you'll get a 5% performance boost.
+static bool use_txhwb = false;
+#endif
 
 /** Indicates whether Interrupts should be used */
 static bool use_interrupts = false;
@@ -155,7 +180,6 @@ static struct capref rx_frame;
 
 /** Capability for head index write back feature */
 static struct capref txhwb_frame;
-
 
 /******************************************************************************/
 /* Debugging code, etc. */
@@ -181,45 +205,133 @@ static void queue_debug(const char* fmt, ...)
     vprintf(fmt, va);
     va_end(va);
 }
-#endif
 
 /* Helper code for debugging that dumps the statistics registers that are != 0.
  * Most registers are cleared uppon a read. */
-#if 0
-#define prnonz(x) uint32_t x = e10k_##x##_rd(d); if (x) printf(#x "=%x ", x)
+#ifdef STATS_DUMP
+#ifndef VF
+#define prnonz(x) uint32_t x = e10k_##x##_rd(d); if (x) snprintf(str[cnt++], 32, #x "=%x", x)
+#define prnonzary(x, n)			      \
+  for(int i = 0; i < n; i++) {		      \
+    uint32_t reg = e10k_##x##_rd(d, i);	      \
+    if (reg) snprintf(str[cnt++], 32, #x ".%d=%x", i, reg);	\
+  }
 static void stats_dump(void)
 {
-    queue_debug("");
-    prnonz(tpt);
-    prnonz(gptc);
-    prnonz(txdgpc);
+  char str[256][32];
+  int cnt = 0;
+  memset(str, 0, 256 * 32);
 
-    prnonz(tpr);
-    prnonz(gprc);
-    prnonz(rxdgpc);
+  prnonzary(pfvfte, 2);
+  /* prnonzary(pfvfspoof, 8); */
+  /* prnonz(rttbcnrc); */
+  /* prnonzary(mpsar, 256); */
+  prnonz(picause);
+  prnonz(rttdcs);
+
+  prnonz(fwsm);
+  prnonz(eicr);
+
+  prnonz(dmatxctl);
+  prnonzary(tdbal, 128);
+  prnonzary(tdbah, 128);
+  prnonzary(tdlen, 128);
+  prnonzary(tdh, 128);
+  prnonzary(tdt, 128);
+  prnonzary(txdctl, 128);
+  prnonzary(tdwbal, 128);
+  prnonzary(tdwbah, 128);
+  prnonz(mtqc);
+
+  /* prnonzary(pfvflre, 2); */
 
     prnonz(crcerrs);
     prnonz(illerrc);
     prnonz(errbc);
+    prnonzary(rxmpc, 8);
+    prnonz(mlfc);
+    prnonz(mrfc);
     prnonz(rlec);
+    prnonz(ssvpc);
+    // ...
+    prnonz(gprc);
+    prnonz(gorcl);
+    prnonz(gorch);
+    prnonz(rxnfgpc);
+    // ...
+    prnonz(rxdgpc);
+    // ...
+    prnonz(gptc);
+    prnonz(gotcl);
+    prnonz(gotch);
+    prnonz(txdgpc);
+    // ...
     prnonz(ruc);
     prnonz(rfc);
     prnonz(roc);
     prnonz(rjc);
-    prnonz(rxnfgpc);
     prnonz(mngprc);
     prnonz(mngpdc);
+    prnonz(torl);
+    prnonz(torh);
+    prnonz(tpr);
+    prnonz(tpt);
+    // ...
+    prnonz(mspdc);
+    // ...
+    prnonzary(qprc, 16);
+    prnonzary(qprdc, 16);
+    // ...
 
-    prnonz(mlfc);
-    prnonz(mrfc);
-
-    uint32_t qprc = e10k_qprc_rd(d, 0);
-    if (qprc) printf("qprc.0=%x ", qprc);
-    uint32_t qprdc = e10k_qprdc_rd(d, 0);
-    if (qprdc) printf("qprdc.0=%x ", qprdc);
-
-    printf("\n");
+    if(cnt > 0) {
+      queue_debug("");
+      for(int i = 0; i < cnt; i++) {
+	printf("%s ", str[i]);
+      }
+      printf("\n");
+    }
 }
+#else   // VF
+#define prnonz(x)                                               \
+    uint32_t x = e10k_vf_##x##_rd(d);                           \
+    static uint32_t last_##x = 0;                               \
+    if (x != last_##x) {                                        \
+      snprintf(str[cnt++], 32, #x "=%x", x);                      \
+      last_##x = x;                                               \
+    }
+static void stats_dump(void)
+{
+  char str[256][32];
+  int cnt = 0;
+  memset(str, 0, 256 * 32);
+
+    prnonz(vfgprc);
+    prnonz(vfgptc);
+    prnonz(vfgorc_lsb);
+    prnonz(vfgorc_msb);
+    prnonz(vfgotc_lsb);
+    prnonz(vfgotc_msb);
+    prnonz(vfmprc);
+
+    if(cnt > 0) {
+      queue_debug("");
+      for(int i = 0; i < cnt; i++) {
+	printf("%s ", str[i]);
+      }
+      printf("\n");
+    }
+}
+#endif
+
+#else
+
+static void stats_dump(void) {}
+
+#endif
+
+#else
+
+static void stats_dump(void) {}
 
 #endif
 
@@ -252,13 +364,38 @@ static inline bool buf_use_ipxsm(struct driver_buffer *buf)
         buf_use_tcpxsm(buf) || buf_use_udpxsm(buf);
 }
 
-static inline bool buf_tcphdrlen(struct driver_buffer *buf)
+static inline uint8_t buf_tcphdrlen(struct driver_buffer *buf)
 {
     return ((buf->flags & NETIF_TXFLAG_TCPHDRLEN_MASK) >>
         NETIF_TXFLAG_TCPHDRLEN_SHIFT) * 4;
 }
 
+#ifdef LIBRARY
+bool e1000n_queue_empty(void)
+{
+    uint32_t tail, head;
 
+#ifndef VF
+    tail = e10k_tdt_rd(d, qi);
+    head = e10k_tdh_rd(d, qi);
+#else
+    tail = e10k_vf_vftdt_rd(d, qi);
+    head = e10k_vf_vftdh_rd(d, qi);
+#endif
+
+    return (head == tail);
+}
+#endif
+
+/*
+ * This function transmits a packet via the network.
+ *
+ * It has to make sure to properly mark the last packet of an array of
+ * packets, so we can properly collect fully transmitted packets
+ * asynchronously later on. Only the last packet is marked with a
+ * write-back indication and we scan for that to know the packet was
+ * written out.
+ */
 static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       size_t                count)
 {
@@ -318,9 +455,9 @@ static bool handle_free_tx_slot_fn(void)
         return false;
     }
 
-    DEBUG("handle_free_tx_slot_fn: Packet done\n");
+    DEBUG("handle_free_tx_slot_fn: Packet %p done\n", op);
 
-    //stats_dump();
+    stats_dump();
 
 #if TRACE_ETHERSRV_MODE
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRVTXDONE, 0);
@@ -349,7 +486,7 @@ static void check_for_free_txbufs(void)
 
 static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 {
-
+    /* printf("Got %p from stack\n", opaque); */
     DEBUG("register_rx_buffer_fn: called\n");
     e10k_queue_add_rxbuf(q, paddr, opaque);
     e10k_queue_bump_rxtail(q);
@@ -363,7 +500,7 @@ static uint64_t find_rx_free_slot_count_fn(void)
     return e10k_queue_free_rxslots(q);
 }
 
-static size_t check_for_new_packets(void)
+static size_t check_for_new_packets(int num)
 {
     size_t len;
     void *op;
@@ -376,7 +513,40 @@ static size_t check_for_new_packets(void)
 
     if (!initialized) return 0;
 
-    //stats_dump();
+    /* stats_dump(); */
+
+#ifdef PRINT_QUEUES
+    uint64_t *tv = glbl_rx_virt;
+    size_t cnt = 0;
+    for(size_t i = 0; i < glbl_rx_size / 8; i++) {
+        if(tv[i] != 0) {
+            printf("%zx: %lx, ", i, tv[i]);
+            cnt++;
+        }
+        if(cnt % 16 == 0) {
+            printf("\n");
+            cnt++;
+        }
+    }
+    printf("\n");
+#endif
+
+#ifndef VF
+#if 0
+    // Check if queue runs too full
+    int rdtp = e10k_rdt_1_rd(d, qi);
+    int rdhp = e10k_rdh_1_rd(d, qi);
+    if(rdtp < rdhp) {
+        if(NRXDESCS - (rdhp - rdtp) < 10) {
+            printf("Running low on receive buffers! rdhp = %u, rdtp = %u\n", rdhp, rdtp);
+        }
+    } else {
+        if(rdtp - rdhp < 10) {
+            printf("Running low on receive buffers! rdhp = %u, rdtp = %u\n", rdhp, rdtp);
+        }
+    }
+#endif
+#endif
 
     // TODO: This loop can cause very heavily bursty behaviour, if the packets
     // arrive faster than they can be processed.
@@ -399,6 +569,11 @@ static size_t check_for_new_packets(void)
         if (last) {
             process_received_packet(buf, pkt_cnt, flags);
             pkt_cnt = 0;
+            if(num != 0) {
+                count++;
+                flags = 0;
+                break;
+            }
         } else {
             assert(pkt_cnt < MAXDESCS - 1);
         }
@@ -422,7 +597,11 @@ static errval_t update_txtail(void *opaque, size_t tail)
 {
     assert(d != NULL);
 
+#ifndef VF
     e10k_tdt_wr(d, qi, tail);
+#else
+    e10k_vf_vftdt_wr(d, qi, tail);
+#endif
     return SYS_ERR_OK;
 }
 
@@ -430,7 +609,11 @@ static errval_t update_rxtail(void *opaque, size_t tail)
 {
     assert(d != NULL);
 
+#ifndef VF
     e10k_rdt_1_wr(d, qi, tail);
+#else
+    e10k_vf_vfrdt_wr(d, qi, tail);
+#endif
     return SYS_ERR_OK;
 }
 
@@ -478,9 +661,15 @@ static void setup_queue(void)
     rx_virt = alloc_map_frame(flags, rx_size, &rx_frame);
     assert(rx_virt != NULL);
 
+#ifdef PRINT_QUEUES
+    glbl_rx_virt = rx_virt;
+    glbl_rx_size = rx_size;
+#endif
+
     // Register memory with device manager
     txhwb_virt = NULL;
     if (use_txhwb) {
+        INITDEBUG("Using transmit write-back\n");
         txhwb_size = BASE_PAGE_SIZE;
         txhwb_virt = alloc_map_frame(flags, txhwb_size, &txhwb_frame);
         assert(txhwb_virt != NULL);
@@ -625,7 +814,11 @@ void qd_queue_init_data(struct e10k_binding *b, struct capref registers,
 
     // Initialize mackerel device
     d = malloc(sizeof(*d));
+#ifndef VF
     e10k_initialize(d, virt);
+#else
+    e10k_vf_initialize(d, virt);
+#endif
 
     // Initialize queue
     setup_queue();
@@ -639,10 +832,17 @@ void qd_queue_memory_registered(struct e10k_binding *b)
     hwqueue_initialized();
 
     // Register queue with queue_mgr library
+#ifndef LIBRARY
     ethersrv_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
         transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
         handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
         find_rx_free_slot_count_fn);
+#else
+    ethernetif_backend_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
+        transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+        handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
+        find_rx_free_slot_count_fn);
+#endif
 }
 
 // Callback from device manager
@@ -654,6 +854,7 @@ void qd_write_queue_tails(struct e10k_binding *b)
     e10k_queue_bump_txtail(q);
 }
 
+#ifndef LIBRARY
 // Callback from device manager
 static void idc_queue_terminated(struct e10k_binding *b)
 {
@@ -722,6 +923,18 @@ static void connect_to_mngif(void)
     assert(err_is_ok(r));
 }
 
+#else
+
+void ethersrv_argument(const char* arg)
+{
+    if (strncmp(arg, "queue=", strlen("queue=") - 1) == 0) {
+        printf("Arrakis: Not passing '%s' argument to ethersrv\n", arg);
+    } else {
+        printf("Warning: ethersrv_argument '%s' not supported in Arrakis!\n", arg);
+    }
+}
+#endif
+
 void qd_argument(const char *arg)
 {
     if (strncmp(arg, "cardname=", strlen("cardname=") - 1) == 0) {
@@ -759,6 +972,7 @@ void qd_argument(const char *arg)
     }
 }
 
+#ifndef LIBRARY
 static void parse_cmdline(int argc, char **argv)
 {
     int i;
@@ -767,23 +981,54 @@ static void parse_cmdline(int argc, char **argv)
     }
 }
 
-
 static void eventloop(void)
+#else
+extern struct waitset *lwip_waitset;
+
+#ifdef LIBRARY
+void arranet_polling_loop(void)
 {
-    struct waitset *ws;
+    /* errval_t err; */
+    /* err = event_dispatch_non_block(barrelfish_interrupt_waitset); */
+    check_for_free_txbufs();
+    if(!use_interrupts) {
+        check_for_new_packets(1);
+    } else {
+        assert(!"NYI?");
+    }
+}
+#endif
+
+void e1000n_polling_loop(struct waitset *ws)
+#endif
+{
+#ifndef LIBRARY
+    struct waitset *ws = get_default_waitset();
+#endif
     errval_t err;
 
-    INITDEBUG("eventloop()\n");
+    /* INITDEBUG("eventloop()\n"); */
 
-    ws = get_default_waitset();
     while (1) {
         err = event_dispatch_non_block(ws);
-        do_pending_work_for_all();
-        check_for_new_packets();
+#ifdef LIBRARY
         check_for_free_txbufs();
+#else
+        do_pending_work_for_all();
+#endif
+        if(!use_interrupts) {
+            check_for_new_packets(0);
+            /* check_for_new_packets(1); */
+            check_for_free_txbufs();
+        }
+
+#ifdef LIBRARY
+        break;
+#endif
     }
 }
 
+#ifndef LIBRARY
 static void eventloop_ints(void)
 {
     struct waitset *ws;
@@ -795,6 +1040,7 @@ static void eventloop_ints(void)
         do_pending_work_for_all();
     }
 }
+#endif
 
 static void interrupt_handler(void *data)
 {
@@ -810,7 +1056,7 @@ void qd_interrupt(bool is_rx, bool is_tx)
 #endif // TRACE_ETHERSRV_MODE
 
     if (is_rx) {
-        count = check_for_new_packets();
+        count = check_for_new_packets(0);
         if (count == 0) {
             //printf("No RX\n");
         }
@@ -831,10 +1077,13 @@ void qd_main(void)
                    "is enabled.");
     }
 
+#ifndef LIBRARY
     if (standalone) {
         connect_to_mngif();
     } else {
+#endif
         idc_request_device_info();
+#ifndef LIBRARY
     }
 
     if (use_interrupts) {
@@ -842,8 +1091,10 @@ void qd_main(void)
     } else {
         eventloop();
     }
+#endif
 }
 
+#ifndef LIBRARY
 int main(int argc, char **argv)
 {
     DEBUG("Started\n");
@@ -851,7 +1102,6 @@ int main(int argc, char **argv)
     parse_cmdline(argc, argv);
     qd_main();
 }
-
 
 
 
@@ -881,3 +1131,4 @@ void cd_set_interrupt_rate(struct e10k_binding *b,
     USER_PANIC("Should not be called");
 }
 
+#endif

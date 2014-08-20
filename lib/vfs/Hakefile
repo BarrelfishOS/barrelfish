@@ -34,7 +34,8 @@
                   cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c",
                              "cache.c", "vfs_blockdevfs.c",
                              "vfs_blockdevfs_ahci.c", "vfs_blockdevfs_ata.c",
-                             "vfs_cache.c", "vfs_fat.c", "vfs_fat_conv.c"
+                             "vfs_cache.c", "vfs_fat.c", "vfs_fat_conv.c",
+                             "fdtab.c", "vfs_fd.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",

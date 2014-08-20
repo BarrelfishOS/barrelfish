@@ -39,7 +39,7 @@ void debug_dump(arch_registers_state_t *state);
 void debug_call_chain(arch_registers_state_t *state);
 void debug_return_addresses(void);
 void debug_dump_mem_around_addr(lvaddr_t addr);
-void debug_dump_mem(lvaddr_t base, lvaddr_t limit);
+void debug_dump_mem(lvaddr_t base, lvaddr_t limit, lvaddr_t point);
 
 void debug_err(const char *file, const char *func, int line,
                errval_t err, const char *msg, ...);

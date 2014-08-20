@@ -79,14 +79,14 @@ extern "C" {
  */
 #define  SO_DEBUG       0x0001  /* Unimplemented: turn on debugging info recording */
 #define  SO_ACCEPTCONN  0x0002  /* socket has had listen() */
-//#define  SO_REUSEADDR   0x0004 /* Unimplemented: allow local address reuse */
+#define  SO_REUSEADDR   0x0004 /* Unimplemented: allow local address reuse */
 #define  SO_KEEPALIVE   0x0008  /* keep connections alive */
 #define  SO_DONTROUTE   0x0010  /* Unimplemented: just use interface addresses */
 #define  SO_BROADCAST   0x0020  /* permit to send and to receive broadcast messages (see IP_SOF_BROADCAST option) */
 #define  SO_USELOOPBACK 0x0040  /* Unimplemented: bypass hardware when possible */
 #define  SO_LINGER      0x0080  /* linger on close if data present */
 #define  SO_OOBINLINE   0x0100  /* Unimplemented: leave received OOB data in line */
-//#define  SO_REUSEPORT   0x0200 /* Unimplemented: allow local address & port reuse */
+#define  SO_REUSEPORT   0x0200 /* Unimplemented: allow local address & port reuse */
 
 #define SO_DONTLINGER   ((int)(~SO_LINGER))
 
@@ -258,6 +258,15 @@ extern "C" {
 #ifndef O_NONBLOCK
 #define O_NONBLOCK    04000U
 #endif
+#ifndef O_NDELAY
+#define O_NDELAY      O_NONBLOCK /* same as O_NONBLOCK, for compatibility */
+#endif
+
+#ifndef SHUT_RD
+  #define SHUT_RD   0
+  #define SHUT_WR   1
+  #define SHUT_RDWR 2
+#endif
 
 /* FD_SET used for lwip_select */
 #ifndef FD_SET
@@ -288,6 +297,8 @@ extern "C" {
     };
 #endif                          /* LWIP_TIMEVAL_PRIVATE */
 
+struct msghdr;
+
     void lwip_socket_init(void);
 
     int lwip_accept(int s, struct sockaddr *addr, socklen_t * addrlen);
@@ -309,11 +320,13 @@ extern "C" {
     int lwip_send(int s, const void *dataptr, size_t size, int flags);
     int lwip_sendto(int s, const void *dataptr, size_t size, int flags,
                     const struct sockaddr *to, socklen_t tolen);
+    int lwip_sendmsg(int s, const struct msghdr *msg, int flags);
     int lwip_socket(int domain, int type, int protocol);
     int lwip_write(int s, const void *dataptr, size_t size);
     int lwip_select(int maxfdp1, fd_set * readset, fd_set * writeset,
                     fd_set * exceptset, struct timeval *timeout);
     int lwip_ioctl(int s, long cmd, void *argp);
+    int lwip_fcntl(int s, int cmd, int val);
 
 #if LWIP_COMPAT_SOCKETS
 #define accept(a,b,c)         lwip_accept(a,b,c)

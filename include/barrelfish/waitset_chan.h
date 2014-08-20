@@ -41,6 +41,9 @@ errval_t waitset_chan_register_polled(struct waitset *ws,
                                       struct event_closure closure);
 void waitset_chan_migrate(struct waitset_chanstate *chan,
                           struct waitset *new_ws);
+errval_t waitset_chan_register_polled(struct waitset *ws,
+                                      struct waitset_chanstate *chan,
+                                      struct event_closure closure);
 
 __END_DECLS
 

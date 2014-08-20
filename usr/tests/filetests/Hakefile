@@ -11,14 +11,14 @@
 [
   build application { target = "fread_test",
                       cFiles = [ "fread_test.c" ],
-                      addLibraries = libDeps ["vfs"]
+                      addLibraries = libDeps ["vfs", "lwip" ]
                     },
   build application { target = "fscanf_test",
                       cFiles = [ "fscanf_test.c" ],
-                      addLibraries = libDeps ["vfs"]
+                      addLibraries = libDeps ["vfs", "lwip" ]
                     },
   build application { target = "fat_test",
                       cFiles = [ "fat_test.c" ],
-                      addLibraries = libDeps ["vfs"]
+                      addLibraries = libDeps ["vfs", "lwip" ]
                     }
   ]

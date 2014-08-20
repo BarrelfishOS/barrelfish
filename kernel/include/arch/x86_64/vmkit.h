@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2009, ETH Zurich.
+ * Copyright (c) 2009, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -21,5 +21,6 @@
 errval_t vmkit_enable_virtualization (void);
 int vmkit_disable_virtualization (void);
 void __attribute__ ((noreturn)) vmkit_vmenter (struct dcb *dcb);
+void __attribute__ ((noreturn)) vmkit_vmexec (struct dcb *dcb, lvaddr_t entry);
 
 #endif // _VMKIT_H

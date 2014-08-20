@@ -49,7 +49,7 @@
                "serial",
                "skb",
                "skb_map",
-               "octopus",               
+               "octopus",
                "spawn",
                "terminal",
                "terminal_config",
@@ -57,7 +57,7 @@
                "test",
                "timer",
                "trivfs",
-               "usb_driver",  
+               "usb_driver",
                "usb_manager",
                "xcorecap",
                "xcorecapbench",
@@ -72,8 +72,9 @@
                "xeon_phi_manager",
                "block_service",
                "bulk_ctrl",
-               "empty" 
-               
+               "arrakis",
+               "e10k_vf",
+               "empty"
            ],
              arch <- allArchitectures
 ] ++

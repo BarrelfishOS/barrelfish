@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -23,13 +23,13 @@
 #include <arch/x86/perfmon.h>
 #include <arch/x86/apic.h>
 
-static bool perfmon_amd = false;
-static bool perfmon_intel = false;
+static bool perfmon_amd = false, perfmon_intel = false;
 /* static bool perfmon_measurement_running = false; */
 /* static bool perfmon_apic_activated = false; */
 static uint64_t perfmon_cntr_init = 0;
-struct capability perfmon_callback_ep;
-
+struct capability perfmon_callback_ep = {
+    .type = ObjType_Null,
+};
 
 void perfmon_init(void) 
 {
@@ -75,13 +75,18 @@ void perfmon_measure_start(uint8_t event, uint8_t umask,
         }
     }
 
-    // Activate performance measurement for Intel
     if(perfmon_amd) {
-        
         perfmon_amd_measure_write(ctr*-1, 0);
         perfmon_amd_measure_start(event, umask, kernel, counter_id, ctr!=0);
-        perfmon_cntr_init = ctr;
     }
+
+    // Activate performance measurement for Intel
+    if(perfmon_intel) {
+        perfmon_intel_measure_write(ctr*-1);
+        perfmon_intel_measure_start(event, umask, kernel, counter_id, ctr!=0);
+    }
+
+    perfmon_cntr_init = ctr;
 }
 
 /*
@@ -93,8 +98,11 @@ void perfmon_measure_reset(void)
     if(perfmon_amd) {
         perfmon_amd_measure_write(perfmon_cntr_init*-1, 0);
     }
+    if(perfmon_intel) {
+        perfmon_intel_reset();
+        perfmon_intel_measure_write(perfmon_cntr_init*-1);
+    }
 }
-    
 
 uint64_t perfmon_measure_read(void)
 {
@@ -130,8 +138,6 @@ void perfmon_measure_stop(void)
 {
     if(perfmon_amd) {
         perfmon_amd_measure_stop(0);
-    } else if(perfmon_intel) {
-        panic("Intel performance monitoring not supported yet.");
     }
 
     // Mask out performance counter overflow interrupts on APIC

@@ -713,6 +713,13 @@ int lwip_send(int s, const void *data, size_t size, int flags)
     return (err == ERR_OK ? (int) size : -1);
 }
 
+// XXX: Here for upwards-compatibility with lwIP 1.4.1
+int
+lwip_fcntl(int fd, int cmd, int val)
+{
+    assert(!"NYI");
+}
+
 int
 lwip_sendto(int s, const void *data, size_t size, int flags,
             const struct sockaddr *to, socklen_t tolen)
@@ -822,6 +829,11 @@ lwip_sendto(int s, const void *data, size_t size, int flags,
 #endif                          /* LWIP_TCPIP_CORE_LOCKING */
     sock_set_errno(sock, err_to_errno(err));
     return (err == ERR_OK ? short_size : -1);
+}
+
+int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+    assert(!"NYI");
 }
 
 int lwip_socket(int domain, int type, int protocol)
@@ -2279,6 +2291,11 @@ bool lwip_sock_ready_write(int socket)
     }
 
     return is_ready;
+}
+
+bool lwip_sock_is_open(int s)
+{
+    assert(!"NYI");
 }
 
 static void do_nothing(void *arg)

@@ -49,6 +49,8 @@
 #include <pwd.h>
 #include <fcntl.h> // for pid_t
 #include <sys/socket.h>
+#include <sys/select.h>
+#include <getopt.h>
 
 #define	R_OK 4
 #define	W_OK 2
@@ -253,6 +255,8 @@ long         sysconf(int name);
 char        *ttyname(int fd);
 int          unlink(const char*pathname);
 int          write(int fd, const void *buf, size_t len);
+int          usleep(useconds_t usec);
+unsigned int sleep(unsigned int seconds);
 __END_DECLS
 
 #endif // __BF_UNISTD_H

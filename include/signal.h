@@ -93,10 +93,31 @@ __BEGIN_DECLS
 
 #define NSIG            32      /* number of old signals (counting 0) */
 
-#define SIG_ERR ((void *) -1)
-#define SIG_DFL ((void *) 0)
-#define SIG_IGN ((void *) 1)
-#define SIG_HOLD ((void *)3)
+#if __POSIX_VISIBLE || __XSI_VISIBLE
+#define SA_NOCLDSTOP    0x0008  /* do not generate SIGCHLD on child stop */
+#endif /* __POSIX_VISIBLE || __XSI_VISIBLE */
+
+#if __XSI_VISIBLE
+#define SA_ONSTACK      0x0001  /* take signal on signal stack */
+#define SA_RESTART      0x0002  /* restart system call on signal return */
+#define SA_RESETHAND    0x0004  /* reset to SIG_DFL when taking signal */
+#define SA_NODEFER      0x0010  /* don't mask the signal we're delivering */
+#define SA_NOCLDWAIT    0x0020  /* don't keep zombies around */
+#define SA_SIGINFO      0x0040  /* signal handler with SA_SIGINFO args */
+#endif
+
+/* Adjusted to linux, has unused sa_restorer field and unsigned long
+   sa_flags; relatively unimportant though.  */
+/* Type of a signal handler.  */
+typedef void (*__sighandler_t)(int);
+
+/* The type used in newlib sources.  */
+typedef __sighandler_t _sig_func_ptr;
+
+#define SIG_ERR ((_sig_func_ptr) -1)
+#define SIG_DFL ((_sig_func_ptr) 0)
+#define SIG_IGN ((_sig_func_ptr) 1)
+#define SIG_HOLD ((_sig_func_ptr)3)
 
 #ifndef _PID_T_DECLARED
 typedef	__pid_t		pid_t;
@@ -109,6 +130,79 @@ typedef void (*signalhandler_t)(int);
 #define _SIGSET_T_DECLARED
 typedef __sigset_t      sigset_t;
 #endif
+
+union sigval {
+        /* Members as suggested by Annex C of POSIX 1003.1b. */
+        int     sival_int;
+        void    *sival_ptr;
+        /* 6.0 compatibility */
+        int     sigval_int;
+        void    *sigval_ptr;
+};
+
+typedef struct __siginfo {
+        int     si_signo;               /* signal number */
+        int     si_errno;               /* errno association */
+        /*
+         * Cause of signal, one of the SI_ macros or signal-specific
+         * values, i.e. one of the FPE_... values for SIGFPE.  This
+         * value is equivalent to the second argument to an old-style
+         * FreeBSD signal handler.
+         */
+        int     si_code;                /* signal code */
+        __pid_t si_pid;                 /* sending process */
+        __uid_t si_uid;                 /* sender's ruid */
+        int     si_status;              /* exit value */
+        void    *si_addr;               /* faulting instruction */
+        union sigval si_value;          /* signal value */
+        union   {
+                struct {
+                        int     _trapno;/* machine specific trap code */
+                } _fault;                                               
+                struct { 
+                        int     _timerid;
+                        int     _overrun;
+                } _timer;                
+                struct { 
+                        int     _mqd;
+                } _mesgq;            
+                struct { 
+                        long    _band;          /* band event for SIGPOLL */
+                } _poll;                        /* was this ever used ? */  
+                struct {                                                  
+                        long    __spare1__;
+                        int     __spare2__[7];
+                } __spare__;                  
+        } _reason;
+} siginfo_t;
+
+#define si_trapno       _reason._fault._trapno
+#define si_timerid      _reason._timer._timerid
+#define si_overrun      _reason._timer._overrun
+#define si_mqd          _reason._mesgq._mqd
+#define si_band         _reason._poll._band
+
+/* struct sigaction notes from POSIX:
+ *
+ *  (1) Routines stored in sa_handler should take a single int as
+ *      their argument although the POSIX standard does not require this.
+ *  (2) The fields sa_handler and sa_sigaction may overlap, and a conforming
+ *      application should not use both simultaneously.
+ */
+
+struct sigaction {
+  int         sa_flags;       /* Special flags to affect behavior of signal */
+  sigset_t    sa_mask;        /* Additional set of signals to be blocked */
+                              /*   during execution of signal-catching */
+                              /*   function. */
+  union {
+    _sig_func_ptr _handler;  /* SIG_DFL, SIG_IGN, or pointer to a function */
+    void      (*_sigaction)( int, siginfo_t *, void * );
+  } _signal_handlers;
+};
+
+#define sa_handler    _signal_handlers._handler
+#define sa_sigaction  _signal_handlers._sigaction
 
 /*
  * Flags for sigprocmask:
@@ -126,7 +220,9 @@ int sigdelset(sigset_t *set, int signo);
 int sigemptyset(sigset_t *set);
 int sigfillset(sigset_t *set);
 int sigismember(const sigset_t *set, int signo);
-
+int sigaction(int signum, const struct sigaction *act,
+              struct sigaction *oldact);
+int raise(int sig);
 __END_DECLS
 
 #endif // BARRELFISH_SIGNAL_H_

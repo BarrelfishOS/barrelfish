@@ -944,6 +944,60 @@ appBuildArch af tf args arch =
             )
 
 --
+-- Build an Arrakis application binary
+--
+
+arrakisapplication :: Args.Args
+arrakisapplication = Args.defaultArgs { Args.buildFunction = arrakisApplicationBuildFn }
+
+arrakisApplicationBuildFn :: [String] -> String -> Args.Args -> HRule
+arrakisApplicationBuildFn af tf args
+    | debugFlag && trace (Args.showArgs (tf ++ " Arrakis Application ") args) False
+        = undefined
+arrakisApplicationBuildFn af tf args =
+    Rules [ arrakisAppBuildArch af tf args arch | arch <- Args.architectures args ]
+
+arrakisAppGetOptionsForArch arch args =
+    (options arch) { extraIncludes =
+                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
+                     optIncludes = (optIncludes $ options arch) \\
+                         [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
+                     optFlags = ((optFlags $ options arch) ++ [ Str "-DARRAKIS" ]) \\
+                                [ Str f | f <- Args.omitCFlags args ],
+                     optCxxFlags = (optCxxFlags $ options arch) \\
+                                   [ Str f | f <- Args.omitCxxFlags args ],
+                     optSuffix = "_for_app_" ++ Args.target args,
+                     optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
+                               ((optLibs $ options arch) \\
+                                [ In InstallTree arch "/lib/libbarrelfish.a" ]),
+                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
+                     extraDependencies =
+                         [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
+                   }
+
+arrakisAppBuildArch af tf args arch =
+    let -- Fiddle the options
+        opts = arrakisAppGetOptionsForArch arch args
+        csrcs = Args.cFiles args
+        cxxsrcs = Args.cxxFiles args
+        appname = Args.target args
+        -- XXX: Not sure if this is correct. Currently assuming that if the app
+        -- contains C++ files, we have to use the C++ linker.
+        mylink = if cxxsrcs == [] then link else linkCxx
+    in
+      Rules ( flounderRules opts args csrcs
+              ++
+              [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
+              ++
+              [ compileCFiles opts csrcs,
+                compileCxxFiles opts cxxsrcs,
+                assembleSFiles opts (Args.assemblyFiles args),
+                mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
+              ]
+            )
+
+--
 -- Build a static library
 --
 
@@ -997,13 +1051,13 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- manually add dependencies for now (it would be better if each library
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
-libposixcompat_deps   = LibDeps [ LibDep "posixcompat", liblwip_deps,
+libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
                                   libvfs_deps_all, LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager", "contmng" ,"procon" , "net_if_raw", "bfdmuxvm"]
-libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps ]
+libnfs_deps           = LibDeps $ [ LibDep "nfs" ]
 libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
                                   LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
 libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
@@ -1020,6 +1074,7 @@ vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
 
 libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
                                             VFS_FAT]
+libvfs_deps_nonfs      = LibDeps $ vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT]
 libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
 libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
 libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
@@ -1034,6 +1089,7 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 str2dep :: String -> LibDepTree
 str2dep  str
     | str == "vfs"           = libvfs_deps_all
+    | str == "vfs_nonfs"     = libvfs_deps_nonfs
     | str == "posixcompat"   = libposixcompat_deps
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
@@ -1057,6 +1113,10 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "net_queue_manager"
                   , "bfdmuxvm"
                   , "lwip"
+                  , "arranet"
+                  , "e1000n"
+                  , "e10k"
+                  , "e10k_vf"
                   , "contmng"
                   , "procon"
                   , "net_if_raw"

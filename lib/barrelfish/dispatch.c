@@ -75,6 +75,13 @@ uint64_t disp_run_counter(void)
  */
 void disp_run(dispatcher_handle_t handle)
 {
+#ifdef __x86_64__
+    struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(handle);
+    /* load compatibility dispatcher segment to FS */
+    __asm volatile("mov %%ax, %%fs"
+                   : /* No outputs */
+                   : "a" (disp_priv->disp_seg_selector));
+#endif
     // We can't call printf(), so do this silly thing...
 //    assert_print("FIXME: infinite while loop\n");
 //    while(1);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012, ETH Zurich.
+ * Copyright (c) 2011, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -46,6 +46,42 @@ struct passwd *getpwuid(uid_t uid)
     // No matching user found
     POSIXCOMPAT_DEBUG("getpwuid(%d): no user found\n", uid);
     return NULL;
+}
+
+/**
+ * \brief Get the effective group ID.
+ */
+gid_t getegid(void)
+{
+    POSIXCOMPAT_DEBUG("getegid(): returning %d\n", dummyuser->pw_gid);
+    return dummyuser->pw_gid;
+}
+
+/**
+ * \brief Get the real group ID.
+ */
+gid_t getgid(void)
+{
+    POSIXCOMPAT_DEBUG("getgid(): returning %d\n", dummyuser->pw_gid);
+    return dummyuser->pw_gid;
+}
+
+/**
+ * \brief Set the effective group ID.
+ */
+int setegid(gid_t gid)
+{
+    assert(!"NYI");
+    return -1;
+}
+
+/**
+ * \brief Set-group-ID.
+ */
+int setgid(gid_t gid)
+{
+    assert(!"NYI");
+    return -1;
 }
 
 struct passwd *getpwnam(const char *name)

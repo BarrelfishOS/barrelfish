@@ -16,6 +16,8 @@
 #include <barrelfish/inthandler.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
+struct waitset *barrelfish_interrupt_waitset = NULL;
+
 /* allocate inrq */
 static errval_t arm_allocirq(struct capref ep, uint32_t irq)
 {
@@ -75,7 +77,7 @@ static void generic_interrupt_handler(void *arg)
         .handler = generic_interrupt_handler,
         .arg = arg,
     };
-    err = lmp_endpoint_register(state->idcep, get_default_waitset(), cl);
+    err = lmp_endpoint_register(state->idcep, barrelfish_interrupt_waitset, cl);
     assert(err_is_ok(err));
 }
 
@@ -146,6 +148,10 @@ errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
 {
     errval_t err;
 
+    if(barrelfish_interrupt_waitset == NULL) {
+        barrelfish_interrupt_waitset = get_default_waitset();
+    }
+
     /* alloc state */
     struct interrupt_handler_state *state;
     state = malloc(sizeof(struct interrupt_handler_state));
@@ -175,7 +181,7 @@ errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
         .handler = generic_interrupt_handler,
         .arg = state,
     };
-    err = lmp_endpoint_register(state->idcep, get_default_waitset(), cl);
+    err = lmp_endpoint_register(state->idcep, barrelfish_interrupt_waitset, cl);
     if (err_is_fail(err)) {
         lmp_endpoint_free(state->idcep);
         // TODO: release vector

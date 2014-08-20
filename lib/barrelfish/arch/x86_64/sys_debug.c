@@ -66,6 +66,13 @@ errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
     return sr.error;
 }
 
+errval_t sys_debug_get_apic_id(uint8_t *ret)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_APIC_ID);
+    *ret = sr.value;
+    return sr.error;
+}
+
 errval_t sys_debug_get_apic_timer(uint32_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_APIC_TIMER);

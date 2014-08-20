@@ -33,6 +33,7 @@
 #include <arch/x86/timing.h>
 #include <fpu.h>
 #include <arch/x86/ipi_notify.h>
+#include <amd_vmcb_dev.h>
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 
@@ -900,6 +901,11 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                     save_area = &disp->enabled_save_area;
                 }
 
+		// Should be enabled. Else, how do we do an invocation??
+		if(dcb_current->disabled) {
+		  panic("Dispatcher needs to be enabled for this invocation");
+		}
+
                 // save calling dispatcher's registers, so that when the dispatcher
                 // next runs, it has a valid state in the relevant save area.
                 // Save RIP, RFLAGS, RSP and set RAX (return value) for later resume
@@ -908,17 +914,25 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 save_area->eflags = rflags;
                 save_area->rsp = user_stack_save;
 
-                /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
-                __asm ("mov     %%fs, %[fs]     \n\t"
-                       "mov     %%gs, %[gs]     \n\t"
-                       "mov     %[zero], %%fs   \n\t"
-                       "mov     %[zero], %%gs   \n\t"
-                       : /* No output */
-                       :
-                       [fs] "m" (save_area->fs),
-                       [gs] "m" (save_area->gs),
-                       [zero] "r" (0)
-                       );
+		if(!dcb_current->is_vm_guest) {
+		  /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
+		  __asm ("mov     %%fs, %[fs]     \n\t"
+			 "mov     %%gs, %[gs]     \n\t"
+			 "mov     %[zero], %%fs   \n\t"
+			 "mov     %[zero], %%gs   \n\t"
+			 : /* No output */
+			 :
+			 [fs] "m" (save_area->fs),
+			 [gs] "m" (save_area->gs),
+			 [zero] "r" (0)
+			 );
+		} else {
+		  lpaddr_t lpaddr = gen_phys_to_local_phys(dcb_current->guest_desc.vmcb.cap.u.frame.base);
+		  amd_vmcb_t vmcb;
+		  amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
+		  save_area->fs = amd_vmcb_fs_selector_rd(&vmcb);
+		  save_area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+		}
 
                 dispatch(to->u.endpoint.listener);
                 panic("dispatch returned");
@@ -1005,6 +1019,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         case DEBUG_GET_APIC_TICKS_PER_SEC:
             retval.value = timing_get_apic_ticks_per_sec();
+            break;
+
+        case DEBUG_GET_APIC_ID:
+            retval.value = apic_get_id();
             break;
 
         default:

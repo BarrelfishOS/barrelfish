@@ -67,6 +67,9 @@ typedef unsigned int    uint;           /* Sys V compatibility */
 #endif
 #endif
 
+typedef char *          caddr_t;        /* core address */
+typedef const char *    c_caddr_t;      /* core address, pointer to const */
+
 //typedef int fd_set;
 typedef long ino_t;
 typedef long dev_t;
@@ -91,10 +94,20 @@ typedef __clock_t clock_t;
 #define _CLOCK_T_DECLARED
 #endif
 
+#ifndef _CLOCKID_T_DECLARED
+typedef __clockid_t     clockid_t;
+#define _CLOCKID_T_DECLARED
+#endif
+
 #ifndef _TIME_T_DECLARED
 typedef __time_t  time_t;
 #define _TIME_T_DECLARED
 #endif
+
+struct timespec {
+    time_t  tv_sec;         /* seconds */
+    long    tv_nsec;        /* and nanoseconds */
+};
 
 #ifndef _UID_T_DECLARED
 typedef __uid_t   uid_t;
@@ -104,6 +117,11 @@ typedef __uid_t   uid_t;
 #ifndef _GID_T_DECLARED
 typedef __gid_t gid_t;
 #define _GID_T_DECLARED
+#endif
+
+#ifndef _SA_FAMILY_T_DECLARED
+typedef __sa_family_t	sa_family_t;
+#define _SA_FAMILY_T_DECLARED
 #endif
 
 typedef unsigned long useconds_t;

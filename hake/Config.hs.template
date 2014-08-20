@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, 2012, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, 2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -274,6 +274,12 @@ defines = [ Str ("-D" ++ d) | d <- [
 libcInc :: String
 libcInc = if libc == "oldc" then "/include/oldc"
           else "/lib/newlib/newlib/libc/include"
+
+-- Sets the include path for lwIP
+lwipInc :: String
+lwipInc = "/lib/lwip/src/include"
+lwipxxxInc :: String
+lwipxxxInc = "/lib/lwip/src/include/ipv4"
 
 -- some defines depend on the architecture/compile options
 arch_defines :: Options -> [RuleToken]

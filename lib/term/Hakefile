@@ -33,6 +33,6 @@
                                          "terminal_config",
                                          "terminal_session" ],
                     flounderExtraBindings = [ ( "octopus", [ "rpcclient" ] ) ],
-                    flounderDefs = [ "monitor", "octopus" ]
+                    flounderDefs = [ "monitor", "octopus", "terminal_config" ]
                   }
 ]

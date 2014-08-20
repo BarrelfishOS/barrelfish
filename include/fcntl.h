@@ -88,7 +88,9 @@ typedef	__pid_t		pid_t;
 #define O_NOCTTY   00400
 #define O_TRUNC    01000	
 #define O_APPEND   02000
+#ifndef O_NONBLOCK
 #define O_NONBLOCK 04000
+#endif
 #define O_SYNC    010000
 #define O_FSYNC	  O_SYNC
 #define O_ASYNC	  020000
@@ -151,7 +153,9 @@ typedef	__pid_t		pid_t;
 #define	FFSYNC		O_FSYNC		/* kernel */
 #define	FNONBLOCK	O_NONBLOCK	/* kernel */
 #define	FNDELAY		O_NONBLOCK	/* compat */
+#ifndef O_NDELAY
 #define	O_NDELAY	O_NONBLOCK	/* compat */
+#endif
 #endif
 
 /*

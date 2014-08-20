@@ -31,8 +31,9 @@ in
     , "reent"
     , "errno"
     , "misc"
-    , "sys" ],
-  cFiles = arch_srcs arch,
+    , "sys"
+    , "machine" -- put this last, so machine-specific symbols overwrite generic ones
+    ],
   architectures = [arch]
 } | arch <- allArchitectures ]
 else []

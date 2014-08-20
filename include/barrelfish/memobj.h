@@ -97,6 +97,7 @@ struct memobj_frame_list {
     genpaddr_t offset;              ///< Offset into the frame
     struct capref frame;            ///< Capability of the frame
     size_t size;                    ///< Size of the frame
+    genpaddr_t pa;                  ///< XXX: physical address of frame
     struct memobj_frame_list *next;
 };
 

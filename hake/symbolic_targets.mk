@@ -136,6 +136,9 @@ MODULES_x86_64= \
 	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
 	sbin/serial \
+	sbin/arrakismon \
+	sbin/arrakis_hellotest \
+	sbin/socketpipetest \
 	sbin/shared_mem_clock_bench \
 	sbin/sif \
 	sbin/slideshow \
@@ -174,6 +177,7 @@ MODULES_x86_64= \
 	sbin/lshw \
 	sbin/xeon_phi \
 	sbin/xeon_phi_manager \
+	sbin/spin \
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \
@@ -182,7 +186,7 @@ MODULES_x86_64= \
 #	sbin/bulkbench_micro_echo \
 #	sbin/bulkbench_micro_throughput \
 #	sbin/bulkbench_micro_rtt \
-
+	
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -312,8 +316,12 @@ CLEAN_HD=
 DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
+MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
+	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
+	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
+
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+    QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)

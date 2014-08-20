@@ -52,10 +52,20 @@
 typedef int_least16_t in_port_t;
 typedef int_least32_t in_addr_t;
 
+#define IPPROTO_IPV6            41              /* IP6 header */
+#define INET_ADDRSTRLEN         16
+
 /*
  * Ports < IPPORT_RESERVED are reserved for
  * privileged processes (e.g. root).         (IP_PORTRANGE_LOW)
  */
 #define	IPPORT_RESERVED		1024
+
+/* INET6 stuff */
+#if __POSIX_VISIBLE >= 200112
+#define __KAME_NETINET_IN_H_INCLUDED_
+#include <netinet6/in6.h>
+#undef __KAME_NETINET_IN_H_INCLUDED_
+#endif
 
 #endif //_NETINET_IN_H_

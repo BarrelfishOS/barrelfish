@@ -17,6 +17,6 @@
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderTHCStubs = [ "octopus" ],
                       addLibraries = libDeps [ "skb", "octopus", "vfs", 
-                                               "spawndomain", "elf", "mm" ],
+                                               "spawndomain", "elf", "mm", "lwip" ],
                       architectures = [ "x86_64", "x86_32", "armv7" ] }
 ]

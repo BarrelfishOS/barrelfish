@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -37,22 +37,22 @@ pid_t waitpid(pid_t pid, int *status, int options)
             if(children[i] != 0) {
                 break;
             }
+        }
 
-            if(i == MAX_CHILDREN) {
-                errno = ECHILD;
-                return -1;
-            }
+        if(i == MAX_CHILDREN) {
+            errno = ECHILD;
+            return -1;
         }
     } else {
         for(i = 0; i < MAX_CHILDREN; i++) {
             if(children[i] == pid) {
                 break;
             }
+        }
 
-            if(i == MAX_CHILDREN) {
-                errno = ECHILD;
-                return -1;
-            }
+        if(i == MAX_CHILDREN) {
+            errno = ECHILD;
+            return -1;
         }
     }
 

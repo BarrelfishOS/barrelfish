@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -21,11 +21,15 @@ int read(int fd, void *buf, size_t len)
     int ret;
     struct fdtab_entry *e = fdtab_get(fd);
 
-    switch (e->type) {
+    switch(e->type) {
     case FDTAB_TYPE_LWIP_SOCKET:
         lwip_mutex_lock();
         ret = lwip_read(e->fd, buf, len);
         lwip_mutex_unlock();
+        break;
+
+    case FDTAB_TYPE_UNIX_SOCKET:
+        ret = recv(fd, buf, len, 0);
         break;
 
     case FDTAB_TYPE_PTM:

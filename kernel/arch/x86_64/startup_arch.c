@@ -647,7 +647,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     snprintf(bootinfochar, sizeof(bootinfochar), "%lu", BOOTINFO_BASE);
     const char *argv[] = { "init", bootinfochar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              bootinfo_phys, alloc_phys);
 
@@ -722,7 +722,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     const char *argv[] = { name, coreidchar, chanidchar, archidchar };
 
-    struct dcb *init_dcb = spawn_init_common(&spawn_state, name, 
+    struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
                                              0, alloc_phys);
 

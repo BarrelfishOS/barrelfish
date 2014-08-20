@@ -241,6 +241,7 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->disp = disp;
     newthread->coreid = get_dispatcher_generic(disp)->core_id;
     newthread->userptr = NULL;
+    memset(newthread->userptrs, 0, sizeof(newthread->userptrs));
     newthread->yield_epoch = 0;
     newthread->wakeup_reason = NULL;
     newthread->return_value = 0;
@@ -581,6 +582,17 @@ struct thread *thread_self(void)
     disp_enable(handle);
 #endif
     return me;
+}
+
+uintptr_t thread_id(void)
+{
+    return thread_self()->id;
+}
+
+void thread_set_id(uintptr_t id)
+{
+    struct thread *me = thread_self();
+    me->id = id;
 }
 
 /**
@@ -1248,6 +1260,12 @@ void thread_set_tls(void *p)
     me->userptr = p;
 }
 
+void thread_set_tls_key(int key, void *p)
+{
+    struct thread *me = thread_self();
+    me->userptrs[key] = p;
+}
+
 /**
  * \brief Return old-style thread-local storage pointer.
  * \return User's pointer, previously passed to thread_set_tls()
@@ -1256,6 +1274,12 @@ void *thread_get_tls(void)
 {
     struct thread *me = thread_self();
     return me->userptr;
+}
+
+void *thread_get_tls_key(int key)
+{
+    struct thread *me = thread_self();
+    return me->userptrs[key];
 }
 
 /**

@@ -50,6 +50,11 @@ extern "C" {
 #ifdef PACK_STRUCT_USE_INCLUDES
 #include "arch/epstruct.h"
 #endif
+
+// XXX: In lwIP 1.3.1 this is all the same.
+typedef struct ip_addr ip_addr_t;
+typedef struct ip_addr ip_addr_p_t;
+
 /*
  * struct ipaddr2 is used in the definition of the ARP packet format in
  * order to support compilers that don't have structure packing.
@@ -74,6 +79,15 @@ extern "C" {
  */
 #define IP_ADDR_ANY         ((struct ip_addr *)&ip_addr_any)
 #define IP_ADDR_BROADCAST   ((struct ip_addr *)&ip_addr_broadcast)
+
+/** 255.255.255.255 */
+#define IPADDR_NONE         ((u32_t)0xffffffffUL)
+/** 127.0.0.1 */
+#define IPADDR_LOOPBACK     ((u32_t)0x7f000001UL)
+/** 0.0.0.0 */
+#define IPADDR_ANY          ((u32_t)0x00000000UL)
+/** 255.255.255.255 */
+#define IPADDR_BROADCAST    ((u32_t)0xffffffffUL)
 
 /* Definitions of the bits in an Internet address integer.
 
@@ -117,6 +131,12 @@ extern "C" {
 #define ip_addr_set(dest, src) (dest)->addr = \
                                ((src) == NULL? 0:\
                                (src)->addr)
+
+/** IPv4 only: set the IP address given as an u32_t */
+#define ip4_addr_set_u32(dest_ipaddr, src_u32) ((dest_ipaddr)->addr = (src_u32))
+/** IPv4 only: get the IP address as an u32_t */
+#define ip4_addr_get_u32(src_ipaddr) ((src_ipaddr)->addr)
+
 /**
  * Determine if two address are on the same network.
  *

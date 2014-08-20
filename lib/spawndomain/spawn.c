@@ -727,6 +727,37 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_SETUP_ARGCN);
     }
 
+    // Add vspace-pspace mapping to environment
+    char envstr[2048];
+    snprintf(envstr, 2048, "ARRAKIS_PMAP=");
+    for(int i = 0; i < si->vregions; i++) {
+        struct memobj_anon *m = (struct memobj_anon *)si->vregion[i]->memobj;
+        assert(m->m.type == ANONYMOUS);
+        for(struct memobj_frame_list *f = m->frame_list; f != NULL; f = f->next) {
+            struct frame_identity id;
+            err = invoke_frame_identify(f->frame, &id);
+            assert(err_is_ok(err));
+
+            char str[128];
+            snprintf(str, 128, "%" PRIxGENVADDR ":%" PRIxGENPADDR ":%zx ", si->base[i] + f->offset, id.base, f->size);
+            strcat(envstr, str);
+        }
+    }
+
+    char **myenv = (char **)envp;
+    for(int i = 0; i < MAX_ENVIRON_VARS; i++) {
+        if(i + 1 == MAX_ENVIRON_VARS) {
+            printf("spawnd: Couldn't set environemnt. Out of variables!\n");
+            abort();
+        }
+
+        if(myenv[i] == NULL) {
+            myenv[i] = envstr;
+            myenv[i+1] = NULL;
+            break;
+        }
+    }
+
     /* Setup cmdline args */
     err = spawn_setup_env(si, argv, envp);
     if (err_is_fail(err)) {
