@@ -35,14 +35,15 @@
 pci_driver{
     binary: "e1000n",
     supported_cards:
-    [ pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
+    [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1096, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'100e, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10d3, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10c9, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10a7, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ } ],
-    core_hint: 0,
+    core_hint: 2,
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,

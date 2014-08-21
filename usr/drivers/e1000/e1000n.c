@@ -547,16 +547,19 @@ void e1000n_polling_loop(struct waitset *ws)
         } else {
             err = event_dispatch_non_block(ws); // nonblocking for polling mode
         }
-//        err = event_dispatch_non_block(ws); // nonblocking for polling mode
-//        err = event_dispatch(ws); // nonblocking for polling mode
-        if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
-            E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
-                        (unsigned int)err);
-            break;
-        } else {
-            no_work = true;
-        }
 
+        switch(err_no(err)) {
+            case LIB_ERR_NO_EVENT:
+                /* no-op: letting no_work to be true */
+                break;
+            case SYS_ERR_OK:
+                no_work = false;
+                break;
+            default:
+                E1000_DEBUG("Error in event_dispatch_non_block, returned %s\n",
+                        err_getstring(err));
+                break;
+        }
         while(handle_free_TX_slot_fn());
 
 #if TRACE_ETHERSRV_MODE
@@ -567,28 +570,21 @@ void e1000n_polling_loop(struct waitset *ws)
             no_work = false;
         }
 
-/*
-        err = event_dispatch_debug(ws); // blocking // doesn't work correctly
-        if (err_is_fail(err)) {
-            E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
-                        (unsigned int)err);
-            break;
-        }
-*/
-
         if (no_work) {
             ++jobless_iterations;
-            if (jobless_iterations == 10) {
+            if (jobless_iterations == 5) {
 #ifndef LIBRARY
-                /* if (use_interrupt) { */
-                /*     E1000_DEBUG("no work available, yielding thread\n"); */
-                /*     thread_yield(); */
-                /* } */
+                 if (!use_interrupt) {
+                     //E1000_DEBUG("no work available, yielding thread\n");
+                     thread_yield();
+                 }
 #else
                 /* E1000_DEBUG("no work available, returning\n"); */
                 return;
 #endif
             }
+        } else {
+            jobless_iterations = 0;
         }
     } // end while
 }
@@ -701,7 +697,7 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                   receive_buffer_size,
                   rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
-    
+
 #endif
 
 #if TRACE_ETHERSRV_MODE
@@ -892,8 +888,32 @@ int e1000n_driver_init(int argc, char **argv)
     E1000_DEBUG("e1000 standalone driver started.\n");
 
     E1000_DEBUG("argc = %d\n", argc);
+
+    /* try parse Kaluga information which is located at the last argument */
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor,
+                                 &deviceid, &bus, &device, &function);
+        if (parsed != 5) {
+            E1000_DEBUG("Driver seems not to be started by Kaluga.\n");
+            vendor = PCI_DONT_CARE;
+            deviceid = PCI_DONT_CARE;
+            bus = PCI_DONT_CARE;
+            device = PCI_DONT_CARE;
+            function = PCI_DONT_CARE;
+        } else {
+            use_force = true;
+            E1000_DEBUG("PCI Device (%u, %u, %u) Vendor: 0x%04x, Device 0x%04x\n",
+                        bus, device, function, vendor, deviceid);
+            // remove the last argument
+            argc--;
+        }
+    }
+
     for (int i = 1; i < argc; i++) {
         E1000_DEBUG("arg %d = %s\n", i, argv[i]);
+        if (strcmp(argv[i], "auto") == 0) {
+            continue;
+        }
         if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", minbase);
@@ -926,7 +946,8 @@ int e1000n_driver_init(int argc, char **argv)
             if (parse_mac(mac_address, argv[i] + strlen("mac="))) {
                 user_mac_address = true;
                 E1000_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
-                            mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+                            mac_address[0], mac_address[1], mac_address[2],
+                            mac_address[3], mac_address[4], mac_address[5]);
             } else {
                 E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n", argv[i]);
                 exit(1);
@@ -938,7 +959,7 @@ int e1000n_driver_init(int argc, char **argv)
                  strcmp(argv[i], "--help") == 0) {
             exit_help(argv[0]);
         } else {
-            E1000_PRINT_ERROR("Error: unknown argument: %s.\n", argv[i]);
+            E1000_DEBUG("Parsed Kaluga device address %s.\n", argv[i]);
             //exit_help(argv[0]);
         }
     } // end for :
@@ -954,13 +975,12 @@ int e1000n_driver_init(int argc, char **argv)
         E1000_DEBUG("Setting service name to %s\n", service_name);
     }
 
-
     // There is a bug which breaks the interrupt handling if driver runs
     // on core zero.  So, trying to avoid that situation
     if(use_interrupt) {
         if(disp_get_core_id() == 0) {
-            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled, please choose different core\n",
-                    disp_name());
+            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled."
+                       "Please choose different core\n", disp_name());
             abort();
         }
     }
@@ -999,7 +1019,7 @@ int e1000n_driver_init(int argc, char **argv)
     e1000_device.device = &e1000;
     e1000_device.mac_type = mac_type;
     e1000_device.device_id = deviceid;
-    if (e1000_device.mac_type == e1000_82575 
+    if (e1000_device.mac_type == e1000_82575
         || e1000_device.mac_type == e1000_82576
         || e1000_device.mac_type == e1000_I210) {
         // These cards do not have a bsex reg entry
@@ -1022,7 +1042,6 @@ int e1000n_driver_init(int argc, char **argv)
     assert(err_is_ok(err));
 
     if (use_interrupt) {
-
         err = pci_register_driver_irq(e1000_init_fn, class, subclass, program_interface,
                                       vendor, deviceid, bus, device, function,
                                       e1000_interrupt_handler_fn, NULL);

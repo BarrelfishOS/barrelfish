@@ -268,6 +268,9 @@ static int e1000_reset(e1000_device_t *dev)
     default:
         e1000_ctrl_rst_wrf(dev->device, 1);
 
+        if (dev->mac_type == e1000_I350) {
+            usec_delay(3000);
+        }
         /* Wait for reset to clear */
         timeout = 1000;
         do {
@@ -342,6 +345,8 @@ static int e1000_reset(e1000_device_t *dev)
 
     /* clear any pending interrupts */
     e1000_icr_rd(dev->device);
+
+    debug_printf("Reset done..\n");
 
     return 0;
 }
@@ -724,7 +729,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
 
     /* --------------------- receive setup --------------------- */
     /* receive descriptor control */
-    if (dev->mac_type == e1000_82575 
+    if (dev->mac_type == e1000_82575
         || dev->mac_type == e1000_82576
         || dev->mac_type == e1000_I210) {
         e1000_rxdctl_82575_t rxdctl = 0;
@@ -770,7 +775,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
     e1000_configure_rx(dev);
 
     /* --------------------- transmit setup --------------------- */
-    if (dev->mac_type == e1000_82575 
+    if (dev->mac_type == e1000_82575
         || dev->mac_type == e1000_82576
         || dev->mac_type == e1000_I210) {
         e1000_txdctl_82575_t txdctl = 0;
@@ -828,7 +833,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
      * configuration specific. A initial suggested range is 651-5580 (28Bh - 15CCh).
      * The value 0 will disable interrupt throttling
      */
-    if (dev->mac_type == e1000_82575 
+    if (dev->mac_type == e1000_82575
         || dev->mac_type == e1000_82576
         || dev->mac_type == e1000_I210) {
         e1000_eitr_interval_wrf(dev->device, 0, 5580);
