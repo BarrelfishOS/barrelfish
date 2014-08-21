@@ -8,7 +8,7 @@
 -- Attn: Systems Group.
 --
 -- Hakefile for lib/barrelfish
--- 
+--
 --------------------------------------------------------------------------
 
 [(let arch_dir = "arch" ./. archFamily arch
@@ -17,8 +17,8 @@
                       "waitset.c", "event_queue.c", "event_mutex.c",
                       "idc_export.c", "nameservice_client.c", "msgbuf.c",
                       "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
-                      "flounder_txqueue.c","morecore.c", "debug.c", "heap.c", 
-                      "ram_alloc.c", "terminal.c", "spawn_client.c", "vspace/vspace.c", 
+                      "flounder_txqueue.c","morecore.c", "debug.c", "heap.c",
+                      "ram_alloc.c", "terminal.c", "spawn_client.c", "vspace/vspace.c",
                       "vspace/vregion.c", "vspace/memobj_one_frame.c",
                       "vspace/memobj_one_frame_lazy.c",
                       "vspace/utils.c", "vspace/memobj_fixed.c",
@@ -58,7 +58,7 @@
                                  "vspace/arch/k1om/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c"]
-      archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c", 
+      archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
@@ -85,8 +85,8 @@
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
                              ++ common_srcs ++ idc_srcs,
                     assemblyFiles = arch_assembly (archFamily arch),
-                    flounderBindings = [ "mem", "octopus", "interdisp", "spawn", 
-                                         "terminal", "arrakis" ],
+                    flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
+                                         "terminal", "arrakis", "terminal_config" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
@@ -106,7 +106,7 @@
                       "idc_export.c", "nameservice_client.c", "msgbuf.c",
                       "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
                       "morecore.c", "debug.c", "heap.c", "ram_alloc.c",
-                      "terminal.c", "spawn_client.c", "vspace/vspace.c", 
+                      "terminal.c", "spawn_client.c", "vspace/vspace.c",
                       "vspace/vregion.c", "vspace/memobj_one_frame.c",
                       "vspace/memobj_one_frame_lazy.c",
                       "vspace/utils.c",
@@ -139,7 +139,7 @@
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c"]
-      archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c", 
+      archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
@@ -164,7 +164,7 @@
                              ++ common_srcs ++ idc_srcs,
                     assemblyFiles = arch_assembly (archFamily arch),
                     addCFlags = [ "-DARRAKIS" ],
-                    flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis", 
+                    flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis",
                                          "terminal" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],

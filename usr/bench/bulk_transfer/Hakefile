@@ -10,16 +10,22 @@
 
 [ build application { target = "bulkbench_micro_echo",
                       cFiles = [ "micro_echo.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
                       addLibraries = libDeps [ "bulk_transfer", "lwip" ],
                       architectures = ["x86_64"]
                  },
   build application { target = "bulkbench_micro_throughput",
                       cFiles = [ "micro_throughput.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
                       addLibraries = libDeps [ "bulk_transfer", "bench", "lwip" ],
                       architectures = ["x86_64"]
                  },
   build application { target = "bulkbench_micro_rtt",
                       cFiles = [ "micro_rtt.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
                       addLibraries = libDeps [ "bulk_transfer", "bench", "lwip" ],
                       architectures = ["x86_64"]
                  }
