@@ -87,13 +87,12 @@ static void dispatcher_initialized_handler(void *arg)
         }
     }
 #endif
-
     /* Upcall into the domain_new_dispatcher callback if registered */
     if (span_domain_state->callback) {
         span_domain_state->callback(span_domain_state->callback_arg, SYS_ERR_OK);
     }
-
-    free(span_domain_state);
+    span_domain_state->initialized = 1;
+    //free(span_domain_state);
 }
 
 /**
@@ -451,6 +450,8 @@ static int remote_core_init_enabled(void *arg)
     st->default_waitset_handler = thread_create(span_slave_thread, NULL);
     assert(st->default_waitset_handler != NULL);
 
+
+
     return interdisp_msg_handler(&st->interdisp_ws);
 }
 
@@ -704,13 +705,14 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     }
 #endif
 
+    #if 0
     /* XXX: create a thread that will handle the default waitset */
     if (domain_state->default_waitset_handler == NULL) {
         domain_state->default_waitset_handler
             = thread_create(span_slave_thread, NULL);
         assert(domain_state->default_waitset_handler != NULL);
     }
-
+#endif
     /* Wait to use the monitor binding */
     struct monitor_binding *mcb = get_monitor_binding();
     event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
@@ -718,7 +720,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                  .handler = span_domain_request_sender_wrapper,
                                      .arg = span_domain_state });
 
-#if 0
+#if 1
     while(!span_domain_state->initialized) {
         event_dispatch(get_default_waitset());
     }
