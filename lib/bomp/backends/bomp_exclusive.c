@@ -196,7 +196,6 @@ int bomp_xomp_init(void *arg)
     }
 
     if (args->type == XOMP_ARG_TYPE_WORKER) {
-        debug_printf("libbomp: worker waiting for tasks\n");
         while(1) {
             messages_wait_and_handle_next();
         }

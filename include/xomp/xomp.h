@@ -27,6 +27,9 @@
 /// total size of the frame to allocate
 #define XOMP_FRAME_SIZE (XOMP_MSG_FRAME_SIZE + XOMP_TLS_SIZE)
 
+/// enables the XOMP worker to enable DMA
+#define XOMP_WORKER_ENABLE_DMA 1
+
 /* Typedefs */
 
 /// XOMP worker ID

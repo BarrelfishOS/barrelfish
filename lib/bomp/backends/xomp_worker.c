@@ -18,8 +18,6 @@
 
 #include <if/xomp_defs.h>
 
-
-
 /// XOMP control channel to the master
 static struct xomp_binding *xbinding;
 
@@ -42,7 +40,25 @@ static iref_t svc_iref;
 static xomp_wid_t worker_id;
 
 /// Flounder TX messaging queue
-struct tx_queue txq;
+static struct tx_queue txq;
+
+#if XOMP_WORKER_ENABLE_DMA
+
+#include <dma/dma.h>
+#include <dma/dma_request.h>
+#include <dma/client/dma_client_device.h>
+#include <dma/dma_manager_client.h>
+
+#ifdef __k1om__
+/// dma device type
+static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_XEON_PHI;
+#else
+/// dma device type
+static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_IOAT;
+#endif
+/// dma client device
+static struct dma_client_device *dma_dev;
+#endif
 
 /**
  * \brief Flounder TX queue message state representation
@@ -58,6 +74,87 @@ struct xomp_msg_st {
         } done_notify;
     } args;
 };
+
+#if XOMP_WORKER_ENABLE_DMA
+
+static volatile uint8_t dma_replication_done = 0;
+
+static void dma_replication_cb(errval_t err, dma_req_id_t id, void *arg)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "dma transfer failed");
+    }
+    dma_replication_done = 1;
+}
+
+static errval_t replicate_frame(struct capref *frame)
+{
+    errval_t err;
+
+    struct frame_identity id;
+    err = invoke_frame_identify(*frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XWR_DEBUG("Replicating frame: [%016lx]\n", id.base);
+
+    struct capref replicate;
+    err = frame_alloc(&replicate, (1UL << id.bits), NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XWR_DEBUG("registering memory with DMA service\n");
+
+    err = dma_register_memory((struct dma_device *)dma_dev, *frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = dma_register_memory((struct dma_device *)dma_dev, replicate);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct dma_req_setup setup = {
+        .done_cb = dma_replication_cb,
+        .cb_arg = NULL,
+        .args = {
+            .memcpy = {
+                .src = id.base,
+                .bytes = (1UL << id.bits)
+            }
+        }
+    };
+
+    err = invoke_frame_identify(replicate, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    setup.args.memcpy.dst = id.base;
+
+    dma_replication_done = 0x0;
+
+    XWR_DEBUG("DMA request for replication\n");
+
+    err = dma_request_memcpy((struct dma_device *)dma_dev, &setup, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    while(!dma_replication_done) {
+        messages_wait_and_handle_next();
+    }
+
+    XWR_DEBUG("Replication done.\n");
+
+    *frame = replicate;
+
+    return SYS_ERR_OK;
+}
+
+#endif
 
 /*
  * ----------------------------------------------------------------------------
@@ -93,6 +190,24 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
         case XOMP_FRAME_TYPE_SHARED_RO:
             map_flags = VREGION_FLAGS_READ;
             break;
+        case XOMP_FRAME_TYPE_REPL_RW:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+#if XOMP_WORKER_ENABLE_DMA
+            addr = (lvaddr_t) usrdata;
+            err = replicate_frame(&frame);
+            if (err_is_fail(err)) {
+                return err;
+            }
+#else
+            struct capref replicate;
+            err = frame_alloc(&replicate, (1UL << id.bits), NULL);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            err = vspace_map_one_frame_fixed_attr((lvaddr_t) usrdata, (1UL << id.bits),
+                                                  replicate, map_flags, NULL, NULL);
+#endif
+            break;
         default:
             USER_PANIC("unknown type: %u", type)
             break;
@@ -108,6 +223,11 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
         return err;
     }
 
+#if !XOMP_WORKER_ENABLE_DMA
+    if ((xomp_frame_type_t) type == XOMP_FRAME_TYPE_REPL_RW) {
+        memcpy((void *)usrdata, (void *)addr, (1UL << id.bits));
+    }
+#endif
     XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx, %016lx]\n", id.base,
               addr, addr + (1UL << id.bits));
 
@@ -380,6 +500,38 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 #endif
 
     struct waitset *ws = get_default_waitset();
+
+#if XOMP_WORKER_ENABLE_DMA
+     /* XXX: use lib numa */
+    uint8_t numanode = 0;
+#ifndef __k1om__
+    if (disp_get_core_id() > 20) {
+        numanode = 1;
+    }
+#endif
+
+    err = dma_manager_wait_for_driver(dma_device_type, 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not wait for the DMA driver");
+    }
+
+    char svc_name[30];
+#ifdef __k1om__
+    snprintf(svc_name, 30, "%s", XEON_PHI_DMA_SERVICE_NAME);
+#else
+    snprintf(svc_name, 30, "%s.%u", IOAT_DMA_SERVICE_NAME, numanode);
+#endif
+
+    struct dma_client_info dma_info = {
+        .type = DMA_CLIENT_INFO_TYPE_NAME,
+        .device_type = dma_device_type,
+        .args.name = svc_name
+    };
+    err = dma_client_device_init(&dma_info, &dma_dev);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "DMA device initialization");
+    }
+#endif
 
     if (svc_iref) {
         err = xomp_bind(svc_iref, master_bind_cb, NULL, ws,

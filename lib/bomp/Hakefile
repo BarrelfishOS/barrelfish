@@ -15,6 +15,7 @@
     cFiles = concat [ find cInDir dir | dir <- [".", "backends"] ], 
     addLibraries = [ 
       "xeon_phi_client",
+      "dma_client",
       "posixcompat"	-- for gettimeofday
     ],
     addIncludes = [

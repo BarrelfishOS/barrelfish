@@ -571,7 +571,6 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
                             core);
             domainid_t did;
 
-
             err = spawn_program_with_caps(core, spawn_args_local.path,
                                           spawn_args_local.argv, NULL, NULL_CAP,
                                           worker->msgframe, 0, &did);
