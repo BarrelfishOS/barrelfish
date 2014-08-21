@@ -25,6 +25,7 @@ ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
+
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
 	sbin/rcce_lu_A1 \
@@ -44,6 +45,87 @@ BIN_RCCE_BT= \
 	sbin/rcce_bt_A25 \
 	sbin/rcce_bt_A36
 
+# All test domains
+TESTS_COMMON= \
+	sbin/hellotest \
+	sbin/idctest \
+	sbin/memtest \
+	sbin/fread_test \
+	sbin/fscanf_test \
+	sbin/schedtest \
+	sbin/testerror \
+	sbin/yield_test \
+	sbin/fputest \
+	
+TESTS_x86_64= \
+	sbin/mdbtest_range_query \
+	sbin/mdbtest_addr_zero \
+	sbin/ata_rw28_test \
+	sbin/arrakis_hellotest \
+	sbin/socketpipetest \
+	sbin/spantest \
+	sbin/testconcurrent \
+	sbin/thcidctest \
+	sbin/thcminitest \
+	sbin/tweedtest \
+	sbin/thctest \
+	sbin/cxxtest \
+	sbin/testdesc \
+	sbin/testdesc-child \
+	sbin/multihoptest \
+	sbin/cryptotest \
+	sbin/net-test \
+
+
+# All benchmark domains
+BENCH_COMMOM=\
+	sbin/flounder_stubs_empty_bench \
+	sbin/flounder_stubs_buffer_bench \
+	sbin/flounder_stubs_payload_bench \
+	sbin/channel_cost_bench \
+	sbin/xcorecapbench \
+	sbin/udp_throughput \
+	sbin/ump_latency \
+	sbin/ump_exchange \
+	sbin/ump_latency_cache \
+	sbin/ump_throughput \
+	sbin/ump_send \
+	sbin/ump_receive \
+	sbin/tlstest \
+	sbin/timer_test \
+	sbin/net_openport_test \
+	sbin/perfmontest \
+	sbin/thc_v_flounder_empty \
+	sbin/multihop_latency_bench \
+
+BENCH_x86_64= \
+	sbin/bomp_benchmark_cg \
+	sbin/bomp_benchmark_ft \
+	sbin/bomp_benchmark_is \
+	sbin/mdb_bench \
+	sbin/mdb_bench_old \
+	sbin/ahci_bench \
+	sbin/apicdrift_bench \
+	sbin/bulkbench \
+	sbin/lrpc_bench \
+	sbin/placement_bench \
+	sbin/phases_bench \
+	sbin/phases_scale_bench \
+	sbin/shared_mem_clock_bench \
+	$(BIN_RCCE_BT) \
+	$(BIN_RCCE_LU) \
+	sbin/tsc_bench \
+	sbin/netthroughput \
+	sbin/xomp_test_cpp \
+	sbin/bulk_transfer_passthrough \
+	sbin/bulkbench_micro_echo \
+	sbin/bulkbench_micro_throughput \
+	sbin/bulkbench_micro_rtt \
+	
+
+GREEN_MARL= \
+	sbin/gm_tc \
+
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
 	sbin/init_null \
@@ -51,24 +133,11 @@ MODULES_COMMON= \
 	sbin/chips \
 	sbin/spawnd \
 	sbin/startd \
-	sbin/flounder_stubs_empty_bench \
-	sbin/flounder_stubs_buffer_bench \
-	sbin/flounder_stubs_payload_bench \
-	sbin/hellotest \
 	sbin/mem_serv \
-	sbin/idctest \
-	sbin/memtest \
-	sbin/fread_test \
-	sbin/fscanf_test \
 	sbin/monitor \
 	sbin/ramfsd \
-	sbin/channel_cost_bench \
-	sbin/schedtest \
-	sbin/testerror \
-	sbin/yield_test \
 	sbin/xcorecap \
 	sbin/xcorecapserv \
-	sbin/xcorecapbench \
 
 # List of modules that are arch-independent and always built
 MODULES_GENERIC= \
@@ -78,27 +147,18 @@ MODULES_GENERIC= \
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/elver \
 	sbin/cpu \
 	sbin/skb \
-	sbin/mdbtest_range_query \
-	sbin/mdbtest_addr_zero \
-	sbin/mdb_bench \
-	sbin/mdb_bench_old \
-	sbin/ahci_bench \
-	sbin/ata_rw28_test \
-	sbin/apicdrift_bench \
+	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
-	sbin/bomp_benchmark_cg \
-	sbin/bomp_benchmark_ft \
-	sbin/bomp_benchmark_is \
 	sbin/bomp_sync \
 	sbin/bomp_cpu_bound \
 	sbin/bomp_cpu_bound_progress \
 	sbin/bomp_sync_progress \
 	sbin/bomp_test \
 	sbin/boot_perfmon \
-	sbin/bulkbench \
 	sbin/datagatherer \
 	sbin/ahcid \
 	sbin/e1000n \
@@ -109,99 +169,54 @@ MODULES_x86_64= \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \
-	sbin/elver \
 	sbin/fbdemo \
 	sbin/fish \
-	sbin/fputest \
 	sbin/hpet \
 	sbin/lpc_kbd \
 	sbin/lpc_timer \
-	sbin/lrpc_bench \
 	sbin/mem_affinity \
 	sbin/mem_serv_dist \
-	sbin/net-test \
-	sbin/netthroughput \
 	sbin/elb_app \
 	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/placement_bench \
-	sbin/phases_bench \
-	sbin/phases_scale_bench \
 	sbin/phoenix_kmeans \
-	$(BIN_RCCE_BT) \
-	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
 	sbin/serial \
-	sbin/arrakismon \
-	sbin/arrakis_hellotest \
-	sbin/socketpipetest \
-	sbin/shared_mem_clock_bench \
-	sbin/sif \
-	sbin/slideshow \
-	sbin/spantest \
-	sbin/testconcurrent \
-	sbin/thc_v_flounder_empty \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/thctest \
-	sbin/tsc_bench \
-	sbin/tweedtest \
-	sbin/udp_throughput \
-	sbin/ump_latency \
-	sbin/ump_exchange \
-	sbin/ump_latency_cache \
-	sbin/ump_throughput \
-	sbin/ump_send \
-	sbin/ump_receive \
-	sbin/vbe \
-	sbin/vmkitmon \
-	sbin/webserver \
-	sbin/tlstest \
-	sbin/timer_test \
-	sbin/net_openport_test \
-	sbin/perfmontest \
-	sbin/routing_setup \
-	sbin/multihoptest \
-	sbin/multihop_latency_bench \
-	sbin/cryptotest \
-	$(BIN_CONSENSUS) \
-	sbin/bcached \
-	sbin/testdesc \
-	sbin/testdesc-child \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
-	sbin/xeon_phi \
-	sbin/xeon_phi_manager \
-	sbin/xeon_phi_inter \
+	sbin/sif \
+	sbin/slideshow \
+	sbin/vbe \
+	sbin/vmkitmon \
+	sbin/webserver \
+	sbin/routing_setup \
+	$(BIN_CONSENSUS) \
+	sbin/bcached \
 	sbin/spin \
-	sbin/xeon_phi_test \
+	sbin/xeon_phi_mgr \
+	sbin/xeon_phi \
+	sbin/dma_mgr \
+	sbin/ioat_dma \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/ioat_dma \
+	sbin/xeon_phi_inter \
+	sbin/xeon_phi_test \
 	sbin/dma_test \
-	sbin/dma_mgr 
-#	sbin/block_server \
-#	sbin/block_server_client \
-#	sbin/bs_user \
-#	sbin/bulk_shm \
-#	sbin/bulk_transfer_passthrough \
-#	sbin/bulkbench_micro_echo \
-#	sbin/bulkbench_micro_throughput \
-#	sbin/bulkbench_micro_rtt \
-	
+	sbin/block_server \
+	sbin/block_server_client \
+	sbin/bs_user \
+	sbin/bulk_shm \
 
+	
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
 	sbin/barriers \
-	sbin/driver_msd \
-	sbin/ehci \
 	sbin/ipi_bench \
 	sbin/ring_barriers \
-	sbin/usb_manager \
 	sbin/ssf_bcast \
 	sbin/lamport_bcast \
 
@@ -273,7 +288,6 @@ MODULES_armv7=\
 	sbin/usb_keyboard \
 	sbin/kaluga \
 	sbin/fish \
-	sbin/examples/xmpl-spawn
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -283,6 +297,10 @@ MODULES_arm11mp=\
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
                                   $(foreach m,$(MODULES_COMMON),$(a)/$(m))) \
+		$(foreach a,$(HAKE_ARCHS),$(foreach m,$(TESTS_$(a)),$(a)/$(m)) \
+		                          $(foreach m,$(TESTS_COMMON),$(a)/$(m))) \
+		$(foreach a,$(HAKE_ARCHS),$(foreach m,$(BENCH_$(a)),$(a)/$(m)) \
+                                  $(foreach m,$(BENCH_COMMON),$(a)/$(m))) \
         $(MODULES_GENERIC)
 
 all: $(MODULES) menu.lst
