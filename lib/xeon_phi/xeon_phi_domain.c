@@ -22,7 +22,7 @@
 
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
-#include <if/monitor_defs.h>
+//#include <if/monitor_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 

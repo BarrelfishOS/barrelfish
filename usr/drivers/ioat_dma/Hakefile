@@ -18,7 +18,7 @@
         "dma_service.c",
         "ioat_mgr_service.c"                         
     ],
-    flounderBindings = [ "dma" ],
+    flounderBindings = [ "dma", "ioat_dma_mgr" ],
     mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
     addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
     architectures = [ "x86_64"]
