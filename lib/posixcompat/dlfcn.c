@@ -52,3 +52,29 @@ int dlclose(void *handle)
 {
     return (0);
 }
+
+int dladdr (const void *address, Dl_info *info)
+{
+    printf("WARNING: dladdr is not implemented.\n");
+    abort();
+#if 0
+  const ElfW(Addr) addr = DL_LOOKUP_ADDRESS (address);
+  int result = 0;
+
+  /* Protect against concurrent loads and unloads.  */
+  __rtld_lock_lock_recursive (GL(dl_load_lock));
+
+  struct link_map *l = _dl_find_dso_for_object (addr);
+
+  if (l)
+    {
+      determine_info (addr, l, info, mapp, symbolp);
+      result = 1;
+    }
+
+  __rtld_lock_unlock_recursive (GL(dl_load_lock));
+
+  return result;
+#endif
+  return 0;
+}

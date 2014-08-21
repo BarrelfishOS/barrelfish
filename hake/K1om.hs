@@ -46,7 +46,6 @@ ourCommonFlags = [ Str "-m64",
                    Str "-Wa,-march=k1om",
                    Str "-mk1om",
 		   Str "-mtune=k1om",
-                   Str "-fno-builtin",
 -- Apparently the MPSS gcc somehow incudes CMOVES?
 		   Str "-fno-if-conversion",		   
  --                  Str "-mno-mmx",
@@ -66,10 +65,12 @@ ourCommonFlags = [ Str "-m64",
 cFlags = ArchDefaults.commonCFlags
                ++ ArchDefaults.commonFlags
                ++ ourCommonFlags
+               ++ [Str "-fno-builtin" ]
 
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
+		 ++ [Str "-std=gnu++0x"]  -- XXX: with the Intel GCC 4.7.0 still experimental
 
 cDefines = ArchDefaults.cDefines options
 

@@ -14,20 +14,20 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *  This product includes software developed by Chris Provenzano.
- * 4. The name of Chris Provenzano may not be used to endorse or promote 
+ * 4. The name of Chris Provenzano may not be used to endorse or promote
  *	  products derived from this software without specific prior written
  *	  permission.
  *
  * THIS SOFTWARE IS PROVIDED BY CHRIS PROVENZANO ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY 
+ * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY
  * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
  * $FreeBSD$
@@ -73,7 +73,7 @@
  * Flags for read/write lock attributes
  */
 #define PTHREAD_PROCESS_PRIVATE     0
-#define PTHREAD_PROCESS_SHARED      1	
+#define PTHREAD_PROCESS_SHARED      1
 
 /*
  * Flags for cancelling threads
@@ -91,12 +91,12 @@
 #define PTHREAD_DONE_INIT   1
 
 /*
- * Static once initialization values. 
+ * Static once initialization values.
  */
 #define PTHREAD_ONCE_INIT   { PTHREAD_NEEDS_INIT, NULL }
 
 /*
- * Static initialization values. 
+ * Static initialization values.
  */
 #define PTHREAD_MUTEX_INITIALIZER	NULL
 #define PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP	((pthread_mutex_t)1)
@@ -146,7 +146,7 @@ struct _pthread_cleanup_info {
 __BEGIN_DECLS
 int		pthread_atfork(void (*)(void), void (*)(void), void (*)(void));
 int		pthread_attr_destroy(pthread_attr_t *);
-int		pthread_attr_getstack(const pthread_attr_t * __restrict, 
+int		pthread_attr_getstack(const pthread_attr_t * __restrict,
 			void ** __restrict, size_t * __restrict);
 int		pthread_attr_getstacksize(const pthread_attr_t *, size_t *);
 int		pthread_attr_getguardsize(const pthread_attr_t *, size_t *);
@@ -221,7 +221,11 @@ int		pthread_mutex_trylock(pthread_mutex_t *);
 int		pthread_mutex_timedlock(pthread_mutex_t *,
 			const struct timespec *);
 int		pthread_mutex_unlock(pthread_mutex_t *);
+#ifdef __cplusplus
+#define     pthread_once            _pthread_once
+#else
 int		pthread_once(pthread_once_t *, void (*) (void));
+#endif
 int		pthread_rwlock_destroy(pthread_rwlock_t *);
 int		pthread_rwlock_init(pthread_rwlock_t *,
 			const pthread_rwlockattr_t *);

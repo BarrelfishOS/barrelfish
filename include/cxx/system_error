@@ -20,24 +20,25 @@ namespace std
 class error_category
 {
 public:
-    virtual ~error_category();
+    virtual ~error_category() noexcept;
 
+    constexpr error_category();
     error_category(const error_category&) = delete;
     error_category& operator=(const error_category&) = delete;
 
-    virtual const char* name() const = 0;
-    virtual error_condition default_error_condition(int ev) const;
-    virtual bool equivalent(int code, const error_condition& condition) const;
-    virtual bool equivalent(const error_code& code, int condition) const;
+    virtual const char* name() const noexcept = 0;
+    virtual error_condition default_error_condition(int ev) const noexcept;
+    virtual bool equivalent(int code, const error_condition& condition) const noexcept;
+    virtual bool equivalent(const error_code& code, int condition) const noexcept;
     virtual string message(int ev) const = 0;
 
-    bool operator==(const error_category& rhs) const;
-    bool operator!=(const error_category& rhs) const;
-    bool operator<(const error_category& rhs) const;
+    bool operator==(const error_category& rhs) const noexcept;
+    bool operator!=(const error_category& rhs) const noexcept;
+    bool operator<(const error_category& rhs) const noexcept;
 };
 
-const error_category& generic_category();
-const error_category& system_category();
+const error_category& generic_category() noexcept;
+const error_category& system_category() noexcept;
 
 template <class T> struct is_error_code_enum
     : public false_type {};
@@ -49,27 +50,27 @@ class error_code
 {
 public:
     // constructors:
-    error_code();
-    error_code(int val, const error_category& cat);
+    error_code() noexcept;
+    error_code(int val, const error_category& cat) noexcept;
     template <class ErrorCodeEnum>
-        error_code(ErrorCodeEnum e);
+        error_code(ErrorCodeEnum e) noexcept;
 
     // modifiers:
-    void assign(int val, const error_category& cat);
+    void assign(int val, const error_category& cat) noexcept;
     template <class ErrorCodeEnum>
-        error_code& operator=(ErrorCodeEnum e);
-    void clear();
+        error_code& operator=(ErrorCodeEnum e) noexcept;
+    void clear() noexcept;
 
     // observers:
-    int value() const;
-    const error_category& category() const;
-    error_condition default_error_condition() const;
+    int value() const noexcept;
+    const error_category& category() const noexcept;
+    error_condition default_error_condition() const noexcept;
     string message() const;
-    explicit operator bool() const;
+    explicit operator bool() const noexcept;
 };
 
 // non-member functions:
-bool operator<(const error_code& lhs, const error_code& rhs);
+bool operator<(const error_code& lhs, const error_code& rhs) noexcept;
 template <class charT, class traits>
     basic_ostream<charT,traits>&
     operator<<(basic_ostream<charT,traits>& os, const error_code& ec);
@@ -78,25 +79,25 @@ class error_condition
 {
 public:
     // constructors:
-    error_condition();
-    error_condition(int val, const error_category& cat);
+    error_condition() noexcept;
+    error_condition(int val, const error_category& cat) noexcept;
     template <class ErrorConditionEnum>
-        error_condition(ErrorConditionEnum e);
+        error_condition(ErrorConditionEnum e) noexcept;
 
     // modifiers:
-    void assign(int val, const error_category& cat);
+    void assign(int val, const error_category& cat) noexcept;
     template <class ErrorConditionEnum>
-        error_condition& operator=(ErrorConditionEnum e);
-    void clear();
+        error_condition& operator=(ErrorConditionEnum e) noexcept;
+    void clear() noexcept;
 
     // observers:
-    int value() const;
-    const error_category& category() const;
-    string message() const;
-    explicit operator bool() const;
+    int value() const noexcept;
+    const error_category& category() const noexcept;
+    string message() const noexcept;
+    explicit operator bool() const noexcept;
 };
 
-bool operator<(const error_condition& lhs, const error_condition& rhs);
+bool operator<(const error_condition& lhs, const error_condition& rhs) noexcept;
 
 class system_error
     : public runtime_error
@@ -109,8 +110,8 @@ public:
     system_error(int ev, const error_category& ecat, const char* what_arg);
     system_error(int ev, const error_category& ecat);
 
-    const error_code& code() const throw();
-    const char* what() const throw();
+    const error_code& code() const noexcept;
+    const char* what() const noexcept;
 };
 
 enum class errc
@@ -198,18 +199,18 @@ enum class errc
 template <> struct is_error_condition_enum<errc>
     : true_type { }
 
-error_code make_error_code(errc e);
-error_condition make_error_condition(errc e);
+error_code make_error_code(errc e) noexcept;
+error_condition make_error_condition(errc e) noexcept;
 
 // Comparison operators:
-bool operator==(const error_code& lhs, const error_code& rhs);
-bool operator==(const error_code& lhs, const error_condition& rhs);
-bool operator==(const error_condition& lhs, const error_code& rhs);
-bool operator==(const error_condition& lhs, const error_condition& rhs);
-bool operator!=(const error_code& lhs, const error_code& rhs);
-bool operator!=(const error_code& lhs, const error_condition& rhs);
-bool operator!=(const error_condition& lhs, const error_code& rhs);
-bool operator!=(const error_condition& lhs, const error_condition& rhs);
+bool operator==(const error_code& lhs, const error_code& rhs) noexcept;
+bool operator==(const error_code& lhs, const error_condition& rhs) noexcept;
+bool operator==(const error_condition& lhs, const error_code& rhs) noexcept;
+bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept;
+bool operator!=(const error_code& lhs, const error_code& rhs) noexcept;
+bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept;
+bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept;
+bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept;
 
 template <> struct hash<std::error_code>;
 
@@ -223,29 +224,30 @@ template <> struct hash<std::error_code>;
 #include <stdexcept>
 #include <__functional_base>
 
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #pragma GCC system_header
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 // is_error_code_enum
 
 template <class _Tp>
-struct _LIBCPP_VISIBLE is_error_code_enum
+struct _LIBCPP_TYPE_VIS_ONLY is_error_code_enum
     : public false_type {};
 
 // is_error_condition_enum
 
 template <class _Tp>
-struct _LIBCPP_VISIBLE is_error_condition_enum
+struct _LIBCPP_TYPE_VIS_ONLY is_error_condition_enum
     : public false_type {};
 
 // Some error codes are not present on all platforms, so we provide equivalents
 // for them:
 
 //enum class errc
-struct errc
+_LIBCPP_DECLARE_STRONG_ENUM(errc)
 {
-enum _ {
     address_family_not_supported        = EAFNOSUPPORT,
     address_in_use                      = EADDRINUSE,
     address_not_available               = EADDRNOTAVAIL,
@@ -341,58 +343,57 @@ enum _ {
     value_too_large                     = EOVERFLOW,
     wrong_protocol_type                 = EPROTOTYPE
 };
-
-    _ __v_;
-
-    _LIBCPP_ALWAYS_INLINE
-    errc(_ __v) : __v_(__v) {}
-    _LIBCPP_ALWAYS_INLINE
-    operator int() const {return __v_;}
-
-};
+_LIBCPP_DECLARE_STRONG_ENUM_EPILOG(errc)
 
 template <>
-struct _LIBCPP_VISIBLE is_error_condition_enum<errc>
+struct _LIBCPP_TYPE_VIS_ONLY is_error_condition_enum<errc>
     : true_type { };
 
+#ifdef _LIBCPP_HAS_NO_STRONG_ENUMS
 template <>
-struct _LIBCPP_VISIBLE is_error_condition_enum<errc::_>
+struct _LIBCPP_TYPE_VIS_ONLY is_error_condition_enum<errc::__lx>
     : true_type { };
+#endif
 
-class error_condition;
-class error_code;
+class _LIBCPP_TYPE_VIS error_condition;
+class _LIBCPP_TYPE_VIS error_code;
 
 // class error_category
 
-class __do_message;
+class _LIBCPP_HIDDEN __do_message;
 
-class _LIBCPP_VISIBLE error_category
+class _LIBCPP_TYPE_VIS error_category
 {
 public:
-    virtual ~error_category();
+    virtual ~error_category() _NOEXCEPT;
 
+#ifdef _LIBCPP_BUILDING_SYSTEM_ERROR
+    error_category() _NOEXCEPT;
+#else
+    _LIBCPP_ALWAYS_INLINE
+    _LIBCPP_CONSTEXPR_AFTER_CXX11 error_category() _NOEXCEPT _LIBCPP_DEFAULT;
+#endif
 private:
-    error_category();
     error_category(const error_category&);// = delete;
     error_category& operator=(const error_category&);// = delete;
 
 public:
-    virtual const char* name() const = 0;
-    virtual error_condition default_error_condition(int __ev) const;
-    virtual bool equivalent(int __code, const error_condition& __condition) const;
-    virtual bool equivalent(const error_code& __code, int __condition) const;
+    virtual const char* name() const _NOEXCEPT = 0;
+    virtual error_condition default_error_condition(int __ev) const _NOEXCEPT;
+    virtual bool equivalent(int __code, const error_condition& __condition) const _NOEXCEPT;
+    virtual bool equivalent(const error_code& __code, int __condition) const _NOEXCEPT;
     virtual string message(int __ev) const = 0;
 
     _LIBCPP_ALWAYS_INLINE
-    bool operator==(const error_category& __rhs) const {return this == &__rhs;}
+    bool operator==(const error_category& __rhs) const _NOEXCEPT {return this == &__rhs;}
 
     _LIBCPP_ALWAYS_INLINE
-    bool operator!=(const error_category& __rhs) const {return !(*this == __rhs);}
+    bool operator!=(const error_category& __rhs) const _NOEXCEPT {return !(*this == __rhs);}
 
     _LIBCPP_ALWAYS_INLINE
-    bool operator< (const error_category& __rhs) const {return this < &__rhs;}
+    bool operator< (const error_category& __rhs) const _NOEXCEPT {return this < &__rhs;}
 
-    friend class __do_message;
+    friend class _LIBCPP_HIDDEN __do_message;
 };
 
 class _LIBCPP_HIDDEN __do_message
@@ -402,162 +403,166 @@ public:
     virtual string message(int ev) const;
 };
 
-const error_category& generic_category();
-const error_category& system_category();
+_LIBCPP_FUNC_VIS const error_category& generic_category() _NOEXCEPT;
+_LIBCPP_FUNC_VIS const error_category& system_category() _NOEXCEPT;
 
-class _LIBCPP_VISIBLE error_condition
+class _LIBCPP_TYPE_VIS error_condition
 {
     int __val_;
     const error_category* __cat_;
 public:
     _LIBCPP_ALWAYS_INLINE
-    error_condition() : __val_(0), __cat_(&generic_category()) {}
+    error_condition() _NOEXCEPT : __val_(0), __cat_(&generic_category()) {}
 
     _LIBCPP_ALWAYS_INLINE
-    error_condition(int __val, const error_category& __cat)
+    error_condition(int __val, const error_category& __cat) _NOEXCEPT
         : __val_(__val), __cat_(&__cat) {}
 
-    template <class _E>
+    template <class _Ep>
         _LIBCPP_ALWAYS_INLINE
-        error_condition(_E __e, typename enable_if<is_error_condition_enum<_E>::value>::type* = 0)
+        error_condition(_Ep __e,
+              typename enable_if<is_error_condition_enum<_Ep>::value>::type* = 0
+                                                                     ) _NOEXCEPT
             {*this = make_error_condition(__e);}
 
     _LIBCPP_ALWAYS_INLINE
-    void assign(int __val, const error_category& __cat)
+    void assign(int __val, const error_category& __cat) _NOEXCEPT
     {
         __val_ = __val;
         __cat_ = &__cat;
     }
 
-    template <class _E>
+    template <class _Ep>
         _LIBCPP_ALWAYS_INLINE
         typename enable_if
         <
-            is_error_condition_enum<_E>::value,
+            is_error_condition_enum<_Ep>::value,
             error_condition&
         >::type
-        operator=(_E __e)
+        operator=(_Ep __e) _NOEXCEPT
             {*this = make_error_condition(__e); return *this;}
 
     _LIBCPP_ALWAYS_INLINE
-    void clear()
+    void clear() _NOEXCEPT
     {
         __val_ = 0;
         __cat_ = &generic_category();
     }
 
     _LIBCPP_ALWAYS_INLINE
-    int value() const {return __val_;}
+    int value() const _NOEXCEPT {return __val_;}
 
     _LIBCPP_ALWAYS_INLINE
-    const error_category& category() const {return *__cat_;}
+    const error_category& category() const _NOEXCEPT {return *__cat_;}
     string message() const;
 
     _LIBCPP_ALWAYS_INLINE
-    //explicit
-        operator bool() const {return __val_ != 0;}
+        _LIBCPP_EXPLICIT
+        operator bool() const _NOEXCEPT {return __val_ != 0;}
 };
 
 inline _LIBCPP_INLINE_VISIBILITY
 error_condition
-make_error_condition(errc __e)
+make_error_condition(errc __e) _NOEXCEPT
 {
     return error_condition(static_cast<int>(__e), generic_category());
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator<(const error_condition& __x, const error_condition& __y)
+operator<(const error_condition& __x, const error_condition& __y) _NOEXCEPT
 {
     return __x.category() < __y.category()
-        || __x.category() == __y.category() && __x.value() < __y.value();
+        || (__x.category() == __y.category() && __x.value() < __y.value());
 }
 
 // error_code
 
-class _LIBCPP_VISIBLE error_code
+class _LIBCPP_TYPE_VIS error_code
 {
     int __val_;
     const error_category* __cat_;
 public:
     _LIBCPP_ALWAYS_INLINE
-    error_code() : __val_(0), __cat_(&system_category()) {}
+    error_code() _NOEXCEPT : __val_(0), __cat_(&system_category()) {}
 
     _LIBCPP_ALWAYS_INLINE
-    error_code(int __val, const error_category& __cat)
+    error_code(int __val, const error_category& __cat) _NOEXCEPT
         : __val_(__val), __cat_(&__cat) {}
 
-    template <class _E>
+    template <class _Ep>
         _LIBCPP_ALWAYS_INLINE
-        error_code(_E __e, typename enable_if<is_error_code_enum<_E>::value>::type* = 0)
+        error_code(_Ep __e,
+                   typename enable_if<is_error_code_enum<_Ep>::value>::type* = 0
+                                                                     ) _NOEXCEPT
             {*this = make_error_code(__e);}
 
     _LIBCPP_ALWAYS_INLINE
-    void assign(int __val, const error_category& __cat)
+    void assign(int __val, const error_category& __cat) _NOEXCEPT
     {
         __val_ = __val;
         __cat_ = &__cat;
     }
 
-    template <class _E>
+    template <class _Ep>
         _LIBCPP_ALWAYS_INLINE
         typename enable_if
         <
-            is_error_code_enum<_E>::value,
+            is_error_code_enum<_Ep>::value,
             error_code&
         >::type
-        operator=(_E __e)
+        operator=(_Ep __e) _NOEXCEPT
             {*this = make_error_code(__e); return *this;}
 
     _LIBCPP_ALWAYS_INLINE
-    void clear()
+    void clear() _NOEXCEPT
     {
         __val_ = 0;
         __cat_ = &system_category();
     }
 
     _LIBCPP_ALWAYS_INLINE
-    int value() const {return __val_;}
+    int value() const _NOEXCEPT {return __val_;}
 
     _LIBCPP_ALWAYS_INLINE
-    const error_category& category() const {return *__cat_;}
+    const error_category& category() const _NOEXCEPT {return *__cat_;}
 
     _LIBCPP_ALWAYS_INLINE
-    error_condition default_error_condition() const
+    error_condition default_error_condition() const _NOEXCEPT
         {return __cat_->default_error_condition(__val_);}
 
     string message() const;
 
     _LIBCPP_ALWAYS_INLINE
-    //explicit
-        operator bool() const {return __val_ != 0;}
+        _LIBCPP_EXPLICIT
+        operator bool() const _NOEXCEPT {return __val_ != 0;}
 };
 
 inline _LIBCPP_INLINE_VISIBILITY
 error_code
-make_error_code(errc __e)
+make_error_code(errc __e) _NOEXCEPT
 {
     return error_code(static_cast<int>(__e), generic_category());
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator<(const error_code& __x, const error_code& __y)
+operator<(const error_code& __x, const error_code& __y) _NOEXCEPT
 {
     return __x.category() < __y.category()
-        || __x.category() == __y.category() && __x.value() < __y.value();
+        || (__x.category() == __y.category() && __x.value() < __y.value());
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator==(const error_code& __x, const error_code& __y)
+operator==(const error_code& __x, const error_code& __y) _NOEXCEPT
 {
     return __x.category() == __y.category() && __x.value() == __y.value();
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator==(const error_code& __x, const error_condition& __y)
+operator==(const error_code& __x, const error_condition& __y) _NOEXCEPT
 {
     return __x.category().equivalent(__x.value(), __y)
         || __y.category().equivalent(__x, __y.value());
@@ -565,40 +570,44 @@ operator==(const error_code& __x, const error_condition& __y)
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator==(const error_condition& __x, const error_code& __y)
+operator==(const error_condition& __x, const error_code& __y) _NOEXCEPT
 {
     return __y == __x;
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator==(const error_condition& __x, const error_condition& __y)
+operator==(const error_condition& __x, const error_condition& __y) _NOEXCEPT
 {
     return __x.category() == __y.category() && __x.value() == __y.value();
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator!=(const error_code& __x, const error_code& __y) {return !(__x == __y);}
+operator!=(const error_code& __x, const error_code& __y) _NOEXCEPT
+{return !(__x == __y);}
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator!=(const error_code& __x, const error_condition& __y) {return !(__x == __y);}
+operator!=(const error_code& __x, const error_condition& __y) _NOEXCEPT
+{return !(__x == __y);}
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator!=(const error_condition& __x, const error_code& __y) {return !(__x == __y);}
+operator!=(const error_condition& __x, const error_code& __y) _NOEXCEPT
+{return !(__x == __y);}
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-operator!=(const error_condition& __x, const error_condition& __y) {return !(__x == __y);}
+operator!=(const error_condition& __x, const error_condition& __y) _NOEXCEPT
+{return !(__x == __y);}
 
 template <>
-struct _LIBCPP_VISIBLE hash<error_code>
+struct _LIBCPP_TYPE_VIS_ONLY hash<error_code>
     : public unary_function<error_code, size_t>
 {
     _LIBCPP_INLINE_VISIBILITY
-    size_t operator()(const error_code& __ec) const
+    size_t operator()(const error_code& __ec) const _NOEXCEPT
     {
         return static_cast<size_t>(__ec.value());
     }
@@ -606,7 +615,7 @@ struct _LIBCPP_VISIBLE hash<error_code>
 
 // system_error
 
-class _LIBCPP_VISIBLE system_error
+class _LIBCPP_TYPE_VIS system_error
     : public runtime_error
 {
     error_code __ec_;
@@ -617,16 +626,16 @@ public:
     system_error(int __ev, const error_category& __ecat, const string& __what_arg);
     system_error(int __ev, const error_category& __ecat, const char* __what_arg);
     system_error(int __ev, const error_category& __ecat);
-    ~system_error() throw();
+    ~system_error() _NOEXCEPT;
 
     _LIBCPP_ALWAYS_INLINE
-    const error_code& code() const throw() {return __ec_;}
+    const error_code& code() const _NOEXCEPT {return __ec_;}
 
 private:
     static string __init(const error_code&, string);
 };
 
-void __throw_system_error(int ev, const char* what_arg);
+_LIBCPP_FUNC_VIS void __throw_system_error(int ev, const char* what_arg);
 
 _LIBCPP_END_NAMESPACE_STD
 

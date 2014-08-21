@@ -29,7 +29,7 @@ public:
     valarray(const value_type& x, size_t n);
     valarray(const value_type* px, size_t n);
     valarray(const valarray& v);
-    valarray(valarray&& v);
+    valarray(valarray&& v) noexcept;
     valarray(const slice_array<value_type>& sa);
     valarray(const gslice_array<value_type>& ga);
     valarray(const mask_array<value_type>& ma);
@@ -39,7 +39,7 @@ public:
 
     // assignment:
     valarray& operator=(const valarray& v);
-    valarray& operator=(valarray&& v);
+    valarray& operator=(valarray&& v) noexcept;
     valarray& operator=(initializer_list<value_type> il);
     valarray& operator=(const value_type& x);
     valarray& operator=(const slice_array<value_type>& sa);
@@ -91,7 +91,7 @@ public:
     valarray& operator>>=(const valarray& v);
 
     // member functions:
-    void swap(valarray& v);
+    void swap(valarray& v) noexcept;
 
     size_t size() const;
 
@@ -231,7 +231,7 @@ public:
     indirect_array() = delete;
 };
 
-template<class T> void swap(valarray<T>& x, valarray<T>& y);
+template<class T> void swap(valarray<T>& x, valarray<T>& y) noexcept;
 
 template<class T> valarray<T> operator* (const valarray<T>& x, const valarray<T>& y);
 template<class T> valarray<T> operator* (const valarray<T>& x, const T& y);
@@ -345,14 +345,19 @@ template <class T> unspecified2 end(const valarray<T>& v);
 #include <initializer_list>
 #include <algorithm>
 #include <functional>
+#include <new>
 
+#include <__undef_min_max>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #pragma GCC system_header
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
-template<class _Tp> class valarray;
+template<class _Tp> class _LIBCPP_TYPE_VIS_ONLY valarray;
 
-class _LIBCPP_VISIBLE slice
+class _LIBCPP_TYPE_VIS_ONLY slice
 {
     size_t __start_;
     size_t __size_;
@@ -377,25 +382,29 @@ public:
     _LIBCPP_INLINE_VISIBILITY size_t stride() const {return __stride_;}
 };
 
-template <class _Tp> class slice_array;
-class gslice;
-template <class _Tp> class gslice_array;
-template <class _Tp> class mask_array;
-template <class _Tp> class indirect_array;
+template <class _Tp> class _LIBCPP_TYPE_VIS_ONLY slice_array;
+class _LIBCPP_TYPE_VIS gslice;
+template <class _Tp> class _LIBCPP_TYPE_VIS_ONLY gslice_array;
+template <class _Tp> class _LIBCPP_TYPE_VIS_ONLY mask_array;
+template <class _Tp> class _LIBCPP_TYPE_VIS_ONLY indirect_array;
 
 template <class _Tp>
+_LIBCPP_INLINE_VISIBILITY
 _Tp*
 begin(valarray<_Tp>& __v);
 
 template <class _Tp>
+_LIBCPP_INLINE_VISIBILITY
 const _Tp*
 begin(const valarray<_Tp>& __v);
 
 template <class _Tp>
+_LIBCPP_INLINE_VISIBILITY
 _Tp*
 end(valarray<_Tp>& __v);
 
 template <class _Tp>
+_LIBCPP_INLINE_VISIBILITY
 const _Tp*
 end(const valarray<_Tp>& __v);
 
@@ -491,14 +500,14 @@ struct __bit_shift_right : binary_function<_Tp, _Tp, _Tp>
         {return __x >> __y;}
 };
 
-template <class _Tp, class _F>
+template <class _Tp, class _Fp>
 struct __apply_expr   : unary_function<_Tp, _Tp>
 {
 private:
-    _F __f_;
+    _Fp __f_;
 public:
     _LIBCPP_INLINE_VISIBILITY
-    explicit __apply_expr(_F __f) : __f_(__f) {}
+    explicit __apply_expr(_Fp __f) : __f_(__f) {}
 
     _LIBCPP_INLINE_VISIBILITY
     _Tp operator()(const _Tp& __x) const
@@ -663,7 +672,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     size_t size() const {return __size_;}
 
-    template <class> friend class _LIBCPP_VISIBLE valarray;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY valarray;
 };
 
 template <class _ValExpr>
@@ -686,7 +695,7 @@ private:
     ptrdiff_t __ul_;
     ptrdiff_t __sn_;
     ptrdiff_t __n_;
-    static const ptrdiff_t _N = static_cast<ptrdiff_t>(
+    static const ptrdiff_t _Np = static_cast<ptrdiff_t>(
                                     sizeof(ptrdiff_t) * __CHAR_BIT__ - 1);
 
     _LIBCPP_INLINE_VISIBILITY
@@ -695,8 +704,8 @@ private:
           __size_(__e.size()),
           __n_(__n)
         {
-            ptrdiff_t __neg_n = static_cast<ptrdiff_t>(__n_ >> _N);
-            __sn_ = __neg_n | static_cast<ptrdiff_t>(static_cast<size_t>(-__n_) >> _N);
+            ptrdiff_t __neg_n = static_cast<ptrdiff_t>(__n_ >> _Np);
+            __sn_ = __neg_n | static_cast<ptrdiff_t>(static_cast<size_t>(-__n_) >> _Np);
             __ul_ = ((__size_ - __n_) & ~__neg_n) | ((__n_ + 1) & __neg_n);
         }
 public:
@@ -704,8 +713,8 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     result_type operator[](size_t __j) const
         {
-            ptrdiff_t __i = static_cast<size_t>(__j);
-            ptrdiff_t __m = (__sn_ * __i - __ul_) >> _N;
+            ptrdiff_t __i = static_cast<ptrdiff_t>(__j);
+            ptrdiff_t __m = (__sn_ * __i - __ul_) >> _Np;
             return (__expr_[(__i + __n_) & __m] & __m) | (value_type() & ~__m);
         }
 
@@ -778,7 +787,7 @@ template<class _Tp>
 struct __is_val_expr<valarray<_Tp> > : true_type {};
 
 template<class _Tp>
-class _LIBCPP_VISIBLE valarray
+class _LIBCPP_TYPE_VIS_ONLY valarray
 {
 public:
     typedef _Tp value_type;
@@ -797,9 +806,11 @@ public:
     valarray(const value_type* __p, size_t __n);
     valarray(const valarray& __v);
 #ifndef _LIBCPP_HAS_NO_RVALUE_REFERENCES
-    valarray(valarray&& __v);
-    valarray(initializer_list<value_type> __il);
+    valarray(valarray&& __v) _NOEXCEPT;
 #endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+    valarray(initializer_list<value_type> __il);
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
     valarray(const slice_array<value_type>& __sa);
     valarray(const gslice_array<value_type>& __ga);
     valarray(const mask_array<value_type>& __ma);
@@ -809,14 +820,18 @@ public:
     // assignment:
     valarray& operator=(const valarray& __v);
 #ifndef _LIBCPP_HAS_NO_RVALUE_REFERENCES
-    valarray& operator=(valarray&& __v);
-    valarray& operator=(initializer_list<value_type>);
+    valarray& operator=(valarray&& __v) _NOEXCEPT;
 #endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+    valarray& operator=(initializer_list<value_type>);
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
     valarray& operator=(const value_type& __x);
     valarray& operator=(const slice_array<value_type>& __sa);
     valarray& operator=(const gslice_array<value_type>& __ga);
     valarray& operator=(const mask_array<value_type>& __ma);
     valarray& operator=(const indirect_array<value_type>& __ia);
+    template <class _ValExpr>
+        valarray& operator=(const __val_expr<_ValExpr>& __v);
 
     // element access:
     _LIBCPP_INLINE_VISIBILITY
@@ -946,10 +961,10 @@ public:
     operator>>= (const _Expr& __v);
 
     // member functions:
-    void swap(valarray& __v);
+    void swap(valarray& __v) _NOEXCEPT;
 
     _LIBCPP_INLINE_VISIBILITY
-    size_t size() const {return __end_ - __begin_;}
+    size_t size() const {return static_cast<size_t>(__end_ - __begin_);}
 
     value_type sum() const;
     value_type min() const;
@@ -962,12 +977,12 @@ public:
     void     resize(size_t __n, value_type __x = value_type());
 
 private:
-    template <class> friend class _LIBCPP_VISIBLE valarray;
-    template <class> friend class _LIBCPP_VISIBLE slice_array;
-    template <class> friend class _LIBCPP_VISIBLE gslice_array;
-    template <class> friend class _LIBCPP_VISIBLE mask_array;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY valarray;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY slice_array;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY gslice_array;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY mask_array;
     template <class> friend class __mask_expr;
-    template <class> friend class _LIBCPP_VISIBLE indirect_array;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY indirect_array;
     template <class> friend class __indirect_expr;
     template <class> friend class __val_expr;
 
@@ -991,6 +1006,10 @@ private:
     const _Up*
     end(const valarray<_Up>& __v);
 };
+
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS valarray<size_t>::valarray(size_t))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS valarray<size_t>::~valarray())
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void valarray<size_t>::resize(size_t, size_t))
 
 template <class _Op, class _Tp>
 struct _UnaryOp<_Op, valarray<_Tp> >
@@ -1077,7 +1096,7 @@ struct _BinaryOp<_Op, valarray<_Tp>, valarray<_Tp> >
 // slice_array
 
 template <class _Tp>
-class _LIBCPP_VISIBLE slice_array
+class _LIBCPP_TYPE_VIS_ONLY slice_array
 {
 public:
     typedef _Tp value_type;
@@ -1380,7 +1399,7 @@ slice_array<_Tp>::operator=(const value_type& __x) const
 
 // gslice
 
-class _LIBCPP_VISIBLE gslice
+class _LIBCPP_TYPE_VIS gslice
 {
     valarray<size_t> __size_;
     valarray<size_t> __stride_;
@@ -1447,7 +1466,7 @@ private:
 // gslice_array
 
 template <class _Tp>
-class _LIBCPP_VISIBLE gslice_array
+class _LIBCPP_TYPE_VIS_ONLY gslice_array
 {
 public:
     typedef _Tp value_type;
@@ -1776,7 +1795,7 @@ gslice_array<_Tp>::operator=(const value_type& __x) const
 // mask_array
 
 template <class _Tp>
-class _LIBCPP_VISIBLE mask_array
+class _LIBCPP_TYPE_VIS_ONLY mask_array
 {
 public:
     typedef _Tp value_type;
@@ -1887,7 +1906,7 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     mask_array(const valarray<bool>& __vb, const valarray<value_type>& __v)
         : __vp_(const_cast<value_type*>(__v.__begin_)),
-          __1d_(count(__vb.__begin_, __vb.__end_, true))
+          __1d_(static_cast<size_t>(count(__vb.__begin_, __vb.__end_, true)))
           {
               size_t __j = 0;
               for (size_t __i = 0; __i < __vb.size(); ++__i)
@@ -2098,7 +2117,7 @@ private:
     _LIBCPP_INLINE_VISIBILITY
     __mask_expr(const valarray<bool>& __vb, const _RmExpr& __e)
         : __expr_(__e),
-          __1d_(count(__vb.__begin_, __vb.__end_, true))
+          __1d_(static_cast<size_t>(count(__vb.__begin_, __vb.__end_, true)))
           {
               size_t __j = 0;
               for (size_t __i = 0; __i < __vb.size(); ++__i)
@@ -2120,7 +2139,7 @@ public:
 // indirect_array
 
 template <class _Tp>
-class _LIBCPP_VISIBLE indirect_array
+class _LIBCPP_TYPE_VIS_ONLY indirect_array
 {
 public:
     typedef _Tp value_type;
@@ -2471,7 +2490,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY
     size_t size() const {return __1d_.size();}
 
-    template <class> friend class _LIBCPP_VISIBLE valarray;
+    template <class> friend class _LIBCPP_TYPE_VIS_ONLY valarray;
 };
 
 template<class _ValExpr>
@@ -2610,7 +2629,7 @@ public:
 };
 
 template<class _ValExpr>
-__val_expr<_ValExpr>::operator valarray<result_type>() const
+__val_expr<_ValExpr>::operator valarray<__val_expr::result_type>() const
 {
     valarray<result_type> __r;
     size_t __n = __expr_.size();
@@ -2618,7 +2637,7 @@ __val_expr<_ValExpr>::operator valarray<result_type>() const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<result_type*>(::operator new(__n * sizeof(result_type)));
+                static_cast<result_type*>(_VSTD::__allocate(__n * sizeof(result_type)));
         for (size_t __i = 0; __i != __n; ++__r.__end_, ++__i)
             ::new (__r.__end_) result_type(__expr_[__i]);
     }
@@ -2652,7 +2671,7 @@ valarray<_Tp>::valarray(const value_type* __p, size_t __n)
 {
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2677,7 +2696,7 @@ valarray<_Tp>::valarray(const valarray& __v)
 {
     if (__v.size())
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__v.size() * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__v.size() * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2699,12 +2718,16 @@ valarray<_Tp>::valarray(const valarray& __v)
 
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
-valarray<_Tp>::valarray(valarray&& __v)
+valarray<_Tp>::valarray(valarray&& __v) _NOEXCEPT
     : __begin_(__v.__begin_),
       __end_(__v.__end_)
 {
     __v.__begin_ = __v.__end_ = nullptr;
 }
+
+#endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 template <class _Tp>
 valarray<_Tp>::valarray(initializer_list<value_type> __il)
@@ -2714,7 +2737,7 @@ valarray<_Tp>::valarray(initializer_list<value_type> __il)
     size_t __n = __il.size();
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2732,7 +2755,7 @@ valarray<_Tp>::valarray(initializer_list<value_type> __il)
     }
 }
 
-#endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 template <class _Tp>
 valarray<_Tp>::valarray(const slice_array<value_type>& __sa)
@@ -2742,7 +2765,7 @@ valarray<_Tp>::valarray(const slice_array<value_type>& __sa)
     size_t __n = __sa.__size_;
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2768,7 +2791,7 @@ valarray<_Tp>::valarray(const gslice_array<value_type>& __ga)
     size_t __n = __ga.__1d_.size();
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2797,7 +2820,7 @@ valarray<_Tp>::valarray(const mask_array<value_type>& __ma)
     size_t __n = __ma.__1d_.size();
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2826,7 +2849,7 @@ valarray<_Tp>::valarray(const indirect_array<value_type>& __ia)
     size_t __n = __ia.__1d_.size();
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -2862,7 +2885,7 @@ valarray<_Tp>::operator=(const valarray& __v)
     {
         if (size() != __v.size())
             resize(__v.size());
-        _STD::copy(__v.__begin_, __v.__end_, __begin_);
+        _VSTD::copy(__v.__begin_, __v.__end_, __begin_);
     }
     return *this;
 }
@@ -2872,7 +2895,7 @@ valarray<_Tp>::operator=(const valarray& __v)
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 valarray<_Tp>&
-valarray<_Tp>::operator=(valarray&& __v)
+valarray<_Tp>::operator=(valarray&& __v) _NOEXCEPT
 {
     resize(0);
     __begin_ = __v.__begin_;
@@ -2882,6 +2905,10 @@ valarray<_Tp>::operator=(valarray&& __v)
     return *this;
 }
 
+#endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 valarray<_Tp>&
@@ -2889,18 +2916,18 @@ valarray<_Tp>::operator=(initializer_list<value_type> __il)
 {
     if (size() != __il.size())
         resize(__il.size());
-    _STD::copy(__il.begin(), __il.end(), __begin_);
+    _VSTD::copy(__il.begin(), __il.end(), __begin_);
     return *this;
 }
 
-#endif  // _LIBCPP_HAS_NO_RVALUE_REFERENCES
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 valarray<_Tp>&
 valarray<_Tp>::operator=(const value_type& __x)
 {
-    _STD::fill(__begin_, __end_, __x);
+    _VSTD::fill(__begin_, __end_, __x);
     return *this;
 }
 
@@ -2955,6 +2982,21 @@ valarray<_Tp>::operator=(const indirect_array<value_type>& __ia)
     for (_Ip __i = __ia.__1d_.__begin_, __e = __ia.__1d_.__end_;
                     __i != __e; ++__i, ++__t)
         *__t = __s[*__i];
+    return *this;
+}
+
+template <class _Tp>
+template <class _ValExpr>
+inline _LIBCPP_INLINE_VISIBILITY
+valarray<_Tp>&
+valarray<_Tp>::operator=(const __val_expr<_ValExpr>& __v)
+{
+    size_t __n = __v.size();
+    if (size() != __n)
+        resize(__n);
+    value_type* __t = __begin_;
+    for (size_t __i = 0; __i != __n; ++__t, ++__i)
+        *__t = result_type(__v[__i]);
     return *this;
 }
 
@@ -3092,7 +3134,7 @@ valarray<_Tp>::operator+() const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) value_type(+*__p);
     }
@@ -3109,7 +3151,7 @@ valarray<_Tp>::operator-() const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) value_type(-*__p);
     }
@@ -3126,7 +3168,7 @@ valarray<_Tp>::operator~() const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) value_type(~*__p);
     }
@@ -3143,7 +3185,7 @@ valarray<_Tp>::operator!() const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<bool*>(::operator new(__n * sizeof(bool)));
+                static_cast<bool*>(_VSTD::__allocate(__n * sizeof(bool)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) bool(!*__p);
     }
@@ -3413,10 +3455,10 @@ valarray<_Tp>::operator>>=(const _Expr& __v)
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-valarray<_Tp>::swap(valarray& __v)
+valarray<_Tp>::swap(valarray& __v) _NOEXCEPT
 {
-    _STD::swap(__begin_, __v.__begin_);
-    _STD::swap(__end_, __v.__end_);
+    _VSTD::swap(__begin_, __v.__begin_);
+    _VSTD::swap(__end_, __v.__end_);
 }
 
 template <class _Tp>
@@ -3440,7 +3482,7 @@ valarray<_Tp>::min() const
 {
     if (__begin_ == __end_)
         return value_type();
-    return *_STD::min_element(__begin_, __end_);
+    return *_VSTD::min_element(__begin_, __end_);
 }
 
 template <class _Tp>
@@ -3450,7 +3492,7 @@ valarray<_Tp>::max() const
 {
     if (__begin_ == __end_)
         return value_type();
-    return *_STD::max_element(__begin_, __end_);
+    return *_VSTD::max_element(__begin_, __end_);
 }
 
 template <class _Tp>
@@ -3463,20 +3505,20 @@ valarray<_Tp>::shift(int __i) const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         const value_type* __sb;
         value_type* __tb;
         value_type* __te;
         if (__i >= 0)
         {
-            __i = _STD::min(__i, static_cast<int>(__n));
+            __i = _VSTD::min(__i, static_cast<int>(__n));
             __sb = __begin_ + __i;
             __tb = __r.__begin_;
             __te = __r.__begin_ + (__n - __i);
         }
         else
         {
-            __i = _STD::min(-__i, static_cast<int>(__n));
+            __i = _VSTD::min(-__i, static_cast<int>(__n));
             __sb = __begin_;
             __tb = __r.__begin_ + __i;
             __te = __r.__begin_ + __n;
@@ -3501,7 +3543,7 @@ valarray<_Tp>::cshift(int __i) const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         __i %= static_cast<int>(__n);
         const value_type* __m = __i >= 0 ? __begin_ + __i : __end_ + __i;
         for (const value_type* __s = __m; __s != __end_; ++__r.__end_, ++__s)
@@ -3522,7 +3564,7 @@ valarray<_Tp>::apply(value_type __f(value_type)) const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) value_type(__f(*__p));
     }
@@ -3539,7 +3581,7 @@ valarray<_Tp>::apply(value_type __f(const value_type&)) const
     {
         __r.__begin_ =
             __r.__end_ =
-                static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+                static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
         for (const value_type* __p = __begin_; __n; ++__r.__end_, ++__p, --__n)
             ::new (__r.__end_) value_type(__f(*__p));
     }
@@ -3554,12 +3596,12 @@ valarray<_Tp>::resize(size_t __n, value_type __x)
     {
         while (__end_ != __begin_)
             (--__end_)->~value_type();
-        ::operator delete(__begin_);
+        _VSTD::__deallocate(__begin_);
         __begin_ = __end_ = nullptr;
     }
     if (__n)
     {
-        __begin_ = __end_ = static_cast<value_type*>(::operator new(__n * sizeof(value_type)));
+        __begin_ = __end_ = static_cast<value_type*>(_VSTD::__allocate(__n * sizeof(value_type)));
 #ifndef _LIBCPP_NO_EXCEPTIONS
         try
         {
@@ -3580,7 +3622,7 @@ valarray<_Tp>::resize(size_t __n, value_type __x)
 template<class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-swap(valarray<_Tp>& __x, valarray<_Tp>& __y)
+swap(valarray<_Tp>& __x, valarray<_Tp>& __y) _NOEXCEPT
 {
     __x.swap(__y);
 }
@@ -4732,10 +4774,6 @@ end(const valarray<_Tp>& __v)
 {
     return __v.__end_;
 }
-
-extern template valarray<size_t>::valarray(size_t);
-extern template valarray<size_t>::~valarray();
-extern template void valarray<size_t>::resize(size_t, size_t);
 
 _LIBCPP_END_NAMESPACE_STD
 

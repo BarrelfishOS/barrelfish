@@ -10,29 +10,30 @@
 #ifndef LIB_XOMP_MASTER_H_
 #define LIB_XOMP_MASTER_H_
 
-struct xomp_master_args
-{
-    uint8_t num_phi;
-    char *path;
+struct xomp_spawn_args {
     uint8_t argc;
     char **argv;
+    char *path;
+};
+
+struct xomp_master_args
+{
+    uint8_t remote_only;
+    uint8_t num_phi;
+    coreid_t core_stride;
+    struct xomp_spawn_args local;
+    struct xomp_spawn_args remote;
 };
 
 /**
  * \brief initializes the Xeon Phi openMP library
  *
- * \param nphi  Number of Xeon Phis to use
- * \param path  Path to the worker binary
- * \param argc  Argument count this program was started
- * \param argv  Argumnent values
+ * \param args struct containing the master initialization values
  *
  * \returns SYS_ERR_OK on success
  *          errval on failure
  */
-errval_t xomp_master_init(uint8_t nphi,
-                          char *path,
-                          uint8_t argc,
-                          char *argv[]);
+errval_t xomp_master_init(struct xomp_master_args *args);
 
 /**
  * \brief Spawns the worker threads on the Xeon Phi

@@ -7,6 +7,14 @@
 typedef void (*destructor_fn_t)(void *);
 typedef void *(*start_fn_t)(void *);
 
+struct   pthread_mutex_attr
+{
+  int pshared;
+  int kind;
+  int robustness;
+};
+
+
 struct pthread_mutex {
     struct thread_mutex mutex;
     int locked;
@@ -243,6 +251,26 @@ int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
     return 0;
 }
 
+int pthread_cond_broadcast(pthread_cond_t *cond)
+{
+    thread_mutex_lock(&mutex_mutex);
+
+    if(*cond == PTHREAD_COND_INITIALIZER) {
+         pthread_cond_init(cond, NULL);
+    }
+    thread_mutex_unlock(&mutex_mutex);
+
+    thread_cond_broadcast(&(*cond)->cond);
+
+    return 0;
+}
+
+int pthread_cond_destroy(pthread_cond_t *cond)
+{
+    free(cond);
+    return 0;
+}
+
 int pthread_join(pthread_t thread, void **retval)
 {
     errval_t err = thread_join(thread->thread, NULL);
@@ -272,4 +300,142 @@ int pthread_key_create(pthread_key_t *key,
  out:
     thread_mutex_unlock(&key_mutex);
     return retval;
+}
+
+int pthread_key_delete(pthread_key_t key)
+{
+    thread_mutex_lock(&key_mutex);
+
+    int result = EINVAL;
+
+    if (key < PTHREAD_KEYS_MAX) {
+        /* TODO: do something */
+        result = 0;
+    }
+
+    thread_mutex_unlock(&key_mutex);
+    return result;
+}
+
+int pthread_mutexattr_init(pthread_mutexattr_t *attr)
+{
+    int result = 0;
+    pthread_mutexattr_t ma;
+
+    ma = (pthread_mutexattr_t) calloc (1, sizeof (*ma));
+
+    if (ma == NULL) {
+        result = ENOMEM;
+    }
+    else {
+        ma->pshared = PTHREAD_PROCESS_PRIVATE;
+        ma->kind = PTHREAD_MUTEX_DEFAULT;
+    }
+
+    *attr = ma;
+
+    return result;
+}
+
+int pthread_mutexattr_destroy(pthread_mutexattr_t *attr)
+{
+    int result = 0;
+
+    if (attr == NULL || *attr == NULL) {
+        result = EINVAL;
+    } else {
+        pthread_mutexattr_t ma = *attr;
+
+        *attr = NULL;
+        free (ma);
+    }
+
+    return result;
+}
+
+int pthread_mutexattr_getpshared(const pthread_mutexattr_t *attr,
+                                 int *pshared)
+{
+    int result;
+
+    if ((attr != NULL && *attr != NULL) && (pshared != NULL)) {
+        *pshared = (*attr)->pshared;
+        result = 0;
+    } else {
+        result = EINVAL;
+    }
+
+    return result;
+}
+
+int pthread_mutexattr_gettype(pthread_mutexattr_t *attr, int *type)
+{
+    int result = 0;
+
+    if (attr != NULL && *attr != NULL && type != NULL) {
+        *type = (*attr)->kind;
+    } else {
+        result = EINVAL;
+    }
+
+    return result;
+}
+
+int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type)
+{
+    int result = 0;
+
+    if ((attr != NULL && *attr != NULL)) {
+        switch (type) {
+            case PTHREAD_MUTEX_NORMAL:
+            case PTHREAD_MUTEX_RECURSIVE:
+            case PTHREAD_MUTEX_ERRORCHECK:
+                (*attr)->kind = type;
+                break;
+            default:
+                result = EINVAL;
+                break;
+        }
+    } else {
+        result = EINVAL;
+    }
+
+    return result;
+}
+
+int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
+{
+    int result;
+
+    if ((attr != NULL && *attr != NULL)
+         && ((pshared == PTHREAD_PROCESS_SHARED)
+                  || (pshared == PTHREAD_PROCESS_PRIVATE))) {
+
+        if (pshared == PTHREAD_PROCESS_SHARED) {
+#if !defined( _POSIX_THREAD_PROCESS_SHARED )
+            result = ENOSYS;
+            pshared = PTHREAD_PROCESS_PRIVATE;
+#else
+            result = 0;
+#endif /* _POSIX_THREAD_PROCESS_SHARED */
+        } else {
+            result = 0;
+        }
+
+        (*attr)->pshared = pshared;
+    } else {
+        result = EINVAL;
+    }
+
+    return (result);
+}
+
+
+
+int pthread_equal(pthread_t pt1, pthread_t pt2)
+{
+    if (pt1 == NULL && pt2 == NULL) {
+        return 1;
+    }
+    return pt1->thread == pt2->thread;
 }

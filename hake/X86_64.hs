@@ -43,6 +43,7 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
+		 ++ [Str "-std=gnu++11"]
 
 cDefines = ArchDefaults.cDefines options
 

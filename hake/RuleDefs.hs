@@ -195,6 +195,7 @@ cPreprocessor opts phase src obj
 cxxCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cxxCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cxxCompiler opts phase src obj
+    | optArch opts == "k1om"  = K1om.cxxCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C++ compiler for " ++ (optArch opts)) ]
 
 
@@ -227,6 +228,8 @@ makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken 
 makeCxxDepend opts phase src obj depfile
     | optArch opts == "x86_64" =
         X86_64.makeCxxDepend opts phase src obj depfile
+    | optArch opts == "k1om" =
+        K1om.makeCxxDepend opts phase src obj depfile        
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -287,6 +290,7 @@ linker opts objs libs bin
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
 cxxlinker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
+    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --

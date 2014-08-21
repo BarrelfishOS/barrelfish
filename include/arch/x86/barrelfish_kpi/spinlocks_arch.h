@@ -27,7 +27,7 @@ static inline void acquire_spinlock(spinlock_t *lock)
      * which does the same thing as pause but with a variable amount of delay.
      * 750 cycles for now.
      */
-    uint32_t wait = 750;
+    uint32_t wait_cyc = 750;
     __asm__ __volatile__("0:\n\t"
                     "cmpl $0, %0\n\t"
                     "je 1f\n\t"
@@ -36,7 +36,7 @@ static inline void acquire_spinlock(spinlock_t *lock)
                     "1:\n\t"
                     "lock btsl $0, %0\n\t"
                     "jc 0b\n\t"
-                    : "+m" (*lock), "=r"(wait) : : "memory", "cc");
+                    : "+m" (*lock), "=r"(wait_cyc) : : "memory", "cc");
 #else
     __asm__ __volatile__("0:\n\t"
                     "cmpl $0, %0\n\t"

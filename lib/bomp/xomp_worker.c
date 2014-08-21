@@ -8,47 +8,55 @@
  */
 #include <barrelfish/barrelfish.h>
 #include <flounder/flounder_txqueue.h>
+
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
-#include <xomp/xomp.h>
-#include <xomp/xomp_worker.h>
 
-#include <if/xomp_defs.h>
+#include <xomp/xomp.h>
 
 #include "libbomp.h"
 #include "backend.h"
 #include "xomp_debug.h"
 
+/// XOMP control channel to the master
 static struct xomp_binding *xbinding;
 
+/// flag indicating if the client is bound to the master
 static volatile uint8_t is_bound = 0x0;
 
+/// messaging frame capability
 static struct capref msgframe;
 
+/// where the messaging frame is mapped
 static void *msgbuf;
 
+/// pointer to the thread local storage
 static void *tls;
 
+/// service iref of the master (if local worker)
+static iref_t svc_iref;
+
+/// our own worker id
 static xomp_wid_t worker_id;
 
+/// Flounder TX messaging queue
 struct tx_queue txq;
 
-struct xomp_msg_st
-{
+/**
+ * \brief Flounder TX queue message state representation
+ */
+struct xomp_msg_st {
     struct txq_msg_st common;
+
     /* union of arguments */
-    union
-    {
-        struct
-        {
+    union {
+        struct {
             uint64_t arg;
             uint64_t id;
         } done_notify;
     } args;
 };
 
-
-#ifdef __k1om__
 /*
  * ----------------------------------------------------------------------------
  * Xeon Phi Channel callbacks
@@ -98,7 +106,8 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
         return err;
     }
 
-    XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx]\n", id.base, addr);
+    XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx, %016lx]\n", id.base,
+              addr, addr + (1UL << id.bits));
 
     if ((xomp_frame_type_t) type == XOMP_FRAME_TYPE_MSG) {
         USER_PANIC("NYI: initializing messaging");
@@ -107,10 +116,10 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     return SYS_ERR_OK;
 }
 
+#ifdef __k1om__
 static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
-
 #endif
 
 /*
@@ -118,6 +127,12 @@ static struct xeon_phi_callbacks callbacks = {
  * XOMP channel send handlers
  * ----------------------------------------------------------------------------
  */
+
+static errval_t add_memory_response_tx(struct txq_msg_st *msg_st)
+{
+    return xomp_add_memory_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                        msg_st->err);
+}
 
 static errval_t done_notify_tx(struct txq_msg_st *msg_st)
 {
@@ -132,17 +147,32 @@ static errval_t done_with_arg_tx(struct txq_msg_st *msg_st)
     struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
 
     return xomp_done_with_arg__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                  st->args.done_notify.id, st->args.done_notify.arg,
-                                  msg_st->err);
+                                  st->args.done_notify.id,
+                                  st->args.done_notify.arg, msg_st->err);
 }
 
-typedef void (*workerfn_t)(void *data);
 
 /*
  * ----------------------------------------------------------------------------
  * XOMP channel receive handlers
  * ----------------------------------------------------------------------------
  */
+
+static void add_memory_call_rx(struct xomp_binding *b,
+                               struct capref frame,
+                               uint64_t addr,
+                               uint8_t type)
+{
+    XWI_DEBUG("add_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
+    assert(msg_st != NULL);
+
+    msg_st->err = msg_open_cb(0x0, addr, frame, type);
+    msg_st->send = add_memory_response_tx;
+    msg_st->cleanup = NULL;
+    txq_send(msg_st);
+}
+
 static void do_work_rx(struct xomp_binding *b,
                        uint64_t fn,
                        uint64_t arg,
@@ -157,9 +187,10 @@ static void do_work_rx(struct xomp_binding *b,
     msg_st->err = SYS_ERR_OK;
 
     struct bomp_work *work = tls;
-    work->data = work+1;
+    work->data = work + 1;
 
-    XWP_DEBUG("do_work_rx: threadid = %u, nthreads = %u\n", work->thread_id, work->num_threads);
+    XWP_DEBUG("do_work_rx: threadid = %u, nthreads = %u\n", work->thread_id,
+              work->num_threads);
 
     g_thread_numbers = work->num_threads;
 
@@ -173,13 +204,16 @@ static void do_work_rx(struct xomp_binding *b,
         msg_st->send = done_notify_tx;
     }
 
-    workerfn_t fnct = (workerfn_t)fn;
-    fnct((void *)work->data);
+    xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
+    XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
+    fnct(work->data);
+
 
     txq_send(msg_st);
 }
 
 static struct xomp_rx_vtbl rx_vtbl = {
+    .add_memory_call = add_memory_call_rx,
     .do_work = do_work_rx
 };
 
@@ -237,17 +271,34 @@ errval_t xomp_worker_parse_cmdline(uint8_t argc,
 
     xomp_wid_t retwid = 0;
     uint8_t parsed = 0;
+    uint8_t is_worker = 0x0;
+    iref_t iref = 0x0;
     for (uint32_t i = 1; argv[i] != NULL; ++i) {
-        if (strcmp("-xompworker", argv[i]) == 0) {
+        if (strcmp(XOMP_WORKER_ARG, argv[i]) == 0) {
             parsed++;
-        } else if (strncmp("-wid=", argv[i], 5) == 0) {
-            retwid = strtol(argv[i] + 5, NULL, 16);
+            is_worker = 0x1;
+        } else if (strncmp("--wid=", argv[i], 6) == 0) {
+            retwid = strtol(argv[i] + 6, NULL, 16);
+            parsed++;
+        } else if (strncmp("--iref=", argv[i], 7) == 0) {
+            iref = strtol(argv[i] + 7, NULL, 16);
             parsed++;
         }
     }
 
-    if (parsed != 2) {
+    if (!is_worker) {
+        return XOMP_ERR_BAD_INVOCATION;
+    }
+
+    if (parsed < 2) {
         return XOMP_ERR_INVALID_WORKER_ARGS;
+    }
+
+    if (iref) {
+        if (parsed != 3) {
+            return XOMP_ERR_INVALID_WORKER_ARGS;
+        }
+        svc_iref = iref;
     }
 
     if (wid) {
@@ -271,7 +322,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     worker_id = wid;
 
-    XWI_DEBUG("initializing worker {%016lx}\n", worker_id);
+    XWI_DEBUG("initializing worker {%016lx} iref:%u\n", worker_id, svc_iref);
 
     struct capref frame = {
         .cnode = cnode_root,
@@ -282,22 +333,32 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err_push(err, XOMP_ERR_INVALID_MSG_FRAME);
-        return err;
     }
 
-    if ((1UL << id.bits) < XOMP_FRAME_SIZE) {
+    size_t frame_size = 0;
+
+    if (svc_iref) {
+        frame_size = XOMP_TLS_SIZE;
+    } else {
+        frame_size = XOMP_FRAME_SIZE;
+    }
+
+    if ((1UL << id.bits) < XOMP_TLS_SIZE) {
         return XOMP_ERR_INVALID_MSG_FRAME;
     }
 
     msgframe = frame;
 
-    err = vspace_map_one_frame(&msgbuf, XOMP_FRAME_SIZE, frame, NULL, NULL);
+    err = vspace_map_one_frame(&msgbuf, frame_size, frame, NULL, NULL);
     if (err_is_fail(err)) {
-        return err;
+        err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
     }
-
-    tls = ((uint8_t *)msgbuf) + XOMP_MSG_FRAME_SIZE;
-
+    if (svc_iref) {
+        tls = msgbuf;
+    }
+    else {
+        tls = ((uint8_t *) msgbuf) + XOMP_MSG_FRAME_SIZE;
+    }
     xomp_set_tls(tls);
 
     XWI_DEBUG("messaging frame mapped: [%016lx] @ [%016lx]\n", id.base,
@@ -306,27 +367,32 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 #ifdef __k1om__
     err = xeon_phi_client_init(disp_xeon_phi_id());
     if (err_is_fail(err)) {
-        return err;
+        err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
     }
 
     xeon_phi_client_set_callbacks(&callbacks);
-#else
-    USER_PANIC("workers should be run on the xeon phi\n");
 #endif
 
-    struct xomp_frameinfo fi = {
-        .sendbase = id.base,
-        .inbuf = ((uint8_t *) msgbuf) + XOMP_MSG_CHAN_SIZE,
-        .inbufsize = XOMP_MSG_CHAN_SIZE,
-        .outbuf = ((uint8_t *) msgbuf),
-        .outbufsize = XOMP_MSG_CHAN_SIZE
-    };
-
     struct waitset *ws = get_default_waitset();
-    err = xomp_connect(&fi, master_bind_cb, NULL, ws, IDC_EXPORT_FLAGS_DEFAULT);
+
+    if (svc_iref) {
+        err = xomp_bind(svc_iref, master_bind_cb, NULL, ws,
+        IDC_EXPORT_FLAGS_DEFAULT);
+    } else {
+        struct xomp_frameinfo fi = {
+            .sendbase = id.base,
+            .inbuf = ((uint8_t *) msgbuf) + XOMP_MSG_CHAN_SIZE,
+            .inbufsize = XOMP_MSG_CHAN_SIZE,
+            .outbuf = ((uint8_t *) msgbuf),
+            .outbufsize = XOMP_MSG_CHAN_SIZE
+        };
+        err = xomp_connect(&fi, master_bind_cb, NULL, ws,
+        IDC_EXPORT_FLAGS_DEFAULT);
+    }
+
     if (err_is_fail(err)) {
         /* TODO: Clean up */
-        return err;
+        return err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
     }
 
     XWI_DEBUG("Waiting until bound to master...\n");
@@ -336,8 +402,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     }
 
     if (xbinding == NULL) {
-        /* TODO: error code */
-        return -1;
+        return XOMP_ERR_WORKER_INIT_FAILED;
     }
 
     return SYS_ERR_OK;

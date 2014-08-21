@@ -87,29 +87,62 @@ template <class InputIterator1, class InputIterator2>
     pair<InputIterator1, InputIterator2>
     mismatch(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2);
 
+template <class InputIterator1, class InputIterator2>
+    pair<InputIterator1, InputIterator2>
+    mismatch(InputIterator1 first1, InputIterator1 last1, 
+             InputIterator2 first2, InputIterator2 last2); // **C++14**
+
 template <class InputIterator1, class InputIterator2, class BinaryPredicate>
     pair<InputIterator1, InputIterator2>
     mismatch(InputIterator1 first1, InputIterator1 last1,
              InputIterator2 first2, BinaryPredicate pred);
 
+template <class InputIterator1, class InputIterator2, class BinaryPredicate>
+    pair<InputIterator1, InputIterator2>
+    mismatch(InputIterator1 first1, InputIterator1 last1,
+             InputIterator2 first2, InputIterator2 last2,
+             BinaryPredicate pred); // **C++14**
+
 template <class InputIterator1, class InputIterator2>
     bool
     equal(InputIterator1 first1, InputIterator1 last1, InputIterator2 first2);
+
+template <class InputIterator1, class InputIterator2>
+    bool
+    equal(InputIterator1 first1, InputIterator1 last1, 
+          InputIterator2 first2, InputIterator2 last2); // **C++14**
 
 template <class InputIterator1, class InputIterator2, class BinaryPredicate>
     bool
     equal(InputIterator1 first1, InputIterator1 last1,
           InputIterator2 first2, BinaryPredicate pred);
 
+template <class InputIterator1, class InputIterator2, class BinaryPredicate>
+    bool
+    equal(InputIterator1 first1, InputIterator1 last1,
+          InputIterator2 first2, InputIterator2 last2,
+          BinaryPredicate pred); // **C++14**
+
 template<class ForwardIterator1, class ForwardIterator2>
     bool
     is_permutation(ForwardIterator1 first1, ForwardIterator1 last1,
                    ForwardIterator2 first2);
 
+template<class ForwardIterator1, class ForwardIterator2>
+    bool
+    is_permutation(ForwardIterator1 first1, ForwardIterator1 last1,
+                   ForwardIterator2 first2, ForwardIterator2 last2); // **C++14**
+
 template<class ForwardIterator1, class ForwardIterator2, class BinaryPredicate>
     bool
     is_permutation(ForwardIterator1 first1, ForwardIterator1 last1,
                    ForwardIterator2 first2, BinaryPredicate pred);
+
+template<class ForwardIterator1, class ForwardIterator2, class BinaryPredicate>
+    bool
+    is_permutation(ForwardIterator1 first1, ForwardIterator1 last1,
+                   ForwardIterator2 first2, ForwardIterator2 last2,
+                   BinaryPredicate pred);  // **C++14**
 
 template <class ForwardIterator1, class ForwardIterator2>
     ForwardIterator1
@@ -248,11 +281,12 @@ template <class ForwardIterator, class OutputIterator>
 
 template <class RandomAccessIterator>
     void
-    random_shuffle(RandomAccessIterator first, RandomAccessIterator last);
+    random_shuffle(RandomAccessIterator first, RandomAccessIterator last); // deprecated in C++14
 
 template <class RandomAccessIterator, class RandomNumberGenerator>
     void
-    random_shuffle(RandomAccessIterator first, RandomAccessIterator last, RandomNumberGenerator& rand);
+    random_shuffle(RandomAccessIterator first, RandomAccessIterator last,
+                   RandomNumberGenerator& rand);  // deprecated in C++14
 
 template<class RandomAccessIterator, class UniformRandomNumberGenerator>
     void shuffle(RandomAccessIterator first, RandomAccessIterator last,
@@ -495,19 +529,19 @@ template <class ForwardIterator, class Compare>
 
 template <class T>
     const T&
-    min(const T& a, const T& b);
+    min(const T& a, const T& b);  // constexpr in C++14
 
 template <class T, class Compare>
     const T&
-    min(const T& a, const T& b, Compare comp);
+    min(const T& a, const T& b, Compare comp);  // constexpr in C++14
 
 template<class T>
     T
-    min(initializer_list<T> t);
+    min(initializer_list<T> t);  // constexpr in C++14
 
 template<class T, class Compare>
     T
-    min(initializer_list<T> t, Compare comp);
+    min(initializer_list<T> t, Compare comp);  // constexpr in C++14
 
 template <class ForwardIterator>
     ForwardIterator
@@ -519,19 +553,19 @@ template <class ForwardIterator, class Compare>
 
 template <class T>
     const T&
-    max(const T& a, const T& b);
+    max(const T& a, const T& b); // constexpr in C++14
 
 template <class T, class Compare>
     const T&
-    max(const T& a, const T& b, Compare comp);
+    max(const T& a, const T& b, Compare comp);  // constexpr in C++14
 
 template<class T>
     T
-    max(initializer_list<T> t);
+    max(initializer_list<T> t);  // constexpr in C++14
 
 template<class T, class Compare>
     T
-    max(initializer_list<T> t, Compare comp);
+    max(initializer_list<T> t, Compare comp);  // constexpr in C++14
 
 template<class ForwardIterator>
     pair<ForwardIterator, ForwardIterator>
@@ -543,19 +577,19 @@ template<class ForwardIterator, class Compare>
 
 template<class T>
     pair<const T&, const T&>
-    minmax(const T& a, const T& b);
+    minmax(const T& a, const T& b);  // constexpr in C++14
 
 template<class T, class Compare>
     pair<const T&, const T&>
-    minmax(const T& a, const T& b, Compare comp);
+    minmax(const T& a, const T& b, Compare comp);  // constexpr in C++14
 
 template<class T>
     pair<T, T>
-    minmax(initializer_list<T> t);
+    minmax(initializer_list<T> t);  // constexpr in C++14
 
 template<class T, class Compare>
     pair<T, T>
-    minmax(initializer_list<T> t, Compare comp);
+    minmax(initializer_list<T> t, Compare comp);  // constexpr in C++14
 
 template <class InputIterator1, class InputIterator2>
     bool
@@ -593,15 +627,26 @@ template <class BidirectionalIterator, class Compare>
 #include <utility>
 #include <memory>
 #include <iterator>
-#ifdef _LIBCPP_DEBUG
-#include <cassert>
-#endif
-#include <cstdlib>
+#include <cstddef>
 
+#if defined(__IBMCPP__)
+#include "support/ibm/support.h"
+#endif
+#if defined(_LIBCPP_MSVCRT) || defined(__MINGW32__)
+#include "support/win32/support.h"
+#endif
+
+#include <__undef_min_max>
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #pragma GCC system_header
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
+// I'd like to replace these with _VSTD::equal_to<void>, but can't because:
+//   * That only works with C++14 and later, and
+//   * We haven't included <functional> here.
 template <class _T1, class _T2 = _T1>
 struct __equal_to
 {
@@ -614,46 +659,59 @@ struct __equal_to
 template <class _T1>
 struct __equal_to<_T1, _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
 };
 
 template <class _T1>
 struct __equal_to<const _T1, _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
 };
 
 template <class _T1>
 struct __equal_to<_T1, const _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x == __y;}
 };
 
 template <class _T1, class _T2 = _T1>
 struct __less
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T2& __y) const {return __x < __y;}
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T2& __x, const _T1& __y) const {return __x < __y;}
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T2& __x, const _T2& __y) const {return __x < __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11 
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
+
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T2& __y) const {return __x < __y;}
+
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T2& __x, const _T1& __y) const {return __x < __y;}
+
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T2& __x, const _T2& __y) const {return __x < __y;}
 };
 
 template <class _T1>
 struct __less<_T1, _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
 };
 
 template <class _T1>
 struct __less<const _T1, _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
 };
 
 template <class _T1>
 struct __less<_T1, const _T1>
 {
-    _LIBCPP_INLINE_VISIBILITY bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
+    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+    bool operator()(const _T1& __x, const _T1& __y) const {return __x < __y;}
 };
 
 template <class _Predicate>
@@ -688,7 +746,7 @@ struct __debug_less
     {
         bool __r = __comp_(__x, __y);
         if (__r)
-            assert(!__comp_(__y, __x));
+            _LIBCPP_ASSERT(!__comp_(__y, __x), "Comparator does not induce a strict weak ordering");
         return __r;
     }
 };
@@ -696,14 +754,48 @@ struct __debug_less
 #endif  // _LIBCPP_DEBUG
 
 // Precondition:  __x != 0
-inline _LIBCPP_INLINE_VISIBILITY unsigned           __ctz(unsigned           __x) {return __builtin_ctz  (__x);}
-inline _LIBCPP_INLINE_VISIBILITY unsigned      long __ctz(unsigned      long __x) {return __builtin_ctzl (__x);}
-inline _LIBCPP_INLINE_VISIBILITY unsigned long long __ctz(unsigned long long __x) {return __builtin_ctzll(__x);}
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned
+__ctz(unsigned __x)
+{
+    return static_cast<unsigned>(__builtin_ctz(__x));
+}
+
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned long
+__ctz(unsigned long __x)
+{
+    return static_cast<unsigned long>(__builtin_ctzl(__x));
+}
+
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned long long
+__ctz(unsigned long long __x)
+{
+    return static_cast<unsigned long long>(__builtin_ctzll(__x));
+}
 
 // Precondition:  __x != 0
-inline _LIBCPP_INLINE_VISIBILITY unsigned           __clz(unsigned           __x) {return __builtin_clz  (__x);}
-inline _LIBCPP_INLINE_VISIBILITY unsigned      long __clz(unsigned      long __x) {return __builtin_clzl (__x);}
-inline _LIBCPP_INLINE_VISIBILITY unsigned long long __clz(unsigned long long __x) {return __builtin_clzll(__x);}
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned
+__clz(unsigned __x)
+{
+    return static_cast<unsigned>(__builtin_clz(__x));
+}
+
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned long
+__clz(unsigned long __x)
+{
+    return static_cast<unsigned long>(__builtin_clzl (__x));
+}
+
+inline _LIBCPP_INLINE_VISIBILITY
+unsigned long long
+__clz(unsigned long long __x)
+{
+    return static_cast<unsigned long long>(__builtin_clzll(__x));
+}
 
 inline _LIBCPP_INLINE_VISIBILITY int __pop_count(unsigned           __x) {return __builtin_popcount  (__x);}
 inline _LIBCPP_INLINE_VISIBILITY int __pop_count(unsigned      long __x) {return __builtin_popcountl (__x);}
@@ -757,7 +849,7 @@ for_each(_InputIterator __first, _InputIterator __last, _Function __f)
 {
     for (; __first != __last; ++__first)
         __f(*__first);
-    return _STD::move(__f);
+    return _VSTD::move(__f);  // explicitly moved for (emulated) C++03
 }
 
 // find
@@ -765,10 +857,10 @@ for_each(_InputIterator __first, _InputIterator __last, _Function __f)
 template <class _InputIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _InputIterator
-find(_InputIterator __first, _InputIterator __last, const _Tp& __value)
+find(_InputIterator __first, _InputIterator __last, const _Tp& __value_)
 {
     for (; __first != __last; ++__first)
-        if (*__first == __value)
+        if (*__first == __value_)
             break;
     return __first;
 }
@@ -883,7 +975,7 @@ __find_end(_BidirectionalIterator1 __first1, _BidirectionalIterator1 __last1,
 }
 
 template <class _BinaryPredicate, class _RandomAccessIterator1, class _RandomAccessIterator2>
-_RandomAccessIterator1
+_LIBCPP_CONSTEXPR_AFTER_CXX11 _RandomAccessIterator1
 __find_end(_RandomAccessIterator1 __first1, _RandomAccessIterator1 __last1,
            _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred,
            random_access_iterator_tag, random_access_iterator_tag)
@@ -929,7 +1021,7 @@ _ForwardIterator1
 find_end(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
          _ForwardIterator2 __first2, _ForwardIterator2 __last2, _BinaryPredicate __pred)
 {
-    return _STD::__find_end<typename add_lvalue_reference<_BinaryPredicate>::type>
+    return _VSTD::__find_end<typename add_lvalue_reference<_BinaryPredicate>::type>
                          (__first1, __last1, __first2, __last2, __pred,
                           typename iterator_traits<_ForwardIterator1>::iterator_category(),
                           typename iterator_traits<_ForwardIterator2>::iterator_category());
@@ -943,14 +1035,14 @@ find_end(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 {
     typedef typename iterator_traits<_ForwardIterator1>::value_type __v1;
     typedef typename iterator_traits<_ForwardIterator2>::value_type __v2;
-    return _STD::find_end(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
+    return _VSTD::find_end(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
 }
 
 // find_first_of
 
 template <class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredicate>
-_ForwardIterator1
-find_first_of(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+_LIBCPP_CONSTEXPR_AFTER_CXX11 _ForwardIterator1
+__find_first_of_ce(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
               _ForwardIterator2 __first2, _ForwardIterator2 __last2, _BinaryPredicate __pred)
 {
     for (; __first1 != __last1; ++__first1)
@@ -958,6 +1050,16 @@ find_first_of(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
             if (__pred(*__first1, *__j))
                 return __first1;
     return __last1;
+}
+
+
+template <class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredicate>
+inline _LIBCPP_INLINE_VISIBILITY
+_ForwardIterator1
+find_first_of(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+              _ForwardIterator2 __first2, _ForwardIterator2 __last2, _BinaryPredicate __pred)
+{
+    return _VSTD::__find_first_of_ce(__first1, __last1, __first2, __last2, __pred);
 }
 
 template <class _ForwardIterator1, class _ForwardIterator2>
@@ -968,7 +1070,7 @@ find_first_of(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 {
     typedef typename iterator_traits<_ForwardIterator1>::value_type __v1;
     typedef typename iterator_traits<_ForwardIterator2>::value_type __v2;
-    return _STD::find_first_of(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
+    return _VSTD::__find_first_of_ce(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
 }
 
 // adjacent_find
@@ -997,7 +1099,7 @@ _ForwardIterator
 adjacent_find(_ForwardIterator __first, _ForwardIterator __last)
 {
     typedef typename iterator_traits<_ForwardIterator>::value_type __v;
-    return _STD::adjacent_find(__first, __last, __equal_to<__v>());
+    return _VSTD::adjacent_find(__first, __last, __equal_to<__v>());
 }
 
 // count
@@ -1005,11 +1107,11 @@ adjacent_find(_ForwardIterator __first, _ForwardIterator __last)
 template <class _InputIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 typename iterator_traits<_InputIterator>::difference_type
-count(_InputIterator __first, _InputIterator __last, const _Tp& __value)
+count(_InputIterator __first, _InputIterator __last, const _Tp& __value_)
 {
     typename iterator_traits<_InputIterator>::difference_type __r(0);
     for (; __first != __last; ++__first)
-        if (*__first == __value)
+        if (*__first == __value_)
             ++__r;
     return __r;
 }
@@ -1049,8 +1151,34 @@ mismatch(_InputIterator1 __first1, _InputIterator1 __last1, _InputIterator2 __fi
 {
     typedef typename iterator_traits<_InputIterator1>::value_type __v1;
     typedef typename iterator_traits<_InputIterator2>::value_type __v2;
-    return _STD::mismatch(__first1, __last1, __first2, __equal_to<__v1, __v2>());
+    return _VSTD::mismatch(__first1, __last1, __first2, __equal_to<__v1, __v2>());
 }
+
+#if _LIBCPP_STD_VER > 11
+template <class _InputIterator1, class _InputIterator2, class _BinaryPredicate>
+inline _LIBCPP_INLINE_VISIBILITY
+pair<_InputIterator1, _InputIterator2>
+mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
+         _InputIterator2 __first2, _InputIterator2 __last2,
+         _BinaryPredicate __pred)
+{
+    for (; __first1 != __last1 && __first2 != __last2; ++__first1, ++__first2)
+        if (!__pred(*__first1, *__first2))
+            break;
+    return pair<_InputIterator1, _InputIterator2>(__first1, __first2);
+}
+
+template <class _InputIterator1, class _InputIterator2>
+inline _LIBCPP_INLINE_VISIBILITY
+pair<_InputIterator1, _InputIterator2>
+mismatch(_InputIterator1 __first1, _InputIterator1 __last1,
+         _InputIterator2 __first2, _InputIterator2 __last2)
+{
+    typedef typename iterator_traits<_InputIterator1>::value_type __v1;
+    typedef typename iterator_traits<_InputIterator2>::value_type __v2;
+    return _VSTD::mismatch(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
+}
+#endif
 
 // equal
 
@@ -1072,8 +1200,62 @@ equal(_InputIterator1 __first1, _InputIterator1 __last1, _InputIterator2 __first
 {
     typedef typename iterator_traits<_InputIterator1>::value_type __v1;
     typedef typename iterator_traits<_InputIterator2>::value_type __v2;
-    return _STD::equal(__first1, __last1, __first2, __equal_to<__v1, __v2>());
+    return _VSTD::equal(__first1, __last1, __first2, __equal_to<__v1, __v2>());
 }
+
+#if _LIBCPP_STD_VER > 11
+template <class _BinaryPredicate, class _InputIterator1, class _InputIterator2>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+__equal(_InputIterator1 __first1, _InputIterator1 __last1, 
+        _InputIterator2 __first2, _InputIterator2 __last2, _BinaryPredicate __pred,
+        input_iterator_tag, input_iterator_tag )
+{
+    for (; __first1 != __last1 && __first2 != __last2; ++__first1, ++__first2)
+        if (!__pred(*__first1, *__first2))
+            return false;
+    return __first1 == __last1 && __first2 == __last2;
+}
+
+template <class _BinaryPredicate, class _RandomAccessIterator1, class _RandomAccessIterator2>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+__equal(_RandomAccessIterator1 __first1, _RandomAccessIterator1 __last1, 
+        _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred, 
+      random_access_iterator_tag, random_access_iterator_tag )
+{
+    if ( _VSTD::distance(__first1, __last1) != _VSTD::distance(__first2, __last2))
+        return false;
+    return _VSTD::equal<_RandomAccessIterator1, _RandomAccessIterator2,
+                        typename add_lvalue_reference<_BinaryPredicate>::type>
+                       (__first1, __last1, __first2, __pred );
+}
+
+template <class _InputIterator1, class _InputIterator2, class _BinaryPredicate>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+equal(_InputIterator1 __first1, _InputIterator1 __last1, 
+      _InputIterator2 __first2, _InputIterator2 __last2, _BinaryPredicate __pred )
+{
+    return _VSTD::__equal<typename add_lvalue_reference<_BinaryPredicate>::type>
+       (__first1, __last1, __first2, __last2, __pred, 
+        typename iterator_traits<_InputIterator1>::iterator_category(),
+        typename iterator_traits<_InputIterator2>::iterator_category());
+}
+
+template <class _InputIterator1, class _InputIterator2>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+equal(_InputIterator1 __first1, _InputIterator1 __last1, 
+      _InputIterator2 __first2, _InputIterator2 __last2)
+{
+    typedef typename iterator_traits<_InputIterator1>::value_type __v1;
+    typedef typename iterator_traits<_InputIterator2>::value_type __v2;
+    return _VSTD::__equal(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>(),
+        typename iterator_traits<_InputIterator1>::iterator_category(),
+        typename iterator_traits<_InputIterator2>::iterator_category());
+}
+#endif
 
 // is_permutation
 
@@ -1090,10 +1272,10 @@ is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 __not_done:
     // __first1 != __last1 && *__first1 != *__first2
     typedef typename iterator_traits<_ForwardIterator1>::difference_type _D1;
-    _D1 __l1 = _STD::distance(__first1, __last1);
+    _D1 __l1 = _VSTD::distance(__first1, __last1);
     if (__l1 == _D1(1))
         return false;
-    _ForwardIterator2 __last2 = _STD::next(__first2, __l1);
+    _ForwardIterator2 __last2 = _VSTD::next(__first2, __l1);
     // For each element in [f1, l1) see if there are the same number of
     //    equal elements in [f2, l2)
     for (_ForwardIterator1 __i = __first1; __i != __last1; ++__i)
@@ -1112,7 +1294,7 @@ __not_done:
                 return false;
             // Count number of *__i in [__i, l1) (we can start with 1)
             _D1 __c1 = 1;
-            for (_ForwardIterator1 __j = _STD::next(__i); __j != __last1; ++__j)
+            for (_ForwardIterator1 __j = _VSTD::next(__i); __j != __last1; ++__j)
                 if (__pred(*__i, *__j))
                     ++__c1;
             if (__c1 != __c2)
@@ -1131,8 +1313,102 @@ is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 {
     typedef typename iterator_traits<_ForwardIterator1>::value_type __v1;
     typedef typename iterator_traits<_ForwardIterator2>::value_type __v2;
-    return _STD::is_permutation(__first1, __last1, __first2, __equal_to<__v1, __v2>());
+    return _VSTD::is_permutation(__first1, __last1, __first2, __equal_to<__v1, __v2>());
 }
+
+#if _LIBCPP_STD_VER > 11
+template<class _BinaryPredicate, class _ForwardIterator1, class _ForwardIterator2>
+bool
+__is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+                 _ForwardIterator2 __first2, _ForwardIterator2 __last2, 
+                 _BinaryPredicate __pred,
+                 forward_iterator_tag, forward_iterator_tag )
+{
+    // shorten sequences as much as possible by lopping of any equal parts
+    for (; __first1 != __last1 && __first2 != __last2; ++__first1, ++__first2)
+        if (!__pred(*__first1, *__first2))
+            goto __not_done;
+    return __first1 == __last1 && __first2 == __last2;
+__not_done:
+    // __first1 != __last1 && __first2 != __last2 && *__first1 != *__first2
+    typedef typename iterator_traits<_ForwardIterator1>::difference_type _D1;
+    _D1 __l1 = _VSTD::distance(__first1, __last1);
+
+    typedef typename iterator_traits<_ForwardIterator2>::difference_type _D2;
+    _D2 __l2 = _VSTD::distance(__first2, __last2);
+    if (__l1 != __l2)
+        return false;
+
+    // For each element in [f1, l1) see if there are the same number of
+    //    equal elements in [f2, l2)
+    for (_ForwardIterator1 __i = __first1; __i != __last1; ++__i)
+    {
+        // Have we already counted the number of *__i in [f1, l1)?
+        for (_ForwardIterator1 __j = __first1; __j != __i; ++__j)
+            if (__pred(*__j, *__i))
+                goto __next_iter;
+        {
+            // Count number of *__i in [f2, l2)
+            _D1 __c2 = 0;
+            for (_ForwardIterator2 __j = __first2; __j != __last2; ++__j)
+                if (__pred(*__i, *__j))
+                    ++__c2;
+            if (__c2 == 0)
+                return false;
+            // Count number of *__i in [__i, l1) (we can start with 1)
+            _D1 __c1 = 1;
+            for (_ForwardIterator1 __j = _VSTD::next(__i); __j != __last1; ++__j)
+                if (__pred(*__i, *__j))
+                    ++__c1;
+            if (__c1 != __c2)
+                return false;
+        }
+__next_iter:;
+    }
+    return true;
+}
+
+template<class _BinaryPredicate, class _RandomAccessIterator1, class _RandomAccessIterator2>
+bool
+__is_permutation(_RandomAccessIterator1 __first1, _RandomAccessIterator2 __last1,
+               _RandomAccessIterator1 __first2, _RandomAccessIterator2 __last2, 
+               _BinaryPredicate __pred,
+               random_access_iterator_tag, random_access_iterator_tag )
+{
+    if ( _VSTD::distance(__first1, __last1) != _VSTD::distance(__first2, __last2))
+        return false;
+    return _VSTD::is_permutation<_RandomAccessIterator1, _RandomAccessIterator2,
+                                 typename add_lvalue_reference<_BinaryPredicate>::type>
+                                (__first1, __last1, __first2, __pred );
+}
+
+template<class _ForwardIterator1, class _ForwardIterator2, class _BinaryPredicate>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+               _ForwardIterator2 __first2, _ForwardIterator2 __last2,
+               _BinaryPredicate __pred )
+{
+    return _VSTD::__is_permutation<typename add_lvalue_reference<_BinaryPredicate>::type>
+       (__first1, __last1, __first2, __last2, __pred,
+        typename iterator_traits<_ForwardIterator1>::iterator_category(),
+        typename iterator_traits<_ForwardIterator2>::iterator_category());
+}
+
+template<class _ForwardIterator1, class _ForwardIterator2>
+inline _LIBCPP_INLINE_VISIBILITY
+bool
+is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+               _ForwardIterator2 __first2, _ForwardIterator2 __last2)
+{
+    typedef typename iterator_traits<_ForwardIterator1>::value_type __v1;
+    typedef typename iterator_traits<_ForwardIterator2>::value_type __v2;
+    return _VSTD::__is_permutation(__first1, __last1, __first2, __last2,
+        __equal_to<__v1, __v2>(),
+        typename iterator_traits<_ForwardIterator1>::iterator_category(),
+        typename iterator_traits<_ForwardIterator2>::iterator_category());
+}
+#endif
 
 // search
 
@@ -1174,7 +1450,7 @@ __search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 }
 
 template <class _BinaryPredicate, class _RandomAccessIterator1, class _RandomAccessIterator2>
-_RandomAccessIterator1
+_LIBCPP_CONSTEXPR_AFTER_CXX11 _RandomAccessIterator1
 __search(_RandomAccessIterator1 __first1, _RandomAccessIterator1 __last1,
            _RandomAccessIterator2 __first2, _RandomAccessIterator2 __last2, _BinaryPredicate __pred,
            random_access_iterator_tag, random_access_iterator_tag)
@@ -1291,7 +1567,7 @@ _ForwardIterator1
 search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
        _ForwardIterator2 __first2, _ForwardIterator2 __last2, _BinaryPredicate __pred)
 {
-    return _STD::__search<typename add_lvalue_reference<_BinaryPredicate>::type>
+    return _VSTD::__search<typename add_lvalue_reference<_BinaryPredicate>::type>
                          (__first1, __last1, __first2, __last2, __pred,
                           typename std::iterator_traits<_ForwardIterator1>::iterator_category(),
                           typename std::iterator_traits<_ForwardIterator2>::iterator_category());
@@ -1305,7 +1581,7 @@ search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 {
     typedef typename std::iterator_traits<_ForwardIterator1>::value_type __v1;
     typedef typename std::iterator_traits<_ForwardIterator2>::value_type __v2;
-    return _STD::search(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
+    return _VSTD::search(__first1, __last1, __first2, __last2, __equal_to<__v1, __v2>());
 }
 
 // search_n
@@ -1313,22 +1589,22 @@ search(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
 template <class _BinaryPredicate, class _ForwardIterator, class _Size, class _Tp>
 _ForwardIterator
 __search_n(_ForwardIterator __first, _ForwardIterator __last,
-           _Size __count, const _Tp& __value, _BinaryPredicate __pred, forward_iterator_tag)
+           _Size __count, const _Tp& __value_, _BinaryPredicate __pred, forward_iterator_tag)
 {
     if (__count <= 0)
         return __first;
     while (true)
     {
-        // Find first element in sequence that matchs __value, with a mininum of loop checks
+        // Find first element in sequence that matchs __value_, with a mininum of loop checks
         while (true)
         {
-            if (__first == __last)  // return __last if no element matches __value
+            if (__first == __last)  // return __last if no element matches __value_
                 return __last;
-            if (__pred(*__first, __value))
+            if (__pred(*__first, __value_))
                 break;
             ++__first;
         }
-        // *__first matches __value, now match elements after here
+        // *__first matches __value_, now match elements after here
         _ForwardIterator __m = __first;
         _Size __c(0);
         while (true)
@@ -1337,7 +1613,7 @@ __search_n(_ForwardIterator __first, _ForwardIterator __last,
                 return __first;
             if (++__m == __last)  // Otherwise if source exhaused, pattern not found
                 return __last;
-            if (!__pred(*__m, __value))  // if there is a mismatch, restart with a new __first
+            if (!__pred(*__m, __value_))  // if there is a mismatch, restart with a new __first
             {
                 __first = __m;
                 ++__first;
@@ -1350,7 +1626,7 @@ __search_n(_ForwardIterator __first, _ForwardIterator __last,
 template <class _BinaryPredicate, class _RandomAccessIterator, class _Size, class _Tp>
 _RandomAccessIterator
 __search_n(_RandomAccessIterator __first, _RandomAccessIterator __last,
-           _Size __count, const _Tp& __value, _BinaryPredicate __pred, random_access_iterator_tag)
+           _Size __count, const _Tp& __value_, _BinaryPredicate __pred, random_access_iterator_tag)
 {
     if (__count <= 0)
         return __first;
@@ -1360,16 +1636,16 @@ __search_n(_RandomAccessIterator __first, _RandomAccessIterator __last,
     const _RandomAccessIterator __s = __last - (__count - 1);  // Start of pattern match can't go beyond here
     while (true)
     {
-        // Find first element in sequence that matchs __value, with a mininum of loop checks
+        // Find first element in sequence that matchs __value_, with a mininum of loop checks
         while (true)
         {
-            if (__first == __s)  // return __last if no element matches __value
+            if (__first >= __s)  // return __last if no element matches __value_
                 return __last;
-            if (__pred(*__first, __value))
+            if (__pred(*__first, __value_))
                 break;
             ++__first;
         }
-        // *__first matches __value, now match elements after here
+        // *__first matches __value_, now match elements after here
         _RandomAccessIterator __m = __first;
         _Size __c(0);
         while (true)
@@ -1377,7 +1653,7 @@ __search_n(_RandomAccessIterator __first, _RandomAccessIterator __last,
             if (++__c == __count)  // If pattern exhausted, __first is the answer (works for 1 element pattern)
                 return __first;
              ++__m;          // no need to check range on __m because __s guarantees we have enough source
-            if (!__pred(*__m, __value))  // if there is a mismatch, restart with a new __first
+            if (!__pred(*__m, __value_))  // if there is a mismatch, restart with a new __first
             {
                 __first = __m;
                 ++__first;
@@ -1391,19 +1667,19 @@ template <class _ForwardIterator, class _Size, class _Tp, class _BinaryPredicate
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
 search_n(_ForwardIterator __first, _ForwardIterator __last,
-         _Size __count, const _Tp& __value, _BinaryPredicate __pred)
+         _Size __count, const _Tp& __value_, _BinaryPredicate __pred)
 {
-    return _STD::__search_n<typename add_lvalue_reference<_BinaryPredicate>::type>
-           (__first, __last, __count, __value, __pred, typename iterator_traits<_ForwardIterator>::iterator_category());
+    return _VSTD::__search_n<typename add_lvalue_reference<_BinaryPredicate>::type>
+           (__first, __last, __count, __value_, __pred, typename iterator_traits<_ForwardIterator>::iterator_category());
 }
 
 template <class _ForwardIterator, class _Size, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
-search_n(_ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value)
+search_n(_ForwardIterator __first, _ForwardIterator __last, _Size __count, const _Tp& __value_)
 {
     typedef typename iterator_traits<_ForwardIterator>::value_type __v;
-    return _STD::search_n(__first, __last, __count, __value, __equal_to<__v, _Tp>());
+    return _VSTD::search_n(__first, __last, __count, __value_, __equal_to<__v, _Tp>());
 }
 
 // copy
@@ -1446,6 +1722,8 @@ __unwrap_iter(move_iterator<_Tp*> __i)
     return __i.base();
 }
 
+#if _LIBCPP_DEBUG_LEVEL < 2
+
 template <class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 typename enable_if
@@ -1457,6 +1735,8 @@ __unwrap_iter(__wrap_iter<_Tp*> __i)
 {
     return __i.base();
 }
+
+#endif  // _LIBCPP_DEBUG_LEVEL < 2
 
 template <class _InputIterator, class _OutputIterator>
 inline _LIBCPP_INLINE_VISIBILITY
@@ -1479,7 +1759,7 @@ typename enable_if
 __copy(_Tp* __first, _Tp* __last, _Up* __result)
 {
     const size_t __n = static_cast<size_t>(__last - __first);
-    _STD::memmove(__result, __first, __n * sizeof(_Up));
+    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
     return __result + __n;
 }
 
@@ -1488,15 +1768,15 @@ inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
 copy(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
 {
-    return _STD::__copy(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
+    return _VSTD::__copy(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
 }
 
 // copy_backward
 
-template <class _InputIterator, class _OutputIterator>
+template <class _BidirectionalIterator, class _OutputIterator>
 inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
-__copy_backward(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
+__copy_backward(_BidirectionalIterator __first, _BidirectionalIterator __last, _OutputIterator __result)
 {
     while (__first != __last)
         *--__result = *--__last;
@@ -1515,7 +1795,7 @@ __copy_backward(_Tp* __first, _Tp* __last, _Up* __result)
 {
     const size_t __n = static_cast<size_t>(__last - __first);
     __result -= __n;
-    _STD::memmove(__result, __first, __n * sizeof(_Up));
+    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
     return __result;
 }
 
@@ -1525,7 +1805,7 @@ _BidirectionalIterator2
 copy_backward(_BidirectionalIterator1 __first, _BidirectionalIterator1 __last,
               _BidirectionalIterator2 __result)
 {
-    return _STD::__copy_backward(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
+    return _VSTD::__copy_backward(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
 }
 
 // copy_if
@@ -1559,8 +1839,17 @@ typename enable_if
 >::type
 copy_n(_InputIterator __first, _Size __n, _OutputIterator __result)
 {
-    for (; __n > 0; --__n, ++__first, ++__result)
+    if (__n > 0)
+    {
         *__result = *__first;
+        ++__result;
+        for (--__n; __n > 0; --__n)
+        {
+            ++__first;
+            *__result = *__first;
+            ++__result;
+        }
+    }
     return __result;
 }
 
@@ -1573,7 +1862,7 @@ typename enable_if
 >::type
 copy_n(_InputIterator __first, _Size __n, _OutputIterator __result)
 {
-    return copy(__first, __first + __n, __result);
+    return _VSTD::copy(__first, __first + __n, __result);
 }
 
 // move
@@ -1584,7 +1873,7 @@ _OutputIterator
 __move(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
 {
     for (; __first != __last; ++__first, ++__result)
-        *__result = _STD::move(*__first);
+        *__result = _VSTD::move(*__first);
     return __result;
 }
 
@@ -1599,7 +1888,7 @@ typename enable_if
 __move(_Tp* __first, _Tp* __last, _Up* __result)
 {
     const size_t __n = static_cast<size_t>(__last - __first);
-    _STD::memmove(__result, __first, __n * sizeof(_Up));
+    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
     return __result + __n;
 }
 
@@ -1608,7 +1897,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
 move(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
 {
-    return _STD::__move(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
+    return _VSTD::__move(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
 }
 
 // move_backward
@@ -1619,7 +1908,7 @@ _OutputIterator
 __move_backward(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
 {
     while (__first != __last)
-        *--__result = _STD::move(*--__last);
+        *--__result = _VSTD::move(*--__last);
     return __result;
 }
 
@@ -1635,7 +1924,7 @@ __move_backward(_Tp* __first, _Tp* __last, _Up* __result)
 {
     const size_t __n = static_cast<size_t>(__last - __first);
     __result -= __n;
-    _STD::memmove(__result, __first, __n * sizeof(_Up));
+    _VSTD::memmove(__result, __first, __n * sizeof(_Up));
     return __result;
 }
 
@@ -1645,18 +1934,12 @@ _BidirectionalIterator2
 move_backward(_BidirectionalIterator1 __first, _BidirectionalIterator1 __last,
               _BidirectionalIterator2 __result)
 {
-    return _STD::__move_backward(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
+    return _VSTD::__move_backward(__unwrap_iter(__first), __unwrap_iter(__last), __unwrap_iter(__result));
 }
 
 // iter_swap
 
-template <class _ForwardIterator1, class _ForwardIterator2>
-inline _LIBCPP_INLINE_VISIBILITY
-void
-iter_swap(_ForwardIterator1 __a, _ForwardIterator2 __b)
-{
-    swap(*__a, *__b);
-}
+// moved to <type_traits> for better swap / noexcept support
 
 // transform
 
@@ -1742,32 +2025,35 @@ replace_copy_if(_InputIterator __first, _InputIterator __last, _OutputIterator _
 template <class _OutputIterator, class _Size, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
-__fill_n(_OutputIterator __first, _Size __n, const _Tp& __value, false_type)
+__fill_n(_OutputIterator __first, _Size __n, const _Tp& __value_)
 {
     for (; __n > 0; ++__first, --__n)
-        *__first = __value;
+        *__first = __value_;
     return __first;
 }
 
-template <class _OutputIterator, class _Size, class _Tp>
+template <class _Tp, class _Size, class _Up>
 inline _LIBCPP_INLINE_VISIBILITY
-_OutputIterator
-__fill_n(_OutputIterator __first, _Size __n, const _Tp& __value, true_type)
+typename enable_if
+<
+    is_integral<_Tp>::value && sizeof(_Tp) == 1 &&
+    !is_same<_Tp, bool>::value &&
+    is_integral<_Up>::value && sizeof(_Up) == 1,
+    _Tp*
+>::type
+__fill_n(_Tp* __first, _Size __n,_Up __value_)
 {
     if (__n > 0)
-        _STD::memset(__first, (unsigned char)__value, (size_t)(__n));
+        _VSTD::memset(__first, (unsigned char)__value_, (size_t)(__n));
     return __first + __n;
 }
 
 template <class _OutputIterator, class _Size, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
-fill_n(_OutputIterator __first, _Size __n, const _Tp& __value)
+fill_n(_OutputIterator __first, _Size __n, const _Tp& __value_)
 {
-   return _STD::__fill_n(__first, __n, __value, integral_constant<bool,
-                                              is_pointer<_OutputIterator>::value &&
-                                              is_trivially_copy_assignable<_Tp>::value     &&
-                                              sizeof(_Tp) == 1>());
+   return _VSTD::__fill_n(__first, __n, __value_);
 }
 
 // fill
@@ -1775,26 +2061,26 @@ fill_n(_OutputIterator __first, _Size __n, const _Tp& __value)
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-__fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, forward_iterator_tag)
+__fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, forward_iterator_tag)
 {
     for (; __first != __last; ++__first)
-        *__first = __value;
+        *__first = __value_;
 }
 
 template <class _RandomAccessIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-__fill(_RandomAccessIterator __first, _RandomAccessIterator __last, const _Tp& __value, random_access_iterator_tag)
+__fill(_RandomAccessIterator __first, _RandomAccessIterator __last, const _Tp& __value_, random_access_iterator_tag)
 {
-    _STD::fill_n(__first, __last - __first, __value);
+    _VSTD::fill_n(__first, __last - __first, __value_);
 }
 
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+fill(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    _STD::__fill(__first, __last, __value, typename iterator_traits<_ForwardIterator>::iterator_category());
+    _VSTD::__fill(__first, __last, __value_, typename iterator_traits<_ForwardIterator>::iterator_category());
 }
 
 // generate
@@ -1824,17 +2110,17 @@ generate_n(_OutputIterator __first, _Size __n, _Generator __gen)
 
 template <class _ForwardIterator, class _Tp>
 _ForwardIterator
-remove(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+remove(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    __first = _STD::find(__first, __last, __value);
+    __first = _VSTD::find(__first, __last, __value_);
     if (__first != __last)
     {
         _ForwardIterator __i = __first;
         while (++__i != __last)
         {
-            if (!(*__i == __value))
+            if (!(*__i == __value_))
             {
-                *__first = _STD::move(*__i);
+                *__first = _VSTD::move(*__i);
                 ++__first;
             }
         }
@@ -1848,7 +2134,7 @@ template <class _ForwardIterator, class _Predicate>
 _ForwardIterator
 remove_if(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred)
 {
-    __first = _STD::find_if<_ForwardIterator, typename add_lvalue_reference<_Predicate>::type>
+    __first = _VSTD::find_if<_ForwardIterator, typename add_lvalue_reference<_Predicate>::type>
                            (__first, __last, __pred);
     if (__first != __last)
     {
@@ -1857,7 +2143,7 @@ remove_if(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred)
         {
             if (!__pred(*__i))
             {
-                *__first = _STD::move(*__i);
+                *__first = _VSTD::move(*__i);
                 ++__first;
             }
         }
@@ -1870,11 +2156,11 @@ remove_if(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred)
 template <class _InputIterator, class _OutputIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
-remove_copy(_InputIterator __first, _InputIterator __last, _OutputIterator __result, const _Tp& __value)
+remove_copy(_InputIterator __first, _InputIterator __last, _OutputIterator __result, const _Tp& __value_)
 {
     for (; __first != __last; ++__first)
     {
-        if (!(*__first == __value))
+        if (!(*__first == __value_))
         {
             *__result = *__first;
             ++__result;
@@ -1907,7 +2193,7 @@ template <class _ForwardIterator, class _BinaryPredicate>
 _ForwardIterator
 unique(_ForwardIterator __first, _ForwardIterator __last, _BinaryPredicate __pred)
 {
-    __first = _STD::adjacent_find<_ForwardIterator, typename add_lvalue_reference<_BinaryPredicate>::type>
+    __first = _VSTD::adjacent_find<_ForwardIterator, typename add_lvalue_reference<_BinaryPredicate>::type>
                                  (__first, __last, __pred);
     if (__first != __last)
     {
@@ -1916,7 +2202,7 @@ unique(_ForwardIterator __first, _ForwardIterator __last, _BinaryPredicate __pre
         _ForwardIterator __i = __first;
         for (++__i; ++__i != __last;)
             if (!__pred(*__first, *__i))
-                *++__first = _STD::move(*__i);
+                *++__first = _VSTD::move(*__i);
         ++__first;
     }
     return __first;
@@ -1928,7 +2214,7 @@ _ForwardIterator
 unique(_ForwardIterator __first, _ForwardIterator __last)
 {
     typedef typename iterator_traits<_ForwardIterator>::value_type __v;
-    return _STD::unique(__first, __last, __equal_to<__v>());
+    return _VSTD::unique(__first, __last, __equal_to<__v>());
 }
 
 // unique_copy
@@ -2000,7 +2286,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
 unique_copy(_InputIterator __first, _InputIterator __last, _OutputIterator __result, _BinaryPredicate __pred)
 {
-    return _STD::__unique_copy<typename add_lvalue_reference<_BinaryPredicate>::type>
+    return _VSTD::__unique_copy<typename add_lvalue_reference<_BinaryPredicate>::type>
                               (__first, __last, __result, __pred,
                                typename iterator_traits<_InputIterator>::iterator_category(),
                                typename iterator_traits<_OutputIterator>::iterator_category());
@@ -2012,7 +2298,7 @@ _OutputIterator
 unique_copy(_InputIterator __first, _InputIterator __last, _OutputIterator __result)
 {
     typedef typename iterator_traits<_InputIterator>::value_type __v;
-    return _STD::unique_copy(__first, __last, __result, __equal_to<__v>());
+    return _VSTD::unique_copy(__first, __last, __result, __equal_to<__v>());
 }
 
 // reverse
@@ -2046,7 +2332,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 reverse(_BidirectionalIterator __first, _BidirectionalIterator __last)
 {
-    _STD::__reverse(__first, __last, typename iterator_traits<_BidirectionalIterator>::iterator_category());
+    _VSTD::__reverse(__first, __last, typename iterator_traits<_BidirectionalIterator>::iterator_category());
 }
 
 // reverse_copy
@@ -2065,12 +2351,31 @@ reverse_copy(_BidirectionalIterator __first, _BidirectionalIterator __last, _Out
 
 template <class _ForwardIterator>
 _ForwardIterator
-__rotate(_ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last, false_type)
+__rotate_left(_ForwardIterator __first, _ForwardIterator __last)
 {
-    if (__first == __middle)
-        return __last;
-    if (__middle == __last)
-        return __first;
+    typedef typename iterator_traits<_ForwardIterator>::value_type value_type;
+    value_type __tmp = _VSTD::move(*__first);
+    _ForwardIterator __lm1 = _VSTD::move(_VSTD::next(__first), __last, __first);
+    *__lm1 = _VSTD::move(__tmp);
+    return __lm1;
+}
+
+template <class _BidirectionalIterator>
+_BidirectionalIterator
+__rotate_right(_BidirectionalIterator __first, _BidirectionalIterator __last)
+{
+    typedef typename iterator_traits<_BidirectionalIterator>::value_type value_type;
+    _BidirectionalIterator __lm1 = _VSTD::prev(__last);
+    value_type __tmp = _VSTD::move(*__lm1);
+    _BidirectionalIterator __fp1 = _VSTD::move_backward(__first, __lm1, __last);
+    *__first = _VSTD::move(__tmp);
+    return __fp1;
+}
+
+template <class _ForwardIterator>
+_ForwardIterator
+__rotate_forward(_ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last)
+{
     _ForwardIterator __i = __middle;
     while (true)
     {
@@ -2118,31 +2423,27 @@ __gcd(_Integral __x, _Integral __y)
 
 template<typename _RandomAccessIterator>
 _RandomAccessIterator
-__rotate(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomAccessIterator __last, true_type)
+__rotate_gcd(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomAccessIterator __last)
 {
     typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
     typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
 
-    if (__first == __middle)
-        return __last;
-    if (__middle == __last)
-        return __first;
     const difference_type __m1 = __middle - __first;
     const difference_type __m2 = __last - __middle;
     if (__m1 == __m2)
     {
-        _STD::swap_ranges(__first, __middle, __middle);
+        _VSTD::swap_ranges(__first, __middle, __middle);
         return __middle;
     }
-    const difference_type __g = __gcd(__m1, __m2);
+    const difference_type __g = _VSTD::__gcd(__m1, __m2);
     for (_RandomAccessIterator __p = __first + __g; __p != __first;)
     {
-        value_type __t(*--__p);
+        value_type __t(_VSTD::move(*--__p));
         _RandomAccessIterator __p1 = __p;
         _RandomAccessIterator __p2 = __p1 + __m1;
         do
         {
-            *__p1 = *__p2;
+            *__p1 = _VSTD::move(*__p2);
             __p1 = __p2;
             const difference_type __d = __last - __p2;
             if (__m1 < __d)
@@ -2150,7 +2451,7 @@ __rotate(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomA
             else
                 __p2 = __first + (__m1 - __d);
         } while (__p2 != __p);
-        *__p1 = __t;
+        *__p1 = _VSTD::move(__t);
     }
     return __first + __m2;
 }
@@ -2158,22 +2459,64 @@ __rotate(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomA
 template <class _ForwardIterator>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
+__rotate(_ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last,
+         _VSTD::forward_iterator_tag)
+{
+    typedef typename _VSTD::iterator_traits<_ForwardIterator>::value_type value_type;
+    if (_VSTD::is_trivially_move_assignable<value_type>::value)
+    {
+        if (_VSTD::next(__first) == __middle)
+            return _VSTD::__rotate_left(__first, __last);
+    }
+    return _VSTD::__rotate_forward(__first, __middle, __last);
+}
+
+template <class _BidirectionalIterator>
+inline _LIBCPP_INLINE_VISIBILITY
+_BidirectionalIterator
+__rotate(_BidirectionalIterator __first, _BidirectionalIterator __middle, _BidirectionalIterator __last,
+         _VSTD::bidirectional_iterator_tag)
+{
+    typedef typename _VSTD::iterator_traits<_BidirectionalIterator>::value_type value_type;
+    if (_VSTD::is_trivially_move_assignable<value_type>::value)
+    {
+        if (_VSTD::next(__first) == __middle)
+            return _VSTD::__rotate_left(__first, __last);
+        if (_VSTD::next(__middle) == __last)
+            return _VSTD::__rotate_right(__first, __last);
+    }
+    return _VSTD::__rotate_forward(__first, __middle, __last);
+}
+
+template <class _RandomAccessIterator>
+inline _LIBCPP_INLINE_VISIBILITY
+_RandomAccessIterator
+__rotate(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomAccessIterator __last,
+         _VSTD::random_access_iterator_tag)
+{
+    typedef typename _VSTD::iterator_traits<_RandomAccessIterator>::value_type value_type;
+    if (_VSTD::is_trivially_move_assignable<value_type>::value)
+    {
+        if (_VSTD::next(__first) == __middle)
+            return _VSTD::__rotate_left(__first, __last);
+        if (_VSTD::next(__middle) == __last)
+            return _VSTD::__rotate_right(__first, __last);
+        return _VSTD::__rotate_gcd(__first, __middle, __last);
+    }
+    return _VSTD::__rotate_forward(__first, __middle, __last);
+}
+
+template <class _ForwardIterator>
+inline _LIBCPP_INLINE_VISIBILITY
+_ForwardIterator
 rotate(_ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last)
 {
-    return _STD::__rotate(__first, __middle, __last,
-                          integral_constant
-                          <
-                               bool,
-                               is_convertible
-                               <
-                                   typename iterator_traits<_ForwardIterator>::iterator_category,
-                                   random_access_iterator_tag
-                               >::value &&
-                               is_trivially_copy_assignable
-                               <
-                                   typename iterator_traits<_ForwardIterator>::value_type
-                               >::value
-                           >());
+    if (__first == __middle)
+        return __last;
+    if (__middle == __last)
+        return __first;
+    return _VSTD::__rotate(__first, __middle, __last,
+                           typename _VSTD::iterator_traits<_ForwardIterator>::iterator_category());
 }
 
 // rotate_copy
@@ -2183,15 +2526,15 @@ inline _LIBCPP_INLINE_VISIBILITY
 _OutputIterator
 rotate_copy(_ForwardIterator __first, _ForwardIterator __middle, _ForwardIterator __last, _OutputIterator __result)
 {
-    return _STD::copy(__first, __middle, _STD::copy(__middle, __last, __result));
+    return _VSTD::copy(__first, __middle, _VSTD::copy(__middle, __last, __result));
 }
 
 // min_element
 
 template <class _ForwardIterator, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _ForwardIterator
-min_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
+__min_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
 {
     if (__first != __last)
     {
@@ -2203,19 +2546,27 @@ min_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
     return __first;
 }
 
+template <class _ForwardIterator, class _Compare>
+inline _LIBCPP_INLINE_VISIBILITY
+_ForwardIterator
+min_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
+{
+    return __min_element(__first, __last, __comp);
+}
+
 template <class _ForwardIterator>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
 min_element(_ForwardIterator __first, _ForwardIterator __last)
 {
-    return _STD::min_element(__first, __last,
+    return __min_element(__first, __last,
               __less<typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
 // min
 
 template <class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 const _Tp&
 min(const _Tp& __a, const _Tp& __b, _Compare __comp)
 {
@@ -2223,35 +2574,39 @@ min(const _Tp& __a, const _Tp& __b, _Compare __comp)
 }
 
 template <class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 const _Tp&
 min(const _Tp& __a, const _Tp& __b)
 {
-    return _STD::min(__a, __b, __less<_Tp>());
+    return _VSTD::min(__a, __b, __less<_Tp>());
 }
 
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+
 template<class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _Tp
 min(initializer_list<_Tp> __t, _Compare __comp)
 {
-    return *_STD::min_element(__t.begin(), __t.end(), __comp);
+    return *__min_element(__t.begin(), __t.end(), __comp);
 }
 
 template<class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _Tp
 min(initializer_list<_Tp> __t)
 {
-    return *_STD::min_element(__t.begin(), __t.end());
+    return *__min_element(__t.begin(), __t.end(), __less<_Tp>());
 }
+
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 // max_element
 
 template <class _ForwardIterator, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _ForwardIterator
-max_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
+__max_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
 {
     if (__first != __last)
     {
@@ -2263,19 +2618,28 @@ max_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
     return __first;
 }
 
+
+template <class _ForwardIterator, class _Compare>
+inline _LIBCPP_INLINE_VISIBILITY
+_ForwardIterator
+max_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
+{
+    return __max_element(__first, __last, __comp);
+}
+
 template <class _ForwardIterator>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
 max_element(_ForwardIterator __first, _ForwardIterator __last)
 {
-    return _STD::max_element(__first, __last,
+    return __max_element(__first, __last,
               __less<typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
 // max
 
 template <class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 const _Tp&
 max(const _Tp& __a, const _Tp& __b, _Compare __comp)
 {
@@ -2283,28 +2647,32 @@ max(const _Tp& __a, const _Tp& __b, _Compare __comp)
 }
 
 template <class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 const _Tp&
 max(const _Tp& __a, const _Tp& __b)
 {
-    return _STD::max(__a, __b, __less<_Tp>());
+    return _VSTD::max(__a, __b, __less<_Tp>());
 }
 
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
+
 template<class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _Tp
 max(initializer_list<_Tp> __t, _Compare __comp)
 {
-    return *_STD::max_element(__t.begin(), __t.end(), __comp);
+    return *__max_element(__t.begin(), __t.end(), __comp);
 }
 
 template<class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 _Tp
 max(initializer_list<_Tp> __t)
 {
-    return *_STD::max_element(__t.begin(), __t.end());
+    return *__max_element(__t.begin(), __t.end(), __less<_Tp>());
 }
+
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 // minmax_element
 
@@ -2318,10 +2686,7 @@ minmax_element(_ForwardIterator __first, _ForwardIterator __last, _Compare __com
       if (++__first != __last)
       {
           if (__comp(*__first, *__result.first))
-          {
-              __result.second = __result.first;
               __result.first = __first;
-          }
           else
               __result.second = __first;
           while (++__first != __last)
@@ -2363,13 +2728,14 @@ inline _LIBCPP_INLINE_VISIBILITY
 std::pair<_ForwardIterator, _ForwardIterator>
 minmax_element(_ForwardIterator __first, _ForwardIterator __last)
 {
-    return _STD::minmax_element(__first, __last, __less<typename iterator_traits<_ForwardIterator>::value_type>());
+    return _VSTD::minmax_element(__first, __last,
+              __less<typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
 // minmax
 
 template<class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 pair<const _Tp&, const _Tp&>
 minmax(const _Tp& __a, const _Tp& __b, _Compare __comp)
 {
@@ -2378,60 +2744,89 @@ minmax(const _Tp& __a, const _Tp& __b, _Compare __comp)
 }
 
 template<class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 pair<const _Tp&, const _Tp&>
 minmax(const _Tp& __a, const _Tp& __b)
 {
-    return _STD::minmax(__a, __b, __less<_Tp>());
+    return _VSTD::minmax(__a, __b, __less<_Tp>());
 }
 
-template<class _Tp>
-inline _LIBCPP_INLINE_VISIBILITY
-pair<_Tp, _Tp>
-minmax(initializer_list<_Tp> __t)
-{
-    pair<const _Tp*, const _Tp*> __p =
-                                   _STD::minmax_element(__t.begin(), __t.end());
-    return pair<_Tp, _Tp>(*__p.first, *__p.second);
-}
+#ifndef _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 template<class _Tp, class _Compare>
-inline _LIBCPP_INLINE_VISIBILITY
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
 pair<_Tp, _Tp>
 minmax(initializer_list<_Tp> __t, _Compare __comp)
 {
-    pair<const _Tp*, const _Tp*> __p =
-                           _STD::minmax_element(__t.begin(), __t.end(), __comp);
-    return pair<_Tp, _Tp>(*__p.first, *__p.second);
+    typedef typename initializer_list<_Tp>::const_iterator _Iter;
+    _Iter __first = __t.begin();
+    _Iter __last  = __t.end();
+    std::pair<_Tp, _Tp> __result ( *__first, *__first );
+
+    ++__first;
+    if (__t.size() % 2 == 0)
+    {
+        if (__comp(*__first,  __result.first))
+            __result.first  = *__first;
+        else
+            __result.second = *__first;
+        ++__first;
+    }
+    
+    while (__first != __last)
+    {
+        _Tp __prev = *__first++;
+        if (__comp(__prev, *__first)) {
+            if (__comp(__prev, __result.first))    __result.first  = __prev;
+            if (__comp(__result.second, *__first)) __result.second = *__first;
+            }
+        else {
+            if (__comp(*__first, __result.first)) __result.first  = *__first;
+            if (__comp(__result.second, __prev))  __result.second = __prev;
+            }
+                
+        __first++;
+    }
+    return __result;
 }
+
+template<class _Tp>
+inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11
+pair<_Tp, _Tp>
+minmax(initializer_list<_Tp> __t)
+{
+    return _VSTD::minmax(__t, __less<_Tp>());
+}
+
+#endif  // _LIBCPP_HAS_NO_GENERALIZED_INITIALIZERS
 
 // random_shuffle
 
 // __independent_bits_engine
 
-template <unsigned long long _X, size_t _R>
+template <unsigned long long _Xp, size_t _Rp>
 struct __log2_imp
 {
-    static const size_t value = _X & ((unsigned long long)(1) << _R) ? _R
-                                           : __log2_imp<_X, _R - 1>::value;
+    static const size_t value = _Xp & ((unsigned long long)(1) << _Rp) ? _Rp
+                                           : __log2_imp<_Xp, _Rp - 1>::value;
 };
 
-template <unsigned long long _X>
-struct __log2_imp<_X, 0>
+template <unsigned long long _Xp>
+struct __log2_imp<_Xp, 0>
 {
     static const size_t value = 0;
 };
 
-template <size_t _R>
-struct __log2_imp<0, _R>
+template <size_t _Rp>
+struct __log2_imp<0, _Rp>
 {
-    static const size_t value = _R + 1;
+    static const size_t value = _Rp + 1;
 };
 
-template <class _UI, _UI _X>
+template <class _UI, _UI _Xp>
 struct __log2
 {
-    static const size_t value = __log2_imp<_X,
+    static const size_t value = __log2_imp<_Xp,
                                          sizeof(_UI) * __CHAR_BIT__ - 1>::value;
 };
 
@@ -2461,18 +2856,23 @@ private:
     _Engine_result_type __mask0_;
     _Engine_result_type __mask1_;
 
-    static const _Working_result_type _R = _Engine::_Max - _Engine::_Min
-                                                         + _Working_result_type(1);
-    static const size_t __m = __log2<_Working_result_type, _R>::value;
-    static const size_t _WDt = numeric_limits<_Working_result_type>::digits;
-    static const size_t _EDt = numeric_limits<_Engine_result_type>::digits;
+#ifdef _LIBCPP_HAS_NO_CONSTEXPR
+    static const _Working_result_type _Rp = _Engine::_Max - _Engine::_Min
+                                          + _Working_result_type(1);
+#else
+    static _LIBCPP_CONSTEXPR const _Working_result_type _Rp = _Engine::max() - _Engine::min()
+                                                      + _Working_result_type(1);
+#endif
+    static _LIBCPP_CONSTEXPR const size_t __m = __log2<_Working_result_type, _Rp>::value;
+    static _LIBCPP_CONSTEXPR const size_t _WDt = numeric_limits<_Working_result_type>::digits;
+    static _LIBCPP_CONSTEXPR const size_t _EDt = numeric_limits<_Engine_result_type>::digits;
 
 public:
     // constructors and seeding functions
     __independent_bits_engine(_Engine& __e, size_t __w);
 
     // generating functions
-    result_type operator()() {return __eval(integral_constant<bool, _R != 0>());}
+    result_type operator()() {return __eval(integral_constant<bool, _Rp != 0>());}
 
 private:
     result_type __eval(false_type);
@@ -2487,24 +2887,24 @@ __independent_bits_engine<_Engine, _UIntType>
 {
     __n_ = __w_ / __m + (__w_ % __m != 0);
     __w0_ = __w_ / __n_;
-    if (_R == 0)
-        __y0_ = _R;
+    if (_Rp == 0)
+        __y0_ = _Rp;
     else if (__w0_ < _WDt)
-        __y0_ = (_R >> __w0_) << __w0_;
+        __y0_ = (_Rp >> __w0_) << __w0_;
     else
         __y0_ = 0;
-    if (_R - __y0_ > __y0_ / __n_)
+    if (_Rp - __y0_ > __y0_ / __n_)
     {
         ++__n_;
         __w0_ = __w_ / __n_;
         if (__w0_ < _WDt)
-            __y0_ = (_R >> __w0_) << __w0_;
+            __y0_ = (_Rp >> __w0_) << __w0_;
         else
             __y0_ = 0;
     }
     __n0_ = __n_ - __w_ % __n_;
     if (__w0_ < _WDt - 1)
-        __y1_ = (_R >> (__w0_ + 1)) << (__w0_ + 1);
+        __y1_ = (_Rp >> (__w0_ + 1)) << (__w0_ + 1);
     else
         __y1_ = 0;
     __mask0_ = __w0_ > 0 ? _Engine_result_type(~0) >> (_EDt - __w0_) :
@@ -2526,7 +2926,7 @@ template<class _Engine, class _UIntType>
 _UIntType
 __independent_bits_engine<_Engine, _UIntType>::__eval(true_type)
 {
-    result_type _S = 0;
+    result_type _Sp = 0;
     for (size_t __k = 0; __k < __n0_; ++__k)
     {
         _Engine_result_type __u;
@@ -2534,11 +2934,11 @@ __independent_bits_engine<_Engine, _UIntType>::__eval(true_type)
         {
             __u = __e_() - _Engine::min();
         } while (__u >= __y0_);
-        if (__w0_ < _EDt)
-            _S <<= __w0_;
+        if (__w0_ < _WDt)
+            _Sp <<= __w0_;
         else
-            _S = 0;
-        _S += __u & __mask0_;
+            _Sp = 0;
+        _Sp += __u & __mask0_;
     }
     for (size_t __k = __n0_; __k < __n_; ++__k)
     {
@@ -2547,13 +2947,13 @@ __independent_bits_engine<_Engine, _UIntType>::__eval(true_type)
         {
             __u = __e_() - _Engine::min();
         } while (__u >= __y1_);
-        if (__w0_ < _EDt - 1)
-            _S <<= __w0_ + 1;
+        if (__w0_ < _WDt - 1)
+            _Sp <<= __w0_ + 1;
         else
-            _S = 0;
-        _S += __u & __mask1_;
+            _Sp = 0;
+        _Sp += __u & __mask1_;
     }
-    return _S;
+    return _Sp;
 }
 
 // uniform_int_distribution
@@ -2626,36 +3026,36 @@ uniform_int_distribution<_IntType>::operator()(_URNG& __g, const param_type& __p
 {
     typedef typename conditional<sizeof(result_type) <= sizeof(uint32_t),
                                             uint32_t, uint64_t>::type _UIntType;
-    const _UIntType _R = __p.b() - __p.a() + _UIntType(1);
-    if (_R == 1)
+    const _UIntType _Rp = __p.b() - __p.a() + _UIntType(1);
+    if (_Rp == 1)
         return __p.a();
     const size_t _Dt = numeric_limits<_UIntType>::digits;
     typedef __independent_bits_engine<_URNG, _UIntType> _Eng;
-    if (_R == 0)
+    if (_Rp == 0)
         return static_cast<result_type>(_Eng(__g, _Dt)());
-    size_t __w = _Dt - __clz(_R) - 1;
-    if ((_R & (_UIntType(~0) >> (_Dt - __w))) != 0)
+    size_t __w = _Dt - __clz(_Rp) - 1;
+    if ((_Rp & (_UIntType(~0) >> (_Dt - __w))) != 0)
         ++__w;
     _Eng __e(__g, __w);
     _UIntType __u;
     do
     {
         __u = __e();
-    } while (__u >= _R);
+    } while (__u >= _Rp);
     return static_cast<result_type>(__u + __p.a());
 }
 
-class __rs_default;
+class _LIBCPP_TYPE_VIS __rs_default;
 
-__rs_default __rs_get();
+_LIBCPP_FUNC_VIS __rs_default __rs_get();
 
-class __rs_default
+class _LIBCPP_TYPE_VIS __rs_default
 {
     static unsigned __c_;
 
     __rs_default();
 public:
-    typedef unsigned result_type;
+    typedef uint_fast32_t result_type;
 
     static const result_type _Min = 0;
     static const result_type _Max = 0xFFFFFFFF;
@@ -2665,29 +3065,29 @@ public:
 
     result_type operator()();
 
-    static const/*expr*/ result_type min() {return _Min;}
-    static const/*expr*/ result_type max() {return _Max;}
+    static _LIBCPP_CONSTEXPR result_type min() {return _Min;}
+    static _LIBCPP_CONSTEXPR result_type max() {return _Max;}
 
-    friend __rs_default __rs_get();
+    friend _LIBCPP_FUNC_VIS __rs_default __rs_get();
 };
 
-__rs_default __rs_get();
+_LIBCPP_FUNC_VIS __rs_default __rs_get();
 
 template <class _RandomAccessIterator>
 void
 random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
     typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
-    typedef uniform_int_distribution<ptrdiff_t> _D;
-    typedef typename _D::param_type _P;
+    typedef uniform_int_distribution<ptrdiff_t> _Dp;
+    typedef typename _Dp::param_type _Pp;
     difference_type __d = __last - __first;
     if (__d > 1)
     {
-        _D __uid;
+        _Dp __uid;
         __rs_default __g = __rs_get();
         for (--__last, --__d; __first < __last; ++__first, --__d)
         {
-            difference_type __i = __uid(__g, _P(0, __d));
+            difference_type __i = __uid(__g, _Pp(0, __d));
             if (__i != difference_type(0))
                 swap(*__first, *(__first + __i));
         }
@@ -2724,15 +3124,15 @@ template<class _RandomAccessIterator, class _UniformRandomNumberGenerator>
 #endif
 {
     typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
-    typedef uniform_int_distribution<ptrdiff_t> _D;
-    typedef typename _D::param_type _P;
+    typedef uniform_int_distribution<ptrdiff_t> _Dp;
+    typedef typename _Dp::param_type _Pp;
     difference_type __d = __last - __first;
     if (__d > 1)
     {
-        _D __uid;
+        _Dp __uid;
         for (--__last, --__d; __first < __last; ++__first, --__d)
         {
-            difference_type __i = __uid(__g, _P(0, __d));
+            difference_type __i = __uid(__g, _Pp(0, __d));
             if (__i != difference_type(0))
                 swap(*__first, *(__first + __i));
         }
@@ -2807,7 +3207,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
 partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred)
 {
-    return _STD::__partition<typename add_lvalue_reference<_Predicate>::type>
+    return _VSTD::__partition<typename add_lvalue_reference<_Predicate>::type>
                             (__first, __last, __pred, typename iterator_traits<_ForwardIterator>::iterator_category());
 }
 
@@ -2843,12 +3243,12 @@ _ForwardIterator
 partition_point(_ForwardIterator __first, _ForwardIterator __last, _Predicate __pred)
 {
     typedef typename iterator_traits<_ForwardIterator>::difference_type difference_type;
-    difference_type __len = _STD::distance(__first, __last);
+    difference_type __len = _VSTD::distance(__first, __last);
     while (__len != 0)
     {
         difference_type __l2 = __len / 2;
         _ForwardIterator __m = __first;
-        _STD::advance(__m, __l2);
+        _VSTD::advance(__m, __l2);
         if (__pred(*__m))
         {
             __first = ++__m;
@@ -2889,7 +3289,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new(__t) value_type(_STD::move(*__first));
+        ::new(__t) value_type(_VSTD::move(*__first));
         __d.__incr((value_type*)0);
         ++__t;
         _ForwardIterator __i = __first;
@@ -2897,12 +3297,12 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
         {
             if (__pred(*__i))
             {
-                *__first = _STD::move(*__i);
+                *__first = _VSTD::move(*__i);
                 ++__first;
             }
             else
             {
-                ::new(__t) value_type(_STD::move(*__i));
+                ::new(__t) value_type(_VSTD::move(*__i));
                 __d.__incr((value_type*)0);
                 ++__t;
             }
@@ -2911,7 +3311,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
         // Move falses back into range, but don't mess up __first which points to first false
         __i = __first;
         for (value_type* __t2 = __p.first; __t2 < __t; ++__t2, ++__i)
-            *__i = _STD::move(*__t2);
+            *__i = _VSTD::move(*__t2);
         // __h destructs moved-from values out of the temp buffer, but doesn't deallocate buffer
         return __first;
     }
@@ -2919,7 +3319,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
     // __len >= 3
     _ForwardIterator __m = __first;
     _Distance __len2 = __len / 2;  // __len2 >= 2
-    _STD::advance(__m, __len2);
+    _VSTD::advance(__m, __len2);
     // recurse on [__first, __m), *__first know to be false
     // F?????????????????
     // f       m         l
@@ -2943,7 +3343,7 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
 __second_half_done:
     // TTTFFFFFTTTTTFFFFF
     // f  ff   m    sf   l
-    return _STD::rotate(__first_false, __m, __second_false);
+    return _VSTD::rotate(__first_false, __m, __second_false);
     // TTTTTTTTFFFFFFFFFF
     //         |
 }
@@ -2951,7 +3351,7 @@ __second_half_done:
 struct __return_temporary_buffer
 {
     template <class _Tp>
-    _LIBCPP_INLINE_VISIBILITY void operator()(_Tp* __p) const {_STD::return_temporary_buffer(__p);}
+    _LIBCPP_INLINE_VISIBILITY void operator()(_Tp* __p) const {_VSTD::return_temporary_buffer(__p);}
 };
 
 template <class _Predicate, class _ForwardIterator>
@@ -2973,12 +3373,12 @@ __stable_partition(_ForwardIterator __first, _ForwardIterator __last, _Predicate
     // *__first is known to be false
     typedef typename iterator_traits<_ForwardIterator>::difference_type difference_type;
     typedef typename iterator_traits<_ForwardIterator>::value_type value_type;
-    difference_type __len = _STD::distance(__first, __last);
+    difference_type __len = _VSTD::distance(__first, __last);
     pair<value_type*, ptrdiff_t> __p(0, 0);
     unique_ptr<value_type, __return_temporary_buffer> __h;
     if (__len >= __alloc_limit)
     {
-        __p = _STD::get_temporary_buffer<value_type>(__len);
+        __p = _VSTD::get_temporary_buffer<value_type>(__len);
         __h.reset(__p.first);
     }
     return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
@@ -3019,7 +3419,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
         // Move the falses into the temporary buffer, and the trues to the front of the line
         // Update __first to always point to the end of the trues
         value_type* __t = __p.first;
-        ::new(__t) value_type(_STD::move(*__first));
+        ::new(__t) value_type(_VSTD::move(*__first));
         __d.__incr((value_type*)0);
         ++__t;
         _BidirectionalIterator __i = __first;
@@ -3027,23 +3427,23 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
         {
             if (__pred(*__i))
             {
-                *__first = _STD::move(*__i);
+                *__first = _VSTD::move(*__i);
                 ++__first;
             }
             else
             {
-                ::new(__t) value_type(_STD::move(*__i));
+                ::new(__t) value_type(_VSTD::move(*__i));
                 __d.__incr((value_type*)0);
                 ++__t;
             }
         }
         // move *__last, known to be true
-        *__first = _STD::move(*__i);
+        *__first = _VSTD::move(*__i);
         __i = ++__first;
         // All trues now at start of range, all falses in buffer
         // Move falses back into range, but don't mess up __first which points to first false
         for (value_type* __t2 = __p.first; __t2 < __t; ++__t2, ++__i)
-            *__i = _STD::move(*__t2);
+            *__i = _VSTD::move(*__t2);
         // __h destructs moved-from values out of the temp buffer, but doesn't deallocate buffer
         return __first;
     }
@@ -3051,7 +3451,7 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
     // __len >= 4
     _BidirectionalIterator __m = __first;
     _Distance __len2 = __len / 2;  // __len2 >= 2
-    _STD::advance(__m, __len2);
+    _VSTD::advance(__m, __len2);
     // recurse on [__first, __m-1], except reduce __m-1 until *(__m-1) is true, *__first know to be false
     // F????????????????T
     // f       m        l
@@ -3088,7 +3488,7 @@ __first_half_done:
 __second_half_done:
     // TTTFFFFFTTTTTFFFFF
     // f  ff   m    sf  l
-    return _STD::rotate(__first_false, __m, __second_false);
+    return _VSTD::rotate(__first_false, __m, __second_false);
     // TTTTTTTTFFFFFFFFFF
     //         |
 }
@@ -3121,12 +3521,12 @@ __stable_partition(_BidirectionalIterator __first, _BidirectionalIterator __last
     // *__first is known to be false
     // *__last is known to be true
     // __len >= 2
-    difference_type __len = _STD::distance(__first, __last) + 1;
+    difference_type __len = _VSTD::distance(__first, __last) + 1;
     pair<value_type*, ptrdiff_t> __p(0, 0);
     unique_ptr<value_type, __return_temporary_buffer> __h;
     if (__len >= __alloc_limit)
     {
-        __p = _STD::get_temporary_buffer<value_type>(__len);
+        __p = _VSTD::get_temporary_buffer<value_type>(__len);
         __h.reset(__p.first);
     }
     return __stable_partition<typename add_lvalue_reference<_Predicate>::type>
@@ -3166,7 +3566,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
 is_sorted_until(_ForwardIterator __first, _ForwardIterator __last)
 {
-    return _STD::is_sorted_until(__first, __last, __less<typename iterator_traits<_ForwardIterator>::value_type>());
+    return _VSTD::is_sorted_until(__first, __last, __less<typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
 // is_sorted
@@ -3176,7 +3576,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 is_sorted(_ForwardIterator __first, _ForwardIterator __last, _Compare __comp)
 {
-    return _STD::is_sorted_until(__first, __last, __comp) == __last;
+    return _VSTD::is_sorted_until(__first, __last, __comp) == __last;
 }
 
 template<class _ForwardIterator>
@@ -3184,7 +3584,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 is_sorted(_ForwardIterator __first, _ForwardIterator __last)
 {
-    return _STD::is_sorted(__first, __last, __less<typename iterator_traits<_ForwardIterator>::value_type>());
+    return _VSTD::is_sorted(__first, __last, __less<typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
 // sort
@@ -3291,7 +3691,7 @@ __selection_sort(_BirdirectionalIterator __first, _BirdirectionalIterator __last
     _BirdirectionalIterator __lm1 = __last;
     for (--__lm1; __first != __lm1; ++__first)
     {
-        _BirdirectionalIterator __i = _STD::min_element<_BirdirectionalIterator,
+        _BirdirectionalIterator __i = _VSTD::min_element<_BirdirectionalIterator,
                                                         typename add_lvalue_reference<_Compare>::type>
                                                        (__first, __last, __comp);
         if (__i != __first)
@@ -3310,10 +3710,10 @@ __insertion_sort(_BirdirectionalIterator __first, _BirdirectionalIterator __last
         for (++__i; __i != __last; ++__i)
         {
             _BirdirectionalIterator __j = __i;
-            value_type __t(_STD::move(*__j));
+            value_type __t(_VSTD::move(*__j));
             for (_BirdirectionalIterator __k = __i; __k != __first && __comp(__t,  *--__k); --__j)
-                *__j = _STD::move(*__k);
-            *__j = _STD::move(__t);
+                *__j = _VSTD::move(*__k);
+            *__j = _VSTD::move(__t);
         }
     }
 }
@@ -3329,15 +3729,15 @@ __insertion_sort_3(_RandomAccessIterator __first, _RandomAccessIterator __last, 
     {
         if (__comp(*__i, *__j))
         {
-            value_type __t(_STD::move(*__i));
+            value_type __t(_VSTD::move(*__i));
             _RandomAccessIterator __k = __j;
             __j = __i;
             do
             {
-                *__j = _STD::move(*__k);
+                *__j = _VSTD::move(*__k);
                 __j = __k;
             } while (__j != __first && __comp(__t, *--__k));
-            *__j = _STD::move(__t);
+            *__j = _VSTD::move(__t);
         }
         __j = __i;
     }
@@ -3357,13 +3757,13 @@ __insertion_sort_incomplete(_RandomAccessIterator __first, _RandomAccessIterator
             swap(*__first, *__last);
         return true;
     case 3:
-        _STD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
+        _VSTD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
         return true;
     case 4:
-        _STD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
+        _VSTD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
         return true;
     case 5:
-        _STD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
+        _VSTD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
         return true;
     }
     typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
@@ -3375,15 +3775,15 @@ __insertion_sort_incomplete(_RandomAccessIterator __first, _RandomAccessIterator
     {
         if (__comp(*__i, *__j))
         {
-            value_type __t(_STD::move(*__i));
+            value_type __t(_VSTD::move(*__i));
             _RandomAccessIterator __k = __j;
             __j = __i;
             do
             {
-                *__j = _STD::move(*__k);
+                *__j = _VSTD::move(*__k);
                 __j = __k;
             } while (__j != __first && __comp(__t, *--__k));
-            *__j = _STD::move(__t);
+            *__j = _VSTD::move(__t);
             if (++__count == __limit)
                 return ++__i == __last;
         }
@@ -3403,7 +3803,7 @@ __insertion_sort_move(_BirdirectionalIterator __first1, _BirdirectionalIterator 
         __destruct_n __d(0);
         unique_ptr<value_type, __destruct_n&> __h(__first2, __d);
         value_type* __last2 = __first2;
-        ::new(__last2) value_type(_STD::move(*__first1));
+        ::new(__last2) value_type(_VSTD::move(*__first1));
         __d.__incr((value_type*)0);
         for (++__last2; ++__first1 != __last1; ++__last2)
         {
@@ -3411,15 +3811,15 @@ __insertion_sort_move(_BirdirectionalIterator __first1, _BirdirectionalIterator 
             value_type* __i2 = __j2;
             if (__comp(*__first1, *--__i2))
             {
-                ::new(__j2) value_type(_STD::move(*__i2));
+                ::new(__j2) value_type(_VSTD::move(*__i2));
                 __d.__incr((value_type*)0);
                 for (--__j2; __i2 != __first2 && __comp(*__first1,  *--__i2); --__j2)
-                    *__j2 = _STD::move(*__i2);
-                *__j2 = _STD::move(*__first1);
+                    *__j2 = _VSTD::move(*__i2);
+                *__j2 = _VSTD::move(*__first1);
             }
             else
             {
-                ::new(__j2) value_type(_STD::move(*__first1));
+                ::new(__j2) value_type(_VSTD::move(*__first1));
                 __d.__incr((value_type*)0);
             }
         }
@@ -3450,18 +3850,18 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
                 swap(*__first, *__last);
             return;
         case 3:
-            _STD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
+            _VSTD::__sort3<_Compare>(__first, __first+1, --__last, __comp);
             return;
         case 4:
-            _STD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
+            _VSTD::__sort4<_Compare>(__first, __first+1, __first+2, --__last, __comp);
             return;
         case 5:
-            _STD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
+            _VSTD::__sort5<_Compare>(__first, __first+1, __first+2, __first+3, --__last, __comp);
             return;
         }
         if (__len <= __limit)
         {
-            _STD::__insertion_sort_3<_Compare>(__first, __last, __comp);
+            _VSTD::__insertion_sort_3<_Compare>(__first, __last, __comp);
             return;
         }
         // __len > 5
@@ -3476,13 +3876,13 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
             __delta = __len/2;
             __m += __delta;
             __delta /= 2;
-            __n_swaps = _STD::__sort5<_Compare>(__first, __first + __delta, __m, __m+__delta, __lm1, __comp);
+            __n_swaps = _VSTD::__sort5<_Compare>(__first, __first + __delta, __m, __m+__delta, __lm1, __comp);
         }
         else
         {
             __delta = __len/2;
             __m += __delta;
-            __n_swaps = _STD::__sort3<_Compare>(__first, __m, __lm1, __comp);
+            __n_swaps = _VSTD::__sort3<_Compare>(__first, __m, __lm1, __comp);
         }
         }
         // *__m is median
@@ -3538,7 +3938,7 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
                     }
                     // [__first, __i) == *__first and *__first < [__i, __last)
                     // The first part is sorted, sort the secod part
-                    // _STD::__sort<_Compare>(__i, __last, __comp);
+                    // _VSTD::__sort<_Compare>(__i, __last, __comp);
                     __first = __i;
                     goto __restart;
                 }
@@ -3587,8 +3987,8 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
         // If we were given a perfect partition, see if insertion sort is quick...
         if (__n_swaps == 0)
         {
-            bool __fs = _STD::__insertion_sort_incomplete<_Compare>(__first, __i, __comp);
-            if (_STD::__insertion_sort_incomplete<_Compare>(__i+1, __last, __comp))
+            bool __fs = _VSTD::__insertion_sort_incomplete<_Compare>(__first, __i, __comp);
+            if (_VSTD::__insertion_sort_incomplete<_Compare>(__i+1, __last, __comp))
             {
                 if (__fs)
                     return;
@@ -3607,14 +4007,14 @@ __sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __c
         // sort smaller range with recursive call and larger with tail recursion elimination
         if (__i - __first < __last - __i)
         {
-            _STD::__sort<_Compare>(__first, __i, __comp);
-            // _STD::__sort<_Compare>(__i+1, __last, __comp);
+            _VSTD::__sort<_Compare>(__first, __i, __comp);
+            // _VSTD::__sort<_Compare>(__i+1, __last, __comp);
             __first = ++__i;
         }
         else
         {
-            _STD::__sort<_Compare>(__i+1, __last, __comp);
-            // _STD::__sort<_Compare>(__first, __i, __comp);
+            _VSTD::__sort<_Compare>(__i+1, __last, __comp);
+            // _VSTD::__sort<_Compare>(__first, __i, __comp);
             __last = __i;
         }
     }
@@ -3641,7 +4041,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 sort(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::sort(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::sort(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 template <class _Tp>
@@ -3649,7 +4049,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 sort(_Tp** __first, _Tp** __last)
 {
-    _STD::sort((size_t*)__first, (size_t*)__last, __less<size_t>());
+    _VSTD::sort((size_t*)__first, (size_t*)__last, __less<size_t>());
 }
 
 template <class _Tp>
@@ -3657,57 +4057,73 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 sort(__wrap_iter<_Tp*> __first, __wrap_iter<_Tp*> __last)
 {
-    _STD::sort(__first.base(), __last.base());
+    _VSTD::sort(__first.base(), __last.base());
 }
 
-extern template void __sort<__less<char>&, char*>(char*, char*, __less<char>&);
-extern template void __sort<__less<wchar_t>&, wchar_t*>(wchar_t*, wchar_t*, __less<wchar_t>&);
-extern template void __sort<__less<signed char>&, signed char*>(signed char*, signed char*, __less<signed char>&);
-extern template void __sort<__less<unsigned char>&, unsigned char*>(unsigned char*, unsigned char*, __less<unsigned char>&);
-extern template void __sort<__less<short>&, short*>(short*, short*, __less<short>&);
-extern template void __sort<__less<unsigned short>&, unsigned short*>(unsigned short*, unsigned short*, __less<unsigned short>&);
-extern template void __sort<__less<int>&, int*>(int*, int*, __less<int>&);
-extern template void __sort<__less<unsigned>&, unsigned*>(unsigned*, unsigned*, __less<unsigned>&);
-extern template void __sort<__less<long>&, long*>(long*, long*, __less<long>&);
-extern template void __sort<__less<unsigned long>&, unsigned long*>(unsigned long*, unsigned long*, __less<unsigned long>&);
-extern template void __sort<__less<long long>&, long long*>(long long*, long long*, __less<long long>&);
-extern template void __sort<__less<unsigned long long>&, unsigned long long*>(unsigned long long*, unsigned long long*, __less<unsigned long long>&);
-extern template void __sort<__less<float>&, float*>(float*, float*, __less<float>&);
-extern template void __sort<__less<double>&, double*>(double*, double*, __less<double>&);
-extern template void __sort<__less<long double>&, long double*>(long double*, long double*, __less<long double>&);
+template <class _Tp, class _Compare>
+inline _LIBCPP_INLINE_VISIBILITY
+void
+sort(__wrap_iter<_Tp*> __first, __wrap_iter<_Tp*> __last, _Compare __comp)
+{
+    typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
+    _VSTD::sort<_Tp*, _Comp_ref>(__first.base(), __last.base(), __comp);
+}
 
-extern template bool __insertion_sort_incomplete<__less<char>&, char*>(char*, char*, __less<char>&);
-extern template bool __insertion_sort_incomplete<__less<wchar_t>&, wchar_t*>(wchar_t*, wchar_t*, __less<wchar_t>&);
-extern template bool __insertion_sort_incomplete<__less<signed char>&, signed char*>(signed char*, signed char*, __less<signed char>&);
-extern template bool __insertion_sort_incomplete<__less<unsigned char>&, unsigned char*>(unsigned char*, unsigned char*, __less<unsigned char>&);
-extern template bool __insertion_sort_incomplete<__less<short>&, short*>(short*, short*, __less<short>&);
-extern template bool __insertion_sort_incomplete<__less<unsigned short>&, unsigned short*>(unsigned short*, unsigned short*, __less<unsigned short>&);
-extern template bool __insertion_sort_incomplete<__less<int>&, int*>(int*, int*, __less<int>&);
-extern template bool __insertion_sort_incomplete<__less<unsigned>&, unsigned*>(unsigned*, unsigned*, __less<unsigned>&);
-extern template bool __insertion_sort_incomplete<__less<long>&, long*>(long*, long*, __less<long>&);
-extern template bool __insertion_sort_incomplete<__less<unsigned long>&, unsigned long*>(unsigned long*, unsigned long*, __less<unsigned long>&);
-extern template bool __insertion_sort_incomplete<__less<long long>&, long long*>(long long*, long long*, __less<long long>&);
-extern template bool __insertion_sort_incomplete<__less<unsigned long long>&, unsigned long long*>(unsigned long long*, unsigned long long*, __less<unsigned long long>&);
-extern template bool __insertion_sort_incomplete<__less<float>&, float*>(float*, float*, __less<float>&);
-extern template bool __insertion_sort_incomplete<__less<double>&, double*>(double*, double*, __less<double>&);
-extern template bool __insertion_sort_incomplete<__less<long double>&, long double*>(long double*, long double*, __less<long double>&);
+#ifdef _LIBCPP_MSVC
+#pragma warning( push )
+#pragma warning( disable: 4231)
+#endif // _LIBCPP_MSVC
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<char>&, char*>(char*, char*, __less<char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<wchar_t>&, wchar_t*>(wchar_t*, wchar_t*, __less<wchar_t>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<signed char>&, signed char*>(signed char*, signed char*, __less<signed char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<unsigned char>&, unsigned char*>(unsigned char*, unsigned char*, __less<unsigned char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<short>&, short*>(short*, short*, __less<short>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<unsigned short>&, unsigned short*>(unsigned short*, unsigned short*, __less<unsigned short>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<int>&, int*>(int*, int*, __less<int>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<unsigned>&, unsigned*>(unsigned*, unsigned*, __less<unsigned>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<long>&, long*>(long*, long*, __less<long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<unsigned long>&, unsigned long*>(unsigned long*, unsigned long*, __less<unsigned long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<long long>&, long long*>(long long*, long long*, __less<long long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<unsigned long long>&, unsigned long long*>(unsigned long long*, unsigned long long*, __less<unsigned long long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<float>&, float*>(float*, float*, __less<float>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<double>&, double*>(double*, double*, __less<double>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS void __sort<__less<long double>&, long double*>(long double*, long double*, __less<long double>&))
 
-extern template unsigned __sort5<__less<long double>&, long double*>(long double*, long double*, long double*, long double*, long double*, __less<long double>&);
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<char>&, char*>(char*, char*, __less<char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<wchar_t>&, wchar_t*>(wchar_t*, wchar_t*, __less<wchar_t>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<signed char>&, signed char*>(signed char*, signed char*, __less<signed char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<unsigned char>&, unsigned char*>(unsigned char*, unsigned char*, __less<unsigned char>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<short>&, short*>(short*, short*, __less<short>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<unsigned short>&, unsigned short*>(unsigned short*, unsigned short*, __less<unsigned short>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<int>&, int*>(int*, int*, __less<int>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<unsigned>&, unsigned*>(unsigned*, unsigned*, __less<unsigned>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<long>&, long*>(long*, long*, __less<long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<unsigned long>&, unsigned long*>(unsigned long*, unsigned long*, __less<unsigned long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<long long>&, long long*>(long long*, long long*, __less<long long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<unsigned long long>&, unsigned long long*>(unsigned long long*, unsigned long long*, __less<unsigned long long>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<float>&, float*>(float*, float*, __less<float>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<double>&, double*>(double*, double*, __less<double>&))
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS bool __insertion_sort_incomplete<__less<long double>&, long double*>(long double*, long double*, __less<long double>&))
+
+_LIBCPP_EXTERN_TEMPLATE(_LIBCPP_FUNC_VIS unsigned __sort5<__less<long double>&, long double*>(long double*, long double*, long double*, long double*, long double*, __less<long double>&))
+#ifdef _LIBCPP_MSVC
+#pragma warning( pop )
+#endif  // _LIBCPP_MSVC
 
 // lower_bound
 
 template <class _Compare, class _ForwardIterator, class _Tp>
 _ForwardIterator
-__lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+__lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
     typedef typename iterator_traits<_ForwardIterator>::difference_type difference_type;
-    difference_type __len = _STD::distance(__first, __last);
+    difference_type __len = _VSTD::distance(__first, __last);
     while (__len != 0)
     {
         difference_type __l2 = __len / 2;
         _ForwardIterator __m = __first;
-        _STD::advance(__m, __l2);
-        if (__comp(*__m, __value))
+        _VSTD::advance(__m, __l2);
+        if (__comp(*__m, __value_))
         {
             __first = ++__m;
             __len -= __l2 + 1;
@@ -3721,24 +4137,24 @@ __lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __va
 template <class _ForwardIterator, class _Tp, class _Compare>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
-lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return __lower_bound<_Comp_ref>(__first, __last, __value, __c);
+    return __lower_bound<_Comp_ref>(__first, __last, __value_, __c);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return __lower_bound<_Comp_ref>(__first, __last, __value, __comp);
+    return __lower_bound<_Comp_ref>(__first, __last, __value_, __comp);
 #endif  // _LIBCPP_DEBUG
 }
 
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
-lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    return _STD::lower_bound(__first, __last, __value,
+    return _VSTD::lower_bound(__first, __last, __value_,
                              __less<typename iterator_traits<_ForwardIterator>::value_type, _Tp>());
 }
 
@@ -3746,16 +4162,16 @@ lower_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
 
 template <class _Compare, class _ForwardIterator, class _Tp>
 _ForwardIterator
-__upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+__upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
     typedef typename iterator_traits<_ForwardIterator>::difference_type difference_type;
-    difference_type __len = _STD::distance(__first, __last);
+    difference_type __len = _VSTD::distance(__first, __last);
     while (__len != 0)
     {
         difference_type __l2 = __len / 2;
         _ForwardIterator __m = __first;
-        _STD::advance(__m, __l2);
-        if (__comp(__value, *__m))
+        _VSTD::advance(__m, __l2);
+        if (__comp(__value_, *__m))
             __len = __l2;
         else
         {
@@ -3769,24 +4185,24 @@ __upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __va
 template <class _ForwardIterator, class _Tp, class _Compare>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
-upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return __upper_bound<_Comp_ref>(__first, __last, __value, __c);
+    return __upper_bound<_Comp_ref>(__first, __last, __value_, __c);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return __upper_bound<_Comp_ref>(__first, __last, __value, __comp);
+    return __upper_bound<_Comp_ref>(__first, __last, __value_, __comp);
 #endif  // _LIBCPP_DEBUG
 }
 
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 _ForwardIterator
-upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    return _STD::upper_bound(__first, __last, __value,
+    return _VSTD::upper_bound(__first, __last, __value_,
                              __less<_Tp, typename iterator_traits<_ForwardIterator>::value_type>());
 }
 
@@ -3794,21 +4210,21 @@ upper_bound(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
 
 template <class _Compare, class _ForwardIterator, class _Tp>
 pair<_ForwardIterator, _ForwardIterator>
-__equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+__equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
     typedef typename iterator_traits<_ForwardIterator>::difference_type difference_type;
-    difference_type __len = _STD::distance(__first, __last);
+    difference_type __len = _VSTD::distance(__first, __last);
     while (__len != 0)
     {
         difference_type __l2 = __len / 2;
         _ForwardIterator __m = __first;
-        _STD::advance(__m, __l2);
-        if (__comp(*__m, __value))
+        _VSTD::advance(__m, __l2);
+        if (__comp(*__m, __value_))
         {
             __first = ++__m;
             __len -= __l2 + 1;
         }
-        else if (__comp(__value, *__m))
+        else if (__comp(__value_, *__m))
         {
             __last = __m;
             __len = __l2;
@@ -3818,8 +4234,8 @@ __equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __va
             _ForwardIterator __mp1 = __m;
             return pair<_ForwardIterator, _ForwardIterator>
                    (
-                      __lower_bound<_Compare>(__first, __m, __value, __comp),
-                      __upper_bound<_Compare>(++__mp1, __last, __value, __comp)
+                      __lower_bound<_Compare>(__first, __m, __value_, __comp),
+                      __upper_bound<_Compare>(++__mp1, __last, __value_, __comp)
                    );
         }
     }
@@ -3829,24 +4245,24 @@ __equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __va
 template <class _ForwardIterator, class _Tp, class _Compare>
 inline _LIBCPP_INLINE_VISIBILITY
 pair<_ForwardIterator, _ForwardIterator>
-equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return __equal_range<_Comp_ref>(__first, __last, __value, __c);
+    return __equal_range<_Comp_ref>(__first, __last, __value_, __c);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return __equal_range<_Comp_ref>(__first, __last, __value, __comp);
+    return __equal_range<_Comp_ref>(__first, __last, __value_, __comp);
 #endif  // _LIBCPP_DEBUG
 }
 
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 pair<_ForwardIterator, _ForwardIterator>
-equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    return _STD::equal_range(__first, __last, __value,
+    return _VSTD::equal_range(__first, __last, __value_,
                              __less<typename iterator_traits<_ForwardIterator>::value_type, _Tp>());
 }
 
@@ -3855,33 +4271,33 @@ equal_range(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __valu
 template <class _Compare, class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-__binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+__binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
-    __first = __lower_bound<_Compare>(__first, __last, __value, __comp);
-    return __first != __last && !__comp(__value, *__first);
+    __first = __lower_bound<_Compare>(__first, __last, __value_, __comp);
+    return __first != __last && !__comp(__value_, *__first);
 }
 
 template <class _ForwardIterator, class _Tp, class _Compare>
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value, _Compare __comp)
+binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_, _Compare __comp)
 {
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return __binary_search<_Comp_ref>(__first, __last, __value, __c);
+    return __binary_search<_Comp_ref>(__first, __last, __value_, __c);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return __binary_search<_Comp_ref>(__first, __last, __value, __comp);
+    return __binary_search<_Comp_ref>(__first, __last, __value_, __comp);
 #endif  // _LIBCPP_DEBUG
 }
 
 template <class _ForwardIterator, class _Tp>
 inline _LIBCPP_INLINE_VISIBILITY
 bool
-binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value)
+binary_search(_ForwardIterator __first, _ForwardIterator __last, const _Tp& __value_)
 {
-    return _STD::binary_search(__first, __last, __value,
+    return _VSTD::binary_search(__first, __last, __value_,
                              __less<typename iterator_traits<_ForwardIterator>::value_type, _Tp>());
 }
 
@@ -3895,7 +4311,7 @@ __merge(_InputIterator1 __first1, _InputIterator1 __last1,
     for (; __first1 != __last1; ++__result)
     {
         if (__first2 == __last2)
-            return _STD::copy(__first1, __last1, __result);
+            return _VSTD::copy(__first1, __last1, __result);
         if (__comp(*__first2, *__first1))
         {
             *__result = *__first2;
@@ -3907,7 +4323,7 @@ __merge(_InputIterator1 __first1, _InputIterator1 __last1,
             ++__first1;
         }
     }
-    return _STD::copy(__first2, __last2, __result);
+    return _VSTD::copy(__first2, __last2, __result);
 }
 
 template <class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
@@ -3919,10 +4335,10 @@ merge(_InputIterator1 __first1, _InputIterator1 __last1,
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return _STD::__merge<_Comp_ref>(__first1, __last1, __first2, __last2, __result, __c);
+    return _VSTD::__merge<_Comp_ref>(__first1, __last1, __first2, __last2, __result, __c);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return _STD::__merge<_Comp_ref>(__first1, __last1, __first2, __last2, __result, __comp);
+    return _VSTD::__merge<_Comp_ref>(__first1, __last1, __first2, __last2, __result, __comp);
 #endif  // _LIBCPP_DEBUG
 }
 
@@ -3955,7 +4371,7 @@ __buffered_inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator 
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __first; __i != __middle; __d.__incr((value_type*)0), ++__i, ++__p)
-            ::new(__p) value_type(_STD::move(*__i));
+            ::new(__p) value_type(_VSTD::move(*__i));
         __merge<_Compare>(move_iterator<value_type*>(__buff),
                           move_iterator<value_type*>(__p),
                           move_iterator<_BidirectionalIterator>(__middle),
@@ -3966,7 +4382,7 @@ __buffered_inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator 
     {
         value_type* __p = __buff;
         for (_BidirectionalIterator __i = __middle; __i != __last; __d.__incr((value_type*)0), ++__i, ++__p)
-            ::new(__p) value_type(_STD::move(*__i));
+            ::new(__p) value_type(_VSTD::move(*__i));
         typedef reverse_iterator<_BidirectionalIterator> _RBi;
         typedef reverse_iterator<value_type*> _Rv;
         __merge(move_iterator<_RBi>(_RBi(__middle)), move_iterator<_RBi>(_RBi(__first)),
@@ -4019,9 +4435,9 @@ __inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle,
         {   // __len >= 1, __len2 >= 2
             __len21 = __len2 / 2;
             __m2 = __middle;
-            _STD::advance(__m2, __len21);
+            _VSTD::advance(__m2, __len21);
             __m1 = __upper_bound<_Compare>(__first, __middle, *__m2, __comp);
-            __len11 = _STD::distance(__first, __m1);
+            __len11 = _VSTD::distance(__first, __m1);
         }
         else
         {
@@ -4034,15 +4450,15 @@ __inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle,
             // __len1 >= 2, __len2 >= 1
             __len11 = __len1 / 2;
             __m1 = __first;
-            _STD::advance(__m1, __len11);
+            _VSTD::advance(__m1, __len11);
             __m2 = __lower_bound<_Compare>(__middle, __last, *__m1, __comp);
-            __len21 = _STD::distance(__middle, __m2);
+            __len21 = _VSTD::distance(__middle, __m2);
         }
         difference_type __len12 = __len1 - __len11;  // distance(__m1, __middle)
         difference_type __len22 = __len2 - __len21;  // distance(__m2, __last)
         // [__first, __m1) [__m1, __middle) [__middle, __m2) [__m2, __last)
         // swap middle two partitions
-        __middle = _STD::rotate(__m1, __middle, __m2);
+        __middle = _VSTD::rotate(__m1, __middle, __m2);
         // __len12 and __len21 now have swapped meanings
         // merge smaller range with recurisve call and larger with tail recursion elimination
         if (__len11 + __len21 < __len12 + __len22)
@@ -4080,24 +4496,24 @@ inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _
 {
     typedef typename iterator_traits<_BidirectionalIterator>::value_type value_type;
     typedef typename iterator_traits<_BidirectionalIterator>::difference_type difference_type;
-    difference_type __len1 = _STD::distance(__first, __middle);
-    difference_type __len2 = _STD::distance(__middle, __last);
-    difference_type __buf_size = _STD::min(__len1, __len2);
+    difference_type __len1 = _VSTD::distance(__first, __middle);
+    difference_type __len2 = _VSTD::distance(__middle, __last);
+    difference_type __buf_size = _VSTD::min(__len1, __len2);
     pair<value_type*, ptrdiff_t> __buf(0, 0);
     unique_ptr<value_type, __return_temporary_buffer> __h;
     if (__inplace_merge_switch<value_type>::value && __buf_size > 8)
     {
-        __buf = _STD::get_temporary_buffer<value_type>(__buf_size);
+        __buf = _VSTD::get_temporary_buffer<value_type>(__buf_size);
         __h.reset(__buf.first);
     }
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    return _STD::__inplace_merge<_Comp_ref>(__first, __middle, __last, __c, __len1, __len2,
+    return _VSTD::__inplace_merge<_Comp_ref>(__first, __middle, __last, __c, __len1, __len2,
                                             __buf.first, __buf.second);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    return _STD::__inplace_merge<_Comp_ref>(__first, __middle, __last, __comp, __len1, __len2,
+    return _VSTD::__inplace_merge<_Comp_ref>(__first, __middle, __last, __comp, __len1, __len2,
                                             __buf.first, __buf.second);
 #endif  // _LIBCPP_DEBUG
 }
@@ -4107,7 +4523,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 inplace_merge(_BidirectionalIterator __first, _BidirectionalIterator __middle, _BidirectionalIterator __last)
 {
-    _STD::inplace_merge(__first, __middle, __last,
+    _VSTD::inplace_merge(__first, __middle, __last,
                         __less<typename iterator_traits<_BidirectionalIterator>::value_type>());
 }
 
@@ -4127,26 +4543,26 @@ __merge_move_construct(_InputIterator1 __first1, _InputIterator1 __last1,
         if (__first1 == __last1)
         {
             for (; __first2 != __last2; ++__first2, ++__result, __d.__incr((value_type*)0))
-                ::new (__result) value_type(_STD::move(*__first2));
+                ::new (__result) value_type(_VSTD::move(*__first2));
             __h.release();
             return;
         }
         if (__first2 == __last2)
         {
             for (; __first1 != __last1; ++__first1, ++__result, __d.__incr((value_type*)0))
-                ::new (__result) value_type(_STD::move(*__first1));
+                ::new (__result) value_type(_VSTD::move(*__first1));
             __h.release();
             return;
         }
         if (__comp(*__first2, *__first1))
         {
-            ::new (__result) value_type(_STD::move(*__first2));
+            ::new (__result) value_type(_VSTD::move(*__first2));
             __d.__incr((value_type*)0);
             ++__first2;
         }
         else
         {
-            ::new (__result) value_type(_STD::move(*__first1));
+            ::new (__result) value_type(_VSTD::move(*__first1));
             __d.__incr((value_type*)0);
             ++__first1;
         }
@@ -4164,22 +4580,22 @@ __merge_move_assign(_InputIterator1 __first1, _InputIterator1 __last1,
         if (__first2 == __last2)
         {
             for (; __first1 != __last1; ++__first1, ++__result)
-                *__result = _STD::move(*__first1);
+                *__result = _VSTD::move(*__first1);
             return;
         }
         if (__comp(*__first2, *__first1))
         {
-            *__result = _STD::move(*__first2);
+            *__result = _VSTD::move(*__first2);
             ++__first2;
         }
         else
         {
-            *__result = _STD::move(*__first1);
+            *__result = _VSTD::move(*__first1);
             ++__first1;
         }
     }
     for (; __first2 != __last2; ++__first2, ++__result)
-        *__result = _STD::move(*__first2);
+        *__result = _VSTD::move(*__first2);
 }
 
 template <class _Compare, class _RandomAccessIterator>
@@ -4200,24 +4616,24 @@ __stable_sort_move(_RandomAccessIterator __first1, _RandomAccessIterator __last1
     case 0:
         return;
     case 1:
-        ::new(__first2) value_type(_STD::move(*__first1));
+        ::new(__first2) value_type(_VSTD::move(*__first1));
         return;
     case 2:
        __destruct_n __d(0);
         unique_ptr<value_type, __destruct_n&> __h2(__first2, __d);
          if (__comp(*--__last1, *__first1))
         {
-            ::new(__first2) value_type(_STD::move(*__last1));
+            ::new(__first2) value_type(_VSTD::move(*__last1));
             __d.__incr((value_type*)0);
             ++__first2;
-            ::new(__first2) value_type(_STD::move(*__first1));
+            ::new(__first2) value_type(_VSTD::move(*__first1));
         }
         else
         {
-            ::new(__first2) value_type(_STD::move(*__first1));
+            ::new(__first2) value_type(_VSTD::move(*__first1));
             __d.__incr((value_type*)0);
             ++__first2;
-            ::new(__first2) value_type(_STD::move(*__last1));
+            ::new(__first2) value_type(_VSTD::move(*__last1));
         }
         __h2.release();
         return;
@@ -4298,7 +4714,7 @@ stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
     unique_ptr<value_type, __return_temporary_buffer> __h;
     if (__len > static_cast<difference_type>(__stable_sort_switch<value_type>::value))
     {
-        __buf = _STD::get_temporary_buffer<value_type>(__len);
+        __buf = _VSTD::get_temporary_buffer<value_type>(__len);
         __h.reset(__buf.first);
     }
 #ifdef _LIBCPP_DEBUG
@@ -4316,7 +4732,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 stable_sort(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::stable_sort(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::stable_sort(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // is_heap_until
@@ -4325,7 +4741,7 @@ template <class _RandomAccessIterator, class _Compare>
 _RandomAccessIterator
 is_heap_until(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp)
 {
-    typedef typename _STD::iterator_traits<_RandomAccessIterator>::difference_type difference_type;
+    typedef typename _VSTD::iterator_traits<_RandomAccessIterator>::difference_type difference_type;
     difference_type __len = __last - __first;
     difference_type __p = 0;
     difference_type __c = 1;
@@ -4353,7 +4769,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 _RandomAccessIterator
 is_heap_until(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    return _STD::is_heap_until(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    return _VSTD::is_heap_until(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // is_heap
@@ -4363,7 +4779,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 is_heap(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp)
 {
-    return _STD::is_heap_until(__first, __last, __comp) == __last;
+    return _VSTD::is_heap_until(__first, __last, __comp) == __last;
 }
 
 template<class _RandomAccessIterator>
@@ -4371,56 +4787,15 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 is_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    return _STD::is_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    return _VSTD::is_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // push_heap
 
 template <class _Compare, class _RandomAccessIterator>
 void
-__push_heap_front(_RandomAccessIterator __first, _RandomAccessIterator, _Compare __comp,
-                  typename iterator_traits<_RandomAccessIterator>::difference_type __len)
-{
-    typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
-    typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
-    if (__len > 1)
-    {
-        difference_type __p = 0;
-        _RandomAccessIterator __pp = __first;
-        difference_type __c = 2;
-        _RandomAccessIterator __cp = __first + __c;
-        if (__c == __len || __comp(*__cp, *(__cp - 1)))
-        {
-            --__c;
-            --__cp;
-        }
-        if (__comp(*__pp, *__cp))
-        {
-            value_type __t(_STD::move(*__pp));
-            do
-            {
-                *__pp = _STD::move(*__cp);
-                __pp = __cp;
-                __p = __c;
-                __c = (__p + 1) * 2;
-                if (__c > __len)
-                    break;
-                __cp = __first + __c;
-                if (__c == __len || __comp(*__cp, *(__cp - 1)))
-                {
-                    --__c;
-                    --__cp;
-                }
-            } while (__comp(__t, *__cp));
-            *__pp = _STD::move(__t);
-        }
-    }
-}
-
-template <class _Compare, class _RandomAccessIterator>
-void
-__push_heap_back(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp,
-                 typename iterator_traits<_RandomAccessIterator>::difference_type __len)
+__sift_up(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp,
+          typename iterator_traits<_RandomAccessIterator>::difference_type __len)
 {
     typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
     typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
@@ -4430,17 +4805,17 @@ __push_heap_back(_RandomAccessIterator __first, _RandomAccessIterator __last, _C
         _RandomAccessIterator __ptr = __first + __len;
         if (__comp(*__ptr, *--__last))
         {
-            value_type __t(_STD::move(*__last));
+            value_type __t(_VSTD::move(*__last));
             do
             {
-                *__last = _STD::move(*__ptr);
+                *__last = _VSTD::move(*__ptr);
                 __last = __ptr;
                 if (__len == 0)
                     break;
                 __len = (__len - 1) / 2;
                 __ptr = __first + __len;
             } while (__comp(*__ptr, __t));
-            *__last = _STD::move(__t);
+            *__last = _VSTD::move(__t);
         }
     }
 }
@@ -4453,10 +4828,10 @@ push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare 
 #ifdef _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<__debug_less<_Compare> >::type _Comp_ref;
     __debug_less<_Compare> __c(__comp);
-    __push_heap_back<_Comp_ref>(__first, __last, __c, __last - __first);
+    __sift_up<_Comp_ref>(__first, __last, __c, __last - __first);
 #else  // _LIBCPP_DEBUG
     typedef typename add_lvalue_reference<_Compare>::type _Comp_ref;
-    __push_heap_back<_Comp_ref>(__first, __last, __comp, __last - __first);
+    __sift_up<_Comp_ref>(__first, __last, __comp, __last - __first);
 #endif  // _LIBCPP_DEBUG
 }
 
@@ -4465,10 +4840,64 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 push_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::push_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::push_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // pop_heap
+
+template <class _Compare, class _RandomAccessIterator>
+void
+__sift_down(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp,
+            typename iterator_traits<_RandomAccessIterator>::difference_type __len,
+            _RandomAccessIterator __start)
+{
+    typedef typename iterator_traits<_RandomAccessIterator>::difference_type difference_type;
+    typedef typename iterator_traits<_RandomAccessIterator>::value_type value_type;
+    // left-child of __start is at 2 * __start + 1
+    // right-child of __start is at 2 * __start + 2
+    difference_type __child = __start - __first;
+
+    if (__len < 2 || (__len - 2) / 2 < __child)
+        return;
+
+    __child = 2 * __child + 1;
+    _RandomAccessIterator __child_i = __first + __child;
+
+    if ((__child + 1) < __len && __comp(*__child_i, *(__child_i + 1))) {
+        // right-child exists and is greater than left-child
+        ++__child_i;
+        ++__child;
+    }
+
+    // check if we are in heap-order
+    if (__comp(*__child_i, *__start))
+        // we are, __start is larger than it's largest child
+        return;
+
+    value_type __top(_VSTD::move(*__start));
+    do
+    {
+        // we are not in heap-order, swap the parent with it's largest child
+        *__start = _VSTD::move(*__child_i);
+        __start = __child_i;
+
+        if ((__len - 2) / 2 < __child)
+            break;
+
+        // recompute the child based off of the updated parent
+        __child = 2 * __child + 1;
+        __child_i = __first + __child;
+
+        if ((__child + 1) < __len && __comp(*__child_i, *(__child_i + 1))) {
+            // right-child exists and is greater than left-child
+            ++__child_i;
+            ++__child;
+        }
+
+        // check if we are in heap-order
+    } while (!__comp(*__child_i, __top));
+    *__start = _VSTD::move(__top);
+}
 
 template <class _Compare, class _RandomAccessIterator>
 inline _LIBCPP_INLINE_VISIBILITY
@@ -4479,7 +4908,7 @@ __pop_heap(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare
     if (__len > 1)
     {
         swap(*__first, *--__last);
-        __push_heap_front<_Compare>(__first, __last, __comp, __len-1);
+        __sift_down<_Compare>(__first, __last, __comp, __len - 1, __first);
     }
 }
 
@@ -4503,7 +4932,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 pop_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::pop_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::pop_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // make_heap
@@ -4516,10 +4945,11 @@ __make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compar
     difference_type __n = __last - __first;
     if (__n > 1)
     {
-        __last = __first;
-        ++__last;
-        for (difference_type __i = 1; __i < __n;)
-            __push_heap_back<_Compare>(__first, ++__last, __comp, ++__i);
+        // start from the first parent, there is no need to consider children
+        for (difference_type __start = (__n - 2) / 2; __start >= 0; --__start)
+        {
+            __sift_down<_Compare>(__first, __last, __comp, __n, __first + __start);
+        }
     }
 }
 
@@ -4543,7 +4973,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::make_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::make_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // sort_heap
@@ -4577,7 +5007,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 sort_heap(_RandomAccessIterator __first, _RandomAccessIterator __last)
 {
-    _STD::sort_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::sort_heap(__first, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // partial_sort
@@ -4594,7 +5024,7 @@ __partial_sort(_RandomAccessIterator __first, _RandomAccessIterator __middle, _R
         if (__comp(*__i, *__first))
         {
             swap(*__i, *__first);
-            __push_heap_front<_Compare>(__first, __middle, __comp, __len);
+            __sift_down<_Compare>(__first, __middle, __comp, __len, __first);
         }
     }
     __sort_heap<_Compare>(__first, __middle, __comp);
@@ -4621,7 +5051,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 partial_sort(_RandomAccessIterator __first, _RandomAccessIterator __middle, _RandomAccessIterator __last)
 {
-    _STD::partial_sort(__first, __middle, __last,
+    _VSTD::partial_sort(__first, __middle, __last,
                        __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
@@ -4635,15 +5065,15 @@ __partial_sort_copy(_InputIterator __first, _InputIterator __last,
     _RandomAccessIterator __r = __result_first;
     if (__r != __result_last)
     {
-        typename iterator_traits<_RandomAccessIterator>::difference_type __len = 0;
-        for (; __first != __last && __r != __result_last; ++__first, ++__r, ++__len)
+        for (; __first != __last && __r != __result_last; ++__first, ++__r)
             *__r = *__first;
         __make_heap<_Compare>(__result_first, __r, __comp);
+        typename iterator_traits<_RandomAccessIterator>::difference_type __len = __r - __result_first;
         for (; __first != __last; ++__first)
             if (__comp(*__first, *__result_first))
             {
                 *__result_first = *__first;
-                __push_heap_front<_Compare>(__result_first, __r, __comp, __len);
+                __sift_down<_Compare>(__result_first, __r, __comp, __len, __result_first);
             }
         __sort_heap<_Compare>(__result_first, __r, __comp);
     }
@@ -4672,7 +5102,7 @@ _RandomAccessIterator
 partial_sort_copy(_InputIterator __first, _InputIterator __last,
                   _RandomAccessIterator __result_first, _RandomAccessIterator __result_last)
 {
-    return _STD::partial_sort_copy(__first, __last, __result_first, __result_last,
+    return _VSTD::partial_sort_copy(__first, __last, __result_first, __result_last,
                                    __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
@@ -4688,6 +5118,8 @@ __nth_element(_RandomAccessIterator __first, _RandomAccessIterator __nth, _Rando
     while (true)
     {
     __restart:
+        if (__nth == __last)
+            return;
         difference_type __len = __last - __first;
         switch (__len)
         {
@@ -4701,7 +5133,7 @@ __nth_element(_RandomAccessIterator __first, _RandomAccessIterator __nth, _Rando
         case 3:
             {
             _RandomAccessIterator __m = __first;
-            _STD::__sort3<_Compare>(__first, ++__m, --__last, __comp);
+            _VSTD::__sort3<_Compare>(__first, ++__m, --__last, __comp);
             return;
             }
         }
@@ -4713,7 +5145,7 @@ __nth_element(_RandomAccessIterator __first, _RandomAccessIterator __nth, _Rando
         // __len > __limit >= 3
         _RandomAccessIterator __m = __first + __len/2;
         _RandomAccessIterator __lm1 = __last;
-        unsigned __n_swaps = _STD::__sort3<_Compare>(__first, __m, --__lm1, __comp);
+        unsigned __n_swaps = _VSTD::__sort3<_Compare>(__first, __m, --__lm1, __comp);
         // *__m is median
         // partition [__first, __m) < *__m and *__m <= [__m, __last)
         // (this inhibits tossing elements equivalent to __m around unnecessarily)
@@ -4883,7 +5315,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 void
 nth_element(_RandomAccessIterator __first, _RandomAccessIterator __nth, _RandomAccessIterator __last)
 {
-    _STD::nth_element(__first, __nth, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
+    _VSTD::nth_element(__first, __nth, __last, __less<typename iterator_traits<_RandomAccessIterator>::value_type>());
 }
 
 // includes
@@ -4924,7 +5356,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 includes(_InputIterator1 __first1, _InputIterator1 __last1, _InputIterator2 __first2, _InputIterator2 __last2)
 {
-    return _STD::includes(__first1, __last1, __first2, __last2,
+    return _VSTD::includes(__first1, __last1, __first2, __last2,
                           __less<typename iterator_traits<_InputIterator1>::value_type,
                                  typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -4939,7 +5371,7 @@ __set_union(_InputIterator1 __first1, _InputIterator1 __last1,
     for (; __first1 != __last1; ++__result)
     {
         if (__first2 == __last2)
-            return _STD::copy(__first1, __last1, __result);
+            return _VSTD::copy(__first1, __last1, __result);
         if (__comp(*__first2, *__first1))
         {
             *__result = *__first2;
@@ -4953,7 +5385,7 @@ __set_union(_InputIterator1 __first1, _InputIterator1 __last1,
             ++__first1;
         }
     }
-    return _STD::copy(__first2, __last2, __result);
+    return _VSTD::copy(__first2, __last2, __result);
 }
 
 template <class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
@@ -4978,7 +5410,7 @@ _OutputIterator
 set_union(_InputIterator1 __first1, _InputIterator1 __last1,
           _InputIterator2 __first2, _InputIterator2 __last2, _OutputIterator __result)
 {
-    return _STD::set_union(__first1, __last1, __first2, __last2, __result,
+    return _VSTD::set_union(__first1, __last1, __first2, __last2, __result,
                           __less<typename iterator_traits<_InputIterator1>::value_type,
                                  typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -5030,7 +5462,7 @@ _OutputIterator
 set_intersection(_InputIterator1 __first1, _InputIterator1 __last1,
                  _InputIterator2 __first2, _InputIterator2 __last2, _OutputIterator __result)
 {
-    return _STD::set_intersection(__first1, __last1, __first2, __last2, __result,
+    return _VSTD::set_intersection(__first1, __last1, __first2, __last2, __result,
                                   __less<typename iterator_traits<_InputIterator1>::value_type,
                                          typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -5045,7 +5477,7 @@ __set_difference(_InputIterator1 __first1, _InputIterator1 __last1,
     while (__first1 != __last1)
     {
         if (__first2 == __last2)
-            return _STD::copy(__first1, __last1, __result);
+            return _VSTD::copy(__first1, __last1, __result);
         if (__comp(*__first1, *__first2))
         {
             *__result = *__first1;
@@ -5084,7 +5516,7 @@ _OutputIterator
 set_difference(_InputIterator1 __first1, _InputIterator1 __last1,
                _InputIterator2 __first2, _InputIterator2 __last2, _OutputIterator __result)
 {
-    return _STD::set_difference(__first1, __last1, __first2, __last2, __result,
+    return _VSTD::set_difference(__first1, __last1, __first2, __last2, __result,
                                 __less<typename iterator_traits<_InputIterator1>::value_type,
                                        typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -5099,7 +5531,7 @@ __set_symmetric_difference(_InputIterator1 __first1, _InputIterator1 __last1,
     while (__first1 != __last1)
     {
         if (__first2 == __last2)
-            return _STD::copy(__first1, __last1, __result);
+            return _VSTD::copy(__first1, __last1, __result);
         if (__comp(*__first1, *__first2))
         {
             *__result = *__first1;
@@ -5118,7 +5550,7 @@ __set_symmetric_difference(_InputIterator1 __first1, _InputIterator1 __last1,
             ++__first2;
         }
     }
-    return _STD::copy(__first2, __last2, __result);
+    return _VSTD::copy(__first2, __last2, __result);
 }
 
 template <class _InputIterator1, class _InputIterator2, class _OutputIterator, class _Compare>
@@ -5143,7 +5575,7 @@ _OutputIterator
 set_symmetric_difference(_InputIterator1 __first1, _InputIterator1 __last1,
                          _InputIterator2 __first2, _InputIterator2 __last2, _OutputIterator __result)
 {
-    return _STD::set_symmetric_difference(__first1, __last1, __first2, __last2, __result,
+    return _VSTD::set_symmetric_difference(__first1, __last1, __first2, __last2, __result,
                                           __less<typename iterator_traits<_InputIterator1>::value_type,
                                                  typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -5187,7 +5619,7 @@ bool
 lexicographical_compare(_InputIterator1 __first1, _InputIterator1 __last1,
                         _InputIterator2 __first2, _InputIterator2 __last2)
 {
-    return _STD::lexicographical_compare(__first1, __last1, __first2, __last2,
+    return _VSTD::lexicographical_compare(__first1, __last1, __first2, __last2,
                                          __less<typename iterator_traits<_InputIterator1>::value_type,
                                                 typename iterator_traits<_InputIterator2>::value_type>());
 }
@@ -5210,12 +5642,12 @@ __next_permutation(_BidirectionalIterator __first, _BidirectionalIterator __last
             while (!__comp(*__i, *--__j))
                 ;
             swap(*__i, *__j);
-            _STD::reverse(__ip1, __last);
+            _VSTD::reverse(__ip1, __last);
             return true;
         }
         if (__i == __first)
         {
-            _STD::reverse(__first, __last);
+            _VSTD::reverse(__first, __last);
             return false;
         }
     }
@@ -5241,7 +5673,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 next_permutation(_BidirectionalIterator __first, _BidirectionalIterator __last)
 {
-    return _STD::next_permutation(__first, __last,
+    return _VSTD::next_permutation(__first, __last,
                                   __less<typename iterator_traits<_BidirectionalIterator>::value_type>());
 }
 
@@ -5263,12 +5695,12 @@ __prev_permutation(_BidirectionalIterator __first, _BidirectionalIterator __last
             while (!__comp(*--__j, *__i))
                 ;
             swap(*__i, *__j);
-            _STD::reverse(__ip1, __last);
+            _VSTD::reverse(__ip1, __last);
             return true;
         }
         if (__i == __first)
         {
-            _STD::reverse(__first, __last);
+            _VSTD::reverse(__first, __last);
             return false;
         }
     }
@@ -5294,7 +5726,7 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 prev_permutation(_BidirectionalIterator __first, _BidirectionalIterator __last)
 {
-    return _STD::prev_permutation(__first, __last,
+    return _VSTD::prev_permutation(__first, __last,
                                   __less<typename iterator_traits<_BidirectionalIterator>::value_type>());
 }
 

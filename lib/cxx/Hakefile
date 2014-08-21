@@ -9,18 +9,36 @@
 -- Hakefile for /lib/cxx
 --
 --------------------------------------------------------------------------
-[(
-  let subdirs =  [ "src" ]
-      args = library { target = "cxx",
-                    cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
-                    architectures = [a],
-                    omitCxxFlags = [ "-Werror", "-Wshadow", "-Wmissing-declarations",
-                                     "-Wmissing-field-initializers", "-Wredundant-decls" ],
-                    addCxxFlags = [ "-Wno-unused-parameter", "-Wwrite-strings",
-                                    "-Wno-long-long" ]
-                  }
-      defaultopts = libGetOptionsForArch a args
-  in
+[
+ (let 
+    subdirs =  [ "cxx", "cxxabi", "unwind" ] 
+    args = library { 
+        target = "cxx",
+        cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
+        cFiles = [
+           "unwind/unwind_backend.c"
+        ],
+        addIncludes = [
+            "include"
+        ],
+        architectures = [a],
+        omitCxxFlags = [ 
+            "-Werror", 
+            "-Wshadow", 
+            "-Wmissing-declarations",
+            "-Wmissing-field-initializers", 
+            "-Wredundant-decls" 
+        ],
+        addCxxFlags = [ 
+            "-Wno-unused-parameter", 
+            "-Wwrite-strings",
+            "-Wno-long-long",
+            "-DLIBCXXRT"
+        ]
+    }
+    defaultopts = libGetOptionsForArch a args in
     Rules [Rules [compileCxxFile defaultopts s | s <- (Args.cxxFiles args)],
+    	   Rules [compileCFile defaultopts s | s <- (Args.cFiles args)],
            staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [] ]
-) | a <- [ "x86_64" ] ]
+ ) | a <- [ "x86_64", "k1om" ] 
+]

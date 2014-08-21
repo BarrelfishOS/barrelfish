@@ -38,8 +38,8 @@ commonCFlags = [ Str s | s <- [ "-std=c99",
                  ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
 
 commonCxxFlags = [ Str s | s <- [ "-nostdinc++",
-                                  "-std=c++0x",
-                                  "-fno-exceptions",
+                                  "-fexceptions",
+                                  "-DLIBCXX_CXX_ABI=libcxxabi",
                                   "-I" ] ]
                  ++ [ NoDep SrcTree "src" "/include/cxx" ]
                  ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
@@ -101,7 +101,7 @@ stdLibs arch =
 
 stdCxxLibs arch = 
     [ In InstallTree arch "/lib/libcxx.a",
-      Str "./libsupc++.a" ]
+      In InstallTree arch "/lib/libposixcompat.a"]
     ++ stdLibs arch 
 
 options arch archFamily = Options { 

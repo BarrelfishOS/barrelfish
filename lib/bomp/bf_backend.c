@@ -112,6 +112,7 @@ void backend_span_domain(int nos_threads, size_t stack_size)
 
     /* Span domain to all cores */
     for (int i = my_core_id + 1; i < nos_threads + my_core_id; i++) {
+        debug_printf("spaning: %u\n", i);
         err = domain_new_dispatcher(i, domain_init_done, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to span domain");
@@ -145,7 +146,7 @@ void backend_create_time(int cores)
     printf("Createtime %d %" PRIu64 "\n", cores, create_time);
 }
 
-void backend_init(void)
+void backend_init(void *name)
 {
 }
 

@@ -13,6 +13,11 @@
 
 interface xomp "Xeon Phi openMP interface" {
     
+    rpc add_memory(in cap frame,
+                   in uint64 addr,
+                   in uint8 type,
+                   out errval msgerr);
+    
     message do_work(uint64 fn, 
                     uint64 arg,
                     uint64 tid,
