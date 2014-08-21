@@ -725,11 +725,11 @@ int main(int argc, char** argv)
     }
 
 #ifdef BOMP
-    backend_span_domain(atoi(argv[1]), STACK_SIZE);
-    bomp_custom_init();
-    backend_thread_create_varstack(realmain, (void*)((uint64_t)atoi(argv[1])),
-                                   STACK_SIZE);
-    backend_thread_exit();
+    bomp_bomp_init(atoi(argv[1]));
+
+    //backend_thread_create_varstack(realmain, (void*)((uint64_t)atoi(argv[1])),
+    //                               STACK_SIZE);
+    //backend_thread_exit();
 #else /* BOMP */
     realmain((void*)((long)atoi(argv[1])));
 #endif /* BOMP */

@@ -56,8 +56,8 @@ int main(int argc, char *argv[])
 {
         int i=0;
 
-	bomp_custom_init(NULL);
-        omp_set_num_threads(4);
+	   bomp_bomp_init(4);
+       omp_set_num_threads(4);
 
 #ifndef POSIX
 #ifndef SPINLOCKS

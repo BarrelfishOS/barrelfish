@@ -121,8 +121,7 @@ int main(int argc, char **argv) {
     }
 
 #ifdef BOMP
-    bomp_custom_init();
-    backend_span_domain_default(atoi(argv[1]));
+    bomp_bomp_init(atoi(argv[1]));
 #endif
 
     printf("Benchmark start");
@@ -360,7 +359,7 @@ c-------------------------------------------------------------------*/
     }
 
 #ifdef BOMP
-backend_create_time(atoi(argv[1]));
+//backend_create_time(atoi(argv[1]));
 #endif
 printf("Computetime %d %f\n", atoi(argv[1]), t);
 printf("client done\n");

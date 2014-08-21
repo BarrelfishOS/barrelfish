@@ -35,10 +35,11 @@ int main(int argc, char *argv[])
         int i;
         static int a[N];
 
-#ifndef POSIX
-	bomp_custom_init(NULL);
-#endif
         assert(argc == 2);
+#ifndef POSIX
+        bomp_bomp_init(atoi(argv[1]));
+#endif
+        
         omp_set_num_threads(atoi(argv[1]));
 
         for (i=0;i<N;i++) a[i]= 2*i;

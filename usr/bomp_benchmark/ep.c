@@ -82,7 +82,7 @@ c   point print statement (internal file)
 */
 #ifndef POSIX
 #ifndef NOBOMP
-    bomp_custom_init(NULL);
+    bomp_bomp_init(1);
 #endif
 #endif
     omp_set_num_threads(1);
