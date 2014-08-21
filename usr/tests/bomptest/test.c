@@ -68,7 +68,10 @@ int main(int argc, char *argv[])
     printf("Test 2...\n");
 
     for (int i = 0; i < 1024; ++i) {
-        src[i] = i;
+        src[i] = i+1;
+    }
+    for (int i = 0; i < 1024; ++i) {
+        assert(src[i] != dst[i]);
     }
 
     printf("parallel for..\n");
