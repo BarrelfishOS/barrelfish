@@ -54,7 +54,6 @@
                "skb",
                "skb_map",
                "octopus",
-               "octopus",
                "omap_sdma",
                "spawn",
                "terminal",
@@ -83,7 +82,6 @@
                "bulk_ctrl",
                "arrakis",
                "e10k_vf",
-               "empty"
                "flounderbootstrap",
                "empty"
            ],
