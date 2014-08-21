@@ -210,6 +210,7 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
+	$(GREEN_MARL)
 
 	
 # the following are broken in the newidc system
