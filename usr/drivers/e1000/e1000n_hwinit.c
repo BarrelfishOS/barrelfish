@@ -93,6 +93,7 @@ static errval_t e1000_read_eeprom(e1000_device_t *dev, uint64_t offset,
         case e1000_82574:
         case e1000_82575:
 		case e1000_I210:
+		case e1000_I350:
             /* These devices have SPI or Microwire EEPROMs */
             eerd_ms = e1000_eerd_ms_start_insert(eerd_ms, 1);
             eerd_ms = e1000_eerd_ms_addr_insert(eerd_ms, offset);
@@ -202,7 +203,11 @@ static int e1000_reset(e1000_device_t *dev)
     int timeout;
 
     /* disable interrupts */
-    e1000_imc_rawwr(dev->device, 0xffffffff);
+    if (dev->mac_type == e1000_I350) {
+        e1000_eimc_wr(dev->device, 0xffffffff);
+    } else {
+        e1000_imc_rawwr(dev->device, 0xffffffff);
+    }
 
     /* disable receive and transmit */
     e1000_rctl_rawwr(dev->device, 0);
@@ -227,6 +232,19 @@ static int e1000_reset(e1000_device_t *dev)
         if (timeout <= 0) {
             E1000_DEBUG("Error: Failed to disable GIO management.\n");
             // return -1;
+        }
+    }
+
+    if (dev->mac_type == e1000_I350) {
+        E1000_DEBUG("Disabling GIO management.\n");
+        e1000_ctrl_gio_md_wrf(dev->device, 1);
+        timeout = 1000;
+        do {
+            usec_delay(10);
+        } while (e1000_status_gio_mes_rdf(dev->device) && 0 < timeout--);
+
+        if (timeout <= 0) {
+            E1000_DEBUG("Error: Failed to disable GIO management.\n");
         }
     }
 
@@ -265,12 +283,22 @@ static int e1000_reset(e1000_device_t *dev)
         /* These controllers can't ack the 64-bit write when issuing the
          * reset, so use IO-mapping as a workaround to issue the reset
          * We don't support IO-mapped writing yet */
+    case e1000_I350:
+        e1000_ctrl_rst_wrf(dev->device, 1);
+        usec_delay(3000);
+        timeout = 1000;
+        timeout = 1000;
+        do {
+            usec_delay(10);
+        } while (e1000_ctrl_rst_rdf(dev->device) != 0 && 0 < timeout--);
+
+        if (timeout <= 0 || !e1000_status_pf_rst_done_rdf(dev->device)) {
+            E1000_DEBUG("Error: Failed to reset device.\n");
+        }
+        break;
     default:
         e1000_ctrl_rst_wrf(dev->device, 1);
 
-        if (dev->mac_type == e1000_I350) {
-            usec_delay(3000);
-        }
         /* Wait for reset to clear */
         timeout = 1000;
         do {
@@ -282,6 +310,7 @@ static int e1000_reset(e1000_device_t *dev)
         }
         break;
     }
+
 
     /* After MAC reset, force reload of EEPROM to restore power-on settings to
      * device.  Later controllers reload the EEPROM automatically, so just wait
@@ -307,8 +336,17 @@ static int e1000_reset(e1000_device_t *dev)
             usec_delay(100);
             e1000_ctrlext_ee_rst_wrf(dev->device, 1);
         }
-
         err = e1000_get_auto_rd_done(dev);
+        break;
+    case e1000_I350:
+        timeout = 1000;
+        while(!e1000_eec_auto_rd_rdf(dev->device) && timeout--) {
+            usec_delay(100);
+        }
+        if (timeout <= 0) {
+            E1000_DEBUG("Error: Autoloading of the EEPROM failed.\n");
+        }
+        usec_delay(3000);
         break;
     default:
         err = e1000_get_auto_rd_done(dev);
@@ -341,7 +379,11 @@ static int e1000_reset(e1000_device_t *dev)
     }
 
     /* disable interrupts */
-    e1000_imc_rawwr(dev->device, 0xffffffff);
+    if (dev->mac_type == e1000_I350) {
+        e1000_eimc_wr(dev->device, 0xffffffff);
+    } else {
+        e1000_imc_rawwr(dev->device, 0xffffffff);
+    }
 
     /* clear any pending interrupts */
     e1000_icr_rd(dev->device);
@@ -451,6 +493,12 @@ bool e1000_auto_negotiate_link(e1000_device_t *dev)
         // XXX: find out which cards really need this?
         if (dev->mac_type < e1000_82571) {
             e1000_ctrl_asde_wrf(dev->device, 1);
+        }
+
+        if (dev->mac_type == e1000_I350) {
+            e1000_ctrl_slu_wrf(dev->device, 1);
+            e1000_ctrl_frcspd_wrf(dev->device, 0);
+            e1000_ctrl_frcdplx_wrf(dev->device, 0);
         }
 
         while (e1000_check_link_up(dev) == false && 0 < timeout--) {
@@ -566,6 +614,7 @@ static void e1000_set_tipg(e1000_device_t *dev)
     case e1000_82575:
     case e1000_82576:
     case e1000_I210:
+    case e1000_I350:
         tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82575_TIPG_IPGR1);
         tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82575_TIPG_IPGR2);
         break;
@@ -657,6 +706,10 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         e1000_ctrl_speed_wrf(dev->device, e1000_status_speed_rdf(dev->device));
     }
 
+    if (dev->mac_type == e1000_I350) {
+        e1000_ctrl_rfce_wrf(dev->device, 0);
+        e1000_ctrl_tfce_wrf(dev->device, 0);
+    }
     /* set flow control */
     e1000_fcal_wr(dev->device, 0);
     e1000_fcah_wr(dev->device, 0);
@@ -737,8 +790,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         rxdctl = e1000_rxdctl_82575_enable_insert(rxdctl, 1);
         rxdctl = e1000_rxdctl_82575_wthresh_insert(rxdctl, 1);
         e1000_rxdctl_82575_wr(dev->device, 0, rxdctl);
-    }
-    else {
+    }  else if (dev->mac_type != e1000_I350) {
         e1000_rxdctl_t rxdctl = 0;
 
         rxdctl = e1000_rxdctl_gran_insert(rxdctl, 1);
@@ -763,16 +815,42 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         exit(1);
     }
 
-    /* tell card where receive ring is */
-    e1000_rdbal_wr(dev->device, 0, frameid.base & 0xffffffff);
-    e1000_rdbah_wr(dev->device, 0, (frameid.base >> 32) & 0xffffffff);
-    e1000_rdlen_len_wrf(dev->device, 0, (receive_buffers / 8));
+    if (dev->mac_type == e1000_I350) {
 
-    /* Initialize receive head and tail pointers */
-    e1000_rdh_wr(dev->device, 0, 0);
-    e1000_rdt_wr(dev->device, 0, 0);
+        e1000_rdbal_I350_wr(dev->device, 0, frameid.base & 0xffffffff);
+        e1000_rdbah_I350_wr(dev->device, 0, (frameid.base >> 32) & 0xffffffff);
+        e1000_rdlen_I350_len_wrf(dev->device, 0, (receive_buffers / 8));
 
+        /* Initialize receive head and tail pointers */
+        e1000_rdh_I350_wr(dev->device, 0, 0);
+        e1000_rdt_I350_wr(dev->device, 0, 0);
+
+        /*  Software should program RDLEN[n] register only when queue is disabled */
+        e1000_rxdctl_I350_t rxdctl = 0;
+        rxdctl = e1000_rxdctl_I350_enable_insert(rxdctl, 1);
+        rxdctl = e1000_rxdctl_I350_wthresh_insert(rxdctl, 1);
+        e1000_rxdctl_I350_wr(dev->device, 0, rxdctl);
+
+        uint16_t timeout = 1000;
+        while(!e1000_rxdctl_I350_enable_rdf(dev->device, 0) && timeout--) {
+            usec_delay(10);
+        }
+        if (timeout <= 0) {
+            E1000_DEBUG("ERROR: failed to enable the RX queue\n");
+        }
+    } else {
+        /* tell card where receive ring is */
+        e1000_rdbal_wr(dev->device, 0, frameid.base & 0xffffffff);
+        e1000_rdbah_wr(dev->device, 0, (frameid.base >> 32) & 0xffffffff);
+        e1000_rdlen_len_wrf(dev->device, 0, (receive_buffers / 8));
+
+        /* Initialize receive head and tail pointers */
+        e1000_rdh_wr(dev->device, 0, 0);
+        e1000_rdt_wr(dev->device, 0, 0);
+    }
     e1000_configure_rx(dev);
+
+
 
     /* --------------------- transmit setup --------------------- */
     if (dev->mac_type == e1000_82575
@@ -782,8 +860,7 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         txdctl = e1000_txdctl_82575_enable_insert(txdctl, 1);
         txdctl = e1000_txdctl_82575_priority_insert(txdctl, 1);
         e1000_txdctl_82575_wr(dev->device, 0, txdctl);
-    }
-    else {
+    } else if (dev->mac_type != e1000_I350){
         e1000_txdctl_t txdctl = 0;
         txdctl = e1000_txdctl_gran_insert(txdctl, 1);
         e1000_txdctl_wr(dev->device, 0, txdctl);
@@ -807,13 +884,38 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         exit(1);
     }
 
-    /* tell card about our transmit ring */
-    e1000_tdbal_wr(dev->device, 0, frameid.base & 0xffffffff);
-    e1000_tdbah_wr(dev->device, 0, frameid.base >> 32);
-    e1000_tdlen_len_wrf(dev->device, 0, (transmit_buffers / 8));
-    e1000_tdh_wr(dev->device, 0, 0);
-    e1000_tdt_wr(dev->device, 0, 0);
+    if (dev->mac_type == e1000_I350) {
+        /* Software should program TDLEN[n] register only when queue is disabled */
+        e1000_tdbal_I350_wr(dev->device, 0, frameid.base & 0xffffffff);
+        e1000_tdbah_I350_wr(dev->device, 0, frameid.base >> 32);
+        e1000_tdlen_I350_len_wrf(dev->device, 0, (transmit_buffers / 8));
+        e1000_tdh_I350_wr(dev->device, 0, 0);
+        e1000_tdt_I350_wr(dev->device, 0, 0);
 
+        e1000_txdctl_I350_t txdctl = 0;
+        txdctl = e1000_txdctl_I350_enable_insert(txdctl, 1);
+        txdctl = e1000_txdctl_I350_priority_insert(txdctl, 1);
+        txdctl = e1000_txdctl_I350_wthresh_insert(txdctl, 1);
+        e1000_txdctl_I350_wr(dev->device, 0, txdctl);
+
+        uint16_t timeout = 1000;
+        while(!e1000_txdctl_I350_enable_rdf(dev->device, 0) && timeout--) {
+            usec_delay(10);
+        }
+        if (timeout <= 0) {
+            E1000_DEBUG("ERROR: failed to enable the TX queue\n");
+        }
+
+        e1000_tdwbal_wr(dev->device, 0, 0);
+
+    } else {
+        /* tell card about our transmit ring */
+        e1000_tdbal_wr(dev->device, 0, frameid.base & 0xffffffff);
+        e1000_tdbah_wr(dev->device, 0, frameid.base >> 32);
+        e1000_tdlen_len_wrf(dev->device, 0, (transmit_buffers / 8));
+        e1000_tdh_wr(dev->device, 0, 0);
+        e1000_tdt_wr(dev->device, 0, 0);
+    }
     e1000_configure_tx(dev);
 
     /* enable transmit */
@@ -835,7 +937,8 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
      */
     if (dev->mac_type == e1000_82575
         || dev->mac_type == e1000_82576
-        || dev->mac_type == e1000_I210) {
+        || dev->mac_type == e1000_I210
+        || dev->mac_type == e1000_I350) {
         e1000_eitr_interval_wrf(dev->device, 0, 5580);
         //e1000_eitr_interval_wrf(dev->device, 0, 10);
     }

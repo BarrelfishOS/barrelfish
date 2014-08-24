@@ -272,7 +272,6 @@ static bool handle_free_TX_slot_fn(void)
     txd = &transmit_ring[ether_transmit_bufptr];
     if (txd->ctrl.legacy.stat_rsv.d.dd != 1) {
         return false;
-
     }
 
 #if TRACE_ONLY_SUB_NNET
@@ -379,7 +378,6 @@ static bool handle_next_received_packet(void)
         return false;
     }
 
-//    E1000_DEBUG("Inside handle next packet 2\n");
     rxd = &receive_ring[receive_bufptr];
 
     if ((rxd->rx_read_format.info.status.dd) &&
@@ -1021,7 +1019,8 @@ int e1000n_driver_init(int argc, char **argv)
     e1000_device.device_id = deviceid;
     if (e1000_device.mac_type == e1000_82575
         || e1000_device.mac_type == e1000_82576
-        || e1000_device.mac_type == e1000_I210) {
+        || e1000_device.mac_type == e1000_I210
+        || e1000_device.mac_type == e1000_I350) {
         // These cards do not have a bsex reg entry
         // therefore, we can't use 16384 buffer size.
         // If we use smaller buffers than 2048 bytes the
