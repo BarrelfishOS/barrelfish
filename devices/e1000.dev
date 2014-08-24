@@ -116,7 +116,9 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     pcixspd     2 "PCI-X Bus Speed Indication";
     _		3 mbz;
     gio_mes     1 "GIO master enable status";
-    _		12 mbz;
+    dev_rst_set 1 "Device reset set";
+    pf_rst_done 1 "Software Rest or device reset completed";
+    _		10 mbz;
   };
 
   // 13.3.3
@@ -153,6 +155,26 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     ee_type     1 "EEPROM Type. (82541xx and 82547GI/EI)";
     _		18 mbz;
   };
+  
+  register eec rw also addr(base, 0x0010) "EEPROM/Flash control for I350" {
+    ee_sk         1 "Clock input to EEPROM";
+    ee_cs         1 "Chip select to EEPROM";
+    ee_di         1 "Data input to EEPROM";
+    ee_do         1 "Data output bit from EEPROM";
+    fwe           2 type(flashenable) "Flash write enable control";
+    ee_req        1 "Request EEPROM access";
+    ee_gnt        1 "Grant EEPROM access";
+    ee_pres       1 "EEPROM present";
+    auto_rd       1 "EEPROM Auto Read Done";
+    ee_addr_size  1 "EEPROM Address Size";
+    ee_size       4 "EEPROM Size";
+    ee_blocked    1 "EEPROM access Aborted";
+    ee_abort      1 "EEPROM access Aborted";
+    ee_rd_timeout 1 "EERD access timeout";
+    ee_clr_err    1 "Clear EEPROM Access Error";
+    ee_det        1 "EEPROM Detected";
+    _            12 mbz;
+  };  
 
   // 13.3.4
   // NM93C46 compatible EEPROMs
@@ -497,6 +519,27 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _         1 mbz;
     counter  16 "Down counter";
   };
+  
+  register eimc wo addr(base, 0x1528) "Extended Interrupt Mask Clear" {
+    RxTxQ 8 "Clear Mask bit for the corresponding EICR RxTXQ interrupt.";
+    _     22 mbz;
+    tcp_timer   1 "EICR TCP timer interrupt.";
+    other_cause 1 "EICR other cause interrupt.";
+  };
+  
+  register eimc_msix wo also addr(base, 0x1528) "Extended Interrupt Mask Clear" {
+    msix 25 "Clear Mask bit for the corresponding EICR RxTXQ interrupt.";
+    _ 7 mbz;
+  };
+  
+  regarray eitr_I350 also addr(base, 0x1680)[24;0x4] "Extended Interrupt Throttle" {
+    _         2 mbz;
+    interval 13 "Interval";
+    lli_en    1 "LLI moderation enable.";
+    ll_counter 5 "Reflects the current credits for that EITR for LL interrupts";
+    mod_count 10 "Down counter, exposes only the 10 most significant";
+    cnt_ingr  1 "When set the hardware does not override the counters fields";
+  };
 
   /************************************
    * Receive registers
@@ -589,6 +632,11 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     "Rx descr. base addr low" type(uint32);
   regarray rdbah rw addr(base, 0x2804)[2;0x100] 
     "Rx descr. base addr high" type(uint32);
+    
+  regarray rdbal_I350 rw addr(base, 0xC000)[8;0x40] 
+    "Rx descr. base addr low" type(uint32);
+  regarray rdbah_I350 rw addr(base, 0xC004)[8;0x40] 
+    "Rx descr. base addr high" type(uint32);    
 
   // 13.3.40/48 and 13.3.62/71
   // Note that the description of the transmit length (13.3.62/71) refers to
@@ -602,6 +650,9 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   regarray rdlen rw addr(base, 0x2808)[2;0x100] 
     "Rx descriptor length" type(dqlen);
 
+  regarray rdlen_I350 rw addr(base, 0xC008)[8;0x40] 
+    "Rx descriptor length" type(dqlen);
+
   // 13.3.41/49/42/50
   regtype dqval "Descriptor head/tail value" {
     val		16 "value";
@@ -609,6 +660,9 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
   regarray rdh rw addr(base, 0x2810)[2;0x100] "Rx descr. head" type(dqval);
   regarray rdt rw addr(base, 0x2818)[2;0x100] "Rx descr. tail" type(dqval);
+  
+  regarray rdh_I350 rw addr(base, 0xC010)[8;0x40] "Rx descr. head" type(dqval);
+  regarray rdt_I350 rw addr(base, 0xC018)[8;0x40] "Rx descr. tail" type(dqval);
 
   // 13.3.43
   register rdtr rw addr(base, 0x2820) "Rx. interrupt delay timer" {
@@ -642,6 +696,18 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     wthresh 6 "Write back threshold";
     _       3 mbz;
     enable  1 "Granularity";
+    swflush 1 "Receive Software Flush";
+    _       5 mbz;
+  };
+  
+  regarray rxdctl_I350 rw also addr(base, 0xC028)[8;0x40] "Rx descriptor control" {
+    pthresh 5 "Prefetch threshold";
+    _       3 mbz;
+    hthresh 5 "Host threshold";
+    _       3 mbz;
+    wthresh 5 "Write back threshold";
+    _       4 mbz;
+    enable  1 "Receive Queue Enable";
     swflush 1 "Receive Software Flush";
     _       5 mbz;
   };
@@ -742,20 +808,36 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     type(uint32);
   regarray tdbah rw addr(base, 0x3804)[2;0x100] "Tx descr. base addr. hi" 
     type(uint32);
+    
+  regarray tdbal_I350 rw addr(base, 0xE000)[8;0x40] "Tx descr. base addr. low" 
+    type(uint32);
+  regarray tdbah_I350 rw addr(base, 0xE004)[8;0x40] "Tx descr. base addr. hi" 
+    type(uint32);    
   
   // 13.3.62/71
   regarray tdlen rw addr(base, 0x3808)[2;0x100] "Tx descr. length" type(dqlen);
+  regarray tdlen_I350 rw addr(base, 0xE008)[8;0x40] "Tx descr. length" type(dqlen);
 
   // 13.3.63/64/73
   regarray tdh rw addr(base, 0x3810)[2;0x100] "Tx descr. head" type(dqval);
   regarray tdt rw addr(base, 0x3818)[2;0x100] "Tx descr. tail" type(dqval);
-
+  regarray tdh_I350 rw addr(base, 0xE010)[8;0x40] "Tx descr. head" type(dqval);
+  regarray tdt_I350 rw addr(base, 0xE018)[8;0x40] "Tx descr. tail" type(dqval);
   // 13.3.65
   register tidv rw addr(base, 0x3820) "Transmit interrupt delay value" {
     idv		16 "Interupt delay value";
     _		15 mbz;
     fdp		1 wo "Flush partial description block";
   };
+
+  regarray tdwbal rw addr(base, 0xE038)[8; 0x40] "Tx Descriptor Completion Write" {
+    head_wb_en  1 "Head Write-Back Enable";
+    wb_on_eitr  1 "write back is done upon EITR expiration.";
+    HeadWB_Low 30 "Bits 31:2 of the head write-back memory location";
+  };
+  
+  regarray tdwbah rw addr(base, 0xE03C)[8; 0x40] "Tx Descriptor Completion Write" 
+    type(uint32);
 
   // 13.3.66/74
   regarray txdctl rw addr(base, 0x3828)[2;0x100] "Transmit descr. control queue"  {
@@ -767,6 +849,20 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _		1;
     gran	1 type(threshgran) "Granularity";
     lwthresh	7 "Transmit descriptor low threshold";
+  };
+  
+    regarray txdctl_I350 rw addr(base, 0xE028)[8;0x40] "Transmit descr. control queue"  {
+    pthresh    5 "Prefetch threshold";
+    _          3 mbz;
+    hthresh    5 "Host threshold";
+    _          3 mbz;
+    wthresh    5 "Write back threshold";
+    _          3 mbz;
+    _          1 mbz;
+    enable     1 "Queue Enable";
+    swflsh     1 "Software Flush";
+    priority   1 "Priority";
+    hwbthresh  4 "Transmit Head writeback threshold";
   };
 
   regarray txdctl_82575 rw also addr(base, 0x3828)[4;0x100] "Transmit descr. control queue for 82575 cards"  {
