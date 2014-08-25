@@ -719,6 +719,18 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                             case 16:
                                 // SR-IOV capability
                                 {
+                                /*
+                                 * XXX: When using our e1000 driver with the
+                                 *      I350 network card (device id 0x152x),
+                                 *      the configuration fails when VF are
+                                 *      enabled: Legacy descriptors are ignored
+                                 *      when VF are enabled.
+                                 */
+                                if (vendor == 0x8086 && (device_id & 0xFFF0) == 0x1520) {
+                                    debug_printf("skipping SR IOV initialization"
+                                                    "for e1000 card.\n");
+                                    break;
+                                }
                                 pci_sr_iov_cap_t sr_iov_cap;
                                 pci_sr_iov_cap_initialize(&sr_iov_cap,
                                      (mackerel_addr_t) (ad + (cap_ptr / 4)));
