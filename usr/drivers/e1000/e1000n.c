@@ -297,12 +297,26 @@ static bool handle_free_TX_slot_fn(void)
     e1000_dqval_t dqval = 0;
     struct tx_desc tdesc;
 
+    /*
+     * XXX: we should move on to non-legacy descriptors for the newer
+     *      devices at some point:
+     *
+     *      These descriptors should not be used when advanced features such as
+     *      virtualization are used. If legacy descriptors are used when
+     *      virtualization is enabled such as when TXSWC.Loopback enable or
+     *      STATUS.VFE or one of the TXSWC.MACAS bits or one of the TXSWC.VLANAS
+     *      bits are set, the packets are ignored and not sent.
+     */
     tdesc.buffer_address = buffer_address;
     tdesc.ctrl.raw = 0;
+#if E1000_USE_LEGACY_DESC
     tdesc.ctrl.legacy.data_len = packet_len;
     tdesc.ctrl.legacy.cmd.d.rs = 1;
     tdesc.ctrl.legacy.cmd.d.ifcs = 1;
     tdesc.ctrl.legacy.cmd.d.eop = (last ? 1 : 0);
+#else
+    assert(!"advanced descriptors not implemented yet.");
+#endif
 
     /* FIXME: the packet should be copied into separate location, so that
      * application can't temper with it. */
@@ -679,12 +693,8 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
 
 #ifndef LIBRARY
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-		  NULL,
-                  transmit_pbuf_list_fn,
-                  find_tx_free_slot_count_fn,
-                  handle_free_TX_slot_fn,
-                  receive_buffer_size,
-                  rx_register_buffer_fn,
+                  NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn, receive_buffer_size,rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
 #else
     ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,

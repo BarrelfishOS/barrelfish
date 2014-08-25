@@ -24,7 +24,7 @@
 #define E1000_PRINT(fmt, ...)        printf(DRIVER_STRING fmt, ##__VA_ARGS__)
 #define E1000_PRINT_ERROR(fmt, ...)  fprintf(stderr, DRIVER_STRING fmt, ##__VA_ARGS__)
 
-
+#define E1000_USE_LEGACY_DESC 1
 /*
  * Global constants
  */

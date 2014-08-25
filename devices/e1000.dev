@@ -114,11 +114,30 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     bus64	1 "PCI Bus Width indication";
     pcix_mode   1 "PCI-X Mode indication";
     pcixspd     2 "PCI-X Bus Speed Indication";
-    _		3 mbz;
+    _		3 mbz;   
     gio_mes     1 "GIO master enable status";
     dev_rst_set 1 "Device reset set";
     pf_rst_done 1 "Software Rest or device reset completed";
     _		10 mbz;
+  };
+  
+  register status_I350 rw also addr(base, 0x0008) "Device status" {
+    fd          1 "Link full duplex configuration";
+    lu          1 "Link up";
+    lan_id      2 "Function ID";
+    txoff       1 "Transmission paused";
+    _           1 mbz;
+    speed       2 type(linkspeed) "Link speed setting";
+    asdv        2 type(linkspeed) "Auto speed detection value";
+    phyra       1 "PHY reset asserted"; 
+    _           3  mbz;
+    nvf         4 "Num VFs in the IOV capability s";
+    vfe         1 "VF enable (VFE) bit in the IOV capability";
+    gio_mes     1 "GIO master enable status";
+    dev_rst_set 1 "Device reset set";
+    pf_rst_done 1 "Software Rest or device reset completed";
+    _           9 mbz;
+    mac_gate    1 "MAC clock gating Enable";
   };
 
   // 13.3.3
@@ -756,6 +775,18 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     exsten	1 "Extended status enable";
     _		16 mbz;
   };
+  
+  regarray srrctl rw addr(base, 0xC00C)[8; 0x40] "Split and Replication Receive Control" {
+    bsizepacket  7 "Receive Buffer Size for Packet Buffer, The value is in 1 KB resolution.";
+    dmacq_dis    1 "DMA Coalescing disable";
+    bsizeheader  6 "Receive Buffer Size for Header Buffer";
+    _            6 mbz;
+    rdmts        5 "Receive Descriptor Minimum Threshold Size";
+    desctype     3 "Defines the descriptor in Rx";
+    _            2 mbz;
+    timestamp    1 "Timestamp Received packet";
+    drop_en      1 "Drop Enabled";
+  };
 
   /************************************
    * Transmit registers
@@ -766,6 +797,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     cd_half	= 0x200 "512 byte-times";
     cd_full	= 0x3f  "64 byte-times";
     cd_esb	= 0x40  "64 byte-times (for 631xESB/632xESB)";
+    cd_internal =  0x42 "i350 internal phy mode";
   };
   register tctl rw addr(base, 0x400) "Transmit control" {
     _		1 mbz;
@@ -1482,5 +1514,15 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
       ipv6	= 0x5 "IPv6 hash";
   };
 
+ /************************************
+  * Virtualization Registers
+  ***********************************/
+  register txswc rw addr(base, 0x5ACC) {
+    macas       8 "Enable anti spoofing filter on MAC addresses";
+    vlanas      8 "Enable anti spoofing filter on VLAN tags";
+    lle         8 "Local loopback enable";
+    _           7 mbz;
+    loopback_en 1 "Enable VMDQ loopback.";
+   };
 
 };
