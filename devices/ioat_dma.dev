@@ -11,7 +11,7 @@
  *
  * DESCRIPTION: Crystal Beach DMA  Engine register descriptor 
  * 
- * This is derived from the "Intel ® Xeon ® Processor E5 v2 Product Family", 
+ * This is derived from the "Intel (R) Xeon (R) Processor E5 v2 Product Family", 
  * chapter 8.4 & 8.5, "Device 4, Function 0-7, Crystal Beach DMA". 
  * 
  */
