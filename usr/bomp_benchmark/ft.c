@@ -1,24 +1,24 @@
 /*--------------------------------------------------------------------
-  
+
   NAS Parallel Benchmarks 2.3 OpenMP C versions - FT
 
   This benchmark is an OpenMP C version of the NPB FT code.
-  
+
   The OpenMP C versions are developed by RWCP and derived from the serial
   Fortran versions in "NPB 2.3-serial" developed by NAS.
 
   Permission to use, copy, distribute and modify this software for any
   purpose with or without fee is hereby granted.
   This software is provided "as is" without express or implied warranty.
-  
+
   Send comments on the OpenMP C versions to pdp-openmp@rwcp.or.jp
 
   Information on OpenMP activities at RWCP is available at:
 
            http://pdplab.trc.rwcp.or.jp/pdperf/Omni/
-  
+
   Information on NAS Parallel Benchmarks 2.3 is available at:
-  
+
            http://www.nas.nasa.gov/NAS/NPB/
 
 --------------------------------------------------------------------*/
@@ -28,7 +28,7 @@
            W. Saphir
 
   OpenMP C version: S. Satoh
-  
+
 --------------------------------------------------------------------*/
 
 #include <stdint.h>
@@ -82,23 +82,23 @@ static int realmain(void *carg)
 c-------------------------------------------------------------------*/
 
     int i, ierr;
-      
+
 /*------------------------------------------------------------------
-c u0, u1, u2 are the main arrays in the problem. 
-c Depending on the decomposition, these arrays will have different 
-c dimensions. To accomodate all possibilities, we allocate them as 
-c one-dimensional arrays and pass them to subroutines for different 
+c u0, u1, u2 are the main arrays in the problem.
+c Depending on the decomposition, these arrays will have different
+c dimensions. To accomodate all possibilities, we allocate them as
+c one-dimensional arrays and pass them to subroutines for different
 c views
 c  - u0 contains the initial (transformed) initial condition
 c  - u1 and u2 are working arrays
 c  - indexmap maps i,j,k of u0 to the correct i^2+j^2+k^2 for the
-c    time evolution operator. 
+c    time evolution operator.
 c-----------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
 c Large arrays are in common so that they are allocated on the
 c heap rather than the stack. This common block is not
-c referenced directly anywhere else. Padding is to avoid accidental 
+c referenced directly anywhere else. Padding is to avoid accidental
 c cache problems, since all array sizes are powers of two.
 c-------------------------------------------------------------------*/
     static dcomplex u0[NZ][NY][NX];
@@ -108,7 +108,7 @@ c-------------------------------------------------------------------*/
     static dcomplex u2[NZ][NY][NX];
     static dcomplex pad3[3];
     static int indexmap[NZ][NY][NX];
-    
+
     int iter;
     int nthreads = 1;
     double total_time, mflops;
@@ -117,9 +117,9 @@ c-------------------------------------------------------------------*/
 
     omp_set_num_threads(arg);
 /*--------------------------------------------------------------------
-c Run the entire problem once to make sure all data is touched. 
-c This reduces variable startup costs, which is important for such a 
-c short benchmark. The other NPB 2 implementations are similar. 
+c Run the entire problem once to make sure all data is touched.
+c This reduces variable startup costs, which is important for such a
+c short benchmark. The other NPB 2 implementations are similar.
 c-------------------------------------------------------------------*/
     for (i = 0; i < T_MAX; i++) {
 	timer_clear(i);
@@ -138,7 +138,7 @@ c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
 c Start over from the beginning. Note that all operations must
-c be timed, in contrast to other benchmarks. 
+c be timed, in contrast to other benchmarks.
 c-------------------------------------------------------------------*/
     for (i = 0; i < T_MAX; i++) {
 	timer_clear(i);
@@ -154,7 +154,7 @@ c-------------------------------------------------------------------*/
 #pragma omp single
    {
     compute_initial_conditions(u1, dims[0]);
-    
+
     fft_init (dims[0][0]);
    }
 
@@ -163,60 +163,60 @@ c-------------------------------------------------------------------*/
       timer_stop(T_SETUP);
     }
     if (TIMERS_ENABLED == TRUE) {
-#pragma omp master   
+#pragma omp master
       timer_start(T_FFT);
     }
     fft(1, u1, u0);
     if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
       timer_stop(T_FFT);
     }
 
     for (iter = 1; iter <= niter; iter++) {
 	if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_start(T_EVOLVE);
 	}
-	
+
 	evolve(u0, u1, iter, indexmap, dims[0]);
-	
+
         if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_stop(T_EVOLVE);
 	}
         if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_start(T_FFT);
 	}
-	
+
         fft(-1, u1, u2);
-	
+
         if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_stop(T_FFT);
 	}
         if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_start(T_CHECKSUM);
 	}
-	
+
         checksum(iter, u2, dims[0]);
-	
+
         if (TIMERS_ENABLED == TRUE) {
-#pragma omp master      
+#pragma omp master
 	  timer_stop(T_CHECKSUM);
 	}
     }
-    
+
 #pragma omp single
     verify(NX, NY, NZ, niter, &verified, &class);
-    
+
 #if defined(_OPENMP)
-#pragma omp master    
+#pragma omp master
     nthreads = omp_get_num_threads();
-#endif /* _OPENMP */    
+#endif /* _OPENMP */
   } /* end parallel */
-  
+
     timer_stop(T_TOTAL);
     total_time = timer_read(T_TOTAL);
 
@@ -255,7 +255,7 @@ c-------------------------------------------------------------------*/
 
     int i, j, k;
 
-#pragma omp for    
+#pragma omp for
     for (k = 0; k < d[2]; k++) {
 	for (j = 0; j < d[1]; j++) {
             for (i = 0; i < d[0]; i++) {
@@ -274,15 +274,15 @@ static void compute_initial_conditions(dcomplex u0[NZ][NY][NX], int d[3]) {
 c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
-c Fill in array u0 with initial conditions from 
-c random number generator 
+c Fill in array u0 with initial conditions from
+c random number generator
 c-------------------------------------------------------------------*/
 
     int k;
     double x0, start, an, dummy;
     static double tmp[NX*2*MAXDIM+1];
     int i,j,t;
-      
+
     start = SEED;
 /*--------------------------------------------------------------------
 c Jump to the starting element for our first plane.
@@ -290,21 +290,21 @@ c-------------------------------------------------------------------*/
     ipow46(A, (zstart[0]-1)*2*NX*NY + (ystart[0]-1)*2*NX, &an);
     dummy = randlc(&start, an);
     ipow46(A, 2*NX*NY, &an);
-      
+
 /*--------------------------------------------------------------------
 c Go through by z planes filling in one square at a time.
 c-------------------------------------------------------------------*/
     for (k = 0; k < dims[0][2]; k++) {
 	x0 = start;
         vranlc(2*NX*dims[0][1], &x0, A, tmp);
-	
+
 	t = 1;
 	for (j = 0; j < dims[0][1]; j++)
 	  for (i = 0; i < NX; i++) {
 	    u0[k][j][i].real = tmp[t++];
 	    u0[k][j][i].imag = tmp[t++];
 	  }
-	      
+
         if (k != dims[0][2]) dummy = randlc(&start, an);
     }
 }
@@ -358,7 +358,7 @@ static void setup(void) {
 c-------------------------------------------------------------------*/
 
     int ierr, i, j, fstatus;
-      
+
     printf("\n\n NAS Parallel Benchmarks 2.3 OpenMP C version"
 	   " - FT Benchmark\n\n");
 
@@ -392,15 +392,15 @@ c-------------------------------------------------------------------*/
 c Set up info for blocking of ffts and transposes.  This improves
 c performance on cache-based systems. Blocking involves
 c working on a chunk of the problem at a time, taking chunks
-c along the first, second, or third dimension. 
+c along the first, second, or third dimension.
 c
 c - In cffts1 blocking is on 2nd dimension (with fft on 1st dim)
 c - In cffts2/3 blocking is on 1st dimension (with fft on 2nd and 3rd dims)
 
-c Since 1st dim is always in processor, we'll assume it's long enough 
+c Since 1st dim is always in processor, we'll assume it's long enough
 c (default blocking factor is 16 so min size for 1st dim is 16)
-c The only case we have to worry about is cffts1 in a 2d decomposition. 
-c so the blocking factor should not be larger than the 2nd dimension. 
+c The only case we have to worry about is cffts1 in a 2d decomposition.
+c so the blocking factor should not be larger than the 2nd dimension.
 c-------------------------------------------------------------------*/
 
     fftblock = FFTBLOCK_DEFAULT;
@@ -408,7 +408,7 @@ c-------------------------------------------------------------------*/
 
     if (fftblock != FFTBLOCK_DEFAULT) fftblockpad = fftblock+3;
 }
-      
+
 /*--------------------------------------------------------------------
 c-------------------------------------------------------------------*/
 
@@ -418,23 +418,23 @@ static void compute_indexmap(int indexmap[NZ][NY][NX], int d[3]) {
 c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
-c compute function from local (i,j,k) to ibar^2+jbar^2+kbar^2 
-c for time evolution exponent. 
+c compute function from local (i,j,k) to ibar^2+jbar^2+kbar^2
+c for time evolution exponent.
 c-------------------------------------------------------------------*/
 
     int i, j, k, ii, ii2, jj, ij2, kk;
     double ap;
 
 /*--------------------------------------------------------------------
-c basically we want to convert the fortran indices 
-c   1 2 3 4 5 6 7 8 
-c to 
+c basically we want to convert the fortran indices
+c   1 2 3 4 5 6 7 8
+c to
 c   0 1 2 3 -4 -3 -2 -1
 c The following magic formula does the trick:
 c mod(i-1+n/2, n) - n/2
 c-------------------------------------------------------------------*/
 
-#pragma omp for    
+#pragma omp for
     for (i = 0; i < dims[2][0]; i++) {
 	ii =  (i+1+xstart[2]-2+NX/2)%NX - NX/2;
 	ii2 = ii*ii;
@@ -449,7 +449,7 @@ c-------------------------------------------------------------------*/
     }
 
 /*--------------------------------------------------------------------
-c compute array of exponentials for time evolution. 
+c compute array of exponentials for time evolution.
 c-------------------------------------------------------------------*/
 #pragma omp single
   {
@@ -473,11 +473,11 @@ c-------------------------------------------------------------------*/
 
     int i;
     char *tstrings[] = { "          total ",
-			 "          setup ", 
-			 "            fft ", 
-			 "         evolve ", 
-			 "       checksum ", 
-			 "         fftlow ", 
+			 "          setup ",
+			 "            fft ",
+			 "         evolve ",
+			 "       checksum ",
+			 "         fftlow ",
 			 "        fftcopy " };
 
     for (i = 0; i < T_MAX; i++) {
@@ -536,7 +536,7 @@ c-------------------------------------------------------------------*/
 	logd[i] = ilog2(d[i]);
     }
 
-#pragma omp for	
+#pragma omp for
     for (k = 0; k < d[2]; k++) {
 	for (jj = 0; jj <= d[1] - fftblock; jj+=fftblock) {
 /*          if (TIMERS_ENABLED == TRUE) timer_start(T_FFTCOPY); */
@@ -547,11 +547,11 @@ c-------------------------------------------------------------------*/
 		}
 	    }
 /*          if (TIMERS_ENABLED == TRUE) timer_stop(T_FFTCOPY); */
-            
+
 /*          if (TIMERS_ENABLED == TRUE) timer_start(T_FFTLOW); */
             cfftz (is, logd[0],
 		   d[0], y0, y1);
-	    
+
 /*          if (TIMERS_ENABLED == TRUE) timer_stop(T_FFTLOW); */
 /*          if (TIMERS_ENABLED == TRUE) timer_start(T_FFTCOPY); */
             for (j = 0; j < fftblock; j++) {
@@ -583,7 +583,7 @@ c-------------------------------------------------------------------*/
     for (i = 0; i < 3; i++) {
 	logd[i] = ilog2(d[i]);
     }
-#pragma omp for	
+#pragma omp for
     for (k = 0; k < d[2]; k++) {
         for (ii = 0; ii <= d[0] - fftblock; ii+=fftblock) {
 /*	    if (TIMERS_ENABLED == TRUE) timer_start(T_FFTCOPY); */
@@ -595,9 +595,9 @@ c-------------------------------------------------------------------*/
 	    }
 /*	    if (TIMERS_ENABLED == TRUE) timer_stop(T_FFTCOPY); */
 /*	    if (TIMERS_ENABLED == TRUE) timer_start(T_FFTLOW); */
-	    cfftz (is, logd[1], 
+	    cfftz (is, logd[1],
 		   d[1], y0, y1);
-           
+
 /*          if (TIMERS_ENABLED == TRUE) timer_stop(T_FFTLOW); */
 /*          if (TIMERS_ENABLED == TRUE) timer_start(T_FFTCOPY); */
            for (j = 0; j < d[1]; j++) {
@@ -628,7 +628,7 @@ c-------------------------------------------------------------------*/
     for (i = 0;i < 3; i++) {
 	logd[i] = ilog2(d[i]);
     }
-#pragma omp for	
+#pragma omp for
     for (j = 0; j < d[1]; j++) {
         for (ii = 0; ii <= d[0] - fftblock; ii+=fftblock) {
 /*	    if (TIMERS_ENABLED == TRUE) timer_start(T_FFTCOPY); */
@@ -666,7 +666,7 @@ static void fft_init (int n) {
 c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
-c compute the roots-of-unity array that will be used for subsequent FFTs. 
+c compute the roots-of-unity array that will be used for subsequent FFTs.
 c-------------------------------------------------------------------*/
 
     int m,nu,ku,i,j,ln;
@@ -686,13 +686,13 @@ c-------------------------------------------------------------------*/
 
     for (j = 1; j <= m; j++) {
 	t = PI / ln;
-         
+
 	for (i = 0; i <= ln - 1; i++) {
             ti = i * t;
             u[i+ku].real = cos(ti);
 	    u[i+ku].imag = sin(ti);
 	}
-         
+
 	ku = ku + ln;
 	ln = 2 * ln;
     }
@@ -710,10 +710,10 @@ c-------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
 c   Computes NY N-point complex-to-complex FFTs of X using an algorithm due
-c   to Swarztrauber.  X is both the input and the output array, while Y is a 
-c   scratch array.  It is assumed that N = 2^M.  Before calling CFFTZ to 
-c   perform FFTs, the array U must be initialized by calling CFFTZ with IS 
-c   set to 0 and M set to MX, where MX is the maximum value of M for any 
+c   to Swarztrauber.  X is both the input and the output array, while Y is a
+c   scratch array.  It is assumed that N = 2^M.  Before calling CFFTZ to
+c   perform FFTs, the array U must be initialized by calling CFFTZ with IS
+c   set to 0 and M set to MX, where MX is the maximum value of M for any
 c   subsequent call.
 c-------------------------------------------------------------------*/
 
@@ -789,7 +789,7 @@ c-------------------------------------------------------------------*/
     ku = li;
 
     for (i = 0; i < li; i++) {
-      
+
         i11 = i * lk;
         i12 = i11 + n1;
         i21 = i * lj;
@@ -859,7 +859,7 @@ c-------------------------------------------------------------------*/
 
     int j, q,r,s, ierr;
     dcomplex chk,allchk;
-    
+
     chk.real = 0.0;
     chk.imag = 0.0;
 
@@ -883,7 +883,7 @@ c-------------------------------------------------------------------*/
     }
 #pragma omp barrier
 #pragma omp single
-  {    
+  {
     /* complex % real */
     sums[i].real = sums[i].real/(double)(NTOTAL);
     sums[i].imag = sums[i].imag/(double)(NTOTAL);
@@ -909,7 +909,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c   Sample size reference checksums
 c-------------------------------------------------------------------*/
-    
+
 /*--------------------------------------------------------------------
 c   Class S size reference checksums
 c-------------------------------------------------------------------*/
@@ -940,8 +940,8 @@ c-------------------------------------------------------------------*/
     double vdata_imag_w[6+1] = { 0.0,
 				 5.293246849175e+02,
 				 5.282149986629e+02,
-				 5.270996558037e+02, 
-				 5.260027904925e+02, 
+				 5.270996558037e+02,
+				 5.260027904925e+02,
 				 5.249400845633e+02,
 				 5.239212247086e+02 };
 /*--------------------------------------------------------------------
@@ -987,20 +987,20 @@ c-------------------------------------------------------------------*/
 				  5.124146770029e+02 };
     double vdata_imag_b[20+1] = { 0.0,
 				  5.077803458597e+02,
-				  5.088249431599e+02,                  
+				  5.088249431599e+02,
 				  5.096208912659e+02,
-				  5.101023387619e+02,                  
-				  5.103976610617e+02,                  
-				  5.105948019802e+02,                  
-				  5.107404165783e+02,                  
-				  5.108576573661e+02,                  
+				  5.101023387619e+02,
+				  5.103976610617e+02,
+				  5.105948019802e+02,
+				  5.107404165783e+02,
+				  5.108576573661e+02,
 				  5.109577278523e+02,
-				  5.110460304483e+02,                  
-				  5.111252433800e+02,                  
-				  5.111968077718e+02,                  
-				  5.112616233064e+02,                  
-				  5.113203605551e+02,                  
-				  5.113735928093e+02,                  
+				  5.110460304483e+02,
+				  5.111252433800e+02,
+				  5.111968077718e+02,
+				  5.112616233064e+02,
+				  5.113203605551e+02,
+				  5.113735928093e+02,
 				  5.114218460548e+02,
 				  5.114656139760e+02,
 				  5.115053595966e+02,
@@ -1142,7 +1142,7 @@ c-------------------------------------------------------------------*/
 	    }
 	}
     }
-    
+
     if (*class != 'U') {
 	printf("Result verification successful\n");
     } else {
@@ -1162,7 +1162,7 @@ int main(int argc, char** argv)
 
 #ifdef BOMP
     backend_span_domain(atoi(argv[1]), STACK_SIZE);
-    bomp_custom_init();
+    bomp_custom_init(NULL);
     backend_thread_create_varstack(realmain, (void*)((uint64_t)atoi(argv[1])),
                                    STACK_SIZE);
     backend_thread_exit();
