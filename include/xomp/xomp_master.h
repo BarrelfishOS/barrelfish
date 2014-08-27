@@ -24,7 +24,7 @@ errval_t xomp_master_init(struct xomp_args *args);
 /**
  * \brief Spawns the worker threads on the Xeon Phi
  *
- * \param nworkers  Number of worker thread to be spawned per Xeon Phi
+ * \param nworkers    Number of total workers this includes the Master
  *
  * \returns SYS_ERR_OK on success
  *          errval on failure

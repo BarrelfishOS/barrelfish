@@ -368,8 +368,6 @@ errval_t xomp_master_init(struct xomp_args *args)
 {
     errval_t err;
 
-
-
     if (xomp_master_initialized) {
         XMI_DEBUG("WARNIG: XOMP master already initialized\n");
         return SYS_ERR_OK;
@@ -379,13 +377,18 @@ errval_t xomp_master_init(struct xomp_args *args)
         return -1;  // TODO: ERRNO
     }
 
+    if (args->core_stride != 0) {
+        core_stride = args->core_stride;
+    } else {
+        core_stride = BOMP_DEFAULT_CORE_STRIDE;
+    }
+
     if (args->type == XOMP_ARG_TYPE_UNIFORM) {
         num_phi = args->args.uniform.nphi;
-        core_stride = args->args.uniform.core_stride;
         worker_loc = args->args.uniform.worker_loc;
     } else {
         num_phi = args->args.distinct.nphi;
-        core_stride = args->args.distinct.core_stride;
+
         worker_loc = args->args.distinct.worker_loc;
     }
 
@@ -473,7 +476,7 @@ errval_t xomp_master_init(struct xomp_args *args)
 /**
  * \brief Spawns the worker threads on the Xeon Phi
  *
- * \param nworkers  Number of total workers this includes the Master
+ * \param nworkers    Number of total workers this includes the Master
  *
  * \returns SYS_ERR_OK on success
  *          errval on failure
@@ -613,7 +616,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
                 return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
             }
             worker->type = XOMP_WORKER_TYPE_REMOTE;
-            core++;
+            core += 1; // no stride on xeon phi
         }
 
         XMI_DEBUG("waiting for client %p to connect...\n", worker);
@@ -799,7 +802,9 @@ errval_t xomp_master_do_work(struct xomp_task *task)
             worker = &xmaster.local.workers[xmaster.local.next++];
             if (xmaster.local.next == xmaster.local.num) {
                 xmaster.local.next = 0;
-            }XMP_DEBUG("host worker id:%lx\n", worker->id);
+            }
+
+            XMP_DEBUG("host worker id:%lx\n", worker->id);
             fn = (uint64_t) task->fn;
             assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
         } else {
@@ -828,8 +833,10 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         /* XXX: hack, we do not know how big the data section is... */
         uint64_t *src = task->arg;
         uint64_t *dst = (uint64_t *)(work + 1);
-        while(*src != 0) {
+        uint32_t bytes = 0;
+        while(*src != 0 || bytes < 128) {
             *dst++ = *src++;
+            bytes += 8;
         }
 
         struct txq_msg_st *msg_st = txq_msg_st_alloc(&worker->txq);

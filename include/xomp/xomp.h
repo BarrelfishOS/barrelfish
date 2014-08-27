@@ -28,7 +28,7 @@
 #define XOMP_FRAME_SIZE (XOMP_MSG_FRAME_SIZE + XOMP_TLS_SIZE)
 
 /// enables the XOMP worker to enable DMA
-#define XOMP_WORKER_ENABLE_DMA 1
+#define XOMP_WORKER_ENABLE_DMA 0
 
 /* Typedefs */
 
@@ -92,6 +92,7 @@ struct xomp_spawn {
 struct xomp_args
 {
     xomp_arg_t type;
+    coreid_t core_stride;
     union {
         struct {
             xomp_wid_t id;
@@ -100,7 +101,6 @@ struct xomp_args
             uint32_t nthreads;
             xomp_wloc_t worker_loc;
             uint8_t nphi;
-            coreid_t core_stride;
             uint8_t argc;
             char **argv;
         } uniform;
@@ -108,7 +108,6 @@ struct xomp_args
             uint32_t nthreads;
             xomp_wloc_t worker_loc;
             uint8_t nphi;
-            coreid_t core_stride;
             struct xomp_spawn local;
             struct xomp_spawn remote;
         } distinct;

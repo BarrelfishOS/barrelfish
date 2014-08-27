@@ -79,12 +79,12 @@ errval_t start_master(int argc,
     bench_init();
     struct xomp_args args = {
         .type = XOMP_ARG_TYPE_UNIFORM,
+        .core_stride = 0,
         .args = {
             .uniform = {
                 .nthreads = 0,
                 .worker_loc = XOMP_WORKER_LOC_MIXED,
                 .nphi = 2,
-                .core_stride = 0,
                 .argc = argc,
                 .argv = argv
             }

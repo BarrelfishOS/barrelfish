@@ -23,6 +23,7 @@
 
 #include <barrelfish/barrelfish.h>
 
+#define BOMP_DEFAULT_CORE_STRIDE 2
 
 typedef void (*bomp_thread_fn_t)(void *);
 
