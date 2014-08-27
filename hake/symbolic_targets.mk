@@ -175,7 +175,7 @@ MODULES_x86_64= \
 	sbin/sshd \
 	sbin/lshw \
 	sbin/xeon_phi \
-	sbin/xeon_phi_manager \
+	sbin/xeon_phi_mgr \
 	sbin/xeon_phi_inter \
 	sbin/spin \
 	sbin/xeon_phi_test \
@@ -183,7 +183,7 @@ MODULES_x86_64= \
 	sbin/virtio_blk \
 	sbin/ioat_dma \
 	sbin/dma_test \
-	sbin/dma_mgr 
+	sbin/dma_mgr
 #	sbin/block_server \
 #	sbin/block_server_client \
 #	sbin/bs_user \
@@ -192,7 +192,7 @@ MODULES_x86_64= \
 #	sbin/bulkbench_micro_echo \
 #	sbin/bulkbench_micro_throughput \
 #	sbin/bulkbench_micro_rtt \
-	
+
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -349,7 +349,7 @@ else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
 else ifeq ($(ARCH), k1om)
-	# what is the emulation option for the xeon phi ?  
+	# what is the emulation option for the xeon phi ?
 	QEMU=unknown-arch-error
 	GDB=x86_64-k1om-barrelfish-gdb
 endif
@@ -499,7 +499,7 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 ######################################################################
 #
 # Intel Xeon Phi Builds
-# 	
+#
 ######################################################################
 
 # Intel Xeon Phi-specific modules
@@ -517,7 +517,7 @@ XEON_PHI_MODULES =\
 	k1om/sbin/virtio_blk \
 	k1om/sbin/ump_latency \
 	k1om/sbin/xeon_phi_inter
-	
+
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
@@ -526,38 +526,38 @@ k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
 		tools/bin/weever_multiboot \
 		tools/bin/weever_creator
-		
-	
+
+
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Stage 1 - Generating multiboot image"
 	@echo "-------------------------------------------------------------------"
-	@echo ""	
-	
+	@echo ""
+
 	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om multiboot
 	tools/bin/weever_multiboot multiboot/mbmenu.lst.k1om mbi.c
 	cp mbi.c $(SRCDIR)/tools/weever/mbi.c
-	
+
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Stage 2 - Building bootloader"
 	@echo "-------------------------------------------------------------------"
 	@echo ""
-	
+
 	+make k1om/sbin/weever  > /dev/null
 	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever ./weever.bin
 	tools/bin/weever_creator ./weever.bin > ./weever
-	
+
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Stage 3 - Uploading"
 	@echo "-------------------------------------------------------------------"
 	@echo ""
 	@echo "Uploading to emmentaler..."
-	
+
 	ssh emmentaler.ethz.ch "rackpower -r babybel"
 	$(SRCDIR)/tools/weever/install.sh
-	
+
 	@echo ""
 	@echo "-------------------------------------------------------------------"
 	@echo "Done."
