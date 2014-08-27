@@ -35,12 +35,46 @@
 struct xeon_phi xphi;
 
 /**
+ * \brief mounts the NFS path given by parameter
+ *
+ * \param uri   NFS uri to mount
+ *              NULL if multiboot path is used instead
+ *
+ * \return SYS_ERR_OK on success
+ *         errval on error
+ */
+static errval_t mount_nfs_path(char *uri)
+{
+    errval_t err;
+
+    if (uri == NULL) {
+        return SYS_ERR_OK;
+    }
+
+    err = vfs_mkdir(XEON_PHI_NFS_MNT);
+    switch(err_no(err)) {
+        case SYS_ERR_OK:
+        case FS_ERR_EXISTS:
+            break;
+        default:
+            return err;
+    }
+
+    return  vfs_mount(XEON_PHI_NFS_MNT, uri);
+}
+
+
+/**
  * \brief Main function of the Xeon Phi Driver (Host Side)
  */
 int main(int argc,
          char *argv[])
 {
     errval_t err;
+
+    char *xeon_phi_bootloader_path = XEON_PHI_BOOTLOADER;
+    char *xeon_phi_nfs_uri = XEON_PHI_NFS_PATH;
+    char *xeon_phi_multiboot_path = XEON_PHI_MULTIBOOT;
 
     XDEBUG("Xeon Phi host module started.\n");
 
@@ -79,6 +113,24 @@ int main(int argc,
                "[0,0,0]\n");
     }
 
+    for (uint8_t i = 1; i < argc - 1; ++i) {
+        if (strncmp(argv[i], "-nfs=", 5)==0) {
+            xeon_phi_nfs_uri = argv[i] + 5;
+            xphi.use_nfs = 1;
+        } else if (strncmp(argv[i], "-bootloader=", 12)==0) {
+            xeon_phi_bootloader_path = argv[i] + 12;
+        } else if (strncmp(argv[i], "-multiboot=", 11)==0) {
+            xeon_phi_multiboot_path = argv[i] + 11;
+        } else if (strncmp(argv[i], "auto", 4)==0) {
+            /* no op */
+        } else {
+            XDEBUG("WARNING: unknown argument {%s}\n", argv[i]);
+        }
+    }
+
+    XDEBUG("Xeon Phi Images: bootloader: {%s}, multiboot: {%s}, nfs: {%s}\n",
+           xeon_phi_bootloader_path, xeon_phi_multiboot_path, xeon_phi_nfs_uri);
+
     /* set the client flag to false */
     xphi.is_client = XEON_PHI_IS_CLIENT;
 
@@ -87,6 +139,12 @@ int main(int argc,
     err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "initializing octopus\n");
+    }
+
+    // map the nfs path
+    err = mount_nfs_path(xeon_phi_nfs_uri);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not map the NFS paths");
     }
 
     err = service_init(&xphi);
@@ -113,7 +171,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not register with the other drivers");
     }
 
-    err = xeon_phi_boot(&xphi, XEON_PHI_BOOTLOADER, XEON_PHI_MULTIBOOT);
+    err = xeon_phi_boot(&xphi, xeon_phi_bootloader_path, xeon_phi_multiboot_path);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not boot the card\n");
     }

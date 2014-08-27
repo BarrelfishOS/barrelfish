@@ -87,15 +87,30 @@ static uint64_t get_adapter_memsize(void)
 
 
 static errval_t load_module(char *path,
+                            uint8_t use_nfs,
                             void *buf,
                             uint64_t *ret_size)
 {
     errval_t err;
 
+    char *mod_path = path;
+    if (use_nfs) {
+        size_t path_size = strlen(path) + strlen(XEON_PHI_NFS_MNT) + 2;
+        mod_path = malloc(path_size);
+        if (mod_path == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+        if (path[0] == '/') {
+            snprintf(mod_path, path_size, "%s%s", XEON_PHI_NFS_MNT, path);
+        } else {
+            snprintf(mod_path, path_size, "%s/%s", XEON_PHI_NFS_MNT, path);
+        }
+    }
+
 
     /* read file into memory */
     vfs_handle_t fh;
-    err = vfs_open(path, &fh);
+    err = vfs_open(mod_path, &fh);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);
     }
@@ -193,7 +208,7 @@ static errval_t load_bootloader(struct xeon_phi *phi,
 
     void *buf = (void *) (phi->apt.vbase + loadoffset);
 
-    err = load_module(xloader_img, buf, &imgsize);
+    err = load_module(xloader_img, phi->use_nfs, buf, &imgsize);
     if (err_is_fail(err)) {
         return err;
     }
@@ -246,7 +261,7 @@ static errval_t load_multiboot_image(struct xeon_phi *phi,
 
     void *buf = (void *) (phi->apt.vbase + load_offset);
 
-    err = load_module(multiboot_img, buf, &imgsize);
+    err = load_module(multiboot_img, phi->use_nfs, buf, &imgsize);
     if (err_is_fail(err)) {
         return err;
     }

@@ -31,7 +31,7 @@ ALIGNMENT=4096
 # Prefix prepended to each output file within the directory
 # $OUTPUT_PREFIX (for safety, this means we can clean the directory
 # by removing everything with this prefix)
-FILE_PREFIX=mb
+FILE_PREFIX=multiboot
 
 # Set up output direcotry
 if [ -e $OUTPUT_PREFIX  ] && [ ! -d $OUTPUT_PREFIX ]; then
@@ -52,8 +52,8 @@ fi
 # Get list of binaries to translate
 
 
-MBIMG=$OUTPUT_PREFIX/${FILE_PREFIX}img
-MBHEADER=$OUTPUT_PREFIX/${FILE_PREFIX}$MENU_LST
+MBIMG=$OUTPUT_PREFIX/xeon_phi_multiboot
+MBHEADER=$OUTPUT_PREFIX/${FILE_PREFIX}.$MENU_LST
 
 
 OFFSET=0

@@ -61,7 +61,9 @@ let arch = "k1om"
                              NoDep SrcTree "src" "/include/oldc", 
                              NoDep SrcTree "src" "/include/c", 
                              NoDep SrcTree "src" "/include/arch/k1om",
+                             NoDep SrcTree "src" "/tools/weever",   
                              NoDep BuildTree arch "/include" ],
+             optDependencies = [Dep BuildTree arch "/tools/weever/mbi.c"],                         
              optDefines = [],
              optLibs = [],
              optLdFlags = [ Str s | s <- [ "-Wl,-N ",
@@ -72,17 +74,17 @@ let arch = "k1om"
                                  "-Wl,--fatal-warnings ",
                                  "-m64 ",
                                  "-e startup_32",
---                               "-T../tools/weever/linker.lds",
                                  "-Wl,--build-id=none" ] ] ++
                                  [Str "-T", In SrcTree "src" "/tools/weever/linker.lds"], 
              optSuffix = "_for_weever" 
            }
-    objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c",
-    									    "elf64.c", "mbi.c" ] ]
+    objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c", "elf64.c" ] ]
+                ++ [generatedObjectFilePath opts "/tools/weever/mbi.c"]
                                             
 in 
-  [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c", "mbi.c"],
+  [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c" ],
+    compileGeneratedCFiles opts ["/tools/weever/mbi.c"],
     assembleSFiles opts [ "boot.S" ],
-    link opts objs [] "weever"
+    link opts objs [] "weever_elf"
   ]
   

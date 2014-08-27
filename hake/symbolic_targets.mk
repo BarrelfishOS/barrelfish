@@ -26,6 +26,9 @@ ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
+# upload Xeon Phi images to nfs share (leave blank to cancel)
+BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/local/nfs/barrelfish/xeon_phi"
+
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
 	sbin/rcce_lu_A1 \
@@ -212,6 +215,12 @@ MODULES_x86_64= \
 	sbin/bulk_shm \
 	$(GREEN_MARL)
 
+MODULES_k1om= \
+    sbin/weever \
+	sbin/cpu \
+	sbin/skb \
+	sbin/xeon_phi \
+	xeon_phi_multiboot
 	
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -317,14 +326,28 @@ INSTALL_PREFIX ?= /home/netos/tftpboot/$(USER)
 
 # Only install a binary if it doesn't exist in INSTALL_PREFIX or the modification timestamp differs
 install: $(MODULES)
+	@echo off; \
+	echo ""; \
+	echo "Installing modules..." ; \
 	for m in ${MODULES}; do \
 	  if [ ! -f ${INSTALL_PREFIX}/$$m ] || \
 	      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then \
-	    echo Installing $$m; \
-	    mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
-	    install -p $$m ${INSTALL_PREFIX}/$$m; \
+	       if [ "$$m" != "k1om/xeon_phi_multiboot" ]; then \
+	      	echo "  > Installing $$m" ; \
+	    	mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
+	    	install -p $$m ${INSTALL_PREFIX}/$$m; \
+	      fi; \
 	  fi; \
-	done;
+	done; \
+	if [ -f "k1om/xeon_phi_multiboot" ] && [ $(BARRELFISH_NFS_DIR)  ]; then \
+		echo ""; \
+		echo "Uploading to NFS share $(BARRELFISH_NFS_DIR) ..." ; \
+		scp k1om/xeon_phi_multiboot $(BARRELFISH_NFS_DIR); \
+		scp k1om/sbin/weever $(BARRELFISH_NFS_DIR); \
+	fi; \
+	echo ""; \
+	echo "done." ; \
+	
 .PHONY : install
 
 sim: simulate
@@ -540,6 +563,26 @@ XEON_PHI_MODULES =\
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
+	
+k1om/multiboot.menu.lst.k1om: $(XEON_PHI_MODULES) menu.lst.k1om
+	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
+	
+k1om/tools/weever:
+	mkdir k1om/tools/weever
+		
+k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
+						 k1om/multiboot.menu.lst.k1om \
+						 k1om/tools/weever
+	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
+	
+k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
+	tools/bin/weever_creator ./k1om/sbin/weever.bin > ./k1om/sbin/weever
+
+k1om/sbin/weever.bin: k1om/sbin/weever_elf
+	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
+	
+k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om 
+	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 
 k1om: $(XEON_PHI_MODULES) \
 		menu.lst.k1om \
