@@ -221,6 +221,29 @@ static void mappings_from_cmdline(uintptr_t my_arch_id, const char *str)
         next++;
     }
 
+    if(!strncmp(str,"bootk1om=",strlen("bootk1om="))) {
+        char *p = strchr(str, '=');
+        assert(p != NULL);
+        p++;
+
+        int num = strtol(p, (char **)&p, 10) - 1; // subtract one for the BSP
+        debug_printf("initializing %u cores\n", num);
+        int i = 0;
+        while(num) {
+            if (i != my_arch_id) {
+                assert(next <= MAX_COREID);
+                coreid_mappings[next].arch_id = i;
+                coreid_mappings[next].present = true;
+                if (++next == my_core_id) {
+                    next++;
+                }
+                --num;
+            }
+            i+= 4;// Xeon Phi has 4 threads per core
+        }
+        return;
+    }
+
     char *p = strchr(str, '=');
     assert(p != NULL);
     p++;
