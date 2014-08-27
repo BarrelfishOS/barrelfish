@@ -211,6 +211,61 @@ elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     return sym;
 }
 
+uint32_t
+elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                           const char *name, uint8_t contains, uint8_t type)
+{
+    struct Elf64_Sym *sym = NULL;
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+    const char *symname = NULL;
+
+    uint32_t count = 0;
+
+    lvaddr_t elfbase = (lvaddr_t)elf_base;
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return 0;
+    }
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
+
+    for (uintptr_t i = 0; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
+        // getting the symbol
+        sym = (struct Elf64_Sym *)(symbase + i);
+
+        // check for matching type
+        if ((sym->st_info & 0x0F) != type) {
+            continue;
+        }
+
+        // find the section of the associated string table
+        struct Elf64_Shdr *strtab = shead+symtab->sh_link;
+
+        // get the pointer to the symbol name from string table + string index
+        symname = (const char *)elfbase + strtab->sh_offset + sym->st_name;
+
+        if (!contains) {
+            if (strcmp(symname, name)==0) {
+                /* we have a match */
+                count++;
+            }
+        } else {
+            if (strstr(symname,name) != NULL) {
+                count++;
+            }
+        }
+    }
+
+    return count;
+}
+
 const char *elf64_get_symbolname(struct Elf64_Ehdr *head,
                                  struct Elf64_Sym *sym)
 {

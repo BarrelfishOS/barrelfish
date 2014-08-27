@@ -741,6 +741,12 @@ elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
                           const char *name,
                           uint8_t contains, uint8_t type,
                           uintptr_t *index);
+uint32_t
+elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type);
+uint32_t
+elf32_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type);
 struct Elf64_Sym *
 elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
                           lvaddr_t addr, uintptr_t *index);
