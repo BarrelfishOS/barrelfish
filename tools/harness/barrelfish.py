@@ -131,7 +131,7 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/kaluga" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
 
-        if machine == "sbrinz1" or machine == "sbrinz2":
+        if machine.name == "sbrinz1" or machine.name == "sbrinz2":
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"])
