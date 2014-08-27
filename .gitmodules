@@ -1,3 +1,0 @@
-[submodule "tools/green-marl"]
-	path = tools/green-marl
-	url = ssh://vcs-user@code.systems.ethz.ch:8006/diffusion/GM/green-marl.git
