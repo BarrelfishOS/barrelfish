@@ -85,7 +85,7 @@ class BootModules(object):
 
         if self.hypervisor:
             ret.append(self.hypervisor)
-            
+
         if self.machine.get_bootarch() == "arm_gem5":
         	ret.append('arm_gem5_harness_kernel')
         elif self.machine.get_bootarch() == "armv7_gem5_2":
@@ -130,7 +130,14 @@ def default_bootmodules(build, machine):
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
         m.add_module("%s/sbin/kaluga" % a, ["boot"])
 	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
-        m.add_module("%s/sbin/pci" % a, ["auto"])
+
+        if machine == "sbrinz1" or machine == "sbrinz2":
+            # PCI allocation broken, use BIOS plan
+            m.add_module("%s/sbin/pci" % a, ["auto",
+                                             "skb_bridge_program=bridge_bios"])
+        else:
+            m.add_module("%s/sbin/pci" % a, ["auto"])
+
 
     # ARM-specific stuff
     elif a == "armv5":
