@@ -33,15 +33,13 @@ ALIGNMENT=4096
 # by removing everything with this prefix)
 FILE_PREFIX=multiboot
 
+MBIMG=$OUTPUT_PREFIX/xeon_phi_multiboot
+MBHEADER=$OUTPUT_PREFIX/${FILE_PREFIX}.$MENU_LST
+
 # Set up output direcotry
 if [ -e $OUTPUT_PREFIX  ] && [ ! -d $OUTPUT_PREFIX ]; then
     echo "  !Error: $OUTPUT_PREFIX exists, but is not a directory"
     exit 1
-fi
-
-if [ -d $OUTPUT_PREFIX ]; then
-    echo "  Cleaning old directory $OUTPUT_PREFIX" 
-    rm -f $OUTPUT_PREFIX/$FILE_PREFIX*
 fi
 
 if [ ! -d $OUTPUT_PREFIX/ ]; then
@@ -49,11 +47,11 @@ if [ ! -d $OUTPUT_PREFIX/ ]; then
     mkdir $OUTPUT_PREFIX
 fi
 
+
+rm -f $MBIMG
+rm -f $MBHEADER
+
 # Get list of binaries to translate
-
-
-MBIMG=$OUTPUT_PREFIX/xeon_phi_multiboot
-MBHEADER=$OUTPUT_PREFIX/${FILE_PREFIX}.$MENU_LST
 
 
 OFFSET=0
