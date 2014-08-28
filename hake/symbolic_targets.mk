@@ -220,7 +220,8 @@ MODULES_k1om= \
 	sbin/cpu \
 	sbin/skb \
 	sbin/xeon_phi \
-	xeon_phi_multiboot
+	xeon_phi_multiboot \
+	$(GREEN_MARL)
 	
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -326,24 +327,28 @@ INSTALL_PREFIX ?= /home/netos/tftpboot/$(USER)
 
 # Only install a binary if it doesn't exist in INSTALL_PREFIX or the modification timestamp differs
 install: $(MODULES)
-	@echo off; \
-	echo ""; \
+	@echo ""; \
 	echo "Installing modules..." ; \
 	for m in ${MODULES}; do \
 	  if [ ! -f ${INSTALL_PREFIX}/$$m ] || \
 	      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then \
 	       if [ "$$m" != "k1om/xeon_phi_multiboot" ]; then \
-	      	echo "  > Installing $$m" ; \
-	    	mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
-	    	install -p $$m ${INSTALL_PREFIX}/$$m; \
-	      fi; \
+	         do_update=1; \
+	      	 echo "  > Installing $$m" ; \
+	    	 mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
+	    	 install -p $$m ${INSTALL_PREFIX}/$$m; \
+	       fi; \
 	  fi; \
 	done; \
-	if [ -f "k1om/xeon_phi_multiboot" ] && [ $(BARRELFISH_NFS_DIR)  ]; then \
-		echo ""; \
-		echo "Uploading to NFS share $(BARRELFISH_NFS_DIR) ..." ; \
-		scp k1om/xeon_phi_multiboot $(BARRELFISH_NFS_DIR); \
-		scp k1om/sbin/weever $(BARRELFISH_NFS_DIR); \
+	if [ ! $$do_update ]; then \
+		echo "  > All up to date" ; \
+	else \
+		if [ -f "k1om/xeon_phi_multiboot" ] && [ $(BARRELFISH_NFS_DIR)  ]; then \
+			echo ""; \
+			echo "Uploading to NFS share $(BARRELFISH_NFS_DIR) ..." ; \
+			scp k1om/xeon_phi_multiboot $(BARRELFISH_NFS_DIR); \
+			scp	k1om/sbin/weever $(BARRELFISH_NFS_DIR); \
+		fi; \
 	fi; \
 	echo ""; \
 	echo "done." ; \
@@ -554,25 +559,24 @@ XEON_PHI_MODULES =\
 	k1om/sbin/skb \
 	k1om/sbin/spawnd \
 	k1om/sbin/startd \
-	k1om/sbin/xeon_phi \
-	k1om/sbin/xeon_phi_test \
-	k1om/sbin/virtio_blk \
-	k1om/sbin/ump_latency \
-	k1om/sbin/xeon_phi_inter
+	k1om/sbin/gm_tc \
+	
+	#k1om/sbin/xeon_phi \
+	#k1om/sbin/xeon_phi_test \
+	#k1om/sbin/virtio_blk \
+	#k1om/sbin/ump_latency \
+	#k1om/sbin/xeon_phi_inter
 	
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
 	
-k1om/multiboot.menu.lst.k1om: $(XEON_PHI_MODULES) menu.lst.k1om
-	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
-	
-k1om/tools/weever:
-	mkdir k1om/tools/weever
+#k1om/multiboot.menu.lst.k1om: $(XEON_PHI_MODULES) menu.lst.k1om
+	#$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 		
 k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
-						 k1om/multiboot.menu.lst.k1om \
-						 k1om/tools/weever
+						 k1om/xeon_phi_multiboot \
+						 k1om/tools/weever/.marker
 	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
 	
 k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
