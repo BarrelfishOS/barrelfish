@@ -208,8 +208,12 @@ errval_t spawn_arch_load(struct spawninfo *si,
         return err;
     }
 
-    err = elf_get_eh_info(binary, binary_size, &si->eh_frame, &si->eh_frame_size,
-                          &si->eh_frame_hdr, &si->eh_frame_hdr_size);
+    lvaddr_t tmp, tmp2;
+    err = elf_get_eh_info(binary, binary_size, &tmp, &si->eh_frame_size,
+                          &tmp2, &si->eh_frame_hdr_size);
+    si->eh_frame = tmp;
+    si->eh_frame_hdr = tmp2;
+
     if (err_is_fail(err)) {
         return err;
     }
