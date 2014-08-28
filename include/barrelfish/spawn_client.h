@@ -12,7 +12,7 @@
 
 #include <sys/cdefs.h>
 #include <barrelfish_kpi/types.h>
-
+#include <spawndomain/spawndomain.h>
 __BEGIN_DECLS
 
 /// Flags for spawning a program
