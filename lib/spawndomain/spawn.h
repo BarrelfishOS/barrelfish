@@ -19,4 +19,8 @@ lvaddr_t map_module(struct mem_region *module, size_t *retsize);
 const char *getopt(const char **optstring, char *buf, size_t buflen,
                    size_t *optlen);
 
+errval_t spawn_symval_register(const char *binary, uint32_t idx,
+                               const char *symname, genvaddr_t addres);
+errval_t spawn_symval_lookup(const char *binary, uint32_t idx,
+                             char **ret_name, genvaddr_t *ret_add);
 #endif

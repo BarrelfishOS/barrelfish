@@ -13,11 +13,11 @@ interface spawn "Interface to spawn domains" {
     } ps_entry;
 
     rpc spawn_domain(in string path, in char argvbuf[argvbytes], in char envbuf[envbytes],
-                     out errval err, out domainid domain_id);
+                     in uint8 flags, out errval err, out domainid domain_id);
 
     rpc spawn_domain_with_caps(in string path, in char argvbuf[argvbytes],
                                in char envbuf[envbytes], in cap inheritcn_cap,
-                               in cap argcn_cap, out errval err,
+                               in cap argcn_cap, in uint8 flags, out errval err,
                                out domainid domain_id);
 
     rpc use_local_memserv();

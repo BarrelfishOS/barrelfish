@@ -32,7 +32,7 @@
 static errval_t spawn(char *path, char *const argv[], char *argbuf,
                       size_t argbytes, char *const envp[],
                       struct capref inheritcn_cap, struct capref argcn_cap,
-                      domainid_t *domainid)
+                      uint8_t flags, domainid_t *domainid)
 {
     errval_t err, msgerr;
 
@@ -88,6 +88,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
 
     /* spawn the image */
     struct spawninfo si;
+    si.flags = flags;
     err = spawn_load_image(&si, (lvaddr_t)image, info.size, CURRENT_CPU_TYPE,
                            name, my_core_id, argv, envp, inheritcn_cap,
                            argcn_cap);
@@ -294,7 +295,8 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
                                     char *argbuf, size_t argbytes,
                                     char *envbuf, size_t envbytes,
                                     struct capref inheritcn_cap,
-                                    struct capref argcn_cap)
+                                    struct capref argcn_cap,
+                                    uint8_t flags)
 {
     errval_t err;
     domainid_t domainid = 0;
@@ -334,7 +336,7 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
     vfs_path_normalise(path);
 
     err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
-                &domainid);
+                flags, &domainid);
     if (!capref_is_null(inheritcn_cap)) {
         errval_t err2;
         err2 = cap_delete(inheritcn_cap);
@@ -365,10 +367,11 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
 
 
 static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
-                          size_t argbytes, char *envbuf, size_t envbytes)
+                          size_t argbytes, char *envbuf, size_t envbytes,
+                          uint8_t flags)
 {
     spawn_with_caps_handler(b, path, argbuf, argbytes, envbuf, envbytes,
-                            NULL_CAP, NULL_CAP);
+                            NULL_CAP, NULL_CAP, flags);
 }
 
 /**

@@ -213,7 +213,8 @@ elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
 
 uint32_t
 elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
-                           const char *name, uint8_t contains, uint8_t type)
+                           const char *name, uint8_t contains, uint8_t type,
+                           size_t *ret_bytes)
 {
     struct Elf64_Sym *sym = NULL;
     struct Elf64_Shdr *shead;
@@ -221,6 +222,7 @@ elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
     const char *symname = NULL;
 
     uint32_t count = 0;
+    size_t bytes = 0;
 
     lvaddr_t elfbase = (lvaddr_t)elf_base;
     struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
@@ -255,12 +257,18 @@ elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
             if (strcmp(symname, name)==0) {
                 /* we have a match */
                 count++;
+                bytes += strlen(symname)+1;
             }
         } else {
             if (strstr(symname,name) != NULL) {
                 count++;
+                bytes += strlen(symname)+1;
             }
         }
+    }
+
+    if (ret_bytes) {
+        *ret_bytes = bytes;
     }
 
     return count;

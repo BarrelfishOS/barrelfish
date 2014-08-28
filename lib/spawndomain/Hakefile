@@ -11,7 +11,8 @@
 --------------------------------------------------------------------------
 
 [(let
-     common_srcs = [ "spawn_vspace.c", "spawn.c", "getopt.c", "multiboot.c" ]
+     common_srcs = [ "spawn_vspace.c", "spawn.c", "getopt.c", "multiboot.c",
+                     "spawn_omp.c" ]
 
      arch_srcs "x86_32"  = [ "arch/x86/spawn_arch.c" ]
      arch_srcs "x86_64"  = [ "arch/x86/spawn_arch.c" ]
@@ -24,8 +25,8 @@
                     cFiles = common_srcs ++ arch_srcs (archFamily arch),
                     addIncludes = [ "/lib/barrelfish/include/arch" 
                                     ./. archFamily arch ],
-                    flounderDefs = [ "monitor" ],
+                    flounderDefs = [ "monitor", "octopus" ],
                     architectures = [ arch ],
-                    addLibraries = [ "trace" ]
+                    addLibraries = [ "trace", "octopus" ]
                 }
  )  | arch <- allArchitectures ]

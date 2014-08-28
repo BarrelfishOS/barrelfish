@@ -18,6 +18,7 @@ __BEGIN_DECLS
 /// Flags for spawning a program
 typedef enum spawn_flags {
     SPAWN_NEW_DOMAIN    = 1 << 0, ///< allocate a new domain ID
+    SPAWN_OMP           = 1 << 1, ///< do the OpenMP parsing
 } spawn_flags_t;
 
 struct spawn_ps_entry {

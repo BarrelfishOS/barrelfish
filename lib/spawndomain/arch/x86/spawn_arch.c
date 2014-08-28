@@ -175,6 +175,72 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
     return SYS_ERR_OK;
 }
 
+static errval_t spawn_parse_omp_functions(const char *name,
+                                          lvaddr_t binary, size_t binary_size)
+{
+    errval_t err;
+    genvaddr_t value;
+    err = spawn_symval_lookup(name, 0, NULL, &value);
+    if (err_is_ok(err)) {
+        return SYS_ERR_OK;
+    }
+
+    uint32_t count = 0;
+
+    struct Elf64_Sym *sym = NULL;
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+    const char *symname = NULL;
+
+    lvaddr_t elfbase = (lvaddr_t)binary;
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return ELF_ERR_HEADER;
+    }
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
+
+    uint32_t index = 1;
+    for (uintptr_t i = 0; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
+        // getting the symbol
+        sym = (struct Elf64_Sym *)(symbase + i);
+
+        // check for matching type
+        if ((sym->st_info & 0x0F) != STT_FUNC) {
+            continue;
+        }
+
+        // find the section of the associated string table
+        struct Elf64_Shdr *strtab = shead+symtab->sh_link;
+
+        // get the pointer to the symbol name from string table + string index
+        symname = (const char *)elfbase + strtab->sh_offset + sym->st_name;
+
+        if (strstr(symname, "_omp_fn") != NULL) {
+            count++;
+            err = spawn_symval_register(name, index++,  symname, sym->st_value);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "could not register symbol. %s\n", symname);
+                return err;
+            }
+        }
+    }
+
+    err = spawn_symval_register(name, 0, "binary", count);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not register symbol: %s.binary", name);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Load the elf image
  */
@@ -212,6 +278,11 @@ errval_t spawn_arch_load(struct spawninfo *si,
                           &si->eh_frame_hdr, &si->eh_frame_hdr_size);
     if (err_is_fail(err)) {
         return err;
+    }
+
+    if (si->flags & SPAWN_FLAGS_OMP) {
+        debug_printf("parsing OMP symbols\n");
+        return spawn_parse_omp_functions(si->name, binary, binary_size);
     }
 
     return SYS_ERR_OK;

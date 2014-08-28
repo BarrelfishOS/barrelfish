@@ -710,6 +710,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
+    si->name = name;
     genvaddr_t entry;
     void* arch_info;
     /* Load the image */
@@ -817,7 +818,7 @@ errval_t spawn_load_with_args(struct spawninfo *si, struct mem_region *module,
     /* Load the image */
     genvaddr_t entry;
     void* arch_info;
-
+    si->name = name;
     err = spawn_arch_load(si, binary, binary_size, &entry, &arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);
@@ -883,6 +884,7 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
     /* Load the image */
     genvaddr_t entry;
     void* arch_info;
+    si->name = name;
     err = spawn_arch_load(si, binary, binary_size, &entry, &arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);

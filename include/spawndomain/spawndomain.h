@@ -62,7 +62,16 @@ struct spawninfo {
     size_t eh_frame_size;
     genvaddr_t eh_frame_hdr;
     size_t eh_frame_hdr_size;
+
+    // name of the image
+    const char *name;
+    
+    // spawn flags
+    uint8_t flags;
 };
+
+#define SPAWN_FLAGS_NEW_DOMAIN    (1 << 0) ///< allocate a new domain ID
+#define SPAWN_FLAGS_OMP           (1 << 1) ///< do the OpenMP parsing
 
 __BEGIN_DECLS
 errval_t spawn_get_cmdline_args(struct mem_region *module,

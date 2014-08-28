@@ -255,12 +255,12 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
 
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
         err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
-                                    envstr, envstrlen,
+                                    envstr, envstrlen, flags,
                                     &msgerr, &domain_id);
     } else {
         err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
                                               envstr, envstrlen, inheritcn_cap,
-                                              argcn_cap, &msgerr, &domain_id);
+                                              argcn_cap, flags, &msgerr, &domain_id);
     }
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending spawn request");

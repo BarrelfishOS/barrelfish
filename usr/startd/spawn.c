@@ -310,6 +310,22 @@ void spawn_app_domains(void)
 
             coreid_t coreid;
 
+            uint8_t spawn_flags = 0;
+            uint8_t has_spawn_flags = 1;
+            if (si.argc >= 2) {
+                char *p = NULL;
+                if (strncmp(si.argv[1], "spawnflags=", 11) == 0) {
+                    p = strchr(si.argv[1], '=');
+                } else if (strncmp(si.argv[2], "spawnflags=", 11) == 0) {
+                    p = strchr(si.argv[2], '=');
+                }
+                if (p != NULL) {
+                    p++;
+                    spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
+                    has_spawn_flags = 1;
+                }
+            }
+
             // get core id
             if (si.argc >= 2 && strncmp(si.argv[1], "core=", 5) == 0) {
 
@@ -331,9 +347,17 @@ void spawn_app_domains(void)
                     /* coreid = strtol(p + 1, NULL, 10); */
                     // discard 'core=x' argument
                     for (int i = 1; i < si.argc; i++) {
-                        si.argv[i] = si.argv[i+1];
+                        if (has_spawn_flags) {
+                            si.argv[i] = si.argv[i+2];
+                        } else {
+                            si.argv[i] = si.argv[i+1];
+                        }
                     }
-                    si.argc--;
+                    if (has_spawn_flags) {
+                        si.argc -= 2;
+                    } else {
+                        si.argc--;
+                    }
 
                     for(int i = id_from; i <= id_to; i++) {
                         debug_printf("starting app %s on core %d\n",
@@ -341,7 +365,7 @@ void spawn_app_domains(void)
 
                         domainid_t new_domain;
                         err = spawn_program(i, si.name, si.argv, environ,
-                                            0, &new_domain);
+                                            spawn_flags, &new_domain);
                         if (err_is_fail(err)) {
                             DEBUG_ERR(err, "spawn of %s failed", si.name);
                         }
@@ -350,11 +374,18 @@ void spawn_app_domains(void)
             } else {
                 coreid = my_coreid;
 
+                if (has_spawn_flags) {
+                    for (int i = 1; i < si.argc; i++) {
+                        si.argv[i] = si.argv[i+1];
+                    }
+                    si.argc--;
+                }
+
                 debug_printf("starting app %s on core %d\n", si.name, coreid);
 
                 domainid_t new_domain;
                 err = spawn_program(coreid, si.name, si.argv, environ,
-                                    0, &new_domain);
+                                    spawn_flags, &new_domain);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "spawn of %s failed", si.name);
                 }
