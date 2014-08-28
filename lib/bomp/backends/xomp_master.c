@@ -576,7 +576,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
             err = spawn_program_with_caps(core, spawn_args_local.path,
                                           spawn_args_local.argv, NULL, NULL_CAP,
-                                          worker->msgframe, 0, &did);
+                                          worker->msgframe, SPAWN_FLAGS_OMP, &did);
             worker->domainid = did;
             worker->type = XOMP_WORKER_TYPE_LOCAL;
             if (err_is_fail(err)) {
@@ -610,7 +610,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
             err = xeon_phi_client_spawn(xid, core, spawn_args_remote.path,
                                         spawn_args_remote.argv, worker->msgframe,
-                                        &worker->domainid);
+                                        SPAWN_FLAGS_OMP, &worker->domainid);
             if (err_is_fail(err)) {
                 /* TODO: cleanup */
                 return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);

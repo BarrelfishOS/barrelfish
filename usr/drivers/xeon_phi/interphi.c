@@ -65,6 +65,7 @@ struct interphi_msg_st
             uint8_t core;
             char *cmdline;
             size_t cmdlen;
+            uint8_t flags;
             uint64_t cap_base;
             uint8_t cap_size_bits;
         } spawn_call;
@@ -325,7 +326,8 @@ static errval_t spawn_call_tx(struct txq_msg_st *msg_st)
     return interphi_spawn_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                    st->args.spawn_call.core,
                                    st->args.spawn_call.cmdline,
-                                   st->args.spawn_call.cmdlen);
+                                   st->args.spawn_call.cmdlen,
+                                   st->args.spawn_call.flags);
 }
 
 static errval_t spawn_with_cap_response_tx(struct txq_msg_st *msg_st)
@@ -347,6 +349,7 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
                                             st->args.spawn_call.core,
                                             st->args.spawn_call.cmdline,
                                             st->args.spawn_call.cmdlen,
+                                            st->args.spawn_call.flags,
                                             st->args.spawn_call.cap_base,
                                             st->args.spawn_call.cap_size_bits);
 }
@@ -567,7 +570,8 @@ static void domain_register_response_rx(struct interphi_binding *_binding,
 static void spawn_call_rx(struct interphi_binding *_binding,
                           uint8_t core,
                           char *cmdline,
-                          size_t length)
+                          size_t length,
+                          uint8_t flags)
 {
     XINTER_DEBUG("spawn_call_rx: {%s} of length %lu, @ core:%u\n", cmdline,
                  length, core);
@@ -601,7 +605,7 @@ static void spawn_call_rx(struct interphi_binding *_binding,
      * TODO: check if we have that core present...
      */
 
-    msg_st->err = spawn_program(core, cmdline, argv, NULL, 0, &domid);
+    msg_st->err = spawn_program(core, cmdline, argv, NULL, flags, &domid);
     if (err_is_ok(msg_st->err)) {
 #ifdef __k1om__
         uint8_t is_host = 0x0;
@@ -634,6 +638,7 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
                                    uint8_t core,
                                    char *cmdline,
                                    size_t length,
+                                   uint8_t flags,
                                    uint64_t cap_base,
                                    uint8_t cap_size_bits)
 {
@@ -672,7 +677,7 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
 
     domainid_t domid;
     msg_st->err = spawn_program_with_caps(core, cmdline, argv, NULL, NULL_CAP,
-                                          cap, 0, &domid);
+                                          cap, flags, &domid);
     if (err_is_ok(msg_st->err)) {
 #ifdef __k1om__
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(
@@ -1271,6 +1276,7 @@ errval_t interphi_spawn(struct xnode *node,
                         uint8_t core,
                         char *cmdline,
                         size_t cmdlen,
+                        uint8_t flags,
                         uint64_t *domain)
 {
     XINTER_DEBUG("spawning %s on core %u\n", cmdline, core);
@@ -1288,6 +1294,7 @@ errval_t interphi_spawn(struct xnode *node,
     svc_st->args.spawn_call.cmdline = cmdline;
     svc_st->args.spawn_call.cmdlen = cmdlen;
     svc_st->args.spawn_call.core = core;
+    svc_st->args.spawn_call.flags = flags;
 
     txq_send(msg_st);
 
@@ -1319,6 +1326,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint8_t core,
                                  char *cmdline,
                                  size_t cmdlen,
+                                 uint8_t flags,
                                  struct capref cap,
                                  uint64_t *domain)
 {
@@ -1345,6 +1353,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     svc_st->args.spawn_call.cmdline = cmdline;
     svc_st->args.spawn_call.cmdlen = cmdlen;
     svc_st->args.spawn_call.core = core;
+    svc_st->args.spawn_call.flags = flags;
     svc_st->args.spawn_call.cap_size_bits = id.bits;
     svc_st->args.spawn_call.cap_base = id.base;
 

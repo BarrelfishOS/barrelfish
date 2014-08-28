@@ -44,6 +44,7 @@ errval_t xeon_phi_client_init(xphi_id_t xid);
  * \param path      Program to spawn
  * \param argv      Program arguments
  * \param cap       Capability to pass
+ * \param flags     spawn flags
  * \param domid     returns the domain id of the spawned domain
  *
  * \return SYS_ERR_OK on success
@@ -54,6 +55,7 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
                                char *path,
                                char *argv[],
                                struct capref cap,
+                               uint8_t flags,
                                xphi_dom_id_t *domid);
 
 /**

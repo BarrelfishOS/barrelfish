@@ -40,12 +40,14 @@ interface xeon_phi "Xeon Phi Messaging Interface" {
     rpc spawn(in uint8 xid, 
               in uint8 core, 
               in char cmdline[length],
+              in uint8 flags,
               out uint64 domainid,
               out errval msgerr);
     
     rpc spawn_with_cap(in uint8 xid, 
                        in uint8 core, 
                        in char cmdline[length],
+                       in uint8 flags,
                        in cap capability,
                        out uint64 domainid,
                        out errval msgerr);

@@ -82,6 +82,7 @@ struct xphi_msg_st
         {
             xphi_id_t xid;
             coreid_t core;
+            uint8_t flags;
             char *cmdline;
             size_t cmdlen;
             struct capref cap;
@@ -222,7 +223,8 @@ static errval_t spawn_call_tx(struct txq_msg_st *msg_st)
     struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
     return xeon_phi_spawn_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                    st->args.spawn.xid, st->args.spawn.core,
-                                   st->args.spawn.cmdline, st->args.spawn.cmdlen);
+                                   st->args.spawn.cmdline, st->args.spawn.cmdlen,
+                                   st->args.spawn.flags);
 }
 
 static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
@@ -232,6 +234,7 @@ static errval_t spawn_with_cap_call_tx(struct txq_msg_st *msg_st)
                                             st->args.spawn.xid, st->args.spawn.core,
                                             st->args.spawn.cmdline,
                                             st->args.spawn.cmdlen,
+                                            st->args.spawn.flags,
                                             st->args.spawn.cap);
 }
 
@@ -625,6 +628,7 @@ errval_t xeon_phi_client_init(xphi_id_t xid)
  * \param path      Program to spawn
  * \param argv      Program arguments
  * \param cap       Capability to pass
+ * \param flags     spawn flags
  * \param domid     returns the domain id of the spawned domain
  *
  * \return SYS_ERR_OK on success
@@ -635,6 +639,7 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
                                char *path,
                                char *argv[],
                                struct capref cap,
+                               uint8_t flags,
                                xphi_dom_id_t *domid)
 {
     errval_t err;
@@ -702,6 +707,7 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
     svc_st->args.spawn.core = core;
     svc_st->args.spawn.cmdline = cmdline;
     svc_st->args.spawn.cmdlen = argstrlen;
+    svc_st->args.spawn.flags = flags;
     svc_st->args.spawn.cap = cap;
 
     txq_send(msg_st);

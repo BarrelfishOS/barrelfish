@@ -32,6 +32,7 @@ interface interphi "Interface between host and card side driver" {
      */
     rpc spawn(in uint8 core, 
               in char cmdline[length],
+              in uint8 flags,
               out uint64 domainid,
               out errval msgerr);
     
@@ -40,6 +41,7 @@ interface interphi "Interface between host and card side driver" {
      */
     rpc spawn_with_cap(in uint8 core, 
                        in char cmdline[length],
+                       in uint8 flags,
                        in uint64 cap_base,
                        in uint8 cap_size_bits,
                        out uint64 domainid,

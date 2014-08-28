@@ -102,6 +102,7 @@ errval_t interphi_spawn(struct xnode *node,
                         uint8_t core,
                         char *cmdline,
                         size_t cmdlen,
+                        uint8_t flags,
                         uint64_t *domain);
 
 
@@ -123,6 +124,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
                                  uint8_t core,
                                  char *cmdline,
                                  size_t cmdlen,
+                                 uint8_t flags,
                                  struct capref cap,
                                  uint64_t *domain);
 

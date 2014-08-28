@@ -257,7 +257,7 @@ int main(int argc,
     char *name = "k1om/sbin/xeon_phi_test";
 
     xphi_dom_id_t domid;
-    err = xeon_phi_client_spawn(0, core, name, NULL,  NULL_CAP, &domid);
+    err = xeon_phi_client_spawn(0, core, name, NULL,  NULL_CAP, 0, &domid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not send the spawn message");
     }

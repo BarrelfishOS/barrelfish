@@ -428,6 +428,7 @@ static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
                                    uint8_t core,
                                    char *cmdline,
                                    size_t length,
+                                   uint8_t flags,
                                    struct capref cap)
 {
     struct xphi_svc_st *svc_st = binding->st;
@@ -449,7 +450,7 @@ static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn_with_cap(node, core, cmdline, length, cap,
+    msg_st->err = interphi_spawn_with_cap(node, core, cmdline, length, flags, cap,
                                           &xphi_st->args.spawn.domainid);
 
     free(cmdline);
@@ -461,7 +462,8 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
                           uint8_t xid,
                           uint8_t core,
                           char *cmdline,
-                          size_t length)
+                          size_t length,
+                          uint8_t flags)
 {
     struct xphi_svc_st *svc_st = binding->st;
 
@@ -482,7 +484,7 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn(node, core, cmdline, length,
+    msg_st->err = interphi_spawn(node, core, cmdline, length, flags,
                                  &xphi_st->args.spawn.domainid);
 
     free(cmdline);
