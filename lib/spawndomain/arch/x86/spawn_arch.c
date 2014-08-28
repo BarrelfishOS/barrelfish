@@ -206,7 +206,7 @@ static errval_t spawn_parse_omp_functions(const char *name,
 
     uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
 
-    uint32_t index = 1;
+    uint32_t symindex = 1;
     for (uintptr_t i = 0; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
         // getting the symbol
         sym = (struct Elf64_Sym *)(symbase + i);
@@ -224,7 +224,7 @@ static errval_t spawn_parse_omp_functions(const char *name,
 
         if (strstr(symname, "_omp_fn") != NULL) {
             count++;
-            err = spawn_symval_register(name, index++,  symname, sym->st_value);
+            err = spawn_symval_register(name, symindex++,  symname, sym->st_value);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "could not register symbol. %s\n", symname);
                 return err;
