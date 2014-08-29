@@ -65,8 +65,19 @@ static void transform_to_string(struct ast_object* ast, char* str)
         assert(left->type == nodeType_Ident);
         idx += sprintf(str + idx, "%s: ", left->u.in.str);
 
-        assert(right->type == nodeType_Constant);
-        idx += sprintf(str + idx, "%"PRId64"", right->u.cn.value);
+        switch(right->type) {
+            case nodeType_String:
+                idx += sprintf(str + idx, "%s", right->u.sn.str);
+                break;
+            case nodeType_Constant:
+                idx += sprintf(str + idx, "%"PRId64"", right->u.cn.value);
+                break;
+            case nodeType_Ident:
+                idx += sprintf(str + idx, "%s ", right->u.in.str);
+                break;
+            default:
+                USER_PANIC("Unsupported node type: %u\n", right->type);
+        }
 
         attr = attr->u.an.next;
         if (attr != NULL) {
