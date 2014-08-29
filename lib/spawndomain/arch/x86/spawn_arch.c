@@ -211,8 +211,8 @@ errval_t spawn_arch_load(struct spawninfo *si,
     lvaddr_t tmp, tmp2;
     err = elf_get_eh_info(binary, binary_size, &tmp, &si->eh_frame_size,
                           &tmp2, &si->eh_frame_hdr_size);
-    si->eh_frame = tmp;
-    si->eh_frame_hdr = tmp2;
+    si->eh_frame = vspace_lvaddr_to_genvaddr(tmp);
+    si->eh_frame_hdr = vspace_lvaddr_to_genvaddr(tmp2);
 
     if (err_is_fail(err)) {
         return err;
