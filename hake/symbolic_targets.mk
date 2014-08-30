@@ -559,20 +559,10 @@ XEON_PHI_MODULES =\
 	k1om/sbin/skb \
 	k1om/sbin/spawnd \
 	k1om/sbin/startd \
-	k1om/sbin/gm_tc \
-	
-	#k1om/sbin/xeon_phi \
-	#k1om/sbin/xeon_phi_test \
-	#k1om/sbin/virtio_blk \
-	#k1om/sbin/ump_latency \
-	#k1om/sbin/xeon_phi_inter
-	
+	k1om/sbin/xeon_phi
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
-	
-#k1om/multiboot.menu.lst.k1om: $(XEON_PHI_MODULES) menu.lst.k1om
-	#$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 		
 k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
 						 k1om/xeon_phi_multiboot \
@@ -587,48 +577,6 @@ k1om/sbin/weever.bin: k1om/sbin/weever_elf
 	
 k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om 
 	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
-
-k1om: $(XEON_PHI_MODULES) \
-		menu.lst.k1om \
-		tools/bin/weever_multiboot \
-		tools/bin/weever_creator
-		
-	
-	@echo ""
-	@echo "-------------------------------------------------------------------"
-	@echo "Stage 1 - Generating multiboot image"
-	@echo "-------------------------------------------------------------------"
-	@echo ""	
-	
-	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om multiboot
-	tools/bin/weever_multiboot multiboot/mbmenu.lst.k1om mbi.c
-	cp mbi.c $(SRCDIR)/tools/weever/mbi.c
-	
-	@echo ""
-	@echo "-------------------------------------------------------------------"
-	@echo "Stage 2 - Building bootloader"
-	@echo "-------------------------------------------------------------------"
-	@echo ""
-	
-	+make k1om/sbin/weever  > /dev/null
-	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever ./weever.bin
-	tools/bin/weever_creator ./weever.bin > ./weever
-	
-	@echo ""
-	@echo "-------------------------------------------------------------------"
-	@echo "Stage 3 - Uploading"
-	@echo "-------------------------------------------------------------------"
-	@echo ""
-	@echo "Uploading to emmentaler..."
-	
-	ssh emmentaler.ethz.ch "rackpower -r babybel"
-	$(SRCDIR)/tools/weever/install.sh
-	
-	@echo ""
-	@echo "-------------------------------------------------------------------"
-	@echo "Done."
-
-.PHONY: k1om
 
 
 #######################################################################
