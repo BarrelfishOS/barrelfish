@@ -77,9 +77,6 @@ inline void xeon_phi_dma_desc_fill_memcpy(struct dma_descriptor *desc,
         xeon_phi_dma_desc_memcpy_ecy_insert(d, 0x1);
     }
 
-    xeon_phi_dma_desc_memcpy_intr_insert(d, 0x1);
-    xeon_phi_dma_desc_memcpy_twb_insert(d, 0x1);
-
     xeon_phi_dma_desc_memcpy_src_insert(d, src);
     xeon_phi_dma_desc_memcpy_dst_insert(d, dst);
     xeon_phi_dma_desc_memcpy_length_insert(d, (size >> XEON_PHI_DMA_ALIGN_SHIFT));

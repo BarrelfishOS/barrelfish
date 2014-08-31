@@ -88,7 +88,7 @@ struct dma_request *dma_channel_deq_request_by_id(struct dma_channel *chan,
             if (chan->req_list.count == 0) {
                 assert(chan->req_list.head == chan->req_list.tail);
                 chan->req_list.head = NULL;
-                chan->req_list.head = NULL;
+                chan->req_list.tail = NULL;
             }
             req->next = NULL;
             req->prev = NULL;
@@ -144,6 +144,9 @@ void dma_channel_enq_request_tail(struct dma_channel *chan,
     chan->req_list.tail = req;
 
     chan->req_list.count++;
+    
+    DMACHAN_DEBUG("request : enq tail [%016lx] count=%u\n", chan->id,
+                  dma_request_get_id(req), chan->req_list.count);
 }
 
 /*

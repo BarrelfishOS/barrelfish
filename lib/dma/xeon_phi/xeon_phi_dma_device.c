@@ -104,10 +104,10 @@ void xeon_phi_dma_device_set_channel_owner(struct xeon_phi_dma_device *dev,
 {
     uint8_t owner_val;
     if (owner == XEON_PHI_DMA_OWNER_CARD) {
-        XPHIDEV_DEBUG("settings owner of channel %u to card.\n", dev->common.id, idx);
+        XPHIDEV_DEBUG("settings owner of channel [%u] to card.\n", dev->common.id, idx);
         owner_val = 0;
     } else {
-        XPHIDEV_DEBUG("settings owner of channel %u to host.\n", dev->common.id, idx);
+        XPHIDEV_DEBUG("settings owner of channel [%u] to host.\n", dev->common.id, idx);
         owner_val = 1;
     }
 
@@ -160,13 +160,13 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
 
     uint8_t enabled_val;
     if (enabled) {
-        XPHIDEV_DEBUG("Enabling channel. [%u, %u]\n", dev->common.id, idx, id);
+        XPHIDEV_DEBUG("Enabling channel. [%u]\n", dev->common.id, idx);
         if (dev->common.channels.c[id]) {
             dev->common.channels.c[id]->state = DMA_CHAN_ST_RUNNING;
         }
         enabled_val = 0x1;
     } else {
-        XPHIDEV_DEBUG("Disabling channel. [%u, %u]\n", dev->common.id, idx, id);
+        XPHIDEV_DEBUG("Disabling channel. [%u]\n", dev->common.id, idx);
         if (dev->common.channels.c[id]) {
             dev->common.channels.c[id]->state = DMA_CHAN_ST_SUSPENDED;
         }
@@ -260,7 +260,7 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
 
     dma_dev->channels.count = XEON_PHI_DMA_DEVICE_CHANNELS;
     dma_dev->channels.c = calloc(XEON_PHI_DMA_DEVICE_CHANNELS,
-                                 sizeof(*dma_dev->channels.c));
+                                 sizeof(void *));
 
     if (dma_dev->channels.c == NULL) {
         device_id--;
@@ -359,7 +359,7 @@ errval_t xeon_phi_dma_device_poll_channels(struct dma_device *dev)
         err = xeon_phi_dma_channel_poll(dev->channels.c[i]);
         switch (err_no(err)) {
             case DMA_ERR_CHAN_IDLE:
-                idle = idle & 0x1;
+                /* no op */
                 break;
             case SYS_ERR_OK:
                 idle = 0;

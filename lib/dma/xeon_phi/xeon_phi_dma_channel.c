@@ -205,7 +205,7 @@ static errval_t channel_set_ring(struct xeon_phi_dma_channel *chan,
 
     xdev = (struct xeon_phi_dma_device *) chan->common.device;
     xeon_phi_dma_device_set_channel_state(xdev, idx,
-    XEON_PHI_DMA_CHANNEL_DISABLE);
+                                          XEON_PHI_DMA_CHANNEL_DISABLE);
 
     xeon_phi_dma_chan_drar_hi_t drar_hi = 0x0;
     xeon_phi_dma_chan_drar_lo_t drar_lo = 0x0;
@@ -256,7 +256,7 @@ static errval_t channel_process_descriptors(struct xeon_phi_dma_channel *chan,
         }
     }
 
-    chan->last_processed = dma_ring_get_tail(ring);
+    chan->last_processed = tail;
 
     return err;
 }
