@@ -65,7 +65,7 @@ struct spawninfo {
 
     // name of the image
     const char *name;
-    
+
     // spawn flags
     uint8_t flags;
 };
@@ -136,6 +136,13 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
 /* errval_t spawn_memory(struct spawninfo *si, const char *name, uint8_t core_id, */
 /*                       int argc, char *argv[], lvaddr_t binary, */
 /*                       size_t binary_size); */
+
+errval_t spawn_symval_lookup_idx(uint32_t idx, char **ret_name, genvaddr_t *ret_add);
+errval_t spawn_symval_lookup_name(char *name, uint32_t *ret_idx,  genvaddr_t *ret_add);
+errval_t spawn_symval_lookup_addr(genvaddr_t addr, uint32_t *ret_idx, char **ret_name);
+errval_t spawn_symval_count(uint32_t *ret_count);
+errval_t spawn_symval_cache_init(uint8_t lazy);
+
 __END_DECLS
 
 #endif //SPAWNDOMAIN_H

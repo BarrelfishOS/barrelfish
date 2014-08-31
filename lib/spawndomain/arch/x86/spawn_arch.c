@@ -280,8 +280,8 @@ errval_t spawn_arch_load(struct spawninfo *si,
         return err;
     }
 
-    if (si->flags & SPAWN_FLAGS_OMP) {
-        debug_printf("parsing OMP symbols\n");
+    if ((strcmp("spawnd", disp_name())==0) && (si->flags & SPAWN_FLAGS_OMP)) {
+        debug_printf("parsing OMP symbols for %s\n", si->name);
         return spawn_parse_omp_functions(si->name, binary, binary_size);
     }
 

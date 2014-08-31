@@ -16,7 +16,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
+#include <spawndomain/spawndomain.h>
 
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
@@ -27,16 +27,153 @@
 
 #include "spawn.h"
 
-errval_t spawn_symval_lookup(const char *binary, uint32_t idx,
-                             char **ret_name, genvaddr_t *ret_addr)
+struct symval {
+    char *name;
+    genvaddr_t addr;
+};
+
+uint32_t symval_count;
+
+struct symval *symvals;
+
+errval_t spawn_symval_count(uint32_t *ret_count)
+{
+    if (!symvals) {
+        errval_t err;
+
+        err = spawn_symval_cache_init(1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    if (ret_count) {
+        *ret_count = symval_count;
+    }
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_symval_cache_init(uint8_t lazy)
+{
+    errval_t err;
+
+    genvaddr_t count = 0;
+    err = spawn_symval_lookup_idx(0, NULL, &count);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    symval_count = count;
+
+    if (count > 0) {
+        symvals = calloc(count + 1, sizeof(struct symval));
+        if (symvals == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+    }
+
+    if (lazy) {
+        return SYS_ERR_OK;
+    }
+
+    for (uint32_t i = 1; i <= count; ++i) {
+        err = spawn_symval_lookup_idx(i, &symvals[i].name, &symvals[i].addr);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t spawn_symval_lookup_name(char *name, uint32_t *ret_idx,  genvaddr_t *ret_addr)
+{
+    errval_t err;
+
+    if (!symvals) {
+        err = spawn_symval_cache_init(1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    for (uint32_t i = 1; i <= symval_count; ++i) {
+        if (symvals[i].addr == 0) {
+            err = spawn_symval_lookup_idx(i, &symvals[i].name, &symvals[i].addr);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        if (strcmp(name, symvals[i].name) == 0) {
+            if (ret_idx) {
+                *ret_idx = i;
+            }
+            if (ret_addr) {
+                *ret_addr = symvals[i].addr;
+            }
+            return SYS_ERR_OK;
+        }
+    }
+    // todo: errval
+    return -1;
+}
+
+errval_t spawn_symval_lookup_addr(genvaddr_t addr, uint32_t *ret_idx, char **ret_name)
+{
+    errval_t err;
+
+    if (!symvals) {
+        err = spawn_symval_cache_init(1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    for (uint32_t i = 1; i <= symval_count; ++i) {
+        if (symvals[i].addr == 0) {
+            err = spawn_symval_lookup_idx(i, &symvals[i].name, &symvals[i].addr);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        if (symvals[i].addr == addr) {
+            if (ret_idx) {
+                *ret_idx = i;
+            }
+            if (ret_name) {
+                *ret_name = symvals[i].name;
+            }
+
+            return SYS_ERR_OK;
+        }
+    }
+
+    // TODO: errval
+    return -1;
+}
+
+errval_t spawn_symval_lookup_idx(uint32_t idx, char **ret_name, genvaddr_t *ret_addr)
+{
+    if (symvals) {
+        if (symvals[idx].addr != 0) {
+            if (ret_name) {
+                *ret_name = symvals[idx].name;
+            }
+            if (ret_addr) {
+                *ret_addr = symvals[idx].addr;
+            }
+        }
+    }
+
+    return spawn_symval_lookup(disp_name(), idx, ret_name, ret_addr);
+}
+
+errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
+                             genvaddr_t *ret_addr)
 {
     errval_t err;
 
     size_t len;
-
-    if (binary[0]== '_') {
-        binary++;
-    }
 
     len = snprintf(NULL, 0, "%s.omp.%u", binary, idx);
     char *omp_entry = malloc(len+1);
