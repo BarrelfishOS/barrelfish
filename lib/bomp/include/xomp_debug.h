@@ -20,6 +20,7 @@
 #define XOMP_DEBUG_INIT_ENABLED 1
 #define XOMP_DEBUG_PROCESS_ENABLED 1
 #define XOMP_DEBUG_REPLICATIION_ENABLED 1
+#define XOMP_DEBUG_GATEWAY_ENABLED 1
 
 #if XOMP_DEBUG_ENABLED
 #define XOMP_DEBUG_PRINT(x...) debug_printf(x)
@@ -71,6 +72,11 @@
 #endif
 #if XOMP_DEBUG_REPLICATIION_ENABLED
 #define XWR_DEBUG(x...) XOMP_DEBUG_WORKER_PRINT("[xomp.w.repl] " x)
+#else
+#define XWR_DEBUG(x...)
+#endif
+#if XOMP_DEBUG_GATEWAY_ENABLED
+#define XWG_DEBUG(x...) XOMP_DEBUG_WORKER_PRINT("[xomp.w.gw] " x)
 #else
 #define XWR_DEBUG(x...)
 #endif

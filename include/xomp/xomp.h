@@ -28,7 +28,16 @@
 #define XOMP_FRAME_SIZE (XOMP_MSG_FRAME_SIZE + XOMP_TLS_SIZE)
 
 /// enables the XOMP worker to enable DMA
-#define XOMP_WORKER_ENABLE_DMA 0
+#define XOMP_WORKER_ENABLE_DMA 1
+
+/// flag telling the function address is an index
+#define XOMP_FN_INDEX_FLAG (1UL << 63)
+
+/// ram affinity minimum base address
+#define XOMP_RAM_MIN_BASE (64UL * 1024 * 1024 * 1024)
+
+/// ram affinitiy maximum base address
+#define XOMP_RAM_MAX_LIMIT (512UL * 1024 * 1024 * 1024)
 
 /* Typedefs */
 
@@ -78,7 +87,7 @@ struct xomp_task
 };
 
 /**
- *
+ * \brief represents the arguments and path of the worker domains
  */
 struct xomp_spawn {
     uint8_t argc;
@@ -87,29 +96,34 @@ struct xomp_spawn {
 };
 
 /**
- *
+ * \brief arguments passed to the xomp initialization function
  */
 struct xomp_args
 {
-    xomp_arg_t type;
-    coreid_t core_stride;
+    xomp_arg_t type;                 ///< the argument type
+    coreid_t core_stride;            ///< core stride
     union {
+        /// worker arguments
         struct {
-            xomp_wid_t id;
+            xomp_wid_t id;           ///< the id of the worker
         } worker;
+
+        /** uniform master arguments for local and remote workers */
         struct {
-            uint32_t nthreads;
-            xomp_wloc_t worker_loc;
-            uint8_t nphi;
-            uint8_t argc;
-            char **argv;
+            uint32_t nthreads;       ///< number of threads
+            xomp_wloc_t worker_loc;  ///< where the worker are spawned
+            uint8_t nphi;            ///< number of xeon phis to use
+            uint8_t argc;            ///< number of arguments
+            char **argv;             ///< argument values
         } uniform;
+
+        /** distinct master arguments for local and remote workers separatly */
         struct {
-            uint32_t nthreads;
-            xomp_wloc_t worker_loc;
-            uint8_t nphi;
-            struct xomp_spawn local;
-            struct xomp_spawn remote;
+            uint32_t nthreads;        ///< number of threads
+            xomp_wloc_t worker_loc;   ///< where the worker are spawned
+            uint8_t nphi;             ///< number of xeon phis to use
+            struct xomp_spawn local;  ///< arguments for the local workers
+            struct xomp_spawn remote; ///< arguments for hte remote workers
         } distinct;
     } args;
 };

@@ -16,13 +16,19 @@
     addLibraries = [ 
       "xeon_phi_client",
       "dma_client",
+      "spawndomain", -- for address translation
       "posixcompat"	-- for gettimeofday
     ],
     addIncludes = [
       "include"
     ],
-    flounderDefs = ["xomp"],
-    flounderBindings = ["xomp"],
+    flounderDefs = [
+        "xomp"
+    ],
+    flounderBindings = [
+        "xomp",
+        "xomp_gateway"
+    ],
     architectures = [
       "x86_64", 
       "k1om"

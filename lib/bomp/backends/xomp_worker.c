@@ -7,7 +7,10 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/spawn_client.h>
+
 #include <flounder/flounder_txqueue.h>
+#include <spawndomain/spawndomain.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
@@ -15,6 +18,8 @@
 #include <bomp_internal.h>
 #include <xomp/xomp.h>
 #include <xomp_debug.h>
+#include <xomp_gateway.h>
+#include <xomp_gateway_client.h>
 
 #include <if/xomp_defs.h>
 
@@ -79,15 +84,17 @@ struct xomp_msg_st {
 
 static volatile uint8_t dma_replication_done = 0;
 
-static void dma_replication_cb(errval_t err, dma_req_id_t id, void *arg)
+static void dma_replication_cb(errval_t err,
+                               dma_req_id_t id,
+                               void *arg)
 {
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "dma transfer failed");
+        USER_PANIC_ERR(err, "dma transfer failed\n");
     }
     dma_replication_done = 1;
 }
 
-static errval_t replicate_frame(struct capref *frame)
+static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 {
     errval_t err;
 
@@ -107,12 +114,12 @@ static errval_t replicate_frame(struct capref *frame)
 
     XWR_DEBUG("registering memory with DMA service\n");
 
-    err = dma_register_memory((struct dma_device *)dma_dev, *frame);
+    err = dma_register_memory((struct dma_device *) dma_dev, *frame);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = dma_register_memory((struct dma_device *)dma_dev, replicate);
+    err = dma_register_memory((struct dma_device *) dma_dev, replicate);
     if (err_is_fail(err)) {
         return err;
     }
@@ -143,7 +150,7 @@ static errval_t replicate_frame(struct capref *frame)
         return err;
     }
 
-    while(!dma_replication_done) {
+    while (!dma_replication_done) {
         messages_wait_and_handle_next();
     }
 
@@ -168,16 +175,29 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 {
     errval_t err;
 
-    XWI_DEBUG("msg_open_cb: from domid:%lx, usrdata:%lx\n", domain, usrdata);
-
     uint32_t map_flags = 0x0;
     lvaddr_t addr = 0x0;
+
+    if (capref_is_null(frame)) {
+        if (type == XOMP_FRAME_TYPE_REPL_RW) {
+            type = XOMP_FRAME_TYPE_SHARED_RW;
+        }
+        assert(!(worker_id & XOMP_WID_GATEWAY_FLAG));
+        XWR_DEBUG("Requesting frame from helper: [%016lx]\n", usrdata);
+        err = xomp_gateway_get_memory(usrdata, &frame);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
 
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
+
+    XWI_DEBUG("msg_open_cb: from domid:%lx, usrdata:%lx, frame:%lx\n", domain,
+              usrdata, id.base);
 
     switch ((xomp_frame_type_t) type) {
         case XOMP_FRAME_TYPE_MSG:
@@ -194,25 +214,42 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
             map_flags = VREGION_FLAGS_READ_WRITE;
 #if XOMP_WORKER_ENABLE_DMA
             addr = (lvaddr_t) usrdata;
-            err = replicate_frame(&frame);
+            err = replicate_frame(addr, &frame);
             if (err_is_fail(err)) {
                 return err;
             }
+            err = invoke_frame_identify(frame, &id);
 #else
             struct capref replicate;
             err = frame_alloc(&replicate, (1UL << id.bits), NULL);
             if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "failed to allocate replicate frame\n");
                 return err;
             }
             err = vspace_map_one_frame_fixed_attr((lvaddr_t) usrdata, (1UL << id.bits),
                                                   replicate, map_flags, NULL, NULL);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            err = invoke_frame_identify(replicate, &id);
 #endif
+            if (err_is_fail(err)) {
+                return err;
+            }
             break;
         default:
             USER_PANIC("unknown type: %u", type)
             break;
     }
     if (addr) {
+#ifdef __k1om__
+        XWR_DEBUG("registering memory with gateway: [%016lx]\n", addr);
+        err = xomp_gateway_mem_insert(frame, addr);
+        if (err_is_fail(err)) {
+            /* todo: cleanup */
+            return err;
+        }
+#endif
         err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
                                               map_flags, NULL, NULL);
     } else {
@@ -250,6 +287,14 @@ static struct xeon_phi_callbacks callbacks = {
  * ----------------------------------------------------------------------------
  */
 
+
+
+static errval_t gw_req_memory_response_tx(struct txq_msg_st *msg_st)
+{
+    return xomp_gw_req_memory_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                           msg_st->err);
+}
+
 static errval_t add_memory_response_tx(struct txq_msg_st *msg_st)
 {
     return xomp_add_memory_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
@@ -280,6 +325,21 @@ static errval_t done_with_arg_tx(struct txq_msg_st *msg_st)
  * ----------------------------------------------------------------------------
  */
 
+
+static void gw_req_memory_call_rx(struct xomp_binding *b,
+                                  uint64_t addr,
+                                  uint8_t type)
+{
+    XWI_DEBUG("gw_req_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
+    assert(msg_st != NULL);
+
+    msg_st->err = msg_open_cb(0x0, addr, NULL_CAP, type);
+    msg_st->send = gw_req_memory_response_tx;
+    msg_st->cleanup = NULL;
+    txq_send(msg_st);
+}
+
 static void add_memory_call_rx(struct xomp_binding *b,
                                struct capref frame,
                                uint64_t addr,
@@ -303,6 +363,8 @@ static void do_work_rx(struct xomp_binding *b,
 {
     XWP_DEBUG("do_work_rx: fn:%lx, id:%lx\n", fn, id);
 
+    errval_t err;
+
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
 
@@ -325,6 +387,18 @@ static void do_work_rx(struct xomp_binding *b,
         msg_st->send = done_notify_tx;
     }
 
+    if (fn & XOMP_FN_INDEX_FLAG) {
+        uint32_t idx = fn & ~XOMP_FN_INDEX_FLAG;
+        char *fn_name;
+        err = spawn_symval_lookup_idx(idx, &fn_name, &fn);
+        if (err_is_fail(err)) {
+            msg_st->err = err;
+            txq_send(msg_st);
+            return;
+        }
+        XWP_DEBUG("do_work_rx: function index %u -> %s\n", idx, fn_name);
+    }
+
     xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
 
@@ -334,6 +408,7 @@ static void do_work_rx(struct xomp_binding *b,
 }
 
 static struct xomp_rx_vtbl rx_vtbl = {
+    .gw_req_memory_call = gw_req_memory_call_rx,
     .add_memory_call = add_memory_call_rx,
     .do_work = do_work_rx
 };
@@ -399,10 +474,11 @@ errval_t xomp_worker_parse_cmdline(uint8_t argc,
             parsed++;
             is_worker = 0x1;
         } else if (strncmp("--wid=", argv[i], 6) == 0) {
-            retwid = strtol(argv[i] + 6, NULL, 16);
+            retwid = strtoul(argv[i] + 6, NULL, 16);
+            debug_printf("argv: %s, %lx\n", argv[i], retwid);
             parsed++;
         } else if (strncmp("--iref=", argv[i], 7) == 0) {
-            iref = strtol(argv[i] + 7, NULL, 16);
+            iref = strtoul(argv[i] + 7, NULL, 16);
             parsed++;
         }
     }
@@ -462,6 +538,10 @@ errval_t xomp_worker_init(xomp_wid_t wid)
         frame_size = XOMP_TLS_SIZE;
     } else {
         frame_size = XOMP_FRAME_SIZE;
+        err = spawn_symval_cache_init(0);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     if ((1UL << id.bits) < XOMP_TLS_SIZE) {
@@ -476,8 +556,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     }
     if (svc_iref) {
         tls = msgbuf;
-    }
-    else {
+    } else {
         tls = ((uint8_t *) msgbuf) + XOMP_MSG_FRAME_SIZE;
     }
 
@@ -486,9 +565,20 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     struct bomp_thread_local_data *tlsinfo = malloc(sizeof(*tlsinfo));
     tlsinfo->thr = thread_self();
-    tlsinfo->work = (struct bomp_work *)tls;
-    tlsinfo->work->data = tlsinfo->work+1;
+    tlsinfo->work = (struct bomp_work *) tls;
+    tlsinfo->work->data = tlsinfo->work + 1;
     g_bomp_state->backend.set_tls(tlsinfo);
+
+#ifdef __k1om__
+    if (worker_id & XOMP_WID_GATEWAY_FLAG) {
+        err = xomp_gateway_init();
+    } else {
+        err = xomp_gateway_bind_svc();
+    }
+    if (err_is_fail(err)) {
+        return err;
+    }
+#endif
 
 #ifdef __k1om__
     err = xeon_phi_client_init(disp_xeon_phi_id());
@@ -502,19 +592,19 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     struct waitset *ws = get_default_waitset();
 
 #if XOMP_WORKER_ENABLE_DMA
-     /* XXX: use lib numa */
-    uint8_t numanode = 0;
+    /* XXX: use lib numa */
+
 #ifndef __k1om__
+    uint8_t numanode = 0;
     if (disp_get_core_id() > 20) {
         numanode = 1;
     }
-#endif
 
-    err = dma_manager_wait_for_driver(dma_device_type, 0);
+    err = dma_manager_wait_for_driver(dma_device_type, numanode);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not wait for the DMA driver");
     }
-
+#endif
     char svc_name[30];
 #ifdef __k1om__
     snprintf(svc_name, 30, "%s", XEON_PHI_DMA_SERVICE_NAME);
@@ -535,7 +625,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     if (svc_iref) {
         err = xomp_bind(svc_iref, master_bind_cb, NULL, ws,
-        IDC_EXPORT_FLAGS_DEFAULT);
+                        IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         struct xomp_frameinfo fi = {
             .sendbase = id.base,
@@ -564,5 +654,4 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     }
 
     return SYS_ERR_OK;
-
 }

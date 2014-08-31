@@ -187,7 +187,7 @@ int bomp_xomp_init(void *arg)
             err = xomp_master_init(args);
             break;
         default:
-            return -1;  // TODO: ERROR NUMBER
+            return XOMP_ERR_INVALID_ARGUMENTS;
             break;
     }
 

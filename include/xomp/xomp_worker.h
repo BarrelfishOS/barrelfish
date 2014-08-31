@@ -10,6 +10,9 @@
 #ifndef LIB_XOMP_WORKER_H_
 #define LIB_XOMP_WORKER_H_
 
+/// flag indicating that the worker is acting as a gatway
+#define XOMP_WID_GATEWAY_FLAG (1UL << 63)
+
 /**
  * \brief parses the command line arguments to extract
  *
