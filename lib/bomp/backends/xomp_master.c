@@ -931,10 +931,10 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         }
     }
 
-    for (uint32_t i = 0; i < task->total_threads - 1; ++i) {
+    for (uint32_t i = task->total_threads - 1; i > 0; --i) {
         struct xomp_worker *worker = NULL;
 
-        if (i < local_threads) {
+        if (i <= local_threads) {
             worker = &xmaster.local.workers[xmaster.local.next++];
             assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
 
@@ -973,7 +973,7 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         work->fn = task->fn;
 
         work->barrier = NULL;
-        work->thread_id = i + 1;
+        work->thread_id = i;
         work->num_threads = task->total_threads;
 
         /* XXX: hack, we do not know how big the data section is... */

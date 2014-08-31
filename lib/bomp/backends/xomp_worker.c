@@ -178,18 +178,6 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     uint32_t map_flags = 0x0;
     lvaddr_t addr = 0x0;
 
-    if (capref_is_null(frame)) {
-        if (type == XOMP_FRAME_TYPE_REPL_RW) {
-            type = XOMP_FRAME_TYPE_SHARED_RW;
-        }
-        assert(!(worker_id & XOMP_WID_GATEWAY_FLAG));
-        XWR_DEBUG("Requesting frame from helper: [%016lx]\n", usrdata);
-        err = xomp_gateway_get_memory(usrdata, &frame);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
-
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
@@ -243,11 +231,13 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     }
     if (addr) {
 #ifdef __k1om__
-        XWR_DEBUG("registering memory with gateway: [%016lx]\n", addr);
-        err = xomp_gateway_mem_insert(frame, addr);
-        if (err_is_fail(err)) {
-            /* todo: cleanup */
-            return err;
+        if (worker_id & XOMP_WID_GATEWAY_FLAG) {
+            XWR_DEBUG("registering memory with gateway: [%016lx]\n", addr);
+            err = xomp_gateway_mem_insert(frame, addr);
+            if (err_is_fail(err)) {
+                /* todo: cleanup */
+                return err;
+            }
         }
 #endif
         err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
@@ -265,6 +255,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
         memcpy((void *)usrdata, (void *)addr, (1UL << id.bits));
     }
 #endif
+
     XWI_DEBUG("msg_open_cb: frame [%016lx] mapped @ [%016lx, %016lx]\n", id.base,
               addr, addr + (1UL << id.bits));
 
@@ -334,9 +325,25 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
 
-    msg_st->err = msg_open_cb(0x0, addr, NULL_CAP, type);
+    struct capref frame;
+    if (type == XOMP_FRAME_TYPE_REPL_RW) {
+        type = XOMP_FRAME_TYPE_SHARED_RW;
+    }
+    assert(!(worker_id & XOMP_WID_GATEWAY_FLAG));
+
     msg_st->send = gw_req_memory_response_tx;
     msg_st->cleanup = NULL;
+
+    XWR_DEBUG("Requesting frame from gateway: [%016lx]\n", usrdata);
+
+    msg_st->err = xomp_gateway_get_memory(addr, &frame);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+
+    msg_st->err = msg_open_cb(0x0, addr, frame, type);
+
     txq_send(msg_st);
 }
 
