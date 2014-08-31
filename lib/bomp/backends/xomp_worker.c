@@ -475,7 +475,6 @@ errval_t xomp_worker_parse_cmdline(uint8_t argc,
             is_worker = 0x1;
         } else if (strncmp("--wid=", argv[i], 6) == 0) {
             retwid = strtoul(argv[i] + 6, NULL, 16);
-            debug_printf("argv: %s, %lx\n", argv[i], retwid);
             parsed++;
         } else if (strncmp("--iref=", argv[i], 7) == 0) {
             iref = strtoul(argv[i] + 7, NULL, 16);

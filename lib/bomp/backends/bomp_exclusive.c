@@ -156,8 +156,6 @@ int bomp_xomp_init(void *arg)
 {
     errval_t err;
 
-    debug_printf("libbomp: initializing xomp backned\n");
-
     struct xomp_args *args = arg;
 
     xomp_st = calloc(1, sizeof(struct bomp_state ));
