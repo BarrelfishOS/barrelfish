@@ -114,39 +114,6 @@ static struct xphi_svc_st *xphi_svc_clients_lookup_by_did(uint64_t did)
 
 /*
  * ----------------------------------------------------------------------------
- * Message handling
- * ----------------------------------------------------------------------------
- */
-static inline void handle_messages(void)
-{
-#ifndef __k1om__
-    errval_t err;
-    uint32_t data = 0x0;
-    uint32_t serial_recv = 0xF;
-    while (serial_recv--) {
-        data |= xeon_phi_serial_handle_recv();
-    }
-
-    err = event_dispatch_non_block(get_default_waitset());
-    switch (err_no(err)) {
-        case SYS_ERR_OK:
-        break;
-        case LIB_ERR_NO_EVENT:
-        if (!data) {
-            thread_yield();
-        }
-        break;
-        default:
-        USER_PANIC_ERR(err, "in event dispatch\n");
-        break;
-    }
-#else
-    messages_wait_and_handle_next();
-#endif
-}
-
-/*
- * ----------------------------------------------------------------------------
  * Send handlers
  * ----------------------------------------------------------------------------
  */
@@ -613,6 +580,8 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
                                        xphi_dom_id_t src_domain,
                                        uint64_t userdata)
 {
+    errval_t err;
+
     struct xphi_svc_st *st = NULL;
 
     st = xphi_svc_clients_lookup_by_did(target_domain);
@@ -623,7 +592,10 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     }
 
     while (st->rpc_state != RPC_STATE_IDLE) {
-        handle_messages();
+        err = xeon_phi_event_poll(true);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     st->rpc_state = RPC_STATE_PROGRESS;
@@ -646,7 +618,10 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     txq_send(msg_st);
 
     while (!(st->rpc_state & RPC_STATE_DONE)) {
-        handle_messages();
+        err = xeon_phi_event_poll(true);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     st->rpc_state = RPC_STATE_IDLE;

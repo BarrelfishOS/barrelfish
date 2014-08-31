@@ -27,7 +27,10 @@ errval_t xdma_service_init(struct xeon_phi *phi);
  */
 static inline errval_t xdma_service_poll(struct xeon_phi *phi)
 {
-    return dma_device_poll_channels(phi->dma);
+    if (phi->dma) {
+        return dma_device_poll_channels(phi->dma);
+    }
+    return DMA_ERR_DEVICE_IDLE;
 }
 
 #endif /* XEON_PHI_DMA_SERVICE_H_ */

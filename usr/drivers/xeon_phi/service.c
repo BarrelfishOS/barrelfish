@@ -31,34 +31,6 @@ static iref_t svc_iref;
 
 errval_t bootstrap_errors[XEON_PHI_NUM_MAX];
 
-static inline errval_t handle_messages(uint8_t idle)
-{
-    errval_t err;
-
-    uint32_t data = 0x0;
-    uint32_t serial_recv = 0xF;
-    while (serial_recv--) {
-        data |= xeon_phi_serial_handle_recv();
-    }
-
-    idle &= (!data);
-
-    err = event_dispatch_non_block(get_default_waitset());
-    switch(err_no(err)) {
-        case SYS_ERR_OK:
-            break;
-        case LIB_ERR_NO_EVENT:
-            if (idle) {
-                thread_yield();
-            }
-            break;
-        default:
-            USER_PANIC_ERR(err, "unexpected error while event dispatch");
-            break;
-    }
-    return SYS_ERR_OK;
-}
-
 /*
  * ---------------------------------------------------------------------------
  * Intra Xeon Phi Driver Communication bootstrap
@@ -206,7 +178,7 @@ errval_t service_bootstrap(struct xeon_phi *phi,
     XSERVICE_DEBUG("waiting for bootstrap done:%u.\n", xphi_id);
 
     while(!node->bootstrap_done) {
-        handle_messages(0x1);
+        xeon_phi_event_poll(0x1);
     }
 
     return node->err;
@@ -452,6 +424,7 @@ errval_t service_register(struct xeon_phi *phi,
                           uint8_t num)
 {
     errval_t err;
+
     struct xnode *xnode;
     XSERVICE_DEBUG("start binding to %u Xeon Phi nodes\n", num - 1);
     for (uint32_t i = 0; i < num; ++i) {
@@ -471,7 +444,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode->state = XNODE_STATE_NONE;
         svc_register(xnode);
         while (xnode->state == XNODE_STATE_NONE) {
-            err = event_dispatch(get_default_waitset());
+            err = xeon_phi_event_poll(0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -487,7 +460,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode = &phi->topology[i];
         register_call_send(xnode);
         while (xnode->state == XNODE_STATE_REGISTERING) {
-            err = event_dispatch(get_default_waitset());
+            err = xeon_phi_event_poll(0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -510,10 +483,7 @@ errval_t service_start(struct xeon_phi *phi)
     errval_t err;
 
     while (1) {
-        uint8_t idle = 0x1;
-        err = xdma_service_poll(phi);
-        idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
-        err = handle_messages(idle);
+        err = xeon_phi_event_poll(0x1);
         if (err_is_fail(err)) {
             return err;
         }
