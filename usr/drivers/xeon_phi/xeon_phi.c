@@ -214,6 +214,8 @@ errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_
 
     smpt_init(phi);
 
+    xeon_phi_serial_init(phi);
+
     return SYS_ERR_OK;
 }
 

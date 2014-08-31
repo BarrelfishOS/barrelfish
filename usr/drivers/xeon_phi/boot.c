@@ -413,8 +413,6 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
 
-    xeon_phi_serial_init(phi);
-
     // notify the bootstrap
     bootstrap_notify(phi);
 
