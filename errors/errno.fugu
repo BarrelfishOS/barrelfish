@@ -1101,4 +1101,8 @@ errors xomp XOMP_ERR_ {
     failure SPAWN_WORKER_FAILED   "Spawning of the worker failed",
     failure MASTER_NOT_INIT       "XOMP Master library has not been initialized",
     failure WORKER_INIT_FAILED    "Worker initialization failed",
+    failure WORKER_STATE          "worker is in the wrong state",
+    failure INVALID_MEMORY        "the memory has not been registred / shared",
+    failure INVALID_TOKEN         "the token was invalid",
+    failure INVALID_ARGUMENTS     "the library was initialized with invalid args",
 };
