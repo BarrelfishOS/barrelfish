@@ -63,6 +63,58 @@ static errval_t mount_nfs_path(char *uri)
     return  vfs_mount(XEON_PHI_NFS_MNT, uri);
 }
 
+/**
+ * \brief handles events on the waitset and polls for completed DMA transfers
+ *        and new data on the serial line (host only)
+ *
+ * \param do_yield if set, yield thread if no event was discovered
+ *
+ * \return SYS_ERR_OK if an event was handled
+ *         LIB_ERR_NO_EVENT if there was no evetn
+ */
+errval_t xeon_phi_event_poll(uint8_t do_yield)
+{
+    errval_t err;
+
+    uint8_t idle = 0x1;
+
+    uint8_t serial_recv = 0xF;
+    while (serial_recv-- && xeon_phi_serial_handle_recv());
+
+
+    err = xdma_service_poll(&xphi);
+    switch(err_no(err)) {
+        case SYS_ERR_OK:
+            idle = 0;
+            break;
+        case DMA_ERR_DEVICE_IDLE:
+            /* no op */
+            break;
+        default:
+            return err;
+            break;
+    }
+
+    err = event_dispatch_non_block(get_default_waitset());
+    switch(err_no(err)) {
+        case LIB_ERR_NO_EVENT :
+            if (idle) {
+                if (do_yield) {
+                    thread_yield();
+                    return SYS_ERR_OK;
+                } else {
+                    return LIB_ERR_NO_EVENT;
+                }
+            } else {
+                return SYS_ERR_OK;
+            }
+        default:
+            return err;
+            break;
+    }
+    return SYS_ERR_OK;
+}
+
 
 /**
  * \brief Main function of the Xeon Phi Driver (Host Side)

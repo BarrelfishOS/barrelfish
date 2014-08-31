@@ -42,6 +42,7 @@
 
 #define XEON_PHI_IS_CLIENT 0x0
 #define XEON_PHI_IS_HOST   0x1
+
 /*
  * This defines are used to reference the MMIO registers on the host side.
  *
@@ -208,5 +209,17 @@ errval_t xeon_phi_map_aperture(struct xeon_phi *phi,
  * \return SYS_ERR_OK on success
  */
 errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
+
+/**
+ * \brief handles events on the waitset and polls for completed DMA transfers
+ *        and new data on the serial line (host only)
+ *
+ * \param do_yield if set, yield thread if no event was discovered
+ *
+ * \return SYS_ERR_OK if an event was handled
+ *         LIB_ERR_NO_EVENT if there was no evetn
+ */
+errval_t xeon_phi_event_poll(uint8_t do_yield);
+
 
 #endif /* XEON_PHI_H_ */

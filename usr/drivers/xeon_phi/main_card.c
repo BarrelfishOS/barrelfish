@@ -66,6 +66,53 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief handles events on the waitset and polls for completed DMA transfers
+ *        and new data on the serial line (host only)
+ *
+ * \param do_yield if set, yield thread if no event was discovered
+ *
+ * \return SYS_ERR_OK if an event was handled
+ *         LIB_ERR_NO_EVENT if there was no evetn
+ */
+errval_t xeon_phi_event_poll(uint8_t do_yield)
+{
+    errval_t err;
+
+    uint8_t idle = 0x1;
+    err = xdma_service_poll(&xphi);
+    switch(err_no(err)) {
+        case SYS_ERR_OK:
+            idle = 0;
+            break;
+        case DMA_ERR_DEVICE_IDLE:
+            /* no op */
+            break;
+        default:
+            return err;
+            break;
+    }
+    err = event_dispatch_non_block(get_default_waitset());
+    switch(err_no(err)) {
+        case LIB_ERR_NO_EVENT :
+            if (idle) {
+                if (do_yield) {
+                    thread_yield();
+                    return SYS_ERR_OK;
+                } else {
+                    return LIB_ERR_NO_EVENT;
+                }
+            } else {
+                return SYS_ERR_OK;
+            }
+        default:
+            return err;
+            break;
+    }
+    return SYS_ERR_OK;
+
+}
+
 int main(int argc,
          char *argv[])
 {
@@ -137,21 +184,10 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not initialize the messaging service");
     }
 
-    XMESSAGING_DEBUG("Start polling for messages...\n");
+    XDEBUG("Start polling for messages...\n");
+
     while (1) {
-        uint8_t idle = 0x1;
-        err = xdma_service_poll(&xphi);
-        idle = idle && (err_no(err) == DMA_ERR_DEVICE_IDLE);
-        err = event_dispatch_non_block(get_default_waitset());
-        if (err_is_fail(err)) {
-            if ((err_no(err) == LIB_ERR_NO_EVENT) && idle) {
-                thread_yield();
-                continue;
-            }
-            if (err_no(err) != LIB_ERR_NO_EVENT) {
-                USER_PANIC_ERR(err, "msg loop");
-            }
-        }
+        xeon_phi_event_poll(1);
     }
 
     XDEBUG("Messaging loop terminated...\n");
