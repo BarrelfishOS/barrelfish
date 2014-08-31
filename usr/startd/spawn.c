@@ -311,7 +311,7 @@ void spawn_app_domains(void)
             coreid_t coreid;
 
             uint8_t spawn_flags = 0;
-            uint8_t has_spawn_flags = 1;
+            uint8_t has_spawn_flags = 0;
             if (si.argc >= 2) {
                 char *p = NULL;
                 if (strncmp(si.argv[1], "spawnflags=", 11) == 0) {
