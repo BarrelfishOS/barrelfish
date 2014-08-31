@@ -71,6 +71,7 @@
                "xmplrpc",
                "xmplthc",
                "xomp",
+               "xomp_gateway",
                "unixsock",
                "bcache",
                "replay",
