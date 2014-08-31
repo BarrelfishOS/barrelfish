@@ -57,7 +57,7 @@ rm -f $MBHEADER
 OFFSET=0
 
 
-echo "  Start parsing multiboot"
+echo -n "Start parsing multiboot... "
 while read line           
 do           
   # remove leading spaces
@@ -80,7 +80,7 @@ do
   
     FILESIZE=$(stat -c%s ".$BIN")
     PADDING=$(echo "($ALIGNMENT-($FILESIZE%$ALIGNMENT))" | bc)  
-    echo '   +'$BIN ': Size='$FILESIZE', Padding Size='$PADDING' , Offset='$OFFSET
+#    echo '   +'$BIN ': Size='$FILESIZE', Padding Size='$PADDING' , Offset='$OFFSET
     cat "."$BIN >>  $MBIMG
     for ((i=0; i < $PADDING; i=i+1)) do
        echo -en "\0" >> $MBIMG
@@ -89,3 +89,5 @@ do
     OFFSET=$(echo "$OFFSET+$PADDING+$FILESIZE" | bc)
   fi
 done <$MENU_LST	
+
+echo "done."
