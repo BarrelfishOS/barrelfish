@@ -78,7 +78,7 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
 
     uint8_t idle = 0x1;
 
-    uint8_t serial_recv = 0xF;
+    uint8_t serial_recv = 0xFF;
     while (serial_recv-- && xeon_phi_serial_handle_recv());
 
 
