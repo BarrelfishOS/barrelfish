@@ -163,14 +163,17 @@ rdtscp(void)
 static inline uint64_t
 rdpmc(uint32_t counter)
 {
-    uint32_t eax, edx;
     /*
+    uint32_t eax, edx;
+
      __asm volatile("rdpmc"
      : "=a" (eax), "=d" (edx)
      : "c" (counter)
      );
-     */
+
     return ((uint64_t) edx << 32) | eax;
+     */
+    return 0;
 }
 
 static inline void
