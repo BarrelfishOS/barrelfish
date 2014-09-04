@@ -316,7 +316,7 @@ void spawn_app_domains(void)
                 char *p = NULL;
                 if (strncmp(si.argv[1], "spawnflags=", 11) == 0) {
                     p = strchr(si.argv[1], '=');
-                } else if (strncmp(si.argv[2], "spawnflags=", 11) == 0) {
+                } else if (si.argv[2] && strncmp(si.argv[2], "spawnflags=", 11) == 0) {
                     p = strchr(si.argv[2], '=');
                 }
                 if (p != NULL) {
@@ -324,14 +324,11 @@ void spawn_app_domains(void)
                     spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
                     has_spawn_flags = 1;
                 }
-            }
-
-            // get core id
-            if (si.argc >= 2 && strncmp(si.argv[1], "core=", 5) == 0) {
-
-                char *p = strchr(si.argv[1], '=');
-                assert(p != NULL);
-
+                if (strncmp(si.argv[1], "core=", 5)== 0) {
+                    p = strchr(si.argv[1], '=');
+                } else if (si.argv[2] && strncmp(si.argv[2], "core=", 5)== 0) {
+                    p = strchr(si.argv[2], '=');
+                }
                 p++;
                 while(*p != '\0') {
                     int id_from = strtol(p, (char **)&p, 10), id_to = id_from;
@@ -361,7 +358,7 @@ void spawn_app_domains(void)
 
                     for(int i = id_from; i <= id_to; i++) {
                         debug_printf("starting app %s on core %d\n",
-                                si.name, i);
+                                     si.name, i);
 
                         domainid_t new_domain;
                         err = spawn_program(i, si.name, si.argv, environ,
@@ -371,6 +368,7 @@ void spawn_app_domains(void)
                         }
                     }
                 }
+
             } else {
                 coreid = my_coreid;
 
