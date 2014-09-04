@@ -7,7 +7,7 @@
  */
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-
+#include <bench/bench.h>
 #include <dev/ioat_dma_dev.h>
 
 #include <dma_mem_utils.h>
@@ -247,6 +247,10 @@ errval_t ioat_dma_device_init(struct capref mmio,
     if (ioat_device == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
+#if DMA_BENCH_ENABLED
+     bench_init();
+#endif
 
     struct dma_device *dma_dev = &ioat_device->common;
 

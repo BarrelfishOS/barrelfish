@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <bench/bench.h>
 
 #include <dma_internal.h>
 #include <dma_device_internal.h>
@@ -24,6 +25,30 @@
 inline dma_req_id_t dma_request_generate_req_id(struct dma_channel *chan)
 {
     return dma_request_id_build(chan, dma_channel_incr_req_count(chan));
+}
+
+/**
+ * \brief initializes the common part of a DMA request
+ *
+ * \param req   DMA request to initialize
+ * \param chan  Channel this request gets executed on
+ * \param type  The type of the DMA request
+ *
+ * \return SYS_ERR_OK on success
+ *         errval on failure
+ */
+errval_t dma_request_common_init(struct dma_request *req,
+                                 struct dma_channel *chan,
+                                 dma_req_st_t type)
+{
+    req->id = dma_request_id_build(chan, dma_channel_incr_req_count(chan));
+    req->type = type;
+    req->state = DMA_REQ_ST_INVALID;
+
+#if DMA_BENCH_ENABLED
+    req->timer_start = bench_tsc();
+#endif
+    return SYS_ERR_OK;
 }
 
 /**
@@ -48,6 +73,13 @@ errval_t dma_request_process(struct dma_request *req)
             err = DMA_ERR_CHAN_ERROR;  // todo: error code
             break;
     }
+
+#if DMA_BENCH_ENABLED
+    cycles_t timer_end = bench_tsc();
+    debug_printf("DMA request %016lx took %lu cycles (%lu ms)\n",
+                 req->id, timer_end - req->timer_start,
+                 bench_tsc_to_ms(timer_end - req->timer_start));
+#endif
 
     if (req->setup.done_cb) {
         req->setup.done_cb(err, req->id, req->setup.cb_arg);

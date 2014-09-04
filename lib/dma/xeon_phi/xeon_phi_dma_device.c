@@ -8,6 +8,7 @@
 
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <bench/bench.h>
 
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
@@ -233,6 +234,10 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
     if (xdev == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
+#if DMA_BENCH_ENABLED
+     bench_init();
+#endif
 
     struct dma_device *dma_dev = (struct dma_device *) xdev;
 

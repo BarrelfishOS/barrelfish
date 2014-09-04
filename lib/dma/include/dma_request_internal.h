@@ -19,8 +19,13 @@ struct dma_request
 {
     dma_req_id_t id;            ///<
     dma_req_st_t state;         ///<
-    dma_req_type_t type;
+    dma_req_type_t type;        ///<
     errval_t err;
+
+#if DMA_BENCH_ENABLED
+    cycles_t timer_start;
+#endif
+
     struct dma_req_setup setup; ///<
     struct dma_request *next;   ///<
     struct dma_request *prev;   ///<
@@ -28,6 +33,19 @@ struct dma_request
 
 dma_req_id_t dma_request_generate_req_id(struct dma_channel *chan);
 
+/**
+ * \brief initializes the common part of a DMA request
+ *
+ * \param req   DMA request to initialize
+ * \param chan  Channel this request gets executed on
+ * \param type  The type of the DMA request
+ *
+ * \return SYS_ERR_OK on success
+ *         errval on failure
+ */
+errval_t dma_request_common_init(struct dma_request *req,
+                                 struct dma_channel *chan,
+                                 dma_req_st_t type);
 
 /**
  * \brief handles the processing of completed DMA requests

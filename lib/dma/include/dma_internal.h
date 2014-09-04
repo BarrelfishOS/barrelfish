@@ -12,6 +12,6 @@
 
 #include <dma/dma.h>
 
-
+#define DMA_BENCH_ENABLED 1
 
 #endif /* DMA_INTERNAL_H */

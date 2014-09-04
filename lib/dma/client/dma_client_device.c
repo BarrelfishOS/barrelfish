@@ -8,6 +8,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <bench/bench.h>
 
 #include <dma/dma_manager_client.h>
 #include <client/dma_client_internal.h>
@@ -58,6 +59,10 @@ errval_t dma_client_device_init(struct dma_client_info *info,
     if (cdev == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
+#if DMA_BENCH_ENABLED
+     bench_init();
+#endif
 
     struct dma_device *dma_dev = (struct dma_device *) cdev;
 

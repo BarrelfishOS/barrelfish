@@ -158,6 +158,8 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
         return DMA_ERR_NO_REQUESTS;
     }
 
+    dma_request_common_init(&req->common, chan, setup->type);
+
     ioat_dma_desc_ctrl_array_t ctrl = {
         0
     };
@@ -194,7 +196,6 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
     } while (length > 0);
 
     req->common.setup = *setup;
-    req->common.id = dma_request_generate_req_id((struct dma_channel *) ioat_chan);
 
     *id = req->common.id;
 

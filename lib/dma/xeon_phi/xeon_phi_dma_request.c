@@ -159,6 +159,8 @@ errval_t xeon_phi_dma_request_memcpy_chan(struct dma_channel *chan,
         return DMA_ERR_NO_REQUESTS;
     }
 
+    dma_request_common_init(&req->common, chan, setup->type);
+
     struct dma_descriptor *desc;
     size_t length = setup->args.memcpy.bytes;
     lpaddr_t src = setup->args.memcpy.src;
@@ -187,7 +189,6 @@ errval_t xeon_phi_dma_request_memcpy_chan(struct dma_channel *chan,
     } while (length > 0);
 
     req->common.setup = *setup;
-    req->common.id = dma_request_generate_req_id(chan);
 
     *id = req->common.id;
 
