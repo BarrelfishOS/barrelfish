@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009-2013 ETH Zurich.
+# Copyright (c) 2009-2014 ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -58,7 +58,7 @@ TESTS_COMMON= \
 	sbin/schedtest \
 	sbin/testerror \
 	sbin/yield_test \
-	sbin/fputest \
+	sbin/fputest
 	
 TESTS_x86_64= \
 	sbin/mdbtest_range_query \
@@ -78,10 +78,12 @@ TESTS_x86_64= \
 	sbin/multihoptest \
 	sbin/cryptotest \
 	sbin/net-test \
+	sbin/xcorecap \
+	sbin/xcorecapserv
 
 
 # All benchmark domains
-BENCH_COMMOM=\
+BENCH_COMMON= \
 	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_buffer_bench \
 	sbin/flounder_stubs_payload_bench \
@@ -99,7 +101,7 @@ BENCH_COMMOM=\
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench \
+	sbin/multihop_latency_bench
 
 BENCH_x86_64= \
 	sbin/bomp_benchmark_cg \
@@ -123,7 +125,7 @@ BENCH_x86_64= \
 	sbin/bulk_transfer_passthrough \
 	sbin/bulkbench_micro_echo \
 	sbin/bulkbench_micro_throughput \
-	sbin/bulkbench_micro_rtt \
+	sbin/bulkbench_micro_rtt
 	
 
 GREEN_MARL= \
@@ -138,14 +140,12 @@ MODULES_COMMON= \
 	sbin/startd \
 	sbin/mem_serv \
 	sbin/monitor \
-	sbin/ramfsd \
-	sbin/xcorecap \
-	sbin/xcorecapserv \
+	sbin/ramfsd
 
 # List of modules that are arch-independent and always built
 MODULES_GENERIC= \
 	skb_ramfs.cpio.gz \
-	sshd_ramfs.cpio.gz \
+	sshd_ramfs.cpio.gz
 
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
@@ -229,8 +229,8 @@ MODULES_x86_64_broken= \
 	sbin/ipi_bench \
 	sbin/ring_barriers \
 	sbin/ssf_bcast \
-	sbin/lamport_bcast \
-
+	sbin/lamport_bcast
+	
 # x86-32-specific module to build by default
 MODULES_x86_32=\
 	sbin/cpu \
@@ -258,7 +258,7 @@ MODULES_x86_32=\
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
 	sbin/angler \
-	sbin/sshd \
+	sbin/sshd
 
 # SCC-specific module to build by default
 MODULES_scc=\
@@ -279,7 +279,7 @@ MODULES_scc=\
 	sbin/mem_serv_dist \
 	sbin/net-test \
 	sbin/netthroughput \
-	sbin/udp_throughput \
+	sbin/udp_throughput
 
 # ARM-specific modules to build by default
 MODULES_armv5=\
@@ -298,7 +298,7 @@ MODULES_armv7=\
 	sbin/usb_manager \
 	sbin/usb_keyboard \
 	sbin/kaluga \
-	sbin/fish \
+	sbin/fish
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -549,17 +549,18 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 # 	
 ######################################################################
 
+# we have to filter out the moduels that are generated below
+MODULES_k1om_filtered = $(filter-out xeon_phi_multiboot, \
+						$(filter-out sbin/weever,$(MODULES_k1om)))
+
 # Intel Xeon Phi-specific modules
 XEON_PHI_MODULES =\
-	k1om/sbin/cpu \
-	k1om/sbin/init \
-	k1om/sbin/mem_serv \
-	k1om/sbin/monitor \
-	k1om/sbin/ramfsd \
-	k1om/sbin/skb \
-	k1om/sbin/spawnd \
-	k1om/sbin/startd \
-	k1om/sbin/xeon_phi
+	$(foreach m,$(MODULES_COMMON),k1om/$(m)) \
+	$(foreach m,$(MODULES_k1om_filtered),k1om/$(m)) \
+	$(foreach m,$(BENCH_COMMON),k1om/$(m)) \
+	$(foreach m,$(TESTS_COMMON),k1om/$(m)) \
+	$(foreach m,$(BENCH_k1om),k1om/$(m)) \
+	$(foreach m,$(TESTS_k1om),k1om/$(m))  
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
@@ -575,7 +576,9 @@ k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
 k1om/sbin/weever.bin: k1om/sbin/weever_elf
 	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
 	
-k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om 
+k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
+	@echo "building xeon phi multiboot"
+	@echo $(XEON_PHI_MODULES) 
 	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 
 
