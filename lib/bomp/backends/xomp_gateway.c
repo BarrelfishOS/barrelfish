@@ -15,6 +15,7 @@
 #include <xomp/xomp.h>
 #include <xomp_gateway.h>
 #include <xomp_debug.h>
+#include <bomp_internal.h>
 
 #include <if/xomp_gateway_defs.h>
 

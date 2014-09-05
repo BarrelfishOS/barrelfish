@@ -211,6 +211,8 @@ int bomp_xomp_init(void *arg)
         USER_PANIC_ERR(err, "Master spawning workers\n");
     }
 
+    omp_set_num_threads(g_thread_limit);
+
     return 0;
 }
 struct bomp_state * bomp_get_backend_state_xomp(void)
