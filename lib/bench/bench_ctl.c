@@ -139,22 +139,26 @@ static cycles_t *do_bincounting(bench_ctl_t *ctl,
     return bins;
 }
 
-static uint64_t *do_sorting(bench_ctl_t *ctl,
-                                size_t dimension)
+static uint64_t *get_array(bench_ctl_t *ctl,
+                          size_t dimension)
 {
-    size_t i, j;
-    size_t len = ctl->result_count;
-    uint64_t *sorted_array;
-    cycles_t temp_holder;
+    cycles_t *array = calloc(ctl->result_count, sizeof(cycles_t));
+    assert(array != NULL);
 
-    // create a sorted array
-    sorted_array = calloc(ctl->result_count, sizeof(uint64_t));
-    assert(sorted_array != NULL);
-    // Copy data into sorted array
-    for (i = 0; i < len; i++) {
-        sorted_array[i] = *(ctl->data + (ctl->result_dimensions * i
+    for (size_t i = 0; i < ctl->result_count; i++) {
+        array[i] = *(ctl->data + (ctl->result_dimensions * i
                     + dimension));
     }
+    return array;
+}
+
+static uint64_t *do_sorting(cycles_t *array,
+                            size_t len)
+{
+    size_t i, j;
+    uint64_t *sorted_array = array;
+    cycles_t temp_holder;
+
 
     // sort the array
     for (i = 0; i < len; ++i) {
@@ -170,46 +174,66 @@ static uint64_t *do_sorting(bench_ctl_t *ctl,
 } // end function: do_sorting
 
 void bench_ctl_dump_analysis(bench_ctl_t *ctl,
-                                    size_t dimension,
-                                    const char *prefix,
-                                    cycles_t tscperus)
+                             size_t dimension,
+                             const char *prefix,
+                             cycles_t tscperus)
 {
-
-    uint64_t *final_array = do_sorting(ctl, dimension);
     size_t len = ctl->result_count;
+    uint64_t *array = get_array(ctl, dimension);
+
+#if BENCH_DUMP_OCTAVE
+    cycles_t avg, std_dev;
+    bench_stddev(array, len, 0, &avg, &std_dev);
+#endif
+
+    uint64_t *final_array =  do_sorting(array, len);
+
     size_t max99 = (size_t)((0.99 * len) + 0.5);
+#if BENCH_DUMP_OCTAVE
+
+    // printf("\% [name]  [runs]  [avg]  [stdev]  [min]  [med]  [P99]  [max]\n");
+
+    printf("\% %s\n, %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64
+           ", %"PRIu64"; \n", prefix,(uint64_t)len, avg, std_dev, final_array[len/2],
+           final_array[0], final_array[max99-1], final_array[len-1]);
+
+    printf("\% %s\n, %"PRIu64", %f, %f, %f, %f, %f, %f;\n",prefix, (uint64_t)len,
+           (avg /(float)tscperus), (std_dev / ((float)tscperus*(float)tscperus)),
+           (final_array[len/2]/(float)tscperus), (final_array[0]/(float)tscperus),
+           (final_array[max99-1]/(float)tscperus),(final_array[len-1]/(float)tscperus));
+#else
     printf("run [%"PRIu64"], med_pos[%"PRIu64"], min_pos[%"PRIu64"], "
            "P99[%"PRIu64"], max[%"PRIu64"]\n",
-        (uint64_t)len,
-        (uint64_t)(len/2),
-        (uint64_t)0,
-        (uint64_t)(max99-1),
-        (uint64_t)(len-1));
+           (uint64_t)len,
+           (uint64_t)(len/2),
+           (uint64_t)0,
+           (uint64_t)(max99-1),
+           (uint64_t)(len-1));
 
     printf("run [%"PRIu64"], med[%"PRIu64"], min[%"PRIu64"], "
            "P99[%"PRIu64"], max[%"PRIu64"]\n",
-        (uint64_t)len,
-        (uint64_t)final_array[len/2],
-        (uint64_t)final_array[0],
-        (uint64_t)final_array[max99-1],
-        (uint64_t)final_array[len-1]);
+           (uint64_t)len,
+           (uint64_t)final_array[len/2],
+           (uint64_t)final_array[0],
+           (uint64_t)final_array[max99-1],
+           (uint64_t)final_array[len-1]);
 
     printf("run [%"PRIu64"], med[%f], min[%f], "
            "P99[%f], max[%f]\n",
-        (uint64_t)len,
-        (final_array[len/2]/(float)tscperus),
-        (final_array[0]/(float)tscperus),
-        (final_array[max99-1]/(float)tscperus),
-        (final_array[len-1]/(float)tscperus));
+           (uint64_t)len,
+           (final_array[len/2]/(float)tscperus),
+           (final_array[0]/(float)tscperus),
+           (final_array[max99-1]/(float)tscperus),
+           (final_array[len-1]/(float)tscperus));
 
     printf("%s, %"PRIu64" %f %f %f %f\n",
-            prefix,
-            (uint64_t)len,
-            (final_array[len/2]/(float)tscperus),
-            (final_array[0]/(float)tscperus),
-            (final_array[max99-1]/(float)tscperus),
-            (final_array[len-1]/(float)tscperus));
-
+           prefix,
+           (uint64_t)len,
+           (final_array[len/2]/(float)tscperus),
+           (final_array[0]/(float)tscperus),
+           (final_array[max99-1]/(float)tscperus),
+           (final_array[len-1]/(float)tscperus));
+#endif
 } // end function: bench_ctl_dump_analysis
 
 

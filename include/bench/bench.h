@@ -21,10 +21,14 @@
 
 #define BENCH_IGNORE_WATERMARK 0XDEADBEEF
 
+#define BENCH_DUMP_OCTAVE 0
+
 __BEGIN_DECLS
 void bench_init(void);
 cycles_t bench_avg(cycles_t *array, size_t len);
 cycles_t bench_variance(cycles_t *array, size_t len);
+void bench_stddev(cycles_t *array, size_t len, uint8_t correction,
+                  cycles_t *ret_avg, cycles_t *ret_stddev);
 cycles_t bench_min(cycles_t *array, size_t len);
 cycles_t bench_max(cycles_t *array, size_t len);
 cycles_t bench_tscoverhead(void);

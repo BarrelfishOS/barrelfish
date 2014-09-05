@@ -43,6 +43,9 @@ static inline cycles_t bench_tsc(void)
 }
 
 uint64_t bench_tsc_to_ms(cycles_t tsc);
+uint64_t bench_tsc_to_us(cycles_t tsc);
+uint64_t bench_tsc_per_us(void);
+uint64_t bench_tsc_per_ms(void);
 __END_DECLS
 
 #endif // ARCH_X86_64_BARRELFISH_BENCH_H
