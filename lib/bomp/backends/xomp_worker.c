@@ -98,6 +98,10 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 {
     errval_t err;
 
+#if XOMP_BENCH_ENABLED
+    cycles_t repl_timer = bench_tsc();
+#endif
+
     struct frame_identity id;
     err = invoke_frame_identify(*frame, &id);
     if (err_is_fail(err)) {
@@ -114,6 +118,9 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 
     XWR_DEBUG("registering memory with DMA service\n");
 
+#if XOMP_BENCH_ENABLED
+    cycles_t register_timer = bench_tsc();
+#endif
     err = dma_register_memory((struct dma_device *) dma_dev, *frame);
     if (err_is_fail(err)) {
         return err;
@@ -123,6 +130,10 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
     if (err_is_fail(err)) {
         return err;
     }
+
+#if XOMP_BENCH_ENABLED
+    cycles_t register_timer_end = bench_tsc();
+#endif
 
     struct dma_req_setup setup = {
         .done_cb = dma_replication_cb,
@@ -157,6 +168,14 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
     XWR_DEBUG("Replication done.\n");
 
     *frame = replicate;
+
+#if XOMP_BENCH_ENABLED
+    cycles_t timer_end = bench_tsc();
+    debug_printf("%lx replication took %lu cycles, %lu ms\n", worker_id,
+                 timer_end - repl_timer, bench_tsc_to_ms(timer_end - repl_timer));
+    debug_printf("%lx register mem took %lu cycles, %lu ms\n", worker_id,
+                 register_timer_end - register_timer, bench_tsc_to_ms(register_timer_end - register_timer));
+#endif
 
     return SYS_ERR_OK;
 }
@@ -230,7 +249,6 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
             break;
     }
     if (addr) {
-#ifdef __k1om__
         if (worker_id & XOMP_WID_GATEWAY_FLAG) {
             XWR_DEBUG("registering memory with gateway: [%016lx]\n", addr);
             err = xomp_gateway_mem_insert(frame, addr);
@@ -239,7 +257,6 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
                 return err;
             }
         }
-#endif
         err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
                                               map_flags, NULL, NULL);
     } else {
@@ -322,6 +339,11 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
                                   uint8_t type)
 {
     XWI_DEBUG("gw_req_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
+
+#if XOMP_BENCH_ENABLED
+    cycles_t mem_timer = bench_tsc();
+#endif
+
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
 
@@ -335,14 +357,27 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     msg_st->cleanup = NULL;
 
     XWR_DEBUG("Requesting frame from gateway: [%016lx]\n", usrdata);
-
+#if XOMP_BENCH_ENABLED
+    cycles_t lookup_start = bench_tsc();
+#endif
     msg_st->err = xomp_gateway_get_memory(addr, &frame);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
     }
+#if XOMP_BENCH_ENABLED
+    cycles_t lookup_end = bench_tsc();
+#endif
 
     msg_st->err = msg_open_cb(0x0, addr, frame, type);
+
+#if XOMP_BENCH_ENABLED
+    mem_timer = bench_tsc() - mem_timer;
+    debug_printf("%lx mem request %016lx took  %lu cycles, %lu ms\n", worker_id,
+                 addr, mem_timer, bench_tsc_to_ms(mem_timer));
+    debug_printf("%lx mem lookup %016lx took  %lu cycles, %lu ms\n", worker_id,
+                 addr, lookup_end - lookup_start, bench_tsc_to_ms(lookup_end - lookup_start));
+#endif
 
     txq_send(msg_st);
 }
@@ -353,12 +388,54 @@ static void add_memory_call_rx(struct xomp_binding *b,
                                uint8_t type)
 {
     XWI_DEBUG("add_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
+
+#if XOMP_BENCH_ENABLED
+    cycles_t mem_timer = bench_tsc();
+#endif
+
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
 
-    msg_st->err = msg_open_cb(0x0, addr, frame, type);
     msg_st->send = add_memory_response_tx;
     msg_st->cleanup = NULL;
+
+    uint32_t map_flags = 0x0;
+
+    switch ((xomp_frame_type_t) type) {
+        case XOMP_FRAME_TYPE_MSG:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RW:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RO:
+            map_flags = VREGION_FLAGS_READ;
+            break;
+        default:
+            USER_PANIC("unknown type: %u", type)
+            break;
+    }
+    struct frame_identity id;
+    msg_st->err = invoke_frame_identify(frame, &id);
+    if(err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+
+#if XOMP_BENCH_ENABLED
+    cycles_t map_start = bench_tsc();
+#endif
+    msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
+                                                  map_flags, NULL, NULL);
+
+#if XOMP_BENCH_ENABLED
+    cycles_t timer_end = bench_tsc();
+    debug_printf("%lx mem add %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
+                 timer_end - mem_timer, bench_tsc_to_ms(timer_end - mem_timer));
+    debug_printf("%lx mem map %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
+                     timer_end - map_start, bench_tsc_to_ms(timer_end - map_start));
+#endif
+
     txq_send(msg_st);
 }
 
@@ -368,9 +445,13 @@ static void do_work_rx(struct xomp_binding *b,
                        uint64_t id,
                        uint64_t flags)
 {
+    errval_t err;
+
     XWP_DEBUG("do_work_rx: fn:%lx, id:%lx\n", fn, id);
 
-    errval_t err;
+#if XOMP_BENCH_ENABLED
+    cycles_t work_timer = bench_tsc();
+#endif
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
@@ -410,6 +491,12 @@ static void do_work_rx(struct xomp_binding *b,
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
 
     fnct(work->data);
+
+#if XOMP_BENCH_ENABLED
+    work_timer = bench_tsc() - work_timer;
+    debug_printf("%lx work took %lu cycles, %lu ms\n", worker_id, work_timer,
+                 bench_tsc_to_ms(work_timer));
+#endif
 
     txq_send(msg_st);
 }
@@ -526,6 +613,10 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     worker_id = wid;
 
     XWI_DEBUG("initializing worker {%016lx} iref:%u\n", worker_id, svc_iref);
+
+#if XOMP_BENCH_ENABLED
+    bench_init();
+#endif
 
     struct capref frame = {
         .cnode = cnode_root,

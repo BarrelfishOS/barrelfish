@@ -73,6 +73,10 @@ struct xomp_worker
     void *msgbuf;                   ///< where the messaging frame is mapped
 
     void *tls;                      ///< pointer to the thread local storage
+
+#if XOMP_BENCH_ENABLED
+    cycles_t start;                 ///< start time of the operation
+#endif
 };
 
 /**
@@ -140,10 +144,15 @@ static struct xomp_spawn spawn_args_local;
 static struct xomp_spawn spawn_args_remote;
 
 /// buffer for the worker id argument
-char worker_id_buf[26];
+static char worker_id_buf[26];
 
 /// buffer for the iref argument
-char iref_buf[19];
+static char iref_buf[19];
+
+#if XOMP_BENCH_ENABLED
+static cycles_t local_timer;
+static cycles_t remote_timer;
+#endif
 
 /**
  * \brief enters the barrier when a worker finished his work, this function
@@ -159,6 +168,8 @@ static inline void xbomp_barrier_enter_no_wait(struct bomp_barrier *barrier)
     }
 }
 
+#define XOMP_LOCAL_THREADS_MAX 10
+
 /*
  * ----------------------------------------------------------------------------
  * Helper functions
@@ -166,11 +177,20 @@ static inline void xbomp_barrier_enter_no_wait(struct bomp_barrier *barrier)
  */
 static inline uint32_t xomp_master_get_local_threads(uint32_t nthreads)
 {
+    return 9;
     switch (worker_loc) {
         case XOMP_WORKER_LOC_LOCAL:
             return nthreads - 1;
         case XOMP_WORKER_LOC_MIXED:
+#if XOMP_LOCAL_THREADS_MAX
+            if (nthreads > XOMP_LOCAL_THREADS_MAX) {
+                return XOMP_LOCAL_THREADS_MAX - 1;
+            } else {
+                return nthreads - (num_phi * ((nthreads) / (1 + num_phi))) - 1;
+            }
+#else
             return nthreads - (num_phi * ((nthreads) / (1 + num_phi))) - 1;
+#endif
         case XOMP_WORKER_LOC_REMOTE:
             return 0;
         default:
@@ -182,11 +202,20 @@ static inline uint32_t xomp_master_get_local_threads(uint32_t nthreads)
 
 static inline uint32_t xomp_master_get_remote_threads(uint32_t nthreads)
 {
+    return 60;
     switch (worker_loc) {
         case XOMP_WORKER_LOC_LOCAL:
             return 0;
         case XOMP_WORKER_LOC_MIXED:
+#if XOMP_LOCAL_THREADS_MAX
+            if (nthreads > XOMP_LOCAL_THREADS_MAX) {
+                return nthreads - XOMP_LOCAL_THREADS_MAX;
+            } else {
+                return ((nthreads) / (1 + num_phi)) * num_phi;
+            }
+#else
             return ((nthreads) / (1 + num_phi)) * num_phi;
+#endif
         case XOMP_WORKER_LOC_REMOTE:
             return nthreads - 1;
         default:
@@ -247,6 +276,13 @@ static void gw_req_memory_response_rx(struct xomp_binding *b,
 
     worker->err = msgerr;
     worker->add_mem_st = 0x2;
+
+#if XOMP_BENCH_ENABLED
+    cycles_t duration = bench_tsc() - worker->start;
+    remote_timer += duration;
+    debug_printf("remote worker %016lx: add memory took %lu cycles, %lu ms\n",
+                 worker->id, duration, bench_tsc_to_ms(duration));
+#endif
 }
 
 static void add_memory_response_rx(struct xomp_binding *b,
@@ -258,6 +294,13 @@ static void add_memory_response_rx(struct xomp_binding *b,
 
     worker->err = msgerr;
     worker->add_mem_st = 0x2;
+
+#if XOMP_BENCH_ENABLED
+    cycles_t duration = bench_tsc() - worker->start;
+    local_timer += duration;
+    debug_printf("local worker %016lx: add memory took %lu cycles, %lu ms\n",
+                 worker->id, duration, bench_tsc_to_ms(duration));
+#endif
 }
 
 static inline void done_msg_common(struct xomp_binding *b,
@@ -272,6 +315,12 @@ static inline void done_msg_common(struct xomp_binding *b,
     } else {
         worker->state = XOMP_WORKER_ST_READY;
     }
+
+#if XOMP_BENCH_ENABLED
+    cycles_t duration = bench_tsc()- worker->start;
+    debug_printf("generic worker %016lx: do work took %lu cycles, %lu ms\n",
+                 worker->id, duration, bench_tsc_to_ms(duration));
+#endif
 
     xbomp_barrier_enter_no_wait(task->barrier);
 
@@ -403,6 +452,10 @@ errval_t xomp_master_init(struct xomp_args *args)
         return -1;  // TODO: ERRNO
     }
 
+#if XOMP_BENCH_ENABLED
+    bench_init();
+#endif
+
     if (args->core_stride != 0) {
         core_stride = args->core_stride;
     } else {
@@ -498,6 +551,8 @@ errval_t xomp_master_init(struct xomp_args *args)
     return SYS_ERR_OK;
 }
 
+#define XOMP_REMOTE_COREID_START 1
+
 /**
  * \brief Spawns the worker threads on the Xeon Phi
  *
@@ -534,6 +589,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
     if (remote_threads > 0) {
         err = spawn_symval_cache_init(0);
         if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "domain no spawned with appropriate flags\n");
             return err;
         }
     }
@@ -551,6 +607,14 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
     xphi_id_t xid = 0;
     coreid_t core = disp_get_core_id() + core_stride;
 
+#if XOMP_BENCH_ENABLED
+    cycles_t spawn_timer;
+    cycles_t remote_spawn_timer = 0;
+    cycles_t remote_connect_timer = 0;
+    cycles_t local_spawn_timer = 0;
+    cycles_t local_connect_timer = 0;
+#endif
+
     for (uint32_t i = 0; i < remote_threads + local_threads; ++i) {
 #ifdef __k1om__
         if (xid == disp_xeon_phi_id()) {
@@ -558,7 +622,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 #endif
         if (i == local_threads) {
-            core = 0;
+            core = XOMP_REMOTE_COREID_START;
         }
 
         struct xomp_worker *worker = workers + i;
@@ -586,8 +650,6 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         if (err_is_fail(err)) {
             /* TODO: cleanup */
             worker->state = XOMP_WORKER_ST_FAILURE;
-            debug_printf("xomp_master_spawn_workers: FAILURE, %s\n",
-                         err_getstring(err));
             return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
         }
 
@@ -599,7 +661,12 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         }
 
         /* TODO: build a good id */
-        worker->id = ((uint64_t) disp_get_domain_id()) << 32 | i;
+        worker->id = ((uint64_t) disp_get_domain_id()) << 48 | core;
+        if (i < local_threads) {
+            worker->id |= ((uint64_t)0xFF) << 24;
+        } else {
+            worker->id |= ((uint64_t)xid) << 24;
+        }
         worker->msgbase = id.base;
         worker->state = XOMP_WORKER_ST_SPAWNING;
 
@@ -625,12 +692,19 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
             XMI_DEBUG("spawning {%s} on host, core:%u\n", spawn_args_local.path,
                       core);
+#if XOMP_BENCH_ENABLED
+            spawn_timer = bench_tsc();
+#endif
 
             domainid_t did;
             err = spawn_program_with_caps(core, spawn_args_local.path,
                                           spawn_args_local.argv, NULL, NULL_CAP,
                                           worker->msgframe, SPAWN_FLAGS_OMP,
                                           &did);
+#if XOMP_BENCH_ENABLED
+            local_spawn_timer += bench_tsc() - spawn_timer;
+            spawn_timer = bench_tsc();
+#endif
             worker->domainid = did;
             worker->type = XOMP_WORKER_TYPE_LOCAL;
             if (err_is_fail(err)) {
@@ -644,7 +718,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
              * we give give the first worker domains the gateway flag so it
              * initializes the gateway service while others will connect to it
              */
-            if (core == 0) {
+            if (core == XOMP_REMOTE_COREID_START) {
                 worker->id |= XOMP_WID_GATEWAY_FLAG;
             }
 
@@ -671,16 +745,24 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
             XMI_DEBUG("spawning {%s} on xid:%u, core:%u\n",
                       spawn_args_remote.path, xid, core);
-
+#if XOMP_BENCH_ENABLED
+            spawn_timer = bench_tsc();
+#endif
             err = xeon_phi_client_spawn(xid, core, spawn_args_remote.path,
                                         spawn_args_remote.argv, worker->msgframe,
                                         SPAWN_FLAGS_OMP, &worker->domainid);
+
+#if XOMP_BENCH_ENABLED
+            remote_spawn_timer += bench_tsc() - spawn_timer;
+            spawn_timer = bench_tsc();
+#endif
+
             if (err_is_fail(err)) {
                 /* TODO: cleanup */
                 return err_push(err, XOMP_ERR_SPAWN_WORKER_FAILED);
             }
             worker->type = XOMP_WORKER_TYPE_REMOTE;
-            xid++; 
+            xid++;
         }
 
         XMI_DEBUG("waiting for client %p to connect...\n", worker);
@@ -691,6 +773,13 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
                 USER_PANIC_ERR(err, "event dispatch\n");
             }
         }
+#if XOMP_BENCH_ENABLED
+        if (worker->type == XOMP_WORKER_TYPE_REMOTE) {
+            remote_connect_timer += bench_tsc() - spawn_timer;
+        } else {
+            local_connect_timer += bench_tsc() - spawn_timer;
+        }
+#endif
 
         if (worker->state == XOMP_WORKER_ST_FAILURE) {
             return XOMP_ERR_SPAWN_WORKER_FAILED;
@@ -705,6 +794,21 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             }
         }
     }
+
+#if XOMP_BENCH_ENABLED
+    remote_spawn_timer /= (remote_threads ? remote_threads : 1);
+    local_spawn_timer /= (local_threads ? local_threads : 1);
+    remote_connect_timer /= (remote_threads ? remote_threads : 1);
+    local_connect_timer /= (local_threads ? local_threads : 1);
+    debug_printf("Avg spawn time remote: %lu cycles, %lu ms\n",
+                 remote_spawn_timer, bench_tsc_to_ms(remote_spawn_timer));
+    debug_printf("Avg spawn time local: %lu cycles, %lu ms\n",
+                 local_spawn_timer, bench_tsc_to_ms(local_spawn_timer));
+    debug_printf("Avg connect time remote: %lu cycles, %lu ms\n",
+                 remote_connect_timer, bench_tsc_to_ms(remote_connect_timer));
+    debug_printf("Avg connect time local: %lu cycles, %lu ms\n",
+                 local_connect_timer, bench_tsc_to_ms(local_connect_timer));
+#endif
 
     xmaster.local.next = 0;
     xmaster.remote.next = 0;
@@ -733,6 +837,11 @@ errval_t xomp_master_add_memory(struct capref frame,
         return XOMP_ERR_MASTER_NOT_INIT;
     }
 
+#if XOMP_BENCH_ENABLED
+    remote_timer = 0;
+    local_timer = 0;
+#endif
+
     struct xomp_worker *worker;
 
     XMI_DEBUG("adding memory of type %u @ info: %016lx\n", type, info);
@@ -746,6 +855,9 @@ errval_t xomp_master_add_memory(struct capref frame,
      */
     for (uint32_t i = 0; i < xmaster.remote.num; ++i) {
         worker = &xmaster.remote.workers[i];
+#if XOMP_BENCH_ENABLED
+            worker->start = bench_tsc();
+#endif
         if (worker->id & XOMP_WID_GATEWAY_FLAG) {
             xphi_id_t xid = xeon_phi_domain_get_xid(worker->domainid);
             err = xeon_phi_client_chan_open(xid, worker->domainid, info, frame,
@@ -758,6 +870,12 @@ errval_t xomp_master_add_memory(struct capref frame,
                  */
                 return err;
             }
+#if XOMP_BENCH_ENABLED
+            cycles_t duration = bench_tsc() - worker->start;
+            debug_printf("remote worker %lx: chan open took  %lu cycles, %lu ms\n",
+                         worker->id, duration, bench_tsc_to_ms(duration));
+            remote_timer += duration;
+#endif
         } else {
             assert(worker->add_mem_st == 0x0);
 
@@ -783,6 +901,9 @@ errval_t xomp_master_add_memory(struct capref frame,
     /* send the memory caps to the local workers directly */
     for (uint32_t i = 0; i < xmaster.local.num; ++i) {
         worker = &xmaster.local.workers[i];
+#if XOMP_BENCH_ENABLED
+        worker->start = bench_tsc();
+#endif
         assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
         assert(worker->add_mem_st == 0x0);
 
@@ -800,7 +921,13 @@ errval_t xomp_master_add_memory(struct capref frame,
         struct xomp_msg_st *st = (struct xomp_msg_st *) msg_st;
         st->args.add_mem.frame = frame;
         st->args.add_mem.vaddr = info;
-        st->args.add_mem.type = type;
+
+        // XXX: overwriting replicaton on the host for now
+        if (type == XOMP_FRAME_TYPE_REPL_RW) {
+            st->args.add_mem.type =  XOMP_FRAME_TYPE_SHARED_RW;
+        } else {
+            st->args.add_mem.type = type;
+        }
 
         txq_send(msg_st);
     }
@@ -819,8 +946,6 @@ errval_t xomp_master_add_memory(struct capref frame,
             }
         }
         if (err_is_fail(worker->err)) {
-            debug_printf("xomp_master_add_memory: FAILURE, %s\n",
-                         err_getstring(worker->err));
             worker->state = XOMP_WORKER_ST_FAILURE;
             return worker->err;
         }
@@ -838,13 +963,22 @@ errval_t xomp_master_add_memory(struct capref frame,
             }
         }
         if (err_is_fail(worker->err)) {
-            debug_printf("xomp_master_add_memory: FAILURE %s\n",
-                         err_getstring(worker->err));
             worker->state = XOMP_WORKER_ST_FAILURE;
             return worker->err;
         }
         worker->add_mem_st = 0x0;
     }
+
+#if XOMP_BENCH_ENABLED
+    remote_timer /= (xmaster.remote.num ? xmaster.remote.num : 1);
+    local_timer /= (xmaster.local.num ? xmaster.local.num : 1);
+
+    debug_printf("Avg mem add time remote: %lu cycles, %lu ms\n",
+                 remote_timer, bench_tsc_to_ms(remote_timer));
+    debug_printf("Avg mem add time local: %lu cycles, %lu ms\n",
+                 local_timer, bench_tsc_to_ms(local_timer));
+
+#endif
 
     return SYS_ERR_OK;
 }
@@ -905,7 +1039,14 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         return XOMP_ERR_MASTER_NOT_INIT;
     }
 
+    struct waitset *ws = get_default_waitset();
+
     uint64_t fn = 0;
+
+#if XOMP_BENCH_ENABLED
+    remote_timer = 0;
+    local_timer = 0;
+#endif
 
     uint32_t remote_threads = xomp_master_get_remote_threads(task->total_threads);
     uint32_t local_threads = xomp_master_get_local_threads(task->total_threads);
@@ -957,10 +1098,14 @@ errval_t xomp_master_do_work(struct xomp_task *task)
             // build the function address based on the flag and the index
             fn = (uint64_t) fn_idx | XOMP_FN_INDEX_FLAG;
 
-            XMP_DEBUG("remote worker id: %lx, function %s @ index %u\n",
+            XMP_DEBUG("remote worker id: %016lx, function %s @ index %u\n",
                       worker->id, fn_name, fn_idx);
 
         }
+
+#if XOMP_BENCH_ENABLED
+        worker->start = bench_tsc();
+#endif
 
         if (worker->state != XOMP_WORKER_ST_READY) {
             return XOMP_ERR_WORKER_STATE;

@@ -17,7 +17,8 @@
       "xeon_phi_client",
       "dma_client",
       "spawndomain", -- for address translation
-      "posixcompat"	-- for gettimeofday
+      "posixcompat", -- for gettimeofday
+      "bench"        -- for basic benchmarking
     ],
     addIncludes = [
       "include"
