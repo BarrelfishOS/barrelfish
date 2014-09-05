@@ -42,6 +42,273 @@ static lpaddr_t base_offset = 0;
 /// the slot allocator
 static struct range_slot_allocator sysmem_allocator;
 
+/*
+ * ----------------------------------------------------------------------------
+ * System Memory Latency Benchmark
+ * ----------------------------------------------------------------------------
+ */
+#ifdef __k1om__
+#define SYSMEM_BENCH_ENABLED 0
+#else
+#define SYSMEM_BENCH_ENABLED 1
+#endif
+
+#if SYSMEM_BENCH_ENABLED
+
+#include <bench/bench.h>
+#include <limits.h>
+#include <math.h>
+
+#define EXPECT_SUCCESS(_err, msg...) \
+    if (err_is_fail(_err)) {USER_PANIC_ERR(_err, msg);}
+
+#define CHACHE_L1_SIZE (32UL * 1024)
+#define CHACHE_LINE_SIZE 64
+#ifdef __k1om__
+#define CHACHE_LL_SIZE (28UL*1024*1024 + 512UL * 1024)
+#define DIMENSIONS 2
+#else
+#define CHACHE_LL_SIZE (25UL*1024*1024)
+#define DIMENSIONS 2
+#endif
+#define WORKSET_SIZE_MULT 16
+#define WORKSET_SIZE (WORKSET_SIZE_MULT * CHACHE_LL_SIZE)
+
+#define RUN_COUNT 1000
+#define LOOP_ITERATIONS 100
+
+#define NEXT(_e) (_e) = (_e)->next;
+#define NEXT_5(_e) NEXT(_e) NEXT(_e) NEXT(_e) NEXT(_e) NEXT(_e)
+#define NEXT_10(_e) NEXT_5(_e) NEXT_5(_e)
+#define NEXT_50(_e) NEXT_10(_e) NEXT_10(_e) NEXT_10(_e) NEXT_10(_e) NEXT_10(_e)
+#define NEXT_100(_e) NEXT_50(_e) NEXT_50(_e)
+#define NEXT_500(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e)
+#define NEXT_1000(_e) NEXT_500(_e) NEXT_500(_e)
+
+struct elem {
+    struct elem *next;
+    uint8_t pad[CHACHE_LINE_SIZE - sizeof(void *)];
+};
+
+struct celem {
+    struct celem *next;
+};
+
+static uint32_t *elem_id = NULL;
+
+/**
+ * \brief calculates the time difference between two time stamps with overhead
+ *
+ * \param tsc_start start time stamp
+ * \param tsc_end   end time stamp
+ *
+ * \returns elapsed time in cycles
+ */
+static inline cycles_t sysmem_bench_calculate_time(cycles_t tsc_start,
+                                                   cycles_t tsc_end)
+{
+    cycles_t result;
+    if (tsc_end < tsc_start) {
+        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+    } else {
+        result = (tsc_end - tsc_start - bench_tscoverhead());
+    }
+
+    return result;
+}
+
+/**
+ * \brief generates a shuffled index array for randomized access
+ *
+ * \param num   number of elements in the array
+ */
+static void sysmem_bench_generate_shuffle(size_t num)
+{
+    if (elem_id) {
+        return;
+    }
+
+    elem_id = malloc(sizeof(uint32_t) * num + 1);
+    assert(elem_id);
+
+    for (uint32_t i = 0; i < num; ++i) {
+        elem_id[i] = i;
+    }
+
+    /*
+     * shuffle the array using Knuth shuffle
+     */
+    for (uint32_t i = 0; i < num; ++i) {
+        uint32_t idx = i + (rand() % (num - i));
+        assert(idx < num + 1);
+        uint32_t tmp = elem_id[i];
+        elem_id[i] = elem_id[idx];
+        elem_id[idx] = tmp;
+    }
+}
+
+static void sysmem_bench_init_memory(struct elem *mem,
+                                     size_t num)
+{
+    sysmem_bench_generate_shuffle(num);
+
+    /* do the linkage */
+    struct elem *head = &mem[elem_id[0]];
+    for (uint32_t i = 1; i < num; ++i) {
+        head->next = &mem[elem_id[i]];
+        head = head->next;
+    }
+    mem[elem_id[num-1]].next = &mem[elem_id[0]];
+}
+
+static void sysmem_bench_alloc_memory(struct elem **mem,
+                                      uint8_t other_phi,
+                                      size_t size)
+{
+
+    errval_t err;
+
+    uint8_t bits = (uint8_t)log2(size) + 1;
+    assert(WORKSET_SIZE < (1UL << bits));
+
+    lvaddr_t base = XEON_PHI_SYSMEM_BASE;
+    if (other_phi) {
+        base += 31 * XEON_PHI_SYSMEM_PAGE_SIZE;
+    } else {
+        base += XEON_PHI_SYSMEM_PAGE_SIZE;
+    }
+
+    struct capref frame;
+    err = sysmem_cap_request(base, bits, &frame);
+    EXPECT_SUCCESS(err, "sysmem cap request");
+
+    void *addr;
+    err = vspace_map_one_frame(&addr, size, frame, NULL, NULL);
+    EXPECT_SUCCESS(err, "mapping of frame failed");
+
+    if (mem) {
+        *mem = addr;
+    }
+}
+
+static cycles_t sysmem_bench_run_round(void *buffer, volatile void **ret_elem)
+{
+    volatile struct elem *e = buffer;
+
+    cycles_t tsc_start = bench_tsc();
+
+    for (uint32_t i = 0; i < LOOP_ITERATIONS; ++i) {
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+        NEXT_1000(e);
+    }
+    cycles_t tsc_end = bench_tsc();
+
+    if (ret_elem) {
+        *ret_elem = e;
+    }
+
+    return sysmem_bench_calculate_time(tsc_start, tsc_end) / (LOOP_ITERATIONS * 10000);
+}
+
+static void sysmem_bench_run(void)
+{
+    debug_printf("==========================================================\n");
+    debug_printf("Running sysmem bench\n");
+    debug_printf("==========================================================\n");
+
+    bench_init();
+
+    cycles_t tscperus = bench_tsc_per_us();
+
+    assert(sizeof(struct elem) == CACHE_LINE_SIZE);
+
+    size_t num_elements = (WORKSET_SIZE) / sizeof(struct elem);
+
+    struct elem *ll_elements;
+    sysmem_bench_alloc_memory(&ll_elements, 0, WORKSET_SIZE);
+    sysmem_bench_init_memory(ll_elements, num_elements);
+
+
+    struct celem *l1_elements;
+    sysmem_bench_alloc_memory((struct elem **)&l1_elements, 0, CHACHE_L1_SIZE);
+
+    size_t cache_elements = (CHACHE_L1_SIZE / sizeof(struct celem)) >> 2;
+    for (uint32_t i = 0; i < cache_elements - 1; ++i) {
+        l1_elements[i].next = &l1_elements[i+1];
+    }
+    l1_elements[cache_elements-1].next = l1_elements;
+
+#ifdef __k1om__
+    struct elem *oll_elements;
+    sysmem_bench_alloc_memory(&oll_elements, 1, WORKSET_SIZE);
+    sysmem_bench_init_memory(oll_elements, num_elements);
+#endif
+
+    debug_printf("starting benchmark %u rounds\n", RUN_COUNT);
+
+    bench_ctl_t *ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, DIMENSIONS, RUN_COUNT);
+    cycles_t result[DIMENSIONS];
+    uint32_t round = 0;
+    do {
+        volatile void *element;
+        result[0] = sysmem_bench_run_round(&ll_elements[elem_id[0]], &element);
+
+        /* just a access to the variable */
+        if (!element) {
+            debug_printf("element %p was null.\n", element);
+        }
+
+#ifdef __k1om__
+        result[2] = sysmem_bench_run_round(&oll_elements[elem_id[0]], &element);
+
+        /* just a access to the variable */
+        if (!element) {
+            debug_printf("element %p was null.\n", element);
+        }
+
+#endif
+        volatile struct celem *e2 = l1_elements;
+        for (uint32_t i = 0; i < cache_elements; ++i) {
+            NEXT_1000(e2);
+        }
+
+        result[1] = sysmem_bench_run_round(&l1_elements[0], &element);
+
+        /* just a access to the variable */
+        if (!element) {
+            debug_printf("element %p was null.\n", element);
+        }
+
+        debug_printf("round: %u of %u\n", ++round, RUN_COUNT);
+
+    } while (!bench_ctl_add_run(ctl, result));
+
+    debug_printf("---------------------------------------------------------\n");
+    bench_ctl_dump_analysis(ctl, 0, "memlatency sysmem", tscperus);
+#ifndef __k1om__
+    bench_ctl_dump_analysis(ctl, 2, "memlatency other", tscperus);
+#endif
+    bench_ctl_dump_analysis(ctl, 1, "cachelatency sysmem", tscperus);
+    debug_printf("---------------------------------------------------------\n");
+    while(1);
+}
+
+#endif
+
+/*
+ * ----------------------------------------------------------------------------
+ * Interface
+ * ----------------------------------------------------------------------------
+ */
+
 /**
  * \brief Initializes the capability manager of the system memory range
  *
@@ -87,6 +354,9 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
         return err;
     }
 
+#if SYSMEM_BENCH_ENABLED
+    sysmem_bench_run();
+#endif
     return SYS_ERR_OK;
 }
 
