@@ -193,11 +193,11 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
 
     // printf("\% [name]  [runs]  [avg]  [stdev]  [min]  [med]  [P99]  [max]\n");
 
-    printf("\% %s\n, %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64
+    printf("%% %s\n%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64
            ", %"PRIu64"; \n", prefix,(uint64_t)len, avg, std_dev, final_array[len/2],
            final_array[0], final_array[max99-1], final_array[len-1]);
 
-    printf("\% %s\n, %"PRIu64", %f, %f, %f, %f, %f, %f;\n",prefix, (uint64_t)len,
+    printf("%% %s\n%"PRIu64", %f, %f, %f, %f, %f, %f;\n",prefix, (uint64_t)len,
            (avg /(float)tscperus), (std_dev / ((float)tscperus*(float)tscperus)),
            (final_array[len/2]/(float)tscperus), (final_array[0]/(float)tscperus),
            (final_array[max99-1]/(float)tscperus),(final_array[len-1]/(float)tscperus));
