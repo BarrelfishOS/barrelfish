@@ -181,7 +181,7 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
     free(name);
 
     err = spawn_program_with_caps(0, driver->path, driver->argv, environ,
-            NULL_CAP, dev_cnode_cap, 0, get_did_ptr(driver->did));
+            NULL_CAP, dev_cnode_cap, 0, driver->did);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;

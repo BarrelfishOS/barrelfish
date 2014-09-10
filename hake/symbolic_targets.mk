@@ -396,7 +396,7 @@ else ifeq ($(ARCH),arm11mp)
 	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
 else ifeq ($(ARCH), k1om)
-	# what is the emulation option for the xeon phi ?  
+	# what is the emulation option for the xeon phi ?
 	QEMU=unknown-arch-error
 	GDB=x86_64-k1om-barrelfish-gdb
 endif
@@ -546,7 +546,7 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 ######################################################################
 #
 # Intel Xeon Phi Builds
-# 	
+#
 ######################################################################
 
 # we have to filter out the moduels that are generated below
@@ -577,8 +577,6 @@ k1om/sbin/weever.bin: k1om/sbin/weever_elf
 	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
 	
 k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
-	@echo "building xeon phi multiboot"
-	@echo $(XEON_PHI_MODULES) 
 	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 
 

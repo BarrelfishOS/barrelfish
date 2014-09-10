@@ -1,24 +1,24 @@
 /*--------------------------------------------------------------------
-  
+
   NAS Parallel Benchmarks 2.3 OpenMP C versions - CG
 
   This benchmark is an OpenMP C version of the NPB CG code.
-  
+
   The OpenMP C versions are developed by RWCP and derived from the serial
   Fortran versions in "NPB 2.3-serial" developed by NAS.
 
   Permission to use, copy, distribute and modify this software for any
   purpose with or without fee is hereby granted.
   This software is provided "as is" without express or implied warranty.
-  
+
   Send comments on the OpenMP C versions to pdp-openmp@rwcp.or.jp
 
   Information on OpenMP activities at RWCP is available at:
 
            http://pdplab.trc.rwcp.or.jp/pdperf/Omni/
-  
+
   Information on NAS Parallel Benchmarks 2.3 is available at:
-  
+
            http://www.nas.nasa.gov/NAS/NPB/
 
 --------------------------------------------------------------------*/
@@ -28,12 +28,12 @@
            C. Kuszmaul
 
   OpenMP C version: S. Satoh
-  
+
 --------------------------------------------------------------------*/
 
 /*
 c---------------------------------------------------------------------
-c  Note: please observe that in the routine conj_grad three 
+c  Note: please observe that in the routine conj_grad three
 c  implementations of the sparse matrix-vector multiply have
 c  been supplied.  The default matrix-vector multiply is not
 c  loop unrolled.  The alternate implementations are unrolled
@@ -167,10 +167,10 @@ c-------------------------------------------------------------------*/
     zeta    = randlc( &tran, amult );
 
 /*--------------------------------------------------------------------
-c  
+c
 c-------------------------------------------------------------------*/
     makea(naa, nzz, a, colidx, rowstr, NONZER,
-	  firstrow, lastrow, firstcol, lastcol, 
+	  firstrow, lastrow, firstcol, lastcol,
 	  RCOND, arow, acol, aelt, v, iv, SHIFT);
 
 /*---------------------------------------------------------------------
@@ -178,11 +178,11 @@ c  Note: as a result of the above call to makea:
 c        values of j used in indexing rowstr go from 1 --> lastrow-firstrow+1
 c        values of colidx which are col indexes go from firstcol --> lastcol
 c        So:
-c        Shift the col index vals from actual (firstcol --> lastcol ) 
+c        Shift the col index vals from actual (firstcol --> lastcol )
 c        to local, i.e., (1 --> lastcol-firstcol+1)
 c---------------------------------------------------------------------*/
 #pragma omp parallel private(it,i,j,k)
-{	
+{
 #pragma omp for nowait
     for (j = 1; j <= lastrow - firstrow + 1; j++) {
 	for (k = rowstr[j]; k < rowstr[j+1]; k++) {
@@ -220,7 +220,7 @@ c  Also, find norm of z
 c  So, first: (z.z)
 c-------------------------------------------------------------------*/
 #pragma omp single
-{	
+{
 	norm_temp11 = 0.0;
 	norm_temp12 = 0.0;
 } /* end single */
@@ -240,7 +240,7 @@ c-------------------------------------------------------------------*/
 	for (j = 1; j <= lastcol-firstcol+1; j++) {
             x[j] = norm_temp12*z[j];
 	}
-	
+
     } /* end of do one iteration untimed */
 
 /*--------------------------------------------------------------------
@@ -250,7 +250,7 @@ c-------------------------------------------------------------------*/
     for (i = 1; i <= NA+1; i++) {
          x[i] = 1.0;
     }
-#pragma omp single    
+#pragma omp single
     zeta  = 0.0;
 
 } /* end parallel */
@@ -280,7 +280,7 @@ c  Also, find norm of z
 c  So, first: (z.z)
 c-------------------------------------------------------------------*/
 #pragma omp single
-{	
+{
 	norm_temp11 = 0.0;
 	norm_temp12 = 0.0;
 } /* end single */
@@ -292,7 +292,7 @@ c-------------------------------------------------------------------*/
 	}
 
 #pragma omp single
-{	
+{
 	norm_temp12 = 1.0 / sqrt( norm_temp12 );
 
 	zeta = SHIFT + 1.0 / norm_temp11;
@@ -309,7 +309,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  Normalize z to obtain x
 c-------------------------------------------------------------------*/
-#pragma omp for 
+#pragma omp for
 	for (j = 1; j <= lastcol-firstcol+1; j++) {
             x[j] = norm_temp12*z[j];
 	}
@@ -385,9 +385,9 @@ static void conj_grad (
     double *rnorm )
 /*--------------------------------------------------------------------
 c-------------------------------------------------------------------*/
-    
+
 /*---------------------------------------------------------------------
-c  Floaging point arrays here are named as in NPB1 spec discussion of 
+c  Floaging point arrays here are named as in NPB1 spec discussion of
 c  CG algorithm
 c---------------------------------------------------------------------*/
 {
@@ -397,7 +397,7 @@ c---------------------------------------------------------------------*/
 
 #pragma omp single nowait
     rho = 0.0;
-    
+
 /*--------------------------------------------------------------------
 c  Initialize the CG algorithm:
 c-------------------------------------------------------------------*/
@@ -426,26 +426,26 @@ c---->
 c-------------------------------------------------------------------*/
     for (cgit = 1; cgit <= cgitmax; cgit++) {
 #pragma omp single nowait
-{	
+{
       rho0 = rho;
       d = 0.0;
       rho = 0.0;
 } /* end single */
-      
+
 /*--------------------------------------------------------------------
 c  q = A.p
 c  The partition submatrix-vector multiply: use workspace w
 c---------------------------------------------------------------------
 C
-C  NOTE: this version of the multiply is actually (slightly: maybe %5) 
-C        faster on the sp2 on 16 nodes than is the unrolled-by-2 version 
-C        below.   On the Cray t3d, the reverse is true, i.e., the 
-C        unrolled-by-two version is some 10% faster.  
+C  NOTE: this version of the multiply is actually (slightly: maybe %5)
+C        faster on the sp2 on 16 nodes than is the unrolled-by-2 version
+C        below.   On the Cray t3d, the reverse is true, i.e., the
+C        unrolled-by-two version is some 10% faster.
 C        The unrolled-by-8 version below is significantly faster
 C        on the Cray t3d - overall speed of code is 1.5 times faster.
 */
 
-/* rolled version */      
+/* rolled version */
 #pragma omp for private(sum,k)
 	for (j = 1; j <= lastrow-firstrow+1; j++) {
             sum = 0.0;
@@ -454,13 +454,13 @@ C        on the Cray t3d - overall speed of code is 1.5 times faster.
 	    }
             w[j] = sum;
 	}
-	
+
 /* unrolled-by-two version
 #pragma omp for private(i,k)
         for (j = 1; j <= lastrow-firstrow+1; j++) {
 	    int iresidue;
 	    double sum1, sum2;
-	    i = rowstr[j]; 
+	    i = rowstr[j];
             iresidue = (rowstr[j+1]-i) % 2;
             sum1 = 0.0;
             sum2 = 0.0;
@@ -476,7 +476,7 @@ C        on the Cray t3d - overall speed of code is 1.5 times faster.
 #pragma omp for private(i,k,sum)
         for (j = 1; j <= lastrow-firstrow+1; j++) {
 	    int iresidue;
-            i = rowstr[j]; 
+            i = rowstr[j];
             iresidue = (rowstr[j+1]-i) % 8;
             sum = 0.0;
             for (k = i; k <= i+iresidue-1; k++) {
@@ -495,7 +495,7 @@ C        on the Cray t3d - overall speed of code is 1.5 times faster.
             w[j] = sum;
         }
 */
-	
+
 #pragma omp for
 	for (j = 1; j <= lastcol-firstcol+1; j++) {
             q[j] = w[j];
@@ -520,7 +520,7 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  Obtain alpha = rho / (p.q)
 c-------------------------------------------------------------------*/
-#pragma omp single	
+#pragma omp single
 	alpha = rho0 / d;
 
 /*--------------------------------------------------------------------
@@ -537,12 +537,12 @@ c---------------------------------------------------------------------*/
             z[j] = z[j] + alpha*p[j];
             r[j] = r[j] - alpha*q[j];
 	}
-            
+
 /*---------------------------------------------------------------------
 c  rho = r.r
 c  Now, obtain the norm of r: First, sum squares of r elements locally...
 c---------------------------------------------------------------------*/
-#pragma omp for reduction(+:rho)	
+#pragma omp for reduction(+:rho)
 	for (j = 1; j <= lastcol-firstcol+1; j++) {
             rho = rho + r[j]*r[j];
 	}
@@ -550,7 +550,7 @@ c---------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c  Obtain beta:
 c-------------------------------------------------------------------*/
-#pragma omp single	
+#pragma omp single
 	beta = rho / rho0;
 
 /*--------------------------------------------------------------------
@@ -569,7 +569,7 @@ c  The partition submatrix-vector multiply
 c---------------------------------------------------------------------*/
 #pragma omp single nowait
     sum = 0.0;
-    
+
 #pragma omp for private(d, k)
     for (j = 1; j <= lastrow-firstrow+1; j++) {
 	d = 0.0;
@@ -592,7 +592,7 @@ c-------------------------------------------------------------------*/
 	d = x[j] - r[j];
 	sum = sum + d*d;
     }
-    
+
 #pragma omp single
   {
     (*rnorm) = sqrt(sum);
@@ -660,7 +660,7 @@ c-------------------------------------------------------------------*/
 c  Initialize colidx(n+1 .. 2n) to zero.
 c  Used by sprnvc to mark nonzero positions
 c---------------------------------------------------------------------*/
-#pragma omp parallel for 
+#pragma omp parallel for
     for (i = 1; i <= n; i++) {
 	colidx[n+i] = 0;
     }
@@ -756,13 +756,13 @@ c-------------------------------------------------------------------*/
 /*--------------------------------------------------------------------
 c     ...count the number of triples in each row
 c-------------------------------------------------------------------*/
-#pragma omp parallel for     
+#pragma omp parallel for
     for (j = 1; j <= n; j++) {
 	rowstr[j] = 0;
 	mark[j] = FALSE;
     }
     rowstr[n+1] = 0;
-    
+
     for (nza = 1; nza <= nnza; nza++) {
 	j = (arow[nza] - firstrow + 1) + 1;
 	rowstr[j] = rowstr[j] + 1;
@@ -777,7 +777,7 @@ c-------------------------------------------------------------------*/
 c     ... rowstr(j) now is the location of the first nonzero
 c           of row j of a
 c---------------------------------------------------------------------*/
-    
+
 /*--------------------------------------------------------------------
 c     ... do a bucket sort of the triples on the row index
 c-------------------------------------------------------------------*/
@@ -801,7 +801,7 @@ c-------------------------------------------------------------------*/
 c       ... generate the actual output rows by adding elements
 c-------------------------------------------------------------------*/
     nza = 0;
-#pragma omp parallel for    
+#pragma omp parallel for
     for (i = 1; i <= n; i++) {
 	x[i] = 0.0;
 	mark[i] = FALSE;
@@ -810,7 +810,7 @@ c-------------------------------------------------------------------*/
     jajp1 = rowstr[1];
     for (j = 1; j <= nrows; j++) {
 	nzrow = 0;
-	
+
 /*--------------------------------------------------------------------
 c          ...loop over the jth row of a
 c-------------------------------------------------------------------*/
