@@ -13,6 +13,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
+#include <xeon_phi/xeon_phi.h>
 
 #include <dma_internal.h>
 #include <dma/dma_bench.h>
@@ -52,6 +53,78 @@ static inline cycles_t calculate_time(cycles_t tsc_start,
  *
  * ============================================================================
  */
+
+errval_t dma_bench_run_default_xphi(struct dma_device *dev)
+{
+    debug_printf("dma_bench_run_default_xphi\n");
+#ifdef __k1om__
+
+    if (disp_xeon_phi_id() == 0) {
+        return SYS_ERR_OK;
+    }
+#else
+    return SYS_ERR_OK;
+    if (disp_get_core_id() >= 20) {
+        return SYS_ERR_OK;
+    }
+#endif
+
+    debug_printf("DMA BENCHMARK started\n");
+    debug_printf("================================\n");
+    debug_printf("\n");
+    debug_printf("DMA-BENCH: xphi[0] -> xphi[0]\n");
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    dma_bench_run(dev, DMA_BENCH_XPHI_BASE_OFFSET,
+                  DMA_BENCH_XPHI_BASE_OFFSET + DMA_BENCH_BUFFER_SIZE);
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    debug_printf("DMA-BENCH: xphi[0] -> host[0]\n");
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+    dma_bench_run(dev, DMA_BENCH_XPHI_BASE_OFFSET,
+                  XEON_PHI_SYSMEM_BASE + DMA_BENCH_HOST_BASE);
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    debug_printf("DMA-BENCH: host[0] -> xphi[0]\n");
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+    dma_bench_run(dev, XEON_PHI_SYSMEM_BASE + DMA_BENCH_HOST_BASE,
+                  DMA_BENCH_XPHI_BASE_OFFSET);
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    debug_printf("DMA-BENCH: xphi[0] -> xphi[1]\n");
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+    dma_bench_run(dev, DMA_BENCH_XPHI_BASE_OFFSET,
+                  XEON_PHI_SYSMEM_BASE + 31 * XEON_PHI_SYSMEM_PAGE_SIZE);
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    debug_printf("DMA-BENCH: xphi[1] -> xphi[0]\n");
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+    dma_bench_run(dev,XEON_PHI_SYSMEM_BASE + 31 * XEON_PHI_SYSMEM_PAGE_SIZE,
+                  DMA_BENCH_XPHI_BASE_OFFSET);
+    debug_printf("\n");
+    debug_printf("--------------------------------\n");
+    debug_printf("\n");
+
+    return SYS_ERR_OK;
+}
 
 errval_t dma_bench_run_default(struct dma_device *dev)
 {
@@ -184,3 +257,45 @@ errval_t dma_bench_run(struct dma_device *dev, lpaddr_t src, lpaddr_t dst)
      return SYS_ERR_OK;
 }
 
+errval_t dma_bench_run_memcpy(void *dst, void *src)
+{
+    errval_t err;
+    cycles_t tsc_start, tsc_end;
+    uint64_t tscperus;
+    bench_ctl_t *ctl;
+
+    cycles_t result;
+
+    bench_init();
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+    debug_printf("starting benchmark memcpy\n");
+    debug_printf("======================================\n");
+
+    for (uint8_t i = DMA_BENCH_MIN_BITS; i <= DMA_BENCH_MAX_BITS; ++i) {
+        size_t size = (1UL << i);
+
+        ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, DMA_BENCH_NUM_REPS);
+
+        uint8_t idx = 0;
+        do {
+            tsc_start = bench_tsc();
+            memcpy(dst, src, size);
+            tsc_end = bench_tsc();
+
+            result = calculate_time(tsc_start, tsc_end);
+            idx++;
+        } while (!bench_ctl_add_run(ctl, &result));
+        char buf[50];
+
+        snprintf(buf, sizeof(buf), "%u", i);
+        bench_ctl_dump_analysis(ctl, 0, buf, tscperus);
+
+        bench_ctl_destroy(ctl);
+    }
+    debug_printf("======================================\n");
+
+    return SYS_ERR_OK;
+}
