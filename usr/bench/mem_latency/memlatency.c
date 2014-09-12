@@ -175,6 +175,7 @@ static void alloc_memory(struct elem **mem,
 
     errval_t err;
 
+#ifndef __k1om__
     uint64_t min_base, max_limit;
     ram_get_affinity(&min_base, &max_limit);
 
@@ -185,6 +186,7 @@ static void alloc_memory(struct elem **mem,
                  mem_max);
 
     ram_set_affinity(mem_min, mem_max);
+#endif
 
     struct capref frame;
     err = frame_alloc(&frame, WORKSET_SIZE, NULL);
@@ -194,7 +196,9 @@ static void alloc_memory(struct elem **mem,
     err = vspace_map_one_frame(&addr, WORKSET_SIZE, frame, NULL, NULL);
     EXPECT_SUCCESS(err, "mapping of frame failed");
 
+#ifndef __k1om__
     ram_set_affinity(min_base, max_limit);
+#endif
 
     if (mem) {
         *mem = addr;
