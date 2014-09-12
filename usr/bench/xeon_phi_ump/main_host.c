@@ -53,7 +53,7 @@ static errval_t alloc_local(void)
 
     size_t frame_size = 0;
 
-    frame_size = XPHI_BENCH_FRAME_SIZE_CARD;
+    frame_size = XPHI_BENCH_FRAME_SIZE_HOST;
 
     if (!frame_size) {
         frame_size = 4096;
@@ -143,6 +143,13 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 
     connected = 0x1;
 
+    debug_printf("Initializing UMP channel...\n");
+
+    err = ump_chan_init(&uc, inbuf, XPHI_BENCH_MSG_FRAME_SIZE, outbuf,
+                        XPHI_BENCH_MSG_FRAME_SIZE);
+    err = ump_chan_init(&uc_rev, inbuf_rev,  XPHI_BENCH_MSG_FRAME_SIZE,
+                        outbuf_rev,XPHI_BENCH_MSG_FRAME_SIZE);
+
     return SYS_ERR_OK;
 }
 
@@ -182,8 +189,6 @@ int main(int argc,
     err = alloc_local();
     assert(err_is_ok(err));
 
-
-
     debug_printf("opening channel to client %lx...\n", domid);
     err = xeon_phi_client_chan_open(XPHI_BENCH_XPHI_ID, domid, 0, local_frame, 2);
     if (err_is_fail(err)) {
@@ -193,13 +198,6 @@ int main(int argc,
     while (!connected) {
         messages_wait_and_handle_next();
     }
-
-    debug_printf("Initializing UMP channel...\n");
-
-    err = ump_chan_init(&uc, inbuf, XPHI_BENCH_MSG_FRAME_SIZE, outbuf,
-                        XPHI_BENCH_MSG_FRAME_SIZE);
-    err = ump_chan_init(&uc_rev, inbuf_rev,  XPHI_BENCH_MSG_FRAME_SIZE,
-                        outbuf_rev,XPHI_BENCH_MSG_FRAME_SIZE);
 
 #if XPHI_BENCH_INITIATOR_HOST
 #ifndef XPHI_BENCH_THROUGHPUT

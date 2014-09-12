@@ -173,14 +173,17 @@ int main(int argc,
 
     debug_printf("Initializing UMP channel...\n");
 
+#ifdef XPHI_BENCH_INITIATOR_HOST
+    for (uint32_t i = 0; i < 10; ++i) {
+        delay_ms(4000);
+        thread_yield();
+    }
+#endif
+
     err = ump_chan_init(&uc, inbuf, XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf, XPHI_BENCH_MSG_FRAME_SIZE);
     err = ump_chan_init(&uc_rev, inbuf_rev, XPHI_BENCH_MSG_FRAME_SIZE,
                         outbuf_rev, XPHI_BENCH_MSG_FRAME_SIZE);
-
-#ifdef XPHI_BENCH_INITIATOR_HOST
-    delay_ms(4000);
-#endif
 
 #if XPHI_BENCH_INITIATOR_HOST
     debug_printf("---------------- normal run -----------------\n");
