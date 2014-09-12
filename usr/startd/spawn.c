@@ -312,50 +312,49 @@ void spawn_app_domains(void)
 
             uint8_t spawn_flags = 0;
             uint8_t has_spawn_flags = 0;
-            if (si.argc >= 2) {
-                char *p = NULL;
-                if (strncmp(si.argv[1], "spawnflags=", 11) == 0) {
-                    p = strchr(si.argv[1], '=');
-                } else if (si.argv[2] && strncmp(si.argv[2], "spawnflags=", 11) == 0) {
-                    p = strchr(si.argv[2], '=');
-                }
-                if (p != NULL) {
-                    p++;
-                    spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
-                    has_spawn_flags = 1;
-                }
-                if (strncmp(si.argv[1], "core=", 5)== 0) {
-                    p = strchr(si.argv[1], '=');
-                } else if (si.argv[2] && strncmp(si.argv[2], "core=", 5)== 0) {
-                    p = strchr(si.argv[2], '=');
-                }
-                p++;
-                while(*p != '\0') {
-                    int id_from = strtol(p, (char **)&p, 10), id_to = id_from;
-                    if(*p == '-') {
-                        p++;
-                        id_to = strtol(p, (char **)&p, 10);
+            uint8_t has_core = 0;
+            char *core_ptr = NULL;
+
+            for(int i = 1; i < si.argc && i < 3; ++i) {
+            	if(strncmp(si.argv[i], "spawnflags=", 11) == 0) {
+            	    char *p = strchr(si.argv[i], '=') + 1;
+            	    spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
+            	    has_spawn_flags = 1;
+            	} else if (strncmp(si.argv[i], "core=", 5)== 0) {
+            	    core_ptr = strchr(si.argv[i], '=') + 1;
+            	    has_core = 1;
+            	} else {
+            		/* ignore */
+            	}
+            }
+
+            if (has_core || has_spawn_flags) {
+                for (int i = 1; i < si.argc; i++) {
+                    if (has_spawn_flags && has_core) {
+                        si.argv[i] = si.argv[i+2];
+                    } else {
+                        si.argv[i] = si.argv[i+1];
                     }
-                    assert(*p == ',' || *p == '\0');
-                    if(*p != '\0') {
-                        p++;
+                }
+            }
+
+            si.argc -= (has_core + has_spawn_flags);
+
+            if (has_core) {
+                while(*core_ptr != '\0') {
+                    int id_from = strtol(core_ptr, (char **)&core_ptr, 10);
+                    int id_to = id_from;
+                    if(*core_ptr == '-') {
+                        core_ptr++;
+                        id_to = strtol(core_ptr, (char **)&core_ptr, 10);
+                    }
+                    assert(*core_ptr == ',' || *core_ptr == '\0');
+                    if(*core_ptr != '\0') {
+                        core_ptr++;
                     }
 
                     /* coreid = strtol(p + 1, NULL, 10); */
                     // discard 'core=x' argument
-                    for (int i = 1; i < si.argc; i++) {
-                        if (has_spawn_flags) {
-                            si.argv[i] = si.argv[i+2];
-                        } else {
-                            si.argv[i] = si.argv[i+1];
-                        }
-                    }
-                    if (has_spawn_flags) {
-                        si.argc -= 2;
-                    } else {
-                        si.argc--;
-                    }
-
                     for(int i = id_from; i <= id_to; i++) {
                         debug_printf("starting app %s on core %d\n",
                                      si.name, i);
@@ -371,13 +370,6 @@ void spawn_app_domains(void)
 
             } else {
                 coreid = my_coreid;
-
-                if (has_spawn_flags) {
-                    for (int i = 1; i < si.argc; i++) {
-                        si.argv[i] = si.argv[i+1];
-                    }
-                    si.argc--;
-                }
 
                 debug_printf("starting app %s on core %d\n", si.name, coreid);
 
