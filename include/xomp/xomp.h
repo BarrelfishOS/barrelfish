@@ -39,6 +39,9 @@
 /// ram affinitiy maximum base address
 #define XOMP_RAM_MAX_LIMIT (512UL * 1024 * 1024 * 1024)
 
+/// enables the virtual threads
+#define XOMP_VTHREAD_COUNT 20
+
 /* Typedefs */
 
 /// XOMP worker ID
