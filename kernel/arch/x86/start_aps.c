@@ -163,7 +163,8 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         int count = 0;
         while (*ap_wait != AP_STARTED) {
             if (count == 0xFFFFFFF) {
-                printf("Waiting for started: %i, [%i]\n", core_id, *ap_wait);
+                printf("Waiting for started: %"PRIu8", [%"PRIu32"]\n",
+                       core_id, *ap_wait);
             }
             count++;
         }

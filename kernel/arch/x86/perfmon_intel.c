@@ -52,10 +52,10 @@ errval_t perfmon_intel_init(void)
     printf("Supported events:\n%s\n", str);
 
     uint32_t apmfeat = cpuid_apm_feat_rd_raw(&mycpuid);
-    printf("Supported events: %x\n", apmfeat);
+    printf("Supported events: %"PRIx32"\n", apmfeat);
 
     uint32_t status = ia32_perf_global_ctrl_rd(&ia32);
-    printf("Enabling counter %d, old val %x\n", 0, status);
+    printf("Enabling counter %d, old val %"PRIx32"\n", 0, status);
     ia32_perf_global_ctrl_pmc0_wrf(&ia32, 1);
 
     return SYS_ERR_OK;
@@ -67,7 +67,7 @@ void perfmon_intel_reset(void)
     ia32_perf_global_over_wr(&ia32, status);
 }
 
-void perfmon_intel_measure_start(uint8_t event, uint8_t umask, bool os, 
+void perfmon_intel_measure_start(uint8_t event, uint8_t umask, bool os,
                                  uint8_t idx, bool intr)
 {
     ia32_perfevtsel_t sel0 = ia32_perfevtsel_default;

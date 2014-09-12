@@ -8,10 +8,10 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/xeon_phi_manager_client
--- 
+--
 --------------------------------------------------------------------------
 
-[ build library { 
+[ build library {
     target = "xeon_phi_manager_client",
     architectures = ["x86_64"],
     cFiles = [ "xeon_phi_manager_client.c" ],
@@ -19,19 +19,19 @@
     flounderBindings = ["xeon_phi_manager"],
     flounderExtraBindings = [ ("xeon_phi_manager",["rpcclient"]) ]
   },
-                
-  build library { 
+
+  build library {
     target = "xeon_phi_client",
     architectures = [
-      "k1om", 
+      "k1om",
       "x86_64"
     ],
-    cFiles = [ 
+    cFiles = [
       "xeon_phi_client.c",
       "xeon_phi_domain.c"
     ],
     addLibraries = libDeps [ "octopus" ],
-    flounderDefs = ["xeon_phi", "octopus"],
-    flounderBindings = ["xeon_phi"]
+    flounderDefs = ["xeon_phi"],
+    flounderBindings = ["xeon_phi","octopus"]
   }
 ]
