@@ -682,7 +682,7 @@ static int realmain(void *cargv)
     }
 
 #ifdef BOMP
-backend_create_time(argv);
+//backend_create_time(argv);
 #endif
 printf("Computetime %d %f\n", argv, timecounter);
 printf("client done\n");
