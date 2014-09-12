@@ -10,6 +10,7 @@
 #ifndef LIB_DMA_BENCH_H
 #define LIB_DMA_BENCH_H
 
+/// DMA Benchmark control
 #define DMA_BENCH_RUN_BENCHMARK 0
 
 /* minimum and maximum buffer sizes */
@@ -21,7 +22,7 @@
 #define DMA_BENCH_NUM_RUNS \
     (DMA_BENCH_MAX_BITS - DMA_BENCH_MIN_BITS + 1)
 
-#define DMA_BENCH_NUM_REPS 50
+#define DMA_BENCH_NUM_REPS 500
 
 #define DMA_BENCH_HOST_NUMA_OFFSET (128UL * 1024 * 1024 * 1024)
 
@@ -34,10 +35,16 @@
 /// hardcoded base of the second Xeon Phi in babybel
 #define DMA_BENCH_HOST_XEON_PHI_BASE2 0x0000380600000000ULL
 
+#define DMA_BENCH_XPHI_BASE_OFFSET (4UL * 1024 * 1024 * 1024)
+
+
 
 errval_t dma_bench_run_default(struct dma_device *dev);
 
+errval_t dma_bench_run_default_xphi(struct dma_device *dev);
 
 errval_t dma_bench_run(struct dma_device *dev, lpaddr_t src, lpaddr_t dst);
+
+errval_t dma_bench_run_memcpy(void *dst, void *src);
 
 #endif /* DMA_BENCH_INTERNAL_H */
