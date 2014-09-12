@@ -98,7 +98,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 {
     errval_t err;
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t repl_timer = bench_tsc();
 #endif
 
@@ -118,7 +118,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 
     XWR_DEBUG("registering memory with DMA service\n");
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t register_timer = bench_tsc();
 #endif
     err = dma_register_memory((struct dma_device *) dma_dev, *frame);
@@ -131,7 +131,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
         return err;
     }
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t register_timer_end = bench_tsc();
 #endif
 
@@ -169,7 +169,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 
     *frame = replicate;
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
     debug_printf("%lx replication took %lu cycles, %lu ms\n", worker_id,
                  timer_end - repl_timer, bench_tsc_to_ms(timer_end - repl_timer));
@@ -340,7 +340,7 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
 {
     XWI_DEBUG("gw_req_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t mem_timer = bench_tsc();
 #endif
 
@@ -357,26 +357,19 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     msg_st->cleanup = NULL;
 
     XWR_DEBUG("Requesting frame from gateway: [%016lx]\n", usrdata);
-#if XOMP_BENCH_ENABLED
-    cycles_t lookup_start = bench_tsc();
-#endif
+
     msg_st->err = xomp_gateway_get_memory(addr, &frame);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
     }
-#if XOMP_BENCH_ENABLED
-    cycles_t lookup_end = bench_tsc();
-#endif
 
     msg_st->err = msg_open_cb(0x0, addr, frame, type);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     mem_timer = bench_tsc() - mem_timer;
     debug_printf("%lx mem request %016lx took  %lu cycles, %lu ms\n", worker_id,
                  addr, mem_timer, bench_tsc_to_ms(mem_timer));
-    debug_printf("%lx mem lookup %016lx took  %lu cycles, %lu ms\n", worker_id,
-                 addr, lookup_end - lookup_start, bench_tsc_to_ms(lookup_end - lookup_start));
 #endif
 
     txq_send(msg_st);
@@ -389,7 +382,7 @@ static void add_memory_call_rx(struct xomp_binding *b,
 {
     XWI_DEBUG("add_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t mem_timer = bench_tsc();
 #endif
 
@@ -422,13 +415,13 @@ static void add_memory_call_rx(struct xomp_binding *b,
         return;
     }
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t map_start = bench_tsc();
 #endif
     msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
                                                   map_flags, NULL, NULL);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
     debug_printf("%lx mem add %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
                  timer_end - mem_timer, bench_tsc_to_ms(timer_end - mem_timer));
@@ -449,7 +442,7 @@ static void do_work_rx(struct xomp_binding *b,
 
     XWP_DEBUG("do_work_rx: fn:%lx, id:%lx\n", fn, id);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t work_timer = bench_tsc();
 #endif
 
@@ -490,9 +483,14 @@ static void do_work_rx(struct xomp_binding *b,
     xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
 
-    fnct(work->data);
+    for (uint32_t i = 0; i <= work->num_vtreads; ++i) {
+        fnct(work->data);
+        work->thread_id++;
+    }
 
-#if XOMP_BENCH_ENABLED
+
+
+#if XOMP_BENCH_WORKER_EN
     work_timer = bench_tsc() - work_timer;
     debug_printf("%lx work took %lu cycles, %lu ms\n", worker_id, work_timer,
                  bench_tsc_to_ms(work_timer));
@@ -614,7 +612,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     XWI_DEBUG("initializing worker {%016lx} iref:%u\n", worker_id, svc_iref);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     bench_init();
 #endif
 

@@ -25,8 +25,15 @@
 
 /// enable the benchmarking
 #define XOMP_BENCH_ENABLED 1
+
+
 #if XOMP_BENCH_ENABLED
+#define XOMP_BENCH_WORKER_EN 0
+#define XOMP_BENCH_MASTER_EN 1
 #include <bench/bench.h>
+#else
+#define XOMP_BENCH_WORKER_EN 0
+#define XOMP_BENCH_MASTER_EN 0
 #endif
 
 #define BOMP_DEFAULT_CORE_STRIDE 2
@@ -51,6 +58,7 @@ struct bomp_work {
     void *data;
     unsigned thread_id;
     unsigned num_threads;
+    unsigned num_vtreads;
     struct bomp_barrier *barrier;
 };
 
