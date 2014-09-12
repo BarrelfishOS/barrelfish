@@ -26,6 +26,8 @@
 #include "dma_service.h"
 #include "debug.h"
 
+#define IOAT_BENCHMARK_CORE 20
+
 static struct dma_service_cb dma_svc_cb = {
     .connect = dma_svc_connect_cb,
     .addregion = dma_svc_addregion_cb,
@@ -147,8 +149,10 @@ int main(int argc,
     }
 
 #if DMA_BENCH_RUN_BENCHMARK
-    struct ioat_dma_device *dev = ioat_device_get_next();
-    dma_bench_run_default(dev);
+    if (disp_get_core_id() < IOAT_BENCHMARK_CORE) {
+        struct ioat_dma_device *dev = ioat_device_get_next();
+        dma_bench_run_default((struct dma_device *)dev);
+    }
 #endif
 
 #if IOAT_DMA_OPERATION == IOAT_DMA_OPERATION_SERVICE
