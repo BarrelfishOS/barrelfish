@@ -143,7 +143,7 @@ errval_t domain_wait(const char *iface,
 
     if (err_is_fail(error_code)) {
         free(record);
-        return err;
+        return error_code;
     }
 
     free(ws);
