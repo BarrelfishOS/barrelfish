@@ -16,8 +16,12 @@
 # ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 #
 
+# abort on any errors as this produces invalid images
+set -e
+
 if [ $# != 2 ]; then
     echo Expected $0 menu.lst output_prefix
+
     exit 1
 fi
 
