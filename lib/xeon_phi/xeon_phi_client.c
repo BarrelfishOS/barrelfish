@@ -465,6 +465,8 @@ static errval_t xphi_client_register(struct xeon_phi_client *cl)
     struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
     svc_st->args.domain.domid = disp_get_domain_id();
     svc_st->args.domain.core = disp_get_core_id();
+
+    /// XXX: bug, this fails if disp_name() length == DISP_NAME_LEN
     svc_st->args.domain.name = disp_name();
 
     DEBUG_XPHI("registration {%s} with domid:%x\n", svc_st->args.domain.name,
