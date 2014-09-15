@@ -101,7 +101,7 @@ BENCH_COMMON= \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench
+	sbin/multihop_latency_bench 
 
 BENCH_x86_64= \
 	sbin/bomp_benchmark_cg \
@@ -125,7 +125,13 @@ BENCH_x86_64= \
 	sbin/bulk_transfer_passthrough \
 	sbin/bulkbench_micro_echo \
 	sbin/bulkbench_micro_throughput \
-	sbin/bulkbench_micro_rtt
+	sbin/bulkbench_micro_rtt \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/benchmarks/xphi_xump_bench
+	
+BENCH_k1om= \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/benchmarks/xphi_xump_bench
 	
 
 GREEN_MARL= \
