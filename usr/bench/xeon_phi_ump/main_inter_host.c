@@ -11,9 +11,6 @@
 #include <stdlib.h>
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/ump_chan.h>
-#include <bench/bench.h>
-#include <barrelfish/sys_debug.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
@@ -27,7 +24,7 @@ int main(int argc,
     debug_printf("Inter Card Transfer Test started.\n");
 
     coreid_t core = 2;
-    char *name = "k1om/sbin/xeon_phi_inter";
+    char *name = "k1om/sbin/benchmarks/xphi_xump_bench";
 
     xphi_dom_id_t domid0;
 

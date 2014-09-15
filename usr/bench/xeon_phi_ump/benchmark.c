@@ -36,8 +36,7 @@ static inline cycles_t calculate_time(cycles_t tsc_start,
 }
 
 
-void xphi_bench_start_echo(struct bench_bufs *bufs,
-                           struct ump_chan *uc)
+void xphi_bench_start_echo(struct ump_chan *chan)
 {
     errval_t err;
 
@@ -45,7 +44,7 @@ void xphi_bench_start_echo(struct bench_bufs *bufs,
     volatile struct ump_message *msg_recv;
 
     struct ump_control ctrl;
-    msg = ump_chan_get_next(uc, &ctrl);
+    msg = ump_chan_get_next(chan, &ctrl);
 
     // send initiator message
     debug_printf("signal ready.\n");
@@ -59,10 +58,10 @@ void xphi_bench_start_echo(struct bench_bufs *bufs,
 #else
     while(true) {
 #endif
-        err = ump_chan_recv(uc, &msg_recv);
+        err = ump_chan_recv(chan, &msg_recv);
         if (err_is_ok(err)) {
             XPHI_BENCH_DBG("received ump message [%p]\n", msg_recv);
-            msg = ump_chan_get_next(uc, &ctrl);
+            msg = ump_chan_get_next(chan, &ctrl);
             msg->header.control = ctrl;
 #ifdef XPHI_BENCH_CHECK_STOP
             data = msg_recv->data[0];
@@ -75,8 +74,7 @@ void xphi_bench_start_echo(struct bench_bufs *bufs,
 }
 
 
-errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
-                                       struct ump_chan *uc)
+errval_t xphi_bench_start_initator_rtt(struct ump_chan *chan)
 {
     errval_t err;
     cycles_t tsc_start, tsc_end;
@@ -96,7 +94,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
 
     debug_printf("RTT benchmark: waiting for ready signal.\n");
     while (1) {
-        err = ump_chan_recv(uc, &msg);
+        err = ump_chan_recv(chan, &msg);
         if (err_is_ok(err)) {
             break;
         }
@@ -112,10 +110,10 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
                          XPHI_BENCH_RTT_NUM_ROUNDS);
         }
         tsc_start = bench_tsc();
-        msg = ump_chan_get_next(uc, &ctrl);
+        msg = ump_chan_get_next(chan, &ctrl);
         msg->header.control = ctrl;
         do {
-            err = ump_chan_recv(uc, &msg);
+            err = ump_chan_recv(chan, &msg);
         } while (err_is_fail(err));
         tsc_end = bench_tsc();
         result = calculate_time(tsc_start, tsc_end);
@@ -123,7 +121,7 @@ errval_t xphi_bench_start_initator_rtt(struct bench_bufs *bufs,
     } while (!bench_ctl_add_run(ctl, &result));
 
 #ifdef XPHI_BENCH_CHECK_STOP
-    msg = ump_chan_get_next(uc, &ctrl);
+    msg = ump_chan_get_next(chan, &ctrl);
     msg->data[0] = XPHI_BENCH_STOP_FLAG;
     msg->header.control = ctrl;
 #endif
