@@ -74,8 +74,14 @@ static struct range_slot_allocator sysmem_allocator;
 #define WORKSET_SIZE_MULT 16
 #define WORKSET_SIZE (WORKSET_SIZE_MULT * CHACHE_LL_SIZE)
 
+/// the number of benchmark rounds to execute
 #define RUN_COUNT 1000
-#define LOOP_ITERATIONS 100
+
+/// number of loop iterations of 10k operations
+#define LOOP_ITERATIONS 1000
+
+/// loop unrolling factor {10, 50, 100, 500, 1000, 5000}
+#define LOOP_UNROLLING 1000
 
 #define NEXT(_e) (_e) = (_e)->next;
 #define NEXT_5(_e) NEXT(_e) NEXT(_e) NEXT(_e) NEXT(_e) NEXT(_e)
@@ -84,6 +90,27 @@ static struct range_slot_allocator sysmem_allocator;
 #define NEXT_100(_e) NEXT_50(_e) NEXT_50(_e)
 #define NEXT_500(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e)
 #define NEXT_1000(_e) NEXT_500(_e) NEXT_500(_e)
+
+#if LOOP_UNROLLING == 10000
+#define UNROLL_NEXT(_e) NEXT_100(_e)
+#elif LOOP_UNROLLING == 5000
+#define UNROLL_NEXT(_e) NEXT_500(_e)
+#elif LOOP_UNROLLING == 1000
+#define UNROLL_NEXT(_e) NEXT_100(_e)
+#elif LOOP_UNROLLING == 500
+#define UNROLL_NEXT(_e) NEXT_50(_e)
+#elif LOOP_UNROLLING == 100
+#define UNROLL_NEXT(_e) NEXT_10(_e)
+#elif LOOP_UNROLLING == 50
+#define UNROLL_NEXT(_e) NEXT_5(_e)
+#elif LOOP_UNROLLING == 10
+#define UNROLL_NEXT(_e) NEXT(_e)
+#endif
+
+
+#ifndef UNROLL_NEXT
+#error "UNROLL_NEXT not defined"
+#endif
 
 struct elem {
     struct elem *next;
@@ -220,16 +247,16 @@ static cycles_t sysmem_bench_run_round(void *buffer, volatile void **ret_elem)
     cycles_t tsc_start = bench_tsc();
 
     for (uint32_t i = 0; i < LOOP_ITERATIONS; ++i) {
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
     }
     cycles_t tsc_end = bench_tsc();
 
@@ -237,7 +264,7 @@ static cycles_t sysmem_bench_run_round(void *buffer, volatile void **ret_elem)
         *ret_elem = e;
     }
 
-    return sysmem_bench_calculate_time(tsc_start, tsc_end) / (LOOP_ITERATIONS * 10000);
+    return sysmem_bench_calculate_time(tsc_start, tsc_end) / (LOOP_ITERATIONS * LOOP_UNROLLING);
 }
 
 static void sysmem_bench_run(void)
