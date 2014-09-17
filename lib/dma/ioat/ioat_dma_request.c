@@ -65,6 +65,8 @@ static struct ioat_dma_request *request_alloc(void)
 static void request_free(struct ioat_dma_request *req)
 {
     DMAREQ_DEBUG("meta: freeing request %p.\n", req);
+    req->desc_head = NULL;
+    req->desc_tail = NULL;
     req->common.next = req_free_list;
     req_free_list = &req->common;
 }
