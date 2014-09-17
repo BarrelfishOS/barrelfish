@@ -164,7 +164,5 @@ errval_t dma_svc_memcpy_cb(dma_svc_handle_t svc_handle,
         }
     };
 
-    ioat_dma_request_memcpy((struct dma_device *)dev, &setup, id);
-
-    return SYS_ERR_OK;
+    return ioat_dma_request_memcpy((struct dma_device *)dev, &setup, id);
 }
