@@ -32,6 +32,7 @@ void bench_stddev(cycles_t *array, size_t len, uint8_t correction,
 cycles_t bench_min(cycles_t *array, size_t len);
 cycles_t bench_max(cycles_t *array, size_t len);
 cycles_t bench_tscoverhead(void);
+cycles_t bench_time_diff(cycles_t tsc_start, cycles_t tsc_end);
 __END_DECLS
 
 
@@ -140,5 +141,6 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
                                     size_t dimension,
                                     const char *prefix,
                                     cycles_t tscperus);
+
 
 #endif // BENCH_H
