@@ -26,12 +26,16 @@
 #define DMA_BENCH_PRINT(x...) debug_printf(x)
 //#define DMA_BENCH_PRINT(x...)
 
+static volatile int dma_done_flag = 0;
+
+uint64_t request_counter = 0;
+
 static void dma_done_cb(errval_t err,
-                            dma_req_id_t id,
-                            void *arg)
+                        dma_req_id_t id,
+                        void *arg)
 {
     assert(err_is_ok(err));
-    *((uint8_t *)arg) = 0x1;
+    dma_done_flag = 1;
 }
 
 static inline cycles_t calculate_time(cycles_t tsc_start,
@@ -135,13 +139,12 @@ errval_t dma_bench_run_default(struct dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    dma_bench_run(dev, DMA_BENCH_HOST_BASE,
-                  DMA_BENCH_HOST_BASE + DMA_BENCH_BUFFER_SIZE);
-
+    //dma_bench_run(dev, DMA_BENCH_HOST_BASE,
+    //              DMA_BENCH_HOST_BASE + DMA_BENCH_BUFFER_SIZE);
+    return SYS_ERR_OK;
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-
     debug_printf("DMA-BENCH: host[0] -> host[1]\n");
     debug_printf("\n");
     debug_printf("--------------------------------\n");
@@ -178,13 +181,12 @@ errval_t dma_bench_run_default(struct dma_device *dev)
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
-    dma_bench_run(dev, DMA_BENCH_HOST_XEON_PHI_BASE,DMA_BENCH_HOST_XEON_PHI_BASE + DMA_BENCH_BUFFER_SIZE);
+   // dma_bench_run(dev, DMA_BENCH_HOST_XEON_PHI_BASE,DMA_BENCH_HOST_XEON_PHI_BASE + DMA_BENCH_BUFFER_SIZE);
     debug_printf("\n");
     debug_printf("--------------------------------\n");
     debug_printf("\n");
     debug_printf("DONE.\n");
-    while (1)
-        ;
+    debug_printf("=========================================================");
     return SYS_ERR_OK;
 }
 
@@ -212,11 +214,12 @@ errval_t dma_bench_run(struct dma_device *dev, lpaddr_t src, lpaddr_t dst)
 
          uint8_t idx = 0;
          do {
-             uint8_t dma_done = 0x0;
+             tsc_start = bench_tsc();
+             dma_done_flag = 0x0;
 
              struct dma_req_setup setup = {
                  .done_cb = dma_done_cb,
-                 .cb_arg = &dma_done,
+                 .cb_arg = &request_counter,
                  .args = {
                      .memcpy = {
                          .src = src,
@@ -228,22 +231,22 @@ errval_t dma_bench_run(struct dma_device *dev, lpaddr_t src, lpaddr_t dst)
 
              dma_req_id_t id;
 
-             tsc_start = bench_tsc();
-
              err = dma_request_memcpy_chan(chan, &setup, &id);
              if (err_is_fail(err)) {
                  USER_PANIC_ERR(err, "could not set the memcy request");
              }
 
-             volatile uint8_t *done_flag = &dma_done;
+             tsc_end = bench_tsc();
+             result = calculate_time(tsc_start, tsc_end);
 
-             while (*done_flag == 0x0) {
-                 err = dma_channel_poll(chan);
+             while (!dma_done_flag) {
+                 dma_channel_poll(chan);
              }
 
              tsc_end = bench_tsc();
              result = calculate_time(tsc_start, tsc_end);
              idx++;
+             request_counter++;
          } while (!bench_ctl_add_run(ctl, &result));
          char buf[50];
 

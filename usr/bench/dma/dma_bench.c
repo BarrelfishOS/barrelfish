@@ -23,6 +23,10 @@
 #include <dma/client/dma_client_device.h>
 #include <dma/dma_manager_client.h>
 
+#define BENCH_XEON_PHI_DMA 0
+#define BENCH_XEON_PHI_DMA_BASE (4UL * 1024 * 1024 * 1024)
+#define BENCH_XEON_PHI_DMA_BASE2 (5UL * 1024 * 1024 * 1024)
+
 #define DMA_BUFFER_SIZE  28
 #define DMA_BUFFER_COUNT 2
 
@@ -81,7 +85,7 @@ static void prepare(void)
     err = frame_alloc(&frame2, DMA_BUFFER_COUNT * (1UL << DMA_BUFFER_SIZE),
                       &frame_size2);
     struct frame_identity id2;
-    err = invoke_frame_identify(frame2, &id);
+    err = invoke_frame_identify(frame2, &id2);
     EXPECT_SUCCESS(err, "Frame identify");
 
     frame_addr2 = id2.base;
@@ -133,6 +137,17 @@ int main(int argc,
         }
     };
 #else
+#if BENCH_XEON_PHI_DMA
+    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 1);
+    EXPECT_SUCCESS(err, "waiting for driver");
+    struct dma_client_info info = {
+        .type = DMA_CLIENT_INFO_TYPE_NAME,
+        .device_type = DMA_DEV_TYPE_XEON_PHI,
+        .args = {
+            .name = "xeon_phi_dma_svc.0"
+        }
+    };
+#else
     err = dma_manager_wait_for_driver(DMA_DEV_TYPE_IOAT, 0);
     EXPECT_SUCCESS(err, "waiting for driver");
     struct dma_client_info info = {
@@ -143,6 +158,7 @@ int main(int argc,
         }
     };
 #endif
+#endif
 
     struct dma_client_device *dev;
     err = dma_client_device_init(&info, &dev);
@@ -152,25 +168,32 @@ int main(int argc,
 
 #ifndef __k1om
     debug_printf("NUMA 0 -> NUMA 1\n");
-    err = dma_bench_run_memcpy(buffers[0], buffers[DMA_BUFFER_COUNT]);
+ //   err = dma_bench_run_memcpy(buffers[0], buffers[DMA_BUFFER_COUNT]);
     EXPECT_SUCCESS(err, "dma_bench_run_memcpy\n");
 
     debug_printf("NUMA 1 -> NUMA 0\n");
-    err = dma_bench_run_memcpy(buffers[DMA_BUFFER_COUNT], buffers[0]);
+  //  err = dma_bench_run_memcpy(buffers[DMA_BUFFER_COUNT], buffers[0]);
     EXPECT_SUCCESS(err, "dma_bench_run_memcpy\n");
 #endif
     debug_printf("Numa 0 -> Numa 0\n");
-    err = dma_bench_run_memcpy(buffers[0], buffers[1]);
+    //err = dma_bench_run_memcpy(buffers[0], buffers[1]);
     EXPECT_SUCCESS(err, "dma_bench_run_memcpy\n");
 
+#if BENCH_XEON_PHI_DMA
+    err = dma_bench_run((struct dma_device *)dev, BENCH_XEON_PHI_DMA_BASE,
+                        BENCH_XEON_PHI_DMA_BASE2);
+    EXPECT_SUCCESS(err, "dma_bench_run\n");
+    debug_printf("DMA Benchmark done.\n");
+    return 0;
+#else
     err = dma_bench_run((struct dma_device *)dev, phys[0], phys[1]);
     EXPECT_SUCCESS(err, "dma_bench_run\n");
-
 #ifndef __k1om__
     err = dma_register_memory((struct dma_device *)dev, frame2);
     EXPECT_SUCCESS(err, "registering memory\n");
 
     debug_printf("Numa 0 -> Numa 1\n");
+    debug_printf("%lx -> %lx, \n", phys[0], phys[DMA_BUFFER_COUNT]);
     err = dma_bench_run((struct dma_device *)dev, phys[0], phys[DMA_BUFFER_COUNT]);
     EXPECT_SUCCESS(err, "dma_bench_run\n");
 
@@ -178,7 +201,7 @@ int main(int argc,
     err = dma_bench_run((struct dma_device *)dev, phys[DMA_BUFFER_COUNT], phys[0]);
     EXPECT_SUCCESS(err, "dma_bench_run\n");
 #endif
-
+#endif
     debug_printf("DMA Benchmark done.\n");
 
     return 0;
