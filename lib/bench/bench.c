@@ -45,6 +45,10 @@ static void measure_tsc(void)
  */
 void bench_init(void)
 {
+    if (bench_is_initialized) {
+        return;
+    }
+
     bench_arch_init();
 
     /* Measure overhead of taking timestamps */
