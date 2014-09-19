@@ -10,18 +10,23 @@
 --
 --------------------------------------------------------------------------
 
-let template = application { 
-                         addCFlags = [ "-DBOMP", "-fopenmp" ],
-                         addLibraries = [ "bomp", "bench", "trace" ],
-                         architectures = [ "x86_64", "k1om" ]
-                       }
-
-in
-  [ 
-    build template { 
-        target = "bomp_mm", 
-        cFiles = [ 
-            "mm.c" 
-        ] 
-    }
-  ]
+[ build application { 
+    target = "benchmarks/bomp_mm", 
+    cFiles = [ 
+        "mm.c" 
+    ], 
+    addCFlags = [ 
+        "-DBOMP", 
+        "-fopenmp" 
+    ],
+    addLibraries = [ 
+        "bomp", 
+        "bench", 
+        "trace" 
+    ],
+    architectures = [ 
+        "x86_64", 
+        "k1om" 
+    ]
+  }
+]

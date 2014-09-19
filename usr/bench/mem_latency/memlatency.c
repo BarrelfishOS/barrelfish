@@ -33,7 +33,10 @@
 #define RUN_COUNT 1000
 
 /// number of loop iterations of 10k operations
-#define LOOP_ITERATIONS 100
+#define LOOP_ITERATIONS 1000
+
+/// loop unrolling factor {10, 50, 100, 500, 1000, 5000}
+#define LOOP_UNROLLING 1000
 
 /// working set multiplier (workset = sizeof(LL_CACHE) * multiplier
 #define WORKSET_SIZE_MULT 8
@@ -79,6 +82,26 @@
 #define NEXT_500(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e) NEXT_100(_e)
 #define NEXT_1000(_e) NEXT_500(_e) NEXT_500(_e)
 
+#if LOOP_UNROLLING == 10000
+#define UNROLL_NEXT(_e) NEXT_100(_e)
+#elif LOOP_UNROLLING == 5000
+#define UNROLL_NEXT(_e) NEXT_500(_e)
+#elif LOOP_UNROLLING == 1000
+#define UNROLL_NEXT(_e) NEXT_100(_e)
+#elif LOOP_UNROLLING == 500
+#define UNROLL_NEXT(_e) NEXT_50(_e)
+#elif LOOP_UNROLLING == 100
+#define UNROLL_NEXT(_e) NEXT_10(_e)
+#elif LOOP_UNROLLING == 50
+#define UNROLL_NEXT(_e) NEXT_5(_e)
+#elif LOOP_UNROLLING == 10
+#define UNROLL_NEXT(_e) NEXT(_e)
+#endif
+
+
+#ifndef UNROLL_NEXT
+#error "UNROLL_NEXT not defined"
+#endif
 
 
 struct elem {
@@ -207,24 +230,21 @@ static void alloc_memory(struct elem **mem,
 
 static cycles_t run_benchmark(void *buffer, volatile void **ret_elem)
 {
-
-
-
     volatile struct elem *e = buffer;
 
     cycles_t tsc_start = bench_tsc();
 
     for (uint32_t i = 0; i < LOOP_ITERATIONS; ++i) {
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
-        NEXT_1000(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
+        UNROLL_NEXT(e);
     }
     cycles_t tsc_end = bench_tsc();
 
@@ -232,7 +252,7 @@ static cycles_t run_benchmark(void *buffer, volatile void **ret_elem)
         *ret_elem = e;
     }
 
-    return calculate_time(tsc_start, tsc_end) / (LOOP_ITERATIONS * 10000);
+    return calculate_time(tsc_start, tsc_end) / (LOOP_ITERATIONS * LOOP_UNROLLING);
 }
 
 int main(int argc,
