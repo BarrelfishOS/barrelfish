@@ -23,21 +23,21 @@
 
 #include <barrelfish/barrelfish.h>
 
-/// enable the benchmarking
-#define XOMP_BENCH_ENABLED 1
-
 
 #if XOMP_BENCH_ENABLED
 #define XOMP_BENCH_WORKER_EN 0
-#define XOMP_BENCH_MASTER_EN 1
+#define XOMP_BENCH_MASTER_EN 0
 #include <bench/bench.h>
 #else
 #define XOMP_BENCH_WORKER_EN 0
 #define XOMP_BENCH_MASTER_EN 0
 #endif
 
+#ifdef __k1om__
+#define BOMP_DEFAULT_CORE_STRIDE 1
+#else
 #define BOMP_DEFAULT_CORE_STRIDE 2
-
+#endif
 typedef void (*bomp_thread_fn_t)(void *);
 
 /**

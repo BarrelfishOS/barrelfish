@@ -418,9 +418,14 @@ static void add_memory_call_rx(struct xomp_binding *b,
 #if XOMP_BENCH_WORKER_EN
     cycles_t map_start = bench_tsc();
 #endif
-    msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
-                                                  map_flags, NULL, NULL);
-
+    if (addr) {
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+                                                      frame, map_flags, NULL, NULL);
+    } else {
+        void *map_addr;
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+                                                frame, map_flags, NULL, NULL);
+    }
 #if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
     debug_printf("%lx mem add %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
@@ -483,7 +488,7 @@ static void do_work_rx(struct xomp_binding *b,
     xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
 
-    for (uint32_t i = 0; i <= work->num_vtreads; ++i) {
+    for (uint32_t i = 0; i < work->num_vtreads; ++i) {
         fnct(work->data);
         work->thread_id++;
     }
@@ -668,7 +673,11 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     if (worker_id & XOMP_WID_GATEWAY_FLAG) {
         err = xomp_gateway_init();
     } else {
-        err = xomp_gateway_bind_svc();
+        if (!svc_iref) {
+            err = xomp_gateway_bind_svc();
+        } else {
+            err = SYS_ERR_OK;
+        }
     }
     if (err_is_fail(err)) {
         return err;
@@ -676,12 +685,14 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 #endif
 
 #ifdef __k1om__
-    err = xeon_phi_client_init(disp_xeon_phi_id());
-    if (err_is_fail(err)) {
-        err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
-    }
+    if (!svc_iref) {
+        err = xeon_phi_client_init(disp_xeon_phi_id());
+        if (err_is_fail(err)) {
+            err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
+        }
 
-    xeon_phi_client_set_callbacks(&callbacks);
+        xeon_phi_client_set_callbacks(&callbacks);
+    }
 #endif
 
     struct waitset *ws = get_default_waitset();

@@ -10,6 +10,9 @@
 #ifndef LIB_XOMP_MASTER_H_
 #define LIB_XOMP_MASTER_H_
 
+#define XOMP_MASTER_BENCH_SPAWN   (1 << 0)
+#define XOMP_MASTER_BENCH_MEM_ADD (1 << 1)
+#define XOMP_MASTER_BENCH_DO_WORK (1 << 2)
 
 /**
  * \brief initializes the Xeon Phi openMP library
@@ -64,5 +67,41 @@ errval_t xomp_master_do_work(struct xomp_task *task);
  * \returns SYS_ERR_OK on success
  */
 errval_t xomp_master_build_path(char **local, char **remote);
+
+
+#if XOMP_BENCH_ENABLED
+/**
+ * \brief enables basic benchmarking facilities
+ *
+ * \param runs   the number of runs of the experiment
+ * \param flags  flags which benchmarks to enable
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xomp_master_bench_enable(size_t runs,
+                                  size_t nthreads,
+                                  uint8_t flags);
+
+/**
+ * \brief prints the results of the enabled benchmarks
+ */
+void xomp_master_bench_print_results(void);
+
+#else
+#include <barrelfish/debug.h>
+
+static inline errval_t xomp_master_bench_enable(size_t runs,
+                                                size_t nthreads,
+                                                uint8_t flags)
+{
+    USER_PANIC("XOMP BENCHMARK NOT ENABLED");
+    return -1;
+}
+
+static inline void xomp_master_bench_print_results(void)
+{
+    USER_PANIC("XOMP BENCHMARK NOT ENABLED");
+}
+#endif
 
 #endif // LIB_XOMP_MASTER_H_

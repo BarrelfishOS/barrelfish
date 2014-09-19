@@ -77,7 +77,7 @@ struct xomp_worker
 
     void *tls;                      ///< pointer to the thread local storage
 
-#if XOMP_BENCH_MASTER_EN
+#if XOMP_BENCH_ENABLED
     cycles_t start;                 ///< start time of the operation
 #endif
 };
@@ -151,6 +151,16 @@ static char worker_id_buf[26];
 
 /// buffer for the iref argument
 static char iref_buf[19];
+
+#if XOMP_BENCH_ENABLED
+
+#include <bench/bench.h>
+
+static bench_ctl_t *xomp_bench_mem_add[2];
+static bench_ctl_t *xomp_bench_do_work[2];
+static bench_ctl_t *xomp_bench_spawn[2];
+
+#endif
 
 #if XOMP_BENCH_MASTER_EN
 static cycles_t local_timer;
@@ -278,6 +288,14 @@ static void gw_req_memory_response_rx(struct xomp_binding *b,
     worker->err = msgerr;
     worker->add_mem_st = 0x2;
 
+#if XOMP_BENCH_ENABLED
+    cycles_t timer = bench_tsc();
+    if (xomp_bench_mem_add[1]) {
+        timer = bench_time_diff(worker->start, timer);
+        bench_ctl_add_run(xomp_bench_mem_add[1], &timer);
+    }
+#endif
+
 #if XOMP_BENCH_MASTER_EN
     cycles_t duration = bench_tsc() - worker->start;
     remote_timer += duration;
@@ -295,6 +313,14 @@ static void add_memory_response_rx(struct xomp_binding *b,
 
     worker->err = msgerr;
     worker->add_mem_st = 0x2;
+
+#if XOMP_BENCH_ENABLED
+    cycles_t timer = bench_tsc();
+    if (xomp_bench_mem_add[0]) {
+        timer = bench_time_diff(worker->start, timer);
+        bench_ctl_add_run(xomp_bench_mem_add[0], &timer);
+    }
+#endif
 
 #if XOMP_BENCH_MASTER_EN
     cycles_t duration = bench_tsc() - worker->start;
@@ -316,6 +342,18 @@ static inline void done_msg_common(struct xomp_binding *b,
     } else {
         worker->state = XOMP_WORKER_ST_READY;
     }
+
+#if XOMP_BENCH_ENABLED
+    cycles_t timer = bench_tsc();
+    if (xomp_bench_do_work[0]) {
+        timer = bench_time_diff(worker->start, timer);
+        if (worker->type == XOMP_WORKER_TYPE_LOCAL) {
+            bench_ctl_add_run(xomp_bench_do_work[0], &timer);
+        } else if (worker->type == XOMP_WORKER_TYPE_REMOTE){
+            bench_ctl_add_run(xomp_bench_do_work[1], &timer);
+        }
+    }
+#endif
 
 #if XOMP_BENCH_MASTER_EN
     cycles_t duration = bench_tsc()- worker->start;
@@ -628,6 +666,10 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
 
         struct xomp_worker *worker = workers + i;
 
+#if XOMP_BENCH_ENABLED
+        worker->start = bench_tsc();
+#endif
+
 #ifndef __k1om__
         /*
          * XXX: we have to set the ram affinity in order to have a higher chance
@@ -788,6 +830,18 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             return XOMP_ERR_SPAWN_WORKER_FAILED;
         }
 
+#if XOMP_BENCH_ENABLED
+        cycles_t timer = bench_tsc();
+        if (xomp_bench_spawn[0]) {
+            timer = bench_time_diff(worker->start, timer);
+            if (i < local_threads) {
+                bench_ctl_add_run(xomp_bench_spawn[0], &timer);
+            } else {
+                bench_ctl_add_run(xomp_bench_spawn[1], &timer);
+            }
+        }
+#endif
+
         worker->state = XOMP_WORKER_ST_READY;
 
         if (i >= local_threads) {
@@ -858,7 +912,7 @@ errval_t xomp_master_add_memory(struct capref frame,
      */
     for (uint32_t i = 0; i < xmaster.remote.num; ++i) {
         worker = &xmaster.remote.workers[i];
-#if XOMP_BENCH_MASTER_EN
+#if XOMP_BENCH_ENABLED
             worker->start = bench_tsc();
 #endif
         if (worker->id & XOMP_WID_GATEWAY_FLAG) {
@@ -873,6 +927,13 @@ errval_t xomp_master_add_memory(struct capref frame,
                  */
                 return err;
             }
+#if XOMP_BENCH_ENABLED
+            if (xomp_bench_mem_add[1]) {
+                cycles_t timer = bench_tsc();
+                timer = bench_time_diff(worker->start, timer);
+                bench_ctl_add_run(xomp_bench_mem_add[1], &timer);
+            }
+#endif
 #if XOMP_BENCH_MASTER_EN
             cycles_t duration = bench_tsc() - worker->start;
             debug_printf("remote worker %lx: chan open took  %lu cycles, %lu ms\n",
@@ -904,7 +965,7 @@ errval_t xomp_master_add_memory(struct capref frame,
     /* send the memory caps to the local workers directly */
     for (uint32_t i = 0; i < xmaster.local.num; ++i) {
         worker = &xmaster.local.workers[i];
-#if XOMP_BENCH_MASTER_EN
+#if XOMP_BENCH_ENABLED
         worker->start = bench_tsc();
 #endif
         assert(worker->type == XOMP_WORKER_TYPE_LOCAL);
@@ -1073,12 +1134,8 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         }
     }
 
-    debug_printf("numtreads= %u + %u virtual\n", g_bomp_state->num_threads, ((local_threads) * (XOMP_VTHREAD_COUNT)));
-
     /* overwrite the global num threads counter */
     g_bomp_state->num_threads += ((local_threads) * (XOMP_VTHREAD_COUNT));
-
-
 
     uint32_t threadid = 1;
 
@@ -1112,7 +1169,7 @@ errval_t xomp_master_do_work(struct xomp_task *task)
                       worker->id, fn_name, fn_idx);
         }
 
-#if XOMP_BENCH_MASTER_EN
+#if XOMP_BENCH_ENABLED
         worker->start = bench_tsc();
 #endif
 
@@ -1131,27 +1188,28 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         work->num_threads = g_bomp_state->num_threads;
 
         if (i <= local_threads) {
-            work->num_vtreads = XOMP_VTHREAD_COUNT;
+            work->num_vtreads = XOMP_VTHREADS;
             threadid += XOMP_VTHREADS;
         } else {
-            work->num_vtreads = 0;
+            work->num_vtreads = 1;
             threadid++;
         }
 
-
         /* XXX: hack, we do not know how big the data section is... */
-        uint64_t *src = task->arg;
-        uint64_t *dst = (uint64_t *) (work + 1);
-        uint32_t bytes = 0;
-        while (*src != 0 || bytes < 64) {
-            *dst++ = *src++;
-            bytes += 8;
+        if (task->arg) {
+            uint64_t *src = task->arg;
+            uint64_t *dst = (uint64_t *) (work + 1);
+            uint32_t bytes = 0;
+            while (*src != 0 || bytes < 64) {
+                *dst++ = *src++;
+                bytes += 8;
+            }
         }
 
         struct txq_msg_st *msg_st = txq_msg_st_alloc(&worker->txq);
 
         if (msg_st == NULL) {
-            if (i == 0) {
+            if (i == 1) {
                 free(task);
             }
             return LIB_ERR_MALLOC_FAIL;
@@ -1171,3 +1229,61 @@ errval_t xomp_master_do_work(struct xomp_task *task)
 
     return SYS_ERR_OK;
 }
+
+
+#if XOMP_BENCH_ENABLED
+/**
+ * \brief enables basic benchmarking facilities
+ *
+ * \param runs   the number of runs of the experiment
+ * \param flags  flags which benchmarks to enable
+ *
+ * \returns SYS_ERR_OK on success
+ */
+errval_t xomp_master_bench_enable(size_t runs,
+                                  size_t nthreads,
+                                  uint8_t flags)
+{
+    bench_init();
+
+    if (flags & XOMP_MASTER_BENCH_SPAWN) {
+        xomp_bench_spawn[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, nthreads);
+        xomp_bench_spawn[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, nthreads);
+    }
+
+    if (flags & XOMP_MASTER_BENCH_DO_WORK) {
+        xomp_bench_do_work[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+        xomp_bench_do_work[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+    }
+
+    if (flags & XOMP_MASTER_BENCH_MEM_ADD) {
+        xomp_bench_mem_add[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+        xomp_bench_mem_add[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+    }
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief prints the results of the enabled benchmarks
+ */
+void xomp_master_bench_print_results(void)
+{
+    cycles_t tsc_per_us = bench_tsc_per_us();
+    if (xomp_bench_spawn[0]) {
+        bench_ctl_dump_analysis(xomp_bench_spawn[0], 0, "SPAWN LOCAL", tsc_per_us);
+        bench_ctl_dump_analysis(xomp_bench_spawn[1], 0, "SPAWN REMOTE", tsc_per_us);
+    }
+
+    if (xomp_bench_do_work[0]) {
+        bench_ctl_dump_analysis(xomp_bench_do_work[0], 0, "WORK LOCAL", tsc_per_us);
+        bench_ctl_dump_analysis(xomp_bench_do_work[1], 0, "WORK REMOTE", tsc_per_us);
+    }
+
+    if (xomp_bench_mem_add[0]) {
+        bench_ctl_dump_analysis(xomp_bench_mem_add[0], 0, "MEM ADD LOCAL", tsc_per_us);
+        bench_ctl_dump_analysis(xomp_bench_mem_add[1], 0, "MEM ADD REMOTE", tsc_per_us);
+    }
+
+}
+#endif

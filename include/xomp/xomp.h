@@ -40,7 +40,11 @@
 #define XOMP_RAM_MAX_LIMIT (512UL * 1024 * 1024 * 1024)
 
 /// enables the virtual threads
-#define XOMP_VTHREAD_COUNT 20
+#define XOMP_VTHREAD_COUNT 0
+
+/// enable the benchmarking
+#define XOMP_BENCH_ENABLED 0
+
 
 /* Typedefs */
 
