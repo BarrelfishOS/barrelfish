@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-    target = "xeon_phi_test",
+    target = "tests/xeon_phi_test",
     architectures = [ "x86_64" ],
     cFiles = [ 
       "main_host.c", 
@@ -25,7 +25,7 @@
   },
   
   build application { 
-    target = "xeon_phi_test",
+    target = "tests/xeon_phi_test",
     architectures = ["k1om"],
     cFiles = [ 
       "main_card.c", 
@@ -39,7 +39,7 @@
   },
   
   build application { 
-    target = "xeon_phi_inter",
+    target = "tests/xeon_phi_inter",
     architectures = [ "x86_64" ],
     cFiles = [ 
       "main_inter_host.c", 
@@ -53,7 +53,7 @@
   },
   
   build application { 
-    target = "xeon_phi_inter",
+    target = "tests/xeon_phi_inter",
     architectures = [ "k1om" ],
     cFiles = [ 
       "main_inter_card.c", 
@@ -67,7 +67,7 @@
   },
   
   build application { 
-    target = "xphi_nameservice_test",
+    target = "tests/xphi_nameservice_test",
     architectures = [ 
       "k1om",
       "x86_64"
