@@ -22,8 +22,7 @@
 #define BENCH_MEASURE_LOCAL 0
 #define BENCH_MEASURE_MAP_ONLY 0
 
-
-#define BENCH_RUN_COUNT 100
+#define BENCH_RUN_COUNT 250
 #define BENCH_RUN_SINGLE 0
 
 #define DEBUG(x...) debug_printf(x)
@@ -33,9 +32,7 @@
 
 static uint32_t nthreads;
 
-
 cycles_t timer_xompinit = 0;
-
 
 #if BENCH_MEASURE_LOCAL
 static bench_ctl_t *ctl_local;
@@ -70,7 +67,6 @@ static void measure_mapping(struct capref frame)
 
     do {
 
-
         void *addr;
         tsc_start = bench_tsc();
         err = vspace_map_one_frame(&addr, frame_size, copy, NULL, NULL);
@@ -81,8 +77,7 @@ static void measure_mapping(struct capref frame)
         EXPECT_SUCCESS(err, "vspace unmap");
         elapsed = bench_time_diff(tsc_start, tsc_end);
 
-
-    } while (!bench_ctl_add_run(b_ctl, &elapsed));
+    }while (!bench_ctl_add_run(b_ctl, &elapsed));
 
     debug_printf("\n");
     debug_printf("%% %lu bytes\n", frame_size);
@@ -91,7 +86,7 @@ static void measure_mapping(struct capref frame)
 }
 #endif
 
- static void prepare_bomp(void)
+static void prepare_bomp(void)
 {
     cycles_t tsc_start = bench_tsc();
     bomp_bomp_init(nthreads);
@@ -100,7 +95,7 @@ static void measure_mapping(struct capref frame)
 }
 
 static int prepare_xomp(int argc,
-                         char *argv[])
+                        char *argv[])
 {
     errval_t err;
 
@@ -123,12 +118,13 @@ static int prepare_xomp(int argc,
         EXPECT_SUCCESS(err, "nameservice_blocking_lookup");
 
 #if XOMP_BENCH_ENABLED
-        xomp_master_bench_enable(BENCH_RUN_COUNT, nthreads, XOMP_MASTER_BENCH_MEM_ADD);
+        xomp_master_bench_enable(BENCH_RUN_COUNT, nthreads,
+                        		 XOMP_MASTER_BENCH_MEM_ADD);
 #endif
 
     }
 
-    struct xomp_spawn local_info =  {
+    struct xomp_spawn local_info = {
         .argc = argc,
         .argv = argv,
 #ifdef __k1om__
@@ -136,17 +132,17 @@ static int prepare_xomp(int argc,
 #else
         .path = "/x86_64/sbin/benchmarks/xomp_share",
 #endif
-    };
+	};
 
-    struct xomp_spawn remote_info =  {
-            .argc = argc,
-            .argv = argv,
-            .path = "/k1om/sbin/benchmarks/xomp_share",
-        };
+    struct xomp_spawn remote_info = {
+        .argc = argc,
+        .argv = argv,
+        .path = "/k1om/sbin/benchmarks/xomp_share",
+    };
 
     struct xomp_args xomp_arg = {
         .type = XOMP_ARG_TYPE_DISTINCT,
-        .core_stride = 0, // use default
+        .core_stride = 0,  // use default
         .args = {
             .distinct = {
                 .nthreads = nthreads,
@@ -172,7 +168,7 @@ static int prepare_xomp(int argc,
 int main(int argc,
          char *argv[])
 {
-    errval_t err;
+    errval_t err, repl_err = SYS_ERR_OK;
     xomp_wid_t wid;
 
     bench_init();
@@ -217,13 +213,15 @@ int main(int argc,
         }
     }
 
+    lvaddr_t vbase = (10UL * 1024 * 1024 * 1024);
+
     DEBUG("\n");
     DEBUG("======================================================\n");
     DEBUG("sharing of 4k\n");
 
-#define FRAME_SIZE_0 4096
-#define FRAME_SIZE_1 (1024 * 1024)
-#define FRAME_SIZE_2 (256 * 1024 * 1024)
+#define FRAME_SIZE_0 4096UL
+#define FRAME_SIZE_1 (1024UL * 1024)
+#define FRAME_SIZE_2 (256UL * 1024 * 1024)
 
     size_t frame_size;
     struct capref frame;
@@ -240,16 +238,28 @@ int main(int argc,
     ctl_share_4k = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, BENCH_RUN_COUNT);
     do {
         tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_SHARED_RW);
+        err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_SHARED_RW);
         tsc_end = bench_tsc();
         EXPECT_SUCCESS(err, "xomp_master_add_memory mA_shared\n");
         timer[0] = bench_time_diff(tsc_start, tsc_end);
 
-        tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_REPL_RW);
-        tsc_end = bench_tsc();
-        timer[1] = bench_time_diff(tsc_start, tsc_end);
+        vbase += FRAME_SIZE_0;
+
+        if (err_is_ok(err)) {
+            tsc_start = bench_tsc();
+            repl_err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_REPL_RW);
+            tsc_end = bench_tsc();
+            if (err_is_ok(err)) {
+                timer[1] = bench_time_diff(tsc_start, tsc_end);
+                vbase += FRAME_SIZE_0;
+            }
+        }
     } while (!bench_ctl_add_run(ctl_share_4k, timer));
+
+    cycles_t tscperus = bench_tsc_per_us();
+    bench_ctl_dump_analysis(ctl_share_4k, 0, "4k shared", tscperus);
+    bench_ctl_dump_analysis(ctl_share_4k, 1, "4k repl", tscperus);
+
 #endif
     DEBUG("\n");
     DEBUG("======================================================\n");
@@ -259,6 +269,8 @@ int main(int argc,
     EXPECT_SUCCESS(err, "frame alloc");
     assert(frame_size == FRAME_SIZE_1);
 
+    vbase = (vbase + FRAME_SIZE_1) & ~(FRAME_SIZE_1 - 1);
+
 #if BENCH_MEASURE_MAP_ONLY
     measure_mapping(frame);
 #else
@@ -266,16 +278,25 @@ int main(int argc,
     ctl_share_1M = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, BENCH_RUN_COUNT);
     do {
         tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_SHARED_RW);
+        err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_SHARED_RW);
         tsc_end = bench_tsc();
         EXPECT_SUCCESS(err, "xomp_master_add_memory mA_shared\n");
         timer[0] = bench_time_diff(tsc_start, tsc_end);
+        vbase += FRAME_SIZE_1;
 
-        tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_REPL_RW);
-        tsc_end = bench_tsc();
-        timer[1] = bench_time_diff(tsc_start, tsc_end);
+        if (err_is_ok(repl_err)) {
+            tsc_start = bench_tsc();
+            repl_err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_REPL_RW);
+            tsc_end = bench_tsc();
+            if(err_is_ok(err)) {
+                EXPECT_SUCCESS(err, "xomp_master_add_memory mA_shared\n");
+                timer[1] = bench_time_diff(tsc_start, tsc_end);
+            }
+            vbase += FRAME_SIZE_1;
+        }
     } while (!bench_ctl_add_run(ctl_share_1M, timer));
+    bench_ctl_dump_analysis(ctl_share_1M, 0, "1M shared", tscperus);
+    bench_ctl_dump_analysis(ctl_share_1M, 1, "1M repl", tscperus);
 #endif
     DEBUG("\n");
     DEBUG("======================================================\n");
@@ -289,33 +310,37 @@ int main(int argc,
     measure_mapping(frame);
 #else
 
-    bench_ctl_t *ctl_share_256M = NULL;
+    vbase = (vbase + FRAME_SIZE_2) & ~(FRAME_SIZE_2 - 1);
 
-    ctl_share_256M = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, BENCH_RUN_COUNT);
+    bench_ctl_t *ctl_share_256M = NULL;
+    bench_ctl_t *ctl_repl_256M = NULL;
+
+    ctl_share_256M = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
+    ctl_repl_256M = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
     do {
         debug_printf("round...\n");
         tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_SHARED_RW);
+        err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_SHARED_RW);
         tsc_end = bench_tsc();
         EXPECT_SUCCESS(err, "xomp_master_add_memory mA_shared\n");
         timer[0] = bench_time_diff(tsc_start, tsc_end);
 
-        tsc_start = bench_tsc();
-        err = xomp_master_add_memory(frame, 0, XOMP_FRAME_TYPE_REPL_RW);
-        tsc_end = bench_tsc();
-        timer[1] = bench_time_diff(tsc_start, tsc_end);
-    } while (!bench_ctl_add_run(ctl_share_256M, timer));
-#endif
-    debug_printf("-------------------------------------\n");
+        vbase += FRAME_SIZE_2;
 
-#if !BENCH_MEASURE_MAP_ONLY
-    cycles_t tscperus = bench_tsc_per_us();
-    bench_ctl_dump_analysis(ctl_share_4k, 0, "4k shared", tscperus);
-    bench_ctl_dump_analysis(ctl_share_4k, 1, "4k repl", tscperus);
-    bench_ctl_dump_analysis(ctl_share_1M, 0, "1M shared", tscperus);
-    bench_ctl_dump_analysis(ctl_share_1M, 1, "1M repl", tscperus);
+
+        if (err_is_ok(repl_err)) {
+            tsc_start = bench_tsc();
+            repl_err = xomp_master_add_memory(frame, vbase, XOMP_FRAME_TYPE_REPL_RW);
+            if (err_is_ok(repl_err)) {
+                tsc_end = bench_tsc();
+                timer[1] = bench_time_diff(tsc_start, tsc_end);
+                bench_ctl_add_run(ctl_repl_256M, timer+1);
+            }
+            vbase += FRAME_SIZE_2;
+        }
+    } while (!bench_ctl_add_run(ctl_share_256M, timer));
     bench_ctl_dump_analysis(ctl_share_256M, 0, "256M shared", tscperus);
-    bench_ctl_dump_analysis(ctl_share_256M, 1, "256M repl", tscperus);
+    bench_ctl_dump_analysis(ctl_repl_256M, 0, "256M repl", tscperus);
 #endif
     debug_printf("-------------------------------------\n");
 

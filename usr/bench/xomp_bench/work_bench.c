@@ -7,6 +7,7 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <string.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
 
@@ -21,7 +22,9 @@
 
 #define BENCH_MEASURE_LOCAL 0
 
-#define BENCH_RUN_COUNT 25
+#define BENCH_RUN_COUNT 250
+
+#define BENCH_STEP_SIZE 2
 
 #define DEBUG(x...) debug_printf(x)
 
@@ -34,20 +37,12 @@ static cycles_t timer_xompinit;
 
 static volatile int counter = 0;
 
-static void work_local(void)
-{
-    for (int i = 0; i < 2; i++) {
-        counter++;
-    }
-
-}
-
 static void work_omp(void)
 {
 #pragma omp parallel
     {
         int num_threads = omp_get_num_threads() * 2;
-#pragma omp  for nowait //schedule (SCHEDULE, CHUNK)
+#pragma omp  for nowait schedule (static, 2)
         for (int i = 0; i < num_threads; i++) {
             counter++;
         }
@@ -79,9 +74,10 @@ static int prepare_xomp(int argc,
     }
 
     if (location == XOMP_WORKER_LOC_MIXED) {
+#if XOMP_BENCH_ENABLED
         xomp_master_bench_enable(BENCH_RUN_COUNT, nthreads,
-                                         XOMP_MASTER_BENCH_DO_WORK);
-
+                        XOMP_MASTER_BENCH_DO_WORK);
+#endif
         debug_printf("waiting for xeon phi to be ready\n");
         err = xeon_phi_domain_blocking_lookup("xeon_phi.0.ready", NULL);
         EXPECT_SUCCESS(err, "nameservice_blocking_lookup");
@@ -95,7 +91,7 @@ static int prepare_xomp(int argc,
 #ifdef __k1om__
         .path = "/k1om/sbin/benchmarks/xomp_work",
 #else
-        .path = "/x86_64/sbin/benchmarks/xomp_work",
+		.path = "/x86_64/sbin/benchmarks/xomp_work",
 #endif
     };
 
@@ -168,6 +164,16 @@ int main(int argc,
     DEBUG("======================================================\n");
     debug_printf("Num Threads: %u\n", nthreads);
 
+#ifdef __k1om__
+    uint8_t is_shared = 0;
+    if (disp_xeon_phi_id()) {
+        prepare_bomp();
+        is_shared = 1;
+    } else {
+        is_shared = prepare_xomp(argc, argv);
+    }
+
+#else
     uint8_t is_shared = 0;
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "bomp")) {
@@ -179,78 +185,56 @@ int main(int argc,
             debug_printf("ignoring argument {%s}\n", argv[i]);
         }
     }
-
-    DEBUG("\n");
-    DEBUG("======================================================\n");
-    DEBUG("work_local\n");
-
-    bench_ctl_t *ctl_single;
-    cycles_t timer_single;
-
-    ctl_single = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
-    do {
-        tsc_start = bench_tsc();
-        for (uint32_t i = 0; i < 1000; ++i) {
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-            work_local();
-        }
-        tsc_end = bench_tsc();
-        timer_single = bench_time_diff(tsc_start, tsc_end) / 1000;
-    }while (!bench_ctl_add_run(ctl_single, &timer_single));
+#endif
 
     DEBUG("\n");
     DEBUG("======================================================\n");
     DEBUG("work_omp\n");
 
-    bench_ctl_t *ctl_omp;
-    cycles_t timer_omp = 0;
-
-    ctl_omp = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
-    do {
-        tsc_start = bench_tsc();
-        work_omp();
-        tsc_end = bench_tsc();
-        timer_omp = bench_time_diff(tsc_start, tsc_end);
-        debug_printf("omp: %lu\n", timer_omp);
-    } while (!bench_ctl_add_run(ctl_omp, &timer_omp));
-
-    debug_printf("-------------------------------------\n");
-
-    debug_printf("BOMP init:      %lu (%lu ms)\n", timer_xompinit,
-                 bench_tsc_to_ms(timer_xompinit));
-
-    debug_printf("Single Time:    %lu (%lu ms)\n", timer_single,
-                    bench_tsc_to_ms(timer_single));
-
-    debug_printf("OMP Time:     %lu (%lu ms)\n", timer_omp,
-                 bench_tsc_to_ms(timer_omp));
-
-    debug_printf("Total (Single): %lu (%lu ms)\n", timer_single,
-                    bench_tsc_to_ms(timer_single));
-
-    debug_printf("Total (OMP): %lu (%lu ms)\n", timer_omp + timer_xompinit,
-                 bench_tsc_to_ms(timer_omp + timer_xompinit));
-
-    debug_printf("-------------------------------------\n");
-
     cycles_t tscperus = bench_tsc_per_us();
 
-    bench_ctl_dump_analysis(ctl_single, 0, "Single", tscperus);
+    bench_ctl_t *ctl_omp;
 
-    bench_ctl_dump_analysis(ctl_omp, 0, "OMP", tscperus);
+    cycles_t timer_omp = 0;
+    char buf[20];
+
+    for (uint32_t i = 1; i <= nthreads; ++i) {
+
+        if (i % BENCH_STEP_SIZE) {
+            if (i != nthreads && i != 2) {
+                continue;
+            }
+        }
+
+        omp_set_num_threads(i);
+
+        ctl_omp = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
+        do {
+            tsc_start = bench_tsc();
+            work_omp();
+            tsc_end = bench_tsc();
+            timer_omp = bench_time_diff(tsc_start, tsc_end);
+#ifdef __k1om__
+            if (disp_xeon_phi_id()) {
+                for (uint32_t j = 0; j < 2000 * i; ++j) {
+                    thread_yield();
+                }
+            }
+#endif
+        } while (!bench_ctl_add_run(ctl_omp, &timer_omp));
+
+        snprintf(buf, 20, "threads=%u", i);
+
+        bench_ctl_dump_analysis(ctl_omp, 0, buf, tscperus);
+
+        bench_ctl_destroy(ctl_omp);
+    }
 
     debug_printf("-------------------------------------\n");
 
+#if XOMP_BENCH_ENABLED
     xomp_master_bench_print_results();
-
+#endif
     debug_printf("-------------------------------------\n");
 
     while (1)
