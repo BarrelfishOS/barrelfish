@@ -22,9 +22,9 @@
 
 #define BENCH_MEASURE_LOCAL 0
 
-#define BENCH_RUN_COUNT 250
+#define BENCH_RUN_COUNT 2000
 
-#define BENCH_STEP_SIZE 2
+#define BENCH_STEP_SIZE 10
 
 #define DEBUG(x...) debug_printf(x)
 
@@ -45,6 +45,7 @@ static void work_omp(void)
 #pragma omp  for nowait schedule (static, 2)
         for (int i = 0; i < num_threads; i++) {
             counter++;
+            //debug_printf("thread: %u\n", omp_get_thread_num());
         }
     }
 }
@@ -103,7 +104,7 @@ static int prepare_xomp(int argc,
 
     struct xomp_args xomp_arg = {
         .type = XOMP_ARG_TYPE_DISTINCT,
-        .core_stride = 0,  // use default
+        .core_stride = location == XOMP_WORKER_LOC_LOCAL ? 1 : 1,
         .args = {
             .distinct = {
                 .nthreads = nthreads,
@@ -198,14 +199,25 @@ int main(int argc,
     cycles_t timer_omp = 0;
     char buf[20];
 
-    for (uint32_t i = 1; i <= nthreads; ++i) {
+#ifdef __k1om__
+    uint8_t do_work = !disp_xeon_phi_id();
+#endif
 
+    for (uint32_t i = 1; i <= nthreads; ++i) {
         if (i % BENCH_STEP_SIZE) {
             if (i != nthreads && i != 2) {
                 continue;
             }
+#ifdef __k1om__
+            if (!do_work) {
+                continue;
+            }
+#endif
         }
 
+#ifdef __k1om__
+    do_work = !do_work;
+#endif
         omp_set_num_threads(i);
 
         ctl_omp = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
@@ -215,11 +227,13 @@ int main(int argc,
             tsc_end = bench_tsc();
             timer_omp = bench_time_diff(tsc_start, tsc_end);
 #ifdef __k1om__
-            if (disp_xeon_phi_id()) {
-                for (uint32_t j = 0; j < 2000 * i; ++j) {
+                for (uint32_t j = 0; j < 500 * i; ++j) {
                     thread_yield();
                 }
-            }
+#else
+            for (uint32_t j = 0; j < 1000 * i; ++j) {
+                    thread_yield();
+                }
 #endif
         } while (!bench_ctl_add_run(ctl_omp, &timer_omp));
 
