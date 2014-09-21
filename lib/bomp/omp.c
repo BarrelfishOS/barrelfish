@@ -51,6 +51,7 @@ void omp_set_num_threads(int num_threads)
             num_threads = g_thread_limit;
         }
         OMP_SET_ICV_TASK(nthreads, num_threads);
+        g_bomp_state->num_threads = num_threads;
     }
 }
 
