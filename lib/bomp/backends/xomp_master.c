@@ -1235,6 +1235,29 @@ errval_t xomp_master_do_work(struct xomp_task *task)
 }
 
 
+/**
+ * \brief tells the gateway domains to update their local replicas
+ *
+ * \param frame      capability of the shared frame
+ * \param offset     offset into the capability to copy
+ * \param length     number of bytes to copy
+ * \param node       which node to send the copy request to
+ * \param direction  UPDATE or WRITE BACK
+ *
+ * \return SYS_ERR_OK on sucess,
+ *         errval on failure
+ *
+ */
+errval_t xomp_master_copy_memory(struct capref frame,
+                                 size_t offset,
+                                 size_t length,
+                                 uint16_t node,
+                                 xomp_master_copy_t direction)
+{
+    assert(!"NYI");
+    return SYS_ERR_OK;
+}
+
 #if XOMP_BENCH_ENABLED
 /**
  * \brief enables basic benchmarking facilities

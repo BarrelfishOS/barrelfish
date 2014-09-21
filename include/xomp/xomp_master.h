@@ -10,6 +10,14 @@
 #ifndef LIB_XOMP_MASTER_H_
 #define LIB_XOMP_MASTER_H_
 
+typedef enum xomp_master_copy {
+    XOMP_MASTER_COPY_INVALID,
+    XOMP_MASTER_COPY_UPDATE,
+    XOMP_MASTER_COPY_WRITE_BACK
+} xomp_master_copy_t;
+
+#define XOMP_MASTER_COPY_NODE_ALL 0xFFFF
+
 #define XOMP_MASTER_BENCH_SPAWN   (1 << 0)
 #define XOMP_MASTER_BENCH_MEM_ADD (1 << 1)
 #define XOMP_MASTER_BENCH_DO_WORK (1 << 2)
@@ -47,6 +55,24 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers);
 errval_t xomp_master_add_memory(struct capref frame,
                                 uint64_t info,
                                 xomp_frame_type_t type);
+
+/**
+ * \brief tells the gateway domains to update their local replicas
+ *
+ * \param frame      capability of the shared frame
+ * \param offset     offset into the capability to copy
+ * \param length     number of bytes to copy
+ * \param node       which node to send the copy request to
+ * \param direction  UPDATE or WRITE BACK
+ *
+ * \return SYS_ERR_OK on sucess,
+ *         errval on failure
+ */
+errval_t xomp_master_copy_memory(struct capref frame,
+                                 size_t offset,
+                                 size_t length,
+                                 uint16_t node,
+                                 xomp_master_copy_t direction);
 
 /**
  * \brief executes some work on each worker domains
