@@ -79,6 +79,7 @@ struct xomp_worker
 
 #if XOMP_BENCH_ENABLED
     cycles_t start;                 ///< start time of the operation
+    uint32_t index;
 #endif
 };
 
@@ -156,9 +157,9 @@ static char iref_buf[19];
 
 #include <bench/bench.h>
 
-static bench_ctl_t *xomp_bench_mem_add[2];
-static bench_ctl_t *xomp_bench_do_work[2];
-static bench_ctl_t *xomp_bench_spawn[2];
+static bench_ctl_t **xomp_bench_mem_add;
+static bench_ctl_t **xomp_bench_do_work;
+static bench_ctl_t **xomp_bench_spawn;
 
 #endif
 
@@ -293,6 +294,7 @@ static void gw_req_memory_response_rx(struct xomp_binding *b,
     if (xomp_bench_mem_add[1]) {
         timer = bench_time_diff(worker->start, timer);
         bench_ctl_add_run(xomp_bench_mem_add[1], &timer);
+        bench_ctl_add_run(xomp_bench_mem_add[2+worker->index], &timer);
     }
 #endif
 
@@ -319,6 +321,7 @@ static void add_memory_response_rx(struct xomp_binding *b,
     if (xomp_bench_mem_add[0]) {
         timer = bench_time_diff(worker->start, timer);
         bench_ctl_add_run(xomp_bench_mem_add[0], &timer);
+        bench_ctl_add_run(xomp_bench_mem_add[2+worker->index], &timer);
     }
 #endif
 
@@ -352,6 +355,7 @@ static inline void done_msg_common(struct xomp_binding *b,
         } else if (worker->type == XOMP_WORKER_TYPE_REMOTE){
             bench_ctl_add_run(xomp_bench_do_work[1], &timer);
         }
+        bench_ctl_add_run(xomp_bench_do_work[2 + worker->index], &timer);
     }
 #endif
 
@@ -590,8 +594,6 @@ errval_t xomp_master_init(struct xomp_args *args)
     return SYS_ERR_OK;
 }
 
-#define XOMP_REMOTE_COREID_START 1
-
 /**
  * \brief Spawns the worker threads on the Xeon Phi
  *
@@ -667,6 +669,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
         struct xomp_worker *worker = workers + i;
 
 #if XOMP_BENCH_ENABLED
+        worker->index = i;
         worker->start = bench_tsc();
 #endif
 
@@ -932,6 +935,7 @@ errval_t xomp_master_add_memory(struct capref frame,
                 cycles_t timer = bench_tsc();
                 timer = bench_time_diff(worker->start, timer);
                 bench_ctl_add_run(xomp_bench_mem_add[1], &timer);
+                bench_ctl_add_run(xomp_bench_mem_add[2 + worker->index], &timer);
             }
 #endif
 #if XOMP_BENCH_MASTER_EN
@@ -1246,19 +1250,39 @@ errval_t xomp_master_bench_enable(size_t runs,
 {
     bench_init();
 
+    bench_ctl_t **mem = NULL;
+
+    if (!flags) {
+        return -1;
+    }
+    
+    mem = calloc(2 + 2 * (2 + nthreads), sizeof(bench_ctl_t*));
+
+
     if (flags & XOMP_MASTER_BENCH_SPAWN) {
-        xomp_bench_spawn[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, nthreads);
-        xomp_bench_spawn[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, nthreads);
+        xomp_bench_spawn = mem;
+        xomp_bench_spawn[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads);
+        xomp_bench_spawn[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads);
+        mem += (2);
     }
 
     if (flags & XOMP_MASTER_BENCH_DO_WORK) {
-        xomp_bench_do_work[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
-        xomp_bench_do_work[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+        xomp_bench_do_work = mem;
+        xomp_bench_do_work[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads *  runs);
+        xomp_bench_do_work[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads *  runs);
+        for (uint32_t i = 0; i < nthreads; ++i) {
+            xomp_bench_do_work[i + 2] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, runs);
+        }
+        mem += (2 + nthreads);
     }
 
     if (flags & XOMP_MASTER_BENCH_MEM_ADD) {
-        xomp_bench_mem_add[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
-        xomp_bench_mem_add[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 2, runs);
+        xomp_bench_mem_add = mem;
+        xomp_bench_mem_add[0] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads *  runs);
+        xomp_bench_mem_add[1] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, nthreads *  runs);
+        for (uint32_t i = 0; i < nthreads; ++i) {
+            xomp_bench_mem_add[i + 2] = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, runs);
+        }
     }
 
     return SYS_ERR_OK;
@@ -1275,14 +1299,26 @@ void xomp_master_bench_print_results(void)
         bench_ctl_dump_analysis(xomp_bench_spawn[1], 0, "SPAWN REMOTE", tsc_per_us);
     }
 
+    uint32_t nthreads = xmaster.local.num + xmaster.remote.num;
+
+    char buf[20];
+
     if (xomp_bench_do_work[0]) {
         bench_ctl_dump_analysis(xomp_bench_do_work[0], 0, "WORK LOCAL", tsc_per_us);
         bench_ctl_dump_analysis(xomp_bench_do_work[1], 0, "WORK REMOTE", tsc_per_us);
+        for (uint32_t i = 0; i < nthreads; ++i) {
+            snprintf(buf, 20, "work w.%u", i+1);
+            bench_ctl_dump_analysis(xomp_bench_spawn[2+i], 0, buf, tsc_per_us);
+        }
     }
 
     if (xomp_bench_mem_add[0]) {
         bench_ctl_dump_analysis(xomp_bench_mem_add[0], 0, "MEM ADD LOCAL", tsc_per_us);
         bench_ctl_dump_analysis(xomp_bench_mem_add[1], 0, "MEM ADD REMOTE", tsc_per_us);
+        for (uint32_t i = 0; i < nthreads; ++i) {
+            snprintf(buf, 20, "memadd w.%u", i+1);
+            bench_ctl_dump_analysis(xomp_bench_mem_add[2+i], 0, buf, tsc_per_us);
+        }
     }
 
 }

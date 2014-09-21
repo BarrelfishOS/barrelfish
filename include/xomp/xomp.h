@@ -45,6 +45,8 @@
 /// enable the benchmarking
 #define XOMP_BENCH_ENABLED 0
 
+/// core on which to spawn remote workers
+#define XOMP_REMOTE_COREID_START 1
 
 /* Typedefs */
 
