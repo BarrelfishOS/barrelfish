@@ -94,6 +94,9 @@ static void dma_replication_cb(errval_t err,
     dma_replication_done = 1;
 }
 
+#endif
+
+
 static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 {
     errval_t err;
@@ -180,7 +183,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
     return SYS_ERR_OK;
 }
 
-#endif
+#ifdef __k1om__
 
 /*
  * ----------------------------------------------------------------------------
@@ -283,7 +286,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     return SYS_ERR_OK;
 }
 
-#ifdef __k1om__
+
 static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
@@ -364,7 +367,39 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
         return;
     }
 
-    msg_st->err = msg_open_cb(0x0, addr, frame, type);
+    uint8_t map_flags;
+
+    switch ((xomp_frame_type_t) type) {
+        case XOMP_FRAME_TYPE_MSG:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RW:
+        case XOMP_FRAME_TYPE_REPL_RW:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RO:
+            map_flags = VREGION_FLAGS_READ;
+            break;
+        default:
+            USER_PANIC("unknown type: %u", type)
+            break;
+    }
+
+    struct frame_identity id;
+    msg_st->err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+
+    if (addr) {
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+                                                      frame, map_flags, NULL, NULL);
+    } else {
+        void *map_addr;
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+                                                frame, map_flags, NULL, NULL);
+    }
 
 #if XOMP_BENCH_WORKER_EN
     mem_timer = bench_tsc() - mem_timer;
@@ -414,6 +449,13 @@ static void add_memory_call_rx(struct xomp_binding *b,
         txq_send(msg_st);
         return;
     }
+
+#if XOMP_WORKER_ENABLE_DMA
+    if (0) {
+        // todo: replicate frame on the same node if needed..
+        replicate_frame(addr, &frame);
+    }
+#endif
 
 #if XOMP_BENCH_WORKER_EN
     cycles_t map_start = bench_tsc();
