@@ -36,7 +36,10 @@
 #ifdef __k1om__
 #define BOMP_DEFAULT_CORE_STRIDE 1
 #else
-#define BOMP_DEFAULT_CORE_STRIDE 2
+/* TODO: this should been taken from the configuration i.e. use of 
+ *       hyperthreads if enabled.
+ */
+#define BOMP_DEFAULT_CORE_STRIDE 1
 #endif
 typedef void (*bomp_thread_fn_t)(void *);
 
