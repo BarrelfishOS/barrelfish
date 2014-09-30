@@ -1039,8 +1039,6 @@ errval_t xomp_master_do_work(struct xomp_task *task)
         return XOMP_ERR_MASTER_NOT_INIT;
     }
 
-    struct waitset *ws = get_default_waitset();
-
     uint64_t fn = 0;
 
 #if XOMP_BENCH_ENABLED
