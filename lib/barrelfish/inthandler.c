@@ -95,6 +95,10 @@ errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
 {
     errval_t err;
 
+    if(barrelfish_interrupt_waitset == NULL) {
+        barrelfish_interrupt_waitset = get_default_waitset();
+    }
+
     /* alloc state */
     struct interrupt_handler_state *state;
     state = malloc(sizeof(struct interrupt_handler_state));
@@ -124,7 +128,7 @@ errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,
         .handler = generic_interrupt_handler,
         .arg = state,
     };
-    err = lmp_endpoint_register(state->idcep, get_default_waitset(), cl);
+    err = lmp_endpoint_register(state->idcep, barrelfish_interrupt_waitset, cl);
     if (err_is_fail(err)) {
         lmp_endpoint_free(state->idcep);
         // TODO: release vector
