@@ -13,8 +13,8 @@
 set -e
 
 # grab arguments
-SRCDIR=$1
-ARCHIVE=$2
+SRCDIR="$1"
+ARCHIVE="$2"
 shift 2
 
 TMPDIR=$(mktemp -d)
@@ -35,7 +35,7 @@ done
 # run cpio in the temp dir
 cd $TMPDIR
 cpio -o -H crc -O ramfs.cpio < files
-cd $OLDPWD
+cd "$OLDPWD"
 
 # compress it
 gzip $TMPDIR/ramfs.cpio
