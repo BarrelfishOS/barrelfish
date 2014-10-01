@@ -57,7 +57,9 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
 {
 #ifndef __thumb2__  //use normal ARM assembly
     __asm volatile(
+#ifndef __ARM_ARCH_5__
         "    clrex\n\t"
+#endif
         /* Re-enable dispatcher */
         "    mov     r2, #0                                             \n\t"
         "    str     r2, [r0, # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
@@ -141,7 +143,9 @@ disp_save_context(uint32_t *regs)
 #ifndef __thumb2__
 //use normal arm assembly
     __asm volatile(
+#ifndef __ARM_ARCH_5__
         "    clrex\n\t"
+#endif
         "    mrs     r1, cpsr                                           \n\t"
         "    adr     r2, disp_save_context_resume                       \n\t"
         "    stmib   r0, {r0-r14}                                       \n\t"
