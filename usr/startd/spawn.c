@@ -324,10 +324,23 @@ void spawn_app_domains(void)
                     spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
                     has_spawn_flags = 1;
                 }
+                p = NULL;
                 if (strncmp(si.argv[1], "core=", 5)== 0) {
                     p = strchr(si.argv[1], '=');
                 } else if (si.argv[2] && strncmp(si.argv[2], "core=", 5)== 0) {
                     p = strchr(si.argv[2], '=');
+                }
+                if (!p) {
+                    // no core= argument, spawn domain on our core
+                    debug_printf("starting app %s on core %d\n", si.name, my_coreid);
+
+                    domainid_t new_domain;
+                    err = spawn_program(my_coreid, si.name, si.argv, environ,
+                            spawn_flags, &new_domain);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "spawn of %s failed", si.name);
+                    }
+                    continue;
                 }
                 p++;
                 while(*p != '\0') {
