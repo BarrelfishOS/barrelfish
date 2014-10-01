@@ -59,7 +59,7 @@ TESTS_COMMON= \
 	sbin/testerror \
 	sbin/yield_test \
 	sbin/fputest
-	
+
 TESTS_x86_64= \
 	sbin/mdbtest_range_query \
 	sbin/mdbtest_addr_zero \
@@ -126,7 +126,7 @@ BENCH_x86_64= \
 	sbin/bulkbench_micro_echo \
 	sbin/bulkbench_micro_throughput \
 	sbin/bulkbench_micro_rtt
-	
+
 
 GREEN_MARL= \
 	sbin/gm_tc \
@@ -213,7 +213,6 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	$(GREEN_MARL)
 
 MODULES_k1om= \
     sbin/weever \
@@ -222,7 +221,7 @@ MODULES_k1om= \
 	sbin/xeon_phi \
 	xeon_phi_multiboot \
 	$(GREEN_MARL)
-	
+
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
 	sbin/barriers \
@@ -230,7 +229,7 @@ MODULES_x86_64_broken= \
 	sbin/ring_barriers \
 	sbin/ssf_bcast \
 	sbin/lamport_bcast
-	
+
 # x86-32-specific module to build by default
 MODULES_x86_32=\
 	sbin/cpu \
@@ -352,7 +351,7 @@ install: $(MODULES)
 	fi; \
 	echo ""; \
 	echo "done." ; \
-	
+
 .PHONY : install
 
 sim: simulate
@@ -560,22 +559,22 @@ XEON_PHI_MODULES =\
 	$(foreach m,$(BENCH_COMMON),k1om/$(m)) \
 	$(foreach m,$(TESTS_COMMON),k1om/$(m)) \
 	$(foreach m,$(BENCH_k1om),k1om/$(m)) \
-	$(foreach m,$(TESTS_k1om),k1om/$(m))  
+	$(foreach m,$(TESTS_k1om),k1om/$(m))
 
 menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
 	cp $< $@
-		
+
 k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
 						 k1om/xeon_phi_multiboot \
 						 k1om/tools/weever/.marker
 	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
-	
+
 k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
 	tools/bin/weever_creator ./k1om/sbin/weever.bin > ./k1om/sbin/weever
 
 k1om/sbin/weever.bin: k1om/sbin/weever_elf
 	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
-	
+
 k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
 	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 
