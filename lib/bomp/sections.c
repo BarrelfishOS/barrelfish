@@ -41,11 +41,13 @@
 unsigned GOMP_sections_start(unsigned count)
 {
     assert(!"NYI");
+    return 0;
 }
 
 unsigned GOMP_sections_next(void)
 {
     assert(!"NYI");
+    return 0;
 }
 
 void GOMP_parallel_sections_start(void (*fn)(void *),
