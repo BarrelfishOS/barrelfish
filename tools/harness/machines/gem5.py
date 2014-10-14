@@ -72,9 +72,15 @@ class Gem5MachineBase(Machine):
 	def _kill_child(self):
 		# terminate child if running
 		if self.child:
+                    try:
 			os.kill(self.child.pid, signal.SIGTERM)
-			self.child.wait()
-			self.child = None
+                    except Exception, e:
+                        debug.verbose("Caught exception trying to kill child: %r" % e)
+                    try:
+                        self.child.wait()
+                    except Exception, e:
+                        debug.verbose("Caught exception while waiting for child: %r" % e)
+                    self.child = None
 			
 	def reboot(self):
 		self._kill_child()
