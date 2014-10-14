@@ -74,6 +74,8 @@ class Gem5MachineBase(Machine):
 		if self.child:
                     try:
 			os.kill(self.child.pid, signal.SIGTERM)
+                    except OSError, e:
+                        debug.verbose("Caught OSError trying to kill child: %r" % e)
                     except Exception, e:
                         debug.verbose("Caught exception trying to kill child: %r" % e)
                     try:
