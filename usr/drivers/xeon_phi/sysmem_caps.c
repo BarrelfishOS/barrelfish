@@ -256,7 +256,7 @@ static void sysmem_bench_run(void)
 
     bench_ctl_t *ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, DIMENSIONS, RUN_COUNT);
     cycles_t result[DIMENSIONS];
-    uint32_t round = 0;
+    uint32_t round_ = 0;
     do {
         volatile void *element;
         result[0] = sysmem_bench_run_round(&ll_elements[elem_id[0]], &element);
@@ -287,7 +287,7 @@ static void sysmem_bench_run(void)
             debug_printf("element %p was null.\n", element);
         }
 
-        debug_printf("round: %u of %u\n", ++round, RUN_COUNT);
+        debug_printf("round: %u of %u\n", ++round_, RUN_COUNT);
 
     } while (!bench_ctl_add_run(ctl, result));
 
