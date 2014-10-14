@@ -96,7 +96,10 @@ class Gem5MachineBase(Machine):
 		debug.verbose('gem5:shutdown requested');
 		debug.verbose('terminating gem5')
 		if not self.child is None:
+                    try:
                         self.child.terminate()
+                    except OSError, e:
+                        debug.verbose("Error when trying to terminate gem5: %r" % e)
 		debug.verbose('terminating telnet')
 		if not self.telnet is None:
                         self.telnet.terminate()
