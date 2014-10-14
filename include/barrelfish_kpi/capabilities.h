@@ -24,7 +24,7 @@
 #define OBJBITS_DISPATCHER     10
 
 // Size of kernel control block
-#define OBJBITS_KCB            13
+#define OBJBITS_KCB            16
 
 #ifndef __ASSEMBLER__
 

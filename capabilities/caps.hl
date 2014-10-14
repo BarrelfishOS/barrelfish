@@ -27,7 +27,7 @@ define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
 define vnode_size 12; /* BASE_PAGE_BITS */
 /* size of a kernel control block */
-define kcb_size 13;
+define kcb_size 16; /* OBJBITS_KCB */
 
 /**
     The capabilities of the whole system are listed thereafter.
@@ -280,7 +280,6 @@ cap PerfMon is_always_copy {
 /** KernelControlBlock represents a struct kcb which contains all the pointers
  *  to core-local global state of the kernel.
  **/
-
 cap KernelControlBlock from RAM {
     "struct kcb" kcb;
 
