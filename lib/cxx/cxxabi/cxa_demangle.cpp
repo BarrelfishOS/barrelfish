@@ -4705,7 +4705,10 @@ demangle(const char* first, const char* last, C& db, int& status)
 template <std::size_t N>
 class arena
 {
-    // Workaround for g++ < 4.8 not supporting alignas(). -SG, 2014-10-14
+    static const std::size_t alignment = 16;
+
+    // Using __attribute__((aligned())) here as workaround for g++ < 4.8 not
+    // supporting alignas(). -SG, 2014-10-14
     char buf_[N] __attribute__((aligned(16)));
 
     char* ptr_;
