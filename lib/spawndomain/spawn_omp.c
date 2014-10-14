@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/dispatch.h> // for disp_name()
 #include <spawndomain/spawndomain.h>
 
 #include <if/octopus_defs.h>
