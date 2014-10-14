@@ -1160,9 +1160,11 @@ int main(int argc, char** argv)
         exit(-1);
     }
 
+    uint64_t arg1 = (uint64_t)atoi(argv[1]);
+
 #ifdef BOMP
-    bomp_bomp_init((uint64_t)atoi(argv[1]));
+    bomp_bomp_init(arg1);
 #endif /* BOMP */
-    
-    realmain(atoi(argv[1]));
+
+    realmain((void*)arg1);
 }
