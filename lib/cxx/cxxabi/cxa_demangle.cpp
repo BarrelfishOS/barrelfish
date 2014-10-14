@@ -4705,12 +4705,8 @@ demangle(const char* first, const char* last, C& db, int& status)
 template <std::size_t N>
 class arena
 {
-    static const std::size_t alignment = 16;
-#ifdef __k1om__
+    // Workaround for g++ < 4.8 not supporting alignas(). -SG, 2014-10-14
     char buf_[N] __attribute__((aligned(16)));
-#else
-    alignas(alignment) char buf_[N];
-#endif
 
     char* ptr_;
 
