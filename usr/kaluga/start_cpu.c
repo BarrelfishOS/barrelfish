@@ -151,8 +151,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     err = spawn_program_with_caps(where, mi->path, argv,
                                   environ, inheritcn_cap,
-                                  NULL_CAP, 0, &mi->did);
-
+                                  NULL_CAP, SPAWN_NEW_DOMAIN, 
+                                  &mi->did[0]);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
     }
