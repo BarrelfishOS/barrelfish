@@ -162,16 +162,16 @@ struct mem_region {
  * allocate and manage its address space.
  */
 struct bootinfo {
+    /// For __k1om__
+    uint64_t host_msg;
+    uint8_t host_msg_bits;
+
     /// Number of entries in regions array
     size_t              regions_length;
     /// Amount of memory required to spawn another core
     size_t              mem_spawn_core;
     /// Memory regions array
     struct mem_region   regions[];
-
-	/// For __k1om__
-    uint64_t host_msg;
-    uint8_t host_msg_bits;
 };
 
 #endif
