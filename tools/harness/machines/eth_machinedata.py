@@ -261,6 +261,17 @@ machines = dict({
                 'tickrate' : 2193,
                 'perfcount_type': 'amd0f',
                 'boot_timeout' : 360,
-                }) for b in range(1, 17) if b != 11 ).items()
-
+                }) for b in range(1, 17) if b != 11
+        ).items() +
+        dict(('brie%s-32' % b, {
+                'ncores' : 4,
+                'machine_name' : ('brie%s' % b),
+                'bootarch' : 'x86_32',
+                'buildarchs' : ['x86_64', 'x86_32'],
+                'cores_per_socket' : 2,
+                'tickrate' : 2193,
+                'perfcount_type': 'amd0f',
+                'boot_timeout' : 360,
+                }) for b in range(1, 17) if b != 11
+        ).items()
 )
