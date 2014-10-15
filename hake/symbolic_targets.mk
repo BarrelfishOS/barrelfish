@@ -132,7 +132,6 @@ GREEN_MARL= \
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
-	sbin/init_null \
 	sbin/init \
 	sbin/chips \
 	sbin/spawnd \
