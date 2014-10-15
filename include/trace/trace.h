@@ -93,6 +93,11 @@ struct trace_buffer;
 
 #define TRACE_MAX_BOOT_APPLICATIONS 16
 
+// A macro to simplify calling of trace_event
+// e.g., do TRACE(BENCH, START, 0)
+// instead of
+// trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_START, 0)
+#define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
 #if defined(__x86_64__)
 #define TRACE_TIMESTAMP() rdtsc()
@@ -288,7 +293,7 @@ trace_reserve_and_fill_slot(struct trace_event *ev,
         if (buf->tail_index - buf->head_index == 1 ||
                 (buf->tail_index == 0 && (buf->head_index == TRACE_MAX_EVENTS-1))) {
             // Buffer is full, overwrite last event
-            return i;
+            break;
         }
 
         nw = (i + 1) % TRACE_MAX_EVENTS;
@@ -556,29 +561,10 @@ static inline errval_t trace_event(uint16_t subsys, uint16_t event, uint32_t arg
 {
 #ifdef CONFIG_TRACE
 
-    // Quick hack: Only record network and kernel subsystem.
-    // FIXME: This is not atall generic.  Figure out how to use following
-    //  trace_is_subsys_enabled call.
-/*    if (subsys != TRACE_SUBSYS_NNET && subsys != TRACE_SUBSYS_KERNEL) {
-        return SYS_ERR_OK;
-    }
-*/
-
     // Check if the subsystem is enabled, i.e. we log events for it
     if (!trace_is_subsys_enabled(subsys)) {
-        return SYS_ERR_OK;
+        return TRACE_ERR_SUBSYS_DISABLED;
     }
-
-    //Recording the events only on the core 1
-    // WARNING: Be very careful about using get_my_core_id function
-    // as this function depends on working of disp pointers and they dont work
-    // in thread disabled mode when you are about to return to kernel with
-    // sys_yield.
-    // FIXME: You can't hardcode the receiving core id.  It needs to be
-    // configurable.
-//    if (get_my_core_id() != 1) {
-//        return SYS_ERR_OK;
-//    }
 
     struct trace_event ev;
     ev.timestamp = TRACE_TIMESTAMP();

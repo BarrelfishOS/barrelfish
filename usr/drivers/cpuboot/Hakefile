@@ -1,0 +1,54 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for cpu boot drivers
+--
+--------------------------------------------------------------------------
+
+let template = application {
+        cFiles = filter ((/=) "bench.c") (find withSuffices [".c"]),
+        assemblyFiles = ["init_ap_x86_64.S"],
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
+        addIncludes = ["../../../kernel/include/arch/x86_64/", "../../../kernel/include" ],
+        flounderDefs = ["monitor_blocking", "monitor"],
+        flounderBindings = ["intermon"],
+        mackerelDevices = [],
+        flounderExtraBindings = [],
+        flounderTHCStubs = []
+    }
+in [
+    build template {
+        target = "x86boot",
+        addCFlags = ["-DENSURE_SEQUENTIAL"]
+    },
+
+    build template {
+        target = "x86bootdownupdate",
+        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE"]
+    },
+    build template {
+        target = "x86bootdownupdate4",
+        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE", "-DCOREID=4"]
+    },
+    build template {
+        target = "x86bootdownupdate32",
+        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE", "-DCOREID=32"]
+    },
+
+
+    build template {
+        target = "x86bootupdate",
+        addCFlags = ["-DMICROBENCH", "-DUPDATE"]
+    },
+    build application {
+        target = "x86bootdownupdateload",
+        cFiles = [ "bench.c" ],
+        addCFlags = [ "-DBENCH=\\\"x86bootdownupdate\\\"" ],
+        addLibraries = [ "octopus", "spawndomain" ]
+    }
+]

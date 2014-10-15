@@ -394,6 +394,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
     }
 
     /* Invoke kernel capability to boot new core */
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_INVOKE_SPAWN, hwid);
     err = invoke_monitor_spawn_core(hwid, cpu_type, foreign_cpu_reloc_entry);
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_SPAWN_CORE);

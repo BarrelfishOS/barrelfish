@@ -34,6 +34,7 @@
 #include <global.h>
 #include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
 #include <cortexm3_heteropanda.h>
+#include <coreboot.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -801,6 +802,8 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     enable_cycle_counter_user_access();
     reset_cycle_counter();
 #endif
+
+    coreboot_set_spawn_handler(CPU_ARM, start_aps_arm_start);
 
     arm_kernel_startup();
 }

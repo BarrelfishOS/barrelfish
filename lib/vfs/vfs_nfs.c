@@ -60,7 +60,7 @@ static struct thread_cond wait_cond = THREAD_COND_INITIALIZER;
 // XXX: lwip idc_barrelfish.c
 extern struct waitset *lwip_waitset;
 
-static void check_and_handle_other_events(void)
+/*static void check_and_handle_other_events(void)
 {
     if (lwip_mutex == NULL) { // single-threaded
         while (true) {
@@ -76,7 +76,7 @@ static void check_and_handle_other_events(void)
     } else {
         assert(!"NYI: ");
     }
-}
+}*/
 
 static void wait_for_condition(void)
 {
@@ -97,7 +97,7 @@ static void wait_for_condition(void)
 // are incoming packets to be processed. (only in the case of UMP)
 // FIXME: this is used only in read function and other functions are still
 // using above function. But this function should replace above function.
-static void wait_for_condition_fair(void)
+/*static void wait_for_condition_fair(void)
 {
     if (lwip_mutex == NULL) { // single-threaded
         while (!wait_flag) {
@@ -113,7 +113,7 @@ static void wait_for_condition_fair(void)
     } else {
         thread_cond_wait(&wait_cond, lwip_mutex);
     }
-}
+}*/
 
 
 static void signal_condition(void)
@@ -640,7 +640,7 @@ static errval_t read(void *st, vfs_handle_t inhandle, void *buffer,
     }
     lwip_record_event_simple(NFS_READ_1_T, ts);
     uint64_t ts1 = rdtsc();
-    wait_for_condition_fair();
+    wait_for_condition();
     lwip_record_event_simple(NFS_READ_w_T, ts1);
 
     lwip_mutex_unlock();

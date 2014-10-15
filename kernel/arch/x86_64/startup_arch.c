@@ -31,6 +31,7 @@
 #include <kputchar.h>
 #include <startup.h>
 #include <arch/x86/startup_x86.h>
+#include <arch/x86/start_aps.h>
 
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     (cte)->cap.u.cnode.cnode
@@ -46,7 +47,7 @@
 /// Pointer to bootinfo structure for init
 static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
 
-static struct spawn_state spawn_state;
+struct spawn_state spawn_state;
 
 /**
  * Page map level 4 table for init user address space.

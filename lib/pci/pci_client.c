@@ -26,19 +26,73 @@
 
 static struct pci_rpc_client *pci_client = NULL;
 
-errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
-                                 uint32_t subclass, uint32_t prog_if,
-                                 uint32_t vendor, uint32_t device,
-                                 uint32_t bus, uint32_t dev, uint32_t fun,
-                                 interrupt_handler_fn handler,
-                                 void *handler_arg)
+errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32_t prog_if,
+                                       uint32_t vendor, uint32_t device,
+                                       uint32_t bus, uint32_t dev, uint32_t fun,
+                                       interrupt_handler_fn handler,
+                                       void *handler_arg,
+                                       interrupt_handler_fn reloc_handler,
+                                       void *reloc_handler_arg)
+{
+    uint32_t vector = INVALID_VECTOR;
+    errval_t err, msgerr;
+
+    if (handler != NULL && reloc_handler != NULL) {
+        // register movable interrupt
+        err = inthandler_setup_movable(handler, handler_arg, reloc_handler,
+                reloc_handler_arg, &vector);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        assert(vector != INVALID_VECTOR);
+    } else if (handler != NULL) {
+        // register non-movable interrupt
+        err = inthandler_setup(handler, handler_arg, &vector);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        assert(vector != INVALID_VECTOR);
+    }
+
+    err = pci_client->vtbl.
+        reregister_interrupt(pci_client, class, subclass, prog_if, vendor,
+                device, bus, dev, fun, disp_get_current_core_id(),
+                vector, &msgerr);
+    if (err_is_fail(err)) {
+        return err;
+    } else if (err_is_fail(msgerr)) {
+        return msgerr;
+    }
+    return SYS_ERR_OK;
+}
+
+errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
+                                         uint32_t subclass, uint32_t prog_if,
+                                         uint32_t vendor, uint32_t device,
+                                         uint32_t bus, uint32_t dev, uint32_t fun,
+                                         interrupt_handler_fn handler,
+                                         void *handler_arg,
+                                         interrupt_handler_fn reloc_handler,
+                                         void *reloc_handler_arg)
 {
     uint32_t vector = INVALID_VECTOR;
     pci_caps_per_bar_t *caps_per_bar = NULL;
     uint8_t nbars;
     errval_t err, msgerr;
 
-    if (handler != NULL) {
+    if (handler != NULL && reloc_handler != NULL) {
+        // register movable interrupt
+        err = inthandler_setup_movable(handler, handler_arg, reloc_handler,
+                reloc_handler_arg, &vector);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        assert(vector != INVALID_VECTOR);
+    } else if (handler != NULL) {
+        // register non-movable interrupt
         err = inthandler_setup(handler, handler_arg, &vector);
         if (err_is_fail(err)) {
             return err;
@@ -118,6 +172,19 @@ errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
     free(caps_per_bar);
     return err;
 }
+
+errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
+                                 uint32_t subclass, uint32_t prog_if,
+                                 uint32_t vendor, uint32_t device,
+                                 uint32_t bus, uint32_t dev, uint32_t fun,
+                                 interrupt_handler_fn handler,
+                                 void *handler_arg)
+{
+     return pci_register_driver_movable_irq(init_func, class, subclass,
+             prog_if, vendor, device, bus, dev, fun, handler, handler_arg,
+             NULL, NULL);
+}
+
 
 errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
                                    uint32_t subclass, uint32_t prog_if,

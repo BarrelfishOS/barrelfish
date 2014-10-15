@@ -14,8 +14,7 @@
 #else
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
-extern struct cte *mdb_root;
-#define RESET_ROOT() do { mdb_root = NULL; } while(0)
+#define RESET_ROOT() do { mdb_init(&(struct kcb){ .mdb_root = 0 }); } while(0)
 #define PRED(c) mdb_predecessor(c)
 #define NEXT(c) mdb_successor(c)
 #define INS(c) mdb_insert(c)

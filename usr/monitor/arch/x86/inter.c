@@ -56,14 +56,20 @@ static void send_bind_monitor_reply(struct intermon_binding *b, errval_t err)
 }
 
 /**
- * \brief A monitor receives request to setup a connection
- * with another newly booted monitor from a third monitor
+ * A monitor newly booted monitor receives
+ * request to setup a connection with another monitor
+ * from a third monitor.
+ *
+ * \param core_id Originating core id
+ * \param caprep Endpoint capability
  */
 static void bind_monitor_request(struct intermon_binding *b,
-                                 coreid_t core_id, 
+                                 coreid_t core_id,
                                  intermon_caprep_t caprep)
 {
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     errval_t err;
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BIND_MONITOR_REQUEST, core_id);
 
     /* Create the cap */
     struct capability cap_raw;
@@ -123,15 +129,21 @@ error:
 }
 
 /**
- * \brief The monitor that proxied the request for one monitor to
- * setup a connection with another monitor gets the reply
+ * The monitor that proxied the request for one monitor to
+ * setup a connection with another monitor gets the reply.
+ *
+ * In the current set-up this happens to be the BSP monitor.
+ *
+ * \param err Error status of bind request.
  */
 static void bind_monitor_reply(struct intermon_binding *closure,
                                errval_t err)
 {
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Got error in bind monitor reply");
     }
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BIND_MONITOR_REPLY, 0);
     seen_connections++;
 }
 
@@ -163,6 +175,7 @@ static void bind_monitor_proxy(struct intermon_binding *b,
                                coreid_t dst_core_id,
                                intermon_caprep_t caprep)
 {
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     errval_t err;
 
     /* Get source monitor's core id */
@@ -173,6 +186,8 @@ static void bind_monitor_proxy(struct intermon_binding *b,
     err = intermon_binding_get(dst_core_id, &dst_binding);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "intermon_binding_get failed");
+        printf("%s:%s:%d: my_core_id=%"PRIuCOREID" dst_core_id=%"PRIuCOREID"\n",
+               __FILE__, __FUNCTION__, __LINE__, my_core_id, dst_core_id);
     }
 
     // Proxy the request
@@ -211,6 +226,8 @@ static void bind_monitor_proxy(struct intermon_binding *b,
 static void new_monitor_notify(struct intermon_binding *st,
                                coreid_t core_id)
 {
+    //printf("%s:%s:%d for core %"PRIuCOREID"\n",
+    //       __FILE__, __FUNCTION__, __LINE__, core_id);
     errval_t err;
 
     /* Setup the connection */
@@ -235,11 +252,11 @@ static void new_monitor_notify(struct intermon_binding *st,
                             buf, MON_URPC_CHANNEL_LEN,
                             (char *)buf + MON_URPC_CHANNEL_LEN,
                             MON_URPC_CHANNEL_LEN);
-    assert(err_is_ok(err));
-    /* if (err_is_fail(err)) { */
-    /*     cap_destroy(frame); */
-    /*     return err_push(err, LIB_ERR_UMP_CHAN_BIND); */
-    /* } */
+    if (err_is_fail(err)) {
+        cap_destroy(frame);
+        USER_PANIC_ERR(err, "intermonitor channel initialization");
+        // TODO(gz): Recover from this
+    }
 
     // Identify UMP frame for tracing
     struct frame_identity umpid = { .base = 0, .bits = 0 };

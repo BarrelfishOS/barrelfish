@@ -501,13 +501,17 @@ static void arm_irq_handle_call(struct monitor_blocking_binding *b,
 static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep)
 {
     /* allocate a new slot in the IRQ table */
-    // XXX: probably want to be able to reuse vectors! :)
-    static int nextvec = 0;
-    int vec = nextvec++;
+    int vec;
+    errval_t err, err2;
+    err = invoke_irqtable_alloc_vector(cap_irq, &vec);
+    if (err_is_fail(err)) {
+        err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, 0);
+    }
+    // we got a vector
 
     /* set it and reply */
-    errval_t err = invoke_irqtable_set(cap_irq, vec, ep);
-    errval_t err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
+    err = invoke_irqtable_set(cap_irq, vec, ep);
+    err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
     assert(err_is_ok(err2));
 }
 
@@ -515,6 +519,7 @@ static void get_arch_core_id(struct monitor_blocking_binding *b)
 {
     static uintptr_t arch_id = -1;
     errval_t err;
+//    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 
     if (arch_id == -1) {
         err = invoke_monitor_get_arch_id(&arch_id);
@@ -676,6 +681,105 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
 
 /* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
 
+// TODO(gz): HACK remove before coreboot goes public.
+static void get_kernel_cap(struct monitor_blocking_binding *b)
+{
+    errval_t err;
+
+    err = b->tx_vtbl.get_kernel_cap_response(b, NOP_CONT, cap_kernel);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending kernel_cap failed.");
+    }
+}
+
+static void forward_kcb_request(struct monitor_blocking_binding *b,
+                                coreid_t destination, struct capref kcb)
+{
+    printf("%s:%s:%d: forward_kcb_request in monitor\n",
+           __FILE__, __FUNCTION__, __LINE__);
+
+    errval_t err = SYS_ERR_OK;
+
+    struct capability kcb_cap;
+    err = monitor_cap_identify(kcb, &kcb_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "monitor_cap_identify failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    if (destination == my_core_id) {
+        uintptr_t kcb_base = (uintptr_t)kcb_cap.u.kernelcontrolblock.kcb;
+        printf("%s:%s:%d: Invoke syscall directly, destination==my_core_id; kcb_base = 0x%"PRIxPTR"\n",
+               __FILE__, __FUNCTION__, __LINE__, kcb_base);
+        err = invoke_monitor_add_kcb(kcb_base);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "invoke_montitor_add_kcb failed.");
+        }
+
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    struct intermon_binding *ib;
+    err = intermon_binding_get(destination, &ib);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "intermon_binding_get failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    intermon_caprep_t kcb_rep;
+    capability_to_caprep(&kcb_cap, &kcb_rep);
+
+    ib->st = b;
+    err = ib->tx_vtbl.give_kcb_request(ib, NOP_CONT, kcb_rep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "give_kcb send failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+}
+
+static void forward_kcb_rm_request(struct monitor_blocking_binding *b,
+                                   coreid_t destination, struct capref kcb)
+{
+    errval_t err = SYS_ERR_OK;
+
+    // can't move ourselves
+    assert(destination != my_core_id);
+
+    struct capability kcb_cap;
+    err = monitor_cap_identify(kcb, &kcb_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "monitor_cap_identify failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    struct intermon_binding *ib;
+    err = intermon_binding_get(destination, &ib);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "intermon_binding_get failed");
+        err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, err);
+        assert(err_is_ok(err));
+        return;
+    }
+    uintptr_t kcb_base = (uintptr_t )kcb_cap.u.kernelcontrolblock.kcb;
+
+    // send request to other monitor
+    // remember monitor binding to send answer
+    struct intermon_state *ist = (struct intermon_state*)ib->st;
+    ist->originating_client = (struct monitor_binding*)b; //XXX: HACK
+    err = ib->tx_vtbl.forward_kcb_rm_request(ib, NOP_CONT, kcb_base);
+    assert(err_is_ok(err));
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -698,6 +802,11 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
+    .get_kernel_cap_call = get_kernel_cap,
+
+    .forward_kcb_request_call = forward_kcb_request,
+
+    .forward_kcb_rm_request_call = forward_kcb_rm_request,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

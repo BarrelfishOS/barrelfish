@@ -320,6 +320,18 @@ invoke_dispatcher_setup_guest(struct capref dispatcher,
                        get_cap_addr(guest_control_cap)).error;
 }
 
+
+static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQTableCmd_Alloc);
+    if (err_is_ok(ret.error)) {
+        *retirq = ret.value;
+    } else {
+        *retirq = 0;
+    }
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
                                            struct capref ep)
 {
@@ -352,13 +364,13 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
 }
 
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
-                                               uint8_t event, uint8_t perf_umask, 
+                                               uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,
-                                               uint64_t counter_value, 
+                                               uint64_t counter_value,
                                                capaddr_t ep_addr)
 {
-    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate, 
-                       event, perf_umask, counter_id, kernel, 
+    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate,
+                       event, perf_umask, counter_id, kernel,
                        counter_value, ep_addr).error;
 }
 

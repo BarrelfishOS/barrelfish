@@ -10,8 +10,6 @@
 
 #include "kaluga.h"
 
-extern char **environ;
-
 #ifdef __x86__
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,

@@ -430,16 +430,129 @@ errval_t device_init(bool enable_irq,
     return SYS_ERR_OK;
 }
 
-void pci_enable_interrupt_for_device(uint32_t bus,
-                                     uint32_t dev,
-                                     uint32_t fun,
-                                     bool pcie)
+errval_t device_reregister_interrupt(uint8_t coreid, int vector,
+                 uint32_t class_code, uint32_t sub_class, uint32_t prog_if,
+                 uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
+                 uint32_t *dev,uint32_t *fun)
 {
-    struct pci_address addr = {
-        .bus = (uint8_t) (bus & 0xff),
-        .device = (uint8_t) (dev & 0xff),
-        .function = (uint8_t) (fun % 0xff)
-    };
+    errval_t err;
+    char s_bus[10], s_dev[10], s_fun[10], s_vendor_id[10], s_device_id[10];
+    char s_class_code[10], s_sub_class[10], s_prog_if[10];
+    char s_pcie[5];
+    bool pcie;
+    int error_code;
+
+    if (*bus != PCI_DONT_CARE) {
+        snprintf(s_bus, sizeof(s_bus), "%"PRIu32"", *bus);
+    } else {
+        strncpy(s_bus, "Bus", sizeof(s_bus));
+    }
+    if (*dev != PCI_DONT_CARE) {
+        snprintf(s_dev, sizeof(s_dev), "%"PRIu32, *dev);
+    } else {
+        strncpy(s_dev, "Dev", sizeof(s_dev));
+    }
+    if (*fun != PCI_DONT_CARE) {
+        snprintf(s_fun, sizeof(s_fun), "%"PRIu32, *fun);
+    } else {
+        strncpy(s_fun, "Fun", sizeof(s_fun));
+    }
+    if (vendor_id != PCI_DONT_CARE) {
+        snprintf(s_vendor_id, sizeof(s_vendor_id), "%"PRIu32, vendor_id);
+    } else {
+        strncpy(s_vendor_id, "Ven", sizeof(s_vendor_id));
+    }
+    if (device_id != PCI_DONT_CARE) {
+        snprintf(s_device_id, sizeof(s_device_id), "%"PRIu32, device_id);
+    } else {
+        strncpy(s_device_id, "DevID", sizeof(s_device_id));
+    }
+    if (class_code != PCI_DONT_CARE) {
+        snprintf(s_class_code, sizeof(s_class_code), "%"PRIu32, class_code);
+    } else {
+        strncpy(s_class_code, "Cl", sizeof(s_class_code));
+    }
+    if (sub_class != PCI_DONT_CARE) {
+        snprintf(s_sub_class, sizeof(s_sub_class), "%"PRIu32, sub_class);
+    } else {
+        strncpy(s_sub_class, "Sub", sizeof(s_sub_class));
+    }
+    if (prog_if != PCI_DONT_CARE) {
+        snprintf(s_prog_if, sizeof(s_prog_if), "%"PRIu32, prog_if);
+    } else {
+        strncpy(s_prog_if, "ProgIf", sizeof(s_prog_if));
+    }
+
+    PCI_DEBUG("device_init(): Searching device %s, %s, %s, %s, %s, %s, %s, %s\n",
+        s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
+        s_sub_class, s_prog_if);
+
+//find the device: Unify all values
+    error_code = skb_execute_query(
+        "device(PCIE,addr(%s, %s, %s), %s, %s, %s, %s, %s, _),"
+        "writeln(d(PCIE,%s,%s,%s,%s,%s,%s,%s,%s)).",
+        s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
+        s_sub_class, s_prog_if,
+        s_bus, s_dev, s_fun, s_vendor_id, s_device_id, s_class_code,
+        s_sub_class, s_prog_if
+    );
+    if (error_code != 0) {
+
+        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
+            err_getcode(error_code));
+
+        PCI_DEBUG("SKB returned: %s\n", skb_get_output());
+        PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
+
+        return PCI_ERR_DEVICE_INIT;
+    }
+
+    err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
+                          ",%"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32").",
+                    s_pcie, bus, dev, fun, &vendor_id,
+                    &device_id, &class_code, &sub_class, &prog_if);
+
+    if (err_is_fail(err)) {
+    	DEBUG_ERR(err, "skb read output\n");
+
+        PCI_DEBUG("device_init(): Could not read the SKB's output for the device\n");
+        PCI_DEBUG("device_init(): SKB returned: %s\n", skb_get_output());
+        PCI_DEBUG("device_init(): SKB error returned: %s\n", skb_get_error_output());
+        return err_push(err,PCI_ERR_DEVICE_INIT);
+    }
+    if(strncmp(s_pcie, "pcie", strlen("pcie")) == 0) {
+        pcie = true;
+    } else {
+        pcie = false;
+    }
+
+
+    PCI_DEBUG("device_init(): Found device at %u:%u:%u\n",
+                *bus, *dev, *fun);
+//get the implemented BARs for the found device
+
+    int irq = setup_interrupt(*bus, *dev, *fun);
+    PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
+    PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
+            irq, coreid, vector);
+    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    errval_t ret_error;
+    err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+    assert(err_is_ok(err));
+    assert(err_is_ok(ret_error)); // FIXME
+    //        printf("IRQ for this device is %d\n", irq);
+    //DEBUG_ERR(err, "enable_and_route_interrupt");
+    pci_enable_interrupt_for_device(*bus, *dev, *fun, pcie);
+
+    return SYS_ERR_OK;
+}
+
+void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
+                                    bool pcie)
+{
+    struct pci_address addr = { .bus = (uint8_t)(bus & 0xff),
+                                .device = (uint8_t)(dev & 0xff),
+                                .function = (uint8_t)(fun % 0xff) };
 
     pci_hdr0_t hdr;
     pci_hdr0_initialize(&hdr, addr);

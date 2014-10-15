@@ -973,6 +973,16 @@ coreid_t disp_get_core_id(void)
 }
 
 /**
+ * \brief returns the current core_id stored in disp_shared struct
+ */
+coreid_t disp_get_current_core_id(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_shared_generic* disp = get_dispatcher_shared_generic(handle);
+    return disp->curr_core_id;
+}
+
+/**
  * \brief returns the domain_id stored in disp_priv struct
  */
 domainid_t disp_get_domain_id(void)

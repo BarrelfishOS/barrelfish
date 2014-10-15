@@ -29,7 +29,8 @@
 #include "queue.h"
 #include "connection.h"
 
-// Change #URPC_SIZE if changing this
+STATIC_ASSERT(MON_URPC_SIZE == 2*BASE_PAGE_SIZE,
+              "Change #URPC_SIZE if changing channel length");
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 #define MON_RAM_CHANNEL_LEN   (2  * UMP_MSG_BYTES)
 
@@ -124,12 +125,12 @@ errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
 errval_t monitor_cap_remote(struct capref cap, bool is_remote, bool * has_dep);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
                             coreid_t core_id);
-errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 
+errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw,
                                         capaddr_t slot, struct capability *ret);
 errval_t monitor_nullify_cap(struct capref cap);
-errval_t monitor_retype_remote_cap(struct capref croot, 
-                                   capaddr_t src, enum objtype newtype, 
-                                   int objbits, capaddr_t to, capaddr_t slot, 
+errval_t monitor_retype_remote_cap(struct capref croot,
+                                   capaddr_t src, enum objtype newtype,
+                                   int objbits, capaddr_t to, capaddr_t slot,
                                    int bits);
 errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits);
 errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);
@@ -139,8 +140,8 @@ errval_t monitor_server_arch_init(struct monitor_binding *b);
 void set_monitor_rpc_iref(iref_t iref);
 
 /* boot.c */
-void boot_core_request(struct monitor_binding *st, coreid_t id, int32_t hwid,
-                       int32_t int_cpu_type, char *cmdline);
+void boot_core_request(struct monitor_binding *st, coreid_t id,
+                       struct capref frame);
 void boot_initialize_request(struct monitor_binding *st);
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,
@@ -164,29 +165,29 @@ errval_t arch_intermon_init(struct intermon_binding *b);
 errval_t rcap_db_init (void);
 errval_t rcap_db_add(struct capability * cap, bool has_desc);
 bool rcap_db_exists(struct capability *cap);
-errval_t rcap_db_get_info(struct capability *cap, bool * has_desc, 
+errval_t rcap_db_get_info(struct capability *cap, bool * has_desc,
                           coremask_t *on_cores);
 errval_t rcap_db_update_on_recv (struct capability * cap, bool has_desc,
                                  coremask_t on_cores, coreid_t from_core);
 errval_t rcap_db_acquire_lock(struct capability *cap, struct rcap_st * st);
-errval_t rcap_db_remote_lock_req(struct capability *cap, coreid_t from_core, 
+errval_t rcap_db_remote_lock_req(struct capability *cap, coreid_t from_core,
                                  recordid_t ccast_recordid);
 errval_t rcap_db_release_lock(struct capability *cap, coremask_t to_cores);
 errval_t rcap_db_remote_unlock(struct capability *cap, coreid_t from_core);
 errval_t rcap_db_acquire_recursive_lock(struct capability *cap,
                                         struct rcap_st * st);
 errval_t rcap_db_remote_recursive_lock_req(struct capability *cap,
-                                           coreid_t from_core, 
+                                           coreid_t from_core,
                                            recordid_t ccast_recordid);
-errval_t rcap_db_release_recursive_lock(struct capability *cap, 
+errval_t rcap_db_release_recursive_lock(struct capability *cap,
                                         coremask_t to_cores);
-errval_t rcap_db_remote_recursive_unlock(struct capability *cap, 
+errval_t rcap_db_remote_recursive_unlock(struct capability *cap,
                                          coreid_t from_core);
-errval_t rcap_db_remote_new_core(struct capability * cap, coreid_t send_core, 
+errval_t rcap_db_remote_new_core(struct capability * cap, coreid_t send_core,
                                  coreid_t recv_core);
-errval_t rcap_db_remote_details_req(struct capability * cap, 
+errval_t rcap_db_remote_details_req(struct capability * cap,
                                     coreid_t from_core);
-errval_t rcap_db_remote_recv_details(struct capability * cap, 
+errval_t rcap_db_remote_recv_details(struct capability * cap,
                                      coreid_t from_core, bool has_desc);
 errval_t rcap_db_delete (struct capability * cap);
 errval_t rcap_db_remote_delete (struct capability * cap, coreid_t from_core);

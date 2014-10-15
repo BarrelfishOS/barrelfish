@@ -96,7 +96,6 @@ BENCH_COMMON= \
 	sbin/ump_throughput \
 	sbin/ump_send \
 	sbin/ump_receive \
-	sbin/tlstest \
 	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
@@ -213,6 +212,8 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
+	sbin/x86boot \
+
 
 MODULES_k1om= \
     sbin/weever \

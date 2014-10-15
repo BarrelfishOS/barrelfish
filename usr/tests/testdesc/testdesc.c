@@ -164,7 +164,8 @@ static errval_t spawn_child(struct capref fdcap)
 
     // allocate inheritcn
     struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_fdcap(&inheritcn_cap, fdcap);
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, fdcap,
+                                    NULL_CAP, NULL_CAP);
 
     err = spawn_program_with_caps(core, argv[0], argv, NULL, inheritcn_cap,
                                   NULL_CAP, SPAWN_NEW_DOMAIN, &new_domain);

@@ -163,7 +163,7 @@ errval_t watch_for_pci_devices(void)
                                " device_id: _, class: _, subclass: _, "
                                " prog_if: _ }";
     octopus_trigger_id_t tid;
-    return trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
+    return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
 static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* st)
@@ -210,6 +210,6 @@ errval_t watch_for_pci_root_bridge(void)
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
     octopus_trigger_id_t tid;
-    return trigger_existing_and_watch(root_bridge, bridge_change_event,
+    return oct_trigger_existing_and_watch(root_bridge, bridge_change_event,
             NULL, &tid);
 }

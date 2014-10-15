@@ -19,6 +19,7 @@
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
+#include <trace/trace.h>
 
 #include "ioapic.h"
 #include "acpi_debug.h"
@@ -83,7 +84,7 @@ static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s)
     assert(ioapic_nr < IOAPIC_MAX);
 
     // allocate memory backing IOAPIC
-    err = mm_realloc_range(&pci_mm_physaddr, IOAPIC_PAGE_BITS, 
+    err = mm_realloc_range(&pci_mm_physaddr, IOAPIC_PAGE_BITS,
                            s->Address, &devmem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to allocate I/O APIC register page at 0x%x\n",
@@ -186,10 +187,20 @@ int init_all_apics(void)
                 ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %d\n",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
+                trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
 
-                errval_t err = oct_set("hw.apic.%d { cpu_id: %d, id: %d, enabled: %d }",
-                                         s->Id, s->ProcessorId, s->Id,
-                                         s->LapicFlags & ACPI_MADT_ENABLED);
+                static coreid_t barrelfish_id_counter = 1;
+                coreid_t barrelfish_id;
+                if (my_apic_id == s->Id) {
+                    barrelfish_id = 0; // BSP core is 0
+                }
+                else {
+                    barrelfish_id = barrelfish_id_counter++;
+                }
+                errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: %d, barrelfish_id: %d }",
+                                         barrelfish_id, s->ProcessorId, s->Id,
+                                         s->LapicFlags & ACPI_MADT_ENABLED,
+                                         barrelfish_id);
                 assert(err_is_ok(err));
 
                 skb_add_fact("apic(%d,%d,%"PRIu32").",
@@ -380,7 +391,7 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
     int inti = gsi_mapped - i->irqbase;
     ioapic_route_inti(i, inti, vector, dest_apicid);
 
-    ACPI_DEBUG("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
+    printf("routing GSI %d -> %d -> INTI %d -> APIC %d (coreid %d) "
               "vector %d\n", gsi, gsi_mapped, inti, dest_apicid, dest, vector);
 
     /* enable */

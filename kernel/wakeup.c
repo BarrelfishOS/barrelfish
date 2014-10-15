@@ -14,15 +14,14 @@
 
 #include <kernel.h>
 #include <dispatch.h>
-#include <wakeup.h>
+#include <kcb.h> // kcb_current->wakeup_queue_head
 #include <timer.h> // update_wakeup_timer()
-
-static struct dcb *wakeup_queue_head;
+#include <wakeup.h>
 
 /* wrapper to change the head, and update the next wakeup tick */
-static void set_queue_head(struct dcb *h)
+void wakeup_set_queue_head(struct dcb *h)
 {
-    wakeup_queue_head = h;
+    kcb_current->wakeup_queue_head = h;
     #ifdef CONFIG_ONESHOT_TIMER
     // we changed the first dcb in the wakeup queue, which means
     // that we need to update the next tick value
@@ -30,12 +29,16 @@ static void set_queue_head(struct dcb *h)
     update_wakeup_timer(next_wakeup);
     #endif
 }
+static inline void set_queue_head(struct dcb *h)
+{
+    wakeup_set_queue_head(h);
+}
 
 void wakeup_remove(struct dcb *dcb)
 {
     if (dcb->wakeup_time != 0) {
         if (dcb->wakeup_prev == NULL) {
-            assert(wakeup_queue_head == dcb);
+            assert(kcb_current->wakeup_queue_head == dcb);
             set_queue_head(dcb->wakeup_next);
         } else {
             assert(dcb->wakeup_prev->wakeup_next == dcb);
@@ -55,17 +58,17 @@ void wakeup_remove(struct dcb *dcb)
 void wakeup_set(struct dcb *dcb, systime_t waketime)
 {
     assert(dcb != NULL);
-    assert(waketime > kernel_now);
+    assert(waketime > (kernel_now + kcb_current->kernel_off));
 
     // if we're already enqueued, remove first
     wakeup_remove(dcb);
 
     dcb->wakeup_time = waketime;
 
-    for (struct dcb *d = wakeup_queue_head, *p = NULL; ; p = d, d = d->wakeup_next) {
+    for (struct dcb *d = kcb_current->wakeup_queue_head, *p = NULL; ; p = d, d = d->wakeup_next) {
         if (d == NULL || d->wakeup_time > waketime) {
             if (p == NULL) { // insert at head
-                assert(d == wakeup_queue_head);
+                assert(d == kcb_current->wakeup_queue_head);
                 dcb->wakeup_prev = NULL;
                 dcb->wakeup_next = d;
                 if (d != NULL) {
@@ -88,7 +91,7 @@ void wakeup_set(struct dcb *dcb, systime_t waketime)
 /// Check for wakeups, given the current time
 void wakeup_check(systime_t now)
 {
-    struct dcb *d = wakeup_queue_head, *next = NULL;
+    struct dcb *d = kcb_current->wakeup_queue_head, *next = NULL;
     for (; d != NULL && d->wakeup_time <= now; d = next) {
         next = d->wakeup_next;
         d->wakeup_time = 0;
@@ -103,5 +106,5 @@ void wakeup_check(systime_t now)
 
 bool wakeup_is_pending(void)
 {
-    return wakeup_queue_head != NULL;
+    return kcb_current->wakeup_queue_head != NULL;
 }

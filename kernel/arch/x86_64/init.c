@@ -35,13 +35,20 @@
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/startup_x86.h>
+#include <arch/x86/start_aps.h>
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
+#include <coreboot.h>
+#include <kcb.h>
 
 #include <dev/xapic_dev.h> // XXX
 #include <dev/ia32_dev.h>
 #include <dev/amd64_dev.h>
+
+uint64_t kstart = 0;
+uint64_t kend = 0;
+
 
 /**
  * Used to store the address of global struct passed during boot across kernel
@@ -352,7 +359,7 @@ relocate_stack(lvaddr_t offset)
 static inline void enable_fast_syscalls(void)
 {
     // Segment selector bases for both kernel- and user-space for fast
-    // system calls 
+    // system calls
     ia32_star_t star = ia32_star_rd(NULL);
     star = ia32_star_call_insert(star, GSEL(KCODE_SEL,  SEL_KPL));
     star = ia32_star_ret_insert( star, GSEL(KSTACK_SEL, SEL_UPL));
@@ -393,13 +400,14 @@ static inline void enable_monitor_mwait(void)
 {
     uint32_t eax, ebx, ecx, edx;
 
-    cpuid(1, &eax, &ebx, &ecx, &edx);
-
-    if (ecx & (1 << 3)) {
+    if (has_monitor_mwait()) {
         cpuid(5, &eax, &ebx, &ecx, &edx);
         debug(SUBSYS_STARTUP, "MONITOR/MWAIT supported: "
               "min size %u bytes, max %u bytes. %s %s\n",
               eax, ebx, (ecx & 2) ? "IBE" : "", (ecx & 1) ? "EMX" : "");
+    }
+    else {
+        debug(SUBSYS_STARTUP, "MONITOR/MWAIT are not supported.\n");
     }
 }
 
@@ -454,6 +462,13 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         panic("error while mapping physical memory!");
     }
 
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+    printk(LOG_DEBUG, "%s:%s:%d: kcb->is_valid = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, kcb_current->is_valid);
+
+    kcb_home = kcb_current;
+
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT
@@ -465,7 +480,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init();
+    serial_console_init(false);
 
     // Setup IDT
     setup_default_idt();
@@ -527,6 +542,9 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Check/Enable MONITOR/MWAIT opcodes
     enable_monitor_mwait();
 
+    // Register start handler for other cores in the system
+    coreboot_set_spawn_handler(CPU_X86_64, start_aps_x86_64_start);
+
     // Call main kernel startup function -- this should never return
     kernel_startup();
 
@@ -563,14 +581,19 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
+    kstart = rdtsc();
     // Sanitize the screen
     conio_cls();
-    serial_console_init();
+    // Initialize serial, only initialize HW if we are
+    // the first kernel
+    serial_console_init((magic == MULTIBOOT_INFO_MAGIC));
 
     void __attribute__ ((noreturn)) (*reloc_text_init)(void) =
         (void *)local_phys_to_mem((lpaddr_t)text_init);
     struct Elf64_Shdr *rela, *symtab;
     struct multiboot_info *mb = NULL;
+
+    apic_bsp = magic == MULTIBOOT_INFO_MAGIC;
 
     /*
      * If this is the boot image, make Multiboot information structure globally
@@ -607,8 +630,8 @@ void arch_init(uint64_t magic, void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
-           local_phys_to_mem(dest));
+    //printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
+    //       local_phys_to_mem(dest));
 
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
@@ -632,6 +655,10 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->cmdline = mb->cmdline;
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
+
+        extern struct kcb bspkcb;
+        memset(&bspkcb, 0, sizeof(bspkcb));
+        kcb_current = &bspkcb;
     } else { /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =
             (struct x86_core_data*)(dest - BASE_PAGE_SIZE);
@@ -641,8 +668,9 @@ void arch_init(uint64_t magic, void *pointer)
         core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
 
-        if (core_data->module_end > 4ul * (1ul << 20)) {
-            panic("The cpu module is outside the initial 4MB mapping."
+        kcb_current = (struct kcb*) glbl_core_data->kcb;
+        if (core_data->module_end > 4ul * (1ul << 30)) {
+            panic("The cpu module is outside the initial 4GB mapping."
                   " Either move the module or increase initial mapping.");
         }
     }

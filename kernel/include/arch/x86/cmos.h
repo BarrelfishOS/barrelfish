@@ -18,7 +18,16 @@
 
 #include <stdint.h>
 
+/**
+ * This byte is read upon startup after CPU reset in order to determine if
+ * the reset was used as a way to get out of 80286 protected mode.
+ */
 #define CMOS_RAM_SHUTDOWN_ADDR 0x0f
+
+/** 
+ * Shutdown with FAR JMP (immediate jmp to address at 0:[0467H]) 
+ * \sa CMOS_RAM_BIOS_WARM_START_INIT_VECTOR
+ **/
 #define CMOS_RAM_WARM_SHUTDOWN 0x0a
 #define CMOS_RAM_BIOS_WARM_START_INIT_VECTOR 0x467
 

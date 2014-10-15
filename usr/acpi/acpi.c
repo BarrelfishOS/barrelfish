@@ -25,6 +25,7 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include <trace/trace.h>
 
 struct pci_resources {
     uint8_t minbus, maxbus;

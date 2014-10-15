@@ -13,6 +13,7 @@
  */
 
 #include <kernel.h>
+#include <kcb.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <mdb/mdb.h>
@@ -20,6 +21,7 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
+#include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
 #include <arch/x86/perfmon.h>
@@ -50,7 +52,10 @@ static struct sysret handle_dispatcher_setup(struct capability *to,
     bool run = args[4];
     capaddr_t odptr = args[5];
 
-    return sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    TRACE(KERNEL, SC_DISP_SETUP, 0);
+    struct sysret sr = sys_dispatcher_setup(to, cptr, depth, vptr, dptr, run, odptr);
+    TRACE(KERNEL, SC_DISP_SETUP, 1);
+    return sr;
 }
 
 static struct sysret handle_dispatcher_properties(struct capability *to,
@@ -63,8 +68,11 @@ static struct sysret handle_dispatcher_properties(struct capability *to,
     unsigned long release = args[4];
     unsigned short weight = args[5];
 
-    return sys_dispatcher_properties(to, type, deadline, wcet, period,
-                                     release, weight);
+    TRACE(KERNEL, SC_DISP_PROPS, 0);
+    struct sysret sr = sys_dispatcher_properties(to, type, deadline, wcet, period,
+                                                 release, weight);
+    TRACE(KERNEL, SC_DISP_PROPS, 1);
+    return sr;
 }
 
 static struct sysret handle_retype_common(struct capability *root,
@@ -78,8 +86,11 @@ static struct sysret handle_retype_common(struct capability *root,
     uint64_t dest_slot       = args[4];
     uint64_t dest_vbits      = args[5];
 
-    return sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
-                      dest_slot, dest_vbits, from_monitor);
+    TRACE(KERNEL, SC_RETYPE, 0);
+    struct sysret sr = sys_retype(root, source_cptr, type, objbits, dest_cnode_cptr,
+                                  dest_slot, dest_vbits, from_monitor);
+    TRACE(KERNEL, SC_RETYPE, 1);
+    return sr;
 }
 
 static struct sysret handle_retype(struct capability *root,
@@ -98,8 +109,11 @@ static struct sysret handle_create(struct capability *root,
     cslot_t dest_slot         = args[3];
     uint8_t dest_vbits        = args[4];
 
-    return sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
-                      dest_vbits);
+    TRACE(KERNEL, SC_CREATE, 0);
+    struct sysret sr = sys_create(root, type, objbits, dest_cnode_cptr, dest_slot,
+                                  dest_vbits);
+    TRACE(KERNEL, SC_CREATE, 1);
+    return sr;
 }
 
 
@@ -124,8 +138,11 @@ static struct sysret copy_or_mint(struct capability *root,
         param1 = param2 = 0;
     }
 
-    return sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
-                            destcn_vbits, source_vbits, param1, param2, mint);
+    TRACE(KERNEL, SC_COPY_OR_MINT, 0);
+    struct sysret sr = sys_copy_or_mint(root, destcn_cptr, dest_slot, source_cptr,
+                                        destcn_vbits, source_vbits, param1, param2, mint);
+    TRACE(KERNEL, SC_COPY_OR_MINT, 1);
+    return sr;
 }
 
 static struct sysret handle_map(struct capability *ptable,
@@ -139,8 +156,11 @@ static struct sysret handle_map(struct capability *ptable,
     uint64_t  offset        = args[4];
     uint64_t  pte_count     = args[5];
 
-    return sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
+    TRACE(KERNEL, SC_MAP, 0);
+    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
                    pte_count);
+    TRACE(KERNEL, SC_MAP, 1);
+    return sr;
 }
 
 static struct sysret handle_mint(struct capability *root,
@@ -161,7 +181,12 @@ static struct sysret handle_delete_common(struct capability *root,
 {
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_delete(root, cptr, bits, from_monitor);
+
+    TRACE(KERNEL, SC_DELETE, 0);
+    struct sysret sr = sys_delete(root, cptr, bits, from_monitor);
+    TRACE(KERNEL, SC_DELETE, 1);
+
+    return sr;
 }
 
 static struct sysret handle_delete(struct capability *root,
@@ -177,11 +202,16 @@ static struct sysret handle_revoke_common(struct capability *root,
 {
     capaddr_t cptr = args[0];
     int bits     = args[1];
-    return sys_revoke(root, cptr, bits, from_monitor);
+
+    TRACE(KERNEL, SC_REVOKE, 0);
+    struct sysret sr = sys_revoke(root, cptr, bits, from_monitor);
+    TRACE(KERNEL, SC_REVOKE, 1);
+
+    return sr;
 }
 
 static struct sysret handle_revoke(struct capability *root,
-                                   int cmd, uintptr_t *args) 
+                                   int cmd, uintptr_t *args)
 {
     return handle_revoke_common(root, args, false);
 }
@@ -203,7 +233,9 @@ static struct sysret handle_unmap(struct capability *pgtable,
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
 
+    TRACE(KERNEL, SC_UNMAP, 0);
     err = page_mappings_unmap(pgtable, mapping, entry, pages);
+    TRACE(KERNEL, SC_UNMAP, 1);
     return SYSRET(err);
 }
 
@@ -271,7 +303,11 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
                                              int cmd, uintptr_t *args)
 {
     capaddr_t ep_caddr = args[0];
-    return sys_monitor_register(ep_caddr);
+
+    TRACE(KERNEL, SC_MONITOR_REGISTER, 0);
+    struct sysret sr = sys_monitor_register(ep_caddr);
+    TRACE(KERNEL, SC_MONITOR_REGISTER, 1);
+    return sr;
 }
 
 /**
@@ -284,8 +320,132 @@ static struct sysret monitor_spawn_core(struct capability *kernel_cap,
     enum cpu_type cpu_type = args[1];
     genvaddr_t entry       = args[2];
 
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+    TRACE(KERNEL, SC_SPAWN_CORE, 0);
+    struct sysret sr = sys_monitor_spawn_core(core_id, cpu_type, entry);
+    TRACE(KERNEL, SC_SPAWN_CORE, 1);
+    return sr;
 }
+
+static inline void __monitor(const void *eax, unsigned long ecx,
+                 unsigned long edx)
+{
+    /* "monitor %eax, %ecx, %edx;" */
+    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc8;"
+                          :: "a" (eax), "c" (ecx), "d"(edx));
+}
+
+static inline void __mwait(unsigned long eax, unsigned long ecx)
+{
+    /* "mwait %eax, %ecx;" */
+    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc9;"
+                          :: "a" (eax), "c" (ecx));
+}
+
+/**
+ * \brief Request to stop the current core
+ */
+#include "startup.h"
+#include <barrelfish_kpi/init.h>
+#define CNODE(cte)     (cte)->cap.u.cnode.cnode
+static struct sysret monitor_stop_core(struct capability *kernel_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printk(LOG_ERR, "monitor_stop_core id=%d\n", my_core_id);
+
+    /*extern struct spawn_state spawn_state;
+    struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
+                                                  TASKCN_SLOT_MON_URPC);
+    int  err = paging_x86_64_map_memory(urpc_frame_cte->cap.u.frame.base, 4096);
+    assert (err == 0);
+    lpaddr_t urpc_ptr = local_phys_to_mem(urpc_frame_cte->cap.u.frame.base);
+    printf("%s:%s:%d: waiting on urpc 0x%"PRIxGENPADDR" 0x%"PRIxLPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base, urpc_ptr);*/
+
+    printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
+    //apic_mask_timer();
+    //apic_disable();
+
+    //dcb_current->disabled = false;
+
+    global->wait[0] = 0x1;
+    if (has_monitor_mwait()) {
+        printf("%s:%s:%d: before monitor/mwait\n", __FILE__, __FUNCTION__, __LINE__);
+        monitor_mwait((lvaddr_t)&(global->wait[0]), 0x1, 0, 0);
+    }
+    else {
+        printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
+
+        halt();
+    }
+
+    printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+    /**
+     * This means we reenable on an IRQ an jump in irq handler
+     * in irq.c, after that we segfault in the kernel
+     */
+    //__asm__ __volatile__ ("sti");
+    //halt();
+
+    return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
+}
+
+static struct sysret kernel_start_core(struct capability *kernel_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printf("%s:%s:%d %"PRIu64"\n", __FILE__, __FUNCTION__, __LINE__, global->wait[0]);
+    global->wait[0] = 0x0;
+    return (struct sysret){.error = SYS_ERR_OK, .value = 0x0};
+}
+
+static struct sysret kernel_add_kcb(struct capability *kern_cap,
+                                    int cmd, uintptr_t *args)
+{
+    uint64_t kcb_addr = args[0];
+
+    struct kcb *new_kcb = (struct kcb *)kcb_addr;
+    if (kcb_current->next) {
+        assert(kcb_current->prev);
+        new_kcb->next = kcb_current->next;
+        new_kcb->prev = kcb_current;
+        new_kcb->next->prev = new_kcb;
+        new_kcb->prev->next = new_kcb;
+    } else {
+        kcb_current->next = kcb_current->prev = new_kcb;
+        new_kcb->next = new_kcb->prev = kcb_current;
+    }
+    // update kernel_now offset
+    new_kcb->kernel_off -= kernel_now;
+    // reset scheduler statistics
+    scheduler_reset_time();
+    // update current core id of all domains
+    kcb_update_core_id(new_kcb);
+    // upcall domains with registered interrupts to tell them to reregister
+    irq_table_notify_domains(new_kcb);
+
+    printk(LOG_NOTE, "kcb_current = %p\n", kcb_current);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_remove_kcb(struct capability *kern_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
+    uint64_t kcb_addr = args[0];
+
+    struct kcb *to_remove = (struct kcb *)kcb_addr;
+
+    return SYSRET(kcb_remove(to_remove));
+}
+
+static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
+                                              int cmd, uintptr_t *args)
+{
+    printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
+    kcb_sched_suspended = (bool)args[0];
+    return SYSRET(SYS_ERR_OK);
+}
+
 
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
@@ -425,6 +585,7 @@ static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
     return sys_monitor_handle_sync_timer(synctime);
 }
 
+
 static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
 {
@@ -457,6 +618,21 @@ static struct sysret handle_frame_modify_flags(struct capability *to,
         .value = 0,
     };
 }
+
+static struct sysret handle_kcb_identify(struct capability *to,
+                                         int cmd, uintptr_t *args)
+{
+    // Return with physical base address of frame
+    // XXX: pack size into bottom bits of base address
+    assert(to->type == ObjType_KernelControlBlock);
+    lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
+    assert((vkcb & BASE_PAGE_MASK) == 0);
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
+    };
+}
+
 
 
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
@@ -592,6 +768,17 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    int outvec;
+    ret.error = irq_table_alloc(&outvec);
+    ret.value = outvec;
+    return ret;
+}
+
+
 static struct sysret handle_irq_table_set(struct capability *to, int cmd,
                                           uintptr_t *args)
 {
@@ -642,9 +829,9 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Activate performance monitoring
- * 
+ *
  * Activates performance monitoring.
  * \param xargs Expected parameters in args:
  * - performance monitoring type
@@ -656,7 +843,7 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
  *   to deactivate the usage of APIC.
  * - Endpoint capability to be invoked when the counter overflows.
  *   The buffer associated with the endpoint needs to be large enough
- *   to hold several overflow notifications depending on the overflow 
+ *   to hold several overflow notifications depending on the overflow
  *   frequency.
  */
 static struct sysret performance_counter_activate(struct capability *cap,
@@ -673,27 +860,27 @@ static struct sysret performance_counter_activate(struct capability *cap,
     struct capability *ep;
     extern struct capability perfmon_callback_ep;
 
-    // Make sure that 
+    // Make sure that
     assert(ep_addr!=0 || counter_value==0);
 
     perfmon_init();
     perfmon_measure_start(event, umask, counter_id, kernel, counter_value);
 
     if(ep_addr!=0) {
-        
+
         err = caps_lookup_cap(&dcb_current->cspace.cap, ep_addr, CPTR_BITS, &ep,
                                CAPRIGHTS_READ);
         if(err_is_fail(err)) {
             return SYSRET(err);
         }
-        
-        perfmon_callback_ep = *ep; 
+
+        perfmon_callback_ep = *ep;
     }
 
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Write counter values.
  */
 static struct sysret performance_counter_write(struct capability *cap,
@@ -706,7 +893,7 @@ static struct sysret performance_counter_write(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-/* 
+/*
  * \brief Deactivate performance counters again.
  */
 static struct sysret performance_counter_deactivate(struct capability *cap,
@@ -729,6 +916,45 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     return sysret;
 }
 
+static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
+                                          uintptr_t *args)
+{
+    coreid_t destination = args[0];
+//    printk(LOG_DEBUG, "%s:%s:%d: destination=%"PRIuCOREID"\n",
+//           __FILE__, __FUNCTION__, __LINE__, destination);
+
+    apic_send_init_assert(destination, xapic_none);
+    apic_send_init_deassert();
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_send_start_ipi(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+    coreid_t destination = args[0];
+    genvaddr_t start_vector = X86_64_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_64_REAL_MODE_SEGMENT);
+//    printk(LOG_DEBUG, "%s:%d: destination=%"PRIuCOREID" start_vector=%"PRIxGENVADDR"\n",
+//           __FILE__, __LINE__, destination, start_vector);
+
+    apic_send_start_up(destination, xapic_none, start_vector);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_get_global_phys(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+
+    struct sysret sysret;
+    sysret.value = mem_to_local_phys((lvaddr_t)global);
+    sysret.error = SYS_ERR_OK;
+
+    return sysret;
+}
+
 typedef struct sysret (*invocation_handler_t)(struct capability *to,
                                               int cmd, uintptr_t *args);
 
@@ -738,6 +964,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties] = handle_dispatcher_properties,
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest,
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+    },
+    [ObjType_KernelControlBlock] = {
+        [FrameCmd_Identify] = handle_kcb_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -772,6 +1001,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
+        [KernelCmd_Stop_core]    = monitor_stop_core,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
@@ -790,8 +1020,16 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
+        [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
+        [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
+        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
+        [KernelCmd_StartCore] = kernel_start_core,
+        [KernelCmd_Add_kcb]      = kernel_add_kcb,
+        [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
+        [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
     },
     [ObjType_IRQTable] = {
+        [IRQTableCmd_Alloc] = handle_irq_table_alloc,
         [IRQTableCmd_Set] = handle_irq_table_set,
         [IRQTableCmd_Delete] = handle_irq_table_delete
     },
@@ -957,7 +1195,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Yield the CPU to the next dispatcher
     case SYSCALL_YIELD:
+        TRACE(KERNEL, SC_YIELD, 0);
         retval = sys_yield((capaddr_t)arg0);
+        TRACE(KERNEL, SC_YIELD, 1);
         break;
 
         // NOP system call for benchmarking purposes
@@ -966,7 +1206,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Debug print system call
     case SYSCALL_PRINT:
+        TRACE(KERNEL, SC_PRINT, 0);
         retval.error = sys_print((char *)arg0, arg1);
+        TRACE(KERNEL, SC_PRINT, 1);
         break;
 
         // Reboot!
@@ -981,6 +1223,13 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
     case SYSCALL_X86_RELOAD_LDT:
         maybe_reload_ldt(dcb_current, true);
+        break;
+
+        // Temporarily suspend the CPU
+    case SYSCALL_SUSPEND:
+        TRACE(KERNEL, SC_SUSPEND, 0);
+        retval = sys_suspend((bool)arg0);
+        TRACE(KERNEL, SC_SUSPEND, 1);
         break;
 
     case SYSCALL_DEBUG:

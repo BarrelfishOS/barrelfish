@@ -32,17 +32,19 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
+#include <trace/trace.h>
+
+
 #include "kaluga.h"
 
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 
-extern char **environ;
-
 static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
+    set_start_function("x86boot", start_boot_driver);
 }
 
 static void parse_arguments(int argc, char** argv)

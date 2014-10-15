@@ -113,12 +113,10 @@
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOT_DISPFRAME2  15  ///< Copy of dispatcher frame cap (mapped into spawn vspace)
 #define TASKCN_SLOT_ARGSPAGE2   16  ///< Copy of environment cap (mapped into spawn vspace)
-#ifdef __k1om__
 #define TASKCN_SLOT_SYSMEM     17  ///< First free slot in taskcn for user
-#define TASKCN_SLOTS_USER       18  ///< First free slot in taskcn for user
-#else
-#define TASKCN_SLOTS_USER       17  ///< First free slot in taskcn for user
-#endif
+#define TASKCN_SLOT_COREBOOT    18  ///< Copy of realmode section used to bootstrap a core
+#define TASKCN_SLOTS_USER       19  ///< First free slot in taskcn for user
+
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)
 
@@ -164,16 +162,16 @@ struct mem_region {
  * allocate and manage its address space.
  */
 struct bootinfo {
-#ifdef __k1om__
-    uint64_t host_msg;
-    uint8_t host_msg_bits;
-#endif
     /// Number of entries in regions array
     size_t              regions_length;
     /// Amount of memory required to spawn another core
     size_t              mem_spawn_core;
     /// Memory regions array
     struct mem_region   regions[];
+
+	/// For __k1om__
+    uint64_t host_msg;
+    uint8_t host_msg_bits;
 };
 
 #endif

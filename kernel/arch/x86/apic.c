@@ -440,3 +440,9 @@ xapic_esr_t apic_get_esr(void)
     xapic_esr_rawwr(&apic, 0);
     return xapic_esr_rd(&apic);
 }
+
+void apic_disable(void) {
+    ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
+    apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 0);
+    ia32_apic_base_wr(NULL, apic_base_msr);
+}

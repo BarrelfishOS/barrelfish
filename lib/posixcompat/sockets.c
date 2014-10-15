@@ -561,6 +561,8 @@ int listen(int sockfd, int backlog)
 int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    POSIXCOMPAT_DEBUG("%s:%s:%d: accept(sockfd=%d , e->type=%d)\n",
+           __FILE__, __FUNCTION__, __LINE__, sockfd, e->type);
 
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:

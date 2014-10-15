@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for ramfsd
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "ramfsd",
@@ -16,5 +16,10 @@
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderBindings = [ "trivfs" ],
 		      addLibraries = [ "spawndomain", "zlib", "cpio" ]
-                    }
+                    },
+
+    build application { target = "mirrornfs",
+                        cFiles = [ "mirrornfs2.c", "http_cache.c" ],
+                        addLibraries = libDeps [ "vfs", "lwip", "nfs" ]
+    }
 ]

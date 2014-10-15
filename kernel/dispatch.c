@@ -17,6 +17,7 @@
 #include <exec.h> /* XXX wait_for_interrupt, resume, execute */
 #include <paging_kernel_arch.h>
 #include <dispatch.h>
+#include <kcb.h>
 #include <wakeup.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/lmp.h>
@@ -216,14 +217,10 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     if (dcb_current != dcb) {
 
 #ifdef TRACE_CSWITCH
-//#if TRACE_N_BM
-
-//#else
         trace_event(TRACE_SUBSYS_KERNEL,
                     TRACE_EVENT_KERNEL_CSWITCH,
                     (uint32_t)(lvaddr_t)dcb & 0xFFFFFFFF);
-//#endif // TRACE_N_BM
-#endif // TRACE_CSWITCH
+#endif
 
         context_switch(dcb);
         dcb_current = dcb;
@@ -238,27 +235,28 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         dispatcher_get_disabled_save_area(handle);
 
     assert(disp != NULL);
-    disp->systime = kernel_now;
+    disp->systime = kernel_now + kcb_current->kernel_off;
+	TRACE(KERNEL, SC_YIELD, 1);
+	
     if (dcb->disabled) {
         debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
-#if defined(__x86_64__) && !defined(__k1om__)
-	if(!dcb->is_vm_guest) {
-	  resume(disabled_area);
 
-	} else {
-	  vmkit_vmenter(dcb);
-	}
+#if defined(__x86_64__) && !defined(__k1om__)
+        if(!dcb->is_vm_guest) {
+            resume(disabled_area);
+        } else {
+            vmkit_vmenter(dcb);
+        }
 #else
-	  resume(disabled_area);
+        resume(disabled_area);
 #endif
     } else {
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
-#if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
             execute(disp->dispatcher_run);
         } else {
@@ -267,8 +265,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 #else
         execute(disp->dispatcher_run);
 #endif
-
-
     }
 } // end function: dispatch
 

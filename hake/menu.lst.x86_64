@@ -33,6 +33,7 @@ module /x86_64/sbin/routing_setup boot
 
 # Drivers
 module /x86_64/sbin/pci auto
+module /x86_64/sbin/x86boot auto
 module /x86_64/sbin/ahcid auto
 
 ## For networking

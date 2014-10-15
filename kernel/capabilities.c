@@ -22,6 +22,7 @@
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
+#include <kcb.h>
 #include <paging_kernel_arch.h>
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
@@ -80,7 +81,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(26 == ObjType_Num, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -127,6 +128,13 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
             return 1UL << (bits - OBJBITS_DISPATCHER);
         }
 
+    case ObjType_KernelControlBlock:
+        if (bits < OBJBITS_KCB) {
+            return 0;
+        } else {
+            return 1UL << (bits - OBJBITS_KCB);
+        }
+
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_IO:
@@ -165,7 +173,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(26 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs,
@@ -202,7 +210,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     /* Set the type specific fields and insert into #dest_caps */
     switch(type) {
     case ObjType_Frame:
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         // XXX: SCC hack, while we don't have a devframe allocator
         if(lpaddr + ((lpaddr_t)1 << bits) < PADDR_SPACE_LIMIT) {
             memset((void*)lvaddr, 0, (lvaddr_t)1 << bits);
@@ -210,7 +218,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
             printk(LOG_WARN, "Allocating RAM at 0x%" PRIxLPADDR
                    " uninitialized\n", lpaddr);
         }
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
             src_cap.u.frame.base = genpaddr + i * ((genpaddr_t)1 << objbits);
@@ -262,9 +270,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_CNode:
         assert((1UL << OBJBITS_CTE) >= sizeof(struct cte));
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -287,9 +295,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -320,9 +328,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -342,9 +350,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -364,9 +372,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -392,9 +400,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -421,9 +429,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -443,9 +451,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -465,9 +473,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -487,9 +495,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
     {
         size_t objbits_vnode = vnode_objbits(type);
 
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -520,9 +528,9 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 
     case ObjType_Dispatcher:
         assert((1UL << OBJBITS_DISPATCHER) >= sizeof(struct dcb));
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 1);
+        TRACE(KERNEL, BZERO, 1);
         memset((void*)lvaddr, 0, 1UL << bits);
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_BZERO, 0);
+        TRACE(KERNEL, BZERO, 0);
 
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
@@ -575,6 +583,24 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         // Insert the capability
         return set_cap(&dest_caps->cap, &src_cap);
 
+    case ObjType_KernelControlBlock:
+        assert((1UL << OBJBITS_KCB) >= sizeof(struct dcb));
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+
+        for(size_t i = 0; i < numobjs; i++) {
+            // Initialize type specific fields
+            src_cap.u.kernelcontrolblock.kcb = (struct kcb *)
+                (lvaddr + i * (1UL << OBJBITS_DISPATCHER));
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &src_cap);
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        return SYS_ERR_OK;
+
     default:
         panic("Unhandled capability type or capability of this type cannot"
               " be created");
@@ -592,6 +618,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
 errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights)
 {
+    TRACE(KERNEL, CAP_LOOKUP_SLOT, 0);
     /* parameter checking */
     assert(cnode_cap != NULL);
 
@@ -599,6 +626,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     if (cnode_cap->type != ObjType_CNode) {
         debug(SUBSYS_CAPS, "caps_lookup_slot: Cap to lookup not of type CNode\n"
               "cnode_cap->type = %u\n", cnode_cap->type);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_CNODE_TYPE;
     }
 
@@ -607,6 +635,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
         debug(SUBSYS_CAPS, "caps_lookup_slot: Rights mismatch\n"
               "Passed rights = %u, cnode_cap->rights = %u\n",
               rights, cnode_cap->rights);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_CNODE_RIGHTS;
     }
 
@@ -621,6 +650,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
               "Cnode bits = %u, guard size = %u, valid bits = %u\n",
               cnode_cap->u.cnode.bits, cnode_cap->u.cnode.guard_size,
               vbits);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_DEPTH_EXCEEDED;
     }
 
@@ -633,6 +663,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
               "Cnode guard = %"PRIxCADDR", bits = %u\n",
               cptr_guard, cnode_cap->u.cnode.guard,
               cnode_cap->u.cnode.guard_size);
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_GUARD_MISMATCH;
     }
 
@@ -644,6 +675,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     struct cte *next_slot = caps_locate_slot(cnode_cap->u.cnode.cnode, offset);
     // Do not return NULL type capability
     if (next_slot->cap.type == ObjType_Null) {
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_CAP_NOT_FOUND;
     }
 
@@ -652,6 +684,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     // If all bits have been resolved, return the capability
     if(bitsleft == 0) {
         *ret = next_slot;
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_OK;
     }
 
@@ -659,6 +692,7 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
     // XXX: Is this consistent?
     if (next_slot->cap.type != ObjType_CNode) {
         *ret = next_slot;
+        TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
         return SYS_ERR_OK;
     }
 
@@ -672,12 +706,14 @@ errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
 errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          uint8_t vbits, struct capability **ret, CapRights rights)
 {
+    TRACE(KERNEL, CAP_LOOKUP_CAP, 0);
     struct cte *ret_cte;
     errval_t err = caps_lookup_slot(cnode_cap, cptr, vbits, &ret_cte, rights);
     if (err_is_fail(err)) {
         return err;
     }
     *ret = &ret_cte->cap;
+    TRACE(KERNEL, CAP_LOOKUP_CAP, 1);
     return SYS_ERR_OK;
 }
 
@@ -691,6 +727,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
                                    int cnode_vbits, cslot_t dest_slot,
                                    struct capability *src)
 {
+    TRACE(KERNEL, CAP_CREATE_FROM_EXISTING, 0);
     errval_t err;
     struct capability *cnode;
     err = caps_lookup_cap(root, cnode_cptr, cnode_vbits, &cnode,
@@ -710,6 +747,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
     }
 
     set_init_mapping(dest, 1);
+    TRACE(KERNEL, CAP_CREATE_FROM_EXISTING, 1);
     return SYS_ERR_OK;
 }
 
@@ -717,6 +755,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
                          size_t objbits, struct cte *caps)
 {
+    TRACE(KERNEL, CAP_CREATE_NEW, 0);
     /* Parameter checking */
     assert(type != ObjType_EndPoint); // Cap of this type cannot be created
 
@@ -731,6 +770,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,
 
     // Handle the mapping database
     set_init_mapping(caps, numobjs);
+    TRACE(KERNEL, CAP_CREATE_NEW, 1);
     return SYS_ERR_OK;
 }
 
@@ -740,6 +780,7 @@ errval_t caps_retype(enum objtype type, size_t objbits,
                      struct capability *dest_cnode, cslot_t dest_slot,
                      struct cte *src_cte, bool from_monitor)
 {
+    TRACE(KERNEL, CAP_RETYPE, 0);
     size_t numobjs;
     uint8_t bits = 0;
     genpaddr_t base = 0;
@@ -838,6 +879,7 @@ errval_t caps_retype(enum objtype type, size_t objbits,
         mdb_insert(&dest_cte[i]);
     }
 
+    TRACE(KERNEL, CAP_RETYPE, 1);
     return SYS_ERR_OK;
 }
 

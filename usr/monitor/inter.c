@@ -13,6 +13,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#pragma GCC diagnostic ignored "-Wunused-function"
 
 #include <inttypes.h>
 #include "monitor.h"
@@ -98,6 +99,7 @@ static void
 boot_core_reply_cont(struct monitor_binding *domain_binding,
                      errval_t error_code)
 {
+    assert(domain_binding != NULL);
     errval_t err;
     err = domain_binding->tx_vtbl.
             boot_core_reply(domain_binding, NOP_CONT, error_code);
@@ -121,22 +123,36 @@ static void boot_core_reply_handler(struct monitor_binding *b,
 
 static void monitor_initialized(struct intermon_binding *b)
 {
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (monitor_ready == NULL) {
         monitor_ready = calloc(MAX_COREID, sizeof(bool));
     }
 
     struct intermon_state *st = b->st;
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
-    /* Inform other monitors of this new monitor */
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+    // Inform other monitors of this new monitor
     monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
     }
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+
+    // New plan, do timing sync for every time a monitor has come up...
+    /*if(num_monitors > 1) {
+        printf("monitor: synchronizing clocks\n");
+        err = timing_sync_timer();
+        assert(err_is_ok(err) || err_no(err) == SYS_ERR_SYNC_MISS);
+        if(err_no(err) == SYS_ERR_SYNC_MISS) {
+            printf("monitor: failed to sync clocks. Bad reference clock?\n");
+        }
+    }*/
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
+    //printf("%s:%s:%d: client=%p\n", __FILE__, __FUNCTION__, __LINE__, client);
     boot_core_reply_cont(client, err);
 }
 
@@ -229,8 +245,8 @@ static void cap_send_request(struct intermon_binding *b,
                              mon_id_t my_mon_id, uint32_t capid,
                              intermon_caprep_t caprep, errval_t msgerr,
                              bool give_away, bool remote_has_desc,
-                             intermon_coremask_t on_cores, 
-                             bool null_cap) 
+                             intermon_coremask_t on_cores,
+                             bool null_cap)
 {
     errval_t err, err2;
 
@@ -271,14 +287,14 @@ static void cap_send_request(struct intermon_binding *b,
                     err = err_push(err, MON_ERR_CAP_REMOTE);
                     goto cleanup2;
                 }
-                // if this assert fires, then something wierd has happened 
-                // where our kernel knows this cap has descendents, but the 
+                // if this assert fires, then something wierd has happened
+                // where our kernel knows this cap has descendents, but the
                 // sending core didn't
                 assert(!kern_has_desc || remote_has_desc);
-            
+
                 coremask_t mask;
                 memcpy(mask.bits, on_cores, sizeof(intermon_coremask_t));
-                rcap_db_update_on_recv (capability, remote_has_desc, mask, 
+                rcap_db_update_on_recv (capability, remote_has_desc, mask,
                                         core_id);
                 if (err_is_fail(err)) {
                     // cleanup
@@ -298,7 +314,7 @@ static void cap_send_request(struct intermon_binding *b,
                 goto cleanup2;
             }
 
-            // TODO, do something if this cap already has descendents to ensure 
+            // TODO, do something if this cap already has descendents to ensure
             // that it cannot be retyped on this core
         }
 
@@ -649,6 +665,132 @@ static void spawnd_image_request(struct intermon_binding *b)
     assert(err_is_ok(err));
 }
 
+static void stop_core(void* arg)
+{
+    //printf("%s:%s:%d: execute stop core\n",
+    //       __FILE__, __FUNCTION__, __LINE__);
+
+    //errval_t err = invoke_monitor_stop_core();
+    /*if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not stop the core.");
+    }*/
+    disp_save_suspend();
+
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+
+    struct intermon_binding *b = (struct intermon_binding *) arg;
+    errval_t err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending boot_core_reply failed");
+    }
+    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+}
+
+static void power_down_request(struct intermon_binding *b)
+{
+    errval_t err;
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+
+    err = b->tx_vtbl.power_down_response(b, MKCONT(stop_core, b));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Sending response failed.");
+    }
+
+    //printf("%s:%s:%d woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
+    //USER_PANIC("Return from power down request?");
+}
+
+static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_rep)
+{
+    errval_t err;
+    struct capability kcb_cap;
+
+    caprep_to_capability(&kcb_rep, &kcb_cap);
+    assert(kcb_cap.type != ObjType_Null);
+
+    struct capref kcb_capref;
+    err = slot_alloc(&kcb_capref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can't allocate slot for kcb_capref.");
+    }
+
+    err = monitor_cap_create(kcb_capref, &kcb_cap, my_core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_create failed");
+    }
+
+    printf("%s:%s:%d: Remote monitor: give kcb to kernel\n",
+                __FILE__, __FUNCTION__, __LINE__);
+    uintptr_t kcb_base = (uintptr_t)kcb_cap.u.kernelcontrolblock.kcb;
+    err = invoke_monitor_add_kcb(kcb_base);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "invoke_monitor_add_kcb failed.");
+    }
+
+    err = b->tx_vtbl.give_kcb_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
+static void give_kcb_response(struct intermon_binding *ib, errval_t error)
+{
+    printf("%s:%s:%d: Local monitor received answer\n",
+                __FILE__, __FUNCTION__, __LINE__);
+    if (err_is_fail(error)) {
+        USER_PANIC_ERR(error, "give kcb did not work.");
+    }
+
+    struct monitor_blocking_binding * b = (struct monitor_blocking_binding *) ib->st;
+    if (b != NULL) {
+        errval_t err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, error);
+        assert(err_is_ok(err));
+    }
+}
+
+static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base)
+{
+    errval_t err;
+    // don't switch kcbs on the current core
+    err = invoke_monitor_suspend_kcb_scheduler(true);
+    assert(err_is_ok(err));
+    // remove kcb from ring
+    err = invoke_monitor_remove_kcb((uintptr_t) kcb_base);
+    assert(err_is_ok(err));
+    // send reply
+    err = b->tx_vtbl.forward_kcb_rm_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+    // disp_save_rm_kcb -> next kcb -> enable kcb switching again
+    disp_save_rm_kcb();
+    // send monitor initialized when we're back up
+    //err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    //assert(err_is_ok(err));
+}
+
+static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
+{
+    //XXX: HACK
+    struct monitor_blocking_binding *mb =
+        (struct monitor_blocking_binding*)
+        ((struct intermon_state*)b->st)->originating_client;
+
+    debug_printf("received kcb_rm response on %d, forwarding to %p\n", my_core_id, mb);
+
+    mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
+}
+
+extern struct monitor_binding* cpuboot_driver;
+
+static void power_down_response(struct intermon_binding* b)
+{
+    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
+    errval_t err;
+    err = cpuboot_driver->tx_vtbl.power_down_response(cpuboot_driver, NOP_CONT, 1);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cpuboot driver failed.");
+    }
+
+}
+
+
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -676,6 +818,15 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_timer_sync_reply     = inter_rsrc_timer_sync_reply,
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
+
+    .power_down_request = power_down_request,
+    .power_down_response = power_down_response,
+
+    .give_kcb_request = give_kcb_request,
+    .give_kcb_response = give_kcb_response,
+
+    .forward_kcb_rm_request = forward_kcb_rm_request,
+    .forward_kcb_rm_response = forward_kcb_rm_response,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
@@ -725,13 +876,13 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
     err = arch_intermon_init(b);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "arch_intermon_init failed");       
+        USER_PANIC_ERR(err, "arch_intermon_init failed");
         return err;
     }
 
     err = intermon_binding_set(st);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "intermon_binding_set failed");       
+        USER_PANIC_ERR(err, "intermon_binding_set failed");
         return err;
     }
 

@@ -53,7 +53,7 @@ static errval_t spawn_child(int rfd)
     }
 
     struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_fdcap(&inheritcn_cap, fdcap);
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, fdcap, NULL_CAP, NULL_CAP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to setup inheritcn");
     }

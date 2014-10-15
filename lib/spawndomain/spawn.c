@@ -570,55 +570,53 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     return SYS_ERR_OK;
 }
 
-static errval_t spawn_setup_fdcap(struct spawninfo *si,
-                                  struct cnoderef inheritcn)
+/**
+ * Copies caps from inheritcnode into destination cnode,
+ * ignores caps that to not exist.
+ *
+ * \param  inheritcn    Source cnode
+ * \param  inherit_slot Source cnode slot
+ * \param  destcn       Target cnode
+ * \param  destcn_slot  Target cnode slot
+ *
+ * \retval SYS_ERR_OK Copy to target was successful or source cap
+ * did not exist.
+ * \retval SPAWN_ERR_COPY_INHERITCN_CAP Error in cap_copy
+ */
+static errval_t spawn_setup_inherited_cap(struct cnoderef inheritcn,
+                                          capaddr_t inherit_slot,
+                                          struct cnoderef destcn,
+                                          capaddr_t destcn_slot)
 {
     errval_t err;
 
     struct capref src;
     src.cnode = inheritcn;
-    src.slot  = INHERITCN_SLOT_FDSPAGE;
+    src.slot  = inherit_slot;;
 
     // Create frame (actually multiple pages) for fds
     struct capref dest;
-    dest.cnode = si->taskcn;
-    dest.slot  = TASKCN_SLOT_FDSPAGE;
+    dest.cnode = destcn;
+    dest.slot  = destcn_slot;
 
     err = cap_copy(dest, src);
     if (err_no(err) == SYS_ERR_SOURCE_CAP_LOOKUP) {
         // there was no fdcap to inherit, continue
         return SYS_ERR_OK;
     } else if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_COPY_FDCAP);
+        return err_push(err, SPAWN_ERR_COPY_INHERITCN_CAP);
     }
 
     return SYS_ERR_OK;
 }
 
-static errval_t spawn_setup_sidcap(struct spawninfo *si,
-                                   struct cnoderef inheritcn)
-{
-    errval_t err;
-
-    struct capref src;
-    src.cnode = inheritcn;
-    src.slot  = INHERITCN_SLOT_SESSIONID;
-
-    struct capref dest;
-    dest.cnode = si->taskcn;
-    dest.slot  = TASKCN_SLOT_SESSIONID;
-
-    err = cap_copy(dest, src);
-    if (err_no(err) == SYS_ERR_SOURCE_CAP_LOOKUP) {
-        // there was no sidcap to inherit, continue
-        return SYS_ERR_OK;
-    } else if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_COPY_SIDCAP);
-    }
-
-    return SYS_ERR_OK;
-}
-
+/**
+ * Copies caps in inherited cnode into targets cspace.
+ *
+ * \param  si Target spawninfo
+ * \param  inheritcn_cap Cnode of caps to inherit
+ * \retval SYS_ERR_OK Caps have been copied.
+ */
 static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
                                            struct capref inheritcn_cap)
 {
@@ -635,16 +633,26 @@ static errval_t spawn_setup_inherited_caps(struct spawninfo *si,
     }
 
     /* Copy the file descriptor frame cap over */
-    err = spawn_setup_fdcap(si, inheritcn);
+    err = spawn_setup_inherited_cap(inheritcn, INHERITCN_SLOT_FDSPAGE,
+                                    si->taskcn, TASKCN_SLOT_FDSPAGE);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_FDCAP);
     }
 
     /* Copy the session capability over */
-    err = spawn_setup_sidcap(si, inheritcn);
+    err = spawn_setup_inherited_cap(inheritcn, INHERITCN_SLOT_SESSIONID,
+                                    si->taskcn, TASKCN_SLOT_SESSIONID);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_SIDCAP);
     }
+
+    /* Copy the kernel capability over, scary */
+    err = spawn_setup_inherited_cap(inheritcn, INHERITCN_SLOT_KERNELCAP,
+                                    si->taskcn, TASKCN_SLOT_KERNELCAP);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_SETUP_KERNEL_CAP);
+    }
+
 
     return SYS_ERR_OK;
 }

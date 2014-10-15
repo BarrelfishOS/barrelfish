@@ -45,7 +45,7 @@ struct sysret {
 #define SYSCALL_NOP                 5     ///< No operation
 #define SYSCALL_PRINT               6     ///< Write to console
 
-/* Architecture-specific syscalls 
+/* Architecture-specific syscalls
  * FIXME: shouldn't these be in an arch-specific header? -AB */
 #ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
 //overwrite unused syscall instead of creating yet another global one
@@ -56,8 +56,9 @@ struct sysret {
 
 
 #define SYSCALL_X86_RELOAD_LDT      8     ///< Reload the LDT register (x86_64)
+#define SYSCALL_SUSPEND             9     ///< Suspend the CPU
 
-#define SYSCALL_COUNT               9     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
+#define SYSCALL_COUNT               10     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
 
 /*
  * To understand system calls it might be helpful to know that there

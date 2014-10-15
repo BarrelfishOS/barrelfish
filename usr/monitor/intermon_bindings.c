@@ -24,7 +24,10 @@ errval_t intermon_binding_set(struct intermon_state *st)
     if (st->core_id > MAX_COREID) {
         return MON_ERR_INVALID_CORE_ID;
     }
-    assert(bindings[st->core_id] == NULL);
+    if (bindings[st->core_id] != NULL) {
+        //printf("%s:%s:%d: overwrite binding (core_id=%"PRIuCOREID"), scary.\n",
+        //       __FILE__, __FUNCTION__, __LINE__, st->core_id);
+    }
     bindings[st->core_id] = st;
 
     return SYS_ERR_OK;
@@ -33,6 +36,7 @@ errval_t intermon_binding_set(struct intermon_state *st)
 errval_t intermon_binding_get(coreid_t coreid, struct intermon_binding **ret)
 {
     assert(ret != NULL);
+    //printf("%s:%s:%d: coreid=%"PRIuCOREID"\n", __FILE__, __FUNCTION__, __LINE__, coreid);
 
     if (coreid > MAX_COREID) {
         *ret = NULL;
