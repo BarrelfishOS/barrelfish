@@ -257,6 +257,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
+#if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
             execute(disp->dispatcher_run);
         } else {
