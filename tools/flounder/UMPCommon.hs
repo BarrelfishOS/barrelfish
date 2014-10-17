@@ -282,7 +282,7 @@ stub_body p infile intf@(Interface ifn descr decls) = C.UnitList [
 
       C.MultiComment [ "Send handler function" ],
       tx_handler p ifn msg_specs,
-      tx_bind_msg p ifn,
+      C.UnitList $ if (drvname == "ump") then [ tx_bind_msg p ifn ] else [],
       tx_bind_reply p ifn,
       C.Blank,
 
@@ -337,8 +337,7 @@ stub_body p infile intf@(Interface ifn descr decls) = C.UnitList [
       C.Blank,
 
       C.MultiComment [ "Functions to accept/connect over a already shared frame" ],
-      accept_fn p ifn,  
-      connect_fn p ifn
+      C.UnitList $ if (drvname == "ump") then [ accept_fn p ifn, connect_fn p ifn ] else []
     ] [] ]
     where
         drvname = ump_drv p

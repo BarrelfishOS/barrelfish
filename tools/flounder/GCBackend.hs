@@ -50,7 +50,9 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     export_fn_def ifn,
     C.Blank,
 
-    export_shm ifn,
+    C.MultiComment [ "Functions to accept/connect over a already shared frame" ],
+    accept_fn_def ifn,
+    C.Blank,
 
     C.MultiComment [ "Generic bind function" ],
     -- the two bind functions use the idc drivers in a different order
@@ -58,14 +60,6 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     bind_cont_def ifn (bind_cont_name2 ifn) (multihop_bind_backends ifn (bind_cont_name2 ifn)),
     bind_fn_def ifn,
     connect_fn_def ifn]
-        where
-            export_shm ifn
-                | elem "ump" (map (\x -> map toLower x) flounder_backends) = C.UnitList [
-                    C.MultiComment [ "Accept function (Export over already shared frame)" ],
-                    C.MultiComment [ "debug: " ++ concat (map (\x -> (map toLower x) ++ " ") flounder_backends) ],
-                    accept_fn_def ifn,
-                    C.Blank ]
-                | otherwise = C.UnitList [ C.MultiComment [ "Accept function using shared frame unavailable when UMP disabled" ], C.Blank ]
 
 
 export_fn_def :: String -> C.Unit
