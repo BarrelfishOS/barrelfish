@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 ##########################################################################
 # Copyright (c) 2014, ETH Zurich.
 # All rights reserved.
@@ -7,6 +9,7 @@
 # ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
+import tests
 from common import TestCommon, MAX_BOOT_ATTEMPTS, BOOT_TIMEOUT_LINE_RETRY, BOOT_TIMEOUT_LINE_FAIL
 import pexpect, tempfile
 
@@ -19,9 +22,9 @@ class InteractiveTest(TestCommon):
     def collect_data(self, machine):
         fh = machine.get_output()
         
-        if not self.machine.get_boot_timeout()
+        if not self.machine.get_boot_timeout():
             tt = 180
-        else
+        else:
             tt = self.machine.get_boot_timeout()
         debug.verbose("Timeout set to %s", tt)
 
@@ -52,6 +55,9 @@ class InteractiveTest(TestCommon):
 
 @tests.add_test
 class StopParkTest(InteractiveTest):
+    '''Stop core and park OSNode test'''
+
+    name = 'stop_park'
 
     def get_modules(self, build, machine):
         modules = super(StopParkTest, self).get_modules(build, machine)
@@ -67,6 +73,6 @@ class StopParkTest(InteractiveTest):
             debug.verbose(line)
         return PassFailResult(True)
 
-@tests.add_test
+#@tests.add_test
 class UpdateKernelTest(InteractiveTest):
     pass

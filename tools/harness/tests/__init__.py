@@ -42,14 +42,10 @@ def add_test(t):
     all_tests.append(t)
     return t
 
-#import memtest, webserver, basicNetwork, rpctests, splash_bomp, echoserver, \
-#    skew, tsctests, vmkit, nfscat, mdbbench, \
-#    rcce, bulktests, tracing, buildall, bomp_sidebyside, \
-#    monitortest, phases, clockdrift, channel_cost, fputest, TimerTest, \
-#    multihoptests, perfmontest, freemem, spawntest, spantest, coreboottest
-
+## Import all tests
 import os
-import glob
-modules = glob.glob(os.path.dirname(__file__)+"/*.py")
-__all__ = [ os.path.basename(f)[:-3] for f in modules if f != "__init__.py"]
-
+for module in os.listdir(os.path.dirname(__file__)):
+    if module == '__init__.py' or module[-3:] != '.py':
+        continue
+    __import__(module[:-3], locals(), globals())
+del module
