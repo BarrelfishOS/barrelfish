@@ -14,9 +14,6 @@
 #include <getopt.h>
 #include "coreboot.h"
 
-uint64_t start = 0;
-uint64_t end = 0;
-
 coreid_t my_arch_id;
 struct capref kernel_cap;
 
