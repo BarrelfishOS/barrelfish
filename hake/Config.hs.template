@@ -190,9 +190,10 @@ memserv_percore = False
 
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
-lazy_thc | elem "armv7" architectures  = False
-	 | elem "armv5" architectures  = False
-         | otherwise                   = True
+lazy_thc | elem "armv7" architectures   = False
+	 | elem "armv5" architectures   = False
+	 | elem "xscale" architectures  = False
+         | otherwise                    = True
 
 -- Select remote cap database implementation
 data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)

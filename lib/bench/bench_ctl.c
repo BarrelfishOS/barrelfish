@@ -210,8 +210,8 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
            (uint64_t)(max99-1),
            (uint64_t)(len-1));
 
-    printf("run [%"PRIu64"], med[%"PRIuCYCLES"], min[%"PRIuCYCLES"], "
-           "P99[%"PRIuCYCLES"], max[%"PRIuCYCLES"]\n",
+    printf("run [%"PRIu64"], med[%"PRIu64"], min[%"PRIu64"], "
+           "P99[%"PRIu64"], max[%"PRIu64"]\n",
            (uint64_t)len,
            (uint64_t)final_array[len/2],
            (uint64_t)final_array[0],
