@@ -516,168 +516,23 @@ static void print_cmd_help(char* cmd)
     printf("%s\n", commands[i].help);
 }
 
-static void microbench(void)
-{
-    struct bench_data data;
-    benchmark_flag = true;
-    bench_data = &data;
-    cmd_kernel_args = "loglevel=0";
-
-#if DOWNUPDATE
-#ifndef COREID
-#define COREID 2
-#endif
-#define STR(x) STRR(x)
-#define STRR(x) #x
-    int argc_down = 2;
-    char *argv_down[] = {
-        "down",
-        STR(COREID)
-    };
-
-    int argc_up = 2;
-    char *argv_up[] = {
-        "update",
-        STR(COREID)
-    };
-
-    uint64_t start_down, end_down, start_up, end_up;
-
-    debug_printf("# ticks-down ms-down ticks-up ms-up"
-            " ms-load ticks-load ms-alloc_cpu ticks-alloc_cpu"
-            " ms-alloc_mon ticks-alloc_mon ms-elf_load ticks-elf_load"
-            " ms-elf_reloc ticks-elf_reloc ms-misc ticks-misc ms-cpu_init ticks-cpu_init\n");
-    for (size_t i = 0; i < 20; i++) {
-        start_down = bench_tsc();
-        stop_cpu(argc_down, argv_down);
-        end_down = bench_tsc();
-
-        start_up = bench_tsc();
-        update_cpu(argc_up, argv_up);
-        end_up = bench_tsc();
-
-        while(*ap_dispatch < 2);
-
-        printf("startdown: %"PRIu64"\n", start_down);
-
-        uint64_t up = end_up - start_up;
-        uint64_t misc = up - (data.load + data.alloc_cpu + data.alloc_mon +
-                              data.elf_load + data.elf_reloc);
-        debug_printf("%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu\n",
-                   end_down - start_down, bench_tsc_to_ms(end_down - start_down),
-                   up, bench_tsc_to_ms(up),
-                   bench_tsc_to_ms(data.load), data.load,
-                   bench_tsc_to_ms(data.alloc_cpu), data.alloc_cpu,
-                   bench_tsc_to_ms(data.alloc_mon), data.alloc_mon,
-                   bench_tsc_to_ms(data.elf_load), data.elf_load,
-                   bench_tsc_to_ms(data.elf_reloc), data.elf_reloc,
-                   bench_tsc_to_ms(misc), misc,
-                   bench_tsc_to_ms(*ap_dispatch), *ap_dispatch
-               );
-    }
-#endif
-
-#if UPDATE
-    int argc_update = 2;
-    char *argv_update[] = {
-        "update",
-        "1"
-    };
-    uint64_t start_up, end_up;
-
-    printf("# ticks-update ms-update ticks-x86boot ms-x86boot\n");
-    for (size_t i = 0; i < 20; i++) {
-
-        start_up = bench_tsc();
-        update_cpu(argc_update, argv_update);
-        end_up = bench_tsc();
-
-        printf("%lu %lu %lu %lu\n",
-               end_up - start_up, bench_tsc_to_ms(end_up - start_up),
-               end - start, bench_tsc_to_ms(end - start));
-    }
-#endif
-
-#if TAKE
-    int argc_up = 2;
-    // Give kcb from core 2 to core 1
-    char *argv_up[] = {
-        "up",
-        "2"
-    };
-
-    int argc_give = 3;
-    // Give kcb from core 2 to core 1
-    char *argv_give[] = {
-        "give",
-        "2",
-        "1"
-    };
-
-    int argc_take = 4;
-    // Taking kcb.2 from core 1 to core 0
-    char *argv_take_ping[] = {
-        "take",
-        "2",
-        "1",
-        "0"
-    };
-
-    // Taking kcb.2 from core 0 to core 1
-    char *argv_take_pong[] = {
-        "take",
-        "2",
-        "0",
-        "1"
-    };
-
-    // Set-up, start 2 and give 2 to 1
-    boot_cpu(argc_up, argv_up);
-    give_kcb(argc_give, argv_give);
-
-    uint64_t start_take1, end_take1;
-    uint64_t start_take2, end_take2;
-
-    printf("# ticks-takegive ms-takegive\n");
-    for (size_t i = 0; i < 20; i++) {
-
-        start_take1 = bench_tsc();
-        take_kcb(argc_take, argv_take_ping);
-        end_take1 = bench_tsc();
-
-        start_take2 = bench_tsc();
-        take_kcb(argc_take, argv_take_pong);
-        end_take2 = bench_tsc();
-
-        printf("%lu %lu %lu %lu\n",
-               end_take1 - start_take1, bench_tsc_to_ms(end_take1 - start_take1),
-               end_take2 - start_take2, bench_tsc_to_ms(end_take2 - start_take2));
-
-    }
-#endif
-}
-
 int main (int argc, char **argv)
 {
     initialize();
     int ret = -1;
 
     DEBUG("x86boot start");
-#if defined(ENSURE_SEQUENTIAL)
+    
+    // ENSURE_SEQUENTIAL
     errval_t err;
     char *lock;
     err = oct_lock("x86boot.lock", &lock);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "can lock x86boot.");
     }
-#endif
+    //
+
     DEBUG("x86boot got lock");
-
-#if defined(MICROBENCH)
-    microbench();
-    goto out;
-#endif
-
     // Parse arguments, call handler function
     int c;
     while (1) {
@@ -762,12 +617,13 @@ int main (int argc, char **argv)
     }
 
 out:
-#if defined(ENSURE_SEQUENTIAL)
+    // END ENSURE SEQUENTIAL
     err = oct_unlock(lock);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "can not unlock x86boot.");
     }
-#endif
+    // 
+
     DEBUG("x86boot is done.");
     return ret;
 }

@@ -23,32 +23,6 @@ let template = application {
     }
 in [
     build template {
-        target = "x86boot",
-        addCFlags = ["-DENSURE_SEQUENTIAL"]
-    },
-
-    build template {
-        target = "x86bootdownupdate",
-        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE"]
-    },
-    build template {
-        target = "x86bootdownupdate4",
-        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE", "-DCOREID=4"]
-    },
-    build template {
-        target = "x86bootdownupdate32",
-        addCFlags = ["-DMICROBENCH", "-DDOWNUPDATE", "-DCOREID=32"]
-    },
-
-
-    build template {
-        target = "x86bootupdate",
-        addCFlags = ["-DMICROBENCH", "-DUPDATE"]
-    },
-    build application {
-        target = "x86bootdownupdateload",
-        cFiles = [ "bench.c" ],
-        addCFlags = [ "-DBENCH=\\\"x86bootdownupdate\\\"" ],
-        addLibraries = [ "octopus", "spawndomain" ]
+        target = "x86boot"
     }
 ]
