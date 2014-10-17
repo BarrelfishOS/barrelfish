@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
     printf("arg[%d] = %s\n", i, argv[i]);
   }
 
+#ifdef __x86__
   // Check that we're in privileged mode
   uint16_t cs;
   __asm volatile("mov %%cs, %[reg]"
@@ -36,6 +37,7 @@ int main(int argc, char *argv[])
   *zero = 0;
 
   printf("After pagefault\n");
+#endif // __x86__
 
   return EXIT_SUCCESS;
 }
