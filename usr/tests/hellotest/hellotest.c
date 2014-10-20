@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
     printf("Succeeded! CR0 is %" PRIxPTR "\n", cr0);
   } else {
     printf("NO privileged mode enabled\n");
+    return EXIT_SUCCESS;
   }
 
   printf("Causing pagefault...\n");
