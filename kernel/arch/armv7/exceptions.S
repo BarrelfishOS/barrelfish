@@ -261,6 +261,7 @@ null_handler:
         // Set up stack and GOT pointer.
         //
 .macro enter_sys scratch
+        clrex
         mov \scratch, #(CPSR_IF_MASK | ARM_MODE_SYS)
         msr cpsr_c, \scratch
         init_sys_pic_register

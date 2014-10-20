@@ -1,0 +1,137 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_apic.dev
+ *
+ * description: register definitions for the Xeon Phi APIC register
+ * 
+ * Note: this is for raising interrupts to the other parts.
+ */
+
+device xeon_phi_apic lsbfirst ( addr base ) "Intel Xeon Phi APIC register" {
+
+     constants irq_vec width(32) "Interupt Vectors" {
+          vec_bsp = 229;
+     };
+     
+     constants irq_idx width(3) "Interrupt Register Index" {
+          vnet      = 0;
+          sht       = 1;
+          hvc       = 2;
+          virtio    = 3;
+          pm        = 4;
+          unused    = 5;
+          unused2   = 6;
+          bootstrap = 7;
+     };
+     
+
+    constants dst_shorthand "Destination shorthand" {
+      none    = 0b00 "No shorthand";
+      self    = 0b01 "Self";
+      all_inc = 0b10 "All including self";
+      all_exc = 0b11 "All excluding self";
+    };
+
+    constants dst_mode "Destination mode" {
+      dst_phys        = 0b00 "Physical";
+      dst_log         = 0b01 "Logical";
+    };
+
+    constants int_level "Interrupt level" {
+      lvl_clr         = 0b00 "Clear";
+      lvl_set         = 0b01 "Set";
+    };
+    
+    constants vdm "Vector delivery mode" { 
+      fixed   = 0b000 "Fixed";
+      lowest  = 0b001 "Lowest priority";
+      smi     = 0b010 "SMI";
+      nmi     = 0b100 "NMI";
+      init    = 0b101 "INIT";
+      startup = 0b110 "Start Up";
+      extint  = 0b111 "ExtINT";
+    };
+    
+    constants trigm "Trigger mode" {
+      edge  = 0 "Edge";
+      level = 1 "Level";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register id rw addr(base, 0xA800) "APIC Identification Register" { 
+        _   23;
+        id  9 "apic id";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register version rw addr(base, 0xA804) "APIC Version Register" { 
+        ver      8 "version";
+        _        8;
+        max_lvt  8 "max LVT entry";
+        _        8;
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     */
+    register pr rw addr(base, 0xA808) "APIC Priority Register" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     * Number: 26
+     */
+    regarray rt rw addr(base, 0xA840) [26] "APIC Redirection Table" { 
+        value 64 "Value";
+    };            
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_RESET
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray icr_lo rw addr(base, 0xA9D0) [8; 0x8] "APIC Interrupt Command Register 0 to 7" { 
+        vector      8 "Vector";
+        dlv_mode    3 type(vdm) "Delivery mode";
+        dst_mode    1 type(dst_mode) "Destination mode";
+        dlv_stat    1 ro "Delivery status";
+        boot_notify 1 "Boot notify bit";
+        level       1 type(int_level) "Level";
+        trig_mode   1 type(trigm) "Trigger mode";
+        _           2;
+        dst_short   2 type(dst_shorthand) "Destination shorthand";
+        _           12;
+    };            
+    
+    regarray icr_hi rw addr(base, 0xA9D4) [8; 0x8]  "APIC Interrupt Command Register 0 to 7" { 
+        dest        32 "Destination field";
+    }; 
+
+
+};

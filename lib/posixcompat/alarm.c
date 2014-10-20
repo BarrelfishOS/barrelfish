@@ -26,7 +26,7 @@ unsigned int alarm(unsigned int seconds)
         // Nothing to be done.
         return 0;
     } else {
-        assert(!"NYI");
+        /* assert(!"NYI"); */
         return 0;
     }
 }

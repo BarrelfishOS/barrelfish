@@ -1,0 +1,207 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_irq.dev
+ *
+ * description: register definitions for the Xeon Phi interrupts
+ */
+
+device xeon_phi_irq lsbfirst ( addr base ) "Intel Xeon Phi Interrupts" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     * Number: 4
+     */
+    regarray doorbel rw addr(base, 0xCC90) [4] "System Doorbell Interrupt Command Registe 0-3" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_disable rw addr(base, 0xCCA0) "32 Bits to Disable Interrupts" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_assert rw addr(base, 0xCCA4) "32 Bits to Assert Interrupts" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     */
+    register marker_message_send rw addr(base, 0xCCA8) "32 Bits to log INTSCR field of Marker Message" { 
+        value 32 "Value";
+    };
+    
+    
+    register msix_ram rw addr(base, 0x7000) "MSI-X RAM" {
+    	reg 32 "register";
+    };
+    
+    register sysint_debug rw addr(base, 0x9000) "SYSINT Debug Register" {
+    	reg 32 "register";
+    };
+    
+    /*
+     * Note: This register contains the status for all of the System Interrupt 
+     * sources. When an Interrupt event occurs, the bit corresponding to the
+     * source shall be set in this register. If SW clears an System Interrupt 
+     * Status Register bit in the same clock as a HW event wants to set it,
+     * the clear shall have precedence over the set. 
+     * NOTE: While this behavior may seem counter-intuitive and that the HW may 
+     * risk losing Interrupts, it is actually the preferred implementation 
+     * because the SW flow must already prevent a race condition. Otherwise, the 
+     * same problem could occur if the HW event came one clock before the SW clear.
+     * Therefore, SW always services Interrupts after clearing the status. If the 
+     * SW clear did not have precedence, an additional Interrupt would be 
+     * generated for this condition even though SW had already handled the 
+     * Interrupt event, which would lead to an additional call of the ISR to 
+     * clear the status. 
+     * NOTE: Clear on Read functionality is not supported on this register at 
+     * the request of SW and HW debug support teams. This results in a slight 
+     * performance degradation in legacy INTx mode due to the additional UC Write 
+     * required to clear any status bits that were set.
+     */
+    
+    register int_status rw addr(base, 0x9004) "System Interrupt Status Register" {
+    	reg 32 "registr3";
+    };
+    
+    /*
+     * Note: This register is used for SW testing and HW debug only. The intent 
+     * of this register is for SW to create the appearance of a HW interrupt 
+     * event for testing and debug. Writing a '1' to a bit in this register shall
+     * result in the corresponding bit in the System Interrupt Status register 
+     * to be set along with the same behavior as if that HW interrupt event had 
+     * occurred. Writing a '0' to a bit in this register shall have no effect.
+     */
+    register int_status_set rw addr(base, 0x9008) "System Interrupt Status Set Register" {
+    	reg 32 "register";
+    };
+    
+    /*
+     * This register is used to enable individual Interrupt sources. An Interrupt
+     * source, captured in the System Interrupt Status register, shall be enabled 
+     * to generate Interrupt messages when the value of the corresponding bit in
+     * this register is '1', and disabled when '0'. SW enables a particular 
+     * Interrupt source by writing a '1' to the corresponding bit this register. 
+     * Writing a '0' to any bit has no effect. 
+     * NOTE: If SW wants to disable any previously enabled Interrupt sources from
+     * generating Interrupt messages, it should use the System Interrupt Disable
+     * register instead. 
+     * NOTE: The value of the bits in this register does not affect the System 
+     * interrupt Status register. They only affect the generation of the Interrupt
+     * messages.
+     * WARNING: The following should be true to avoid a hang condition: 
+     *    1. SW will always acknowledge an Interrupt Vector (clear status bit) 
+     *       before re-enabling it. 
+     *    2. SW will not blindly re-enable Vectors for which it did not receive 
+     *       an Interrupt.
+     * For the unlikely event that these rules need to be violated, you will need 
+     * to defeature ordering checks to avoid the hang condition.
+     */
+    register int_enable rw addr(base, 0x900C) "System Interrupt Enable Register" {
+    	dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;  
+    };
+    
+    constants int_en "" {
+    	dbr_enable_all = 0xF; 
+    	dma_enable_all = 0xFF;
+    };
+    
+    /* 
+     * This register is used to disable individual Interrupt sources. Writing a 
+     * '1' to a bit of this register clears the corresponding bit in the INTENB 
+     * register. Writing a '0' to any bit has no effect.
+     * NOTE: The reason that the Interrupt enables are split into two separate HW
+     * register interfaces is to prevent the need for a Read-Modify-Write 
+     * operation (and potential locks) when different pieces of SW are handling
+     * separate Interrupt sources.
+     */
+    register int_disable rw addr(base, 0x9010) "System Interrupt Disable" {
+    	dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;    
+    };
+    
+    /*
+     * In systems that support MSI-X, the interrupt vector allows the ISR to know 
+     * which interrupt without reading the System Interrupt Status register when 
+     * a vector is uniquely assigned to an interrupt. In this case, the software
+     * overhead of a read or write transaction can be avoided by setting the 
+     * auto-clear bits in this register. When auto-clear is enabled for an 
+     * interrupt, the corresponding bit in the System Interrupt Status register 
+     * will be set when an event occurs, and the MSI-X message will be sent on 
+     * PCI- Express. Then the corresponding bit in the System Interrupt Status 
+     * register is cleared and can be asserted on a new event. The vector in the 
+     * MSI-X message indicates which interrupt caused the event ad defined by 
+     * the MSI Vector Assignment Regsiter.
+     * NOTE: To clarify the definition of SENT, the correspsonding bit will be 
+     * cleared once the Endpoint accepts the messages which either means it was
+     * sent or the vector was masked. 
+     * NOTE: If interrupts are not uniquely defined to a vector, those interrupts 
+     * should not use auto-clear. If auto-clear is enabled on an interrupt once
+     * the vector is sent, all interrupts assocated to that vector will be cleared.
+     */
+    register int_status_auto_clear rw addr(base, 0x9014) "System Interrupt Status Auto-Clear" {
+        reg 32 "ff";
+    };
+    
+    register itp_doorbell rw addr(base, 0x9030) "System Interrupt ITP Doorbell" {
+    	reg 32 "ff";
+    };
+    
+    
+    /*
+     * Each of these registers assigns Interrupt sources from the System Interrupt 
+     * Status register to one of the 16 possible MSI(-X) Vectors. The bits set
+     * in a given register shall define the collection of Interrupt sources (from
+     * System Interrupt Status register) that are assigned to a particular Interrupt
+     * Vector. Register 0 shall assign Interrupt sources to Vector 0, Register 1 
+     * shall assign Interrupt sources to Vector 1, and so on. 
+     * NOTE: SW must ensure that no interrupts are enabled (in System Interrupt 
+     * Disable) before modifying the value of any MSI(-X) Vector Assignment 
+     * register, otherwise the behavior is undefined. 
+     * NOTE: SW shall be responsible for assigning each interrupt source to an 
+     * unique Vector, or otherwise must handle multiple interrupts for a given
+     * source. 
+     * NOTE: SW must ensure that interrupts sharing the same vector have the 
+     * correpsonding bits disabled System Interrupt Status Auto-clear register,
+     * otherwise the behavior is undefined.
+     */
+    regarray msi_vector rw addr(base, 0x9044) [16] "MSI(-X) Vector Assignment Register 0-15" {
+		dbr 4 "";
+    	_   4;  
+    	dma 8 "";
+    	_  16;  
+    };
+    
+    
+    
+};

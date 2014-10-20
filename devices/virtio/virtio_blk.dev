@@ -1,0 +1,127 @@
+/*
+ * Copyright (c) 2012, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * virtio.dev
+ *
+ * The following structurs are taken from the Virtio Specification 1.0
+ *
+ */
+ 
+device virtio_blk lsbfirst ( addr base ) "Virtio Block Device Specification" {
+   
+    datatype features lsbfirst (32)  "Feature bits for block devices"  {
+        barrier             1 "Device supports request barriers (Legacy)";
+        size_max            1 "Maximum size of any single segment in size_max";
+        seg_max             1 "Maximum number of segments in a request in seg_max";
+        _                   1 "Reserved";
+        geometry            1 "Disk-style geometry specified in geometry";
+        read_only           1 "Device is read-only";
+        blk_size            1 "Block size of disk is in blk_size";
+        scsi                1 "Device supports scsi packet commands";
+        _                   1 "Reserved";
+        flush               1 "Cache flush command support (Legacy)";
+        topology            1 "Device exports information on optimal IO alignment";
+        _                  12 "Reserved";
+        notify_on_empty     1 "(Legacy) The device MUST issue an interrupt if the device runs out of available descriptors"; 
+        _                   2 "Reserved";
+        any_layout          1 "(Legacy) his feature indicates that the device accepts arbitrary descriptor layouts";
+        ring_indirect_desc  1 "river can use descriptors with the VIRTQ_DESC_F_INDIRECT";
+        ring_event_idx      1 "enables the used_event and the avail_event fields";
+        _                   2 "Reserved";
+        version_1           1 "Distinction Legacy / Version 1 Device";
+    };
+    
+    /*
+     * Note: 
+     */
+    datatype req lsbfirst(32)  "Request header" {
+        rtype   32 "The type of the request";
+        ioprio  32 "The IO prioroty (Legacy)";
+        sector  64 "The sector where to write/read";
+        /* data */
+    };
+    
+    /*
+     * The cmd field is only present for scsi packet command requests, and 
+     * indicates the command to perform. This field MUST reside in a single, 
+     * separate device-readable buffer; command length can be derived from the 
+     * length of this buffer.
+     */
+    datatype scsi_req lsbfirst(32) "SCSI trailer"{	
+        errors      32  "Errors that may have occurred";
+        data_len    32  "Deprecated: Should be ignored.";
+        sense_len   32  "The number of bytes in the sense buffer";
+        residual    32  "The residual size: total - transferred";
+    };
+    
+    constants req_type "Possible request types for the block device" {
+        in           = 0x00000000 "Request type is an IN operation";
+        out          = 0x00000001 "Request type is an OUT operation";
+        scsi_cmd     = 0x00000002 "Request type is an OUT operation";
+        scsi_cmd_out = 0x00000003 "Request type is an OUT operation";
+        flush        = 0x00000004 "Request type is a cache flush";
+        flush_out    = 0x00000005 "Request type is a cache flush";
+        barrier      = 0x80000000 "IO Barrier (Legacy)";
+    };
+    
+    constants req_status "The status of the request" {
+        ok      = 0x0 "Everythin ok";
+        ioerror = 0x1 "IO error occured";
+        unsupp  = 0x2 "The request is not supported";
+    };
+    
+    
+    
+   /*
+    * ------------------------------------------------------------------------
+    * Reading / Writing the configuration space
+    * ------------------------------------------------------------------------ 
+    */
+    
+    
+    
+   register capacity addr(base, 0x00) "The capacity in 512byte sectors" {
+       sectors  64  "Number of 512byte sectors";
+   };
+   
+   register seg_size addr(base, 0x08) "The maximum segment size" {
+       max 32 "Maximum segment size";
+   };
+   
+   register seg_num addr(base, 0x0C) "The maximum number of segments" {
+       max 32 "Maximum number of segments";
+   };
+   
+   register geometry addr(base, 0x10) "Geometry Information" {
+       cylinders 16 "Number of cylinders";
+       heads      8 "Number of heads"; 
+       sectors    8 "Number of sectors";
+   };
+   
+   
+   register block_size addr(base, 0x14) "Block Size" {
+       size 32 "The size of a block";
+   };
+   
+   register topo_blocks addr(base, 0x18) "Toplogy: Logical Blocks" {
+      logic_per_phys 8 "Number of logical blocks per physical block";
+      offset_aligned 8 "Offset of first aligned logical block";
+   };
+   
+   register topo_io_size addr(base, 0x1A) "Topology: minimum IO Size" {
+       min 16 "Minimum number of IO size in blocks";
+       opt 16 "Maximum number of IO size in  blocks";
+   };
+   
+   
+   register writeback addr(base, 0x1E) "Legacy Writeback Register" {
+       wb   8 "Write back";
+   };
+ };
+          

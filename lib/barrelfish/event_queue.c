@@ -75,7 +75,7 @@ static void event_queue_runner(void *arg)
         return;
     }
 
-    if (q->head == NULL) {
+    if (q->head != NULL) {
         // queue is non-empty: trigger ourselves again
         struct event_closure self = {
             .handler = event_queue_runner,

@@ -98,7 +98,9 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         // XXX: Find better way to parse binary name from SKB
         char* binary_name = malloc(strlen(skb_get_output()));
         coreid_t core;
-        skb_read_output("driver(%"SCNu8", %s)", &core, binary_name);
+        uint8_t multi;
+        coreid_t offset;
+        skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %s)", &core, &multi, &offset, binary_name);
         *strrchr(binary_name, ')') = '\0';
 
         struct module_info* mi = find_module(binary_name);
@@ -107,6 +109,9 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
             KALUGA_DEBUG("Driver %s not loaded. Ignore.", binary_name);
             goto out;
         }
+
+        set_multi_instance(mi, multi);
+        set_core_id_offset(mi, offset);
 
         // Wait until the core where we start the driver
         // is ready
@@ -130,6 +135,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI driver: %s\n", mi->binary);
+            set_started(mi);
             break;
 
         case KALUGA_ERR_DRIVER_ALREADY_STARTED:
@@ -177,6 +183,7 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);
+            set_started(mi);
             break;
 
         case KALUGA_ERR_DRIVER_ALREADY_STARTED:

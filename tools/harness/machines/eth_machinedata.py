@@ -122,6 +122,24 @@ machines = dict({
                 'tickrate'        : 2500,
                 'boot_timeout'    : 360},
 
+    'asiago': {'ncores'          : 20,
+                'machine_name'    : 'asiago',
+                'bootarch'        : 'x86_64',
+                'buildarchs'      : ['x86_64', 'x86_32'],
+                'cores_per_socket': 10,
+                'perfcount_type'  : 'intel',
+                'tickrate'        : 2500,
+                'boot_timeout'    : 360},
+
+    'babybel': {'ncores'          : 20,
+                'machine_name'    : 'babybel',
+                'bootarch'        : 'x86_64',
+                'buildarchs'      : ['x86_64', 'x86_32'],
+                'cores_per_socket': 10,
+                'perfcount_type'  : 'intel',
+                'tickrate'        : 2500,
+                'boot_timeout'    : 360},
+
     'nos4-32'   : {'ncores'      : 4,
                    'machine_name' : 'nos4',
                    'bootarch' : 'x86_32',
@@ -236,6 +254,24 @@ machines = dict({
                    'tickrate'        : 2500,
                    'boot_timeout'    : 360},
 
+    'asiago-32': {'ncores'          : 20,
+                'machine_name'    : 'asiago',
+                'bootarch'        : 'x86_32',
+                'buildarchs'      : ['x86_64', 'x86_32'],
+                'cores_per_socket': 10,
+                'perfcount_type'  : 'intel',
+                'tickrate'        : 2500,
+                'boot_timeout'    : 360},
+
+    'babybel-32': {'ncores'          : 20,
+                'machine_name'    : 'babybel',
+                'bootarch'        : 'x86_32',
+                'buildarchs'      : ['x86_64', 'x86_32'],
+                'cores_per_socket': 10,
+                'perfcount_type'  : 'intel',
+                'tickrate'        : 2500,
+                'boot_timeout'    : 360},
+
 
 
     # SK: For Python 2.7
@@ -261,6 +297,17 @@ machines = dict({
                 'tickrate' : 2193,
                 'perfcount_type': 'amd0f',
                 'boot_timeout' : 360,
-                }) for b in range(1, 17) if b != 11 ).items()
-
+                }) for b in range(1, 17) if b != 11
+        ).items() +
+        dict(('brie%s-32' % b, {
+                'ncores' : 4,
+                'machine_name' : ('brie%s' % b),
+                'bootarch' : 'x86_32',
+                'buildarchs' : ['x86_64', 'x86_32'],
+                'cores_per_socket' : 2,
+                'tickrate' : 2193,
+                'perfcount_type': 'amd0f',
+                'boot_timeout' : 360,
+                }) for b in range(1, 17) if b != 11
+        ).items()
 )

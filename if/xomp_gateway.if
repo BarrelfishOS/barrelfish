@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/**
+ * \brief interface for the XOMP gateway
+ */
+interface xomp_gateway "Xeon Phi openMP gateway interface" {
+    
+    /**
+     * \brief sends a memory request to the xomp gateway of the node
+     * 
+     * \param [IN]  addr    virtual address of the requested memroy
+     * \param [IN]  token   memory token
+     * \param [OUT] msgerr  returns the outcome of the request
+     * \param [OUT] memory  returned memory capability
+     */
+    rpc get_memory(in uint64 addr,
+                   in uint64 token,                   
+                   out errval msgerr,
+                   out cap memory);
+};

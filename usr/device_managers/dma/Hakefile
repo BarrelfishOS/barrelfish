@@ -1,0 +1,23 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2014, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/device_managers/dma
+--
+--------------------------------------------------------------------------
+
+[ build application { 
+    target = "dma_mgr",
+    architectures = [ "x86_64"],
+    cFiles = [ 
+        "dma_mgr.c",
+        "dma_mgr_svc.c",
+        "dma_mgr_drivers.c"
+    ],
+    flounderBindings = [ "dma_mgr" ]    
+  }  
+]

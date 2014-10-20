@@ -20,6 +20,7 @@
 #include <dispatch.h>
 #include <exec.h>
 #include <barrelfish_kpi/vmkit.h>
+#include <barrelfish_kpi/syscalls.h>
 
 #include <amd_vmcb_dev.h>
 
@@ -214,6 +215,33 @@ vmkit_switch_from (struct dcb *dcb)
 }
 
 void __attribute__ ((noreturn))
+vmkit_vmexec (struct dcb *dcb, lvaddr_t entry)
+{
+  dispatcher_handle_t handle = dcb->disp;
+  struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
+  lpaddr_t lpaddr = gen_phys_to_local_phys(dcb->guest_desc.ctrl.cap.u.frame.base);
+  struct guest_control *ctrl = (void *)local_phys_to_mem(lpaddr);
+  lpaddr = gen_phys_to_local_phys(dcb->guest_desc.vmcb.cap.u.frame.base);
+  amd_vmcb_t vmcb;
+  amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
+
+  memset(&ctrl->regs, 0, sizeof(struct registers_x86_64));
+  ctrl->regs.rdi = disp->udisp;
+  amd_vmcb_rip_wr(&vmcb, disp->dispatcher_run);
+  amd_vmcb_rsp_wr(&vmcb, 0);
+  amd_vmcb_rax_wr(&vmcb, 0);
+  amd_vmcb_rflags_wr_raw(&vmcb, USER_RFLAGS);
+  amd_vmcb_fs_selector_wr(&vmcb, 0);
+  amd_vmcb_gs_selector_wr(&vmcb, 0);
+  vmkit_vmenter(dcb);
+}
+
+struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                          uint64_t *args, uint64_t rflags, uint64_t rip);
+
+extern uint64_t user_stack_save;
+
+void __attribute__ ((noreturn))
 vmkit_vmenter (struct dcb *dcb)
 {
     lpaddr_t lpaddr = gen_phys_to_local_phys(dcb->guest_desc.ctrl.cap.u.frame.base);
@@ -237,10 +265,16 @@ vmkit_vmenter (struct dcb *dcb)
         amd_vmcb_cr3_wr(&vmcb, dcb->vspace);
     }
 
+ vmenter_loop:
+
+    /* printf("vmenter IN\n"); */
+
     // Enter the guest
     vmkit_switch_to(dcb);
     vm_exec(dcb);
     vmkit_switch_from(dcb);
+
+    /* printf("vmenter OUT\n"); */
 
     // Here we exited the guest due to some intercept triggered a vm exit
     // our state is automatically restored by SVM
@@ -248,16 +282,70 @@ vmkit_vmenter (struct dcb *dcb)
     uint64_t ec = amd_vmcb_exitcode_rd(&vmcb);
     /* We treat exits due to pysical interrupts (INTR, NMI, SMI) specially since
      * they need to be processed by the kernel interrupt service routines */
-    if (ec == VMEXIT_INTR || ec == VMEXIT_NMI || ec == VMEXIT_SMI) {
+    switch(ec) {
+    case VMEXIT_INTR:
+    case VMEXIT_NMI:
+    case VMEXIT_SMI:
+      {
+	arch_registers_state_t *area = NULL;
+
+	/* printf("INT at %" PRIx64 "\n", amd_vmcb_rip_rd(&vmcb)); */
 
         ctrl->num_vm_exits_without_monitor_invocation++;
+
+	// Store user state into corresponding save area
+	if(dispatcher_is_disabled_ip(dcb->disp, amd_vmcb_rip_rd(&vmcb))) {
+	  area = dispatcher_get_disabled_save_area(dcb->disp);
+	  dcb->disabled = true;
+	} else {
+	  area = dispatcher_get_enabled_save_area(dcb->disp);
+	  dcb->disabled = false;
+	}
+	memcpy(area, &ctrl->regs, sizeof(arch_registers_state_t));
+	area->rax = amd_vmcb_rax_rd(&vmcb);
+	area->rip = amd_vmcb_rip_rd(&vmcb);
+	area->rsp = amd_vmcb_rsp_rd(&vmcb);
+	area->eflags = amd_vmcb_rflags_rd_raw(&vmcb);
+	area->fs = amd_vmcb_fs_selector_rd(&vmcb);
+	area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+
         // wait for interrupt will enable interrupts and therefore trigger their
         // corresponding handlers (which may be the monitor)
         wait_for_interrupt();
-    } else {
+      }
+      break;
+
+    case VMEXIT_VMMCALL:
+      {
+	// Translate this to a SYSCALL
+	struct registers_x86_64 *regs = &ctrl->regs;
+	uint64_t args[10] = {
+	  regs->r10, regs->r8, regs->r9, regs->r12, regs->r13, regs->r14,
+	  regs->r15, amd_vmcb_rax_rd(&vmcb), regs->rbp, regs->rbx
+	};
+
+	/* printf("VMMCALL\n"); */
+
+	// Advance guest RIP to next instruction
+	amd_vmcb_rip_wr(&vmcb, amd_vmcb_rip_rd(&vmcb) + 3);
+	user_stack_save = amd_vmcb_rsp_rd(&vmcb);
+
+	struct sysret ret =
+	  sys_syscall(regs->rdi, regs->rsi, regs->rdx, args,
+		      amd_vmcb_rflags_rd_raw(&vmcb),
+		      amd_vmcb_rip_rd(&vmcb));
+
+	amd_vmcb_rax_wr(&vmcb, ret.error);
+	regs->rdx = ret.value;
+      }
+      goto vmenter_loop;
+
+    default:
         ctrl->num_vm_exits_with_monitor_invocation++;
         /* the guest exited not due to an interrupt but some condition the
          * monitor has to handle, therefore notify the monitor */
+
+	/* printf("OTHER\n"); */
 
         assert(dcb->is_vm_guest);
 
@@ -267,10 +355,11 @@ vmkit_vmenter (struct dcb *dcb)
         // call the monitor
         errval_t err = lmp_deliver_notification(&dcb->guest_desc.monitor_ep.cap);
         if (err_is_fail(err)) {
-            printk(LOG_ERR, "Unexpected error delivering VMM call");
+            printk(LOG_ERR, "Unexpected error delivering VMEXIT");
         }
 
         // run the monitor
         dispatch(dcb->guest_desc.monitor_ep.cap.u.endpoint.listener);
+	break;
     }
 }

@@ -15,6 +15,7 @@ module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
 import Path
 import qualified X86_64
+import qualified K1om
 import qualified X86_32
 import qualified SCC
 import qualified ARMv5
@@ -66,7 +67,7 @@ inDir af tf dir suffix =
 cInDir :: [String] -> String -> String -> [String]
 cInDir af tf dir = inDir af tf dir ".c"
 cxxInDir :: [String] -> String -> String -> [String]
-cxxInDir af tf dir = inDir af tf dir ".cpp"
+cxxInDir af tf dir = (inDir af tf dir ".cpp") ++ (inDir af tf dir ".cc")
 sInDir :: [String] -> String -> String -> [String]
 sInDir af tf dir = inDir af tf dir ".S"
 
@@ -78,6 +79,7 @@ sInDir af tf dir = inDir af tf dir ".S"
 
 options :: String -> Options
 options "x86_64" = X86_64.options
+options "k1om" = K1om.options
 options "x86_32" = X86_32.options
 options "scc" = SCC.options
 options "armv5" = ARMv5.options
@@ -87,6 +89,7 @@ options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
+kernelCFlags "k1om" = K1om.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "scc" = SCC.kernelCFlags
 kernelCFlags "armv5" = ARMv5.kernelCFlags
@@ -96,6 +99,7 @@ kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
+kernelLdFlags "k1om" = K1om.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "scc" = SCC.kernelLdFlags
 kernelLdFlags "armv5" = ARMv5.kernelLdFlags
@@ -171,6 +175,7 @@ kernelOptions arch = Options {
 cCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
+    | optArch opts == "k1om"    = K1om.cCompiler opts phase src obj
     | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
     | optArch opts == "scc"     = SCC.cCompiler opts phase src obj
     | optArch opts == "armv5"   = ARMv5.cCompiler opts phase src obj
@@ -190,6 +195,7 @@ cPreprocessor opts phase src obj
 cxxCompiler :: Options -> String -> String -> String -> [ RuleToken ]
 cxxCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cxxCompiler opts phase src obj
+    | optArch opts == "k1om"  = K1om.cxxCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C++ compiler for " ++ (optArch opts)) ]
 
 
@@ -200,6 +206,8 @@ makeDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDepend opts phase src obj depfile
     | optArch opts == "x86_64" =
         X86_64.makeDepend opts phase src obj depfile
+    | optArch opts == "k1om" =
+        K1om.makeDepend opts phase src obj depfile
     | optArch opts == "x86_32" =
         X86_32.makeDepend opts phase src obj depfile
     | optArch opts == "scc" =
@@ -220,11 +228,14 @@ makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken 
 makeCxxDepend opts phase src obj depfile
     | optArch opts == "x86_64" =
         X86_64.makeCxxDepend opts phase src obj depfile
+    | optArch opts == "k1om" =
+        K1om.makeCxxDepend opts phase src obj depfile        
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
 cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_64"  = X86_64.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "k1om"  = K1om.cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
     | optArch opts == "scc"     = SCC.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv5"   = ARMv5.cToAssembler opts phase src afile objdepfile
@@ -240,6 +251,7 @@ cToAssembler opts phase src afile objdepfile
 assembler :: Options -> String -> String -> [ RuleToken ]
 assembler opts src obj
     | optArch opts == "x86_64"  = X86_64.assembler opts src obj
+    | optArch opts == "k1om"  = K1om.assembler opts src obj
     | optArch opts == "x86_32"  = X86_32.assembler opts src obj
     | optArch opts == "scc"     = SCC.assembler opts src obj
     | optArch opts == "armv5"   = ARMv5.assembler opts src obj
@@ -252,6 +264,7 @@ assembler opts src obj
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
 archive opts objs libs name libname
     | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
+    | optArch opts == "k1om"  = K1om.archive opts objs libs name libname
     | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
     | optArch opts == "scc"     = SCC.archive opts objs libs name libname
     | optArch opts == "armv5"     = ARMv5.archive opts objs libs name libname
@@ -264,6 +277,7 @@ archive opts objs libs name libname
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
 linker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
+    | optArch opts == "k1om" = K1om.linker opts objs libs bin
     | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
     | optArch opts == "scc"    = SCC.linker opts objs libs bin
     | optArch opts == "armv5"  = ARMv5.linker opts objs libs bin
@@ -276,6 +290,7 @@ linker opts objs libs bin
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
 cxxlinker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
+    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --
@@ -745,6 +760,7 @@ linkCxx opts objs libs bin =
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
     | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
     | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
@@ -932,6 +948,60 @@ appBuildArch af tf args arch =
             )
 
 --
+-- Build an Arrakis application binary
+--
+
+arrakisapplication :: Args.Args
+arrakisapplication = Args.defaultArgs { Args.buildFunction = arrakisApplicationBuildFn }
+
+arrakisApplicationBuildFn :: [String] -> String -> Args.Args -> HRule
+arrakisApplicationBuildFn af tf args
+    | debugFlag && trace (Args.showArgs (tf ++ " Arrakis Application ") args) False
+        = undefined
+arrakisApplicationBuildFn af tf args =
+    Rules [ arrakisAppBuildArch af tf args arch | arch <- Args.architectures args ]
+
+arrakisAppGetOptionsForArch arch args =
+    (options arch) { extraIncludes =
+                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
+                     optIncludes = (optIncludes $ options arch) \\
+                         [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
+                     optFlags = ((optFlags $ options arch) ++ [ Str "-DARRAKIS" ]) \\
+                                [ Str f | f <- Args.omitCFlags args ],
+                     optCxxFlags = (optCxxFlags $ options arch) \\
+                                   [ Str f | f <- Args.omitCxxFlags args ],
+                     optSuffix = "_for_app_" ++ Args.target args,
+                     optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
+                               ((optLibs $ options arch) \\
+                                [ In InstallTree arch "/lib/libbarrelfish.a" ]),
+                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
+                     extraDependencies =
+                         [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
+                   }
+
+arrakisAppBuildArch af tf args arch =
+    let -- Fiddle the options
+        opts = arrakisAppGetOptionsForArch arch args
+        csrcs = Args.cFiles args
+        cxxsrcs = Args.cxxFiles args
+        appname = Args.target args
+        -- XXX: Not sure if this is correct. Currently assuming that if the app
+        -- contains C++ files, we have to use the C++ linker.
+        mylink = if cxxsrcs == [] then link else linkCxx
+    in
+      Rules ( flounderRules opts args csrcs
+              ++
+              [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
+              ++
+              [ compileCFiles opts csrcs,
+                compileCxxFiles opts cxxsrcs,
+                assembleSFiles opts (Args.assemblyFiles args),
+                mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
+              ]
+            )
+
+--
 -- Build a static library
 --
 
@@ -985,13 +1055,13 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- manually add dependencies for now (it would be better if each library
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
-libposixcompat_deps   = LibDeps [ LibDep "posixcompat", liblwip_deps,
+libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
                                   libvfs_deps_all, LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager", "contmng" ,"procon" , "net_if_raw", "bfdmuxvm"]
-libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps ]
+libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps]
 libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
                                   LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
 libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
@@ -1008,6 +1078,7 @@ vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
 
 libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
                                             VFS_FAT]
+libvfs_deps_nonfs      = LibDeps $ vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT]
 libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
 libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
 libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
@@ -1022,6 +1093,7 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 str2dep :: String -> LibDepTree
 str2dep  str
     | str == "vfs"           = libvfs_deps_all
+    | str == "vfs_nonfs"     = libvfs_deps_nonfs
     | str == "posixcompat"   = libposixcompat_deps
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
@@ -1045,6 +1117,10 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "net_queue_manager"
                   , "bfdmuxvm"
                   , "lwip"
+                  , "arranet"
+                  , "e1000n"
+                  , "e10k"
+                  , "e10k_vf"
                   , "contmng"
                   , "procon"
                   , "net_if_raw"

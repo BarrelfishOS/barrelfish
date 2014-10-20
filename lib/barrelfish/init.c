@@ -281,6 +281,19 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err_push(err, LIB_ERR_DOMAIN_INIT);
     }
 
+    // XXX: Record text/data mappings from environment
+    char *p = getenv("ARRAKIS_PMAP");
+    if(p != NULL) {
+        struct morecore_state *mcstate = get_morecore_state();
+        for(mcstate->v2p_entries = 0; *p != '\0'; mcstate->v2p_entries++) {
+            assert(mcstate->v2p_entries < MAX_V2P_MAPPINGS);
+            struct v2pmap *e = &mcstate->v2p_mappings[mcstate->v2p_entries];
+            int r = sscanf(p, "%" PRIxGENVADDR ":%" PRIxGENPADDR ":%zx ", &e->va, &e->pa, &e->size);
+            assert(r == 3);
+            p = strchr(p, ' ') + 1;
+        }
+    }
+
     return err;
 }
 

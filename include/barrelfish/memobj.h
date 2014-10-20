@@ -28,6 +28,7 @@ enum memobj_type {
     PINNED,
     ONE_FRAME_ONE_MAP,
     MEMOBJ_VFS, // see lib/vfs/mmap.c
+    MEMOBJ_FIXED,
 };
 
 typedef uint32_t memobj_flags_t;
@@ -97,6 +98,7 @@ struct memobj_frame_list {
     genpaddr_t offset;              ///< Offset into the frame
     struct capref frame;            ///< Capability of the frame
     size_t size;                    ///< Size of the frame
+    genpaddr_t pa;                  ///< XXX: physical address of frame
     struct memobj_frame_list *next;
 };
 
@@ -106,6 +108,19 @@ struct memobj_anon {
     struct slab_alloc vregion_slab;       ///< Slab to back the vregion list
     struct memobj_frame_list *frame_list; ///< List of frames tracked by the obj
     struct slab_alloc frame_slab;         ///< Slab to back the frame list
+};
+
+/**
+ * this memobj can be mapped into a single vregion and backed by a fixed number
+ * of equal sized frames
+ */
+struct memobj_fixed {
+    struct memobj    m;          ///< public memobj interface
+    size_t           count;      ///< the number of frames
+    size_t           chunk_size; ///< the size of the frames
+    struct vregion  *vregion;    ///< the associated vregion
+    struct capref   *frames;     ///< the tracked frames
+    size_t        *offsets;    ///< the offset into the tracked frames
 };
 
 errval_t memobj_create_pinned(struct memobj_pinned *memobj, size_t size,
@@ -124,6 +139,13 @@ errval_t memobj_create_one_frame_lazy(struct memobj_one_frame_lazy *memobj,
                                       struct capref frame, size_t chunk_size);
 errval_t memobj_create_one_frame_one_map(struct memobj_one_frame_one_map *memobj,
                                          size_t size, memobj_flags_t flags);
+
+
+errval_t memobj_create_fixed(struct memobj_fixed *memobj, size_t size,
+                             memobj_flags_t flags, size_t count,
+                             size_t chunk_size);
+
+errval_t memobj_destroy_fixed(struct memobj *memobj);
 
 __END_DECLS
 

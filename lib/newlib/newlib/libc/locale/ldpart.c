@@ -30,6 +30,7 @@
 #include <sys/stat.h>
 #include <sys/syslimits.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -51,6 +52,8 @@ __part_load_locale(const char *name,
 
 	static char		locale_buf_C[] = "C";
 	static int		num_lines;
+
+
 
 	int			 fd;
 	char			*lbuf;
@@ -76,6 +79,12 @@ __part_load_locale(const char *name,
 	if (!strcmp(name, "C") || !strcmp(name, "POSIX"))
 		return 0;
 
+	/* XXX: when adding cxx support the function failed to compile, so
+	 *      the missing functions below were commented out.
+	 *      adding this message here to abort and warn the user */
+    printf("__part_load_locale not implemented!\n");
+    abort();
+
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
@@ -99,15 +108,15 @@ __part_load_locale(const char *name,
 	strcat(filename, name);
 	strcat(filename, "/");
 	strcat(filename, category_filename);
-	fd = open(filename, O_RDONLY);
+	//fd = open(filename, O_RDONLY);
 	if (fd < 0)
 		goto no_locale;
 #ifdef __USE_INTERNAL_STAT64
 	if (fstat64(fd, &st) != 0)
 #else
-	if (fstat(fd, &st) != 0)
+	//if (fstat(fd, &st) != 0)
 #endif
-		goto bad_locale;
+	//	goto bad_locale;
 	if (st.st_size <= 0)
 		goto bad_locale;
 	bufsize = namesize + st.st_size;
@@ -118,7 +127,7 @@ __part_load_locale(const char *name,
             lbuf = malloc(bufsize);
           }
         else
-          { 
+          {
             nptr = realloc(lbuf, bufsize);
             if (!nptr && lbuf)
               free (lbuf);
@@ -130,10 +139,10 @@ __part_load_locale(const char *name,
 	(void) strcpy(lbuf, name);
 	p = lbuf + namesize;
 	plim = p + st.st_size;
-	if (read(fd, p, (size_t) st.st_size) != st.st_size)
-		goto bad_lbuf;
-	if (close(fd) != 0)
-		goto bad_lbuf;
+	//if (read(fd, p, (size_t) st.st_size) != st.st_size)
+	//	goto bad_lbuf;
+	//if (close(fd) != 0)
+	//	goto bad_lbuf;
 	/*
 	 * Parse the locale file into localebuf.
 	 */
@@ -161,7 +170,7 @@ reset_locale:
 bad_lbuf:
 	free(lbuf);
 bad_locale:
-	(void)close(fd);
+	//(void)close(fd);
 no_locale:
 	*using_locale = save_using_locale;
 	return -1;

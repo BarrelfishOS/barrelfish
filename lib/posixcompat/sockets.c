@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012, ETH Zurich.
+ * Copyright (c) 2011, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <errno.h>
+#include <unistd.h>
 #include <barrelfish/barrelfish.h>
 #include <lwip/sys.h>
 #include "posixcompat.h"
@@ -31,9 +32,12 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
             // XXX: Don't support flags
             assert(flags == 0);
 
+            thread_mutex_lock(&us->mutex);
+
             if(us->passive
                || us->u.active.mode != _UNIX_SOCKET_MODE_CONNECTED) {
                 errno = ENOTCONN;
+                thread_mutex_unlock(&us->mutex);
                 return -1;
             }
 
@@ -41,6 +45,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                 // No more data
                 if(us->nonblocking) {
                     errno = EAGAIN;
+                    thread_mutex_unlock(&us->mutex);
                     return -1;
                 } else {
                     struct waitset ws;
@@ -97,6 +102,7 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
                 }
             }
 
+            thread_mutex_unlock(&us->mutex);
             return recved;
         }
 
@@ -119,8 +125,28 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags)
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
                  struct sockaddr *src_addr, socklen_t *addrlen)
 {
-    assert(!"NYI");
-    return -1;
+    struct fdtab_entry *e = fdtab_get(sockfd);
+
+    switch(e->type) {
+    case FDTAB_TYPE_UNIX_SOCKET:
+        assert(!"NYI");
+        return -1;
+        break;
+
+    case FDTAB_TYPE_LWIP_SOCKET:
+        lwip_mutex_lock();
+        ssize_t ret = lwip_recvfrom(e->fd, buf, len, flags, src_addr, addrlen);
+        lwip_mutex_unlock();
+        return ret;
+
+    case FDTAB_TYPE_AVAILABLE:
+        errno = EBADF;
+        return -1;
+
+    default:
+        errno = ENOTSOCK;
+        return -1;
+    }
 }
 
 static void unixsock_sent(void *arg)
@@ -146,15 +172,19 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
             // XXX: Don't support flags
             assert(flags == 0);
 
+            thread_mutex_lock(&us->mutex);
+
             if(us->passive
                || us->u.active.mode != _UNIX_SOCKET_MODE_CONNECTED) {
                 errno = ENOTCONN;
+                thread_mutex_unlock(&us->mutex);
                 return -1;
             }
 
             if(us->send_buf != NULL) {
                 if(us->nonblocking) {
                     errno = EAGAIN;
+                    thread_mutex_unlock(&us->mutex);
                     return -1;
                 } else {
                     assert(!"NYI");
@@ -175,6 +205,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
                 send(us->u.active.binding, ec, us->send_buf, len);
             if(err_is_fail(err)) {
                 USER_PANIC_ERR(err, "unixsock->send");
+                thread_mutex_unlock(&us->mutex);
                 return -1;
             }
 
@@ -210,6 +241,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
             }
 
             // XXX: We send all or nothing
+            thread_mutex_unlock(&us->mutex);
             return len;
         }
 
@@ -232,8 +264,81 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
                const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-    assert(!"NYI");
-    return -1;
+    struct fdtab_entry *e = fdtab_get(sockfd);
+
+    switch(e->type) {
+    case FDTAB_TYPE_UNIX_SOCKET:
+        assert(!"NYI");
+        return -1;
+        break;
+
+    case FDTAB_TYPE_LWIP_SOCKET:
+        lwip_mutex_lock();
+        ssize_t ret = lwip_sendto(e->fd, buf, len, flags, dest_addr, addrlen);
+        lwip_mutex_unlock();
+        return ret;
+
+    case FDTAB_TYPE_AVAILABLE:
+        errno = EBADF;
+        return -1;
+
+    default:
+        errno = ENOTSOCK;
+        return -1;
+    }
+}
+
+ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+    struct fdtab_entry *e = fdtab_get(sockfd);
+
+    switch(e->type) {
+    case FDTAB_TYPE_UNIX_SOCKET:
+        assert(!"NYI");
+        return -1;
+        break;
+
+    case FDTAB_TYPE_LWIP_SOCKET:
+        assert(msg != NULL);
+        assert(msg->msg_control == NULL);
+        assert(msg->msg_controllen == 0);
+
+#if 0
+        // XXX: Copy all buffers into one. Should instead have an lwIP interface for this.
+        size_t totalsize = 0;
+        for(int i = 0; i < msg->msg_iovlen; i++) {
+            totalsize += msg->msg_iov[i].iov_len;
+        }
+
+        char *buf = malloc(totalsize);
+
+        size_t pos = 0;
+        for(int i = 0; i < msg->msg_iovlen; i++) {
+            memcpy(&buf[pos], msg->msg_iov[i].iov_base, msg->msg_iov[i].iov_len);
+            pos += msg->msg_iov[i].iov_len;
+        }
+
+        lwip_mutex_lock();
+        ssize_t ret = lwip_sendto(e->fd, buf, totalsize, flags,
+                                  msg->msg_name, msg->msg_namelen);
+        lwip_mutex_unlock();
+        free(buf);
+#else
+        lwip_mutex_lock();
+        ssize_t ret = lwip_sendmsg(e->fd, msg, flags);
+        lwip_mutex_unlock();
+#endif
+
+        return ret;
+
+    case FDTAB_TYPE_AVAILABLE:
+        errno = EBADF;
+        return -1;
+
+    default:
+        errno = ENOTSOCK;
+        return -1;
+    }
 }
 
 int socket(int domain, int type, int protocol)
@@ -270,6 +375,8 @@ int socket(int domain, int type, int protocol)
 
         e.type = FDTAB_TYPE_UNIX_SOCKET;
         e.handle = us;
+        e.inherited = false;
+        e.epoll_fd = -1;
         break;
 
     case AF_INET:
@@ -281,9 +388,11 @@ int socket(int domain, int type, int protocol)
             if(fd == -1) {
                 return fd;
             }
-			
+
             e.type = FDTAB_TYPE_LWIP_SOCKET;
             e.fd = fd;
+            e.inherited = false;
+            e.epoll_fd = -1;
         }
         break;
 
@@ -330,7 +439,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         int ret = lwip_bind(e->fd, addr, addrlen);
         lwip_mutex_unlock();
         return ret;
-		
+
     default:
         return -1;
     }
@@ -522,6 +631,8 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
                     struct fdtab_entry newe;
                     newe.type = FDTAB_TYPE_LWIP_SOCKET;
                     newe.fd = newfd;
+                    newe.inherited = false;
+                    newe.epoll_fd = -1;
 
                     newfd = fdtab_alloc(&newe);
                     POSIXCOMPAT_DEBUG("accept(%d, _, _) as fd %d\n", sockfd, newfd);
@@ -529,7 +640,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
                         return -1;
                     }
                 }
-			
+
                 return newfd;
             }
 
@@ -578,11 +689,11 @@ int getsockopt(int sockfd, int level, int optname, void *restrict optval,
             }
         }
 
-	case FDTAB_TYPE_LWIP_SOCKET:
-		lwip_mutex_lock();
-		int ret = lwip_getsockopt(e->fd, level, optname, optval, optlen);
-		lwip_mutex_unlock();
-		return ret;
+    case FDTAB_TYPE_LWIP_SOCKET:
+        lwip_mutex_lock();
+        int ret = lwip_getsockopt(e->fd, level, optname, optval, optlen);
+        lwip_mutex_unlock();
+        return ret;
 
     case FDTAB_TYPE_AVAILABLE:
         errno = EBADF;
@@ -600,7 +711,17 @@ int setsockopt(int sockfd, int level, int optname, const void *optval,
                socklen_t optlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
-    return lwip_setsockopt(e->fd, level, optname, optval, optlen);
+
+    switch(e->type) {
+    case FDTAB_TYPE_LWIP_SOCKET:
+        return lwip_setsockopt(e->fd, level, optname, optval, optlen);
+
+    default:
+        assert(!"NYI");
+        break;
+    }
+
+    return -1;
 }
 
 static void unixsock_bound(void *st, errval_t err, struct unixsock_binding *b)
@@ -684,11 +805,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
             return 0;
         }
 
-	case FDTAB_TYPE_LWIP_SOCKET:
-            lwip_mutex_lock();
-            int ret =  lwip_connect(e->fd, addr, addrlen);
-            lwip_mutex_unlock();
-            return ret;
+    case FDTAB_TYPE_LWIP_SOCKET:
+        lwip_mutex_lock();
+        int ret =  lwip_connect(e->fd, addr, addrlen);
+        lwip_mutex_unlock();
+        return ret;
 
     default:
         return -1;
@@ -826,6 +947,55 @@ int shutdown(int sockfd, int how)
  */
 int socketpair(int domain, int type, int protocol, int sockfd[2])
 {
-    assert(!"NYI");
-    return -1;
+    int sock;
+    struct sockaddr_un tmpaddr = {
+        .sun_family = AF_UNIX,
+    };
+
+    // Only support AF_UNIX sockets
+    if(domain != AF_UNIX) {
+        errno = EOPNOTSUPP;
+        return -1;
+    }
+
+    snprintf(tmpaddr.sun_path, 104, "/tmp/posixcompat.tmp.socket.%" PRIu64, rdtsc());
+
+    if((sockfd[0] = socket(domain, type, protocol)) == -1) {
+        return -1;
+    }
+    if((sockfd[1] = socket(domain, type, protocol)) == -1) {
+        return -1;
+    }
+
+    if(bind(sockfd[0], (struct sockaddr *)&tmpaddr, sizeof(tmpaddr)) != 0) {
+        close(sockfd[0]);
+        close(sockfd[1]);
+        return -1;
+    }
+
+    if(listen(sockfd[0], 1) != 0) {
+        close(sockfd[0]);
+        close(sockfd[1]);
+        return -1;
+    }
+
+    if(connect(sockfd[1], (struct sockaddr *)&tmpaddr, sizeof(tmpaddr)) != 0) {
+        close(sockfd[0]);
+        close(sockfd[1]);
+        return -1;
+    }
+
+    if((sock = accept(sockfd[0], NULL, NULL)) == -1) {
+        close(sockfd[0]);
+        close(sockfd[1]);
+        return -1;
+    }
+
+    // Delete listening socket and return connected socket
+    close(sockfd[0]);
+    sockfd[0] = sock;
+
+    // XXX: Should delete temporary socket name
+
+    return 0;
 }

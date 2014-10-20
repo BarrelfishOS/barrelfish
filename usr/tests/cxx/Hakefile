@@ -10,9 +10,31 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build application { target = "cxxtest",
-                      cxxFiles = [ "test.cpp" ],
-                      addLibraries = [ "vfs", "nfs", "ahci", "lwip", "timer" ],
-		      architectures = [ "x86_64" ]
-                    }
+[ build application { 
+    target = "cxxtest",
+    cxxFiles = [ 
+        "test.cpp",
+        "stl_list.cpp",
+        "stl_vector.cpp",
+        "stl_algorithms.cpp",
+        "stl_exceptions.cpp",
+        "stl_inheritance.cpp",
+        "stl_map.cpp",
+        "stl_templates.cpp",
+        "stl_threads.cpp",
+        "stl_io.cpp",
+        "cxx11.cpp"
+    ],
+    addLibraries = [ 
+        "vfs", 
+        "nfs", 
+        "ahci", 
+        "lwip", 
+        "timer" 
+    ],
+	architectures = [ 
+        "x86_64",
+        "k1om"
+    ]
+  }
 ]

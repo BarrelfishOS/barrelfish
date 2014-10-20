@@ -1,6 +1,7 @@
 if Config.libc == "newlib" then
 let
     arch_srcs "x86_64"  = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
+    arch_srcs "k1om"    = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
     arch_srcs "x86_32"  = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
     arch_srcs "scc"     = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
     arch_srcs "armv5"   = [ "machine/arm/setjmp.S" ]
@@ -30,8 +31,9 @@ in
     , "reent"
     , "errno"
     , "misc"
-    , "sys" ],
-  cFiles = arch_srcs arch,
+    , "sys"
+    , "machine" -- put this last, so machine-specific symbols overwrite generic ones
+    ],
   architectures = [arch]
 } | arch <- allArchitectures ]
 else []

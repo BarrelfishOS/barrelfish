@@ -1020,6 +1020,16 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
+        #if defined(__pandaboard__)
+        case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
+            retval.value = gt_read_low();
+            break;
+
+        case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
+            retval.value = gt_read_high();
+            break;
+        #endif
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
             retval.error = err_push(retval.error, SYS_ERR_ILLEGAL_SYSCALL);

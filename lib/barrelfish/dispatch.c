@@ -75,6 +75,13 @@ uint64_t disp_run_counter(void)
  */
 void disp_run(dispatcher_handle_t handle)
 {
+#ifdef __x86_64__
+    struct dispatcher_x86_64 *disp_priv = get_dispatcher_x86_64(handle);
+    /* load compatibility dispatcher segment to FS */
+    __asm volatile("mov %%ax, %%fs"
+                   : /* No outputs */
+                   : "a" (disp_priv->disp_seg_selector));
+#endif
     // We can't call printf(), so do this silly thing...
 //    assert_print("FIXME: infinite while loop\n");
 //    while(1);
@@ -250,6 +257,25 @@ const char *disp_name(void)
         get_dispatcher_shared_generic(handle);
     return disp->name;
 }
+
+
+#ifdef __k1om__
+/**
+ * \brief Returns the Xeon Phi ID this dispatcher is running on
+ *
+ * May be called when the dispatcher is either enabled or disabled.
+ *
+ * \returns unsigned integer containing the Xeon Phi Id
+ */
+uint8_t disp_xeon_phi_id(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_shared_generic* disp =
+        get_dispatcher_shared_generic(handle);
+    return disp->xeon_phi_id;
+}
+#endif
+
 
 /**
  * \brief Page fault entry point

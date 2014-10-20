@@ -53,7 +53,7 @@ Loop1:	add 	r2, r10, r10, lsr #1    // Work out 3xcachelevel
 Loop2:	mov	r9, r4                  // R9 working cpy of max way sz (rt al.)
 Loop3: 	orr 	r11, r10, r9, lsl r5    // factor way num., cache num. into R11
         orr 	r11, r11, r7, lsl r2    // factor in index number
-        mcr 	p15, 0, r11, c7, c10, 2 // clean by set/way
+        mcr 	p15, 0, r11, c7, c14, 2 // clean and invalidate by set/way
         subs 	r9, r9, #1             	// decrement way number
         bge	Loop3
         subs 	r7, r7, #1             	// decrement index
@@ -121,7 +121,7 @@ Loop12:
 Loop13:
 	orr r11, r10, r9, lsl r5    // factor way num. and cache number into R11
 	orr r11, r11, r7, lsl r2    // factor in index number
-	mcr p15, 0, r11, c7, c10, 2 // DCCSW, clean by set/way
+	mcr p15, 0, r11, c7, c14, 2 // DCCISW, clean and invalidate by set/way
 	subs r7, r7, #1             // decrement index
 	bge Loop13
 	subs r9, r9, #1             // decrement way number

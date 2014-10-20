@@ -68,7 +68,10 @@ struct x86_core_data {
     uint32_t    start_free_ram;
 
     uint32_t    chan_id;
-
+#ifdef __k1om__
+    struct xeon_phi_boot_params *bp;
+    uint8_t  xeon_phi_id;
+#endif
 #ifdef __scc__
     struct x86_coredata_modinfo    modinfo[10];
     struct x86_coredata_mmap       mmap[20];

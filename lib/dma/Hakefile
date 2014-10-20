@@ -1,0 +1,100 @@
+
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/dma and lib/dma_client
+-- 
+--------------------------------------------------------------------------
+
+[ build library { 
+    target = "dma",
+    cFiles = [
+      "dma_mem_mgr.c",
+      "dma_mem_utils.c",
+      "dma_mgr_client.c",
+      "dma_device.c",
+      "dma_channel.c",
+      "dma_request.c",
+      "dma_ring.c",
+      "dma_descriptor.c",
+      "dma_bench.c",
+      "ioat/ioat_dma_channel.c",
+      "ioat/ioat_dma_dca.c",
+      "ioat/ioat_dma_descriptors.c",
+      "ioat/ioat_dma_device.c",
+      "ioat/ioat_dma_request.c",
+      "ioat/ioat_dma.c",
+      "xeon_phi/xeon_phi_dma.c",
+      "xeon_phi/xeon_phi_dma_device.c",
+      "xeon_phi/xeon_phi_dma_channel.c",
+      "xeon_phi/xeon_phi_dma_request.c",
+      "xeon_phi/xeon_phi_dma_descriptors.c",
+      "client/dma_client_device.c",
+      "client/dma_client_channel.c",
+      "client/dma_client_request.c"
+    ],
+    addIncludes = [ "include" ],
+    addLibraries = libDeps [ "bench" ],
+    flounderBindings = [ "dma", "ioat_dma_mgr", "dma_mgr" ],
+    flounderDefs = [ "dma" ],
+    flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
+    mackerelDevices = [ 
+      "ioat_dma", 
+      "ioat_dma_chan", 
+      "xeon_phi/xeon_phi_dma", 
+      "xeon_phi/xeon_phi_dma_chan" ]
+  },
+  
+  build library { 
+    target = "dma_mgr_client",
+    cFiles = [ 
+      "dma_mgr_client.c" 
+    ],
+    addIncludes = [ "include" ],
+    flounderBindings = [ "dma_mgr" ],
+    flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ]
+  },
+  
+  build library { 
+    target = "dma_service",
+    cFiles = [ 
+      "dma_mgr_client.c", 
+      "dma_mem_mgr.c",
+      "dma_service.c" 
+    ],
+    addIncludes = [ "include" ],
+    flounderBindings = [ "dma", "dma_mgr" ],
+    flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
+    flounderDefs = [ "dma" ]
+  },
+  
+  build library { 
+    target = "dma_client",
+    cFiles = [
+      "dma_mem_mgr.c",
+      "dma_mem_utils.c",
+      "dma_mgr_client.c",
+      "dma_device.c",
+      "dma_channel.c",
+      "dma_request.c",
+      "dma_ring.c",
+      "dma_descriptor.c",
+      "dma_bench.c",
+      "client/dma_client_device.c",
+      "client/dma_client_channel.c",
+      "client/dma_client_request.c"
+    ],
+    addIncludes = [ "include" ],
+    addLibraries = libDeps [ "bench" ],
+    flounderBindings = [ "dma", "dma_mgr" ],
+    flounderDefs = [ "dma" ],
+    flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ]
+  }
+]
+
+

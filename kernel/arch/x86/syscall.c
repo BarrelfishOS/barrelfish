@@ -33,6 +33,8 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 {
     int r;
     switch(cpu_type) {
+    case CPU_K1OM :
+        /* fall through */
     case CPU_X86_64:
         r = start_aps_x86_64_start(core_id, entry);
         if (r != 0) {
@@ -66,7 +68,6 @@ struct sysret sys_io(struct capability *to, enum io_cmd cmd,
     }
 
     debug(SUBSYS_IO, "handle_io: IO cmd 0x%x to port 0x%" PRIx16 "\n", cmd, port);
-
     switch(cmd) {
     case IOCmd_Outb:
         outb(port, data);

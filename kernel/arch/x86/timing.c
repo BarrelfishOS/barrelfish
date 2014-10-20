@@ -22,10 +22,14 @@
 #include <arch/x86/global.h>
 #include <arch/x86/timing.h>
 
+#ifdef __k1om__
+#include <xeon_phi.h>
+#endif
+
 static uint32_t tickspersec = 0;
 static uint64_t tscperms = 0;
 
-#ifndef __scc__
+#if !defined(__scc__) && !defined(__k1om__)
 /**
  * \brief Calibrates local APIC timer against RTC.
  * \return Local APIC timer ticks per RTC second.
@@ -35,8 +39,8 @@ static uint32_t calibrate_apic_timer_rtc(void)
     // Set APIC timer to one-shot mode
     apic_timer_init(true, false);
     apic_timer_set_divide(xapic_by1);
-
     // Wait until start of new second
+
     uint8_t start = rtc_read_secs(), now;
     do {
         now = rtc_read_secs();
@@ -73,6 +77,36 @@ static uint32_t calibrate_apic_timer_rtc(void)
     return tps;
 }
 #endif
+
+#if defined(__k1om__)
+/**
+ * \brief Calibrates local APIC timer against RTC.
+ * \return Local APIC timer ticks per RTC second.
+ */
+static uint32_t calibrate_apic_timer_k1om(void)
+{
+    // Set APIC timer to one-shot mode
+    apic_timer_init(true, false);
+    apic_timer_set_divide(xapic_by1);
+    // Wait until start of new second
+
+    /*
+     * The Intel® Xeon PhiTM coprocessor has a SBox MMIO register that provides
+     * the current CPU frequency, which can be used to calibrate the LAPIC timer.
+     * The TOD clock has to be emulated in software to query the host OS for the
+     * time at bootup and then using the LAPIC timer interrupt to update it.
+     *
+     * COREFREQ = COREFREQ
+    */
+
+    /* TODO: mackerel */
+    volatile uint32_t *freq;
+    freq = (uint32_t*)local_phys_to_mem(XEON_PHI_SBOX_BASE + 0x4100);
+    printf("Core Frequency: %u\n", (*freq) & 0xFFF );
+    return (((*freq)&0xFFF) * 1000*1000 );
+}
+#endif
+
 
 #if 0
 /**
@@ -278,7 +312,11 @@ void timing_calibrate(void)
     } else {
 #ifndef __scc__
         if(apic_is_bsp()) {
+#ifdef __k1om__
+            tickspersec = calibrate_apic_timer_k1om();
+#else
             tickspersec = calibrate_apic_timer_rtc();
+#endif
             global->tickspersec = tickspersec;
         } else {
             tickspersec = global->tickspersec;

@@ -360,6 +360,11 @@ finish:
     }
 
 finish_no_ws_changed:
+    // Remove timeout from waitset if it was set
+    if(timeout != NULL) {
+        deferred_event_cancel(&timeout_event);
+    }
+
     err = waitset_destroy(&ws);
     if (err_is_fail(err)) {
         SELECT_DEBUG("Error destroying waitset.\n");

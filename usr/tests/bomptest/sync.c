@@ -56,9 +56,8 @@ int main(int argc, char *argv[])
 
   if(argc == 3) {
       nthreads = atoi(argv[2]);
-
-      backend_span_domain(nthreads, STACK_SIZE);
-      bomp_custom_init();
+      assert(!"REVISE!!!");
+      bomp_bomp_init(nthreads);
       omp_set_num_threads(nthreads);
   }
 
@@ -120,7 +119,7 @@ int main(int argc, char *argv[])
 #ifdef GANG_SCHEDULING
 #pragma omp parallel
   {
-      bomp_synchronize();
+   //   bomp_synchronize();
   }
 #endif
 

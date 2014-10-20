@@ -1,0 +1,90 @@
+----------------------------------------------------------------------
+-- Copyright (c) 2009, 2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /tools/elver
+--
+----------------------------------------------------------------------
+
+--
+-- This has to be rather low-level, since elver is indeed a module for
+-- x86_64, but is built for 32-bits, so it's easiest to do this rather
+-- explicitly.
+-- 
+let arch = "k1om"
+    opts = (options arch) { 
+             optFlags = [ Str s | s <- [ "-fno-builtin",
+                                "-nostdinc",
+                                "-std=c99",
+                                "-m64",
+                                "-fPIC", 
+                                "-e startup_32",
+                                "-mno-red-zone",
+                                "-mk1om",
+                                "-Wa,-march=k1om",
+                                "-fno-stack-protector",
+                                "-fomit-frame-pointer",
+                                "-U__linux__",
+                                "-D__k1om__",
+                                "-mk1om",
+                                "-Wall",
+                                "-Wshadow",
+                                "-Wstrict-prototypes",
+                                "-Wold-style-definition",
+                                "-Wmissing-prototypes",
+                                "-Wmissing-declarations",
+                                "-Wmissing-field-initializers",
+                                "-Wredundant-decls",
+                                "-Wno-packed-bitfield-compat",
+                                "-Wno-unused-but-set-variable",
+                                "-Werror",
+                                "-imacros deputy/nodeputy.h",
+                                "-fno-tree-vectorize",
+                                "-fno-builtin ",
+                                "-nostdlib ",
+                                "-mno-mmx",
+                                "-mno-sse",
+                                "-mno-sse2",
+                                "-mno-sse3",
+                                "-mno-sse4.1",
+                                "-mno-sse4.2",
+                                "-mno-sse4",
+                                "-mno-sse4a",
+                                "-mno-3dnow" ] ]
+                          ++ [ Str "-imacros",
+                               NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
+             optIncludes = [ NoDep SrcTree "src" "/include",
+                             NoDep SrcTree "src" "/include/oldc", 
+                             NoDep SrcTree "src" "/include/c", 
+                             NoDep SrcTree "src" "/include/arch/k1om",
+                             NoDep SrcTree "src" "/tools/weever",   
+                             NoDep BuildTree arch "/include" ],
+             optDependencies = [Dep BuildTree arch "/tools/weever/mbi.c"],                         
+             optDefines = [],
+             optLibs = [],
+             optLdFlags = [ Str s | s <- [ "-Wl,-N ",
+                                 "-fPIC ",
+                                 "-Wl,-melf_k1om ",
+                                 "-fno-builtin ",
+                                 "-nostdlib ",
+                                 "-Wl,--fatal-warnings ",
+                                 "-m64 ",
+                                 "-e startup_32",
+                                 "-Wl,--build-id=none" ] ] ++
+                                 [Str "-T", In SrcTree "src" "/tools/weever/linker.lds"], 
+             optSuffix = "_for_weever" 
+           }
+    objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c", "elf64.c" ] ]
+                ++ [generatedObjectFilePath opts "/tools/weever/mbi.c"]
+                                            
+in 
+  [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c" ],
+    compileGeneratedCFiles opts ["/tools/weever/mbi.c"],
+    assembleSFiles opts [ "boot.S" ],
+    link opts objs [] "weever_elf"
+  ]
+  

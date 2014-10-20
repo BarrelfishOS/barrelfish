@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_rdma.dev
+ *
+ * description: register definitions for the Xeon Phi RDMA registers
+ */
+
+device xeon_phi_rdma lsbfirst ( addr base ) "Intel Xeon Phi RDMA Registers" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GPRB_RESET
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray sr rw addr(base, 0xB180) [8] "Remote DMA registers 0-7" { 
+        value 32 "Value";
+    };
+
+
+};

@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009-2013 ETH Zurich.
+# Copyright (c) 2009-2014 ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -24,6 +24,10 @@ MAKEFLAGS=r
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 ARM_GCC?=arm-none-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
+K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
+
+# upload Xeon Phi images to nfs share (leave blank to cancel)
+BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/local/nfs/barrelfish/xeon_phi"
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -44,6 +48,95 @@ BIN_RCCE_BT= \
 	sbin/rcce_bt_A25 \
 	sbin/rcce_bt_A36
 
+# All test domains
+TESTS_COMMON= \
+	sbin/hellotest \
+	sbin/idctest \
+	sbin/memtest \
+	sbin/fread_test \
+	sbin/fscanf_test \
+	sbin/schedtest \
+	sbin/testerror \
+	sbin/yield_test \
+	sbin/fputest
+
+TESTS_x86_64= \
+	sbin/mdbtest_range_query \
+	sbin/mdbtest_addr_zero \
+	sbin/ata_rw28_test \
+	sbin/arrakis_hellotest \
+	sbin/socketpipetest \
+	sbin/spantest \
+	sbin/testconcurrent \
+	sbin/thcidctest \
+	sbin/thcminitest \
+	sbin/tweedtest \
+	sbin/thctest \
+	sbin/cxxtest \
+	sbin/testdesc \
+	sbin/testdesc-child \
+	sbin/multihoptest \
+	sbin/cryptotest \
+	sbin/net-test \
+	sbin/xcorecap \
+	sbin/xcorecapserv \
+	sbin/tlstest \
+	sbin/timer_test \
+	sbin/net_openport_test \
+	sbin/perfmontest \
+
+
+# All benchmark domains
+BENCH_COMMON= \
+	sbin/channel_cost_bench \
+	sbin/flounder_stubs_empty_bench \
+	sbin/flounder_stubs_buffer_bench \
+	sbin/flounder_stubs_payload_bench \
+	sbin/xcorecapbench
+
+BENCH_x86= \
+	sbin/udp_throughput \
+	sbin/ump_latency \
+	sbin/ump_exchange \
+	sbin/ump_latency_cache \
+	sbin/ump_throughput \
+	sbin/ump_send \
+	sbin/ump_receive \
+	sbin/thc_v_flounder_empty \
+	sbin/multihop_latency_bench
+
+BENCH_x86_64= \
+	$(BENCH_x86) \
+	sbin/bomp_benchmark_cg \
+	sbin/bomp_benchmark_ft \
+	sbin/bomp_benchmark_is \
+	sbin/mdb_bench \
+	sbin/mdb_bench_old \
+	sbin/ahci_bench \
+	sbin/apicdrift_bench \
+	sbin/bulkbench \
+	sbin/lrpc_bench \
+	sbin/placement_bench \
+	sbin/phases_bench \
+	sbin/phases_scale_bench \
+	sbin/shared_mem_clock_bench \
+	$(BIN_RCCE_BT) \
+	$(BIN_RCCE_LU) \
+	sbin/tsc_bench \
+	sbin/netthroughput \
+	sbin/xomp_test_cpp \
+	sbin/bulk_transfer_passthrough \
+	sbin/bulkbench_micro_echo \
+	sbin/bulkbench_micro_throughput \
+	sbin/bulkbench_micro_rtt
+
+BENCH_k1om=\
+	$(BENCH_x86)
+
+
+GREEN_MARL= \
+	sbin/gm_tc \
+
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
 	sbin/init_null \
@@ -52,53 +145,29 @@ MODULES_COMMON= \
 	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
-	sbin/flounder_stubs_empty_bench \
-	sbin/flounder_stubs_buffer_bench \
-	sbin/flounder_stubs_payload_bench \
-	sbin/hellotest \
 	sbin/mem_serv \
-	sbin/idctest \
-	sbin/memtest \
-	sbin/fread_test \
-	sbin/fscanf_test \
 	sbin/monitor \
-	sbin/ramfsd \
-	sbin/channel_cost_bench \
-	sbin/schedtest \
-	sbin/testerror \
-	sbin/yield_test \
-	sbin/xcorecap \
-	sbin/xcorecapserv \
-	sbin/xcorecapbench \
+	sbin/ramfsd
 
 # List of modules that are arch-independent and always built
 MODULES_GENERIC= \
 	skb_ramfs.cpio.gz \
-	sshd_ramfs.cpio.gz \
+	sshd_ramfs.cpio.gz
 
 # x86_64-specific modules to build by default
 # this should shrink as targets are ported and move into the generic list above
 MODULES_x86_64= \
+	sbin/elver \
 	sbin/cpu \
-	sbin/mdbtest_range_query \
-	sbin/mdbtest_addr_zero \
-	sbin/mdb_bench \
-	sbin/mdb_bench_old \
-	sbin/ahci_bench \
-	sbin/ata_rw28_test \
-	sbin/apicdrift_bench \
+	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
-	sbin/bomp_benchmark_cg \
-	sbin/bomp_benchmark_ft \
-	sbin/bomp_benchmark_is \
 	sbin/bomp_sync \
 	sbin/bomp_cpu_bound \
 	sbin/bomp_cpu_bound_progress \
 	sbin/bomp_sync_progress \
 	sbin/bomp_test \
 	sbin/boot_perfmon \
-	sbin/bulkbench \
 	sbin/datagatherer \
 	sbin/ahcid \
 	sbin/e1000n \
@@ -109,79 +178,62 @@ MODULES_x86_64= \
 	sbin/rtl8029 \
 	sbin/netd \
 	sbin/echoserver \
-	sbin/elver \
 	sbin/fbdemo \
 	sbin/fish \
-	sbin/fputest \
 	sbin/hpet \
 	sbin/lpc_kbd \
 	sbin/lpc_timer \
-	sbin/lrpc_bench \
 	sbin/mem_affinity \
 	sbin/mem_serv_dist \
-	sbin/net-test \
-	sbin/netthroughput \
 	sbin/elb_app \
 	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/placement_bench \
-	sbin/phases_bench \
-	sbin/phases_scale_bench \
 	sbin/phoenix_kmeans \
-	$(BIN_RCCE_BT) \
-	$(BIN_RCCE_LU) \
 	sbin/rcce_pingpong \
 	sbin/serial \
-	sbin/shared_mem_clock_bench \
-	sbin/sif \
-	sbin/slideshow \
-	sbin/spantest \
-	sbin/testconcurrent \
-	sbin/thc_v_flounder_empty \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/thctest \
-	sbin/tsc_bench \
-	sbin/tweedtest \
-	sbin/udp_throughput \
-	sbin/ump_latency \
-	sbin/ump_exchange \
-	sbin/ump_latency_cache \
-	sbin/ump_throughput \
-	sbin/ump_send \
-	sbin/ump_receive \
-	sbin/vbe \
-	sbin/vmkitmon \
-	sbin/webserver \
-	sbin/tlstest \
-	sbin/timer_test \
-	sbin/net_openport_test \
-	sbin/perfmontest \
-	sbin/routing_setup \
-	sbin/multihoptest \
-	sbin/multihop_latency_bench \
-	sbin/cryptotest \
-	$(BIN_CONSENSUS) \
-	sbin/bcached \
-	sbin/testdesc \
-	sbin/testdesc-child \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
+	sbin/sif \
+	sbin/slideshow \
+	sbin/vbe \
+	sbin/vmkitmon \
+	sbin/webserver \
+	sbin/routing_setup \
+	$(BIN_CONSENSUS) \
+	sbin/bcached \
+	sbin/spin \
+	sbin/xeon_phi_mgr \
+	sbin/xeon_phi \
+	sbin/dma_mgr \
+	sbin/ioat_dma \
+	sbin/virtio_blk_host \
+	sbin/virtio_blk \
+	sbin/xeon_phi_inter \
+	sbin/xeon_phi_test \
+	sbin/dma_test \
+	sbin/block_server \
+	sbin/block_server_client \
+	sbin/bs_user \
+	sbin/bulk_shm \
+
+MODULES_k1om= \
+    sbin/weever \
+	sbin/cpu \
+	sbin/xeon_phi \
+	xeon_phi_multiboot \
+	$(GREEN_MARL)
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
 	sbin/barriers \
-	sbin/driver_msd \
-	sbin/ehci \
 	sbin/ipi_bench \
 	sbin/ring_barriers \
-	sbin/usb_manager \
 	sbin/ssf_bcast \
-	sbin/lamport_bcast \
+	sbin/lamport_bcast
 
 # x86-32-specific module to build by default
 MODULES_x86_32=\
@@ -209,7 +261,7 @@ MODULES_x86_32=\
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
 	sbin/angler \
-	sbin/sshd \
+	sbin/sshd
 
 # SCC-specific module to build by default
 MODULES_scc=\
@@ -230,7 +282,7 @@ MODULES_scc=\
 	sbin/mem_serv_dist \
 	sbin/net-test \
 	sbin/netthroughput \
-	sbin/udp_throughput \
+	sbin/udp_throughput
 
 # ARM-specific modules to build by default
 MODULES_armv5=\
@@ -249,8 +301,7 @@ MODULES_armv7=\
 	sbin/usb_manager \
 	sbin/usb_keyboard \
 	sbin/kaluga \
-	sbin/fish \
-	sbin/examples/xmpl-spawn
+	sbin/fish
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -260,6 +311,10 @@ MODULES_arm11mp=\
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
                                   $(foreach m,$(MODULES_COMMON),$(a)/$(m))) \
+		$(foreach a,$(HAKE_ARCHS),$(foreach m,$(TESTS_$(a)),$(a)/$(m)) \
+		                          $(foreach m,$(TESTS_COMMON),$(a)/$(m))) \
+		$(foreach a,$(HAKE_ARCHS),$(foreach m,$(BENCH_$(a)),$(a)/$(m)) \
+                                  $(foreach m,$(BENCH_COMMON),$(a)/$(m))) \
         $(MODULES_GENERIC)
 
 all: $(MODULES) menu.lst
@@ -275,14 +330,32 @@ INSTALL_PREFIX ?= /home/netos/tftpboot/$(USER)
 
 # Only install a binary if it doesn't exist in INSTALL_PREFIX or the modification timestamp differs
 install: $(MODULES)
+	@echo ""; \
+	echo "Installing modules..." ; \
 	for m in ${MODULES}; do \
 	  if [ ! -f ${INSTALL_PREFIX}/$$m ] || \
 	      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then \
-	    echo Installing $$m; \
-	    mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
-	    install -p $$m ${INSTALL_PREFIX}/$$m; \
+	       if [ "$$m" != "k1om/xeon_phi_multiboot" ]; then \
+	         do_update=1; \
+	      	 echo "  > Installing $$m" ; \
+	    	 mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
+	    	 install -p $$m ${INSTALL_PREFIX}/$$m; \
+	       fi; \
 	  fi; \
-	done;
+	done; \
+	if [ ! $$do_update ]; then \
+		echo "  > All up to date" ; \
+	else \
+		if [ -f "k1om/xeon_phi_multiboot" ] && [ $(BARRELFISH_NFS_DIR)  ]; then \
+			echo ""; \
+			echo "Uploading to NFS share $(BARRELFISH_NFS_DIR) ..." ; \
+			scp k1om/xeon_phi_multiboot $(BARRELFISH_NFS_DIR); \
+			scp	k1om/sbin/weever $(BARRELFISH_NFS_DIR); \
+		fi; \
+	fi; \
+	echo ""; \
+	echo "done." ; \
+
 .PHONY : install
 
 sim: simulate
@@ -295,8 +368,12 @@ CLEAN_HD=
 DISK=hd.img
 AHCI=-device ahci,id=ahci -device ide-drive,drive=disk,bus=ahci.0 -drive id=disk,file=$(DISK),if=none
 
+MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
+	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
+	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
+
 ifeq ($(ARCH),x86_64)
-        QEMU_CMD=qemu-system-x86_64 -no-kvm -smp 2 -m 1024 -net nic,model=ne2k_pci -net user $(AHCI) -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
+    QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
 else ifeq ($(ARCH),x86_32)
@@ -306,7 +383,7 @@ else ifeq ($(ARCH),scc)
         QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),armv5)
-	ARM_QEMU_CMD=qemu-system-arm -no-kvm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
+	ARM_QEMU_CMD=qemu-system-arm -M integratorcp -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
 	GDB=xterm -e arm-linux-gnueabi-gdb
 simulate: $(MODULES) armv5/romfs.cpio
 	$(ARM_QEMU_CMD)
@@ -319,8 +396,12 @@ debugsim: $(MODULES) armv5/romfs.cpio armv5/tools/debug.arm.gdb
 	$(SRCDIR)/tools/debug.sh "$(ARM_QEMU_CMD) -initrd armv5/romfs.cpio" "$(GDB)" "-s $(ARCH)/sbin/cpu -x armv5/tools/debug.arm.gdb $(GDB_ARGS)"
 .PHONY : debugsim
 else ifeq ($(ARCH),arm11mp)
-	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
+	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
+else ifeq ($(ARCH), k1om)
+	# what is the emulation option for the xeon phi ?
+	QEMU=unknown-arch-error
+	GDB=x86_64-k1om-barrelfish-gdb
 endif
 
 
@@ -465,6 +546,43 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
 
 
+######################################################################
+#
+# Intel Xeon Phi Builds
+#
+######################################################################
+
+# we have to filter out the moduels that are generated below
+MODULES_k1om_filtered = $(filter-out xeon_phi_multiboot, \
+						$(filter-out sbin/weever,$(MODULES_k1om)))
+
+# Intel Xeon Phi-specific modules
+XEON_PHI_MODULES =\
+	$(foreach m,$(MODULES_COMMON),k1om/$(m)) \
+	$(foreach m,$(MODULES_k1om_filtered),k1om/$(m)) \
+	$(foreach m,$(BENCH_COMMON),k1om/$(m)) \
+	$(foreach m,$(TESTS_COMMON),k1om/$(m)) \
+	$(foreach m,$(BENCH_k1om),k1om/$(m)) \
+	$(foreach m,$(TESTS_k1om),k1om/$(m))
+
+menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
+	cp $< $@
+
+k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
+						 k1om/xeon_phi_multiboot \
+						 k1om/tools/weever/.marker
+	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
+
+k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
+	tools/bin/weever_creator ./k1om/sbin/weever.bin > ./k1om/sbin/weever
+
+k1om/sbin/weever.bin: k1om/sbin/weever_elf
+	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
+
+k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
+	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
+
+
 #######################################################################
 #
 # Pandaboard builds
@@ -483,6 +601,10 @@ PANDABOARD_MODULES=\
 	armv7/sbin/memtest \
 	armv7/sbin/kaluga \
 	armv7/sbin/fish \
+	armv7/sbin/sdma \
+	armv7/sbin/sdmatest \
+	armv7/sbin/sdma_bench \
+	armv7/sbin/bulk_sdma \
 	armv7/sbin/usb_manager \
 	armv7/sbin/usb_keyboard \
 	armv7/sbin/serial \

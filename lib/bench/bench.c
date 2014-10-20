@@ -103,6 +103,51 @@ cycles_t bench_variance(cycles_t *array, size_t len)
 }
 
 /**
+ * \brief computes the standard deviation s^2 of the sample data
+ *
+ * \param array         array of data to analyze
+ * \param len           size of the array
+ * \param correction    apply Bessel's correction (using N-1 instead of N)
+ * \param ret_avg       returns the average of the sample
+ * \param ret_stddev    returns the standard deviation squared of the sample
+ */
+void bench_stddev(cycles_t *array, size_t len, uint8_t correction,
+                  cycles_t *ret_avg, cycles_t *ret_stddev)
+{
+    cycles_t avg = bench_avg(array, len);
+
+    cycles_t sum = 0;
+    size_t count = 0;
+    /// discard some initiali observations
+    for (size_t i = len >> 3; i < len; i++) {
+        if (array[i] != BENCH_IGNORE_WATERMARK) {
+            cycles_t subsum = array[i] - avg;
+            sum += (subsum * subsum);
+            count++;
+        }
+    }
+
+
+
+    cycles_t std_dev = 0;
+    if (correction && count > 1) {
+        std_dev = sum / (count - 1);
+    } else {
+        std_dev = sum / count;
+    }
+
+    if (ret_avg) {
+        *ret_avg = avg;
+    }
+
+    if (ret_stddev) {
+        *ret_stddev = std_dev;
+    }
+}
+
+
+
+/**
  * \brief Compute minimum
  *
  * If certain datapoints should be ignored, they should be marked with

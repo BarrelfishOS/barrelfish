@@ -56,6 +56,9 @@ struct dispatcher_shared_generic {
     char        name[DISP_NAME_LEN];///< Name of domain, for debugging purposes
     uint32_t    fpu_used;               ///< Was FPU used while disabled?
     uint32_t    fpu_trap;               ///< State of FPU trap
+#ifdef __k1om__
+    uint8_t     xeon_phi_id;
+#endif
 };
 
 static inline struct dispatcher_shared_generic*

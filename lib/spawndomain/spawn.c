@@ -189,6 +189,7 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
 
     switch(si->cpu_type) {
     case CPU_X86_64:
+    case CPU_K1OM:
         err = vnode_create(si->vtree, ObjType_VNode_x86_64_pml4);
         break;
 
@@ -257,6 +258,9 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
     struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)binary;
 
     switch(head->e_machine) {
+    case EM_K1OM:
+        si->cpu_type = CPU_K1OM;
+        break;
     case EM_X86_64:
         si->cpu_type = CPU_X86_64;
         break;
@@ -331,10 +335,19 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Place core_id */
     disp_gen->core_id = core_id;
 
+    /* place eh information */
+    disp_gen->eh_frame = si->eh_frame;
+    disp_gen->eh_frame_size = si->eh_frame_size;
+    disp_gen->eh_frame_hdr = si->eh_frame_hdr;
+    disp_gen->eh_frame_hdr_size = si->eh_frame_hdr_size;
+
     /* Setup dispatcher and make it runnable */
     disp->udisp = spawn_dispatcher_base;
     disp->disabled = 1;
     disp->fpu_trap = 1;
+#ifdef __k1om__
+    disp->xeon_phi_id = disp_xeon_phi_id();
+#endif
 
     // Copy the name for debugging
     const char *copy_name = strrchr(name, '/');
@@ -564,7 +577,7 @@ static errval_t spawn_setup_fdcap(struct spawninfo *si,
 
     struct capref src;
     src.cnode = inheritcn;
-    src.slot  = INHERITCN_SLOT_FDSPAGE; 
+    src.slot  = INHERITCN_SLOT_FDSPAGE;
 
     // Create frame (actually multiple pages) for fds
     struct capref dest;
@@ -697,6 +710,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         return err_push(err, SPAWN_ERR_VSPACE_INIT);
     }
 
+    si->name = name;
     genvaddr_t entry;
     void* arch_info;
     /* Load the image */
@@ -722,7 +736,40 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_SETUP_ARGCN);
     }
- 
+
+    // Add vspace-pspace mapping to environment
+    char envstr[2048];
+#ifdef __x86__  // SK: si->vregions only valid on x86
+    snprintf(envstr, 2048, "ARRAKIS_PMAP=");
+    for(int i = 0; i < si->vregions; i++) {
+        struct memobj_anon *m = (struct memobj_anon *)si->vregion[i]->memobj;
+        assert(m->m.type == ANONYMOUS);
+        for(struct memobj_frame_list *f = m->frame_list; f != NULL; f = f->next) {
+            struct frame_identity id;
+            err = invoke_frame_identify(f->frame, &id);
+            assert(err_is_ok(err));
+
+            char str[128];
+            snprintf(str, 128, "%" PRIxGENVADDR ":%" PRIxGENPADDR ":%zx ", si->base[i] + f->offset, id.base, f->size);
+            strcat(envstr, str);
+        }
+    }
+#endif /* __x86__ */
+
+    char **myenv = (char **)envp;
+    for(int i = 0; i < MAX_ENVIRON_VARS; i++) {
+        if(i + 1 == MAX_ENVIRON_VARS) {
+            printf("spawnd: Couldn't set environemnt. Out of variables!\n");
+            abort();
+        }
+
+        if(myenv[i] == NULL) {
+            myenv[i] = envstr;
+            myenv[i+1] = NULL;
+            break;
+        }
+    }
+
     /* Setup cmdline args */
     err = spawn_setup_env(si, argv, envp);
     if (err_is_fail(err)) {
@@ -771,7 +818,7 @@ errval_t spawn_load_with_args(struct spawninfo *si, struct mem_region *module,
     /* Load the image */
     genvaddr_t entry;
     void* arch_info;
-
+    si->name = name;
     err = spawn_arch_load(si, binary, binary_size, &entry, &arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);
@@ -815,6 +862,7 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
         return err_push(err, SPAWN_ERR_ELF_MAP);
     }
 
+
     /* Determine cpu type */
     err = spawn_determine_cputype(si, binary);
     if (err_is_fail(err)) {
@@ -836,6 +884,7 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
     /* Load the image */
     genvaddr_t entry;
     void* arch_info;
+    si->name = name;
     err = spawn_arch_load(si, binary, binary_size, &entry, &arch_info);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_LOAD);

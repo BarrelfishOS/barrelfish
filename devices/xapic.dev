@@ -23,6 +23,13 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     _   24;
     id  8 "apic id";
   };
+  /*
+   * the xeon phi has a slighly different register layout than normal xapic
+   */
+  register id_xeon_phi rw also addr(base, 0x0020) "Local APIC ID (Xeon Phi)" {
+    _   23;
+    id  9 "apic id";
+  };
 
   // 8.4.8
   register version ro addr(base, 0x0030) "Local APIC Version" {
@@ -170,11 +177,24 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     _           24;
     dest        8 "Destination field";
   };
+  
+  /*
+   * the xeon phi has a slightly different register layout than normal apic
+   */
+  register icr_hi_xeon_phi rw also addr(base, 0x0310) "Interrupt Commmand (hi)" {
+    _           16;
+    dest        16 "Destination field";
+  };
 
   // 8.6.2
   register ldr rw addr(base, 0x00d0) "Logical Destination" {
     _           24;
     log_id      8 "Logical APIC ID";
+  };
+  
+  register ldr_xeon_phi rw also  addr(base, 0x00d0) "Logical Destination" {
+    _           16;
+    log_id      16 "Logical APIC ID";
   };
   constants model_type "Destination model type" {
     flat        = 0b1111;

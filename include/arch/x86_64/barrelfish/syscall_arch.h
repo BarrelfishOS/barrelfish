@@ -53,7 +53,8 @@
           "r" (a8), "r" (a9), "r" (a11), "r" (a12), "r" (syscall_num) \
         : "r11", "rcx");
 #else /* DEBUG */
-# define BF_SYSCALL_ASM(arg11, label) \
+# ifndef ARRAKIS
+#  define BF_SYSCALL_ASM(arg11, label) \
     __asm volatile("pushq %%rbp             \n\t"   \
                    "movq %%rcx, %%rbp       \n\t"   \
                    "syscall                 \n\t"   \
@@ -63,6 +64,18 @@
           "+r" (a3), "+r" (a4), "+r" (a5), "+r" (syscall_num)  \
         : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
         : "r11");
+#else
+#  define BF_SYSCALL_ASM(arg11, label) \
+    __asm volatile("pushq %%rbp             \n\t"   \
+                   "movq %%rcx, %%rbp       \n\t"   \
+                   "vmmcall                 \n\t"   \
+                   label                            \
+                   "popq %%rbp              \n\t"   \
+        : "+a" (a10_ret1), "+c" (arg11), "+d" (a2_ret2), "+r" (a1), \
+          "+r" (a3), "+r" (a4), "+r" (a5), "+r" (syscall_num)  \
+        : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
+        : "r11");
+#endif
 #endif
 
 /* NB: We use a10_ret (in the rax register) as both input and output

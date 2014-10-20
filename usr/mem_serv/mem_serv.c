@@ -29,8 +29,6 @@
 size_t mem_total = 0, mem_avail = 0;
 
 /* parameters for size of supported RAM and thus required storage */
-
-// XXX: Even though we could manage an arbitrary amount of RAM on any
 // architecture, we use paddr_t as the type to represent region
 // limits, which limits us its size.
 #if defined(__x86_64__)
@@ -68,7 +66,7 @@ static struct bootinfo *bi;
  *    #CNODE_BITS >= MAXCHILDBITS           (cnode enough for max branching factor)
  *    (1UL << #CNODE_BITS) ** 2 >= #NNODES  (total number of slots is enough)
  */
-#define CNODE_BITS      12
+#define CNODE_BITS      13
 #define NCNODES         (1UL << CNODE_BITS)     ///< Maximum number of CNodes
 
 /// Watermark at which we must refill the slab allocator used for nodes

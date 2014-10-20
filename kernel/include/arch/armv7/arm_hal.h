@@ -69,6 +69,19 @@ uint32_t tsc_read(void);
 uint32_t tsc_get_hz(void);
 
 /*
+ * Cortex A9 Global Timer
+ *
+ * XXX: In our code, these are only defined for the pandaboard. Not sure what
+ * is the case for other platforms.
+ */
+#if defined(__pandaboard__)
+void     gt_init(void);
+uint64_t gt_read(void);
+uint32_t gt_read_low(void);
+uint32_t gt_read_high(void);
+#endif
+
+/*
  * system control unit
  * only for multi-core
  */

@@ -1,0 +1,201 @@
+--- host/uos_download.orig.c	2014-04-17 17:31:40.071065688 +0200
++++ host/uos_download.c	2014-04-17 18:03:33.043070686 +0200
+@@ -67,6 +67,177 @@
+ #define RESET_FAILED_F2		12870
+ #define RESET_FAILED_F4		13382
+ 
++
++/**
++ * ==========================================================================
++ " Patched part for getting serial out from the xeon phi
++ */
++
++
++#define MSG_BOOT  ((0xB0 << 8) | 0x01)
++#define TASK_NAME_LENGTH 20
++#define XEON_PHI_BUFFER_LENGTH 1024
++#define XEON_PHI_POLL_GIVEUP 0xFF
++struct xeon_phi_recv {
++        struct task_struct *thread;
++        char task_name[TASK_NAME_LENGTH];
++        char buf[XEON_PHI_BUFFER_LENGTH+1];
++        uint32_t idx;
++        mic_ctx_t *mic_ctx;
++};
++
++static struct xeon_phi_recv recv_threads[8];
++
++union xeon_phi_message {
++        uint32_t val;
++        char c[4];
++};
++
++static int xeon_phi_recv_handler(void *arg)
++{
++        struct xeon_phi_recv *ts;
++        mic_ctx_t *mic_ctx;
++        uint32_t devid;
++        union xeon_phi_message data, ctrl;
++        uint32_t i, notready, nodata;
++	MIC_STATUS ms;
++        ts = (struct xeon_phi_recv *)arg;
++        mic_ctx = ts->mic_ctx;
++        devid = mic_ctx->bi_id;
++	ts->idx=0;
++	/* wait 10 seconds to give the system time to boot */
++	msleep(10000);	
++
++        printk("[xeon phi %d] : recv thread started.\n", devid);
++	SBOX_WRITE(0, mic_ctx->mmio.va, SBOX_SCRATCH8);
++
++	nodata = XEON_PHI_POLL_GIVEUP;
++	notready=0x1;
++        while(1) {
++		
++		ms = mic_ctx->state;
++		 if (!(ms == MIC_SHUTDOWN 
++                       	 || ms == MIC_BOOT
++                         || ms == MIC_ONLINE
++			 || ms == MIC_BOOTFAIL)
++                         || mic_ctx->mmio.va == 0) {
++			notready = !notready;
++			if (notready) {
++				msleep(500);				
++			} else {
++				yield();			
++			}
++                        continue;
++                } 	
++		ctrl.val = SBOX_READ(mic_ctx->mmio.va, SBOX_SCRATCH8);
++                if (!ctrl.val) {
++			if (--nodata) {
++				continue;
++			}
++			// reset counter
++			nodata = XEON_PHI_POLL_GIVEUP;
++			notready = !notready;
++			if (notready) {
++				msleep(100);
++			} else {
++				yield();
++			}
++                        continue;
++                }
++
++                i = 0;
++                data.val = SBOX_READ(mic_ctx->mmio.va, SBOX_SCRATCH15);
++                while(i < 4 && ctrl.c[i]) {
++			if (ctrl.c[i]&0x80) {
++				i++;
++				continue;
++			}
++			if (ctrl.c[i] != 0x7A) {
++				printk("[xeon phi %d] : ERROR invalid ctrl value.%x\n", devid,
++					 ctrl.c[i]);
++			}
++			/* always issue a new line */
++                        if (data.c[i] == '\n') {
++                                ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->idx = 0;
++			/* there was a "flush" so flush buffer to log */
++			} else if (data.c[i] == 0x4){
++				ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->idx = 0;
++			/* buffer is full, flush buffer */
++                        } else if (ts->idx == XEON_PHI_BUFFER_LENGTH){
++                                ts->buf[ts->idx] = '\0';
++                                printk("[xeon phi %d] : %s\n", devid, ts->buf);
++                                ts->buf[0] = data.c[i];
++                                ts->idx = 1;
++			/* just store the char */
++                        } else {
++                                ts->buf[ts->idx] = data.c[i];
++                                ts->idx++;
++                        }
++                        i++;
++                }
++		/* acknowledge the data receive */
++                SBOX_WRITE(0, mic_ctx->mmio.va, SBOX_SCRATCH8);
++        }
++
++	printk("[xeon phi %d] : thread terminated.\n ", devid);
++        return 0;
++}
++
++static void xeon_phi_setup_uart_threads(mic_ctx_t *mic_ctx)
++{
++        struct xeon_phi_recv *ts;
++        uint32_t devid;
++
++        devid = mic_ctx->bi_id;
++
++        printk("[xeon phpi %d] : Creating recv thread\n", devid);
++
++        ts = &(recv_threads[devid]);
++
++        memset(ts, 0, sizeof(struct xeon_phi_recv));
++
++        snprintf(ts->task_name, TASK_NAME_LENGTH, "[xeon phi] %d", devid);
++
++        ts->mic_ctx = mic_ctx;
++
++        ts->thread = kthread_create(xeon_phi_recv_handler, ts, ts->task_name);
++        if (!ts->thread) {
++                printk("FAILED: Creating recv thread for %d", devid);
++                return;
++        }
++        wake_up_process(ts->thread);
++}
++
++
++static void xeon_phi_stop_uart_thread(mic_ctx_t *mic_ctx)
++{
++	struct xeon_phi_recv *ts;
++	uint32_t devid;
++
++	devid = mic_ctx->bi_id;
++	ts = &(recv_threads[devid]);
++	
++	if (ts->thread) {	
++		printk("[xeon phi %d] : stopping receive thread\n", devid);
++		// todo: check return value
++		kthread_stop(ts->thread);
++	} else {
++		printk("[xeon phi %d] : no thread to stop ??\n", devid);
++	}
++	memset(ts, 0, sizeof(struct xeon_phi_recv));
++}
++
++
++/**
++ " End of Patch
++ * ==========================================================================
++ */
++
++
+ void ramoops_remove(mic_ctx_t *mic_ctx);
+ 
+ static struct proc_dir_entry *ramoops_dir;
+@@ -958,7 +1129,10 @@
+ adapter_stop_device(mic_ctx_t *mic_ctx, int wait_reset, int reattempt)
+ {
+ 	0;
+-
++	
++	// stop our thread don't call this here
++	//xeon_phi_stop_uart_thread(mic_ctx);
++	
+ 	micvcons_stop(mic_ctx);
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,34) || \
+ 	defined(RHEL_RELEASE_CODE)
+@@ -1516,6 +1690,8 @@
+ 	/* Determine the amount of compensation that needs to be applied to MIC's ETC timer */
+ 	calculate_etc_compensation(mic_ctx);
+ 
++	xeon_phi_setup_uart_threads(mic_ctx);
++
+ 	return 0;
+ 
+ adap_init_unmapmmio:

@@ -10,9 +10,30 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build library { target = "bomp", 
-                  cFiles = [ "bf_backend.c", "processing.c", "parallel.c", 
-                             "omp.c" ]
-                } 
+[ build library { 
+    target = "bomp", 
+    cFiles = concat [ find cInDir dir | dir <- [".", "backends"] ], 
+    addLibraries = [ 
+      "xeon_phi_client",
+      "dma_client",
+      "spawndomain", -- for address translation
+      "posixcompat", -- for gettimeofday
+      "bench"        -- for basic benchmarking
+    ],
+    addIncludes = [
+      "include"
+    ],
+    flounderDefs = [
+        "xomp"
+    ],
+    flounderBindings = [
+        "xomp",
+        "xomp_gateway"
+    ],
+    architectures = [
+      "x86_64", 
+      "k1om"
+    ]
+  }            
 ] 
 

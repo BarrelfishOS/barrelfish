@@ -45,6 +45,9 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <if/net_queue_manager_defs.h>
 #include <trace/trace.h>
+#ifdef LIBRARY
+#       include <netif/e1000.h>
+#endif
 
 #include "e1000n.h"
 
@@ -223,6 +226,18 @@ static uint64_t find_tx_free_slot_count_fn(void)
     return free_slots;
 }
 
+#ifdef LIBRARY
+bool e1000n_queue_empty(void)
+{
+    uint16_t tail, head;
+
+    tail = e1000_tdt_val_rdf(&(e1000), 0);
+    head = e1000_tdh_val_rdf(&(e1000), 0);
+
+    return (head == tail);
+}
+#endif
+
 /*****************************************************************
  * Transmit logic
  *
@@ -257,7 +272,6 @@ static bool handle_free_TX_slot_fn(void)
     txd = &transmit_ring[ether_transmit_bufptr];
     if (txd->ctrl.legacy.stat_rsv.d.dd != 1) {
         return false;
-
     }
 
 #if TRACE_ONLY_SUB_NNET
@@ -283,12 +297,26 @@ static bool handle_free_TX_slot_fn(void)
     e1000_dqval_t dqval = 0;
     struct tx_desc tdesc;
 
+    /*
+     * XXX: we should move on to non-legacy descriptors for the newer
+     *      devices at some point:
+     *
+     *      These descriptors should not be used when advanced features such as
+     *      virtualization are used. If legacy descriptors are used when
+     *      virtualization is enabled such as when TXSWC.Loopback enable or
+     *      STATUS.VFE or one of the TXSWC.MACAS bits or one of the TXSWC.VLANAS
+     *      bits are set, the packets are ignored and not sent.
+     */
     tdesc.buffer_address = buffer_address;
     tdesc.ctrl.raw = 0;
+#if E1000_USE_LEGACY_DESC
     tdesc.ctrl.legacy.data_len = packet_len;
     tdesc.ctrl.legacy.cmd.d.rs = 1;
     tdesc.ctrl.legacy.cmd.d.ifcs = 1;
     tdesc.ctrl.legacy.cmd.d.eop = (last ? 1 : 0);
+#else
+    assert(!"advanced descriptors not implemented yet.");
+#endif
 
     /* FIXME: the packet should be copied into separate location, so that
      * application can't temper with it. */
@@ -353,7 +381,6 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 } // end function: transmit_pbuf_list_fn
 
 
-
 static bool handle_next_received_packet(void)
 {
     volatile union rx_desc *rxd;
@@ -365,7 +392,6 @@ static bool handle_next_received_packet(void)
         return false;
     }
 
-//    E1000_DEBUG("Inside handle next packet 2\n");
     rxd = &receive_ring[receive_bufptr];
 
     if ((rxd->rx_read_format.info.status.dd) &&
@@ -486,11 +512,31 @@ static uint64_t handle_multiple_packets(uint64_t upper_limit)
  *
  * This function should never exit.
  ****************************************************************/
+#ifndef LIBRARY
 static void polling_loop(void)
+#else
+extern struct waitset *lwip_waitset;
+
+void arranet_polling_loop(void)
+{
+    errval_t err = event_dispatch_non_block(barrelfish_interrupt_waitset); // nonblocking
+    if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
+        E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
+                    (unsigned int)err);
+    }
+    // Give it a manual poll if there were no interrupts
+    if(err_no(err) == LIB_ERR_NO_EVENT) {
+        while(handle_free_TX_slot_fn());
+        handle_multiple_packets(1);
+    }
+}
+
+void e1000n_polling_loop(struct waitset *ws)
+#endif
 {
     uint64_t poll_count = 0;
     uint64_t ts;
-//    uint8_t jobless_iterations = 0;
+    uint8_t jobless_iterations = 0;
     errval_t err;
     bool no_work = true;
 
@@ -499,25 +545,34 @@ static void polling_loop(void)
         ++poll_count;
 
         ts = rdtsc();
+#ifndef LIBRARY
         do_pending_work_for_all();
+#endif
         netbench_record_event_simple(bm, RE_PENDING_WORK, ts);
 
+#ifndef LIBRARY
         struct waitset *ws = get_default_waitset();
+#endif
 
         if (use_interrupt) {
             err = event_dispatch_debug(ws); // blocking // doesn't work correctly
         } else {
             err = event_dispatch_non_block(ws); // nonblocking for polling mode
         }
-//        err = event_dispatch_non_block(ws); // nonblocking for polling mode
-//        err = event_dispatch(ws); // nonblocking for polling mode
-        if (err != LIB_ERR_NO_EVENT && err_is_fail(err)) {
-            E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
-                        (unsigned int)err);
-            break;
-        } else {
-            no_work = false;
+
+        switch(err_no(err)) {
+            case LIB_ERR_NO_EVENT:
+                /* no-op: letting no_work to be true */
+                break;
+            case SYS_ERR_OK:
+                no_work = false;
+                break;
+            default:
+                E1000_DEBUG("Error in event_dispatch_non_block, returned %s\n",
+                        err_getstring(err));
+                break;
         }
+        while(handle_free_TX_slot_fn());
 
 #if TRACE_ETHERSRV_MODE
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_POLL, poll_count);
@@ -527,25 +582,22 @@ static void polling_loop(void)
             no_work = false;
         }
 
-/*
-        err = event_dispatch_debug(ws); // blocking // doesn't work correctly
-        if (err_is_fail(err)) {
-            E1000_DEBUG("Error in event_dispatch_non_block, returned %d\n",
-                        (unsigned int)err);
-            break;
-        }
-*/
-
- /*       if (no_work) {
+        if (no_work) {
             ++jobless_iterations;
-            if (jobless_iterations == 10) {
-                if (use_interrupt) {
-                    E1000_DEBUG("no work available, yielding thread\n");
-                    thread_yield();
-                }
+            if (jobless_iterations == 5) {
+#ifndef LIBRARY
+                 if (!use_interrupt) {
+                     //E1000_DEBUG("no work available, yielding thread\n");
+                     thread_yield();
+                 }
+#else
+                /* E1000_DEBUG("no work available, returning\n"); */
+                return;
+#endif
             }
+        } else {
+            jobless_iterations = 0;
         }
-*/
     } // end while
 }
 
@@ -611,7 +663,6 @@ static void setup_internal_memory(void)
 }
 
 
-
 static errval_t rx_register_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 {
     return add_desc(paddr, opaque);
@@ -640,9 +691,13 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
 
     setup_internal_memory();
 
-
-
+#ifndef LIBRARY
     ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
+                  NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn, receive_buffer_size,rx_register_buffer_fn,
+                  rx_find_free_slot_count_fn);
+#else
+    ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,
 		  NULL,
                   transmit_pbuf_list_fn,
                   find_tx_free_slot_count_fn,
@@ -651,6 +706,7 @@ static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
                   rx_register_buffer_fn,
                   rx_find_free_slot_count_fn);
 
+#endif
 
 #if TRACE_ETHERSRV_MODE
     set_cond_termination(trace_conditional_termination);
@@ -686,8 +742,12 @@ static void e1000_interrupt_handler_fn(void *arg)
         return;
     }
 
+#ifndef LIBRARY
     E1000_DEBUG("e1000 interrupt came in\n");
     handle_multiple_packets(MAX_ALLOWED_PKT_PER_ITERATION);
+#else
+    handle_multiple_packets(1);
+#endif
 }
 
 
@@ -794,7 +854,7 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
         if (err_is_ok(err)) {
             e1000_mac_type_t check_mac_type = e1000_get_mac_type(ven, devid);
 
-            if (mac_type == e1000_undefined && check_mac_type != e1000_undefined) {
+            if (check_mac_type != e1000_undefined) {
                 E1000_DEBUG("Using device. vendor: 0x%"PRIx64", device id: 0%"PRIx64" function: 0%"PRIx64".\n", ven, devid, fun);
                 mac_type = check_mac_type;
                 bus = pcibus;
@@ -823,7 +883,11 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
  *
  *
  ****************************************************************/
+#ifndef LIBRARY
 int main(int argc, char **argv)
+#else
+int e1000n_driver_init(int argc, char **argv)
+#endif
 {
     char *service_name = 0;
     errval_t err;
@@ -832,8 +896,32 @@ int main(int argc, char **argv)
     E1000_DEBUG("e1000 standalone driver started.\n");
 
     E1000_DEBUG("argc = %d\n", argc);
-    for (int i = 0; i < argc; i++) {
+
+    /* try parse Kaluga information which is located at the last argument */
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor,
+                                 &deviceid, &bus, &device, &function);
+        if (parsed != 5) {
+            E1000_DEBUG("Driver seems not to be started by Kaluga.\n");
+            vendor = PCI_DONT_CARE;
+            deviceid = PCI_DONT_CARE;
+            bus = PCI_DONT_CARE;
+            device = PCI_DONT_CARE;
+            function = PCI_DONT_CARE;
+        } else {
+            use_force = true;
+            E1000_DEBUG("PCI Device (%u, %u, %u) Vendor: 0x%04x, Device 0x%04x\n",
+                        bus, device, function, vendor, deviceid);
+            // remove the last argument
+            argc--;
+        }
+    }
+
+    for (int i = 1; i < argc; i++) {
         E1000_DEBUG("arg %d = %s\n", i, argv[i]);
+        if (strcmp(argv[i], "auto") == 0) {
+            continue;
+        }
         if (strncmp(argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
             minbase = atol(argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", minbase);
@@ -866,7 +954,8 @@ int main(int argc, char **argv)
             if (parse_mac(mac_address, argv[i] + strlen("mac="))) {
                 user_mac_address = true;
                 E1000_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
-                            mac_address[0], mac_address[1], mac_address[2], mac_address[3], mac_address[4], mac_address[5]);
+                            mac_address[0], mac_address[1], mac_address[2],
+                            mac_address[3], mac_address[4], mac_address[5]);
             } else {
                 E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n", argv[i]);
                 exit(1);
@@ -878,7 +967,7 @@ int main(int argc, char **argv)
                  strcmp(argv[i], "--help") == 0) {
             exit_help(argv[0]);
         } else {
-            E1000_PRINT_ERROR("Error: unknown argument: %s.\n", argv[i]);
+            E1000_DEBUG("Parsed Kaluga device address %s.\n", argv[i]);
             //exit_help(argv[0]);
         }
     } // end for :
@@ -894,13 +983,12 @@ int main(int argc, char **argv)
         E1000_DEBUG("Setting service name to %s\n", service_name);
     }
 
-
     // There is a bug which breaks the interrupt handling if driver runs
     // on core zero.  So, trying to avoid that situation
     if(use_interrupt) {
         if(disp_get_core_id() == 0) {
-            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled, please choose different core\n",
-                    disp_name());
+            USER_PANIC("ERROR: Can't run [%s] on core-0 with interrupt enabled."
+                       "Please choose different core\n", disp_name());
             abort();
         }
     }
@@ -939,9 +1027,10 @@ int main(int argc, char **argv)
     e1000_device.device = &e1000;
     e1000_device.mac_type = mac_type;
     e1000_device.device_id = deviceid;
-    if (e1000_device.mac_type == e1000_82575 
+    if (e1000_device.mac_type == e1000_82575
         || e1000_device.mac_type == e1000_82576
-        || e1000_device.mac_type == e1000_I210) {
+        || e1000_device.mac_type == e1000_I210
+        || e1000_device.mac_type == e1000_I350) {
         // These cards do not have a bsex reg entry
         // therefore, we can't use 16384 buffer size.
         // If we use smaller buffers than 2048 bytes the
@@ -962,7 +1051,6 @@ int main(int argc, char **argv)
     assert(err_is_ok(err));
 
     if (use_interrupt) {
-
         err = pci_register_driver_irq(e1000_init_fn, class, subclass, program_interface,
                                       vendor, deviceid, bus, device, function,
                                       e1000_interrupt_handler_fn, NULL);
@@ -984,11 +1072,13 @@ int main(int argc, char **argv)
 
     e1000_print_link_status(&e1000_device);
 
+#ifndef LIBRARY
     E1000_DEBUG("#### starting polling.\n");
     // FIXME: hack to force the driver in polling mode, as interrupts are
     // not reliably working
     use_interrupt = false;
     polling_loop();
+#endif
 
     return 1;
 }

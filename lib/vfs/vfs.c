@@ -513,6 +513,8 @@ errval_t vfs_rmdir(const char *path)
     return m->ops->rmdir(m->st, relpath);
 }
 
+static uint8_t vfs_initialized = 0;
+
 /**
  * \brief Initialise the VFS library
  *
@@ -522,6 +524,10 @@ errval_t vfs_rmdir(const char *path)
  */
 void vfs_init(void)
 {
+    if (vfs_initialized) {
+        return;
+    }
+
     assert(mounts == NULL);
     errval_t err;
 
@@ -534,6 +540,8 @@ void vfs_init(void)
         DEBUG_ERR(err, "error mounting ramfs");
         // continue anyway...
     }
+
+    vfs_initialized = 0x1;
 }
 
 

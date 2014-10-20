@@ -52,7 +52,7 @@ x86_64_start_ap:
 	mov %ax,%ds
 	mov $(gdt_ptr - x86_64_start_ap),%si
 	lgdt (%si)
-        
+
         // Work around for M5's limited support for protected
         // mode.  Once in protected mode it will treat instruction
         // fetches as if ES is the segment selector.  Therefore
@@ -78,8 +78,13 @@ start_ap_pm:
 	mov $PROT_DS,%eax
 	mov %eax,%ds
 
+          mov $(x86_64_init_ap_wait - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET),%esi
+          movl $123, (%esi)
+
         // acquire start-up lock
 	mov $(x86_64_init_ap_lock - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET),%esi
+
+
 start_ap_spin:
 	xor %ax,%ax
 	lock bts %ax,(%esi)
@@ -99,11 +104,30 @@ rep_fill:
 	movl $0, init_ap_pdir - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET + 4(%ecx)
 	add $0x200000, %ebx
 	add $8, %ecx
-	cmp $4096 * 4, %ecx
+          cmp $4096 * 4, %ecx
 	jne rep_fill
 
-        // enable page address extension
-        mov %cr4,%eax
+#ifdef __k1om__
+	mov $0, %ecx
+          mov $PAGE_BITS, %ebx
+rep_mmio:
+          mov %ebx, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET(%ecx)
+          movl $0x8, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET + 4(%ecx)
+          add $0x200000, %ebx
+          add $8, %ecx
+          cmp $4096, %ecx
+          jne rep_mmio
+
+          // add mapping
+          mov $(init_ap_pdpt - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET), %ecx
+          add $256, %ecx
+          mov $(init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET), %ebx
+          addl $TABLE_BITS, %ebx
+          mov %ebx, (%ecx)
+#endif
+
+         // enable page address extension
+          mov %cr4,%eax
 	or $PAE,%eax
 	mov %eax,%cr4
 
@@ -133,20 +157,14 @@ rep_fill:
 	    .long start_ap_64 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET
 	    .word LONG_MODE_CS
 
-
-
-
-
 //start the 64bit long-mode code here
 
         .code64
 start_ap_64:
-	
+
 	// initialize bootup stack for the 64bit long mode
 	lea (start_ap_stack)(%rip), %rsp
 //        lea (kernel_stack + KERNEL_STACK_SIZE)(%rip), %rsp
-
-
 
 //we should not return here after the call, but for any case, use a call
 //instead of a jmp...
@@ -185,7 +203,7 @@ gdt:
         .byte 0xff,0xff,0x00,0x00,0x00,0x9a,0xaf,0x00 // 64bit code segment, D _cleared_ => "16bit"
         .byte 0xff,0xff,0x00,0x00,0x00,0x92,0xcf,0x00 // data
         .byte 0xff,0xff,0x00,0x00,0x00,0x9a,0xcf,0x00 // 32bit code segment for protected-mode
-	.byte 0xff,0xff,0x00,0x80,0x0b,0x92,0xff,0x00 // screen
+        .byte 0xff,0xff,0x00,0x80,0x0b,0x92,0xff,0x00 // screen
         .byte 0xff,0xff,0x00,0x60,0x00,0x9a,0xcf,0x00 // segment at linear address 0x6000
         .byte 0xff,0xff,0x00,0x00,0x00,0x92,0xaf,0x00 // stack segment in 64bit mode
 
@@ -204,11 +222,10 @@ init_ap_pml4:
 
 	.align X86_64_BASE_PAGE_SIZE
 init_ap_pdpt:
-	.quad (init_ap_pdir  - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
-	.quad (init_ap_pdir2 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
-	.quad (init_ap_pdir3 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
-	.quad (init_ap_pdir4 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
-	// Fill the rest with zeroes
+ /* 0 */	.quad (init_ap_pdir  - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
+ /* 1 */	.quad (init_ap_pdir2 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
+ /* 2 */	.quad (init_ap_pdir3 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
+ /* 3 */	.quad (init_ap_pdir4 - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET) + TABLE_BITS
 	.fill X86_64_BASE_PAGE_SIZE - (4 * 8), 1, 0
 
 	.align X86_64_BASE_PAGE_SIZE
@@ -227,6 +244,11 @@ init_ap_pdir3:
 init_ap_pdir4:
 	.fill X86_64_BASE_PAGE_SIZE, 1, 0
 
+#ifdef __k1om__
+	.align X86_64_BASE_PAGE_SIZE
+init_ap_pdirMMIO:
+          .fill X86_64_BASE_PAGE_SIZE, 1, 0
+#endif
         // the absolute destination address to the first C function in the kernel.
 	// The address is copied to this variable by start_aps_startall.
 	.global x86_64_init_ap_absolute_entry

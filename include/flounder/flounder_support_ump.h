@@ -29,6 +29,8 @@ __BEGIN_DECLS
 /// Special message types
 enum flounder_ump_msgtype {
     FL_UMP_ACK = 0,
+    FL_UMP_BIND = 1,
+    FL_UMP_BIND_REPLY = 2,
     FL_UMP_CAP_ACK = (1 << FL_UMP_MSGTYPE_BITS) - 1,
 };
 
@@ -71,8 +73,8 @@ static inline void flounder_stub_ump_control_fill(struct flounder_ump_state *s,
                                                   int msgtype)
 {
 #if ENABLE_MESSAGE_PASSING_TRACE
-    trace_event_raw((((uint64_t)0xEA)<<56) | 
-                    ((uint64_t)s->chan.sendid << 12) | 
+    trace_event_raw((((uint64_t)0xEA)<<56) |
+                    ((uint64_t)s->chan.sendid << 12) |
                     (s->next_id & 0xffff));
 #endif // ENABLE_MESSAGE_PASSING_TRACE
     assert(s->chan.sendid != 0);
@@ -87,8 +89,8 @@ static inline int flounder_stub_ump_control_process(struct flounder_ump_state *s
                                                     struct ump_control ctrl)
 {
 #if ENABLE_MESSAGE_PASSING_TRACE
-    trace_event_raw( (((uint64_t)0xEB)<<56) | 
-                     ((uint64_t)s->chan.recvid << 12) | 
+    trace_event_raw( (((uint64_t)0xEB)<<56) |
+                     ((uint64_t)s->chan.recvid << 12) |
                      (s->seq_id & 0xffff));
 #endif // ENABLE_MESSAGE_PASSING_TRACE
     s->ack_id = ctrl.header & UMP_INDEX_MASK;

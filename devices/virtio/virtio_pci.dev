@@ -1,0 +1,127 @@
+/*
+ * Copyright (c) 2012, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * virtio_pci.dev
+ *
+ * 4.1 Virtio Over PCI Bus
+ */
+ 
+device virtio_pci lsbfirst ( addr base, addr common ) "Virtio PCI Device Specification" {
+ 
+    constants vendor_id width(4) "VirtIO PCI vendor" {
+        virtio_vendor = 0x1AF4;
+    };
+ 
+    /*
+     * cap_vndr 0x09;
+     */
+    register vendor addr(base, 0x0) "Identifies a vendor-specific capability." {
+        vndr     8 "Vendor ID";
+    };
+    
+    register next  addr(base, 0x1) "Next Pointer" {
+        next     8 "Link to next capability in the capability list." ;  
+    };
+    
+    register length addr(base, 0x2) "Length of this capability structure" {
+        len      8 "Length";
+    };
+    
+    constants config_type width(8) "Configuration types" {
+        common  = 1 "Common configuration";
+        notify  = 2 "Notifications";
+        isr     = 3 "ISR Status";
+        devspec  = 4 "Device specific configuration";
+        pci_cfg = 5 "PCI configuration access";
+        
+    };
+    
+    register config addr(base, 0x3) "identifies the structure" {
+        cfg_type 8 "configuration type";
+    };
+    
+    register bar addr(base, 0x4) "Base Address register (BAR) belonging to the function located beginning" {
+        bar 8 "Base Address register (BAR)";
+    };
+    
+    register offset addr(base, 0x8) "beginning of the structure relative to the base address" {
+        off 32 "Offset";
+    };
+    
+    register length2 addr(base, 0xC) "indicates the length of the structure." {
+        len 32 "Length";
+    };
+    
+    
+    register device_feature_select addr(common, 0x0) "" {
+       reg 32 "todo";
+    };
+    
+    register device_feature addr(common, 0x4) "" {
+    reg 32 "todo";
+    };
+    
+    register driver_feature_select addr(common, 0x8) "" {
+    reg 32 "todo";
+    };
+    
+    register driver addr(common, 0xC) "" {
+    reg 32 "todo";
+    };
+    
+    register msix_config addr(common, 0x10) {
+    reg 16 "todo";
+    };
+    
+    register num_queues addr(common, 0x12) {
+    reg 16 "todo";
+    };
+          
+    register device_status addr(common, 0x14) {
+    reg 8 "todo";
+    };
+    
+    register config_generation addr(common, 0x15) {
+    reg 8 "todo";
+    };
+
+          register queue_select addr(common, 0x16) {
+             val 16 "";
+          };
+          
+          register queue_size addr(common, 0x18){
+             val 16 "";
+          };
+          
+          register queue_msix_vector addr(common, 0x1A){
+             val 16 "";
+          };
+          
+          register queue_enable addr(common, 0x1C){
+             val 16 "";
+          };
+          
+          register queue_notify_off addr(common, 0x1E){
+             val 16 "";
+          };
+          
+          register queue_desc addr(common, 0x20){
+             val 64 "";
+          };
+          
+          register queue_avail addr(common, 0x28){
+             val 64 "";
+          };
+          
+          register queue_used addr(common, 0x30){
+             val 64 "";
+          };
+    
+  
+ };

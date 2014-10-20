@@ -41,6 +41,15 @@ intf_bind_type ifn = ifscope ifn "binding"
 -- Variable used to refer to a binding
 intf_bind_var = "_binding"
 
+-- Name of the binding struct for an interface type
+intf_frameinfo_type :: String -> String
+intf_frameinfo_type ifn = ifscope ifn "frameinfo"
+
+-- Variable used to refer to a continuation
+intf_frameinfo_var = "_frameinfo"
+
+
+
 -- Name of the bind continuation function type for an interface type
 intf_bind_cont_type :: String -> String
 intf_bind_cont_type ifn = ifscope ifn "bind_continuation_fn"
@@ -131,6 +140,8 @@ intf_vtbl_type ifn RX = ifscope ifn "rx_vtbl"
 
 connect_callback_name n = ifscope n "connect_fn" 
 drv_connect_handler_name drv n = drvscope drv n "connect_handler"
+drv_connect_fn_name drv n = drvscope drv n "connect"
+drv_accept_fn_name drv n = drvscope drv n "accept"
 can_send_fn_name drv n = drvscope drv n "can_send"
 register_send_fn_name drv n = drvscope drv n "register_send"
 default_error_handler_fn_name drv n = drvscope drv n "default_error_handler"

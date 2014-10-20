@@ -1,0 +1,342 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_dma.dev
+ *
+ * description: register definitions for the Xeon Phi DMA
+ */
+
+device xeon_phi_dma lsbfirst(addr base) "Intel Xeon Phi DMA System" {
+
+    regarray dcar rw addr(base, 0xA000) [8; 0x40] "DMA Channel Attribute Register" {
+        _ 23 "";
+        apic_irq 1 "APIC Interrupt mask bit";
+        msix_irq 1 "MSI-X Interrupt mask bit";
+        irq_status 1 "Interrupt status";
+        _ 6 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dhpr rw addr(base, 0xA004) [8; 0x40] "DMA Descriptor Head Pointer Register" {
+        index 16 "Index of the head pointer";
+        _     16 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dtpr rw addr(base, 0xA008) [8; 0x40] "DMA Descriptor Tail Pointer Register" {
+        index 16 "Index of the head pointer";
+         _    16 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray aux_lo rw addr(base, 0xA00C) [8; 0x40] "DMA Auxiliary Register 0 Lo" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray aux_hi rw addr(base, 0xA010) [8; 0x40] "DMA Auxiliary Register 0 Hi" {
+        r 32 "";
+    };
+
+    constants drar_shifts "Shift amounts for the field values" {
+        drar_size_shift=2;
+        drar_base_shift=6;
+    };
+   
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray drar_hi rw addr(base, 0xA018) [8; 0x40] "DMA Descriptor Ring Attributes Register Lo" {
+        base     4 "base address hi part";
+        _        2 "";  
+        size    15 "size of the descriptor ring";
+        page     5 "";
+        sysbit   1 "";
+        _        5 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray drar_lo rw addr(base, 0xA014) [8; 0x40] "DMA Descriptor Ring Attributes Register Lo" {
+        _        6 "";
+        base    26 "base address lo part";
+    };
+    
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray ditr rw addr(base, 0xA01C) [8; 0x40] "DMA Interrupt Timer Register" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dstat rw addr(base, 0xA020) [8; 0x40] "DMA Status Channel Register" {
+        completions 16 "Completition count";
+        _           16 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dstatwb_lo rw addr(base, 0xA024) [8; 0x40] "DMA Tail Pointer Write Back Register Lo" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dstatwb_hi rw addr(base, 0xA028) [8; 0x40] "DMA Tail Pointer Write Back Register Hi" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dcherr rw addr(base, 0xA02C) [8; 0x40] "DMA Channel Error Register" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    regarray dcherrmsk rw addr(base, 0xA030) [8; 0x40] "DMA Channel Error Register Mask" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dcr rw addr(base, 0xA280) "DMA Configuration Register" {
+        co0 1 "DMA Channel 0 Owner";
+        ce0 1 "DMA Channel 0 Enable";
+        co1 1 "DMA Channel 1 Owner";
+        ce1 1 "DMA Channel 1 Enable";
+        co2 1 "DMA Channel 2 Owner";
+        ce2 1 "DMA Channel 2 Enable";
+        co3 1 "DMA Channel 3 Owner";
+        ce3 1 "DMA Channel 3 Enable";
+        co4 1 "DMA Channel 4 Owner";
+        ce4 1 "DMA Channel 4 Enable";
+        co5 1 "DMA Channel 5 Owner";
+        ce5 1 "DMA Channel 5 Enable";
+        co6 1 "DMA Channel 6 Owner";
+        ce6 1 "DMA Channel 6 Enable";
+        co7 1 "DMA Channel 7 Owner";
+        ce7 1 "DMA Channel 7 Enable";
+        arb_h 8 "Arb H";
+        arb_l 7 "Arb L";
+        p 1 "Priority EN";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dqar rw addr(base, 0xA284) "Descriptor Queue Access Register" {
+        r 32 "";    
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dqdr_tl rw addr(base, 0xA288) "Descriptor Queue Data Register Top Left" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dqdr_tr rw addr(base, 0xA28C) "Descriptor Queue Data Register Top Right" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dqdr_bl rw addr(base, 0xA290) "Descriptor Queue Data Register Bottom Left" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register dqdr_br rw addr(base, 0xA294) "Descriptor Queue Data Register Bottom Right" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register misc rw addr(base, 0xA2A4) "Misc DMA Bits" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     */
+    register lock rw addr(base, 0xA400) "Master Lock Register" {
+        r 32 "";
+    };
+
+    /*
+     * Xeon Phi Descriptors
+     * 16 bytes in length
+     *
+     */
+
+    constants descriptor_type width(4) "" {
+        desc_nop=0;
+        desc_memcpy=1;
+        desc_status = 2;
+        desc_general = 3;
+        desc_keynoncecent = 4;
+        desc_key = 5;
+    };
+
+    datatype desc_nop "No-Op descriptor type" {
+        _     124 "";
+        dtype   4 "Descriptor type";
+    };
+
+    datatype desc_memcpy "Memory Copy descriptor type" {
+        src    40 "Source address";
+        index   3 "";
+        _       3 "";
+        length 14 "";
+        _       4 "";
+        dst    40 "Destination address";
+        resd   15 "";
+        twb     1 "";
+        intr    1 "";
+        c       1 "";
+        co      1 "";
+        ecy     1 "";
+        dtype   4 "";
+    };
+
+    datatype desc_status "Status request descritpor type" {
+        data   64 "";
+        dst    40 "";
+        resvdr 19 "";
+        intr    1 "";
+        dtype   4 "";
+    };
+    
+    datatype desc_general "General descriptor type" {
+        data    32 "";
+        _       32 "";
+        dst     40 "";
+        _       20 "";
+        dtype     4 "";        
+    };
+    
+    datatype desc_keynoncecent "" {
+        data  64 "";
+        _     53 "";
+        cs     1 "";
+        index  3 "";
+        h      1 "";
+        sel    2 "";
+        dtype   4 "";   
+    };
+
+    datatype desc_key "" {
+        skap 40 "";
+        ski   3 "";
+        _    72 "";
+        di    3 "";
+        _     6 "";
+        dtype  4 "";
+    };
+    
+};

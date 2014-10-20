@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_smpt.dev
+ *
+ * description: register definitions for the Xeon Phi software scratch registers
+ */
+
+device xeon_phi_scratch lsbfirst ( addr base ) "Intel Xeon Phi Software Scratch Registers" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     * Number: 16
+     */
+    regarray scratch rw addr(base, 0xAB20) [16] "Software Scratch Registers 0-15" { 
+        value 32 "Value";
+    };
+
+
+};

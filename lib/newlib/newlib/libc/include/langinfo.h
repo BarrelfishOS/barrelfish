@@ -35,7 +35,7 @@
 
 typedef int nl_item;
 
-enum __nl_item
+enum _nl_item
 {
   /* POSIX and BSD defined items have to stick to the original values
      to maintain backward compatibility. */
@@ -179,7 +179,7 @@ enum __nl_item
 #ifdef __HAVE_LOCALE_INFO_EXTENDED__
 
   /* NOTE:
-  
+
      Always maintain the order and position of existing entries!
      Always append new entry to the list, prior to the definition
      of _NL_LOCALE_EXTENDED_LAST_ENTRY. */

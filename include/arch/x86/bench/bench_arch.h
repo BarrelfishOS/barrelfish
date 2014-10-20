@@ -18,7 +18,11 @@
 #include <stdbool.h>
 #include <sys/cdefs.h>
 
+#if defined(__k1om__)
+#include <barrelfish_kpi/asm_inlines_arch.h>
+#else
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
+#endif
 #include <bench/bench.h>
 
 __BEGIN_DECLS
@@ -39,6 +43,9 @@ static inline cycles_t bench_tsc(void)
 }
 
 uint64_t bench_tsc_to_ms(cycles_t tsc);
+uint64_t bench_tsc_to_us(cycles_t tsc);
+uint64_t bench_tsc_per_us(void);
+uint64_t bench_tsc_per_ms(void);
 __END_DECLS
 
 #endif // ARCH_X86_64_BARRELFISH_BENCH_H

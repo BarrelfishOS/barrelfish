@@ -1,0 +1,99 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_smpt.dev
+ *
+ * description: register definitions for the Xeon Phi system memory page tables
+ */
+
+device xeon_phi_mcheck lsbfirst ( addr base ) "Intel Xeon Phi Machine Check Registers" {
+
+    
+  
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register ctl_lo rw addr(base, 0x3090) "MCX Control Lo" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register ctl_hi rw addr(base, 0x3094) "MCX Control Hi" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register status_lo rw addr(base, 0x3098) "MCX Status Lo" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register status_hi rw addr(base, 0x309C) "MCX Status Hi" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register addr_lo rw addr(base, 0x30A0) "MCX Address Lo" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */
+    register addr_hi rw addr(base, 0x30A4) "MCX Address Hi" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */ 
+    register misc rw addr(base, 0x30A8) "Machine Check Misc" {
+        reg 32 "";
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPA_PWRGD
+     * Register Access: CRU, TRM
+     */ 
+    register misc2 rw addr(base, 0x30AC) "Machine Check Misc 2" {
+    	reg 32 "";
+    };
+
+};

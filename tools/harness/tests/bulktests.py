@@ -25,9 +25,15 @@ class BulkTestCommon(TestCommon):
         return targets
 
     def run(self, build, machine, testdir):
-        # compute two core IDs on different sockets to benchmark between
-        sendcore = machine.get_coreids()[0]
-        recvcore = machine.get_coreids()[machine.get_cores_per_socket()]
+        if machine.get_ncores() == machine.get_cores_per_socket():
+            # single-socket machine, pick first and last core
+            sendcore = machine.get_coreids()[0]
+            recvcore = machine.get_coreids()[-1]
+        else:
+            # compute two core IDs on different sockets to benchmark between
+            sendcore = machine.get_coreids()[0]
+            # first core on 2nd socket
+            recvcore = machine.get_coreids()[machine.get_cores_per_socket()]
     
         # Iterate over all bulk block sizes
         for i in [2048]:

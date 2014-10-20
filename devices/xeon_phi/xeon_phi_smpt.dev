@@ -1,0 +1,55 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_smpt.dev
+ *
+ * description: register definitions for the Xeon Phi system memory page tables
+ *
+ *   #define BUILD_SMPT(NO_SNOOP, HOST_ADDR)  \
+	(uint32_t)(((((HOST_ADDR)<< 2) & (~0x03)) | ((NO_SNOOP) & (0x01))))
+	
+    constants 
+    
+    #define SMPT_MASK 		0x1F
+    #define MIC_SYSTEM_PAGE_SHIFT 	34ULL
+    #define MIC_SYSTEM_PAGE_MASK 	((1ULL << MIC_SYSTEM_PAGE_SHIFT) - 1ULL)
+    
+    micscif_smpt.c/.h
+ */
+
+device xeon_phi_smpt lsbfirst ( addr base ) "Intel Xeon Phi System Memory Page Tables" {
+
+    constants snooping "System Snooping Control" {
+        snooping_enabled  = 0  "Enable Snooping";
+        snooping_disabled = 1  "Disabled Snooping";
+    };
+    
+    constants system_page "System Page Constants" {
+    	system_page_size  = 0x400000000 "Size of a System Memory Page (16GB)";
+    	system_page_num   = 32 			"The number of system memory pages";
+    	system_page_shift = 34			"The amount of bits to shift"; 
+    	system_page_mask  = 0x1F        "System memory page mask";
+    };
+    
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     * Number: 32
+     */
+    regarray entry rw addr(base, 0x3100) [32] "System Memory Page Table Entry" {
+        snoop_disabled 1 type(snooping) "Disable snooping";
+        _              1 "Reserved";
+        host_address  30 "High 32bit of the host address";
+    };
+
+
+};

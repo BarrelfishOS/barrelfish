@@ -72,6 +72,18 @@ struct dispatcher_generic {
 
     /// Domain ID cache
     domainid_t domain_id;
+
+    /// virtual address of the eh_frame
+    lvaddr_t eh_frame;
+
+    /// size of the eh frame
+    size_t   eh_frame_size;
+
+        /// virtual address of the eh_frame
+    lvaddr_t eh_frame_hdr;
+
+    /// size of the eh frame
+    size_t   eh_frame_hdr_size;
 };
 
 #endif // BARRELFISH_DISPATCHER_H

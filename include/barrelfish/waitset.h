@@ -25,6 +25,7 @@ __BEGIN_DECLS
 #include <errors/errno.h>
 
 #include <stdbool.h>
+#include <barrelfish/types.h>
 
 struct waitset;
 struct thread;
@@ -54,6 +55,7 @@ enum ws_chantype {
     CHANTYPE_FLOUNDER,
     CHANTYPE_AHCI,
     CHANTYPE_LWIP_SOCKET,
+    CHANTYPE_BULK_E10K,
     CHANTYPE_OTHER
 };
 

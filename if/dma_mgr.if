@@ -1,0 +1,63 @@
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface dma_mgr "DMA Manager Interface" {
+    
+    /**
+     * \brief registers a driver with the DMA device manager
+     * 
+     * \param IN  mem_low     low end of the supported memory range
+     * \param IN  mem_high    high end of the supported memory range
+     * \param IN  numa_node   numa node the domain is running on
+     * \param IN  type        the driver type
+     * \param IN  svc_iref    iref of the exported service
+     * \param OUT msgerr      the result of the operation
+     */
+    rpc register_driver(in  uint64 mem_low, 
+                        in  uint64 mem_high, 
+                        in  uint8 numa_node, 
+                        in  uint8 type,
+                        in  iref svc_iref, 
+                        out errval msgerr);
+    
+    /**
+     * \brief queries the DMA device manager if there is a service with the
+     *        needed memory range
+     * 
+     * \param IN  base        low end of the supported memory range
+     * \param IN  size        size of the memory region
+     * \param IN  numa_node   numa node the domain is running on
+     * \param OUT msgerr      the result of the operation
+     * \param OUT driver_info information about the driver
+     */
+    rpc lookup_driver(in uint64 base,
+                      in uint64 size,
+                      in uint8 numa,
+                      out errval msgerr,
+                      out uint64 mem_low, 
+                      out uint64 mem_high, 
+                      out uint8 numa_node, 
+                      out uint8 type,
+                      out iref svc_iref);
+    
+    /**
+     * \brief queries the DMA device manager if there is a service with the
+     *        needed memory range
+     * 
+     * \param IN  iref        low end of the supported memory range
+     * \param OUT msgerr      the result of the operation
+     * \param OUT driver_info information about the driver
+     */
+    rpc lookup_driver_by_iref(in iref iref,
+                              out errval msgerr,
+                              out uint64 mem_low, 
+                              out uint64 mem_high, 
+                              out uint8 numa_node, 
+                              out uint8 type); 
+};

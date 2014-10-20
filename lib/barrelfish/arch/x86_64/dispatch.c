@@ -185,7 +185,7 @@ disp_switch(dispatcher_handle_t handle, arch_registers_state_t *from_state,
                       [disp] "D" (disp),
                       [to_regs] "S" (to_regs)
                     : "rbx", "rcx", "rsp",
-                      "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+                      "r8", "r9", "r10", "r12", "r13", "r14", "r15"
                     );
 
     __asm volatile ("switch_resume:");
@@ -244,7 +244,7 @@ disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
                       [fs] "m" (regs->fs),
                       [gs] "m" (regs->gs)
                     : "rbx", "rcx", "rdx", "rsi", "rdi",
-                      "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"
+                      "r8", "r9", "r10", "r12", "r13", "r14", "r15"
                     );
 
     if (yield) {

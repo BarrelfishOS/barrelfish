@@ -21,6 +21,9 @@ import Syntax
 import qualified Backend
 import BackendCommon
 
+accept_fn_name n = ifscope n "accept" 
+connect_fn_name n = ifscope n "connect" 
+
 export_fn_name n = ifscope n "export" 
 bind_fn_name n = ifscope n "bind"
 
@@ -110,6 +113,14 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.MultiComment [ "Export function" ],
         export_function name,
         C.Blank,
+
+        C.MultiComment [ "The message buffer structure (for accept/connect)" ],
+        frameinfo_struct name messages,
+        C.Blank,
+
+        C.MultiComment [ "Accept function over already shared frame" ],
+        accept_function name,
+        C.Blank,
          
         C.MultiComment [ "The Binding structure" ],
         binding_struct name messages,
@@ -117,6 +128,10 @@ intf_header_body infile interface@(Interface name descr decls) =
 
         C.MultiComment [ "Generic bind function" ],
         bind_function name,
+        C.Blank,
+
+        C.MultiComment [ "Generic connect function over already shared frame" ],
+        connect_function name,
         C.Blank,
 
         C.MultiComment [ "Send wrappers" ],
@@ -136,8 +151,10 @@ msg_enums :: String -> [MessageDef] -> C.Unit
 msg_enums ifname msgs
     = C.EnumDecl (msg_enum_name ifname)
         ([C.EnumItem (msg_enum_elem_name ifname "__dummy") (Just $ C.NumConstant 0)] ++
+         [C.EnumItem (msg_enum_elem_name ifname "__bind") (Just $ C.NumConstant 1)] ++
+         [C.EnumItem (msg_enum_elem_name ifname "__bind_reply") (Just $ C.NumConstant 2)] ++
          [C.EnumItem (msg_enum_elem_name ifname (msg_name m)) (Just $ C.NumConstant i)
-            | (m, i) <- zip msgs [1..]])
+            | (m, i) <- zip msgs [3..]])
 
 --
 -- Generate type definitions for each message signature
@@ -269,6 +286,31 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) "bind_cont"]
 
 --
+-- Generate the binding structure
+--
+frameinfo_struct :: String -> [MessageDef] -> C.Unit
+frameinfo_struct n ml = C.StructDecl (intf_frameinfo_type n) fields
+  where
+    fields = [
+        C.ParamComment "Physical address of send buffer",
+        C.Param (C.TypeName "lpaddr_t") "sendbase",
+        C.ParamBlank,
+        C.ParamComment "Pointer to incoming message buffer",
+        C.Param (C.Ptr C.Void) "inbuf",
+        C.ParamBlank,
+        C.ParamComment "Size of the incoming buffer in bytes",
+        C.Param (C.TypeName "size_t") "inbufsize",
+        C.ParamBlank,
+        C.ParamComment "Pointer to outgoing message buffer",
+        C.Param (C.Ptr C.Void) "outbuf",
+        C.ParamBlank,
+        C.ParamComment "Size of the outgoing buffer in bytes",
+        C.Param (C.TypeName "size_t") "outbufsize",
+        C.ParamBlank]
+
+
+
+--
 -- Generate prototypes for export. 
 --
 
@@ -367,6 +409,31 @@ bind_function n =
                  C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
                  C.Param (C.Ptr $ C.TypeName "void") "st",
                  C.Param (C.Ptr $ C.Struct "waitset") "waitset",
+                 C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
+
+-- Function for accepting new flounder connections over a already frame
+accept_function :: String -> C.Unit
+accept_function n = 
+    C.GVarDecl C.Extern C.NonConst 
+         (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where 
+      name = accept_fn_name n
+      params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
+                 C.Param (C.Ptr $ C.TypeName "void") "st",
+                 C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+                 C.Param (C.Ptr $ C.Struct "waitset") "ws",
+                 C.Param (C.TypeName "idc_export_flags_t") "flags"]
+
+connect_function :: String -> C.Unit
+connect_function n = 
+    C.GVarDecl C.Extern C.NonConst 
+         (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where 
+      name = connect_fn_name n
+      params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
+                 C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+                 C.Param (C.Ptr $ C.TypeName "void") "st",
+                 C.Param (C.Ptr $ C.Struct "waitset") "ws",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
 
 --

@@ -24,7 +24,7 @@
 #define E1000_PRINT(fmt, ...)        printf(DRIVER_STRING fmt, ##__VA_ARGS__)
 #define E1000_PRINT_ERROR(fmt, ...)  fprintf(stderr, DRIVER_STRING fmt, ##__VA_ARGS__)
 
-
+#define E1000_USE_LEGACY_DESC 1
 /*
  * Global constants
  */
@@ -89,6 +89,12 @@
 #define E1000_DEVICE_82575EB             0x10A7 // TODO(gz): This cards needs more work
 #define E1000_DEVICE_82576EG             0x10C9 // TODO(gz): This cards needs more work
 #define E1000_DEVICE_I210                0x1533
+#define E1000_DEVICE_I350_EEPROM_LESS    0x151F
+#define E1000_DEVICE_I350_COPPER         0x1521
+#define E1000_DEVICE_I350_FIBER          0x1522
+#define E1000_DEVICE_I350_BACKPANE       0x1523
+#define E1000_DEVICE_I350_SGMII          0x1524
+#define E1000_DEVICE_I350_DUMMY          0x10A6
 #define E1000_DEVICE_82546GB_QUAD_COPPER_KSP3 0x10B5
 
 
@@ -121,6 +127,7 @@ typedef enum {
     e1000_82575,
     e1000_82576,
     e1000_I210,
+    e1000_I350,
     e1000_num_macs
 } e1000_mac_type_t;
 
@@ -198,13 +205,32 @@ static inline uint8_t i82541xx_get_icr_gpi_sdp(e1000_t *dev)
 /*****************************************************************
  * Barrelfish has no delay. We do it like this instead.
  ****************************************************************/
+
+#include <barrelfish/sys_debug.h>
+
+#if 0
+/* apparently this does not work... getting usertrap #13 */
+extern cycles_t tscperms;
+
+static inline void usec_delay(unsigned int ms)
+{
+    if (tscperms == 0) {
+        errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
+        assert(err_is_ok(err));
+    }
+    cycles_t end = (cycles_t)ms * tscperms + rdtsc();
+    while(rdtsc() < end) {
+        thread_yield();
+    }
+
+}
+#else
 static inline void usec_delay(unsigned int count)
 {
-    while(count) {
+    while(count--) {
         __asm__ __volatile__("inb $0x80, %b0" :: "a"(0));
-        count--;
     }
 }
-
+#endif
 
 #endif

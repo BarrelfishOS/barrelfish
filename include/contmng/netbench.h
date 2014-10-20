@@ -76,7 +76,12 @@ struct netbench_details {
     char name[NAME_SIZE];
 };
 
+// Utility functions
+uint64_t my_avg(uint64_t sum, uint64_t n);
 
+#ifndef LIBRARY
+
+float in_seconds(uint64_t cycles);
 void netbench_reset(struct netbench_details *nbp);
 struct netbench_details *netbench_alloc(char *name, uint32_t total_events);
 
@@ -91,9 +96,22 @@ void netbench_print_event_stat(struct netbench_details *nbp,
         uint8_t event_type, char *event_name, int type);
 void netbench_print_all_stats(struct netbench_details *nbp);
 
-// Utility functions
-uint64_t my_avg(uint64_t sum, uint64_t n);
-float in_seconds(uint64_t cycles);
+#else
+
+#define netbench_reset(a)
+#define netbench_alloc(a, b)
+#define netbench_record_event(a, b, c)
+#define netbench_record_event_no_ts(a, b)
+#define netbench_record_event_simple(a, b, c)   while(0) { (void)c; }
+#define netbench_print_event_stat(a, b, c, d)
+#define netbench_print_all_stats(a)
+
+static inline float in_seconds(uint64_t cycles)
+{
+    return cycles;
+}
+
+#endif
 
 __END_DECLS
 

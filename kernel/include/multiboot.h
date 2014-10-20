@@ -47,21 +47,21 @@ struct multiboot_elf {
 /// Multiboot information structure passed from bootloader to OS
 struct multiboot_info {
     uint32_t    flags;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_MEMINFO is set
     uint32_t    mem_lower;
     uint32_t    mem_upper;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_BOOTDEV
     uint32_t    boot_device;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_CMDLINE
     uint32_t    cmdline;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_MODS
     uint32_t    mods_count;
     uint32_t    mods_addr;
-    
+
     union {
         // if MULTIBOOT_INFO_FLAG_HAS_AOUT_SYMS
         struct {
@@ -70,28 +70,28 @@ struct multiboot_info {
             uint32_t    addr;
             uint32_t    reserved;
         } aout;
-        
+
         // if MULTIBOOT_INFO_FLAG_HAS_ELF_SYMS
         struct multiboot_elf elf;
     } syms;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_MMAP
     uint32_t    mmap_length;
     uint32_t    mmap_addr;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_DRIVES
     uint32_t    drives_length;
     uint32_t    drives_addr;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_CONFIG
     uint32_t    config_table;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_LOADERNAME
     uint32_t    boot_loader_name;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_APM
     uint32_t    apm_table;
-    
+
     // if MULTIBOOT_INFO_FLAG_HAS_VBE
     uint32_t    vbe_control_info;
     uint32_t    vbe_mode_info;
@@ -99,6 +99,10 @@ struct multiboot_info {
     uint16_t    vbe_interface_seg;
     uint16_t    vbe_interface_off;
     uint16_t    vbe_interface_len;
+
+#ifdef __k1om__
+    uint8_t     xeon_phi_id;
+#endif
 };
 
 #define MULTIBOOT_MODULE_SIZE(mod)      ((mod).mod_end - (mod).mod_start)
@@ -111,6 +115,8 @@ struct multiboot_modinfo {
 };
 
 #define MULTIBOOT_MEM_TYPE_RAM          1
+// special type for the host memory mapping of the xeon phi
+#define MULTIBOOT_MEM_TYPE_HOST_MEMORY  2
 
 struct multiboot_mmap {
     uint32_t    size;

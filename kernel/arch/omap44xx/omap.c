@@ -14,6 +14,7 @@
 #include <dev/sp804_pit_dev.h>
 #include <dev/arm_icp_pit_dev.h>
 #include <dev/cortex_a9_pit_dev.h>
+#include <dev/cortex_a9_gt_dev.h>
 #include <dev/a9scu_dev.h>
 
 #include <arm_hal.h>
@@ -287,6 +288,49 @@ uint32_t tsc_get_hz(void)
     return tsc_hz;
 }
 
+//
+// Cortex A9 Global Timer (see ARM TRM 4.4.1)
+//
+
+#define GT_OFFSET      0x0200
+
+static cortex_a9_gt_t a9_gt;
+
+void gt_init(void)
+{
+    cortex_a9_gt_initialize(&a9_gt, (mackerel_addr_t) private_memory_region + GT_OFFSET);
+
+    // enable auto increment
+    cortex_a9_gt_TimerControl_auto_increment_wrf(&a9_gt, 0x1);
+
+    // reset timer (TRM 4.4.4)
+    cortex_a9_gt_TimerControl_timer_enable_wrf(&a9_gt, 0x0);
+    cortex_a9_gt_TimerCounterLow_wr(&a9_gt, 0x0);
+    cortex_a9_gt_TimerCounterHigh_wr(&a9_gt, 0x0);
+    cortex_a9_gt_TimerControl_timer_enable_wrf(&a9_gt, 0x1);
+}
+
+uint64_t gt_read(void)
+{
+    // need to re-read high value according to ARM TRM 4.4.1
+    uint32_t low, high;
+    do {
+        high = cortex_a9_gt_TimerCounterHigh_rd(&a9_gt);
+        low  = cortex_a9_gt_TimerCounterLow_rd(&a9_gt);
+    } while(high != cortex_a9_gt_TimerCounterHigh_rd(&a9_gt));
+
+    return (((uint64_t) high) << 32) | ((uint32_t) low);
+}
+
+uint32_t gt_read_low(void)
+{
+    return cortex_a9_gt_TimerCounterLow_rd(&a9_gt);
+}
+
+uint32_t gt_read_high(void)
+{
+    return cortex_a9_gt_TimerCounterHigh_rd(&a9_gt);
+}
 
 //
 // Snoop Control Unit

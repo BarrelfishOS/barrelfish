@@ -9,18 +9,39 @@
 -- Hakefile for /lib/cxx
 --
 --------------------------------------------------------------------------
-[(
-  let subdirs =  [ "src" ]
-      args = library { target = "cxx",
-                    cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
-                    architectures = [a],
-                    omitCxxFlags = [ "-Werror", "-Wshadow", "-Wmissing-declarations",
-                                     "-Wmissing-field-initializers", "-Wredundant-decls" ],
-                    addCxxFlags = [ "-Wno-unused-parameter", "-Wwrite-strings",
-                                    "-Wno-long-long" ]
-                  }
-      defaultopts = libGetOptionsForArch a args
-  in
+[
+ (let 
+    subdirs =  [ "cxx", "cxxabi", "unwind" ]
+    args = library { 
+        target = "cxx",
+        cxxFiles = concat [ find cxxInDir dir | dir <- subdirs ],
+        cFiles = concat [ find cInDir dir | dir <- subdirs ],
+        assemblyFiles = concat [ find sInDir dir | dir <- subdirs ],
+        addIncludes = [
+            "include"
+        ],
+        architectures = [a],
+        omitCxxFlags = [ 
+            "-Werror", 
+            "-Wshadow", 
+            "-Wmissing-declarations",
+            "-Wmissing-field-initializers", 
+            "-Wredundant-decls" 
+        ],
+        addCxxFlags = [ 
+            "-Wno-unused-parameter", 
+            "-Wwrite-strings",
+            "-Wno-long-long",
+            "-DLIBCXXABI"
+        ],
+        addLibraries = libDeps [
+            "posixcompat"
+        ]
+    }
+    defaultopts = libGetOptionsForArch a args in
     Rules [Rules [compileCxxFile defaultopts s | s <- (Args.cxxFiles args)],
-           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) [] ]
-) | a <- [ "x86_64" ] ]
+    	   Rules [compileCFile defaultopts s | s <- (Args.cFiles args)],
+    	   Rules [assembleSFile defaultopts s | s <- (Args.assemblyFiles args)],
+           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) (allLibraryPaths args) ]
+ ) | a <- [ "x86_64", "k1om" ] 
+]

@@ -46,11 +46,19 @@ struct function_entry {
     void *f;
 };
 
+typedef struct dl_info {
+        const char      *dli_fname;     /* Pathname of shared object */
+        void            *dli_fbase;     /* Base address of shared object */
+        const char      *dli_sname;     /* Name of nearest symbol */
+        void            *dli_saddr;     /* Address of nearest symbol */
+} Dl_info;
+
 void dlopen_set_params(struct function_entry *fk, int nrk);
 void *dlopen(const char *filename, int flags);
 void *dlsym(void *handle, const char *symbol);
 char *dlerror(void);
 int dlclose(void *handle);
+int dladdr (const void *address, Dl_info *info);
 
 __END_DECLS
 

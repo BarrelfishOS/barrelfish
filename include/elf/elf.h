@@ -167,6 +167,7 @@ __BEGIN_DECLS
 #define EM_TINYJ        61      /* Advanced Logic Corp. TinyJ processor. */
 #define EM_X86_64       62      /* Advanced Micro Devices x86-64 */
 #define EM_AMD64        EM_X86_64       /* Advanced Micro Devices x86-64 (compat) */
+#define EM_K1OM         181	/* Intel K1OM (Xeon Phi) */
 
 /* Non-standard or deprecated. */
 #define EM_486          6       /* Intel i486. */
@@ -726,6 +727,39 @@ struct Elf32_Shdr *
 elf32_find_section_header_name(genvaddr_t elf_base, size_t elf_bytes,
                                const char* section_name);
 
+struct Elf64_Shdr *
+elf64_find_symtab(genvaddr_t elf_base, size_t elf_bytes);
+struct Elf32_Shdr *
+elf32_find_symtab(genvaddr_t elf_base, size_t elf_bytes);
+
+struct Elf64_Sym *
+elf64_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type,
+                          uintptr_t *index);
+struct Elf32_Sym *
+elf32_find_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name,
+                          uint8_t contains, uint8_t type,
+                          uintptr_t *index);
+uint32_t
+elf64_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type,
+                          size_t *ret_bytes);
+uint32_t
+elf32_count_symbol_by_name(genvaddr_t elf_base, size_t elf_bytes,
+                          const char *name, uint8_t contains, uint8_t type,
+                          size_t *ret_bytes);
+struct Elf64_Sym *
+elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
+                          lvaddr_t addr, uintptr_t *index);
+struct Elf32_Sym *
+elf32_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
+                          lvaddr_t addr, uintptr_t *index);
+const char *
+elf64_get_symbolname(struct Elf64_Ehdr *head, struct Elf64_Sym *sym);
+const char *
+elf32_get_symbolname(struct Elf32_Ehdr *head, struct Elf32_Sym *sym);
+
 void elf64_relocate(genvaddr_t dst, genvaddr_t src,
                     struct Elf64_Rela * SAFE NONNULL rela, size_t size,
                     struct Elf64_Sym * SAFE NONNULL symtab, size_t symsize,
@@ -739,10 +773,11 @@ typedef errval_t (*elf_allocator_fn)(void *state, genvaddr_t base,
                                      size_t size, uint32_t flags, void **ret);
 
 errval_t elf64_load(uint16_t em_machine, elf_allocator_fn allocate_func,
-                    void *state, lvaddr_t base,
-                    size_t size, genvaddr_t *retentry,
+                    void *state, lvaddr_t base, size_t size,
+                    genvaddr_t *retentry,
                     genvaddr_t *ret_tlsbase, size_t *ret_tlsinitlen,
                     size_t *ret_tlstotallen);
+
 errval_t elf32_load(uint16_t em_machine, elf_allocator_fn allocate_func,
                     void *state, lvaddr_t base,
                     size_t size, genvaddr_t *retentry,
@@ -759,6 +794,12 @@ errval_t elf_load_tls(uint16_t em_machine, elf_allocator_fn allocate_func,
                       size_t *ret_tlstotallen);
 
 size_t  elf_virtual_size(lvaddr_t base);
+
+errval_t elf_get_eh_info(lvaddr_t elfbase, size_t elfsize,
+                         lvaddr_t *eh_frame, size_t *eh_frame_size,
+                         lvaddr_t *eh_frame_hdr, size_t *eh_frame_hdr_size);
+
+
 
 genvaddr_t elf_virtual_base32(struct Elf32_Ehdr *ehead);
 genvaddr_t elf_virtual_base64(struct Elf64_Ehdr *ehead);

@@ -84,8 +84,8 @@ union x86_64_ptable_entry {
         uint64_t        available       :3;
         uint64_t        attr_index      :1;
         uint64_t        reserved        :8;
-        uint64_t        base_addr       :19;
-        uint64_t        reserved2       :12;
+        uint64_t        base_addr       :27;
+        uint64_t        reserved2       :4;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } large;
@@ -100,8 +100,8 @@ union x86_64_ptable_entry {
         uint64_t        attr_index      :1;
         uint64_t        global          :1;
         uint64_t        available       :3;
-        uint64_t        base_addr       :28;
-        uint64_t        reserved2       :12;
+        uint64_t        base_addr       :36;
+        uint64_t        reserved2       :4;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } base;

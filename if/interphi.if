@@ -1,0 +1,89 @@
+/** \file
+ *  \brief Inter Xeon Phi Driver Interface
+ */
+
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface interphi "Interface between host and card side driver" {
+    
+    rpc domain_lookup(in char name[length],
+                      out uint64 domid,
+                      out errval msgerr);
+    
+    rpc domain_wait(in char name[length],
+                    in uint64 state,
+                    out uint64 domid,
+                    out uint64 state,
+                    out errval msgerr);
+    
+    rpc domain_register(in char name[length],
+                        in uint64 domid,
+                        out errval msgerr);
+    
+    /**
+     * \
+     */
+    rpc spawn(in uint8 core, 
+              in char cmdline[length],
+              in uint8 flags,
+              out uint64 domainid,
+              out errval msgerr);
+    
+    /**
+     * 
+     */
+    rpc spawn_with_cap(in uint8 core, 
+                       in char cmdline[length],
+                       in uint8 flags,
+                       in uint64 cap_base,
+                       in uint8 cap_size_bits,
+                       out uint64 domainid,
+                       out errval msgerr);
+    
+    /**
+     * 
+     */
+    rpc kill(in uint64 domainid, 
+             out errval msgerr);
+    
+    
+    /**
+     * 
+     */
+    rpc bootstrap(in uint64 base,
+                  in uint64 offset,
+                  in uint8 bits,
+                  in uint8 xid,
+                  in uint8 is_client,
+                  out errval msgerr);
+    
+    rpc chan_open(in uint64 source_did,
+                  in uint64 target_did,
+                  in uint64 usrdata,
+                  in uint64 msgbase,
+                  in uint8 msgbits,
+                  in uint8 type,
+                  out errval msgerr);
+    /*
+     * host driver only
+     */
+    
+    
+    rpc register(in uint8 id, 
+                 in uint64 local_apt_base,
+                 in uint64 local_apt_size, 
+                 out errval msgerr, 
+                 out uint64 other_apt_base,
+                 out uint64 other_apt_size);
+    
+    rpc bootstrap_remote(in uint64 base, 
+                         in uint8 bits, 
+                         out errval msgerr); 
+};

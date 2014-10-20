@@ -33,10 +33,12 @@ static struct pci_msix_context *contexts = NULL;
 static struct pci_msix_context *get_context(struct pci_address *addr,
                                             bool alloc)
 {
-    struct pci_msix_context *ctx = contexts;
-    while (ctx != NULL) {
-        if (!memcmp(addr, &ctx->addr, sizeof(*addr)))
+    struct pci_msix_context *ctx;
+
+    for(ctx = contexts; ctx != NULL; ctx = ctx->next) {
+        if (!memcmp(addr, &ctx->addr, sizeof(*addr))) {
             return ctx;
+        }
     }
 
     if (alloc) {
@@ -152,7 +154,6 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
     } else {
         table = ctx->table;
     }
-
 
     // Make sure all interrupts are masked
     for (i = 0; i < *count; i++) {

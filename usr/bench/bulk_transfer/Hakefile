@@ -1,0 +1,32 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2014, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "bulkbench_micro_echo",
+                      cFiles = [ "micro_echo.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
+                      addLibraries = libDeps [ "bulk_transfer", "lwip" ],
+                      architectures = ["x86_64"]
+                 },
+  build application { target = "bulkbench_micro_throughput",
+                      cFiles = [ "micro_throughput.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
+                      addLibraries = libDeps [ "bulk_transfer", "bench", "lwip" ],
+                      architectures = ["x86_64"]
+                 },
+  build application { target = "bulkbench_micro_rtt",
+                      cFiles = [ "micro_rtt.c", "common.c" ],
+                      mackerelDevices = [ "e10k" ],
+                      flounderBindings = [ "bulk_ctrl" ],
+                      addLibraries = libDeps [ "bulk_transfer", "bench", "lwip" ],
+                      architectures = ["x86_64"]
+                 }
+]

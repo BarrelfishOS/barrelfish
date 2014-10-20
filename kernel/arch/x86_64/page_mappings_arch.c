@@ -345,7 +345,7 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, 
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));

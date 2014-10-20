@@ -108,6 +108,9 @@ static errval_t get_inherited_fds(void)
         case FDTAB_TYPE_LWIP_SOCKET:
             s = "lwip socket";
             break;
+        case FDTAB_TYPE_EPOLL_INSTANCE:
+            s = "epoll instance";
+            break;
         case FDTAB_TYPE_PTM:
             s = "pseudo-terminal master";
             break;

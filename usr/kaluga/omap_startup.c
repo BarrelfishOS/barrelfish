@@ -107,12 +107,22 @@ static struct allowed_registers uart = {
     }
 };
 
+static struct allowed_registers sdma = {
+    .binary = "hw.arm.omap44xx.sdma",
+    .registers =
+    {
+        {OMAP44XX_SDMA, 0x1000},
+        {0x0, 0x0}
+    }
+};
+
 static struct allowed_registers* omap44xx[10] = {
     &usb,
     &fdif,
     &mmchs,
     &prcm,
     &uart,
+    &sdma,
     NULL,
 };
 
@@ -171,7 +181,7 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
     free(name);
 
     err = spawn_program_with_caps(0, driver->path, driver->argv, environ,
-            NULL_CAP, dev_cnode_cap, 0, &driver->did);
+            NULL_CAP, dev_cnode_cap, 0, driver->did);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;

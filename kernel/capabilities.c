@@ -706,11 +706,16 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
             src_cap.u.vnode_x86_64_pml4.base =
                 genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
 
+#ifdef __k1om__
+            lpaddr_t var = gen_phys_to_local_phys(src_cap.u.vnode_x86_64_pml4.base);
+                        paging_k1om_make_good_pml4(var);
+#else
 #ifdef __x86_64__
             // Make it a good PML4 by inserting kernel/mem VSpaces
             lpaddr_t var =
                 gen_phys_to_local_phys(src_cap.u.vnode_x86_64_pml4.base);
             paging_x86_64_make_good_pml4(var);
+#endif
 #endif
 
             // Insert the capability

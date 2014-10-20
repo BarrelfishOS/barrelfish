@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2012, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * virtio.dev
+ *
+ * The following structurs are taken from the Virtio Specification 1.0
+ *
+ */
+ 
+device virtio lsbfirst ( addr base ) "Virtio Device Specification" {
+    
+    /*
+     * 2.1 Device Status Field
+     */
+    constant device_status "Device status field values" {
+        reset = 0x00 "Reset the device status field";     
+    };
+    
+    datatype device_status lsbfirst "Device status field" {
+        acknowledge 1 "Guest OS has found the device and recognized it as a valid virtio device.";
+        driver      1 "Guest OS knows how to drive the device.";
+        driver_ok   1 "Driver is set up and ready to drive the device.";
+        features_ok 1 "Driver has acknowledged all the features it understands, and feature negotiation is complete.";
+        _           3 "Reserved";
+        failed      1 "Something went wrong in the guest, and it has given up on the device.";
+    };
+   
+ };
+          

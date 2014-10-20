@@ -106,6 +106,10 @@ void __attribute__((noreturn)) disp_yield_disabled(dispatcher_handle_t handle);
 dispatcher_handle_t disp_new(int core_id);
 
 const char *disp_name(void);
+
+#ifdef __k1om__
+uint8_t disp_xeon_phi_id(void);
+#endif
 uint64_t disp_run_counter(void);
 
 void disp_assert_fail(const char *exp, const char *file, const char *func,

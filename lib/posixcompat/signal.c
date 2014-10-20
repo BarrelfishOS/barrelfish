@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -109,4 +109,18 @@ int sigismember(const sigset_t *set, int signo)
         return (-1);
     }
     return ((set->__bits[_SIG_WORD(signo)] & _SIG_BIT(signo)) ? 1 : 0);
+}
+
+int __sigaction(int signum, const struct sigaction *act,
+              struct sigaction *oldact)
+{
+    POSIXCOMPAT_DEBUG("Warning: sigaction(%d, %p, %p) ignored\n",
+                      signum, act, oldact);
+    return 0;
+}
+
+int raise(int sig)
+{
+    assert(!"NYI");
+    return -1;
 }

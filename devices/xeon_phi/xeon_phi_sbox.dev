@@ -1,0 +1,192 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * knc_sbox.dev
+ *
+ * description: intel e1000 family gigabit ethernet nics
+ */
+
+device knc_sbox lsbfirst ( addr base ) "intel xeon phi (knights corner) sbox" {
+
+
+
+register elapsed_time_low rw addr(base, 0x1074) "Elapsed Time Clock Timer - lower 32 bits" { 
+	U32 elapsed_time_low				   :32; // bit 0-31 "Elapsed Time Clock" Timer - lower 32 bits
+};
+
+
+register elapsed_time_high rw addr(base, 0x1078) "Elapsed Time Clock Timer - higher 32 bits " { 
+	U32 elapsed_time_high				   :32; // bit 0-31 "Elapsed Time Clock" Timer - higher 32 bits 
+};
+
+
+register fail_safe_offset rw addr(base, 0x2004) "foo" { };
+register current_clk_ratio rw addr(base, 0x3004) "foo" { };
+register smpt00 rw addr(base, 0x3100) "foo" { };
+register smpt02 rw addr(base, 0x3108) "foo" { };
+register rgcr rw addr(base, 0x4010) "foo" { };
+register dstat rw addr(base, 0x4014) "foo" { };
+register pcie_pci_revision_id_and_c_0x8 rw addr(base, 0x5808) "foo" { };
+register pcie_bar_enable rw addr(base, 0x5cd4) "foo" { };
+
+
+register sicr0 rw addr(base, 0x9004) "System Interrupt Cause Read Register 0 " { 
+	U32 dbr						   : 5; // bit 0-4 This bit is set whenever the uOS requests an interrupt service from the host driver thru one of the four doorbells 
+	U32 rsvd0					   : 3; // bit 5-7
+	U32 dma						   : 8; // bit 8-15 DMA Channels 7:0 - This bit is set whenever the uOS or the host driver configures the DMA engine to issue an interrupt upon a DMA Transfer completion on one of the channels
+	U32 rsvd1					   : 8; // bit 16-23
+	U32 disprra					   : 1; // bit 24 Alloocation bit for Display Rendering Event Interrupt A
+	U32 disprrb					   : 1; // bit 25 Alloocation bit for Display Rendering Event Interrupt B
+	U32 dispnrr					   : 1; // bit 26 Display Non-Rendering Event Interrupt - This bit is set whenever the Dbox detects a non-rendering interrupt condition, which are display pipeline errors i.e. overrun and underruns and hot-plug detect. 
+	U32 rsvd2					   : 3; // bit 27-29
+	U32 sboxerr					   : 1; // bit 30 LEP Error interrupts like the PCU
+	U32 spidone					   : 1; // bit 31 SPI Done Interrupt - This bit is set when the Sbox SPI controller is done with it's programmming operaiton
+
+
+};
+
+
+
+register corefreq rw addr(base, 0x4100) "Core Frequency " { 
+	U32 ratio					   :12; // bit 0-11 Ratio
+	U32 rsvd0					   : 3; // bit 12-14
+	U32 fuseratio					   : 1; // bit 15 If overclocking is enabled, setting this bit will default the goal ratio to the fuse value.
+	U32 asyncmode					   : 1; // bit 16 Async Mode Bit 16, Reserved Bits 20:17 used to be ExtClkFreq, 
+	U32 rsvd1					   : 9; // bit 17-25
+	U32 ratiostep					   : 4; // bit 26-29 Power throttle ratio-step
+	U32 jumpratio					   : 1; // bit 30 Power throttle jump at once
+	U32 booted					   : 1; // bit 31 Booted: This bit selects between the default MCLK Ratio (600MHz) and the programmable MCLK ratio. 0=default 1=programmable.
+
+
+};
+
+
+register corevolt rw addr(base, 0x4104) "Core Voltage" { 
+	U32 vid						   : 8; // bit 0-7 VID
+	U32 rsvd0					   :24; // bit 8-31
+
+};
+
+
+register memoryfreq rw addr(base, 0x4108) "foo" { };
+register memvolt rw addr(base, 0x410c) "foo" { };
+register sdbic0 rw addr(base, 0xcc90) "foo" { };
+register sdbic1 rw addr(base, 0xcc94) "foo" { };
+register sdbic2 rw addr(base, 0xcc98) "foo" { };
+register sdbic3 rw addr(base, 0xcc9c) "foo" { };
+register mxar0 rw addr(base, 0x9040) "foo" { };
+register mxar0_k1om rw addr(base, 0x9044) "foo" { };
+register mxar1 rw addr(base, 0x9044) "foo" { };
+register mxar2 rw addr(base, 0x9048) "foo" { };
+register mxar3 rw addr(base, 0x904c) "foo" { };
+register mxar4 rw addr(base, 0x9050) "foo" { };
+register mxar5 rw addr(base, 0x9054) "foo" { };
+register mxar6 rw addr(base, 0x9058) "foo" { };
+register mxar7 rw addr(base, 0x905c) "foo" { };
+register mxar8 rw addr(base, 0x9060) "foo" { };
+register mxar9 rw addr(base, 0x9064) "foo" { };
+register mxar10 rw addr(base, 0x9068) "foo" { };
+register mxar11 rw addr(base, 0x906c) "foo" { };
+register mxar12 rw addr(base, 0x9070) "foo" { };
+register mxar13 rw addr(base, 0x9074) "foo" { };
+register mxar14 rw addr(base, 0x9078) "foo" { };
+register mxar15 rw addr(base, 0x907c) "foo" { };
+register msixpbacr rw addr(base, 0x9080) "foo" { };
+register msixpbacr_k1om rw addr(base, 0x9084) "foo" { };
+register rdmasr0 rw addr(base, 0xb180) "foo" { };
+register sbq_flush rw addr(base, 0xb1a0 ) "foo" { };
+register tlb_flush rw addr(base, 0xb1a4) "foo" { };
+register gtt_phy_base rw addr(base, 0xc118) "foo" { };
+register emon_cnt0 rw addr(base, 0xcc28) "foo" { };
+register emon_cnt1 rw addr(base, 0xcc2c) "foo" { };
+register emon_cnt2 rw addr(base, 0xcc30) "foo" { };
+register emon_cnt3 rw addr(base, 0xcc34) "foo" { };
+};
+	
+
+
+/************************************************************************* 
+    Configuration CSR for GPU HOT 
+*************************************************************************/
+typedef union _sboxGpuHotConfigReg
+{
+    U32 value;
+    struct
+    {
+        U32 enable_freq_throttle                           : 1; // bit 0 Enables Frequency Throttling initiated by someone outside MIC 
+        U32 xxgpuhot_enable                                : 1; // bit 1 Enable MIC Assertion of XXGPUHOT 
+        U32 rsvd0                                          :30; // bit 2-31
+    } bits;
+} sboxGpuHotConfigReg;
+
+STATIC_ASSERT(sizeof(sboxGpuHotConfigReg) == sizeof(U32));
+
+
+    The expected MCLK Ratio that is sent to the corepll 
+*************************************************************************/
+typedef union _sboxCurrentratioReg
+{
+    U32 value;
+    struct
+    {
+	U32 mclkratio					   :12; // bit 0-11 This field contrains the actual MCLK ratio that the core is currently running at.  This may differ from the value programmed into the COREFREQ register due to thermal throttling or other events which force the MCLK ratio to a fixed value.
+	U32 rsvd0					   : 4; // bit 12-15
+	U32 goalratio					   :12; // bit 16-27 This field contrains the goal for the MCLK ratio..	 This may differ from the value programmed into the COREFREQ register due to thermal throttling or other events which force the MCLK ratio to a fixed value.  reset value needs to match corefreq.ratio RTL will use the corefreq.ratio reset value
+	U32 rsvd1					   : 4; // bit 28-31
+    } bits;
+} sboxCurrentratioReg;
+
+
+/************************************************************************* 
+    SVID VR12/MVP7 Control Interace Register 
+*************************************************************************/
+typedef union _sboxSvidcontrolReg
+{
+    U32 value;
+    struct
+    {
+	U32 svid_dout					   : 9; // bit 0-8 SVID DATA OUT Field
+	U32 svid_cmd					   : 9; // bit 9-17 SVID Command Field
+	U32 svid_din					   :11; // bit 18-28 SVID DATA IN Field
+	U32 svid_error					   : 1; // bit 29 error indicator bit
+	U32 svid_idle					   : 1; // bit 30 svid idle
+	U32 cmd_start					   : 1; // bit 31 cmd start
+    } bits;
+} sboxSvidcontrolReg;
+
+
+/************************************************************************* 
+    Power Control Unit Register 
+*************************************************************************/
+typedef union _sboxPcucontrolReg
+{
+    U32 value;
+    struct
+    {
+	U32 enablemclkpllshutdown			   : 1; // bit 0 This bit is set by Host OS to allow disabling of MCLK PLL to enter C3-state.  It is cleared by the Host OS to prevent the MCLK PLL from being shutdown by the PCU.  MCLK PLL will only be disabled if this bit is set AND all internal idle requirements have been met. 0=Disable MCLK Shutdown, 1-Allow MCLK Shutdown
+	U32 mclk_enabled				   : 1; // bit 1 (read-only)This bit reflects the state of the PCU MCLK-Enable FSM.  It can be used as explicit feedback by SW to verify that successfully shutdown the MCLK PLL. 0=FSM not in MCLK_ENABLED state and MCLK is off.  1=FSM is in MCLK_ENABLED state and MCLK is running.
+	U32 ring_active					   : 1; // bit 2 (read-only)This bit reflects the state of the ring-idle indicator coming from the Ring Box.  0=All Agents Idle, 1=At least one agent active
+	U32 preventautoc3exit				   : 1; // bit 3 This bit is set by Host SW whenever it sets the VID value lower than it was when KNC entered Pkg-C3.	When set, any ring-bound PCIe transactions received by KNC will be completed without actually being sent to KNC ring, and an interrupt can be generated to the Host indicating this as an error condition.  This bit must be cleared for KNC to re-enable MCLK and exit C3. 0=Allow C3 Exit, 1=Prevent C3 Exit, Generate Error
+	U32 ghost_active				   : 1; // bit 4 (read-only)This bit reflects the state of the Ghost Downstream Arbiter.  0=Idle, 1=At least one agent active
+	U32 tcu_active					   : 1; // bit 5 (read-only) This bit reflects the state of the TCU(SBQ or DMA).  0=Idle, 1=At least one agent active
+	U32 itp_sclkgatedisable				   : 1; // bit 6 (read-only)Status of the ITP sClk clock-gate disable, 1=disabled 
+	U32 itp_pkgc3disable				   : 1; // bit 7 (read-only) Status of the ITP Pkg-C3 clock-gate disable, 1=disabled
+	U32 c3mclkgateen				   : 1; // bit 8 This bit, when set, will cause the MCLK to be gated at each individual Ring Agent when KNC is in C3.	It should be set only when the EnableMclkPllShutdown (bit 0) is not set.  Disabling MCLK when in C3 can only occur when the correct idle conditions are true and this or EnableMclkPllShutdown fields are set.	1=Gate Mclk, 0=Do Not Gate MCLK
+	U32 c3waketimer_en				   : 1; // bit 9 This bit, when set, loads the C3WakeUp timer with the 16-bit C3WakeTime field and enables the C3WakeUp timer to begin decrementing  while in AutoC3.  Clearing the disables the timer.	 HW will automatically clear this bit when the timer reaches zero or if AutoC3 exits. Writing a value of 0xFFFF to the C3WakeTimer will also clear this bit.
+	U32 sysint_active				   : 1; // bit 10 (read-only) This bit reflects the state of the SYSINT.  0=Idle, 1=At least one pending interrupt
+	U32 sclk_grid_off_disable			   : 1; // bit 11 Setting this bit will prevent the PCU logic from instructing the sclk PLL from gating the clock.
+	U32 icc_dvo_ssc_cg_enable			   : 1; // bit 12 Clock gate:: ICC logic related to DVO SSC buffer for ssc clock for d2d 1=clock gated
+	U32 icc_core_ref_clock_cg_enable		   : 1; // bit 13 Clock gate: ICC logic related to Core Reference clock:  1=clock gated 
+	U32 icc_gddr_ssc_cg_enable			   : 1; // bit 14 Clock Gate: ICC Logic relted to GDDR SSC buffer 1=clock gated
+	U32 icc_pll_disable				   : 1; // bit 15 This bit can be set by Host SW to shutdown the ICC PLL.  This should only be done once MCLK PLL is already shutdown.	This bit must be cleared at least 50us before reenabling MCLK.
+	U32 mclk_pll_lock				   : 1; // bit 16 This bit contains the value of hte actual MCLK PLL lock bit. Primarily for debug.  1=locked
+	U32 groupb_pwrgood_mask				   : 1; // bit 17 Clock Gate: ICC Logic relted to GDDR SSC buffer 1=clock gated
+	U32 rsvd0					   :14; // bit 18-31
+    } bits;
+} sboxPcucontrolReg;

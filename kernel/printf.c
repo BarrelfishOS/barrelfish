@@ -282,9 +282,14 @@ kprintf(char *sbuf_in, size_t bufsize, const char *fmt0, va_list ap, int oflags)
     char *tailp;                /* tail pointer for snprintf */
 
     tailp = NULL;               /* XXX: shutup gcc */
+
+/*
+ * XXX: somehow this does not work on k1om
+ */
+#ifndef __k1om__
     if (oflags == TOBUFONLY)
         tailp = &sbuf[bufsize];
-
+#endif
     n = 0;                      /* XXX: shutup gcc */
     cp = NULL;                  /* XXX: shutup gcc */
     size = 0;                   /* XXX: shutup gcc */

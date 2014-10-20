@@ -86,9 +86,11 @@ typedef	__pid_t		pid_t;
 #define O_CREAT    00100
 #define O_EXCL     00200
 #define O_NOCTTY   00400
-#define O_TRUNC    01000	
+#define O_TRUNC    01000
 #define O_APPEND   02000
+#ifndef O_NONBLOCK
 #define O_NONBLOCK 04000
+#endif
 #define O_SYNC    010000
 #define O_FSYNC	  O_SYNC
 #define O_ASYNC	  020000
@@ -151,7 +153,9 @@ typedef	__pid_t		pid_t;
 #define	FFSYNC		O_FSYNC		/* kernel */
 #define	FNONBLOCK	O_NONBLOCK	/* kernel */
 #define	FNDELAY		O_NONBLOCK	/* compat */
+#ifndef O_NDELAY
 #define	O_NDELAY	O_NONBLOCK	/* compat */
+#endif
 #endif
 
 /*
@@ -215,7 +219,7 @@ typedef	__pid_t		pid_t;
 #define	F_RDLCK		1		/* shared or read lock */
 #define	F_UNLCK		2		/* unlock */
 #define	F_WRLCK		3		/* exclusive or write lock */
-#define	F_UNLCKSYS	4		/* purge locks for a given system ID */ 
+#define	F_UNLCKSYS	4		/* purge locks for a given system ID */
 #define	F_CANCEL	5		/* cancel an async lock request */
 #ifdef _KERNEL
 #define	F_WAIT		0x010		/* Wait until lock is granted */
@@ -272,7 +276,12 @@ int	fcntl(int, int, ...);
 int	openat(int, const char *, int, ...);
 #endif
 #if __BSD_VISIBLE
-int	flock(int, int);
+#ifdef __cplusplus
+int	__flock(int, int);
+#define flock(a,b) __flock(a,b)
+#else
+int flock(int, int);
+#endif
 #endif
 __END_DECLS
 #endif

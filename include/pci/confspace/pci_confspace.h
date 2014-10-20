@@ -42,6 +42,7 @@ int pcie_confspace_init(struct capref, lpaddr_t pbase, uint16_t segment, uint8_t
                         uint8_t endbus);
 lvaddr_t pcie_confspace_access(struct pci_address addr);
 
+uint8_t pcie_get_endbus(void);
 void pcie_enable(void);
 void pcie_disable(void);
 

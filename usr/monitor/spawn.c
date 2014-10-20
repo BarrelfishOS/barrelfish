@@ -48,6 +48,28 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
+#ifdef __k1om__
+    if (!strcmp(name, "xeon_phi")) {
+        dest.cnode = si->taskcn;
+        dest.slot  = TASKCN_SLOT_IO;
+        src.cnode = cnode_task;
+        src.slot  = TASKCN_SLOT_IO;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            return err_push(err, SPAWN_ERR_COPY_IRQ_CAP);
+        }
+
+        dest.cnode = si->taskcn;
+        dest.slot  = TASKCN_SLOT_SYSMEM;
+        src.cnode = cnode_task;
+        src.slot  = TASKCN_SLOT_SYSMEM;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            return err_push(err, SPAWN_ERR_COPY_IRQ_CAP);
+        }
+    }
+#endif
+
     return SYS_ERR_OK;
 }
 
@@ -213,7 +235,8 @@ errval_t spawn_all_domains(void)
            !strcmp(short_name, "ramfsd") ||
            !strcmp(short_name, "cpu") ||
            !strcmp(short_name, "monitor") ||
-           !strcmp(short_name, "mem_serv")) {
+           !strcmp(short_name, "mem_serv")||
+           !strcmp(short_name, "xeon_phi")) {
             continue;
         }
 
@@ -225,7 +248,7 @@ errval_t spawn_all_domains(void)
         }
 
         // Pass the local arch-specific core ID to the PCI and spawnd domains
-        if(strcmp(short_name, "pci") == 0 
+        if(strcmp(short_name, "pci") == 0
            || strcmp(short_name, "spawnd") == 0
            || strcmp(short_name, "kaluga") == 0
            || strcmp(short_name, "acpi") == 0

@@ -24,7 +24,12 @@ inline bool is_auto_driver(struct module_info* mi) {
 
 inline bool is_started(struct module_info* mi)
 {
-    return mi->did > 0;
+    return (mi->num_started);
+}
+
+inline bool can_start(struct module_info* mi)
+{
+    return (mi->allow_multi || (mi->num_started == 0));
 }
 
 void set_start_function(char* binary, module_start_fn start_fn)
@@ -33,6 +38,32 @@ void set_start_function(char* binary, module_start_fn start_fn)
     if (mi != NULL) {
         mi->start_function = start_fn;
     }
+}
+
+void set_started(struct module_info* mi)
+{
+    mi->num_started += 1;
+    assert(mi->allow_multi || (mi->num_started == 1));
+}
+
+void set_multi_instance(struct module_info* mi, uint8_t is_multi)
+{
+    mi->allow_multi = (is_multi != 0);
+}
+
+void set_core_id_offset(struct module_info* mi, coreid_t offset)
+{
+    mi->coreoffset = offset;
+}
+
+domainid_t *get_did_ptr(struct module_info *mi)
+{
+    return (mi->did + mi->num_started);
+}
+
+coreid_t get_core_id_offset(struct module_info* mi)
+{
+    return mi->coreoffset * mi->num_started;
 }
 
 struct module_info* find_module(char *binary)
@@ -67,9 +98,9 @@ static void parse_module(char* line, struct module_info* si)
 
     char* binary_start = strrchr(si->path, '/');
     si->binary = strdup(binary_start+1); // exclude /
-    si->did = 0;
+    memset(si->did, 0, sizeof(si->did));
     si->start_function = default_start_function;
-
+    si->num_started = 0;
     char* cmdstart = line + path_size - strlen(si->binary);
     si->cmdargs = strdup(cmdstart);
 

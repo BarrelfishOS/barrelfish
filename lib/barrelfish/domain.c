@@ -87,13 +87,12 @@ static void dispatcher_initialized_handler(void *arg)
         }
     }
 #endif
-
     /* Upcall into the domain_new_dispatcher callback if registered */
     if (span_domain_state->callback) {
         span_domain_state->callback(span_domain_state->callback_arg, SYS_ERR_OK);
     }
-
-    free(span_domain_state);
+    span_domain_state->initialized = 1;
+    //free(span_domain_state);
 }
 
 /**
@@ -451,6 +450,8 @@ static int remote_core_init_enabled(void *arg)
     st->default_waitset_handler = thread_create(span_slave_thread, NULL);
     assert(st->default_waitset_handler != NULL);
 
+
+
     return interdisp_msg_handler(&st->interdisp_ws);
 }
 
@@ -704,13 +705,14 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     }
 #endif
 
+    #if 0
     /* XXX: create a thread that will handle the default waitset */
     if (domain_state->default_waitset_handler == NULL) {
         domain_state->default_waitset_handler
             = thread_create(span_slave_thread, NULL);
         assert(domain_state->default_waitset_handler != NULL);
     }
-
+#endif
     /* Wait to use the monitor binding */
     struct monitor_binding *mcb = get_monitor_binding();
     event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
@@ -718,7 +720,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                  .handler = span_domain_request_sender_wrapper,
                                      .arg = span_domain_state });
 
-#if 0
+#if 1
     while(!span_domain_state->initialized) {
         event_dispatch(get_default_waitset());
     }
@@ -922,6 +924,43 @@ void disp_set_core_id(coreid_t core_id)
     disp->core_id = core_id;
 }
 
+/**
+ * \brief returns the address and the size of the EH frame
+ *
+ * \param eh_frame      returned virtual address of the EH frame
+ * \param eh_frame_size returned size of the EH frame
+ */
+void disp_get_eh_frame(lvaddr_t *eh_frame,
+                       size_t *eh_frame_size)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    if (eh_frame) {
+        *eh_frame = disp->eh_frame;
+    }
+    if (eh_frame_size) {
+        *eh_frame_size = disp->eh_frame_size;
+    }
+}
+
+/**
+ * \brief returns the address and the size of the EH frame header
+ *
+ * \param eh_frame      returned virtual address of the EH frame
+ * \param eh_frame_size returned size of the EH frame
+ */
+void disp_get_eh_frame_hdr(lvaddr_t *eh_frame_hdr,
+                       size_t *eh_frame_hdr_size)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    if (eh_frame_hdr) {
+        *eh_frame_hdr = disp->eh_frame_hdr;
+    }
+    if (eh_frame_hdr_size) {
+        *eh_frame_hdr_size = disp->eh_frame_hdr_size;
+    }
+}
 
 /**
  * \brief returns the core_id stored in disp_priv struct
@@ -1121,6 +1160,25 @@ void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *c)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     assert(core < MAX_CPUS);
     disp->core_state.c.spawn_rpc_clients[core] = c;
+}
+
+struct arrakis_rpc_client *get_arrakis_rpc_client(coreid_t core)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    assert(core < MAX_CPUS);
+    return disp->core_state.c.arrakis_rpc_clients[core];
+}
+
+/**
+ * \brief set the chips_context state on the dispatcher priv
+ */
+void set_arrakis_rpc_client(coreid_t core, struct arrakis_rpc_client *c)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    assert(core < MAX_CPUS);
+    disp->core_state.c.arrakis_rpc_clients[core] = c;
 }
 
 /**

@@ -19,7 +19,7 @@
 
 /// Amount of virtual space for malloc
 #ifdef __x86_64__
-#       define HEAP_REGION (2UL * 1024 * 1024 * 1024) /* 2GB */
+#       define HEAP_REGION (3500UL * 1024 * 1024) /* 2GB */
 #else
 #       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #endif

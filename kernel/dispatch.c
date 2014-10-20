@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -105,7 +105,7 @@ static inline void context_switch(struct dcb *dcb)
         /* FIXME: incomplete clean-up of "thread_register" in progress here.
          * Complain vigorously to AB if he checks this mess in
          */
-#ifdef __x86_64__  /* Setup new LDT */
+#if defined(__x86_64__) || defined(__k1om__)  /* Setup new LDT */
         maybe_reload_ldt(dcb, false);
 #else
         struct dispatcher_shared_generic *disp =
@@ -194,7 +194,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
         dcb_current = NULL;
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__x86_64__) || defined(__i386__) || defined(__k1om__)
         // Can this be moved into wait_for_interrupt?
         // Or wait_for_nonscheduling_interrupt()?
         if (!wakeup_is_pending()) {
@@ -230,12 +230,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     }
 
     assert(dcb != NULL);
-#ifdef __x86_64__
-    if (dcb->is_vm_guest) {
-        vmkit_vmenter(dcb);
-        panic("vmkit_vmenter unexpectedly returned");
-    }
-#endif
 
     dispatcher_handle_t handle = dcb->disp;
     struct dispatcher_shared_generic *disp =
@@ -250,12 +244,31 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
               disp->name, (uint64_t)registers_get_ip(disabled_area));
         assert(dispatcher_is_disabled_ip(handle,
                                          registers_get_ip(disabled_area)));
-        resume(disabled_area);
+#if defined(__x86_64__) && !defined(__k1om__)
+	if(!dcb->is_vm_guest) {
+	  resume(disabled_area);
+
+	} else {
+	  vmkit_vmenter(dcb);
+	}
+#else
+	  resume(disabled_area);
+#endif
     } else {
         debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
         assert(disp->dispatcher_run != 0);
         disp->disabled = 1;
+#if defined(__x86_64__) && !defined(__k1om__)
+        if(!dcb->is_vm_guest) {
+            execute(disp->dispatcher_run);
+        } else {
+            vmkit_vmexec(dcb, disp->dispatcher_run);
+        }
+#else
         execute(disp->dispatcher_run);
+#endif
+
+
     }
 } // end function: dispatch
 

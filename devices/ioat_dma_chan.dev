@@ -1,0 +1,262 @@
+/*
+ * Copyright (c) 2014, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6 CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * ioat_dma.dev
+ *
+ * DESCRIPTION: Crystal Beach DMA  Engine register descriptor 
+ * 
+ * This is derived from the "Intel (R) Xeon (R) Processor E5 v2 Product Family", 
+ * chapter 8.4 & 8.5, "Device 4, Function 0-7, Crystal Beach DMA". 
+ * 
+ */
+
+device ioat_dma_chan msbfirst ( addr chan_base ) "IOAT DMA (Crystal Beach) Channel registers" {
+
+    constants cmpl_status_shift "Completion Status Shift Value" {
+        compl_addr_shift = 0x6 "Completion addrss shift";
+    };
+    
+    constants cmpl_status_mask width(64) "Completion Status Mask Value" {
+        status_mask = 0x3f "Mask for the status fields";
+    };
+    
+    datatype compl_status msbfirst (64) "Completion writeback data area" {
+        compl_desc 58 "Completed Descriptor Address";
+        _           1 "Reserved";
+        soft_err    1 "Software Error";
+        unaff_err   1 "Unaffiliated error";
+        status      3 "Channel status field";
+    };
+    
+    constants chanctrl_snoop "Field values for Snoop Control" {
+        chanctrl_snoop_disabled = 0x1 "Disabled snooping";
+        chanctrl_snoop_enabled  = 0x0 "Enable snooping";
+    };
+    
+    constants chanctrl_features "Field values for Channel Features" {
+        chanctrl_f_enable       = 0x1 "Feature field is enabled";
+        chanctrl_f_disable      = 0x0 "Feature field is disabled";
+    };
+
+    /*
+     * 8.5.12 - Channel Control Register
+     *
+     *          The Channel Control register controls the behavior of the DMA 
+     *          channel when specific events occur such as completion or errors.
+     */  
+    register ctrl addr(chan_base, 0x00) "Channel Control Register" {
+        _           6 rsvd "Reserved";
+        dca_en      1 rw   "Direct Cache access enabled";
+        in_use      1 rw   "Channel is in use";
+        _           2 rsvd "reserved";
+        snoop_ctrl  1 rw   "Descriptor address snoop control";
+        err_int_en  1 rw   "Error Interrupt Enabled";
+        err_abort   1 rw   "Any Error Abort Enbled";
+        err_cmp_en  1 rw   "Error Completion Enabled";
+        _           1 rsvd "Reserved";
+        intp_dis    1 rw1c "Interrupt disable";
+    }; 
+
+    /*
+     * 8.5.13 - DMA Compatibility Register
+     */  
+    register dma_comp ro addr(chan_base, 0x02) "DMA Compatibility Register" {
+        _  13 "Reserved";
+        v3  1 "Compatible with CB Version 3";
+        v2  1 "Compatible with CB Version 2";
+        v1  1 "NOT compatible with CB Version 1";
+    };
+
+    /*
+     * 8.5.14 - DMA Channel Command Register
+     * 
+     *          Setting more than one of these bits with the same write operation 
+     *          will result in an Fatal error affiliated.
+     */  
+    register cmd addr(chan_base, 0x84) "DMA Channel Command Register." {
+        _      2 rsvd "Reserved";
+        reset  1 rw   "Reset DMA channel";
+        resume 1 rw   "resume";
+        abort  1 rw   "Abort";
+        susp   1 rw   "Suspend the DMA channel";
+        append 1 rw   "Append";
+        start  1 rw   "Start";
+    }; 
+
+    /*
+     * 8.5.15 - DMA Descriptor Count Register
+     *
+     *          This is the absolute value of the number of valid descriptors in 
+     *          the chain. The hardware sets this register and an internal counter 
+     *          to zero whenever the CHAINADDR register is written. When this 
+     *          register does not equal the value of the internal register, the 
+     *          DMA channel processes descriptors, incrementing the internal 
+     *          counter each time that it completes (or skips) a descriptor.This
+     *          register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register dmacount addr(chan_base, 0x06) "DMA Descriptor Count Register"
+        type(uint16);
+
+    
+    constants trans_state "DMA Transfer States" {
+        trans_state_active = 0x0 "The transfer is active";
+        trans_state_idle   = 0x1 "Idle, All DMA transfers done";
+        trans_state_susp   = 0x2 "Suspended";
+        trans_state_halt   = 0x3 "Halted, operation aborted (error)";
+        trans_state_armed  = 0x4 "Armed State";
+    };
+
+    /*
+     * 8.5.16 - Channel Status Lo Register.
+     *
+     *          The Channel Status Register records the address of the last 
+     *          descriptor completed by the DMA channel. Refer to Crystal Beach 
+     *          Architecture Specification 2.0 Rev 1.0 for special hardware 
+     *          requirements when software reads this register.
+     */   
+    register sts_lo ro addr(chan_base, 0x08) "Channel Status Lo Register." {
+        cmpdscaddr     26 "Uppder address of the last descriptor processed";
+        _               3 "Reserved";
+        dma_trans_state 3 "DMA transfer State";
+    };
+
+    /*
+     * 8.5.17 - Channel Status Hi Register.
+     *
+     *          The Channel Status Register records the address of the last 
+     *          descriptor completed by the DMA channel. Refer to Crystal Beach 
+     *          Architecture Specification for special hardware requirements when 
+     *          software reads this register.
+     * 
+     *          Also stores the address of the last processed descriptor
+     */  
+    register sts_hi ro addr(chan_base, 0x0c) "Channel Status Hi Register." 
+        type(uint32);
+
+    /*
+     * 8.5.18 - Descriptor Chain Address Lo Register.
+     *
+     *         This register is written by the processor to specify the first 
+     *         descriptor to be fetched by the DMA channel.
+     *
+     *         This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register chainaddr_lo rw addr(chan_base, 0x10) "Descriptor Chain Address Lo Register." {
+        descaddr_lo 26 rw  "Address of the first descriptor";
+        _            6 mbz "Must be zero";
+    };
+
+    /*
+     * 8.5.19 - Descriptor Chain Address Hi Register.
+     *
+     *          This register is written by the processor to specify the first 
+     *          descriptor to be fetched by the DMA channel.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register chainaddr_hi rw addr(chan_base, 0x14) "Descriptor Chain Address Hi Register."
+        type(uint32);
+        
+
+    /*
+     * 8.5.20 - Channel Completion Address Lo Register.
+     *
+     *          This register specifies the address where the DMA channel writes 
+     *          the completion status upon completion or an error condition i.e. 
+     *          it writes the contents of the CHANSTS register to the destination 
+     *          as pointed by the CHANCMP register.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */   
+    register cmpl_lo addr(chan_base, 0x18) "Channel Completion Address Lo Register." 
+        type(uint32);
+
+    /*
+     * 8.5.21 - Channel Completion Address Hi Register.
+     *
+     *          This register specifies the address where the DMA channel writes 
+     *          the completion status upon completion or an error condition i.e. 
+     *          it writes the contents of the CHANSTS register to the destination 
+     *          as pointed by the CHANCMP register.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register cmpl_hi addr(chan_base, 0x1c) "Channel Completion Address Hi Register." 
+        type(uint32);
+
+    /*
+     * 8.5.22 - Channel Error Register
+     *
+     *          The Channel Error Register records the error conditions occurring 
+     *          within a given DMA channel.
+     */  
+    register err addr(chan_base, 0x28) "Channel Error Register" {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    /*
+     * 8.5.23 - Channel Error Mask Register.
+     */  
+    register errmsk addr(chan_base, 0x2c) "Channel Error Mask Register." {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+    
+    constants dcactrl_targets "Target CPU Values" {
+       dca_ctr_target_any = 0xffff "Any CPU as garget";
+    };
+    
+    /*
+     * 8.5.24 - DCA Control Register
+     *
+     *          This field is RW if CHANCNT register is 1 otherwise this register is RO
+     */  
+    register dcactrl addr(chan_base, 0x30) "DCA Control Register" {
+        _          16 rsvd "Reserved";
+        target_cpu 16 rw   "Specifies the APCI ID of the target CPU for compl writes";
+    }; 
+};
+

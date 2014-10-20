@@ -1,0 +1,49 @@
+
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2012, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/virtio
+--
+--------------------------------------------------------------------------
+
+[ build library { target = "virtio",
+                      cFiles = [ "virtqueue.c",
+                      	   "device.c",
+                      	   "vbuffer.c",
+                      	   "backends/virtio_device_mmio.c",
+                      	   "backends/virtio_device_pci.c",
+                      	   "devices/virtio_block.c",
+                      	   "guest.c",
+                      	   "guest/channel_flounder.c",
+                      	   "guest/channel_xeon_phi.c"
+                      	    ],
+
+                      mackerelDevices = [ "virtio/virtio_mmio",
+                                          "virtio/virtio_pci",
+					  "virtio/virtio_blk" ],
+                  flounderBindings = [ "virtio" ],
+                  flounderExtraBindings = [ ("virtio", ["rpcclient"])]
+                },
+  build library { target = "virtio_host",
+                  addCFlags = [ "-D__VIRTIO_HOST__" ],
+                      cFiles = [ "virtqueue_host.c",
+                                 "device.c",
+                                 "vbuffer.c",
+                                 "backends/virtio_device_mmio.c",
+                                 "backends/virtio_device_pci.c",
+                                 "devices/virtio_block.c",
+                                 "host.c",
+                      	   	     "host/channel_flounder.c",
+                      	   		 "host/channel_xeon_phi.c" ],
+                      mackerelDevices = [ "virtio/virtio_mmio",
+                                          "virtio/virtio_pci",
+					  "virtio/virtio_blk" ],
+	             flounderBindings = [ "virtio" ],
+                  flounderExtraBindings = [ ("virtio", ["rpcclient"])]
+                }
+]

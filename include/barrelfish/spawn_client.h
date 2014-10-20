@@ -12,12 +12,13 @@
 
 #include <sys/cdefs.h>
 #include <barrelfish_kpi/types.h>
-
+#include <spawndomain/spawndomain.h>
 __BEGIN_DECLS
 
 /// Flags for spawning a program
 typedef enum spawn_flags {
     SPAWN_NEW_DOMAIN    = 1 << 0, ///< allocate a new domain ID
+    SPAWN_OMP           = 1 << 1, ///< do the OpenMP parsing
 } spawn_flags_t;
 
 struct spawn_ps_entry {
@@ -31,6 +32,11 @@ struct spawn_ps_entry {
 #define INHERITCN_SLOT_SESSIONID 2  ///< Session ID domain belongs to
 
 errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 struct capref inheritcn_cap,
+                                 struct capref argcn_cap, spawn_flags_t flags,
+                                 domainid_t *ret_domainid);
+errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
                                  char *const argv[], char *const envp[],
                                  struct capref inheritcn_cap,
                                  struct capref argcn_cap, spawn_flags_t flags,

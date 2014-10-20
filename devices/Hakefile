@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2012, ETH Zurich.
+-- Copyright (c) 2007-2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for devices/
--- 
+--
 --------------------------------------------------------------------------
 
 -- Mackerel 2 device descriptions
@@ -15,7 +15,7 @@
 -- THIS is the place for new device descriptions.
 --
 [ mackerel2 (options arch) f
-  | f <- [ "ac97_base_audio", 
+  | f <- [ "ac97_base_audio",
            "ac97_ext_audio",
            "ac97_ext_codec",
            "ac97_ext_modem",
@@ -27,6 +27,7 @@
            "audio_nbm",
            "e1000",
            "e10k",
+           "e10k_vf",
            "e10k_q",
            "ehci",
            "fat16_ebpb",
@@ -56,6 +57,7 @@
            "pl130_gic",
            "sp804_pit",
            "cortex_a9_pit",
+           "cortex_a9_gt",
            "a9scu",
            "ti_i2c",
            "ti_twl6030",
@@ -66,7 +68,7 @@
            "omap/omap44xx_cam_cm2",
            "omap/omap44xx_cam_prm",
            "omap/omap44xx_ckgen_cm2",
-           "omap/omap44xx_ckgen_prm", 
+           "omap/omap44xx_ckgen_prm",
            "omap/omap44xx_cortex_m3_nvic",
            "omap/omap44xx_ctrlmod",
            "omap/omap44xx_device_prm",
@@ -77,26 +79,41 @@
            "omap/omap44xx_hsusbhost",
            "omap/omap44xx_id",
            "omap/omap44xx_l3init_cm2",
-           "omap/omap44xx_l4per_cm2", 
+           "omap/omap44xx_l4per_cm2",
            "omap/omap44xx_mmchs",
-           "omap/omap44xx_mmchs1",           
+           "omap/omap44xx_mmchs1",
            "omap/omap44xx_mmu",
            "omap/omap44xx_scrm",
+           "omap/omap44xx_sdma",
            "omap/omap44xx_spinlock",
            "omap/omap44xx_sysctrl_padconf_core",
            "omap/omap44xx_sysctrl_padconf_wkup",
            "omap/omap44xx_usbconf",
            "omap/omap44xx_usbtllhs_config",
-           "omap/omap44xx_uart3"
+           "omap/omap44xx_uart3",
+           "virtio/virtio_blk",
+           "virtio/virtio_mmio",
+           "virtio/virtio_pci",
+           "virtio/virtio_io",
+           "xeon_phi/xeon_phi_serial",
+           "xeon_phi/xeon_phi_boot",
+           "xeon_phi/xeon_phi_apic",
+           "xeon_phi/xeon_phi_smpt",
+           "xeon_phi/xeon_phi_irq",
+           "xeon_phi/xeon_phi_dma",
+           "xeon_phi/xeon_phi_dma_chan",
+           "ioat_dma",
+           "ioat_dma_chan",
+           "pci_sr_iov_cap"
          ], arch <- allArchitectures
 ] ++
 
 -- Mackerel 1 device descriptions
--- 
+--
 -- DO NOT add new devices to this list - the interface is non-portable
 -- and liable to break with new C compiler versions!
--- 
-[ mackerel (options arch) f 
+--
+[ mackerel (options arch) f
   | f <- [ "amd_vmcb",
            "arm_icp_pic0",
            "arm_icp_pit",

@@ -1,0 +1,112 @@
+/*
+ * Copyright (c) 2014, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr 6, CH-8092 Zurich.
+ */
+
+interface omap_sdma "Interface for the OMAP44xx SDMA driver" {
+
+    alias uint24 uint32;
+
+    typedef enum {
+        DATA_TYPE_8BIT,
+        DATA_TYPE_16BIT,
+        DATA_TYPE_32BIT
+    } data_type;
+
+    /**
+     * The count_2d struct is used to specify the size of the transferred
+     * frame. It is represented as a two-dimensional grid consisting of pixels.
+     * The x_count and y_count are specified as an amount of pixels.
+     *
+     *    +--->  x      The represented grid cannot exceed the boundaries of
+     *    |             frame capability found in the addr_2d struct.
+     *    v
+     *
+     *    y
+     */
+
+    typedef struct {
+        data_type pixel_size;
+
+        uint32 y_count;
+        uint32 x_count;
+    } count_2d;
+
+    /**
+     * The addr_2d struct can be used for flexible addressing. The x_start and
+     * y_start values define the start offset on each axis. The values of
+     * {x,y}_modify are used to calculate the address of consecutive accesses.
+     *
+     * For normal sequential access, set {x,y}_start to 0 and {x,y}_modify to 1.
+     *
+     * All values have the unit of one pixel, its size is defined in the
+     * count_2d struct. The following pseudo code gives a formal definition
+     * how these values are used:
+     *
+     *  pixel_t *addr; // 8, 16 or 32 bit integer pointer
+     *
+     *  addr += x_start + (y_count * y_start);
+     *  for (y = 1; y <= y_count; y++) {
+     *      for (x = 1; x <= x_count; x++) {
+     *
+     *          access( *addr );
+     *
+     *          if (x < x_count) {
+     *              // within the frame
+     *              addr += x_modify;
+     *          } else {
+     *              // at the end of a frame
+     *              addr += y_modify;
+     *          }
+     *      }
+     *  }
+     */
+
+    typedef struct {
+        cap cap;
+
+        uint32 x_start;
+        uint32 y_start;
+
+        int32 x_modify;
+        int32 y_modify;
+    } addr_2d;
+
+    /**
+     * Copies the whole content of the source frame into the destination frame.
+     */
+    rpc mem_copy(in cap dst, in cap src, out errval err);
+
+    /**
+     * Fills the whole destination frame with the specified color value.
+     */
+    rpc mem_fill(in cap dst, in uint8 color, out errval err);
+
+    /**
+     * Copies the amount of data specified by count_2d from the source frame
+     * to the destination frame. For both, source and destination, flexible
+     * address generation can be used for stride access, see above.
+     *
+     * If the 'transparent' boolean is set, the color value will be used for
+     * transparent copy mode: Source data values matching the color value will
+     * not be written to the destination. For a pixel size of 32 bits, only the
+     * lower 24 bits of the color value are used for comparison.
+     * The color value is ignored if the boolean is set to false.
+     */
+    rpc mem_copy_2d(in addr_2d dst, in addr_2d src, in count_2d count,
+                    in bool transparent, in uint24 color, out errval err);
+
+    /**
+     * Fills the destination frame with the specified color value, using
+     * the flexible, two-dimensional addressing mode described above.
+     * As the color value is 24 bits wide, the upper 8 bits are set to zero
+     * when using a pixel size of 32 bits.
+     */
+    rpc mem_fill_2d(in addr_2d dst, in uint24 color,
+                    in count_2d count, out errval err);
+
+};

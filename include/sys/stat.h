@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2011, 2012, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -28,14 +28,14 @@ struct stat {
 };
 
 #define S_IFMT   0170000
-	
-#define	S_IFSOCK 0140000	
+
+#define	S_IFSOCK 0140000
 #define	S_IFLNK	 0120000
-#define S_IFREG  0100000	
+#define S_IFREG  0100000
 #define	S_IFBLK	 0060000
 #define S_IFDIR  0040000
-#define S_IFCHR	 0020000	
-#define	S_IFIFO	 0010000	
+#define S_IFCHR	 0020000
+#define	S_IFIFO	 0010000
 
 #define	S_ISUID	04000
 #define	S_ISGID	02000
@@ -69,7 +69,9 @@ __BEGIN_DECLS
 mode_t umask(mode_t mask);
 int chmod(const char *path, mode_t mode);
 int mkdir(const char *pathname, int mode);
-int stat(const char *pathname, struct stat *buf);
+int mkfifo(const char *pathname, mode_t mode);
+int __stat(const char *pathname, struct stat *buf);
+#define stat(x,y) __stat(x,y)
 int fstat(int fd, struct stat*buf);
 int lstat(const char *path, struct stat *buf);
 __END_DECLS

@@ -75,6 +75,7 @@ int vfsfd_open(const char *pathname, int flags)
     struct fdtab_entry e = {
         .type = FDTAB_TYPE_FILE,
         .handle = vh,
+        .epoll_fd = -1,
     };
     int fd = fdtab_alloc(&e);
     VFSFD_DEBUG("open(%s) as fd %d\n", pathname, fd);

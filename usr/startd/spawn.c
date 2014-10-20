@@ -204,6 +204,66 @@ void spawn_dist_domains(void)
     }
 }
 
+void spawn_arrakis_domains(void)
+{
+    struct spawn_info si;
+    size_t bmpos = 0;
+    errval_t err;
+    int r;
+
+    coreid_t my_coreid = disp_get_core_id();
+
+    while (true) {
+
+        r = prepare_spawn(&bmpos, &si);
+        if (r == 0) {
+            return;
+        } else if (r == -1) {
+            DEBUG_ERR(STARTD_ERR_BOOTMODULES,
+                      "failed to read bootmodules entry");
+        }
+
+        /* Only spawn special arrakis modules */
+        if (si.argc >= 2 && strcmp(si.argv[1], "arrakis") == 0) {
+
+            coreid_t coreid;
+            int extra_args;
+
+            // get core id
+            if (si.argc >= 3 && strncmp(si.argv[2], "core=", 5) == 0) {
+
+                char *p = strchr(si.argv[2], '=');
+                assert(p != NULL);
+                coreid = strtol(p + 1, NULL, 10);
+                extra_args = 2;
+
+            } else {
+                coreid = my_coreid;
+                extra_args = 1;
+            }
+
+            // discard 'dist-serv' and 'core=x' argument
+            for (int i = 1; i <= si.argc - extra_args; i++) {
+                si.argv[i] = si.argv[i+extra_args];
+            }
+            si.argc--;
+
+            debug_printf("starting arrakis domain %s on core %d\n", si.name, coreid);
+
+            domainid_t new_domain;
+            err = spawn_arrakis_program(coreid, si.name, si.argv, environ,
+					NULL_CAP, NULL_CAP, 0, &new_domain);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "spawn of %s failed", si.name);
+                continue;
+            }
+        }
+
+        free(si.cmdargs);
+        free(si.name);
+    }
+}
+
 void spawn_app_domains(void)
 {
     struct spawn_info si;
@@ -241,6 +301,7 @@ void spawn_app_domains(void)
         if (si.argc >= 2 && (strcmp(si.argv[1], "boot") == 0
                           || strcmp(si.argv[1], "dist-serv") == 0
                           || strcmp(si.argv[1], "nospawn") == 0
+                          || strcmp(si.argv[1], "arrakis") == 0
                           || strcmp(si.argv[1], "auto") == 0)) {
             spawn_here = false;
         }
@@ -249,12 +310,38 @@ void spawn_app_domains(void)
 
             coreid_t coreid;
 
-            // get core id
-            if (si.argc >= 2 && strncmp(si.argv[1], "core=", 5) == 0) {
+            uint8_t spawn_flags = 0;
+            uint8_t has_spawn_flags = 0;
+            if (si.argc >= 2) {
+                char *p = NULL;
+                if (strncmp(si.argv[1], "spawnflags=", 11) == 0) {
+                    p = strchr(si.argv[1], '=');
+                } else if (si.argv[2] && strncmp(si.argv[2], "spawnflags=", 11) == 0) {
+                    p = strchr(si.argv[2], '=');
+                }
+                if (p != NULL) {
+                    p++;
+                    spawn_flags = (uint8_t)strtol(p, (char **)&p, 10);
+                    has_spawn_flags = 1;
+                }
+                p = NULL;
+                if (strncmp(si.argv[1], "core=", 5)== 0) {
+                    p = strchr(si.argv[1], '=');
+                } else if (si.argv[2] && strncmp(si.argv[2], "core=", 5)== 0) {
+                    p = strchr(si.argv[2], '=');
+                }
+                if (!p) {
+                    // no core= argument, spawn domain on our core
+                    debug_printf("starting app %s on core %d\n", si.name, my_coreid);
 
-                char *p = strchr(si.argv[1], '=');
-                assert(p != NULL);
-
+                    domainid_t new_domain;
+                    err = spawn_program(my_coreid, si.name, si.argv, environ,
+                            spawn_flags, &new_domain);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "spawn of %s failed", si.name);
+                    }
+                    continue;
+                }
                 p++;
                 while(*p != '\0') {
                     int id_from = strtol(p, (char **)&p, 10), id_to = id_from;
@@ -270,30 +357,46 @@ void spawn_app_domains(void)
                     /* coreid = strtol(p + 1, NULL, 10); */
                     // discard 'core=x' argument
                     for (int i = 1; i < si.argc; i++) {
-                        si.argv[i] = si.argv[i+1];
+                        if (has_spawn_flags) {
+                            si.argv[i] = si.argv[i+2];
+                        } else {
+                            si.argv[i] = si.argv[i+1];
+                        }
                     }
-                    si.argc--;
+                    if (has_spawn_flags) {
+                        si.argc -= 2;
+                    } else {
+                        si.argc--;
+                    }
 
                     for(int i = id_from; i <= id_to; i++) {
                         debug_printf("starting app %s on core %d\n",
-                                si.name, i);
+                                     si.name, i);
 
                         domainid_t new_domain;
                         err = spawn_program(i, si.name, si.argv, environ,
-                                            0, &new_domain);
+                                            spawn_flags, &new_domain);
                         if (err_is_fail(err)) {
                             DEBUG_ERR(err, "spawn of %s failed", si.name);
                         }
                     }
                 }
+
             } else {
                 coreid = my_coreid;
+
+                if (has_spawn_flags) {
+                    for (int i = 1; i < si.argc; i++) {
+                        si.argv[i] = si.argv[i+1];
+                    }
+                    si.argc--;
+                }
 
                 debug_printf("starting app %s on core %d\n", si.name, coreid);
 
                 domainid_t new_domain;
                 err = spawn_program(coreid, si.name, si.argv, environ,
-                                    0, &new_domain);
+                                    spawn_flags, &new_domain);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "spawn of %s failed", si.name);
                 }

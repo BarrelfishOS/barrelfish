@@ -1,0 +1,34 @@
+/** \file
+ *  \brief VirtIO shared memory interface
+ */
+
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface virtio "VirtIO Interface" {
+    
+    /* open a new VirtIO device */
+    rpc open(in uint8 backend, out errval err, out cap devframe);
+    
+    /* closes a VirtIO Device */
+    rpc close();
+    
+    /* adds a new vring to the device */
+    rpc add(in uint16 vq_id, 
+            in uint16 ndesc, 
+            in uint8 has_buffers,
+            in cap vring, 
+            out errval err);
+    
+    /* extends the shared memory by a new cap */
+    rpc extend(in uint16 vq_id, in cap vbuf, out errval err);
+    
+    /* requests memory from the host to be used as vring / vbufs */
+    rpc req(in uint64 size, out errval err, out cap vring);
+};

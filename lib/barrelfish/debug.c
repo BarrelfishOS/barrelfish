@@ -348,10 +348,10 @@ int debug_print_capref(char *buf, size_t len, struct capref cap)
                     get_cap_valid_bits(cap));
 }
 
-void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
+void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr, lvaddr_t point)
 {
-    debug_printf("Dumping memory in range 0x%" PRIuLVADDR
-                 " to 0x%" PRIuLVADDR ":\n",
+    debug_printf("Dumping memory in range 0x%" PRIxLVADDR
+                 " to 0x%" PRIxLVADDR ":\n",
                  start_addr, end_addr);
 
     for (uintptr_t *p = (void *)start_addr; (uintptr_t)p < end_addr; p++) {
@@ -362,25 +362,26 @@ void debug_dump_mem(lvaddr_t start_addr, lvaddr_t end_addr)
             bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%02x ", bytes[i]);
             assert(bufpos < sizeof(buf));
         }
-        debug_printf("%p: %.*s %*" PRIxPTR "\n", p, (int)sizeof(buf), buf,
-                     (int)sizeof(uintptr_t) * 2, *p);
+        debug_printf("%p: %.*s %*" PRIxPTR "%s\n", p, (int)sizeof(buf), buf,
+                     (int)sizeof(uintptr_t) * 2, *p,
+                     p == (uintptr_t *)point ? " <== We are here" : "");
     }
 }
 
 void debug_dump_mem_around_addr(lvaddr_t addr)
 {
-    lvaddr_t page_aligned_addr = ROUND_DOWN(addr, BASE_PAGE_SIZE);
+    /* lvaddr_t page_aligned_addr = ROUND_DOWN(addr, BASE_PAGE_SIZE); */
     lvaddr_t start_addr = ROUND_DOWN(addr - DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
     lvaddr_t end_addr = ROUND_UP(addr + DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
 
-    if (start_addr < page_aligned_addr) {
-        start_addr = page_aligned_addr;
-    }
-    if (end_addr > page_aligned_addr + BASE_PAGE_SIZE) {
-        end_addr = page_aligned_addr + BASE_PAGE_SIZE;
-    }
+    /* if (start_addr < page_aligned_addr) { */
+    /*     start_addr = page_aligned_addr; */
+    /* } */
+    /* if (end_addr > page_aligned_addr + BASE_PAGE_SIZE) { */
+    /*     end_addr = page_aligned_addr + BASE_PAGE_SIZE; */
+    /* } */
 
-    debug_dump_mem(start_addr, end_addr);
+    debug_dump_mem(start_addr, end_addr, addr);
 }
 
 void debug_err(const char *file, const char *func, int line, errval_t err,

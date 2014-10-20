@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##########################################################################
-# Copyright (c) 2009, 2011, ETH Zurich.
+# Copyright (c) 2009, 2011, 2013, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -132,8 +132,11 @@ ghc -O --make -XDeriveDataTypeable \
     -i$SRCDIR/hake \
     -ihake \
     -rtsopts=all \
+    -threaded \
     -with-rtsopts="-K32m" \
     $SRCDIR/hake/Main.hs $LDFLAGS || exit 1
+
+    # -eventlog \
 
 if [ "$RUN_HAKE" == "No" ] ; then
     echo "Not running hake as per your request."
@@ -141,7 +144,8 @@ if [ "$RUN_HAKE" == "No" ] ; then
 fi
 
 echo "Running hake..."
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR" || exit
+#./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -s -N -K64M -A64M -ls -lf || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -N -K64M -A64M || exit
 cat <<EOF
 
 OK - Hake has bootstrapped.  You should now have a Makefile in this

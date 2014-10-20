@@ -24,6 +24,8 @@
 
 #if defined(__i386__)
 #define EM_HOST EM_386
+#elif defined(__k1om__)
+#define EM_HOST EM_K1OM
 #elif defined(__x86_64__)
 #define EM_HOST EM_X86_64
 #else
@@ -165,8 +167,77 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
         }
     }
 
+    si->vregion[si->vregions] = vregion;
+    si->base[si->vregions++] = base;
+
     genvaddr_t genvaddr = vregion_get_base_addr(vregion) + base_offset;
     *retbase = (void*)vspace_genvaddr_to_lvaddr(genvaddr);
+    return SYS_ERR_OK;
+}
+
+static errval_t spawn_parse_omp_functions(const char *name,
+                                          lvaddr_t binary, size_t binary_size)
+{
+    errval_t err;
+    genvaddr_t value;
+    err = spawn_symval_lookup(name, 0, NULL, &value);
+    if (err_is_ok(err)) {
+        return SYS_ERR_OK;
+    }
+
+    uint32_t count = 0;
+
+    struct Elf64_Sym *sym = NULL;
+    struct Elf64_Shdr *shead;
+    struct Elf64_Shdr *symtab;
+    const char *symname = NULL;
+
+    lvaddr_t elfbase = (lvaddr_t)binary;
+    struct Elf64_Ehdr *head = (struct Elf64_Ehdr *)elfbase;
+
+    // just a sanity check
+    if (!IS_ELF(*head) || head->e_ident[EI_CLASS] != ELFCLASS64) {
+        return ELF_ERR_HEADER;
+    }
+
+    shead = (struct Elf64_Shdr *)(elfbase + (uintptr_t)head->e_shoff);
+
+    symtab = elf64_find_section_header_type(shead, head->e_shnum, SHT_SYMTAB);
+
+    uintptr_t symbase = elfbase + (uintptr_t)symtab->sh_offset;
+
+    uint32_t symindex = 1;
+    for (uintptr_t i = 0; i < symtab->sh_size; i += sizeof(struct Elf64_Sym)) {
+        // getting the symbol
+        sym = (struct Elf64_Sym *)(symbase + i);
+
+        // check for matching type
+        if ((sym->st_info & 0x0F) != STT_FUNC) {
+            continue;
+        }
+
+        // find the section of the associated string table
+        struct Elf64_Shdr *strtab = shead+symtab->sh_link;
+
+        // get the pointer to the symbol name from string table + string index
+        symname = (const char *)elfbase + strtab->sh_offset + sym->st_name;
+
+        if (strstr(symname, "_omp_fn") != NULL) {
+            count++;
+            err = spawn_symval_register(name, symindex++,  symname, sym->st_value);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "could not register symbol. %s\n", symname);
+                return err;
+            }
+        }
+    }
+
+    err = spawn_symval_register(name, 0, "binary", count);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not register symbol: %s.binary", name);
+        return err;
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -181,12 +252,13 @@ errval_t spawn_arch_load(struct spawninfo *si,
 
     // Reset the elfloader_slot
     si->elfload_slot = 0;
+    si->vregions = 0;
 
     struct capref cnode_cap = {
         .cnode = si->rootcn,
         .slot  = ROOTCN_SLOT_SEGCN,
     };
-    // XXX: this code assumes that elf_load never needs more than 32 slots for 
+    // XXX: this code assumes that elf_load never needs more than 32 slots for
     // text frame capabilities.
     err = cnode_create_raw(cnode_cap, &si->segcn, DEFAULT_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
@@ -202,6 +274,20 @@ errval_t spawn_arch_load(struct spawninfo *si,
         return err;
     }
 
+    lvaddr_t tmp, tmp2;
+    err = elf_get_eh_info(binary, binary_size, &tmp, &si->eh_frame_size,
+                          &tmp2, &si->eh_frame_hdr_size);
+    si->eh_frame = vspace_lvaddr_to_genvaddr(tmp);
+    si->eh_frame_hdr = vspace_lvaddr_to_genvaddr(tmp2);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if ((strcmp("spawnd", disp_name())==0) && (si->flags & SPAWN_FLAGS_OMP)) {
+        return spawn_parse_omp_functions(si->name, binary, binary_size);
+    }
+
     return SYS_ERR_OK;
 }
 
@@ -210,7 +296,7 @@ void spawn_arch_set_registers(void *arch_load_info,
                               arch_registers_state_t *enabled_area,
                               arch_registers_state_t *disabled_area)
 {
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__k1om__)
     /* XXX: 1st argument to _start is the dispatcher pointer
      * see lib/crt/arch/x86_64/crt0.s */
     disabled_area->rdi = get_dispatcher_shared_generic(handle)->udisp;

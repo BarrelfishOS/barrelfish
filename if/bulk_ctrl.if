@@ -1,0 +1,175 @@
+/*
+ * Copyright (c) 2007, 2008, 2009, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface bulk_ctrl "bulk control channel interface" {
+
+    alias error uint64;
+
+    typedef enum {
+        SOURCE,
+        SINK
+    } direction;
+
+    typedef enum {
+        MASTER,
+        SLAVE,
+        GENERIC
+    } role;
+
+    typedef enum {
+        NONE,
+        HALF,
+        FULL
+    } trust;
+
+    typedef struct {
+        uint32 pool_id_machine;
+        uint32 pool_id_dom;
+        uint32 pool_id_local;
+    } poolid;
+
+    typedef struct {
+        uint32 pool_id_machine;
+        uint32 pool_id_dom;
+        uint32 pool_id_local;
+        trust  trust;
+        uint32 buffer_size;
+        uint32 num_buffers;
+        cap    cap;
+    } pool;
+
+    /*
+    rpc negotiate(in  role      role,
+                  in  trust     trust,
+                  out error     error,
+                  out direction match_direction,
+                  out role      match_role,
+                  out uint64    meta_size);
+    */
+
+    message negotiate_call(role      role,
+                           trust     trust);
+
+    message negotiate_response(error     error,
+                               direction match_direction,
+                               role      match_role,
+                               uint64    meta_size);
+
+    /*
+    rpc assign_pool(in  pool   pool,
+                    in  uint64 id,
+                    out error  error,
+                    out uint64 id);
+    */
+
+    message assign_pool_call(pool   pool,
+                             uint64 id);
+
+    message assign_pool_response(error  error,
+                                 uint64 id);
+
+/*
+ * buffer movement operations:
+ *  we have to differentiate between the trusted and untrusted case, because some
+ *  flounder backends (such as UMP) will go to great lenghts to send NULL_CAP's
+ *  (UMP will always get a monitor mutex before sending any messages with caprefs,
+ *   which slows the communication drastically)
+ *  tid is a transaction id, used to mark which request a given reply belongs to
+ *
+ */
+ 
+    /*
+    rpc move(in poolid poolid,
+             in  uint32     bufferid,
+             in  uint32     tid,
+             in  cap        cap,
+             in  uint8      meta[metasize],
+             out error      error,
+             out uint32     tid);
+    */
+
+    message move_untrusted_call(poolid poolid,
+                                uint32     bufferid,
+                                uint32     tid,
+                                cap        cap,
+                                uint8      meta[metasize]);
+
+    message move_trusted_call(poolid poolid,
+                              uint32     bufferid,
+                              uint32     tid,
+                              uint8      meta[metasize]);
+
+
+    message move_response(error      error,
+                          uint32     tid);
+
+    /*
+    rpc copy(in  poolid     poolid,
+             in  uint32     bufferid,
+             in  uint32     tid,
+             in  cap        cap,
+             in  uint8      meta[metasize],
+             out error      error,
+             out uint32     tid);
+    */
+
+    message copy_untrusted_call(poolid     poolid,
+                                uint32     bufferid,
+                                uint32     tid,
+                                cap        cap,
+                                uint8      meta[metasize]);
+
+    message copy_trusted_call(poolid     poolid,
+                              uint32     bufferid,
+                              uint32     tid,
+                              uint8      meta[metasize]);
+
+
+    message copy_response(error      error,
+                          uint32     tid);
+
+    /*
+    rpc pass(in  poolid     poolid,
+             in  uint32     bufferid,
+             in  uint32     tid,
+             in  cap        cap,
+             in  uint8      meta[metasize],
+             out error      error,
+             out uint32     tid);
+    */
+
+    message pass_untrusted_call(poolid     poolid,
+                                uint32     bufferid,
+                                uint32     tid,
+                                cap        cap,
+                                uint8      meta[metasize]);
+
+    message pass_trusted_call(poolid     poolid,
+                              uint32     bufferid,
+                              uint32     tid,
+                              uint8      meta[metasize]);
+
+    message pass_response(error      error,
+                          uint32     tid);
+
+    /*
+    rpc release(in  poolid      poolid,
+                in  uint32      bufferid,
+                in  uint32      tid,
+                out error       error,
+                out uint32      tid);
+    */
+
+    message release_call(poolid      poolid,
+                         uint32      bufferid,
+                         uint32      tid);
+
+    message release_response(error       error,
+                             uint32      tid);
+};

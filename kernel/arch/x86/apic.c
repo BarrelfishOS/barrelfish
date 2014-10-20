@@ -109,7 +109,11 @@ void apic_init(void)
 {
     //pointer to a variable used as pseudo-lock to synchronize the BSP
     //and the AP which gets enabled
-#if defined (__x86_64__)
+#if defined(__k1om__)
+        volatile uint32_t *ap_wait = (volatile uint32_t *)
+            local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
+                              K1OM_REAL_MODE_LINEAR_OFFSET);
+#elif defined (__x86_64__)
     volatile uint32_t *ap_wait = (volatile uint32_t *)
         local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
                           X86_64_REAL_MODE_LINEAR_OFFSET);
@@ -140,6 +144,7 @@ void apic_init(void)
           apic_phys, apic_base);
     xapic_initialize(&apic, (void *)apic_base);
 
+
 #if !defined(__scc__)
     apic_id = apic_get_id();
     debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
@@ -156,7 +161,7 @@ void apic_init(void)
     // initialize spurious interrupt register
     // no focus, software enabled
     {
-	xapic_svr_t t = xapic_svr_initial; 
+	xapic_svr_t t = xapic_svr_initial;
 	t = xapic_svr_vector_insert(t, APIC_SPURIOUS_INTERRUPT_VECTOR);
 	t = xapic_svr_enable_insert(t, 1);
 	t = xapic_svr_focus_insert( t, 1);
@@ -188,7 +193,10 @@ void apic_init(void)
 	xapic_lvt_thermal_wr(&apic, t);
     }
 
-#if defined(__scc__)
+    /*
+     * TODO: How are the local intercore interrups handled using the APIC?
+     */
+#if defined(__scc__) // || defined(__k1om__)
     //LINT0: inter-core interrupt
     //generate fixed int
     {
@@ -281,7 +289,11 @@ static void apic_send_ipi( xapic_icr_lo_t cmd, uint8_t destination, bool wait)
 
     //send the IPI
     xapic_icr_hi_t t = xapic_icr_hi_initial;
+#if !defined(__k1om__)
     t = xapic_icr_hi_dest_insert(t, destination);
+#else
+    t = xapic_icr_hi_xeon_phi_dest_insert(t, destination);
+#endif
     xapic_icr_hi_rawwr(&apic, t);
     xapic_icr_lo_rawwr(&apic, cmd);
 
@@ -394,7 +406,11 @@ void apic_seoi(uint8_t int_nr)
 
 uint8_t apic_get_id(void)
 {
+#if !defined(__k1om__)
     return xapic_id_id_rdf(&apic);
+#else
+    return xapic_id_xeon_phi_id_rdf(&apic);
+#endif
 }
 
 /**

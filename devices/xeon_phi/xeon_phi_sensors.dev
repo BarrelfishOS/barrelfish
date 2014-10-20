@@ -1,0 +1,471 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_sensors.dev
+ *
+ * description: register definitions for the Xeon Phi onboard sensors
+ */
+
+device xeon_phi_sensors lsbfirst ( addr base ) "Intel Xeon Phi Sensors" {
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRAP_PWRDG, HOT_RESET
+     * Register Access: TRM
+     */
+    register thermal_status rw addr(base, 0x1018) "Status and Log info for all the thermal interrupts" { 
+        thermal_monitor_status     1 "Set whenever the current die temp exceeds the thermal monitor control temperature";
+        thermal_monitor_log        1 "Sticky version of Thermal_Monitor_Status, cleared by s/w or by reset";
+        out_of_spec_status         1 "Set whenever the current die temp exceeds the Out of Spec temperature; is sticky"; 
+        out_of_spec_log            1 "Sticky version of Out_Of_Spec_Status ";
+        thermal_threshold1_status  1 "Set whenever the current die temp exceeds the software programmed thermal threshold";
+        thermal_threshold1_log     1 "Sticky version of Thermal_Threshold1_Status, cleared by s/w or by reset"; 
+        thermal_threshold2_status  1 "Set whenever the current die temp exceeds the software programmed thermal threshold2";
+        thermal_threshold2_log     1 "Sticky version of Thermal_Threshold2_Status, cleared by s/w or by reset"; 
+        fan_monitor_status         1 "Indication if there was an error/fail condition with the Off-chip Fan";  
+        fan_monitor_log            1 "Sticky version of Fan_Monitor_Status, cleared by s/w or by reset"; 
+        system_hot_status          1 "Indication if any other device on the MIC Card is hot";
+        system_hot_log             1 "Sticky version of System_Hot_Status, cleared by s/w or by reset"; 
+        _                         20 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register thermal_irq_enable rw addr(base, 0x101C) "Register that controls the interrupt response to thermal events" { 
+        high_temp             1 "enables/disables the s/w programmed HIGH temp interrupt"; 
+        low_temp              1 "enables/disables the s/w programmed  LOW temp interrupt"; 
+        out_of_spec           1 "enables/disables the Out of Spec Temp interrupt"; 
+        fan_monitor           1 "enables/disables the interrupt from Fan Control Unit";      
+        system_monitor        1 "enables/disables the system hot interrupts"; 
+        mclk_ratio            1 "enables/disables the mclk ratio interrupts"; 
+        alert                 1 "enables/disables the ALERT# interrupts"; 
+        gpuhot                1 "enables/disables the GPUHOT# interrupts"; 
+        pwralert              1 "enables/disables the PWRALERT# interrupt"; 
+        _                     1 "Reserved";
+        sw_threshold1_temp   10 "Software Programmable Thermal Threshold #1"; 
+        sw_threshold1_enable  1 "enables/disables the sw threshold #1 interrupts"; 
+        sw_threshold2_temp   10 "Software Programmable Thermal Threshold #2"; 
+        sw_threshold2_enable  1 "enables/disables the sw threshold #2 interrupts";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register micro_controller_fan_status rw addr(base, 0x1020) "Upto data Status information from the Fan microcontroller" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register status_fan1 rw addr(base, 0x1024) "32 bit Status of Fan #1" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register status_fan2 rw addr(base, 0x1028) "32 bit Status of Fan #2" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG, HOT_RESET
+     * Register Access: TRM
+     */
+    register speed_override_fan rw addr(base, 0x102C) "Override of fan speed" { 
+        value 32 "Value";
+    };    
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register board_temp1 rw addr(base, 0x1030) "Temperature from Sensors 1 and 2 on LRB Card" { 
+        value 32 "Value";
+    }    
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register board_temp2 rw addr(base, 0x1034) "Temperature from Sensors 3 and 4 on LRB Card" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register board_voltage rw addr(base, 0x1038) "Digitized value of Voltage sense input to LRB" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register current_die_temp0 rw addr(base, 0x103C) "Consists of Current Die Temperatures of sensors 0 thru 2" { 
+        sensor0 10 "current temperature of sensor 0";
+        sensor1 10 "current temperature of sensor 1";
+        sensor2 10 "current temperature of sensor 2";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register current_die_temp1 rw addr(base, 0x1040) "Consists of Current Die Temperatures of sensors 3 thru 5" { 
+        sensor3 10 "current temperature of sensor 3";
+        sensor4 10 "current temperature of sensor 4";
+        sensor5 10 "current temperature of sensor 5";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register current_die_temp2 rw addr(base, 0x1044) "Consists of Current Die Temperatures of sensors 6 thru 8" { 
+        sensor6 10 "current temperature of sensor 6";
+        sensor7 10 "current temperature of sensor 7";
+        sensor8 10 "current temperature of sensor 8";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register max_die_temp0 rw addr(base, 0x1048) "Consists of Maximum Die Temperatures of sensors 0 thru 2" { 
+        sensor0 10 "maximum temperature of sensor 0";
+        sensor1 10 "maximum temperature of sensor 1";
+        sensor2 10 "maximum temperature of sensor 2";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register max_die_temp1 rw addr(base, 0x104C) "Consists of Maximum Die Temperatures of sensors 3 thru 5" { 
+        sensor3 10 "maximum temperature of sensor 3";
+        sensor4 10 "maximum temperature of sensor 4";
+        sensor5 10 "maximum temperature of sensor 5";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register max_die_temp2 rw addr(base, 0x1050) "Consists of Maximum Die Temperatures of sensors 6 thru 8" { 
+        sensor6 10 "maximum temperature of sensor 6";
+        sensor7 10 "maximum temperature of sensor 7";
+        sensor8 10 "maximum temperature of sensor 8";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register min_die_temp0 rw addr(base, 0x1054) "Consists of Minimum Die Temperatures of sensors 0 thru 2" { 
+        sensor0 10 "minimum temperature of sensor 0";
+        sensor1 10 "minimum temperature of sensor 1";
+        sensor2 10 "minimum temperature of sensor 2";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register min_die_temp1 rw addr(base, 0x1058) "Consists of Minimum Die Temperatures of sensors 3 thru 5" { 
+        sensor3 10 "minimum temperature of sensor 3";
+        sensor4 10 "minimum temperature of sensor 4";
+        sensor5 10 "minimum temperature of sensor 5";
+        _        2 "Reserved";;
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register min_die_temp2 rw addr(base, 0x105C) "Consists of Minimum Die Temperatures of sensors 6 thru 8" { 
+        sensor6 10 "minimum temperature of sensor 6";
+        sensor7 10 "minimum temperature of sensor 7";
+        sensor8 10 "minimum temperature of sensor 8";
+        _        2 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: GRPA_PWRDG
+     * Register Access: TRM
+     */
+    register min_die_temp2 rw addr(base, 0x105C) "Consists of Minimum Die Temperatures of sensors 6 thru 8" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register thermal_status2 rw addr(base, 0x1080) "Thermal Status for LRB2" { 
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET, HOT_RESET
+     * Register Access: TRM
+     */
+    register thermal_status_irq rw addr(base, 0x107C) "Status and Log info for lrb2 new thermal interrupts" { 
+        mclk_ratio_status 1 "Set whenever MCLK Ratio Changes. Cleared by SW writing.";
+        mclk_ratio_log    1 "A sticky version of MCLK_Ratio_Status";
+        alert_status      1 "Set whenever ALERT# pin is asserted. Cleared by SW writing.";
+        alert_log         1 "A sticky version of Alert_Status, cleared by s/w or by reset";
+        gpuhot_status     1 "Reflects the real-time value of the GPUHOT# pin (synchronized to SCLK domain).";
+        gpuhot_log        1 "Set on the assertion edge of GPUHOT# and remains set until software clears it by doing a write.";
+        pwralert_status   1 "Reflects the real-time value of the PWRALERT# pin (synchronized to SCLK domain).;
+        pwralert_log      1 "Set on the assertion edge of PWRALERT# and remains set until software clears it by doing a write."
+        _                23 "Reserved";
+        etc_freeze        1 "freeze the increment of elapsed-time counter"; 
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings0 rw addr(base, 0x1090) "External Thermal Sensor Setting - Sensor #0" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings1 rw addr(base, 0x1094) "External Thermal Sensor Setting - Sensor #1" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings2 rw addr(base, 0x1098) "External Thermal Sensor Setting - Sensor #2" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings3 rw addr(base, 0x109C) "External Thermal Sensor Setting - Sensor #3" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings4 rw addr(base, 0x10A0) "External Thermal Sensor Setting - Sensor #4" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_settings5 rw addr(base, 0x10A4) "External Thermal Sensor Setting - Sensor #5" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams0 rw addr(base, 0x10A8) "External Thermal Sensor Parameters - Sensor #0" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams1 rw addr(base, 0x10AC) "External Thermal Sensor Parameters - Sensor #1" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams2 rw addr(base, 0x10B0) "External Thermal Sensor Parameters - Sensor #2" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams3 rw addr(base, 0x10B4) "External Thermal Sensor Parameters - Sensor #3" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams4 rw addr(base, 0x10B8) "External Thermal Sensor Parameters - Sensor #4" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_controlparams5 rw addr(base, 0x10BC) "External Thermal Sensor Parameters - Sensor #5" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_status0 rw addr(base, 0x10C0) "External Thermal Sensor Status - Sensor #0 ~ #2" {
+        value 32 "Value";
+    };
+
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register ext_temp_status1 rw addr(base, 0x10C4) "External Thermal Sensor Status - Sensor #3 ~ #5" {
+        value 32 "Value";
+    };
+
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register int_fan_status rw addr(base, 0x10C8) "Internal Thermal Sensor Status" {
+        value 32 "Value";
+    };
+
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register int_fan_control0 rw addr(base, 0x10CC) "Internal Thermal Sensor Setting/Parameters and FCU Configuration - 0" {
+        value 32 "Value";
+    };
+
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register int_fan_control1 rw addr(base, 0x10D0) "Internal Thermal Sensor Setting/Parameters and FCU Configuration - 1" {
+        value 32 "Value";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Domain: CSR_RESET
+     * Register Access: TRM
+     */
+    register int_fan_control2 rw addr(base, 0x10D4) "Internal Thermal Sensor Setting/Parameters and FCU Configuration - 2" {
+        value 32 "Value";
+    };  
+};

@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2010-2011, ETH Zurich. 
+ * Copyright (c) 2010-2011, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -150,22 +150,21 @@ static void state_machine(void)
     }
 
     case 2: { // wait for all spawnd's to come up
-
         for (uintptr_t c = 0; c <= MAX_COREID; c++) {
             if (coreid_mappings[c].present && c != my_core_id) {
                 err = nsb_wait_n(c, SERVICE_BASENAME);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "nameservice barrier wait for %s.%d",
                                    SERVICE_BASENAME, c);
-                }                
+                }
             }
         }
 
         err = nsb_register(ALL_SPAWNDS_UP);
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "nameservice barrier register for %s", 
+            USER_PANIC_ERR(err, "nameservice barrier register for %s",
                            ALL_SPAWNDS_UP);
-        }                
+        }
 
         // offer the spawn service
         err = start_service();
@@ -222,6 +221,29 @@ static void mappings_from_cmdline(uintptr_t my_arch_id, const char *str)
         next++;
     }
 
+    if(!strncmp(str,"bootk1om=",strlen("bootk1om="))) {
+        char *p = strchr(str, '=');
+        assert(p != NULL);
+        p++;
+
+        int num = strtol(p, (char **)&p, 10) - 1; // subtract one for the BSP
+        debug_printf("initializing %u cores\n", num);
+        int i = 0;
+        while(num) {
+            if (i != my_arch_id) {
+                assert(next <= MAX_COREID);
+                coreid_mappings[next].arch_id = i;
+                coreid_mappings[next].present = true;
+                if (++next == my_core_id) {
+                    next++;
+                }
+                --num;
+            }
+            i+= 4;// Xeon Phi has 4 threads per core
+        }
+        return;
+    }
+
     char *p = strchr(str, '=');
     assert(p != NULL);
     p++;
@@ -269,6 +291,8 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
         } else if(!strncmp(argv[i],"bootapic-x86_32=",strlen("bootapic-x86_32="))) {
             cmdline_mappings = argv[i];
         } else if(!strncmp(argv[i],"bootscc=",strlen("bootscc="))) {
+            cmdline_mappings = argv[i];
+        } else if(!strncmp(argv[i],"bootk1om=",strlen("bootk1om="))) {
             cmdline_mappings = argv[i];
         } else if(!strncmp(argv[i],"bootarm=",strlen("bootarm="))) {
         	cmdline_mappings = argv[i];
@@ -343,12 +367,13 @@ void bsp_bootup(const char *bootmodules, int argc, const char *argv[])
 
     }
 
+#if 0
     for (int i = 0; i <= MAX_COREID; i++) {
         if (coreid_mappings[i].present) {
             debug_printf("coreid %d is arch id %d\n", i,
                          coreid_mappings[i].arch_id);
         }
     }
-
+#endif
     state_machine();
 }

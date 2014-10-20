@@ -1,98 +1,101 @@
-/**
- * \file
- * \brief Decleration of functions that gcc pragmas calls
- */
-
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2014 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+#include <bomp_internal.h>
+
+/*
+ * These functions implement the PARALLEL construct
+ *
+ * #pragma omp parallel
+ * {
+ *  body;
+ * }
+ *
+ * is translated into
+ * void subfunction (void *data)
+ * {
+ *  use data;
+ *  body;
+ *  }
+ *  setup data;
+ *  GOMP_parallel_start (subfunction, &data, num_threads);
+ *  subfunction (&data);
+ *  GOMP_parallel_end ();
  */
 
-#include "libbomp.h"
-#include "backend.h"
-#include "omp.h"
-
-static volatile int nested = 0;
-
-static bomp_lock_t critical_lock;
-
-void GOMP_critical_start(void)
+void GOMP_parallel_start(void (*fn)(void *),
+                         void *data,
+                         unsigned nthreads)
 {
-  bomp_lock(&critical_lock);
-}
+    assert(g_bomp_state != NULL);
 
-void GOMP_critical_end(void)
-{
-  bomp_unlock(&critical_lock);
-}
+    /*
+     * TODO:
+     * 1) work out how many threads can be usedfor executing the parallel task
+     * 2) create a new team for solving the task
+     * 3) start the team work
+     */
 
-void GOMP_ordered_start(void)
-{
-    /* nop */
-}
-
-void GOMP_ordered_end(void)
-{
-    /* nop */
-}
-
-void GOMP_parallel_start(void (*fn) (void *), void *data, unsigned nthreads)
-{
     /* Identify the number of threads that can be spawned and start the processing */
     if (!omp_in_parallel()) {
-        if (nthreads == 0
-            || (bomp_dynamic_behaviour && bomp_num_threads < nthreads)) {
-            nthreads = bomp_num_threads;
+        g_bomp_state->bomp_threads = omp_get_max_threads();
+        if (nthreads == 0 || (g_bomp_state->behaviour_dynamic
+                                && g_bomp_state->num_threads < nthreads)) {
+
+            nthreads = g_bomp_state->bomp_threads;
         }
-        bomp_start_processing(fn, data, nthreads);
+        g_bomp_state->backend.start_processing(fn, data, nthreads);
     }
-    nested++;
+    g_bomp_state->nested++;
 }
 
 void GOMP_parallel_end(void)
 {
-    if(nested == 1) {
-        bomp_end_processing();
+    /*
+     * TODO:
+     * 1)
+     */
+    assert(g_bomp_state != NULL);
+    if (g_bomp_state->nested == 1) {
+        g_bomp_state->backend.end_processing();
     }
-    nested--;
+    g_bomp_state->nested--;
 }
 
-/* This function should return true for just the first thread */
-bool GOMP_single_start(void)
+void GOMP_parallel(void (*fn)(void *),
+                   void *data,
+                   unsigned num_threads,
+                   unsigned int flags)
 {
-    struct bomp_thread_local_data *local = backend_get_tls();
+    /*
+     * TODO:
+     * 1)  work out how many threads
+     * 2)  allocate and start a new team
+     * 3) call the function
+     * 4) call parallel end
+     */
+    assert(!"NYI");
 
-    if(local == NULL || local->work->thread_id == 0) {
-        return true;
-    }
-    return false;
+    fn(data);
+    GOMP_parallel_end();
 }
 
-void GOMP_barrier(void)
+#if OMP_VERSION >= OMP_VERSION_40
+bool GOMP_cancel(int which,
+                 bool do_cancel)
 {
-    struct bomp_thread_local_data *th_local_data = backend_get_tls();
-    assert(th_local_data != NULL);
-    bomp_barrier_wait(th_local_data->work->barrier);
+    assert(!"NYI");
+    return 0;
 }
 
-static bomp_lock_t atomic_lock;
-
-void GOMP_atomic_start (void)
+bool GOMP_cancellation_point(int which)
 {
-   bomp_lock(&atomic_lock);
+    assert(!"NYI");
+    return 0;
 }
-
-void GOMP_atomic_end (void)
-{
-   bomp_unlock(&atomic_lock);
-}
-
-void parallel_init(void)
-{
-   bomp_lock_init(&atomic_lock);
-   bomp_lock_init(&critical_lock);
-}
+#endif

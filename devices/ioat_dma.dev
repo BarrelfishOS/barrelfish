@@ -1,0 +1,1107 @@
+/*
+ * Copyright (c) 2014, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6 CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * ioat_dma.dev
+ *
+ * DESCRIPTION: Crystal Beach DMA  Engine register descriptor 
+ * 
+ * This is derived from the "Intel (R) Xeon (R) Processor E5 v2 Product Family", 
+ * chapter 8.4 & 8.5, "Device 4, Function 0-7, Crystal Beach DMA". 
+ * 
+ */
+
+device ioat_dma msbfirst ( addr cfg_base, addr bar ) "IOAT DMA (Crystal Beach) registers" {
+
+    /*
+     * Section 1.2.1.3, Table 1-1: Functions Specifically Handled by the Processor
+     */
+    constants device_ids "Crystal Beach DMA device IDs" {
+        pci_vendorid   =  0x8086 "Intel Corporation";
+        pci_deviceid_0 =  0x0E20 "DMA Channel 0";
+        pci_deviceid_1 =  0x0E21 "DMA Channel 1";
+        pci_deviceid_2 =  0x0E22 "DMA Channel 2";
+        pci_deviceid_3 =  0x0E23 "DMA Channel 3";
+        pci_deviceid_4 =  0x0E24 "DMA Channel 4";
+        pci_deviceid_5 =  0x0E25 "DMA Channel 5";
+        pci_deviceid_6 =  0x0E26 "DMA Channel 6";
+        pci_deviceid_7 =  0x0E27 "DMA Channel 7";
+    };
+
+    /*
+     * Shift amounts vor various registers
+     */
+    constants shifts "Crystal Beach Shift Values" {
+        shift_baraddr  = 14 "Base Address shift amount";
+        shift_descaddr =  6 "Descriptor addres shift value";
+    };
+
+
+
+    /*
+     * =========================================================================
+     * PCI Configuration and DMA capability registers
+     * 
+     * Section 8.4: Crystal Beach DMA Registers
+     */
+
+    /*
+     * 8.4.1
+     */
+    register vid ro addr(cfg_base, 0x0) "Vendor Identification Number (0x8086)"
+        type(uint16);
+
+    /*
+     * 8.4.2
+     */
+    register did ro addr(cfg_base, 0x2) "Device Identification Number" {
+        devid    8 "Device ID always 0x0E";
+        function 8 "Function number: 0-7";
+    }; 
+
+    /*
+     * 8.4.3
+     */    
+    register pcicmd addr(cfg_base, 0x4) "PCI Command Register" {
+        _            5 rsvd "reserved";
+        intx_disable 1 rw   "";
+        _            1 rsvd   "Always reads zero";
+        serre        1 ro   "";
+        _            1 rsvd "Always reads zero";
+        perre        1 ro   "";
+        _            1 rsvd "Always reads zero";
+        mwie         1 ro   "";
+        sce          1 ro   "";
+        bme          1 rw   "";
+        mse          1 rw   "";
+        iose         1 ro   "";
+    };
+
+    /*
+     * 8.4.4
+     */    
+    register pcists addr(cfg_base, 0x6) "PCI Status Register" {
+        dpe     1 rw1c  "";
+        sse     1 ro    "";
+        rma     1 ro    "";
+        rta     1 ro    "";
+        sta     1 rw1c  "";
+        _       2 rsvd  "Always reads zero";
+        mdpe    1 rw1c  "";
+        _       3 rsvd  "Always reads zero";
+        caplist 1 ro    "indicates the presence of a capabilities list structure";
+        intxsts 1 ro    "";
+        _       3 rsvd  "reserved";
+    };
+
+    /*
+     * 8.4.5 / 8.4.6
+     */ 
+    register rid_ccr ro addr(cfg_base, 0x8) "Revision ID and PCI Class" {
+        class      8 "Base class: Generic device";
+        subclass   8 "Sub class: Generic device";
+        rlpi       8 "Register level programming interface (set to 00)";
+        rid        8 "Revision ID";
+    };
+
+    /*
+     * 8.4.7
+     */     
+    register clsr ro addr(cfg_base, 0xc) "Cache Line Size (always 64b)" 
+        type(uint8);
+
+    /*
+     * 8.4.8
+     */     
+    register hdr ro addr(cfg_base, 0xe) "PCI Header Register" {
+        mfd         1 ro    "Multifunction device (always 1)";
+        cfglayout   1 ro    "Configuration layout (always 0, endpoint)";
+        _           6 rsvd  "reserved";
+    }; 
+
+    /*
+     * 8.4.9 Crystal Beach Base Address Register.
+     */     
+    register cb_bar addr(cfg_base, 0x10) "Crystal Beach Base Address Register" {
+        bar      50 rw   "16 KB aligned 64-bit base address for MMIO regs";
+        _        10 rsvd "reserved";
+        prefetch  1 ro   "DMA registers are non-prefetchable (always 0)";
+        bartype   2 ro   "The DMA registers is 64-bit address space";
+        memspace  1 ro   "This Base Address Register indicates memory space.";
+    };
+
+    /*
+     * 8.4.10
+     */     
+    register svid ro addr(cfg_base, 0x2c) "Vendor Identification Number (0x8086)"
+        type(uint16);
+
+    /*
+     * 8.4.11
+     */     
+    register sdid ro addr(cfg_base, 0x2e) "Subsystem Identification Number"
+        type(uint16);
+
+    /*
+     * 8.4.12
+     */     
+    register capptr ro addr(cfg_base, 0x34) "Capability Pointer (first cap structure)"
+        type(uint8);
+
+    /*
+     * 8.4.13
+     */     
+    register intl rw addr(cfg_base, 0x3c) "Interrupt Line (N/A)"
+        type(uint8);
+
+    /*
+     * 8.4.14
+     * 
+     * The value of this register depends on the function number
+     * 0x1-0x4
+     */     
+    register intpin rw addr(cfg_base, 0x3d) "Interrupt pin (Function dependent)"
+        type(uint8);
+
+    /*
+     * 8.4.15 - This DEVCFG is for Function 0 only
+     */     
+    register devcfg addr(cfg_base, 0x60) "Device Configuration Register" {
+        numrd_xor   4 rw   "Number of outstanding requests (set to 0 for max)";
+        f1extop     1 rw   "switches in the Function 1 Device ID";
+        f0extop     1 rw   "switches in the Function 0 Device ID";
+        no_snoop    1 rw   "Disable snooping (not recommendend)";
+        _           1 rsvd "Reserved";
+        numrd       4 rw   "Number of outstanding requests";
+        numrfo      4 rw   "Number of outstanding RFOs";
+    };
+
+    /*
+     * 8.4.16
+     */     
+    register msixcapid ro addr(cfg_base, 0x80) "MSI-X Capability ID"
+        type(uint8);
+
+    /*
+     * 8.4.17
+     */     
+    register msixnxtptr ro addr(cfg_base, 0x81) "MSI-X Next Pointer"
+        type(uint8);
+
+    constants msixctrl "MSI-X Control values" {
+        msix_use_intx = 0 "INTx method is used";
+        msix_use_msix = 1 "MSI-X method is used";
+    };
+
+    /*
+     * 8.4.18
+     */     
+    register msixmsgctl addr(cfg_base, 0x82) "MSI-X Message Control" {
+        msi_x_en        1 rw    "Select MSI-X instead of INTx method";
+        function_mask   1 rw    "Vector mask control";
+        _               3 rsvd  "reserved";
+        table_size     11 ro    "Table size of MSI-X";
+    };
+
+    /*
+     * 8.4.19 - MSI-X Table Offset and BAR Indicator.
+     */     
+    register tableoff_bir ro addr(cfg_base, 0x84) "MSI-X Table Offset and BAR Indicator" {
+        offset 29 "Offset of the MSI-X structure from the CB_BAR base";
+        bir     3 "Offset of the CB BAR in the Config Space";
+    };
+
+    /*
+     * 8.4.20
+     */     
+    register pbaoff_bir ro addr(cfg_base, 0x88) "MSI-X PBA Offset" {
+        offset 29 "Offset of the MSI-X PBA structure from the CB_BAR base";
+        bir     3 "Offset of the CB BAR in the Config Space";
+    };
+
+    /*
+     * 8.4.21 - The PCI Express Capability List register enumerates the PCI 
+     *          Express Capability structure in the PCI 3.0 cfg_baseuration space
+     */     
+    register capid ro addr(cfg_base, 0x90) "Capability ID"
+        type(uint8);
+
+    /*
+     * 8.4.22 - The PCI Express Capability List register enumerates the PCI 
+     *          Express Capability structure in the PCI 3.0 cfg_baseuration space
+     */     
+    register nextptr addr(cfg_base, 0x91) "Capability Next Pointer"
+        type(uint8);
+
+    /*
+     * 8.4.23 - The PCI Express Capabilities register identifies the PCI Express 
+    *           device type and associated capabilities
+     */     
+    register expcap ro addr(cfg_base, 0x92) "PCI Express Device Type" {
+        _           2 "Reserved";
+        irq_msg_num 5 "N/A" ;
+        slot_impl   1 "N/A";
+        port_type   4 "Type of the Device";
+        version     4 "Version of the PCI Express capability structure"; 
+    };
+
+    /*
+     * 8.4.24 - The PCI Express Device Capabilities register identifies device 
+     *          specific information for the device.
+     */     
+    register devcap ro addr(cfg_base, 0x94) "PCI Express Device Capability Register" {
+        _            3 "Reserved";
+        flr          1 "FLR supported";
+        pwr_scale    2 "Captured slot power limit scale";
+        pwr_limit    8 "Captured slot power limit value";
+        _            2 "reserved";
+        err_rep      1 "Role based error reporting";
+        pwr_ind      1 "Power indicator present on device";
+        att_ind      1 "Attention indicator present on device";
+        att_btn      1 "Attention button present on device";
+        ep_latency_1 3 "Endpoint L1 acceptable latency";
+        ep_latency_0 3 "Endpoint L0 acceptable latency";
+        ext_tag      1 "Extended tag supported";
+        phantom      2 "Phantom functions supported";
+        max_payload  3 "Maximum PCIe payload size";
+    };
+
+    /*
+     * 8.4.25 - The PCI Express Device Control register controls PCI Express 
+     *          specific capabilities parameters associated with the device.
+     */     
+    register devcon addr(cfg_base, 0x98) "The PCI Express Device Control register" {
+        flr         1 rw "Initiate FLR: reset only per FLR ECN";
+        max_rd_sz   3 ro "Maximum read request size";
+        no_snoop    1 rw "Enable the no-snoop functionality";
+        aux_pwr_en  1 ro "Enable Auxiliary power managmenet";
+        phantom_en  1 ro "Enable phantom functions";
+        ext_tag_en  1 ro "Enable extended tab field";
+        max_palyoad 3 ro "Maximum payload size";
+        relaxed_ord 1 rw "Enable Relaxed ordering";
+        unsup_rep   1 ro "Enable unsupported request reporting";
+        fatal_err   1 ro "Enable fatal error reporting";
+        non_fat_err 1 ro "Enable non-fatal error reporting";
+        corr_err    1 ro "Enable correctable error reporting";
+    };
+
+    /*
+     * 8.4.26 - The PCI Express Device Status register provides information about 
+     *         
+     *          PCI Express device specific parameters associated with the device
+     */     
+    register devsts ro addr(cfg_base, 0x9a) "Device Status Register" {
+        _           10 "reserved";
+        tr_pending   1 "Transaction pending";
+        aux_power    1 "Auxiliary power detected";
+        unsup_req    1 "Unsupported request detected";
+        fatal_err    1 "fatal error detected";
+        non_fat_err  1 "non-fatal error detected";
+        corr_err     1 "correctable error detected";
+    };
+
+    /*
+     * 8.4.27 - Device Capability register 2
+     */     
+    register devcap2 ro addr(cfg_base, 0xb4) "Device Capability Register 2" {
+        _                     27 "Reserved";
+        compl_timeout_disable  1 "Completion timeout disable supported";
+        compl_timeout_values   4 "Completion timeout values supported";
+
+    };
+
+    /*
+     * 8.4.28 - Device Configuration Register 2
+     */      
+    register devcon2 addr(cfg_base, 0xb8) "Device Configuration Register 2" {
+        _                     11 rsvd "Reserved";
+        compl_timeout_disable  1 rw   "Completion timeout disable";
+        compl_timeout_values   4 ro   "Completion timeout values";
+    };
+
+    /*
+     * 8.4.29 - Power Management Capability.
+     * 
+     *         The PM Capabilities Register defines the capability ID, next pointer 
+     *         and other power management related support. The following PM 
+     *         registers / capabilities are added for software compliance.
+     */     
+    register pmcap ro addr(cfg_base, 0xe0) "Power Management Capability" {
+        _           5 "Reserved";
+        d2_sup      1 "D2 om state supported";
+        d1_sup      1 "D2 om state supported";
+        aux_current 3 "Auxiliary current";
+        dev_init    1 "Device specific initialization";
+        _           1 "Reserved";
+        pme_clock   1 "Power management clock";
+        version     3 "Power management version";
+        next        8 "Pointer to the next capability field";
+        capid       8 "Capability ID (PM cap ID)";
+    }; 
+
+    constants power_st "Power States" {
+        pwr_st_d0 = 0 "";
+        pwr_st_d1 = 1 "";
+        pwr_st_d2 = 2 "";
+        pwr_st_d3 = 3 "";
+    };
+
+    /*
+     * 8.4.30 - Power Management Control and Status.
+     * 
+     *         This register provides status and control information for PM events 
+     *         in the PCI Express port of the IIO.
+     */     
+    register pmcsr addr(cfg_base, 0xe4) "Power Management Control and Status." {
+        data         8 ro   "Data field";
+        clk_ctrl_en  1 ro   "Bus power clock control enabled";
+        b2_b3_sup    1 ro   "B2-B3 Support";
+        _            6 rsvd "reserved";
+        pme_status   1 ro   "PME Status";
+        data_scale   2 ro   "Data Scale";
+        data_select  4 ro   "Data Select";
+        pme_en       1 ro   "Power Management Enabled";
+        _            4 rsvd "reserved";
+        no_soft_rst  1 ro   "No Softreset";
+        _            1 rsvd "reserved";
+        pwr_state    2 rw   "Powerstate to set";
+    };
+
+    /*
+     * 8.4.31 - DMA Cluster Uncorrectable Error Status (for function 0 only)
+     */     
+    register dmauncerrsts addr(cfg_base, 0x148) "DMA Cluster Uncorrectable Error Status" {
+        _        19 rsvd  "reserved";
+        syndrome  1 rw1cs "Syndrome multiple errors";
+        _         1 rsvd  "reserved";
+        addr_dec  1 rw1cs "Read address decode error statuts";
+        _         2 rsvd  "reserved";
+        compl_hdr 1 rw1cs "Read completion error staturs";
+        _         3 rsvd  "reserved";
+        hw_parity 1 rw1cs "DMA internal HW parity error";
+        dp_status 1 rw1cs "Received poisoned data from dp status";
+        _         2 rsvd  "reserved";
+    };
+
+    /*
+     * 8.4.32 - DMA Cluster Uncorrectable Error Mask. (for function 0 only)
+     */      
+    register dmauncerrmsk addr(cfg_base, 0x14c) "DMA Cluster Uncorrectable Error Mask" {
+        _        19 rsvd "reserved";
+        syndrome  1 rw   "Syndrome multiple errors";
+        _         1 rsvd "reserved";
+        addr_dec  1 rw   "Read address decode error statuts";
+        _         2 rsvd "reserved";
+        compl_hdr 1 rw   "Read completion error staturs";
+        _         3 rsvd "reserved";
+        hw_parity 1 rw   "DMA internal HW parity error";
+        dp_status 1 rw   "Received poisoned data from dp status";
+        _         2 rsvd "reserved";
+    }; 
+
+    /*
+     * 8.4.33 - DMA Cluster Uncorrectable Error Severity. (for function 0 only)
+     * 
+     *         This register controls severity of uncorrectable DMA unit errors 
+     *         between fatal and non-fatal.
+     */     
+    register dmauncerrsev addr(cfg_base, 0x150) "DMA Cluster Uncorrectable Error Severity." {
+        _        19 rsvd "reserved";
+        syndrome  1 rw   "Syndrome multiple errors";
+        _         1 rsvd "reserved";
+        addr_dec  1 rw   "Read address decode error statuts";
+        _         2 rsvd "reserved";
+        compl_hdr 1 rw   "Read completion error staturs";
+        _         3 rsvd "reserved";
+        hw_parity 1 rw   "DMA internal HW parity error";
+        dp_status 1 rw   "Received poisoned data from dp status";
+        _         2 rsvd "reserved";
+    };
+
+    /*
+     * 8.4.34 - DMA Cluster Uncorrectable Error Pointer. (for function 0 only)
+     */     
+    register dmauncerrptr ro addr(cfg_base, 0x154) "DMA Cluster Uncorrectable Error Pointer" {
+        _         3 "Reserved";
+        uncerrptr 5 "oints to the first uncorrectable error logged in the DMAUNCERRSTS register.";
+    };
+
+    /*
+     * 8.4.35 - DMA Cluster Global Error Pointe(for function 0 only)
+     */     
+    register dmaglberrptr addr(cfg_base, 0x160) "DMA Cluster Global Error Pointer" {
+        _        4 "Reserved";
+        glbl_err 4 "Points to 8 possible sources of uncorrectable rrors";
+
+    };
+
+    /*
+     * 8.4.36 - Internal DMA Channel Error Status Registers. 
+     *         
+     *          R1CS for function 0, otherwise RO
+     */     
+    register chanerr_int addr(cfg_base, 0x180) "Internal DMA Channel Error Status Registers." {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    constants chanerr_int_val "Values for enabling/disabling the error intr" {
+        chanerr_int_disabled = 1 "Disable the interrupt";
+        chanerr_int_enabled  = 0 "Enable the interrupt";
+    };
+
+    /*
+     * 8.4.37 - Internal DMA Channel Error Mask Registers.
+     *         
+     *          R1CS for function 0, otherwise RO
+     */     
+    register chanerrmsk_int addr(cfg_base, 0x184) "Internal DMA Channel Error Mask Registers." {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    /*
+     * 8.4.38 - Internal DMA Channel Error Severity Registers.
+     *         
+     *          R1CS for function 0, otherwise RO
+     */     
+    register chanerrsev_int addr(cfg_base, 0x188) "Internal DMA Channel Error Severity Registers." {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    /*
+     * 8.4.39 - DMA Channel Error Pointer
+     */     
+    register chanerrptr ro addr(cfg_base, 0x18c) "DMA Channel Error Pointer." {
+        _            3 "reserved";
+        chan_err_ptr 5 "DMA Channel error pointer";
+    };
+
+
+    /*
+     * =========================================================================
+     * PCI Function Regsters
+     * 
+     * Section 8.5: Crystal Beach DMA Registers
+     *
+     * Crystal Beach MMIO Register used to control the DMA functionality. The 
+     * CB_BAR register points to the based address to these registers.
+     * All of these registers are accessible from only the processor. The IIO 
+     * supports accessing the Crystal Beach device memory-mapped registers via 
+     * QWORD reads and writes. The offsets indicated in the following table are 
+     * from the CB_BAR value.
+     */
+
+    /*
+     * 8.5.1 - Channel Count
+     *         
+     *         The Channel Count register specifies the number of channels that 
+     *         are implemented.
+     * 
+     *         Note: This will always reads 8, since there are 1 channel per
+     *               function, but 8 functions per device
+     */   
+    register chancnt ro addr(bar, 0x0) "Channel Count" {
+        _   3 rsvd "reserved";
+        num 5 ro   "Number of channels present"; 
+    };
+
+    /*
+     * 8.5.2 - Transfer Capacity
+     *         
+     *         The Transfer Capacity specifies the minimum of the maximum DMA 
+     *         transfer size supported on all channels. This is in bits.
+     *         CPU supports maximum 1MB (default value 0x14)
+     */  
+    register xfercap ro addr(bar, 0x1) "Transfer Capacity"{
+        _   3 rsvd "reserved";
+        max 5 ro   "Maximum transfer capability"; 
+    };
+
+    /*
+     * 8.5.3 - DMA General Control
+     *         
+     *         The DMA Control register provides for general control operations.
+     */  
+    register genctrl addr(bar, 0x2) "DMA General Control" {
+        _     7 rsvd "reserved";
+        dbgen 1 rw "DB Generation";
+    }; 
+
+    /*
+     * 8.5.4 - The Interrupt Control register provides control of DMA interrupts.
+     */  
+    register intrctrl addr(bar, 0x3) "Interrupt Control Register" {
+        _        4 rsvd "reserved";
+        msix_vec 1 rw   "MSI-X Vector Control. (Ignored by CB)";
+        intp     1 ro   "Interrupt. Set when status bit in attention is set";
+        intp_sts 1 ro   "Interrupt status. (not used in MSI-X model)";
+        intp_en  1 rw   "Master interrupt enable bit. (not used in MSI-X model)";
+    }; 
+
+    /*
+     * 8.5.5 - Attention Status
+     */  
+    register attnstatus ro addr(bar, 0x4) "Attention Status Register" {
+        _        31 "Reserved";
+        chanattn  1 "Channel Attention. Represents the interrupt status";
+    };
+
+    constants cbversions "Crystal Beach Major Versions" {
+        cbver_1x = 0x1 "Crystal Beach Version 1.xx";
+        cbver_2x = 0x2 "Crystal Beach Version 2.xx";
+        cbver_3x = 0x3 "Crystal Beach Version 3.xx";
+    };
+
+    /*
+     * 8.5.6 - Crystal Beach Version Number
+     *         
+     *         The CB version register field indicates the version of the CB 
+     *         specification that the IIO implements. The most significant 4-bits 
+     *         (range 7:4) are the major version number and the least significant 
+     *         4-bits (range 3:0) are the minor version number. The IIO 
+     *         implementation for this Crystal Beach version is 3.2 encoded as 
+     *         0b0011 0010.
+     */  
+    register cbver ro addr(bar, 0x8) "Crystal Beach Version Number" {
+        major 4 "Major Version Number";
+        minor 4 "Minor Version Number";
+    };
+
+    /*
+     * 8.5.7 - Interrupt Delay Register
+     */  
+    register intrdelay addr(bar, 0xc) "Interrupt Delay Register" {
+        coalesc   1 ro   "Interrupt Coalescing is supported";
+        _         1 rsvd "reserved";
+        delay_us 14 rw   "Interrupt delay time in micro seconds";
+    }; 
+
+    /*
+     * 8.5.8 - Chipset Status Register
+     */  
+    register cs_status ro addr(bar, 0xe) "Chipset Status Register" {
+        _             12 "Reserved";
+        addr_remap     1 "Address Remapping: reflects the TE bit of VT-d";
+        mem_bypass     1 "Memory bypass";
+        mmio_restrict  1 "MMIO Restriction";
+        _              1 "Reserved";
+    }; 
+
+    /*
+     * 8.5.9 - DMA Capability
+     */  
+    register dmacapability addr(bar, 0x10) "DMA Capability Register" {
+        _           22 rsvd "Reserved";
+        pq           1 ro   "Parity and Quotient Opcodes for RAID 5 / 6";
+        xor          1 ro   "Only XOR for RAID 5 / 6 supported";
+        ext_apic_id  1 ro   "32bit APIC IDs are supported (otherwise 8bit APIC)";
+        block_fill   1 ro   "Block fill OP code is supported";
+        move_crc     1 ro   "Move and CRC op codes are supported";
+        dca          1 rw   "Direct Cache Access is supported";
+        _            1 rsvd "These opcodes have been deprecated in CB DMA v3";
+        markerskip   1 ro   "Marker skipping is supported";
+        crc          1 ro   "CRC generation supported";
+        pagebreak    1 ro   "Transfers crossing physical pages supported";
+    }; 
+
+    /*
+     * 8.5.10 - DCA offset
+     */  
+    register dcaoffset ro addr(bar, 0x14) "DCA Offset Register"
+        type(uint16);
+
+    /*
+     * 8.5.11 - CB DMA Priority Register (unused)
+     */  
+    register cbprio ro addr(bar, 0x40) "CB DMA Priority Register"
+        type(uint8);
+
+    constants chanctrl_snoop "Field values for Snoop Control" {
+        chanctrl_snoop_disabled = 0x1 "Disabled snooping";
+        chanctrl_snoop_enabled  = 0x0 "Enable snooping";
+    };
+    
+    constants chanctrl_features "Field values for Channel Features" {
+        chanctrl_f_enable       = 0x1 "Feature field is enabled";
+        chanctrl_f_disable      = 0x0 "Feature field is disabled";
+    };
+
+    /*
+     * 8.5.12 - Channel Control Register
+     *
+     *          The Channel Control register controls the behavior of the DMA 
+     *          channel when specific events occur such as completion or errors.
+     */  
+    register chanctrl addr(bar, 0x80) "Channel Control Register" {
+        _           6 rsvd "Reserved";
+        dca_en      1 rw   "Direct Cache access enabled";
+        in_use      1 rw   "Channel is in use";
+        _           2 rsvd "reserved";
+        snoop_ctrl  1 rw   "Descriptor address snoop control";
+        err_int_en  1 rw   "Error Interrupt Enabled";
+        err_abort   1 rw   "Any Error Abort Enbled";
+        err_cmp_en  1 rw   "Error Completion Enabled";
+        _           1 rsvd "Reserved";
+        intp_dis    1 rw1c "Interrupt disable";
+    }; 
+
+    /*
+     * 8.5.13 - DMA Compatibility Register
+     */  
+    register dma_comp ro addr(bar, 0x82) "DMA Compatibility Register" {
+        _  13 "Reserved";
+        v3  1 "Compatible with CB Version 3";
+        v2  1 "Compatible with CB Version 2";
+        v1  1 "NOT compatible with CB Version 1";
+    };
+
+    /*
+     * 8.5.14 - DMA Channel Command Register
+     * 
+     *          Setting more than one of these bits with the same write operation 
+     *          will result in an Fatal error affiliated.
+     */  
+    register chancmd addr(bar, 0x84) "DMA Channel Command Register." {
+        _      2 rsvd "Reserved";
+        reset  1 rw   "Reset DMA channel";
+        resume 1 rw   "resume";
+        abort  1 rw   "Abort";
+        susp   1 rw   "Suspend the DMA channel";
+        append 1 rw   "Append";
+        start  1 rw   "Start";
+    }; 
+
+    /*
+     * 8.5.15 - DMA Descriptor Count Register
+     *
+     *          This is the absolute value of the number of valid descriptors in 
+     *          the chain. The hardware sets this register and an internal counter 
+     *          to zero whenever the CHAINADDR register is written. When this 
+     *          register does not equal the value of the internal register, the 
+     *          DMA channel processes descriptors, incrementing the internal 
+     *          counter each time that it completes (or skips) a descriptor.This
+     *          register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register dmacount addr(bar, 0x86) "DMA Descriptor Count Register"
+        type(uint16);
+
+    
+    constants trans_state "DMA Transfer States" {
+        trans_state_idle  = 0x1 "Idle, All DMA transfers done";
+        trans_state_susp  = 0x2 "Suspended";
+        trans_state_halt  = 0x3 "Halted, operation aborted (error)";
+        trans_state_armed = 0x4 "Armed State";
+    };
+
+    /*
+     * 8.5.16 - Channel Status Lo Register.
+     *
+     *          The Channel Status Register records the address of the last 
+     *          descriptor completed by the DMA channel. Refer to Crystal Beach 
+     *          Architecture Specification 2.0 Rev 1.0 for special hardware 
+     *          requirements when software reads this register.
+     */   
+    register chansts_lo ro addr(bar, 0x88) "Channel Status Lo Register." {
+        cmpdscaddr     26 "Uppder address of the last descriptor processed";
+        _               3 "Reserved";
+        dma_trans_state 3 "DMA transfer State";
+    };
+
+    /*
+     * 8.5.17 - Channel Status Hi Register.
+     *
+     *          The Channel Status Register records the address of the last 
+     *          descriptor completed by the DMA channel. Refer to Crystal Beach 
+     *          Architecture Specification for special hardware requirements when 
+     *          software reads this register.
+     * 
+     *          Also stores the address of the last processed descriptor
+     */  
+    register chansts_hi ro addr(bar, 0x8c) "Channel Status Hi Register." 
+        type(uint32);
+
+    /*
+     * 8.5.18 - Descriptor Chain Address Lo Register.
+     *
+     *         This register is written by the processor to specify the first 
+     *         descriptor to be fetched by the DMA channel.
+     *
+     *         This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register chainaddr_lo rw addr(bar, 0x90) "Descriptor Chain Address Lo Register." {
+        descaddr_lo 26 rw  "Address of the first descriptor";
+        _            6 mbz "Must be zero";
+    };
+
+    /*
+     * 8.5.19 - Descriptor Chain Address Hi Register.
+     *
+     *          This register is written by the processor to specify the first 
+     *          descriptor to be fetched by the DMA channel.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register chainaddr_hi rw addr(bar, 0x94) "Descriptor Chain Address Hi Register."
+        type(uint32);
+        
+
+    /*
+     * 8.5.20 - Channel Completion Address Lo Register.
+     *
+     *          This register specifies the address where the DMA channel writes 
+     *          the completion status upon completion or an error condition i.e. 
+     *          it writes the contents of the CHANSTS register to the destination 
+     *          as pointed by the CHANCMP register.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */   
+    register chancmp_lo addr(bar, 0x98) "Channel Completion Address Lo Register." 
+        type(uint32);
+
+    /*
+     * 8.5.21 - Channel Completion Address Hi Register.
+     *
+     *          This register specifies the address where the DMA channel writes 
+     *          the completion status upon completion or an error condition i.e. 
+     *          it writes the contents of the CHANSTS register to the destination 
+     *          as pointed by the CHANCMP register.
+     * 
+     *          This register is RW if CHANCNT register is 1 otherwise this register is RO.
+     */  
+    register chancmp_hi addr(bar, 0x9c) "Channel Completion Address Hi Register." 
+        type(uint32);
+
+    /*
+     * 8.5.22 - Channel Error Register
+     *
+     *          The Channel Error Register records the error conditions occurring 
+     *          within a given DMA channel.
+     */  
+    register chanerr addr(bar, 0xa8) "Channel Error Register" {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    /*
+     * 8.5.23 - Channel Error Mask Register.
+     */  
+    register chanerrmsk addr(bar, 0xac) "Channel Error Mask Register." {
+        _          13 rsvd  "reserved";
+        desccnterr  1 rw1cs "Descriptor Count error";
+        xorqerr     1 rw1cs "Xor error";
+        crc_err     1 rw1cs "CRC test failed";
+        unaffilerr  1 ro    "Unaffiliated Error";
+        _           1 rsvd  "Unused error";
+        intcfgerr   1 rw1cs "Interrupt confiuguratio error";
+        cmpaddrerr  1 rw1cs "Completion Address error";
+        desclenerr  1 rw1cs "Description length error";
+        descctrlerr 1 rw1cs "Description control  error";
+        wrdataerr   1 rw1cs "Write data error";
+        rddataerr   1 rw1cs "Read Data error";
+        dmadataerr  1 rw1cs "DMA Data Parity error";
+        cdataerr    1 rw1cs "Data parity error";
+        chancmderr  1 rw1cs "Channel command error";
+        chanaddr    1 rw1cs "Channel address value error";
+        descerr     1 rw1cs "Descriptor error";
+        nxtdescerr  1 rw1cs "Next Descriptor Address error";
+        dmaxfererr  1 rw1cs "DMA Transfer Destination address error";
+        dmatranserr 1 rw1cs "DMA Transfer Source address error";
+    };
+
+    /*
+     * 8.5.24 - DCA Control Register
+     *
+     *          This field is RW if CHANCNT register is 1 otherwise this register is RO
+     */  
+    register dcactrl addr(bar, 0xb0) "DCA Control Register" {
+        _          16 rsvd "Reserved";
+        target_cpu 16 rw   "Specifies the APCI ID of the target CPU for compl writes";
+    }; 
+
+    /*
+     * 8.5.25 - DCA Version Number Register
+     */  
+    register dca_ver ro addr(bar, 0x100) "DCA Version Number Register" {
+        major 4 "Major Revision Number";
+        minor 4 "Major Revision Number";
+    }; 
+
+    /*
+     * 8.5.26 - DCA Request ID Offset Register
+     */  
+    register dca_reqid_offset ro addr(bar, 0x102) "DCA Request ID Offset Register" 
+        type(uint16);
+
+    /*
+     * 8.5.27 - Intel QPI Compability Register
+     */  
+    register csi_capability addr(bar, 0x108) "Intel QPI Compability Register" {
+        _             15 rsvd "Reserved";
+        prefetch_hint  1 ro   "Prefetch hint";
+    }; 
+
+    /*
+     * 8.5.28 - PCI Express Cabability Register
+     *
+     *          When set in function 0, DCA on PCIe is enabled, else disabled. 
+     *          IIO hardware does not use this bit from functions 1-7. In these 
+     *          functions, this bit is provided primarily for BIOS to communicate 
+     *          to driver that DCA is enabled in the IIO.
+     */  
+    register pcie_capability addr(bar, 0x10a) "PCI Express Cabability Register" {
+        _        15 rsvd "Reserved";
+        memwr_en  1 ro   "Enable Memory Writes on PCI Express";
+    }; 
+
+    /*
+     * 8.5.29 - Intel QPI Compability Enable Register
+     */  
+    register csi_cap_enable addr(bar, 0x10c) "Intel QPI Compability Enable Register" {
+        _             15 rsvd "Reserved";
+        prefetch_hint  1 rw   "Prefetch hint";
+    }; 
+
+    /*
+     * 8.5.30 - 
+     */  
+    register pcie_cap_enable addr(bar, 0x10e) "PCI Express Cabability Enable Register" {
+        _        15 rsvd "Reserved";
+        memwr_en  1 rw   "Enable Memory Writes on PCI Express";
+    }; 
+
+    constants tag_maps "APICID to Tag Map Values" {
+        tag_map_0       = 0x0 "Tag_Map[0]";
+        tag_map_apic    = 0x1 "APICID[ Tag_Map[3:0] ]";
+        tag_map_apicneg = 0x2 "NOT( APICID [Tag_Map_4[3:0] ] )";
+        tag_map_res     = 0x3 "reserved";
+    };
+
+    datatype tag_map "Tag Map datatype" {
+        maptype 2 rw   "Type as specified in tag_map_* values";
+        _       2 rsvd "reserved";
+        map     4 rw   "Map values";
+    };
+
+    /*
+     * 8.5.31 - APICID to Tag Map Register.
+     * 
+     *          When DCA is disabled, DMA engine uses all 1s in the tag field of 
+     *          the write. This register is setup by BIOS for the CB driver to read. 
+     *          BIOS will map APICID[7:5] to bits Tag[2:0]. BIOS should set Tag[4] to 
+     *          prevent implicit TPH cache target unless it is intended.
+     */  
+    register apicid_tag_map addr(bar, 0x110 ) "APICID to Tag Map Register." {
+        _         24 rsvd "Reserved";
+        tag_map_4  8 "Tag Map 4";
+        tag_map_3  8 "Tag Map 3";
+        tag_map_2  8 "Tag Map 2";
+        tag_map_1  8 "Tag Map 1";
+        tag_map_0  8 "Tag Map 0";
+    }; 
+
+
+    /*
+     * 8.5.32 - Global DCA Requester ID Table Registers.
+     */  
+    register dca_reqid0 addr(bar, 0x180) "Global DCA Requester ID Table Registers." {
+        last   1 ro   "Last Requested ID register";
+        _      1 rsvd "reserved";
+        valid  1 rw   "If set, bits 15:0 are used for DCA identification";
+        ignore 1 rw   "If set, function number is ignore for DCA identification";
+        _     12 rsvd "reserved";
+        bus    8 rw   "PCI Bus number";
+        dev    5 rw   "PCI Device Id";
+        fun    3 rw   "PCI Device Function";
+    }; 
+
+    /*
+     * 8.5.33 - Global DCA Requester ID Table Registers.
+     */  
+    register dca_reqid1 addr(bar, 0x184) "Global DCA Requester ID Table Registers." {
+        last   1 ro   "Last Requested ID register";
+        _      1 rsvd "reserved";
+        valid  1 rw   "If set, bits 15:0 are used for DCA identification";
+        ignore 1 rw   "If set, function number is ignore for DCA identification";
+        _     12 rsvd "reserved";
+        bus    8 rw   "PCI Bus number";
+        dev    5 rw   "PCI Device Id";
+        fun    3 rw   "PCI Device Function";
+    }; 
+
+    /*
+     * 8.5.34 - MSI-X Lower Address Registers.
+     */  
+    register msgaddr_lo addr(bar, 0x2000) "MSI-X Lower Address Registers." {
+        chmsgaddr       30 rw "Specifies the local APIC to which this MSI-X interrupt needs to be sent";
+        chmsgaddr_const  2 ro "";
+    }; 
+
+    /*
+     * 8.5.35 - MSI-X Upper Address Registers.
+     *
+     *          Reserved to 0 because does not apply to IA. This field is RW for 
+     *          compatibility reason only.
+     */  
+    register msgaddr_hi ro addr(bar, 0x2004) "MSI-X Upper Address Registers."
+        type(uint32);
+
+    /*
+     * 8.5.36 - MSI-X Data Registers.
+     *
+     *          Specifies the vector that needs to be used for interrupts from 
+     *          the DMA engine. IIO uses the lower 16 bits of this field to form 
+     *          the data portion of the interrupt on the coherent interface. The 
+     *          upper 16 bits are not used by IIO and left as RW only for 
+     *          compatibility reasons.
+     */  
+    register msgdata rw addr(bar, 0x2008) "MSI-X Data Registers."
+        type(uint32);
+
+    /*
+     * 8.5.37 - MSI-X Vector Control Registers.
+     */  
+    register vecctrl addr(bar, 0x200c) "MSI-X Vector Control Registers." {
+        chvecctrlcnst 31 ro "chvecctrlcnst";
+        chmask         1 rw "When a bit is set, the channel is prohibited from sending a message";
+    };
+
+    /*
+     * 8.5.38 - MSI-X Interrupt Pending Bits Registers.
+     */  
+    register pendingbits addr(bar, 0x3000) "MSI-X Interrupt Pending Bits Registers." {
+        chmsipendcnst 31 ro "Unused";
+        chmsipend      1 rw "Pending Bit (when set) indicates that the DMA engine has a pending MSI-X";
+    }; 
+
+    
+    
+    /*
+     * Descriptor types derrived from the Linux IOAT implementation
+     */
+    
+    /*
+     * Descriptor sizes
+     * 
+     * XXX: there are super extended descriptors which are longer in size...
+     */
+    constants desc_sizes "IOAT DMA Descriptor Sizes" {
+        descriptor_size = 64 "Size of the DMA descriptor";
+    };
+    
+    /*
+     * Possible opcodes
+     */
+    constants desc_opcodes "IOAT DMA Descriptor OP Codes" {
+        desc_op_copy    = 0x00 "Copy Operation";
+        desc_op_xor     = 0x87 "For Xor Descriptor";
+        desc_op_xor_val = 0x88 "For Xor descriptor";
+    };
+    
+    datatype desc_ctrl lsbfirst(32) "IOAT DMA Descriptor control field" {
+        int_en          1 "Interrupt enable";
+        src_snoop_dis   1 "Disable snooping of source address";
+        dest_snoop_dis  1 "Disable snooping of destination address";
+        compl_write     1 "";
+        fence           1 "";
+        null            1 "";
+        src_brk         1 "";
+        dest_brk        1 "";
+        bundle          1 "";
+        dest_dca        1 "";
+        hint            1 "";
+        _              13 "Reserved";
+        op              8 "OP Code to execute";
+    };
+    
+    datatype desc lsbfirst(32) "IOAT DMA Descriptor" {
+        size     32 "Size of the transfer";
+        ctrl     32 "Descriptor control field";
+        src      64 "Physical address of the source";
+        dst      64 "Physical address of the destination";
+        next     64 "Physical address of the next descriptor";
+        _        64 "Reserved";
+        _        64 "Reserved";
+        user1    64 "";
+        user2    64 "";
+    };
+};
+

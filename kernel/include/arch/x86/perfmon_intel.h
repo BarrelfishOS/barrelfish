@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -18,8 +18,10 @@
 
 errval_t perfmon_intel_init(void);
 
-void perfmon_intel_measure_start(uint8_t event, uint8_t umask);
+void perfmon_intel_measure_start(uint8_t event, uint8_t umask, bool os, 
+                                 uint8_t idx, bool intr);
 uint64_t perfmon_intel_measure_read(void);
 void perfmon_intel_measure_write(uint64_t val);
+void perfmon_intel_reset(void);
 
 #endif

@@ -38,8 +38,10 @@ commonCFlags = [ Str s | s <- [ "-std=c99",
                  ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
 
 commonCxxFlags = [ Str s | s <- [ "-nostdinc++",
-                                  "-std=c++0x",
-                                  "-fno-exceptions",
+                                  "-fexceptions",
+                                  "-nodefaultlibs",
+                                  "-fasynchronous-unwind-tables",
+                                  "-DLIBCXX_CXX_ABI=libcxxabi",
                                   "-I" ] ]
                  ++ [ NoDep SrcTree "src" "/include/cxx" ]
                  ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
@@ -60,7 +62,8 @@ cStdIncs arch archFamily =
       NoDep SrcTree "src" Config.libcInc,
       NoDep SrcTree "src" "/include/c",
       NoDep SrcTree "src" ("/include/target" ./. archFamily),
-      NoDep SrcTree "src" "/include/ipv4", -- XXX
+      NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
+      NoDep SrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",
       NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",
@@ -99,8 +102,7 @@ stdLibs arch =
       In InstallTree arch "/lib/libcollections.a" ]
 
 stdCxxLibs arch = 
-    [ In InstallTree arch "/lib/libcxx.a",
-      Str "./libsupc++.a" ]
+    [ In InstallTree arch "/lib/libcxx.a" ]
     ++ stdLibs arch 
 
 options arch archFamily = Options { 

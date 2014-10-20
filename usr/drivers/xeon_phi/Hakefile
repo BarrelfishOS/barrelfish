@@ -1,0 +1,112 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/xeon_phi
+-- 
+--------------------------------------------------------------------------
+
+[ 
+  build application { 
+    target = "xeon_phi",
+    architectures= ["x86_64"],
+    cFiles = [ 
+      "main_host.c",
+      "xeon_phi.c", 
+      "boot.c", 
+      "serial.c", 
+      "interrupts.c", 
+      "interphi.c",
+      "service.c",
+      "smpt.c",
+      "sysmem_caps.c",
+      "domain.c",
+      "xphi_service.c",
+      "sleep.c",
+      "dma_service.c"
+    ],
+    addLibraries = libDeps [
+      "skb", 
+      "pci", 
+      "spawndomain",
+      "dma", 
+      "dma_service",
+      "elf", 
+      "vfs",
+      "lwip",
+      "bench", 
+      "xeon_phi_manager_client",
+      "xeon_phi_client",
+      "octopus",
+      "mm"
+    ],
+    flounderDefs = [
+      "interphi", 
+      "xeon_phi",
+      "xeon_phi_manager", 
+      "xeon_phi_driver"
+    ],
+    flounderBindings = [
+      "interphi",
+      "octopus",
+      "xeon_phi",
+      "xeon_phi_driver"
+    ],
+    flounderExtraBindings = [
+      ("octopus", ["rpcclient"])
+    ],
+    mackerelDevices = [ 
+      "xeon_phi/xeon_phi_apic", 
+      "xeon_phi/xeon_phi_boot", 
+      "xeon_phi/xeon_phi_serial",
+      "xeon_phi/xeon_phi_smpt", 
+      "xeon_phi/xeon_phi_irq"
+    ]
+  },
+                    
+  build application { 
+    target = "xeon_phi",
+    architectures= ["k1om"],
+    cFiles = [ 
+      "main_card.c",
+      "sysmem_caps.c",
+      "interphi.c",
+      "xphi_service.c",
+      "smpt.c",
+      "dma_service.c" 
+    ],                      
+    flounderDefs = [
+      "interphi",
+      "xeon_phi"
+    ],
+    flounderBindings = [
+      "interphi", 
+      "xeon_phi"
+    ],
+    addLibraries = libDeps [ 
+      "mm", 
+      "spawndomain", 
+      "xeon_phi_client",
+      "dma",
+      "dma_service",
+      "bench"
+    ],
+    mackerelDevices = [ 
+      "xeon_phi/xeon_phi_apic", 
+      "xeon_phi/xeon_phi_boot", 
+      "xeon_phi/xeon_phi_serial",
+      "xeon_phi/xeon_phi_smpt", 
+      "xeon_phi/xeon_phi_irq"
+    ]
+  }
+]
+
+
+      
+                      
+                      
+                          

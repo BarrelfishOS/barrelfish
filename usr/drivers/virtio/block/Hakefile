@@ -1,0 +1,46 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/virtio_net
+-- 
+--------------------------------------------------------------------------
+
+[ build application { target = "virtio_blk",
+                      cFiles = [ "main_guest.c",
+                                 "service.c",
+                                 "request.c",
+                                 "device.c"],
+                      addLibraries = libDeps ["virtio"],
+                      --flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      --flounderDefs = ["monitor", "xeon_phi_manager", "xeon_phi", "xeon_phi_messaging"],
+                      --flounderBindings = ["xeon_phi", "xeon_phi_messaging"],
+                      mackerelDevices = [ "virtio/virtio_blk" ],
+                      flounderBindings = [ "virtio" ],
+                      flounderExtraBindings = [ ("virtio", ["rpcclient"]) ],
+                      architectures= ["x86_64", "k1om"]
+                    },
+  build application { target = "virtio_blk_host",
+                      cFiles = [ "main_host.c"
+                                ],
+	            addCFlags = [ "-D__VIRTIO_HOST__" ],
+                      addLibraries = libDeps ["virtio_host"],
+                      --flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      --flounderDefs = ["monitor", "xeon_phi_manager", "xeon_phi", "xeon_phi_messaging"],
+                      --flounderBindings = ["xeon_phi", "xeon_phi_messaging"],
+                      mackerelDevices = [ "virtio/virtio_blk" ],
+                      architectures= ["x86_64"],                      
+                      flounderDefs = [ "virtio" ],
+                      flounderExtraBindings = [ ("virtio", ["loopback"]) ]
+                      }             
+]
+
+
+      
+                      
+                      
+                          

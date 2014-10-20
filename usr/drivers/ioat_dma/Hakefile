@@ -1,0 +1,26 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2014, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/ioat_dma
+--
+--------------------------------------------------------------------------
+
+[ build application { 
+    target = "ioat_dma",
+    cFiles = [ 
+        "main.c",
+        "device.c",
+        "dma_service.c",
+        "ioat_mgr_service.c"                         
+    ],
+    flounderBindings = [ "dma", "ioat_dma_mgr" ],
+    mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
+    addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
+    architectures = [ "x86_64"]
+  }  
+]

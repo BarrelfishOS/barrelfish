@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * knc_sbox.dev
+ *
+ * description: intel e1000 family gigabit ethernet nics
+ */
+
+device xeon_phi_gbox_gbox lsbfirst ( addr base ) "Intel Xeon Phi (Knights Corner) GBOX Registers" {
+
+register pm_state rw addr(base, 0x0060) "Power Management Status for FBOX" {
+    statech0     4 "State of channel 0";
+    statech1     4 "State of channel 1";  
+    _           24 "rsvd";
+};
+
+
+register mca_status_lo rw addr(base, 0x0064) "desc" {
+};
+
+
+register mca_addr_lo rw addr(base, 0x006C) "desc" {
+};
+
+
+register mca_misc rw addr(base, 0x0074) "desc" {
+};
+
+
+register pm_configuration rw addr(base, 0x0098) "desc" {
+    pm_enable            1 "Powermanagement enabled";
+    m1_enable            1 "M1 enabled"; 
+    m2_enable            1 "M2 enabled";
+    m3_enable            1 "M3 enabled";
+    cke_enable           1 "CKE enabled";
+    pm_mod               1 "Behaviour of PM Logic"; 
+    fboxdfxclkgateen     1 "DFX on demand clock gating";
+    fboxclkgateen        1 "On demand clock gating enabled";
+    m2_timerenable       1 "M2 timer enabled"; 
+    m3_timerenable       1 "M3 timer enabled";
+    fboxarbiterlock      1 "Lock FBOX arbiter when idle"; 
+    _                   21 "rsvd"; 
+};
+
+
+register pm_control rw addr(base, 0x009C) "Powemanagement Control for FBOX" {
+    enablech0           1 "Channel 0 enabled"; 
+    enablech1           1 "Channel 1 enabled";
+    enablech0valid      1 "Channel 0 enable valid";
+    enablech1valid      1 "Channel 1 enable valid";
+    nextstatech0        4 "Next state for channel 0";
+    nextstatech1        4 "Next state for channel 1";
+    forcem2             1 "Force M2 state";
+    forcem3             1 "Force M3 state";
+    exitmemprsv         1 "Signal config done"; 
+    forcewakeup	        1 "Wakeup all";
+    _                  16 "rsvd"; 
+};
+
+
+register pm_counters rw addr(base, 0x00C0) "Powermanagement control register for FBOX Counters" {
+    idlesignaldelay         8 "Idle signal delay (cycles)";
+    idlecondition           2 "PM status to idle signal link";
+    earlyidlesignaldelay    8 "Early idle signal delay";
+    _                      14 "rsvd";
+};
+
+
+register pm_config_valid rw addr(base, 0x01B4) "Trigger to latch FBOX power management" {
+    _       32 "Unused"; 
+};
+
+
+register uc_rw_addr rw addr(base, 0x0700) "desc" {
+};
+
+
+register uc_start_ip_addr rw addr(base, 0x0720) "desc" {
+};
+
+
+register uc_cmd_start rw addr(base, 0x0724) "desc" {
+};
+
+
+register afg_master_delay_out rw addr(base, 0x1138) "desc" {
+};
+
+
+register afg_master_delay_in rw addr(base, 0x113C) "desc" {
+};
+
+
+register afg_master_mclk_range rw addr(base, 0x1140) "desc" {
+};
+
+};

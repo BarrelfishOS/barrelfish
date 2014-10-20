@@ -41,6 +41,9 @@ struct spawninfo {
 
     // vspace of spawned domain
     struct vspace *vspace;
+    struct vregion *vregion[16];
+    genvaddr_t base[16];
+    unsigned int vregions;
 
     dispatcher_handle_t handle;
     enum cpu_type cpu_type;
@@ -53,7 +56,22 @@ struct spawninfo {
     // TLS data
     genvaddr_t tls_init_base;
     size_t tls_init_len, tls_total_len;
+
+    // Error handling data
+    genvaddr_t eh_frame;
+    size_t eh_frame_size;
+    genvaddr_t eh_frame_hdr;
+    size_t eh_frame_hdr_size;
+
+    // name of the image
+    const char *name;
+
+    // spawn flags
+    uint8_t flags;
 };
+
+#define SPAWN_FLAGS_NEW_DOMAIN    (1 << 0) ///< allocate a new domain ID
+#define SPAWN_FLAGS_OMP           (1 << 1) ///< do the OpenMP parsing
 
 __BEGIN_DECLS
 errval_t spawn_get_cmdline_args(struct mem_region *module,
@@ -118,6 +136,13 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
 /* errval_t spawn_memory(struct spawninfo *si, const char *name, uint8_t core_id, */
 /*                       int argc, char *argv[], lvaddr_t binary, */
 /*                       size_t binary_size); */
+
+errval_t spawn_symval_lookup_idx(uint32_t idx, char **ret_name, genvaddr_t *ret_add);
+errval_t spawn_symval_lookup_name(char *name, uint32_t *ret_idx,  genvaddr_t *ret_add);
+errval_t spawn_symval_lookup_addr(genvaddr_t addr, uint32_t *ret_idx, char **ret_name);
+errval_t spawn_symval_count(uint32_t *ret_count);
+errval_t spawn_symval_cache_init(uint8_t lazy);
+
 __END_DECLS
 
 #endif //SPAWNDOMAIN_H

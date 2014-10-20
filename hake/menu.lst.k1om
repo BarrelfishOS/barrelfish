@@ -1,0 +1,33 @@
+timeout 0
+
+# spawnd is used to control which cpus are booted
+#
+# "spawnd boot" will use the skb and pci to figure out and
+#  boot all cores in the machine
+#
+# "spawnd boot bootapic-x86_64=1-5" will not use the skb and
+# boot the list of cores passed as argument.
+# The APIC id of the cores to boot should be specified.
+# This list may not include the bsp core id.
+
+title	Barrelfish
+root	(nd)
+kernel	/k1om/sbin/cpu loglevel=4
+module	/k1om/sbin/init
+
+# Domains spawned by init
+module	/k1om/sbin/mem_serv
+module	/k1om/sbin/monitor
+
+# Special boot time domains spawned by monitor
+module  /k1om/sbin/ramfsd boot
+module  /k1om/sbin/skb boot
+module  /k1om/sbin/xeon_phi boot
+module  /k1om/sbin/spawnd boot bootk1om=10
+module  /k1om/sbin/startd boot
+
+# GDDR Memory we have 6GB on our Xeon PHi
+mmap map 0x0000000000 0x00FEE00000 1
+# memory hole for the APIC and the flash rom 
+mmap map 0x00FEE00000 0x120000 3
+mmap map 0x0100000000 0x80000000 1             

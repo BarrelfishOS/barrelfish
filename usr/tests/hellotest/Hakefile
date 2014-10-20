@@ -10,7 +10,10 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build application { target = "hellotest",
-                      cFiles = [ "hellotest.c" ]
-                 }
+[ build arrakisapplication { target = "arrakis_hellotest",
+                             cFiles = [ "hellotest.c" ]
+                           },
+  build application { target = "hellotest",
+                             cFiles = [ "hellotest.c" ]
+                           }
 ]

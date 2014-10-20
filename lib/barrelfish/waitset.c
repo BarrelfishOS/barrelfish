@@ -31,7 +31,13 @@
 #  include <barrelfish/ump_endpoint.h>
 #endif
 
-#if defined(__x86_64__) || defined(__i386__)
+#if defined(__k1om__)
+#include <barrelfish_kpi/asm_inlines_arch.h>
+static inline cycles_t cyclecount(void)
+{
+    return rdtsc();
+}
+#elif defined(__x86_64__) || defined(__i386__)
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 static inline cycles_t cyclecount(void)
 {
@@ -129,7 +135,7 @@ static struct waitset_chanstate *get_pending_event_disabled(struct waitset *ws)
     // dequeue next pending event
     struct waitset_chanstate *chan = ws->pending;
     if (chan->next == chan) {
-        assert(chan->prev == chan);
+        assert_disabled(chan->prev == chan);
         ws->pending = NULL;
     } else {
         ws->pending = chan->next;
@@ -141,7 +147,7 @@ static struct waitset_chanstate *get_pending_event_disabled(struct waitset *ws)
 #endif
 
     // mark not pending
-    assert(chan->state == CHAN_PENDING);
+    assert_disabled(chan->state == CHAN_PENDING);
     chan->state = CHAN_UNREGISTERED;
     chan->waitset = NULL;
 
@@ -167,6 +173,13 @@ static inline void ump_endpoint_poll(struct waitset_chanstate *chan)
 }
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
 
+
+void arranet_polling_loop_proxy(void) __attribute__((weak));
+void arranet_polling_loop_proxy(void)
+{
+    USER_PANIC("Network polling not available without Arranet!\n");
+}
+
 /// Helper function that knows how to poll the given channel, based on its type
 static void poll_channel(struct waitset_chanstate *chan)
 {
@@ -176,6 +189,10 @@ static void poll_channel(struct waitset_chanstate *chan)
         ump_endpoint_poll(chan);
         break;
 #endif // CONFIG_INTERCONNECT_DRIVER_UMP
+
+    case CHANTYPE_LWIP_SOCKET:
+        arranet_polling_loop_proxy();
+        break;
 
     default:
         assert(!"invalid channel type to poll!");
@@ -324,10 +341,10 @@ check_for_events: ;
             // start a blocked thread polling
             struct thread *t;
             t = thread_unblock_one_disabled(handle, &ws->waiting_threads, NULL);
-            assert(t == NULL); // shouldn't see a remote thread
+            assert_disabled(t == NULL); // shouldn't see a remote thread
         } else if (was_polling) {
             // I'm stopping polling, and there is nobody else
-            assert(ws->polling);
+            assert_disabled(ws->polling);
             ws->polling = false;
         }
         disp_enable(handle);
@@ -548,11 +565,11 @@ errval_t waitset_chan_register_disabled(struct waitset *ws,
     chan->waitset = ws;
 
     // channel must not already be registered!
-    assert(chan->next == NULL && chan->prev == NULL);
-    assert(chan->state == CHAN_UNREGISTERED);
+    assert_disabled(chan->next == NULL && chan->prev == NULL);
+    assert_disabled(chan->state == CHAN_UNREGISTERED);
 
     // this is probably insane! :)
-    assert(closure.handler != NULL);
+    assert_disabled(closure.handler != NULL);
 
     // store closure
     chan->closure = closure;
@@ -597,8 +614,8 @@ errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
     chan->waitset = ws;
 
     // channel must not already be registered!
-    assert(chan->next == NULL && chan->prev == NULL);
-    assert(chan->state == CHAN_UNREGISTERED);
+    assert_disabled(chan->next == NULL && chan->prev == NULL);
+    assert_disabled(chan->state == CHAN_UNREGISTERED);
 
     // store closure
     chan->closure = closure;
@@ -612,7 +629,7 @@ errval_t waitset_chan_register_polled_disabled(struct waitset *ws,
             ws->polling = true;
             struct thread *t;
             t = thread_unblock_one_disabled(handle, &ws->waiting_threads, NULL);
-            assert(t == NULL); // shouldn't see a remote thread: waitsets are per-dispatcher
+            assert_disabled(t == NULL); // shouldn't see a remote thread: waitsets are per-dispatcher
         }
     } else {
         chan->next = ws->polled;
@@ -793,7 +810,7 @@ out:
  */
 errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan)
 {
-    assert(chan != NULL);
+    assert_disabled(chan != NULL);
     struct waitset *ws = chan->waitset;
     if (ws == NULL) {
         return LIB_ERR_CHAN_NOT_REGISTERED;
@@ -801,32 +818,32 @@ errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan)
 
     // remove this channel from the queue in which it is waiting
     chan->waitset = NULL;
-    assert(chan->next != NULL && chan->prev != NULL);
+    assert_disabled(chan->next != NULL && chan->prev != NULL);
 
     if (chan->next == chan) {
         // only thing in the list: must be the head
-        assert(chan->prev == chan);
+        assert_disabled(chan->prev == chan);
         switch (chan->state) {
         case CHAN_IDLE:
-            assert(chan == ws->idle);
+            assert_disabled(chan == ws->idle);
             ws->idle = NULL;
             break;
 
         case CHAN_POLLED:
-            assert(chan == ws->polled);
+            assert_disabled(chan == ws->polled);
             ws->polled = NULL;
             break;
 
         case CHAN_PENDING:
-            assert(chan == ws->pending);
+            assert_disabled(chan == ws->pending);
             ws->pending = NULL;
             break;
 
         default:
-            assert(!"invalid channel state in deregister");
+            assert_disabled(!"invalid channel state in deregister");
         }
     } else {
-        assert(chan->prev != chan);
+        assert_disabled(chan->prev != chan);
         chan->prev->next = chan->next;
         chan->next->prev = chan->prev;
         switch (chan->state) {
@@ -849,7 +866,7 @@ errval_t waitset_chan_deregister_disabled(struct waitset_chanstate *chan)
             break;
 
         default:
-            assert(!"invalid channel state in deregister");
+            assert_disabled(!"invalid channel state in deregister");
         }
     }
     chan->state = CHAN_UNREGISTERED;
@@ -988,10 +1005,10 @@ void waitset_chan_migrate(struct waitset_chanstate *chan,
 errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
                                        dispatcher_handle_t handle)
 {
-    assert(chan != NULL);
+    assert_disabled(chan != NULL);
     struct waitset *ws = chan->waitset;
-    assert(ws != NULL);
-    assert(chan->prev != NULL && chan->next != NULL);
+    assert_disabled(ws != NULL);
+    assert_disabled(chan->prev != NULL && chan->next != NULL);
 
     // no-op if already pending
     if (chan->state == CHAN_PENDING) {
@@ -1000,13 +1017,13 @@ errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
 
     // remove from previous queue (either idle or polled)
     if (chan->next == chan) {
-        assert(chan->prev == chan);
+        assert_disabled(chan->prev == chan);
         if (chan->state == CHAN_IDLE) {
-            assert(ws->idle == chan);
+            assert_disabled(ws->idle == chan);
             ws->idle = NULL;
         } else {
-            assert(chan->state == CHAN_POLLED);
-            assert(ws->polled == chan);
+            assert_disabled(chan->state == CHAN_POLLED);
+            assert_disabled(ws->polled == chan);
             ws->polled = NULL;
         }
     } else {
@@ -1017,7 +1034,7 @@ errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
                 ws->idle = chan->next;
             }
         } else {
-            assert(chan->state == CHAN_POLLED);
+            assert_disabled(chan->state == CHAN_POLLED);
             if (ws->polled == chan) {
                 ws->polled = chan->next;
             }
@@ -1033,7 +1050,7 @@ errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
         chan->state = CHAN_UNREGISTERED;
         struct thread *t;
         t = thread_unblock_one_disabled(handle, &ws->waiting_threads, chan);
-        assert(t == NULL);
+        assert_disabled(t == NULL);
         return SYS_ERR_OK;
     }
 
@@ -1045,6 +1062,9 @@ errval_t waitset_chan_trigger_disabled(struct waitset_chanstate *chan,
     } else {
         chan->next = ws->pending;
         chan->prev = ws->pending->prev;
+        assert_disabled(ws->pending->next != NULL);
+        assert_disabled(ws->pending->prev != NULL);
+        assert_disabled(chan->prev != NULL);
         chan->next->prev = chan;
         chan->prev->next = chan;
     }
@@ -1087,15 +1107,15 @@ errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
                                                struct event_closure closure,
                                                dispatcher_handle_t handle)
 {
-    assert(chan != NULL);
-    assert(ws != NULL);
+    assert_disabled(chan != NULL);
+    assert_disabled(ws != NULL);
 
     // check if already registered
     if (chan->waitset != NULL || chan->state != CHAN_UNREGISTERED) {
         return LIB_ERR_CHAN_ALREADY_REGISTERED;
     }
 
-    assert(chan->prev == NULL && chan->next == NULL);
+    assert_disabled(chan->prev == NULL && chan->next == NULL);
 
     // set closure
     chan->closure = closure;
@@ -1104,7 +1124,7 @@ errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
     if (ws->waiting_threads != NULL) {
         struct thread *t;
         t = thread_unblock_one_disabled(handle, &ws->waiting_threads, chan);
-        assert(t == NULL);
+        assert_disabled(t == NULL);
         return SYS_ERR_OK;
     }
 
@@ -1120,6 +1140,8 @@ errval_t waitset_chan_trigger_closure_disabled(struct waitset *ws,
         chan->next->prev = chan;
         chan->prev->next = chan;
     }
+
+    assert(ws->pending->prev != NULL && ws->pending->next != NULL);
 
     return SYS_ERR_OK;
 }

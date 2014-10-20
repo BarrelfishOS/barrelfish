@@ -21,7 +21,7 @@ errval_t skb_add_fact(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 errval_t skb_set_memory_affinity(void);
 
 #define ELEMENT_NAME_BUF_SIZE 80
-
+#define SKB_REPLY_BUF_SIZE (128*1024)
 
 struct list_parser_status {
     char *s;

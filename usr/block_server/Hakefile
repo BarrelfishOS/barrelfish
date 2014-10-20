@@ -1,0 +1,35 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/block_server
+--
+--------------------------------------------------------------------------
+
+[ build application {
+    target = "block_server",
+    cFiles = [ "block_server.c",    "network_server.c", "network_client.c",
+               "block_storage.c", "block_storage_cache.c",   "local_server.c", "net_benchmark.c" ],
+    addLibraries = libDeps [ "bulk_transfer", "lwip", "net_if_raw", "bench"],
+    flounderDefs = [ "block_service", "bulk_ctrl", "net_queue_manager" ],
+    flounderBindings = [ "block_service", "bulk_ctrl" ],
+    architectures = [ "x86_64", "x86_32" ],
+    mackerelDevices = [ "e10k", "e10k_q" ] --  used by bulk_transfer
+  },
+
+  build application {
+    target = "block_server_client",
+    cFiles = [ "block_server_client.c", "network_client.c",
+               "local_server.c", "block_storage_cache.c",
+               "block_storage.c", "net_benchmark.c" ],
+    addLibraries = libDeps [ "bulk_transfer", "lwip", "bench" ],
+    flounderDefs = [ "block_service", "bulk_ctrl", "net_queue_manager" ],
+    flounderBindings = [ "block_service", "bulk_ctrl" ],
+    architectures = [ "x86_64", "x86_32" ],
+    mackerelDevices = [ "e10k", "e10k_q" ] -- used by bulk_transfer
+  }
+]

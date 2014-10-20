@@ -29,43 +29,43 @@ public:
     class failure;
 
     typedef T1 fmtflags;
-    static const fmtflags boolalpha;
-    static const fmtflags dec;
-    static const fmtflags fixed;
-    static const fmtflags hex;
-    static const fmtflags internal;
-    static const fmtflags left;
-    static const fmtflags oct;
-    static const fmtflags right;
-    static const fmtflags scientific;
-    static const fmtflags showbase;
-    static const fmtflags showpoint;
-    static const fmtflags showpos;
-    static const fmtflags skipws;
-    static const fmtflags unitbuf;
-    static const fmtflags uppercase;
-    static const fmtflags adjustfield;
-    static const fmtflags basefield;
-    static const fmtflags floatfield;
+    static constexpr fmtflags boolalpha;
+    static constexpr fmtflags dec;
+    static constexpr fmtflags fixed;
+    static constexpr fmtflags hex;
+    static constexpr fmtflags internal;
+    static constexpr fmtflags left;
+    static constexpr fmtflags oct;
+    static constexpr fmtflags right;
+    static constexpr fmtflags scientific;
+    static constexpr fmtflags showbase;
+    static constexpr fmtflags showpoint;
+    static constexpr fmtflags showpos;
+    static constexpr fmtflags skipws;
+    static constexpr fmtflags unitbuf;
+    static constexpr fmtflags uppercase;
+    static constexpr fmtflags adjustfield;
+    static constexpr fmtflags basefield;
+    static constexpr fmtflags floatfield;
 
     typedef T2 iostate;
-    static const iostate badbit;
-    static const iostate eofbit;
-    static const iostate failbit;
-    static const iostate goodbit;
+    static constexpr iostate badbit;
+    static constexpr iostate eofbit;
+    static constexpr iostate failbit;
+    static constexpr iostate goodbit;
 
     typedef T3 openmode;
-    static const openmode app;
-    static const openmode ate;
-    static const openmode binary;
-    static const openmode in;
-    static const openmode out;
-    static const openmode trunc;
+    static constexpr openmode app;
+    static constexpr openmode ate;
+    static constexpr openmode binary;
+    static constexpr openmode in;
+    static constexpr openmode out;
+    static constexpr openmode trunc;
 
     typedef T4 seekdir;
-    static const seekdir beg;
-    static const seekdir cur;
-    static const seekdir end;
+    static constexpr seekdir beg;
+    static constexpr seekdir cur;
+    static constexpr seekdir end;
 
     class Init;
 
@@ -160,7 +160,7 @@ protected:
     basic_ios();
     void init(basic_streambuf<charT,traits>* sb);
     void move(basic_ios& rhs);
-    void swap(basic_ios& rhs);
+    void swap(basic_ios& rhs) noexcept;
     void set_rdbuf(basic_streambuf<charT, traits>* sb);
 };
 
@@ -203,9 +203,9 @@ enum class io_errc
 };
 
 concept_map ErrorCodeEnum<io_errc> { };
-error_code make_error_code(io_errc e);
-error_condition make_error_condition(io_errc e);
-storage-class-specifier const error_category& iostream_category;
+error_code make_error_code(io_errc e) noexcept; 
+error_condition make_error_condition(io_errc e) noexcept; 
+storage-class-specifier const error_category& iostream_category() noexcept;
 
 }  // std
 
@@ -216,16 +216,22 @@ storage-class-specifier const error_category& iostream_category;
 #include <__locale>
 #include <system_error>
 
+#if __has_feature(cxx_atomic)
+#include <atomic>     // for __xindex_
+#endif
+
+#if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
 #pragma GCC system_header
+#endif
 
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 typedef ptrdiff_t streamsize;
 
-class _LIBCPP_VISIBLE ios_base
+class _LIBCPP_TYPE_VIS ios_base
 {
 public:
-    class failure;
+    class _LIBCPP_TYPE_VIS failure;
 
     typedef unsigned int fmtflags;
     static const fmtflags boolalpha   = 0x0001;
@@ -266,10 +272,10 @@ public:
     enum seekdir {beg, cur, end};
     typedef seekdir seek_dir;
 
-    typedef _STD::streamoff streamoff;
-    typedef _STD::streampos streampos;
+    typedef _VSTD::streamoff streamoff;
+    typedef _VSTD::streampos streampos;
 
-    class Init;
+    class _LIBCPP_TYPE_VIS Init;
 
     // 27.5.2.2 fmtflags state:
     _LIBCPP_INLINE_VISIBILITY fmtflags flags() const;
@@ -317,7 +323,7 @@ public:
     _LIBCPP_INLINE_VISIBILITY bool bad() const;
 
     _LIBCPP_INLINE_VISIBILITY iostate exceptions() const;
-    _LIBCPP_INLINE_VISIBILITY void exceptions(iostate __except);
+    _LIBCPP_INLINE_VISIBILITY void exceptions(iostate __iostate);
 
     void __set_badbit_and_consider_rethrow();
     void __set_failbit_and_consider_rethrow();
@@ -340,7 +346,7 @@ protected:
     void __call_callbacks(event);
     void copyfmt(const ios_base&);
     void move(ios_base&);
-    void swap(ios_base&);
+    void swap(ios_base&) _NOEXCEPT;
 
     _LIBCPP_ALWAYS_INLINE
     void set_rdbuf(void* __sb)
@@ -361,7 +367,11 @@ private:
     int*            __index_;
     size_t          __event_size_;
     size_t          __event_cap_;
+#if __has_feature(cxx_atomic)
+    static atomic<int> __xindex_;
+#else
     static int      __xindex_;
+#endif
     long*           __iarray_;
     size_t          __iarray_size_;
     size_t          __iarray_cap_;
@@ -371,35 +381,33 @@ private:
 };
 
 //enum class io_errc
-struct _LIBCPP_VISIBLE io_errc
+_LIBCPP_DECLARE_STRONG_ENUM(io_errc)
 {
-enum _ {
     stream = 1
 };
-    _ __v_;
-
-    _LIBCPP_ALWAYS_INLINE io_errc(_ __v) : __v_(__v) {}
-    _LIBCPP_ALWAYS_INLINE operator int() const {return __v_;}
-};
+_LIBCPP_DECLARE_STRONG_ENUM_EPILOG(io_errc)
 
 template <>
-struct _LIBCPP_VISIBLE is_error_code_enum<io_errc> : public true_type { };
-template <>
-struct _LIBCPP_VISIBLE is_error_code_enum<io_errc::_> : public true_type { };
+struct _LIBCPP_TYPE_VIS_ONLY is_error_code_enum<io_errc> : public true_type { };
 
-_LIBCPP_VISIBLE
-const error_category& iostream_category();
+#ifdef _LIBCPP_HAS_NO_STRONG_ENUMS
+template <>
+struct _LIBCPP_TYPE_VIS_ONLY is_error_code_enum<io_errc::__lx> : public true_type { };
+#endif
+
+_LIBCPP_FUNC_VIS
+const error_category& iostream_category() _NOEXCEPT;
 
 inline _LIBCPP_INLINE_VISIBILITY
 error_code
-make_error_code(io_errc __e)
+make_error_code(io_errc __e) _NOEXCEPT
 {
     return error_code(static_cast<int>(__e), iostream_category());
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 error_condition
-make_error_condition(io_errc __e)
+make_error_condition(io_errc __e) _NOEXCEPT
 {
     return error_condition(static_cast<int>(__e), iostream_category());
 }
@@ -413,7 +421,7 @@ public:
     virtual ~failure() throw();
 };
 
-class _LIBCPP_VISIBLE ios_base::Init
+class _LIBCPP_TYPE_VIS ios_base::Init
 {
 public:
     Init();
@@ -527,21 +535,21 @@ inline _LIBCPP_INLINE_VISIBILITY
 bool
 ios_base::eof() const
 {
-    return __rdstate_ & eofbit;
+    return (__rdstate_ & eofbit) != 0;
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
 ios_base::fail() const
 {
-    return __rdstate_ & (failbit | badbit);
+    return (__rdstate_ & (failbit | badbit)) != 0;
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
 bool
 ios_base::bad() const
 {
-    return __rdstate_ & badbit;
+    return (__rdstate_ & badbit) != 0;
 }
 
 inline _LIBCPP_INLINE_VISIBILITY
@@ -553,14 +561,14 @@ ios_base::exceptions() const
 
 inline _LIBCPP_INLINE_VISIBILITY
 void
-ios_base::exceptions(iostate __except)
+ios_base::exceptions(iostate __iostate)
 {
-    __exceptions_ = __except;
+    __exceptions_ = __iostate;
     clear(__rdstate_);
 }
 
 template <class _CharT, class _Traits>
-class _LIBCPP_VISIBLE basic_ios
+class _LIBCPP_TYPE_VIS_ONLY basic_ios
     : public ios_base
 {
 public:
@@ -572,7 +580,8 @@ public:
     typedef typename traits_type::pos_type pos_type;
     typedef typename traits_type::off_type off_type;
 
-    _LIBCPP_ALWAYS_INLINE // explicit
+    _LIBCPP_ALWAYS_INLINE
+        _LIBCPP_EXPLICIT
         operator bool() const {return !fail();}
     _LIBCPP_ALWAYS_INLINE bool operator!() const    {return  fail();}
     _LIBCPP_ALWAYS_INLINE iostate rdstate() const   {return ios_base::rdstate();}
@@ -584,7 +593,7 @@ public:
     _LIBCPP_ALWAYS_INLINE bool bad() const  {return ios_base::bad();}
 
     _LIBCPP_ALWAYS_INLINE iostate exceptions() const {return ios_base::exceptions();}
-    _LIBCPP_ALWAYS_INLINE void exceptions(iostate __except) {ios_base::exceptions(__except);}
+    _LIBCPP_ALWAYS_INLINE void exceptions(iostate __iostate) {ios_base::exceptions(__iostate);}
 
     // 27.5.4.1 Constructor/destructor:
     _LIBCPP_INLINE_VISIBILITY
@@ -631,12 +640,12 @@ protected:
     void move(basic_ios&& __rhs) {move(__rhs);}
 #endif
     _LIBCPP_INLINE_VISIBILITY 
-    void swap(basic_ios& __rhs);
+    void swap(basic_ios& __rhs) _NOEXCEPT;
     _LIBCPP_INLINE_VISIBILITY 
     void set_rdbuf(basic_streambuf<char_type, traits_type>* __sb);
 private:
     basic_ostream<char_type, traits_type>* __tie_;
-    char_type __fill_;
+     mutable int_type __fill_;
 };
 
 template <class _CharT, class _Traits>
@@ -658,7 +667,7 @@ basic_ios<_CharT, _Traits>::init(basic_streambuf<char_type, traits_type>* __sb)
 {
     ios_base::init(__sb);
     __tie_ = 0;
-    __fill_ = widen(' ');
+    __fill_ = traits_type::eof();
 }
 
 template <class _CharT, class _Traits>
@@ -730,6 +739,8 @@ inline _LIBCPP_INLINE_VISIBILITY
 _CharT
 basic_ios<_CharT, _Traits>::fill() const
 {
+    if (traits_type::eq_int_type(traits_type::eof(), __fill_))
+        __fill_ = widen(' ');
     return __fill_;
 }
 
@@ -773,11 +784,11 @@ basic_ios<_CharT, _Traits>::move(basic_ios& __rhs)
 template <class _CharT, class _Traits>
 inline _LIBCPP_INLINE_VISIBILITY
 void
-basic_ios<_CharT, _Traits>::swap(basic_ios& __rhs)
+basic_ios<_CharT, _Traits>::swap(basic_ios& __rhs) _NOEXCEPT
 {
     ios_base::swap(__rhs);
-    _STD::swap(__tie_, __rhs.__tie_);
-    _STD::swap(__fill_, __rhs.__fill_);
+    _VSTD::swap(__tie_, __rhs.__tie_);
+    _VSTD::swap(__fill_, __rhs.__fill_);
 }
 
 template <class _CharT, class _Traits>
@@ -979,6 +990,33 @@ defaultfloat(ios_base& __str)
     __str.unsetf(ios_base::floatfield);
     return __str;
 }
+
+template <class _CharT, class _Traits>
+class __save_flags
+{
+    typedef basic_ios<_CharT, _Traits> __stream_type;
+    typedef typename __stream_type::fmtflags fmtflags;
+
+    __stream_type& __stream_;
+    fmtflags       __fmtflags_;
+    _CharT         __fill_;
+
+    __save_flags(const __save_flags&);
+    __save_flags& operator=(const __save_flags&);
+public:
+    _LIBCPP_INLINE_VISIBILITY
+    explicit __save_flags(__stream_type& __stream)
+        : __stream_(__stream),
+          __fmtflags_(__stream.flags()),
+          __fill_(__stream.fill())
+        {}
+    _LIBCPP_INLINE_VISIBILITY
+    ~__save_flags()
+    {
+        __stream_.flags(__fmtflags_);
+        __stream_.fill(__fill_);
+    }
+};
 
 _LIBCPP_END_NAMESPACE_STD
 

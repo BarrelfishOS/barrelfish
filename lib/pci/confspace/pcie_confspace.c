@@ -107,6 +107,11 @@ lvaddr_t pcie_confspace_access(struct pci_address addr)
     return map_page(page);
 }
 
+uint8_t pcie_get_endbus(void)
+{
+    return endbus;
+}
+
 void pcie_enable(void)
 {
     pcie_enabled = true;

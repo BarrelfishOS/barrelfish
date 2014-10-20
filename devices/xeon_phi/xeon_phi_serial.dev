@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_serial.dev
+ *
+ * description: register definitions for the Xeon Phi software scratch registers
+ *
+ * Base: the base of the sbox
+ */
+
+device xeon_phi_serial lsbfirst ( addr base ) "Intel Xeon Phi Software Scratch Registers" {
+   
+    constants ctrl_values width(8) "Constants" {
+        reset = 0x0;
+        data  = 0x7A;
+    };
+   
+    // currently scratch 15 register
+    register data rw addr(base, 0xAB5C) "" {
+          value0 8 "Datavalue to send";
+          value1 8 "Datavalue to send";
+          value2 8 "Datavalue to send";
+          value3 8 "Datavalue to send";
+    };
+    
+    // currently scratch 8 register
+    register ctrl rw addr(base, 0xAB40) "" {
+          value0 8 "Datavalue to send";
+          value1 8 "Datavalue to send";
+          value2 8 "Datavalue to send";
+          value3 8 "Datavalue to send";
+    };
+
+
+};

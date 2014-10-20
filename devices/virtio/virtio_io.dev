@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2012, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * virtio_pci.dev
+ *
+ * 4.3 Virtio Over IO
+ */
+ 
+device virtio_io lsbfirst ( addr base, addr common ) "Virtio PCI Device Specification" {
+ 
+    constant vendor_id width(16) {
+        virtio = 0x1AF4;
+    };
+ 
+    
+    
+  
+ };

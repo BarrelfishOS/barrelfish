@@ -224,6 +224,13 @@ static errval_t fill(struct memobj *memobj, genvaddr_t offset, struct capref fra
     new->frame  = frame;
     new->size   = size;
 
+    {
+        struct frame_identity id;
+        err = invoke_frame_identify(frame, &id);
+        assert(err_is_ok(err));
+        new->pa = id.base;
+    }
+
     // Insert in order
     struct memobj_frame_list *walk = anon->frame_list;
     struct memobj_frame_list *prev = NULL;

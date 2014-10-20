@@ -7,36 +7,19 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-extern "C" {
-  //#include <barrelfish/barrelfish.h>
-// #include <vfs/vfs.h>
-}
-
-#include <fstream>
 #include <iostream>
-// #include <list>
 
-// static std::list<int> mylist;
+#include "cxxtest.hpp"
 
-int main(int argc, char *argv[])
+int main(int argc,
+         char *argv[])
 {
-  // mylist.push_back(1);
-  // mylist.push_back(2);
+    std::cout << "Hello World!" << std::endl;
+    std::cout << "This is cxx test" << std::endl;
+    stl_list_test();
+    stl_vector_test();
+    cx11_test();
 
-  // vfs_init();
-
-  std::cout << "Hello world! " << std::endl;
-
-  // for(std::list<int>::iterator i = mylist.begin(); i != mylist.end(); i++) {
-  //   std::cout << *i << std::endl;
-  // }
-
-  std::ifstream f("bootmodules");
-  int temp;
-
-  while(f >> temp) {
-    std::cout << temp;
-  }
-
-  return 0;
+    std::cout << "Tests done: SUCCESS" << std::endl;
+    return 0;
 }

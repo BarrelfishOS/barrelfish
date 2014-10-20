@@ -174,7 +174,7 @@ class QEMUMachineARMUniproc(QEMUMachineBase):
 
     def _get_cmdline(self):
         return ([QEMU_CMD_ARM] + QEMU_ARGS_GENERIC + QEMU_ARGS_ARM
-                + ['-kernel', self.kernel_img, '-initrd', self.rom_img])
+                + ['-M', 'integratorcp', '-kernel', self.kernel_img, '-initrd', self.rom_img])
 
 @machines.add_machine
 class QEMUMachineARMUniproc(QEMUMachineBase):

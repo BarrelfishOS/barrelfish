@@ -120,7 +120,7 @@ EXT(longjmp):
 	cmp	gr9, gr0, icc0
 	setlos	#1, gr8
 	ckne	icc0, cc4
-	cmov	gr9, gr8, cc4, 1
+//	cmov	gr9, gr8, cc4, 1
 	ret
 .Lend2:
 	.size	EXT(longjmp),.Lend2-EXT(longjmp2)

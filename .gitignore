@@ -1,0 +1,15 @@
+# vim swap files
+*.swp
+
+# ctags
+tags
+
+.settings
+/.dist-buildwrapper
+/build
+.cproject
+.project
+
+/.metadata/
+/toolchain/
+*.pyc

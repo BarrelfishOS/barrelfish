@@ -101,7 +101,7 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
     errval_t err;
     struct memobj_anon *memobj = NULL;
     struct vregion *vregion = NULL;
-    
+
     // Allocate space
     memobj = malloc(sizeof(struct memobj_anon));
     assert(memobj != NULL);
@@ -111,7 +111,6 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
 
     err = vspace_map_anon_nomalloc(retaddr, memobj, vregion, size,
                                    retsize, flags, alignment);
-    
     if (err_is_fail(err)) {
         free(memobj);
         free(vregion);
@@ -134,6 +133,7 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
                               size_t *retsize, vregion_flags_t flags)
 {
     errval_t err;
+
     struct memobj_anon *memobj = NULL;
     struct vregion *vregion = NULL;
     
@@ -146,7 +146,6 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
 
     err = vspace_map_anon_nomalloc(retaddr, memobj, vregion, size,
                                    retsize, flags, 0);
-    
     if (err_is_fail(err))
     {
       free(memobj);

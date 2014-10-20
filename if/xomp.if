@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/**
+ * \brief interface between the XOMP master and workers
+ */
+interface xomp "Xeon Phi openMP interface" {
+
+    /**
+     * \brief sends a frame capability to the one of the local workers
+     *        this cannot be used for remote workers!
+     * 
+     * \param [IN]  frame   frame capabilty
+     * \param [IN]  addr    virtual address of the requested memory
+     * \param [IN]  type    type of the memory
+     * \param [OUT] msgerr  returns the outcome of the request
+     */
+    rpc add_memory(in cap frame,
+                   in uint64 addr,
+                   in uint8 type,
+                   out errval msgerr);
+
+    /**
+     * \brief notifies the worker domain to obtain memory from the local
+     *        gateway
+     * 
+     * \param [IN]  addr    virtual address of the requested memory
+     * \param [IN]  type    type of the memory
+     * \param [OUT] msgerr  returns the outcome of the request
+     */
+    rpc gw_req_memory(in uint64 addr,
+                      in uint8 type,
+                      out errval msgerr);
+
+    /**
+     * \brief sends a new task to a worker domain
+     * 
+     * \param [IN] fn       the function to be called
+     * \param [IN] arg      arguments for the functions
+     * \param [IN] tid      task id
+     * \param [IN] flags    task flags
+     */
+    message do_work(uint64 fn,
+                    uint64 arg,
+                    uint64 tid,
+                    uint64 flags);
+
+    /**
+     * \brief sends the done notification to the XOMP master domain
+     * 
+     * \param [IN] tid     task id
+     * \param [IN] msgerr  returns the outcome of the task
+     */
+    message done_notify(uint64 tid,
+                        errval msgerr);
+
+    /**
+     * \brief sends the done notification with argument to the XOMP master domain
+     * 
+     * \param [IN] tid     task id
+     * \param [IN] arg     argument
+     * \param [IN] msgerr  returns the outcome of the task
+     */
+    message done_with_arg(uint64 tid,
+                          uint64 arg,
+                          errval msgerr);
+};

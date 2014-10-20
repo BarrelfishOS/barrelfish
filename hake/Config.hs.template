@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, 2012, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, 2013, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -190,8 +190,10 @@ memserv_percore = False
 
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
-lazy_thc | elem "armv7" architectures  = False
-         | otherwise                   = True
+lazy_thc | elem "armv7" architectures   = False
+	 | elem "armv5" architectures   = False
+	 | elem "xscale" architectures  = False
+         | otherwise                    = True
 
 -- Select remote cap database implementation
 data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
@@ -304,6 +306,12 @@ defines = [ Str ("-D" ++ d) | d <- [
 libcInc :: String
 libcInc = if libc == "oldc" then "/include/oldc"
           else "/lib/newlib/newlib/libc/include"
+
+-- Sets the include path for lwIP
+lwipInc :: String
+lwipInc = "/lib/lwip/src/include"
+lwipxxxInc :: String
+lwipxxxInc = "/lib/lwip/src/include/ipv4"
 
 -- some defines depend on the architecture/compile options
 arch_defines :: Options -> [RuleToken]

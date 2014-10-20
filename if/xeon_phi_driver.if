@@ -1,0 +1,24 @@
+/** \file
+ *  \brief Xeon Phi Service Interface
+ */
+
+/*
+ * Copyright (c) 2012, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface xeon_phi_driver "Xeon Phi Service Interface" {
+
+    rpc register(in uint8 id, 
+                 in uint64 local_apt_base,
+                 in uint64 local_apt_size, 
+                 out errval msgerr, 
+                 out uint64 other_apt_base,
+                 out uint64 other_apt_size);
+  
+    rpc bootstrap(in uint64 base, in uint8 bits, out errval msgerr); 
+};

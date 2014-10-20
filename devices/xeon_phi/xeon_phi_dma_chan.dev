@@ -1,0 +1,171 @@
+/*
+ * Copyright (c) 2014 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * xeon_phi_dma.dev
+ *
+ * description: register definitions for the Xeon Phi DMA
+ */
+
+device xeon_phi_dma_chan lsbfirst(addr base) "Intel Xeon Phi DMA Channel" {
+
+    register dcar rw addr(base, 0x00) "DMA Channel Attribute Register" {
+        _ 23 "";
+        apic_irq 1 "APIC Interrupt mask bit";
+        msix_irq 1 "MSI-X Interrupt mask bit";
+        irq_status 1 "Interrupt status";
+        _ 6 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dhpr rw addr(base, 0x04) "DMA Descriptor Head Pointer Register" {
+        index 16 "Index of the head pointer";
+        _     16 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dtpr rw addr(base, 0x08) "DMA Descriptor Tail Pointer Register" {
+        index 16 "Index of the head pointer";
+         _    16 "Reserved";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register aux_lo rw addr(base, 0x0C) "DMA Auxiliary Register 0 Lo" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register aux_hi rw addr(base, 0x10)  "DMA Auxiliary Register 0 Hi" {
+        r 32 "";
+    };
+
+    constants drar_shifts "Shift amounts for the field values" {
+        drar_size_shift=2;
+        drar_base_shift=6;
+    };
+    
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register drar_hi rw addr(base, 0x18) "DMA Descriptor Ring Attributes Register Lo" {
+        base     4 "base address hi part";
+        _        2 "";  
+        size    15 "size of the descriptor ring";
+        page     5 "";
+        sysbit   1 "";
+        _        5 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register drar_lo rw addr(base, 0x14) "DMA Descriptor Ring Attributes Register Lo" {
+        _        6 "";
+        base    26 "base address lo part";
+    };
+    
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register ditr rw addr(base, 0x1C)  "DMA Interrupt Timer Register" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dstat rw addr(base, 0x20)  "DMA Status Channel Register" {
+        completions 16 "Completition count";
+        _           16 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dstatwb_lo rw addr(base, 0x24)  "DMA Tail Pointer Write Back Register Lo" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dstatwb_hi rw addr(base, 0x28)  "DMA Tail Pointer Write Back Register Hi" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dcherr rw addr(base, 0x2C)  "DMA Channel Error Register" {
+        r 32 "";
+    };
+
+    /*
+     * Protection Level: Ring 0
+     * Visibility: Host / Coprocessor
+     * Reset Dmain: GRPB_REset
+     * Register Access: CRU
+     * Number: 8
+     */
+    register dcherrmsk rw addr(base, 0x30)  "DMA Channel Error Register Mask" {
+        r 32 "";
+    };    
+};
