@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < num_threads; i++) {
         t_data[i].t_num = i;
         t_data[i].mutex = &mutex;
-        t_data[i].start_cntr = &start_cntr;        
+        t_data[i].start_cntr = &start_cntr;
         t_data[i].sem = &sem;
 
         t_data[i].t_id = thread_create(my_thread, &(t_data[i]));
