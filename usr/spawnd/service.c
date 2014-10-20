@@ -349,6 +349,7 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
                                        char *envbuf, size_t envbytes,
                                        struct capref inheritcn_cap,
                                        struct capref argcn_cap,
+                                       uint8_t flags,
                                        domainid_t *domainid)
 {
     errval_t err;
@@ -390,7 +391,7 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
     vfs_path_normalise(path);
 
     err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
-                flags, &domainid);
+                flags, domainid);
     // XXX: do we really want to delete the inheritcn and the argcn here? iaw:
     // do we copy these somewhere? -SG
     if (!capref_is_null(inheritcn_cap)) {
@@ -420,12 +421,13 @@ static void spawn_with_caps_handler(struct spawn_binding *b, char *path,
                                     char *argbuf, size_t argbytes,
                                     char *envbuf, size_t envbytes,
                                     struct capref inheritcn_cap,
-                                    struct capref argcn_cap)
+                                    struct capref argcn_cap,
+                                    uint8_t flags)
 {
     errval_t err;
     domainid_t newdomid;
     err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
-                                 inheritcn_cap, argcn_cap, &newdomid);
+                                 inheritcn_cap, argcn_cap, flags, &newdomid);
 
     err = spawn_with_caps_reply(b, err, newdomid);
 
@@ -441,7 +443,7 @@ static void spawn_handler(struct spawn_binding *b, char *path, char *argbuf,
     errval_t err;
     domainid_t newdomid;
     err = spawn_with_caps_common(path, argbuf, argbytes, envbuf, envbytes,
-                                 NULL_CAP, NULL_CAP, &newdomid);
+                                 NULL_CAP, NULL_CAP, flags, &newdomid);
 
     err = spawn_reply(b, err, newdomid);
 

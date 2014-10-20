@@ -363,8 +363,6 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
         *ret_domainid = domain_id;
     }
 
-out:
-    mb->change_waitset(mb, mon_ws);
     return msgerr;
 }
 
