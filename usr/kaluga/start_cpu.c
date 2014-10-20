@@ -55,6 +55,9 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         struct module_info* mi = find_module("x86boot");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "start function failed.");
+            }
             assert(err_is_ok(err));
         }
 
