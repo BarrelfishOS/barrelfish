@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime
+import os, shutil, select, datetime, fdpexpect, tempfile
 import barrelfish, debug, results
 from tests import Test
 
@@ -186,6 +186,74 @@ class TestCommon(Test):
         machine.unlock()
         debug.verbose('removing %s' % tftp_dir)
         shutil.rmtree(tftp_dir, ignore_errors=True)
+
+
+class InteractiveTest(TestCommon):
+    """
+    A interactive test class that allows a test-case to interact with
+    the fish shell. Sub-classes should implement the interact method.
+
+    As an example, have a look at coreboottest.py.
+    """
+
+    def get_modules(self, build, machine):
+        modules = super(InteractiveTest, self).get_modules(build, machine)
+        # Load the console
+        modules.add_module("serial")
+        modules.add_module("fish", args=['nospawn'])
+        modules.add_module("angler", args=['serial0.terminal xterm'])
+        return modules
+
+    def force_write(self):
+        # CTRL-ecf forces the console lock
+        self.console.sendcontrol('e')
+        self.console.send('cf')
+
+    def wait_for_fish(self):
+        try:
+            debug.verbose("Waiting for fish.")
+            self.console.expect("fish v0.2 -- pleased to meet you!")
+        except:
+            raise
+
+    def interact(self):
+        # Implement interaction with console
+        pass
+
+    def collect_data(self, machine):
+        fh = machine.get_output()
+        
+        if not machine.get_boot_timeout():
+            tt = 180
+        else:
+            tt = machine.get_boot_timeout()
+
+        self.console = fdpexpect.fdspawn(fh, timeout=tt)
+        self.console.logfile = tempfile.NamedTemporaryFile()
+
+        while self.boot_attempts < MAX_BOOT_ATTEMPTS:
+            index = self.console.expect(["Barrelfish CPU driver starting", 
+                                 fdpexpect.TIMEOUT, fdpexpect.EOF])
+            if index == 0:
+                self.boot_phase = False
+                break
+            if index == 1:
+                self.console.logfile.write(BOOT_TIMEOUT_LINE_RETRY)
+                self.reboot(machine)
+            if index == 2:
+                self.console.logfile.write(BOOT_TIMEOUT_LINE_FAIL)
+
+        if not self.boot_phase:
+            self.force_write()
+            self.interact()
+
+        self.console.logfile.seek(0)
+        return self.console.logfile.readlines()
+
+    def run(self, build, machine, testdir):
+        modules = self.get_modules(build, machine)
+        self.boot(machine, modules)
+        return self.collect_data(machine)
 
 
 # utility function used by other tests
