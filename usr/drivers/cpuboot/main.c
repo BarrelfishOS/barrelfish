@@ -261,7 +261,7 @@ static int update_cpu(int argc, char** argv)
 
 static int stop_cpu(int argc, char** argv)
 {
-    DEBUG("%s:%d: Power it down...\n", __FILE__, __LINE__);
+    DEBUG("Power it down...\n");
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
 
