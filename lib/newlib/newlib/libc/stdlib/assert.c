@@ -48,6 +48,10 @@ Supporting OS subroutines required (only if enabled): <<close>>, <<fstat>>,
 #include <stdio.h>
 
 #ifndef HAVE_ASSERT_FUNC
+
+// BF magic
+void (*_libc_assert_func)(const char *, const char *, const char *, int) = NULL;
+
 /* func can be NULL, in which case no function information is given.  */
 void
 _DEFUN (__assert_func, (file, line, func, failedexpr),
@@ -56,10 +60,14 @@ _DEFUN (__assert_func, (file, line, func, failedexpr),
 	const char *func _AND
 	const char *failedexpr)
 {
-  fiprintf(stderr,
-	   "assertion \"%s\" failed: file \"%s\", line %d%s%s\n",
-	   failedexpr, file, line,
-	   func ? ", function: " : "", func ? func : "");
+  if (_libc_assert_func) {
+    _libc_assert_func(failedexpr, file, func, line);
+  } else {
+    fiprintf(stderr,
+       "assertion \"%s\" failed: file \"%s\", line %d%s%s\n",
+       failedexpr, file, line,
+       func ? ", function: " : "", func ? func : "");
+  }
   abort();
   /* NOTREACHED */
 }

@@ -176,12 +176,12 @@ errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
 
     size_t len;
 
-    len = snprintf(NULL, 0, "%s.omp.%u", binary, idx);
+    len = snprintf(NULL, 0, "%s.omp.%"PRIu32, binary, idx);
     char *omp_entry = malloc(len+1);
     if (omp_entry == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    snprintf(omp_entry, len+1, "%s.omp.%u", binary, idx);
+    snprintf(omp_entry, len+1, "%s.omp.%"PRIu32, binary, idx);
 
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {

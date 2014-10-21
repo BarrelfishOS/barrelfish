@@ -50,7 +50,7 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     export_fn_def ifn,
     C.Blank,
 
-    C.MultiComment [ "Accept function (Export over already shared frame)" ],
+    C.MultiComment [ "Functions to accept/connect over a already shared frame" ],
     accept_fn_def ifn,
     C.Blank,
 
@@ -60,6 +60,7 @@ stub_body infile (Interface ifn descr _) = C.UnitList [
     bind_cont_def ifn (bind_cont_name2 ifn) (multihop_bind_backends ifn (bind_cont_name2 ifn)),
     bind_fn_def ifn,
     connect_fn_def ifn]
+
 
 export_fn_def :: String -> C.Unit
 export_fn_def n = 
@@ -106,7 +107,25 @@ export_fn_def n =
 accept_fn_def :: String -> C.Unit
 accept_fn_def n = 
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (accept_fn_name n) params [
-        C.Return $ C.Call (drv_accept_fn_name "ump" n)  [(C.Variable intf_frameinfo_var), C.Variable "st", C.Variable intf_cont_var, C.Variable "ws", C.Variable "flags"]
+        C.StmtList [
+        -- #ifdef CONFIG_FLOUNDER_BACKEND_UMP
+        C.SIfDef "CONFIG_FLOUNDER_BACKEND_UMP" [
+            C.Return $ C.Call (drv_accept_fn_name "ump" n)
+                [ C.Variable intf_frameinfo_var,
+                  C.Variable "st",
+                  C.Variable intf_cont_var,
+                  C.Variable "ws",
+                  C.Variable "flags"]
+             ]
+             -- #else
+            [ C.StmtList [
+                 C.Ex $ C.Call "assert" [
+                     C.Unary C.Not $ C.StringConstant "UMP backend not enabled!"
+                 ],
+                 C.Return $ C.Variable "ERR_NOTIMP"
+              ]
+            ]
+        ]
     ]
     where 
         params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,
@@ -115,12 +134,29 @@ accept_fn_def n =
                    C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
                    C.Param (C.Ptr $ C.Struct "waitset") "ws",
                    C.Param (C.TypeName "idc_export_flags_t") "flags"]
-        
+
 
 connect_fn_def :: String -> C.Unit
 connect_fn_def n = 
     C.FunctionDef C.NoScope (C.TypeName "errval_t") (connect_fn_name n) params [
-        C.Return $ C.Call (drv_connect_fn_name "ump" n)  [C.Variable intf_frameinfo_var, C.Variable intf_cont_var, C.Variable "st", C.Variable "ws", C.Variable "flags"]
+        C.StmtList [
+        -- #ifdef CONFIG_FLOUNDER_BACKEND_UMP
+        C.SIfDef "CONFIG_FLOUNDER_BACKEND_UMP" [
+            C.Return $ C.Call (drv_connect_fn_name "ump" n)
+                [ C.Variable intf_frameinfo_var,
+                  C.Variable intf_cont_var,
+                  C.Variable "st",
+                  C.Variable "ws",
+                  C.Variable "flags" ]
+        ]
+        -- #else
+        [ C.StmtList [
+             C.Ex $ C.Call "assert" [
+                 C.Unary C.Not $ C.StringConstant "UMP backend not enabled!"
+             ],
+             C.Return $ C.Variable "ERR_NOTIMP"
+          ]
+        ] ]
     ]
     where 
         params = [ C.Param (C.Ptr $ C.Struct $ intf_frameinfo_type n) intf_frameinfo_var,

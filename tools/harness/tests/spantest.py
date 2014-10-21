@@ -13,7 +13,6 @@ from common import TestCommon
 from results import PassFailResult
 
 MATCH = 'spantest.*Done.*cycles'
-NUM_THREADS = 4
 
 @tests.add_test
 class SpanTest(TestCommon):
@@ -29,7 +28,8 @@ class SpanTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(SpanTest, self).get_modules(build, machine)
-        modules.add_module("spantest", [ NUM_THREADS ])
+        # span on all cores other than 0 -- matches spantest code
+        modules.add_module("spantest", [ machine.get_ncores() - 1 ])
         return modules
 
     def is_finished(self, line):

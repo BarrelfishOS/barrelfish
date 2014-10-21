@@ -79,16 +79,22 @@ TESTS_x86_64= \
 	sbin/cryptotest \
 	sbin/net-test \
 	sbin/xcorecap \
-	sbin/xcorecapserv
+	sbin/xcorecapserv \
+	sbin/tlstest \
+	sbin/timer_test \
+	sbin/net_openport_test \
+	sbin/perfmontest \
 
 
 # All benchmark domains
 BENCH_COMMON= \
+	sbin/channel_cost_bench \
 	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_buffer_bench \
 	sbin/flounder_stubs_payload_bench \
-	sbin/channel_cost_bench \
-	sbin/xcorecapbench \
+	sbin/xcorecapbench
+
+BENCH_x86= \
 	sbin/udp_throughput \
 	sbin/ump_latency \
 	sbin/ump_exchange \
@@ -96,13 +102,17 @@ BENCH_COMMON= \
 	sbin/ump_throughput \
 	sbin/ump_send \
 	sbin/ump_receive \
+<<<<<<< HEAD
 	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
+=======
+>>>>>>> 9fffb7bd8db8dc149b4cfe9a9dada9dd212241f7
 	sbin/thc_v_flounder_empty \
 	sbin/multihop_latency_bench
 
 BENCH_x86_64= \
+	$(BENCH_x86) \
 	sbin/bomp_benchmark_cg \
 	sbin/bomp_benchmark_ft \
 	sbin/bomp_benchmark_is \
@@ -126,6 +136,9 @@ BENCH_x86_64= \
 	sbin/bulkbench_micro_throughput \
 	sbin/bulkbench_micro_rtt
 
+BENCH_k1om=\
+	$(BENCH_x86)
+
 
 GREEN_MARL= \
 	sbin/gm_tc \
@@ -134,6 +147,7 @@ GREEN_MARL= \
 MODULES_COMMON= \
 	sbin/init \
 	sbin/chips \
+	sbin/skb \
 	sbin/spawnd \
 	sbin/startd \
 	sbin/mem_serv \
@@ -150,7 +164,6 @@ MODULES_GENERIC= \
 MODULES_x86_64= \
 	sbin/elver \
 	sbin/cpu \
-	sbin/skb \
 	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
@@ -217,7 +230,6 @@ MODULES_x86_64= \
 MODULES_k1om= \
     sbin/weever \
 	sbin/cpu \
-	sbin/skb \
 	sbin/xeon_phi \
 	xeon_phi_multiboot \
 	$(GREEN_MARL)
@@ -233,7 +245,6 @@ MODULES_x86_64_broken= \
 # x86-32-specific module to build by default
 MODULES_x86_32=\
 	sbin/cpu \
-	sbin/skb \
 	sbin/lpc_kbd \
 	sbin/serial \
 	$(BIN_RCCE_BT) \
@@ -379,7 +390,7 @@ else ifeq ($(ARCH),scc)
         QEMU_CMD=qemu-system-i386 -no-kvm -smp 2 -m 1024 -cpu pentium -net nic,model=ne2k_pci -net user -fda $(SRCDIR)/tools/grub-qemu.img -tftp $(PWD) -nographic
 	GDB=gdb
 else ifeq ($(ARCH),armv5)
-	ARM_QEMU_CMD=qemu-system-arm -no-kvm -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
+	ARM_QEMU_CMD=qemu-system-arm -M integratorcp -kernel armv5/sbin/cpu.bin -nographic -no-reboot -m 256 -initrd armv5/romfs.cpio
 	GDB=xterm -e arm-linux-gnueabi-gdb
 simulate: $(MODULES) armv5/romfs.cpio
 	$(ARM_QEMU_CMD)
@@ -392,7 +403,7 @@ debugsim: $(MODULES) armv5/romfs.cpio armv5/tools/debug.arm.gdb
 	$(SRCDIR)/tools/debug.sh "$(ARM_QEMU_CMD) -initrd armv5/romfs.cpio" "$(GDB)" "-s $(ARCH)/sbin/cpu -x armv5/tools/debug.arm.gdb $(GDB_ARGS)"
 .PHONY : debugsim
 else ifeq ($(ARCH),arm11mp)
-	QEMU_CMD=qemu-system-arm -no-kvm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
+	QEMU_CMD=qemu-system-arm -cpu mpcore -M realview -kernel arm11mp/sbin/cpu.bin
 	GDB=arm-linux-gnueabi-gdb
 else ifeq ($(ARCH), k1om)
 	# what is the emulation option for the xeon phi ?

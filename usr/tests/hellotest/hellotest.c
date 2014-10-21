@@ -10,6 +10,7 @@ int main(int argc, char *argv[])
     printf("arg[%d] = %s\n", i, argv[i]);
   }
 
+#ifdef __x86__
   // Check that we're in privileged mode
   uint16_t cs;
   __asm volatile("mov %%cs, %[reg]"
@@ -26,6 +27,7 @@ int main(int argc, char *argv[])
     printf("Succeeded! CR0 is %" PRIxPTR "\n", cr0);
   } else {
     printf("NO privileged mode enabled\n");
+    return EXIT_SUCCESS;
   }
 
   printf("Causing pagefault...\n");
@@ -36,6 +38,7 @@ int main(int argc, char *argv[])
   *zero = 0;
 
   printf("After pagefault\n");
+#endif // __x86__
 
   return EXIT_SUCCESS;
 }
