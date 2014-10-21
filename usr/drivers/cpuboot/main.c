@@ -88,17 +88,7 @@ struct cmd {
     int argc;
 };
 
-/*static errval_t get_cpu_record(coreid_t apic_id, char** record) {
-
-    errval_t err = oct_get("r'hw\\.processor\\.[0-9]+' { apic_id: %"PRIuCOREID" }", apic_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "No CPU record found?");
-    }
-}*/
-
 static int list_cpu(int argc, char **argv) {
-    printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
-
     char** names;
     size_t len;
     errval_t err = oct_get_names(&names, &len, "r'hw\\.processor\\.[0-9]+'");
@@ -341,7 +331,6 @@ static int take_kcb(int argc, char** argv)
     if (err_is_fail(ret_err)) {
         USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
     }
-
 
     //
     // Move KCB to a core that is currently running

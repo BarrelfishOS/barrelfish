@@ -85,7 +85,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
         DEBUG_ERR(err, "Failure in cap_retype.");
     }
 
-    // HACK don't store KCB righ tnow will leak with -nm flags!
+    // HACK don't store KCB right now will leak with -nm flags!
     if (!new_kcb_flag) {
         DEBUG("%s:%s:%d: Store the kcb.\n",
               __FILE__, __FUNCTION__, __LINE__);
