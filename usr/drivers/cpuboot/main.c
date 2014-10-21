@@ -261,7 +261,6 @@ static int update_cpu(int argc, char** argv)
 
 static int stop_cpu(int argc, char** argv)
 {
-    DEBUG("Power it down...\n");
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
 
@@ -272,6 +271,7 @@ static int stop_cpu(int argc, char** argv)
     }
     done = true;
 
+    printf("Core %"PRIuCOREID" stopped.", target_id);
     return 0;
 }
 
