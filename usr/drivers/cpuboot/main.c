@@ -271,6 +271,7 @@ static int stop_cpu(int argc, char** argv)
     }
     done = true;
 
+    // The next line is crucial for harness test to pass
     printf("Core %"PRIuCOREID" stopped.", target_id);
     return 0;
 }
