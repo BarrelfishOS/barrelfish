@@ -933,15 +933,14 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_eoi();
         ipi_handle_notify();
     } else if (vector == APIC_INTER_HALT_VECTOR) {
-        // update kernel_off of all kcbs
+        apic_eoi();
+        // Update kernel_off for all KCBs
         struct kcb *k = kcb_current;
         do{
             k->kernel_off = kernel_now;
-            k=k->next;
-        }while(k && k!=kcb_current);
-        uint64_t kdown = rdtsc();
-        printk(LOG_DEBUG, "tsc: %"PRIu64"\n", kdown);
-        printk(LOG_WARN, "halt!\n");
+            k = k->next;
+        } while(k && k!=kcb_current);
+        // Stop the core
         halt();
     } else if (vector == APIC_SPURIOUS_INTERRUPT_VECTOR) {
         // ignore
