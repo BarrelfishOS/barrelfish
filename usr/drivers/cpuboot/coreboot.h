@@ -78,7 +78,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb);
-errval_t invoke_start_core(void);
 errval_t get_architecture_config(enum cpu_type type,
                                  genpaddr_t *arch_page_size,
                                  const char **monitor_binary,

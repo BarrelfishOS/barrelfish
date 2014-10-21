@@ -389,14 +389,6 @@ static struct sysret monitor_stop_core(struct capability *kernel_cap,
     return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
 }
 
-static struct sysret kernel_start_core(struct capability *kernel_cap,
-                                       int cmd, uintptr_t *args)
-{
-    printf("%s:%s:%d %"PRIu64"\n", __FILE__, __FUNCTION__, __LINE__, global->wait[0]);
-    global->wait[0] = 0x0;
-    return (struct sysret){.error = SYS_ERR_OK, .value = 0x0};
-}
-
 static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
@@ -1023,7 +1015,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
         [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
-        [KernelCmd_StartCore] = kernel_start_core,
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,

@@ -97,18 +97,12 @@ static inline errval_t invoke_send_start_ipi(coreid_t core_id, forvaddr_t entry)
 }
 
 static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
-{
+{ 
     struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
     if (err_is_ok(sr.error)) {
         *global = sr.value;
     }
 
-    return sr.error;
-}
-
-errval_t invoke_start_core(void)
-{
-    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_StartCore);
     return sr.error;
 }
 

@@ -386,27 +386,6 @@ static int take_kcb(int argc, char** argv)
     return 0;
 }
 
-static int resume_cpu(int argc, char** argv)
-{
-    DEBUG("%s:%s:%d: Resume...\n", __FILE__, __FUNCTION__, __LINE__);
-
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
-    assert(target_id < MAX_COREID);
-    struct capref kcb;
-    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not get KCB.");
-    }
-
-    err = invoke_start_core();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "resume core failed.");
-    }
-    done = true;
-
-    return 0;
-}
-
 static struct cmd commands[] = {
     {
         "boot",
@@ -442,13 +421,6 @@ static struct cmd commands[] = {
         "take <kcb number> <source apic id> <destination apic id>",
         take_kcb,
         4
-    },
-    {
-        "resume",
-        "Resume a (previously halted) core.",
-        "resume <apic id>",
-        resume_cpu,
-        2
     },
     {
         "hb",
