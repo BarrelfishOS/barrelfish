@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, fdpexpect, tempfile
+import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
 import barrelfish, debug, results
 from tests import Test
 
@@ -233,7 +233,7 @@ class InteractiveTest(TestCommon):
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 
-                                 fdpexpect.TIMEOUT, fdpexpect.EOF])
+                                 pexpect.TIMEOUT, pexpect.EOF])
             if index == 0:
                 self.boot_phase = False
                 break

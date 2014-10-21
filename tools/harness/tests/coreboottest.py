@@ -9,7 +9,7 @@
 # ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import tests, debug
+import tests, debug, time
 from common import InteractiveTest
 from results import PassFailResult
 
@@ -19,13 +19,21 @@ class StopCoreTest(InteractiveTest):
 
     name = 'stop_core'
 
+    def get_modules(self, build, machine):
+        modules = super(StopCoreTest, self).get_modules(build, machine)
+        modules.add_module("periodicprint", args=["core=2"])
+        return modules
+
     def interact(self):
         self.wait_for_fish()
 
-        debug.verbose("Stopping core 1.")
-        self.console.sendline("x86boot stop 1")
+        time.sleep(5)
+        core = 2
+        debug.verbose("Stopping core %s." % core)
+        self.console.sendline("x86boot stop %s" % core)
+        
         debug.verbose("Wait until core is down.")
-        self.console.expect("Power it down...")
+        self.console.expect("Core %s stopped." % core)
         
         self.wait_for_prompt()
         time.sleep(5)
@@ -72,7 +80,7 @@ class UpdateKernelTest(InteractiveTest):
 
 
 @tests.add_test
-class ParkKernelTest(InteractiveTest):
+class ParkOSNodeTest(InteractiveTest):
     '''Park an OSNode on a core.'''
 
     name = 'park_osnode'
