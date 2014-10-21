@@ -14,24 +14,21 @@ from common import InteractiveTest
 from results import PassFailResult
 
 @tests.add_test
-class StopTest(InteractiveTest):
-    '''Stop core test'''
+class StopCoreTest(InteractiveTest):
+    '''Stop a core.'''
 
-    name = 'stop_park'
+    name = 'stop_core'
 
     def interact(self):
         self.wait_for_fish()
 
         debug.verbose("Stopping core 1.")
         self.console.sendline("x86boot stop 1")
-
-        try:
-            debug.verbose("Wait until core is down.")
-            self.console.expect("Power it down...")
-        except:
-            raise
-
-        time.sleep(3)
+        debug.verbose("Wait until core is down.")
+        self.console.expect("Power it down...")
+        
+        self.wait_for_prompt()
+        time.sleep(5)
 
     def process_data(self, testdir, rawiter):
         passed = True
@@ -44,28 +41,25 @@ class StopTest(InteractiveTest):
 
 
 @tests.add_test
-class RestartTest(InteractiveTest):
-    '''Restart a core test'''
+class UpdateKernelTest(InteractiveTest):
+    '''Update a kernel on a core.'''
 
-    name = 'stop_park'
+    name = 'update_kernel'
 
     def interact(self):
-        try:
-            debug.verbose("Waiting for fish.")
-            self.console.expect("fish v0.2 -- pleased to meet you!")
-        except:
-            raise
+        self.wait_for_fish()
 
         debug.verbose("Stopping core 1.")
         self.console.sendline("x86boot stop 1")
+        debug.verbose("Wait until core is down.")
+        self.console.expect("Power it down...")
 
-        try:
-            debug.verbose("Wait until core is down.")
-            self.console.expect("Power it down...")
-        except:
-            raise
+        self.wait_for_prompt()
+        self.console.sendline("x86boot up 1")
+        self.console.expect("Core 1 up")
 
-        time.sleep(3)
+        self.wait_for_prompt()
+        time.sleep(5)
 
     def process_data(self, testdir, rawiter):
         passed = True
@@ -76,6 +70,28 @@ class RestartTest(InteractiveTest):
 
         return PassFailResult(passed)
 
-#@tests.add_test
-class UpdateKernelTest(InteractiveTest):
-    pass
+
+@tests.add_test
+class ParkKernelTest(InteractiveTest):
+    '''Park an OSNode on a core.'''
+
+    name = 'park_osnode'
+
+    def interact(self):
+        self.wait_for_fish()
+
+        debug.verbose("Stopping core 1.")
+        self.console.sendline("x86boot stop 1")
+        self.wait_for_prompt()
+        self.console.sendline("x86boot give 1 2")
+        time.sleep(5)
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+
+        return PassFailResult(passed)
+

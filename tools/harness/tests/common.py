@@ -209,12 +209,12 @@ class InteractiveTest(TestCommon):
         self.console.sendcontrol('e')
         self.console.send('cf')
 
+    def wait_for_prompt(self):
+        self.console.expect(">")
+
     def wait_for_fish(self):
-        try:
-            debug.verbose("Waiting for fish.")
-            self.console.expect("fish v0.2 -- pleased to meet you!")
-        except:
-            raise
+        debug.verbose("Waiting for fish.")
+        self.console.expect("fish v0.2 -- pleased to meet you!")
 
     def interact(self):
         # Implement interaction with console
