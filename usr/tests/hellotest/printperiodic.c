@@ -3,7 +3,7 @@
 #include <bench/bench.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#define ITERATIONS 100000000
+#define ITERATIONS 1000000000
 
 int main(int argc, char *argv[])
 {
