@@ -90,6 +90,39 @@ struct cmd {
     int argc;
 };
 
+static int list_kcb(int argc, char **argv) {
+    char** names;
+    size_t len;
+    errval_t err = oct_get_names(&names, &len, "r'kcb\\.[0-9]+'");
+    assert(err_is_ok(err));
+
+    for (size_t i=0; i<len; i++) {
+        char* record;
+        err = oct_get(&record, names[i]);
+        assert(err_is_ok(err));
+
+        uint64_t barrelfish_id, kcb_id;
+        char* cap_key;
+        err = oct_read(record, "_ { kcb_id: %d, barrelfish_id: %d, cap_key: %s }",
+                       &barrelfish_id, &kcb_id, &cap_key);
+        assert(err_is_ok(err));
+
+        printf("KCB %"PRIu64": CORE_ID=%"PRIu64" CAP_STORAGE_KEY=%s\n",
+               kcb_id, barrelfish_id, cap_key);
+        
+        free(cap_key);
+        free(record);
+    }
+    if (len == 0) {
+        DEBUG("%s:%s:%d: No KCB found?\n",
+              __FILE__, __FUNCTION__, __LINE__);
+    }
+
+    done = true;
+    oct_free_names(names, len);
+    return 0;
+}
+
 static int list_cpu(int argc, char **argv) {
     char** names;
     size_t len;
@@ -108,6 +141,8 @@ static int list_cpu(int argc, char **argv) {
 
         printf("CPU %"PRIu64": APIC_ID=%"PRIu64" APIC_PROCESSOR_ID=%"PRIu64" ENABLED=%"PRIu64"\n",
                barrelfish_id, apic_id, processor_id, enabled);
+
+        free(record);
     }
     if (len == 0) {
         DEBUG("%s:%s:%d: No cpus found?\n",
@@ -417,6 +452,13 @@ static struct cmd commands[] = {
         "List current status of all cores.",
         "list",
         list_cpu,
+        1
+    },
+    {
+        "lskcb",
+        "List current KCBs.",
+        "lskcb",
+        list_kcb,
         1
     },
     {NULL, NULL, NULL, NULL, 0},

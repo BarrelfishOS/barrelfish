@@ -23,7 +23,6 @@ void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-
     done = true;
 }
 
@@ -31,9 +30,26 @@ void power_down_response(struct monitor_binding *st, coreid_t target)
 {
     DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__,
           __FUNCTION__, __LINE__, target);
-
     done = true;
 }
+
+static errval_t add_kcb_record(uint32_t kcb_id, coreid_t core_id, char* kcb_key)
+{
+    errval_t err = oct_set("kcb.%d { kcb_id: %d, barrelfish_id: %"PRIuCOREID", cap_key: '%s' }", 
+                            kcb_id, kcb_id, core_id, kcb_key);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "oct_set");
+        return err;
+    }
+
+    return err;
+}
+
+static errval_t update_kcb_core_id(uint32_t kcb_id, coreid_t core_id)
+{
+    assert(!"NYI");
+}
+
 
 errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
 {
@@ -92,6 +108,13 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
         err = oct_put_capability(kcb_key, *kcb);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "can not save the capability.");
+            return err;
+        }
+        
+        err = add_kcb_record(coreid, coreid, kcb_key);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "add_kcb_record failed.");
+            return err;
         }
     }
 
