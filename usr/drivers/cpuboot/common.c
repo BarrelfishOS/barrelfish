@@ -131,9 +131,6 @@ errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
 
 errval_t cap_mark_remote(struct capref cap)
 {
-    // TODO(gz): Re-enable, this does not much right now but
-    // will be interesting with Mark nevills libmdb
-
     bool has_descendants;
 
     uint8_t vbits = get_cap_valid_bits(cap);
@@ -165,12 +162,6 @@ errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
 errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
                        genpaddr_t *binary_phys, size_t *binary_size)
 {
-    /*struct mem_region *module_region = multiboot_find_module(bi, module_name);
-    if (module_region == NULL) {
-        USER_PANIC("multiboot module not found?");
-        return SPAWN_ERR_FIND_MODULE;
-    }*/
-
     vfs_handle_t handle;
     struct vfs_fileinfo info;
 
