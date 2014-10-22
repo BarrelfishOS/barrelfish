@@ -39,6 +39,9 @@
 #define DEBUG(x...) ((void)0)
 #endif
 
+typedef coreid_t archid_t;
+typedef coreid_t kcbid_t;
+
 // Globals
 extern bool benchmark_flag;
 extern bool debug_flag;
@@ -57,7 +60,6 @@ extern volatile uint64_t *dispatch[];
 
 // TODO(gz): Remove!
 #pragma GCC diagnostic ignored "-Wunused-function"
-
 
 // common.c
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr);

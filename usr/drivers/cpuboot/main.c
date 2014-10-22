@@ -123,6 +123,28 @@ static int list_kcb(int argc, char **argv) {
     return 0;
 }
 
+static errval_t get_apic_id(coreid_t core_id, archid_t* apic_id)
+{
+    char* record = NULL;
+    errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    uint64_t apic, enabled;
+    err = oct_read(record, "_ { apic_id: %d, enabled: %d }",
+                   &apic, &enabled);
+    assert (enabled);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    *apic_id = (archid_t) apic;
+out:
+    free(record);
+    return err;
+}
+
 static int list_cpu(int argc, char **argv) {
     char** names;
     size_t len;
@@ -158,9 +180,15 @@ static int boot_cpu(int argc, char **argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
+    
+    archid_t target_apic_id;
+    errval_t err = get_apic_id(target_id, &target_apic_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_apic_id failed.");
+    }
 
     struct capref kcb;
-    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
+    err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
@@ -183,8 +211,8 @@ static int boot_cpu(int argc, char **argv)
         USER_PANIC_ERR(err, "boot_core_request failed");
     }
 
-    err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
-                              cmd_kernel_args,
+    err = spawn_xcore_monitor(target_id, target_apic_id, 
+                              CPU_X86_64, cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -448,9 +476,9 @@ static struct cmd commands[] = {
         2
     },
     {
-        "list",
+        "lscpu",
         "List current status of all cores.",
-        "list",
+        "lscpu",
         list_cpu,
         1
     },

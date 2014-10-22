@@ -104,22 +104,20 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d }",
             &apic_id, &barrelfish_id);
     if (err_is_ok(err)) {
-        // TODO(gz): Properly ignore to boot the BSP
-        if (apic_id == my_core_id) {
-            return SYS_ERR_OK;
-        }
-
         skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
                      barrelfish_id, apic_id);
-
+        if (barrelfish_id == my_core_id) {
+            return SYS_ERR_OK;
+        }
+        
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
-        char *apic_id_s  = malloc(10);
-        snprintf(apic_id_s, 10, "%"PRIx64"", apic_id);
+        char *barrelfish_id_s  = malloc(10);
+        snprintf(barrelfish_id_s, 10, "%"PRIx64"", barrelfish_id);
 
         argv[argc] = "boot";
         argc += 1;
-        argv[argc] = apic_id_s;
+        argv[argc] = barrelfish_id_s;
         argc += 1;
         argv[argc] = NULL;
 
