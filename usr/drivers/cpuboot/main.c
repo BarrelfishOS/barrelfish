@@ -30,6 +30,8 @@ char* cmd_kernel_binary = NULL;
 char* cmd_monitor_binary = NULL;
 char* cmd_kernel_args = "loglevel=2 logmask=0";
 
+#define APIC_INTER_HALT_VECTOR 248
+
 static void load_arch_id(void)
 {
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
@@ -188,8 +190,7 @@ static int halt_boot(int argc, char **argv)
 
     DEBUG("Power down %"PRIuCOREID", lets hope kcb for %"PRIuCOREID" runs there.",
           down_id, boot_id);
-    // TODO(gz): Use designated IRQ number
-    err = sys_debug_send_ipi(down_id, 0, 40);
+    err = sys_debug_send_ipi(down_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
@@ -230,9 +231,8 @@ static int update_cpu(int argc, char** argv)
         return err;
     }
 
-    // do clean(ish) shutdown
-    // TODO(gz): Use designated IRQ number
-    err = sys_debug_send_ipi(target_id, 0, 40);
+    // do clean shutdown
+    err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
@@ -254,8 +254,7 @@ static int stop_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
 
-    // TODO(gz): Use designated IRQ number
-    errval_t err = sys_debug_send_ipi(target_id, 0, 40);
+    errval_t err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
@@ -283,8 +282,7 @@ static int give_kcb(int argc, char** argv)
     coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 16);
     assert(destination_id < MAX_COREID);
 
-    // TODO(gz): Use designated IRQ number
-    err = sys_debug_send_ipi(target_id, 0, 40);
+    err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }

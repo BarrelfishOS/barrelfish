@@ -345,6 +345,7 @@ HW_IRQ(62);
 HW_IRQ(63);
 
 // Local APIC interrupts
+HW_IRQ(248);
 HW_IRQ(249);
 HW_IRQ(250);
 HW_IRQ(251);
@@ -1118,6 +1119,7 @@ void setup_default_idt(void)
     setgd(&idt[63], hwirq_63, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
     // Setup local APIC interrupt handlers
+    setgd(&idt[248], hwirq_248, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[249], hwirq_249, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[250], hwirq_250, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[251], hwirq_251, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
