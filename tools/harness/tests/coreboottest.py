@@ -124,3 +124,20 @@ class ParkOSNodeTest(InteractiveTest):
                 break
         return PassFailResult(passed)
 
+@tests.add_test
+class ListKCBTest(InteractiveTest):
+    '''List all KCBs.'''
+    name = 'lskcb'
+
+    def interact(self):
+        self.wait_for_fish()
+        self.console.sendline("x86boot lskcb")
+        self.wait_for_prompt()
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+        return PassFailResult(passed)
