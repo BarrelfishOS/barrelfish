@@ -513,7 +513,7 @@ int main(int argc,
     ctl_omp_shared = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, BENCH_RUN_COUNT);
     do {
         tsc_start = bench_tsc();
-     //   mm_omp(mA_shared, mB_shared, mC_shared, g_mm_frame);
+        mm_omp(mA_shared, mB_shared, mC_shared, g_mm_frame);
         tsc_end = bench_tsc();
         timer_omp_shared = bench_time_diff(tsc_start, tsc_end);
         if (g_mm_frame->sum != g_mm_frame->rows) {
@@ -524,7 +524,6 @@ int main(int argc,
         g_mm_frame->sum = 0;
         debug_printf("took: %lu cycles\n", timer_omp_shared);
         memset(mC_shared, 0, rows * cols * sizeof(MATRIX_TYPE));
-        break;
     } while (!bench_ctl_add_run(ctl_omp_shared, &timer_omp_shared));
 
     debug_printf("-------------------------------------\n");
