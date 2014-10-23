@@ -21,6 +21,10 @@
 #include <xomp_gateway.h>
 #include <xomp_gateway_client.h>
 
+#if XOMP_BENCH_WORKER_EN
+#include <bench/bench.h>
+#endif
+
 #include <if/xomp_defs.h>
 
 /// XOMP control channel to the master
@@ -59,7 +63,7 @@ static struct tx_queue txq;
 static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_XEON_PHI;
 #else
 /// dma device type
-static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_IOAT;
+//static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_IOAT;
 #endif
 /// dma client device
 static struct dma_client_device *dma_dev;
@@ -417,10 +421,6 @@ static void add_memory_call_rx(struct xomp_binding *b,
 {
     XWI_DEBUG("add_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
 
-#if XOMP_BENCH_WORKER_EN
-    cycles_t mem_timer = bench_tsc();
-#endif
-
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
 
@@ -470,8 +470,6 @@ static void add_memory_call_rx(struct xomp_binding *b,
     }
 #if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
-    debug_printf("%lx mem add %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
-                 timer_end - mem_timer, bench_tsc_to_ms(timer_end - mem_timer));
     debug_printf("%lx mem map %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
                      timer_end - map_start, bench_tsc_to_ms(timer_end - map_start));
 #endif
@@ -739,7 +737,8 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     struct waitset *ws = get_default_waitset();
 
-#if XOMP_WORKER_ENABLE_DMA
+// XXX: disabling DMA on the host as there is no replication used at this moment
+#if XOMP_WORKER_ENABLE_DMA && defined(__k1om__)
     /* XXX: use lib numa */
 
 #ifndef __k1om__
