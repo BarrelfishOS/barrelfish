@@ -23,7 +23,7 @@ module	/k1om/sbin/monitor
 module  /k1om/sbin/ramfsd boot
 module  /k1om/sbin/skb boot
 module  /k1om/sbin/xeon_phi boot
-module  /k1om/sbin/spawnd boot bootk1om=10
+module  /k1om/sbin/spawnd boot bootk1om=57
 module  /k1om/sbin/startd boot
 
 # GDDR Memory we have 6GB on our Xeon PHi

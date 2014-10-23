@@ -79,8 +79,25 @@ TESTS_x86_64= \
 	sbin/cryptotest \
 	sbin/net-test \
 	sbin/xcorecap \
-	sbin/xcorecapserv
+	sbin/xcorecapserv \
+	sbin/bomp_sync \
+	sbin/bomp_cpu_bound \
+	sbin/bomp_cpu_bound_progress \
+	sbin/bomp_sync_progress \
+	sbin/bomp_test \
+	sbin/bulk_shm \
+	sbin/mem_affinity \
+	sbin/phoenix_kmeans \
+	sbin/spin \
+	sbin/tests/dma_test \
+	sbin/tests/cxxtest \
+	sbin/tests/xphi_nameservice_test 
 
+TESTS_k1om= \
+	sbin/xeon_phi_inter \
+	sbin/xeon_phi_test \
+	sbin/tests/dma_test \
+	sbin/tests/xphi_nameservice_test
 
 # All benchmark domains
 BENCH_COMMON= \
@@ -101,7 +118,7 @@ BENCH_COMMON= \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench 
+	sbin/multihop_latency_bench
 
 BENCH_x86_64= \
 	sbin/bomp_benchmark_cg \
@@ -127,12 +144,24 @@ BENCH_x86_64= \
 	sbin/bulkbench_micro_throughput \
 	sbin/bulkbench_micro_rtt \
 	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_xump_bench
-	
+	sbin/benchmarks/xphi_inter_bench \
+	sbin/rcce_pingpong \
+	sbin/elb_app \
+	sbin/elb_app_tcp \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_work
+
 BENCH_k1om= \
+	sbin/benchmarks/dma_bench \
 	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_xump_bench
-	
+	sbin/benchmarks/xphi_xump_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_work
 
 GREEN_MARL= \
 	sbin/gm_tc \
@@ -162,11 +191,6 @@ MODULES_x86_64= \
 	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
-	sbin/bomp_sync \
-	sbin/bomp_cpu_bound \
-	sbin/bomp_cpu_bound_progress \
-	sbin/bomp_sync_progress \
-	sbin/bomp_test \
 	sbin/boot_perfmon \
 	sbin/datagatherer \
 	sbin/ahcid \
@@ -183,16 +207,11 @@ MODULES_x86_64= \
 	sbin/hpet \
 	sbin/lpc_kbd \
 	sbin/lpc_timer \
-	sbin/mem_affinity \
 	sbin/mem_serv_dist \
-	sbin/elb_app \
-	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/phoenix_kmeans \
-	sbin/rcce_pingpong \
 	sbin/serial \
 	sbin/angler \
 	sbin/sshd \
@@ -203,22 +222,17 @@ MODULES_x86_64= \
 	sbin/vmkitmon \
 	sbin/webserver \
 	sbin/routing_setup \
-	$(BIN_CONSENSUS) \
 	sbin/bcached \
-	sbin/spin \
 	sbin/xeon_phi_mgr \
 	sbin/xeon_phi \
 	sbin/dma_mgr \
 	sbin/ioat_dma \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/xeon_phi_inter \
-	sbin/xeon_phi_test \
 	sbin/dma_test \
 	sbin/block_server \
 	sbin/block_server_client \
 	sbin/bs_user \
-	sbin/bulk_shm \
 	$(GREEN_MARL)
 
 MODULES_k1om= \
