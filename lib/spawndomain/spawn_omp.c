@@ -24,7 +24,6 @@
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 
-
 #include "spawn.h"
 
 struct symval {
@@ -36,6 +35,14 @@ uint32_t symval_count;
 
 struct symval *symvals;
 
+/**
+ * \brief obtains the number of OpenMP symbols of the ELF file
+ *
+ * \param ret_count     returns the number of symbols
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
 errval_t spawn_symval_count(uint32_t *ret_count)
 {
     if (!symvals) {
@@ -53,6 +60,15 @@ errval_t spawn_symval_count(uint32_t *ret_count)
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief initializes the symbol value cache for faster lookups
+ *
+ * \param lazy   do a lazy initialization i.e. only allocate memory for the
+ *               symbols but do not load them
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
 errval_t spawn_symval_cache_init(uint8_t lazy)
 {
     errval_t err;
@@ -86,7 +102,19 @@ errval_t spawn_symval_cache_init(uint8_t lazy)
     return SYS_ERR_OK;
 }
 
-errval_t spawn_symval_lookup_name(char *name, uint32_t *ret_idx,  genvaddr_t *ret_addr)
+/**
+ * \brief looks up the symbol based on its name and adds it to the cache
+ *
+ * \param name      the name of the symbol to query
+ * \param ret_idx   returns the symbol index
+ * \param ret_addr  returns the address of the symbol
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t spawn_symval_lookup_name(char *name,
+                                  uint32_t *ret_idx,
+                                  genvaddr_t *ret_addr)
 {
     errval_t err;
 
@@ -118,7 +146,19 @@ errval_t spawn_symval_lookup_name(char *name, uint32_t *ret_idx,  genvaddr_t *re
     return -1;
 }
 
-errval_t spawn_symval_lookup_addr(genvaddr_t addr, uint32_t *ret_idx, char **ret_name)
+/**
+ * \brief looks up the symbol information based on its address
+ *
+ * \param addr      the address to lookup
+ * \param ret_idx   returns the symbol index
+ * \param ret_name  returns the symbol name
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t spawn_symval_lookup_addr(genvaddr_t addr,
+                                  uint32_t *ret_idx,
+                                  char **ret_name)
 {
     errval_t err;
 
@@ -152,7 +192,19 @@ errval_t spawn_symval_lookup_addr(genvaddr_t addr, uint32_t *ret_idx, char **ret
     return -1;
 }
 
-errval_t spawn_symval_lookup_idx(uint32_t idx, char **ret_name, genvaddr_t *ret_addr)
+/**
+ * \brief looks up the symbol by a given index
+ *
+ * \param idx       the index of the symbol to look up
+ * \param ret_name  returns the name of the symbol
+ * \param ret_addr  returns the address of the symbol
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t spawn_symval_lookup_idx(uint32_t idx,
+                                 char **ret_name,
+                                 genvaddr_t *ret_addr)
 {
     if (symvals) {
         if (symvals[idx].addr != 0) {
@@ -168,7 +220,19 @@ errval_t spawn_symval_lookup_idx(uint32_t idx, char **ret_name, genvaddr_t *ret_
     return spawn_symval_lookup(disp_name(), idx, ret_name, ret_addr);
 }
 
-errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
+/**
+ * \brief executes a lookup query on octopus to obtain the symbol
+ *
+ * \param binary    name of the binary to query
+ * \param idx       index of the symbol to query
+ * \param ret_name  returns the name of the symbol
+ * \param ret_addr  returns the address of the symbol
+ *
+ * \return
+ */
+errval_t spawn_symval_lookup(const char *binary,
+                             uint32_t idx,
+                             char **ret_name,
                              genvaddr_t *ret_addr)
 {
     errval_t err;
@@ -176,11 +240,11 @@ errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
     size_t len;
 
     len = snprintf(NULL, 0, "%s.omp.%u", binary, idx);
-    char *omp_entry = malloc(len+1);
+    char *omp_entry = malloc(len + 1);
     if (omp_entry == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    snprintf(omp_entry, len+1, "%s.omp.%u", binary, idx);
+    snprintf(omp_entry, len + 1, "%s.omp.%u", binary, idx);
 
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
@@ -190,14 +254,15 @@ errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
     // transform to lower case
     for (int i = 0; i < len; ++i) {
         if (omp_entry[i] >= 'A' && omp_entry[i] <= 'Z') {
-            omp_entry[i] -= ('A'-'a');
+            omp_entry[i] -= ('A' - 'a');
         }
     }
 
     char* record = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.get(r, omp_entry, NOP_TRIGGER, &record, &tid, &error_code);
+    err = r->vtbl.get(r, omp_entry, NOP_TRIGGER,
+                      &record, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }
@@ -223,14 +288,26 @@ errval_t spawn_symval_lookup(const char *binary, uint32_t idx, char **ret_name,
         *ret_name = strdup(symname);
     }
 
-out:
-    free(record);
+    out: free(record);
     free(omp_entry);
     return err;
 }
 
-errval_t spawn_symval_register(const char *binary, uint32_t idx,
-                               const char *symname, genvaddr_t address)
+/**
+ * \brief registers a found symbol with octopus for later retrieval
+ *
+ * \param binary    the name of the binary
+ * \param idx       index of the symbol to insert
+ * \param symname   name of the symbol to insert
+ * \param address   address of the sybol to insert
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t spawn_symval_register(const char *binary,
+                               uint32_t idx,
+                               const char *symname,
+                               genvaddr_t address)
 {
 
     errval_t err = SYS_ERR_OK;
@@ -246,29 +323,31 @@ errval_t spawn_symval_register(const char *binary, uint32_t idx,
     // Format record
     static const char* format = "%s.omp.%u { sym: %s, addr: %d }";
     size_t len = snprintf(NULL, 0, format, binary, idx, symname, address);
-    char* record = malloc(len+1);
+    char* record = malloc(len + 1);
     if (record == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    snprintf(record, len+1, format, binary, idx, symname, address);
+    snprintf(record, len + 1, format, binary, idx, symname, address);
     // transform to lower case
     for (int i = 0; i < len; ++i) {
         if (record[i] >= 'A' && record[i] <= 'Z') {
-            record[i] -= ('A'-'a');
+            record[i] -= ('A' - 'a');
         }
     }
 
     char* ret = NULL;
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, &ret, &tid, &error_code);
+    err = r->vtbl.set(r, record, 0, NOP_TRIGGER,
+                      0, &ret, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }
     err = error_code;
 
-out:
-    free(record);
+out: 
+	free(record);
+	
     return err;
 }
 
