@@ -43,6 +43,7 @@ static cycles_t timer_xompinit;
 
 static void prepare_bomp(void)
 {
+    debug_printf("prepare_bomp\n");
     cycles_t tsc_start = bench_tsc();
     bomp_bomp_init(nthreads);
     cycles_t tsc_end = bench_tsc();
@@ -156,7 +157,7 @@ int main(int argc,
     debug_printf("Num Threads: %u\n", nthreads);
 
     uint8_t is_shared = 0;
-    for (int i = 3; i < argc; ++i) {
+    for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "bomp")) {
             prepare_bomp();
             is_shared = 1;

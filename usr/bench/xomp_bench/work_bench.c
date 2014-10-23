@@ -22,7 +22,7 @@
 
 #define BENCH_MEASURE_LOCAL 0
 
-#define BENCH_RUN_COUNT 2000
+#define BENCH_RUN_COUNT 5000
 
 #define BENCH_STEP_SIZE 10
 
@@ -50,6 +50,7 @@ static void work_omp(void)
     }
 }
 
+#ifndef __k1om__
 static void prepare_bomp(void)
 {
     cycles_t tsc_start = bench_tsc();
@@ -57,6 +58,7 @@ static void prepare_bomp(void)
     cycles_t tsc_end = bench_tsc();
     timer_xompinit = bench_time_diff(tsc_start, tsc_end);
 }
+#endif
 
 static int prepare_xomp(int argc,
                         char *argv[])
@@ -104,7 +106,7 @@ static int prepare_xomp(int argc,
 
     struct xomp_args xomp_arg = {
         .type = XOMP_ARG_TYPE_DISTINCT,
-        .core_stride = location == XOMP_WORKER_LOC_LOCAL ? 1 : 1,
+        .core_stride = (location == XOMP_WORKER_LOC_LOCAL) ? 1 : 2,
         .args = {
             .distinct = {
                 .nthreads = nthreads,
@@ -165,23 +167,21 @@ int main(int argc,
     DEBUG("======================================================\n");
     debug_printf("Num Threads: %u\n", nthreads);
 
+    uint8_t is_bomp = 0;
 #ifdef __k1om__
-    uint8_t is_shared = 0;
     if (disp_xeon_phi_id()) {
-        prepare_bomp();
-        is_shared = 1;
+        prepare_xomp(argc, argv);
     } else {
-        is_shared = prepare_xomp(argc, argv);
+        prepare_xomp(argc, argv);
     }
 
 #else
-    uint8_t is_shared = 0;
     for (int i = 2; i < argc; ++i) {
         if (!strcmp(argv[i], "bomp")) {
             prepare_bomp();
-            is_shared = 1;
+            is_bomp = 1;
         } else if (!strcmp(argv[i], "xomp")) {
-            is_shared = prepare_xomp(argc, argv);
+            prepare_xomp(argc, argv);
         } else {
             debug_printf("ignoring argument {%s}\n", argv[i]);
         }
@@ -210,6 +210,7 @@ int main(int argc,
             }
 #ifdef __k1om__
             if (!do_work) {
+                do_work = !do_work;
                 continue;
             }
 #endif
@@ -226,15 +227,19 @@ int main(int argc,
             work_omp();
             tsc_end = bench_tsc();
             timer_omp = bench_time_diff(tsc_start, tsc_end);
+            if (is_bomp) {
 #ifdef __k1om__
                 for (uint32_t j = 0; j < 500 * i; ++j) {
                     thread_yield();
                 }
 #else
-            for (uint32_t j = 0; j < 1000 * i; ++j) {
+
+                for (uint32_t j = 0; j < 1000 * i; ++j) {
                     thread_yield();
                 }
+
 #endif
+            }
         } while (!bench_ctl_add_run(ctl_omp, &timer_omp));
 
         snprintf(buf, 20, "threads=%u", i);
