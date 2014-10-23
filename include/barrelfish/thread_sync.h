@@ -29,10 +29,10 @@ struct thread_mutex {
 };
 #ifndef __cplusplus
 #       define THREAD_MUTEX_INITIALIZER \
-    { .locked = false, .queue = NULL, .lock = 0 }
+    { .locked = 0, .queue = NULL, .lock = 0, .holder = NULL }
 #else
 #       define THREAD_MUTEX_INITIALIZER                                \
-    { false, (struct thread *)NULL, 0, (struct thread *)NULL }
+    { 0, (struct thread *)NULL, 0, (struct thread *)NULL }
 #endif
 
 struct thread_cond {

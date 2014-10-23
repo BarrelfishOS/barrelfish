@@ -9,8 +9,6 @@
 size_t (*_libc_terminal_read_func)(char *, size_t);
 size_t (*_libc_terminal_write_func)(const char *, size_t);
 
-void (*_libc_assert_func)(const char *, const char *, const char *, int);
-
 typedef void *(*morecore_alloc_func_t)(size_t bytes, size_t *retbytes);
 morecore_alloc_func_t sys_morecore_alloc;
 

@@ -145,6 +145,10 @@ ACN_FILE="$WORKING_DIR/${JOB_NAME}.acn"
 IST_FILE="$WORKING_DIR/${JOB_NAME}.ist"
 PDF_FILE="$WORKING_DIR/${JOB_NAME}.pdf"
 
+# remove ubuntu chroot from environment to make pdflatex work
+# -SG, 2014-10-14
+export LD_LIBRARY_PATH=
+
 #
 # And, finally, do what the old Makefile used to do. 
 #

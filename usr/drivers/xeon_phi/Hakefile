@@ -52,8 +52,12 @@
     ],
     flounderBindings = [
       "interphi",
+      "octopus",
       "xeon_phi",
       "xeon_phi_driver"
+    ],
+    flounderExtraBindings = [
+      ("octopus", ["rpcclient"])
     ],
     mackerelDevices = [ 
       "xeon_phi/xeon_phi_apic", 

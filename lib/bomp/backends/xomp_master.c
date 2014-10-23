@@ -1106,9 +1106,11 @@ errval_t xomp_master_do_work(struct xomp_task *task)
     if (!xomp_master_initialized) {
         return XOMP_ERR_MASTER_NOT_INIT;
     }
+
 #ifndef __k1om__
     struct waitset *ws = get_default_waitset();
 #endif
+
     uint64_t fn = 0;
 
 #if XOMP_BENCH_MASTER_EN

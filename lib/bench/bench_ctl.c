@@ -139,7 +139,7 @@ static cycles_t *do_bincounting(bench_ctl_t *ctl,
     return bins;
 }
 
-static uint64_t *get_array(bench_ctl_t *ctl,
+static cycles_t *get_array(bench_ctl_t *ctl,
                           size_t dimension)
 {
     cycles_t *array = calloc(ctl->result_count, sizeof(cycles_t));
@@ -152,11 +152,11 @@ static uint64_t *get_array(bench_ctl_t *ctl,
     return array;
 }
 
-static uint64_t *do_sorting(cycles_t *array,
+static cycles_t *do_sorting(cycles_t *array,
                             size_t len)
 {
     size_t i, j;
-    uint64_t *sorted_array = array;
+    cycles_t *sorted_array = array;
     cycles_t temp_holder;
 
 
@@ -179,20 +179,20 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
                              cycles_t tscperus)
 {
     size_t len = ctl->result_count;
-    uint64_t *array = get_array(ctl, dimension);
+    cycles_t *array = get_array(ctl, dimension);
 
 #if BENCH_DUMP_OCTAVE
     cycles_t avg, std_dev;
     bench_stddev(array, len, 0, &avg, &std_dev);
 #endif
 
-    uint64_t *final_array =  do_sorting(array, len);
+    cycles_t *final_array =  do_sorting(array, len);
 
     size_t max99 = (size_t)((0.99 * len) + 0.5);
 #if BENCH_DUMP_OCTAVE
 
     // printf("\% [name]  [runs]  [avg]  [stdev]  [min]  [med]  [P99]  [max]\n");
-
+    
     printf("%% %s\n%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64
            ", %"PRIu64"; \n", prefix,(uint64_t)len, avg, std_dev, final_array[len/2],
            final_array[0], final_array[max99-1], final_array[len-1]);

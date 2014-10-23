@@ -45,6 +45,7 @@ static inline int bulk_trust_value(enum bulk_trust_level t)
         default: assert(!"Badness");
                  // BULK_TRUST_UNINITIALIZED and other surprises
     }
+    return -1;
 }
 
 /**

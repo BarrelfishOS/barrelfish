@@ -343,6 +343,7 @@ static void sysmem_bench_run(void)
     bench_ctl_t *ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, DIMENSIONS, RUN_COUNT);
     cycles_t result[DIMENSIONS];
     uint32_t rounds_done = 0;
+
     do {
         volatile void *element;
         result[0] = sysmem_bench_run_round(&ll_elements[elem_id[0]], &element);
