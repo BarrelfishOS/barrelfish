@@ -102,12 +102,9 @@ BENCH_x86= \
 	sbin/ump_throughput \
 	sbin/ump_send \
 	sbin/ump_receive \
-<<<<<<< HEAD
 	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
-=======
->>>>>>> 9fffb7bd8db8dc149b4cfe9a9dada9dd212241f7
 	sbin/thc_v_flounder_empty \
 	sbin/multihop_latency_bench
 
