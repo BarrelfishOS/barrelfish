@@ -199,8 +199,13 @@ class InteractiveTest(TestCommon):
     def get_modules(self, build, machine):
         modules = super(InteractiveTest, self).get_modules(build, machine)
         # Load the console
-        modules.add_module("serial")
-        modules.add_module("fish", args=['nospawn'])
+        serialargs = []
+        if machine.get_machine_name() == "tomme1" or \
+           machine.get_machine_name() == "tomme2":
+            serialargs = ["portbase=0x2f8", "irq=0x3"]
+        modules.add_module("serial", args=serialargs)
+
+        modules.add_module("fish", args=["nospawn"])
         modules.add_module("angler", args=['serial0.terminal xterm'])
         return modules
 
