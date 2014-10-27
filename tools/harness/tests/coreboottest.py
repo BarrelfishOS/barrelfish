@@ -132,6 +132,27 @@ class ListKCBTest(InteractiveTest):
     def interact(self):
         self.wait_for_fish()
         self.console.sendline("x86boot lskcb")
+        self.console.expect("KCB 1:")
+        self.wait_for_prompt()
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+        return PassFailResult(passed)
+
+
+@tests.add_test
+class ListCPUTest(InteractiveTest):
+    '''List all Cores.'''
+    name = 'lscpu'
+
+    def interact(self):
+        self.wait_for_fish()
+        self.console.sendline("x86boot lscpu")
+        self.console.expect("CPU 0:")
         self.wait_for_prompt()
 
     def process_data(self, testdir, rawiter):
