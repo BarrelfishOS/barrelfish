@@ -82,6 +82,7 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
 
 struct cte *mdb_root = NULL;
 
+
 /*
  * Debug printing.
  */
@@ -90,6 +91,44 @@ void
 mdb_dump_all_the_things(void)
 {
     mdb_dump(mdb_root, 0);
+}
+
+static void print_cte(struct cte *cte, char *indent_buff)
+{
+    struct mdbnode *node = N(cte);
+    char extra[255] = { 0 };
+    struct capability *cap = C(cte);
+    switch (cap->type) {
+        case ObjType_CNode:
+            snprintf(extra, 255,
+                    "[guard=0x%08"PRIxCADDR",guard_size=%"PRIu8",rightsmask=%"PRIu8"]",
+                    cap->u.cnode.guard, cap->u.cnode.guard_size,
+                    cap->u.cnode.rightsmask);
+            break;
+        case ObjType_EndPoint:
+            snprintf(extra, 255,
+                    "[listener=%p,epoffset=0x%08"PRIxLVADDR",epbuflen=%"PRIu32"]",
+                    cap->u.endpoint.listener,cap->u.endpoint.epoffset,cap->u.endpoint.epbuflen);
+            break;
+        case ObjType_Dispatcher:
+            snprintf(extra, 255, "[dcb=%p]", cap->u.dispatcher.dcb);
+            break;
+        case ObjType_IO:
+            snprintf(extra, 255, "[start=0x%04"PRIx16",end=0x%04"PRIx16"]",
+                    cap->u.io.start, cap->u.io.end);
+            break;
+        default:
+            break;
+    }
+    printf("%s%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
+            "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
+            "type=%"PRIu8",remote_rels=%d%d%d,extra=%s}\n",
+            indent_buff,
+            cte, node->left, node->right, node->end, node->end_root,
+            node->level, get_address(C(cte)), get_size(C(cte)),
+            (uint8_t)C(cte)->type, node->remote_copies,
+            node->remote_ancs, node->remote_descs,extra);
+    return;
 }
 
 void
@@ -121,14 +160,7 @@ mdb_dump(struct cte *cte, int indent)
         }
     }
 
-    printf("%s%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
-            "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
-            "type=%"PRIu8",remote_rels=%d%d%d}\n",
-            indent_buff,
-            cte, node->left, node->right, node->end, node->end_root,
-            node->level, get_address(C(cte)), get_size(C(cte)),
-            (uint8_t)C(cte)->type, N(cte)->remote_copies,
-            N(cte)->remote_ancs, N(cte)->remote_descs);
+    print_cte(cte, indent_buff);
 
     if (node->right) {
         if (node->right == cte) {
@@ -495,10 +527,20 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
+//HACK: needed to know which mdb is being modified
+#ifdef IN_KERNEL
+extern coreid_t my_core_id;
+#endif
+
 errval_t
 mdb_insert(struct cte *new_node)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
+#ifdef IN_KERNEL
+    char prefix[50];
+    snprintf(prefix, 50, "mdb_insert.%d: ", my_core_id);
+    print_cte(new_node, prefix);
+#endif
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
     assert(mdb_is_reachable(mdb_root, new_node));
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
@@ -721,6 +763,11 @@ errval_t
 mdb_remove(struct cte *target)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", target);
+#ifdef IN_KERNEL
+    char prefix[50];
+    snprintf(prefix, 50, "mdb_remove.%d: ", my_core_id);
+    print_cte(target, prefix);
+#endif
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
     assert(!mdb_is_reachable(mdb_root, target));
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
