@@ -162,3 +162,38 @@ class ListCPUTest(InteractiveTest):
                 passed = False
                 break
         return PassFailResult(passed)
+
+
+@tests.add_test
+class ParkRebootTest(InteractiveTest):
+    '''Park OSNode and move it back.'''
+    name = 'park_boot'
+
+    def interact(self):
+        self.wait_for_fish()
+        
+        self.core = 2
+        self.target_core = 4
+
+        self.console.expect("On core %s" % self.core)
+
+        # Stop
+        debug.verbose("Stopping core %s." % self.core)
+        self.console.sendline("x86boot stop %s" % self.core)
+        self.wait_for_prompt()
+
+        # Park
+        debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.target_core))
+        self.console.sendline("x86boot give %s %s" % (self.core, self.target_core))
+        self.wait_for_prompt()
+
+        self.console.expect("On core %s" % self.target_core)
+
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+        return PassFailResult(passed)
