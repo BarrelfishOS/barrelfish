@@ -100,7 +100,7 @@ class ParkOSNodeTest(InteractiveTest):
         self.wait_for_fish()
         
         self.core = 2
-        self.target_core = 4
+        self.target_core = 3
 
         self.console.expect("On core %s" % self.core)
 
@@ -169,11 +169,16 @@ class ParkRebootTest(InteractiveTest):
     '''Park OSNode and move it back.'''
     name = 'park_boot'
 
+    def get_modules(self, build, machine):
+        modules = super(ParkRebootTest, self).get_modules(build, machine)
+        modules.add_module("periodicprint", args=["core=2"])
+        return modules
+
     def interact(self):
         self.wait_for_fish()
         
         self.core = 2
-        self.target_core = 4
+        self.parking_core = 3
 
         self.console.expect("On core %s" % self.core)
 
@@ -183,11 +188,21 @@ class ParkRebootTest(InteractiveTest):
         self.wait_for_prompt()
 
         # Park
-        debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.target_core))
-        self.console.sendline("x86boot give %s %s" % (self.core, self.target_core))
+        debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.parking_core))
+        self.console.sendline("x86boot give %s %s" % (self.core, self.parking_core))
+        self.wait_for_prompt()
+        self.console.expect("On core %s" % self.parking_core)
+
+        # Remove KCB on parking core
+        debug.verbose("Remove KCB on parking core %s." % (self.parking_core))
+        self.console.sendline("x86boot rmkcb %s %s" % (self.core, self.parking_core))
         self.wait_for_prompt()
 
-        self.console.expect("On core %s" % self.target_core)
+        # Reboot home core with kcb
+        debug.verbose("Reboot core %s." % (self.core))
+        self.console.sendline("x86boot boot %s" % (self.core))
+        self.wait_for_prompt() 
+        self.console.expect("On core %s" % self.core)
 
 
     def process_data(self, testdir, rawiter):
