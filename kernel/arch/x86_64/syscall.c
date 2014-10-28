@@ -393,29 +393,20 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
     uint64_t kcb_addr = args[0];
-
     struct kcb *new_kcb = (struct kcb *)kcb_addr;
-    if (kcb_current->next) {
-        assert(kcb_current->prev);
-        new_kcb->next = kcb_current->next;
-        new_kcb->prev = kcb_current;
-        new_kcb->next->prev = new_kcb;
-        new_kcb->prev->next = new_kcb;
-    } else {
-        kcb_current->next = kcb_current->prev = new_kcb;
-        new_kcb->next = new_kcb->prev = kcb_current;
-    }
+
+    kcb_add(new_kck);
+
     // update kernel_now offset
     new_kcb->kernel_off -= kernel_now;
     // reset scheduler statistics
     scheduler_reset_time();
     // update current core id of all domains
     kcb_update_core_id(new_kcb);
-    // upcall domains with registered interrupts to tell them to reregister
+    // upcall domains with registered interrupts to tell them to re-register
     irq_table_notify_domains(new_kcb);
 
     printk(LOG_NOTE, "kcb_current = %p\n", kcb_current);
-
     return SYSRET(SYS_ERR_OK);
 }
 

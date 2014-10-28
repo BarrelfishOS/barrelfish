@@ -105,6 +105,7 @@ static inline void switch_kcb(struct kcb *next)
     queue_tail = kcb_current->queue_tail;
 }
 
+void kcb_add(struct kcb* new_kcb);
 errval_t kcb_remove(struct kcb *to_remove);
 void kcb_update_core_id(struct kcb *kcb);
 

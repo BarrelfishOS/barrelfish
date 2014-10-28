@@ -16,45 +16,48 @@
 #include <kcb.h>
 #include <dispatch.h>
 
+void kcb_add(struct kcb* new_kcb)
+{
+    if (kcb_current->next) {
+        // Insert new KCB in ring
+        assert(kcb_current->prev);
+
+        new_kcb->next = kcb_current->next;
+        new_kcb->prev = kcb_current;
+        new_kcb->next->prev = new_kcb;
+        new_kcb->prev->next = new_kcb;
+    } else {
+        // Only one KCB currently dispatching
+        kcb_current->next = kcb_current->prev = new_kcb;
+        new_kcb->next = new_kcb->prev = kcb_current;
+    }
+}
+
 errval_t kcb_remove(struct kcb *to_remove)
 {
-    if (to_remove == kcb_current) {
-        printk(LOG_NOTE, "kcb_remove: to_remove == kcb_current... don't delete to_remove->next now so later switch works\n");
-        if (to_remove->next->next == to_remove) {
-            to_remove->next->next = to_remove->next->prev = NULL;
-        } else {
-            to_remove->prev->next = to_remove->next;
-            to_remove->next->prev = to_remove->prev;
-        }
-        // intentionally leaving to_remove->next alone, so switch_kcb doesn't
-        // break
-        to_remove->prev = NULL;
-        to_remove->kernel_off = kernel_now;
-        return SYS_ERR_OK;
-    }
+    assert(to_remove != kcb_current);
+    // We could support this if we want, 
+    // but for now we just shut down the core
 
-    struct kcb *k = kcb_current;
-
-    do {
+    for (struct kcb* k = kcb_current->next; k != kcb_current; k = k->next) {
         if (k == to_remove) {
-            // remove kcb from ring
+            // remove KCB from ring
             k->prev->next = k->next;
             k->next->prev = k->prev;
+
+            // Clear ring to disable switching mechanism
             if (k->next->next == k->next) {
-                // clear ring to disable switching mechanism if only one kcb
-                // left
                 k->next->next = k->next->prev = NULL;
             }
-            // clear next and prev of removed kcb to not leak other kcb addrs
+
+            // Clear next and prev of removed kcb
             k->next = k->prev = NULL;
 
-            // update kernel_off & break out if we're done
+            // Update kernel_off & break out if we're done
             k->kernel_off = kernel_now;
             return SYS_ERR_OK;
         }
-        k = k->next;
-    } while (k != kcb_current);
-
+    }
     return SYS_ERR_KCB_NOT_FOUND;
 }
 
