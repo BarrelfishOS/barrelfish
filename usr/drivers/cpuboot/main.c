@@ -221,7 +221,7 @@ static int boot_cpu(int argc, char **argv)
     return 0;
 }
 
-static int halt_boot(int argc, char **argv)
+/*static int halt_boot(int argc, char **argv)
 {
     coreid_t boot_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(boot_id < MAX_COREID);
@@ -264,7 +264,7 @@ static int halt_boot(int argc, char **argv)
     }
 
     return 0;
-}
+}*/
 
 
 static int update_cpu(int argc, char** argv)
@@ -341,10 +341,10 @@ static int give_kcb(int argc, char** argv)
     coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 16);
     assert(destination_id < MAX_COREID);
 
-    err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
+    /*err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-    }
+    }*/
     done = true;
 
     err = give_kcb_to_new_core(destination_id, kcb);
@@ -355,11 +355,11 @@ static int give_kcb(int argc, char** argv)
     return 0;
 }
 
-static int take_kcb(int argc, char** argv)
+static int remove_kcb(int argc, char** argv)
 {
-    assert (argc == 4);
-    DEBUG("%s:%s:%d: Taking kcb.%s from core %s to core %s\n", __FILE__,
-          __FUNCTION__, __LINE__, argv[1], argv[2], argv[3]);
+    assert (argc == 3);
+    DEBUG("%s:%s:%d: Taking kcb.%s from core %s\n", __FILE__,
+          __FUNCTION__, __LINE__, argv[1], argv[2]);
 
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
@@ -370,10 +370,7 @@ static int take_kcb(int argc, char** argv)
     }
 
     coreid_t source_id = (coreid_t) strtol(argv[2], NULL, 16);
-    coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 16);
-
     assert(source_id < MAX_COREID);
-    assert(destination_id < MAX_COREID);
 
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
 
@@ -388,15 +385,19 @@ static int take_kcb(int argc, char** argv)
     if (err_is_fail(ret_err)) {
         USER_PANIC_ERR(ret_err, "forward_kcb_request failed.");
     }
+    done = true;
 
+    //coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 16);
+    //assert(destination_id < MAX_COREID);
     //
     // Move KCB to a core that is currently running
     //
+    /*
     err = give_kcb_to_new_core(destination_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not send KCB to another core.");
     }
-    done = true;
+    */
 
     //
     // Boot the removed KCB on a core that is currently not running
@@ -462,19 +463,19 @@ static struct cmd commands[] = {
         3
     },
     {
-        "take",
-        "Take a KCB from one core to another.",
-        "take <kcb number> <source apic id> <destination apic id>",
-        take_kcb,
-        4
+        "rmkcb",
+        "Remove a KCB from a core.",
+        "rm <kcb number> <source apic id>",
+        remove_kcb,
+        3
     },
-    {
+    /*{
         "hb",
         "Halt a core and reboot another core. (Remove when we have proper move).",
         "hb <boot apic id> <power down apic id>",
         halt_boot,
         2
-    },
+    },*/
     {
         "lscpu",
         "List current status of all cores.",
