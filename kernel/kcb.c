@@ -35,10 +35,25 @@ void kcb_add(struct kcb* new_kcb)
 
 errval_t kcb_remove(struct kcb *to_remove)
 {
-    assert(to_remove != kcb_current);
-    // We could support this if we want, 
-    // but for now we just shut down the core
+    if (to_remove == kcb_current) {
+        if (to_remove->next->next == to_remove) {
+            assert(to_remove->next->prev == to_remove);
+            to_remove->next->next = to_remove->next->prev = NULL;
+        } 
+        else {
+            to_remove->prev->next = to_remove->next;
+            to_remove->next->prev = to_remove->prev;
+        }
 
+        // intentionally leaving to_remove->next alone
+        // so switch_kcb doesn't break
+        to_remove->prev = NULL;
+        to_remove->kernel_off = kernel_now;
+
+        return SYS_ERR_OK;
+    }
+
+    // This probably failes atm.
     for (struct kcb* k = kcb_current->next; k != kcb_current; k = k->next) {
         if (k == to_remove) {
             // remove KCB from ring
@@ -58,6 +73,7 @@ errval_t kcb_remove(struct kcb *to_remove)
             return SYS_ERR_OK;
         }
     }
+
     return SYS_ERR_KCB_NOT_FOUND;
 }
 

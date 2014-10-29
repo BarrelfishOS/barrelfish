@@ -559,10 +559,10 @@ struct sysret sys_suspend(bool do_halt)
         //printf("%s:%s:%d: before halt of core (%"PRIuCOREID")\n",
         //       __FILE__, __FUNCTION__, __LINE__, my_core_id);
         halt();
-        //printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
     } else {
+        // Note this only works if we're calling this inside
+        // the kcb we're currently running
         printk(LOG_NOTE, "in sys_suspend(<no_halt>)!\n");
-        // switch to next
         printk(LOG_NOTE, "calling switch_kcb!\n");
         struct kcb *next = kcb_current->next;
         kcb_current->next = NULL;
