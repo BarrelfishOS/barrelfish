@@ -306,7 +306,7 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     }
 }
 
-__attribute__(("unused"))
+__attribute__((unused))
 static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
 {
     lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
