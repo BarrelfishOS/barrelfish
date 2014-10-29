@@ -26,7 +26,7 @@
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%lx maxlimit: 0x%lx\n",
+    ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%"PRIxGENPADDR" maxlimit: 0x%"PRIxGENPADDR"\n",
 	       sizebits, minbase, maxlimit);
 
     struct capref devframe = NULL_CAP;
@@ -44,7 +44,7 @@ static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebit
 static void mm_free_proxy_handler(struct acpi_binding* b, struct capref devframe,
 		                          uint64_t base, uint8_t sizebits)
 {
-    ACPI_DEBUG("mm_free_proxy_handler: base: %lu, sizebits: %d\n", base, sizebits);
+    ACPI_DEBUG("mm_free_proxy_handler: base: 0x%"PRIx64", sizebits: %d\n", base, sizebits);
 
     errval_t err = mm_free(&pci_mm_physaddr, devframe, base, sizebits);
     if (err_is_fail(err)) {
@@ -86,7 +86,7 @@ static void get_pcie_confspace(struct acpi_binding* b)
         ACPI_MCFG_ALLOCATION *mcfg = (void*) mcfg_header
                 + sizeof(ACPI_TABLE_MCFG);
         ACPI_DEBUG(
-                "PCIe enhanced configuration region at 0x%lx "
+                "PCIe enhanced configuration region at 0x%"PRIx64" "
                 "(segment %u, buses %u-%u)\n", mcfg->Address,
                 mcfg->PciSegment, mcfg->StartBusNumber, mcfg->EndBusNumber);
 
@@ -145,7 +145,7 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
 
 static void set_device_irq(struct acpi_binding *b, char* device, uint32_t irq)
 {
-    ACPI_DEBUG("Setting link device '%s' to GSI %u\n", device, irq);
+    ACPI_DEBUG("Setting link device '%s' to GSI %"PRIu32"\n", device, irq);
 
     errval_t err = SYS_ERR_OK;
 

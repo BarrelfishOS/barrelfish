@@ -54,7 +54,7 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
     if (ACPI_SUCCESS(as)) {
         ACPI_DEBUG("called %s._DOD ok\n", namebuf);
     } else if (as != AE_NOT_FOUND) {
-        ACPI_DEBUG("error executing _DOD method on %s: 0x%x\n", namebuf, as);
+        ACPI_DEBUG("error executing _DOD method on %s: 0x%"PRIx32"\n", namebuf, as);
     }
 
     /* Execute the _DCS method if present (output device status) B.6.6 */
@@ -62,12 +62,12 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
     as = acpi_eval_integer(handle, "_DCS", &retval);
     if (ACPI_FAILURE(as)) {
         if (as != AE_NOT_FOUND) {
-            ACPI_DEBUG("error executing _DCS method on %s: 0x%x\n", namebuf, as);
+            ACPI_DEBUG("error executing _DCS method on %s: 0x%"PRIx32"\n", namebuf, as);
         }
         return AE_OK; // skip the rest
     }
 
-    ACPI_DEBUG("%s: current video state is 0x%lx\n", namebuf, retval);
+    ACPI_DEBUG("%s: current video state is 0x%"PRIx64"\n", namebuf, retval);
 
     /* if connector exists and is ready to switch, enable it! */
     if ((strstr(namebuf, "CRT0") || strstr(namebuf, "LCD0"))
@@ -80,7 +80,7 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
         if (ACPI_SUCCESS(as)) {
             ACPI_DEBUG("%s: successfully enabled video output\n", namebuf);
         } else {
-            ACPI_DEBUG("%s: enabling video output failed: 0x%x\n", namebuf, as);
+            ACPI_DEBUG("%s: enabling video output failed: 0x%"PRIx32"\n", namebuf, as);
         }
     }
 
