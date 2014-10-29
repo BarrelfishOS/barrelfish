@@ -221,58 +221,20 @@ static int boot_cpu(int argc, char **argv)
     return 0;
 }
 
-/*static int halt_boot(int argc, char **argv)
-{
-    coreid_t boot_id = (coreid_t) strtol(argv[1], NULL, 16);
-    assert(boot_id < MAX_COREID);
-
-    struct capref kcb;
-    errval_t err = create_or_get_kcb_cap(boot_id, &kcb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not get KCB.");
-    }
-
-    coreid_t down_id = (coreid_t) strtol(argv[2], NULL, 16);
-
-    struct capref frame;
-    size_t framesize;
-    struct frame_identity urpc_frame_id;
-    err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-    }
-    err = cap_mark_remote(frame);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not mark cap remote.");
-        return err;
-    }
-
-    DEBUG("Power down %"PRIuCOREID", lets hope kcb for %"PRIuCOREID" runs there.",
-          down_id, boot_id);
-    err = sys_debug_send_ipi(down_id, 0, APIC_INTER_HALT_VECTOR);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
-    }
-    done = true;
-
-    DEBUG("Booting %"PRIuCOREID"...", boot_id);
-    err = spawn_xcore_monitor(boot_id, boot_id, CPU_X86_64,
-                              cmd_kernel_args, urpc_frame_id,
-                              kcb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-    }
-
-    return 0;
-}*/
-
 
 static int update_cpu(int argc, char** argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
+    
+    archid_t target_apic_id;
+    errval_t err = get_apic_id(target_id, &target_apic_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_apic_id failed.");
+    }
+
     struct capref kcb;
-    errval_t err = create_or_get_kcb_cap(target_id, &kcb);
+    err = create_or_get_kcb_cap(target_id, &kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
@@ -291,13 +253,13 @@ static int update_cpu(int argc, char** argv)
     }
 
     // do clean shutdown
-    err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
+    err = sys_debug_send_ipi(target_apic_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
 
     done = true;
-    err = spawn_xcore_monitor(target_id, target_id, CPU_X86_64,
+    err = spawn_xcore_monitor(target_id, target_apic_id, CPU_X86_64,
                               cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
@@ -313,7 +275,13 @@ static int stop_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
 
-    errval_t err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
+    archid_t target_apic_id;
+    errval_t err = get_apic_id(target_id, &target_apic_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_apic_id failed.");
+    }
+
+    err = sys_debug_send_ipi(target_apic_id, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
@@ -357,9 +325,9 @@ static int give_kcb(int argc, char** argv)
 
 static int remove_kcb(int argc, char** argv)
 {
-    assert (argc == 3);
-    DEBUG("%s:%s:%d: Taking kcb.%s from core %s\n", __FILE__,
-          __FUNCTION__, __LINE__, argv[1], argv[2]);
+    assert (argc == 2);
+    DEBUG("%s:%s:%d: Stopping kcb.%s\n", __FILE__,
+          __FUNCTION__, __LINE__, argv[1]);
 
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
@@ -369,16 +337,12 @@ static int remove_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
 
-    coreid_t source_id = (coreid_t) strtol(argv[2], NULL, 16);
-    assert(source_id < MAX_COREID);
-
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-
-    errval_t ret_err;
     // send message to monitor to be relocated -> don't switch kcb ->
     // remove kcb from ring -> msg ->
     // (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
-    err = mc->vtbl.forward_kcb_rm_request(mc, source_id, kcb, &ret_err);
+    errval_t ret_err;
+    err = mc->vtbl.forward_kcb_rm_request(mc, target_id, kcb, &ret_err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "forward_kcb_request failed.");
     }
@@ -437,45 +401,38 @@ static struct cmd commands[] = {
     {
         "boot",
         "Boot a fresh core with a KCB.",
-        "boot <target apic_id>",
+        "boot <target core_id>",
         boot_cpu,
         2
     },
     {
         "update",
         "Update the kernel on an existing core.",
-        "update <target apic_id>",
+        "update <target core_id>",
         update_cpu,
         2
     },
     {
         "stop",
         "Stop execution on an existing core.",
-        "stop <target apic_id>",
+        "stop <target core_id>",
         stop_cpu,
         2
     },
     {
         "give",
         "Give kcb from one core to another.",
-        "give <from apic_id> <to apic_id>",
+        "give <from kcb_id> <to kcb_id>",
         give_kcb,
         3
     },
     {
         "rmkcb",
-        "Remove a KCB from a core.",
-        "rm <kcb number> <source apic id>",
+        "Remove a running KCB from a core.",
+        "rm <kcb_id>",
         remove_kcb,
-        3
-    },
-    /*{
-        "hb",
-        "Halt a core and reboot another core. (Remove when we have proper move).",
-        "hb <boot apic id> <power down apic id>",
-        halt_boot,
         2
-    },*/
+    },
     {
         "lscpu",
         "List current status of all cores.",
