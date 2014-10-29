@@ -10,6 +10,7 @@
 import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
 import barrelfish, debug, results
 from tests import Test
+from results import PassFailResult
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
@@ -259,6 +260,19 @@ class InteractiveTest(TestCommon):
         modules = self.get_modules(build, machine)
         self.boot(machine, modules)
         return self.collect_data(machine)
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+            if "user trap #" in line:
+                passed = False
+                break
+            if "PANIC! kernel assertion" in line:
+                passed = False
+        return PassFailResult(passed)
 
 
 # utility function used by other tests

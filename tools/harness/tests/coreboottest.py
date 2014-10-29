@@ -11,7 +11,6 @@
 
 import tests, debug, time, pexpect
 from common import InteractiveTest
-from results import PassFailResult
 
 START_CPU_DRIVER = "Barrelfish CPU driver starting"
 
@@ -44,15 +43,6 @@ class StopCoreTest(InteractiveTest):
         if i == 0:
             raise Exception("periodicprint still running, did we not shut-down the core?")
 
-    def process_data(self, testdir, rawiter):
-        passed = True
-        stopped = False
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
-
 
 @tests.add_test
 class UpdateKernelTest(InteractiveTest):
@@ -76,14 +66,6 @@ class UpdateKernelTest(InteractiveTest):
 
         # Make sure app is still running
         self.console.expect("On core %s" % self.core)
-
-    def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
 
 
 @tests.add_test
@@ -116,13 +98,6 @@ class ParkOSNodeTest(InteractiveTest):
 
         self.console.expect("On core %s" % self.target_core)
 
-    def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
 
 @tests.add_test
 class ListKCBTest(InteractiveTest):
@@ -138,14 +113,6 @@ class ListKCBTest(InteractiveTest):
         self.console.sendline("x86boot lscpu")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()
-
-    def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
 
 
 @tests.add_test
@@ -190,12 +157,3 @@ class ParkRebootTest(InteractiveTest):
         self.wait_for_prompt() 
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)
-
-
-    def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
