@@ -394,8 +394,7 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
 {
     uint64_t kcb_addr = args[0];
     struct kcb *new_kcb = (struct kcb *)kcb_addr;
-
-    kcb_add(new_kck);
+    kcb_add(new_kcb);
 
     // update kernel_now offset
     new_kcb->kernel_off -= kernel_now;
@@ -406,7 +405,6 @@ static struct sysret kernel_add_kcb(struct capability *kern_cap,
     // upcall domains with registered interrupts to tell them to re-register
     irq_table_notify_domains(new_kcb);
 
-    printk(LOG_NOTE, "kcb_current = %p\n", kcb_current);
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -417,7 +415,10 @@ static struct sysret kernel_remove_kcb(struct capability *kern_cap,
     uint64_t kcb_addr = args[0];
 
     struct kcb *to_remove = (struct kcb *)kcb_addr;
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4a353c9... Remove no longer necessary assertion and print.
     return SYSRET(kcb_remove(to_remove));
 }
 
