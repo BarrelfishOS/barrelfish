@@ -127,7 +127,7 @@ class ParkOSNodeTest(InteractiveTest):
 @tests.add_test
 class ListKCBTest(InteractiveTest):
     '''List all KCBs.'''
-    name = 'lskcb'
+    name = 'list_kcb_cores'
 
     def interact(self):
         self.wait_for_fish()
@@ -135,22 +135,6 @@ class ListKCBTest(InteractiveTest):
         self.console.expect("KCB 1:")
         self.wait_for_prompt()
 
-    def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-        return PassFailResult(passed)
-
-
-@tests.add_test
-class ListCPUTest(InteractiveTest):
-    '''List all Cores.'''
-    name = 'lscpu'
-
-    def interact(self):
-        self.wait_for_fish()
         self.console.sendline("x86boot lscpu")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()
@@ -171,15 +155,16 @@ class ParkRebootTest(InteractiveTest):
 
     def get_modules(self, build, machine):
         modules = super(ParkRebootTest, self).get_modules(build, machine)
-        modules.add_module("periodicprint", args=["core=2"])
+        modules.add_module("periodicprint", args=["core=1"])
         return modules
 
     def interact(self):
         self.wait_for_fish()
         
-        self.core = 2
-        self.parking_core = 3
+        self.core = 1
+        self.parking_core = 2
 
+        self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)
 
         # Stop
@@ -192,16 +177,18 @@ class ParkRebootTest(InteractiveTest):
         self.console.sendline("x86boot give %s %s" % (self.core, self.parking_core))
         self.wait_for_prompt()
         self.console.expect("On core %s" % self.parking_core)
+        self.console.expect("On core %s" % self.parking_core)
 
         # Remove KCB on parking core
         debug.verbose("Remove KCB on parking core %s." % (self.parking_core))
-        self.console.sendline("x86boot rmkcb %s %s" % (self.core, self.parking_core))
+        self.console.sendline("x86boot rmkcb %s" % (self.core))
         self.wait_for_prompt()
 
         # Reboot home core with kcb
         debug.verbose("Reboot core %s." % (self.core))
-        self.console.sendline("x86boot boot %s" % (self.core))
+        self.console.sendline("x86boot boot -m %s" % (self.core))
         self.wait_for_prompt() 
+        self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)
 
 
