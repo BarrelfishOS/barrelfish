@@ -32,22 +32,19 @@ void perfmon_amd_init(void)
 
 bool perfmon_amd_supported(void)
 {
-    union {
-	char str[4];
-	uint32_t w;
-    } vendor;
+    uint32_t word1, word2, word3;
 
     // XXX: Klunky but the only way I got this to work...
-    vendor.w = cpuid_vendor0_rd(&mycpuid);
-    if(strncmp(vendor.str, "Auth", 4)) {
+    word1 = cpuid_vendor0_rd(&mycpuid);
+    if(strncmp((char*)&word1, "Auth", 4)) {
 	return false;
     }
-    vendor.w = cpuid_vendor1_rd(&mycpuid);
-    if(strncmp(vendor.str, "enti", 4)) {
+    word2 = cpuid_vendor1_rd(&mycpuid);
+    if(strncmp((char*)&word2, "enti", 4)) {
 	return false;
     }
-    vendor.w = cpuid_vendor2_rd(&mycpuid);
-    if(strncmp(vendor.str, "cAMD", 4)) {
+    word3 = cpuid_vendor2_rd(&mycpuid);
+    if(strncmp((char*)&word3, "cAMD", 4)) {
 	return false;
     }
 
