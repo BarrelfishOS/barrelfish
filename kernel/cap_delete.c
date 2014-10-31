@@ -37,7 +37,7 @@ static errval_t cleanup_copy(struct cte *cte);
 static errval_t cleanup_last(struct cte *cte, struct cte *ret_ram_cap);
 static void caps_mark_revoke_copy(struct cte *cte);
 static void caps_mark_revoke_generic(struct cte *cte);
-static void clear_list_append(struct cte *cte);
+static void clear_list_prepend(struct cte *cte);
 static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
 /**
@@ -104,11 +104,9 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
             caps_mark_revoke_generic(slot);
         }
 
-        if (cte->delete_node.next) {
-            debug(SUBSYS_CAPS, "cte is part of delete list, clearing\n");
-            cte->delete_node.next = NULL;
-        }
-        clear_list_append(cte);
+        assert(cte->delete_node.next == NULL || delete_head == cte);
+        cte->delete_node.next = NULL;
+        clear_list_prepend(cte);
 
         return SYS_ERR_OK;
     }
@@ -120,7 +118,7 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 
         // Remove from queue
         scheduler_remove(dcb);
-        // Reset curent if it was deleted
+        // Reset current if it was deleted
         if (dcb_current == dcb) {
             dcb_current = NULL;
         }
@@ -140,7 +138,9 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
 
         caps_mark_revoke_generic(&dcb->cspace);
         caps_mark_revoke_generic(&dcb->disp_cte);
-        clear_list_append(cte);
+        assert(cte->delete_node.next == NULL || delete_head == cte);
+        cte->delete_node.next = NULL;
+        clear_list_prepend(cte);
 
         return SYS_ERR_OK;
     }
@@ -336,6 +336,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
             assert(!delete_tail->delete_node.next);
             delete_tail->delete_node.next = cte;
             delete_tail = cte;
+            cte->delete_node.next = NULL;
         }
         TRACE_CAP_MSG("inserted into delete list", cte);
 
@@ -472,7 +473,7 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
  * Sweep phase
  */
 
-static void clear_list_append(struct cte *cte)
+static void clear_list_prepend(struct cte *cte)
 {
     // make sure we don't break delete list by inserting cte that hasn't been
     // removed from delete list into clear list
@@ -481,12 +482,13 @@ static void clear_list_append(struct cte *cte)
     if (!clear_tail) {
         assert(!clear_head);
         clear_head = clear_tail = cte;
+        cte->delete_node.next = NULL;
     }
     else {
         assert(clear_head);
-        clear_tail = clear_tail->delete_node.next = cte;
+        cte->delete_node.next = clear_head;
+        clear_head = cte;
     }
-    cte->delete_node.next = NULL;
     TRACE_CAP_MSG("inserted into clear list", cte);
 }
 
