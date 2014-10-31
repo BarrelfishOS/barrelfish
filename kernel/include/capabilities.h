@@ -136,8 +136,8 @@ STATIC_ASSERT(ObjType_Num == 25, "knowledge of all cap types");
      (1ul<<ObjType_VNode_ARM_l2) | \
      (1ul<<ObjType_PhysAddr))
 
-#define TRACE_TYPES_ENABLED_INITIAL 0x0
-//#define TRACE_TYPES_ENABLED_INITIAL (~(uint64_t)0)
+//#define TRACE_TYPES_ENABLED_INITIAL 0x0
+#define TRACE_TYPES_ENABLED_INITIAL ALL_PMEM_TYPES
 #define TRACE_PMEM_BEGIN_INITIAL    0x0
 #define TRACE_PMEM_SIZE_INITIAL     (~(uint32_t)0)
 
