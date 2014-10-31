@@ -109,21 +109,26 @@ static void bind_lmp_reply_handler(struct monitor_binding *b,
 
 static void send_bind_cont(void *arg)
 {
+    debug_printf("%s\n", __FUNCTION__);
     struct lmp_chan *lc = arg;
     struct monitor_binding *b = lc->monitor_binding;
     errval_t err;
 
+    debug_printf("%s: sending bind request to monitor\n", __FUNCTION__);
     /* Send bind request to the monitor */
     err = b->tx_vtbl.bind_lmp_client_request(b, NOP_CONT, lc->iref,
                                             (uintptr_t)lc, lc->buflen_words,
                                             lc->local_cap);
     if (err_is_ok(err)) { // request sent ok
+        debug_printf("%s: request sent\n", __FUNCTION__);
         event_mutex_unlock(&b->mutex);
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         // register to retry
+        debug_printf("%s: register retry\n", __FUNCTION__);
         err = b->register_send(b, b->waitset, MKCONT(send_bind_cont,lc));
         assert(err_is_ok(err)); // we hold the monitor binding mutex
     } else { // permanent failure sending message
+        debug_printf("%s: perm fail: %s\n", __FUNCTION__, err_getstring(err));
         event_mutex_unlock(&b->mutex);
         lc->bind_continuation.handler(lc->bind_continuation.st,
                                       err_push(err, LIB_ERR_BIND_LMP_REQ), NULL);
@@ -143,6 +148,7 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
                        struct event_queue_node *qnode, iref_t iref,
                        size_t buflen_words)
 {
+    debug_printf("%s: iref=%d\n", __FUNCTION__, iref);
     errval_t err;
 
     lmp_chan_init(lc);
@@ -152,6 +158,7 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
     lc->buflen_words = buflen_words;
     lc->bind_continuation = cont;
 
+    debug_printf("%s: allocating slot for ep\n", __FUNCTION__);
     /* allocate a cap slot for the new endpoint cap */
     err = slot_alloc(&lc->local_cap);
     if (err_is_fail(err)) {
@@ -159,6 +166,7 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
+    debug_printf("%s: allocating ep\n", __FUNCTION__);
     /* allocate a local endpoint */
     err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
                                       &lc->endpoint);
@@ -168,6 +176,7 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
 
+    debug_printf("%s: waiting for monitor binding\n", __FUNCTION__);
     // wait for the ability to use the monitor binding
     lc->connstate = LMP_BIND_WAIT;
     struct monitor_binding *mb = lc->monitor_binding = get_monitor_binding();

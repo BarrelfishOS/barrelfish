@@ -657,6 +657,8 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     assert(len < sizeof(namebuf));
     namebuf[sizeof(namebuf) - 1] = '\0';
 
+    debug_printf("registering with ns: %s, %d\n", namebuf, iref);
+
     // register this iref with the name service
     err = nameservice_register(namebuf, iref);
     if (err_is_fail(err)) {
@@ -675,13 +677,14 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed ns barrier wait for %s", ALL_SPAWNDS_UP);
     }
-    // debug_printf("got \"%s\", continuing\n", ALL_SPAWNDS_UP);
+    debug_printf("got \"%s\", continuing\n", ALL_SPAWNDS_UP);
 #endif
 }
 
 
 static errval_t connect_cb(void *st, struct spawn_binding *b)
 {
+    debug_printf("connection: %p, %p\n", st, b);
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
     return SYS_ERR_OK;
