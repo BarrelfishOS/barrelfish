@@ -164,6 +164,8 @@ void domain_mgmt_init(void)
         USER_PANIC_ERR(err, "Could not register with kernel");
     }
     else {
-        printf("monitor ep registered\n");
+#ifdef DEBUG_MONITOR_ALL
+        debug_printf("monitor ep registered\n");
+#endif
     }
 }
