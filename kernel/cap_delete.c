@@ -185,6 +185,7 @@ cleanup_copy(struct cte *cte)
         return err;
     }
     TRACE_CAP_MSG("cleaned up copy", cte);
+    assert(!mdb_reachable(cte));
     memset(cte, 0, sizeof(*cte));
 
     return SYS_ERR_OK;
@@ -527,6 +528,7 @@ errval_t caps_delete_step(struct cte *ret_next)
         cte->delete_node.next = NULL;
         err = caps_delete_last(cte, ret_next);
         if (err_is_fail(err)) {
+            TRACE_CAP_MSG("delete last failed", cte);
             // if delete_last fails, reinsert in delete list
             cte->delete_node.next = next;
         }
@@ -585,6 +587,7 @@ errval_t caps_clear_step(struct cte *ret_ram_cap)
 #undef CHECK_SLOT
 #endif
 
+    TRACE_CAP_MSG("caps_clear_step for", cte);
     struct cte *after = cte->delete_node.next;
     err = cleanup_last(cte, ret_ram_cap);
     if (err_is_ok(err)) {

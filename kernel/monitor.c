@@ -156,7 +156,8 @@ struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t bits)
     remove_mapping(cte);
 
     // zero-out cap entry
-    memset(cte, 0, sizeof(cte));
+    assert(!mdb_reachable(cte));
+    memset(cte, 0, sizeof(*cte));
 
     return SYSRET(SYS_ERR_OK);
 }

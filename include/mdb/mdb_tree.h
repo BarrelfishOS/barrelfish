@@ -108,6 +108,8 @@ errval_t mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
 
 errval_t mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node);
 
+bool mdb_reachable(struct cte *cte);
+
 __END_DECLS
 
 #endif // LIBMDB_MDB_TREE_H

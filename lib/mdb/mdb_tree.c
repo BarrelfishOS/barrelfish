@@ -150,6 +150,7 @@ mdb_dump(struct cte *cte, int indent)
     }
 
     struct mdbnode *node = N(cte);
+    assert(node);
 
     if (node->left) {
         if (node->left == cte) {
@@ -537,9 +538,11 @@ mdb_insert(struct cte *new_node)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
 #ifdef IN_KERNEL
+#ifdef MDB_TRACE_NO_RECURSIVE
     char prefix[50];
     snprintf(prefix, 50, "mdb_insert.%d: ", my_core_id);
     print_cte(new_node, prefix);
+#endif
 #endif
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
     assert(mdb_is_reachable(mdb_root, new_node));
@@ -764,9 +767,11 @@ mdb_remove(struct cte *target)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", target);
 #ifdef IN_KERNEL
+#ifdef MDB_TRACE_NO_RECURSIVE
     char prefix[50];
     snprintf(prefix, 50, "mdb_remove.%d: ", my_core_id);
     print_cte(target, prefix);
+#endif
 #endif
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
     assert(!mdb_is_reachable(mdb_root, target));
@@ -1206,4 +1211,9 @@ mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node)
         return SYS_ERR_CAP_NOT_FOUND;
     }
     return SYS_ERR_OK;
+}
+
+bool mdb_reachable(struct cte *cte)
+{
+    return mdb_is_reachable(mdb_root, cte);
 }

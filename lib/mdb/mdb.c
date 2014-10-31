@@ -230,4 +230,3 @@ void remove_mapping(struct cte *cte)
 {
     mdb_remove(cte);
 }
-

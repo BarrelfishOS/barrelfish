@@ -209,6 +209,10 @@ caps_trace = False
 mdb_trace :: Bool
 mdb_trace = False
 
+-- enable tracing of top level mdb_insert, mdb_remove calls
+mdb_trace_no_recursive :: Bool
+mdb_trace_no_recursive = False
+
 -- fail on invariant violaitions
 mdb_fail_invariants :: Bool
 mdb_fail_invariants = True
