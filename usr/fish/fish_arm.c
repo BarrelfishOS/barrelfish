@@ -61,8 +61,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     vfs_handle_t vh;
     errval_t err;
 
-    debug_printf("spawning %s\n", argv[0]);
-
     // if the name contains a directory separator, assume it is relative to PWD
     char *prog = argv[0];
     if (strchr(argv[0], VFS_PATH_SEP) != NULL) {
@@ -81,7 +79,6 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     assert(retdomainid != NULL);
 
     argv[argc] = NULL;
-    debug_printf("calling spawn_program\n");
     err = spawn_program(coreid, prog, argv, NULL, SPAWN_NEW_DOMAIN,
                         retdomainid);
 
