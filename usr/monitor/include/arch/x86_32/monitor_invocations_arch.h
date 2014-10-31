@@ -193,6 +193,18 @@ invoke_monitor_ipi_delete(int chanid)
                     chanid).error;
 }
 
+static inline errval_t
+invoke_monitor_get_arch_id(uintptr_t *arch_id)
+{
+    assert(arch_id != NULL);
+
+    struct sysret sysret = cap_invoke1(cap_kernel, KernelCmd_Get_arch_id);
+    if (sysret.error == SYS_ERR_OK) {
+        *arch_id = sysret.value;
+    }
+    return sysret.error;
+}
+
 static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
