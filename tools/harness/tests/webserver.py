@@ -46,6 +46,10 @@ HTTPERF_RATEINCREMENT = 1000  # amount to increment by for each new run
 
 class WebCommon(TestCommon):
 
+    def __init__(self, options):
+        super(WebCommon, self).__init__(options)
+        self.test_timeout_delta = datetime.timedelta(seconds=600)
+
     def setup(self, build, machine, testdir):
         super(WebCommon, self).setup(build, machine, testdir)
         self.testdir = testdir
@@ -71,7 +75,8 @@ class WebCommon(TestCommon):
         m = re.match(r'Interface up! IP address (\d+\.\d+\.\d+\.\d+)', line)
         if m:
             self.ip = m.group(1)
-        elif self.ip and line.startswith('Starting webserver'):
+        elif self.ip and 'Starting webserver' in line:
+            debug.verbose("Running the tests")
             self.runtests(self.ip)
             self.finished = True
 
