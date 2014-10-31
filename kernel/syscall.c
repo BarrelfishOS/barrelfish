@@ -34,7 +34,7 @@
 errval_t sys_print(const char *str, size_t length)
 {
     /* FIXME: check that string is mapped and accessible to caller! */
-    printf("[%d] %.*s", my_core_id, (int)length, str);
+    printf("%.*s", (int)length, str);
     return SYS_ERR_OK;
 }
 
