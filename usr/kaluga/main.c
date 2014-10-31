@@ -133,9 +133,13 @@ int main(int argc, char** argv)
     err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 #elif __pandaboard__
-    printf("Kaluga running on Pandaboard.\n");
+    debug_printf("Kaluga running on Pandaboard.\n");
 
     err = init_cap_manager();
+    assert(err_is_ok(err));
+
+    // wait for spawnd.0
+    err = nameservice_blocking_lookup("spawn.0", NULL);
     assert(err_is_ok(err));
 
     struct module_info* mi = find_module("fdif");
