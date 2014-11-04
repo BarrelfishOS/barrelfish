@@ -153,7 +153,7 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
     return AE_OK;
 }
 
-#ifdef PCI_SERVICE_DEBUG
+#ifdef ACPI_SERVICE_DEBUG
 static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
 {
     switch(res->Type) {
@@ -345,7 +345,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         skb_add_fact("prt(addr(%"PRIu8", %"PRIu16", _), %"PRIu32", pir(\"%s\")).",
                      bus, device, prt->Pin, esource);
 
-#ifdef PCI_SERVICE_DEBUG /* debug code to dump resources */
+#ifdef ACPI_SERVICE_DEBUG /* debug code to dump resources */
         ACPI_DEBUG("  INITIAL:  ");
         as = AcpiWalkResources(source, METHOD_NAME__CRS,
                                resource_printer, NULL);
@@ -519,7 +519,7 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
 
     resources.addr = bridgeaddr;
 
-#ifdef PCI_SERVICE_DEBUG
+#ifdef ACPI_SERVICE_DEBUG
     printf("\nstart PRS\n");
     as = AcpiWalkResources(handle, METHOD_NAME__PRS, resource_printer,
                            NULL);
