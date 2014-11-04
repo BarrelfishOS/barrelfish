@@ -162,7 +162,7 @@ int init_all_apics(void)
     }
 
     // Parse main table entries
-    ACPI_DEBUG("Local APIC is at 0x%x\n", madt->Address);
+    ACPI_DEBUG("Local APIC is at 0x%"PRIx32"\n", madt->Address);
     skb_add_fact("memory_region(%" PRIu32 ",%u,%zu, %u,%u).",
                  madt->Address,
                  APIC_BITS, //from documentation
@@ -184,7 +184,7 @@ int init_all_apics(void)
             {
                 ACPI_MADT_LOCAL_APIC *s = (ACPI_MADT_LOCAL_APIC *)sh;
 
-                ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %d\n",
+                ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %lu\n",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
@@ -219,8 +219,8 @@ int init_all_apics(void)
                 ACPI_MADT_IO_APIC *s = (ACPI_MADT_IO_APIC *)sh;
                 errval_t err;
 
-                ACPI_DEBUG("Found I/O APIC: ID = %d, mem base = 0x%x, "
-                       "INTI base = %d\n", s->Id, s->Address, s->GlobalIrqBase);
+                ACPI_DEBUG("Found I/O APIC: ID = %d, mem base = 0x%"PRIx32", "
+                       "INTI base = %"PRIu32"\n", s->Id, s->Address, s->GlobalIrqBase);
 
                 skb_add_fact("ioapic(%d,%"PRIu32",%"PRIu32").", s->Id, s->Address, s->GlobalIrqBase);
                 skb_add_fact("memory_region(%"PRIu32",%u,%zu, %u,%u).",
@@ -245,7 +245,7 @@ int init_all_apics(void)
                     (ACPI_MADT_INTERRUPT_OVERRIDE *)sh;
 
                 ACPI_DEBUG("Found interrupt override: bus = %d, bus_irq = %d, "
-                       "GSI = %d, flags = %x\n", s->Bus, s->SourceIrq,
+                       "GSI = %"PRIu32", flags = %x\n", s->Bus, s->SourceIrq,
                        s->GlobalIrq, s->IntiFlags);
 
                 skb_add_fact("interrupt_override(%d,%d,%"PRIu32",%d).",
@@ -263,7 +263,7 @@ int init_all_apics(void)
                 lpc_ioapic_redir_tbl_t entry = ioapic_redir_tmpl_isa;
                 struct ioapic *a = find_ioapic(s->GlobalIrq);
                 if (a == NULL) {
-                    ACPI_DEBUG("Warning: unknown IOAPIC for GSI %d, ignored"
+                    ACPI_DEBUG("Warning: unknown IOAPIC for GSI %"PRIu32", ignored"
                               " interrupt override flags.\n", s->GlobalIrq);
                     break;
                 }

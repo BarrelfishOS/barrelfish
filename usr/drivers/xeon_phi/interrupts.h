@@ -15,7 +15,7 @@
 // forward declaration
 struct xeon_phi;
 
-#define PASTER(x,y) uint ## x ## ## y
+#define PASTER(x,y) uint ## x ## y
 #define EVALUATOR(x)  PASTER(x,_t)
 
 #define MSIX_ALLOCATOR_BITS 8

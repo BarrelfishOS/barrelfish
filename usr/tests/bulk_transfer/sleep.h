@@ -12,7 +12,7 @@
  */
 
 #ifndef __SLEEP_H__
-#define __SLEEP_H_
+#define __SLEEP_H__
 
 void sleep_init(void);
 void cycle_sleep(uint64_t cycles);
