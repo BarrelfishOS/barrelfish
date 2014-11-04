@@ -116,18 +116,10 @@ static inline errval_t invoke_cnode_create(struct capref root,
  *
  * \return Error code
  */
-// XXX: workaround for an inlining bug in gcc 4.3.4
-#if defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ <= 4
-static __attribute__ ((noinline,unused)) errval_t
-invoke_cnode_mint(struct capref root, capaddr_t to, capaddr_t slot, capaddr_t from,
-                  int tobits, int frombits, uintptr_t param1, uintptr_t param2)
-#else
 static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
                                          capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits, uintptr_t param1,
                                          uintptr_t param2)
-#endif
 {
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);

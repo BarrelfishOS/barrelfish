@@ -222,13 +222,7 @@ invoke_domain_id(struct capref cap, domainid_t domain_id)
 #endif
 }
 
-// workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
-#if defined(__i386__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 4 && __GNUC_PATCHLEVEL__ <= 3
-static __attribute__((noinline,unused)) errval_t
-#else
 static inline errval_t
-#endif
 invoke_monitor_ipi_register(struct capref ep, int chanid)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
