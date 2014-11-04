@@ -31,6 +31,8 @@ errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
 errval_t startup_alloc_init(void *state, genvaddr_t gvbase, size_t size,
                             uint32_t flags, void **ret);
 void create_module_caps(struct spawn_state *st);
+void cleanup_bios_regions(char *mmap_addr, char **new_mmap_addr,
+                          uint32_t *new_mmap_length);
 
 struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys);
 struct dcb *spawn_app_init(struct x86_core_data *core_data,

@@ -45,7 +45,6 @@ int
 main(int argc,
      char *argv[])
 {
-    int got_kernel = 0;
     int n_modules = 0;
     int n_mmaps = 0;
 
@@ -78,7 +77,7 @@ main(int argc,
 
     char cmd[MAX_CMD_SIZE], args[MAX_ARGS_SIZE], image[MAX_IMAGE_SIZE];
     while (!feof(f)) {
-        char line[MAX_LINE_SIZE];
+        char line[MAX_LINE_SIZE], *l;
 
         cmd[0] = args[0] = image[0] = line[0] = '\0';
 
@@ -89,7 +88,11 @@ main(int argc,
          * kernel /k1om/sbin/cpu 0 1006840 loglevel=4
          *
          */
-        fgets(line, MAX_LINE_SIZE, f);
+        l = fgets(line, MAX_LINE_SIZE, f);
+        if (!l) {
+            /* error or EOF, check for EOF with next iteration */
+            continue;
+        }
         sscanf(line, "%s %s %lu %lu %[^\n]", cmd, image, &offset, &length, args);
 
         if (!strcmp(cmd, "kernel")) {
@@ -99,7 +102,6 @@ main(int argc,
             kernel_length = length;
             kernel_offset = offset;
             sprintf(kernel_cmd_line, "%s %s", image, args);
-            got_kernel = 1;
         } else if (!strcmp(cmd, "module")) {
             assert(n_modules < MAX_MODULES);
             module_cmd_line[n_modules] = malloc(strlen(line) + 1);

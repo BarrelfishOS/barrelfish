@@ -163,6 +163,11 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
     genpaddr_t last_end_addr = 0;
 
+    char *clean_mmap_addr;
+    uint32_t clean_mmap_length;
+    cleanup_bios_regions(mmap_addr, &clean_mmap_addr, &clean_mmap_length);
+
+
     for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
