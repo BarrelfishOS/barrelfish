@@ -46,10 +46,6 @@
 #include <dev/ia32_dev.h>
 #include <dev/amd64_dev.h>
 
-uint64_t kstart = 0;
-uint64_t kend = 0;
-
-
 /**
  * Used to store the address of global struct passed during boot across kernel
  * relocations.
@@ -581,7 +577,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint64_t magic, void *pointer)
 {
-    kstart = rdtsc();
     // Sanitize the screen
     conio_cls();
     // Initialize serial, only initialize HW if we are

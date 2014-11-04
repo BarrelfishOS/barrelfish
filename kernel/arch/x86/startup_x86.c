@@ -599,20 +599,6 @@ void kernel_startup(void)
                 debug(SUBSYS_STARTUP, "scheduling '%s' from restored state\n",
                       dst->name);
             }
-
-            // measure time to update
-            extern uint64_t x86_64_start_ap;
-            extern uint64_t x86_64_init_ap_dispatch;
-            volatile uint64_t *ap_dispatch = (volatile uint64_t *) local_phys_to_mem(
-                                             (lpaddr_t)&x86_64_init_ap_dispatch -
-                                             ((lpaddr_t)&x86_64_start_ap) +
-                                             X86_64_REAL_MODE_LINEAR_OFFSET);
-            *ap_dispatch = 1;
-            // end of time to update
-            kend = rdtsc();
-            //printf("Time to boot = %"PRIu64" cycles\n", kend-kstart);
-            *ap_dispatch = kend-kstart;
-
             // interrupt state should be fine, as it's used directly from the
             // kcb.
             dispatch(next);

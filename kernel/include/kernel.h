@@ -34,9 +34,6 @@
 
 extern coreid_t my_core_id;
 
-extern uint64_t kstart;
-extern uint64_t kend;
-
 bool arch_core_is_bsp(void);
 
 /*
