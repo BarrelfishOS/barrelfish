@@ -594,7 +594,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
                 // Increase by 2 to leave room for SR-IOV
                 (*busnum) += 2;
-                assert(*busnum <= maxchild);
+                //assert(*busnum <= maxchild);
 
                 PCI_DEBUG("program busses for bridge (%hhu,%hhu,%hhu)\n"
                           "primary: %hhu, secondary: %hhu, subordinate: %hhu\n",
