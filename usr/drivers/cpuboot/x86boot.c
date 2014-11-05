@@ -78,32 +78,10 @@ invoke_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 
     /*struct capref task_cap_kernel;
     task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;*/
+    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
 
     return cap_invoke4(kernel_cap, KernelCmd_Spawn_core, core_id, cpu_type,
-                       entry).error;
-}
-
-static inline errval_t invoke_send_init_ipi(coreid_t core_id)
-{
-    return cap_invoke2(kernel_cap, KernelCmd_Init_IPI_Send,
-                       core_id).error;
-}
-
-static inline errval_t invoke_send_start_ipi(coreid_t core_id, forvaddr_t entry)
-{
-    return cap_invoke3(kernel_cap, KernelCmd_Start_IPI_Send,
-                       core_id, entry).error;
-}
-
-static inline errval_t invoke_get_global_paddr(genpaddr_t* global)
-{ 
-    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
-    if (err_is_ok(sr.error)) {
-        *global = sr.value;
-    }
-
-    return sr.error;
+                       entry).error;*/
 }
 
 static char* get_binary_path(char* fmt, char* binary_name)
@@ -223,7 +201,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    err = invoke_get_global_paddr(&global);
+    err = invoke_get_global_paddr(kernel_cap, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);

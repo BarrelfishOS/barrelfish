@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
-#include <barrelfish/invocations_arch.h>
+//#include <barrelfish/invocations_arch.h>
 #include <barrelfish_kpi/capabilities.h>
 
 #include <elf/elf.h>

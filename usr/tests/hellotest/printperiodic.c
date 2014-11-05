@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
         for (volatile int i = 0; i < ITERATIONS; i++);
         uint64_t end = bench_tsc();
 
-        printf("On core %"PRIuCOREID" %lu %lu %lu\n", disp_get_current_core_id(), 
+        printf("On core %"PRIuCOREID" %"PRIu64" %"PRIu64" %"PRIu64"\n", disp_get_current_core_id(), 
                 ITERATIONS/(end-start), end-start, bench_tsc_to_ms(end-start));
     }
 
