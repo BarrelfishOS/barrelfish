@@ -571,7 +571,7 @@ find_path(struct fat_mount *mount, const char *path,
         char dosfn[12];
         uint16_t lfn_data[LFN_CHAR_COUNT];
         bool has_lfn;
-        char buf[LFN_CHAR_COUNT];
+        char buf[LFN_CHAR_COUNT + 1];
 
         do {
 
