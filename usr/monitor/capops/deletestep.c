@@ -22,9 +22,16 @@ static void delete_steps_cont(void *st);
 static void delete_steps_clear(void *st);
 static void delete_queue_notify(void);
 
+struct waitset*
+delete_steps_get_waitset(void)
+{
+    return delete_queue.waitset;
+}
+
 void
 delete_steps_init(struct waitset *ws)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     event_queue_init(&trigger_queue, ws, EVENT_QUEUE_CONTINUOUS);
@@ -61,7 +68,8 @@ delete_steps_trigger(void)
 void
 delete_steps_pause(void)
 {
-    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    DEBUG_CAPOPS("%s: called from %p\n", __FUNCTION__,
+            __builtin_return_address(0));
     suspended++;
 }
 
@@ -72,6 +80,7 @@ delete_steps_resume(void)
     assert(suspended > 0);
     suspended--;
     if (!suspended) {
+        DEBUG_CAPOPS("%s: !suspended, continuing\n", __FUNCTION__);
         event_queue_add(&trigger_queue, &trigger_qn, step_closure);
         enqueued = true;
     }
@@ -94,15 +103,18 @@ delete_steps_cont(void *st)
     assert(enqueued);
     enqueued = false;
     if (suspended) {
+        DEBUG_CAPOPS("%s: suspended (%d); return\n", __FUNCTION__, suspended);
         return;
     }
 
     err = monitor_delete_step(delcap);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
         // XXX
+        DEBUG_CAPOPS("%s: cap locked\n", __FUNCTION__);
         caplock_wait(get_cap_domref(NULL_CAP), &caplock_qn, step_closure);
     }
     if (err_no(err) == SYS_ERR_DELETE_LAST_OWNED) {
+        DEBUG_CAPOPS("%s: deleting last owned\n", __FUNCTION__);
         assert(!delete_step_st.result_handler);
         delete_step_st.result_handler = delete_steps_delete_result;
         delete_step_st.st = NULL;
@@ -121,10 +133,12 @@ delete_steps_cont(void *st)
             send_new_ram_cap(delcap);
         }
         if (!enqueued) {
+            DEBUG_CAPOPS("%s: !enqueued, adding to queue\n", __FUNCTION__);
             event_queue_add(&trigger_queue, &trigger_qn, step_closure);
             enqueued = true;
         }
     }
+    DEBUG_CAPOPS("%s: done\n", __FUNCTION__);
 }
 
 static void

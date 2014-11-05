@@ -99,12 +99,14 @@ send_new_ram_cap(struct capref cap)
 
 static void delete_wait__fin(void *st_)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct delete_st *st = (struct delete_st*)st_;
     delete_result__rx(SYS_ERR_OK, st, false);
 }
 
 static void delete_last(struct delete_st* del_st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     bool locked = true;
 
@@ -117,6 +119,7 @@ static void delete_last(struct delete_st* del_st)
         err = SYS_ERR_OK;
     }
 
+    DEBUG_CAPOPS("%s: deleted last copy\n", __FUNCTION__);
     // at this point the cap has become "unlocked" because it is either deleted
     // or in a clear/delete queue
     locked = false;
@@ -125,11 +128,14 @@ static void delete_last(struct delete_st* del_st)
         goto report_error;
     }
 
+    DEBUG_CAPOPS("%s: waiting on delete queue\n", __FUNCTION__);
     delete_queue_wait(&del_st->qn, MKCLOSURE(delete_wait__fin, del_st));
 
     return;
 
 report_error:
+    DEBUG_CAPOPS("%s: reporting error: %s\n", __FUNCTION__,
+            err_getstring(err));
     delete_result__rx(err, del_st, locked);
 }
 
@@ -409,6 +415,7 @@ delete_trylock_cont(void *st)
 
     if (!(relations && RRELS_COPY_BIT)) {
         // no remote relations, proceed with final delete
+        DEBUG_CAPOPS("%s: deleting last copy\n", __FUNCTION__);
         delete_last(del_st);
     }
     else if (distcap_is_moveable(del_st->cap.type)) {
@@ -439,10 +446,13 @@ capops_delete(struct domcapref cap,
               void *st)
 {
     errval_t err;
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
 
     // try a simple delete
+    DEBUG_CAPOPS("%s: trying simple delete\n", __FUNCTION__);
     err = dom_cnode_delete(cap);
     if (err_no(err) != SYS_ERR_RETRY_THROUGH_MONITOR) {
+        DEBUG_CAPOPS("%s: err != RETRY\n", __FUNCTION__);
         goto err_cont;
     }
 
@@ -475,5 +485,6 @@ free_st:
     free(del_st);
 
 err_cont:
+    DEBUG_CAPOPS("%s: calling result handler with err=%d\n", __FUNCTION__, err);
     result_handler(err, st);
 }

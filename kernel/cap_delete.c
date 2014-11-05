@@ -648,5 +648,9 @@ errval_t caps_revoke(struct cte *cte)
 {
     TRACE_CAP_MSG("revoking", cte);
 
+    if (cte->mdbnode.locked) {
+        return SYS_ERR_CAP_LOCKED;
+    }
+
     return SYS_ERR_RETRY_THROUGH_MONITOR;
 }

@@ -1,10 +1,15 @@
 #include <if/intermon_defs.h>
 #include <capops.h>
+#include "monitor_debug.h"
 #include "internal.h"
 #include "delete_int.h"
 
 errval_t capops_init(struct waitset *ws, struct intermon_binding *b)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+
+    assert(ws != NULL);
+
     b->rx_vtbl.capops_request_copy            = request_copy__rx;
     b->rx_vtbl.capops_recv_copy               = recv_copy__rx;
     b->rx_vtbl.capops_recv_copy_result        = recv_copy_result__rx;

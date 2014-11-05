@@ -45,6 +45,7 @@ static void revoke_result__rx(errval_t result,
                               bool locked);
 static void revoke_retrieve__rx(errval_t result, void *st_);
 static void revoke_local(struct revoke_master_st *st);
+static void revoke_no_remote(struct revoke_master_st *st);
 static errval_t revoke_mark__send(struct intermon_binding *b,
                                   intermon_caprep_t *caprep,
                                   struct capsend_mc_st *mc_st);
@@ -88,6 +89,14 @@ capops_revoke(struct domcapref cap,
         capops_retrieve(rst->cap, revoke_retrieve__rx, st);
     }
     else {
+        if (num_monitors == 1) {
+            DEBUG_CAPOPS("%s: only one monitor: do simpler revoke\n",
+                    __FUNCTION__);
+            // no remote monitors exist; do simplified revocation process
+            revoke_no_remote(rst);
+            // return here
+            return;
+        }
         // have ownership, initiate revoke
         revoke_local(rst);
     }
@@ -106,6 +115,7 @@ revoke_result__rx(errval_t result,
                   struct revoke_master_st *st,
                   bool locked)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     if (locked) {
@@ -141,6 +151,8 @@ revoke_retrieve__rx(errval_t result, void *st_)
 static void
 revoke_local(struct revoke_master_st *st)
 {
+    DEBUG_CAPOPS("%s: called from %p\n", __FUNCTION__,
+            __builtin_return_address(0));
     errval_t err;
 
     delete_steps_pause();
@@ -150,9 +162,45 @@ revoke_local(struct revoke_master_st *st)
                                      st->cap.bits);
     PANIC_IF_ERR(err, "marking revoke");
 
+    // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
     err = capsend_relations(&st->rawcap, revoke_mark__send, &st->revoke_mc_st);
     PANIC_IF_ERR(err, "initiating revoke mark multicast");
+}
 
+static void
+revoke_no_remote(struct revoke_master_st *st)
+{
+    assert(num_monitors == 1);
+
+    if (!delete_steps_get_waitset()) {
+        delete_steps_init(get_default_waitset());
+    }
+
+    errval_t err;
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+
+    // pause deletion steps
+    DEBUG_CAPOPS("%s: delete_steps_pause()\n", __FUNCTION__);
+    delete_steps_pause();
+
+    // mark target of revoke
+    DEBUG_CAPOPS("%s: mon_revoke_mark_tgt()\n", __FUNCTION__);
+    err = monitor_revoke_mark_target(st->cap.croot,
+                                     st->cap.cptr,
+                                     st->cap.bits);
+    PANIC_IF_ERR(err, "marking revoke");
+
+
+    // resume delete steps
+    DEBUG_CAPOPS("%s: delete_steps_resume()\n", __FUNCTION__);
+    delete_steps_resume();
+
+    // wait on delete queue, marking that remote cores are done
+    st->remote_fin = true;
+    DEBUG_CAPOPS("%s: delete_queue_wait()\n", __FUNCTION__);
+    struct event_closure steps_fin_cont
+        = MKCLOSURE(revoke_master_steps__fin, st);
+    delete_queue_wait(&st->del_qn, steps_fin_cont);
 }
 
 static errval_t
@@ -162,9 +210,8 @@ revoke_mark__send(struct intermon_binding *b,
 {
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
-    st = (struct revoke_master_st*)((char*)mc_st - off);
-    return intermon_capops_revoke_mark__tx(b, NOP_CONT, *caprep,
-                                           (lvaddr_t)st);
+    st = (struct revoke_master_st*)((uintptr_t)mc_st - off);
+    return intermon_capops_revoke_mark__tx(b, NOP_CONT, *caprep, (lvaddr_t)st);
 }
 
 void
@@ -172,6 +219,7 @@ revoke_mark__rx(struct intermon_binding *b,
                 intermon_caprep_t caprep,
                 genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
 
@@ -227,14 +275,17 @@ revoke_ready__send(struct intermon_binding *b,
 void
 revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;
     if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
+        DEBUG_CAPOPS("%s: waiting for remote cores\n", __FUNCTION__);
         // multicast not complete
         return;
     }
 
+    DEBUG_CAPOPS("%s: sending commit\n", __FUNCTION__);
     err = capsend_relations(&rvk_st->rawcap, revoke_commit__send, &rvk_st->revoke_mc_st);
     PANIC_IF_ERR(err, "enqueing revoke_commit multicast");
 

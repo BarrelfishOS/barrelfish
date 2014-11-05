@@ -148,12 +148,8 @@ capsend_mc_init(struct capsend_mc_st *mc_st, struct capability *cap,
 
 bool capsend_handle_mc_reply(struct capsend_mc_st *st)
 {
-    if (!--st->num_pending) {
-        return true;
-    }
-    else {
-        return false;
-    }
+    // return true iff st->num_pending == 0 after acking one more reply
+    return --st->num_pending == 0;
 }
 
 /*
@@ -164,7 +160,11 @@ static errval_t
 capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_send_fn send_cont)
 {
     errval_t err;
-    int dest_count = num_monitors;
+    // do not count self when calculating #dest cores
+    int dest_count = num_monitors - 1;
+    DEBUG_CAPOPS("%s: dest_count = %d\n", __FUNCTION__, dest_count);
+    DEBUG_CAPOPS("%s: num_queued = %d\n", __FUNCTION__, bc_st->num_queued);
+    DEBUG_CAPOPS("%s: num_pending = %d\n", __FUNCTION__, bc_st->num_pending);
     err = capsend_mc_init(bc_st, cap, send_cont, dest_count, true);
     if (err_is_fail(err)) {
         free(bc_st);

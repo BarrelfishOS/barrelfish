@@ -29,7 +29,9 @@ void
 caplock_unlock(struct domcapref cap)
 {
     errval_t err = monitor_unlock_cap(cap.croot, cap.cptr, cap.bits);
-    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+    if (err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
+        err == err_push(SYS_ERR_CAP_NOT_FOUND, SYS_ERR_IDENTIFY_LOOKUP))
+    {
         DEBUG_ERR(err, "unlocking cap");
     }
     else if (err_is_fail(err)) {
