@@ -460,10 +460,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     kcb_current = (struct kcb *)
         local_phys_to_mem((lpaddr_t) kcb_current);
-    printk(LOG_DEBUG, "%s:%s:%d: kcb->is_valid = %d\n",
-           __FILE__, __FUNCTION__, __LINE__, kcb_current->is_valid);
-
-    kcb_home = kcb_current;
 
     /*
      * Also reset the global descriptor table (GDT), so we get

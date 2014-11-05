@@ -341,54 +341,6 @@ static inline void __mwait(unsigned long eax, unsigned long ecx)
                           :: "a" (eax), "c" (ecx));
 }
 
-/**
- * \brief Request to stop the current core
- */
-#include "startup.h"
-#include <barrelfish_kpi/init.h>
-#define CNODE(cte)     (cte)->cap.u.cnode.cnode
-static struct sysret monitor_stop_core(struct capability *kernel_cap,
-                                       int cmd, uintptr_t *args)
-{
-    printk(LOG_ERR, "monitor_stop_core id=%d\n", my_core_id);
-
-    /*extern struct spawn_state spawn_state;
-    struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
-                                                  TASKCN_SLOT_MON_URPC);
-    int  err = paging_x86_64_map_memory(urpc_frame_cte->cap.u.frame.base, 4096);
-    assert (err == 0);
-    lpaddr_t urpc_ptr = local_phys_to_mem(urpc_frame_cte->cap.u.frame.base);
-    printf("%s:%s:%d: waiting on urpc 0x%"PRIxGENPADDR" 0x%"PRIxLPADDR"\n",
-           __FILE__, __FUNCTION__, __LINE__, urpc_frame_cte->cap.u.frame.base, urpc_ptr);*/
-
-    printf("%s:%s:%d: before monitor...\n", __FILE__, __FUNCTION__, __LINE__);
-    //apic_mask_timer();
-    //apic_disable();
-
-    //dcb_current->disabled = false;
-
-    global->wait[0] = 0x1;
-    if (has_monitor_mwait()) {
-        printf("%s:%s:%d: before monitor/mwait\n", __FILE__, __FUNCTION__, __LINE__);
-        monitor_mwait((lvaddr_t)&(global->wait[0]), 0x1, 0, 0);
-    }
-    else {
-        printf("%s:%s:%d: before halt \n", __FILE__, __FUNCTION__, __LINE__);
-
-        halt();
-    }
-
-    printf("%s:%s:%d: woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
-    /**
-     * This means we reenable on an IRQ an jump in irq handler
-     * in irq.c, after that we segfault in the kernel
-     */
-    //__asm__ __volatile__ ("sti");
-    //halt();
-
-    return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
-}
-
 static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
@@ -415,10 +367,6 @@ static struct sysret kernel_remove_kcb(struct capability *kern_cap,
     uint64_t kcb_addr = args[0];
 
     struct kcb *to_remove = (struct kcb *)kcb_addr;
-<<<<<<< HEAD
-
-=======
->>>>>>> 4a353c9... Remove no longer necessary assertion and print.
     return SYSRET(kcb_remove(to_remove));
 }
 
