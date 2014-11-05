@@ -80,10 +80,18 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
 
     assert(retdomainid != NULL);
 
+    // inherit the session capability
+    struct capref inheritcn_cap;
+    err = alloc_inheritcn_with_sidcap(&inheritcn_cap, cap_sessionid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
+    }
+
     argv[argc] = NULL;
     debug_printf("calling spawn_program\n");
-    err = spawn_program(coreid, prog, argv, NULL, SPAWN_NEW_DOMAIN,
-                        retdomainid);
+    err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
+                                  NULL_CAP, SPAWN_NEW_DOMAIN, retdomainid);
+
 
     if (prog != argv[0]) {
         free(prog);
