@@ -116,6 +116,13 @@ struct  gate_descriptor {
  */
 #define NIDT    256             /* 32 reserved, 16 h/w, 0 s/w, linux's 0x80 */
 
+/// Number of (reserved) hardware exceptions
+#define NEXCEPTIONS             32
+
+/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
+#define NDISPATCH               (NIDT - NEXCEPTIONS)
+
+
 /*
  * Entries in the Global Descriptor Table (GDT)
  */
@@ -203,6 +210,7 @@ struct task_state_segment {
 
 void setup_default_idt(void);
 
+errval_t irq_table_alloc(int *outvec);
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint);
 errval_t irq_table_delete(unsigned int nidt);
 

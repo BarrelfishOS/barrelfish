@@ -66,7 +66,7 @@ struct kcb {
     //driver whose kernel_now > this kcb's kernel_off.
     int64_t kernel_off;
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__i386__)
     struct cte irq_dispatch[NDISPATCH];
 #endif
     // TODO: maybe add a shared part which can replace struct core_data?
@@ -74,8 +74,6 @@ struct kcb {
 
 ///< The kernel control block
 extern struct kcb *kcb_current;
-///< The home kernel control block, interrupts get handled based on this kcb
-extern struct kcb *kcb_home;
 ///< flag that indicates whether kcb scheduling should happen
 extern bool kcb_sched_suspended;
 

@@ -13,7 +13,6 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#pragma GCC diagnostic ignored "-Wunused-function"
 
 #include <inttypes.h>
 #include "monitor.h"
@@ -665,41 +664,6 @@ static void spawnd_image_request(struct intermon_binding *b)
     assert(err_is_ok(err));
 }
 
-static void stop_core(void* arg)
-{
-    //printf("%s:%s:%d: execute stop core\n",
-    //       __FILE__, __FUNCTION__, __LINE__);
-
-    //errval_t err = invoke_monitor_stop_core();
-    /*if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not stop the core.");
-    }*/
-    disp_save_suspend();
-
-    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
-
-    struct intermon_binding *b = (struct intermon_binding *) arg;
-    errval_t err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending boot_core_reply failed");
-    }
-    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
-}
-
-static void power_down_request(struct intermon_binding *b)
-{
-    errval_t err;
-    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
-
-    err = b->tx_vtbl.power_down_response(b, MKCONT(stop_core, b));
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Sending response failed.");
-    }
-
-    //printf("%s:%s:%d woken up again...\n", __FILE__, __FUNCTION__, __LINE__);
-    //USER_PANIC("Return from power down request?");
-}
-
 static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_rep)
 {
     errval_t err;
@@ -777,20 +741,6 @@ static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
     mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
 }
 
-extern struct monitor_binding* cpuboot_driver;
-
-static void power_down_response(struct intermon_binding* b)
-{
-    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
-    errval_t err;
-    err = cpuboot_driver->tx_vtbl.power_down_response(cpuboot_driver, NOP_CONT, 1);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cpuboot driver failed.");
-    }
-
-}
-
-
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -818,9 +768,6 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_timer_sync_reply     = inter_rsrc_timer_sync_reply,
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
-
-    .power_down_request = power_down_request,
-    .power_down_response = power_down_response,
 
     .give_kcb_request = give_kcb_request,
     .give_kcb_response = give_kcb_response,

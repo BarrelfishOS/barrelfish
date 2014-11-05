@@ -306,13 +306,6 @@ struct dcb *schedule(void)
 
     // Update executed time of last dispatched task
     if(lastdisp != NULL) {
-<<<<<<< HEAD
-        if (lastdisp->last_dispatch > kernel_now) {
-            printf("%s:%s:%d: lastdisp->last_dispatch(%lu) <= kernel_now(%zu)\n",
-                   __FILE__, __FUNCTION__, __LINE__, lastdisp->last_dispatch, kernel_now);
-        }
-=======
->>>>>>> 5e70008... Remove print statement in rbed.
         assert(lastdisp->last_dispatch <= kernel_now);
         if(lastdisp->release_time <= kernel_now) {
             lastdisp->etime += kernel_now -
@@ -331,7 +324,7 @@ struct dcb *schedule(void)
         } \
         struct dispatcher_shared_generic *dst = \
             get_dispatcher_shared_generic(d->disp); \
-        debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%zu, kernel_now=%zu\n", \
+        debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%lu, kernel_now=%zu\n", \
                 dst->name, d->release_time, kernel_now); \
     }while(0)
 

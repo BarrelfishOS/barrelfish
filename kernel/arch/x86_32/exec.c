@@ -206,10 +206,6 @@ void __attribute__ ((noreturn)) wait_for_interrupt(void)
  *
  * Returns when the 64-bit word at base is not equal to lastval.
  */
-// TODO XXX: Where should this propotype live?
-void monitor_mwait(lvaddr_t base, uint64_t lastval, uint32_t extensions,
-                   uint32_t hints);
-
 void monitor_mwait(lvaddr_t base, uint64_t lastval, uint32_t extensions,
                    uint32_t hints)
 {

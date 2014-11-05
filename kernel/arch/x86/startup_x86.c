@@ -550,18 +550,15 @@ void kernel_startup(void)
         bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
         /* spawn init */
-    init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
+        init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
         // if we have a kernel control block, use it
         if (kcb_current && kcb_current->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");
-            assert(kcb_current == kcb_home);
-            //kernel_loglevel = 5;
-
             print_kcb();
-            errval_t err;
+
             // restore mdb
-            err = mdb_init(kcb_current);
+            errval_t err = mdb_init(kcb_current);
             if (err_is_fail(err)) {
                 panic("couldn't restore mdb");
             }

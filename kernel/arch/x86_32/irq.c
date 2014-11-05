@@ -67,6 +67,8 @@
 #include <arch/x86/timing.h>
 #include <arch/x86/syscall.h>
 #include <barrelfish_kpi/cpu_arch.h>
+#include <kcb.h>
+#include <mdb/mdb_tree.h>
 
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <fpu.h>
@@ -340,17 +342,14 @@ HW_EXCEPTION_NOERR(666);
 #define ERR_PF_RESERVED         (1 << 3)
 #define ERR_PF_INSTRUCTION      (1 << 4)
 
-/// Number of (reserved) hardware exceptions
-#define NEXCEPTIONS             32
-
-/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
-#define NDISPATCH               (NIDT - NEXCEPTIONS)
-
 /**
  * \brief Interrupt Descriptor Table (IDT) for processor this kernel is running
  * on.
  */
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
+
+// this is used to pin a kcb for critical sections
+bool kcb_sched_suspended = false;
 
 /**
  * \brief User-space IRQ dispatch table.
@@ -407,6 +406,34 @@ static void send_user_interrupt(int irq)
 #else
     dispatch(schedule());
 #endif
+}
+
+errval_t irq_table_alloc(int *outvec)
+{
+    assert(outvec);
+    // XXX: this is O(#kcb*NDISPATCH)
+    int i;
+    for (i = 0; i < NDISPATCH; i++) {
+        struct kcb *k = kcb_current;
+        bool found_free = true;
+        do {
+            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+                found_free = false;
+                break;
+            }
+            k=k->next?k->next:k;
+        } while(k != kcb_current);
+        if (found_free) {
+            break;
+        }
+    }
+    if (i == NDISPATCH) {
+        *outvec = -1;
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        *outvec = i;
+        return SYS_ERR_OK;
+    }
 }
 
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)

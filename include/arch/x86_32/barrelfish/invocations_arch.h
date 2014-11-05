@@ -427,6 +427,22 @@ static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
+static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
+    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret ret = syscall2(
+                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE, 
+                    invoke_cptr);
+    if (err_is_ok(ret.error)) {
+        *retirq = ret.value;
+    } else {
+        *retirq = 0;
+    }
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
                                            struct capref ep)
 {
@@ -564,7 +580,6 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
                                              idcap_id_t *id)
 {
     assert(id != NULL);
-
     uint8_t invoke_bits = get_cap_valid_bits(idcap);
     capaddr_t invoke_cptr = get_cap_addr(idcap) >> (CPTR_BITS - invoke_bits);
 
@@ -574,4 +589,39 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
                  invoke_cptr, (uintptr_t) id);
 
     return sysret.error;
+}
+
+static inline errval_t invoke_send_init_ipi(struct capref kernel_cap, coreid_t core_id)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+
+    return
+        syscall3((invoke_bits << 16) | (KernelCmd_Init_IPI_Send << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) core_id).error;
+}
+
+static inline errval_t invoke_send_start_ipi(struct capref kernel_cap, coreid_t core_id, forvaddr_t entry)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+
+    return
+        syscall4((invoke_bits << 16) | (KernelCmd_Start_IPI_Send << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) core_id, (uintptr_t) entry).error;
+
+}
+
+static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
+{ 
+    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret sr = syscall2((invoke_bits << 16) | (KernelCmd_GetGlobalPhys << 8) | SYSCALL_INVOKE,
+             invoke_cptr);
+    if (err_is_ok(sr.error)) {
+        *global = sr.value;
+    }
+
+    return sr.error;
 }

@@ -28,7 +28,6 @@
 struct cte bspkcbcap;
 struct kcb bspkcb; ///< HACK! Remove and don't reference this, kcb points here in case we're bsp
 struct kcb *kcb_current;
-struct kcb *kcb_home;
 
 coreid_t my_core_id;
 

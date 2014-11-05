@@ -41,6 +41,9 @@
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/startup_x86.h>
+#include <arch/x86/start_aps.h>
+#include <coreboot.h>
+#include <kcb.h>
 
 #include "xapic_dev.h" // XXX
 
@@ -540,6 +543,9 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
 #endif
 
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT
@@ -551,7 +557,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     kernel_startup_early();
 
     // XXX: re-init the serial driver, in case the port changed after parsing args
-    serial_console_init();
+    serial_console_init(false);
 
     // Setup IDT
     setup_default_idt();
@@ -627,7 +633,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 #endif
 
     /* Register start handler for other cores in the system */
-    set_spawn_core_handler(CPU_X86_64, start_aps_x86_32_start);
+    coreboot_set_spawn_handler(CPU_X86_32, start_aps_x86_32_start);
 
     // Call main kernel startup function -- this should never return
     kernel_startup();
@@ -674,7 +680,9 @@ void arch_init(uint32_t magic, void *pointer)
 #ifndef __scc__
     conio_cls();
 #endif
-    serial_console_init();
+    // Initialize serial, only initialize HW if we are
+    // the first kernel
+    serial_console_init((magic == MULTIBOOT_INFO_MAGIC));
 
     /* determine page-aligned physical address past end of multiboot */
     lvaddr_t dest = (lvaddr_t)&_start_kernel;
@@ -720,6 +728,10 @@ void arch_init(uint32_t magic, void *pointer)
             glbl_core_data->cmdline = mb->cmdline;
             glbl_core_data->mmap_length = mb->mmap_length;
             glbl_core_data->mmap_addr = mb->mmap_addr;
+
+            extern struct kcb bspkcb;
+            memset(&bspkcb, 0, sizeof(bspkcb));
+            kcb_current = &bspkcb;
         }
         break;
 
@@ -754,6 +766,7 @@ void arch_init(uint32_t magic, void *pointer)
         glbl_core_data = core_data;
         glbl_core_data->cmdline = (lpaddr_t)&core_data->kernel_cmdline;
         my_core_id = core_data->dst_core_id;
+        kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
         elf = &core_data->elf;
         break;
 

@@ -255,6 +255,42 @@ static inline errval_t invoke_monitor_sync_timer(uint64_t synctime)
                     synctime & 0xffffffff).error;
 }
 
+static inline errval_t
+invoke_monitor_add_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_Add_kcb << 8) | SYSCALL_INVOKE,
+                    invoke_cptr,
+                    kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_remove_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_Remove_kcb << 8) | SYSCALL_INVOKE,
+                    invoke_cptr,
+                    kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_suspend_kcb_scheduler(bool suspend)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
+    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
+
+    return syscall3((invoke_bits << 16) | (KernelCmd_Suspend_kcb_sched << 8) | SYSCALL_INVOKE,
+                    invoke_cptr,
+                    suspend).error;
+}
+
 #ifdef __scc__
 static inline errval_t invoke_monitor_spawn_scc_core(uint8_t id,
                                                      genpaddr_t urpcframe_base,

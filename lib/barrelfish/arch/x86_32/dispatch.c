@@ -244,3 +244,56 @@ void disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
 
     __asm volatile ("save_resume:");
 }
+
+
+/**
+ * \brief Save register state, remove our KCB from current CPU.
+ */
+void disp_save_rm_kcb(void)
+{
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+    arch_registers_state_t *state =
+        dispatcher_get_enabled_save_area(handle);
+    assert_disabled(disp->disabled);
+
+    struct registers_x86_32 *regs = state;
+
+    // Save resume IP, stack and control registers
+    // See disp_switch above for details
+    // XXX: Using the clobber list here to make the compiler save only
+    // used registers. Be very careful when changing the code below
+    // this asm block! If registers in the clobber list are
+    // subsequently used, they won't be restored at save_resume.
+    __asm volatile ("movl       %%ebp,  6*4(%[regs])    \n\t"
+                    "movl       %%esp,  7*4(%[regs])    \n\t"
+                    // XXX: This is not PIC! - Need to fix
+                    "lea        save_rm_kcb_resume, %%ecx      \n\t"
+                    "movl       %%ecx,  8*4(%[regs])    \n\t"   // EIP
+                    "pushfl                             \n\t"
+                    "popl       9*4(%[regs])            \n\t"   // EFLAGS
+                    "movl       %%cs, %%ecx             \n\t"
+                    "movl       %%ecx, 10*4(%[regs])    \n\t"   // CS
+                    "movl       %%ss, %%ecx             \n\t"
+                    "movl       %%ecx, 11*4(%[regs])    \n\t"   // SS
+                    "mov        %%fs, %[fs]             \n\t"
+                    "mov        %%gs, %[gs]             \n\t"
+                    :
+                    : [regs] "a" (regs),
+                      [fs] "m" (regs->fs),
+                      [gs] "m" (regs->gs)
+                    : "ecx", "edx", "esi", "edi"
+                    );
+
+    // don't halt but remove kcb of this domain
+    sys_suspend(false);
+
+    // this code won't run if the yield succeeded
+
+    // enter thread scheduler again
+    // this doesn't return, and will call disp_yield if there's nothing to do
+    thread_run_disabled(handle);
+
+    __asm volatile ("save_rm_kcb_resume:");
+}
