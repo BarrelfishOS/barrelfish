@@ -41,7 +41,6 @@ struct arrakis_bind_retst {
 
 static void spawn_bind_cont(void *st, errval_t err, struct spawn_binding *b)
 {
-    debug_printf("bind_cont\n");
     struct spawn_bind_retst *retst = st;
     assert(retst != NULL);
     assert(!retst->present);
@@ -83,7 +82,6 @@ static errval_t bind_client(coreid_t coreid)
         }
 
        // initiate bind
-       debug_printf("doing spawn_bind, iref = %d\n", iref);
         struct spawn_bind_retst bindst = { .present = false };
         err = spawn_bind(iref, spawn_bind_cont, &bindst, get_default_waitset(),
                          IDC_BIND_FLAGS_DEFAULT);
@@ -96,7 +94,6 @@ static errval_t bind_client(coreid_t coreid)
         while (!bindst.present) {
             messages_wait_and_handle_next();
         }
-        debug_printf("bound to spawnd\n");
 
         if(err_is_fail(bindst.err)) {
             return bindst.err;
@@ -145,7 +142,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid)
 {
-    debug_printf("%s: %s\n", __FUNCTION__, path);
     errval_t err, msgerr;
 
     // default to copying our environment
@@ -153,13 +149,11 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         envp = environ;
     }
 
-    debug_printf("%s: binding spawn client if necessary\n", __FUNCTION__);
     err = bind_client(coreid);
     if (err_is_fail(err)) {
         return err;
     }
 
-    debug_printf("%s: getting spawn client\n", __FUNCTION__);
     struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
     assert(cl != NULL);
 
@@ -219,7 +213,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     struct waitset *mon_ws = mb->waitset;
     mb->change_waitset(mb, &cl->rpc_waitset);
 
-    debug_printf("calling spawn_domain(_with_caps)\n");
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
         err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
                                     envstr, envstrlen, flags,
@@ -234,7 +227,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     } else if (err_is_fail(msgerr)) {
         goto out;
     }
-    debug_printf("after spawn_domain(_with_caps)\n");
 
     if (ret_domainid != NULL) {
         *ret_domainid = domain_id;
