@@ -36,7 +36,7 @@
 #ifdef __k1om__
 #define STARTUP_TIMEOUT         0xffffff
 #else
-#define STARTUP_TIMEOUT         0xffffff
+#define STARTUP_TIMEOUT         0x0fffffff
 #endif
 /**
  * start_ap and start_ap_end mark the start end the end point of the assembler
