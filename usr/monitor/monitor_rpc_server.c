@@ -505,12 +505,16 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     errval_t err, err2;
     err = invoke_irqtable_alloc_vector(cap_irq, &vec);
     if (err_is_fail(err)) {
+        err = err_push(err, MON_ERR_INVOKE_IRQ_ALLOCATE);
         err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, 0);
     }
     // we got a vector
 
     /* set it and reply */
     err = invoke_irqtable_set(cap_irq, vec, ep);
+    if (err_is_fail(err)) {
+        err = err_push(err, MON_ERR_INVOKE_IRQ_SET);        
+    }
     err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
     assert(err_is_ok(err2));
 }

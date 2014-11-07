@@ -481,6 +481,10 @@ errors monitor MON_ERR_ {
     failure RSRC_MEMBER_LIMIT    "Reached member limit of resource domain",
     failure RSRC_ILL_MANIFEST    "Illegal manifest",
     failure RSRC_NOT_FOUND    "Resource domain not found on this core",
+
+    // Invocations
+    failure INVOKE_IRQ_ALLOCATE "Unable to allocate IRQ vector",
+    failure INVOKE_IRQ_SET "Unable to install IRQ vector",
 };
 
 // errors related to the routing library
