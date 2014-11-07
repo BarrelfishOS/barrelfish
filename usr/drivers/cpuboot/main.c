@@ -123,7 +123,7 @@ static int list_kcb(int argc, char **argv) {
     return 0;
 }
 
-static errval_t get_apic_id(coreid_t core_id, archid_t* apic_id)
+static errval_t get_processor_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
 {
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
@@ -131,15 +131,16 @@ static errval_t get_apic_id(coreid_t core_id, archid_t* apic_id)
         goto out;
     }
 
-    uint64_t apic, enabled;
-    err = oct_read(record, "_ { apic_id: %d, enabled: %d }",
-                   &apic, &enabled);
+    uint64_t apic, enabled, type;
+    err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
+                   &apic, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) {
         goto out;
     }
 
     *apic_id = (archid_t) apic;
+    *cpu_type = (enum cpu_type) type;
 out:
     free(record);
     return err;
@@ -182,7 +183,8 @@ static int boot_cpu(int argc, char **argv)
     assert(target_id < MAX_COREID);
     
     archid_t target_apic_id;
-    errval_t err = get_apic_id(target_id, &target_apic_id);
+    enum cpu_type cpu_type;
+    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -212,7 +214,7 @@ static int boot_cpu(int argc, char **argv)
     }
 
     err = spawn_xcore_monitor(target_id, target_apic_id, 
-                              CPU_X86_64, cmd_kernel_args,
+                              cpu_type, cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "spawn xcore monitor failed.");
@@ -228,7 +230,8 @@ static int update_cpu(int argc, char** argv)
     assert(target_id < MAX_COREID);
     
     archid_t target_apic_id;
-    errval_t err = get_apic_id(target_id, &target_apic_id);
+    enum cpu_type cpu_type;
+    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -244,7 +247,7 @@ static int update_cpu(int argc, char** argv)
     struct frame_identity urpc_frame_id;
     err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+        USER_PANIC_ERR(err, "frame_alloc_identify  failed.");
     }
     err = cap_mark_remote(frame);
     if (err_is_fail(err)) {
@@ -259,7 +262,7 @@ static int update_cpu(int argc, char** argv)
     }
 
     done = true;
-    err = spawn_xcore_monitor(target_id, target_apic_id, CPU_X86_64,
+    err = spawn_xcore_monitor(target_id, target_apic_id, cpu_type,
                               cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
@@ -276,7 +279,8 @@ static int stop_cpu(int argc, char** argv)
     assert(target_id < MAX_COREID);
 
     archid_t target_apic_id;
-    errval_t err = get_apic_id(target_id, &target_apic_id);
+    enum cpu_type cpu_type;
+    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }

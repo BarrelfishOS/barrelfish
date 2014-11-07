@@ -95,17 +95,17 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     // Construct additional command line arguments containing pci-id.
     // We need one extra entry for the new argument.
-    uint64_t barrelfish_id, apic_id;
+    uint64_t barrelfish_id, apic_id, cpu_type;
     char **argv = mi->argv;
     bool cleanup = false;
     size_t argc = mi->argc;
 
     KALUGA_DEBUG("Starting x86boot for %s", record);
-    err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d }",
-            &apic_id, &barrelfish_id);
+    err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d, type: %d }",
+            &apic_id, &barrelfish_id, &cpu_type);
     if (err_is_ok(err)) {
-        skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
-                     barrelfish_id, apic_id);
+        skb_add_fact("corename(%"PRIu64", %s, apic(%"PRIu64")).",
+                     barrelfish_id, cpu_type_to_archstr(cpu_type), apic_id);
         if (barrelfish_id == my_core_id) {
             return SYS_ERR_OK;
         }

@@ -28,6 +28,7 @@ enum cpu_type {
     CPU_TYPE_NUM // must be last
 };
 
+#include <string.h>
 #include <barrelfish/static_assert.h>
 
 static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
@@ -42,6 +43,19 @@ static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
     case CPU_ARM5:      return "armv5";
     default:            return "(unknown)";
     }
+}
+
+static inline const enum cpu_type archstr_to_cputype(char* archstr)
+{
+    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
+    
+    if(strcmp("k1om", archstr) == 0) return CPU_K1OM;
+    if(strcmp("x86_64", archstr) == 0) return CPU_X86_64;
+    if(strcmp("x86_32", archstr) == 0) return CPU_X86_32;
+    if(strcmp("scc", archstr) == 0) return CPU_SCC;
+    if(strcmp("armv7", archstr) == 0) return CPU_ARM7;
+    if(strcmp("armv5", archstr) == 0) return CPU_ARM5;
+    return CPU_TYPE_NUM;
 }
 
 #endif

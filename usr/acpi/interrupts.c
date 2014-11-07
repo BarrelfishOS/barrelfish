@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/cpu_arch.h>
 #include <acpi.h>
 #include <mm/mm.h>
 
@@ -197,10 +198,10 @@ int init_all_apics(void)
                 else {
                     barrelfish_id = barrelfish_id_counter++;
                 }
-                errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: %d, barrelfish_id: %d }",
+                errval_t err = oct_set("hw.processor.%d { processor_id: %d, apic_id: %d, enabled: %d, barrelfish_id: %d, type: %d }",
                                          barrelfish_id, s->ProcessorId, s->Id,
                                          s->LapicFlags & ACPI_MADT_ENABLED,
-                                         barrelfish_id);
+                                         barrelfish_id, CURRENT_CPU_TYPE);
                 assert(err_is_ok(err));
 
                 skb_add_fact("apic(%d,%d,%"PRIu32").",
