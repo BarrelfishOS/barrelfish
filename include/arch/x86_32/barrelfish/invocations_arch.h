@@ -640,11 +640,7 @@ static inline errval_t invoke_send_start_ipi(struct capref kernel_cap, coreid_t 
 
 static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
 { 
-    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sr = syscall2((invoke_bits << 16) | (KernelCmd_GetGlobalPhys << 8) | SYSCALL_INVOKE,
-             invoke_cptr);
+    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
     if (err_is_ok(sr.error)) {
         *global = sr.value;
     }

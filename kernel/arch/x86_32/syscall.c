@@ -655,6 +655,40 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     return sys_idcap_identify(cap, idp);
 }
 
+static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
+                                          uintptr_t *args)
+{
+    coreid_t destination = args[0];
+    apic_send_init_assert(destination, xapic_none);
+    apic_send_init_deassert();
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_send_start_ipi(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+    coreid_t destination = args[0];
+    genvaddr_t start_vector = X86_32_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_32_REAL_MODE_SEGMENT);
+    apic_send_start_up(destination, xapic_none, start_vector);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret kernel_get_global_phys(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+
+    struct sysret sysret;
+    sysret.value = mem_to_local_phys((lvaddr_t)global);
+    sysret.error = SYS_ERR_OK;
+
+    return sysret;
+}
+
 #ifdef __scc__
 static struct sysret kernel_rck_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
@@ -791,6 +825,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
 #endif
+        [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
+        [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
+        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
+        //[KernelCmd_Add_kcb]      = kernel_add_kcb,
+        //[KernelCmd_Remove_kcb]   = kernel_remove_kcb,
+        //[KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
