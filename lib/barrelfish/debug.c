@@ -16,6 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/debug.h>
+#include <barrelfish/sys_debug.h>
 #include <barrelfish/dispatch.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <stdarg.h>

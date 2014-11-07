@@ -245,7 +245,7 @@ handle_delete(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_delete(root, cptr, bits, false);
+    return sys_delete(root, cptr, bits);
 }
 
 static struct sysret
@@ -262,7 +262,7 @@ handle_revoke(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_revoke(root, cptr, bits, false);
+    return sys_revoke(root, cptr, bits);
 }
 
 static struct sysret
@@ -399,7 +399,7 @@ monitor_create_cap(
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                                slot, owner, src));
 }
 
 static struct sysret dispatcher_dump_ptables(
@@ -503,6 +503,8 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 // does the sender want to yield to the target
                 // if undeliverable?
                 bool yield = flags & LMP_FLAG_YIELD;
+                // is the cap (if present) to be deleted on send?
+                bool give_away = flags & LMP_FLAG_GIVEAWAY;
 
                 // Message registers in context are
                 // discontinguous for now so copy message words
@@ -522,7 +524,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits);
+                                      length_words, send_cptr, send_bits, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)
