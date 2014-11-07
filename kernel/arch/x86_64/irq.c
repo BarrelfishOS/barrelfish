@@ -508,16 +508,6 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
         err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
-
-        printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
-#if 0
-        if (err_is_ok(err)) {
-            // Unmask interrupt if on PIC
-            if(nidt < 16) {
-                pic_toggle_irq(nidt, true);
-            }
-        }
-#endif
         return err;
     } else {
         return SYS_ERR_IRQ_INVALID;
@@ -528,9 +518,6 @@ errval_t irq_table_delete(unsigned int nidt)
 {
     if(nidt < NDISPATCH) {
         kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
-#if 0
-        pic_toggle_irq(nidt, false);
-#endif
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_IRQ_INVALID;
