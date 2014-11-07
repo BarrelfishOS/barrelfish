@@ -26,6 +26,7 @@
 #include <init.h>
 #include <dev/xapic_dev.h>
 #include <target/x86_64/offsets_target.h>
+#include <target/x86_32/offsets_target.h>
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
@@ -48,7 +49,16 @@ extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
 extern uint64_t x86_64_init_ap_dispatch;
 
-volatile uint64_t *dispatch[255];
+extern uint64_t x86_32_start_ap;
+extern uint64_t x86_32_start_ap_end;
+extern uint64_t x86_32_init_ap_absolute_entry;
+extern uint64_t x86_32_init_ap_wait;
+extern uint64_t x86_32_init_ap_lock;
+extern uint64_t x86_32_start;
+extern uint64_t x86_32_init_ap_global;
+extern uint64_t x86_32_init_ap_dispatch;
+
+
 volatile uint64_t *ap_dispatch;
 extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
@@ -119,10 +129,6 @@ errval_t get_architecture_config(enum cpu_type type,
     }
 
     return SYS_ERR_OK;
-}
-
-int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry) {
-    // TODO: Implement that!
 }
 
 /**
@@ -214,7 +220,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                    ((lpaddr_t) &x86_64_init_ap_dispatch -
                    ((lpaddr_t) &x86_64_start_ap) +
                     real_dest);
-    dispatch[core_id] = ap_dispatch;
     *ap_dispatch = 0;
 
     // Pointer to the lock variable in the realmode code
@@ -259,6 +264,116 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     return -1;
 }
 
+
+int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
+{
+    DEBUG("%s:%d: start_aps_x86_32_start\n", __FILE__, __LINE__);
+
+    // Copy the startup code to the real-mode address
+    uint8_t *real_src = (uint8_t *) &x86_32_start_ap;
+    uint8_t *real_end = (uint8_t *) &x86_32_start_ap_end;
+
+    struct capref bootcap;
+    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    errval_t error_code;
+    errval_t err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
+                                                    &bootcap, &error_code);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
+    }
+    if (err_is_fail(error_code)) {
+        USER_PANIC_ERR(error_code, "mm_alloc_range_proxy return failed.");
+    }
+
+    void* real_base;
+    err = vspace_map_one_frame(&real_base, 1<<16, bootcap, NULL, NULL);
+    uint8_t* real_dest = (uint8_t*)real_base + X86_32_REAL_MODE_LINEAR_OFFSET;
+
+/*
+    DEBUG("%s:%d: X86_32_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_32_REAL_MODE_LINEAR_OFFSET);
+    DEBUG("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
+    DEBUG("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
+    DEBUG("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
+    DEBUG("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
+*/
+
+    memcpy(real_dest, real_src, real_end - real_src);
+
+    /* Pointer to the entry point called from init_ap.S */
+    volatile uint64_t *absolute_entry_ptr = (volatile uint64_t *)
+                                            ((
+                                             (lpaddr_t) &x86_32_init_ap_absolute_entry -
+                                             (lpaddr_t) &x86_32_start_ap
+                                            )
+                                            +
+                                            real_dest);
+    //copy the address of the function start (in boot.S) to the long-mode
+    //assembler code to be able to perform an absolute jump
+    *absolute_entry_ptr = entry;
+
+    // pointer to the shared global variable amongst all kernels
+    volatile uint64_t *ap_global = (volatile uint64_t *)
+                                   ((
+                                    (lpaddr_t) &x86_32_init_ap_global -
+                                    (lpaddr_t) &x86_32_start_ap
+                                   )
+                                   + real_dest);
+
+
+    genpaddr_t global;
+    err = invoke_get_global_paddr(kernel_cap, &global);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke spawn core");
+        return err_push(err, MON_ERR_SPAWN_CORE);
+    }
+    *ap_global = (uint64_t)(genpaddr_t)global;
+
+    // pointer to the pseudo-lock used to detect boot up of new core
+    volatile uint32_t *ap_wait = (volatile uint32_t *)
+                                         ((lpaddr_t) &x86_32_init_ap_wait -
+                                         ((lpaddr_t) &x86_32_start_ap) +
+                                         real_dest);
+
+    // Pointer to the lock variable in the realmode code
+    volatile uint8_t *ap_lock = (volatile uint8_t *)
+                                        ((lpaddr_t) &x86_32_init_ap_lock -
+                                        ((lpaddr_t) &x86_32_start_ap) +
+                                        real_dest);
+
+    *ap_wait = AP_STARTING_UP;
+
+    end = bench_tsc();
+    err = invoke_send_init_ipi(kernel_cap, core_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke send init ipi");
+        return err;
+    }
+
+    err = invoke_send_start_ipi(kernel_cap, core_id, entry);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke sipi");
+        return err;
+    }
+
+    //give the new core a bit time to start-up and set the lock
+    for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
+        if (*ap_lock != 0) {
+            break;
+        }
+    }
+
+    // If the lock is set, the core has been started, otherwise assume, that
+    // a core with this APIC ID doesn't exist.
+    if (*ap_lock != 0) {
+        while (*ap_wait != AP_STARTED);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_CORE_START_REQUEST_ACK, core_id);
+        *ap_lock = 0;
+        return 0;
+    }
+
+    assert(!"badness");
+    return -1;
+}
 
 /**
  * Allocates memory for kernel binary.
@@ -559,8 +674,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     /* Invoke kernel capability to boot new core */
-    assert(!"call 32bit boot function here!")
-    start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
+    if (cpu_type == CPU_X86_64) {
+        start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
+    }
+    else if (cpu_type == CPU_X86_32) {
+        start_aps_x86_32_start(hwid, foreign_cpu_reloc_entry);
+    }
 
     /* Clean up */
     // XXX: Should not delete the remote caps?

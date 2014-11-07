@@ -23,7 +23,7 @@
 
 #define AP_STARTING_UP 1
 #define AP_STARTED     2
-#define STARTUP_TIMEOUT         0xffffff
+#define STARTUP_TIMEOUT         0xfffffff
 
 int start_aps_k1om_start(coreid_t core_id, genvaddr_t entry);
 int start_aps_x86_64_start(coreid_t core_id, genvaddr_t entry);
