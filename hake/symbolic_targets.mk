@@ -265,7 +265,8 @@ MODULES_x86_32=\
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
 	sbin/angler \
-	sbin/sshd
+	sbin/sshd \
+	sbin/x86boot
 
 # SCC-specific module to build by default
 MODULES_scc=\
