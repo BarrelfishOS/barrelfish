@@ -64,26 +64,6 @@ static errval_t elfload_allocate(void *state, genvaddr_t base,
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Spawn a new core.
- *
- * \param core_id    APIC ID of the core to try booting
- * \param cpu_type   Type of core to boot
- * \param entry      Kernel entry point in physical memory
- */
-static inline errval_t
-invoke_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                  forvaddr_t entry)
-{
-
-    /*struct capref task_cap_kernel;
-    task_cap_kernel.cnode = cnode_task;
-    task_cap_kernel.slot = TASKCN_SLOT_KERNELCAP;
-
-    return cap_invoke4(kernel_cap, KernelCmd_Spawn_core, core_id, cpu_type,
-                       entry).error;*/
-}
-
 static char* get_binary_path(char* fmt, char* binary_name)
 {
     assert (binary_name != NULL);
@@ -232,13 +212,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
     end = bench_tsc();
-    err = invoke_send_init_ipi(core_id);
+    err = invoke_send_init_ipi(kernel_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
 
-    err = invoke_send_start_ipi(core_id, entry);
+    err = invoke_send_start_ipi(kernel_cap, core_id, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
