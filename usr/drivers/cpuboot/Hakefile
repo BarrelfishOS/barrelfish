@@ -12,7 +12,7 @@
 
 let template = application {
         cFiles = filter ((/=) "bench.c") (find withSuffices [".c"]),
-        assemblyFiles = ["init_ap_x86_64.S"],
+        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
         addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
         addIncludes = ["../../../kernel/include/arch/x86_64/", "../../../kernel/include" ],
         flounderDefs = ["monitor_blocking", "monitor"],

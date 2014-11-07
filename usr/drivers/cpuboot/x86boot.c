@@ -91,17 +91,27 @@ errval_t get_architecture_config(enum cpu_type type,
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_kernel_binary == NULL) ?
                         "/x86_64/sbin/monitor" :
-                        get_binary_path("/x86_64/sbin/%s", cmd_monitor_binary);
+                        get_binary_path("/x86_64/sbin/%s", 
+                                        cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                         "/x86_64/sbin/cpu" :
-                        get_binary_path("/x86_64/sbin/%s", cmd_kernel_binary);
+                        get_binary_path("/x86_64/sbin/%s", 
+                                        cmd_kernel_binary);
     }
         break;
 
     case CPU_X86_32:
+    {
         *arch_page_size = X86_32_BASE_PAGE_SIZE;
-        *monitor_binary = "x86_32/sbin/monitor";
-        *cpu_binary = "x86_32/sbin/cpu";
+        *monitor_binary = (cmd_kernel_binary == NULL) ?
+                        "/x86_32/sbin/monitor" :
+                        get_binary_path("/x86_32/sbin/%s", 
+                                        cmd_monitor_binary);
+        *cpu_binary = (cmd_kernel_binary == NULL) ?
+                        "/x86_32/sbin/cpu" :
+                        get_binary_path("/x86_32/sbin/%s", 
+                                        cmd_kernel_binary);
+    }
         break;
 
     default:
@@ -109,6 +119,10 @@ errval_t get_architecture_config(enum cpu_type type,
     }
 
     return SYS_ERR_OK;
+}
+
+int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry) {
+    // TODO: Implement that!
 }
 
 /**
@@ -218,21 +232,14 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
         return err;
     }
 
+    // x86 protocol actually would like us to do this twice
     err = invoke_send_start_ipi(kernel_cap, core_id, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
     }
 
-    /*err = invoke_send_start_ipi(core_id, entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "invoke sipi");
-        return err;
-    }*/
-
-
-
-    //give the new core a bit time to start-up and set the lock
+    // Give the new core a bit time to start-up and set the lock
     for (uint64_t i = 0; i < STARTUP_TIMEOUT; i++) {
         if (*ap_lock != 0) {
             break;
@@ -552,6 +559,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     /* Invoke kernel capability to boot new core */
+    assert(!"call 32bit boot function here!")
     start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
 
     /* Clean up */
