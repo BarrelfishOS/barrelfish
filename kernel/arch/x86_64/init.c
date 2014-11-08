@@ -621,8 +621,8 @@ void arch_init(uint64_t magic, void *pointer)
     }
 
     // XXX: print kernel address for debugging with gdb
-    //printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
-    //       local_phys_to_mem(dest));
+    printf("Kernel starting at address 0x%"PRIxLVADDR"\n",
+           local_phys_to_mem(dest));
 
     struct x86_coredata_elf *elf;
     uint32_t multiboot_flags;
