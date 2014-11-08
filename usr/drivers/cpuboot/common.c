@@ -45,12 +45,6 @@ static errval_t add_kcb_record(uint32_t kcb_id, coreid_t core_id, char* kcb_key)
     return err;
 }
 
-static errval_t update_kcb_core_id(uint32_t kcb_id, coreid_t core_id)
-{
-    assert(!"NYI");
-}
-
-
 errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
 {
     errval_t err;

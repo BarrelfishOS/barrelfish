@@ -17,14 +17,7 @@
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
 
-// From kernels start_aps.c
-#include <kernel.h>
-#include <arch/x86/apic.h>
 #include <arch/x86/start_aps.h>
-#include <x86.h>
-#include <arch/x86/cmos.h>
-#include <init.h>
-#include <dev/xapic_dev.h>
 #include <target/x86_64/offsets_target.h>
 #include <target/x86_32/offsets_target.h>
 
@@ -47,7 +40,6 @@ extern uint64_t x86_64_init_ap_wait;
 extern uint64_t x86_64_init_ap_lock;
 extern uint64_t x86_64_start;
 extern uint64_t x86_64_init_ap_global;
-extern uint64_t x86_64_init_ap_dispatch;
 
 extern uint64_t x86_32_start_ap;
 extern uint64_t x86_32_start_ap_end;
@@ -56,7 +48,6 @@ extern uint64_t x86_32_init_ap_wait;
 extern uint64_t x86_32_init_ap_lock;
 extern uint64_t x86_32_start;
 extern uint64_t x86_32_init_ap_global;
-extern uint64_t x86_32_init_ap_dispatch;
 
 
 volatile uint64_t *ap_dispatch;
@@ -169,14 +160,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     err = vspace_map_one_frame(&real_base, 1<<16, bootcap, NULL, NULL);
     uint8_t* real_dest = (uint8_t*)real_base + X86_64_REAL_MODE_LINEAR_OFFSET;
 
-/*
-    DEBUG("%s:%d: X86_64_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_64_REAL_MODE_LINEAR_OFFSET);
-    DEBUG("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
-    DEBUG("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
-    DEBUG("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
-    DEBUG("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
-*/
-
     memcpy(real_dest, real_src, real_end - real_src);
 
     /* Pointer to the entry point called from init_ap.S */
@@ -213,14 +196,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
                                          ((lpaddr_t) &x86_64_init_ap_wait -
                                          ((lpaddr_t) &x86_64_start_ap) +
                                          real_dest);
-
-    // pointer to the pseudo-lock that is set before dispatch,
-    // to measure time it takes to update the kernel
-    ap_dispatch = (volatile uint64_t *)
-                   ((lpaddr_t) &x86_64_init_ap_dispatch -
-                   ((lpaddr_t) &x86_64_start_ap) +
-                    real_dest);
-    *ap_dispatch = 0;
 
     // Pointer to the lock variable in the realmode code
     volatile uint8_t *ap_lock = (volatile uint8_t *)
@@ -288,14 +263,6 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
     void* real_base;
     err = vspace_map_one_frame(&real_base, 1<<16, bootcap, NULL, NULL);
     uint8_t* real_dest = (uint8_t*)real_base + X86_32_REAL_MODE_LINEAR_OFFSET;
-
-/*
-    DEBUG("%s:%d: X86_32_REAL_MODE_LINEAR_OFFSET=%p\n", __FILE__, __LINE__, (void*)X86_32_REAL_MODE_LINEAR_OFFSET);
-    DEBUG("%s:%d: real_dest=%p\n", __FILE__, __LINE__, real_dest);
-    DEBUG("%s:%d: real_src=%p\n", __FILE__, __LINE__, real_src);
-    DEBUG("%s:%d: real_end=%p\n", __FILE__, __LINE__, real_end);
-    DEBUG("%s:%d: size=%lu\n", __FILE__, __LINE__, (uint64_t)real_end-(uint64_t)real_src);
-*/
 
     memcpy(real_dest, real_src, real_end - real_src);
 

@@ -55,11 +55,6 @@ struct bench_data {
     uint64_t elf_reloc;
 };
 struct bench_data *bench_data;
-extern volatile uint64_t* ap_dispatch;
-extern volatile uint64_t *dispatch[];
-
-// TODO(gz): Remove!
-#pragma GCC diagnostic ignored "-Wunused-function"
 
 // common.c
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr);
