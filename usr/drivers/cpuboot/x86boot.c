@@ -621,11 +621,14 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 
 
     struct frame_identity fid;
-    invoke_frame_identify(kcb, &fid);
+    err = invoke_frame_identify(kcb, &fid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
+                            "Did you add the syscall handler for that architecture?");
+    }
     DEBUG("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, fid.base);
     core_data->kcb = (genpaddr_t) fid.base;
-
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id           = chanid;
 #endif

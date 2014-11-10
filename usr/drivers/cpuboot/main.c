@@ -506,7 +506,7 @@ int main (int argc, char **argv)
     initialize();
     int ret = -1;
 
-    DEBUG("x86boot start");
+    DEBUG("x86boot start\n");
     
     // ENSURE_SEQUENTIAL
     errval_t err;
@@ -517,7 +517,7 @@ int main (int argc, char **argv)
     }
     //
 
-    DEBUG("x86boot got lock");
+    DEBUG("x86boot got lock\n");
     // Parse arguments, call handler function
     int c;
     while (1) {

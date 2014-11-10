@@ -56,7 +56,9 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
             if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "start function failed.");
+                printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n", 
+                       barrelfish_id);
+                goto out;
             }
             assert(err_is_ok(err));
         }

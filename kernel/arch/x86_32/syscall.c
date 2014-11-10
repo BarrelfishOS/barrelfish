@@ -575,6 +575,20 @@ static struct sysret handle_frame_scc_identify(struct capability *to,
 }
 #endif
 
+static struct sysret handle_kcb_identify(struct capability *to,
+                                         int cmd, uintptr_t *args)
+{
+    // Return with physical base address of frame
+    // XXX: pack size into bottom bits of base address
+    assert(to->type == ObjType_KernelControlBlock);
+    lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
+    assert((vkcb & BASE_PAGE_MASK) == 0);
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
+    };
+}
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint32_t    port = args[0];
@@ -763,6 +777,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]   = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]      = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+    },
+    [ObjType_KernelControlBlock] = {
+        [FrameCmd_Identify] = handle_kcb_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,

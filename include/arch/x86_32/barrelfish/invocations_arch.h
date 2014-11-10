@@ -291,12 +291,7 @@ static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_c
 static inline errval_t invoke_frame_identify(struct capref frame,
                                              struct frame_identity *ret)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret =
-        syscall2((invoke_bits << 16) | (FrameCmd_Identify << 8)
-                 | SYSCALL_INVOKE, invoke_cptr);
+    struct sysret sysret = cap_invoke1(frame, FrameCmd_Identify);
 
     assert(ret != NULL);
     if (err_is_ok(sysret.error)) {

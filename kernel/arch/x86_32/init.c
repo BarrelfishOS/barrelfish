@@ -773,6 +773,10 @@ void arch_init(uint32_t magic, void *pointer)
         break;
     }
 
+    if (kcb_current == 0x0) {
+        panic("Did not receive a valid KCB.");
+    }
+
     if(magic != KERNEL_BOOT_MAGIC) {
         // Construct the global structure and store its address to retrive it
         // across relocation
