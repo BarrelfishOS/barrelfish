@@ -1163,8 +1163,11 @@ int main(int argc, char** argv)
     uint64_t arg1 = (uint64_t)atoi(argv[1]);
 
 #ifdef BOMP
-    bomp_bomp_init(arg1);
-#endif /* BOMP */
-
-    realmain((void*)arg1);
+    bomp_bomp_init_varstack(arg1, STACK_SIZE);
+    // need to create thread with large enough stack on Barrelfish, as BF
+    // thread stacks are not dynamically resized.
+    bomp_run_main(realmain, (void*)arg1, STACK_SIZE);
+#else
+    return realmain((void*)arg1);
+#endif
 }
