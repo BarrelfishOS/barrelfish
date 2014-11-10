@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
 
 #define ITERATIONS 1000000000
 
