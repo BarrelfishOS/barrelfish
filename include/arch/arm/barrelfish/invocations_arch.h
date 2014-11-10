@@ -417,6 +417,22 @@ static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
+static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
+    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret ret = syscall2(
+                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE, 
+                    invoke_cptr);
+    if (err_is_ok(ret.error)) {
+        *retirq = ret.value;
+    } else {
+        *retirq = 0;
+    }
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
                                            struct capref ep)
 {

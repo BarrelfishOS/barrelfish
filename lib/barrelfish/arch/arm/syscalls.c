@@ -29,6 +29,11 @@ errval_t sys_print(const char* string, size_t length)
     return syscall3(SYSCALL_PRINT, (uintptr_t)string, (uintptr_t)length).error;
 }
 
+errval_t sys_suspend(bool halt)
+{
+    return syscall2(SYSCALL_SUSPEND, halt).error;
+}
+
 errval_t sys_yield(capaddr_t target)
 {
     STATIC_ASSERT_SIZEOF(target, sizeof(uintptr_t));

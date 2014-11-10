@@ -742,7 +742,7 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     //printf("kernel_startup_early done!\n");
 
     //initialize console
-    serial_init(serial_console_port);
+    serial_init(serial_console_port, true);
     spinlock_init();
 
     printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
@@ -803,7 +803,7 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     reset_cycle_counter();
 #endif
 
-    coreboot_set_spawn_handler(CPU_ARM, start_aps_arm_start);
+    coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
 
     arm_kernel_startup();
 }

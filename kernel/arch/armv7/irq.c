@@ -23,15 +23,9 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
+#include <kcb.h>
 #include <arch/armv7/start_aps.h>
 
-/*
- * Interrupt controller (Cortex-A9 MPU INTC) with up to 128 interrupt requests
- */
-#define NUM_INTR                (128+32)
-
-/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
-#define NDISPATCH               (NUM_INTR)
 
 #define GIC_IRQ_PRIO_LOWEST       (0xF)
 #define GIC_IRQ_CPU_TRG_ALL       (0x3) // For two cores on the PandaBoard
@@ -106,6 +100,30 @@ errval_t irq_table_delete(unsigned int nidt)
         return SYS_ERR_OK;
     }
     return SYS_ERR_IRQ_INVALID;
+}
+
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    uintptr_t msg[] = { 1 };
+    for (int i = 0; i < NDISPATCH; i++) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            struct capability *cap = &kcb->irq_dispatch[i].cap;
+            // 1 word message as notification
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            if (err_is_fail(err)) {
+                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                    struct dispatcher_shared_generic *disp =
+                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                            DISP_NAME_LEN, disp->name);
+                } else {
+                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+                }
+            }
+        }
+        kcb->irq_dispatch[i].cap.type = ObjType_Null;
+    }
+    return SYS_ERR_OK;
 }
 
 /**
