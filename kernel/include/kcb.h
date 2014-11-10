@@ -66,9 +66,7 @@ struct kcb {
     //driver whose kernel_now > this kcb's kernel_off.
     int64_t kernel_off;
 
-#if defined(__x86_64__) || defined(__i386__)
     struct cte irq_dispatch[NDISPATCH];
-#endif
     // TODO: maybe add a shared part which can replace struct core_data?
 };
 

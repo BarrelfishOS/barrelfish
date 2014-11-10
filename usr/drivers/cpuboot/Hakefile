@@ -19,7 +19,8 @@ let template = application {
         flounderBindings = ["intermon"],
         mackerelDevices = [],
         flounderExtraBindings = [],
-        flounderTHCStubs = []
+        flounderTHCStubs = [],
+        architectures = ["x86_32", "x86_64"]
     }
 in [
     build template {

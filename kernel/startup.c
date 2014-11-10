@@ -158,12 +158,6 @@ struct dcb *spawn_module(struct spawn_state *st,
 #else
 #error invalid scheduler
 #endif
-    /*err = caps_create_new(ObjType_KernelControlBlock, alloc_phys(1 << OBJBITS_KCB),
-                        OBJBITS_KCB, OBJBITS_KCB, &bspkcbcap);
-    assert(err_is_ok(err));
-    memcpy(bspkcbcap.cap.u.kernelcontrolblock.kcb, kcb_current, sizeof(struct kcb));
-    kcb_current = bspkcbcap.cap.u.kernelcontrolblock.kcb;
-    kcb_home = kcb_current;*/
 
     err = caps_create_new(ObjType_CNode, alloc_phys(BASE_PAGE_SIZE),
                         BASE_PAGE_BITS, DEFAULT_CNODE_BITS, rootcn);

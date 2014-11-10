@@ -341,44 +341,6 @@ static inline void __mwait(unsigned long eax, unsigned long ecx)
                           :: "a" (eax), "c" (ecx));
 }
 
-static struct sysret kernel_add_kcb(struct capability *kern_cap,
-                                    int cmd, uintptr_t *args)
-{
-    uint64_t kcb_addr = args[0];
-    struct kcb *new_kcb = (struct kcb *)kcb_addr;
-    kcb_add(new_kcb);
-
-    // update kernel_now offset
-    new_kcb->kernel_off -= kernel_now;
-    // reset scheduler statistics
-    scheduler_reset_time();
-    // update current core id of all domains
-    kcb_update_core_id(new_kcb);
-    // upcall domains with registered interrupts to tell them to re-register
-    irq_table_notify_domains(new_kcb);
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-static struct sysret kernel_remove_kcb(struct capability *kern_cap,
-                                       int cmd, uintptr_t *args)
-{
-    printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
-    uint64_t kcb_addr = args[0];
-
-    struct kcb *to_remove = (struct kcb *)kcb_addr;
-    return SYSRET(kcb_remove(to_remove));
-}
-
-static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
-                                              int cmd, uintptr_t *args)
-{
-    printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
-    kcb_sched_suspended = (bool)args[0];
-    return SYSRET(SYS_ERR_OK);
-}
-
-
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
@@ -550,22 +512,6 @@ static struct sysret handle_frame_modify_flags(struct capability *to,
         .value = 0,
     };
 }
-
-static struct sysret handle_kcb_identify(struct capability *to,
-                                         int cmd, uintptr_t *args)
-{
-    // Return with physical base address of frame
-    // XXX: pack size into bottom bits of base address
-    assert(to->type == ObjType_KernelControlBlock);
-    lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
-    assert((vkcb & BASE_PAGE_MASK) == 0);
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
-    };
-}
-
-
 
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {

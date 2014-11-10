@@ -348,9 +348,6 @@ HW_EXCEPTION_NOERR(666);
  */
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 
-// this is used to pin a kcb for critical sections
-bool kcb_sched_suspended = false;
-
 /// System call entry point
 void syscall_entry(void);
 

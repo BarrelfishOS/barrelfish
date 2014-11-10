@@ -16,6 +16,9 @@
 #include <kcb.h>
 #include <dispatch.h>
 
+// this is used to pin a kcb for critical sections
+bool kcb_sched_suspended = false;
+
 void kcb_add(struct kcb* new_kcb)
 {
     if (kcb_current->next) {

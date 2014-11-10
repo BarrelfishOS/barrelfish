@@ -575,20 +575,6 @@ static struct sysret handle_frame_scc_identify(struct capability *to,
 }
 #endif
 
-static struct sysret handle_kcb_identify(struct capability *to,
-                                         int cmd, uintptr_t *args)
-{
-    // Return with physical base address of frame
-    // XXX: pack size into bottom bits of base address
-    assert(to->type == ObjType_KernelControlBlock);
-    lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
-    assert((vkcb & BASE_PAGE_MASK) == 0);
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
-    };
-}
-
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint32_t    port = args[0];
@@ -845,9 +831,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
         [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
-        //[KernelCmd_Add_kcb]      = kernel_add_kcb,
-        //[KernelCmd_Remove_kcb]   = kernel_remove_kcb,
-        //[KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched
+        [KernelCmd_Add_kcb]      = kernel_add_kcb,
+        [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
+        [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,
