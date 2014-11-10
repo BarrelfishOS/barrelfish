@@ -30,6 +30,7 @@ const char *mdb_invariants[] = {
 };
 #undef X
 // on failure, dump mdb and terminate
+__attribute__((noreturn))
 static void
 mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
 {
