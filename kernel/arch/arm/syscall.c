@@ -22,7 +22,7 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
-#include <armv7_syscall.h>
+#include <arch/arm/syscall_arm.h>
 #include <start_aps.h>
 #include <useraccess.h>
 
@@ -38,6 +38,15 @@ func( \
 #define INVOCATION_PRELUDE(n) \
     assert(n == argc); \
     struct registers_arm_syscall_args* sa = &context->syscall_args
+
+#ifdef __ARCH_ARM_5__
+#define NYI(str) printf("armv5: %s\n", str)
+#elif __ARCH_ARM_7M__
+#define NYI(str) printf("armv7-m: %s\n", str)
+#else
+#define NYI(str) printf("(arch?): %s\n", str)
+#endif
+
 
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
@@ -55,8 +64,8 @@ void sys_syscall_kernel(void)
 struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                                      genvaddr_t entry)
 {
-#ifdef __ARM_ARCH_7M__
-printf("armv7-m can not spawn new cores yet");
+#if defined (__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
+    NYI("can not spawn new cores yet");
 #else
 	int r;
 	switch(cpu_type) {
@@ -72,7 +81,7 @@ printf("armv7-m can not spawn new cores yet");
         return SYSRET(SYS_ERR_CORE_NOT_FOUND);
         break;
 	}
-#endif //defined(__ARM_ARCH_7M__)
+#endif //defined(__ARM_ARCH_7M__)||defined(__ARCH_ARM_5__)
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -730,8 +739,8 @@ static struct sysret handle_irq_table_set( struct capability* to,
         int argc
         )
 {
-#ifdef __ARM_ARCH_7M__
-    printf("armv7-m can not handle userspace IRQs yet\n");
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
+    NYI("can not handle userspace IRQs yet");
     return SYSRET(SYS_ERR_IRQ_INVALID);
 #else
     struct registers_arm_syscall_args* sa = &context->syscall_args;
@@ -746,8 +755,8 @@ static struct sysret handle_irq_table_delete( struct capability* to,
         int argc
         )
 {
-#ifdef __ARM_ARCH_7M__
-    printf("armv7-m can not handle userspace IRQs yet\n");
+#if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
+    NYI("can not handle userspace IRQs yet");
     return SYSRET(SYS_ERR_IRQ_INVALID);
 #else
     struct registers_arm_syscall_args* sa = &context->syscall_args;

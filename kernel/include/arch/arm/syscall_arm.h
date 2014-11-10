@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief armv7-specific system calls implementation.
+ * \brief arm-specific system calls implementation.
  */
 
 /*
@@ -12,8 +12,8 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ARMV7_SYSCALL_H
-#define ARMV7_SYSCALL_H
+#ifndef KERNEL_ARM_SYSCALL_H
+#define KERNEL_ARM_SYSCALL_H
 
 #include <capabilities.h>
 
@@ -29,4 +29,5 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
 //it is NOT the set of arguments given to the syscall
 errval_t sys_resume_context(arch_registers_state_t* registers);
 
-#endif // ARMV7_SYSCALL_H
+#endif // KERNEL_ARM_SYSCALL_H
+
