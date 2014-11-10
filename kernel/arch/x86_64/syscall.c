@@ -933,7 +933,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
-        [KernelCmd_Stop_core]    = monitor_stop_core,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
