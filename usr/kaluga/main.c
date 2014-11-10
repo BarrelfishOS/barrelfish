@@ -140,6 +140,9 @@ int main(int argc, char** argv)
     err = init_cap_manager();
     assert(err_is_ok(err));
 
+    err = oct_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
+
     struct module_info* mi = find_module("fdif");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}");
@@ -170,6 +173,7 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
         assert(err_is_ok(err));
     }
+
     mi = find_module("usb_manager");
     if (mi != NULL) {
 #define USB_ARM_EHCI_IRQ 109
