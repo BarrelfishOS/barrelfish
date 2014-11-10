@@ -25,8 +25,9 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 
-struct cte bspkcbcap;
-struct kcb bspkcb; ///< HACK! Remove and don't reference this, kcb points here in case we're bsp
+// HACK! Remove and don't reference this, kcb points here in case we're bsp
+// This should be exposed as regular cap.
+struct kcb bspkcb; 
 struct kcb *kcb_current;
 
 coreid_t my_core_id;

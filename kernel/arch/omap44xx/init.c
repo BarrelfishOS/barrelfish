@@ -35,6 +35,7 @@
 #include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
 #include <cortexm3_heteropanda.h>
 #include <coreboot.h>
+#include <kcb.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -737,6 +738,9 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     //printf("invalidate TLB\n");
     cp15_invalidate_tlb();
 
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+
     //printf("startup_early\n");
     kernel_startup_early();
     //printf("kernel_startup_early done!\n");
@@ -937,6 +941,9 @@ void arch_init(void *pointer)
 
         memset(&global->locks, 0, sizeof(global->locks));
         
+        extern struct kcb bspkcb;
+        memset(&bspkcb, 0, sizeof(bspkcb));
+        kcb_current = &bspkcb;
 #ifdef HETEROPANDA
         //boot up a cortex-m3 core
         
