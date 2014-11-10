@@ -1005,7 +1005,7 @@ errval_t spawn_span_domain(struct spawninfo *si, struct capref vroot,
     /* Create pagecn */
     t1.cnode = si->rootcn;
     t1.slot  = ROOTCN_SLOT_PAGECN;
-    err = cnode_create_raw(t1, &cnode, DEFAULT_CNODE_SLOTS, NULL);
+    err = cnode_create_raw(t1, &cnode, PAGE_CNODE_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_PAGECN);
     }

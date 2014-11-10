@@ -140,7 +140,7 @@ static errval_t init_allocators(void)
 
     // Build the capref for the first physical address capability
     struct capref phys_cap;
-    phys_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
+    phys_cap.cnode = build_cnoderef(requested_caps, PHYSADDRCN_BITS);
     phys_cap.slot = 0;
 
     struct cnoderef devcnode;

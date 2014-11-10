@@ -65,10 +65,16 @@
 #define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
 
 /// Number of entries in page cnode (in bits)
-#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
+#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 3)
 
 /// Number of entries in page cnode
 #define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)
+
+/// Number of entries in physaddr cnode (in bits)
+#define PHYSADDRCN_BITS (DEFAULT_CNODE_BITS + 2)
+
+/// Number of entries in physaddr cnode
+#define PHYSADDRCN_SLOTS (1UL << PHYSADDRCN_BITS)
 
 /// Number of entries in super cnode (in bits)
 #define SUPER_CNODE_BITS        (DEFAULT_CNODE_BITS + 2)
