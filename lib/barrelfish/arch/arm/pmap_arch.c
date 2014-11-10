@@ -241,9 +241,9 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
     // of L2 is 1 page of L2 entries (4 tables) so we use 10 bits for the L1
-    // index here
-    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
-    if ((*ptable = find_vnode(&pmap->root, index)) == NULL)
+    // idx here
+    uintptr_t idx = ARM_USER_L1_OFFSET(vaddr);
+    if ((*ptable = find_vnode(&pmap->root, idx)) == NULL)
     {
         // L1 table entries point to L2 tables so allocate an L2
         // table for this L1 entry.
@@ -251,7 +251,7 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
         struct vnode *tmp = NULL; // Tmp variable for passing to alloc_vnode
 
         errval_t err = alloc_vnode(pmap, &pmap->root, ObjType_VNode_ARM_l2,
-                                   index, &tmp);
+                                   idx, &tmp);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "alloc_vnode");
             return err;
@@ -273,8 +273,8 @@ static struct vnode *find_ptable(struct pmap_arm  *pmap,
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
     // of L2 is 1 page of L2 entries (4 tables) so
-    uintptr_t index = ARM_USER_L1_OFFSET(vaddr);
-    return find_vnode(&pmap->root, index);
+    uintptr_t idx = ARM_USER_L1_OFFSET(vaddr);
+    return find_vnode(&pmap->root, idx);
 }
 
 static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_t vend,
@@ -291,22 +291,22 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     // XXX: reassess the following note -SG
     // NOTE: strictly speaking a l2 entry only has 8 bits, but due to the way
     // Barrelfish allocates l1 and l2 tables, we use 10 bits for the tracking
-    // index here and in the map syscall
-    uintptr_t index = ARM_USER_L2_OFFSET(vaddr);
+    // idx here and in the map syscall
+    uintptr_t idx = ARM_USER_L2_OFFSET(vaddr);
     // Create user level datastructure for the mapping
-    bool has_page = has_vnode(ptable, index, pte_count);
+    bool has_page = has_vnode(ptable, idx, pte_count);
     assert(!has_page);
     struct vnode *page = slab_alloc(&pmap->slab);
     assert(page);
     page->is_vnode = false;
-    page->entry = index;
+    page->entry = idx;
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
     page->u.frame.cap = frame;
     page->u.frame.pte_count = pte_count;
 
     // Map entry into the page table
-    err = vnode_map(ptable->u.vnode.cap, frame, index,
+    err = vnode_map(ptable->u.vnode.cap, frame, idx,
                     pmap_flags, offset, pte_count);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
