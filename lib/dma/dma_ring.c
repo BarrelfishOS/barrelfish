@@ -333,8 +333,8 @@ inline uint16_t dma_ring_get_head(struct dma_ring *ring)
  * \returns pointer to a DMA descriptor
  */
 inline struct dma_descriptor *dma_ring_get_desc(struct dma_ring *ring,
-                                                uint16_t index)
+                                                uint16_t idx)
 {
-    return ring->desc[index & (ring->size - 1)];
+    return ring->desc[idx & (ring->size - 1)];
 }
 
