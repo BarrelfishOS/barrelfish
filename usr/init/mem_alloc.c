@@ -17,7 +17,7 @@
 
 /* parameters for local memory allocator used until we spawn mem_serv */
 #define MM_REQUIREDBITS    24          ///< Required size of memory to boot (16MB)
-#define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 1) ///< Max size of memory in allocator
+#define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 2) ///< Max size of memory in allocator
 #define MM_MINSIZEBITS     BASE_PAGE_BITS ///< Min size of allocation
 #define MM_MAXCHILDBITS    1           ///< Max branching factor of BTree nodes
 #define MM_MAXDEPTH (MM_MAXSIZEBITS - MM_MINSIZEBITS + 1)   ///< BTree depth
