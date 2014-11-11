@@ -64,7 +64,7 @@ static void restart_core(void *arg)
 
     // restart a core
     char *argv[] = {
-        "x86boot",
+        "corectrl",
         "update",
         corestr,
     };

@@ -221,7 +221,7 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	sbin/x86boot \
+	sbin/corectrl \
 
 
 MODULES_k1om= \
@@ -266,7 +266,7 @@ MODULES_x86_32=\
 	sbin/multihop_latency_bench \
 	sbin/angler \
 	sbin/sshd \
-	sbin/x86boot
+	sbin/corectrl
 
 # SCC-specific module to build by default
 MODULES_scc=\
@@ -307,7 +307,7 @@ MODULES_armv7=\
 	sbin/usb_keyboard \
 	sbin/kaluga \
 	sbin/fish \
-	sbin/armboot
+	sbin/corectrl
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -615,7 +615,7 @@ PANDABOARD_MODULES=\
 	armv7/sbin/usb_keyboard \
 	armv7/sbin/serial \
 	armv7/sbin/angler \
-	armv7/sbin/armboot \
+	armv7/sbin/corectrl \
 
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard

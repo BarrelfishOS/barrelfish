@@ -31,7 +31,7 @@ class StopCoreTest(InteractiveTest):
         time.sleep(5)
         self.core = 2
         debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("x86boot stop %s" % self.core)
+        self.console.sendline("corectrl stop %s" % self.core)
         
         # Stop core
         debug.verbose("Wait until core is down.")
@@ -60,7 +60,7 @@ class UpdateKernelTest(InteractiveTest):
         self.wait_for_fish()
 
         # Reboot core
-        self.console.sendline("x86boot update %s" % self.core)
+        self.console.sendline("corectrl update %s" % self.core)
         self.console.expect(START_CPU_DRIVER)
         self.wait_for_prompt()
 
@@ -88,12 +88,12 @@ class ParkOSNodeTest(InteractiveTest):
 
         # Stop
         debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("x86boot stop %s" % self.core)
+        self.console.sendline("corectrl stop %s" % self.core)
         self.wait_for_prompt()
 
         # Park
         debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.target_core))
-        self.console.sendline("x86boot give %s %s" % (self.core, self.target_core))
+        self.console.sendline("corectrl give %s %s" % (self.core, self.target_core))
         self.wait_for_prompt()
 
         self.console.expect("On core %s" % self.target_core)
@@ -106,11 +106,11 @@ class ListKCBTest(InteractiveTest):
 
     def interact(self):
         self.wait_for_fish()
-        self.console.sendline("x86boot lskcb")
+        self.console.sendline("corectrl lskcb")
         self.console.expect("KCB 1:")
         self.wait_for_prompt()
 
-        self.console.sendline("x86boot lscpu")
+        self.console.sendline("corectrl lscpu")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()
 
@@ -136,24 +136,24 @@ class ParkRebootTest(InteractiveTest):
 
         # Stop
         debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("x86boot stop %s" % self.core)
+        self.console.sendline("corectrl stop %s" % self.core)
         self.wait_for_prompt()
 
         # Park
         debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.parking_core))
-        self.console.sendline("x86boot give %s %s" % (self.core, self.parking_core))
+        self.console.sendline("corectrl give %s %s" % (self.core, self.parking_core))
         self.wait_for_prompt()
         self.console.expect("On core %s" % self.parking_core)
         self.console.expect("On core %s" % self.parking_core)
 
         # Remove KCB on parking core
         debug.verbose("Remove KCB on parking core %s." % (self.parking_core))
-        self.console.sendline("x86boot rmkcb %s" % (self.core))
+        self.console.sendline("corectrl rmkcb %s" % (self.core))
         self.wait_for_prompt()
 
         # Reboot home core with kcb
         debug.verbose("Reboot core %s." % (self.core))
-        self.console.sendline("x86boot boot -m %s" % (self.core))
+        self.console.sendline("corectrl boot -m %s" % (self.core))
         self.wait_for_prompt() 
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)

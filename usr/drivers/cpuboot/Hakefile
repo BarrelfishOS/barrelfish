@@ -11,6 +11,7 @@
 --------------------------------------------------------------------------
 
 let template = application {
+        target = "corectrl",
         addIncludes = [
             "../../../kernel/include/arch/x86_64/", 
             "../../../kernel/include" 
@@ -20,14 +21,12 @@ let template = application {
     }
 in [
     build template {
-        target = "x86boot",
         addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "x86boot.c"],
         assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
         architectures = ["x86_32", "x86_64"]
     },
     build template {
-        target = "armboot",
         addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "armboot.c"],
         architectures = ["armv7", "armv5"]

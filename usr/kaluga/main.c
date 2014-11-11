@@ -44,7 +44,7 @@ static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
-    set_start_function("x86boot", start_boot_driver);
+    set_start_function("corectrl", start_boot_driver);
 }
 
 static void parse_arguments(int argc, char** argv)

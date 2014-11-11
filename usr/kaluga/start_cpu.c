@@ -52,7 +52,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
                 barrelfish_id, arch_id);
 
-        struct module_info* mi = find_module("x86boot");
+        struct module_info* mi = find_module("corectrl");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
             if (err_is_fail(err)) {
@@ -102,7 +102,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     bool cleanup = false;
     size_t argc = mi->argc;
 
-    KALUGA_DEBUG("Starting x86boot for %s", record);
+    KALUGA_DEBUG("Starting corectrl for %s", record);
     err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d, type: %d }",
             &apic_id, &barrelfish_id, &cpu_type);
     if (err_is_ok(err)) {

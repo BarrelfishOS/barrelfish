@@ -485,20 +485,20 @@ int main (int argc, char **argv)
     initialize();
     int ret = -1;
 
-    DEBUG("x86boot start\n");
+    DEBUG("corectrl start\n");
 
 #if defined(__x86__)
     // ENSURE_SEQUENTIAL
     errval_t err;
     char *lock;
-    err = oct_lock("x86boot.lock", &lock);
+    err = oct_lock("corectrl.lock", &lock);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can lock x86boot.");
+        USER_PANIC_ERR(err, "can lock corectrl.");
     }
     //
 #endif
 
-    DEBUG("x86boot got lock\n");
+    DEBUG("corectrl got lock\n");
     // Parse arguments, call handler function
     int c;
     while (1) {
@@ -587,11 +587,11 @@ out:
     // END ENSURE SEQUENTIAL
     err = oct_unlock(lock);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "can not unlock x86boot.");
+        USER_PANIC_ERR(err, "can not unlock corectrl.");
     }
     // 
 #endif
 
-    DEBUG("x86boot is done.");
+    DEBUG("corectrl is done.");
     return ret;
 }

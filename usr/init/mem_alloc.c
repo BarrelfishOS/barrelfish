@@ -17,7 +17,7 @@
 
 /* parameters for local memory allocator used until we spawn mem_serv */
 #define MM_REQUIREDBITS    24          ///< Required size of memory to boot (16MB)
-#define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 2) ///< Max size of memory in allocator
+#define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 3) ///< Max size of memory in allocator
 #define MM_MINSIZEBITS     BASE_PAGE_BITS ///< Min size of allocation
 #define MM_MAXCHILDBITS    1           ///< Max branching factor of BTree nodes
 #define MM_MAXDEPTH (MM_MAXSIZEBITS - MM_MINSIZEBITS + 1)   ///< BTree depth
@@ -62,9 +62,25 @@ errval_t initialize_ram_alloc(void)
     for (int i = 0; i < bi->regions_length; i++) {
         assert(!bi->regions[i].mr_consumed);
         if (bi->regions[i].mr_type == RegionType_Empty) {
-            if (bi->regions[i].mr_bits >= MM_REQUIREDBITS 
-                && bi->regions[i].mr_bits <= MM_MAXSIZEBITS && (mem_region == -1
-                 || bi->regions[i].mr_bits < bi->regions[mem_region].mr_bits)) {
+            printf("%s:%s:%d: bi->regions[i].mr_bits >= MM_REQUIREDBITS (%d >= %d)\n", 
+                   __FILE__, __FUNCTION__, __LINE__, 
+                   bi->regions[i].mr_bits, MM_REQUIREDBITS);
+            printf("%s:%s:%d: bi->regions[i].mr_bits <= MM_MAXSIZEBITS (%d <= %d)\n", 
+                   __FILE__, __FUNCTION__, __LINE__, 
+                   bi->regions[i].mr_bits, MM_MAXSIZEBITS);
+            printf("%s:%s:%d: mem_region (%d)\n", 
+                   __FILE__, __FUNCTION__, __LINE__, 
+                   mem_region);
+            printf("%s:%s:%d: bi->regions[i].mr_bits < bi->regions[mem_region].mr_bits (%d < %d)\n", 
+                   __FILE__, __FUNCTION__, __LINE__, 
+                   bi->regions[i].mr_bits, bi->regions[mem_region].mr_bits);
+
+            if (bi->regions[i].mr_bits >= MM_REQUIREDBITS && 
+                bi->regions[i].mr_bits <= MM_MAXSIZEBITS && 
+                (mem_region == -1 || 
+                 bi->regions[i].mr_bits < bi->regions[mem_region].mr_bits)
+                ) {
+                printf("%s:%s:%d: match\n", __FILE__, __FUNCTION__, __LINE__);
                 mem_region = i;
                 mem_cap.slot = mem_slot;
                 if (bi->regions[i].mr_bits == MM_REQUIREDBITS) {

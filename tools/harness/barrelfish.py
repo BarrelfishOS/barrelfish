@@ -129,8 +129,8 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
         m.add_module("%s/sbin/kaluga" % a, ["boot"])
-        m.add_module("%s/sbin/x86boot" % a, ["auto"])
         m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+        m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
         or machine.name == "tomme1" or machine.name == "tomme2":
