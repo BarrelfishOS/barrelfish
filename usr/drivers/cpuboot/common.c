@@ -150,21 +150,6 @@ errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
     return SYS_ERR_OK;
 }
 
-errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                                   bool *has_descendents)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret r;
-    r = syscall5((invoke_bits << 16) | (KernelCmd_Remote_cap << 8)
-                 | SYSCALL_INVOKE, invoke_cptr, cap, bits, is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
-}
-
 errval_t cap_mark_remote(struct capref cap)
 {
     bool has_descendants;

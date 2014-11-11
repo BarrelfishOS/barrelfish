@@ -32,6 +32,10 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <if/intermon_defs.h>
 
+#if defined(__x86__)
+#include <acpi_client/acpi_client.h>
+#endif
+
 #define DEBUG_CPUBOOT 1
 #ifdef DEBUG_CPUBOOT
 #define DEBUG(x...) if (debug_flag) debug_printf(x)
@@ -65,8 +69,6 @@ struct bench_data *bench_data;
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr);
 errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb);
 errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb);
-errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                                   bool *has_descendents);
 errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
                               size_t *retbytes, struct frame_identity *id);
 errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
@@ -89,5 +91,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb);
 errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type);
+errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
+                                   bool *has_descendents);
+
 
 #endif // COREBOOT_H

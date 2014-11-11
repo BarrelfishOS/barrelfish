@@ -833,7 +833,7 @@ static struct sysret kernel_get_global_phys(struct capability *cap,
     return sysret;
 }
 
-struct sysret kernel_add_kcb(struct capability *kern_cap,
+static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
     uintptr_t kcb_addr = args[0];
@@ -842,8 +842,8 @@ struct sysret kernel_add_kcb(struct capability *kern_cap,
     return sys_kernel_add_kcb(new_kcb);
 }
 
-struct sysret kernel_remove_kcb(struct capability *kern_cap,
-                                int cmd, uintptr_t *args)
+static struct sysret kernel_remove_kcb(struct capability *kern_cap,
+                                       int cmd, uintptr_t *args)
 {
     printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
     uintptr_t kcb_addr = args[0];
@@ -852,15 +852,15 @@ struct sysret kernel_remove_kcb(struct capability *kern_cap,
     return sys_kernel_remove_kcb(to_remove);
 }
 
-struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
-                                       int cmd, uintptr_t *args)
+static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
+                                              int cmd, uintptr_t *args)
 {
     printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
-    return sys_kernel_remove_kcb((bool)args[0]);
+    return sys_kernel_suspend_kcb_sched((bool)args[0]);
 }
 
-struct sysret handle_kcb_identify(struct capability *to,
-                                  int cmd, uintptr_t *args)
+static struct sysret handle_kcb_identify(struct capability *to,
+                                         int cmd, uintptr_t *args)
 {
     return sys_handle_kcb_identify(to);
 }
