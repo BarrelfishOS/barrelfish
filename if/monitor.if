@@ -204,7 +204,4 @@ interface monitor "The monitor to client Interface" {
     response bfscope_flush_ack();
 
     message migrate_dispatcher(uintptr domain_id);
-
-    call power_down(coreid target);
-    response power_down_response(coreid target);
 };
