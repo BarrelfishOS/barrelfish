@@ -385,7 +385,6 @@ static void cleanup_domain(domainid_t domainid)
 
     // Tell all waiters of exit and free list as we go
     for(struct ps_waiter *w = ps->waiters; w != NULL;) {
-	debug_printf("informing waiter\n");
         err = w->binding->tx_vtbl.wait_response
             (w->binding, NOP_CONT, ps->exitcode, SYS_ERR_OK);
         if(err_is_fail(err)) {
