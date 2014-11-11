@@ -170,7 +170,6 @@ enum vnode_cmd {
  */
 enum kernel_cmd {
     KernelCmd_Spawn_core,         ///< Spawn a new kernel
-    KernelCmd_Stop_core,          ///< Stop this core
     KernelCmd_Identify_cap,       ///< Return the meta data of a capability
     KernelCmd_Identify_domains_cap,  ///< Return the meta data of another domain's capability
     KernelCmd_Remote_cap,         ///< Set capability as being remote
