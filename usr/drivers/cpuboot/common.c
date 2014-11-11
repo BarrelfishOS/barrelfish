@@ -17,19 +17,34 @@ extern bool done;
 extern struct capref kcb;
 extern struct capref kernel_cap;
 
+char* get_binary_path(char* fmt, char* binary_name)
+{
+    assert (binary_name != NULL);
+    assert (fmt != NULL);
+
+    int length = snprintf(NULL, 0, fmt, binary_name);
+    char* binary = malloc(length+1); // TODO(gz): Free this
+    snprintf(binary, length+1, fmt, binary_name);
+
+    return binary;
+}
+
+errval_t elfload_allocate(void *state, genvaddr_t base,
+                          size_t size, uint32_t flags,
+                          void **retbase)
+{
+    struct elf_allocate_state *s = state;
+
+    *retbase = (char *)s->vbase + base - s->elfbase;
+    return SYS_ERR_OK;
+}
+
 void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
 {
     if (err_is_fail(msgerr)) {
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-    done = true;
-}
-
-void power_down_response(struct monitor_binding *st, coreid_t target)
-{
-    DEBUG("%s:%s:%d: Got power_down_response. target=%"PRIuCOREID"\n", __FILE__,
-          __FUNCTION__, __LINE__, target);
     done = true;
 }
 
@@ -181,7 +196,7 @@ errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
 {
     vfs_handle_t handle;
     struct vfs_fileinfo info;
-
+    DEBUG("Trying to find binary %s\n", module_name);
     errval_t err = vfs_open(module_name, &handle);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_open could not open module?");

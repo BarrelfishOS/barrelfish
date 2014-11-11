@@ -20,7 +20,7 @@ struct capref kernel_cap;
 bool done = false;
 
 bool benchmark_flag = false;
-bool debug_flag = true;
+bool debug_flag = false;
 bool new_kcb_flag = false;
 bool nomsg_flag = false;
 
@@ -46,7 +46,6 @@ static void setup_monitor_messaging(void)
 {
     struct monitor_binding *st = get_monitor_binding();
     st->rx_vtbl.boot_core_reply = boot_core_reply;
-    st->rx_vtbl.power_down_response = power_down_response;
 }
 
 static void load_kernel_cap(void)
@@ -65,10 +64,12 @@ static void initialize(void)
     vfs_init();
     bench_arch_init();
 
+#if defined(__x86__)
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "connect to acpi failed.");
     }
+#endif
 
     err = oct_init();
     if (err_is_fail(err)) {
@@ -123,29 +124,6 @@ static int list_kcb(int argc, char **argv) {
     return 0;
 }
 
-static errval_t get_processor_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
-{
-    char* record = NULL;
-    errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
-    if (err_is_fail(err)) {
-        goto out;
-    }
-
-    uint64_t apic, enabled, type;
-    err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
-                   &apic, &enabled, &type);
-    assert (enabled);
-    if (err_is_fail(err)) {
-        goto out;
-    }
-
-    *apic_id = (archid_t) apic;
-    *cpu_type = (enum cpu_type) type;
-out:
-    free(record);
-    return err;
-}
-
 static int list_cpu(int argc, char **argv) {
     char** names;
     size_t len;
@@ -184,7 +162,7 @@ static int boot_cpu(int argc, char **argv)
     
     archid_t target_apic_id;
     enum cpu_type cpu_type;
-    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
+    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -202,10 +180,14 @@ static int boot_cpu(int argc, char **argv)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_alloc_identify failed.");
     }
+
+// For some reason that syscall does not work on arm.
+#if defined(__x86__)
     err = cap_mark_remote(frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not mark cap remote.");
     }
+#endif
 
     struct monitor_binding *mb = get_monitor_binding();
     err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
@@ -231,7 +213,7 @@ static int update_cpu(int argc, char** argv)
     
     archid_t target_apic_id;
     enum cpu_type cpu_type;
-    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
+    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -280,7 +262,7 @@ static int stop_cpu(int argc, char** argv)
 
     archid_t target_apic_id;
     enum cpu_type cpu_type;
-    errval_t err = get_processor_info(target_id, &target_apic_id, &cpu_type);
+    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -507,7 +489,8 @@ int main (int argc, char **argv)
     int ret = -1;
 
     DEBUG("x86boot start\n");
-    
+
+#if defined(__x86__)
     // ENSURE_SEQUENTIAL
     errval_t err;
     char *lock;
@@ -516,6 +499,7 @@ int main (int argc, char **argv)
         USER_PANIC_ERR(err, "can lock x86boot.");
     }
     //
+#endif
 
     DEBUG("x86boot got lock\n");
     // Parse arguments, call handler function
@@ -602,12 +586,14 @@ int main (int argc, char **argv)
     }
 
 out:
+#if defined(__x86__)
     // END ENSURE SEQUENTIAL
     err = oct_unlock(lock);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "can not unlock x86boot.");
     }
     // 
+#endif
 
     DEBUG("x86boot is done.");
     return ret;

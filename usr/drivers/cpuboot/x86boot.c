@@ -13,6 +13,8 @@
 
 #include "coreboot.h"
 
+#include <acpi_client/acpi_client.h>
+
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
@@ -22,12 +24,6 @@
 #include <target/x86_32/offsets_target.h>
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
-
-
-struct elf_allocate_state {
-    void *vbase;
-    genvaddr_t elfbase;
-};
 
 /**
  * Start_ap and start_ap_end mark the start end the
@@ -55,28 +51,29 @@ extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
 extern uint64_t end;
 
-static errval_t elfload_allocate(void *state, genvaddr_t base,
-                                         size_t size, uint32_t flags,
-                                         void **retbase)
+errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
 {
-    struct elf_allocate_state *s = state;
+    char* record = NULL;
+    errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
+    if (err_is_fail(err)) {
+        goto out;
+    }
 
-    *retbase = (char *)s->vbase + base - s->elfbase;
-    return SYS_ERR_OK;
+    uint64_t apic, enabled, type;
+    err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
+                   &apic, &enabled, &type);
+    assert (enabled);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    *apic_id = (archid_t) apic;
+    *cpu_type = (enum cpu_type) type;
+out:
+    free(record);
+    return err;
 }
 
-static char* get_binary_path(char* fmt, char* binary_name)
-{
-    assert (binary_name != NULL);
-    assert (fmt != NULL);
-
-    int length = snprintf(NULL, 0, fmt, binary_name);
-
-    char* binary = malloc(length+1); // TODO(gz): Free this
-    snprintf(binary, length+1, fmt, binary_name);
-
-    return binary;
-}
 
 errval_t get_architecture_config(enum cpu_type type,
                                  genpaddr_t *arch_page_size,

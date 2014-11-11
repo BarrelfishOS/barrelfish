@@ -11,19 +11,25 @@
 --------------------------------------------------------------------------
 
 let template = application {
-        cFiles = filter ((/=) "bench.c") (find withSuffices [".c"]),
-        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
-        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
-        addIncludes = ["../../../kernel/include/arch/x86_64/", "../../../kernel/include" ],
+        addIncludes = [
+            "../../../kernel/include/arch/x86_64/", 
+            "../../../kernel/include" 
+        ],
         flounderDefs = ["monitor_blocking", "monitor"],
-        flounderBindings = ["intermon"],
-        mackerelDevices = [],
-        flounderExtraBindings = [],
-        flounderTHCStubs = [],
-        architectures = ["x86_32", "x86_64"]
+        flounderBindings = ["intermon"]
     }
 in [
     build template {
-        target = "x86boot"
+        target = "x86boot",
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
+        cFiles = ["common.c", "main.c", "x86boot.c"],
+        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
+        architectures = ["x86_32", "x86_64"]
+    },
+    build template {
+        target = "armboot",
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
+        cFiles = ["common.c", "main.c", "armboot.c"],
+        architectures = ["armv7", "armv5"]
     }
 ]
