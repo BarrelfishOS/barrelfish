@@ -66,13 +66,9 @@ struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
 struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                                      genvaddr_t entry);
 
-struct sysret kernel_add_kcb(struct capability *kern_cap,
-                                    int cmd, uintptr_t *args);
-struct sysret kernel_remove_kcb(struct capability *kern_cap,
-                                int cmd, uintptr_t *args);
-struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
-                                       int cmd, uintptr_t *args);
-struct sysret handle_kcb_identify(struct capability *to,
-                                  int cmd, uintptr_t *args);
+struct sysret sys_kernel_add_kcb(struct kcb* new_kcb);
+struct sysret sys_kernel_remove_kcb(struct kcb* kcb_addr);
+struct sysret sys_kernel_suspend_kcb_sched(bool toggle);
+struct sysret sys_handle_kcb_identify(struct capability* to);
 
 #endif

@@ -28,7 +28,7 @@
 #include <getopt/getopt.h>
 #include <cp15.h>
 #include <elf/elf.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
@@ -967,6 +967,7 @@ void arch_init(void *pointer)
         glbl_core_data = (struct arm_core_data *)
                             ((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
         glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
+        kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
         my_core_id = glbl_core_data->dst_core_id;
 
         // tell BSP that we are started up
@@ -978,6 +979,10 @@ void arch_init(void *pointer)
         *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
         //__sync_synchronize();
         *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
+    }
+
+    if (kcb_current == NULL) {
+        panic("Did not receive a valid KCB.");
     }
 
     // XXX: print kernel address for debugging with gdb

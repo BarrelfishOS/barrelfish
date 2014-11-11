@@ -181,13 +181,10 @@ static int boot_cpu(int argc, char **argv)
         USER_PANIC_ERR(err, "frame_alloc_identify failed.");
     }
 
-// For some reason that syscall does not work on arm.
-#if defined(__x86__)
     err = cap_mark_remote(frame);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not mark cap remote.");
     }
-#endif
 
     struct monitor_binding *mb = get_monitor_binding();
     err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);

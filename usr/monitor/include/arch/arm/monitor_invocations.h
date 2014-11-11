@@ -31,13 +31,7 @@
  * \param dispatcher Cap to the dispatcher of the new user program
  * \param entry      Kernel entry point in physical memory
  */
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
 static inline errval_t
-#endif
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {

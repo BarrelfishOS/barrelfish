@@ -638,12 +638,8 @@ struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
     return SYSRET(SYS_ERR_OK);
 }
 
-
-struct sysret kernel_add_kcb(struct capability *kern_cap,
-                                    int cmd, uintptr_t *args)
+struct sysret sys_kernel_add_kcb(struct kcb *new_kcb)
 {
-    uintptr_t kcb_addr = args[0];
-    struct kcb *new_kcb = (struct kcb *)kcb_addr;
     kcb_add(new_kcb);
 
     // update kernel_now offset
@@ -658,32 +654,26 @@ struct sysret kernel_add_kcb(struct capability *kern_cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret kernel_remove_kcb(struct capability *kern_cap,
-                                int cmd, uintptr_t *args)
+struct sysret sys_kernel_remove_kcb(struct kcb * to_remove)
 {
-    printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
-    uintptr_t kcb_addr = args[0];
-
-    struct kcb *to_remove = (struct kcb *)kcb_addr;
     return SYSRET(kcb_remove(to_remove));
 }
 
-struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
-                                       int cmd, uintptr_t *args)
+struct sysret sys_kernel_suspend_kcb_sched(bool suspend)
 {
     printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
-    kcb_sched_suspended = (bool)args[0];
+    kcb_sched_suspended = suspend;
     return SYSRET(SYS_ERR_OK);
 }
 
-struct sysret handle_kcb_identify(struct capability *to,
-                                  int cmd, uintptr_t *args)
+struct sysret sys_handle_kcb_identify(struct capability* to)
 {
     // Return with physical base address of frame
     // XXX: pack size into bottom bits of base address
     assert(to->type == ObjType_KernelControlBlock);
     lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
     assert((vkcb & BASE_PAGE_MASK) == 0);
+
     return (struct sysret) {
         .error = SYS_ERR_OK,
         .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,

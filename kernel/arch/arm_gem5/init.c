@@ -22,7 +22,7 @@
 #include <getopt/getopt.h>
 #include <cp15.h>
 #include <elf/elf.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>

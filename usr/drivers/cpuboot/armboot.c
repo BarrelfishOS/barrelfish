@@ -32,6 +32,7 @@ struct xcore_bind_handler {
 };
 
 extern coreid_t my_arch_id;
+extern struct capref kernel_cap;
 
 errval_t get_core_info(coreid_t core_id, 
                        archid_t* apic_id, 
@@ -278,10 +279,12 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
-    return cap_invoke5(cap_kernel, KernelCmd_Spawn_core, 
-                       core_id, cpu_type,
-                       (uintptr_t)(entry >> 32),
-                       (uintptr_t) entry).error;
+    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+
+    return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
+                    | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
+                    (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
 }
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
@@ -301,11 +304,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     // XXX: caching these for now, until we have unmap
     static struct module_blob cpu_blob, monitor_blob;
     err = module_blob_map(cpuname, &cpu_blob);
-    if (!err_is_ok(err)) {
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "module_blob_map");
         return err;
     }
     err = module_blob_map(monitorname, &monitor_blob);
-    if (!err_is_ok(err)) {
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "module_blob_map");
         return err;
     }
 
@@ -324,7 +329,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                              &cpu_mem.cap,
                              &cpu_mem.buf,
                              &cpu_mem.frameid);
-    if (!err_is_ok(err)) {
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cpu_memory_prepare");
         return err;
     }
 
@@ -335,8 +341,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
                                 cpu_mem.buf + arch_page_size,
                                 cpu_mem.frameid.base + arch_page_size,
                                 &reloc_entry);
-    if (!err_is_ok(err)) {
-        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cpu_memory_prepare");
+        return err;
     }
 
     /* Chunk of memory to load monitor on the app core */
@@ -345,7 +352,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     err = spawn_memory_prepare(ARM_CORE_DATA_PAGES*arch_page_size,
                                &spawn_mem_cap,
                                &spawn_mem_frameid);
-    if (!err_is_ok(err)) {
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_memory_prepare");
         return err;
     }
 
@@ -371,6 +379,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id             = chanid;
 #endif
+    struct frame_identity fid;
+    err = invoke_frame_identify(kcb, &fid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
+                            "Did you add the syscall handler for that architecture?");
+    }
+    core_data->kcb = (genpaddr_t) fid.base;
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit

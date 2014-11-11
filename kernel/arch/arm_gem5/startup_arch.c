@@ -23,7 +23,7 @@
 #include <cpiobin.h>
 #include <init.h>
 #include <barrelfish_kpi/paging_arm_v7.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <kernel_multiboot.h>
 #include <offsets.h>
 #include <startup_arch.h>

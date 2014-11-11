@@ -20,47 +20,6 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
 
-static inline struct sysret cap_invoke(struct capref to, uintptr_t cmd,
-                                       uintptr_t arg1, uintptr_t arg2,
-                                       uintptr_t arg3, uintptr_t arg4,
-                                       uintptr_t arg5, uintptr_t arg6,
-                                       uintptr_t arg7, uintptr_t arg8,
-                                       uintptr_t arg9, uintptr_t arg10,
-                                       uintptr_t arg11)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(to);
-    capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
-
-    return syscall((invoke_bits << 16) | (cmd << 8) | SYSCALL_INVOKE,
-                   invoke_cptr, arg1, arg2, arg3, arg4, arg5, arg6, 
-                   arg8, arg9, arg10, arg11);
-}
-
-#define cap_invoke12(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l) \
-    cap_invoke(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l)
-#define cap_invoke11(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k)     \
-    cap_invoke12(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, 0)
-#define cap_invoke10(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j)         \
-    cap_invoke11(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, 0)
-#define cap_invoke9(to, _a, _b, _c, _d, _e, _f, _g, _h, _i)              \
-    cap_invoke10(to, _a, _b, _c, _d, _e, _f, _g, _h, _i, 0)
-#define cap_invoke8(to, _a, _b, _c, _d, _e, _f, _g, _h)                  \
-    cap_invoke9(to, _a, _b, _c, _d, _e, _f, _g, _h, 0)
-#define cap_invoke7(to, _a, _b, _c, _d, _e, _f, _g)                      \
-    cap_invoke8(to, _a, _b, _c, _d, _e, _f, _g, 0)
-#define cap_invoke6(to, _a, _b, _c, _d, _e, _f)                          \
-    cap_invoke7(to, _a, _b, _c, _d, _e, _f, 0)
-#define cap_invoke5(to, _a, _b, _c, _d, _e)                              \
-    cap_invoke6(to, _a, _b, _c, _d, _e, 0)
-#define cap_invoke4(to, _a, _b, _c, _d)                                  \
-    cap_invoke5(to, _a, _b, _c, _d, 0)
-#define cap_invoke3(to, _a, _b, _c)                                      \
-    cap_invoke4(to, _a, _b, _c, 0)
-#define cap_invoke2(to, _a, _b)                                          \
-    cap_invoke3(to, _a, _b, 0)
-#define cap_invoke1(to, _a)                                              \
-    cap_invoke2(to, _a, 0)
-
 /**
  * \brief Retype a capability.
  *
