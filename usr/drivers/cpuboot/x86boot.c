@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Boot driver for x86-64 CPUs
+ * \brief Boot driver arch specific parts for x86 CPUs
  */
 /*
  * Copyright (c) 2013, ETH Zurich.
