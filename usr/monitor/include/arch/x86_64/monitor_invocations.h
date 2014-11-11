@@ -19,21 +19,6 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
 
-/**
- * \brief Spawn a new core.
- *
- * \param core_id    APIC ID of the core to try booting
- * \param cpu_type   Type of core to boot
- * \param entry      Kernel entry point in physical memory
- */
-static inline errval_t
-invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                          forvaddr_t entry)
-{
-    return cap_invoke4(cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
-                       entry).error;
-}
-
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {

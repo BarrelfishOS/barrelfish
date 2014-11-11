@@ -19,31 +19,6 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/syscall_overflows_arch.h>
  
-/**
- * \brief Spawn a new core.
- *
- * \param cur_kern   Cap of the current kernel
- * \param core_id    APIC ID of the core to try booting
- * \param sp_mem     Cap to Ram type memory to relocate the new kernel
- * \param dcb        Cap to the dcb of the user program to run on the new kernel
- * \param root_vbits Number of valid bits in root_cptr
- * \param root_cptr  Cap to the root of cspace of the new user program
- * \param vtree      Cap to the vtree root of the new user program
- * \param dispatcher Cap to the dispatcher of the new user program
- * \param entry      Kernel entry point in physical memory
- */
-static inline errval_t
-invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                          forvaddr_t entry)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
-                    (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
-}
-
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
