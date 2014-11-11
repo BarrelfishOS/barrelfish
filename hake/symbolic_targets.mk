@@ -306,7 +306,8 @@ MODULES_armv7=\
 	sbin/usb_manager \
 	sbin/usb_keyboard \
 	sbin/kaluga \
-	sbin/fish
+	sbin/fish \
+	sbin/armboot
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -614,6 +615,8 @@ PANDABOARD_MODULES=\
 	armv7/sbin/usb_keyboard \
 	armv7/sbin/serial \
 	armv7/sbin/angler \
+	armv7/sbin/armboot \
+
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@

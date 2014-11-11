@@ -26,10 +26,11 @@ module /armv7/sbin/startd boot
 # General user domains
 module /armv7/sbin/serial auto portbase=2
 module /armv7/sbin/fish nospawn
-module  /armv7/sbin/angler serial0.terminal xterm
+module /armv7/sbin/angler serial0.terminal xterm
 
 module /armv7/sbin/memtest
 
+module /armv7/sbin/armboot auto
 module /armv7/sbin/usb_manager auto
 module /armv7/sbin/usb_keyboard auto
 module  /armv7/sbin/sdma auto
