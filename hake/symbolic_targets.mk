@@ -22,8 +22,8 @@ MAKEFLAGS=r
 
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
-ARM_GCC?=arm-none-linux-gnueabi-gcc
-ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
+ARM_GCC?=arm-linux-gnueabi-gcc
+ARM_OBJCOPY?=arm-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
 # upload Xeon Phi images to nfs share (leave blank to cancel)

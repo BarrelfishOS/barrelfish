@@ -29,12 +29,12 @@ import qualified ArchDefaults
 arch = "armv5"
 archFamily = "arm"
 
-compiler = "arm-none-linux-gnueabi-gcc"
-objcopy  = "arm-none-linux-gnueabi-objcopy"
-objdump  = "arm-none-linux-gnueabi-objdump"
-ar       = "arm-none-linux-gnueabi-ar"
-ranlib   = "arm-none-linux-gnueabi-ranlib"
-cxxcompiler = "arm-none-linux-gnueabi-g++"
+compiler = "arm-linux-gnueabi-gcc"
+objcopy  = "arm-linux-gnueabi-objcopy"
+objdump  = "arm-linux-gnueabi-objdump"
+ar       = "arm-linux-gnueabi-ar"
+ranlib   = "arm-linux-gnueabi-ranlib"
+cxxcompiler = "arm-linux-gnueabi-g++"
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
@@ -48,6 +48,8 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-ffixed-r9",
                    Str "-DTHREAD_REGISTER=R9",
                    Str "-D__ARM_ARCH_5__",
+                   Str "-fno-stack-check",
+                   Str "-fno-stack-protector",
 		   Str "-Wno-unused-but-set-variable",
 		   Str "-Wno-format" ]
 
@@ -62,7 +64,8 @@ cxxFlags = ArchDefaults.commonCxxFlags
 cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-section-start,.text=0x400000",
-               Str "-Wl,-section-start,.data=0x600000" ]
+               Str "-Wl,-section-start,.data=0x600000",
+               Str "-Wl,--build-id=none" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
@@ -124,6 +127,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-imacros deputy/nodeputy.h",
                                 "-fpie",
                                 "-fno-stack-check",
+                                "-fno-stack-protector",
                                 "-ffreestanding",
                                 "-fomit-frame-pointer",
                                 "-mno-long-calls",

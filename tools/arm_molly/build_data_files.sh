@@ -41,7 +41,7 @@ for BIN in $BINS; do
   UNDERSCORED=${BIN//-/_}
   SLASH=${UNDERSCORED////_}
   BIN_OUT="$OUTPUT_PREFIX/${FILE_PREFIX}_$SLASH"
-  OBJCOPY=$(which arm-none-linux-gnueabi-objcopy || which arm-linux-gnueabi-objcopy)
+  OBJCOPY=$(which arm-linux-gnueabi-objcopy)
   echo $BIN '->' $BIN_OUT
   $OBJCOPY -I binary -O elf32-littlearm -B arm --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
   IDX=$(($IDX+1))
