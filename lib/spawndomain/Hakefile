@@ -26,6 +26,7 @@
                     addIncludes = [ "/lib/barrelfish/include/arch" 
                                     ./. archFamily arch ],
                     flounderDefs = [ "monitor", "octopus" ],
+                    flounderExtraDefs = [ ("octopus", ["rpcclient"]) ],
                     architectures = [ arch ],
                     addLibraries = [ "trace", "octopus" ]
                 }
