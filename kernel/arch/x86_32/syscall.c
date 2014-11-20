@@ -322,24 +322,7 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
     return sys_monitor_register(ep_caddr);
 }
 
-#ifndef __scc__
-/**
- * \brief Spawn a new core and create a kernel cap for it.
- */
-static struct sysret monitor_spawn_core(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
-{
-    coreid_t core_id        = args[0];
-    enum cpu_type cpu_type  = args[1];
-    uintptr_t entry0 = args[2];
-    uintptr_t entry1 = args[3];
-    forvaddr_t entry = (forvaddr_t)entry0 << 32 | entry1;
-
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
-}
-
-#else
-
+#ifdef __scc__
 static struct sysret monitor_spawn_scc_core(struct capability *kernel_cap,
                                             int cmd, uintptr_t *args)
 {
@@ -834,9 +817,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
-#ifndef __scc__
-        [KernelCmd_Spawn_core]   = monitor_spawn_core,
-#endif
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
