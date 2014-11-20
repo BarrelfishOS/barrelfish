@@ -35,9 +35,6 @@ coreid_t my_core_id;
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     (cte)->cap.u.cnode.cnode
 
-/// Size of the physaddrcn (in terms of cspace bits resolved, ie. 2^n slots)
-#define PHYSADDRCN_BITS (DEFAULT_CNODE_BITS + 2)
-
 /**
  * \brief Create caps in 'cnode'
  *

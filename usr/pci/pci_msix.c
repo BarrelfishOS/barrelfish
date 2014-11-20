@@ -20,9 +20,9 @@
 
 struct pci_msix_context {
     bool enabled;
-    uint8_t vectors;
+    uint8_t vectors; ///< Size of MSI-X IRQ table
 
-    volatile uint32_t *table;
+    volatile uint32_t *table; ///< Pointer to mapped MSI-X IRQ table in memory
 
     struct pci_address addr;
     struct pci_msix_context *next;
@@ -75,7 +75,12 @@ static uint8_t pci_cap_find(pci_hdr0_t *hdr, struct pci_address *addr,
     // Spec says bottom 2 bits must be masked
     offset = pci_hdr0_cap_ptr_rd(hdr) & ~0x3U;
     do {
+        // PCI Capability header format is:
+        // char type, char next;
         assert(offset >= 0x40);
+        // Is this divided by 4 since the bottom 2 bits
+        // must not only be masked (as per comment above) 
+        // but also shifted out?
         header = pci_read_conf_header(addr, offset / 4);
         if ((header & 0xff) == type) {
             return offset;
@@ -120,6 +125,9 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
     cap[2] = pci_read_conf_header(addr, off + 2);
 
     // TODO: How do we do this using mackerel?
+    // count == table size
+    // c.f. Slide 7 at:
+    // https://www.pcisig.com/developers/main/training_materials/get_document?doc_id=1c17cc8e96e3c1969ef8969569648e10d65d7e4d
     *count = ((cap[0] >> 16) & ((1 << 11) - 1)) + 1;
 
     if (!ctx->enabled) {

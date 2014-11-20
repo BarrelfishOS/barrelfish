@@ -79,8 +79,16 @@ extern "C" {
  * Backend specific initialization functions
  */
 int bomp_bomp_init(unsigned int nthreads);
+int bomp_bomp_init_varstack(unsigned int nthreads, size_t stack_size);
 int bomp_linux_init(unsigned int nthreads);
 int bomp_xomp_init(void *args);
+
+/*
+ * Backend specific main thread runners
+ * needed on Barrelfish as we don't dynamically grow thread stacks
+ */
+typedef int (*main_func_t)(void *);
+int bomp_run_main(main_func_t mainfunc, void *mainarg, size_t stacksize);
 
 /**
  * \brief switches the backend to be used
