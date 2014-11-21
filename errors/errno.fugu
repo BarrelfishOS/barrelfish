@@ -600,6 +600,9 @@ errors spawn SPAWN_ERR_ {
     failure DOMAIN_ALLOCATE    "No more domain descriptors",
     failure DOMAIN_NOTFOUND    "Domain not found",
     failure DOMAIN_RUNNING    "Domain is running",
+
+    failure FIND_SPAWNDS       "Unable to find spawn daemons",
+    failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
 };
 
 // errors from ELF library

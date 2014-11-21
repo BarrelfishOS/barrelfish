@@ -23,6 +23,7 @@
 #include <if/spawn_rpcclient_defs.h>
 #include <if/arrakis_rpcclient_defs.h>
 #include <if/monitor_defs.h>
+#include <if/octopus_rpcclient_defs.h>
 #include <vfs/vfs_path.h>
 
 extern char **environ;
@@ -440,47 +441,65 @@ errval_t spawn_program(coreid_t coreid, const char *path,
  *    It doesn't make much sense from a scalability perspective, and is
  *    probably useless on a heterogeneous system.
  */
+#include <octopus/getset.h> // for oct_read TODO
+#include <octopus/trigger.h> // for NOP_TRIGGER
+
 errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     char *const argv[], char *const envp[],
                                     spawn_flags_t flags, domainid_t *ret_domainid)
 {
-    errval_t err;
-
     // TODO: handle flags, domain ID
+    errval_t err = SYS_ERR_OK;
 
-    // FIXME: world's most broken implementation...
-    for (coreid_t c = 0; c < MAX_CPUS; c++) {
-        if (!same_core && c == disp_get_core_id()) {
-            continue;
+    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    if (r == NULL) {
+        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+    }
+
+    // FIXME: world's most (kinda less now) broken implementation...
+    
+    char* buffer = NULL;
+    errval_t error_code;
+    octopus_trigger_id_t tid;
+    
+    char** names = NULL;
+    size_t count = 0;
+    
+    static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
+        err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, &buffer, &tid, &error_code);
+    if (err_is_fail(err) || err_is_fail(error_code)) {
+        err = err_push(err, SPAWN_ERR_FIND_SPAWNDS);
+        goto out;
+    }
+
+    err = oct_parse_names(buffer, &names, &count);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    for (size_t c = 0; c < count; c++) {
+        coreid_t coreid;
+        int ret = sscanf(names[c], "spawn.%hhu", &coreid);
+        if (ret != 1) {
+            err = SPAWN_ERR_MALFORMED_SPAWND_RECORD;
+            goto out;
         }
 
-        // Check first whether the spawnd exists
-        char namebuf[16];
-        snprintf(namebuf, sizeof(namebuf), "spawn.%u", c);
-        namebuf[sizeof(namebuf) - 1] = '\0';
-
-        iref_t iref;
-        err = nameservice_lookup(namebuf, &iref);
-        if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
-                continue; // no spawn daemon on this core
-            }
-            //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
-            return err;
+        if (!same_core && coreid == disp_get_core_id()) {
+            continue;
         }
 
         err = spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_NAMESERVICE_UNKNOWN_NAME) {
-                continue; // no spawn daemon on this core
-            } else {
-                DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);
-                return err;
-            }
+            DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);
+            goto out;
         }
     }
 
-    return SYS_ERR_OK;
+out:
+    free(buffer);
+    oct_free_names(names, count);
+    return err;
 }
 
 errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client)
