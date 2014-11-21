@@ -53,6 +53,16 @@ extern uint64_t end;
 
 errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
 {
+#if  defined(__k1om__)
+    size_t step = 4;
+    assert(step == 1 || step == 2 || step == 4);
+
+    *apic_id = (core_id * step);
+    if (apic_id == my_arch_id) {
+        *apic_id += step;
+    }
+    *cpu_type = CPU_K1OM;
+#else
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
     if (err_is_fail(err)) {
@@ -72,6 +82,7 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
 out:
     free(record);
     return err;
+#endif
 }
 
 
@@ -96,7 +107,7 @@ errval_t get_architecture_config(enum cpu_type type,
                         get_binary_path("/x86_64/sbin/%s", 
                                         cmd_kernel_binary);
     }
-        break;
+    break;
 
     case CPU_X86_32:
     {
@@ -110,7 +121,21 @@ errval_t get_architecture_config(enum cpu_type type,
                         get_binary_path("/x86_32/sbin/%s", 
                                         cmd_kernel_binary);
     }
-        break;
+    break;
+
+    case CPU_K1OM:
+    {
+        *arch_page_size = X86_64_BASE_PAGE_SIZE;
+        *monitor_binary = (cmd_kernel_binary == NULL) ?
+                        "/k1om/sbin/monitor" :
+                        get_binary_path("/k1om/sbin/%s", 
+                                        cmd_monitor_binary);
+        *cpu_binary = (cmd_kernel_binary == NULL) ?
+                        "/k1om/sbin/cpu" :
+                        get_binary_path("/k1om/sbin/%s", 
+                                        cmd_kernel_binary);
+    }
+    break;
 
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
@@ -654,7 +679,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     /* Invoke kernel capability to boot new core */
-    if (cpu_type == CPU_X86_64) {
+    if (cpu_type == CPU_X86_64 || cpu_type == CPU_K1OM) {
         start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
     }
     else if (cpu_type == CPU_X86_32) {
