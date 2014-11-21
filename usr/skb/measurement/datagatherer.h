@@ -17,7 +17,5 @@
 
 void gather_cpuid_data(coreid_t core_id);
 void gather_rtt_data(struct monitor_binding *st);
-void gather_nr_running_cores(struct monitor_binding *st);
-
 
 #endif // DATAGATHERER_H_

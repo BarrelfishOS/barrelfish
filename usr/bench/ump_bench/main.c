@@ -92,16 +92,9 @@ static errval_t connect_cb(void *st, struct bench_binding *b)
     return SYS_ERR_OK;
 }
 
-static void num_cores_reply(struct monitor_binding *b, coreid_t num)
-{
-    // Set num cores
-    num_cores = num;
-}
-
 int main(int argc, char *argv[])
 {
     errval_t err;
-    struct monitor_binding *mb = get_monitor_binding();
 
     /* Set my core id */
     my_core_id = disp_get_core_id();
@@ -110,26 +103,17 @@ int main(int argc, char *argv[])
     bench_init();
 
     if (argc == 1) { /* bsp core */
-        mb->rx_vtbl.num_cores_reply = num_cores_reply;
 
-        /* 1. set num_cores,
-           2. spawn domains,
-           3. setup a server,
-           4. wait for all clients to connect,
-           5. run experiments
+        /* 1. spawn domains,
+           2. setup a server,
+           3. wait for all clients to connect,
+           4. run experiments
         */
-        err = mb->tx_vtbl.num_cores_request(mb, NOP_CONT);
-        assert(err_is_ok(err));
-
-        while (num_cores == 0) { // XXX
-            messages_wait_and_handle_next();
-        }
-
         // Spawn domains
         char *xargv[] = {my_name, "dummy", NULL};
         err = spawn_program_on_all_cores(false, xargv[0], xargv, NULL,
-                                         SPAWN_FLAGS_DEFAULT, NULL);
-	DEBUG_ERR(err, "spawn program on all cores");
+                                         SPAWN_FLAGS_DEFAULT, NULL, &num_cores);
+	    DEBUG_ERR(err, "spawn program on all cores");
         assert(err_is_ok(err));
 
         /* Setup a server */

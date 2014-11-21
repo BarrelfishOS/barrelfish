@@ -33,8 +33,9 @@ static void spawnmyself(void);
 static bool bsp_datagatherer = false;
 static coreid_t core_id;
 
-extern bool rtt_done, nr_cores_done;
-extern int nr_of_running_cores;
+extern bool rtt_done;
+
+static coreid_t nr_of_running_cores = 0;
 
 
 
@@ -58,27 +59,12 @@ int main(int argc, char **argv)
 
 //gather different types of data
 
-//run cpuid
+    //run cpuid
     gather_cpuid_data(core_id);
 
-//get the number of running cores and their APIC IDs from the monitor
-    if (bsp_datagatherer) {
-        gather_nr_running_cores(get_monitor_binding());
-    } else {
-        nr_cores_done = true;
-    }
-
-//adding the numer of cores is the last operation performed by the datagatherer.
-//therefore the domain can exit after this. process events as long as the number
-//of cores has not yet been added to the SKB.
-    struct waitset *ws = get_default_waitset();
-    while (!nr_cores_done) {
-        errval_t err = event_dispatch(ws);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "in event_dispatch");
-            break;
-        }
-    }
+    //adding the numer of cores is the last operation performed by the datagatherer.
+    //therefore the domain can exit after this. process events as long as the number
+    //of cores has not yet been added to the SKB.
 
     skb_add_fact("datagatherer_done.");
 
@@ -110,7 +96,8 @@ static void spawnmyself(void)
     errval_t err;
     char *argv[] = {"datagatherer", "SpAwNeD", NULL};
     err = spawn_program_on_all_cores(false, argv[0], argv, NULL,
-                                     SPAWN_FLAGS_DEFAULT, NULL);
+                                     SPAWN_FLAGS_DEFAULT, NULL, 
+                                     &nr_of_running_cores);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning other core");
     }

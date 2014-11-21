@@ -159,11 +159,6 @@ static void bind_cb(void *st, errval_t err, struct bench_binding *b)
     }
 }
 
-static void num_cores_reply(struct monitor_binding *st, coreid_t num)
-{
-    num_cores = num;
-}
-
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
@@ -190,19 +185,10 @@ int main(int argc, char *argv[])
     bench_init();
 
     if (argc == 1) { /* server */
-        struct monitor_binding *mb = get_monitor_binding();
-        mb->rx_vtbl.num_cores_reply = num_cores_reply;
-
-        // Get number of cores in the system
-        err = mb->tx_vtbl.num_cores_request(mb, NOP_CONT);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "error sending num_core_request");
-        }
-
         // Spawn client on another core
         char *xargv[] = {"shared_mem_clock_bench", "dummy", NULL};
         err = spawn_program_on_all_cores(false, xargv[0], xargv, NULL,
-                                         SPAWN_FLAGS_DEFAULT, NULL);
+                                         SPAWN_FLAGS_DEFAULT, NULL, &num_cores);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "error spawning on other cores");
         }
