@@ -35,14 +35,14 @@ interface monitor_blocking "The monitor to client RPC interface" {
     rpc get_phyaddr_cap(out cap pyaddr, out errval err);
     rpc get_io_cap(out cap io, out errval err);
 
-	// Resource control
-	rpc rsrc_manifest(in cap dispatcher, in string manifest,
-	    		  out rsrcid id, out errval err);
-        rpc rsrc_join(in rsrcid id, in cap dispatcher, out errval err);
-	rpc rsrc_phase(in rsrcid id, in uint32 phase);
+    // Resource control
+    rpc rsrc_manifest(in cap dispatcher, in string manifest,
+            out rsrcid id, out errval err);
+    rpc rsrc_join(in rsrcid id, in cap dispatcher, out errval err);
+    rpc rsrc_phase(in rsrcid id, in uint32 phase);
 
-	// New monitor endpoint
-	rpc alloc_monitor_ep(out errval err, out cap ep);
+    // New monitor endpoint
+    rpc alloc_monitor_ep(out errval err, out cap ep);
 
     // debug cap identify mechanism
     rpc cap_identify(in cap cap, out errval err, out caprep caprep);

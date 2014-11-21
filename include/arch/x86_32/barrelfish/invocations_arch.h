@@ -454,7 +454,7 @@ static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *r
     capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
 
     struct sysret ret = syscall2(
-                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE, 
+                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE,
                     invoke_cptr);
     if (err_is_ok(ret.error)) {
         *retirq = ret.value;
@@ -634,7 +634,7 @@ static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t cor
 }
 
 static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
-{ 
+{
     struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
     if (err_is_ok(sr.error)) {
         *global = sr.value;

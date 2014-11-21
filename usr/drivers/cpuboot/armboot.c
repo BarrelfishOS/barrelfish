@@ -32,7 +32,7 @@ struct xcore_bind_handler {
 };
 
 extern coreid_t my_arch_id;
-extern struct capref kernel_cap;
+extern struct capref ipi_cap;
 
 errval_t get_core_info(coreid_t core_id, 
                        archid_t* apic_id, 
@@ -279,8 +279,8 @@ static inline errval_t
 invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
                           forvaddr_t entry)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+    uint8_t invoke_bits = get_cap_valid_bits(ipi_cap);
+    capaddr_t invoke_cptr = get_cap_addr(ipi_cap) >> (CPTR_BITS - invoke_bits);
 
     return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
                     | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,

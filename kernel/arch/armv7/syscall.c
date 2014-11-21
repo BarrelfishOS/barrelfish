@@ -584,6 +584,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
     },
+    [ObjType_IPI] = {
+        [IPICmd_Send_Start]  = monitor_spawn_core,
+    },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify
     }
