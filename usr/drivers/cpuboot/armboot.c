@@ -34,21 +34,6 @@ struct xcore_bind_handler {
 extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
 
-errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                                   bool *has_descendents)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
-    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret r;
-    r = syscall5((invoke_bits << 16) | (KernelCmd_Remote_cap << 8)
-                 | SYSCALL_INVOKE, invoke_cptr, cap, bits, is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
-}
-
 errval_t get_core_info(coreid_t core_id, 
                        archid_t* apic_id, 
                        enum cpu_type* cpu_type) {

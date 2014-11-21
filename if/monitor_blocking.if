@@ -47,8 +47,8 @@ interface monitor_blocking "The monitor to client RPC interface" {
     // debug cap identify mechanism
     rpc cap_identify(in cap cap, out errval err, out caprep caprep);
 
-	// XXX: Hack to set a cap remote until we have x-core cap management
-	rpc cap_set_remote(in cap cap, in bool remote, out errval err);
+    // XXX: Hack to set a cap remote until we have x-core cap management
+    rpc cap_set_remote(in cap cap, in bool remote, out errval err);
 
     /* Allocate local IRQ vector */
     rpc irq_handle(in cap ep, out errval err, out uint32 vector);

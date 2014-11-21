@@ -51,18 +51,6 @@ extern coreid_t my_arch_id;
 extern struct capref kernel_cap;
 extern uint64_t end;
 
-errval_t
-invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                          bool * has_descendents)
-{
-    struct sysret r = cap_invoke4(kernel_cap, KernelCmd_Remote_cap, cap, bits,
-                                  is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
-}
-
 errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
 {
     char* record = NULL;
