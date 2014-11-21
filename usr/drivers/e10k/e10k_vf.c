@@ -18,10 +18,13 @@
 #include <barrelfish/debug.h>
 #include <ipv4/lwip/inet.h>
 
-#include <if/e10k_defs.h>
-#include <if/e10k_vf_defs.h>
-#include <if/e10k_vf_rpcclient_defs.h>
-#include <dev/e10k_vf_dev.h>
+#ifndef VF
+#    include <if/e10k_defs.h>
+#else
+#    include <if/e10k_vf_defs.h>
+#    include <if/e10k_vf_rpcclient_defs.h>
+#    include <dev/e10k_vf_dev.h>
+#endif
 
 #include "sleep.h"
 #include "helper.h"
