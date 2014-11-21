@@ -59,8 +59,8 @@
 #       include <trace/trace.h>
 #       include <trace_definitions/trace_defs.h>
 #       include <timer.h> // update_sched_timer
+#       include <kcb.h>
 #endif
-#include <kcb.h>
 
 #define SPECTRUM        1000000
 
@@ -316,6 +316,7 @@ struct dcb *schedule(void)
  start_over:
     todisp = kcb_current->queue_head;
 
+#ifndef SCHEDULER_SIMULATOR
 #define PRINT_NAME(d) \
     do { \
         if (!(d) || !(d)->disp) { \
@@ -327,6 +328,9 @@ struct dcb *schedule(void)
         debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%lu, kernel_now=%zu\n", \
                 dst->name, d->release_time, kernel_now); \
     }while(0)
+#else
+#define PRINT_NAME(d) do{}while(0)
+#endif
 
     // Skip over all tasks released in the future, they're technically not
     // in the schedule yet. We just have them to reduce book-keeping.
@@ -338,7 +342,9 @@ struct dcb *schedule(void)
 
     // nothing to dispatch
     if(todisp == NULL) {
+#ifndef SCHEDULER_SIMULATOR
         debug(SUBSYS_DISPATCH, "schedule: no dcb runnable\n");
+#endif
         lastdisp = NULL;
         return NULL;
     }
@@ -554,6 +560,7 @@ void scheduler_yield(struct dcb *dcb)
     queue_insert(dcb);
 }
 
+#ifndef SCHEDULER_SIMULATOR
 void scheduler_reset_time(void)
 {
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER_SYNC, 0);
@@ -615,3 +622,4 @@ void scheduler_restore_state(void)
     // clear time slices
     scheduler_reset_time();
 }
+#endif
