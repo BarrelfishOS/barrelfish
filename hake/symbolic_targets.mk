@@ -72,7 +72,6 @@ TESTS_x86_64= \
 	sbin/thcminitest \
 	sbin/tweedtest \
 	sbin/thctest \
-	sbin/cxxtest \
 	sbin/testdesc \
 	sbin/testdesc-child \
 	sbin/multihoptest \
@@ -144,13 +143,11 @@ BENCH_x86_64= \
 	$(BIN_RCCE_LU) \
 	sbin/tsc_bench \
 	sbin/netthroughput \
-	sbin/xomp_test_cpp \
 	sbin/bulk_transfer_passthrough \
 	sbin/bulkbench_micro_echo \
 	sbin/bulkbench_micro_throughput \
 	sbin/bulkbench_micro_rtt \
 	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_inter_bench \
 	sbin/rcce_pingpong \
 	sbin/elb_app \
 	sbin/elb_app_tcp \
@@ -236,7 +233,6 @@ MODULES_x86_64= \
 	sbin/ioat_dma \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/dma_test \
 	sbin/block_server \
 	sbin/block_server_client \
 	sbin/bs_user \
@@ -245,7 +241,7 @@ MODULES_x86_64= \
 	sbin/corectrl 
 
 MODULES_k1om= \
-    sbin/weever \
+        sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
 	xeon_phi_multiboot \
