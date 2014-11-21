@@ -693,28 +693,7 @@ static void get_ipi_cap(struct monitor_blocking_binding *b)
     // who requests it. There is currently no way to determine
     // if the client is a valid recipient
 
-    // get slot for ipi cap
-    struct capref ipi;
-    err = slot_alloc(&ipi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot alloc for ipi");
-    }
-
-    // TODO: do this in a slightly saner way!
-    // fabricate an IPI cap
-    struct capability cap;
-    memset(&cap, 0, sizeof(cap));
-    cap.type = ObjType_IPI;
-    cap.rights = CAPRIGHTS_ALLRIGHTS;
-
-    // put it in the slot
-    capaddr_t caddr = get_cnode_addr(ipi);
-    uint8_t vbits = get_cnode_valid_bits(ipi);
-    size_t  slot  = ipi.slot;
-    err = invoke_monitor_create_cap((uint64_t*)&cap, caddr, vbits, slot);
-    assert(err_is_ok(err));
-
-    err = b->tx_vtbl.get_ipi_cap_response(b, NOP_CONT, ipi);
+    err = b->tx_vtbl.get_ipi_cap_response(b, NOP_CONT, cap_ipi);
     assert(err_is_ok(err));
 }
 

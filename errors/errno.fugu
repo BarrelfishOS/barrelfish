@@ -649,6 +649,7 @@ errors init INIT_ERR_ {
     failure COPY_SUPERCN_CAP    "Failed to copy superCN cap to mem_serv",
     failure MAP_BOOTINFO        "Failed to map bootinfo to child",
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
+    failure COPY_IPI            "Failed to copy IPI cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",
     failure COPY_MODULECN_CAP   "Failed to copy module CNode cap to monitor",
     failure COPY_PACN_CAP       "Failed to copy phys addr CNode cap to monitor",
