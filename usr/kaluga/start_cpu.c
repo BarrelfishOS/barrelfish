@@ -29,8 +29,6 @@
 
 #include "kaluga.h"
 
-//static coreid_t core_counter = 1;
-
 static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
@@ -74,14 +72,14 @@ out:
     free(record);
 }
 
+static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
+                           "                             enabled: 1, "
+                           "                             apic_id: _, "
+                           "                             barrelfish_id: _ }";
 
 errval_t watch_for_cores(void)
 {
-    static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
-                               "                             enabled: 1, "
-                               "                             apic_id: _, "
-                               "                             barrelfish_id: _ }";
-   octopus_trigger_id_t tid;
+    octopus_trigger_id_t tid;
    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
 
@@ -166,4 +164,57 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     }
 
     return err;
+}
+
+
+static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
+{
+    size_t count = (size_t) state;
+    static coreid_t spawnd_counter = 0;
+
+    if (mode & OCT_ON_SET) {
+        KALUGA_DEBUG("spawnd found: %s\n", record);
+        spawnd_counter++;
+
+        if (spawnd_counter == count) {
+            KALUGA_DEBUG("Found enough spawnds, setting all_spawnds_up\n");
+            errval_t err = oct_set("all_spawnds_up { iref: 0 }");
+            assert(err_is_ok(err));
+        }
+    }   
+}
+
+errval_t wait_for_all_spawnds(void)
+{
+    // Note: The whole wait for all_spawnds_up thing is a hack.
+    // Our overall design goal is a system where cores
+    // come and go dynamically and we do not want / need
+    // to wait for a stable state.
+    // However, some of our code (for example domain spanning)
+    // still assumes a fixed set of cores and will deadlock
+    // otherwise. Therefore we need to fix those parts first.
+
+
+    KALUGA_DEBUG("Waiting for acpi");
+    char* record = NULL;
+    errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
+    free(record);
+    if (err_is_fail(err)) {
+        return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
+    }
+    
+    // No we should be able to get core count
+    // of all cores to estimate the amount of 
+    // spawnd's we have to expect (one per core)
+    char** names;
+    size_t count;
+    err = oct_get_names(&names, &count, local_apics);
+    if (err_is_fail(err)) {
+        return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
+    }
+    oct_free_names(names, count);
+
+    static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
+    octopus_trigger_id_t tid;
+    return oct_trigger_existing_and_watch(spawnds, spawnd_change_event, (void*)count, &tid);
 }

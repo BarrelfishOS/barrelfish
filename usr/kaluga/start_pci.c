@@ -53,7 +53,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
             octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
 
     // Construct service name
-    static char* format = "spawn.%hhu { iref: _ }";
+    static char* format = "spawn.%"PRIuCOREID" { iref: _ }";
     int length = snprintf(NULL, 0, format, core);
     char* query = malloc(length+1);
     snprintf(query, length+1, format, core);
