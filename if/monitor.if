@@ -151,10 +151,6 @@ interface monitor "The monitor to client Interface" {
         cap vroot,
         cap disp);
 
-    /* TODO: move to monitor_blocking as RPC? */
-    call num_cores_request();
-    response num_cores_reply(uint8 num);
-
     /* Multi-hop interconnect driver */
 
     // Send routing table

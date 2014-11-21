@@ -123,7 +123,6 @@ static void boot_core_reply_handler(struct monitor_binding *b,
 
 static void monitor_initialized(struct intermon_binding *b)
 {
-    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (monitor_ready == NULL) {
         monitor_ready = calloc(MAX_COREID, sizeof(bool));
     }
@@ -131,14 +130,12 @@ static void monitor_initialized(struct intermon_binding *b)
     struct intermon_state *st = b->st;
     errval_t err = SYS_ERR_OK;
 
-    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
     // Inform other monitors of this new monitor
     monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
     }
-    //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
 
     // New plan, do timing sync for every time a monitor has come up...
     /*if(num_monitors > 1) {
@@ -152,7 +149,6 @@ static void monitor_initialized(struct intermon_binding *b)
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
-    //printf("%s:%s:%d: client=%p\n", __FILE__, __FUNCTION__, __LINE__, client);
     boot_core_reply_cont(client, err);
 }
 

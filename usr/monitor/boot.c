@@ -18,23 +18,6 @@
 
 /* Use to figure out when all monitors initialized. */
 int seen_connections = 0;
-int num_monitors = 1;
-
-/**
- * \brief Based on number of monitors in the system,
- * returns number of connections created.
- */
-static int get_num_connections(int num)
-{
-    if (num == 1 || num == 2) {
-        return 0;
-    }
-    if (num == 3) {
-        return 1;
-    }
-
-    return (num - 2) + get_num_connections(num - 1);
-}
 
 static errval_t trace_ump_frame_identify(struct capref frame,
                                          struct intermon_ump_binding* b,
