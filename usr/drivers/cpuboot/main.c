@@ -15,7 +15,7 @@
 #include "coreboot.h"
 
 coreid_t my_arch_id;
-struct capref kernel_cap;
+struct capref ipi_cap;
 
 bool done = false;
 
@@ -48,12 +48,12 @@ static void setup_monitor_messaging(void)
     st->rx_vtbl.boot_core_reply = boot_core_reply;
 }
 
-static void load_kernel_cap(void)
+static void load_ipi_cap(void)
 {
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    errval_t err = mc->vtbl.get_kernel_cap(mc, &kernel_cap);
+    errval_t err = mc->vtbl.get_ipi_cap(mc, &ipi_cap);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "get_kernel_cap failed.");
+        USER_PANIC_ERR(err, "get_ipi_cap failed.");
     }
 }
 
@@ -78,7 +78,7 @@ static void initialize(void)
 
     setup_monitor_messaging();
     load_arch_id();
-    load_kernel_cap();
+    load_ipi_cap();
 }
 
 

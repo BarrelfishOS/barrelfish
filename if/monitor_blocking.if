@@ -59,8 +59,8 @@ interface monitor_blocking "The monitor to client RPC interface" {
     /* Retrieve local arch-specific core ID (e.g. APIC ID on x86)*/
     rpc get_arch_core_id(out uintptr id);
 
-    /* Scary */
-    rpc get_kernel_cap(out cap cap);
+    /* get cap that can be used to send IPIs */
+    rpc get_ipi_cap(out cap cap);
 
     rpc forward_kcb_request(in coreid destination, in cap kcb, out errval err);
 

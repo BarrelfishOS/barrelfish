@@ -50,7 +50,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -74,7 +74,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -106,7 +106,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(26 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -189,9 +189,7 @@ enum kernel_cmd {
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
-    KernelCmd_Start_IPI_Send,     ///< Send Startup IPI to a destination core
-    KernelCmd_Init_IPI_Send,      ///< Send Init IPI to a destination core
-    KernelCmd_GetGlobalPhys,      ///< Get physical address of kernel variable struct global;
+    KernelCmd_GetGlobalPhys,
     KernelCmd_Add_kcb,            ///< add extra kcb to be scheduled
     KernelCmd_Remove_kcb,         ///< remove kcb from scheduling ring
     KernelCmd_Suspend_kcb_sched,  ///< suspend/resume kcb scheduler
@@ -264,6 +262,14 @@ enum id_cmd {
     IDCmd_Identify  ///< Return system-wide unique ID
 };
 
+/**
+ * IPI capability commands
+ */
+
+enum ipi_cmd {
+    IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
+    IPICmd_Send_Init,      ///< Send Init IPI to a destination core
+};
 /**
  * Maximum command ordinal.
  */

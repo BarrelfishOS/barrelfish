@@ -913,12 +913,14 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
-        [KernelCmd_Start_IPI_Send] = kernel_send_start_ipi,
-        [KernelCmd_Init_IPI_Send] = kernel_send_init_ipi,
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
+    },
+    [ObjType_IPI] = {
+        [IPICmd_Send_Start] = kernel_send_start_ipi,
+        [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
     [ObjType_IRQTable] = {
         [IRQTableCmd_Alloc] = handle_irq_table_alloc,

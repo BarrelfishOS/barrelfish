@@ -287,3 +287,5 @@ cap KernelControlBlock from RAM {
     /* base page size for now so we can map the kcb in boot driver */
     size_bits { kcb_size };
 };
+
+cap IPI is_always_copy {};

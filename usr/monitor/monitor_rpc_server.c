@@ -685,15 +685,37 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
 
 /* ----------------------- BOOTINFO REQUEST CODE END ----------------------- */
 
-// TODO(gz): HACK remove before coreboot goes public.
-static void get_kernel_cap(struct monitor_blocking_binding *b)
+static void get_ipi_cap(struct monitor_blocking_binding *b)
 {
     errval_t err;
 
-    err = b->tx_vtbl.get_kernel_cap_response(b, NOP_CONT, cap_kernel);
+    // XXX: We should not just hand out this cap to everyone
+    // who requests it. There is currently no way to determine
+    // if the client is a valid recipient
+
+    // get slot for ipi cap
+    struct capref ipi;
+    err = slot_alloc(&ipi);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending kernel_cap failed.");
+        DEBUG_ERR(err, "slot alloc for ipi");
     }
+
+    // TODO: do this in a slightly saner way!
+    // fabricate an IPI cap
+    struct capability cap;
+    memset(&cap, 0, sizeof(cap));
+    cap.type = ObjType_IPI;
+    cap.rights = CAPRIGHTS_ALLRIGHTS;
+
+    // put it in the slot
+    capaddr_t caddr = get_cnode_addr(ipi);
+    uint8_t vbits = get_cnode_valid_bits(ipi);
+    size_t  slot  = ipi.slot;
+    err = invoke_monitor_create_cap((uint64_t*)&cap, caddr, vbits, slot);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.get_ipi_cap_response(b, NOP_CONT, ipi);
+    assert(err_is_ok(err));
 }
 
 static void forward_kcb_request(struct monitor_blocking_binding *b,
@@ -821,7 +843,7 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_arch_core_id_call   = get_arch_core_id,
 
     .cap_set_remote_call     = cap_set_remote,
-    .get_kernel_cap_call = get_kernel_cap,
+    .get_ipi_cap_call = get_ipi_cap,
 
     .forward_kcb_request_call = forward_kcb_request,
 
