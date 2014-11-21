@@ -40,6 +40,10 @@ static struct device_mem hbabar;
     static bool initialized = false;
 #endif
 
+struct device_id {
+    uint32_t vendor;
+    uint32_t device;
+};
 
 static void rx_list_call(struct ahci_mgmt_binding *b)
 {
@@ -524,6 +528,21 @@ static void ahci_interrupt_handler(void *arg)
     }
 }
 
+static void ahci_reregister_handler(void *arg)
+{
+    errval_t err;
+    struct device_id *dev_id = arg;
+    err = pci_reregister_irq_for_device(PCI_CLASS_MASS_STORAGE, PCI_SUB_SATA,
+            PCI_DONT_CARE, dev_id->vendor, dev_id->device, PCI_DONT_CARE, PCI_DONT_CARE,
+            PCI_DONT_CARE, ahci_interrupt_handler, NULL,
+            ahci_reregister_handler, dev_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pci_reregister_irq_for_device");
+    }
+
+    return;
+}
+
 static void polling_loop(void)
 {
     errval_t err;
@@ -562,11 +581,15 @@ int main(int argc, char **argv)
         uint64_t vendor_id, device_id;
         vendor_id = strtol(argv[2], NULL, 16);
         device_id = strtol(argv[2]+5, NULL, 16);
-        r = pci_register_driver_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
+        struct device_id *dev_id = malloc(sizeof(*dev_id));
+        dev_id->vendor = vendor_id;
+        dev_id->device = device_id;
+        r = pci_register_driver_movable_irq(ahci_init, PCI_CLASS_MASS_STORAGE,
                 PCI_SUB_SATA, PCI_DONT_CARE, vendor_id,
                 device_id,
                 PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
-                ahci_interrupt_handler, NULL);
+                ahci_interrupt_handler, NULL,
+                ahci_reregister_handler, dev_id);
         if (err_is_fail(r)) {
             printf("couldn't register device %04"PRIx64":%04"PRIx64": %s\n", vendor_id,
                     device_id, err_getstring(r));

@@ -24,39 +24,6 @@
  */
 uint64_t tsc_lasttime = 0;
 
-#ifndef __scc__
-/**
- * \brief Spawn a new core
- */
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry)
-{
-    int r;
-    switch(cpu_type) {
-    case CPU_K1OM :
-        /* fall through */
-    case CPU_X86_64:
-        r = start_aps_x86_64_start(core_id, entry);
-        if (r != 0) {
-            return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        }
-        break;
-    case CPU_X86_32:
-        r = start_aps_x86_32_start(core_id, entry);
-        if (r != 0) {
-            return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        }
-        break;
-    default:
-        assert(!"Architecture not supported");
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        break;
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-#endif
-
 struct sysret sys_io(struct capability *to, enum io_cmd cmd,
                      uint16_t port, uint32_t data)
 {

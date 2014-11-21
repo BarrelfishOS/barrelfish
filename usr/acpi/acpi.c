@@ -25,6 +25,7 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include <trace/trace.h>
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -152,7 +153,7 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
     return AE_OK;
 }
 
-#ifdef PCI_SERVICE_DEBUG
+#ifdef ACPI_SERVICE_DEBUG
 static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
 {
     switch(res->Type) {
@@ -166,8 +167,8 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
         printf("addr32\n");
         break;
     case ACPI_RESOURCE_TYPE_ADDRESS64:
-        printf("length = %"PRIu32", gran = %lx, min = %lx, max = %lx, transoff "
-               "= %lx, addrlen = %lx, index = %hhu, strlen = %hu, string = %s",
+        printf("length = %"PRIu32", gran = %"PRIx64", min = %"PRIx64", max = %"PRIx64", transoff "
+               "= %"PRIx64", addrlen = %"PRIx64", index = %hhu, strlen = %hu, string = %s",
                res->Length, res->Data.Address64.Granularity,
                res->Data.Address64.Minimum,
                res->Data.Address64.Maximum,
@@ -212,7 +213,7 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
             if (irqres->InterruptCount > 0) {
                 printf("IRQs:");
                 for (int i = 0; i < irqres->InterruptCount; i++) {
-                    printf(" %d", irqres->Interrupts[i]);
+                    printf(" %"PRIu32, irqres->Interrupts[i]);
                 }
             } else {
                 printf("no IRQ");
@@ -230,7 +231,7 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
         break;
 
     default:
-        printf("resource_printer: Unexpected resource type %d\n", res->Type);
+        printf("resource_printer: Unexpected resource type %"PRIu32"\n", res->Type);
         break;
     }
 
@@ -313,7 +314,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
     for (; prt->Length; prt = (void *)prt + prt->Length) {
         uint16_t device = (prt->Address >> 16) & 0xffff;
         assert((prt->Address & 0xffff) == 0xffff); // any function
-        ACPI_DEBUG(" device %u pin %u %s (index %u)\n",
+        ACPI_DEBUG(" device %u pin %"PRIu32" %s (index %"PRIu32")\n",
                device, prt->Pin, *(prt->Source) ? prt->Source : "GSI",
                prt->SourceIndex);
 
@@ -344,7 +345,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         skb_add_fact("prt(addr(%"PRIu8", %"PRIu16", _), %"PRIu32", pir(\"%s\")).",
                      bus, device, prt->Pin, esource);
 
-#ifdef PCI_SERVICE_DEBUG /* debug code to dump resources */
+#ifdef ACPI_SERVICE_DEBUG /* debug code to dump resources */
         ACPI_DEBUG("  INITIAL:  ");
         as = AcpiWalkResources(source, METHOD_NAME__CRS,
                                resource_printer, NULL);
@@ -518,13 +519,13 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
 
     resources.addr = bridgeaddr;
 
-#ifdef PCI_SERVICE_DEBUG
+#ifdef ACPI_SERVICE_DEBUG
     printf("\nstart PRS\n");
     as = AcpiWalkResources(handle, METHOD_NAME__PRS, resource_printer,
                            NULL);
     printf("\nPRS finished\n");
     if (ACPI_FAILURE(as)) {
-        printf("\nPRS failed. Status = %d\n", as);
+        printf("\nPRS failed. Status = %"PRIu32"\n", as);
 //        return as;
     }
 #endif
@@ -700,9 +701,9 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
 
                 if(a->Flags & ACPI_SRAT_MEM_ENABLED) {
                     ACPI_DEBUG("Memory affinity table:\n");
-                    ACPI_DEBUG("Proximity Domain: %d\n", a->ProximityDomain);
-                    ACPI_DEBUG("Base address: 0x%lx\n", a->BaseAddress);
-                    ACPI_DEBUG("Length: 0x%lx\n", a->Length);
+                    ACPI_DEBUG("Proximity Domain: %"PRIu32"\n", a->ProximityDomain);
+                    ACPI_DEBUG("Base address: 0x%"PRIx64"\n", a->BaseAddress);
+                    ACPI_DEBUG("Length: 0x%"PRIx64"\n", a->Length);
 
                     bool hotpluggable = false, nonvolatile = false;
                     if(a->Flags & ACPI_SRAT_MEM_HOT_PLUGGABLE) {

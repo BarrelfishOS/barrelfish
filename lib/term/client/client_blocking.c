@@ -412,10 +412,19 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
 
     TERM_DEBUG("Record retrieved from octopus: %s\n", record);
 
-    iref_t session_iref;
+    int64_t session_oct;
+    int64_t in_oct;
+    int64_t out_oct;
+    int64_t conf_oct;
+    // oct_read can only parse 64-bit values, we need to parse the irefs as 64bit
+    // then cast to 32bit
     err = oct_read(record, "_ { session_iref: %d, in_iref: %d, out_iref: %d, "
-                   "conf_iref: %d }", &session_iref, in_iref, out_iref,
-                   conf_iref);
+                   "conf_iref: %d }", &session_oct, &in_oct, &out_oct,
+                    &conf_oct);
+    //iref_t session_iref = (iref_t)session_oct;
+    *in_iref = (iref_t)in_oct;
+    *out_iref = (iref_t)out_oct;
+    *conf_iref = (iref_t)conf_oct;
     if (err_is_fail(err)) {
         err_push(err, TERM_ERR_PARSE_SESSION_RECORD);
         goto out;

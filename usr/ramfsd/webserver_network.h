@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief faux-init process to help bring up userspace.
+ * \brief webserver network interface
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2008, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,12 +12,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdio.h>
+#ifndef WEBSERVER_NETWORK_H
+#define WEBSERVER_NETWORK_H
 
-int main(void)
-{
-    printf ("init_null: Hello World\n");
-    return EXIT_SUCCESS;
-}
+void http_server_init(struct ip_addr server, const char *path);
+
+#endif // WEBSERVER_NETWORK_H

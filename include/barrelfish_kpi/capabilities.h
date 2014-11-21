@@ -23,6 +23,9 @@
 // Size of dispatcher
 #define OBJBITS_DISPATCHER     10
 
+// Size of kernel control block
+#define OBJBITS_KCB            16
+
 #ifndef __ASSEMBLER__
 
 #define CAPRIGHTS_READ          (1 << 0)
@@ -47,7 +50,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -71,7 +74,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -103,7 +106,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(25 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -186,6 +189,10 @@ enum kernel_cmd {
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
+    KernelCmd_GetGlobalPhys,
+    KernelCmd_Add_kcb,            ///< add extra kcb to be scheduled
+    KernelCmd_Remove_kcb,         ///< remove kcb from scheduling ring
+    KernelCmd_Suspend_kcb_sched,  ///< suspend/resume kcb scheduler
     KernelCmd_Count
 };
 
@@ -213,6 +220,7 @@ enum frame_cmd {
  * IRQ Table capability commands.
  */
 enum irqtable_cmd {
+    IRQTableCmd_Alloc,  ///< Allocate new vector (XXX: HACK: this is x86 specific)
     IRQTableCmd_Set,    ///< Set endpoint for IRQ# notifications
     IRQTableCmd_Delete  ///< Remove notification endpoint for IRQ#
 };
@@ -243,7 +251,7 @@ enum notify_cmd {
  */
 enum perfmon_cmd {
     PerfmonCmd_Activate,    ///< Activate performance counters
-    PerfmonCmd_Deactivate,  ///< Deactivate performance counters 
+    PerfmonCmd_Deactivate,  ///< Deactivate performance counters
     PerfmonCmd_Write        ///< Read current performance counter values
 };
 
@@ -254,6 +262,14 @@ enum id_cmd {
     IDCmd_Identify  ///< Return system-wide unique ID
 };
 
+/**
+ * IPI capability commands
+ */
+
+enum ipi_cmd {
+    IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
+    IPICmd_Send_Init,      ///< Send Init IPI to a destination core
+};
 /**
  * Maximum command ordinal.
  */

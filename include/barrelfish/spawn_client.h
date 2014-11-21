@@ -30,6 +30,7 @@ struct spawn_ps_entry {
 /* Inherit CNode, layout convention #spawn_program_with_caps expects */
 #define INHERITCN_SLOT_FDSPAGE   1  ///< cap for inherited file descriptors
 #define INHERITCN_SLOT_SESSIONID 2  ///< Session ID domain belongs to
+#define INHERITCN_SLOT_KERNELCAP 3     ///< Kernel capability for core boot
 
 errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  char *const argv[], char *const envp[],
@@ -58,10 +59,10 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
 errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr);
 
-errval_t alloc_inheritcn_with_fdcap(struct capref *inheritcn_capp,
-                                    struct capref fdcap);
-errval_t alloc_inheritcn_with_sidcap(struct capref *inheritcn_capp,
-                                     struct capref sidcap);
+errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,
+                                   struct capref fdcap,
+                                   struct capref sidcap,
+                                   struct capref kernelcap);
 
 __END_DECLS
 

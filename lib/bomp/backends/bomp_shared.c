@@ -20,6 +20,9 @@
 #include <barrelfish/resource_ctrl.h>
 #include <bomp_internal.h>
 
+// 1MB stack
+#define STACK_BYTES (1UL << 20)
+
 static struct bomp_state *bomp_st;
 
 static rsrcid_t my_rsrc_id;
@@ -40,6 +43,7 @@ static void bomp_run_on(int core_id,
 {
     int actual_id = core_id + disp_get_core_id();
     thread_func_t func = (thread_func_t) cfunc;
+    debug_printf("%s: stack size: %zu\n", __FUNCTION__, thread_stack_size);
     errval_t err = domain_thread_create_on_varstack(actual_id, func, arg,
                                                     thread_stack_size);
     if (err_is_fail(err)) {
@@ -214,6 +218,11 @@ static void bomp_synchronize(void)
 
 int bomp_bomp_init(uint32_t nthreads)
 {
+    return bomp_bomp_init_varstack(nthreads, STACK_BYTES);
+}
+
+int bomp_bomp_init_varstack(uint32_t nthreads, size_t stack_size)
+{
 
     if (bomp_st != NULL) {
         debug_printf("bomp_bomp_init: already initialized\n");
@@ -226,6 +235,9 @@ int bomp_bomp_init(uint32_t nthreads)
     if (bomp_st == NULL) {
         return -1;
     }
+
+    // make sure stack size is multiple of page size
+    stack_size = ROUND_UP(stack_size, BASE_PAGE_SIZE);
 
     g_thread_limit = nthreads;
 
@@ -240,8 +252,20 @@ int bomp_bomp_init(uint32_t nthreads)
     bomp_st->backend.end_processing = bomp_end_processing;
     bomp_common_init(bomp_st);
     g_bomp_state = bomp_st;
-    bomp_span_domain(nthreads, THREADS_DEFAULT_STACK_BYTES);
+    bomp_span_domain(nthreads, stack_size);
     return 0;
+}
+
+int bomp_run_main(main_func_t mainfunc, void *mainarg, size_t stacksize)
+{
+    // we need to create a thread with a big enough stack on Barrelfish as the
+    // default stack size for threads is 64kB which is nowhere near enough for
+    // the fft code.
+    int retval;
+    struct thread *mt = thread_create_varstack(mainfunc, mainarg, stacksize);
+    errval_t err = thread_join(mt, &retval);
+    assert(err_is_ok(err));
+    return retval;
 }
 
 struct bomp_state * bomp_get_backend_state_bomp(void)

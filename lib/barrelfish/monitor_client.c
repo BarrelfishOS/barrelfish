@@ -22,6 +22,9 @@
 
 static void error_handler(struct monitor_binding *b, errval_t err)
 {
+#if defined(__x86_64__) || defined(__i386__)
+    debug_printf("%p %p %p %p\n", __builtin_return_address(0), __builtin_return_address(1),__builtin_return_address(2),__builtin_return_address(3));
+#endif
     debug_err(__FILE__, __func__, __LINE__, err,
               "asynchronous error in monitor binding");
     abort();

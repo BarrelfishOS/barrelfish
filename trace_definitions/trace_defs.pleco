@@ -38,6 +38,7 @@
 
 subsystem kernel {
 
+    // Do not change CSWITCH name without changing Aquarium EventFactory.java!
 	event CSWITCH 				"Context Switch",
 	event BZERO 				"Buffer zeroing",
 	event TIMER 				"",
@@ -49,6 +50,36 @@ subsystem kernel {
 	event SCHED_SCHEDULE 		"",
 	event SCHED_CURRENT 		"",
 
+    event CORE_START_REQUEST      "Requested start of a new core.",
+    event CORE_START_REQUEST_DONE "Request is sent, waiting for core to come up.",
+    event CORE_START_REQUEST_ACK  "Core is online.",
+
+    /* Syscalls */
+    event SC_PRINT            "Syscall PRINT",
+    event SC_DISP_SETUP       "Syscall DISPATCHER ",
+    event SC_DISP_PROPS       "Syscall DISPATCHER_PROPS",
+    event SC_RETYPE           "Syscall RETYPE",
+    event SC_CREATE           "Syscall CREATE",
+    event SC_COPY_OR_MINT     "Syscall COPY_OR_MINT",
+    event SC_CTE_FOR_CAP      "Syscall CTE_FOR_CAP",
+    event SC_MAP              "Syscall MAP",
+    event SC_UNMAP            "Syscall UNMAP",
+    event SC_DELETE           "Syscall DELETE",
+    event SC_REVOKE           "Syscall REVOKE",
+    event SC_MONITOR_REGISTER "Syscall MONITOR_REGISTER",
+    event SC_IDENTIFY_CAP     "Syscall IDENTIFY_CAP",
+    event SC_NULLIFY_CAP      "Syscall NULLIFY_CAP",
+    event SC_DOMAIN_ID        "Syscall DOMAIN_ID",
+    event SC_YIELD            "Syscall YIELD",
+    event SC_SUSPEND          "Syscall SUSPEND",
+    event SC_IDCAP_IDENTIFY   "Syscall IDCAP_IDENTIFY",
+    event SC_SPAWN_CORE       "Syscall SPAWN_CORE",
+
+    event CAP_LOOKUP_SLOT          "Cap Slot lookup",
+    event CAP_LOOKUP_CAP           "Cap Lookup",
+    event CAP_CREATE_FROM_EXISTING "Cap Create from existing",
+    event CAP_CREATE_NEW           "Cap Create new",
+    event CAP_RETYPE               "Cap Retype",
 };
 
 subsystem threads {
@@ -101,21 +132,25 @@ subsystem memtest {
 
 
 subsystem monitor {
- event SPAN0					"",
- event SPAN1					"",
- event SPAN						"",
- event PCREQ					"",
- event PCREP					"",
- event PCREQ_INTER				"",
- event PCREPLY_INTER			"",
- event URPC_BLOCK				"",
- event URPC_UNBLOCK				"",
- event REMOTE_CAP_RETYPE		"",
- event REMOTE_CAP_RETYPE_RETRY	"",
- event REMOTE_CAP_RETYPE_MSG	"",
- event REMOTE_CAP_RETYPE_END	"",
- event POLLING					"",
-
+    event SPAN0					"",
+    event SPAN1					"",
+    event SPAN						"",
+    event PCREQ					"",
+    event PCREP					"",
+    event PCREQ_INTER				"",
+    event PCREPLY_INTER			"",
+    event URPC_BLOCK				"",
+    event URPC_UNBLOCK				"",
+    event REMOTE_CAP_RETYPE		"",
+    event REMOTE_CAP_RETYPE_RETRY	"",
+    event REMOTE_CAP_RETYPE_MSG	"",
+    event REMOTE_CAP_RETYPE_END	"",
+    event POLLING					"",
+    event BIND_MONITOR_REPLY "Bind monitor reply",
+    event BIND_MONITOR_REQUEST "Request to setup connection with new monitor",
+    event BOOT_CORE_REQUEST "Received request from (user -> monitor) [in monitor].",
+    event BOOT_INITIALIZE_REQUEST "Monitor got boot initialize request",
+    event INVOKE_SPAWN "Monitor requests boot-up from kernel (monitor -> kernel).",
 };
 
 subsystem chips {
@@ -161,11 +196,19 @@ subsystem route {
 
 };
 
+// Generic Benchmarking events
 subsystem bench {
+
+ event START                "Start the benchmark/tracing",
+ event STOP                 "End of the benchmark/tracing",
+
+ event ROUND_START          "",
+ event ROUND_END            "",
 
  event PCBENCH				"",
  event RXPING				"",
  event RXPONG				"",
+
 
 };
 
@@ -287,3 +330,13 @@ subsystem xmpl {
 
 };
 
+subsystem acpi {
+    event APIC_ADDED     "ACPI added fact about new core to SKB",
+};
+
+// Use to trace the core booting system
+subsystem cores {
+    event USER_REQUEST     "Kaluga requests boot-up of new CPU user -> monitor.",
+    event ALL_UP           "Everything has booted",
+    event BOOT_INITIALIZE_USER "User sends boot initialize to monitor",
+};

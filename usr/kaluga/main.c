@@ -32,17 +32,19 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
+#include <trace/trace.h>
+
+
 #include "kaluga.h"
 
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 
-extern char **environ;
-
 static void add_start_function_overrides(void)
 {
     set_start_function("e1000n", start_networking);
     set_start_function("rtl8029", start_networking);
+    set_start_function("corectrl", start_boot_driver);
 }
 
 static void parse_arguments(int argc, char** argv)
@@ -126,16 +128,18 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    // XXX: This is a bit silly, I add this record
-    // because it was previously in spawnd so
-    // there may be code out there who relies on this
-    // It might be better to get rid of this completely
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
+    err = wait_for_all_spawnds();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+
 #elif __pandaboard__
     printf("Kaluga running on Pandaboard.\n");
 
     err = init_cap_manager();
+    assert(err_is_ok(err));
+
+    err = oct_set("all_spawnds_up { iref: 0 }");
     assert(err_is_ok(err));
 
     struct module_info* mi = find_module("fdif");
@@ -168,6 +172,7 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}");
         assert(err_is_ok(err));
     }
+
     mi = find_module("usb_manager");
     if (mi != NULL) {
 #define USB_ARM_EHCI_IRQ 109

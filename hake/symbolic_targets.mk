@@ -22,8 +22,8 @@ MAKEFLAGS=r
 
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
-ARM_GCC?=arm-none-linux-gnueabi-gcc
-ARM_OBJCOPY?=arm-none-linux-gnueabi-objcopy
+ARM_GCC?=arm-linux-gnueabi-gcc
+ARM_OBJCOPY?=arm-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
 # upload Xeon Phi images to nfs share (leave blank to cancel)
@@ -119,6 +119,9 @@ BENCH_x86= \
 	sbin/ump_throughput \
 	sbin/ump_send \
 	sbin/ump_receive \
+	sbin/timer_test \
+	sbin/net_openport_test \
+	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
 	sbin/multihop_latency_bench
 
@@ -173,7 +176,6 @@ GREEN_MARL= \
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
-	sbin/init_null \
 	sbin/init \
 	sbin/chips \
 	sbin/skb \
@@ -239,8 +241,8 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	$(GREEN_MARL)
-	
+	$(GREEN_MARL) \
+	sbin/corectrl 
 
 MODULES_k1om= \
     sbin/weever \
@@ -283,7 +285,8 @@ MODULES_x86_32=\
 	sbin/multihoptest \
 	sbin/multihop_latency_bench \
 	sbin/angler \
-	sbin/sshd
+	sbin/sshd \
+	sbin/corectrl
 
 # SCC-specific module to build by default
 MODULES_scc=\
@@ -323,7 +326,8 @@ MODULES_armv7=\
 	sbin/usb_manager \
 	sbin/usb_keyboard \
 	sbin/kaluga \
-	sbin/fish
+	sbin/fish \
+	sbin/corectrl
 
 # ARM11MP-specific modules to build by default
 MODULES_arm11mp=\
@@ -631,6 +635,8 @@ PANDABOARD_MODULES=\
 	armv7/sbin/usb_keyboard \
 	armv7/sbin/serial \
 	armv7/sbin/angler \
+	armv7/sbin/corectrl \
+
 
 menu.lst.pandaboard: $(SRCDIR)/hake/menu.lst.pandaboard
 	cp $< $@

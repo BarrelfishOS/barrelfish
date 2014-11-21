@@ -18,10 +18,12 @@
 #include <kernel.h>
 #include <barrelfish_kpi/cpu.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
+#include <barrelfish_kpi/types.h>
 #include <capabilities.h>
 
 errval_t sys_print(const char *str, size_t length);
 struct sysret sys_yield(capaddr_t target);
+struct sysret sys_suspend(bool halt);
 struct sysret
 sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
                      capaddr_t vptr, capaddr_t dptr, bool run, capaddr_t odptr);
@@ -61,5 +63,12 @@ sys_dispatcher_setup_guest (struct capability *to,
 struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
 struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
+struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry);
+
+struct sysret sys_kernel_add_kcb(struct kcb* new_kcb);
+struct sysret sys_kernel_remove_kcb(struct kcb* kcb_addr);
+struct sysret sys_kernel_suspend_kcb_sched(bool toggle);
+struct sysret sys_handle_kcb_identify(struct capability* to);
 
 #endif

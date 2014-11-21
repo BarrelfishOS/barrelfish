@@ -126,6 +126,12 @@ struct capref cap_kernel = {
     .slot  = TASKCN_SLOT_KERNELCAP
 };
 
+/// Capability for IPI sending (only in monitor)
+struct capref cap_ipi = {
+    .cnode = TASK_CNODE_INIT,
+    .slot  = TASKCN_SLOT_IPI
+};
+
 /// PerfMon CNode
 struct capref cap_perfmon = {
     .cnode = TASK_CNODE_INIT,

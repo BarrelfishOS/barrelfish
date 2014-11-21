@@ -140,7 +140,7 @@ static errval_t init_allocators(void)
 
     // Build the capref for the first physical address capability
     struct capref phys_cap;
-    phys_cap.cnode = build_cnoderef(requested_caps, PAGE_CNODE_BITS);
+    phys_cap.cnode = build_cnoderef(requested_caps, PHYSADDRCN_BITS);
     phys_cap.slot = 0;
 
     struct cnoderef devcnode;
@@ -181,12 +181,16 @@ static errval_t init_allocators(void)
                        "physical address" : "platform data");
 
             err = cap_retype(devframe, phys_cap, ObjType_DevFrame, mrp->mr_bits);
-            assert(err_is_ok(err));
+            if (err_no(err) == SYS_ERR_REVOKE_FIRST) {
+                printf("cannot retype region %d: need to revoke first; ignoring it\n", i);
+            } else {
+                assert(err_is_ok(err));
 
-            err = mm_add(&pci_mm_physaddr, devframe,
-                         mrp->mr_bits, mrp->mr_base);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
+                err = mm_add(&pci_mm_physaddr, devframe,
+                             mrp->mr_bits, mrp->mr_base);
+                if (err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "adding region %d FAILED\n", i);
+                }
             }
 
             phys_cap.slot++;

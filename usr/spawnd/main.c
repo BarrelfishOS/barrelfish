@@ -107,17 +107,9 @@ int main(int argc, const char *argv[])
 
 
     vfs_init();
-
+    
     my_core_id = disp_get_core_id();
 
-
-#if 0
-    debug_printf("spawnd invoked on core %d as:", my_core_id);
-    for (int i = 0; i < argc; i++) {
-        printf(" %s", argv[i]);
-    }
-    printf("\n");
-#endif
 
     // read in the bootmodules file so that we know what to start
     get_bootmodules();
@@ -125,21 +117,9 @@ int main(int argc, const char *argv[])
     // construct sane inital environment
     init_environ();
 
-    if (argc >= 2 && strcmp(argv[1],"boot") == 0) {
-        debug_printf("we're bsp. start other cores.\n");
-        // if we're the BSP, bring up the other cores
-        is_bsp_core = true;
-#if defined(USE_KALUGA_DVM) && (!defined(__arm__) && !defined(__scc__) &&!defined(__k1om__))
-        err = start_service();
-#else
-        bsp_bootup(gbootmodules, argc, argv);
-#endif
-    } else {
-        // otherwise offer the spawn service
-        err = start_service();
-        if (err_is_fail(err)) {
+    err = start_service();
+    if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to start spawnd service loop");
-        }
     }
 
     messages_handler_loop();

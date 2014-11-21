@@ -185,7 +185,7 @@ errval_t posixcompat_unpack_fds(void)
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         // we don't have a FD buffer, return OK
         return SYS_ERR_OK;
-    } else {
+    } else if (!err_is_ok(err)) {
         // frame identify failed, return error
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }

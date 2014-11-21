@@ -36,6 +36,26 @@ static int get_num_connections(int num)
     return (num - 2) + get_num_connections(num - 1);
 }
 
+static errval_t trace_ump_frame_identify(struct capref frame,
+                                         struct intermon_ump_binding* b,
+                                         size_t channel_length)
+{
+    // Identify UMP frame for tracing
+    struct frame_identity umpid;
+    errval_t err = invoke_frame_identify(frame, &umpid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "invoke frame identity failed");
+        return err;
+    }
+
+    b->ump_state.chan.recvid = (uintptr_t)umpid.base;
+    b->ump_state.chan.sendid = (uintptr_t)
+        (umpid.base + channel_length);
+
+    return SYS_ERR_OK;
+}
+
+
 /**
  * \brief Msg handler for booting a given core
  *
@@ -46,56 +66,99 @@ static int get_num_connections(int num)
  *
  * \bug Verify that cpu_type matches the elf image
  */
-void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
-                       int32_t int_cpu_type, char *cmdline)
+void boot_core_request(struct monitor_binding *b, coreid_t id,
+                       struct capref frame)
 {
     errval_t err;
-    enum cpu_type cpu_type = (enum cpu_type)int_cpu_type;
-    struct intermon_binding *new_binding = NULL;
 
-    if (id == my_core_id) {
-        err = MON_ERR_SAME_CORE;
-        goto out;
-    }
-
-    if (cpu_type >= CPU_TYPE_NUM) {
-        err = SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-        goto out;
-    }
-
-    printf("Monitor %d: booting %s core %d as '%s'\n", my_core_id,
-           cpu_type_to_archstr(cpu_type), id, cmdline);
-
-    /* Assure memory server and chips have initialized */
-    assert(mem_serv_iref != 0);
-    assert(ramfs_serv_iref != 0);
-    assert(name_serv_iref != 0);
-    assert(monitor_mem_iref != 0);
-
-    err = spawn_xcore_monitor(id, hwid, cpu_type, cmdline, &new_binding);
-    if(err_is_fail(err)) {
-        err = err_push(err, MON_ERR_SPAWN_XCORE_MONITOR);
-        goto out;
-    }
-
-    // setup new binding
-    assert(new_binding != NULL);
-    intermon_init(new_binding, id);
-
-    // store client that requested the boot, so we can tell them when it completes
-    struct intermon_state *st = new_binding->st;
-    st->originating_client = b;
-
- out:
-    free(cmdline);
-
+    struct intermon_binding *ibind;
+    err = intermon_binding_get(id, &ibind);
     if (err_is_ok(err)) {
-        num_monitors++;
-    } else {
-        errval_t err2 = b->tx_vtbl.boot_core_reply(b, NOP_CONT, err);
-        if (err_is_fail(err2)) {
-            USER_PANIC_ERR(err2, "sending boot_core_reply failed");
-        }
+        ((struct intermon_state*)ibind->st)->originating_client = b;
+        return;
+    }
+
+
+    // Setup new inter-monitor connection to ourselves
+#ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
+    struct intermon_ump_ipi_binding *ump_binding = malloc(sizeof(
+                struct intermon_ump_ipi_binding));
+#else
+    struct intermon_ump_binding *ump_binding = malloc(sizeof(
+                struct intermon_ump_binding));
+#endif
+    assert(ump_binding != NULL);
+
+    // map it in
+    void *buf;
+    err = vspace_map_one_frame(&buf, MON_URPC_SIZE, frame, NULL, NULL);
+    if (err_is_fail(err)) {
+        err = err_push(err, LIB_ERR_VSPACE_MAP);
+        goto cleanup;
+    }
+
+#ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
+    // Get my arch ID
+    uintptr_t my_arch_id = 0;
+    err = invoke_monitor_get_arch_id(&my_arch_id);
+    assert(err == SYS_ERR_OK);
+
+    // Bootee's notify channel ID is always 1
+    struct capref notify_cap;
+    err = notification_create_cap(1, hwid, &notify_cap);
+    assert(err == SYS_ERR_OK);
+
+    // Allocate my own notification caps
+    struct capref ep, my_notify_cap;
+    struct lmp_endpoint *iep;
+    int chanid;
+    err = endpoint_create(LMP_RECV_LENGTH, &ep, &iep);
+    assert(err_is_ok(err));
+    err = notification_allocate(ep, &chanid);
+    assert(err == SYS_ERR_OK);
+    err = notification_create_cap(chanid, my_arch_id, &my_notify_cap);
+    assert(err == SYS_ERR_OK);
+
+    // init our end of the binding and channel
+    err = intermon_ump_ipi_init(ump_binding, get_default_waitset(),
+                                buf, MON_URPC_CHANNEL_LEN,
+                                buf + MON_URPC_CHANNEL_LEN,
+                                MON_URPC_CHANNEL_LEN, notify_cap,
+                                my_notify_cap, ep, iep);
+#else
+    err = intermon_ump_init(ump_binding, get_default_waitset(),
+                            buf, MON_URPC_CHANNEL_LEN,
+                            (char *)buf + MON_URPC_CHANNEL_LEN,
+                            MON_URPC_CHANNEL_LEN);
+#endif
+    if (err_is_fail(err)) {
+        err = err_push(err, LIB_ERR_UMP_CHAN_BIND);
+        goto cleanup;
+    }
+
+    err = trace_ump_frame_identify(frame, ump_binding,
+                                   MON_URPC_CHANNEL_LEN);
+    if (err_is_fail(err)) {
+        goto cleanup;
+    }
+
+    struct intermon_binding* ib = (struct intermon_binding*)ump_binding;
+    err = intermon_init(ib, id);
+    ((struct intermon_state*)ib->st)->originating_client = b;
+
+    return;
+
+cleanup:
+    if (err_is_fail(err)) {
+        // Cleanup
+        DEBUG_ERR(err, "Failed to register intermon binding.");
+        cap_destroy(frame);
+        free(ump_binding);
+    }
+
+    errval_t err2 = b->tx_vtbl.boot_core_reply(b, NOP_CONT, err);
+    if (err_is_fail(err2)) {
+        USER_PANIC_ERR(err2, "sending boot_core_reply failed");
     }
 }
 
@@ -107,8 +170,9 @@ void boot_core_request(struct monitor_binding *b, coreid_t id, int32_t hwid,
 void boot_initialize_request(struct monitor_binding *st)
 {
     errval_t err;
+    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BOOT_INITIALIZE_REQUEST, 0);
 
-    /* Wait for all monitors to initialize. */
+    // Wait for all monitors to initialize.
     int num_connections = get_num_connections(num_monitors);
     while(num_connections > seen_connections) {
         // This waiting is fine, boot_manager will not send another msg

@@ -1,0 +1,34 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for cpu boot drivers
+--
+--------------------------------------------------------------------------
+
+let template = application {
+        target = "corectrl",
+        addIncludes = [
+            "../../../kernel/include/arch/x86_64/", 
+            "../../../kernel/include" 
+        ],
+        flounderDefs = ["monitor_blocking", "monitor"],
+        flounderBindings = ["intermon"]
+    }
+in [
+    build template {
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "acpi_client", "octopus", "bench"],
+        cFiles = ["common.c", "main.c", "x86boot.c"],
+        assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
+        architectures = ["x86_32", "x86_64"]
+    },
+    build template {
+        addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
+        cFiles = ["common.c", "main.c", "armboot.c"],
+        architectures = ["armv7", "armv5"]
+    }
+]

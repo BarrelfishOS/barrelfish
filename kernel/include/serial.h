@@ -31,7 +31,7 @@ extern const unsigned serial_num_physical_ports;
 extern errval_t serial_init(uintptr_t sbox_base);
 extern errval_t serial_early_init(void);
 #else
-extern errval_t serial_init(unsigned port);
+extern errval_t serial_init(unsigned port, bool initialize_hw);
 extern errval_t serial_early_init(unsigned port);
 #endif
 
@@ -72,9 +72,9 @@ static inline char serial_console_getchar(void)
     return serial_getchar();
 }
 #else
-static inline errval_t serial_console_init(void)
+static inline errval_t serial_console_init(bool hwinit)
 {
-    return serial_init(serial_console_port);
+    return serial_init(serial_console_port, hwinit);
 }
 
 static inline void serial_console_putchar(char c)
@@ -101,7 +101,7 @@ extern unsigned serial_debug_port;
 
 static inline errval_t serial_debug_init(void)
 {
-    return serial_init(serial_debug_port);
+    return serial_init(serial_debug_port, true);
 }
 
 static inline void serial_debug_putchar(char c)

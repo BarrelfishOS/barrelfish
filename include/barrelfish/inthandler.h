@@ -16,6 +16,10 @@ __BEGIN_DECLS
 
 typedef void (*interrupt_handler_fn)(void *);
 
+errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_arg,
+                                  interrupt_handler_fn reloc_handler,
+                                  void *reloc_handler_arg,
+                                  uint32_t *ret_vector);
 errval_t inthandler_setup(interrupt_handler_fn handler, void *handler_arg,
                           uint32_t *ret_vector);
 errval_t inthandler_setup_arm(interrupt_handler_fn handler, void *handler_arg,

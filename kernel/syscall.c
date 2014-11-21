@@ -19,6 +19,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
+#include <coreboot.h>
 #include <mdb/mdb.h>
 #include <dispatch.h>
 #include <wakeup.h>
@@ -28,6 +29,7 @@
 #include <irq.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
+#include <kcb.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -146,6 +148,13 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
             return SYSRET(err_push(err, SYS_ERR_DISP_OCAP_LOOKUP));
         }
         dcb->domain_id = odisp->u.dispatcher.dcb->domain_id;
+    }
+
+    /* 7. (HACK) Set current core id */
+    {
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(dcb->disp);
+    disp->curr_core_id = my_core_id;
     }
 
     if(!dcb->is_vm_guest) {
@@ -489,20 +498,12 @@ struct sysret sys_yield(capaddr_t target)
     // Remove from queue when no work and no more messages and no missed wakeup
     systime_t wakeup = disp->wakeup;
     if (!disp->haswork && disp->lmp_delivered == disp->lmp_seen
-        && (wakeup == 0 || wakeup > kernel_now)) {
+        && (wakeup == 0 || wakeup > (kernel_now + kcb_current->kernel_off))) {
 
-         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
+        trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
             (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
-
         trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_SCHED_REMOVE,
                 151);
-
-    /*
-        if (disp->name[0] == 'e' && disp->name[1] == '1' ) {
-            printk(LOG_ERR, "%s has been removed from scheduler queue\n",
-                disp->name);
-        }
-*/
 
         scheduler_remove(dcb_current);
         if (wakeup != 0) {
@@ -538,6 +539,45 @@ struct sysret sys_yield(capaddr_t target)
     panic("Yield returned!");
 }
 
+struct sysret sys_suspend(bool do_halt)
+{
+    dispatcher_handle_t handle = dcb_current->disp;
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+
+    debug(SUBSYS_DISPATCH, "%.*s suspends (halt: %d)\n", DISP_NAME_LEN, disp->name, do_halt);
+
+    if (!disp->disabled) {
+        printk(LOG_ERR, "SYSCALL_SUSPEND while enabled\n");
+        return SYSRET(SYS_ERR_CALLER_ENABLED);
+    }
+
+    disp->disabled = false;
+    dcb_current->disabled = false;
+
+    if (do_halt) {
+        //printf("%s:%s:%d: before halt of core (%"PRIuCOREID")\n",
+        //       __FILE__, __FUNCTION__, __LINE__, my_core_id);
+        halt();
+    } else {
+        // Note this only works if we're calling this inside
+        // the kcb we're currently running
+        printk(LOG_NOTE, "in sys_suspend(<no_halt>)!\n");
+        printk(LOG_NOTE, "calling switch_kcb!\n");
+        struct kcb *next = kcb_current->next;
+        kcb_current->next = NULL;
+        switch_kcb(next);
+        // enable kcb scheduler
+        printk(LOG_NOTE, "enabling kcb scheduler!\n");
+        kcb_sched_suspended = false;
+        // schedule something in the other kcb
+        dispatch(schedule());
+    }
+
+    panic("Yield returned!");
+}
+
+
 /**
  * The format of the returned ID is:
  *
@@ -555,4 +595,87 @@ struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id)
     *id = coreid << 32 | cap->u.id.core_local_id;
 
     return SYSRET(SYS_ERR_OK);
+}
+
+/**
+ * Calls correct handler function to spawn an app core.
+ *
+ * At the moment spawn_core_handlers is set-up per
+ * architecture inside text_init() usually found in init.c.
+ *
+ * \note Generally the x86 terms of BSP and APP core are used
+ * throughout Barrelfish to distinguish between bootstrap core (BSP)
+ * and application cores (APP).
+ *
+ * \param  core_id  Identifier of the core which we want to boot
+ * \param  cpu_type Architecture of the core.
+ * \param  entry    Entry point for code to start execution.
+ *
+ * \retval SYS_ERR_OK Core successfully booted.
+ * \retval SYS_ERR_ARCHITECTURE_NOT_SUPPORTED No handler registered for
+ *     the specified cpu_type.
+ * \retval SYS_ERR_CORE_NOT_FOUND Core failed to boot.
+ */
+struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry)
+{
+    assert(cpu_type < CPU_TYPE_NUM);
+    // TODO(gz): assert core_id valid
+    // TODO(gz): assert entry range?
+
+    if (cpu_type < CPU_TYPE_NUM &&
+        coreboot_get_spawn_handler(cpu_type) == NULL) {
+        assert(!"Architecture not supported -- " \
+               "or you failed to register spawn handler?");
+        return SYSRET(SYS_ERR_ARCHITECTURE_NOT_SUPPORTED);
+    }
+
+    int r = (coreboot_get_spawn_handler(cpu_type))(core_id, entry);
+    if (r != 0) {
+        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_kernel_add_kcb(struct kcb *new_kcb)
+{
+    kcb_add(new_kcb);
+
+    // update kernel_now offset
+    new_kcb->kernel_off -= kernel_now;
+    // reset scheduler statistics
+    scheduler_reset_time();
+    // update current core id of all domains
+    kcb_update_core_id(new_kcb);
+    // upcall domains with registered interrupts to tell them to re-register
+    irq_table_notify_domains(new_kcb);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_kernel_remove_kcb(struct kcb * to_remove)
+{
+    return SYSRET(kcb_remove(to_remove));
+}
+
+struct sysret sys_kernel_suspend_kcb_sched(bool suspend)
+{
+    printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
+    kcb_sched_suspended = suspend;
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret sys_handle_kcb_identify(struct capability* to)
+{
+    // Return with physical base address of frame
+    // XXX: pack size into bottom bits of base address
+    assert(to->type == ObjType_KernelControlBlock);
+    lvaddr_t vkcb = (lvaddr_t) to->u.kernelcontrolblock.kcb;
+    assert((vkcb & BASE_PAGE_MASK) == 0);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = mem_to_local_phys(vkcb) | OBJBITS_KCB,
+    };
 }

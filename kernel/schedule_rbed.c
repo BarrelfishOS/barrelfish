@@ -12,12 +12,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /**
@@ -60,6 +60,7 @@
 #       include <trace_definitions/trace_defs.h>
 #       include <timer.h> // update_sched_timer
 #endif
+#include <kcb.h>
 
 #define SPECTRUM        1000000
 
@@ -73,25 +74,12 @@
 #define MIN(a, b)       ((a) < (b) ? (a) : (b))
 
 
-/**
- * Head and tail of the scheduling queue, respectively.
- */
-static struct dcb *queue_head = NULL;
 // queue_tail has to be global, as its used from assembly
+// this is always kept in sync with kcb_current->queue_tail
 struct dcb *queue_tail = NULL;
 
 /// Last (currently) scheduled task, for accounting purposes
 static struct dcb *lastdisp = NULL;
-
-/**
- * CPU utilization in percent for hard real-time and soft real-time
- * processes, as well as weight for best-effort processes. 'w_be'
- * counts only runnable tasks.
- */
-static unsigned int u_hrt = 0; ///< utilization for hard real-time tasks
-static unsigned int u_srt = 0; ///< utilization for sort real-time tasks
-static unsigned int w_be = 0;  ///< aggregate weight over all best-effort tasks
-static unsigned int n_be = 0;  ///< number of best-efforst tasks
 
 /**
  * \brief Returns whether dcb is in scheduling queue.
@@ -100,7 +88,7 @@ static unsigned int n_be = 0;  ///< number of best-efforst tasks
  */
 static inline bool in_queue(struct dcb *dcb)
 {
-    return dcb->next != NULL || queue_tail == dcb;
+    return dcb->next != NULL || kcb_current->queue_tail == dcb;
 }
 
 static inline unsigned int u_target(struct dcb *dcb)
@@ -111,7 +99,7 @@ static inline unsigned int u_target(struct dcb *dcb)
 static inline unsigned int u_actual_srt(struct dcb *dcb)
 {
     if(u_target(dcb) != 0) {
-        return MIN(u_target(dcb), (1 - BETA - u_hrt) / (u_srt / u_target(dcb)));
+        return MIN(u_target(dcb), (1 - BETA - kcb_current->u_hrt) / (kcb_current->u_srt / u_target(dcb)));
     } else {
         return 0;
     }
@@ -125,9 +113,9 @@ static inline unsigned long deadline(struct dcb *dcb)
 static void queue_insert(struct dcb *dcb)
 {
     // Empty queue case
-    if(queue_head == NULL) {
-        assert(queue_tail == NULL);
-        queue_head = queue_tail = dcb;
+    if(kcb_current->queue_head == NULL) {
+        assert(kcb_current->queue_tail == NULL);
+        kcb_current->queue_head = kcb_current->queue_tail = queue_tail = dcb;
         return;
     }
 
@@ -142,7 +130,7 @@ static void queue_insert(struct dcb *dcb)
      * yielding behavior when old deadlines are encountered.
      */
     struct dcb *prev = NULL;
-    for(struct dcb *i = queue_head; i != NULL; prev = i, i = i->next) {
+    for(struct dcb *i = kcb_current->queue_head; i != NULL; prev = i, i = i->next) {
         // Skip over equal, smaller release times if best-effort
         if(dcb->type == TASK_TYPE_BEST_EFFORT &&
            dcb->release_time >= i->release_time) {
@@ -156,7 +144,7 @@ static void queue_insert(struct dcb *dcb)
 
         dcb->next = i;
         if(prev == NULL) {      // Insert before head
-            queue_head = dcb;
+            kcb_current->queue_head = dcb;
         } else {                // Insert inside queue
             prev->next = dcb;
         }
@@ -165,8 +153,8 @@ static void queue_insert(struct dcb *dcb)
     }
 
     // Insert after queue tail
-    queue_tail->next = dcb;
-    queue_tail = dcb;
+    kcb_current->queue_tail->next = dcb;
+    kcb_current->queue_tail = queue_tail = dcb;
 }
 
 /**
@@ -185,20 +173,20 @@ static void queue_remove(struct dcb *dcb)
         return;
     }
 
-    if(dcb == queue_head) {
-        queue_head = dcb->next;
-        if(queue_head == NULL) {
-            queue_tail = NULL;
+    if(dcb == kcb_current->queue_head) {
+        kcb_current->queue_head = dcb->next;
+        if(kcb_current->queue_head == NULL) {
+            kcb_current->queue_tail = queue_tail =  NULL;
         }
 
         goto out;
     }
 
-    for(struct dcb *i = queue_head; i != NULL; i = i->next) {
+    for(struct dcb *i = kcb_current->queue_head; i != NULL; i = i->next) {
         if(i->next == dcb) {
             i->next = i->next->next;
-            if(queue_tail == dcb) {
-                queue_tail = i;
+            if(kcb_current->queue_tail == dcb) {
+                kcb_current->queue_tail = queue_tail = i;
             }
             break;
         }
@@ -256,10 +244,10 @@ static unsigned int do_resource_allocation(struct dcb *dcb)
         break;
 
     case TASK_TYPE_BEST_EFFORT:
-        assert(w_be > 0 && n_be > 0);
+        assert(kcb_current->w_be > 0 && kcb_current->n_be > 0);
         assert(dcb->weight < UINT_MAX / SPECTRUM);
-        u_actual = (MAX(BETA, SPECTRUM - u_hrt - u_srt) * dcb->weight) / w_be;
-        dcb->deadline = dcb->period = n_be * kernel_timeslice;
+        u_actual = (MAX(BETA, SPECTRUM - kcb_current->u_hrt - kcb_current->u_srt) * dcb->weight) / kcb_current->w_be;
+        dcb->deadline = dcb->period = kcb_current->n_be * kernel_timeslice;
         break;
 
     default:
@@ -292,10 +280,10 @@ static void adjust_weights(void)
 static void set_best_effort_wcet(struct dcb *dcb)
 {
     unsigned int u_actual = do_resource_allocation(dcb);
-    unsigned long wcet_undiv = (n_be * kernel_timeslice * u_actual);
+    unsigned long wcet_undiv = (kcb_current->n_be * kernel_timeslice * u_actual);
 
     // Assert we are never overloaded
-    assert(u_hrt + u_srt + u_actual <= SPECTRUM);
+    assert(kcb_current->u_hrt + kcb_current->u_srt + u_actual <= SPECTRUM);
 
     // Divide with proper rounding
     dcb->wcet = wcet_undiv / SPECTRUM;
@@ -314,7 +302,7 @@ struct dcb *schedule(void)
     struct dcb *todisp;
 
     // Assert we are never overloaded
-    assert(u_hrt + u_srt + BETA <= SPECTRUM);
+    assert(kcb_current->u_hrt + kcb_current->u_srt + BETA <= SPECTRUM);
 
     // Update executed time of last dispatched task
     if(lastdisp != NULL) {
@@ -326,16 +314,31 @@ struct dcb *schedule(void)
     }
 
  start_over:
-    todisp = queue_head;
+    todisp = kcb_current->queue_head;
+
+#define PRINT_NAME(d) \
+    do { \
+        if (!(d) || !(d)->disp) { \
+            debug(SUBSYS_DISPATCH, "todisp == NULL\n"); \
+            break; \
+        } \
+        struct dispatcher_shared_generic *dst = \
+            get_dispatcher_shared_generic(d->disp); \
+        debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%lu, kernel_now=%zu\n", \
+                dst->name, d->release_time, kernel_now); \
+    }while(0)
 
     // Skip over all tasks released in the future, they're technically not
     // in the schedule yet. We just have them to reduce book-keeping.
     while(todisp != NULL && todisp->release_time > kernel_now) {
+        PRINT_NAME(todisp);
         todisp = todisp->next;
     }
+#undef PRINT_NAME
 
     // nothing to dispatch
     if(todisp == NULL) {
+        debug(SUBSYS_DISPATCH, "schedule: no dcb runnable\n");
         lastdisp = NULL;
         return NULL;
     }
@@ -440,20 +443,19 @@ void make_runnable(struct dcb *dcb)
             dcb->weight = dcb->weight / 2 + 6;
 #endif
         }
-        w_be += dcb->weight;
-        n_be++;
-        dcb->deadline = dcb->period = n_be * kernel_timeslice;
+        kcb_current->w_be += dcb->weight;
+        kcb_current->n_be++;
+        dcb->deadline = dcb->period = kcb_current->n_be * kernel_timeslice;
         dcb->release_time = kernel_now;
         /* queue_sort(); */
         break;
 
     case TASK_TYPE_SOFT_REALTIME:
-        //        u_srt +=
         panic("Unimplemented!");
         break;
 
     case TASK_TYPE_HARD_REALTIME:
-        u_hrt += u_target(dcb);
+        kcb_current->u_hrt += u_target(dcb);
         break;
 
     default:
@@ -462,9 +464,9 @@ void make_runnable(struct dcb *dcb)
     }
 
     // Never overload the scheduler
-    if(u_hrt + u_srt + BETA > SPECTRUM) {
+    if(kcb_current->u_hrt + kcb_current->u_srt + BETA > SPECTRUM) {
         panic("RBED scheduler overload (loaded %d%%)!",
-              (u_hrt + u_srt + BETA) / (SPECTRUM / 100));
+              (kcb_current->u_hrt + kcb_current->u_srt + BETA) / (SPECTRUM / 100));
     }
 
     if(dcb->release_time < kernel_now) {
@@ -500,8 +502,8 @@ void scheduler_remove(struct dcb *dcb)
     // Update counters
     switch(dcb->type) {
     case TASK_TYPE_BEST_EFFORT:
-        w_be -= dcb->weight;
-        n_be--;
+        kcb_current->w_be -= dcb->weight;
+        kcb_current->n_be--;
         /* queue_sort(); */
         /* adjust_weights(); */
         break;
@@ -511,7 +513,7 @@ void scheduler_remove(struct dcb *dcb)
         break;
 
     case TASK_TYPE_HARD_REALTIME:
-        u_hrt -= u_target(dcb);
+        kcb_current->u_hrt -= u_target(dcb);
         break;
     }
 }
@@ -558,12 +560,58 @@ void scheduler_reset_time(void)
     kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now
-    for(struct dcb *i = queue_head; i != NULL; i = i->next) {
-        i->release_time = 0;
-        i->etime = 0;
-        i->last_dispatch = 0;
-    }
+    struct kcb *k = kcb_current;
+    do {
+        printk(LOG_NOTE, "clearing kcb %p\n", k);
+        for(struct dcb *i = k->queue_head; i != NULL; i = i->next) {
+            i->release_time = 0;
+            i->etime = 0;
+            i->last_dispatch = 0;
+        }
+        k = k->next;
+    }while(k && k!=kcb_current);
 
     // Forget all accounting information
     lastdisp = NULL;
+}
+
+void scheduler_convert(void)
+{
+    enum sched_state from = kcb_current->sched;
+    switch (from) {
+        case SCHED_RBED:
+            // do nothing
+            break;
+        case SCHED_RR:
+        {
+            // initialize RBED fields
+            // make all tasks best effort
+            struct dcb *tmp = NULL;
+            printf("kcb_current: %p\n", kcb_current);
+            printf("kcb_current->ring_current: %p\n", kcb_current->ring_current);
+            printf("kcb_current->ring_current->prev: %p\n", kcb_current->ring_current->prev);
+            struct dcb *i = kcb_current->ring_current;
+            do {
+                printf("converting %p\n", i);
+                i->type = TASK_TYPE_BEST_EFFORT;
+                tmp = i->next;
+                i->next = i->prev = NULL;
+                make_runnable(i);
+                i = tmp;
+            } while (i != kcb_current->ring_current);
+            for (i = kcb_current->queue_head; i; i=i->next) {
+                printf("%p (-> %p)\n", i, i->next);
+            }
+            break;
+        }
+        default:
+            printf("don't know how to convert %d to RBED state\n", from);
+            break;
+    }
+}
+
+void scheduler_restore_state(void)
+{
+    // clear time slices
+    scheduler_reset_time();
 }

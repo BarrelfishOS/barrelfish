@@ -307,7 +307,7 @@ void timing_calibrate(void)
     if (CPU_IS_M5_SIMULATOR) {
         // Guess -- avoid delay of calibration
         printk(LOG_WARN, "Warning: using hard-coded timer calibration on M5\n");
-        tickspersec = 31250000; 
+        tickspersec = 31250000;
         tscperms = tickspersec/1000;
     } else {
 #ifndef __scc__
@@ -318,11 +318,14 @@ void timing_calibrate(void)
             tickspersec = calibrate_apic_timer_rtc();
 #endif
             global->tickspersec = tickspersec;
+
+            tscperms = calibrate_tsc_apic_timer();
+            global->tscperms = tscperms;
         } else {
             tickspersec = global->tickspersec;
+            tscperms = global->tscperms;
         }
 
-        tscperms = calibrate_tsc_apic_timer();
 #else
         // SCC timer rate (we just know it)
         tickspersec = 400000000;     // XXX: APIC timer ticks faster than fits in a 32bit value

@@ -50,18 +50,23 @@ struct dcb {
     systime_t           wakeup_time;    ///< Time to wakeup this dispatcher
     struct dcb          *wakeup_prev, *wakeup_next; ///< Next/prev in timeout queue
 
-#if defined(CONFIG_SCHEDULER_RR)
-    struct dcb          *prev, *next;   ///< Prev/Next DCBs in schedule
-#elif defined(CONFIG_SCHEDULER_RBED)
     struct dcb          *next;          ///< Next DCB in schedule
+    struct dcb          *prev;          ///< Previous DCB in schedule
+                                        /// (only valid iff CONFIG_SCHEDULER_RR)
+#if defined(CONFIG_SCHEDULER_RBED)
     unsigned long       release_time, etime, last_dispatch;
     unsigned long       wcet, period, deadline;
     unsigned short      weight;
     enum task_type      type;
-#else
-# error Must define a kernel scheduling policy!
 #endif
 };
+
+static inline const char *get_disp_name(struct dcb *dcb)
+{
+    struct dispatcher_shared_generic *dst =
+        get_dispatcher_shared_generic(dcb->disp);
+    return dst->name;
+}
 
 /// The currently running dispatcher and FPU dispatcher
 extern struct dcb *dcb_current, *fpu_dcb;

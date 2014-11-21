@@ -35,31 +35,41 @@ const unsigned serial_num_physical_ports = NUM_PORTS;
 static const uint32_t portbases[NUM_PORTS] = { 0x3f8, 0x2f8 };
 static pc16550d_t ports[NUM_PORTS];
 
-/** \brief Initialise the serial driver. */
-errval_t serial_init(unsigned port)
+/**
+ * \brief Initialise the serial driver.
+ *
+ * \param  port          Serial Port number.
+ * \param  initialize_hw Should the Hardware be initialized or just
+ * mackerel representation.
+ */
+errval_t serial_init(unsigned port, bool initialize_hw)
 {
     if (port >= NUM_PORTS) {
-	return SYS_ERR_SERIAL_PORT_INVALID;
+    	return SYS_ERR_SERIAL_PORT_INVALID;
     };
 
     // XXX Backwards compatibility!
     if (serial_portbase != 0x3f8 && port == 0) {
-	// We're trying to initialize the console port on a machine
-	// which uses the second UART, but the CPU driver doesn't
-	// understand the new serial interface yet.  Kluge this into
-	// using the second UART, and set the console and debug ports
-	// accordingly. 
-	serial_console_port = 1;
-	serial_debug_port = 1;
-	port = 1;
+    	// We're trying to initialize the console port on a machine
+    	// which uses the second UART, but the CPU driver doesn't
+    	// understand the new serial interface yet.  Kluge this into
+    	// using the second UART, and set the console and debug ports
+    	// accordingly.
+    	serial_console_port = 1;
+    	serial_debug_port = 1;
+    	port = 1;
     }
 
     pc16550d_t *uart = &ports[port];
     pc16550d_initialize(uart, portbases[port]);
-    
 
-    // XXX: if non-BSP core, assume HW is already initialised
-    if (!arch_core_is_bsp()) {
+    if (!initialize_hw) {
+        // HW is already initialized, usually APP cores come here
+        // while the BSP core do the initialization once.
+        // If the initialization happens twice,
+        // it can manifest in the keyboard not working
+        // because we disable uart interrupts and
+        // the serial driver was started in the meantime
         return SYS_ERR_OK;
     }
 

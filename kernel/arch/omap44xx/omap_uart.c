@@ -76,7 +76,7 @@ static void omap_uart_init(omap_uart_t *uart, lvaddr_t base)
     omap_uart_MDR1_mode_select_wrf(uart, 0x0);
 }
 
-errval_t serial_init(unsigned port)
+errval_t serial_init(unsigned port, bool initialize_hw)
 {
     static bool uart_initialized[NUM_PORTS];
 

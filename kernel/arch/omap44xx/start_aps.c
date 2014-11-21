@@ -33,11 +33,13 @@
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
-int start_aps_arm_start(uint8_t core_id, lvaddr_t entry)
+int start_aps_arm_start(coreid_t core_id, genvaddr_t gen_entry)
 {
     //printf("----> %s (%s:%d): core_id=%u entry=0x%lx\n",
     //       __FUNCTION__, __FILE__, __LINE__,
     //       core_id, entry);
+    
+    lvaddr_t entry = (lvaddr_t) gen_entry;
 
     /* pointer to the pseudo-lock used to detect boot up of new core */
     volatile uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);

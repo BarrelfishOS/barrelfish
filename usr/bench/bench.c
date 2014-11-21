@@ -269,12 +269,14 @@ static void clr_shared_benchmark(void)
 
 #ifndef BENCH_POSIX
 
+#if 0
 static void rdtscp_benchmark(void)
 {
     for(int i = 0; i < MICROBENCH_ITERATIONS; i++) {
         rdtscp();
     }
 }
+#endif
 
 #if 0   // XXX: update to new IDC system to make it work
 static struct capref capaddr;
@@ -362,8 +364,8 @@ int main(int argc, char *argv[])
     print_result(benchmark(rdtsc_benchmark));
 
 #ifndef BENCH_POSIX
-    printf("RDTSCP instruction: ");
-    print_result(benchmark(rdtscp_benchmark));
+//    printf("RDTSCP instruction: ");
+//    print_result(benchmark(rdtscp_benchmark));
 
     printf("XCHG instruction: ");
     print_result(benchmark(xchg_benchmark));

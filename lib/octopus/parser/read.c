@@ -24,7 +24,13 @@
 /**
  * \brief Reads the content of a record string based on the provided format.
  * Currently supported %d (int64_t*), %f (double*?), %s (char**).
- * TODO: docs && support proper scan types from (inttypes.h)
+ *
+ * ATTENTION: Currently we only parse 64-bit numbers (with %d).
+ * This function tends to behave badly when calling it with
+ * 32bit pointers (i.e., oct_read(rec, "_ {iref: 1}", (iref_t) iref);)
+ * Don't do it!
+ * 
+ * \TODO: docs && support proper scan types from (inttypes.h)
  *
  * \param record Record to read.
  * \param format What you want to read.

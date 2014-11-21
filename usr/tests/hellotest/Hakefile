@@ -15,5 +15,8 @@
                            },
   build application { target = "hellotest",
                              cFiles = [ "hellotest.c" ]
-                           }
+                           },
+  build application { target = "periodicprint",
+                      addLibraries = [ "bench" ],
+                      cFiles = [ "printperiodic.c" ] }
 ]

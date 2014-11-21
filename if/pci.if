@@ -38,6 +38,19 @@ interface pci "The PCI Interface" {
     rpc get_cap(in uint32 idx, in uint32 cap_nr,
                 out errval err, out cap cap, out uint8 type);
 
+    /* reregister interrupt for a previously-initialized device */
+    rpc reregister_interrupt(in uint32 class_code,
+                        in uint32 sub_class,
+                        in uint32 prog_if,
+                        in uint32 vendor_id,
+                        in uint32 device_id,
+                        in uint32 bus,
+                        in uint32 dev,
+                        in uint32 fun,
+                        in uint8 coreid,  // core ID for interrupt handler
+                        in uint32 vector, // interrupt vector (0 == no interrupt)
+                        out errval err);
+
     /* Kludge: retrieve frame cap to VBE BIOS
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
     rpc reset(out errval err);

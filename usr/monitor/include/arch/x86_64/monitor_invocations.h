@@ -19,21 +19,6 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
 
-/**
- * \brief Spawn a new core.
- *
- * \param core_id    APIC ID of the core to try booting
- * \param cpu_type   Type of core to boot
- * \param entry      Kernel entry point in physical memory
- */
-static inline errval_t
-invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                          forvaddr_t entry)
-{
-    return cap_invoke4(cap_kernel, KernelCmd_Spawn_core, core_id, cpu_type,
-                       entry).error;
-}
-
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
@@ -164,6 +149,28 @@ invoke_monitor_get_arch_id(uintptr_t *arch_id)
         *arch_id = sysret.value;
     }
     return sysret.error;
+}
+
+static inline errval_t
+invoke_monitor_add_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+
+    return cap_invoke2(cap_kernel, KernelCmd_Add_kcb, kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_remove_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+
+    return cap_invoke2(cap_kernel, KernelCmd_Remove_kcb, kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_suspend_kcb_scheduler(bool suspend)
+{
+    return cap_invoke2(cap_kernel, KernelCmd_Suspend_kcb_sched, suspend).error;
 }
 
 #endif

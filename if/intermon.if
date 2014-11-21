@@ -9,126 +9,135 @@
 
 interface intermon "The Interface between monitors" {
 
-        /* XXX Aliases for base system types */
-        alias coreid_t uint8;
-        alias chanid_t uint32;
-        
-        /* Types which we may need to change at some point, especially
-            on a heterogeneous platform, or 32-bit only platform */
-        alias con_id_t uint64;
-        alias mon_id_t uint64;
-        alias state_id_t uint64;
-        alias vci_t uint64;
+    /* XXX Aliases for base system types */
+    alias coreid_t uint8;
+    alias chanid_t uint32;
 
-        alias capid_t uint32;
+    /* Types which we may need to change at some point, especially
+        on a heterogeneous platform, or 32-bit only platform */
+    alias con_id_t uint64;
+    alias mon_id_t uint64;
+    alias state_id_t uint64;
+    alias vci_t uint64;
 
-        /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
-        typedef uint64 coremask[4];
+    alias capid_t uint32;
 
-        /* Struct to marshal caps between cores */
-        typedef struct {
-            uint64 w0;
-            uint64 w1;
-            uint64 w2;
-            uint64 w3;
-        } caprep;
+    /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
+    typedef uint64 coremask[4];
 
-        message spawnd_image_request();
-        message spawnd_image_reply(genpaddr base, uint32 bytes);
+    /* Struct to marshal caps between cores */
+    typedef struct {
+        uint64 w0;
+        uint64 w1;
+        uint64 w2;
+        uint64 w3;
+    } caprep;
 
-        message monitor_initialized();
+    message spawnd_image_request();
+    message spawnd_image_reply(genpaddr base, uint32 bytes);
 
-        message trace_caps_request();
-        message trace_caps_reply(caprep cap);
+    message trace_caps_request();
+    message trace_caps_reply(caprep cap);
 
-        message mem_serv_iref_request();
-        message mem_serv_iref_reply(iref iref);
+    message mem_serv_iref_request();
+    message mem_serv_iref_reply(iref iref);
 
-        message ramfs_serv_iref_request();
-        message ramfs_serv_iref_reply(iref iref);
+    message ramfs_serv_iref_request();
+    message ramfs_serv_iref_reply(iref iref);
 
-        message name_serv_iref_request();
-        message name_serv_iref_reply(iref iref);
+    message name_serv_iref_request();
+    message name_serv_iref_reply(iref iref);
 
-        message monitor_mem_iref_request();
-        message monitor_mem_iref_reply(iref iref);
+    message monitor_mem_iref_request();
+    message monitor_mem_iref_reply(iref iref);
 
-        message bind_monitor_request(coreid_t core_id, caprep cap);
-        message bind_monitor_reply(errval err);
-        message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
+    /**
+     * New monitor communication set-up.
+     *  1. monitor_initialized (new monitor -> bsp)
+     *  2. new_monitor_nofity (monitor.0 -> <all available monitors>)
+     *  3. bind_monitor_proxy (<all available monitors> -> monitor.0)
+     *  4. bind_monitor_request (monitor.0 -> new monitor)
+     *  5. bind_monitor_reply (new monitor -> monitor.0)
+     */
+    message monitor_initialized();
+    message new_monitor_notify(coreid_t core_id);
+    message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
+    call bind_monitor_request(coreid_t core_id, caprep cap);
+    response bind_monitor_reply(errval err);
 
-        message bind_monitor_request_scc(coreid_t core_id,
-                                         caprep cap,
-                                         chanid_t chan_id,
-                                         coreid_t from_core_id);
-        message bind_monitor_reply_scc(errval err,
-                                       chanid_t chan_id,
-                                       coreid_t core_id);
-        message bind_monitor_proxy_scc(coreid_t dst_core_id,
-                                       caprep cap,
-                                       chanid_t chan_id,
-                                       coreid_t core_id);
+    message bind_monitor_request_scc(coreid_t core_id,
+                                     caprep cap,
+                                     chanid_t chan_id,
+                                     coreid_t from_core_id);
+    message bind_monitor_reply_scc(errval err,
+                                   chanid_t chan_id,
+                                   coreid_t core_id);
+    message bind_monitor_proxy_scc(coreid_t dst_core_id,
+                                   caprep cap,
+                                   chanid_t chan_id,
+                                   coreid_t core_id);
+    message bind_ump_request(iref iref,
+                             mon_id_t mon_id,
+                             uint32 channel_length_in,
+                             uint32 channel_length_out,
+                             genpaddr framebase,
+                             uint8 framebits,
+                             caprep notify);
+    message bind_ump_reply(con_id_t con_id,
+                           mon_id_t mon_id,
+                           errval err,
+                           caprep notify);
 
+    message cap_send_request(con_id_t con_id,
+                             capid_t capid,
+                             caprep cap,
+                             errval err,
+                             bool give_away,
+                             bool has_descendents,
+                             coremask on_cores,
+                             bool null_cap);
 
-        message new_monitor_notify(coreid_t core_id);
-        message bind_ump_request(iref iref,
-                                 mon_id_t mon_id,
-                                 uint32 channel_length_in,
-                                 uint32 channel_length_out,
-                                 genpaddr framebase,
-                                 uint8 framebits,
-                                 caprep notify);
-        message bind_ump_reply(con_id_t con_id,
-                               mon_id_t mon_id,
-                               errval err,
-                               caprep notify);
+    message span_domain_request(state_id_t state_id,
+                                genpaddr vnodebase,
+                                genpaddr framebase,
+                                uint8      framebits);
+    message span_domain_reply(state_id_t state_id, errval err);
 
-        message cap_send_request(con_id_t con_id,
-                                 capid_t capid,
-                                 caprep cap,
-                                 errval err,
-                                 bool give_away,
-                                 bool has_descendents,
-                                 coremask on_cores,
-				 bool null_cap);
+    // Resource control
+    message rsrc_join(rsrcid id, coreid_t coreid);
+    message rsrc_join_complete(rsrcid id);
+    message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
+    message rsrc_timer_sync(uint64 timestamp);
+    message rsrc_timer_sync_reply(errval err);
 
-        message span_domain_request(state_id_t state_id,
-                                    genpaddr vnodebase,
-                                    genpaddr framebase,
-                                    uint8      framebits);
-        message span_domain_reply(state_id_t state_id, errval err);
+    // Change to given resource phase.
+    // timestamp is the time (as the scheduler counts it) when the
+    // message was sent, so other cores know what to relate
+    // relative timestamps to.
+    message rsrc_phase(rsrcid id, uint32 phase, uint64 timestamp);
 
-	// Resource control
-	message rsrc_join(rsrcid id, coreid_t coreid);
-	message rsrc_join_complete(rsrcid id);
-	message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
-	message rsrc_timer_sync(uint64 timestamp);
-	message rsrc_timer_sync_reply(errval err);
-
-	// Change to given resource phase.
-	// timestamp is the time (as the scheduler counts it) when the
-	// message was sent, so other cores know what to relate
-	// relative timestamps to.
-	message rsrc_phase(rsrcid id, uint32 phase, uint64 timestamp);
-	
     /* Multi-hop interconnect driver */
-	
+
     // request portion of routing table from another monitor
     call multihop_routing_table_request(coreid source_coreid);
     response multihop_routing_table_response(errval err,
-                                             coreid source_coreid,
-                                             coreid max_coreid,
-                                             coreid to[len]);
+            coreid source_coreid,
+            coreid max_coreid,
+            coreid to[len]);
 
     // grow the routing table to a set of desination cores, via a given forwarder
     message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
 
     // set up a new multihop virtual circuit
-    message bind_multihop_intermon_request(iref iref, vci_t sender_vci, coreid core_id);
-    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
+    message bind_multihop_intermon_request(iref iref, vci_t sender_vci,
+                                           coreid core_id);
+    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci,
+                                         errval err);
 
-    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
-    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
+    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack,
+                             uint8 payload[size]);
+    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err,
+                              caprep cap, bool null_cap);
 
     /* Tracing Framework */
 
@@ -154,4 +163,10 @@ interface intermon "The Interface between monitors" {
 
     // This message is sent, once bfscope has finished flushing.
     response bfscope_flush_ack_forward();
+
+    call give_kcb_request(caprep kcb);
+    response give_kcb_response(errval err);
+
+    call forward_kcb_rm_request(uint64 kcb_base);
+    call forward_kcb_rm_response(errval err);
 };

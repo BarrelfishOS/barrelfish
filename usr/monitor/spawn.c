@@ -48,6 +48,17 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
     }
 
+    if (!strcmp(name, "kaluga")) {
+        src = cap_kernel;
+        dest.cnode = si->taskcn,
+        dest.slot  = TASKCN_SLOT_KERNELCAP;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not give kernel cap to kaluga");
+            return err_push(err, SPAWN_ERR_COPY_KERNEL_CAP);
+        }
+	}
+
 #ifdef __k1om__
     if (!strcmp(name, "xeon_phi")) {
         dest.cnode = si->taskcn;

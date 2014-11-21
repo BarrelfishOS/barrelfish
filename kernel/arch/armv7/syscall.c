@@ -21,7 +21,7 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
-#include <armv7_syscall.h>
+//#include <armv7_syscall.h>
 #include <start_aps.h>
 #include <useraccess.h>
 
@@ -32,33 +32,6 @@ __attribute__((noreturn))
 void sys_syscall_kernel(void)
 {
     panic("Why is the kernel making a system call?");
-}
-
-/**
- * \brief Spawn a new core
- */
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry)
-{
-#ifdef __ARM_ARCH_7M__
-printf("armv7-m can not spawn new cores yet");
-#else
-	int r;
-	switch(cpu_type) {
-	case CPU_ARM7:
-		r = start_aps_arm_start(core_id, (lvaddr_t)entry);
-		if(r != 0)
-		{
-			return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-		}
-		break;
-	default:
-        assert(!"Architecture not supported");
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        break;
-	}
-#endif //defined(__ARM_ARCH_7M__)
-    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret
@@ -555,6 +528,13 @@ static struct sysret handle_idcap_identify(struct capability *to,
 }
 
 
+static struct sysret handle_kcb_identify(struct capability *to,
+                                  arch_registers_state_t *context,
+                                  int argc)
+{
+    return sys_handle_kcb_identify(to);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -563,6 +543,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]  = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]     = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables] = dispatcher_dump_ptables,
+    },
+    [ObjType_KernelControlBlock] = {
+        [FrameCmd_Identify] = handle_kcb_identify
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -600,6 +583,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Remote_cap]   = monitor_remote_cap,
         [KernelCmd_Spawn_core]   = monitor_spawn_core,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
+    },
+    [ObjType_IPI] = {
+        [IPICmd_Send_Start]  = monitor_spawn_core,
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify

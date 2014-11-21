@@ -107,7 +107,7 @@ void gdb_handle_exception_onstack(int vector, uintptr_t * NONNULL
                      RSP_REG, save_area[RSP_REG],
                      RIP_REG, save_area[RIP_REG]);
 #else
-    int r = snprintf(buffer, sizeof(buffer), "S%02hhx", signal);
+    int r = snprintf(buffer, sizeof(buffer), "S%02x", signal);
 #endif
     assert(r < sizeof(buffer));
     if (r >= sizeof(buffer)) {

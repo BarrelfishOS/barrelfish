@@ -476,3 +476,37 @@ errval_t oct_exists(const char* query, ...)
     free(buf);
     return err;
 }
+
+/**
+ * \brief Waits until a given record exists.
+ *
+ * \param record  Record that matched the query, callee has to free this.
+ * \param query Format of record to wait for.
+ * \param ... Additional arguments to format query.
+ *
+ * \note This call blocks on the octopus RPC waitset if the record is not there yet.
+ *
+ * \retval SYS_ERR_OK
+ */
+errval_t oct_wait_for(char** record, const char *query, ...)
+{
+    assert(query != NULL);
+    errval_t err = SYS_ERR_OK;
+    va_list args;
+
+    char* buf = NULL;
+    FORMAT_QUERY(query, args, buf);
+
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
+
+    errval_t error_code;
+    err = cl->call_seq.wait_for(cl, buf, record, &error_code);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+    err = error_code;
+
+out:
+    free(buf);
+    return err;
+}

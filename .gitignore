@@ -9,7 +9,13 @@ tags
 /build
 .cproject
 .project
+.arcconfig
+sftp-config.json
 
 /.metadata/
 /toolchain/
 *.pyc
+
+# Haskell and C intermediate files
+*.o
+*.hi
