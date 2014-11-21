@@ -16,6 +16,8 @@
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
+#include <barrelfish/deferred.h>
+
 
 #include <arch/x86/start_aps.h>
 #include <target/x86_64/offsets_target.h>
@@ -213,11 +215,20 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
     end = bench_tsc();
+
+#if  defined(__k1om__)
+    barrelfish_usleep(10*1000);
+#endif
+
     err = invoke_send_init_ipi(kernel_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
+
+#if  defined(__k1om__)
+    barrelfish_usleep(200*1000);
+#endif
 
     // x86 protocol actually would like us to do this twice
     err = invoke_send_start_ipi(kernel_cap, core_id, entry);
