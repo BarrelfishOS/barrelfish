@@ -981,7 +981,6 @@ struct monitor_rx_vtbl the_table = {
     .bind_lmp_reply_monitor = bind_lmp_reply,
 
     .boot_core_request = boot_core_request,
-    .boot_initialize_request = boot_initialize_request,
     .multiboot_cap_request = ms_multiboot_cap_request,
 
     .new_monitor_binding_request = new_monitor_binding_request,
