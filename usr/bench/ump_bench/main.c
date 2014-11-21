@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
         char *xargv[] = {my_name, "dummy", NULL};
         err = spawn_program_on_all_cores(false, xargv[0], xargv, NULL,
                                          SPAWN_FLAGS_DEFAULT, NULL, &num_cores);
-	    DEBUG_ERR(err, "spawn program on all cores");
+	    DEBUG_ERR(err, "spawn program on all cores (%"PRIuCOREID")", num_cores);
         assert(err_is_ok(err));
 
         /* Setup a server */
