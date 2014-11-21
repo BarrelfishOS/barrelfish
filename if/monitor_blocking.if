@@ -66,4 +66,6 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
     /* should this be out cap kcb? */
     rpc forward_kcb_rm_request(in coreid destination, in cap kcb, out errval err);
+
+    rpc get_global_paddr(out genpaddr global);
 };

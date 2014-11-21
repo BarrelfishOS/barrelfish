@@ -181,7 +181,9 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    err = invoke_get_global_paddr(kernel_cap, &global);
+    struct monitor_blocking_rpc_client *mc =
+        get_monitor_blocking_rpc_client();
+    err = mc->vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
@@ -294,7 +296,9 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    err = invoke_get_global_paddr(kernel_cap, &global);
+    struct monitor_blocking_rpc_client *mc =
+        get_monitor_blocking_rpc_client();
+    err = mc->vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);

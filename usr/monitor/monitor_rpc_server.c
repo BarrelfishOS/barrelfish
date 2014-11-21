@@ -784,6 +784,21 @@ static void forward_kcb_rm_request(struct monitor_blocking_binding *b,
     assert(err_is_ok(err));
 }
 
+static void get_global_paddr(struct monitor_blocking_binding *b)
+{
+    genpaddr_t global = 0;
+    errval_t err;
+    err = invoke_get_global_paddr(cap_kernel, &global);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "get_global_paddr invocation");
+    }
+
+    err = b->tx_vtbl.get_global_paddr_response(b, NOP_CONT, global);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "sending global paddr failed.");
+    }
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -811,6 +826,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .forward_kcb_request_call = forward_kcb_request,
 
     .forward_kcb_rm_request_call = forward_kcb_rm_request,
+
+    .get_global_paddr_call = get_global_paddr,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)
