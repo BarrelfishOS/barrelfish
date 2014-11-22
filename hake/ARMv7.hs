@@ -29,12 +29,12 @@ import qualified ArchDefaults
 arch = "armv7"
 archFamily = "arm"
 
-compiler = "arm-none-linux-gnueabi-gcc"
-objcopy  = "arm-none-linux-gnueabi-objcopy"
-objdump  = "arm-none-linux-gnueabi-objdump"
-ar       = "arm-none-linux-gnueabi-ar"
-ranlib   = "arm-none-linux-gnueabi-ranlib"
-cxxcompiler = "arm-none-linux-gnueabi-g++"
+compiler = "arm-linux-gnueabi-gcc"
+objcopy  = "arm-linux-gnueabi-objcopy"
+objdump  = "arm-linux-gnueabi-objdump"
+ar       = "arm-linux-gnueabi-ar"
+ranlib   = "arm-linux-gnueabi-ranlib"
+cxxcompiler = "arm-linux-gnueabi-g++"
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
