@@ -104,11 +104,7 @@ static void get_bootmodules(void)
 
 int main(int argc, const char *argv[])
 {
-    errval_t err;
-
     vfs_init();
-    printf("%s:%s:%d startd\n", __FILE__, __FUNCTION__, __LINE__);
-
     my_core_id = disp_get_core_id();
 
     // read in the bootmodules file so that we know what to start
@@ -117,26 +113,13 @@ int main(int argc, const char *argv[])
     // construct sane inital environment
     init_environ();
 
+#if defined(__x86_64__) || defined(__i386__)
     // wait for spawnd boot to finish
-    err = nsb_wait(ALL_SPAWNDS_UP);
+    errval_t err = nsb_wait(ALL_SPAWNDS_UP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed ns barrier wait for %s", ALL_SPAWNDS_UP);
     }
-    // debug_printf("got \"%s\", continuing\n", ALL_SPAWNDS_UP);
-
-    // XXX: wait for spawnd on same core to register itself
-    // not sure why, but without this there is a race on bootup -AB 20110526
-
-    /*char namebuf[16];
-    snprintf(namebuf, sizeof(namebuf), "spawn.%u", my_core_id);
-    namebuf[sizeof(namebuf) - 1] = '\0';
-
-    iref_t iref;
-    err = nameservice_blocking_lookup(namebuf, &iref);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "unexpected error waiting for '%s'\n", namebuf);
-        return -1;
-    }*/
+#endif
 
     // startup distributed services
     spawn_dist_domains();

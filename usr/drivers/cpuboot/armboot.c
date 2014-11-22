@@ -72,7 +72,7 @@ errval_t get_architecture_config(enum cpu_type type,
                       get_binary_path("/armv7/sbin/%s", 
                                       cmd_kernel_binary);
 #else
-#error "unknown armv7 architecture"
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
 #endif
     }
 

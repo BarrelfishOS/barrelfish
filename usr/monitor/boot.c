@@ -16,6 +16,7 @@
 #include <inttypes.h>
 #include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 
+#if defined(CONFIG_FLOUNDER_BACKEND_UMP)
 /* Use to figure out when all monitors initialized. */
 int seen_connections = 0;
 
@@ -144,3 +145,10 @@ cleanup:
         USER_PANIC_ERR(err2, "sending boot_core_reply failed");
     }
 }
+#else
+void boot_core_request(struct monitor_binding *b, coreid_t id,
+                       struct capref frame) {
+    printf("%s:%s:%d: unable to handle: boot_core_request\n", 
+           __FILE__, __FUNCTION__, __LINE__);
+}
+#endif

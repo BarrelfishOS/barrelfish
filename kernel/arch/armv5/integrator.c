@@ -220,14 +220,17 @@ const unsigned serial_num_physical_ports = NUM_PORTS;
 
 static pl011_uart_t ports[NUM_PORTS];
 
-errval_t serial_init(unsigned port)
+errval_t serial_init(unsigned port, bool hwinit)
 {
     if (port < NUM_PORTS) {
         assert(ports[port].base == 0);
 
         lvaddr_t base = paging_map_device(0x16000000ul + port * 0x01000000,
                                           0x00100000);
-        pl011_uart_init(&ports[port], base);
+
+        if (hwinit) {
+            pl011_uart_init(&ports[port], base);
+        }
         return SYS_ERR_OK;
     }
     else {
