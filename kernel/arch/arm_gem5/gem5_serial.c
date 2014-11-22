@@ -36,13 +36,15 @@ static pl011_uart_t ports[NUM_PORTS];
 /*
  * Initialize a serial port 
  */
-errval_t serial_init(unsigned port)
+errval_t serial_init(unsigned port, bool hwinit)
 {
     if (port < NUM_PORTS) {
         lvaddr_t base = paging_map_device(UART0_VBASE + port*UART_MAPPING_DIFF,
                                           UART_DEVICE_BYTES);
-        pl011_uart_init(&ports[port], 
-			base + UART0_SECTION_OFFSET + port*UART_MAPPING_DIFF);
+        if (hwinit) {
+            pl011_uart_init(&ports[port], 
+			     base + UART0_SECTION_OFFSET + port*UART_MAPPING_DIFF);
+        }
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_SERIAL_PORT_INVALID;

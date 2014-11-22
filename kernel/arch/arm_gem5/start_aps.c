@@ -31,7 +31,7 @@
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
-int start_aps_arm_start(uint8_t core_id, lvaddr_t entry)
+int start_aps_arm_start(coreid_t core_id, genvaddr_t entry)
 {
 	//volatile uint32_t *ap_lock = (volatile uint32_t*)local_phys_to_mem(AP_LOCK_PHYS);
 
