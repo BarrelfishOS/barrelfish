@@ -192,7 +192,7 @@ void arch_init(uint32_t     board_id,
     {
         errval_t errval;
 
-        serial_console_init();
+        serial_console_init(true);
 
         // do not remove/change this printf: needed by regression harness
         printf("Barrelfish CPU driver starting on ARMv5 Board id 0x%08"PRIx32"\n",

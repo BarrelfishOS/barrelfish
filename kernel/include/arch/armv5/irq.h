@@ -10,6 +10,9 @@
 #ifndef KERNEL_ARCH_ARM_IRQ_H
 #define KERNEL_ARCH_ARM_IRQ_H
 
+///< Dummy definition, size of dispatch table in case someone adds IRQs for ARMv5
+#define NDISPATCH               1
+
 struct capability;
 struct idc_recv_msg;
 struct sysret irq_table_set(struct capability *to, struct idc_recv_msg *msg);
