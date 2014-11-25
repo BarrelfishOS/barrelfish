@@ -97,8 +97,8 @@ TESTS_x86_64= \
 	sbin/perfmontest \
 
 TESTS_k1om= \
-	sbin/xeon_phi_inter \
-	sbin/xeon_phi_test \
+	sbin/tests/xeon_phi_inter \
+	sbin/tests/xeon_phi_test \
 	sbin/tests/dma_test \
 	sbin/tests/xphi_nameservice_test
 
