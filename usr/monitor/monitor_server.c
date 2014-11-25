@@ -957,23 +957,6 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
 
 }
 
-static void num_cores_request(struct monitor_binding *b)
-{
-    /* XXX: This is deprecated and shouldn't be used: there's nothing useful you
-     * can do with the result, unless you assume that core IDs are contiguous
-     * and start from zero, which is a false assumption! Go ask the SKB...
-     */
-
-    debug_printf("Application invoked deprecated num_cores_request() API."
-                 " Please fix it!\n");
-
-    /* Send reply */
-    errval_t err = b->tx_vtbl.num_cores_reply(b, NOP_CONT, num_monitors);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending num_cores_reply failed");
-    }
-}
-
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
 
@@ -981,7 +964,6 @@ struct monitor_rx_vtbl the_table = {
     .bind_lmp_reply_monitor = bind_lmp_reply,
 
     .boot_core_request = boot_core_request,
-    .boot_initialize_request = boot_initialize_request,
     .multiboot_cap_request = ms_multiboot_cap_request,
 
     .new_monitor_binding_request = new_monitor_binding_request,
@@ -997,8 +979,6 @@ struct monitor_rx_vtbl the_table = {
     .cap_send_request = cap_send_request,
 
     .span_domain_request    = span_domain_request,
-
-    .num_cores_request  = num_cores_request,
 
     .migrate_dispatcher_request = migrate_dispatcher_request
 };

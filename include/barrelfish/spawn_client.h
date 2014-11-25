@@ -47,7 +47,8 @@ errval_t spawn_program(coreid_t coreid, const char *path,
                        spawn_flags_t flags, domainid_t *ret_domainid);
 errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     char *const argv[], char *const envp[],
-                                    spawn_flags_t flags, domainid_t *ret_domainid);
+                                    spawn_flags_t flags, domainid_t *ret_domainid, 
+                                    coreid_t* spawn_count);
 errval_t spawn_kill(domainid_t domainid);
 errval_t spawn_exit(uint8_t exitcode);
 errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid, uint8_t *exitcode, bool nohang);

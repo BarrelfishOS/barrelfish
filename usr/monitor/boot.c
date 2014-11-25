@@ -16,25 +16,9 @@
 #include <inttypes.h>
 #include <barrelfish_kpi/cpu.h> // for cpu_type_to_archstr()
 
+#if defined(CONFIG_FLOUNDER_BACKEND_UMP)
 /* Use to figure out when all monitors initialized. */
 int seen_connections = 0;
-int num_monitors = 1;
-
-/**
- * \brief Based on number of monitors in the system,
- * returns number of connections created.
- */
-static int get_num_connections(int num)
-{
-    if (num == 1 || num == 2) {
-        return 0;
-    }
-    if (num == 3) {
-        return 1;
-    }
-
-    return (num - 2) + get_num_connections(num - 1);
-}
 
 static errval_t trace_ump_frame_identify(struct capref frame,
                                          struct intermon_ump_binding* b,
@@ -161,40 +145,10 @@ cleanup:
         USER_PANIC_ERR(err2, "sending boot_core_reply failed");
     }
 }
-
-/**
- * \brief XXX: This is a hack. Currently, we must know when all cores
- * are booted so that the monitors can initialize with each other,
- * setup routing tables and synchronize clocks.
- */
-void boot_initialize_request(struct monitor_binding *st)
-{
-    errval_t err;
-    trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_BOOT_INITIALIZE_REQUEST, 0);
-
-    // Wait for all monitors to initialize.
-    int num_connections = get_num_connections(num_monitors);
-    while(num_connections > seen_connections) {
-        // This waiting is fine, boot_manager will not send another msg
-        // till it gets a reply from this.
-        messages_wait_and_handle_next();
-    }
-
-    printf("all %d monitors up\n", num_monitors);
-
-#ifndef __scc__
-    if(num_monitors > 1) {
-        printf("monitor: synchronizing clocks\n");
-        err = timing_sync_timer();
-        assert(err_is_ok(err) || err_no(err) == SYS_ERR_SYNC_MISS);
-        if(err_no(err) == SYS_ERR_SYNC_MISS) {
-            printf("monitor: failed to sync clocks. Bad reference clock?\n");
-        }
-    }
-#endif
-
-    err = st->tx_vtbl.boot_initialize_reply(st, NOP_CONT);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "boot_initialize_reply failed");
-    }
+#else
+void boot_core_request(struct monitor_binding *b, coreid_t id,
+                       struct capref frame) {
+    printf("%s:%s:%d: unable to handle: boot_core_request\n", 
+           __FILE__, __FUNCTION__, __LINE__);
 }
+#endif

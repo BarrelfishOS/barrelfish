@@ -301,6 +301,12 @@ struct dcb *spawn_module(struct spawn_state *st,
                           caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IRQ));
     assert(err_is_ok(err));
 
+    // Create capability for IPI sending
+    struct cte *ipicap_cte = caps_locate_slot(CNODE(st->taskcn),
+                                              TASKCN_SLOT_IPI);
+    err = caps_create_new(ObjType_IPI, 0, 0, 0, ipicap_cte);
+    assert(err_is_ok(err));
+
     /* Initialize dispatcher */
     dispatcher_handle_t init_handle
         = local_phys_to_mem(init_dispframe_cte->cap.u.frame.base);

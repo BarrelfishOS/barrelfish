@@ -278,7 +278,7 @@ invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits,
 
     return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
                     invoke_cptr, mapping_cptr,
-		    ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) |
+                    ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) |
                      (entry & 0x3ff)).error;
 }
 
@@ -424,7 +424,7 @@ static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *r
     capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
 
     struct sysret ret = syscall2(
-                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE, 
+                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE,
                     invoke_cptr);
     if (err_is_ok(ret.error)) {
         *retirq = ret.value;
@@ -518,6 +518,21 @@ invoke_idcap_identify(
     struct sysret sysret =
         syscall3((invoke_bits << 16) | (IDCmd_Identify << 8) | SYSCALL_INVOKE,
                  invoke_cptr, (uintptr_t) id);
+
+    return sysret.error;
+}
+
+static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(kernel_cap);
+    capaddr_t invoke_cptr = get_cap_addr(kernel_cap) >> (CPTR_BITS - invoke_bits);
+    uintptr_t invocation = (invoke_bits << 16)
+                         | (KernelCmd_GetGlobalPhys << 8)
+                         | SYSCALL_INVOKE;
+    struct sysret sysret = syscall2(invocation, invoke_cptr);
+    if (err_is_ok(sysret.error)) {
+        *global = sysret.value;
+    }
 
     return sysret.error;
 }

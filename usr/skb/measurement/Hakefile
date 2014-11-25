@@ -11,8 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "datagatherer", 
-                      cFiles = [ "datagatherer.c", "cpuid.c",
-                                 "running_cores.c" ],
+                      cFiles = [ "datagatherer.c", "cpuid.c" ],
                       addIncludes = [ "/include/cpuid" ],
                       flounderDefs = [ "monitor" ],
                       mackerelDevices = [ "cpuid" ],

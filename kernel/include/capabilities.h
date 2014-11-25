@@ -85,7 +85,5 @@ errval_t caps_lookup_cap(struct capability *cnode_cap, capaddr_t cptr,
                          CapRights rights);
 errval_t caps_lookup_slot(struct capability *cnode_cap, capaddr_t cptr,
                           uint8_t vbits, struct cte **ret, CapRights rights);
-void mdb_remove_recursively(struct cte *cte);
-void mdb_insert_recursively(struct cte *cte);
 
 #endif

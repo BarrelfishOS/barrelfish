@@ -68,6 +68,14 @@ struct dcb {
     struct dispatcher_shared_generic dsg;
 };
 
+struct kcb {
+    struct kcb *prev, *next;
+    struct dcb *queue_head, *queue_tail;
+    unsigned int u_hrt, u_srt, w_be, n_be;
+} curr = { 0, 0, 0, 0, 0, 0, 0, 0 };
+struct kcb *kcb_current = &curr;
+
+
 static void panic(const char *msg, ...)
 {
     va_list ap;

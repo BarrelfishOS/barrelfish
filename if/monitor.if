@@ -23,10 +23,6 @@ interface monitor "The monitor to client Interface" {
     call boot_core_request(uint8 id, cap frame);
     response boot_core_reply(errval err);
 
-    /* TODO: move to monitor_blocking as RPC? */
-    call boot_initialize_request();
-    response boot_initialize_reply();
-
     call new_monitor_binding_request(
         uintptr st);
 
@@ -154,10 +150,6 @@ interface monitor "The monitor to client Interface" {
         uint8 core_id,
         cap vroot,
         cap disp);
-
-    /* TODO: move to monitor_blocking as RPC? */
-    call num_cores_request();
-    response num_cores_reply(uint8 num);
 
     /* Multi-hop interconnect driver */
 

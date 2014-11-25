@@ -423,15 +423,15 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
     return sysret.error;
 }
 
-static inline errval_t invoke_send_init_ipi(struct capref kernel_cap, coreid_t core_id)
+static inline errval_t invoke_send_init_ipi(struct capref ipi_cap, coreid_t core_id)
 {
-    return cap_invoke2(kernel_cap, KernelCmd_Init_IPI_Send,
+    return cap_invoke2(ipi_cap, IPICmd_Send_Init,
                        core_id).error;
 }
 
-static inline errval_t invoke_send_start_ipi(struct capref kernel_cap, coreid_t core_id, forvaddr_t entry)
+static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t core_id, forvaddr_t entry)
 {
-    return cap_invoke3(kernel_cap, KernelCmd_Start_IPI_Send,
+    return cap_invoke3(ipi_cap, IPICmd_Send_Start,
                        core_id, entry).error;
 }
 

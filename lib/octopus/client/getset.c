@@ -28,93 +28,8 @@
 #include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
 
-#include "strnatcmp.h"
 #include "common.h"
 
-static char* mystrdup(char* data)
-{
-
-    char *p = malloc(strlen(data) + 1);
-    if (p == NULL) {
-        return NULL;
-    }
-
-    strcpy(p, data);
-    return p;
-}
-
-static int cmpstringp(const void *p1, const void *p2)
-{
-    return strnatcmp(*(char * const *) p1, *(char * const *) p2);
-}
-
-/**
- * \brief Parses output from get_names call and stores it in an array.
- *
- * \note Use oct_free_names() to free names array.
- *
- * \param[in] input Comma separated string of names
- * \param[out] names Array of strings containing all names
- * \param[out] len Size of array.
- *
- * \retval LIB_ERR_MALLOC_FAIL
- * \retval SYS_ERR_OK
- */
-errval_t oct_parse_names(char* input, char*** names, size_t* len)
-{
-    errval_t err = SYS_ERR_OK;
-
-    char *p = mystrdup(input);
-    if (p == NULL) {
-        err = LIB_ERR_MALLOC_FAIL;
-        goto out;
-    }
-
-    // first get the number of elements
-    char* saveptr = NULL;
-    size_t i;
-    char* tok = p; // just make sure it's non-null
-    char* first = p;
-    for (i = 0; tok != NULL; i++, first = NULL) {
-        tok = strtok(first, ",");
-    }
-    assert(p != NULL);
-    free(p);
-    p = NULL;
-    *len = --i;
-
-    *names = malloc(sizeof(char*) * i);
-    if (*names == NULL) {
-        *len = 0;
-        err = LIB_ERR_MALLOC_FAIL;
-        goto out;
-    }
-    memset(*names, 0, sizeof(char*) * i);
-
-    // now get the actual elements
-    saveptr = NULL;
-    tok = input; // just make sure it's non-null
-    first = input;
-    for (i = 0; tok != NULL; i++, first = NULL) {
-        tok = strtok(first, ", ");
-        if (tok != NULL) {
-            (*names)[i] = mystrdup(tok);
-            if ((*names)[i] == NULL) {
-                oct_free_names(*names, i);
-                *names = NULL;
-                *len = 0;
-                err = LIB_ERR_MALLOC_FAIL;
-                goto out;
-            }
-        } else {
-            break;
-        }
-    }
-    qsort(*names, *len, sizeof(char*), cmpstringp);
-
-out:
-    return err;
-}
 
 /**
  * \brief Retrieve all record names matching a given query.
@@ -163,26 +78,6 @@ errval_t oct_get_names(char*** names, size_t* len, const char* query, ...)
     free(buf);
     free(data);
     return err;
-}
-
-/**
- * \brief Helper function to free an array of strings.
- *
- * Frees all entries of the array and the array itself.
- *
- * \param names Non-null array of strings.
- * \param len Size of the names array
-
- * \see oct_get_names
- */
-void oct_free_names(char** names, size_t len)
-{
-    //assert(names != NULL);
-    for (size_t i = 0; i < len; i++) {
-        free(names[i]);
-    }
-
-    free(names);
 }
 
 /**
@@ -475,6 +370,40 @@ errval_t oct_exists(const char* query, ...)
         err = error_code;
     }
 
+    free(buf);
+    return err;
+}
+
+/**
+ * \brief Waits until a given record exists.
+ *
+ * \param record  Record that matched the query, callee has to free this.
+ * \param query Format of record to wait for.
+ * \param ... Additional arguments to format query.
+ *
+ * \note This call blocks on the octopus RPC waitset if the record is not there yet.
+ *
+ * \retval SYS_ERR_OK
+ */
+errval_t oct_wait_for(char** record, const char *query, ...)
+{
+    assert(query != NULL);
+    errval_t err = SYS_ERR_OK;
+    va_list args;
+
+    char* buf = NULL;
+    FORMAT_QUERY(query, args, buf);
+
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
+
+    errval_t error_code;
+    err = cl->call_seq.wait_for(cl, buf, record, &error_code);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+    err = error_code;
+
+out:
     free(buf);
     return err;
 }

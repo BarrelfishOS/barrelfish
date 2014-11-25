@@ -119,9 +119,10 @@
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOT_DISPFRAME2  15  ///< Copy of dispatcher frame cap (mapped into spawn vspace)
 #define TASKCN_SLOT_ARGSPAGE2   16  ///< Copy of environment cap (mapped into spawn vspace)
-#define TASKCN_SLOT_SYSMEM     17  ///< First free slot in taskcn for user
+#define TASKCN_SLOT_SYSMEM      17  ///< ???
 #define TASKCN_SLOT_COREBOOT    18  ///< Copy of realmode section used to bootstrap a core
-#define TASKCN_SLOTS_USER       19  ///< First free slot in taskcn for user
+#define TASKCN_SLOT_IPI         19  ///< Copy of IPI cap
+#define TASKCN_SLOTS_USER       20  ///< First free slot in taskcn for user
 
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)

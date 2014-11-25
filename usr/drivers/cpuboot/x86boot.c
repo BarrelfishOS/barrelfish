@@ -16,6 +16,8 @@
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <target/x86_32/barrelfish_kpi/paging_target.h>
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
+#include <barrelfish/deferred.h>
+
 
 #include <arch/x86/start_aps.h>
 #include <target/x86_64/offsets_target.h>
@@ -46,23 +48,21 @@ extern uint64_t x86_32_init_ap_global;
 
 volatile uint64_t *ap_dispatch;
 extern coreid_t my_arch_id;
-extern struct capref kernel_cap;
+extern struct capref ipi_cap;
 extern uint64_t end;
-
-errval_t
-invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
-                          bool * has_descendents)
-{
-    struct sysret r = cap_invoke4(kernel_cap, KernelCmd_Remote_cap, cap, bits,
-                                  is_remote);
-    if (err_is_ok(r.error)) {
-        *has_descendents = r.value;
-    }
-    return r.error;
-}
 
 errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
 {
+#if  defined(__k1om__)
+    size_t step = 4;
+    assert(step == 1 || step == 2 || step == 4);
+
+    *apic_id = (core_id * step);
+    if (apic_id == my_arch_id) {
+        *apic_id += step;
+    }
+    *cpu_type = CPU_K1OM;
+#else
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
     if (err_is_fail(err)) {
@@ -82,6 +82,7 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
 out:
     free(record);
     return err;
+#endif
 }
 
 
@@ -106,7 +107,7 @@ errval_t get_architecture_config(enum cpu_type type,
                         get_binary_path("/x86_64/sbin/%s", 
                                         cmd_kernel_binary);
     }
-        break;
+    break;
 
     case CPU_X86_32:
     {
@@ -120,7 +121,21 @@ errval_t get_architecture_config(enum cpu_type type,
                         get_binary_path("/x86_32/sbin/%s", 
                                         cmd_kernel_binary);
     }
-        break;
+    break;
+
+    case CPU_K1OM:
+    {
+        *arch_page_size = X86_64_BASE_PAGE_SIZE;
+        *monitor_binary = (cmd_kernel_binary == NULL) ?
+                        "/k1om/sbin/monitor" :
+                        get_binary_path("/k1om/sbin/%s", 
+                                        cmd_monitor_binary);
+        *cpu_binary = (cmd_kernel_binary == NULL) ?
+                        "/k1om/sbin/cpu" :
+                        get_binary_path("/k1om/sbin/%s", 
+                                        cmd_kernel_binary);
+    }
+    break;
 
     default:
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
@@ -191,7 +206,9 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    err = invoke_get_global_paddr(kernel_cap, &global);
+    struct monitor_blocking_rpc_client *mc =
+        get_monitor_blocking_rpc_client();
+    err = mc->vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
@@ -213,14 +230,23 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
     end = bench_tsc();
-    err = invoke_send_init_ipi(kernel_cap, core_id);
+
+#if  defined(__k1om__)
+    barrelfish_usleep(10*1000);
+#endif
+
+    err = invoke_send_init_ipi(ipi_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
 
+#if  defined(__k1om__)
+    barrelfish_usleep(200*1000);
+#endif
+
     // x86 protocol actually would like us to do this twice
-    err = invoke_send_start_ipi(kernel_cap, core_id, entry);
+    err = invoke_send_start_ipi(ipi_cap, core_id, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
@@ -295,7 +321,9 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    err = invoke_get_global_paddr(kernel_cap, &global);
+    struct monitor_blocking_rpc_client *mc =
+        get_monitor_blocking_rpc_client();
+    err = mc->vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
@@ -317,13 +345,13 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
     *ap_wait = AP_STARTING_UP;
 
     end = bench_tsc();
-    err = invoke_send_init_ipi(kernel_cap, core_id);
+    err = invoke_send_init_ipi(ipi_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
         return err;
     }
 
-    err = invoke_send_start_ipi(kernel_cap, core_id, entry);
+    err = invoke_send_start_ipi(ipi_cap, core_id, entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke sipi");
         return err;
@@ -651,7 +679,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     /* Invoke kernel capability to boot new core */
-    if (cpu_type == CPU_X86_64) {
+    if (cpu_type == CPU_X86_64 || cpu_type == CPU_K1OM) {
         start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
     }
     else if (cpu_type == CPU_X86_32) {

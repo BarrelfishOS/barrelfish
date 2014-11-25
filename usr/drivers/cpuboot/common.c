@@ -15,7 +15,6 @@
 
 extern bool done;
 extern struct capref kcb;
-extern struct capref kernel_cap;
 
 char* get_binary_path(char* fmt, char* binary_name)
 {
@@ -152,11 +151,16 @@ errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
 
 errval_t cap_mark_remote(struct capref cap)
 {
-    bool has_descendants;
+    errval_t err, msgerr;
 
-    uint8_t vbits = get_cap_valid_bits(cap);
-    capaddr_t caddr = get_cap_addr(cap) >> (CPTR_BITS - vbits);
-    return invoke_monitor_cap_remote(caddr, vbits, true, &has_descendants);
+    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    err = mc->vtbl.cap_set_remote(mc, cap, true, &msgerr);
+    if (err_is_fail(err)) {
+        debug_printf("cap_set_remote RPC transmission failed\n");
+        return err;
+    }
+
+    return msgerr;
 }
 
 /**

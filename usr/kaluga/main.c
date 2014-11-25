@@ -128,12 +128,11 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
-    // XXX: This is a bit silly, I add this record
-    // because it was previously in spawnd so
-    // there may be code out there who relies on this
-    // It might be better to get rid of this completely
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
+    err = wait_for_all_spawnds();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+
 #elif __pandaboard__
     printf("Kaluga running on Pandaboard.\n");
 

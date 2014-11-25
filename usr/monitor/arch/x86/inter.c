@@ -139,7 +139,6 @@ error:
 static void bind_monitor_reply(struct intermon_binding *closure,
                                errval_t err)
 {
-    //printf("%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Got error in bind monitor reply");
     }
