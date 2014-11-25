@@ -142,15 +142,15 @@ errval_t ldt_free_segment_ondisp(dispatcher_handle_t handle, uint16_t selector)
         return LIB_ERR_LDT_SELECTOR_INVALID;
     }
 
-    int index = X86_64_SELECTOR_IDX(selector);
+    int idx = X86_64_SELECTOR_IDX(selector);
 
     // check that this entry is occupied
-    if (index >= LDT_NENTRIES || !ldt[index].d.present) {
+    if (idx >= LDT_NENTRIES || !ldt[idx].d.present) {
         return LIB_ERR_LDT_SELECTOR_INVALID;
     }
 
     // mark entry as free
-    ldt[index].raw = 0;
+    ldt[idx].raw = 0;
     return SYS_ERR_OK;
 }
 
@@ -180,10 +180,10 @@ errval_t ldt_update_segment(uint16_t selector, void *segbase)
         return LIB_ERR_LDT_SELECTOR_INVALID;
     }
 
-    int index = X86_64_SELECTOR_IDX(selector);
+    int idx = X86_64_SELECTOR_IDX(selector);
 
     // check that this entry is occupied
-    if (index >= LDT_NENTRIES || !ldt[index].d.present) {
+    if (idx >= LDT_NENTRIES || !ldt[idx].d.present) {
         return LIB_ERR_LDT_SELECTOR_INVALID;
     }
 
@@ -193,8 +193,8 @@ errval_t ldt_update_segment(uint16_t selector, void *segbase)
     }
 
     // update base address
-    ldt[index].d.lo_base = ((lvaddr_t) segbase) & 0xffffff;
-    ldt[index].d.hi_base = (((lvaddr_t) segbase) >> 24) & 0xff;
+    ldt[idx].d.lo_base = ((lvaddr_t) segbase) & 0xffffff;
+    ldt[idx].d.hi_base = (((lvaddr_t) segbase) >> 24) & 0xff;
 
     return SYS_ERR_OK;
 }
