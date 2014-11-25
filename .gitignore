@@ -19,3 +19,13 @@ sftp-config.json
 # Haskell and C intermediate files
 *.o
 *.hi
+
+# ctags
+.tags_sorted_by_file
+.tags
+
+# Cscope
+cscope.out
+
+# Builds
+build*/
