@@ -145,6 +145,12 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not map the mmio space");
     }
 
+    /* wait until the kernels are booted and spawnds are ready */
+    err = nameservice_blocking_lookup("all_spawnds_up", NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "all_spawnds_up.\n");
+    }
+
     err = xdma_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
@@ -154,14 +160,6 @@ int main(int argc,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
     }
-
-    /* wait until the kernels are booted and spawnds are ready */
-    err = nameservice_blocking_lookup("all_spawnds_up", NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "all_spawnds_up.\n");
-    }
-
-    //dma_impl_test(&xphi);
 
     lpaddr_t host_msg_base = strtol(argv[0], NULL, 16);
     uint8_t host_msg_size = strtol(argv[1], NULL, 16);

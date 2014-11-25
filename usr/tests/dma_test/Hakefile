@@ -11,8 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-	target = "dma_test",
-	architectures = [ "x86_64"],
+	target = "tests/dma_test",
+	architectures = [ 
+	   "x86_64",
+	   "k1om"
+	],
 	cFiles = [ 
 	     "dma_test.c"                    
 	],

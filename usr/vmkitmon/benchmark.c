@@ -91,7 +91,6 @@ void record_packet_transmit_to_bf(void){
 	}
 }
 
-
 void print_bench_stats(void){
 	int ele_in_array;
 	printf("-----------  BF TO NET\n");

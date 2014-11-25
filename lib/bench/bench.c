@@ -13,11 +13,14 @@
  */
 
 #include <stdio.h>
+#include <limits.h>
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 #include <bench/bench_arch.h>
 
 static cycles_t tsc_overhead;
+
+static uint8_t bench_is_initialized = 0;
 
 /**
  * \brief Measure overhead of taking timestamp
@@ -42,10 +45,16 @@ static void measure_tsc(void)
  */
 void bench_init(void)
 {
+    if (bench_is_initialized) {
+        return;
+    }
+
     bench_arch_init();
 
     /* Measure overhead of taking timestamps */
     measure_tsc();
+
+    bench_is_initialized = 1;
 }
 
 /**
@@ -53,7 +62,35 @@ void bench_init(void)
  */
 cycles_t bench_tscoverhead(void)
 {
+    if (!bench_is_initialized) {
+        bench_init();
+    }
     return tsc_overhead;
+}
+
+/**
+ * \brief computes the differences of two time stamps with respecting overflow
+ *
+ * This function also accounts for the overhead when taking timestamps
+ *
+ * \param tsc_start timestamp of start
+ * \param tsc_end   timestamp of end
+ *
+ * \return elaped cycles
+ */
+cycles_t bench_time_diff(cycles_t tsc_start, cycles_t tsc_end)
+{
+    if (!bench_is_initialized) {
+        bench_init();
+    }
+
+    cycles_t result;
+    if (tsc_end < tsc_start) {
+        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+    } else {
+        result = (tsc_end - tsc_start - bench_tscoverhead());
+    }
+    return result;
 }
 
 /**

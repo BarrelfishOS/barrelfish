@@ -28,6 +28,7 @@ struct dma_client_channel
     uint8_t wait_reply;              ///< RPC is in progress
     struct dma_request *rpc;         ///< currently pending requests
     dma_req_id_t last_done_id;       ///<
+    struct waitset *ws;              ///< waitset to be polled
 };
 
 struct svc_msg_st
@@ -90,6 +91,12 @@ static inline void rpc_done(struct dma_client_channel *chan)
 /*
  *
  */
+static errval_t dma_client_channel_poll(struct dma_channel *chan)
+{
+    struct dma_client_channel *cc = (struct dma_client_channel *)chan;
+
+    return event_dispatch(cc->ws);
+}
 
 /*
  * ----------------------------------------------------------------------------
@@ -285,14 +292,17 @@ errval_t dma_client_channel_init(struct dma_client_device *dev,
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    struct waitset *ws = get_default_waitset();
+
     struct dma_device *dma_dev = (struct dma_device *) dev;
 
     chan->common.id = dma_channel_id_build(dma_device_get_id(dma_dev), id);
     chan->common.state = DMA_CHAN_ST_RUNNING;
     chan->common.device = dma_dev;
     chan->common.f.memcpy = dma_client_request_memcpy_chan;
+    chan->common.f.poll = dma_client_channel_poll;
+    chan->ws = ws;
 
-    struct waitset *ws = get_default_waitset();
     chan->client_st = DMA_CLIENT_STATE_BINDING;
 
     CLIENTCHAN_DEBUG("initializing channel with iref %"PRIxIREF". binding...\n",

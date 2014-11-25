@@ -15,7 +15,7 @@
 #ifndef BOMP_SPIN_H
 #define BOMP_SPIN_H
 
-/* #include <barrelfish/barrelfish.h> */
+#include <barrelfish/barrelfish.h>
 /* #include <string.h> */
 #include <omp.h>
 
@@ -82,9 +82,6 @@ static inline void bomp_clear_barrier(struct bomp_barrier *barrier)
     /* nop */
 }
 
-uint64_t stuck[64];
-
-
 static inline void bomp_barrier_wait(struct bomp_barrier *barrier)
 {
     int cycle = barrier->cycle;
@@ -95,15 +92,11 @@ static inline void bomp_barrier_wait(struct bomp_barrier *barrier)
         uint64_t waitcnt = 0;
 
         while (cycle == barrier->cycle) {
+            if (waitcnt == 0x400) {
+                waitcnt = 0;
+                thread_yield();
+            }
             waitcnt++;
-        }
-
-        if (waitcnt > 10000000) {
-            stuck[omp_get_thread_num()]++;
-            /* char buf[128]; */
-            /* sprintf(buf, "thread %d stuck in barrier\n", */
-            /*         omp_get_thread_num()); */
-            /* sys_print(buf, strlen(buf)); */
         }
     }
 }

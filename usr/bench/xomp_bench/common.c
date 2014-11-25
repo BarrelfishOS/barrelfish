@@ -7,11 +7,4 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DMA_INTERNAL_H
-#define DMA_INTERNAL_H
 
-#include <dma/dma.h>
-
-#define DMA_BENCH_ENABLED 0
-
-#endif /* DMA_INTERNAL_H */

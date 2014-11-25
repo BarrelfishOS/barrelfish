@@ -15,7 +15,7 @@
 #include <dma/dma_service.h>
 #include <dma/dma_mem_mgr.h>
 #include <dma/dma_manager_client.h>
-
+#include <dma/dma_bench.h>
 #include <xeon_phi/xeon_phi.h>
 
 #include "xeon_phi_internal.h"
@@ -232,6 +232,10 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     }
 
     phi->dma = (struct dma_device *)dev;
+
+#if DMA_BENCH_RUN_BENCHMARK
+    dma_bench_run_default_xphi((struct dma_device *)dev);
+#endif
 
     iref_t svc_iref;
     char svc_name[30];

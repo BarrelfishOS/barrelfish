@@ -4,29 +4,19 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/bomp_benchmark
 --
 --------------------------------------------------------------------------
 
 [ build application { 
-    target = "benchmarks/bomp_mm", 
+    target = "benchmarks/vspace_map", 
     cFiles = [ 
-        "mm.c" 
-    ], 
-    addCFlags = [ 
-        "-DBOMP", 
-        "-fopenmp" 
+        "vspace_map_bench.c"
     ],
-    addLibraries = [ 
-        "bomp", 
-        "bench", 
-        "trace" 
-    ],
-    architectures = [ 
-        "x86_64", 
-        "k1om" 
-    ]
+    addLibraries = [
+        "bench"
+    ]    
   }
 ]

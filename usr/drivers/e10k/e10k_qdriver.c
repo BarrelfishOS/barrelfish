@@ -18,11 +18,12 @@
 #include <barrelfish/debug.h>
 #include <trace/trace.h>
 
-#include <if/e10k_defs.h>
 #ifndef VF
+#       include <if/e10k_defs.h>
 #       include <dev/e10k_dev.h>
 #else
 #       include <dev/e10k_vf_dev.h>
+#       include <if/e10k_vf_defs.h>
 #endif
 #include <dev/e10k_q_dev.h>
 #include <pci/pci.h>

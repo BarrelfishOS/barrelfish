@@ -11,10 +11,11 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-    target = "tests/xeon_phi_test",
+    target = "benchmarks/xphi_ump_bench",
     architectures = [ "x86_64" ],
     cFiles = [ 
       "main_host.c", 
+      "common.c", 
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
@@ -25,10 +26,11 @@
   },
   
   build application { 
-    target = "tests/xeon_phi_test",
+    target = "benchmarks/xphi_ump_bench",
     architectures = ["k1om"],
     cFiles = [ 
-      "main_card.c", 
+      "main_card.c",
+      "common.c", 
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
@@ -39,10 +41,10 @@
   },
   
   build application { 
-    target = "tests/xeon_phi_inter",
+    target = "benchmarks/xphi_xump_bench",
     architectures = [ "x86_64" ],
     cFiles = [ 
-      "main_inter_host.c", 
+      "main_inter_host.c",
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
@@ -53,30 +55,17 @@
   },
   
   build application { 
-    target = "tests/xeon_phi_inter",
+    target = "benchmarks/xphi_xump_bench",
     architectures = [ "k1om" ],
     cFiles = [ 
       "main_inter_card.c", 
+      "common.c", 
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
       "xeon_phi_client",  
       "bench", 
       "dma_client" 
-    ]
-  },
-  
-  build application { 
-    target = "tests/xphi_nameservice_test",
-    architectures = [ 
-      "k1om",
-      "x86_64"
-    ],
-    cFiles = [ 
-      "nameservice_test.c"
-    ],
-    addLibraries = libDeps [ 
-      "xeon_phi_client"
     ]
   }
 ]

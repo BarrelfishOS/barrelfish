@@ -136,13 +136,31 @@ errval_t domain_wait(const char *iface,
     err = c->call_seq.get(c, iface, iface_set_trigger, &record, &ws->tid,
                       &error_code);
 
-    free(record);
-
     if (err_is_fail(err)) {
+        free(record);
         return err;
     }
 
-    return error_code;
+    if (err_is_fail(error_code)) {
+        free(record);
+        return error_code;
+    }
+
+    free(ws);
+
+    xphi_dom_id_t domid = 0;
+    err = oct_read(record, "_ { domid: %d }", &domid);
+    if (err_is_fail(err) || domid == 0) {
+        err = err_push(err, XEON_PHI_ERR_CLIENT_DOMAIN_VOID);
+        free(record);
+        return err;
+    }
+
+    if (retdom) {
+        *retdom = domid;
+    }
+
+    return err;
 }
 
 /**

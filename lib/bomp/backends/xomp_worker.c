@@ -21,6 +21,10 @@
 #include <xomp_gateway.h>
 #include <xomp_gateway_client.h>
 
+#if XOMP_BENCH_WORKER_EN
+#include <bench/bench.h>
+#endif
+
 #include <if/xomp_defs.h>
 
 /// XOMP control channel to the master
@@ -59,7 +63,7 @@ static struct tx_queue txq;
 static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_XEON_PHI;
 #else
 /// dma device type
-static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_IOAT;
+//static dma_dev_type_t dma_device_type = DMA_DEV_TYPE_IOAT;
 #endif
 /// dma client device
 static struct dma_client_device *dma_dev;
@@ -94,11 +98,14 @@ static void dma_replication_cb(errval_t err,
     dma_replication_done = 1;
 }
 
+#endif
+
+
 static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 {
     errval_t err;
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t repl_timer = bench_tsc();
 #endif
 
@@ -118,7 +125,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 
     XWR_DEBUG("registering memory with DMA service\n");
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t register_timer = bench_tsc();
 #endif
     err = dma_register_memory((struct dma_device *) dma_dev, *frame);
@@ -131,7 +138,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
         return err;
     }
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t register_timer_end = bench_tsc();
 #endif
 
@@ -169,7 +176,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
 
     *frame = replicate;
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
     debug_printf("%lx replication took %lu cycles, %lu ms\n", worker_id,
                  timer_end - repl_timer, bench_tsc_to_ms(timer_end - repl_timer));
@@ -180,7 +187,7 @@ static errval_t replicate_frame(lvaddr_t addr, struct capref *frame)
     return SYS_ERR_OK;
 }
 
-#endif
+#ifdef __k1om__
 
 /*
  * ----------------------------------------------------------------------------
@@ -283,7 +290,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     return SYS_ERR_OK;
 }
 
-#ifdef __k1om__
+
 static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
@@ -340,7 +347,7 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
 {
     XWI_DEBUG("gw_req_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t mem_timer = bench_tsc();
 #endif
 
@@ -357,26 +364,51 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
     msg_st->cleanup = NULL;
 
     XWR_DEBUG("Requesting frame from gateway: [%016lx]\n", usrdata);
-#if XOMP_BENCH_ENABLED
-    cycles_t lookup_start = bench_tsc();
-#endif
+
     msg_st->err = xomp_gateway_get_memory(addr, &frame);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
     }
-#if XOMP_BENCH_ENABLED
-    cycles_t lookup_end = bench_tsc();
-#endif
 
-    msg_st->err = msg_open_cb(0x0, addr, frame, type);
+    uint8_t map_flags;
 
-#if XOMP_BENCH_ENABLED
+    switch ((xomp_frame_type_t) type) {
+        case XOMP_FRAME_TYPE_MSG:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RW:
+        case XOMP_FRAME_TYPE_REPL_RW:
+            map_flags = VREGION_FLAGS_READ_WRITE;
+            break;
+        case XOMP_FRAME_TYPE_SHARED_RO:
+            map_flags = VREGION_FLAGS_READ;
+            break;
+        default:
+            USER_PANIC("unknown type: %u", type)
+            break;
+    }
+
+    struct frame_identity id;
+    msg_st->err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(msg_st->err)) {
+        txq_send(msg_st);
+        return;
+    }
+
+    if (addr) {
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+                                                      frame, map_flags, NULL, NULL);
+    } else {
+        void *map_addr;
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+                                                frame, map_flags, NULL, NULL);
+    }
+
+#if XOMP_BENCH_WORKER_EN
     mem_timer = bench_tsc() - mem_timer;
     debug_printf("%lx mem request %016lx took  %lu cycles, %lu ms\n", worker_id,
                  addr, mem_timer, bench_tsc_to_ms(mem_timer));
-    debug_printf("%lx mem lookup %016lx took  %lu cycles, %lu ms\n", worker_id,
-                 addr, lookup_end - lookup_start, bench_tsc_to_ms(lookup_end - lookup_start));
 #endif
 
     txq_send(msg_st);
@@ -388,10 +420,6 @@ static void add_memory_call_rx(struct xomp_binding *b,
                                uint8_t type)
 {
     XWI_DEBUG("add_memory_call_rx: addr:%lx, tyep: %u\n", addr, type);
-
-#if XOMP_BENCH_ENABLED
-    cycles_t mem_timer = bench_tsc();
-#endif
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&txq);
     assert(msg_st != NULL);
@@ -422,16 +450,26 @@ static void add_memory_call_rx(struct xomp_binding *b,
         return;
     }
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_WORKER_ENABLE_DMA
+    if (0) {
+        // todo: replicate frame on the same node if needed..
+        replicate_frame(addr, &frame);
+    }
+#endif
+
+#if XOMP_BENCH_WORKER_EN
     cycles_t map_start = bench_tsc();
 #endif
-    msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits), frame,
-                                                  map_flags, NULL, NULL);
-
-#if XOMP_BENCH_ENABLED
+    if (addr) {
+        msg_st->err = vspace_map_one_frame_fixed_attr(addr, (1UL << id.bits),
+                                                      frame, map_flags, NULL, NULL);
+    } else {
+        void *map_addr;
+        msg_st->err = vspace_map_one_frame_attr(&map_addr, (1UL << id.bits),
+                                                frame, map_flags, NULL, NULL);
+    }
+#if XOMP_BENCH_WORKER_EN
     cycles_t timer_end = bench_tsc();
-    debug_printf("%lx mem add %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
-                 timer_end - mem_timer, bench_tsc_to_ms(timer_end - mem_timer));
     debug_printf("%lx mem map %016lx took  %lu cycles, %lu ms\n", worker_id, addr,
                      timer_end - map_start, bench_tsc_to_ms(timer_end - map_start));
 #endif
@@ -449,7 +487,7 @@ static void do_work_rx(struct xomp_binding *b,
 
     XWP_DEBUG("do_work_rx: fn:%lx, id:%lx\n", fn, id);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     cycles_t work_timer = bench_tsc();
 #endif
 
@@ -490,9 +528,14 @@ static void do_work_rx(struct xomp_binding *b,
     xomp_worker_fn_t fnct = (xomp_worker_fn_t) fn;
     XWP_DEBUG("do_work_rx: calling fnct %p with argument %p\n", fnct, work->data);
 
-    fnct(work->data);
+    for (uint32_t i = 0; i < work->num_vtreads; ++i) {
+        fnct(work->data);
+        work->thread_id++;
+    }
 
-#if XOMP_BENCH_ENABLED
+
+
+#if XOMP_BENCH_WORKER_EN
     work_timer = bench_tsc() - work_timer;
     debug_printf("%lx work took %lu cycles, %lu ms\n", worker_id, work_timer,
                  bench_tsc_to_ms(work_timer));
@@ -614,7 +657,7 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 
     XWI_DEBUG("initializing worker {%016lx} iref:%u\n", worker_id, svc_iref);
 
-#if XOMP_BENCH_ENABLED
+#if XOMP_BENCH_WORKER_EN
     bench_init();
 #endif
 
@@ -670,7 +713,11 @@ errval_t xomp_worker_init(xomp_wid_t wid)
     if (worker_id & XOMP_WID_GATEWAY_FLAG) {
         err = xomp_gateway_init();
     } else {
-        err = xomp_gateway_bind_svc();
+        if (!svc_iref) {
+            err = xomp_gateway_bind_svc();
+        } else {
+            err = SYS_ERR_OK;
+        }
     }
     if (err_is_fail(err)) {
         return err;
@@ -678,17 +725,20 @@ errval_t xomp_worker_init(xomp_wid_t wid)
 #endif
 
 #ifdef __k1om__
-    err = xeon_phi_client_init(disp_xeon_phi_id());
-    if (err_is_fail(err)) {
-        err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
-    }
+    if (!svc_iref) {
+        err = xeon_phi_client_init(disp_xeon_phi_id());
+        if (err_is_fail(err)) {
+            err_push(err, XOMP_ERR_WORKER_INIT_FAILED);
+        }
 
-    xeon_phi_client_set_callbacks(&callbacks);
+        xeon_phi_client_set_callbacks(&callbacks);
+    }
 #endif
 
     struct waitset *ws = get_default_waitset();
 
-#if XOMP_WORKER_ENABLE_DMA
+// XXX: disabling DMA on the host as there is no replication used at this moment
+#if XOMP_WORKER_ENABLE_DMA && defined(__k1om__)
     /* XXX: use lib numa */
 
 #ifndef __k1om__

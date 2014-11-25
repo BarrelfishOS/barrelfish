@@ -72,7 +72,6 @@ TESTS_x86_64= \
 	sbin/thcminitest \
 	sbin/tweedtest \
 	sbin/thctest \
-	sbin/cxxtest \
 	sbin/testdesc \
 	sbin/testdesc-child \
 	sbin/multihoptest \
@@ -80,11 +79,28 @@ TESTS_x86_64= \
 	sbin/net-test \
 	sbin/xcorecap \
 	sbin/xcorecapserv \
+	sbin/bomp_sync \
+	sbin/bomp_cpu_bound \
+	sbin/bomp_cpu_bound_progress \
+	sbin/bomp_sync_progress \
+	sbin/bomp_test \
+	sbin/bulk_shm \
+	sbin/mem_affinity \
+	sbin/phoenix_kmeans \
+	sbin/spin \
+	sbin/tests/dma_test \
+	sbin/tests/cxxtest \
+	sbin/tests/xphi_nameservice_test \
 	sbin/tlstest \
 	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 
+TESTS_k1om= \
+	sbin/xeon_phi_inter \
+	sbin/xeon_phi_test \
+	sbin/tests/dma_test \
+	sbin/tests/xphi_nameservice_test
 
 # All benchmark domains
 BENCH_COMMON= \
@@ -127,18 +143,33 @@ BENCH_x86_64= \
 	$(BIN_RCCE_LU) \
 	sbin/tsc_bench \
 	sbin/netthroughput \
-	sbin/xomp_test_cpp \
 	sbin/bulk_transfer_passthrough \
 	sbin/bulkbench_micro_echo \
 	sbin/bulkbench_micro_throughput \
-	sbin/bulkbench_micro_rtt
+	sbin/bulkbench_micro_rtt \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/rcce_pingpong \
+	sbin/elb_app \
+	sbin/elb_app_tcp \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_work	
 
 BENCH_k1om=\
-	$(BENCH_x86)
+	$(BENCH_x86) \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/benchmarks/xphi_xump_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_work
 
 
 GREEN_MARL= \
-	sbin/gm_tc \
+#	sbin/gm_tc \
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -164,11 +195,6 @@ MODULES_x86_64= \
 	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
-	sbin/bomp_sync \
-	sbin/bomp_cpu_bound \
-	sbin/bomp_cpu_bound_progress \
-	sbin/bomp_sync_progress \
-	sbin/bomp_test \
 	sbin/boot_perfmon \
 	sbin/datagatherer \
 	sbin/ahcid \
@@ -185,16 +211,11 @@ MODULES_x86_64= \
 	sbin/hpet \
 	sbin/lpc_kbd \
 	sbin/lpc_timer \
-	sbin/mem_affinity \
 	sbin/mem_serv_dist \
-	sbin/elb_app \
-	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/phoenix_kmeans \
-	sbin/rcce_pingpong \
 	sbin/serial \
 	sbin/angler \
 	sbin/sshd \
@@ -205,27 +226,22 @@ MODULES_x86_64= \
 	sbin/vmkitmon \
 	sbin/webserver \
 	sbin/routing_setup \
-	$(BIN_CONSENSUS) \
 	sbin/bcached \
-	sbin/spin \
 	sbin/xeon_phi_mgr \
 	sbin/xeon_phi \
 	sbin/dma_mgr \
 	sbin/ioat_dma \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/xeon_phi_inter \
-	sbin/xeon_phi_test \
-	sbin/dma_test \
 	sbin/block_server \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	sbin/corectrl \
-
+	$(GREEN_MARL) \
+	sbin/corectrl 
 
 MODULES_k1om= \
-    sbin/weever \
+        sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
 	xeon_phi_multiboot \
