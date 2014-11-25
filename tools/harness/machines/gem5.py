@@ -22,7 +22,7 @@ GEM5_PATH = '/home/netos/tools/gem5/gem5/build/ARM/'
 GEM5_CACHES_ENABLE = '--caches --l2cache'.split()
 # gem5 takes quite a while to come up. If we return right away,
 # telnet will be opened too early and fails to connect
-GEM5_START_TIMEOUT = 90 # in seconds
+GEM5_START_TIMEOUT = 5 # in seconds
 
 
 class Gem5MachineBase(Machine):
@@ -106,9 +106,10 @@ class Gem5MachineBase(Machine):
                         self.child.terminate()
                     except OSError, e:
                         debug.verbose("Error when trying to terminate gem5: %r" % e)
-        debug.verbose('terminating telnet')
+        debug.verbose('closing telnet connection')
         if not self.telnet is None:
-                        self.telnet.terminate()
+            self.output.close()
+            self.telnet.close()
         # try to cleanup tftp tree if needed
         if self.tftp_dir and os.path.isdir(self.tftp_dir):
             shutil.rmtree(self.tftp_dir, ignore_errors=True)
@@ -119,15 +120,23 @@ class Gem5MachineBase(Machine):
         if self.child.poll() != None: # Check if child is down
             print ' '.join(['gem5 is down, return code is ', self.child.returncode])
             return None
-        # remove ubuntu chroot from environment to make sure telnet finds the
-        # right shared libraries
-        import os
-        env = dict(os.environ)
-        if 'LD_LIBRARY_PATH' in env:
-            del env['LD_LIBRARY_PATH']
-        self.telnet = subprocess.Popen(['telnet','localhost','3456'],
-                                       stdout=subprocess.PIPE, env=env)
-        return self.telnet.stdout
+        # use telnetlib
+        import telnetlib
+        self.telnet_connected = False
+        while not self.telnet_connected:
+            try:
+                self.telnet = telnetlib.Telnet("localhost", 3456)
+                self.telnet_connected = True
+                self.output = self.telnet.get_socket().makefile()
+            except IOError, e:
+                errno, msg = e
+                if errno != 111: # connection refused
+                    debug.error("telnet: %s [%d]" % (msg, errno))
+                else:
+                    self.telnet_connected = False
+            time.sleep(GEM5_START_TIMEOUT)
+
+        return self.output
 
 class Gem5MachineARM(Gem5MachineBase):
     def get_bootarch(self):
@@ -135,7 +144,6 @@ class Gem5MachineARM(Gem5MachineBase):
 
     def set_bootmodules(self, modules):
         # store path to kernel for _get_cmdline to use
-        tftp_dir = self.get_tftp_dir()
         self.kernel_img = os.path.join(self.options.buildbase, self.options.builds[0].name, 'arm_gem5_image')
 
         #write menu.lst
