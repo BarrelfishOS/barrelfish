@@ -16,14 +16,19 @@
 #define OCTOPUS_INIT_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/octopus_defs.h>
-#include <if/octopus_thc.h>
+//#include <if/octopus_defs.h>
+//#include <if/octopus_thc.h>
 
 STATIC_ASSERT(sizeof(uintptr_t) <= sizeof(uint64_t),
         "Sending pointers might fail :-(.");
 
 errval_t oct_init(void);
 errval_t oct_thc_init(void);
+
+// Forward declarations.  Do not include any Flounder-generated
+// if/*.h files in a public header file!
+struct octopus_thc_client_binding_t;
+struct octopus_binding;
 
 struct octopus_thc_client_binding_t* oct_get_thc_client(void);
 struct octopus_binding* oct_get_event_binding(void);

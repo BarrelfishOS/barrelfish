@@ -25,6 +25,8 @@
 #include <octopus/getset.h>
 #include <octopus/parser/ast.h>
 #include <octopus/trigger.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 #include "strnatcmp.h"
 #include "common.h"

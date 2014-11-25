@@ -19,6 +19,8 @@
 #include <octopus/trigger.h>
 #include <octopus/lock.h>
 #include <octopus/semaphores.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 #include "common.h"
 
