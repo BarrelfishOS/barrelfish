@@ -107,7 +107,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
         char barrelfish_id_s[10];
-        snprintf(barrelfish_id_s, 10, "%"PRIx64"", barrelfish_id);
+        snprintf(barrelfish_id_s, 10, "%"PRIu64"", barrelfish_id);
 
         argv[argc] = "boot";
         argc += 1;
