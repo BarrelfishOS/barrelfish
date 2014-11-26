@@ -15,9 +15,20 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/lmp.h>
-#include <target/x86_64/offsets_target.h>
 #include <x86.h>
 #include <asmoffsets.h>
+
+#ifdef __k1om__
+#include <target/k1om/offsets_target.h>
+#define KERNEL_STACK_SIZE K1OM_KERNEL_STACK_SIZE
+#define KERNEL_STACK k1om_kernel_stack
+#define PHYS_TO_MEM_OFFSET 0xffffff0000000000
+#else
+#include <target/x86_64/offsets_target.h>
+#define KERNEL_STACK_SIZE X86_64_KERNEL_STACK_SIZE
+#define KERNEL_STACK x86_64_kernel_stack
+#define PHYS_TO_MEM_OFFSET 0xfffffe0000000000
+#endif
 
     .text
     .globl syscall_entry
@@ -59,7 +70,7 @@ syscall_entry:
 	/* Load pointer to endpoint cap */
 	shl	$OBJBITS_CTE, %rsi
 	mov	OFFSETOF_CAP_CNODE_CNODE(%rdi), %rcx
-	mov	$0xfffffe0000000000, %rdi	// phys_to_mem()
+	mov	$PHYS_TO_MEM_OFFSET, %rdi	// phys_to_mem()
 	add	%rdi, %rcx
 	add	%rsi, %rcx
 
@@ -277,7 +288,7 @@ err_disabled:	// Target disabled
 
     /* Yield to target (call dispatch(target) in C) */
     mov %rsi, %rdi /* rdi = target DCB */
-    lea (x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+    lea (KERNEL_STACK + KERNEL_STACK_SIZE)(%rip), %rsp
     jmp dispatch /* no return */
 
 err_buflen:     /* Target's endpoint buffer is full */
@@ -289,7 +300,7 @@ err_buflen:     /* Target's endpoint buffer is full */
 
     /* Yield to target (call dispatch(target) in C) */
     mov %rsi, %rdi /* rdi = target DCB */
-    lea (x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+    lea (KERNEL_STACK + KERNEL_STACK_SIZE)(%rip), %rsp
     jmp dispatch /* no return */
 
 #ifdef CONFIG_SCHEDULER_RBED
@@ -304,7 +315,7 @@ lrpc_make_runnable:
 	movq	%rsp, user_stack_save(%rip)
 
 	/* Get kernel stack */
-	lea	(x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+	lea	(KERNEL_STACK + KERNEL_STACK_SIZE)(%rip), %rsp
 
 	// Save complete register state
 	pushq	%rdx
@@ -357,7 +368,7 @@ syscall_path:
         movq    %rsp, user_stack_save(%rip)
 
         /* Get kernel stack */
-        lea (x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+        lea (KERNEL_STACK + KERNEL_STACK_SIZE)(%rip), %rsp
 
         pushq   %rcx            /* Save user-space RIP */
         pushq   %r11            /* Save user-space RFLAGS */

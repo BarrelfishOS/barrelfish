@@ -30,10 +30,17 @@ void paging_x86_64_make_good_pml4(lpaddr_t base);
      X86_64_PTABLE_READ_WRITE)
 
 /// All arch-specific flags valid to be set from user-space
+#ifdef __k1om__
+#define X86_64_PTABLE_FLAGS_MASK                                        \
+    (X86_64_PTABLE_ATTR_INDEX | X86_64_PTABLE_DIRTY |                   \
+     X86_64_PTABLE_ACCESSED | X86_64_PTABLE_CACHE_DISABLED |            \
+     X86_64_PTABLE_WRITE_THROUGH)
+#else
 #define X86_64_PTABLE_FLAGS_MASK                                        \
     (X86_64_PTABLE_GLOBAL_PAGE | X86_64_PTABLE_ATTR_INDEX |             \
      X86_64_PTABLE_DIRTY | X86_64_PTABLE_ACCESSED |                     \
      X86_64_PTABLE_CACHE_DISABLED | X86_64_PTABLE_WRITE_THROUGH)
+#endif
 
 /// Mask out all arch-specific flags except those valid from user-space
 #define X86_64_PTABLE_FLAGS(flags)     (flags & X86_64_PTABLE_FLAGS_MASK)
@@ -66,6 +73,24 @@ union x86_64_pdir_entry {
     } d;
 };
 
+#ifdef __k1om__
+#define X86_64_PHYSADDR_BITS X1OM_PADDR_SPACE_BITS // TODO: Take that from offsets target
+#else
+#define X86_64_PHYSADDR_BITS X86_64_PADDR_SPACE_BITS
+#endif
+#define X86_64_PAGING_ENTRY_SIZE 64
+#define X86_64_PAGING_AVAIL2_BITS 11
+#define X86_64_PAGING_FLAG_BITS 12
+#define X86_64_PAGING_LARGE_FLAGE_BITS 21
+#define X86_64_PAGING_RESERVED_BITS \
+                (X86_64_PAGING_ENTRY_SIZE - X86_64_PHYSADDR_BITS - \
+                 X86_64_PAGING_AVAIL2_BITS - 1)
+#define X86_64_PAGING_LARGE_BASE_BITS \
+                (X86_64_PHYSADDR_BITS - X86_64_PAGING_LARGE_FLAGE_BITS)
+#define X86_64_PAGING_BASE_BASE_BITS \
+                (X86_64_PHYSADDR_BITS - X86_64_PAGING_FLAG_BITS)
+
+
 /**
  * A page table entry.
  */
@@ -84,8 +109,8 @@ union x86_64_ptable_entry {
         uint64_t        available       :3;
         uint64_t        attr_index      :1;
         uint64_t        reserved        :8;
-        uint64_t        base_addr       :27;
-        uint64_t        reserved2       :4;
+        uint64_t        base_addr       :X86_64_PAGING_LARGE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } large;
@@ -100,12 +125,14 @@ union x86_64_ptable_entry {
         uint64_t        attr_index      :1;
         uint64_t        global          :1;
         uint64_t        available       :3;
-        uint64_t        base_addr       :36;
-        uint64_t        reserved2       :4;
+        uint64_t        base_addr       :X86_64_PAGING_BASE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } base;
 };
+
+STATIC_ASSERT_SIZEOF(union x86_64_ptable_entry, (X86_64_PAGING_ENTRY_SIZE / 8));
 
 /**
  * \brief Clear page directory.
@@ -181,7 +208,12 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     tmp.large.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
     tmp.large.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.large.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
+#ifdef __k1om__
+	/* The Xeon Phi has no support for global pages */
+	tmp.large.global = 0;
+#else
     tmp.large.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#endif
     tmp.large.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
@@ -212,7 +244,12 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
     tmp.base.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.base.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.base.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+#ifdef __k1om__
+	/* The Xeon Phi has no support for global pages */
+	tmp.base.global = 0;
+#else
     tmp.base.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#endif
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.base.base_addr = base >> 12;
 
@@ -239,7 +276,12 @@ static inline void paging_x86_64_modify_flags(union x86_64_ptable_entry * NONNUL
     tmp.base.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
     tmp.base.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.base.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+#ifdef __k1om__
+	/* XXX: The Xeon Phi does no support global pages */
+	tmp.base.global =  0;
+#else
     tmp.base.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#endif
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
 
     *entry = tmp;

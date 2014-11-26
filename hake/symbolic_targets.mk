@@ -27,7 +27,7 @@ ARM_OBJCOPY?=arm-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
 # upload Xeon Phi images to nfs share (leave blank to cancel)
-BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/local/nfs/barrelfish/xeon_phi"
+BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -241,9 +241,10 @@ MODULES_x86_64= \
 	sbin/corectrl 
 
 MODULES_k1om= \
-        sbin/weever \
+	sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
+	sbin/corectrl \
 	xeon_phi_multiboot \
 	$(GREEN_MARL)
 

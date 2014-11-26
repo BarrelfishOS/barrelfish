@@ -48,3 +48,4 @@ module /x86_64/sbin/netd auto
 module	/x86_64/sbin/serial
 module  /x86_64/sbin/fish nospawn
 module	/x86_64/sbin/angler serial0.terminal xterm
+

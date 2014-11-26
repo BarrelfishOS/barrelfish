@@ -39,12 +39,14 @@
  * currently, which equals 256 TBytes and allows for 512 PML4 slots,
  * each of which can map 512 GBytes.
  */
-#define X86_64_VADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
+#define X86_64_VADDR_SPACE_BITS 48
+#define X86_64_VADDR_SPACE_SIZE        ((genpaddr_t)1 << X86_64_VADDR_SPACE_BITS)
 
 /**
  * Absolute size of physical address space. This is also 48-bit.
  */
-#define X86_64_PADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
+#define X86_64_PADDR_SPACE_BITS 48
+#define X86_64_PADDR_SPACE_SIZE        ((genpaddr_t)1 << X86_64_PADDR_SPACE_BITS)
 
 /**
  * Start address of kernel image in physical memory. This is passed to

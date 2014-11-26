@@ -18,7 +18,7 @@ OUTPUT_ARCH(k1om)
 _start_kernel = K1OM_START_KERNEL_PHYS;
 
 
-ENTRY(kernel_start)
+ENTRY(start)
 SECTIONS
 {
  /* Be careful parts of head_64.S assume startup_32 is at
@@ -105,7 +105,7 @@ OUTPUT_ARCH(k1om)
 
 _start_kernel = K1OM_START_KERNEL_PHYS;
 
-ENTRY(kernel_start)
+ENTRY(start)
 SECTIONS {
         . = ALIGN(4k);
         .text K1OM_START_KERNEL_PHYS : ALIGN(4k)

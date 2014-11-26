@@ -22,6 +22,14 @@
 #include <barrelfish_kpi/init.h>
 #include <cap_predicates.h>
 
+#ifdef __k1om__
+#include <target/k1om/offsets_target.h>
+#define MEMORY_OFFSET K1OM_MEMORY_OFFSET
+#else
+#include <target/x86_64/offsets_target.h>
+#define MEMORY_OFFSET X86_64_MEMORY_OFFSET
+#endif
+
 static inline struct cte *cte_for_cap(struct capability *cap)
 {
     return (struct cte *) (cap - offsetof(struct cte, cap));
@@ -53,7 +61,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 printf("src type invalid\n");
                 return SYS_ERR_WRONG_MAPPING;
             }
-            if(slot >= X86_64_PML4_BASE(X86_64_MEMORY_OFFSET)) { // Kernel mapped here
+            if(slot >= X86_64_PML4_BASE(MEMORY_OFFSET)) { // Kernel mapped here
                 return SYS_ERR_VNODE_SLOT_RESERVED;
             }
             break;

@@ -15,21 +15,34 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 
+#ifdef __k1om__
+#include <xeon_phi.h>
+#define PADDR_SPACE_LIMIT K1OM_PADDR_SPACE_LIMIT
+#define PTABLE_GLOBAL_PAGE_BIT 0
+#define MEMORY_OFFSET K1OM_MEMORY_OFFSET
+#define KERNEL_INIT_MEMORY K1OM_KERNEL_INIT_MEMORY
+#else
+#define PADDR_SPACE_LIMIT X86_64_PADDR_SPACE_LIMIT
+#define PTABLE_GLOBAL_PAGE_BIT X86_64_PTABLE_GLOBAL_PAGE
+#define MEMORY_OFFSET X86_64_MEMORY_OFFSET
+#define KERNEL_INIT_MEMORY X86_64_KERNEL_INIT_MEMORY
+#endif
+
 /*
  * Table requirements for various address spaces.
  */
-#define MEM_PDPT_SIZE           X86_64_PDPT_ENTRIES(X86_64_PADDR_SPACE_LIMIT)
-#define MEM_PDIR_SIZE           X86_64_PDIR_ENTRIES(X86_64_PADDR_SPACE_LIMIT)
+#define MEM_PDPT_SIZE           X86_64_PDPT_ENTRIES(PADDR_SPACE_LIMIT)
+#define MEM_PDIR_SIZE           X86_64_PDIR_ENTRIES(PADDR_SPACE_LIMIT)
 
 /*
  * Page attribute bitmaps for various address spaces.
  */
 #define MEM_PAGE_BITMAP                                 \
     (X86_64_PTABLE_PRESENT | X86_64_PTABLE_READ_WRITE | \
-     X86_64_PTABLE_GLOBAL_PAGE)
+     PTABLE_GLOBAL_PAGE_BIT)
 #define DEVICE_PAGE_BITMAP                                      \
     (X86_64_PTABLE_PRESENT | X86_64_PTABLE_READ_WRITE |         \
-     X86_64_PTABLE_CACHE_DISABLED | X86_64_PTABLE_GLOBAL_PAGE)
+     X86_64_PTABLE_CACHE_DISABLED | PTABLE_GLOBAL_PAGE_BIT)
 
 /**
  * Kernel page map level 4 table.
@@ -102,8 +115,8 @@ static int paging_map_mem(lpaddr_t base, size_t size, uint64_t bitmap)
     paging_align(&vbase, &base, &size, X86_64_MEM_PAGE_SIZE);
 
     // Is mapped region out of range?
-    assert(base + size <= (lpaddr_t)X86_64_PADDR_SPACE_LIMIT);
-    if(base + size > (lpaddr_t)X86_64_PADDR_SPACE_LIMIT) {
+    assert(base + size <= (lpaddr_t)PADDR_SPACE_LIMIT);
+    if(base + size > (lpaddr_t)PADDR_SPACE_LIMIT) {
         return -1;
     }
 
@@ -160,9 +173,16 @@ void paging_x86_64_reset(void)
     }
 
     // Map an initial amount of memory
-    if(paging_x86_64_map_memory(0, X86_64_KERNEL_INIT_MEMORY) != 0) {
+    if(paging_x86_64_map_memory(0, KERNEL_INIT_MEMORY) != 0) {
         panic("error while mapping physical memory!");
     }
+    
+#ifdef __k1om__
+    /* mapping the Xeon Phi SBOX registers to provide serial input */
+    if (paging_x86_64_map_memory(XEON_PHI_SBOX_BASE, XEON_PHI_SBOX_SIZE) != 0) {
+        panic("error while mapping physical memory!");
+    }
+#endif
 
     // Switch to new page layout
     paging_x86_64_context_switch(mem_to_local_phys((lvaddr_t)pml4));
@@ -188,7 +208,7 @@ void paging_x86_64_make_good_pml4(lpaddr_t base)
     debug(SUBSYS_PAGING, "Is now a PML4: table = 0x%"PRIxLPADDR"\n", base);
 
     // Map memory
-    for(i = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET); i < X86_64_PTABLE_SIZE; i++) {
+    for(i = X86_64_PML4_BASE(MEMORY_OFFSET); i < X86_64_PTABLE_SIZE; i++) {
         newpml4[i] = pml4[i];
     }
 }
