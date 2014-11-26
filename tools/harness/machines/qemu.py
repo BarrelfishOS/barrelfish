@@ -38,6 +38,12 @@ class QEMUMachineBase(Machine):
         # FIXME: ideally this should somehow be expressed in CPU time / cycles
         return 60
 
+    def get_machine_name(self):
+        return self.name
+
+    def force_write(self, consolectrl):
+        pass
+
     def get_tftp_dir(self):
         if self.tftp_dir is None:
             debug.verbose('creating temporary directory for QEMU TFTP files')
@@ -74,14 +80,20 @@ class QEMUMachineBase(Machine):
             os.kill(self.child.pid, signal.SIGTERM)
             self.child.wait()
             self.child = None
+        self.masterfd = None
 
     def reboot(self):
         self._kill_child()
         cmd = self._get_cmdline()
         debug.verbose('starting "%s"' % ' '.join(cmd))
-        devnull = open(os.devnull, 'r')
-        self.child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=devnull)
-        devnull.close()
+        import pty
+        (self.masterfd, slavefd) = pty.openpty()
+        self.child = subprocess.Popen(cmd, close_fds=True,
+                                      stdout=slavefd,
+                                      stdin=slavefd)
+        os.close(slavefd)
+        # open in binary mode w/o buffering
+        self.qemu_out = os.fdopen(self.masterfd, 'rb', 0)
 
     def shutdown(self):
         self._kill_child()
@@ -91,7 +103,7 @@ class QEMUMachineBase(Machine):
         self.tftp_dir = None
 
     def get_output(self):
-        return self.child.stdout
+        return self.qemu_out
 
 class QEMUMachineX64(QEMUMachineBase):
     def _get_cmdline(self):

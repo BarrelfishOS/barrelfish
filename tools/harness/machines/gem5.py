@@ -43,6 +43,12 @@ class Gem5MachineBase(Machine):
         # we set this to 10 mins since gem5 is very slow
         return 600
 
+    def get_machine_name(self):
+        return self.name
+
+    def force_write(self, consolectrl):
+        pass
+
     def get_tftp_dir(self):
         if self.tftp_dir is None:
             debug.verbose('creating temporary directory for Gem5 files')

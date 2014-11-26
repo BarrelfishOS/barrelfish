@@ -210,17 +210,13 @@ class InteractiveTest(TestCommon):
         modules.add_module("angler", args=['serial0.terminal xterm'])
         return modules
 
-    def force_write(self):
-        # CTRL-ecf forces the console lock
-        self.console.sendcontrol('e')
-        self.console.send('cf')
-
     def wait_for_prompt(self):
         self.console.expect(">")
 
     def wait_for_fish(self):
         debug.verbose("Waiting for fish.")
         self.console.expect("fish v0.2 -- pleased to meet you!")
+        self.wait_for_prompt()
 
     def interact(self):
         # Implement interaction with console
@@ -250,8 +246,13 @@ class InteractiveTest(TestCommon):
                 self.console.logfile.write(BOOT_TIMEOUT_LINE_FAIL)
 
         if not self.boot_phase:
-            self.force_write()
-            self.interact()
+            machine.force_write(self.console)
+            try:
+                self.interact()
+            except OSError, e:
+                self.console.logfile.seek(0)
+                print self.console.logfile.readlines()
+                raise e
 
         self.console.logfile.seek(0)
         return self.console.logfile.readlines()
