@@ -126,6 +126,14 @@ class ETHMachine(Machine):
         self.lockprocess = None
         self.masterfd = None
 
+    # this expects a pexpect object for `consolectrl`
+    def force_write(self, consolectrl):
+        try:
+            consolectrl.sendcontrol('e')
+            consolectrl.send('cf')
+        except:
+            pass
+
     def __rackboot(self, args):
         debug.checkcmd([RACKBOOT] + args + [self.get_machine_name()])
 
