@@ -92,6 +92,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     uint64_t barrelfish_id, apic_id, cpu_type;
     char **argv = mi->argv;
     bool cleanup = false;
+    char barrelfish_id_s[10];
     size_t argc = mi->argc;
 
     KALUGA_DEBUG("Starting corectrl for %s\n", record);
@@ -106,7 +107,6 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
-        char barrelfish_id_s[10];
         snprintf(barrelfish_id_s, 10, "%"PRIu64"", barrelfish_id);
 
         argv[argc] = "boot";
