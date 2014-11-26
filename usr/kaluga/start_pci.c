@@ -20,7 +20,9 @@
 #include <barrelfish/barrelfish.h>
 
 #include <octopus/octopus.h>
+#include <if/octopus_thc.h>
 #include <skb/skb.h>
+#include <thc/thc.h>
 
 #include "kaluga.h"
 

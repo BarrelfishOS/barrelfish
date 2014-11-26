@@ -575,7 +575,7 @@ int main (int argc, char **argv)
         DEBUG("%s:%s:%d: Wait for message.\n",
               __FILE__, __FUNCTION__, __LINE__);
         while(!done) {
-            errval_t err = event_dispatch(get_default_waitset());
+            err = event_dispatch(get_default_waitset());
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "error in event_dispatch");
             }

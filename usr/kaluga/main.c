@@ -31,6 +31,7 @@
 #include <vfs/vfs.h>
 #include <octopus/octopus.h>
 #include <skb/skb.h>
+#include <thc/thc.h>
 
 #include <trace/trace.h>
 
