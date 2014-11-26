@@ -185,7 +185,7 @@ int init_all_apics(void)
             {
                 ACPI_MADT_LOCAL_APIC *s = (ACPI_MADT_LOCAL_APIC *)sh;
 
-                ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %lu\n",
+                ACPI_DEBUG("Found local APIC: CPU = %d, ID = %d, usable = %d\n",
                        s->ProcessorId, s->Id,
                        s->LapicFlags & ACPI_MADT_ENABLED);
                 trace_event(TRACE_SUBSYS_ACPI, TRACE_EVENT_ACPI_APIC_ADDED, s->ProcessorId);
