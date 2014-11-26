@@ -44,12 +44,6 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
             goto out;
         }
 
-        // XXX: copied this line from spawnd bsp_bootup,
-        // not sure why x86_64 is hardcoded here but it
-        // seems broken...
-        skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
-                barrelfish_id, arch_id);
-
         struct module_info* mi = find_module("corectrl");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
@@ -80,7 +74,7 @@ static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
 errval_t watch_for_cores(void)
 {
     octopus_trigger_id_t tid;
-   return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
+    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
@@ -202,8 +196,6 @@ errval_t wait_for_all_spawnds(void)
     // However, some of our code (for example domain spanning)
     // still assumes a fixed set of cores and will deadlock
     // otherwise. Therefore we need to fix those parts first.
-
-
     KALUGA_DEBUG("Waiting for acpi");
     char* record = NULL;
     errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
@@ -211,7 +203,7 @@ errval_t wait_for_all_spawnds(void)
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
     }
-    
+
     // No we should be able to get core count
     // of all cores to estimate the amount of 
     // spawnd's we have to expect (one per core)

@@ -108,7 +108,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
         if (mi == NULL) {
-            KALUGA_DEBUG("Driver %s not loaded. Ignore.", binary_name);
+            KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);
             goto out;
         }
 
