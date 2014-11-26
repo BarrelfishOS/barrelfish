@@ -64,7 +64,7 @@ static void initialize(void)
     vfs_init();
     bench_arch_init();
 
-#if defined(__x86__)
+#if defined(__x86__) && !defined(__k1om__)
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "connect to acpi failed.");
@@ -91,6 +91,35 @@ struct cmd {
     int argc;
 };
 
+static int parse_core_list(char *list, coreid_t *from, coreid_t *to, coreid_t *step)
+{
+    assert(from && to && step);
+
+    int num, parsed_from,parsed_to,parsed_step;
+    num = sscanf(list, "%x:%x:%x", &parsed_from, &parsed_to, &parsed_step);
+    switch(num) {
+        case 1:
+            *from = (coreid_t)parsed_from;
+            *to = (coreid_t)parsed_from;
+            *step = 1;
+            break;
+        case 2:
+            *from = (coreid_t)parsed_from;
+            *to = (coreid_t)parsed_to;
+            *step = 1;
+            break;
+        case 3:
+            *from = (coreid_t)parsed_from;
+            *to = (coreid_t)parsed_to;
+            *step = (coreid_t)parsed_step;
+            break;
+        default:
+            return 0;
+            break;
+    }
+    return num;
+}
+
 static int list_kcb(int argc, char **argv) {
     char** names;
     size_t len;
@@ -110,7 +139,7 @@ static int list_kcb(int argc, char **argv) {
 
         printf("KCB %"PRIu64": CORE_ID=%"PRIu64" CAP_STORAGE_KEY=%s\n",
                kcb_id, barrelfish_id, cap_key);
-        
+
         free(cap_key);
         free(record);
     }
@@ -157,48 +186,52 @@ static int list_cpu(int argc, char **argv) {
 
 static int boot_cpu(int argc, char **argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
-    assert(target_id < MAX_COREID);
-    
-    archid_t target_apic_id;
-    enum cpu_type cpu_type;
-    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "get_apic_id failed.");
-    }
+    coreid_t core_from = 0, core_to = 0, core_step = 0;
+    parse_core_list(argv[1], &core_from, &core_to, &core_step);
+    for (coreid_t target_id = core_from; target_id<=core_to; target_id += core_step) {
+        //coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+        assert(target_id < MAX_COREID);
 
-    struct capref kcb;
-    err = create_or_get_kcb_cap(target_id, &kcb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not get KCB.");
-    }
+        archid_t target_apic_id;
+        enum cpu_type cpu_type;
+        errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "get_apic_id failed.");
+        }
 
-    struct capref frame;
-    size_t framesize;
-    struct frame_identity urpc_frame_id;
-    err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_alloc_identify failed.");
-    }
+        struct capref kcb;
+        err = create_or_get_kcb_cap(target_id, &kcb);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Can not get KCB.");
+        }
 
-    err = cap_mark_remote(frame);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not mark cap remote.");
-    }
+        struct capref frame;
+        size_t framesize;
+        struct frame_identity urpc_frame_id;
+        err = frame_alloc_identify(&frame, MON_URPC_SIZE, &framesize, &urpc_frame_id);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "frame_alloc_identify failed.");
+        }
 
-    struct monitor_binding *mb = get_monitor_binding();
-    err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "boot_core_request failed");
-    }
+        err = cap_mark_remote(frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Can not mark cap remote.");
+        }
 
-    err = spawn_xcore_monitor(target_id, target_apic_id, 
-                              cpu_type, cmd_kernel_args,
-                              urpc_frame_id, kcb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawn xcore monitor failed.");
-    }
+        struct monitor_binding *mb = get_monitor_binding();
+        err = mb->tx_vtbl.boot_core_request(mb, NOP_CONT, target_id, frame);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "boot_core_request failed");
+        }
 
+        err = spawn_xcore_monitor(target_id, target_apic_id,
+                                  cpu_type, cmd_kernel_args,
+                                  urpc_frame_id, kcb);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "spawn xcore monitor failed.");
+        }
+
+    }
     return 0;
 }
 
@@ -207,7 +240,7 @@ static int update_cpu(int argc, char** argv)
 {
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
     assert(target_id < MAX_COREID);
-    
+
     archid_t target_apic_id;
     enum cpu_type cpu_type;
     errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
@@ -589,7 +622,7 @@ out:
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "can not unlock corectrl.");
     }
-    // 
+    //
 #endif
 
     DEBUG("corectrl is done.");
