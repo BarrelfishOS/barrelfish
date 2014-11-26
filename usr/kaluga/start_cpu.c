@@ -100,7 +100,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     bool cleanup = false;
     size_t argc = mi->argc;
 
-    KALUGA_DEBUG("Starting corectrl for %s", record);
+    KALUGA_DEBUG("Starting corectrl for %s\n", record);
     err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d, type: %d }",
             &apic_id, &barrelfish_id, &cpu_type);
     if (err_is_ok(err)) {
@@ -119,6 +119,16 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         argc += 1;
         argv[argc] = barrelfish_id_s;
         argc += 1;
+        // Copy kernel args over to new core
+        struct module_info* cpu_module = find_module("cpu");
+        if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
+            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s\n", 
+                   __FILE__, __FUNCTION__, __LINE__, cpu_module->args);
+            argv[argc] = "-a";
+            argc += 1;
+            argv[argc] = cpu_module->args;
+            argc += 1;
+        }
         argv[argc] = NULL;
 
         cleanup = true;

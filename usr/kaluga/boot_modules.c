@@ -100,8 +100,10 @@ static void parse_module(char* line, struct module_info* si)
     si->start_function = default_start_function;
     si->num_started = 0;
     char* cmdstart = line + path_size - strlen(si->binary);
-    si->cmdargs = strdup(cmdstart);
+    si->args = strdup(line + path_size);
 
+    // cmdargs will be tagged with \0
+    si->cmdargs = strdup(cmdstart);
     si->argc = spawn_tokenize_cmdargs(si->cmdargs, si->argv,
                                       ARRAY_LENGTH(si->argv));
 }
