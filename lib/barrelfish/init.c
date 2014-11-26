@@ -52,7 +52,7 @@ void libc_exit(int status)
 
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
-        errval_t err = cap_revoke(cap_dispatcher);
+        err = cap_revoke(cap_dispatcher);
         if (err_is_fail(err)) {
 	    sys_print("revoking dispatcher failed in _Exit, spinning!", 100);
 	    while (1) {}
