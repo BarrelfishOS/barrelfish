@@ -112,7 +112,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
-        char *barrelfish_id_s  = malloc(10);
+        char barrelfish_id_s[10];
         snprintf(barrelfish_id_s, 10, "%"PRIx64"", barrelfish_id);
 
         argv[argc] = "boot";
@@ -122,8 +122,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         // Copy kernel args over to new core
         struct module_info* cpu_module = find_module("cpu");
         if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
-            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s\n", 
-                   __FILE__, __FUNCTION__, __LINE__, cpu_module->args);
+            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s barrelfish_id_s=%s\n", 
+                   __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
             argv[argc] = "-a";
             argc += 1;
             argv[argc] = cpu_module->args;
@@ -169,7 +169,6 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     }
 
     if (cleanup) {
-        free(argv[argc-1]);
         free(argv);
     }
 
