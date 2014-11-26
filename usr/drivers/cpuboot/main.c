@@ -482,6 +482,8 @@ static void print_cmd_help(char* cmd)
 
 int main (int argc, char **argv)
 {
+    errval_t err;
+
     initialize();
     int ret = -1;
 
@@ -489,7 +491,6 @@ int main (int argc, char **argv)
 
 #if defined(__x86__)
     // ENSURE_SEQUENTIAL
-    errval_t err;
     char *lock;
     err = oct_lock("corectrl.lock", &lock);
     if (err_is_fail(err)) {
