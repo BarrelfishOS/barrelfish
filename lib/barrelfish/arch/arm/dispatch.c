@@ -34,6 +34,7 @@ extern void trap_entry(void);
 void __attribute__ ((visibility ("hidden"))) disp_resume_context_epilog(void);
 void __attribute__ ((visibility ("hidden"))) disp_switch_epilog(void);
 void __attribute__ ((visibility ("hidden"))) disp_save_epilog(void);
+void __attribute__ ((visibility ("hidden"))) disp_save_rm_kcb_epilog(void);
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -280,6 +281,30 @@ void disp_save(dispatcher_handle_t handle,
 
     __asm volatile("disp_save_epilog:");
 }
+
+void disp_save_rm_kcb(void)
+{
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_shared_arm *disp =
+        get_dispatcher_shared_arm(handle);
+    arch_registers_state_t *state =
+        dispatcher_get_enabled_save_area(handle);
+
+    assert_disabled(curdispatcher() == handle);
+    assert_disabled(disp->d.disabled);
+
+    disp_save_context(state->regs);
+    state->named.pc = (lvaddr_t)disp_save_rm_kcb_epilog;
+
+    sys_suspend(false);
+
+    // enter thread scheduler again
+    // this doesn't return, and will call disp_yield if there's nothing to do
+    thread_run_disabled(handle);
+
+    __asm volatile("disp_save_rm_kcb_epilog:");
+}
+
 
 /**
  * \brief Architecture-specific dispatcher initialisation

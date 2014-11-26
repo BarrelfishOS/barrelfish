@@ -18,6 +18,8 @@
 #include <barrelfish/barrelfish.h>
 #include <octopus/init.h>
 #include <octopus/capability_storage.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 /**
  * \brief Get a capability from the capability store.

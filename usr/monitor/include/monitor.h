@@ -29,7 +29,8 @@
 #include <connection.h>
 #include "monitor_debug.h"
 
-// Change #URPC_SIZE if changing this
+STATIC_ASSERT(MON_URPC_SIZE == 2*BASE_PAGE_SIZE,
+              "Change #URPC_SIZE if changing channel length");
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 #define MON_RAM_CHANNEL_LEN   (2  * UMP_MSG_BYTES)
 
@@ -121,13 +122,9 @@ static inline void debug_print_caprep2(monitor_mem_caprep_t *caprep)
 #include <monitor_server.h>
 #include <monitor_invocations.h>
 
-/* monitor_server.c */
-errval_t monitor_server_arch_init(struct monitor_binding *b);
-void set_monitor_rpc_iref(iref_t iref);
-
 /* boot.c */
-void boot_core_request(struct monitor_binding *st, coreid_t id, int32_t hwid,
-                       int32_t int_cpu_type, char *cmdline);
+void boot_core_request(struct monitor_binding *st, coreid_t id,
+                       struct capref frame);
 void boot_initialize_request(struct monitor_binding *st);
 
 errval_t spawn_xcore_monitor(coreid_t id, int hwid, enum cpu_type cpu_type,

@@ -4,6 +4,10 @@
 #include "internal.h"
 #include "delete_int.h"
 
+// XXX: to make merge compile, capsend_broadcast() will obviously not work
+// right now!
+int num_monitors = -1;
+
 errval_t capops_init(struct waitset *ws, struct intermon_binding *b)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);

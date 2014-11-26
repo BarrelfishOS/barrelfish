@@ -67,6 +67,8 @@
 #include <arch/x86/timing.h>
 #include <arch/x86/syscall.h>
 #include <barrelfish_kpi/cpu_arch.h>
+#include <kcb.h>
+#include <mdb/mdb_tree.h>
 
 #ifdef FPU_LAZY_CONTEXT_SWITCH
 #  include <fpu.h>
@@ -340,26 +342,11 @@ HW_EXCEPTION_NOERR(666);
 #define ERR_PF_RESERVED         (1 << 3)
 #define ERR_PF_INSTRUCTION      (1 << 4)
 
-/// Number of (reserved) hardware exceptions
-#define NEXCEPTIONS             32
-
-/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
-#define NDISPATCH               (NIDT - NEXCEPTIONS)
-
 /**
  * \brief Interrupt Descriptor Table (IDT) for processor this kernel is running
  * on.
  */
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
-
-/**
- * \brief User-space IRQ dispatch table.
- *
- * This is essentially a big CNode holding #NDISPATCH capability
- * entries to local endpoints of user-space applications listening to
- * the interrupts.
- */
-static struct cte irq_dispatch[NDISPATCH];
 
 /// System call entry point
 void syscall_entry(void);
@@ -375,7 +362,22 @@ void syscall_entry(void);
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability   *cap = &irq_dispatch[irq].cap;
+
+    // Find the right cap
+    struct kcb *k = kcb_current;
+    do {
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+            break;
+        }
+        k = k->next;
+    } while (k && k != kcb_current);
+    // if k == NULL we don't need to switch as we only have a single kcb
+    if (k) {
+        switch_kcb(k);
+    }
+    // from here: kcb_current is the kcb for which the interrupt was intended
+    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
+
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
@@ -409,6 +411,34 @@ static void send_user_interrupt(int irq)
 #endif
 }
 
+errval_t irq_table_alloc(int *outvec)
+{
+    assert(outvec);
+    // XXX: this is O(#kcb*NDISPATCH)
+    int i;
+    for (i = 0; i < NDISPATCH; i++) {
+        struct kcb *k = kcb_current;
+        bool found_free = true;
+        do {
+            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+                found_free = false;
+                break;
+            }
+            k=k->next?k->next:k;
+        } while(k != kcb_current);
+        if (found_free) {
+            break;
+        }
+    }
+    if (i == NDISPATCH) {
+        *outvec = -1;
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        *outvec = i;
+        return SYS_ERR_OK;
+    }
+}
+
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;
@@ -434,18 +464,13 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 
     if(nidt < NDISPATCH) {
         // check that we don't overwrite someone else's handler
-        if (irq_dispatch[nidt].cap.type != ObjType_Null) {
+        if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
-        err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
-#if 0
-        if (err_is_ok(err)) {
-            // Unmask interrupt if on PIC
-            if(nidt < 16) {
-                pic_toggle_irq(nidt, true);
-            }
+        err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
+        if (err_is_fail(err)) {
+            printf("caps copy to cte failed");
         }
-#endif
         return err;
     } else {
         return SYS_ERR_IRQ_INVALID;
@@ -455,14 +480,35 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 errval_t irq_table_delete(unsigned int nidt)
 {
     if(nidt < NDISPATCH) {
-        irq_dispatch[nidt].cap.type = ObjType_Null;
-#if 0
-        pic_toggle_irq(nidt, false);
-#endif
+        kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_IRQ_INVALID;
     }
+}
+
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    uintptr_t msg[] = { 1 };
+    for (int i = 0; i < NDISPATCH; i++) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            struct capability *cap = &kcb->irq_dispatch[i].cap;
+            // 1 word message as notification
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            if (err_is_fail(err)) {
+                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                    struct dispatcher_shared_generic *disp =
+                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                            DISP_NAME_LEN, disp->name);
+                } else {
+                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+                }
+            }
+        }
+        kcb->irq_dispatch[i].cap.type = ObjType_Null;
+    }
+    return SYS_ERR_OK;
 }
 
 /**

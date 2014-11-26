@@ -63,6 +63,16 @@ errval_t initialize_monitor(struct spawninfo *si)
         return err_push(err, INIT_ERR_COPY_PERF_MON);
     }
 
+    /* Give monitor the IPI capability */
+    dest.cnode = si->taskcn;
+    dest.slot = TASKCN_SLOT_IPI;
+    src.cnode = cnode_task;
+    src.slot = TASKCN_SLOT_IPI;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_IPI);
+    }
+
     /* Give monitor modulecn */
     dest.cnode = si->rootcn;
     dest.slot  = ROOTCN_SLOT_MODULECN;

@@ -664,20 +664,6 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
-
-#if !defined(USE_KALUGA_DVM) || defined(__arm__) || defined(__scc__) || defined(__k1om__)
-    // let the master know we are ready
-    err = nsb_register_n(my_core_id, SERVICE_BASENAME);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "nsb_register_n failed");
-    }
-
-    // wait for boot to finish
-    err = nsb_wait(ALL_SPAWNDS_UP);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed ns barrier wait for %s", ALL_SPAWNDS_UP);
-    }
-#endif
 }
 
 

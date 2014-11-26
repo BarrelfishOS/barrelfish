@@ -37,8 +37,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#if 0
-bool mm_debug;
+#if 1
+bool mm_debug = false;
 # define DEBUG(s, x...) do { if (mm_debug) debug_printf("MM: " s, x); } while(0)
 #else
 # define DEBUG(s, x...) (void)0

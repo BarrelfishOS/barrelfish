@@ -18,7 +18,12 @@
 
 #define FRAME_SIZE 16384 // 16kb
 
+#ifdef LOADGEN
+// XXX: this should create a infinite loop!
+#define RUN_COUNT -1
+#else
 #define RUN_COUNT 1000
+#endif
 
 #define THRESH 200000
 
@@ -45,25 +50,30 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
 
     // map and unmap one frame 100 times in a row
+#ifndef LOADGEN
     cycles_t runs[RUN_COUNT];
+#endif
     cycles_t start, end;
     paging_x86_64_flags_t flags =
         PTABLE_USER_SUPERVISOR | PTABLE_EXECUTE_DISABLE |
         PTABLE_READ_WRITE;
 
-    for (int i = 0; i < RUN_COUNT; i++) {
+    for (uint64_t i = 0; i < RUN_COUNT; i++) {
         start = bench_tsc();
         err = vnode_map(pagetable,frame,(cslot_t)(i%512),flags,0,1);
         assert(err_is_ok(err));
         end = bench_tsc();
+#ifndef LOADGEN
         runs[i] = end - start;
         if (runs[i] > THRESH) {
             runs[i] = BENCH_IGNORE_WATERMARK;
         }
+#endif
         err = vnode_unmap(pagetable,frame,(cslot_t)(i%512),1);
         assert(err_is_ok(err));
     }
 
+#ifndef LOADGEN
     printf("mapping 1 page:\n");
     printf("  avg. cycles %"PRIuCYCLES", variance %"PRIuCYCLES"\n",
             bench_avg(runs, RUN_COUNT),
@@ -77,5 +87,8 @@ int main(int argc, char *argv[])
                 i+3 < RUN_COUNT ? runs[i+3] : 0);
     }
 
+#else
+    printf("after infinite loop?");
+#endif
     return 0;
 }

@@ -159,6 +159,10 @@ bool capsend_handle_mc_reply(struct capsend_mc_st *st)
 static errval_t
 capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_send_fn send_cont)
 {
+    if (num_monitors == -1) {
+        USER_PANIC_ERR(ERR_NOTIMP,
+                "do not have number of online monitors, cannot do broadcast");
+    }
     errval_t err;
     // do not count self when calculating #dest cores
     int dest_count = num_monitors - 1;

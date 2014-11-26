@@ -24,7 +24,7 @@ errval_t spawn(callback cb)
         snprintf(id, 128, "%d", my_core_id);
         char *xargv[] = {global_argv[0], id, NULL};
         err = spawn_program_on_all_cores(false, xargv[0], xargv, NULL,
-                                         SPAWN_FLAGS_DEFAULT, NULL);
+                                         SPAWN_FLAGS_DEFAULT, NULL, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "spawn_program_on_all_cores failed");
         }

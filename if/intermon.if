@@ -46,9 +46,6 @@ interface intermon "The Interface between monitors" {
     message spawnd_image_request();
     message spawnd_image_reply(genpaddr base, uint32 bytes);
 
-    message capops_ready();
-    message monitor_initialized();
-
     message trace_caps_request();
     message trace_caps_reply(caprep cap);
 
@@ -64,9 +61,21 @@ interface intermon "The Interface between monitors" {
     message monitor_mem_iref_request();
     message monitor_mem_iref_reply(iref iref);
 
-    message bind_monitor_request(coreid_t core_id, caprep cap);
-    message bind_monitor_reply(errval err);
+    /**
+     * New monitor communication set-up.
+     *  1. capops_ready (new monitor -> bsp)
+     *  2. monitor_initialized (new monitor -> bsp)
+     *  3. new_monitor_nofity (monitor.0 -> <all available monitors>)
+     *  4. bind_monitor_proxy (<all available monitors> -> monitor.0)
+     *  5. bind_monitor_request (monitor.0 -> new monitor)
+     *  6. bind_monitor_reply (new monitor -> monitor.0)
+     */
+    message capops_ready();
+    message monitor_initialized();
+    message new_monitor_notify(coreid_t core_id);
     message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
+    call bind_monitor_request(coreid_t core_id, caprep cap);
+    response bind_monitor_reply(errval err);
 
     message bind_monitor_request_scc(coreid_t core_id,
                                      caprep cap,
@@ -79,9 +88,6 @@ interface intermon "The Interface between monitors" {
                                    caprep cap,
                                    chanid_t chan_id,
                                    coreid_t core_id);
-
-    message new_monitor_notify(coreid_t core_id);
-
     message bind_ump_request(iref iref,
                              mon_id_t mon_id,
                              uint32 channel_length_in,
@@ -122,19 +128,23 @@ interface intermon "The Interface between monitors" {
     // request portion of routing table from another monitor
     call multihop_routing_table_request(coreid source_coreid);
     response multihop_routing_table_response(errval err,
-                                             coreid source_coreid,
-                                             coreid max_coreid,
-                                             coreid to[len]);
+            coreid source_coreid,
+            coreid max_coreid,
+            coreid to[len]);
 
     // grow the routing table to a set of desination cores, via a given forwarder
     message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
 
     // set up a new multihop virtual circuit
-    message bind_multihop_intermon_request(iref iref, vci_t sender_vci, coreid core_id);
-    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
+    message bind_multihop_intermon_request(iref iref, vci_t sender_vci,
+                                           coreid core_id);
+    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci,
+                                         errval err);
 
-    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
-    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err, caprep cap, bool null_cap);
+    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack,
+                             uint8 payload[size]);
+    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err,
+                              caprep cap, bool null_cap);
 
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);
@@ -192,4 +202,10 @@ interface intermon "The Interface between monitors" {
 
     // This message is sent, once bfscope has finished flushing.
     response bfscope_flush_ack_forward();
+
+    call give_kcb_request(caprep kcb);
+    response give_kcb_response(errval err);
+
+    call forward_kcb_rm_request(uint64 kcb_base);
+    call forward_kcb_rm_response(errval err);
 };

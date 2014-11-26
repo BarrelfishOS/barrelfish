@@ -24,6 +24,8 @@
 
 #include <octopus/init.h>
 #include <octopus/pubsub.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 #include "common.h"
 #include "handler.h"

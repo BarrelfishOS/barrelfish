@@ -336,7 +336,7 @@ static int spawnpixels(int argc, char *argv[])
     /* Spawn on all cores */
     char *spawnargv[] = {"pixels", NULL};
     err = spawn_program_on_all_cores(true, spawnargv[0], spawnargv, NULL,
-                                     SPAWN_FLAGS_DEFAULT, NULL);
+                                     SPAWN_FLAGS_DEFAULT, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning other core");
     }

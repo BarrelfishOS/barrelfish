@@ -204,6 +204,21 @@ XXX: I/O-Cap??
         get_cap_response_cont(b, SYS_ERR_OK, cap, type);
     }
 }
+
+static void reregister_interrupt_handler(struct pci_binding *b,
+                                    uint32_t class_code, uint32_t sub_class,
+                                    uint32_t prog_if, uint32_t vendor_id,
+                                    uint32_t device_id,
+                                    uint32_t bus, uint32_t dev, uint32_t fun,
+                                    coreid_t coreid, uint32_t vector)
+{
+    errval_t err;
+    err = device_reregister_interrupt(coreid, vector,
+                      class_code, sub_class, prog_if, vendor_id, device_id,
+                      &bus, &dev, &fun);
+    err = b->tx_vtbl.reregister_interrupt_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
 /*
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
@@ -282,6 +297,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_cap_call = get_cap_handler,
+    .reregister_interrupt_call = reregister_interrupt_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
     .read_conf_header_call = read_conf_header_handler,
     .write_conf_header_call = write_conf_header_handler,

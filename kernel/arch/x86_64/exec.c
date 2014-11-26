@@ -97,7 +97,7 @@ execute(lvaddr_t entry)
      * set to the entry point address of the user-space program. All other
      * general-purpose registers are zeroed.
      */
-    __asm volatile ("movq       %[flags], %%r11         \n\t" 
+    __asm volatile ("movq       %[flags], %%r11         \n\t"
                     "movq       $0, %%rsi               \n\t"
                     "movq       $0, %%rdx               \n\t"
                     "movq       $0, %%r8                \n\t"
@@ -192,6 +192,27 @@ void __attribute__ ((noreturn)) wait_for_interrupt(void)
 }
 
 /**
+ * \brief Detects monitor/mwait support
+ *
+ * \note Result is cached for subsequent calls to this function.
+ *
+ * \retval true monitor/mwait is supported on this core
+ * \retval false monitor/mwait is not supported on this core
+ */
+bool has_monitor_mwait(void)
+{
+    static bool called = false;
+    static bool mwait_support = false;
+    if (!called) {
+        uint32_t eax, ebx, ecx, edx;
+        cpuid(1, &eax, &ebx, &ecx, &edx);
+        mwait_support = ecx & (1 << 3);
+    }
+
+    return mwait_support;
+}
+
+/**
  * \brief Use MONITOR/MWAIT to block until a given word changes
  *
  * \param base      Virtual address of 64-bit word to monitor
@@ -201,10 +222,6 @@ void __attribute__ ((noreturn)) wait_for_interrupt(void)
  *
  * Returns when the 64-bit word at base is not equal to lastval.
  */
-// TODO XXX: Where should this propotype live?
-void monitor_mwait(lvaddr_t base, uint64_t lastval, uint32_t extensions,
-                   uint32_t hints);
-
 void monitor_mwait(lvaddr_t base, uint64_t lastval, uint32_t extensions,
                    uint32_t hints)
 {

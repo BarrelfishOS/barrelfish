@@ -14,7 +14,9 @@ struct module_info {
     char* path;
     char* binary;
 
-    char* cmdargs; // Used for pointers in argv
+    char* args; ///< cmd args as a single string
+
+    char* cmdargs; ///< Used for pointers in argv
     int argc;
     char* argv[MAX_CMDLINE_ARGS + 1];
 

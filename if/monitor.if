@@ -20,12 +20,8 @@ interface monitor "The monitor to client Interface" {
         errval err);
 
     /* TODO: move to monitor_blocking as RPC? */
-    call boot_core_request(uint8 id, int hwid, int type, string cmdline);
+    call boot_core_request(uint8 id, cap frame);
     response boot_core_reply(errval err);
-
-    /* TODO: move to monitor_blocking as RPC? */
-    call boot_initialize_request();
-    response boot_initialize_reply();
 
     call new_monitor_binding_request(
         uintptr st);
@@ -44,7 +40,7 @@ interface monitor "The monitor to client Interface" {
 
     // Request multiboot caps from the monitor.
     // I imagine only a file system doing this.
-     /* TODO: move to monitor_blocking as RPC? */
+    /* TODO: move to monitor_blocking as RPC? */
     message multiboot_cap_request(uint32 slot);
     message multiboot_cap_reply(cap cap, errval err);
 
@@ -102,8 +98,7 @@ interface monitor "The monitor to client Interface" {
     response ipi_alloc_notify_reply(uintptr state, cap notify, errval err);
 
     call get_mem_iref_request();
-    response get_mem_iref_reply(
-        iref iref);
+    response get_mem_iref_reply(iref iref);
 
     call get_name_iref_request(uintptr st);
     response get_name_iref_reply(iref iref, uintptr st);
@@ -112,13 +107,10 @@ interface monitor "The monitor to client Interface" {
     response get_ramfs_iref_reply(iref iref, uintptr st);
     call set_ramfs_iref_request(iref iref);
 
-    call set_mem_iref_request(
-        iref iref);
+    call set_mem_iref_request(iref iref);
 
-    call set_name_iref_request(
-        iref iref);
-    response set_name_iref_reply(
-        errval err);
+    call set_name_iref_request(iref iref);
+    response set_name_iref_reply(errval err);
 
     call get_monitor_rpc_iref_request(uintptr st);
     response get_monitor_rpc_iref_reply(iref iref, uintptr st);
@@ -147,31 +139,47 @@ interface monitor "The monitor to client Interface" {
         errval err,
         uintptr domain_id);
 
-    /* TODO: move to monitor_blocking as RPC? */
-    call num_cores_request();
-    response num_cores_reply(uint8 num);
+    /**
+     * \brief Migrates a dispatcher to a distant core
+     *
+     * \note Currently in a proof concept stage. We just migrate
+     * and hope for the best, no reply that talks about the success.
+     *
+     * \param core_id Destination core id
+     * \param vroot Address space capability
+     * \param disp Dispatcher Capability
+     */
+    message migrate_dispatcher_request(
+        uint8 core_id,
+        cap vroot,
+        cap disp);
 
     /* Multi-hop interconnect driver */
 
     // Send routing table
     // First message, which describes the set of valid core IDs
     call multihop_routing_table_new(coreid max_coreid, coreid nentries);
-    // Subsequent messages (repeated) which each contain a portion of the routing table from a single core
+    // Subsequent messages (repeated) which each contain
+    // a portion of the routing table from a single core
     call multihop_routing_table_set(coreid from, coreid to[len]);
 
     // Connection set-up between monitor and client
     call multihop_bind_client_request(iref iref, vci_t sender_vci);
-    response multihop_bind_client_reply(vci_t receiver_vci, vci_t sender_vci, errval err);
+    response multihop_bind_client_reply(vci_t receiver_vci, vci_t sender_vci,
+                                        errval err);
 
     // Connection set-up between monitor and service
     call multihop_bind_service_request(uintptr service_id, vci_t sender_vci);
-    response multihop_bind_service_reply(vci_t receiver_vci , vci_t sender_vci, errval err);
+    response multihop_bind_service_reply(vci_t receiver_vci , vci_t sender_vci,
+                                         errval err);
 
     // user message
-    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack, uint8 payload[size]);
+    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack,
+                             uint8 payload[size]);
 
     // cap transfer
-    call multihop_cap_send(vci_t vci, uint8 direction, errval err, cap cap, capid_t capid);
+    call multihop_cap_send(vci_t vci, uint8 direction, errval err, cap cap,
+                           capid_t capid);
 
     /* Tracing Framework */
 
@@ -189,4 +197,6 @@ interface monitor "The monitor to client Interface" {
 
     // Notify the initiatior of the flush request that it has been completed.
     response bfscope_flush_ack();
+
+    message migrate_dispatcher(uintptr domain_id);
 };

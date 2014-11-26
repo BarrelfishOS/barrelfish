@@ -19,7 +19,7 @@
 #include <paging_kernel_arch.h>
 #include <elf/elf.h>
 #include <kernel_multiboot.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <startup_arch.h>
 
 struct arm_core_data *glbl_core_data = (struct arm_core_data *)GLBL_COREDATA_BASE_PHYS;

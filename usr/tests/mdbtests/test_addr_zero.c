@@ -20,7 +20,6 @@ bool debug_all_the_things = false;
 #define CAP_COUNT 8
 #define BASE_BITS 12
 struct cte caps[CAP_COUNT];
-extern struct cte *mdb_root;
 static inline void setup(void) {
     memset(caps, 0, CAP_COUNT*sizeof(struct cte));
     for (size_t i = 0; i < CAP_COUNT; i++) {

@@ -84,7 +84,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
 
     // inherit the session capability
     struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_sidcap(&inheritcn_cap, cap_sessionid);
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, cap_sessionid, NULL_CAP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
     }
@@ -336,7 +336,7 @@ static int spawnpixels(int argc, char *argv[])
     /* Spawn on all cores */
     char *spawnargv[] = {"pixels", NULL};
     err = spawn_program_on_all_cores(true, spawnargv[0], spawnargv, NULL,
-                                     SPAWN_FLAGS_DEFAULT, NULL);
+                                     SPAWN_FLAGS_DEFAULT, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning other core");
     }

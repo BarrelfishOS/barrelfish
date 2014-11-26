@@ -17,8 +17,6 @@
 
 #include <capabilities.h>
 
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry);
 struct sysret sys_io(struct capability *to, enum io_cmd cmd,
                      uint16_t port, uint32_t data);
 struct sysret sys_monitor_handle_sync_timer(uint64_t synctime);

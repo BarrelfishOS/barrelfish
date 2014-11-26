@@ -20,7 +20,9 @@
 #include <barrelfish/barrelfish.h>
 
 #include <octopus/octopus.h>
+#include <if/octopus_thc.h>
 #include <skb/skb.h>
+#include <thc/thc.h>
 
 #include "kaluga.h"
 
@@ -53,7 +55,7 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
             octopus_BINDING_EVENT, OCT_ON_SET, spawnd_up_event, state);
 
     // Construct service name
-    static char* format = "spawn.%hhu { iref: _ }";
+    static char* format = "spawn.%"PRIuCOREID" { iref: _ }";
     int length = snprintf(NULL, 0, format, core);
     char* query = malloc(length+1);
     snprintf(query, length+1, format, core);
@@ -106,7 +108,7 @@ static void pci_change_event(octopus_mode_t mode, char* device_record, void* st)
         struct module_info* mi = find_module(binary_name);
         free(binary_name);
         if (mi == NULL) {
-            KALUGA_DEBUG("Driver %s not loaded. Ignore.", binary_name);
+            KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);
             goto out;
         }
 
@@ -163,7 +165,7 @@ errval_t watch_for_pci_devices(void)
                                " device_id: _, class: _, subclass: _, "
                                " prog_if: _ }";
     octopus_trigger_id_t tid;
-    return trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
+    return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
 static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* st)
@@ -210,6 +212,6 @@ errval_t watch_for_pci_root_bridge(void)
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
     octopus_trigger_id_t tid;
-    return trigger_existing_and_watch(root_bridge, bridge_change_event,
+    return oct_trigger_existing_and_watch(root_bridge, bridge_change_event,
             NULL, &tid);
 }

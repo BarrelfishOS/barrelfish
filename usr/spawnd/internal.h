@@ -19,14 +19,8 @@
 #define ALL_SPAWNDS_UP 	    "all_spawnds_up"
 
 extern coreid_t my_core_id;
-extern bool is_bsp_core;
 extern const char *gbootmodules;
 
-// const char *get_shortname(const char *start, const char *nameend, 
-//                           size_t *namelen);
-// bool spawn_domain(const char *name);
-void bsp_bootup(const char *bootmodules, int argc, const char *argv[]);
-//errval_t spawn(char *path, char *const argv[], char *const envp[]);
 errval_t start_service(void);
 
 #endif //INTERNAL_H_

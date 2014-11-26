@@ -16,6 +16,7 @@
 
 #include <inttypes.h>
 #include <monitor.h>
+#include <barrelfish/dispatch.h>
 #include <trace/trace.h>
 #include "send_cap.h"
 #include "capops.h"
@@ -110,6 +111,7 @@ static void
 boot_core_reply_cont(struct monitor_binding *domain_binding,
                      errval_t error_code)
 {
+    assert(domain_binding != NULL);
     errval_t err;
     DEBUG_CAPOPS("boot_core_reply_cont: %s (%"PRIuERRV")\n",
             err_getstring(error_code), error_code);
@@ -140,15 +142,25 @@ static void monitor_initialized(struct intermon_binding *b)
     }
 
     struct intermon_state *st = b->st;
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
     assert(st->capops_ready);
 
-    /* Inform other monitors of this new monitor */
+    // Inform other monitors of this new monitor
     monitor_ready[st->core_id] = true;
     err = new_monitor_notify(st->core_id);
     if (err_is_fail(err)) {
         err = err_push(err, MON_ERR_INTERN_NEW_MONITOR);
     }
+
+    // New plan, do timing sync for every time a monitor has come up...
+    /*if(num_monitors > 1) {
+        printf("monitor: synchronizing clocks\n");
+        err = timing_sync_timer();
+        assert(err_is_ok(err) || err_no(err) == SYS_ERR_SYNC_MISS);
+        if(err_no(err) == SYS_ERR_SYNC_MISS) {
+            printf("monitor: failed to sync clocks. Bad reference clock?\n");
+        }
+    }*/
 
     // Tell the client that asked us to boot this core what happened
     struct monitor_binding *client = st->originating_client;
@@ -616,6 +628,83 @@ static void spawnd_image_request(struct intermon_binding *b)
     assert(err_is_ok(err));
 }
 
+static void give_kcb_request(struct intermon_binding *b, intermon_caprep_t kcb_rep)
+{
+    errval_t err;
+    struct capability kcb_cap;
+
+    caprep_to_capability(&kcb_rep, &kcb_cap);
+    assert(kcb_cap.type != ObjType_Null);
+
+    struct capref kcb_capref;
+    err = slot_alloc(&kcb_capref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can't allocate slot for kcb_capref.");
+    }
+
+    err = monitor_cap_create(kcb_capref, &kcb_cap, my_core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "monitor_cap_create failed");
+    }
+
+    printf("%s:%s:%d: Remote monitor: give kcb to kernel\n",
+                __FILE__, __FUNCTION__, __LINE__);
+    uintptr_t kcb_base = (uintptr_t)kcb_cap.u.kernelcontrolblock.kcb;
+    err = invoke_monitor_add_kcb(kcb_base);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "invoke_monitor_add_kcb failed.");
+    }
+
+    err = b->tx_vtbl.give_kcb_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
+
+static void give_kcb_response(struct intermon_binding *ib, errval_t error)
+{
+    printf("%s:%s:%d: Local monitor received answer\n",
+                __FILE__, __FUNCTION__, __LINE__);
+    if (err_is_fail(error)) {
+        USER_PANIC_ERR(error, "give kcb did not work.");
+    }
+
+    struct monitor_blocking_binding * b = (struct monitor_blocking_binding *) ib->st;
+    if (b != NULL) {
+        errval_t err = b->tx_vtbl.forward_kcb_request_response(b, NOP_CONT, error);
+        assert(err_is_ok(err));
+    }
+}
+
+static void forward_kcb_rm_request(struct intermon_binding *b, uint64_t kcb_base)
+{
+    errval_t err;
+    // don't switch kcbs on the current core
+    err = invoke_monitor_suspend_kcb_scheduler(true);
+    assert(err_is_ok(err));
+    // remove kcb from ring
+    err = invoke_monitor_remove_kcb((uintptr_t) kcb_base);
+    assert(err_is_ok(err));
+    // send reply
+    err = b->tx_vtbl.forward_kcb_rm_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+    // disp_save_rm_kcb -> next kcb -> enable kcb switching again
+    disp_save_rm_kcb();
+    // send monitor initialized when we're back up
+    //err = b->tx_vtbl.monitor_initialized(b, NOP_CONT);
+    //assert(err_is_ok(err));
+}
+
+static void forward_kcb_rm_response(struct intermon_binding *b, errval_t error)
+{
+    //XXX: HACK
+    struct monitor_blocking_binding *mb =
+        (struct monitor_blocking_binding*)
+        ((struct intermon_state*)b->st)->originating_client;
+
+    debug_printf("received kcb_rm response on %d, forwarding to %p\n", my_core_id, mb);
+
+    mb->tx_vtbl.forward_kcb_rm_request_response(mb, NOP_CONT, error);
+}
+
 static struct intermon_rx_vtbl the_intermon_vtable = {
     .trace_caps_request = trace_caps_request,
     .trace_caps_reply = trace_caps_reply,
@@ -645,6 +734,11 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .rsrc_phase                = inter_rsrc_phase,
     .rsrc_phase_data           = inter_rsrc_phase_data,
 
+    .give_kcb_request = give_kcb_request,
+    .give_kcb_response = give_kcb_response,
+
+    .forward_kcb_rm_request = forward_kcb_rm_request,
+    .forward_kcb_rm_response = forward_kcb_rm_response,
 };
 
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)

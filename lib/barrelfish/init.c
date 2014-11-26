@@ -53,7 +53,7 @@ void libc_exit(int status)
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
 #if 0 // XXX: revocation goes through the mon, but monitor ep is revoked in the process
-        errval_t err = cap_revoke(cap_dispatcher);
+        err = cap_revoke(cap_dispatcher);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "revoking dispatcher failed in _Exit, spinning!");
 	    //sys_print("revoking dispatcher failed in _Exit, spinning!", 100);

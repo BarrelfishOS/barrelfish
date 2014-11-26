@@ -4,11 +4,11 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich. 
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
 -- Attn: Systems Group.
 --
 -- Hakefile for Barrelfish CPU drivers
--- 
+--
 --------------------------------------------------------------------------
 
 --
@@ -32,37 +32,39 @@ let
                "cap_delete.c",
                "dispatch.c",
                scheduler, 
+               "kcb.c",
                "memset.c", 
                "memmove.c", 
                "monitor.c",
                "paging_generic.c",
                "printf.c",
-               "startup.c", 
-               "stdlib.c", 
-               "string.c", 
+               "startup.c",
+               "stdlib.c",
+               "string.c",
                "syscall.c",
-               "wakeup.c", 
-               "useraccess.c" ]
+               "wakeup.c",
+               "useraccess.c",
+               "coreboot.c" ]
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
-  
-  link_cpudriver arg = linkKernel opts name objs libs 
-    where 
+
+  link_cpudriver arg = linkKernel opts name objs libs
+    where
       opts = kernelOptions $ head $ Args.architectures arg
-      suffix = if "cpu" == Args.target arg 
-             then "" 
+      suffix = if "cpu" == Args.target arg
+             then ""
              else "_" ++ (Args.target arg)
       name = "cpu" ++ suffix
-      objs = [ objectFilePath opts f 
-             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ common_c ] 
+      objs = [ objectFilePath opts f
+             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ common_c ]
       libs = (Args.addLibraries arg) ++ common_libs
-    
-  cpudrivers arglist = 
-    let 
-      cafiles = Data.List.nub $ concat [ [ [ arch, cfile ] 
+
+  cpudrivers arglist =
+    let
+      cafiles = Data.List.nub $ concat [ [ [ arch, cfile ]
                                          | arch <- Args.architectures arg,
-                                                    cfile <- common_c ++ (Args.cFiles arg) ]
+                                           cfile <- common_c ++ (Args.cFiles arg) ]
                                        | arg <- arglist ]
       safiles = Data.List.nub $ concat [ [ [ arch, sfile ]
                                          | arch <- Args.architectures arg,
@@ -77,58 +79,57 @@ let
        ++
        [ assembleSFile (kernelOptions a) f | [a,f] <- safiles ]
        ++
-       [ mackerelDependencies (kernelOptions a) f [ c | [a,c] <- cafiles]  
+       [ mackerelDependencies (kernelOptions a) f [ c | [a,c] <- cafiles]
        | [a,f] <- mafiles ]
        ++
        [ link_cpudriver arg | arg <- arglist ]
      )
-         
+
   in cpudrivers [
   --
   -- Generic Intel/AMD amd64 64-bit x86 core
   --
-  cpuDriver { 
+  cpuDriver {
      architectures = [ "x86_64" ],
-     assemblyFiles = [ "arch/x86_64/boot.S", 
-                       "arch/x86_64/entry.S", 
-                       "arch/x86/init_ap_x86_64.S", 
-                       "arch/x86/init_ap_x86_32.S" ],
-     cFiles = [ "arch/x86_64/debug.c", 
-                "arch/x86_64/gdb_arch.c", 
-                "arch/x86_64/init.c", 
+     assemblyFiles = [ "arch/x86_64/boot.S",
+                       "arch/x86_64/entry.S",
+                       "../usr/drivers/cpuboot/init_ap_x86_64.S",
+                       "../usr/drivers/cpuboot/init_ap_x86_32.S" ],
+     cFiles = [ "arch/x86_64/debug.c",
+                "arch/x86_64/gdb_arch.c",
+                "arch/x86_64/init.c",
                 "arch/x86_64/irq.c",
-                "arch/x86_64/startup_arch.c", 
-                "arch/x86_64/exec.c", 
-                "arch/x86_64/syscall.c", 
+                "arch/x86_64/startup_arch.c",
+                "arch/x86_64/exec.c",
+                "arch/x86_64/syscall.c",
                 "arch/x86_64/paging.c",
-                "arch/x86_64/vmkit.c" , 
+                "arch/x86_64/vmkit.c" ,
                 "arch/x86_64/page_mappings_arch.c",
-                "arch/x86/apic.c", 
-                "arch/x86/pic.c", 
-                "arch/x86/start_aps.c", 
-                "arch/x86/cmos.c", 
+                "arch/x86/apic.c",
+                "arch/x86/pic.c",
+                "arch/x86/cmos.c",
                 "arch/x86/misc.c",
-                "arch/x86/serial.c", 
-                "arch/x86/multiboot.c", 
-                "arch/x86/conio.c", 
-                "arch/x86/syscall.c", 
+                "arch/x86/serial.c",
+                "arch/x86/multiboot.c",
+                "arch/x86/conio.c",
+                "arch/x86/syscall.c",
                 "arch/x86/debugregs.c",
-                "arch/x86/perfmon.c", 
-                "arch/x86/perfmon_intel.c", 
-                "arch/x86/perfmon_amd.c", 
-                "arch/x86/rtc.c", 
+                "arch/x86/perfmon.c",
+                "arch/x86/perfmon_intel.c",
+                "arch/x86/perfmon_amd.c",
+                "arch/x86/rtc.c",
                 "arch/x86/timing.c",
-                "arch/x86/startup_x86.c", 
-                "arch/x86/mcheck.c", 
+                "arch/x86/startup_x86.c",
+                "arch/x86/mcheck.c",
                 "arch/x86/ipi_notify.c"
-              ],
-     mackerelDevices = [ "lpc_pic", 
-                         "pc16550d", 
-                         "ia32", 
-                         "amd64", 
-                         "xapic", 
-                         "amd_vmcb", 
-                         "cpuid", 
+              ] ++ (if Config.microbenchmarks then ["arch/x86_64/microbenchmarks.c"] else []),
+     mackerelDevices = [ "lpc_pic",
+                         "pc16550d",
+                         "ia32",
+                         "amd64",
+                         "xapic",
+                         "amd_vmcb",
+                         "cpuid",
                          "lpc_rtc" ],
      addLibraries = [ "elf_kernel" ]
      },
@@ -186,82 +187,80 @@ let
   --
   -- Generic Intel ia32 32-bit x86 core
   --
-  cpuDriver { 	
+  cpuDriver {
      architectures = [ "x86_32" ],
-     assemblyFiles = [ "arch/x86_32/boot.S", 
-                       "arch/x86_32/entry.S", 
+     assemblyFiles = [ "arch/x86_32/boot.S",
+                       "arch/x86_32/entry.S",
                        "arch/x86_32/pic.S",
-                       "arch/x86/init_ap_x86_64.S", 
-                       "arch/x86/init_ap_x86_32.S" ],
-     cFiles = [ "arch/x86_32/debug.c", 
-                "arch/x86_32/gdb_arch.c", 
-                "arch/x86_32/init.c", 
+                       "../usr/drivers/cpuboot/init_ap_x86_32.S" ],
+     cFiles = [ "arch/x86_32/debug.c",
+                "arch/x86_32/gdb_arch.c",
+                "arch/x86_32/init.c",
                 "arch/x86_32/irq.c",
-                "arch/x86_32/startup_arch.c", 
-                "arch/x86_32/exec.c", 
-                "arch/x86_32/syscall.c", 
+                "arch/x86_32/startup_arch.c",
+                "arch/x86_32/exec.c",
+                "arch/x86_32/syscall.c",
                 "arch/x86_32/paging.c",
                 "arch/x86_32/page_mappings_arch.c",
-                "arch/x86/apic.c", 
-                "arch/x86/pic.c", 
-                "arch/x86/start_aps.c", 
-                "arch/x86/cmos.c", 
+                "arch/x86/apic.c",
+                "arch/x86/pic.c",
+                "arch/x86/cmos.c",
                 "arch/x86/misc.c",
-                "arch/x86/serial.c", 
-                "arch/x86/multiboot.c", 
-                "arch/x86/conio.c", 
-                "arch/x86/syscall.c", 
+                "arch/x86/serial.c",
+                "arch/x86/multiboot.c",
+                "arch/x86/conio.c",
+                "arch/x86/syscall.c",
                 "arch/x86/debugregs.c",
-                "arch/x86/perfmon.c", 
-                "arch/x86/perfmon_intel.c", 
-                "arch/x86/perfmon_amd.c", 
-                "arch/x86/rtc.c", 
+                "arch/x86/perfmon.c",
+                "arch/x86/perfmon_intel.c",
+                "arch/x86/perfmon_amd.c",
+                "arch/x86/rtc.c",
                 "arch/x86/timing.c",
-                "arch/x86/startup_x86.c", 
+                "arch/x86/startup_x86.c",
                 "arch/x86/ipi_notify.c"
               ],
-     mackerelDevices = [ "lpc_pic", 
-                         "pc16550d", 
-                         "ia32", 
-                         "amd64", 
-                         "xapic", 
-                         "cpuid", 
+     mackerelDevices = [ "lpc_pic",
+                         "pc16550d",
+                         "ia32",
+                         "amd64",
+                         "xapic",
+                         "cpuid",
                          "lpc_rtc" ],
      addLibraries = [ "elf_kernel" ]
      },
   --
   -- Intel Gauss Lake P54C core in the Rock Creek Single-Chip Cloud Computer
   --
-  cpuDriver { 
+  cpuDriver {
      architectures = [ "scc" ],
      assemblyFiles = [ "arch/scc/boot.S",
-                       "arch/x86_32/entry.S", 
+                       "arch/x86_32/entry.S",
                        "arch/x86_32/pic.S" ],
      cFiles = [ "arch/scc/rck.c",
-                "arch/x86_32/debug.c", 
-                "arch/x86_32/gdb_arch.c", 
-                "arch/x86_32/init.c", 
+                "arch/x86_32/debug.c",
+                "arch/x86_32/gdb_arch.c",
+                "arch/x86_32/init.c",
                 "arch/x86_32/irq.c",
-                "arch/x86_32/startup_arch.c", 
-                "arch/x86_32/exec.c", 
-                "arch/x86_32/syscall.c", 
+                "arch/x86_32/startup_arch.c",
+                "arch/x86_32/exec.c",
+                "arch/x86_32/syscall.c",
                 "arch/x86_32/paging.c",
                 "arch/x86_32/page_mappings_arch.c",
-                "arch/x86/apic.c", 
+                "arch/x86/apic.c",
                 "arch/x86/misc.c",
-                "arch/x86/serial.c", 
-                "arch/x86/multiboot.c", 
-                "arch/x86/syscall.c", 
+                "arch/x86/serial.c",
+                "arch/x86/multiboot.c",
+                "arch/x86/syscall.c",
                 "arch/x86/debugregs.c",
                 "arch/x86/timing.c",
                 "arch/x86/startup_x86.c"
               ],
-     mackerelDevices = [ "pc16550d", 
-                         "ia32", 
-                         "xapic", 
-                         "rck", 
-                         "eMAC", 
-                         "cpuid", 
+     mackerelDevices = [ "pc16550d",
+                         "ia32",
+                         "xapic",
+                         "rck",
+                         "eMAC",
+                         "cpuid",
                          "lpc_rtc" ],
      addLibraries = [ "elf_kernel" ]
      },
@@ -270,7 +269,7 @@ let
   --
   cpuDriver {
      architectures = [ "armv5" ],
-     assemblyFiles = [ "arch/armv5/boot.S", 
+     assemblyFiles = [ "arch/armv5/boot.S",
                        "arch/armv5/exceptions.S" ],
      cFiles = [ "arch/arm/exn.c", 
                 "arch/arm/exec.c", 
@@ -297,8 +296,8 @@ let
   --
   cpuDriver {
      architectures = [ "arm11mp" ],
-     assemblyFiles = [ "arch/armv5/boot.S", 
-                       "arch/armv5/exceptions.S", 
+     assemblyFiles = [ "arch/armv5/boot.S",
+                       "arch/armv5/exceptions.S",
                        "arch/paging_cp.S" ],
      cFiles = [ "arch/arm/exn.c", 
                 "arch/arm/exec.c", 
@@ -321,7 +320,7 @@ let
   --
   -- ARM Gem5 Cortex-A series ARMv7 core
   --
-  cpuDriver { 
+  cpuDriver {
     target = "arm_gem5",
     architectures = [ "armv7" ],
     assemblyFiles = [ "arch/arm_gem5/boot.S",
@@ -360,7 +359,7 @@ let
   cpuDriver {
      target = "ixp2800",
      architectures = [ "xscale" ],
-     assemblyFiles = [ "arch/xscale/boot.S", 
+     assemblyFiles = [ "arch/xscale/boot.S",
                        "arch/armv5/exceptions.S"  ],
      cFiles = [ "arch/arm/exn.c", 
                 "arch/arm/exec.c", 
@@ -378,9 +377,9 @@ let
                 "arch/xscale/ixp2800_uart.c", 
                 "arch/xscale/ixp2800_paging.c", 
                 "arch/xscale/kputchar.c" ],
-     mackerelDevices = [ "arm", 
-                         "ixp2800_icp_pit", 
-                         "ixp2800_icp_pic0", 
+     mackerelDevices = [ "arm",
+                         "ixp2800_icp_pit",
+                         "ixp2800_icp_pic0",
                          "ixp2800_uart" ],
      addLibraries = [ "elf", "cpio" ]
      },
@@ -399,28 +398,28 @@ let
                 "arch/arm/syscall.c",
                 "arch/arm/phys_mmap.c",
                 "arch/armv7/gic.c",
-                "arch/armv7/kludges.c", 
-                "arch/armv7/multiboot.c", 
+                "arch/armv7/kludges.c",
+                "arch/armv7/multiboot.c",
                 "arch/armv7/paging.c",
                 "arch/armv7/irq.c",
-                "arch/omap44xx/init.c", 
-                "arch/omap44xx/omap.c", 
-                "arch/omap44xx/paging.c", 
-                "arch/omap44xx/startup_arch.c", 
-                "arch/omap44xx/omap_uart.c", 
+                "arch/omap44xx/init.c",
+                "arch/omap44xx/omap.c",
+                "arch/omap44xx/paging.c",
+                "arch/omap44xx/startup_arch.c",
+                "arch/omap44xx/omap_uart.c",
                 "arch/omap44xx/start_aps.c",
-                "arch/omap44xx/spinlock.c", 
+                "arch/omap44xx/spinlock.c",
                 "arch/omap44xx/cortexm3_heteropanda.c", --will be empty if heteropanda = False
                 "arch/armv7/kputchar.c"],
-     mackerelDevices = [ "arm", 
-                         "arm_icp_pit", 
-                         "pl130_gic", 
-                         "sp804_pit", 
-                         "cortex_a9_pit", 
+     mackerelDevices = [ "arm",
+                         "arm_icp_pit",
+                         "pl130_gic",
+                         "sp804_pit",
+                         "cortex_a9_pit",
                          "cortex_a9_gt",
-                         "a9scu", 
-                         "omap/omap_uart", 
-                         "omap/omap44xx_id", 
+                         "a9scu",
+                         "omap/omap_uart",
+                         "omap/omap44xx_id",
                          "omap/omap44xx_emif",
                          "omap/omap44xx_gpio",
                          "omap/omap44xx_sysctrl_padconf_core",
@@ -429,17 +428,17 @@ let
                          "omap/omap44xx_usbtllhs_config",
                          "omap/omap44xx_scrm",
                          "omap/omap44xx_ehci",
-                         "omap/omap44xx_ckgen_prm", 
-                         "omap/omap44xx_l4per_cm2", 
+                         "omap/omap44xx_ckgen_prm",
+                         "omap/omap44xx_l4per_cm2",
                          "omap/omap44xx_l3init_cm2",
                          "omap/omap44xx_spinlock",
                          "omap/omap44xx_mmu",
                          "omap/omap44xx_gpio"],
      addLibraries = [ "elf", "cpio" ]
-     },                            
+     },
   --
   -- Broadcom OMAP44xx-series dual-core Cortex-M3 Coprocessor,
-  -- used to run a heterogenous system on the pandaboard 
+  -- used to run a heterogenous system on the pandaboard
   --
 
   cpuDriver {
@@ -464,10 +463,10 @@ let
                 "arch/armv7/kputchar.c", 
                 "arch/omap44xx/spinlock.c"
                 ],
-     mackerelDevices = [ "arm", 
-                         "omap/omap44xx_cortex_m3_nvic", 
-                         "omap/omap_uart", 
-                         "omap/omap44xx_id", 
+     mackerelDevices = [ "arm",
+                         "omap/omap44xx_cortex_m3_nvic",
+                         "omap/omap_uart",
+                         "omap/omap44xx_id",
                          "omap/omap44xx_emif",
                          "omap/omap44xx_gpio",
                          "omap/omap44xx_mmu",

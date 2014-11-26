@@ -28,12 +28,14 @@
 #include <getopt/getopt.h>
 #include <cp15.h>
 #include <elf/elf.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
 #include <cortexm3_heteropanda.h>
+#include <coreboot.h>
+#include <kcb.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -736,12 +738,15 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     //printf("invalidate TLB\n");
     cp15_invalidate_tlb();
 
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+
     //printf("startup_early\n");
     kernel_startup_early();
     //printf("kernel_startup_early done!\n");
 
     //initialize console
-    serial_init(serial_console_port);
+    serial_init(serial_console_port, true);
     spinlock_init();
 
     printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
@@ -801,6 +806,8 @@ static void __attribute__ ((noinline,noreturn)) text_init(void)
     enable_cycle_counter_user_access();
     reset_cycle_counter();
 #endif
+
+    coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
 
     arm_kernel_startup();
 }
@@ -934,6 +941,9 @@ void arch_init(void *pointer)
 
         memset(&global->locks, 0, sizeof(global->locks));
         
+        extern struct kcb bspkcb;
+        memset(&bspkcb, 0, sizeof(bspkcb));
+        kcb_current = &bspkcb;
 #ifdef HETEROPANDA
         //boot up a cortex-m3 core
         
@@ -957,6 +967,7 @@ void arch_init(void *pointer)
         glbl_core_data = (struct arm_core_data *)
                             ((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
         glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
+        kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
         my_core_id = glbl_core_data->dst_core_id;
 
         // tell BSP that we are started up
@@ -968,6 +979,10 @@ void arch_init(void *pointer)
         *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
         //__sync_synchronize();
         *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
+    }
+
+    if (kcb_current == NULL) {
+        panic("Did not receive a valid KCB.");
     }
 
     // XXX: print kernel address for debugging with gdb

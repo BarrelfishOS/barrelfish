@@ -803,6 +803,13 @@ static struct sysret handle_idcap_identify(struct capability *to,
 }
 
 
+static struct sysret handle_kcb_identify(struct capability *to,
+                                  arch_registers_state_t *context,
+                                  int argc)
+{
+    return sys_handle_kcb_identify(to);
+}
+
 typedef struct sysret (*invocation_t)(struct capability*, arch_registers_state_t*, int);
 
 static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
@@ -811,6 +818,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]  = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]     = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables] = dispatcher_dump_ptables,
+    },
+    [ObjType_KernelControlBlock] = {
+        [FrameCmd_Identify] = handle_kcb_identify
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -867,6 +877,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         //[KernelCmd_Setup_trace]       = handle_trace_setup,
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
+    },
+    [ObjType_IPI] = {
+        [IPICmd_Send_Start]  = monitor_spawn_core,
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify

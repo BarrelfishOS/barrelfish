@@ -16,14 +16,6 @@
 #include <inttypes.h>
 #include <elf/elf.h>
 
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, enum cpu_type cpu_type,
-                             const char* cmdline,
-                             struct intermon_binding **ret_binding)
-{
-    USER_PANIC("NYI!");
-    return SYS_ERR_OK;
-}
-
 /**
  * \brief Initialize monitor running on app cores
  */

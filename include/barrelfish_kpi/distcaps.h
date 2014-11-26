@@ -39,7 +39,7 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
@@ -61,13 +61,15 @@ distcap_needs_locality(enum objtype type)
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    // XXX: KCB should need locality?
+    //case ObjType_KernelControlBlock:
         return true;
     default:
         return false;
     }
 }
 
-STATIC_ASSERT(ObjType_Num == 25, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

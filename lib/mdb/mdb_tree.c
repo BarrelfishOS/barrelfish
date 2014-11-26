@@ -5,6 +5,9 @@
 #include <capabilities.h>
 #include <assert.h>
 #include <stdio.h>
+#if IN_KERNEL
+#include <kcb.h>
+#endif
 
 #ifndef MIN
 #define MIN(a, b) ((a)<(b)?(a):(b))
@@ -24,19 +27,14 @@
 
 // PP switch to change behaviour if invariants fail
 #ifdef MDB_FAIL_INVARIANTS
-#define X(i) #i,
-const char *mdb_invariants[] = {
-    MDB_INVARIANTS
-};
-#undef X
 // on failure, dump mdb and terminate
 __attribute__((noreturn))
 static void
-mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
+mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 {
     mdb_dump(cte, 0);
     printf("failed on cte %p with failure %s (%d)\n", cte,
-            mdb_invariants[failure], failure);
+            mdb_invariant_to_str(failure), failure);
     // XXX: what is "proper" way to always terminate?
     //mdb_dump_all_the_things();
     assert(false);
@@ -81,7 +79,55 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_inv failure)
 } while (0)
 #endif
 
-struct cte *mdb_root = NULL;
+static struct cte *mdb_root = NULL;
+#if IN_KERNEL
+struct kcb *my_kcb = NULL;
+#endif
+static void set_root(struct cte *new_root)
+{
+    mdb_root = new_root;
+#if IN_KERNEL
+    my_kcb->mdb_root = (lvaddr_t) new_root;
+#endif
+}
+
+/*
+ * (re)initialization
+ */
+errval_t
+mdb_init(struct kcb *k)
+{
+    assert (k != NULL);
+#if IN_KERNEL
+#if 0
+    //XXX: write two versions of this; so we can have full sanity checks for
+    //all scenarios -SG
+    if (my_kcb) {
+        printf("MDB has non-null kcb.\n");
+        return CAPS_ERR_MDB_ALREADY_INITIALIZED;
+    }
+#endif
+    my_kcb = k;
+    if (!my_kcb->is_valid) {
+        // empty kcb, do nothing
+        return SYS_ERR_OK;
+    }
+#endif
+    // set root
+    mdb_root = (struct cte *)k->mdb_root;
+
+#if 0
+    // always check invariants here
+    int i = mdb_check_invariants();
+    if (i) {
+        printf("mdb invariant %s violated\n", mdb_invariant_to_str(i));
+        mdb_dump_all_the_things();
+        mdb_root = NULL;
+        return CAPS_ERR_MDB_INVARIANT_VIOLATION;
+    }
+#endif
+    return SYS_ERR_OK;
+}
 
 
 /*
@@ -370,9 +416,8 @@ mdb_skew(struct cte *node)
 
         // need to update mdb_root
         if (mdb_root == node) {
-            mdb_root = left;
+            set_root(left);
         }
-
         return left;
     }
     else {
@@ -413,9 +458,8 @@ mdb_split(struct cte *node)
 
         // need to update mdb_root
         if (mdb_root == node) {
-            mdb_root = right;
+            set_root(right);
         }
-
         return right;
     }
     else {
@@ -529,11 +573,6 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
-//HACK: needed to know which mdb is being modified
-#ifdef IN_KERNEL
-extern coreid_t my_core_id;
-#endif
-
 errval_t
 mdb_insert(struct cte *new_node)
 {
@@ -557,7 +596,7 @@ mdb_exchange_child(struct cte *first, struct cte *first_parent,
     assert(mdb_is_child(first, first_parent));
 
     if (!first_parent) {
-        mdb_root = second;
+        set_root(second);
     }
     else if (N(first_parent)->left == first) {
         N(first_parent)->left = second;

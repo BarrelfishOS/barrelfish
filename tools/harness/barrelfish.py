@@ -116,6 +116,7 @@ def default_bootmodules(build, machine):
         m.add_module("/arm_gem5_image")
     else:
         m.add_module("%s/sbin/cpu" % a, machine.get_kernel_args())
+
     m.add_module("%s/sbin/init" % a)
     m.add_module("%s/sbin/mem_serv" % a)
     m.add_module("%s/sbin/monitor" % a)
@@ -129,24 +130,22 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
         m.add_module("%s/sbin/kaluga" % a, ["boot"])
-	m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+        m.add_module("%s/sbin/routing_setup" %a, ["boot"])
+        m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
-        if machine.name == "sbrinz1" or machine.name == "sbrinz2":
+        if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
+        or machine.name == "tomme1" or machine.name == "tomme2":
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"])
         else:
             m.add_module("%s/sbin/pci" % a, ["auto"])
 
-
-    # ARM-specific stuff
-    elif a == "armv5":
-        m.add_module_arg("spawnd", "bootarm")
-    elif a == "arm_gem5":
-    	if machine.get_ncores() == 1:
-    		m.add_module_arg("spawnd", "bootarm=0")
-    	elif machine.get_ncores() == 2:
-    		m.add_module_arg("spawnd", "bootarm=1")
+    if a == "arm_gem5":
+    	if machine.get_ncores() == 2:
+    		m.add_module("corectrl", ["boot", "1"])
     	elif machine.get_ncores() == 4:
-    		m.add_module_arg("spawnd", "bootarm=1-3")
+            m.add_module("corectrl", ["boot", "1"])
+            m.add_module("corectrl", ["boot", "2"])
+            m.add_module("corectrl", ["boot", "3"])
     return m

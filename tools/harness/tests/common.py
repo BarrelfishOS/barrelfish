@@ -7,9 +7,10 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime
+import os, shutil, select, datetime, fdpexpect, pexpect, tempfile
 import barrelfish, debug, results
 from tests import Test
+from results import PassFailResult
 
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
@@ -186,6 +187,93 @@ class TestCommon(Test):
         machine.unlock()
         debug.verbose('removing %s' % tftp_dir)
         shutil.rmtree(tftp_dir, ignore_errors=True)
+
+
+class InteractiveTest(TestCommon):
+    """
+    A interactive test class that allows a test-case to interact with
+    the fish shell. Sub-classes should implement the interact method.
+
+    As an example, have a look at coreboottest.py.
+    """
+
+    def get_modules(self, build, machine):
+        modules = super(InteractiveTest, self).get_modules(build, machine)
+        # Load the console
+        serialargs = []
+        if machine.get_machine_name() == "tomme1" or \
+           machine.get_machine_name() == "tomme2":
+            serialargs = ["portbase=0x2f8", "irq=0x3"]
+        modules.add_module("serial", args=serialargs)
+
+        modules.add_module("fish", args=["nospawn"])
+        modules.add_module("angler", args=['serial0.terminal xterm'])
+        return modules
+
+    def wait_for_prompt(self):
+        self.console.expect(">")
+
+    def wait_for_fish(self):
+        debug.verbose("Waiting for fish.")
+        self.console.expect("fish v0.2 -- pleased to meet you!")
+        self.wait_for_prompt()
+
+    def interact(self):
+        # Implement interaction with console
+        pass
+
+    def collect_data(self, machine):
+        fh = machine.get_output()
+        
+        if not machine.get_boot_timeout():
+            tt = 180
+        else:
+            tt = machine.get_boot_timeout()
+
+        self.console = fdpexpect.fdspawn(fh, timeout=tt)
+        self.console.logfile = tempfile.NamedTemporaryFile()
+
+        while self.boot_attempts < MAX_BOOT_ATTEMPTS:
+            index = self.console.expect(["Barrelfish CPU driver starting", 
+                                 pexpect.TIMEOUT, pexpect.EOF])
+            if index == 0:
+                self.boot_phase = False
+                break
+            if index == 1:
+                self.console.logfile.write(BOOT_TIMEOUT_LINE_RETRY)
+                self.reboot(machine)
+            if index == 2:
+                self.console.logfile.write(BOOT_TIMEOUT_LINE_FAIL)
+
+        if not self.boot_phase:
+            machine.force_write(self.console)
+            try:
+                self.interact()
+            except OSError, e:
+                self.console.logfile.seek(0)
+                print self.console.logfile.readlines()
+                raise e
+
+        self.console.logfile.seek(0)
+        return self.console.logfile.readlines()
+
+    def run(self, build, machine, testdir):
+        modules = self.get_modules(build, machine)
+        self.boot(machine, modules)
+        return self.collect_data(machine)
+
+    def process_data(self, testdir, rawiter):
+        passed = True
+        for line in rawiter:
+            if "user page fault in" in line:
+                passed = False
+                break
+            if "user trap #" in line:
+                passed = False
+                break
+            if "PANIC! kernel assertion" in line:
+                passed = False
+        return PassFailResult(passed)
 
 
 # utility function used by other tests

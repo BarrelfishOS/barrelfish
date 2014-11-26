@@ -357,24 +357,7 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
     return sys_monitor_register(ep_caddr);
 }
 
-#ifndef __scc__
-/**
- * \brief Spawn a new core and create a kernel cap for it.
- */
-static struct sysret monitor_spawn_core(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
-{
-    coreid_t core_id        = args[0];
-    enum cpu_type cpu_type  = args[1];
-    uintptr_t entry0 = args[2];
-    uintptr_t entry1 = args[3];
-    forvaddr_t entry = (forvaddr_t)entry0 << 32 | entry1;
-
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
-}
-
-#else
-
+#ifdef __scc__
 static struct sysret monitor_spawn_scc_core(struct capability *kernel_cap,
                                             int cmd, uintptr_t *args)
 {
@@ -685,6 +668,16 @@ static struct sysret handle_trace_setup(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_irq_table_alloc(struct capability *to, int cmd,
+                                            uintptr_t *args)
+{
+    struct sysret ret;
+    int outvec;
+    ret.error = irq_table_alloc(&outvec);
+    ret.value = outvec;
+    return ret;
+}
+
 static struct sysret handle_irq_table_set(struct capability *to, int cmd, uintptr_t *args)
 {
     return SYSRET(irq_table_set(args[0], args[1]));
@@ -709,6 +702,40 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     }
 
     return sys_idcap_identify(cap, idp);
+}
+
+static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
+                                          uintptr_t *args)
+{
+    coreid_t destination = args[0];
+    apic_send_init_assert(destination, xapic_none);
+    apic_send_init_deassert();
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret kernel_send_start_ipi(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+    coreid_t destination = args[0];
+    genvaddr_t start_vector = X86_32_REAL_MODE_SEGMENT_TO_REAL_MODE_PAGE(X86_32_REAL_MODE_SEGMENT);
+    apic_send_start_up(destination, xapic_none, start_vector);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret kernel_get_global_phys(struct capability *cap,
+                                           int cmd,
+                                           uintptr_t *args)
+{
+
+    struct sysret sysret;
+    sysret.value = mem_to_local_phys((lvaddr_t)global);
+    sysret.error = SYS_ERR_OK;
+
+    return sysret;
 }
 
 #ifdef __scc__
@@ -776,6 +803,38 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret kernel_add_kcb(struct capability *kern_cap,
+                                    int cmd, uintptr_t *args)
+{
+    uintptr_t kcb_addr = args[0];
+    struct kcb *new_kcb = (struct kcb *)kcb_addr;
+
+    return sys_kernel_add_kcb(new_kcb);
+}
+
+static struct sysret kernel_remove_kcb(struct capability *kern_cap,
+                                       int cmd, uintptr_t *args)
+{
+    printk(LOG_NOTE, "in kernel_remove_kcb invocation!\n");
+    uintptr_t kcb_addr = args[0];
+    struct kcb *to_remove = (struct kcb *)kcb_addr;
+
+    return sys_kernel_remove_kcb(to_remove);
+}
+
+static struct sysret kernel_suspend_kcb_sched(struct capability *kern_cap,
+                                              int cmd, uintptr_t *args)
+{
+    printk(LOG_NOTE, "in kernel_suspend_kcb_sched invocation!\n");
+    return sys_kernel_suspend_kcb_sched((bool)args[0]);
+}
+
+static struct sysret handle_kcb_identify(struct capability *to,
+                                         int cmd, uintptr_t *args)
+{
+    return sys_handle_kcb_identify(to);
+}
+
 typedef struct sysret (*invocation_handler_t)(struct capability *to,
                                               int cmd, uintptr_t *args);
 
@@ -785,6 +844,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]   = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]      = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+    },
+    [ObjType_KernelControlBlock] = {
+        [FrameCmd_Identify] = handle_kcb_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -822,9 +884,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Kernel] = {
-#ifndef __scc__
-        [KernelCmd_Spawn_core]   = monitor_spawn_core,
-#endif
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
@@ -858,8 +917,17 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
 #endif
+        [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
+        [KernelCmd_Add_kcb]      = kernel_add_kcb,
+        [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
+        [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched
+    },
+    [ObjType_IPI] = {
+        [IPICmd_Send_Start] = kernel_send_start_ipi,
+        [IPICmd_Send_Init] = kernel_send_init_ipi,
     },
     [ObjType_IRQTable] = {
+        [IRQTableCmd_Alloc] = handle_irq_table_alloc,
         [IRQTableCmd_Set] = handle_irq_table_set,
         [IRQTableCmd_Delete] = handle_irq_table_delete
     },

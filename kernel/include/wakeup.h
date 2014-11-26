@@ -10,6 +10,8 @@
 #ifndef KERNEL_WAKEUP_H
 #define KERNEL_WAKEUP_H
 
+/// only use for restoring state
+void wakeup_set_queue_head(struct dcb *h);
 void wakeup_remove(struct dcb *dcb);
 void wakeup_set(struct dcb *dcb, systime_t waketime);
 void wakeup_check(systime_t now);

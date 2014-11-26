@@ -24,6 +24,8 @@
 #include <if/monitor_defs.h>
 #include <octopus/init.h>
 #include <thc/thc.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 #include "handler.h"
 #include "common.h"

@@ -22,38 +22,6 @@
 #include <barrelfish_kpi/syscalls.h>
 #include "monitor_debug.h"
 
-/**
- * \brief Spawn a new core.
- *
- * \param cur_kern   Cap of the current kernel
- * \param core_id    APIC ID of the core to try booting
- * \param sp_mem     Cap to Ram type memory to relocate the new kernel
- * \param dcb        Cap to the dcb of the user program to run on the new kernel
- * \param root_vbits Number of valid bits in root_cptr
- * \param root_cptr  Cap to the root of cspace of the new user program
- * \param vtree      Cap to the vtree root of the new user program
- * \param dispatcher Cap to the dispatcher of the new user program
- * \param entry      Kernel entry point in physical memory
- */
-//XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
-#if defined(__ARM_ARCH_7A__) && defined(__GNUC__) \
-	&& __GNUC__ == 4 && __GNUC_MINOR__ <= 6 && __GNUC_PATCHLEVEL__ <= 1
-static __attribute__((noinline, unused)) errval_t
-#else
-static inline errval_t
-#endif
-invoke_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                          forvaddr_t entry)
-{
-    DEBUG_INVOCATION("%s: called from %p\n", __FUNCTION__, __builtin_return_address(0));
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    return syscall6((invoke_bits << 16) | (KernelCmd_Spawn_core << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, core_id, cpu_type,
-                    (uintptr_t)(entry >> 32), (uintptr_t) entry).error;
-}
-
 static inline errval_t
 invoke_monitor_identify_cap(capaddr_t cap, int bits, struct capability *out)
 {
@@ -353,6 +321,26 @@ invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslo
 
     return cap_invoke5(cap_kernel, KernelCmd_Copy_existing,
                        cn_addr, cn_bits, slot, (uintptr_t)raw).error;
+}
+
+static inline errval_t
+invoke_monitor_add_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+    return cap_invoke2(cap_kernel, KernelCmd_Add_kcb, kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_remove_kcb(uintptr_t kcb_base)
+{
+    assert(kcb_base);
+    return cap_invoke2(cap_kernel, KernelCmd_Remove_kcb, kcb_base).error;
+}
+
+static inline errval_t
+invoke_monitor_suspend_kcb_scheduler(bool suspend)
+{
+    return cap_invoke2(cap_kernel, KernelCmd_Suspend_kcb_sched, suspend).error;
 }
 
 #endif

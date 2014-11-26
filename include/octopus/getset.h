@@ -40,6 +40,7 @@ errval_t oct_mset(oct_mode_t, const char*, ...);
 errval_t oct_set_get(oct_mode_t, char**, const char*, ...);
 errval_t oct_del(const char*, ...);
 errval_t oct_exists(const char*, ...);
+errval_t oct_wait_for(char**, const char*, ...);
 
 errval_t oct_read(const char*, const char*, ...);
 

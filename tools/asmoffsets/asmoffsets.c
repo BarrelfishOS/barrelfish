@@ -85,13 +85,8 @@ void dummy(void)
     // XXX: Assumes cap is first member of struct cte
     DECL(DCB_CSPACE_CAP, struct dcb, cspace.cap);
     DECL(DCB_VSPACE, struct dcb, vspace);
-#ifdef CONFIG_SCHEDULER_RR
     DECL(DCB_RR_PREV, struct dcb, prev);
-#elif defined(CONFIG_SCHEDULER_RBED)
     DECL(DCB_RBED_NEXT, struct dcb, next);
-#else
-# error Must define a kernel scheduling policy!
-#endif
 
     DECL(CAP_CNODE_BITS, struct capability, u.cnode.bits);
     DECL(CAP_CNODE_CNODE, struct capability, u.cnode.cnode);

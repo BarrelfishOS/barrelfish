@@ -14,17 +14,15 @@ Barrelfish currently runs on:
 
  * x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
 
-   - Intel Xeon Clovertown, Gainestown, Beckton (X5355, E5520, X7560, L5520,
-     L7555)
-   - AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
-     (2220, 8350, 8374, 8380, 8431, 6174)
-   - QEMU simulator
-
- * Intel Single-Chip Cloud Computer (SCC), both Copper Ridge and Rocky Lake
-   are known to work.
+   - Intel Xeon Clovertown, Gainestown, Beckton, IvyBridge, Haswell (X5355,
+     E5520, X7560, L5520, L7555, E5-2670v2, E3-1245v3)
+   - AMD Opteron Italy, Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
+     (275, 2220, 8350, 8374, 8380, 8431, 6174)
+   - QEMU simulator (2.0.0)
 
  * ARM CPUs, specifically ARMv7 and ARMv5. The following platforms are known to work:
 
+   - The integratorcp ARMv5 machine as simulated by QEM
    - The Texas Instruments OMAP4460 Pandaboard ES SoC
      (Barrelfish runs on both the A9 and the M3 cores)
    - The ARM VExpress EMM board as simulated by GEM5
@@ -48,10 +46,11 @@ Barrelfish supports following PC hardware :
 
  * x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
 
-   - Intel Xeon Clovertown, Gainestown, Beckton (X5355, E5520, X7560, L5520,
-     L7555)
-   - AMD Opteron Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
-     (2220, 8350, 8374, 8380, 8431, 6174)
+   - Intel Xeon Clovertown, Gainestown, Beckton, Ivy Bridge, Haswell (X5355,
+     E5520, X7560, L5520, L7555, E5-2670v2, E3-1245v3)
+   - AMD Opteron Italy, Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
+     (275, 2220, 8350, 8374, 8380, 8431, 6174)
+      * Note: the Opteron 275 do not work in IA-32 mode.
 
 The biggest compatibility problems are likely to be in the PCI/ACPI code. We
 usually discover new quirks (or missing functionality in the ACPI glue code)
@@ -76,26 +75,25 @@ note that the e1000 device emulated by QEMU is not supported by our driver.
 Required Tools
 --------------------------------
 
-The following are required to build Barrelfish and its tools:
+We are making sure that Barrelfish and its tools can be built using the
+following:
 
- * GCC 4.x
-
-   - 4.4.5, and 4.5.2 are known to work
-   - cross-compiling between i386 and x86_64 works (requires libc6-dev-i386
-     to build 32 bit on 64 bit machine)
-   - for the ARM port, we recommend the EABI tools available from CodeSourcery_.
- * GNU binutils (2.19 is known to work)
+ * GCC 4.8.2 for x86_64 and x86_32
+   - cross-compiling between i386 and x86_64 works (install gcc-multilib on 64 bit Ubuntu LTS)
+ * GCC 4.7.3 for ARMv5 and ARMv7
+   - gcc-arm-linux-gnueabi and g++-arm-linux-gnueabi on Ubuntu LTS
+ * GNU binutils (2.24 is known to work)
  * GNU make
- * GHC v7.4 and Parsec 3.1
-   - older versions of the tree supported v6.10 or v6.12.2 with Parsec 2.1
+ * GHC v7.6.3 and Parsec 3.1
+   - older versions of the tree supported v6.10 or v6.12.2 with Parsec 2.1 or
+     v7.4 with Parsec 3.1
    - GHC v6.12.1 has a known bug and is unable to build our tools
    - earlier versions of GHC are unsupported
 
-Our build system may not be very portable; if in doubt, try building on a
-recent Debian or Ubuntu system, as these are what we use.
+Our build system may not be very portable; if in doubt, try building on the
+latest Ubuntu LTS system (14.04.1), as this is what we use to run nightly
+tests.
 
-
-.. _CodeSourcery: http://www.codesourcery.com/sgpp/lite/arm
 
 Building
 --------------------------------

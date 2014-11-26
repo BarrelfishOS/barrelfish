@@ -20,6 +20,8 @@
 #include <octopus/barrier.h>
 #include <octopus/getset.h>
 #include <octopus/trigger.h>
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
 
 #include "common.h"
 

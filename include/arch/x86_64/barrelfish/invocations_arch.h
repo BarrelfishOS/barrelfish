@@ -336,6 +336,18 @@ invoke_dispatcher_setup_guest(struct capref dispatcher,
                        get_cap_addr(guest_control_cap)).error;
 }
 
+
+static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
+{
+    struct sysret ret = cap_invoke1(irqcap, IRQTableCmd_Alloc);
+    if (err_is_ok(ret.error)) {
+        *retirq = ret.value;
+    } else {
+        *retirq = 0;
+    }
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
                                            struct capref ep)
 {
@@ -368,13 +380,13 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
 }
 
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
-                                               uint8_t event, uint8_t perf_umask, 
+                                               uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,
-                                               uint64_t counter_value, 
+                                               uint64_t counter_value,
                                                capaddr_t ep_addr)
 {
-    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate, 
-                       event, perf_umask, counter_id, kernel, 
+    return cap_invoke7(perfmon_cap, PerfmonCmd_Activate,
+                       event, perf_umask, counter_id, kernel,
                        counter_value, ep_addr).error;
 }
 
@@ -425,6 +437,28 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
     }
 
     return sysret.error;
+}
+
+static inline errval_t invoke_send_init_ipi(struct capref ipi_cap, coreid_t core_id)
+{
+    return cap_invoke2(ipi_cap, IPICmd_Send_Init,
+                       core_id).error;
+}
+
+static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t core_id, forvaddr_t entry)
+{
+    return cap_invoke3(ipi_cap, IPICmd_Send_Start,
+                       core_id, entry).error;
+}
+
+static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
+{ 
+    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
+    if (err_is_ok(sr.error)) {
+        *global = sr.value;
+    }
+
+    return sr.error;
 }
 
 #endif

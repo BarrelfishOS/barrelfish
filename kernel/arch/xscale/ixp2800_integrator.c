@@ -231,7 +231,7 @@ const unsigned serial_num_physical_ports = NUM_PORTS;
 
 static ixp2800_uart_t ports[2];
 
-errval_t serial_init(unsigned port)
+errval_t serial_init(unsigned port, bool hwinit)
 {
     if (port < NUM_PORTS) {
         assert(ports[port].base == 0);

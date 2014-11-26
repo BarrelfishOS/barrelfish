@@ -15,5 +15,7 @@ errval_t monitor_client_setup_mem_serv(void);
 errval_t monitor_client_setup_monitor(void);
 errval_t monitor_server_init(struct monitor_binding *b);
 errval_t monitor_rpc_init(void);
+errval_t monitor_server_arch_init(struct monitor_binding *b);
+void set_monitor_rpc_iref(iref_t iref);
 
 #endif

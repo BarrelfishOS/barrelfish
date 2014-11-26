@@ -70,6 +70,7 @@ struct arm_core_data {
 
     uint32_t    chan_id;
 
+    genpaddr_t kcb; ///< The kernel control block
 }; //__attribute__ ((packed));
 
 #define ARM_CORE_DATA_PAGES 	1100

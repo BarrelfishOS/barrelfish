@@ -558,14 +558,14 @@ static void get_ramfs_iref_request(struct monitor_binding *b, uintptr_t st)
     }
 }
 
-static void set_mem_iref_request(struct monitor_binding *b, 
+static void set_mem_iref_request(struct monitor_binding *b,
                                  iref_t iref)
 {
     mem_serv_iref = iref;
     update_ram_alloc_binding = true;
 }
 
-static void get_monitor_rpc_iref_request(struct monitor_binding *b, 
+static void get_monitor_rpc_iref_request(struct monitor_binding *b,
                                          uintptr_t st_arg)
 {
     errval_t err;
@@ -595,7 +595,7 @@ void set_monitor_rpc_iref(iref_t iref)
 }
 
 
-static void set_name_iref_request(struct monitor_binding *b, 
+static void set_name_iref_request(struct monitor_binding *b,
                                   iref_t iref)
 {
     if (name_serv_iref != 0) {
@@ -700,34 +700,6 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
                        cap_send_request_tx_cont, st);
 }
 
-#if 0
-struct capref domains[MAX_DOMAINS];
-
-static void assign_domain_id_request(struct monitor_binding *b, uintptr_t ust,
-                                     struct capref disp, struct capref ep)
-{
-    for(domainid_t id = 1; id < MAX_DOMAINS; id++) {
-        if(domains[id].cnode.address_bits == 0) {
-            domains[id] = ep;
-            errval_t err = invoke_domain_id(disp, id);
-            assert(err_is_ok(err));
-
-            err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, id);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "assign domain ID failed\n");
-            }
-            return;
-        }
-    }
-
-    // Return error
-    errval_t err = b->tx_vtbl.assign_domain_id_reply(b, NOP_CONT, ust, 0);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "assign domain ID failed\n");
-    }
-}
-#endif
-
 static void span_domain_request(struct monitor_binding *mb,
                                 uintptr_t domain_id, uint8_t core_id,
                                 struct capref vroot, struct capref disp)
@@ -735,7 +707,7 @@ static void span_domain_request(struct monitor_binding *mb,
     errval_t err, err2;
 
     trace_event(TRACE_SUBSYS_MONITOR, TRACE_EVENT_MONITOR_SPAN0, core_id);
-    
+
     struct span_state *state;
     uintptr_t state_id;
 
@@ -825,21 +797,11 @@ static void span_domain_request(struct monitor_binding *mb,
     }
 }
 
-static void num_cores_request(struct monitor_binding *b)
+static void migrate_dispatcher_request(struct monitor_binding *b,
+                                  coreid_t coreid, struct capref vroot,
+                                  struct capref disp)
 {
-    /* XXX: This is deprecated and shouldn't be used: there's nothing useful you
-     * can do with the result, unless you assume that core IDs are contiguous
-     * and start from zero, which is a false assumption! Go ask the SKB...
-     */
-
-    DEBUG_CAPOPS("Application invoked deprecated num_cores_request() API."
-                 " Please fix it!\n");
-
-    /* Send reply */
-    errval_t err = b->tx_vtbl.num_cores_reply(b, NOP_CONT, num_monitors);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "sending num_cores_reply failed");
-    }
+   printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
 struct monitor_rx_vtbl the_table = {
@@ -849,7 +811,6 @@ struct monitor_rx_vtbl the_table = {
     .bind_lmp_reply_monitor = bind_lmp_reply,
 
     .boot_core_request = boot_core_request,
-    .boot_initialize_request = boot_initialize_request,
     .multiboot_cap_request = ms_multiboot_cap_request,
 
     .new_monitor_binding_request = new_monitor_binding_request,
@@ -867,9 +828,7 @@ struct monitor_rx_vtbl the_table = {
 
     .span_domain_request    = span_domain_request,
 
-    .num_cores_request  = num_cores_request,
-
-    //.assign_domain_id_request = assign_domain_id_request,
+    .migrate_dispatcher_request = migrate_dispatcher_request
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)
@@ -909,7 +868,7 @@ errval_t monitor_client_setup(struct spawninfo *si)
     err = cap_copy(dest, src);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_PERF_MON);
-    }    
+    }
 
     // copy our receive vtable to the binding
     monitor_server_init(&b->b);

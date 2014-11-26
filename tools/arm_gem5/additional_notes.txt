@@ -33,7 +33,7 @@ Gem5 has nice remote debugging support but needs some configuration in order to 
 already a GDB script in tools/arm_gem5/debug.gem5.gdb which does the work for you. In order to
 attach the remote debugger to Gem5 just change to your Barrelfish build directory and run
 
-'arm-none-linux-gnueabi-gdb -x ../tools/arm_gem5/debug.gem5.gdb'
+'arm-linux-gnueabi-gdb -x ../tools/arm_gem5/debug.gem5.gdb'
 
 and Gem5 will break in whatever code currently executing in the simulator.
 If you want to start debugging from the first line of code on you have to modify 

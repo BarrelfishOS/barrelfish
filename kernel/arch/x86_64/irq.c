@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2013, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /*********************************************************************
@@ -66,6 +66,8 @@
 #include <arch/x86/syscall.h>
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
+#include <kcb.h>
+#include <mdb/mdb_tree.h>
 
 #include <dev/ia32_dev.h>
 
@@ -343,6 +345,7 @@ HW_IRQ(62);
 HW_IRQ(63);
 
 // Local APIC interrupts
+HW_IRQ(248);
 HW_IRQ(249);
 HW_IRQ(250);
 HW_IRQ(251);
@@ -359,30 +362,18 @@ HW_EXCEPTION_NOERR(666);
 #define ERR_PF_RESERVED         (1 << 3)
 #define ERR_PF_INSTRUCTION      (1 << 4)
 
-/// Number of (reserved) hardware exceptions
-#define NEXCEPTIONS             32
-
-/// Size of hardware IRQ dispatch table == #NIDT - #NEXCEPTIONS exceptions
-#define NDISPATCH               (NIDT - NEXCEPTIONS)
-
 /**
  * \brief Interrupt Descriptor Table (IDT) for processor this kernel is running
  * on.
  */
 static struct gate_descriptor idt[NIDT] __attribute__ ((aligned (16)));
 
-/**
- * \brief User-space IRQ dispatch table.
- *
- * This is essentially a big CNode holding #NDISPATCH capability
- * entries to local endpoints of user-space applications listening to
- * the interrupts.
- */
-static struct cte irq_dispatch[NDISPATCH];
+static int timer_fired = 0;
 
 #if CONFIG_TRACE && NETWORK_STACK_TRACE
 #define TRACE_ETHERSRV_MODE 1
 #endif // CONFIG_TRACE && NETWORK_STACK_TRACE
+
 
 /**
  * \brief Send interrupt notification to user-space listener.
@@ -396,27 +387,40 @@ static uint32_t pkt_interrupt_count = 0;
 static void send_user_interrupt(int irq)
 {
     assert(irq >= 0 && irq < NDISPATCH);
-    struct capability   *cap = &irq_dispatch[irq].cap;
+    struct kcb *k = kcb_current;
+    do {
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+            break;
+        }
+        k = k->next;
+    } while (k && k != kcb_current);
+    // if k == NULL we don't need to switch as we only have a single kcb
+    if (k) {
+        switch_kcb(k);
+    }
+    // from here: kcb_current is the kcb for which the interrupt was intended
+    struct capability *cap = &kcb_current->irq_dispatch[irq].cap;
 
     // Return on null cap (unhandled interrupt)
     if(cap->type == ObjType_Null) {
         printk(LOG_WARN, "unhandled IRQ %d\n", irq);
         return;
+    } else if (cap->type > ObjType_Num) {
+        // XXX: HACK: this doesn't fix the root cause of having weird entries
+        // in kcb_current->irq_dispatch[], but it allows us to test the system
+        // more reliably for now. -SG
+        // Also complain to SG if this gets checked in to the main tree!
+        printk(LOG_WARN, "receiver type > %d, %d, assume unhandled\n", ObjType_Num, cap->type);
+        return;
     }
 
     if (irq == 0) {
-//    	printf("packet interrupt: %d: count %"PRIu32"\n", irq, pkt_interrupt_count);
         ++pkt_interrupt_count;
 #if NETWORK_STACK_TRACE
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_UIRQ, pkt_interrupt_count);
 #endif // NETWORK_STACK_TRACE
-/*
-        if (pkt_interrupt_count >= 60){
-            printf("interrupt number %"PRIu32"\n", pkt_interrupt_count);
-        }
-*/
+
     }
-//    printf("Interrupt %d\n", irq);
     // Otherwise, cap needs to be an endpoint
     assert(cap->type == ObjType_EndPoint);
 
@@ -445,6 +449,34 @@ static void send_user_interrupt(int irq)
 #endif
 }
 
+errval_t irq_table_alloc(int *outvec)
+{
+    assert(outvec);
+    // XXX: this is O(#kcb*NDISPATCH)
+    int i;
+    for (i = 0; i < NDISPATCH; i++) {
+        struct kcb *k = kcb_current;
+        bool found_free = true;
+        do {
+            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+                found_free = false;
+                break;
+            }
+            k=k->next?k->next:k;
+        } while(k != kcb_current);
+        if (found_free) {
+            break;
+        }
+    }
+    if (i == NDISPATCH) {
+        *outvec = -1;
+        return SYS_ERR_IRQ_NO_FREE_VECTOR;
+    } else {
+        *outvec = i;
+        return SYS_ERR_OK;
+    }
+}
+
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 {
     errval_t err;
@@ -470,20 +502,10 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 
     if(nidt < NDISPATCH) {
         // check that we don't overwrite someone else's handler
-        if (irq_dispatch[nidt].cap.type != ObjType_Null) {
+        if (kcb_current->irq_dispatch[nidt].cap.type != ObjType_Null) {
             printf("kernel: installing new handler for IRQ %d\n", nidt);
         }
-        err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
-
-        printf("kernel: %u: installing handler for IRQ %d\n", my_core_id, nidt);
-#if 0
-        if (err_is_ok(err)) {
-            // Unmask interrupt if on PIC
-            if(nidt < 16) {
-                pic_toggle_irq(nidt, true);
-            }
-        }
-#endif
+        err = caps_copy_to_cte(&kcb_current->irq_dispatch[nidt], recv, false, 0, 0);
         return err;
     } else {
         return SYS_ERR_IRQ_INVALID;
@@ -493,14 +515,35 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
 errval_t irq_table_delete(unsigned int nidt)
 {
     if(nidt < NDISPATCH) {
-        irq_dispatch[nidt].cap.type = ObjType_Null;
-#if 0
-        pic_toggle_irq(nidt, false);
-#endif
+        kcb_current->irq_dispatch[nidt].cap.type = ObjType_Null;
         return SYS_ERR_OK;
     } else {
         return SYS_ERR_IRQ_INVALID;
     }
+}
+
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    uintptr_t msg[] = { 1 };
+    for (int i = 0; i < NDISPATCH; i++) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            struct capability *cap = &kcb->irq_dispatch[i].cap;
+            // 1 word message as notification
+            errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
+            if (err_is_fail(err)) {
+                if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+                    struct dispatcher_shared_generic *disp =
+                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                    printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
+                            DISP_NAME_LEN, disp->name);
+                } else {
+                    printk(LOG_ERR, "Unexpected error delivering IRQ\n");
+                }
+            }
+        }
+        kcb->irq_dispatch[i].cap.type = ObjType_Null;
+    }
+    return SYS_ERR_OK;
 }
 
 /**
@@ -735,7 +778,6 @@ static __attribute__ ((used))
             if (vec == IDT_DB) { // debug exception: just continue
                 resume(dispatcher_get_trap_save_area(handle));
             } else {
-
                 // can't handle a trap while disabled: nowhere safe to deliver it
                 scheduler_remove(dcb_current);
                 dispatch(schedule());
@@ -801,10 +843,10 @@ update_kernel_now(void)
 /// Handle an IRQ that arrived, either while in user or kernel mode (HLT)
 static __attribute__ ((used)) void handle_irq(int vector)
 {
-    debug(SUBSYS_DISPATCH, "IRQ vector %d while %s\n", vector,
+    int irq = vector - NEXCEPTIONS;
+    debug(SUBSYS_DISPATCH, "IRQ vector %d (irq %d) while %s\n", vector, irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
-    int irq = vector - NEXCEPTIONS;
 
     // if we were in wait_for_interrupt(), unmask timer before running userspace
     if (dcb_current == NULL && kernel_ticks_enabled) {
@@ -817,11 +859,20 @@ static __attribute__ ((used)) void handle_irq(int vector)
 
     // APIC timer interrupt: handle in kernel and reschedule
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {
+        // count time slices
+        timer_fired ++;
+
+        // switch kcb every other timeslice
+        if (!kcb_sched_suspended && timer_fired % 2 == 0 && kcb_current->next) {
+            //printk(LOG_NOTE, "switching from kcb(%p) to kcb(%p)\n", kcb_current, kcb_current->next);
+            switch_kcb(kcb_current->next);
+        }
+
         apic_eoi();
-	assert(kernel_ticks_enabled);
-	update_kernel_now();
-	trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
-	wakeup_check(kernel_now);
+	    assert(kernel_ticks_enabled);
+	    update_kernel_now();
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
+        wakeup_check(kernel_now+kcb_current->kernel_off);
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
         // Handle performance counter overflow
         // Reset counters
@@ -840,19 +891,17 @@ static __attribute__ ((used)) void handle_irq(int vector)
             };
             strncpy(data.name, disp->name, PERFMON_DISP_NAME_LEN);
 
-                // Call overflow handler represented by endpoint
+            // Call overflow handler represented by endpoint
             extern struct capability perfmon_callback_ep;
-	    errval_t err;
-	    size_t payload_len = sizeof(struct perfmon_overflow_data)/
-	      sizeof(uintptr_t)+1;
-	    err = lmp_deliver_payload(&perfmon_callback_ep,
-				      NULL,
-				      (uintptr_t*) &data,
-				      payload_len,
-				      false);
+            size_t payload_len = sizeof(struct perfmon_overflow_data)/ sizeof(uintptr_t)+1;
+	        errval_t err = lmp_deliver_payload(&perfmon_callback_ep,
+                             NULL,
+                             (uintptr_t*) &data,
+                             payload_len,
+                             false);
 
-                // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
-                assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);
+            // Make sure delivery was okay. SYS_ERR_LMP_BUF_OVERFLOW is okay for now
+            assert(err_is_ok(err) || err_no(err)==SYS_ERR_LMP_BUF_OVERFLOW);
         } else {
             // This should never happen, as interrupts are disabled in kernel
             printf("Performance counter overflow interrupt from "
@@ -869,7 +918,21 @@ static __attribute__ ((used)) void handle_irq(int vector)
     } else if (vector == APIC_INTER_CORE_VECTOR) {
         apic_eoi();
         ipi_handle_notify();
+    } else if (vector == APIC_INTER_HALT_VECTOR) {
+        apic_eoi();
+        // Update kernel_off for all KCBs
+        struct kcb *k = kcb_current;
+        do{
+            k->kernel_off = kernel_now;
+            k = k->next;
+        } while(k && k!=kcb_current);
+        // Stop the core
+        halt();
+    } else if (vector == APIC_SPURIOUS_INTERRUPT_VECTOR) {
+        // ignore
+        printk(LOG_DEBUG, "spurious interrupt\n");
     }
+
 #if 0
  else if (irq >= 0 && irq <= 15) { // classic PIC device interrupt
      printk(LOG_NOTE, "got interrupt %d!\n", irq);
@@ -1041,6 +1104,7 @@ void setup_default_idt(void)
     setgd(&idt[63], hwirq_63, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
 
     // Setup local APIC interrupt handlers
+    setgd(&idt[248], hwirq_248, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[249], hwirq_249, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[250], hwirq_250, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));
     setgd(&idt[251], hwirq_251, 0, SDT_SYSIGT, SEL_KPL, GSEL(KCODE_SEL, SEL_KPL));

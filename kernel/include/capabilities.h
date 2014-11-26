@@ -118,7 +118,7 @@ errval_t caps_revoke(struct cte *cte);
  */
 
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(ObjType_Num == 25, "knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 27, "knowledge of all cap types");
 #define ALL_PMEM_TYPES \
     ((1ul<<ObjType_RAM) | \
      (1ul<<ObjType_Frame) | \
@@ -134,7 +134,8 @@ STATIC_ASSERT(ObjType_Num == 25, "knowledge of all cap types");
      (1ul<<ObjType_VNode_x86_32_ptable) | \
      (1ul<<ObjType_VNode_ARM_l1) | \
      (1ul<<ObjType_VNode_ARM_l2) | \
-     (1ul<<ObjType_PhysAddr))
+     (1ul<<ObjType_PhysAddr) | \
+     (1ul<<ObjType_KernelControlBlock))
 
 //#define TRACE_TYPES_ENABLED_INITIAL 0x0
 #define TRACE_TYPES_ENABLED_INITIAL ALL_PMEM_TYPES

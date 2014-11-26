@@ -22,21 +22,41 @@
 #include "acpi_debug.h"
 #include "ioapic.h"
 
+extern bool mm_debug;
+
 // XXX: proper cap handling (del etc.)
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%"PRIxGENPADDR" maxlimit: 0x%"PRIxGENPADDR"\n",
-	       sizebits, minbase, maxlimit);
+    //mm_debug = true;
 
     struct capref devframe = NULL_CAP;
     /* errval_t err = mm_alloc_range(&pci_mm_physaddr, sizebits, minbase, maxlimit, &devframe, NULL); */
     errval_t err = mm_realloc_range(&pci_mm_physaddr, sizebits, minbase, &devframe);
     if (err_is_fail(err)) {
-    	DEBUG_ERR(err, "mm realloc range failed...\n");
+    	DEBUG_ERR(err, "mm alloc range failed...\n");
     }
 
+    //mm_debug = false;
+
     err = b->tx_vtbl.mm_alloc_range_proxy_response(b, NOP_CONT, devframe, err);
+    assert(err_is_ok(err));
+}
+
+static void mm_realloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
+                                           genpaddr_t minbase)
+{
+    ACPI_DEBUG("mm_realloc_range_proxy_handler: sizebits: %d, "
+               "minbase: 0x%"PRIxGENPADDR"\n",
+               sizebits, minbase);
+
+    struct capref devframe = NULL_CAP;
+    errval_t err = mm_realloc_range(&pci_mm_physaddr, sizebits, minbase, &devframe);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mm alloc range failed...\n");
+    }
+
+    err = b->tx_vtbl.mm_realloc_range_proxy_response(b, NOP_CONT, devframe, err);
     assert(err_is_ok(err));
 }
 
@@ -248,6 +268,7 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .enable_and_route_interrupt_call = enable_interrupt_handler,
 
     .mm_alloc_range_proxy_call = mm_alloc_range_proxy_handler,
+    .mm_realloc_range_proxy_call = mm_realloc_range_proxy_handler,
     .mm_free_proxy_call = mm_free_proxy_handler,
 
     .reset_call = reset_handler,

@@ -65,10 +65,16 @@
 #define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
 
 /// Number of entries in page cnode (in bits)
-#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
+#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 3)
 
 /// Number of entries in page cnode
 #define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)
+
+/// Number of entries in physaddr cnode (in bits)
+#define PHYSADDRCN_BITS (DEFAULT_CNODE_BITS + 2)
+
+/// Number of entries in physaddr cnode
+#define PHYSADDRCN_SLOTS (1UL << PHYSADDRCN_BITS)
 
 /// Number of entries in super cnode (in bits)
 #define SUPER_CNODE_BITS        (DEFAULT_CNODE_BITS + 2)
@@ -113,12 +119,11 @@
 #define TASKCN_SLOT_PERF_MON    14  ///< cap for performance monitoring
 #define TASKCN_SLOT_DISPFRAME2  15  ///< Copy of dispatcher frame cap (mapped into spawn vspace)
 #define TASKCN_SLOT_ARGSPAGE2   16  ///< Copy of environment cap (mapped into spawn vspace)
-#ifdef __k1om__
-#define TASKCN_SLOT_SYSMEM     17  ///< First free slot in taskcn for user
-#define TASKCN_SLOTS_USER       18  ///< First free slot in taskcn for user
-#else
-#define TASKCN_SLOTS_USER       17  ///< First free slot in taskcn for user
-#endif
+#define TASKCN_SLOT_SYSMEM      17  ///< ???
+#define TASKCN_SLOT_COREBOOT    18  ///< Copy of realmode section used to bootstrap a core
+#define TASKCN_SLOT_IPI         19  ///< Copy of IPI cap
+#define TASKCN_SLOTS_USER       20  ///< First free slot in taskcn for user
+
 /// Address bits resolved for the standard CNodes (taskcn, supercn, base_page_cn)
 #define DEFAULT_CN_ADDR_BITS    (CPTR_BITS - DEFAULT_CNODE_BITS)
 
@@ -164,10 +169,10 @@ struct mem_region {
  * allocate and manage its address space.
  */
 struct bootinfo {
-#ifdef __k1om__
+    /// For __k1om__
     uint64_t host_msg;
     uint8_t host_msg_bits;
-#endif
+
     /// Number of entries in regions array
     size_t              regions_length;
     /// Amount of memory required to spawn another core

@@ -43,6 +43,9 @@ void *shmat(int shmid, const void *shmaddr, int shmflg)
     struct _shm *s = &shms[shmid];
     errval_t err;
 
+    printf("%s:%s:%d: shmid = %d, shmaddr= %p, shmflg = %d\n",
+           __FILE__, __FUNCTION__, __LINE__, shmid, shmaddr, shmflg);
+
     struct frame_identity id;
     vregion_flags_t attr;
 
@@ -139,12 +142,9 @@ int shmget(key_t key, size_t size, int shmflg)
         oct_init(); // XXX: do some posixcompat initialization
         // XXX: Not multi-processing safe!
         errval_t err = oct_get_capability(skey, &s->frame);
-        POSIXCOMPAT_DEBUG("returned!\n");
-
         if(err_is_fail(err) && err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
             USER_PANIC_ERR(err, "nameservice_get_capability");
         }
-
         if(err == OCT_ERR_CAP_NAME_UNKNOWN) {
             if(!(shmflg & IPC_CREAT)) {
                 errno = ENOENT;
@@ -161,6 +161,10 @@ int shmget(key_t key, size_t size, int shmflg)
                 return -1;
             }
 
+            char buffer[1024];
+            debug_print_cap_at_capref(buffer, 1024, s->frame);
+            POSIXCOMPAT_DEBUG("%s:%d: store cap skey=%s capability=%s\n",
+                              __FILE__, __LINE__, skey, buffer);
             // XXX: This can fail if someone else won the race
             err = oct_put_capability(skey, s->frame);
             if(err_is_fail(err)) {

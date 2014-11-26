@@ -282,9 +282,9 @@ archive arch opts objs libs name libname =
       ++
       [ In BuildTree arch a | a <- libs ]
       ++
-      [ Str "; do ar x ../$$i; done" ]
+      [ Str "; do mkdir `basename $$i`; (cd `basename $$i`; ar x ../../$$i); done" ]
       ++
-      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ arch ++ name ++ "/*.o") ]
+      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ arch ++ name ++ "/*/*.o") ]
       ++
       [ NL, Str ("rm -fr tmp-" ++ arch ++ name) ]
     )

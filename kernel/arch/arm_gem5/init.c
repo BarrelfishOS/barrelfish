@@ -22,11 +22,14 @@
 #include <getopt/getopt.h>
 #include <cp15.h>
 #include <elf/elf.h>
-#include <arm_core_data.h>
+#include <barrelfish_kpi/arm_core_data.h>
+
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <start_aps.h>
+#include <kcb.h>
+#include <coreboot.h>
 
 #define GEM5_RAM_SIZE               (256UL*1024*1024)
 
@@ -272,6 +275,10 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     // Relocate global to "memory"
     global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
+    // Relocate kcb_current to "memory"
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
         struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
@@ -286,7 +293,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     kernel_startup_early();
 
     //initialize console
-     serial_console_init();
+    serial_console_init(true);
 
      // do not remove/change this printf: needed by regression harness
      printf("Barrelfish CPU driver starting on ARMv7 Board id 0x%08"PRIx32"\n", hal_get_board_id());
@@ -320,10 +327,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
      reset_cycle_counter();
 #endif
 
-     // tell BSP that we are started up
-     uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-     *ap_wait = AP_STARTED;
-
+     coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
      arm_kernel_startup();
 }
 
@@ -360,6 +364,10 @@ void arch_init(void *pointer)
 
         // Construct the global structure
         memset(&global->locks, 0, sizeof(global->locks));
+        
+        extern struct kcb bspkcb;
+        memset(&bspkcb, 0, sizeof(bspkcb));
+        kcb_current = &bspkcb;
     } else {
         global = (struct global *)GLOBAL_VBASE;
         memset(&global->locks, 0, sizeof(global->locks));

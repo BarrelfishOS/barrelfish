@@ -69,15 +69,15 @@ void print_stats(void)
            (allocations * 100) / NUM_BLOCKS, evictions);
 }
 
-static struct lru_queue *lru_get_untouched(uintptr_t index)
+static struct lru_queue *lru_get_untouched(uintptr_t idx)
 {
-    return lru + index;
+    return lru + idx;
 }
 
-static struct lru_queue *lru_use(uintptr_t index)
+static struct lru_queue *lru_use(uintptr_t idx)
 {
-    assert(index < NUM_BLOCKS);
-    struct lru_queue *e = &lru[index];
+    assert(idx < NUM_BLOCKS);
+    struct lru_queue *e = &lru[idx];
 
     // Make it new head of the queue
     if(e->prev != NULL) {
@@ -121,15 +121,15 @@ static void lru_init(void)
     lru_start->prev = lru_end->next = NULL;
 }
 
-uint64_t cache_get_block_length(uintptr_t index)
+uint64_t cache_get_block_length(uintptr_t idx)
 {
-    index /= BUFFER_CACHE_BLOCK_SIZE;
-    struct lru_queue *l = lru_get_untouched(index);
+    idx /= BUFFER_CACHE_BLOCK_SIZE;
+    struct lru_queue *l = lru_get_untouched(idx);
     return l->block_length;
 }
 
 key_state_t cache_lookup(char *key, size_t key_len,
-                         uintptr_t *index, uintptr_t *length)
+                         uintptr_t *idx, uintptr_t *length)
 {
     ENTRY_TYPE et;
     void *val;
@@ -141,8 +141,8 @@ key_state_t cache_lookup(char *key, size_t key_len,
         misses++;
         ret = KEY_MISSING;
     } else if (et == TYPE_WORD) {
-        *index = (uintptr_t)val;
-        struct lru_queue *l = lru_use(*index);
+        *idx = (uintptr_t)val;
+        struct lru_queue *l = lru_use(*idx);
         *length = l->block_length;
 
         if (l->in_transit) {
@@ -157,15 +157,15 @@ key_state_t cache_lookup(char *key, size_t key_len,
     }
 
     // Convert to byte offset from start of cache (XXX does this make sense when et == 0?)
-    *index *= BUFFER_CACHE_BLOCK_SIZE;
+    *idx *= BUFFER_CACHE_BLOCK_SIZE;
 
-    /* printf("cache_lookup(\"%s\", %" PRIuPTR ") = %s\n", key, *index, */
+    /* printf("cache_lookup(\"%s\", %" PRIuPTR ") = %s\n", key, *idx, */
     /*        et == TYPE_WORD ? "true" : "false"); */
     return ret;
 }
 
 void
-cache_register_wait(uintptr_t index, void *ptr)
+cache_register_wait(uintptr_t idx, void *ptr)
 {
     struct waitlist *wl;
     struct lru_queue *e;
@@ -177,8 +177,8 @@ cache_register_wait(uintptr_t index, void *ptr)
     wl->ptr = ptr;
     wl->next = NULL;
 
-    index /= BUFFER_CACHE_BLOCK_SIZE;
-    e = lru_get_untouched(index);
+    idx /= BUFFER_CACHE_BLOCK_SIZE;
+    e = lru_get_untouched(idx);
     if (e->waiters.start == NULL) {
         e->waiters.start = e->waiters.end = wl;
     } else {
@@ -189,12 +189,12 @@ cache_register_wait(uintptr_t index, void *ptr)
 }
 
 void *
-cache_get_next_waiter(uintptr_t index)
+cache_get_next_waiter(uintptr_t idx)
 {
     struct waitlist *wl;
     void *ret;
-    index /= BUFFER_CACHE_BLOCK_SIZE;
-    struct lru_queue *e = lru_get_untouched(index);
+    idx /= BUFFER_CACHE_BLOCK_SIZE;
+    struct lru_queue *e = lru_get_untouched(idx);
     if (e->waiters.start == NULL) {
         return NULL;
     }
@@ -243,11 +243,11 @@ uintptr_t cache_allocate(char *key, size_t key_len)
     return e->index * BUFFER_CACHE_BLOCK_SIZE;
 }
 
-void cache_update(uintptr_t index, uintptr_t length)
+void cache_update(uintptr_t idx, uintptr_t length)
 {
-    assert(index % BUFFER_CACHE_BLOCK_SIZE == 0);
-    index /= BUFFER_CACHE_BLOCK_SIZE;
-    struct lru_queue *l = lru_use(index);
+    assert(idx % BUFFER_CACHE_BLOCK_SIZE == 0);
+    idx /= BUFFER_CACHE_BLOCK_SIZE;
+    struct lru_queue *l = lru_use(idx);
     l->block_length = length;
     l->in_transit = false;
 }

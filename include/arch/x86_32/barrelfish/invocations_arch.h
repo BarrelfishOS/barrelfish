@@ -22,7 +22,6 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish/debug.h>
 
-
 /**
  * capability invocation syscall wrapper, copied from x86_64 version
  */
@@ -151,18 +150,10 @@ static inline errval_t invoke_cnode_create(struct capref root,
  *
  * \return Error code
  */
-// XXX: workaround for an inlining bug in gcc 4.3.4
-#if defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 3 && __GNUC_PATCHLEVEL__ <= 4
-static __attribute__ ((noinline,unused)) errval_t
-invoke_cnode_mint(struct capref root, capaddr_t to, capaddr_t slot, capaddr_t from,
-                  int tobits, int frombits, uintptr_t param1, uintptr_t param2)
-#else
 static inline errval_t invoke_cnode_mint(struct capref root, capaddr_t to,
                                          capaddr_t slot, capaddr_t from, int tobits,
                                          int frombits, uintptr_t param1,
                                          uintptr_t param2)
-#endif
 {
     uint8_t invoke_bits = get_cap_valid_bits(root);
     capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
@@ -330,12 +321,7 @@ static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_c
 static inline errval_t invoke_frame_identify(struct capref frame,
                                              struct frame_identity *ret)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret =
-        syscall2((invoke_bits << 16) | (FrameCmd_Identify << 8)
-                 | SYSCALL_INVOKE, invoke_cptr);
+    struct sysret sysret = cap_invoke1(frame, FrameCmd_Identify);
 
     assert(ret != NULL);
     if (err_is_ok(sysret.error)) {
@@ -492,6 +478,22 @@ static inline errval_t invoke_dispatcher_setup_guest(struct capref dispatcher,
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
+static inline errval_t invoke_irqtable_alloc_vector(struct capref irqcap, int *retirq)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(irqcap);
+    capaddr_t invoke_cptr = get_cap_addr(irqcap) >> (CPTR_BITS - invoke_bits);
+
+    struct sysret ret = syscall2(
+                    (invoke_bits << 16) | (IRQTableCmd_Alloc << 8) | SYSCALL_INVOKE,
+                    invoke_cptr);
+    if (err_is_ok(ret.error)) {
+        *retirq = ret.value;
+    } else {
+        *retirq = 0;
+    }
+    return ret.error;
+}
+
 static inline errval_t invoke_irqtable_set(struct capref irqcap, int irq,
                                            struct capref ep)
 {
@@ -610,7 +612,6 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
                                              idcap_id_t *id)
 {
     assert(id != NULL);
-
     uint8_t invoke_bits = get_cap_valid_bits(idcap);
     capaddr_t invoke_cptr = get_cap_addr(idcap) >> (CPTR_BITS - invoke_bits);
 
@@ -621,4 +622,36 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
 
     return sysret.error;
 }
+
+static inline errval_t invoke_send_init_ipi(struct capref ipi_cap, coreid_t core_id)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(ipi_cap);
+    capaddr_t invoke_cptr = get_cap_addr(ipi_cap) >> (CPTR_BITS - invoke_bits);
+
+    return
+        syscall3((invoke_bits << 16) | (IPICmd_Send_Init << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) core_id).error;
+}
+
+static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t core_id, forvaddr_t entry)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(ipi_cap);
+    capaddr_t invoke_cptr = get_cap_addr(ipi_cap) >> (CPTR_BITS - invoke_bits);
+
+    return
+        syscall4((invoke_bits << 16) | (IPICmd_Send_Start << 8) | SYSCALL_INVOKE,
+                 invoke_cptr, (uintptr_t) core_id, (uintptr_t) entry).error;
+
+}
+
+static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
+{
+    struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
+    if (err_is_ok(sr.error)) {
+        *global = sr.value;
+    }
+
+    return sr.error;
+}
+
 #endif // INVOCATIONS_ARCH_H

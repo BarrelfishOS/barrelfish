@@ -709,7 +709,7 @@ do_exec_pty(Session *s, const char *command)
 
     /* inherit the session capability */
     struct capref inheritcn_cap;
-    err = alloc_inheritcn_with_sidcap(&inheritcn_cap, session_id);
+    err = alloc_inheritcn_with_caps(&inheritcn_cap, NULL_CAP, session_id, NULL_CAP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error allocating inherit CNode with session cap.");
     }
