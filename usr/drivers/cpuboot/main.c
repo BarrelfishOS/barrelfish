@@ -157,7 +157,7 @@ static int list_cpu(int argc, char **argv) {
 
 static int boot_cpu(int argc, char **argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     
     archid_t target_apic_id;
@@ -205,7 +205,7 @@ static int boot_cpu(int argc, char **argv)
 
 static int update_cpu(int argc, char** argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     
     archid_t target_apic_id;
@@ -254,7 +254,7 @@ static int update_cpu(int argc, char** argv)
 
 static int stop_cpu(int argc, char** argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
     archid_t target_apic_id;
@@ -281,7 +281,7 @@ static int give_kcb(int argc, char** argv)
     DEBUG("%s:%d: Give KCB from core %s to core %s...\n",
           __FILE__, __LINE__, argv[1], argv[2]);
 
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     struct capref kcb;
     errval_t err = create_or_get_kcb_cap(target_id, &kcb);
@@ -289,7 +289,7 @@ static int give_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
 
-    coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 16);
+    coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 0);
     assert(destination_id < MAX_COREID);
 
     /*err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
@@ -312,7 +312,7 @@ static int remove_kcb(int argc, char** argv)
     DEBUG("%s:%s:%d: Stopping kcb.%s\n", __FILE__,
           __FUNCTION__, __LINE__, argv[1]);
 
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     struct capref kcb;
     errval_t err = create_or_get_kcb_cap(target_id, &kcb);
@@ -334,7 +334,7 @@ static int remove_kcb(int argc, char** argv)
     }
     done = true;
 
-    //coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 16);
+    //coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 0);
     //assert(destination_id < MAX_COREID);
     //
     // Move KCB to a core that is currently running
@@ -498,6 +498,12 @@ int main (int argc, char **argv)
     }
     //
 #endif
+
+    for (int i=0; i<argc; i++) {
+        DEBUG("%s:%s:%d: argv[%d] = %s\n", 
+               __FILE__, __FUNCTION__, __LINE__, i, argv[i]);        
+    }
+
 
     DEBUG("corectrl got lock\n");
     // Parse arguments, call handler function

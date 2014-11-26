@@ -116,8 +116,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         // Copy kernel args over to new core
         struct module_info* cpu_module = find_module("cpu");
         if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
-            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s barrelfish_id_s=%s\n", 
-                   __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
+            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n", 
+                         __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
             argv[argc] = "-a";
             argc += 1;
             argv[argc] = cpu_module->args;
