@@ -132,11 +132,12 @@ class ParkRebootTest(CoreCtrlTest):
 
     def get_modules(self, build, machine):
         modules = super(ParkRebootTest, self).get_modules(build, machine)
+        self.core = 1
         if machine.get_ncores() <= 2:
             self.parking_core = 0
         else:
             self.parking_core = 2
-        modules.add_module("periodicprint", args=["core=1"])
+        modules.add_module("periodicprint", args=["core=%d" % self.core])
         return modules
 
     def interact(self):
