@@ -71,7 +71,6 @@ extern bool bsp_monitor;
 extern struct capref trace_cap;
 extern struct bootinfo *bi;
 extern bool update_ram_alloc_binding;
-extern int num_monitors;
 
 union capability_caprep_u {
     intermon_caprep_t caprep;

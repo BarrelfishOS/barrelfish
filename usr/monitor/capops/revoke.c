@@ -89,7 +89,7 @@ capops_revoke(struct domcapref cap,
         capops_retrieve(rst->cap, revoke_retrieve__rx, st);
     }
     else {
-        if (num_monitors == 1) {
+        if (num_monitors_online() == 1) {
             DEBUG_CAPOPS("%s: only one monitor: do simpler revoke\n",
                     __FUNCTION__);
             // no remote monitors exist; do simplified revocation process
@@ -170,7 +170,7 @@ revoke_local(struct revoke_master_st *st)
 static void
 revoke_no_remote(struct revoke_master_st *st)
 {
-    assert(num_monitors == 1);
+    assert(num_monitors_online() == 1);
 
     if (!delete_steps_get_waitset()) {
         delete_steps_init(get_default_waitset());

@@ -107,4 +107,6 @@ void revoke_ready__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_commit__rx(struct intermon_binding *b, genvaddr_t st);
 void revoke_done__rx(struct intermon_binding *b, genvaddr_t st);
 
+size_t num_monitors_online(void);
+
 #endif
