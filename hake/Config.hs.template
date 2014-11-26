@@ -195,11 +195,6 @@ lazy_thc | elem "armv7" architectures   = False
 	 | elem "xscale" architectures  = False
          | otherwise                    = True
 
--- Select remote cap database implementation
-data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
-rcap_db :: Rcap_db
-rcap_db = RCAP_DB_NULL
-
 -- Enable capability tracing debug facility
 caps_trace :: Bool
 caps_trace = False
