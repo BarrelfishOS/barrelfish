@@ -35,7 +35,7 @@
 #include <arch/x86/timing.h>
 #include <fpu.h>
 #include <arch/x86/ipi_notify.h>
-#include <amd_vmcb_dev.h>
+#include <dev/amd_vmcb_dev.h>
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 

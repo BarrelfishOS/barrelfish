@@ -15,7 +15,7 @@
 #ifndef IOAPIC_H
 #define IOAPIC_H
 
-#include "lpc_ioapic_dev.h"
+#include <dev/lpc_ioapic_dev.h>
 #include "lpc_ioapic_ioapic_impl.h"
 
 struct ioapic {

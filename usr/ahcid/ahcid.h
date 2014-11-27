@@ -10,7 +10,7 @@
 #ifndef AHCID_H_
 #define AHCID_H_
 #include <barrelfish/barrelfish.h>
-#include "ahci_port_dev.h"
+#include <dev/ahci_port_dev.h>
 #include <ahci/ahci_dma_pool.h>
 
 enum ahcid_port_status {

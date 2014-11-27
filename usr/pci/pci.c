@@ -31,7 +31,7 @@
 #include "pci.h"
 #include "driver_mapping.h"
 #include "ht_config.h"
-#include "ht_config_dev.h"
+#include <dev/ht_config_dev.h>
 #include "pci_debug.h"
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))

@@ -8,7 +8,7 @@
 #ifndef PCI_ETHERNET_H_
 #define PCI_ETHERNET_H_
 
-#include "pci_hdr0_mem_dev.h"
+#include <dev/pci_hdr0_mem_dev.h>
 #include "pci.h"
 
 // Mask for the MMIO region size

@@ -21,7 +21,7 @@
 #include <exec.h>
 #include <barrelfish_kpi/vmkit.h>
 
-#include <amd_vmcb_dev.h>
+#include <dev/amd_vmcb_dev.h>
 
 // SVM relevant CPUID info
 #define CPUID_AMD_EXTFEAT       0x80000001

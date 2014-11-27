@@ -10,7 +10,7 @@
 #ifndef E10K_H_
 #define E10K_H_
 
-#include "e10k_dev.h"
+#include <dev/e10k_dev.h>
 
 #define E10K_PCI_DEVID 0x10FB
 //#define E10K_PCI_DEVID 0x154d

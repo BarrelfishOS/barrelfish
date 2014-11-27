@@ -16,7 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <pci/pci.h>
 #include "serial.h"
-#include "pc16550d_dev.h"
+#include <dev/pc16550d_dev.h>
 
 static struct pc16550d_t uart;
 static uint16_t portbase;

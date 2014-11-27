@@ -47,9 +47,9 @@
 #include <dev/omap/omap44xx_sysctrl_padconf_wkup_dev.h>
 #include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
 #include <dev/omap/omap44xx_ehci_dev.h>
-#include <omap/omap44xx_ckgen_prm_dev.h>
-#include <omap/omap44xx_l4per_cm2_dev.h>
-#include <omap/omap44xx_l3init_cm2_dev.h>
+#include <dev/omap/omap44xx_ckgen_prm_dev.h>
+#include <dev/omap/omap44xx_l4per_cm2_dev.h>
+#include <dev/omap/omap44xx_l3init_cm2_dev.h>
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))

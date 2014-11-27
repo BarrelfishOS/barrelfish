@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include "sif.h"
-#include "crb_sif_dev.h"
+#include <dev/crb_sif_dev.h>
 
 static struct crb_sif_t sif;
 

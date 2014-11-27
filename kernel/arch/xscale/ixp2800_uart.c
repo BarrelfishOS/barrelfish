@@ -15,7 +15,7 @@
 #include <kernel.h>
 #include <arm.h>
 
-#include <ixp2800_uart_dev.h>
+#include <dev/ixp2800_uart_dev.h>
 #include <ixp2800_uart.h>
 
 /** \brief Initialize uart  */
