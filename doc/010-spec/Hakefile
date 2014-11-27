@@ -15,12 +15,10 @@ let
     circo f = [ Str "circo", Str "-Tpdf",
                 In SrcTree "src" (f ++ ".circo"), Str "-o", Out "tools" (figoutput f), NL ]
     dot f = [ Str "dot", Str "-Tpdf",
-              In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
+            In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
 in
   [ buildTechNoteWithDeps "Spec.tex" "TN-010-Spec.pdf" True False []
     (concat [dot "app_cspace", circo "disp_states_simple",
-             dot "disp_states_simple_save_area_analysis", dot "init_cspace"]
-    ++ [ Str "hg", Str "-R", NoDep SrcTree "src" "/",
-         Str "log -l 1 --template 'Revision {rev} of {date|shortdate}\\n'",
-         In SrcTree "src" "Spec.tex", Str ">", Out "tools" "/tmp/specdate.tex", NL ])
+             dot "disp_states_simple_save_area_analysis", dot "init_cspace"] )
   ]
+
