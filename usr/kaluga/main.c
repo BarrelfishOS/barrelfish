@@ -31,6 +31,7 @@
 #include <vfs/vfs.h>
 #include <octopus/octopus.h>
 #include <skb/skb.h>
+#include <thc/thc.h>
 
 #include <trace/trace.h>
 
@@ -79,7 +80,7 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Initialize octopus service.");
     }
 
-    printf("Kaluga: parse boot modules...\n");
+    KALUGA_DEBUG("Kaluga: parse boot modules...\n");
 
     err = init_boot_modules();
     if (err_is_fail(err)) {
@@ -90,7 +91,7 @@ int main(int argc, char** argv)
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
     assert(my_core_id == BSP_CORE_ID);
-    printf("Kaluga running on x86.\n");
+    KALUGA_DEBUG("Kaluga running on x86.\n");
 
     err = skb_client_connect();
     if (err_is_fail(err)) {
@@ -109,24 +110,28 @@ int main(int argc, char** argv)
     char* record = NULL;
     err = oct_barrier_enter("barrier.acpi", &record, 2);
 
+    KALUGA_DEBUG("Kaluga: watch_for_cores\n");
+
     err = watch_for_cores();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching cores.");
     }
 
-    printf("Kaluga: pci_root_bridge\n");
+    KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
 
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI root bridges.");
     }
 
-    printf("Kaluga: pci_devices\n");
+    KALUGA_DEBUG("Kaluga: pci_devices\n");
 
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
+
+    KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
     err = wait_for_all_spawnds();
     if (err_is_fail(err)) {

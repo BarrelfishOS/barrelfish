@@ -690,6 +690,7 @@ GEM5_MODULES=\
 	armv7/sbin/ramfsd \
 	armv7/sbin/spawnd \
 	armv7/sbin/startd \
+	armv7/sbin/corectrl \
 	armv7/sbin/skb \
 	armv7/sbin/memtest
 

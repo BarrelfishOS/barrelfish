@@ -44,12 +44,6 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
             goto out;
         }
 
-        // XXX: copied this line from spawnd bsp_bootup,
-        // not sure why x86_64 is hardcoded here but it
-        // seems broken...
-        skb_add_fact("corename(%"PRIu64", x86_64, apic(%"PRIu64")).",
-                barrelfish_id, arch_id);
-
         struct module_info* mi = find_module("corectrl");
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
@@ -80,7 +74,7 @@ static char* local_apics = "r'hw\\.processor\\.[0-9]+' { processor_id: _, "
 errval_t watch_for_cores(void)
 {
     octopus_trigger_id_t tid;
-   return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
+    return oct_trigger_existing_and_watch(local_apics, cpu_change_event, NULL, &tid);
 }
 
 errval_t start_boot_driver(coreid_t where, struct module_info* mi,
@@ -98,9 +92,10 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     uint64_t barrelfish_id, apic_id, cpu_type;
     char **argv = mi->argv;
     bool cleanup = false;
+    char barrelfish_id_s[10];
     size_t argc = mi->argc;
 
-    KALUGA_DEBUG("Starting corectrl for %s", record);
+    KALUGA_DEBUG("Starting corectrl for %s\n", record);
     err = oct_read(record, "_ { apic_id: %d, barrelfish_id: %d, type: %d }",
             &apic_id, &barrelfish_id, &cpu_type);
     if (err_is_ok(err)) {
@@ -112,13 +107,22 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         
         argv = malloc((argc+1) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
-        char *barrelfish_id_s  = malloc(10);
-        snprintf(barrelfish_id_s, 10, "%"PRIx64"", barrelfish_id);
+        snprintf(barrelfish_id_s, 10, "%"PRIu64"", barrelfish_id);
 
         argv[argc] = "boot";
         argc += 1;
         argv[argc] = barrelfish_id_s;
         argc += 1;
+        // Copy kernel args over to new core
+        struct module_info* cpu_module = find_module("cpu");
+        if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
+            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n", 
+                         __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
+            argv[argc] = "-a";
+            argc += 1;
+            argv[argc] = cpu_module->args;
+            argc += 1;
+        }
         argv[argc] = NULL;
 
         cleanup = true;
@@ -159,7 +163,6 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     }
 
     if (cleanup) {
-        free(argv[argc-1]);
         free(argv);
     }
 
@@ -193,8 +196,6 @@ errval_t wait_for_all_spawnds(void)
     // However, some of our code (for example domain spanning)
     // still assumes a fixed set of cores and will deadlock
     // otherwise. Therefore we need to fix those parts first.
-
-
     KALUGA_DEBUG("Waiting for acpi");
     char* record = NULL;
     errval_t err = oct_wait_for(&record, "acpi { iref: _ }");
@@ -202,7 +203,7 @@ errval_t wait_for_all_spawnds(void)
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
     }
-    
+
     // No we should be able to get core count
     // of all cores to estimate the amount of 
     // spawnd's we have to expect (one per core)

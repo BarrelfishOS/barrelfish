@@ -14,25 +14,35 @@ from common import InteractiveTest
 
 START_CPU_DRIVER = "Barrelfish CPU driver starting"
 
+class CoreCtrlTest(InteractiveTest):
+    '''Framework for coreboot test'''
+
+    def get_modules(self, build, machine):
+        modules = super(CoreCtrlTest, self).get_modules(build, machine)
+        if machine.get_ncores() > 2:
+            self.core = 2
+        else:
+            self.core = 1
+        return modules
+
 @tests.add_test
-class StopCoreTest(InteractiveTest):
+class StopCoreTest(CoreCtrlTest):
     '''Stop a core.'''
 
     name = 'stop_core'
 
     def get_modules(self, build, machine):
         modules = super(StopCoreTest, self).get_modules(build, machine)
-        modules.add_module("periodicprint", args=["core=2"])
+        modules.add_module("periodicprint", args=["core=%d" % self.core ])
         return modules
 
     def interact(self):
         self.wait_for_fish()
 
         time.sleep(5)
-        self.core = 2
         debug.verbose("Stopping core %s." % self.core)
         self.console.sendline("corectrl stop %s" % self.core)
-        
+
         # Stop core
         debug.verbose("Wait until core is down.")
         self.console.expect("Core %s stopped." % self.core)
@@ -45,18 +55,17 @@ class StopCoreTest(InteractiveTest):
 
 
 @tests.add_test
-class UpdateKernelTest(InteractiveTest):
+class UpdateKernelTest(CoreCtrlTest):
     '''Update a kernel on a core.'''
 
     name = 'update_kernel'
 
     def get_modules(self, build, machine):
         modules = super(UpdateKernelTest, self).get_modules(build, machine)
-        modules.add_module("periodicprint", args=["core=2"])
+        modules.add_module("periodicprint", args=["core=%d" % self.core])
         return modules
 
     def interact(self):
-        self.core = 2
         self.wait_for_fish()
 
         # Reboot core
@@ -69,20 +78,21 @@ class UpdateKernelTest(InteractiveTest):
 
 
 @tests.add_test
-class ParkOSNodeTest(InteractiveTest):
+class ParkOSNodeTest(CoreCtrlTest):
     '''Park an OSNode on a core.'''
     name = 'park_osnode'
 
     def get_modules(self, build, machine):
         modules = super(ParkOSNodeTest, self).get_modules(build, machine)
-        modules.add_module("periodicprint", args=["core=2"])
+        if machine.get_ncores() > 3:
+            self.target_core = 3
+        else:
+            self.target_core = 0
+        modules.add_module("periodicprint", args=["core=%d" % self.core])
         return modules
 
     def interact(self):
         self.wait_for_fish()
-        
-        self.core = 2
-        self.target_core = 3
 
         self.console.expect("On core %s" % self.core)
 
@@ -100,7 +110,7 @@ class ParkOSNodeTest(InteractiveTest):
 
 
 @tests.add_test
-class ListKCBTest(InteractiveTest):
+class ListKCBTest(CoreCtrlTest):
     '''List all KCBs.'''
     name = 'list_kcb_cores'
 
@@ -116,20 +126,22 @@ class ListKCBTest(InteractiveTest):
 
 
 @tests.add_test
-class ParkRebootTest(InteractiveTest):
+class ParkRebootTest(CoreCtrlTest):
     '''Park OSNode and move it back.'''
     name = 'park_boot'
 
     def get_modules(self, build, machine):
         modules = super(ParkRebootTest, self).get_modules(build, machine)
-        modules.add_module("periodicprint", args=["core=1"])
+        self.core = 1
+        if machine.get_ncores() <= 2:
+            self.parking_core = 0
+        else:
+            self.parking_core = 2
+        modules.add_module("periodicprint", args=["core=%d" % self.core])
         return modules
 
     def interact(self):
         self.wait_for_fish()
-        
-        self.core = 1
-        self.parking_core = 2
 
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)

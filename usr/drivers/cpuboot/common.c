@@ -59,7 +59,7 @@ static errval_t add_kcb_record(uint32_t kcb_id, coreid_t core_id, char* kcb_key)
     return err;
 }
 
-errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
+errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
 {
     errval_t err;
     struct capref kcb_mem;
@@ -76,7 +76,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
           __FILE__, __FUNCTION__, __LINE__, kcb_key);
 
     if (!new_kcb_flag) {
-        err = oct_get_capability(kcb_key, kcb);
+        err = oct_get_capability(kcb_key, the_kcb);
         if (err_is_ok(err)) {
             DEBUG("%s:%s:%d: kcb cap was cached\n",
                   __FILE__, __FUNCTION__, __LINE__);
@@ -96,13 +96,13 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
         return err;
     }
 
-    err = slot_alloc(kcb);
+    err = slot_alloc(the_kcb);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failure in slot_alloc.");
         return err;
     }
 
-    err = cap_retype(*kcb, kcb_mem,
+    err = cap_retype(*the_kcb, kcb_mem,
                      ObjType_KernelControlBlock,
                      OBJBITS_KCB);
     if (err_is_fail(err)) {
@@ -113,7 +113,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* kcb)
     if (!new_kcb_flag) {
         DEBUG("%s:%s:%d: Store the kcb.\n",
               __FILE__, __FUNCTION__, __LINE__);
-        err = oct_put_capability(kcb_key, *kcb);
+        err = oct_put_capability(kcb_key, *the_kcb);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "can not save the capability.");
             return err;

@@ -19,10 +19,30 @@
 
 
 uint64_t tsc_hz;
+static uint64_t tscperms;
+static uint64_t tscperus;
 
 void bench_arch_init(void)
 {
-	errval_t err = sys_debug_hardware_timer_hertz_read((uintptr_t *)&tsc_hz);
-	assert(err_is_ok(err));
+    errval_t err = sys_debug_hardware_timer_hertz_read((uintptr_t *)&tsc_hz);
+    assert(err_is_ok(err));
+    tscperms = tsc_hz / 1000;
+    tscperus = tscperms / 1000;
 }
 
+uint64_t bench_tsc_to_ms(cycles_t tsc)
+{
+    return tsc / tscperms;
+}
+uint64_t bench_tsc_to_us(cycles_t tsc)
+{
+    return tsc / tscperus;
+}
+uint64_t bench_tsc_per_us(void)
+{
+    return tscperus;
+}
+uint64_t bench_tsc_per_ms(void)
+{
+    return tscperms;
+}

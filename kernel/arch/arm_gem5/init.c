@@ -23,11 +23,13 @@
 #include <cp15.h>
 #include <elf/elf.h>
 #include <barrelfish_kpi/arm_core_data.h>
+
 #include <startup_arch.h>
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <start_aps.h>
 #include <kcb.h>
+#include <coreboot.h>
 
 #define GEM5_RAM_SIZE               (256UL*1024*1024)
 
@@ -273,6 +275,10 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     // Relocate global to "memory"
     global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
+    // Relocate kcb_current to "memory"
+    kcb_current = (struct kcb *)
+        local_phys_to_mem((lpaddr_t) kcb_current);
+
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
         struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
@@ -321,10 +327,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
      reset_cycle_counter();
 #endif
 
-     // tell BSP that we are started up
-     uint32_t *ap_wait = (uint32_t*)local_phys_to_mem(AP_WAIT_PHYS);
-     *ap_wait = AP_STARTED;
-
+     coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
      arm_kernel_startup();
 }
 

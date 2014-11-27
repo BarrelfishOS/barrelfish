@@ -16,8 +16,6 @@
 #define OCTOPUS_PUBSUB_H_
 
 #include <stdint.h>
-#include <if/octopus_defs.h>
-
 #include <octopus/trigger.h>
 
 typedef octopus_trigger_id_t subscription_t;

@@ -28,10 +28,6 @@ extern bool mm_debug;
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%lx maxlimit: 0x%lx\n",
-               "minbase: 0x%"PRIxGENPADDR" maxlimit: 0x%"PRIxGENPADDR"\n",
-	       sizebits, minbase, maxlimit);
-
     //mm_debug = true;
 
     struct capref devframe = NULL_CAP;

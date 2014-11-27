@@ -96,7 +96,7 @@ static int parse_core_list(char *list, coreid_t *from, coreid_t *to, coreid_t *s
     assert(from && to && step);
 
     int num, parsed_from,parsed_to,parsed_step;
-    num = sscanf(list, "%x:%x:%x", &parsed_from, &parsed_to, &parsed_step);
+    num = sscanf(list, "%i:%i:%i", &parsed_from, &parsed_to, &parsed_step);
     switch(num) {
         case 1:
             *from = (coreid_t)parsed_from;
@@ -187,7 +187,12 @@ static int list_cpu(int argc, char **argv) {
 static int boot_cpu(int argc, char **argv)
 {
     coreid_t core_from = 0, core_to = 0, core_step = 0;
-    parse_core_list(argv[1], &core_from, &core_to, &core_step);
+    int parsed = parse_core_list(argv[1], &core_from, &core_to, &core_step);
+
+    if (parsed == 0) {
+    	USER_PANIC("invalid CPU ID: %s", argv[1]);
+    }
+
     for (coreid_t target_id = core_from; target_id<=core_to; target_id += core_step) {
         //coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
         assert(target_id < MAX_COREID);
@@ -238,7 +243,7 @@ static int boot_cpu(int argc, char **argv)
 
 static int update_cpu(int argc, char** argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
     archid_t target_apic_id;
@@ -287,7 +292,7 @@ static int update_cpu(int argc, char** argv)
 
 static int stop_cpu(int argc, char** argv)
 {
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
     archid_t target_apic_id;
@@ -314,7 +319,7 @@ static int give_kcb(int argc, char** argv)
     DEBUG("%s:%d: Give KCB from core %s to core %s...\n",
           __FILE__, __LINE__, argv[1], argv[2]);
 
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     struct capref kcb;
     errval_t err = create_or_get_kcb_cap(target_id, &kcb);
@@ -322,7 +327,7 @@ static int give_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
 
-    coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 16);
+    coreid_t destination_id = (coreid_t) strtol(argv[2], NULL, 0);
     assert(destination_id < MAX_COREID);
 
     /*err = sys_debug_send_ipi(target_id, 0, APIC_INTER_HALT_VECTOR);
@@ -345,7 +350,7 @@ static int remove_kcb(int argc, char** argv)
     DEBUG("%s:%s:%d: Stopping kcb.%s\n", __FILE__,
           __FUNCTION__, __LINE__, argv[1]);
 
-    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
+    coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
     struct capref kcb;
     errval_t err = create_or_get_kcb_cap(target_id, &kcb);
@@ -367,7 +372,7 @@ static int remove_kcb(int argc, char** argv)
     }
     done = true;
 
-    //coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 16);
+    //coreid_t destination_id = (coreid_t) strtol(argv[3], NULL, 0);
     //assert(destination_id < MAX_COREID);
     //
     // Move KCB to a core that is currently running
@@ -515,6 +520,8 @@ static void print_cmd_help(char* cmd)
 
 int main (int argc, char **argv)
 {
+    errval_t err;
+
     initialize();
     int ret = -1;
 
@@ -522,7 +529,6 @@ int main (int argc, char **argv)
 
 #if defined(__x86__)
     // ENSURE_SEQUENTIAL
-    errval_t err;
     char *lock;
     err = oct_lock("corectrl.lock", &lock);
     if (err_is_fail(err)) {
@@ -530,6 +536,12 @@ int main (int argc, char **argv)
     }
     //
 #endif
+
+    for (int i=0; i<argc; i++) {
+        DEBUG("%s:%s:%d: argv[%d] = %s\n", 
+               __FILE__, __FUNCTION__, __LINE__, i, argv[i]);        
+    }
+
 
     DEBUG("corectrl got lock\n");
     // Parse arguments, call handler function
@@ -608,7 +620,7 @@ int main (int argc, char **argv)
         DEBUG("%s:%s:%d: Wait for message.\n",
               __FILE__, __FUNCTION__, __LINE__);
         while(!done) {
-            errval_t err = event_dispatch(get_default_waitset());
+            err = event_dispatch(get_default_waitset());
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "error in event_dispatch");
             }
