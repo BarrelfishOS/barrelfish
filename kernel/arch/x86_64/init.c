@@ -481,11 +481,12 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Enable machine check reporting
     mcheck_init();
 
-    // do not remove/change this printf: needed by regression harness
-    printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
-    
     // Initialize local APIC
     apic_init();
+
+    // do not remove/change this printf: needed by regression harness
+    printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
+   
 
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC
