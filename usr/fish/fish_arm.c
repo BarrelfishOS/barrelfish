@@ -79,7 +79,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
     assert(retdomainid != NULL);
 
     argv[argc] = NULL;
-    err = spawn_program(coreid, prog, argv, NULL, SPAWN_NEW_DOMAIN,
+    err = spawn_program(coreid, prog, argv, NULL, SPAWN_FLAGS_NEW_DOMAIN,
                         retdomainid);
 
     if (prog != argv[0]) {

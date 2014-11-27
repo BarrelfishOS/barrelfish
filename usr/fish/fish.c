@@ -91,7 +91,7 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
 
     argv[argc] = NULL;
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
-                                  NULL_CAP, SPAWN_NEW_DOMAIN, retdomainid);
+                                  NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN, retdomainid);
 
     if (prog != argv[0]) {
         free(prog);
@@ -169,7 +169,7 @@ static struct pixels_binding my_pixels_bindings[NUM_PIXELS];
 
 static int acks = 0;
 
-static void pixels_ack(struct pixels_binding *cl) 
+static void pixels_ack(struct pixels_binding *cl)
 {
     acks--;
 }
@@ -181,11 +181,11 @@ static struct pixels_rx_vtbl pixels_vtbl = {
 static void my_pixels_bind_cb(void *st, errval_t err, struct pixels_binding *b)
 {
     struct pixels_binding *pb = (struct pixels_binding *)st;
-    
+
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bind failed");
     }
-    
+
     pb->rx_vtbl = pixels_vtbl;
     pixels_connected++;
 }
@@ -204,9 +204,9 @@ static void pixels_init(void)
         char name[16];
         iref_t serv_iref;
         errval_t err;
-        
+
         sprintf(name, "pixels.%d", core);
-        
+
         /* Connect to the server */
         err = nameservice_blocking_lookup(name, &serv_iref);
         if (err_is_fail(err)) {
@@ -218,9 +218,9 @@ static void pixels_init(void)
 	    DEBUG_ERR(err, "failed to get a valid iref back from lookup");
 	    exit(EXIT_FAILURE);
 	}
-  
-	err = pixels_bind(serv_iref, 
-			  my_pixels_bind_cb, 
+
+	err = pixels_bind(serv_iref,
+			  my_pixels_bind_cb,
 			  &my_pixels_bindings[core],
 			  get_default_waitset(),
 			  IDC_BIND_FLAGS_DEFAULT);
@@ -230,20 +230,20 @@ static void pixels_init(void)
 	}
     }
 
-    while (pixels_connected < NUM_PIXELS) 
+    while (pixels_connected < NUM_PIXELS)
 	messages_wait_and_handle_next();
-    
+
     printf("connected to pixels server\n");
     pixels_inited = true;
 }
 
 static const char *scroller = "Barrelfish posse in full effect!!!   ";
-       
+
 static char c64map(char c) {
     if ('A' <= c && c <= 'Z') {
         return 65 + c-'A';
     } else if ('a' <= c && c <= 'z') {
-        return 1 + c-'a';        
+        return 1 + c-'a';
     } else if (c == ' ') {
         return 32;
     } else if (c == '!') {
@@ -265,20 +265,20 @@ static int demo(int argc, char *argv[])
     int frames = FRAMES;
 
     if (!pixels_inited) pixels_init();
-    
+
     if (argc == 3) {
         pixwidth = atoi(argv[1]);
         frames = atoi(argv[2]);
     }
     int width = 8 * strlen(scroller);
-    
+
     for (int x = 0; x < width - RENDER_WIDTH; x++) {
 
         // Repeat each frame a few times to slow down scrolling!
         for (int f = 0; f < frames; f++) {
         trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_PCBENCH, 1);
         for(int i = 0; i < RENDER_WIDTH; i++) {
-            
+
             int xpos = (x + i)%width;
             char ascii = scroller[xpos >> 3];
             char c64char = c64map(ascii);
@@ -287,17 +287,17 @@ static int demo(int argc, char *argv[])
             acks = 0;
             for (core = 0 ;core < 8; core++) {
                 unsigned char bits = font[c64char*8 + (7-core)];
-                
+
                 if (bits & (1<<(7-xsub)) ) {
 
                     my_pixels_bindings[core+2].tx_vtbl.display(&my_pixels_bindings[core+2], NOP_CONT, pixwidth);
                     acks++;
                 }
             }
-            
+
             uint64_t now = rdtsc();
-            
-            while (acks) {             
+
+            while (acks) {
                 messages_wait_and_handle_next();
             }
             while (rdtsc() - now < pixwidth) ;
@@ -676,7 +676,7 @@ static int dd(int argc, char *argv[])
 
     vfs_handle_t source_vh = NULL;
     vfs_handle_t target_vh = NULL;
-    
+
     size_t blocksize = 512;
     size_t count = 0;
     size_t skip = 0;
@@ -819,7 +819,7 @@ static int dd(int argc, char *argv[])
 out:
     if (buffer != NULL)
         free(buffer);
-    
+
     if (source_vh != NULL) {
         err = vfs_close(source_vh);
         if (err_is_fail(err)) {
@@ -843,9 +843,9 @@ out:
 
     double kbps = ((double)total_bytes_written / 1024.0) / elapsed_secs;
 
-    printf("%zd bytes read. %zd bytes written. %f s, %f kB/s\n", total_bytes_read, total_bytes_written, elapsed_secs, kbps); 
+    printf("%zd bytes read. %zd bytes written. %f s, %f kB/s\n", total_bytes_read, total_bytes_written, elapsed_secs, kbps);
 #else
-    printf("%zd bytes read. %zd bytes written.\n", total_bytes_read, total_bytes_written); 
+    printf("%zd bytes read. %zd bytes written.\n", total_bytes_read, total_bytes_written);
 #endif
 
     return ret;

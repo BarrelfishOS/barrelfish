@@ -57,7 +57,7 @@ static void start_shell(struct capref session_id, char *terminal_type)
     /* spawn shell on the same core */
     extern char **environ;
     err = spawn_program_with_caps(my_core_id, shell, shell_argv, environ,
-                                  inheritcn_cap, NULL_CAP, SPAWN_NEW_DOMAIN,
+                                  inheritcn_cap, NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN,
                                   NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error spawning shell.");

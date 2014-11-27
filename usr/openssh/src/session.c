@@ -717,7 +717,7 @@ do_exec_pty(Session *s, const char *command)
     /* spawn shell on the same core */
     extern char **environ;
     err = spawn_program_with_caps(my_core_id, shell, shell_argv, NULL,
-                                  inheritcn_cap, NULL_CAP, SPAWN_NEW_DOMAIN,
+                                  inheritcn_cap, NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN,
                                   NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error spawning shell.");
@@ -796,7 +796,7 @@ do_exec_pty(Session *s, const char *command)
 
 	/* Enter interactive session. */
 	s->ptymaster = ptymaster;
-	packet_set_interactive(1, 
+	packet_set_interactive(1,
 	    options.ip_qos_interactive, options.ip_qos_bulk);
 	if (compat20) {
 		session_set_fds(s, ptyfd, fdout, -1, 1, 1);
@@ -1494,7 +1494,7 @@ safely_chroot(const char *path, uid_t uid)
 			memcpy(component, path, cp - path);
 			component[cp - path] = '\0';
 		}
-	
+
 		debug3("%s: checking '%s'", __func__, component);
 
 		if (stat(component, &st) != 0)
@@ -1502,7 +1502,7 @@ safely_chroot(const char *path, uid_t uid)
 			    component, strerror(errno));
 		if (st.st_uid != 0 || (st.st_mode & 022) != 0)
 			fatal("bad ownership or modes for chroot "
-			    "directory %s\"%s\"", 
+			    "directory %s\"%s\"",
 			    cp == NULL ? "" : "component ", component);
 		if (!S_ISDIR(st.st_mode))
 			fatal("chroot path %s\"%s\" is not a directory",
