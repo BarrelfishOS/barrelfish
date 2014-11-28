@@ -527,7 +527,7 @@ int main (int argc, char **argv)
 
     DEBUG("corectrl start\n");
 
-#if defined(__x86__)
+#if defined(__x86__) && !defined(__k1om__)
     // ENSURE_SEQUENTIAL
     char *lock;
     err = oct_lock("corectrl.lock", &lock);
@@ -538,8 +538,8 @@ int main (int argc, char **argv)
 #endif
 
     for (int i=0; i<argc; i++) {
-        DEBUG("%s:%s:%d: argv[%d] = %s\n", 
-               __FILE__, __FUNCTION__, __LINE__, i, argv[i]);        
+        DEBUG("%s:%s:%d: argv[%d] = %s\n",
+               __FILE__, __FUNCTION__, __LINE__, i, argv[i]);
     }
 
 
@@ -628,7 +628,7 @@ int main (int argc, char **argv)
     }
 
 out:
-#if defined(__x86__)
+#if defined(__x86__) && !defined(__k1om__)
     // END ENSURE SEQUENTIAL
     err = oct_unlock(lock);
     if (err_is_fail(err)) {
