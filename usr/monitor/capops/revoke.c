@@ -24,6 +24,7 @@ struct revoke_master_st {
     struct domcapref cap;
     struct capability rawcap;
     struct capsend_mc_st revoke_mc_st;
+    struct capsend_destset dests;
     revoke_result_handler_t result_handler;
     void *st;
     bool local_fin, remote_fin;
@@ -163,7 +164,8 @@ revoke_local(struct revoke_master_st *st)
     PANIC_IF_ERR(err, "marking revoke");
 
     // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
-    err = capsend_relations(&st->rawcap, revoke_mark__send, &st->revoke_mc_st);
+    err = capsend_relations(&st->rawcap, revoke_mark__send,
+            &st->revoke_mc_st, &st->dests);
     PANIC_IF_ERR(err, "initiating revoke mark multicast");
 }
 
@@ -286,7 +288,8 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
     }
 
     DEBUG_CAPOPS("%s: sending commit\n", __FUNCTION__);
-    err = capsend_relations(&rvk_st->rawcap, revoke_commit__send, &rvk_st->revoke_mc_st);
+    err = capsend_relations(&rvk_st->rawcap, revoke_commit__send,
+            &rvk_st->revoke_mc_st, &rvk_st->dests);
     PANIC_IF_ERR(err, "enqueing revoke_commit multicast");
 
     delete_steps_resume();

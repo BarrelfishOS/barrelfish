@@ -25,6 +25,12 @@ typedef errval_t (*capsend_send_fn)(struct intermon_binding* /*binding*/,
 
 bool capsend_handle_mc_reply(struct capsend_mc_st *mc_st); /* returns true if was last reply */
 
+struct capsend_destset {
+    coreid_t *set;
+    size_t count;
+    size_t capacity;
+};
+
 struct capsend_mc_st {
     struct capsend_mc_msg_st *msg_st_arr;
     int num_pending;
@@ -49,7 +55,8 @@ errval_t capsend_copies(struct capability *cap,
 
 errval_t capsend_relations(struct capability *cap,
                            capsend_send_fn send_fn,
-                           struct capsend_mc_st *mc_st);
+                           struct capsend_mc_st *mc_st,
+                           struct capsend_destset *dests);
 
 typedef void (*capsend_find_cap_result_fn)(errval_t, coreid_t, void*);
 

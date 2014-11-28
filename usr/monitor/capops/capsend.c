@@ -157,42 +157,82 @@ bool capsend_handle_mc_reply(struct capsend_mc_st *st)
  */
 
 static errval_t
-capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_send_fn send_cont)
+capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
+        struct capability *cap, capsend_send_fn send_cont)
 {
     errval_t err;
+    size_t dest_count;
+    bool init_destset = false;
     size_t online_monitors = num_monitors_online();
     // do not count self when calculating #dest cores
-    int dest_count = online_monitors - 1;
+    dest_count = online_monitors - 1;
     DEBUG_CAPOPS("%s: dest_count = %d\n", __FUNCTION__, dest_count);
     DEBUG_CAPOPS("%s: num_queued = %d\n", __FUNCTION__, bc_st->num_queued);
     DEBUG_CAPOPS("%s: num_pending = %d\n", __FUNCTION__, bc_st->num_pending);
+    if (dests && dests->set == NULL) {
+        dests->set = calloc(dest_count, sizeof(coreid_t));
+        dests->capacity = dest_count;
+        dests->count = 0;
+        init_destset = true;
+    } else if (dests) {
+        dest_count = dests->count;
+    }
     err = capsend_mc_init(bc_st, cap, send_cont, dest_count, true);
     if (err_is_fail(err)) {
         free(bc_st);
     }
 
-    for (coreid_t dest = 0; dest < MAX_COREID && bc_st->num_queued < dest_count; dest++)
-    {
-        if (dest == my_core_id) {
-            // do not send to self
-            continue;
-        }
-        err = capsend_mc_enqueue(bc_st, dest);
-        if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
-            // no connection for this core, skip
-            continue;
-        } else if (err_no(err) == MON_ERR_CAPOPS_BUSY) {
-            debug_printf("monitor.%d not ready to participate in distops, skipping\n",
-                    dest);
-        } else if (err_is_fail(err)) {
-            // failure, disable broadcast
-            bc_st->do_send = false;
-            if (!bc_st->num_queued) {
-                // only cleanup of no messages have been enqueued
-                free(bc_st->msg_st_arr);
-                free(bc_st);
+    if (init_destset || !dests) {
+        for (coreid_t dest = 0; dest < MAX_COREID && bc_st->num_queued < dest_count; dest++)
+        {
+            if (dest == my_core_id) {
+                // do not send to self
+                continue;
             }
-            return err;
+            err = capsend_mc_enqueue(bc_st, dest);
+            if (err_is_ok(err) && dests) {
+                // if we're initializing destination set, add destination
+                // cores that we were able to enqueue msg for to set.
+                dests->set[dests->count++] = dest;
+            }
+            if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
+                // no connection for this core, skip
+                continue;
+            } else if (err_no(err) == MON_ERR_CAPOPS_BUSY) {
+                debug_printf("monitor.%d not ready to participate in distops, skipping\n",
+                        dest);
+            } else if (err_is_fail(err)) {
+                // failure, disable broadcast
+                bc_st->do_send = false;
+                if (!bc_st->num_queued) {
+                    // only cleanup of no messages have been enqueued
+                    free(bc_st->msg_st_arr);
+                    free(bc_st);
+                }
+                return err;
+            }
+        }
+    } else {
+        for (int i = 0; i < dest_count; i++) {
+            coreid_t dest = dests->set[i];
+
+            err = capsend_mc_enqueue(bc_st, dest);
+            if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
+                // no connection for this core, skip
+                continue;
+            } else if (err_no(err) == MON_ERR_CAPOPS_BUSY) {
+                debug_printf("monitor.%d not ready to participate in distops, skipping\n",
+                        dest);
+            } else if (err_is_fail(err)) {
+                // failure, disable broadcast
+                bc_st->do_send = false;
+                if (!bc_st->num_queued) {
+                    // only cleanup of no messages have been enqueued
+                    free(bc_st->msg_st_arr);
+                    free(bc_st);
+                }
+                return err;
+            }
         }
     }
 
@@ -238,7 +278,7 @@ capsend_find_cap(struct capability *cap, capsend_find_cap_result_fn result_handl
     bc_st->found = false;
     bc_st->st = st;
 
-    return capsend_broadcast((struct capsend_mc_st*)bc_st, cap, find_cap_broadcast_send_cont);
+    return capsend_broadcast((struct capsend_mc_st*)bc_st, NULL, cap, find_cap_broadcast_send_cont);
 }
 
 /*
@@ -392,7 +432,8 @@ capsend_find_descendants(struct domcapref src, capsend_result_fn result_fn, void
     mc_st->result_fn = result_fn;
     mc_st->st = st;
     mc_st->have_result = false;
-    return capsend_relations(&cap, find_descendants_send_cont, (struct capsend_mc_st*)mc_st);
+    return capsend_relations(&cap, find_descendants_send_cont,
+            (struct capsend_mc_st*)mc_st, NULL);
 }
 
 
@@ -513,7 +554,7 @@ capsend_update_owner(struct domcapref capref, struct event_closure completion_co
     }
     bc_st->completion_continuation = completion_continuation;
 
-    return capsend_broadcast((struct capsend_mc_st*)bc_st, &cap, update_owner_broadcast_send_cont);
+    return capsend_broadcast((struct capsend_mc_st*)bc_st, NULL, &cap, update_owner_broadcast_send_cont);
 }
 
 /*
@@ -621,14 +662,15 @@ capsend_copies(struct capability *cap,
             struct capsend_mc_st *mc_st)
 {
     // this is currently just a broadcast
-    return capsend_broadcast(mc_st, cap, send_fn);
+    return capsend_broadcast(mc_st, NULL, cap, send_fn);
 }
 
 errval_t
 capsend_relations(struct capability *cap,
                   capsend_send_fn send_fn,
-                  struct capsend_mc_st *mc_st)
+                  struct capsend_mc_st *mc_st,
+                  struct capsend_destset *dests)
 {
     // this is currently just a broadcast
-    return capsend_broadcast(mc_st, cap, send_fn);
+    return capsend_broadcast(mc_st, dests, cap, send_fn);
 }
