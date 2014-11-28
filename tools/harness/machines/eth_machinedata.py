@@ -113,8 +113,8 @@ machines = dict({
                  'tickrate'    : 1870,
                  'boot_timeout': 360},
 
-    'burrata': {'ncores'          : 20,
-                'machine_name'    : 'burrata',
+    'babybel1': {'ncores'          : 20,
+                'machine_name'    : 'babybel1',
                 'bootarch'        : 'x86_64',
                 'buildarchs'      : ['x86_64', 'x86_32'],
                 'cores_per_socket': 10,
@@ -122,8 +122,8 @@ machines = dict({
                 'tickrate'        : 2500,
                 'boot_timeout'    : 360},
 
-    'asiago': {'ncores'          : 20,
-                'machine_name'    : 'asiago',
+    'babybel2': {'ncores'          : 20,
+                'machine_name'    : 'babybel2',
                 'bootarch'        : 'x86_64',
                 'buildarchs'      : ['x86_64', 'x86_32'],
                 'cores_per_socket': 10,
@@ -131,8 +131,8 @@ machines = dict({
                 'tickrate'        : 2500,
                 'boot_timeout'    : 360},
 
-    'babybel': {'ncores'          : 20,
-                'machine_name'    : 'babybel',
+    'babybel3': {'ncores'          : 20,
+                'machine_name'    : 'babybel3',
                 'bootarch'        : 'x86_64',
                 'buildarchs'      : ['x86_64', 'x86_32'],
                 'cores_per_socket': 10,
