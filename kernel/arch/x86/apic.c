@@ -35,12 +35,6 @@ uint8_t apic_id;
  */
 bool apic_bsp = true;
 
-// global pointers used in init_ap.S
-extern uint64_t x86_64_start_ap;
-extern uint64_t x86_64_init_ap_wait;
-extern uint64_t x86_32_start_ap;
-extern uint64_t x86_32_init_ap_wait;
-
 static xapic_t apic;
 
 /**
@@ -107,26 +101,6 @@ void apic_timer_set_divide(xapic_divide_t divide)
 */
 void apic_init(void)
 {
-    //pointer to a variable used as pseudo-lock to synchronize the BSP
-    //and the AP which gets enabled
-#if defined(__k1om__)
-        volatile uint32_t *ap_wait = (volatile uint32_t *)
-            local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
-                              K1OM_REAL_MODE_LINEAR_OFFSET);
-#elif defined (__x86_64__)
-    volatile uint32_t *ap_wait = (volatile uint32_t *)
-        local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
-                          X86_64_REAL_MODE_LINEAR_OFFSET);
-#elif defined (__i386__)
-#       if !defined(__scc__)
-    volatile uint32_t *ap_wait = (volatile uint32_t *)
-        local_phys_to_mem((lpaddr_t)&x86_32_init_ap_wait - ((lpaddr_t)&x86_32_start_ap) +
-                          X86_32_REAL_MODE_LINEAR_OFFSET);
-#       endif
-#else
-#error "Architecture not supported"
-#endif
-
 #if !defined(__scc__)
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
     lpaddr_t apic_phys = ((lpaddr_t)apic_base_msr) & APIC_BASE_ADDRESS_MASK;
@@ -154,7 +128,6 @@ void apic_init(void)
     } else {
         debug(SUBSYS_APIC, "APIC: application processor\n");
         apic_bsp = false;
-        *ap_wait = AP_STARTED;
     }
 #endif
 
