@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #if IN_KERNEL
+#include <kernel.h>
 #include <kcb.h>
 #endif
 
@@ -27,17 +28,21 @@
 
 // PP switch to change behaviour if invariants fail
 #ifdef MDB_FAIL_INVARIANTS
+#ifndef IN_KERNEL
+#define panic(msg...) \
+    do { \
+        printf(msg); \
+        abort(); \
+    }while(0)
+#endif
 // on failure, dump mdb and terminate
 __attribute__((noreturn))
 static void
 mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 {
     mdb_dump(cte, 0);
-    printf("failed on cte %p with failure %s (%d)\n", cte,
-            mdb_invariant_to_str(failure), failure);
-    // XXX: what is "proper" way to always terminate?
-    //mdb_dump_all_the_things();
-    assert(false);
+    panic("failed on cte %p with failure %s (%d)\n",
+          cte, mdb_invariant_to_str(failure), failure);
 }
 #define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
 #else
@@ -577,6 +582,7 @@ errval_t
 mdb_insert(struct cte *new_node)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
+    CHECK_INVARIANTS(mdb_root);
 #ifdef IN_KERNEL
 #ifdef MDB_TRACE_NO_RECURSIVE
     char prefix[50];
@@ -586,6 +592,7 @@ mdb_insert(struct cte *new_node)
 #endif
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
     assert(mdb_is_reachable(mdb_root, new_node));
+    CHECK_INVARIANTS(mdb_root);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
 }
 
@@ -806,6 +813,7 @@ errval_t
 mdb_remove(struct cte *target)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", target);
+    CHECK_INVARIANTS(mdb_root);
 #ifdef IN_KERNEL
 #ifdef MDB_TRACE_NO_RECURSIVE
     char prefix[50];
@@ -815,6 +823,7 @@ mdb_remove(struct cte *target)
 #endif
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
     assert(!mdb_is_reachable(mdb_root, target));
+    CHECK_INVARIANTS(mdb_root);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 
