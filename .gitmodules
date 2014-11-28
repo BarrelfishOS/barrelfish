@@ -1,3 +1,6 @@
 [submodule "usr/green-marl"]
 	path = usr/green-marl
 	url = ssh://vcs-user@code.systems.ethz.ch:8006/diffusion/GM/green-marl.git
+[submodule "lib/shoal"]
+	path = lib/shoal
+	url = ssh://vcs-user@code.systems.ethz.ch:8006/diffusion/LIBSHL/shoal-library.git
