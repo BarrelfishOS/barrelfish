@@ -181,8 +181,10 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capability *cap, capsend_s
         if (err_no(err) == MON_ERR_NO_MONITOR_FOR_CORE) {
             // no connection for this core, skip
             continue;
-        }
-        else if (err_is_fail(err)) {
+        } else if (err_no(err) == MON_ERR_CAPOPS_BUSY) {
+            debug_printf("monitor.%d not ready to participate in distops, skipping\n",
+                    dest);
+        } else if (err_is_fail(err)) {
             // failure, disable broadcast
             bc_st->do_send = false;
             if (!bc_st->num_queued) {
