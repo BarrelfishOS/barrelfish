@@ -34,6 +34,12 @@ delete_steps_init(struct waitset *ws)
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
+    struct waitset *myws = delete_steps_get_waitset();
+    if (myws != NULL) {
+        debug_printf("delete stepping already initialized with ws=%p\n", myws);
+        return;
+    }
+
     event_queue_init(&trigger_queue, ws, EVENT_QUEUE_CONTINUOUS);
     triggered = false;
     enqueued = false;
