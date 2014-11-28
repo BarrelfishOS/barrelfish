@@ -36,9 +36,9 @@
 #include <acpi_client/acpi_client.h>
 #endif
 
-#define DEBUG_CPUBOOT 1
-#ifdef __k1om__
-#define DEBUG(x...) debug_printf(x)
+#define DEBUG_CPUBOOT 0
+#ifdef DEBUG_CPUBOOT
+#define DEBUG(x...) if (debug_flag) debug_printf(x)
 #else
 #define DEBUG(x...) ((void)0)
 #endif
