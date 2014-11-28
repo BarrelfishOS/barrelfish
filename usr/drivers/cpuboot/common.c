@@ -14,6 +14,8 @@
 #include "coreboot.h"
 
 extern bool done;
+extern coreid_t core_count;
+extern coreid_t core_max;
 extern struct capref kcb;
 
 char* get_binary_path(char* fmt, char* binary_name)
@@ -44,12 +46,15 @@ void boot_core_reply(struct monitor_binding *st, errval_t msgerr)
         USER_PANIC_ERR(msgerr, "msgerr in boot_core_reply, exiting\n");
     }
     DEBUG("%s:%d: got boot_core_reply.\n", __FILE__, __LINE__);
-    done = true;
+    core_count++;
+    if (core_count == core_max) {
+        done = true;
+    }
 }
 
 static errval_t add_kcb_record(uint32_t kcb_id, coreid_t core_id, char* kcb_key)
 {
-    errval_t err = oct_set("kcb.%d { kcb_id: %d, barrelfish_id: %"PRIuCOREID", cap_key: '%s' }", 
+    errval_t err = oct_set("kcb.%d { kcb_id: %d, barrelfish_id: %"PRIuCOREID", cap_key: '%s' }",
                             kcb_id, kcb_id, core_id, kcb_key);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "oct_set");
@@ -118,7 +123,7 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
             DEBUG_ERR(err, "can not save the capability.");
             return err;
         }
-        
+
         err = add_kcb_record(coreid, coreid, kcb_key);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "add_kcb_record failed.");

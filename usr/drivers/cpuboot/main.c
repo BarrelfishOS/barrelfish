@@ -17,6 +17,8 @@
 coreid_t my_arch_id;
 struct capref ipi_cap;
 
+coreid_t core_count = 0;
+coreid_t core_max = 0;
 bool done = false;
 
 bool benchmark_flag = false;
@@ -193,8 +195,14 @@ static int boot_cpu(int argc, char **argv)
     	USER_PANIC("invalid CPU ID: %s", argv[1]);
     }
 
+    core_count = 0;
+    if (core_step == 1) {
+        core_max = (core_to - core_from + 1);
+    } else {
+        core_max = (core_to - core_from + core_step) / core_step;
+    }
+
     for (coreid_t target_id = core_from; target_id<=core_to; target_id += core_step) {
-        //coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 16);
         assert(target_id < MAX_COREID);
 
         archid_t target_apic_id;

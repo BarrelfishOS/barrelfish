@@ -103,7 +103,7 @@ rep_fill:
  #ifdef __k1om__
         mov $0, %ecx
         mov $PAGE_BITS, %ebx
- ep_mmio:
+ rep_mmio:
         mov %ebx, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET(%ecx)
         movl $0x8, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET + 4(%ecx)
         add $0x200000, %ebx
