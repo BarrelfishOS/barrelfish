@@ -58,7 +58,8 @@
                         flounderBindings = [ "monitor_mem", "intermon" ],
                         flounderExtraBindings = [ ("monitor", ["loopback"]),
                                                   ("monitor_mem", ["rpcclient"]),
-                                                  ("mem", ["rpcclient"]) ],
+                                                  ("mem", ["rpcclient"]),
+                                                  ("octopus", ["rpcclient"]) ],
                         addLinkFlags = [ "-e _start_init" ],
                         addIncludes = "include" : [ "include" ./. a | a <- arch_dirs arch ],
                         addLibraries = (
