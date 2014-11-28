@@ -111,6 +111,14 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         DEBUG_ERR(err, "failed spawning xeon_phi");
         return err;
     }
+
+    debug_printf("monitor spawning corectrl\n");
+    err = spawn_domain("corectrl");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning xeon_phi");
+        return err;
+    }
+
 #endif
 
     /* initialise rcap_db */

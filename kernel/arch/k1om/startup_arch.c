@@ -151,7 +151,7 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     errval_t err;
 
     // map first meg of RAM, which contains lots of crazy BIOS tables
-    err = create_caps_to_cnode(0, K1OM_START_KERNEL_PHYS, 
+    err = create_caps_to_cnode(0, K1OM_START_KERNEL_PHYS,
                                RegionType_PlatformData, &spawn_state, bootinfo);
     assert(err_is_ok(err));
 
@@ -364,7 +364,7 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
 
     // Map IO cap in task cnode
     struct cte *iocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_SYSMEM);
-    err = caps_create_new(ObjType_DevFrame, XEON_PHI_SYSMEM_BASE, 
+    err = caps_create_new(ObjType_DevFrame, XEON_PHI_SYSMEM_BASE,
                           XEON_PHI_SYSMEM_SIZE_BITS, XEON_PHI_SYSMEM_SIZE_BITS,
                           iocap);
     /*
@@ -372,9 +372,12 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
      *      capability to the host memory, as this can be seen as IO
      */
     struct cte *mmiocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IO);
-    err = caps_create_new(ObjType_DevFrame, XEON_PHI_SBOX_BASE, 
+    err = caps_create_new(ObjType_DevFrame, XEON_PHI_SBOX_BASE,
                           XEON_PHI_SBOX_SIZE_BITS, XEON_PHI_SBOX_SIZE_BITS,
                           mmiocap);
+
+    struct cte *coreboot = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_COREBOOT);
+    err = caps_create_new(ObjType_DevFrame, 0, 16, 16, coreboot);
 
     assert(err_is_ok(err));
 

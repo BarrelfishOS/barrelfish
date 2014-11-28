@@ -292,6 +292,9 @@ void spawn_app_domains(void)
             || strncmp(si.shortname, "cpu", strlen("cpu")) == 0
             || strncmp(si.shortname, "monitor", si.shortnamelen) == 0
             || strncmp(si.shortname, "mem_serv", si.shortnamelen) == 0
+#ifdef __k1om__
+            || strncmp(si.shortname, "corectrl", si.shortnamelen) == 0
+#endif
         ) {
             spawn_here = false;
         }

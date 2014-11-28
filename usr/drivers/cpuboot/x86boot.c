@@ -18,7 +18,9 @@
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
 #include <barrelfish/deferred.h>
 
-
+#ifdef __k1om__
+#include <barrelfish_kpi/asm_inlines_arch.h>
+#endif
 #include <arch/x86/start_aps.h>
 #include <target/x86_64/offsets_target.h>
 #include <target/x86_32/offsets_target.h>
@@ -172,8 +174,21 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     struct capref bootcap;
 
 #ifdef __k1om__
-    frame_alloc(&bootcap, 1<<16, NULL);
-    // XXX: what's that
+    struct capref realmodecap;
+
+    realmodecap.cnode = cnode_task;
+    realmodecap.slot  = TASKCN_SLOT_COREBOOT;
+    err = slot_alloc(&bootcap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Allocating a new slot");
+    }
+
+    err = cap_copy(bootcap, realmodecap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Copying capability");
+    }
+
+
 #else
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
     errval_t error_code;
@@ -241,9 +256,8 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     end = bench_tsc();
 
 #if  defined(__k1om__)
-    barrelfish_usleep(10*1000);
+    delay_ms(10);
 #endif
-
     err = invoke_send_init_ipi(ipi_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
@@ -251,7 +265,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     }
 
 #if  defined(__k1om__)
-    barrelfish_usleep(200*1000);
+    delay_ms(200);
 #endif
 
     // x86 protocol actually would like us to do this twice
@@ -444,7 +458,8 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
                                     genpaddr_t arch_page_size)
 {
     switch (cpu_head->e_machine) {
-    case EM_X86_64: {
+    case EM_X86_64:
+    case EM_K1OM: {
         struct Elf64_Shdr *rela, *symtab, *symhead =
             (struct Elf64_Shdr *)(cpu_binary + (uintptr_t)cpu_head->e_shoff);
 
@@ -639,6 +654,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     struct x86_core_data *core_data = (struct x86_core_data *)cpu_buf_memory;
     switch (cpu_head->e_machine) {
     case EM_X86_64:
+    case EM_K1OM:
         core_data->elf.size = sizeof(struct Elf64_Shdr);
         core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;
         core_data->elf.num  = cpu_head->e_shnum;
