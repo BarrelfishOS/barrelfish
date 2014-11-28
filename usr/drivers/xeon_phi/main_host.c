@@ -184,14 +184,6 @@ int main(int argc,
     XDEBUG("Xeon Phi Images: bootloader: {%s}, multiboot: {%s}, nfs: {%s}\n",
            xeon_phi_bootloader_path, xeon_phi_multiboot_path, xeon_phi_nfs_uri);
 
-    /* wait until the kernels are booted and spawnds are ready */
-    err = nameservice_blocking_lookup("all_spawnds_up", NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "all_spawnds_up.\n");
-    }
-
-    XDEBUG("Going ahead...\n");
-
     /* set the client flag to false */
     xphi.is_client = XEON_PHI_IS_CLIENT;
 
