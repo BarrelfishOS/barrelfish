@@ -184,12 +184,25 @@ errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
     return err;
 }
 
+static errval_t cache_module(const char *module_name, struct capref binary_image_cap) 
+{
+    return oct_put_capability(module_name, binary_image_cap);
+}
+
+static errval_t lookup_module_cache(const char *module_name, struct capref *binary_image_cap) 
+{
+    return oct_get_capability(module_name, binary_image_cap);
+}
+
 errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
                        genpaddr_t *binary_phys, size_t *binary_size)
 {
     vfs_handle_t handle;
     struct vfs_fileinfo info;
-    DEBUG("Trying to find binary %s\n", module_name);
+    struct capref binary_image_cap;    
+    struct frame_identity id;
+
+    DEBUG("Trying to find binary %s in file system\n", module_name);
     errval_t err = vfs_open(module_name, &handle);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_open could not open module?");
@@ -203,32 +216,49 @@ errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
     }
     *binary_size = info.size;
 
-    struct capref binary_image_cap;
-    struct frame_identity id;
-    err = frame_alloc_identify(&binary_image_cap, info.size, NULL, &id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not allocate space for binary");
-        return err;
+    DEBUG("Trying to find module in cache\n");
+    err = lookup_module_cache(module_name, &binary_image_cap);
+    if (err_is_ok(err)) {
+        err = invoke_frame_identify(binary_image_cap, &id);
+        *binary_phys = id.base;
+        DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+        err = vspace_map_one_frame((void **)binary_virt, info.size, binary_image_cap,
+                                    NULL, NULL);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could identify frame from cap storage");
+            return err;
+        }
     }
-    *binary_phys = id.base;
-    DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+    else {
+        err = frame_alloc_identify(&binary_image_cap, info.size, NULL, &id);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not allocate space for binary");
+            return err;
+        }
+        *binary_phys = id.base;
+        DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
+        err = vspace_map_one_frame((void **)binary_virt, info.size, binary_image_cap,
+                                   NULL, NULL);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not map frame");
+            return err;
+        }
 
-    err = vspace_map_one_frame((void **)binary_virt, info.size, binary_image_cap,
-                               NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not map frame");
-        return err;
+        size_t bytes_read = 0;
+        err = vfs_read(handle, (void *)*binary_virt, info.size, &bytes_read);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not read binary from vfs");
+            return err;
+        }
+        assert(bytes_read ==
+               info.size); // TODO(gz): If this fails, need to loop vfs_read
+
+        err = cache_module(module_name, binary_image_cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not read binary from vfs");
+            return err;
+        }
     }
-
-    size_t bytes_read = 0;
-    err = vfs_read(handle, (void *)*binary_virt, info.size, &bytes_read);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not read binary from vfs");
-        return err;
-    }
-    assert(bytes_read ==
-           info.size); // TODO(gz): If this fails, need to loop vfs_read
-
 
     return SYS_ERR_OK;
 }
