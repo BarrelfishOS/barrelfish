@@ -191,15 +191,7 @@ $(info + shoal:      [NO])
 GREEN_MARL=
 SHOAL=
 endif
-
-
-
-#GM_OPT ?= $(word 1, $(ls ))
-
-#SHL_OPT ?= $(word 1, $(HAKE_ARCHS))
- 
-
-    
+   
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
