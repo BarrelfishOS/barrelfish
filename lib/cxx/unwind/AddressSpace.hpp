@@ -17,7 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if !_LIBUNWIND_IS_BAREMETAL
 #include <dlfcn.h>
+#endif
 
 #if __APPLE__
 #include <mach-o/getsect.h>
@@ -40,9 +43,19 @@ extern "C" _Unwind_Ptr __gnu_Unwind_Find_exidx(_Unwind_Ptr addr, int *len);
 // Emulate the BSD dl_unwind_find_exidx API when on a GNU libdl system.
 #define dl_unwind_find_exidx __gnu_Unwind_Find_exidx
 
-#else
+#elif !_LIBUNWIND_IS_BAREMETAL
 #include <link.h>
-#endif
+#else // _LIBUNWIND_IS_BAREMETAL
+// When statically linked on bare-metal, the symbols for the EH table are looked
+// up without going through the dynamic loader.
+struct EHTEntry {
+  uint32_t functionOffset;
+  uint32_t unwindOpcodes;
+};
+extern EHTEntry __exidx_start;
+extern EHTEntry __exidx_end;
+#endif // !_LIBUNWIND_IS_BAREMETAL
+
 #endif  // LIBCXXABI_ARM_EHABI
 
 namespace libunwind {
@@ -292,20 +305,20 @@ inline LocalAddressSpace::pint_t LocalAddressSpace::getEncodedP(pint_t &addr,
       if (!dladdr(addr, &dlinfo))
         return false;
       const mach_header *mh = (const mach_header *)dlinfo.dli_saddr;
-
+      
       // Find dwarf unwind section in that image.
       unsigned long size;
       const uint8_t *p = getsectiondata(mh, "__TEXT", "__eh_frame", &size);
       if (!p)
         return false;
-
+      
       // Fill in return struct.
       info->mh = mh;
       info->dwarf_section = p;
       info->dwarf_section_length = size;
       info->compact_unwind_section = 0;
       info->compact_unwind_section_length = 0;
-
+     
       return true;
     }
   #endif
@@ -328,10 +341,16 @@ inline bool LocalAddressSpace::findUnwindSections(pint_t targetAddr,
     return true;
   }
 #elif LIBCXXABI_ARM_EHABI
+ #if _LIBUNWIND_IS_BAREMETAL
+  // Bare metal is statically linked, so no need to ask the dynamic loader
+  info.arm_section =        (uintptr_t)(&__exidx_start);
+  info.arm_section_length = (uintptr_t)(&__exidx_end - &__exidx_start);
+ #else
   int length = 0;
   info.arm_section = (uintptr_t) dl_unwind_find_exidx(
       (_Unwind_Ptr) targetAddr, &length);
   info.arm_section_length = (uintptr_t)length;
+ #endif
   _LIBUNWIND_TRACE_UNWINDING("findUnwindSections: section %X length %x\n",
                              info.arm_section, info.arm_section_length);
   if (info.arm_section && info.arm_section_length)
@@ -349,8 +368,6 @@ inline bool LocalAddressSpace::findOtherFDE(pint_t targetAddr, pint_t &fde) {
 #if __APPLE__
   return checkKeyMgrRegisteredFDEs(targetAddr, *((void**)&fde));
 #else
-  printf("LocalAddressSpace::findOtherFDE\n");
-
   // TO DO: if OS has way to dynamically register FDEs, check that.
   (void)targetAddr;
   (void)fde;
@@ -364,6 +381,7 @@ inline bool LocalAddressSpace::findFunctionName(pint_t addr, char *buf,
 #ifdef BARRELFISH
     return false;
 #else
+#if !_LIBUNWIND_IS_BAREMETAL
   Dl_info dyldInfo;
   if (dladdr((void *)addr, &dyldInfo)) {
     if (dyldInfo.dli_sname != NULL) {
@@ -372,8 +390,9 @@ inline bool LocalAddressSpace::findFunctionName(pint_t addr, char *buf,
       return true;
     }
   }
-  return false;
 #endif
+  return false;
+#endif  
 }
 
 

@@ -17,7 +17,6 @@
 #include <assert.h>
 #include <stdio.h>
 
-
 // Define static_assert() unless already defined by compiler.
 #ifndef __has_feature
   #define __has_feature(__x) 0
@@ -70,11 +69,10 @@
 
   static inline void assert_rtn(const char* func, const char* file, int line, const char* msg)  __attribute__ ((noreturn));
   static inline void assert_rtn(const char* func, const char* file, int line, const char* msg) {
-    printf("libunwind: %s %s:%d - %s\n",  func, file, line, msg);
+    fprintf(stderr, "libunwind: %s %s:%d - %s\n",  func, file, line, msg);
     assert(false);
     abort();
   }
-
 
 #if __USING_SJLJ_EXCEPTIONS__
   #define _LIBUNWIND_BUILD_ZERO_COST_APIS 0
@@ -83,10 +81,11 @@
   #define _LIBUNWIND_BUILD_ZERO_COST_APIS 1
   #define _LIBUNWIND_BUILD_SJLJ_APIS      0
 #endif
-  #define _LIBUNWIND_SUPPORT_FRAME_APIS   1
+  #define _LIBUNWIND_SUPPORT_FRAME_APIS   (__i386__ || __x86_64__)
+
   #define _LIBUNWIND_EXPORT               __attribute__((visibility("default")))
   #define _LIBUNWIND_HIDDEN               __attribute__((visibility("hidden")))
-  #define _LIBUNWIND_LOG(msg, ...) printf(  "libuwind: " msg, __VA_ARGS__)
+  #define _LIBUNWIND_LOG(msg, ...) fprintf(stderr, "libuwind: " msg, __VA_ARGS__)
   #define _LIBUNWIND_ABORT(msg) assert_rtn(__func__, __FILE__, __LINE__, msg)
 
   #define _LIBUNWIND_SUPPORT_COMPACT_UNWIND 0
@@ -116,17 +115,17 @@
             do { \
               int _err = x; \
               if ( _err != 0 ) \
-                printf("libunwind::" #x "=%d in %s\n", _err, __func__); \
+                _LIBUNWIND_LOG("" #x "=%d in %s", _err, __FUNCTION__); \
              } while (0)
-  #define _LIBUNWIND_TRACE_API(msg...) \
+  #define _LIBUNWIND_TRACE_API(msg, ...) \
             do { \
-              printf(msg); \
+              if ( logAPIs() ) _LIBUNWIND_LOG(msg, __VA_ARGS__); \
             } while(0)
-  #define _LIBUNWIND_TRACE_UNWINDING(msg...) \
+  #define _LIBUNWIND_TRACE_UNWINDING(msg, ...) \
             do { \
-              printf("libunwind::" msg); \
+              if ( logUnwinding() ) _LIBUNWIND_LOG(msg, __VA_ARGS__); \
             } while(0)
-  #define _LIBUNWIND_TRACING_UNWINDING 1 /*logUnwinding() */
+  #define _LIBUNWIND_TRACING_UNWINDING logUnwinding()
 #endif
 
 

@@ -176,12 +176,12 @@ template <typename A>
 bool CFI_Parser<A>::findFDE(A &addressSpace, pint_t pc, pint_t ehSectionStart,
                             uint32_t sectionLength, pint_t fdeHint,
                             FDE_Info *fdeInfo, CIE_Info *cieInfo) {
-  //fprintf(stderr, "findFDE(0x%" PRIx64 " )\n", (long long)pc);
+  //fprintf(stderr, "findFDE(0x%llX)\n", (long long)pc);
   pint_t p = (fdeHint != 0) ? fdeHint : ehSectionStart;
   const pint_t ehSectionEnd = p + sectionLength;
   while (p < ehSectionEnd) {
     pint_t currentCFI = p;
-    //fprintf(stderr, "findFDE() CFI at 0x%" PRIx64 " \n", (long long)p);
+    //fprintf(stderr, "findFDE() CFI at 0x%llX\n", (long long)p);
     pint_t cfiLength = addressSpace.get32(p);
     p += 4;
     if (cfiLength == 0xffffffff) {
@@ -370,7 +370,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
   pint_t codeOffset = 0;
   PrologInfo initialState = *results;
   if (logDwarf)
-    fprintf(stderr, "parseInstructions(instructions=0x%0" PRIx64 " )\n",
+    fprintf(stderr, "parseInstructions(instructions=0x%0llX)\n",
             (uint64_t) instructionsEnd);
 
   // see Dwarf Spec, section 6.4.2 for details on unwind opcodes
@@ -398,21 +398,21 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       codeOffset += (addressSpace.get8(p) * cieInfo.codeAlignFactor);
       p += 1;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_advance_loc1: new offset=%" PRIu64 " \n",
+        fprintf(stderr, "DW_CFA_advance_loc1: new offset=%llu\n",
                         (uint64_t)codeOffset);
       break;
     case DW_CFA_advance_loc2:
       codeOffset += (addressSpace.get16(p) * cieInfo.codeAlignFactor);
       p += 2;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_advance_loc2: new offset=%" PRIu64 " \n",
+        fprintf(stderr, "DW_CFA_advance_loc2: new offset=%llu\n",
                         (uint64_t)codeOffset);
       break;
     case DW_CFA_advance_loc4:
       codeOffset += (addressSpace.get32(p) * cieInfo.codeAlignFactor);
       p += 4;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_advance_loc4: new offset=%" PRIu64 " \n",
+        fprintf(stderr, "DW_CFA_advance_loc4: new offset=%llu\n",
                         (uint64_t)codeOffset);
       break;
     case DW_CFA_offset_extended:
@@ -427,7 +427,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->savedRegisters[reg].location = kRegisterInCFA;
       results->savedRegisters[reg].value = offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_offset_extended(reg=%" PRId64 ", offset=%" PRId64 ")\n", reg,
+        fprintf(stderr, "DW_CFA_offset_extended(reg=%lld, offset=%lld)\n", reg,
                 offset);
       break;
     case DW_CFA_restore_extended:
@@ -441,7 +441,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       }
       results->savedRegisters[reg] = initialState.savedRegisters[reg];
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_restore_extended(reg=%" PRId64 ")\n", reg);
+        fprintf(stderr, "DW_CFA_restore_extended(reg=%lld)\n", reg);
       break;
     case DW_CFA_undefined:
       reg = addressSpace.getULEB128(p, instructionsEnd);
@@ -452,7 +452,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       }
       results->savedRegisters[reg].location = kRegisterUnused;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_undefined(reg=%" PRId64 ")\n", reg);
+        fprintf(stderr, "DW_CFA_undefined(reg=%lld)\n", reg);
       break;
     case DW_CFA_same_value:
       reg = addressSpace.getULEB128(p, instructionsEnd);
@@ -469,7 +469,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       // set flag to disable conversion to compact unwind
       results->sameValueUsed = true;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_same_value(reg=%" PRId64 ")\n", reg);
+        fprintf(stderr, "DW_CFA_same_value(reg=%lld)\n", reg);
       break;
     case DW_CFA_register:
       reg = addressSpace.getULEB128(p, instructionsEnd);
@@ -489,7 +489,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       // set flag to disable conversion to compact unwind
       results->registersInOtherRegisters = true;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_register(reg=%" PRId64 ", reg2=%" PRId64 ")\n", reg, reg2);
+        fprintf(stderr, "DW_CFA_register(reg=%lld, reg2=%lld)\n", reg, reg2);
       break;
     case DW_CFA_remember_state:
       // avoid operator new, because that would be an upward dependency
@@ -526,7 +526,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->cfaRegister = (uint32_t)reg;
       results->cfaRegisterOffset = (int32_t)offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_def_cfa(reg=%" PRId64 ", offset=%" PRId64 ")\n", reg, offset);
+        fprintf(stderr, "DW_CFA_def_cfa(reg=%lld, offset=%lld)\n", reg, offset);
       break;
     case DW_CFA_def_cfa_register:
       reg = addressSpace.getULEB128(p, instructionsEnd);
@@ -538,7 +538,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       }
       results->cfaRegister = (uint32_t)reg;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_def_cfa_register(%" PRId64 ")\n", reg);
+        fprintf(stderr, "DW_CFA_def_cfa_register(%lld)\n", reg);
       break;
     case DW_CFA_def_cfa_offset:
       results->cfaRegisterOffset = (int32_t)
@@ -555,7 +555,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       p += length;
       if (logDwarf)
         fprintf(stderr,
-                "DW_CFA_def_cfa_expression(expression=0x%" PRIx64 " , length=%" PRIu64 " )\n",
+                "DW_CFA_def_cfa_expression(expression=0x%llX, length=%llu)\n",
                 results->cfaExpression, length);
       break;
     case DW_CFA_expression:
@@ -571,7 +571,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       p += length;
       if (logDwarf)
         fprintf(stderr,
-                "DW_CFA_expression(reg=%" PRId64 ", expression=0x%" PRIx64 " , length=%" PRIu64 " )\n",
+                "DW_CFA_expression(reg=%lld, expression=0x%llX, length=%llu)\n",
                 reg, results->savedRegisters[reg].value, length);
       break;
     case DW_CFA_offset_extended_sf:
@@ -587,7 +587,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->savedRegisters[reg].location = kRegisterInCFA;
       results->savedRegisters[reg].value = offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_offset_extended_sf(reg=%" PRId64 ", offset=%" PRId64 ")\n",
+        fprintf(stderr, "DW_CFA_offset_extended_sf(reg=%lld, offset=%lld)\n",
                 reg, offset);
       break;
     case DW_CFA_def_cfa_sf:
@@ -602,7 +602,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->cfaRegister = (uint32_t)reg;
       results->cfaRegisterOffset = (int32_t)offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_def_cfa_sf(reg=%" PRId64 ", offset=%" PRId64 ")\n", reg,
+        fprintf(stderr, "DW_CFA_def_cfa_sf(reg=%lld, offset=%lld)\n", reg,
                 offset);
       break;
     case DW_CFA_def_cfa_offset_sf:
@@ -620,7 +620,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->savedRegisters[reg].location = kRegisterOffsetFromCFA;
       results->savedRegisters[reg].value = offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_val_offset(reg=%" PRId64 ", offset=%" PRId64 "\n", reg,
+        fprintf(stderr, "DW_CFA_val_offset(reg=%lld, offset=%lld\n", reg,
                 offset);
       break;
     case DW_CFA_val_offset_sf:
@@ -635,7 +635,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->savedRegisters[reg].location = kRegisterOffsetFromCFA;
       results->savedRegisters[reg].value = offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_val_offset_sf(reg=%" PRId64 ", offset=%" PRId64 "\n", reg,
+        fprintf(stderr, "DW_CFA_val_offset_sf(reg=%lld, offset=%lld\n", reg,
                 offset);
       break;
     case DW_CFA_val_expression:
@@ -652,14 +652,14 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       if (logDwarf)
         fprintf(
             stderr,
-            "DW_CFA_val_expression(reg=%" PRId64 ", expression=0x%" PRIx64 " , length=%" PRId64 ")\n",
+            "DW_CFA_val_expression(reg=%lld, expression=0x%llX, length=%lld)\n",
             reg, results->savedRegisters[reg].value, length);
       break;
     case DW_CFA_GNU_args_size:
       length = addressSpace.getULEB128(p, instructionsEnd);
       results->spExtraArgSize = (uint32_t)length;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_GNU_args_size(%" PRId64 ")\n", length);
+        fprintf(stderr, "DW_CFA_GNU_args_size(%lld)\n", length);
       break;
     case DW_CFA_GNU_negative_offset_extended:
       reg = addressSpace.getULEB128(p, instructionsEnd);
@@ -673,7 +673,7 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
       results->savedRegisters[reg].location = kRegisterInCFA;
       results->savedRegisters[reg].value = -offset;
       if (logDwarf)
-        fprintf(stderr, "DW_CFA_GNU_negative_offset_extended(%" PRId64 ")\n", offset);
+        fprintf(stderr, "DW_CFA_GNU_negative_offset_extended(%lld)\n", offset);
       break;
     default:
       operand = opcode & 0x3F;
@@ -685,20 +685,20 @@ bool CFI_Parser<A>::parseInstructions(A &addressSpace, pint_t instructions,
         results->savedRegisters[reg].location = kRegisterInCFA;
         results->savedRegisters[reg].value = offset;
         if (logDwarf)
-          fprintf(stderr, "DW_CFA_offset(reg=%d, offset=%" PRId64 ")\n", operand,
+          fprintf(stderr, "DW_CFA_offset(reg=%d, offset=%lld)\n", operand,
                   offset);
         break;
       case DW_CFA_advance_loc:
         codeOffset += operand * cieInfo.codeAlignFactor;
         if (logDwarf)
-          fprintf(stderr, "DW_CFA_advance_loc: new offset=%" PRIu64 " \n",
+          fprintf(stderr, "DW_CFA_advance_loc: new offset=%llu\n",
                                                       (uint64_t)codeOffset);
         break;
       case DW_CFA_restore:
         reg = operand;
         results->savedRegisters[reg] = initialState.savedRegisters[reg];
         if (logDwarf)
-          fprintf(stderr, "DW_CFA_restore(reg=%" PRId64 ")\n", reg);
+          fprintf(stderr, "DW_CFA_restore(reg=%lld)\n", reg);
         break;
       default:
         if (logDwarf)

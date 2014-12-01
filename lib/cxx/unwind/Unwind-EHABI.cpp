@@ -20,6 +20,7 @@
 
 #include "config.h"
 #include "libunwind.h"
+#include "libunwind_ext.h"
 #include "unwind.h"
 #include "private_typeinfo.h"
 
@@ -166,25 +167,15 @@ _Unwind_Reason_Code unwindOneFrame(
     _Unwind_Control_Block* ucbp,
     struct _Unwind_Context* context) {
   // Read the compact model EHT entry's header # 6.3
-  uint32_t* unwindingData = ucbp->pr_cache.ehtp;
-  uint32_t unwindInfo = *unwindingData;
-  assert((unwindInfo & 0xf0000000) == 0x80000000 && "Must be a compact entry");
+  const uint32_t* unwindingData = ucbp->pr_cache.ehtp;
+  assert((*unwindingData & 0xf0000000) == 0x80000000 && "Must be a compact entry");
   Descriptor::Format format =
-      static_cast<Descriptor::Format>((unwindInfo & 0x0f000000) >> 24);
+      static_cast<Descriptor::Format>((*unwindingData & 0x0f000000) >> 24);
   size_t len = 0;
-  size_t startOffset = 0;
-  switch (format) {
-    case Descriptor::SU16:
-      len = 4;
-      startOffset = 1;
-      break;
-    case Descriptor::LU16:
-    case Descriptor::LU32:
-      len = 4 + 4 * ((unwindInfo & 0x00ff0000) >> 16);
-      startOffset = 2;
-      break;
-    default:
-      return _URC_FAILURE;
+  size_t off = 0;
+  unwindingData = decode_eht_entry(unwindingData, &off, &len);
+  if (unwindingData == nullptr) {
+    return _URC_FAILURE;
   }
 
   // Handle descriptors before unwinding so they are processed in the context
@@ -198,7 +189,7 @@ _Unwind_Reason_Code unwindOneFrame(
   if (result != _URC_CONTINUE_UNWIND)
     return result;
 
-  return _Unwind_VRS_Interpret(context, unwindingData, startOffset, len);
+  return _Unwind_VRS_Interpret(context, unwindingData, off, len);
 }
 
 // Generates mask discriminator for _Unwind_VRS_Pop, e.g. for _UVRSC_CORE /
@@ -215,9 +206,82 @@ uint32_t RegisterRange(uint8_t start, uint8_t count_minus_one) {
 
 } // end anonymous namespace
 
+uintptr_t _Unwind_GetGR(struct _Unwind_Context* context, int index) {
+  uintptr_t value = 0;
+  _Unwind_VRS_Get(context, _UVRSC_CORE, (uint32_t)index, _UVRSD_UINT32, &value);
+  return value;
+}
+
+void _Unwind_SetGR(struct _Unwind_Context* context, int index, uintptr_t
+    new_value) {
+  _Unwind_VRS_Set(context, _UVRSC_CORE, (uint32_t)index,
+                  _UVRSD_UINT32, &new_value);
+}
+
+uintptr_t _Unwind_GetIP(struct _Unwind_Context* context) {
+  // remove the thumb-bit before returning
+  return (_Unwind_GetGR(context, 15) & (~(uintptr_t)0x1));
+}
+
+void _Unwind_SetIP(struct _Unwind_Context* context, uintptr_t new_value) {
+  uintptr_t thumb_bit = _Unwind_GetGR(context, 15) & ((uintptr_t)0x1);
+  _Unwind_SetGR(context, 15, new_value | thumb_bit);
+}
+
+/**
+ * Decodes an EHT entry.
+ *
+ * @param data Pointer to EHT.
+ * @param[out] off Offset from return value (in bytes) to begin interpretation.
+ * @param[out] len Number of bytes in unwind code.
+ * @return Pointer to beginning of unwind code.
+ */
+extern "C" const uint32_t*
+decode_eht_entry(const uint32_t* data, size_t* off, size_t* len) {
+  if ((*data & 0x80000000) == 0) {
+    // 6.2: Generic Model
+    // EHT entry is a prel31 pointing to the PR, followed by data understood only
+    // by the personality routine. Since EHABI doesn't guarantee the location or
+    // availability of the unwind opcodes in the generic model, we have to check
+    // for them on a case-by-case basis:
+    _Unwind_Reason_Code __gxx_personality_v0(int version, _Unwind_Action actions,
+                                             uint64_t exceptionClass,
+                                             _Unwind_Exception* unwind_exception,
+                                             _Unwind_Context* context);
+    void *PR = (void*)signExtendPrel31(*data);
+    if (PR == &__gxx_personality_v0) {
+      *off = 1; // First byte is size data.
+      *len = (((data[1] >> 24) & 0xff) + 1) * 4;
+    } else
+      return nullptr;
+    data++; // Skip the first word, which is the prel31 offset.
+  } else {
+    // 6.3: ARM Compact Model
+    // EHT entries here correspond to the __aeabi_unwind_cpp_pr[012] PRs indeded
+    // by format:
+    Descriptor::Format format =
+        static_cast<Descriptor::Format>((*data & 0x0f000000) >> 24);
+    switch (format) {
+      case Descriptor::SU16:
+        *len = 4;
+        *off = 1;
+        break;
+      case Descriptor::LU16:
+      case Descriptor::LU32:
+        *len = 4 + 4 * ((*data & 0x00ff0000) >> 16);
+        *off = 2;
+        break;
+      default:
+        return nullptr;
+    }
+  }
+
+  return data;
+}
+
 _Unwind_Reason_Code _Unwind_VRS_Interpret(
     _Unwind_Context* context,
-    uint32_t* data,
+    const uint32_t* data,
     size_t offset,
     size_t len) {
   bool wrotePC = false;
