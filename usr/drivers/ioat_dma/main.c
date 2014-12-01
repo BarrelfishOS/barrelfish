@@ -26,6 +26,8 @@
 #include "dma_service.h"
 #include "debug.h"
 
+#include <barrelfish/waitset.h>
+
 #define IOAT_BENCHMARK_CORE 20
 
 #define IOAT_IDLE_COUNTER 0xFFF

@@ -10,8 +10,6 @@
 #ifndef LIB_DMA_SERVICE_H
 #define LIB_DMA_SERVICE_H
 
-#include <if/dma_defs.h>
-
 /// dma service handle
 typedef struct dma_svc_st* dma_svc_handle_t;
 
