@@ -167,9 +167,39 @@ BENCH_k1om=\
 	sbin/benchmarks/xomp_share \
 	sbin/benchmarks/xomp_work
 
+# adding submodules to targets
 
+$(info Additional submodules:)
+ifneq ("$(wildcard $(SRCDIR)lib/shoal/Hakefile)","")
+$(info + shoal:      [YES])
+SHOAL= \
+	sbin/tests/shl_simple
+	
+ifneq ("$(wildcard $(SRCDIR)usr/green-marl/Hakefile)","")
+$(info + green-marl: [YES])
 GREEN_MARL= \
-#	sbin/gm_tc \
+  	sbin/gm_tc
+    	
+else # no green-marl module
+$(info + green-marl: [NO])
+GREEN_MARL=
+endif
+
+else # no additional modules
+$(info + green-marl: [NO])
+$(info + shoal:      [NO])
+GREEN_MARL=
+SHOAL=
+endif
+
+
+
+#GM_OPT ?= $(word 1, $(ls ))
+
+#SHL_OPT ?= $(word 1, $(HAKE_ARCHS))
+ 
+
+    
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -238,6 +268,7 @@ MODULES_x86_64= \
 	sbin/bs_user \
 	sbin/bulk_shm \
 	$(GREEN_MARL) \
+	$(SHOAL) \
 	sbin/corectrl 
 
 MODULES_k1om= \
@@ -246,7 +277,8 @@ MODULES_k1om= \
 	sbin/xeon_phi \
 	sbin/corectrl \
 	xeon_phi_multiboot \
-	$(GREEN_MARL)
+	$(GREEN_MARL) \
+	$(SHOAL) 
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -395,7 +427,7 @@ MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
 	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
 	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
 
-ifeq ($(ARCH),x86_64)
+ifeq ($(filter $(x86_64),$(ARCH)),) 
     QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
