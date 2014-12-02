@@ -32,7 +32,8 @@ class VMKitTest(TestCommon):
 
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("vmkitmon", [cardName,
-                                       "nfs://" + nfsip + "/local/nfs/harness"])
+                                       "nfs://" + nfsip +
+                                       siteconfig.get('WEBSERVER_VM_PATH')])
         return modules
 
     def get_finish_string(self):
