@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mm/mm.h>
-#include "cpuid_dev.h"
+#include <dev/cpuid_dev.h>
 #include <cpuid/cpuid.h>
 #include <skb/skb.h>
 #include "datagatherer.h"

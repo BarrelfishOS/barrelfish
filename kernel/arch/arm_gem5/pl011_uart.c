@@ -15,7 +15,7 @@
 #include <kernel.h>
 #include <arm.h>
 
-#include <pl011_uart_dev.h>
+#include <dev/pl011_uart_dev.h>
 #include <pl011_uart.h>
 
 #define INTERRUPTS_MASK		0x0070

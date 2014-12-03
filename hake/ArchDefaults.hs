@@ -65,7 +65,6 @@ cStdIncs arch archFamily =
       NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
       NoDep SrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",
-      NoDep InstallTree arch "/include/dev",
       NoDep SrcTree "src" ".",
       NoDep BuildTree arch "." ]
                       

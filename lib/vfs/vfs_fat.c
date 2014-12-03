@@ -571,7 +571,7 @@ find_path(struct fat_mount *mount, const char *path,
         char dosfn[12];
         uint16_t lfn_data[LFN_CHAR_COUNT];
         bool has_lfn;
-        char buf[LFN_CHAR_COUNT];
+        char buf[LFN_CHAR_COUNT + 1];
 
         do {
 
@@ -586,15 +586,29 @@ find_path(struct fat_mount *mount, const char *path,
             }
 
             if (has_lfn) {
+                // In theory, FAT long file names allow a maximum of 255
+                // UTF-16 characters, but as Barrelfish does not have a clear
+                // notion of any UTF encoding, we do not support opening files
+                // with file names that are not pure ASCII.
+                // Additionally, when reading directory entries we replace any
+                // non-ASCII characters in file names with question marks (cf.
+                // dir_read_next()).
                 size_t len;
                 for (len = 0; len < LFN_CHAR_COUNT; len++) {
                     if (!lfn_data[len] || lfn_data[len] > ASCII_MAX) {
                         break;
                     }
                 }
-                if (lfn_data[len] > ASCII_MAX) {
+                // have non-ASCII char in LFN, ignore file when looking up
+                // path for opening.
+                if (len < LFN_CHAR_COUNT && lfn_data[len] > ASCII_MAX) {
                     continue;
                 }
+                // here: LFN is pure ASCII, and thus we can cast the
+                // UTF-16-encoded UTF characters to ASCII chars without having
+                // to worry about them not fitting. We also properly
+                // zero-terminate the new ASCII LFN.
+                assert(len <= LFN_CHAR_COUNT);
                 for (size_t i = 0; i < len; ++i) {
                     buf[i] = (char)lfn_data[i];
                 }
@@ -953,6 +967,12 @@ dir_read_next(void *st, vfs_handle_t dhandle, char **name, struct vfs_fileinfo *
     fat_direntry_initialize(&dirent, (char*)dirent_data);
 
     if (has_lfn) {
+        // In theory, FAT long file names allow a maximum of 255 UTF-16
+        // characters, but as Barrelfish does not have a clear notion of any
+        // UTF encoding, we replace non-ASCII characters with question marks
+        // when reading directory entries for a directory listing.
+        // Additionally we do not support opening files with names that
+        // contain non-ASCII characters (cf. find_path()).
         size_t len;
         for (len = 0; len < LFN_CHAR_COUNT; len++) {
             if (!lfn_data[len]) {

@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <pci/pci.h>
-#include "lpc_timer_dev.h"
+#include <dev/lpc_timer_dev.h>
 #include "timer.h"
 
 #include "lpc_timer_debug.h"

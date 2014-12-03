@@ -45,7 +45,7 @@
 #include <coreboot.h>
 #include <kcb.h>
 
-#include "xapic_dev.h" // XXX
+#include <dev/xapic_dev.h> // XXX
 
 /**
  * Used to store the address of global struct passed during boot across kernel

@@ -27,7 +27,7 @@
 #include <trace_definitions/trace_defs.h>
 
 
-#include "eMAC_dev.h"
+#include <dev/eMAC_dev.h>
 #include "eMAC_driver.h"
 
 #include "eMAC_debug.h"

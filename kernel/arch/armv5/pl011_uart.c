@@ -15,7 +15,7 @@
 #include <kernel.h>
 #include <arm.h>
 
-#include <pl011_uart_dev.h>
+#include <dev/pl011_uart_dev.h>
 #include <pl011_uart.h>
 
 void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base)

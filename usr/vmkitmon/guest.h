@@ -15,7 +15,7 @@
 #define GUEST_H
 
 #include <barrelfish/barrelfish.h>
-#include "amd_vmcb_dev.h"
+#include <dev/amd_vmcb_dev.h>
 
 struct guest {
     // indicates whether the guest is runnable atm or waiting

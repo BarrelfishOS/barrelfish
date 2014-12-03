@@ -18,7 +18,7 @@
 #define _EMAC_DRIVER_H_
 #include <barrelfish/barrelfish.h>
 #include <net_queue_manager/net_queue_manager.h>
-#include "eMAC_dev.h"
+#include <dev/eMAC_dev.h>
 #include "eMAC_debug.h"
 
 

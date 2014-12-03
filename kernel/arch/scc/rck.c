@@ -33,7 +33,7 @@
 #include <diteinfo.h>
 #include <elf/elf.h>
 #include <arch/x86/startup_x86.h>
-#include "rck_dev.h"
+#include <dev/rck_dev.h>
 
 /// Number of tiles on the RCK board
 #define NUM_RCK_TILES           24

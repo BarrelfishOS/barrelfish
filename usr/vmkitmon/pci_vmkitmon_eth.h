@@ -11,7 +11,7 @@
 #define PCI_VMKITMON_ETH_H_
 
 #include "pci.h"
-#include "pci_hdr0_mem_dev.h"
+#include <dev/pci_hdr0_mem_dev.h>
 
 // control register
 #define PCI_VMKITMON_ETH_RSTIRQ (1<<0) //guest writes 1 if he has handled interrupt

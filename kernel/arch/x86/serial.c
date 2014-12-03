@@ -17,7 +17,7 @@
 #include <kernel.h>
 #include <x86.h>
 #include <serial.h>
-#include "pc16550d_dev.h"
+#include <dev/pc16550d_dev.h>
 
 int serial_portbase = 0x3f8; // COM1 default, can be changed via command-line arg
 

@@ -18,8 +18,8 @@
 #include <skb/skb.h>
 #include <ahci/sata_fis.h>
 #include <ahci/ahci_dma_pool.h>
-#include "ahci_hba_dev.h"
-#include <ata_identify_dev.h>
+#include <dev/ahci_hba_dev.h>
+#include <dev/ata_identify_dev.h>
 #include "ahcid_debug.h"
 
 #define PCI_DEVICE_ICH9R_82801IR 0x2922
