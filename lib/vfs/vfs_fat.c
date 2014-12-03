@@ -569,7 +569,7 @@ find_path(struct fat_mount *mount, const char *path,
         dirsearch_initialize(&search, parent);
 
         char dosfn[12];
-        uint16_t lfn_data[LFN_CHAR_COUNT + 1];
+        uint16_t lfn_data[LFN_CHAR_COUNT];
         bool has_lfn;
         char buf[LFN_CHAR_COUNT + 1];
 
@@ -592,9 +592,14 @@ find_path(struct fat_mount *mount, const char *path,
                         break;
                     }
                 }
-                if (lfn_data[len] > ASCII_MAX) {
+
+                // invalid char
+                if (len < LFN_CHAR_COUNT && lfn_data[len] > ASCII_MAX) {
                     continue;
                 }
+
+                assert(len <= LFN_CHAR_COUNT);
+
                 for (size_t i = 0; i < len; ++i) {
                     buf[i] = (char)lfn_data[i];
                 }
