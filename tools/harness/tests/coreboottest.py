@@ -39,7 +39,9 @@ class StopCoreTest(CoreCtrlTest):
     def interact(self):
         self.wait_for_fish()
 
-        time.sleep(5)
+        # wait for app
+        self.console.expect("On core %s" % self.core)
+
         debug.verbose("Stopping core %s." % self.core)
         self.console.sendline("corectrl stop %s" % self.core)
 
@@ -69,6 +71,9 @@ class UpdateKernelTest(CoreCtrlTest):
 
     def interact(self):
         self.wait_for_fish()
+
+        # wait for app
+        self.console.expect("On core %s" % self.core)
 
         # Reboot core
         self.console.sendline("corectrl update %s" % self.core)
