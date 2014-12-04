@@ -58,33 +58,6 @@ void sys_syscall_kernel(void)
     panic("Why is the kernel making a system call?");
 }
 
-/**
- * \brief Spawn a new core
- */
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry)
-{
-#if defined (__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
-    NYI("can not spawn new cores yet");
-#else
-	int r;
-	switch(cpu_type) {
-	case CPU_ARM7:
-		r = start_aps_arm_start(core_id, (lvaddr_t)entry);
-		if(r != 0)
-		{
-			return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-		}
-		break;
-	default:
-        assert(!"Architecture not supported");
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-        break;
-	}
-#endif //defined(__ARM_ARCH_7M__)||defined(__ARCH_ARM_5__)
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret
 handle_dispatcher_setup(
     struct capability* to,
