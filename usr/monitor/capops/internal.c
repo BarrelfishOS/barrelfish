@@ -9,7 +9,8 @@ size_t num_monitors_online(void)
     errval_t err;
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
-        return LIB_ERR_NAMESERVICE_NOT_BOUND;
+        debug_printf("do not have connection to octopus, assuming single-core environment\n");
+        return 1;
     }
 
     char* buffer = NULL;
