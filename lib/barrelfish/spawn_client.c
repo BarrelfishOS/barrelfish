@@ -81,7 +81,7 @@ static errval_t bind_client(coreid_t coreid)
         namebuf[sizeof(namebuf) - 1] = '\0';
 
         iref_t iref;
-        err = nameservice_lookup(namebuf, &iref);
+        err = nameservice_blocking_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
