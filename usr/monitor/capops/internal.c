@@ -2,16 +2,73 @@
 #include <if/octopus_rpcclient_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
+#include "monitor.h"
 #include "internal.h"
+
+struct bind_state {
+    bool done;
+    errval_t err;
+};
+
+static void error_handler(struct octopus_binding *b, errval_t err)
+{
+    USER_PANIC_ERR(err, "asynchronous error in nameservice binding");
+}
+
+static void bind_continuation(void *st_arg, errval_t err,
+                              struct octopus_binding *b)
+{
+    struct bind_state *st = st_arg;
+
+    if (err_is_ok(err)) {
+        b->error_handler = error_handler;
+
+        struct octopus_rpc_client *r;
+        r = malloc(sizeof(struct octopus_rpc_client));
+        assert(r != NULL);
+        err = octopus_rpc_client_init(r, b);
+        if (err_is_fail(err)) {
+            free(r);
+            USER_PANIC_ERR(err, "error in nameservice_rpc_client_init");
+        } else {
+            set_octopus_rpc_client(r);
+        }
+    }
+
+    st->err = err;
+    st->done = true;
+}
+
+static errval_t bind_to_octopus(void)
+{
+    errval_t err;
+    struct bind_state st = { .done = false };
+    err = octopus_bind(name_serv_iref, bind_continuation, &st,
+            get_default_waitset(), IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    while (!st.done) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "ev_disp in bind_to_octopus");
+        }
+    }
+
+    return st.err;
+}
 
 size_t num_monitors_online(void)
 {
     errval_t err;
     struct octopus_rpc_client *r = get_octopus_rpc_client();
     if (r == NULL) {
-        debug_printf("do not have connection to octopus, assuming single-core environment\n");
-        return 1;
+        err = bind_to_octopus();
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "bind_to_octopus");
+            debug_printf("no connection to octopus, num_monitors=1\n");
+            return 1;
+        }
+        r = get_octopus_rpc_client();
     }
+    assert(r != NULL);
 
     char* buffer = NULL;
     errval_t error_code;
