@@ -519,6 +519,7 @@ spawn_init(const char*      name,
     STARTUP_PROGRESS();
 
     create_modules_from_initrd(bootinfo, initrd_base, initrd_bytes);
+    debug(SUBSYS_STARTUP, "used %d slots in modulecn\n", spawn_state.modulecn_slot);
 
     STARTUP_PROGRESS();
     create_phys_caps(&spawn_state.physaddrcn->cap, bootinfo);
