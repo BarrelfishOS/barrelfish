@@ -20,6 +20,7 @@ class ETH(siteconfig.BaseSite):
     NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
     WEBSERVER_NFS_PATH_FULL = '/mnt/local/nfs/barrelfish_website'
     WEBSERVER_NFS_TEST_PATH = '/mnt/local/nfs/pravin/website/bftest_crash'
+    WEBSERVER_VM_PATH = '/mnt/local/nfs/harness'
 #    WEBSERVER_NFS_PATH = WEBSERVER_NFS_TEST_PATH
     WEBSERVER_NFS_PATH = WEBSERVER_NFS_PATH_FULL
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH

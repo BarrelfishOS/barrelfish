@@ -15,7 +15,7 @@
 #ifndef APIC_H_
 #define APIC_H_
 
-#include <xapic_dev.h>
+#include <dev/xapic_dev.h>
 
 #define APIC_INTER_HALT_VECTOR                  248
 #define APIC_INTER_CORE_VECTOR                  249

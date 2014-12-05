@@ -23,7 +23,7 @@
 #include <stdint.h>
 
 #include "lpc.h"
-#include "pc16550d_mem_dev.h"
+#include <dev/pc16550d_mem_dev.h>
 
 #define PC16550D_FIFO_BITS      4
 #define PC16550D_FIFO_SIZE      (1 << PC16550D_FIFO_BITS)

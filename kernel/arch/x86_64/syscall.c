@@ -36,7 +36,7 @@
 #include <trace/trace.h>
 #ifndef __k1om__
 #include <vmkit.h>
-#include <amd_vmcb_dev.h>
+#include <dev/amd_vmcb_dev.h>
 #endif
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))

@@ -118,8 +118,7 @@ archFamily arch = optArchFamily (options arch)
 -------------------------------------------------------------------------
 
 kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
-                    "/include",
-                    "/include/dev" ]]
+                    "/include" ]]
                  ++
                  [ NoDep SrcTree "src" f | f <- [
                     "/kernel/include/arch" ./. arch,

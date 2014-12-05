@@ -15,7 +15,7 @@
 #define AMD_SVM_H
 
 #include <stdint.h>
-#include "amd_vmcb_dev.h"
+#include <dev/amd_vmcb_dev.h>
 
 /* EXITCODE */
 

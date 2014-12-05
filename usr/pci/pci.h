@@ -19,8 +19,8 @@
 
 #include <pci/confspace/mackerelpci.h>
 #include <pci/confspace/pci_confspace.h>
-#include "pci_hdr0_dev.h"
-#include "pci_hdr1_dev.h"
+#include <dev/pci_hdr0_dev.h>
+#include <dev/pci_hdr1_dev.h>
 
 /// BIOS area is 1MB in size
 #define BIOS_BITS       20

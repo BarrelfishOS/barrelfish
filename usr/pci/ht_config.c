@@ -16,7 +16,7 @@
 #include <barrelfish/barrelfish.h>
 
 #include "ht_config.h"
-#include "ht_config_dev.h"
+#include <dev/ht_config_dev.h>
 
 #include "pci_debug.h"
 

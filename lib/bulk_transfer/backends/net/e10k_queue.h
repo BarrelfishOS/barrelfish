@@ -15,7 +15,7 @@
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 #include <net_interfaces/flags.h>
 
-#include "e10k_q_dev.h"
+#include <dev/e10k_q_dev.h>
 
 struct e10k_queue_ops {
     errval_t (*update_txtail)(void*, size_t);

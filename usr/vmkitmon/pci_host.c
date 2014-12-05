@@ -16,7 +16,7 @@
 #include "vmkitmon.h"
 #include "pci.h"
 #include "pci_host.h"
-#include "pci_hdr0_mem_dev.h"
+#include <dev/pci_hdr0_mem_dev.h>
 
 #define INVALID         0xffffffff
 
