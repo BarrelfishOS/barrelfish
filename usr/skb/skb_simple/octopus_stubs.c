@@ -17,15 +17,22 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <pcre.h>
+
 #include <barrelfish/barrelfish.h>
 #include <if/octopus_defs.h>
 
 #include <octopus_server/debug.h>
 #include <octopus_server/query.h>
 #include <octopus/parser/ast.h>
+#include <octopus/definitions.h>
 #include <octopus/getset.h> // for SET_SEQUENTIAL define
+
 #define MAX_RECORDS 1024
 #define RECORD_NAME(ast) ((ast)->u.on.name->u.in.str)
+#define RECORD_NAME_REGEX(ast) ((ast)->u.on.name->u.cnsn.value->u.sn.str)
+
+// cnsn
 
 struct wait_queue;
 struct wait_queue {
@@ -252,10 +259,67 @@ errval_t del_record(struct ast_object* ast, struct oct_query_state* sqs)
     return OCT_ERR_NO_RECORD;
 }
 
-errval_t get_record_names(struct ast_object* ast, struct oct_query_state* dqs)
+/**
+ * TODO: this can only regex match on record name at the moment.
+ */
+errval_t get_record_names(struct ast_object* ast, struct oct_query_state* sqs)
 {
-    assert(!"NYI");
-    return OCT_ERR_NO_RECORD;
+    const char* errptr = NULL;
+    int erroffset = 0;
+    unsigned char tableptr;
+
+    char** names = calloc(sizeof(char*), MAX_RECORDS);
+    size_t names_cur = 0;
+
+    OCT_DEBUG("%s:%s:%d: About to pcre_compile: %s\n", 
+           __FILE__, __FUNCTION__, __LINE__, RECORD_NAME_REGEX(ast));
+    pcre* reg = pcre_compile(RECORD_NAME_REGEX(ast), 0, &errptr, &erroffset, &tableptr);
+    if (reg == NULL) {
+        OCT_DEBUG("Failed to compile the regex errptr = %s erroroffset = %d", 
+                  errptr, erroffset);
+        return OCT_ERR_PARSER_FAIL;
+    }
+
+    for (size_t i = 0; i < MAX_RECORDS; i++) {        
+        struct record* entry = &record_storage[i];
+        if (entry->name == NULL) {
+            continue;
+        }
+
+        int results[1];
+        int rc = pcre_exec(reg, NULL, entry->name, strlen(entry->name),
+                           0, 0, results, 1);
+        if (rc == 0) {
+            OCT_DEBUG("%s:%s:%d: We have a match\n", 
+                      __FILE__, __FUNCTION__, __LINE__);
+            names[names_cur++] = entry->name;
+        }
+        else if (rc < 0) {
+            OCT_DEBUG("%s:%s:%d: pcre_exec failed matching %s with rc = %d.\n", 
+                      __FILE__, __FUNCTION__, __LINE__, entry->name, rc);
+        }
+    }
+    if (names_cur == 0) {
+        return OCT_ERR_NO_RECORD;
+    }
+
+    // Form a comma separated string to send back over flounder
+    names_cur = 0;
+    int max_bytes = MAX_QUERY_LENGTH;
+    sqs->std_out.buffer[0] = '\0';
+
+    while(names[names_cur] != NULL) {
+        strncat(sqs->std_out.buffer, names[names_cur], max_bytes);
+        max_bytes -= strlen(names[names_cur]);
+        names_cur++;
+        if (names[names_cur] != NULL) {
+            strncat(sqs->std_out.buffer, ",", max_bytes--);
+        }
+        assert(max_bytes > 0);
+    }
+
+    free(names);
+    return SYS_ERR_OK;
 }
 
 errval_t set_watch(struct octopus_binding* b, struct ast_object* ast,
