@@ -58,6 +58,10 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 
 // PP switch to toggle recursive checking of invariants by default
 #ifdef MDB_RECHECK_INVARIANTS
+// disable toplevel invariants checks as we're doing them anyway
+#undef CHECK_INVARIANTS
+#define CHECK_INVARIANTS ((void)0)
+
 #define CHECK_INVARIANTS_SUB(cte) mdb_check_subtree_invariants(cte)
 #else
 #define CHECK_INVARIANTS_SUB(cte) ((void)0)
