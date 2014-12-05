@@ -123,7 +123,12 @@ void event_queue_add(struct event_queue *q, struct event_queue_node *qn,
             };
             err = waitset_chan_trigger_closure(q->waitset, &q->waitset_state,
                                                runner);
-            assert(err_is_ok(err)); // shouldn't fail
+            // apparently there's a situation when we dont really need to
+            // trigger the queue runner here, as we can get an
+            // LIB_ERR_CHAN_ALREADY REGISTERED error from the call.
+            // -SG, 2013-07-31
+            assert(err_is_ok(err) ||
+                   err_no(err) == LIB_ERR_CHAN_ALREADY_REGISTERED);
         }
     } else {
         assert(q->tail != qn); // don't re-enqueue the same node!

@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_VSPACE_MMU_AWARE_H
 #define LIBBARRELFISH_VSPACE_MMU_AWARE_H
 
+#include <barrelfish/vregion.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

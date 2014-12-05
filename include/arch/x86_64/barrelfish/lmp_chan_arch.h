@@ -17,6 +17,7 @@
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish/cspace.h>
 #include <barrelfish_kpi/lmp.h>
 
 /**

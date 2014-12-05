@@ -138,6 +138,10 @@ class QEMUMachineMultiproc(QEMUMachineX64):
     '''Multiprocessor x86_64 QEMU (4 CPUs)'''
     name = 'qemu4'
 
+    def get_boot_timeout(self):
+        # 4core qemu needs a bit longer to boot
+        return 240
+
     def get_ncores(self):
         return 4
 

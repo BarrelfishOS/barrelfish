@@ -39,14 +39,18 @@ class StopCoreTest(CoreCtrlTest):
     def interact(self):
         self.wait_for_fish()
 
-        time.sleep(5)
+        # wait for app
+        self.console.expect("On core %s" % self.core)
+
         debug.verbose("Stopping core %s." % self.core)
         self.console.sendline("corectrl stop %s" % self.core)
 
         # Stop core
         debug.verbose("Wait until core is down.")
         self.console.expect("Core %s stopped." % self.core)
-        self.wait_for_prompt()
+        # cannot wait for prompt here, as new cleanup routine will wait for
+        # answer from monitor on stopped core.
+        #self.wait_for_prompt()
 
         # Make sure app is no longer running
         i = self.console.expect(["On core %s" % self.core, pexpect.TIMEOUT], timeout=10)
@@ -67,6 +71,9 @@ class UpdateKernelTest(CoreCtrlTest):
 
     def interact(self):
         self.wait_for_fish()
+
+        # wait for app
+        self.console.expect("On core %s" % self.core)
 
         # Reboot core
         self.console.sendline("corectrl update %s" % self.core)
@@ -96,14 +103,9 @@ class ParkOSNodeTest(CoreCtrlTest):
 
         self.console.expect("On core %s" % self.core)
 
-        # Stop
-        debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("corectrl stop %s" % self.core)
-        self.wait_for_prompt()
-
         # Park
-        debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.target_core))
-        self.console.sendline("corectrl give %s %s" % (self.core, self.target_core))
+        debug.verbose("Park OSNode from %s on %s." % (self.core, self.target_core))
+        self.console.sendline("corectrl park %s %s" % (self.core, self.target_core))
         self.wait_for_prompt()
 
         self.console.expect("On core %s" % self.target_core)
@@ -146,26 +148,19 @@ class ParkRebootTest(CoreCtrlTest):
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)
 
-        # Stop
-        debug.verbose("Stopping core %s." % self.core)
-        self.console.sendline("corectrl stop %s" % self.core)
-        self.wait_for_prompt()
-
         # Park
-        debug.verbose("Transfer OSNode from %s to %s." % (self.core, self.parking_core))
-        self.console.sendline("corectrl give %s %s" % (self.core, self.parking_core))
+        debug.verbose("Park KCB %s on core %s." % (self.core, self.parking_core))
+        self.console.sendline("corectrl park %s %s" % (self.core, self.parking_core))
         self.wait_for_prompt()
+
         self.console.expect("On core %s" % self.parking_core)
         self.console.expect("On core %s" % self.parking_core)
 
-        # Remove KCB on parking core
-        debug.verbose("Remove KCB on parking core %s." % (self.parking_core))
-        self.console.sendline("corectrl rmkcb %s" % (self.core))
+        # Unpark
+        debug.verbose("Unpark KCB %s from core %s." % (self.core, self.parking_core))
+        self.console.sendline("corectrl unpark %s" % (self.core))
         self.wait_for_prompt()
 
         # Reboot home core with kcb
-        debug.verbose("Reboot core %s." % (self.core))
-        self.console.sendline("corectrl boot -m %s" % (self.core))
-        self.wait_for_prompt() 
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)

@@ -28,6 +28,10 @@
 
 #ifndef __ASSEMBLER__
 
+#include <assert.h>
+#include <stdbool.h>
+#include <barrelfish_kpi/types.h>
+
 #define CAPRIGHTS_READ          (1 << 0)
 #define CAPRIGHTS_WRITE         (1 << 1)
 #define CAPRIGHTS_EXECUTE       (1 << 2)
@@ -45,8 +49,8 @@ typedef uint8_t         CapRights;
 
 struct dcb;
 
+// capbits needs CapRights and dcb;
 #include <barrelfish_kpi/capbits.h>
-#include <assert.h>
 
 static inline bool type_is_vnode(enum objtype type)
 {
@@ -156,6 +160,7 @@ enum cnode_cmd {
     CNodeCmd_Delete,    ///< Delete capability
     CNodeCmd_Revoke,    ///< Revoke capability
     CNodeCmd_Create,    ///< Create capability
+    CNodeCmd_GetState,  ///< Get distcap state for capability
 };
 
 enum vnode_cmd {
@@ -171,20 +176,29 @@ enum vnode_cmd {
 enum kernel_cmd {
     KernelCmd_Spawn_core,         ///< Spawn a new kernel
     KernelCmd_Identify_cap,       ///< Return the meta data of a capability
-    KernelCmd_Identify_domains_cap,  ///< Return the meta data of another domain's capability
-    KernelCmd_Remote_cap,         ///< Set capability as being remote
+    KernelCmd_Identify_domains_cap, ///< Return the meta data of another domain's capability
+    KernelCmd_Remote_relations,   ///< Set capability as being remote
+    KernelCmd_Cap_has_relations,      ///< Return presence of local relations
     KernelCmd_Create_cap,         ///< Create a new capability
-    KernelCmd_Iden_cnode_get_cap, ///< Look up cnode, return cap within
+    KernelCmd_Copy_existing,
     KernelCmd_Get_core_id,        ///< Returns the id of the core the domain is on
     KernelCmd_Get_arch_id,        ///< Returns arch id of caller's core
     KernelCmd_Nullify_cap,        ///< Set the capability to NULL allowed it to be reused
-    KernelCmd_Unmap_vaddr,
     KernelCmd_Setup_trace,        ///< Set up trace buffer
     KernelCmd_Register,           ///< Register monitor notify endpoint
     KernelCmd_Domain_Id,          ///< Set domain ID of dispatcher
-    MonitorCmd_Retype,
-    MonitorCmd_Delete,
-    MonitorCmd_Revoke,
+    KernelCmd_Get_cap_owner,
+    KernelCmd_Set_cap_owner,
+    KernelCmd_Lock_cap,
+    KernelCmd_Unlock_cap,
+    KernelCmd_Delete_last,
+    KernelCmd_Delete_foreigns,
+    KernelCmd_Revoke_mark_target,
+    KernelCmd_Revoke_mark_relations,
+    KernelCmd_Delete_step,
+    KernelCmd_Clear_step,
+    KernelCmd_Retype,
+    KernelCmd_Has_descendants,
     KernelCmd_Sync_timer,
     KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,

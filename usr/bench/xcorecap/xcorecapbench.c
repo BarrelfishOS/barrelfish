@@ -18,8 +18,8 @@
 #include <string.h>
 #include <bench/bench.h>
 
-#define PARENT_BITS   16
-#define CHILD_BITS    9
+#define PARENT_BITS   19
+#define CHILD_BITS    12
 #define CAPS_PER_CORE (1 << (PARENT_BITS - CHILD_BITS))
 
 /* --- Globals ---*/

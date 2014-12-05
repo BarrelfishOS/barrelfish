@@ -70,7 +70,7 @@ errval_t notification_create_cap(int chanid, coreid_t coreid,
         printf("Failed to allocate slot from channel_alloc\n");
         abort(); //XXX
     }
-    err = monitor_cap_create(*retcap, &notify_cap, 0);
+    err = monitor_cap_create(*retcap, &notify_cap, my_core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "monitor_cap_create failed");
         printf("monitor_cap_create failed\n");

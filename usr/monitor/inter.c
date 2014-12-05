@@ -15,9 +15,11 @@
  */
 
 #include <inttypes.h>
-#include "monitor.h"
+#include <monitor.h>
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>
+#include "send_cap.h"
+#include "capops.h"
 #include <trace_definitions/trace_defs.h>
 
 #define MIN(x,y) ((x<y) ? (x) : (y))
@@ -64,6 +66,16 @@ static errval_t new_monitor_notify(coreid_t id)
 }
 
 /**
+ * \brief A newly booted monitor indicates that can participate in capability
+ * operations
+ */
+static void capops_ready(struct intermon_binding *b)
+{
+    struct intermon_state *st = b->st;
+    st->capops_ready = true;
+}
+
+/**
  * \brief A newly booted monitor indicates that it has initialized
  */
 
@@ -101,6 +113,8 @@ boot_core_reply_cont(struct monitor_binding *domain_binding,
 {
     assert(domain_binding != NULL);
     errval_t err;
+    DEBUG_CAPOPS("boot_core_reply_cont: %s (%"PRIuERRV")\n",
+            err_getstring(error_code), error_code);
     err = domain_binding->tx_vtbl.
             boot_core_reply(domain_binding, NOP_CONT, error_code);
     if (err_is_fail(err)) {
@@ -129,6 +143,7 @@ static void monitor_initialized(struct intermon_binding *b)
 
     struct intermon_state *st = b->st;
     errval_t err = SYS_ERR_OK;
+    assert(st->capops_ready);
 
     // Inform other monitors of this new monitor
     monitor_ready[st->core_id] = true;
@@ -169,6 +184,7 @@ cap_receive_request_enqueue(struct monitor_binding *domain_binding,
                             uintptr_t your_mon_id,
                             struct intermon_binding *b)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
     struct cap_receive_request_state *me =
@@ -197,21 +213,18 @@ cap_receive_request_cont(struct monitor_binding *domain_binding,
                          uint32_t capid, uintptr_t your_mon_id,
                          struct intermon_binding *b)
 {
+    DEBUG_CAPOPS("%s ->%"PRIuPTR", %s\n", __FUNCTION__, domain_id, err_getstring(msgerr));
     errval_t err, err2;
     struct capref *capp = caprefdup(cap);
 
-    struct event_closure cont;
-    if (capref_is_null(cap)) {
-        cont = NOP_CONT;
-    } else {
-        cont = MKCONT(destroy_outgoing_cap, capp);
-    }
     err = domain_binding->tx_vtbl.
-        cap_receive_request(domain_binding, cont, domain_id, msgerr, cap, capid);
+        cap_receive_request(domain_binding, MKCONT(free, capp), domain_id, msgerr, cap, capid);
 
     if (err_is_fail(err)) {
+        DEBUG_CAPOPS("%s: send failed: %s\n", __FUNCTION__, err_getstring(err));
         free(capp);
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            DEBUG_CAPOPS("%s: enqueueing message b/c flounder busy\n", __FUNCTION__);
             cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap,
                                         capid, your_mon_id, b);
         } else {
@@ -237,118 +250,73 @@ static void cap_receive_request_handler(struct monitor_binding *b,
     free(e);
 }
 
-static void cap_send_request(struct intermon_binding *b,
-                             mon_id_t my_mon_id, uint32_t capid,
-                             intermon_caprep_t caprep, errval_t msgerr,
-                             bool give_away, bool remote_has_desc,
-                             intermon_coremask_t on_cores,
-                             bool null_cap)
+struct cap_send_request_st {
+    struct captx_recv_state captx_st;
+    struct intermon_binding *b;
+    uint32_t capid;
+    uintptr_t my_mon_id;
+};
+
+static void
+cap_send_request_caprecv_cont(errval_t err, struct captx_recv_state *captx_st,
+                              struct capref cap, void *st_)
 {
-    errval_t err, err2;
+#if defined (DEBUG_MONITOR_CAPOPS)
+    char buf[256];
+    debug_print_capref(buf,256,cap);
+    DEBUG_CAPOPS("%s: %s (cap: %s)\n", __FUNCTION__, err_getstring(err), buf);
+#endif
+    struct cap_send_request_st *st = (struct cap_send_request_st*)st_;
 
-    /* Get client's core_id */
-    struct intermon_state *st = b->st;
-    coreid_t core_id = st->core_id;
-
+    uintptr_t my_mon_id = st->my_mon_id;
     struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
     assert(conn != NULL);
     uintptr_t your_mon_id = conn->mon_id;
 
-    /* Construct the capability */
-    struct capability *capability = (struct capability *)&caprep;
-    struct capref cap;
-
-    if (null_cap) {
-        cap = NULL_CAP;
-    } else {
-        err = slot_alloc(&cap);
-        if (err_is_fail(err)) {
-            err = err_push(err, LIB_ERR_SLOT_ALLOC);
-            goto send_error;
-        }
-
-        err = monitor_cap_create(cap, capability, core_id);
-        if (err_is_fail(err)) {
-            // cleanup
-            err = err_push(err, MON_ERR_CAP_CREATE);
-            goto cleanup1;
-        }
-
-        if (!give_away) {
-            if (!rcap_db_exists(capability)) {
-                bool kern_has_desc;
-                err = monitor_cap_remote(cap, true, &kern_has_desc);
-                if (err_is_fail(err)) {
-                    // cleanup
-                    err = err_push(err, MON_ERR_CAP_REMOTE);
-                    goto cleanup2;
-                }
-                // if this assert fires, then something wierd has happened
-                // where our kernel knows this cap has descendents, but the
-                // sending core didn't
-                assert(!kern_has_desc || remote_has_desc);
-
-                coremask_t mask;
-                memcpy(mask.bits, on_cores, sizeof(intermon_coremask_t));
-                rcap_db_update_on_recv (capability, remote_has_desc, mask,
-                                        core_id);
-                if (err_is_fail(err)) {
-                    // cleanup
-                    err = err_push(err, MON_ERR_CAP_REMOTE);
-                    goto cleanup2;
-                }
-            } else {
-                // have already been sent this capability
-                //assert (on_cores & get_coremask(my_core_id));
-            }
-        } else {
-            bool kern_has_desc;
-            err = monitor_cap_remote(cap, true, &kern_has_desc);
-            if (err_is_fail(err)) {
-                // cleanup
-                err = err_push(err, MON_ERR_CAP_REMOTE);
-                goto cleanup2;
-            }
-
-            // TODO, do something if this cap already has descendents to ensure
-            // that it cannot be retyped on this core
-        }
-
-    }
-
-do_send: ;
-    /* Get the user domain's connection and connection id */
+    // Get the user domain's connection and connection id
     struct monitor_binding *domain_binding = conn->domain_binding;
     uintptr_t domain_id = conn->domain_id;
 
-    /* Try to send cap to the user domain, but only if the queue is empty */
+    // Try to send cap to the user domain, but only if the queue is empty
     struct monitor_state *mst = domain_binding->st;
     if (msg_queue_is_empty(&mst->queue)) {
-        cap_receive_request_cont(domain_binding, domain_id, msgerr, cap, capid,
-                                 your_mon_id, b);
+        DEBUG_CAPOPS("deliver cap to user domain 0x%"PRIxPTR"\n", domain_id);
+        cap_receive_request_cont(domain_binding, domain_id, err, cap, st->capid,
+                                 your_mon_id, st->b);
     } else {
+        DEBUG_CAPOPS("enqueue cap for delivery to user domain\n");
         // don't allow sends to bypass the queue
-        cap_receive_request_enqueue(domain_binding, domain_id, msgerr, cap, capid,
-                                    your_mon_id, b);
+        cap_receive_request_enqueue(domain_binding, domain_id, err, cap, st->capid,
+                                    your_mon_id, st->b);
+    }
+}
+
+static void
+cap_send_request(struct intermon_binding *b, mon_id_t my_mon_id,
+                 uint32_t capid, intermon_captx_t captx)
+{
+    DEBUG_CAPOPS("intermon: %s\n", __FUNCTION__);
+    errval_t err;
+
+    struct cap_send_request_st *st;
+    st = malloc(sizeof(*st));
+    if (!st) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto send_err;
     }
 
-    free(on_cores);
+    st->capid = capid;
+    st->my_mon_id = my_mon_id;
+    st->b = b;
+
+    captx_handle_recv(&captx, &st->captx_st,
+                      cap_send_request_caprecv_cont, st);
+
     return;
 
-cleanup2:
-    err2 = cap_destroy(cap);
-    if (err_is_fail(err2)) {
-        USER_PANIC_ERR(err2, "cap_destroy failed");
-    }
-cleanup1:
-    err2 = slot_free(cap);
-    if (err_is_fail(err2)) {
-        USER_PANIC_ERR(err2, "slot_free failed");
-    }
-send_error:
-    msgerr = err;
-    cap = NULL_CAP;
-    goto do_send;
+send_err:
+    // XXX... should send error here
+    DEBUG_ERR(err, "error while handling intermon send_request");
 }
 
 static void span_domain_request(struct intermon_binding *b,
@@ -404,15 +372,14 @@ static void span_domain_request(struct intermon_binding *b,
         goto reply;
     }
 
-    bool has_descendants;
-    err = monitor_cap_remote(disp, true, &has_descendants);
+    err = monitor_remote_relations(disp, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        USER_PANIC_ERR(err, "monitor_remote_relations failed");
         return;
     }
-    err = monitor_cap_remote(vroot, true, &has_descendants);
+    err = monitor_remote_relations(vroot, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "monitor_cap_remote failed");
+        USER_PANIC_ERR(err, "monitor_remote_relations failed");
         return;
     }
 
@@ -750,6 +717,7 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
     .monitor_mem_iref_request = monitor_mem_iref_request,
     .monitor_mem_iref_reply = monitor_mem_iref_reply,
 
+    .capops_ready              = capops_ready,
     .monitor_initialized       = monitor_initialized,
 
     .spawnd_image_request      = spawnd_image_request,
@@ -784,6 +752,7 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     st->binding = b;
     st->queue.head = st->queue.tail = NULL;
     st->rsrcid_inflight = false;
+    st->capops_ready = true;
     st->originating_client = NULL;
     b->st = st;
     b->rx_vtbl = the_intermon_vtable;
@@ -806,10 +775,10 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
 
 #if CONFIG_TRACE
     err = trace_intermon_init(b);
-	if (err_is_fail(err)) {
-		USER_PANIC_ERR(err, "trace_intermon_init failed");
-		return err;
-	}
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trace_intermon_init failed");
+        return err;
+    }
 
     err = bfscope_intermon_init(b);
     if (err_is_fail(err)) {
@@ -821,6 +790,12 @@ errval_t intermon_init(struct intermon_binding *b, coreid_t coreid)
     err = arch_intermon_init(b);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "arch_intermon_init failed");
+        return err;
+    }
+
+    err = capops_init(b->waitset, b);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "capops_intermon_init failed");
         return err;
     }
 

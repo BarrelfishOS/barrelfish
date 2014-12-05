@@ -23,11 +23,11 @@
 #include <bench/bench_arch.h>
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
-#include <if/intermon_defs.h>
-#include <monitor_invocations.h>
-#include "rcap_db_common.h"
-#include "queue.h"
-#include "connection.h"
+#include <if/monitor_mem_defs.h>
+#include <monitor_invocations_arch.h>
+#include <queue.h>
+#include <connection.h>
+#include "monitor_debug.h"
 
 STATIC_ASSERT(MON_URPC_SIZE == 2*BASE_PAGE_SIZE,
               "Change #URPC_SIZE if changing channel length");
@@ -53,6 +53,7 @@ struct intermon_state {
     coreid_t core_id;                   ///< Core ID of monitor on other end
     rsrcid_t rsrcid;
     bool rsrcid_inflight;
+    bool capops_ready;
     struct monitor_binding *originating_client;
 };
 
@@ -70,74 +71,55 @@ extern bool bsp_monitor;
 extern struct capref trace_cap;
 extern struct bootinfo *bi;
 extern bool update_ram_alloc_binding;
-extern int num_monitors;
 
 union capability_caprep_u {
     intermon_caprep_t caprep;
+    monitor_mem_caprep_t caprep2;
     monitor_blocking_caprep_t caprepb; // XXX: identical to intermon_caprep_t
     struct capability cap;
 };
 STATIC_ASSERT(sizeof(union capability_caprep_u) >= sizeof(struct capability), \
                   ASSERT_CONCAT("Size mismatch:", intermon_caprep_t));
 
+STATIC_ASSERT(sizeof(struct capability) <= sizeof(intermon_caprep_t),
+        ASSERT_CONCAT("Size mismatch:", intermon_caprep_t));
+
 static inline void capability_to_caprep(struct capability *cap,
                                         intermon_caprep_t *caprep)
 {
-    union capability_caprep_u u = { .cap = *cap };
-    *caprep = u.caprep;
+    memcpy(caprep, cap, sizeof(*cap));
 }
 
 static inline void caprep_to_capability(intermon_caprep_t *caprep,
                                         struct capability *cap)
 {
-    union capability_caprep_u u = { .caprep = *caprep };
-    *cap = u.cap;
+    memcpy(cap, caprep, sizeof(*cap));
 }
 
-/* ram_alloc.c */
-errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b);
-errval_t mon_ram_alloc_serve(void);
+static inline void debug_print_caprep(intermon_caprep_t *caprep)
+{
+    struct capability cap;
+    memcpy(&cap, caprep, sizeof(cap));
+    char buf[256];
+    debug_print_cap(buf, 256, &cap);
+    buf[255] = 0;
+    DEBUG_CAPOPS("\t%s\n", buf);
+}
 
-/* spawn.c */
-errval_t spawn_all_domains(void);
-errval_t spawn_domain(char *name);
-errval_t spawn_domain_with_args(const char *name, char *const argv[],
-                                char *const envp[]);
-errval_t spawn_module_with_args(const char *name, struct mem_region *module,
-                                char *const argv[], char *const envp[]);
-errval_t span_domain(struct capref vroot, struct capref dispframe);
-errval_t spawn_spawnd(struct intermon_binding *b);
+static inline void debug_print_caprep2(monitor_mem_caprep_t *caprep)
+{
+    struct capability cap;
+    memcpy(&cap, caprep, sizeof(cap));
+    char buf[256];
+    debug_print_cap(buf, 256, &cap);
+    buf[255] = 0;
+    DEBUG_CAPOPS("\t%s\n", buf);
+}
 
-/* monitor_server.c */
-errval_t monitor_client_setup(struct spawninfo *si);
-errval_t monitor_client_setup_mem_serv(void);
-errval_t monitor_client_setup_monitor(void);
-errval_t monitor_server_init(struct monitor_binding *b);
-
-/* monitor_rpc_server.c */
-errval_t monitor_rpc_init(void);
-
-/* invocations.c */
-bool monitor_can_send_cap(struct capability *cap);
-errval_t monitor_cap_identify(struct capref cap, struct capability *out);
-errval_t monitor_domains_cap_identify(struct capref croot, capaddr_t cap,
-                                      int vbits, struct capability *out);
-errval_t monitor_cap_remote(struct capref cap, bool is_remote, bool * has_dep);
-errval_t monitor_cap_create(struct capref dest, struct capability *cap,
-                            coreid_t core_id);
-errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw,
-                                        capaddr_t slot, struct capability *ret);
-errval_t monitor_nullify_cap(struct capref cap);
-errval_t monitor_retype_remote_cap(struct capref croot,
-                                   capaddr_t src, enum objtype newtype,
-                                   int objbits, capaddr_t to, capaddr_t slot,
-                                   int bits);
-errval_t monitor_delete_remote_cap(struct capref croot, capaddr_t src, int bits);
-errval_t monitor_revoke_remote_cap(struct capref croot, capaddr_t src, int bits);
-
-/* monitor_server.c */
-errval_t monitor_server_arch_init(struct monitor_binding *b);
-void set_monitor_rpc_iref(iref_t iref);
+#include <ram_alloc.h>
+#include <spawn.h>
+#include <monitor_server.h>
+#include <monitor_invocations.h>
 
 /* boot.c */
 void boot_core_request(struct monitor_binding *st, coreid_t id,
@@ -160,44 +142,6 @@ errval_t request_ramfs_serv_iref(struct intermon_binding *st);
 /* inter.c */
 errval_t intermon_init(struct intermon_binding *b, coreid_t coreid);
 errval_t arch_intermon_init(struct intermon_binding *b);
-
-/* rcap_db_{null,central,twopc}.c */
-errval_t rcap_db_init (void);
-errval_t rcap_db_add(struct capability * cap, bool has_desc);
-bool rcap_db_exists(struct capability *cap);
-errval_t rcap_db_get_info(struct capability *cap, bool * has_desc,
-                          coremask_t *on_cores);
-errval_t rcap_db_update_on_recv (struct capability * cap, bool has_desc,
-                                 coremask_t on_cores, coreid_t from_core);
-errval_t rcap_db_acquire_lock(struct capability *cap, struct rcap_st * st);
-errval_t rcap_db_remote_lock_req(struct capability *cap, coreid_t from_core,
-                                 recordid_t ccast_recordid);
-errval_t rcap_db_release_lock(struct capability *cap, coremask_t to_cores);
-errval_t rcap_db_remote_unlock(struct capability *cap, coreid_t from_core);
-errval_t rcap_db_acquire_recursive_lock(struct capability *cap,
-                                        struct rcap_st * st);
-errval_t rcap_db_remote_recursive_lock_req(struct capability *cap,
-                                           coreid_t from_core,
-                                           recordid_t ccast_recordid);
-errval_t rcap_db_release_recursive_lock(struct capability *cap,
-                                        coremask_t to_cores);
-errval_t rcap_db_remote_recursive_unlock(struct capability *cap,
-                                         coreid_t from_core);
-errval_t rcap_db_remote_new_core(struct capability * cap, coreid_t send_core,
-                                 coreid_t recv_core);
-errval_t rcap_db_remote_details_req(struct capability * cap,
-                                    coreid_t from_core);
-errval_t rcap_db_remote_recv_details(struct capability * cap,
-                                     coreid_t from_core, bool has_desc);
-errval_t rcap_db_delete (struct capability * cap);
-errval_t rcap_db_remote_delete (struct capability * cap, coreid_t from_core);
-errval_t rcap_db_retype(struct capability * cap, bool has_descendents);
-errval_t rcap_db_remote_retype (struct capability * cap, bool has_descendents,
-                                coreid_t from_core);
-errval_t rcap_db_revoke(struct capability * cap);
-errval_t rcap_db_remote_revoke (struct capability * cap, coreid_t from_core);
-
-
 
 /* ump_support.c */
 errval_t ump_intermon_init(struct intermon_binding *ib);

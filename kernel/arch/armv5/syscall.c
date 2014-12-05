@@ -245,7 +245,7 @@ handle_delete(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_delete(root, cptr, bits, false);
+    return sys_delete(root, cptr, bits);
 }
 
 static struct sysret
@@ -262,7 +262,7 @@ handle_revoke(
     capaddr_t cptr = (capaddr_t)sa->arg2;
     int     bits = (int)sa->arg3;
 
-    return sys_revoke(root, cptr, bits, false);
+    return sys_revoke(root, cptr, bits);
 }
 
 static struct sysret
@@ -367,32 +367,39 @@ monitor_create_cap(
     int argc
     )
 {
-    assert(6 == argc);
+    assert(7 == argc);
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
-            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
+    printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
+            argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5, sa->arg6);
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = sa->arg2;
     int cnode_vbits    = sa->arg3;
     size_t slot        = sa->arg4;
+    coreid_t owner     = sa->arg5;
     struct capability *src =
-        (struct capability*)sa->arg5;
+        (struct capability*)sa->arg6;
 
     printf("type = %d\n", src->type);
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                                slot, owner, src));
 }
 
 static struct sysret dispatcher_dump_ptables(
@@ -496,6 +503,8 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 // does the sender want to yield to the target
                 // if undeliverable?
                 bool yield = flags & LMP_FLAG_YIELD;
+                // is the cap (if present) to be deleted on send?
+                bool give_away = flags & LMP_FLAG_GIVEAWAY;
 
                 // Message registers in context are
                 // discontinguous for now so copy message words
@@ -515,7 +524,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
-                                      length_words, send_cptr, send_bits);
+                                      length_words, send_cptr, send_bits, give_away);
 
                 /* Switch to reciever upon successful delivery
                  * with sync flag, or (some cases of)

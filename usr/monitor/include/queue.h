@@ -15,6 +15,8 @@
 #ifndef QUEUE_H
 #define QUEUE_H
 
+#include <if/intermon_defs.h>
+
 struct msg_queue {
     struct msg_queue_elem *head, *tail;
 };

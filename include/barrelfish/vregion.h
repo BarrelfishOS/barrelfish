@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_VREGION_H
 #define LIBBARRELFISH_VREGION_H
 
+#include <barrelfish_kpi/types.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -35,6 +36,9 @@ __BEGIN_DECLS
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_NOCACHE)
 #define VREGION_FLAGS_READ_WRITE_MPB \
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_MPB)
+
+struct vspace;
+struct memobj;
 
 struct vregion {
     struct vspace *vspace;   ///< A vregion is always associated with one vspace

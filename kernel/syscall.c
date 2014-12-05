@@ -21,7 +21,10 @@
 #include <cap_predicates.h>
 #include <coreboot.h>
 #include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
+#include <cap_predicates.h>
 #include <dispatch.h>
+#include <distcaps.h>
 #include <wakeup.h>
 #include <paging_kernel_helper.h>
 #include <paging_kernel_arch.h>
@@ -289,7 +292,7 @@ struct sysret sys_create(struct capability *root, enum objtype type,
         return SYSRET(SYS_ERR_TYPE_NOT_CREATABLE);
     }
 
-    return SYSRET(caps_create_new(type, base, bits, objbits, dest_cte));
+    return SYSRET(caps_create_new(type, base, bits, objbits, my_core_id, dest_cte));
 }
 
 /**
@@ -361,8 +364,7 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
                                      offset, pte_count));
 }
 
-struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
-                         bool from_monitor)
+struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits)
 {
     errval_t err;
     struct cte *slot;
@@ -371,12 +373,11 @@ struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits,
         return SYSRET(err);
     }
 
-    err = caps_delete(slot, from_monitor);
+    err = caps_delete(slot);
     return SYSRET(err);
 }
 
-struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
-                         bool from_monitor)
+struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits)
 {
     errval_t err;
     struct cte *slot;
@@ -385,78 +386,21 @@ struct sysret sys_revoke(struct capability *root, capaddr_t cptr, uint8_t bits,
         return SYSRET(err);
     }
 
-    err = caps_revoke(slot, from_monitor);
+    err = caps_revoke(slot);
     return SYSRET(err);
 }
 
-struct sysret sys_monitor_register(capaddr_t ep_caddr)
+struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t bits)
 {
     errval_t err;
-    struct capability *ep;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, ep_caddr, CPTR_BITS, &ep,
-                          CAPRIGHTS_READ);
-
-    if(err_is_fail(err)) {
-        printf("Failure looking up endpoint!\n");
-        return SYSRET(err);
-    }
-
-    monitor_ep = *ep;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-struct sysret sys_monitor_identify_cap(struct capability *root,
-                                       capaddr_t cptr, uint8_t bits,
-                                       struct capability *retbuf)
-{
-    struct capability *cap;
-    errval_t err = caps_lookup_cap(root, cptr, bits, &cap, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
-    }
-
-    // XXX: Write cap data directly back to user-space
-    // FIXME: this should involve a pointer/range check for reliability,
-    // but because the monitor is inherently trusted it's not a security hole
-    *retbuf = *cap;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-struct sysret sys_monitor_nullify_cap(capaddr_t cptr, uint8_t bits)
-{
-    struct capability *root = &dcb_current->cspace.cap;
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte,
-                                    CAPRIGHTS_READ_WRITE);
+    struct cte *slot;
+    err = caps_lookup_slot(root, cptr, bits, &slot, CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
 
-    // remove from MDB
-    remove_mapping(cte);
-
-    // zero-out cap entry
-    memset(cte, 0, sizeof(struct cte));
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-struct sysret sys_monitor_domain_id(capaddr_t cptr, domainid_t domain_id)
-{
-    struct capability *root = &dcb_current->cspace.cap;
-    struct capability *disp;
-
-    errval_t err = caps_lookup_cap(root, cptr, CPTR_BITS, &disp,
-                                   CAPRIGHTS_READ_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err);
-    }
-
-    disp->u.dispatcher.dcb->domain_id = domain_id;
-
-    return SYSRET(SYS_ERR_OK);
+    distcap_state_t state = distcap_get_state(slot);
+    return (struct sysret) { .error = SYS_ERR_OK, .value = state };
 }
 
 struct sysret sys_yield(capaddr_t target)

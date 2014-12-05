@@ -17,6 +17,7 @@
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <mdb/mdb.h>
+#include <mdb/mdb_tree.h>
 #include <dispatch.h>
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
@@ -175,47 +176,29 @@ static struct sysret handle_copy(struct capability *root,
     return copy_or_mint(root, args, false);
 }
 
-static struct sysret handle_delete_common(struct capability *root,
-                                   uintptr_t *args,
-                                   bool from_monitor)
-{
-    capaddr_t cptr = args[0];
-    int bits     = args[1];
-
-    TRACE(KERNEL, SC_DELETE, 0);
-    struct sysret sr = sys_delete(root, cptr, bits, from_monitor);
-    TRACE(KERNEL, SC_DELETE, 1);
-
-    return sr;
-}
-
 static struct sysret handle_delete(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return handle_delete_common(root, args, false);
-}
-
-
-static struct sysret handle_revoke_common(struct capability *root,
-                                          uintptr_t *args,
-                                          bool from_monitor)
-{
     capaddr_t cptr = args[0];
     int bits     = args[1];
-
-    TRACE(KERNEL, SC_REVOKE, 0);
-    struct sysret sr = sys_revoke(root, cptr, bits, from_monitor);
-    TRACE(KERNEL, SC_REVOKE, 1);
-
-    return sr;
+    return sys_delete(root, cptr, bits);
 }
 
 static struct sysret handle_revoke(struct capability *root,
                                    int cmd, uintptr_t *args)
 {
-    return handle_revoke_common(root, args, false);
+    capaddr_t cptr = args[0];
+    int bits     = args[1];
+    return sys_revoke(root, cptr, bits);
 }
 
+static struct sysret handle_get_state(struct capability *root,
+                                      int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    int bits = args[1];
+    return sys_get_state(root, cptr, bits);
+}
 
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
@@ -259,44 +242,79 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
     return handle_retype_common(root, &args[2], true);
 }
 
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_delete(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
+static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
 {
-    errval_t err;
+    struct capability *src = (struct capability *)args;
 
-    capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    struct cte *next = mdb_find_greater(src, false);
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
-
-    /* XXX: this hides the first two arguments */
-    return handle_delete_common(root, &args[2], true);
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (next && is_ancestor(&next->cap, src)),
+    };
 }
 
-/// Different handler for cap operations performed by the monitor
-static struct sysret monitor_handle_revoke(struct capability *kernel_cap,
-                                           int cmd, uintptr_t *args)
+static struct sysret monitor_handle_delete_last(struct capability *kernel_cap,
+                                                int cmd, uintptr_t *args)
 {
-    errval_t err;
-
     capaddr_t root_caddr = args[0];
-    capaddr_t root_vbits = args[1];
+    uint8_t root_vbits = args[1];
+    capaddr_t target_caddr = args[2];
+    uint8_t target_vbits = args[3];
+    capaddr_t retcn_caddr = args[4];
+    uint8_t retcn_vbits = args[5];
+    cslot_t ret_slot = args[6];
 
-    struct capability *root;
-    err = caps_lookup_cap(&dcb_current->cspace.cap, root_caddr, root_vbits,
-                          &root, CAPRIGHTS_READ);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_ROOT_CAP_LOOKUP));
-    }
+    return sys_monitor_delete_last(root_caddr, root_vbits, target_caddr,
+                                   target_vbits, retcn_caddr, retcn_vbits,
+                                   ret_slot);
+}
 
-    /* XXX: this hides the first two arguments */
-    return handle_revoke_common(root, &args[2], true);
+static struct sysret monitor_handle_delete_foreigns(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
+{
+    capaddr_t caddr = args[0];
+    uint8_t bits = args[1];
+    return sys_monitor_delete_foreigns(caddr, bits);
+}
+
+static struct sysret monitor_handle_revoke_mark_tgt(struct capability *kernel_cap,
+                                                    int cmd, uintptr_t *args)
+{
+    capaddr_t root_caddr = args[0];
+    uint8_t root_vbits = args[1];
+    capaddr_t target_caddr = args[2];
+    uint8_t target_vbits = args[3];
+
+    return sys_monitor_revoke_mark_tgt(root_caddr, root_vbits,
+                                       target_caddr, target_vbits);
+}
+
+static struct sysret monitor_handle_revoke_mark_rels(struct capability *kernel_cap,
+                                                     int cmd, uintptr_t *args)
+{
+    struct capability *base = (struct capability*)args;
+
+    return sys_monitor_revoke_mark_rels(base);
+}
+
+static struct sysret monitor_handle_delete_step(struct capability *kernel_cap,
+                                                int cmd, uintptr_t *args)
+{
+    capaddr_t ret_cn_addr = args[0];
+    capaddr_t ret_cn_bits = args[1];
+    capaddr_t ret_slot = args[2];
+    return sys_monitor_delete_step(ret_cn_addr, ret_cn_bits, ret_slot);
+}
+
+static struct sysret monitor_handle_clear_step(struct capability *kernel_cap,
+                                               int cmd, uintptr_t *args)
+{
+    capaddr_t ret_cn_addr = args[0];
+    capaddr_t ret_cn_bits = args[1];
+    capaddr_t ret_slot = args[2];
+    return sys_monitor_clear_step(ret_cn_addr, ret_cn_bits, ret_slot);
 }
 
 static struct sysret monitor_handle_register(struct capability *kernel_cap,
@@ -374,24 +392,28 @@ static struct sysret monitor_identify_domains_cap(struct capability *kernel_cap,
     return monitor_identify_cap_common(kernel_cap, root, &args[2]);
 }
 
-static struct sysret monitor_remote_cap(struct capability *kernel_cap,
-                                        int cmd, uintptr_t *args)
+static struct sysret monitor_cap_has_relations(struct capability *kernel_cap,
+                                               int cmd, uintptr_t *args)
 {
-    struct capability *root = &dcb_current->cspace.cap;
-    capaddr_t cptr = args[0];
-    int bits = args[1];
-    bool remote = args[2];
+    capaddr_t caddr = args[0];
+    uint8_t vbits = args[1];
+    uint8_t mask = args[2];
 
-    struct cte *cte;
-    errval_t err = caps_lookup_slot(root, cptr, bits, &cte, CAPRIGHTS_WRITE);
-    if (err_is_fail(err)) {
-        return SYSRET(err_push(err, SYS_ERR_IDENTIFY_LOOKUP));
-    }
+    return sys_cap_has_relations(caddr, vbits, mask);
+}
 
-    set_cap_remote(cte, remote);
-    bool has_desc = has_descendants(cte);
+static struct sysret monitor_remote_relations(struct capability *kernel_cap,
+                                              int cmd, uintptr_t *args)
+{
+    capaddr_t root_addr = args[0];
+    int root_bits = args[1];
+    capaddr_t cptr = args[2];
+    int bits = args[3];
+    uint8_t relations = args[4] & 0xFF;
+    uint8_t mask = (args[4] >> 8) & 0xFF;
 
-    return (struct sysret){ .error = SYS_ERR_OK, .value = has_desc };
+    return sys_monitor_remote_relations(root_addr, root_bits, cptr, bits,
+                                        relations, mask);
 }
 
 
@@ -402,10 +424,18 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     struct capability *src = (struct capability *)args;
     int pos = sizeof(struct capability) / sizeof(uint64_t);
 
-    /* Certain types cannot be created here */
-    if ((src->type == ObjType_Null) || (src->type == ObjType_EndPoint)
-        || (src->type == ObjType_Dispatcher) || (src->type == ObjType_Kernel)
-        || (src->type == ObjType_IRQTable)) {
+    /* Cannot create null caps */
+    if (src->type == ObjType_Null) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    coreid_t owner = args[pos + 3];
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
         return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
     }
 
@@ -416,7 +446,21 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
-                                            slot, src));
+                                            slot, owner, src));
+}
+
+static struct sysret monitor_copy_existing(struct capability *kernel_cap,
+                                        int cmd, uintptr_t *args)
+{
+    /* XXX: Get the raw metadata of the capability to create */
+    struct capability *src = (struct capability *)args;
+    int pos = sizeof(struct capability) / sizeof(uint64_t);
+
+    capaddr_t cnode_cptr = args[pos];
+    int cnode_vbits    = args[pos + 1];
+    size_t slot        = args[pos + 2];
+
+    return sys_monitor_copy_existing(src, cnode_cptr, cnode_vbits, slot);
 }
 
 static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
@@ -426,34 +470,6 @@ static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
     uint8_t bits = args[1];
 
     return sys_monitor_nullify_cap(cptr, bits);
-}
-
-static struct sysret monitor_iden_cnode_get_cap(struct capability *kern_cap,
-                                                int cmd, uintptr_t *args)
-{
-    errval_t err;
-
-    /* XXX: Get the raw metadata of the cnode */
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
-    struct capability *cnode = (struct capability *)args;
-    assert(cnode->type == ObjType_CNode);
-
-    struct capability *cnode_copy;
-    err = mdb_get_copy(cnode, &cnode_copy);
-    if (err_is_fail(err)) {
-        return SYSRET(err);
-    }
-
-    capaddr_t slot = args[pos];
-    struct cte* cte = caps_locate_slot(cnode_copy->u.cnode.cnode, slot);
-
-    // XXX: Write cap data directly back to user-space
-    // FIXME: this should involve a pointer/range check for reliability,
-    // but because the monitor is inherently trusted it's not a security hole
-    struct capability *retbuf = (void *)args[pos + 1];
-    *retbuf = cte->cap;
-
-    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
@@ -601,6 +617,51 @@ static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
     domainid_t domain_id = args[1];
 
     return sys_monitor_domain_id(cptr, domain_id);
+}
+
+static struct sysret monitor_get_cap_owner(struct capability *monitor_cap,
+                                           int cmd, uintptr_t *args)
+{
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
+
+    return sys_get_cap_owner(root_addr, root_bits, cptr, bits);
+}
+
+static struct sysret monitor_set_cap_owner(struct capability *monitor_cap,
+                                           int cmd, uintptr_t *args)
+{
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
+    coreid_t owner = args[4];
+
+    return sys_set_cap_owner(root_addr, root_bits, cptr, bits, owner);
+}
+
+static struct sysret monitor_lock_cap(struct capability *monitor_cap,
+                                      int cmd, uintptr_t *args)
+{
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
+
+    return sys_lock_cap(root_addr, root_bits, cptr, bits);
+}
+
+static struct sysret monitor_unlock_cap(struct capability *monitor_cap,
+                                        int cmd, uintptr_t *args)
+{
+    capaddr_t root_addr = args[0];
+    uint8_t root_bits = args[1];
+    capaddr_t cptr = args[2];
+    uint8_t bits = args[3];
+
+    return sys_unlock_cap(root_addr, root_bits, cptr, bits);
 }
 
 /**
@@ -878,6 +939,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Create] = handle_create,
         [CNodeCmd_Delete] = handle_delete,
         [CNodeCmd_Revoke] = handle_revoke,
+        [CNodeCmd_GetState] = handle_get_state,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Map]   = handle_map,
@@ -900,16 +962,26 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
         [KernelCmd_Identify_cap] = monitor_identify_cap,
         [KernelCmd_Identify_domains_cap] = monitor_identify_domains_cap,
-        [KernelCmd_Remote_cap]   = monitor_remote_cap,
-        [KernelCmd_Iden_cnode_get_cap] = monitor_iden_cnode_get_cap,
+        [KernelCmd_Remote_relations] = monitor_remote_relations,
+        [KernelCmd_Cap_has_relations] = monitor_cap_has_relations,
         [KernelCmd_Create_cap]   = monitor_create_cap,
+        [KernelCmd_Copy_existing] = monitor_copy_existing,
         [KernelCmd_Nullify_cap]  = monitor_nullify_cap,
         [KernelCmd_Setup_trace]  = handle_trace_setup,
         [KernelCmd_Register]     = monitor_handle_register,
         [KernelCmd_Domain_Id]    = monitor_handle_domain_id,
-        [MonitorCmd_Retype]      = monitor_handle_retype,
-        [MonitorCmd_Delete]      = monitor_handle_delete,
-        [MonitorCmd_Revoke]      = monitor_handle_revoke,
+        [KernelCmd_Get_cap_owner] = monitor_get_cap_owner,
+        [KernelCmd_Set_cap_owner] = monitor_set_cap_owner,
+        [KernelCmd_Lock_cap]     = monitor_lock_cap,
+        [KernelCmd_Unlock_cap]   = monitor_unlock_cap,
+        [KernelCmd_Retype]       = monitor_handle_retype,
+        [KernelCmd_Has_descendants] = monitor_handle_has_descendants,
+        [KernelCmd_Delete_last]  = monitor_handle_delete_last,
+        [KernelCmd_Delete_foreigns] = monitor_handle_delete_foreigns,
+        [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
+        [KernelCmd_Revoke_mark_relations] = monitor_handle_revoke_mark_rels,
+        [KernelCmd_Delete_step] = monitor_handle_delete_step,
+        [KernelCmd_Clear_step] = monitor_handle_clear_step,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
@@ -997,10 +1069,12 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             bool sync = flags & LMP_FLAG_SYNC;
             // does the sender want to yield to the target if undeliverable?
             bool yield = flags & LMP_FLAG_YIELD;
+            // is the cap (if present) to be deleted on send?
+            bool give_away = flags & LMP_FLAG_GIVEAWAY;
 
             // try to deliver message
             retval.error = lmp_deliver(to, dcb_current, args, length_words,
-                                       arg1, send_bits);
+                                       arg1, send_bits, give_away);
 
             /* Switch to reciever upon successful delivery with sync flag,
              * or (some cases of) unsuccessful delivery with yield flag */
@@ -1163,6 +1237,19 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         case DEBUG_GET_APIC_TICKS_PER_SEC:
             retval.value = timing_get_apic_ticks_per_sec();
             break;
+
+        case DEBUG_TRACE_PMEM_CTRL:
+#ifdef TRACE_PMEM_CAPS
+            if (arg1) {
+                caps_trace_ctrl(arg1, args[0], args[1]);
+            } else {
+                caps_trace_ctrl(arg1, 0, 0);
+            }
+#endif
+            retval.value = 0;
+            retval.error = SYS_ERR_OK;
+            break;
+
 
         case DEBUG_GET_APIC_ID:
             retval.value = apic_get_id();

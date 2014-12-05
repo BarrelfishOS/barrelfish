@@ -17,7 +17,7 @@
 
 struct remote_retype_syscall_overflow {
     capaddr_t rootcap_addr;
-    uint8_t rootcap_vbits;
+    int rootcap_vbits;
 };
 
 #endif

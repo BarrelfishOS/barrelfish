@@ -228,9 +228,11 @@ void arch_init(uint32_t     board_id,
         // Kernel effectively consumes [0...alloc_top]
         // Add region above alloc_top with care to skip exception vector
         // page.
-        phys_mmap_add(&phys_mmap,
-                      alloc_top - KERNEL_OFFSET,
-                      ETABLE_ADDR - KERNEL_OFFSET);
+        if (alloc_top < ETABLE_ADDR) {
+            phys_mmap_add(&phys_mmap,
+                          alloc_top - KERNEL_OFFSET,
+                          ETABLE_ADDR - KERNEL_OFFSET);
+        }
 
         phys_mmap_add(&phys_mmap,
                       ETABLE_ADDR - KERNEL_OFFSET + BASE_PAGE_SIZE,

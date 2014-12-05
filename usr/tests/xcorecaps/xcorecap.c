@@ -31,7 +31,7 @@ static void create_ram_cap(struct capref * ram_cap) {
     // allocate some ram
     err = ram_alloc(ram_cap, ALLOC_BITS);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecap: RAM alloc failed\n");    
+        DEBUG_ERR(err, "xcorecap: RAM alloc failed\n");
     }
 }
 
@@ -42,12 +42,12 @@ static errval_t retype_cap(struct capref * ram_cap, struct capref * frame_cap)
     // retype this to a frame
     err = slot_alloc(frame_cap);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecap: Frame slot alloc failed\n"); 
+        DEBUG_ERR(err, "xcorecap: Frame slot alloc failed\n");
     }
 
     err = cap_retype(*frame_cap, *ram_cap, ObjType_Frame, ALLOC_BITS);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "xcorecap: Retype to frame failed\n");    
+        DEBUG_ERR(err, "xcorecap: Retype to frame failed\n");
     }
 
     return err;
@@ -93,7 +93,7 @@ static void trigger_remote_retype(void *arg)
         }
     }
 }
-    
+
 static void trigger_remote_delete(void *arg)
 {
     struct xcorecap_binding *b = arg;
@@ -163,13 +163,13 @@ static void state_machine(struct xcorecap_binding *b)
         trigger_remote_retype(b);
         state++;
         break;
-        
+
     case 2:
         printf("xcorecap trigger remote cap revoke\n");
         trigger_remote_revoke(b);
         state++;
         break;
-        
+
     case 3:
         printf("xcorecap sending another cap\n");
         send_cap(b);
@@ -186,7 +186,7 @@ static void state_machine(struct xcorecap_binding *b)
         printf("xcorecap on core %i done\n", disp_get_core_id());
         exit(0);
         break;
-       
+
     default:
         printf("got into incorrect state of %d\n", state);
         break;
@@ -197,7 +197,7 @@ static void bind_cb(void *st, errval_t err, struct xcorecap_binding *b)
 {
     printf ("xcorecap: connected to server...\n");
     b->rx_vtbl = rx_vtbl;
-    
+
     // start test
     state_machine(b);
 }
@@ -214,17 +214,17 @@ static void init(void) {
         abort();
     }
 
-    err = xcorecap_bind(iref, bind_cb, NULL, get_default_waitset(), 
+    err = xcorecap_bind(iref, bind_cb, NULL, get_default_waitset(),
                         IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bind failed");
         abort();
     }
-} 
+}
 
 
-int main (int argc, char* argv[]) 
-{    
+int main (int argc, char* argv[])
+{
     errval_t err;
 
     printf("Starting xcorecap on core %i\n", disp_get_core_id());

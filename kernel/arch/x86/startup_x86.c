@@ -184,7 +184,7 @@ void create_module_caps(struct spawn_state *st)
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
     err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
-                          BASE_PAGE_BITS,
+                          BASE_PAGE_BITS, my_core_id,
                           caps_locate_slot(CNODE(st->modulecn),
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
@@ -220,7 +220,7 @@ void create_module_caps(struct spawn_state *st)
             assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
             // create as DevFrame cap to avoid zeroing memory contents
             err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
-                                  block_size,
+                                  block_size, my_core_id,
                                   caps_locate_slot(CNODE(st->modulecn),
                                                    st->modulecn_slot++));
             assert(err_is_ok(err));

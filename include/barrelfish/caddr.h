@@ -22,6 +22,8 @@
 #include <sys/cdefs.h>
 
 #include <barrelfish_kpi/types.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 __BEGIN_DECLS
 

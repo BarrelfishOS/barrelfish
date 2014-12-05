@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_MEMOBJ_H
 #define LIBBARRELFISH_MEMOBJ_H
 
+#include <barrelfish/slab.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

@@ -271,7 +271,7 @@ static int stop_cpu(int argc, char** argv)
     done = true;
 
     // The next line is crucial for harness test to pass
-    printf("Core %"PRIuCOREID" stopped.", target_id);
+    printf("Core %"PRIuCOREID" stopped.\n", target_id);
     return 0;
 }
 
@@ -380,6 +380,39 @@ static int remove_kcb(int argc, char** argv)
     return 0;
 }
 
+/*
+ * Do stop and then give in one call to corectrl
+ * args: <kcb_id to stop> <kcb_id to give to>
+ */
+static int park_kcb(int argc, char *argv[])
+{
+    int r;
+    assert (argc == 3);
+    printf("Stopping core %lu\n", strtol(argv[1], NULL, 0));
+    r = stop_cpu(2, argv);
+    if (r) { return r; }
+    printf("Parking KCB on core %lu\n", strtol(argv[2], NULL, 0));
+    return give_kcb(3, argv);
+}
+
+/*
+ * Do rm and boot -m in one call to corectrl
+ * args: <kcb_id to remove> <core_id to boot>
+ */
+static int unpark_kcb(int argc, char *argv[])
+{
+    int r;
+    assert (argc == 2);
+    coreid_t c = (coreid_t)strtol(argv[1], NULL, 0);
+    printf("Removing KCB %u from its core\n", c);
+    r = remove_kcb(2, argv);
+    if (r) { return r; }
+    // set nomsg_flag to emulate -m option for boot
+    nomsg_flag = true;
+    printf("Booting KCB %u on core %u\n", c,c);
+    return boot_cpu(2, argv);
+}
+
 static struct cmd commands[] = {
     {
         "boot",
@@ -414,6 +447,20 @@ static struct cmd commands[] = {
         "Remove a running KCB from a core.",
         "rm <kcb_id>",
         remove_kcb,
+        2
+    },
+    {
+        "park",
+        "Stop execution on an existing core and park KCB on another core.",
+        "park <kcb_id to stop> <recv kcb_id>",
+        park_kcb,
+        3
+    },
+    {
+        "unpark",
+        "Reestablish parked KCB on its original core.",
+        "unpark <kcb_id to unpark>",
+        unpark_kcb,
         2
     },
     {

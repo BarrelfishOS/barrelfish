@@ -15,6 +15,7 @@
 
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
+#include "capops.h"
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
 #if defined(__i386__) && defined(__GNUC__) \
@@ -26,6 +27,7 @@
 
 /*-------------------------- Internal structures ----------------------------*/
 
+#if 0
 struct retype_st {
     struct rcap_st rcap_st;             // must always be first
     struct monitor_blocking_binding *b;
@@ -53,9 +55,11 @@ struct revoke_st {
     capaddr_t src;
     uint8_t vbits;
 };
+#endif
 
 /*------------------------ Static global variables -------------------------*/
 
+#if 0
 static struct retype_st static_retype_state;
 static bool static_retype_state_used = false;
 
@@ -64,9 +68,11 @@ static bool static_delete_state_used = false;
 
 static struct revoke_st static_revoke_state;
 static bool static_revoke_state_used = false;
+#endif
 
 /*-------------------------- Helper Functions ------------------------------*/
 
+#if 0
 static void remote_cap_retype_phase_2(void * st_arg);
 static void remote_cap_delete_phase_2(void * st_arg);
 static void remote_cap_revoke_phase_2(void * st_arg);
@@ -385,6 +391,52 @@ static void remote_cap_revoke_phase_2(void * st_arg)
     err = b->tx_vtbl.remote_cap_revoke_response(b, NOP_CONT, reply_err);
     assert (err_is_ok(err));
 }
+#endif
+
+static void retype_reply_status(errval_t status, void *st)
+{
+    struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
+    errval_t err = b->tx_vtbl.remote_cap_retype_response(b, NOP_CONT, status);
+    assert(err_is_ok(err));
+}
+
+static void remote_cap_retype(struct monitor_blocking_binding *b,
+                              struct capref croot, capaddr_t src,
+                              uint64_t new_type, uint8_t size_bits,
+                              capaddr_t to, capaddr_t slot, int32_t to_vbits)
+{
+    capops_retype(new_type, size_bits, croot, to, to_vbits, slot, src,
+                  CPTR_BITS, retype_reply_status, (void*)b);
+}
+
+static void delete_reply_status(errval_t status, void *st)
+{
+    DEBUG_CAPOPS("sending cap_delete reply msg: %s\n", err_getstring(status));
+    struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
+    errval_t err = b->tx_vtbl.remote_cap_delete_response(b, NOP_CONT, status);
+    assert(err_is_ok(err));
+}
+
+static void remote_cap_delete(struct monitor_blocking_binding *b,
+                              struct capref croot, capaddr_t src, uint8_t vbits)
+{
+    struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
+    capops_delete(cap, delete_reply_status, (void*)b);
+}
+
+static void revoke_reply_status(errval_t status, void *st)
+{
+    struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
+    errval_t err = b->tx_vtbl.remote_cap_revoke_response(b, NOP_CONT, status);
+    assert(err_is_ok(err));
+}
+
+static void remote_cap_revoke(struct monitor_blocking_binding *b,
+                              struct capref croot, capaddr_t src, uint8_t vbits)
+{
+    struct domcapref cap = { .croot = croot, .cptr = src, .bits = vbits };
+    capops_revoke(cap, revoke_reply_status, (void*)b);
+}
 
 static void rsrc_manifest(struct monitor_blocking_binding *b,
                           struct capref dispcap, char *str)
@@ -535,22 +587,9 @@ static void get_arch_core_id(struct monitor_blocking_binding *b)
     assert(err_is_ok(err));
 }
 
-static void cap_set_remote_done(void *arg)
-{
-    struct capref *tmpcap = arg;
-
-    errval_t err = cap_destroy(*tmpcap);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_destroy");
-    }
-
-    free(tmpcap);
-}
-
 struct pending_reply {
     struct monitor_blocking_binding *b;
     errval_t err;
-    struct capref *cap;
 };
 
 static void retry_reply(void *arg)
@@ -560,8 +599,7 @@ static void retry_reply(void *arg)
     struct monitor_blocking_binding *b = r->b;
     errval_t err;
 
-    err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, r->cap),
-                                             r->err);
+    err = b->tx_vtbl.cap_set_remote_response(b, NOP_CONT, r->err);
     if (err_is_ok(err)) {
         free(r);
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -569,28 +607,23 @@ static void retry_reply(void *arg)
         assert(err_is_ok(err));
     } else {
         DEBUG_ERR(err, "failed to reply to memory request");
-        cap_set_remote_done(r->cap);
     }
 }
 
 static void cap_set_remote(struct monitor_blocking_binding *b,
                            struct capref cap, bool remote)
 {
-    bool has_descendants;
-    struct capref *tmpcap = malloc(sizeof(struct capref));
     errval_t err, reterr;
 
-    *tmpcap = cap;
-    reterr = monitor_cap_remote(cap, remote, &has_descendants);
-    err = b->tx_vtbl.cap_set_remote_response(b, MKCONT(cap_set_remote_done, tmpcap),
-                                             reterr);
+    reterr = monitor_remote_relations(cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
+
+    err = b->tx_vtbl.cap_set_remote_response(b, NOP_CONT, reterr);
     if(err_is_fail(err)) {
         if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct pending_reply *r = malloc(sizeof(struct pending_reply));
             assert(r != NULL);
             r->b = b;
             r->err = reterr;
-            r->cap = tmpcap;
             err = b->register_send(b, get_default_waitset(), MKCONT(retry_reply, r));
             assert(err_is_ok(err));
         } else {
@@ -697,6 +730,7 @@ static void get_ipi_cap(struct monitor_blocking_binding *b)
     assert(err_is_ok(err));
 }
 
+// XXX: these look suspicious in combination with distops!
 static void forward_kcb_request(struct monitor_blocking_binding *b,
                                 coreid_t destination, struct capref kcb)
 {

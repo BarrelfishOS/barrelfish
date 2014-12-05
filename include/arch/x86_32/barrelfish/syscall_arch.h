@@ -15,6 +15,8 @@
 #ifndef ARCH_X86_32_BARRELFISH_SYSCALL_H
 #define ARCH_X86_32_BARRELFISH_SYSCALL_H
 
+#include <barrelfish_kpi/syscalls.h>  // for struct sysret.
+
 /* Always review the generated assembly when changing this! */
 // XXX: noinline for now, until I figured out why GCC doesn't obey the asm
 // constraints

@@ -1279,7 +1279,6 @@ static void multihop_cap_send_request_handler(
     intermon_caprep_t caprep;
     memset(&caprep, 0, sizeof(caprep));
     bool null_cap = capref_is_null(cap);
-    bool has_descendants;
 
     // XXX: this field is ignored when the local dispatcher originates the cap
     msgerr = SYS_ERR_OK;
@@ -1310,7 +1309,7 @@ static void multihop_cap_send_request_handler(
         // FIXME: this seems to be totally bogus. it assumes a give_away cap -AB
 
         // mark capability as remote
-        err = monitor_cap_remote(cap, true, &has_descendants);
+        err = monitor_remote_relations(cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "monitor_cap_remote failed");
             return;
@@ -1450,8 +1449,7 @@ static void multihop_intermon_cap_send_handler(
             }
 
             // mark capability as remote
-            bool has_descendants;
-            err = monitor_cap_remote(cap, true, &has_descendants);
+            err = monitor_remote_relations(cap, RRELS_COPY_BIT, RRELS_COPY_BIT, NULL);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "monitor_cap_remote failed");
                 return;

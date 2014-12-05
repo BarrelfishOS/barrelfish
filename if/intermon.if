@@ -14,13 +14,17 @@ interface intermon "The Interface between monitors" {
     alias chanid_t uint32;
 
     /* Types which we may need to change at some point, especially
-        on a heterogeneous platform, or 32-bit only platform */
+       on a heterogeneous platform, or 32-bit only platform */
     alias con_id_t uint64;
     alias mon_id_t uint64;
     alias state_id_t uint64;
     alias vci_t uint64;
 
     alias capid_t uint32;
+    alias capaddr_t uint32;
+    alias capbits_t uint8;
+    alias capslot_t uint32;
+    alias capop_st uint64;
 
     /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
     typedef uint64 coremask[4];
@@ -32,6 +36,12 @@ interface intermon "The Interface between monitors" {
         uint64 w2;
         uint64 w3;
     } caprep;
+
+    typedef struct {
+        capaddr_t cnptr;
+        capbits_t cnbits;
+        capslot_t slot;
+    } captx;
 
     message spawnd_image_request();
     message spawnd_image_reply(genpaddr base, uint32 bytes);
@@ -53,12 +63,14 @@ interface intermon "The Interface between monitors" {
 
     /**
      * New monitor communication set-up.
-     *  1. monitor_initialized (new monitor -> bsp)
-     *  2. new_monitor_nofity (monitor.0 -> <all available monitors>)
-     *  3. bind_monitor_proxy (<all available monitors> -> monitor.0)
-     *  4. bind_monitor_request (monitor.0 -> new monitor)
-     *  5. bind_monitor_reply (new monitor -> monitor.0)
+     *  1. capops_ready (new monitor -> bsp)
+     *  2. monitor_initialized (new monitor -> bsp)
+     *  3. new_monitor_nofity (monitor.0 -> <all available monitors>)
+     *  4. bind_monitor_proxy (<all available monitors> -> monitor.0)
+     *  5. bind_monitor_request (monitor.0 -> new monitor)
+     *  6. bind_monitor_reply (new monitor -> monitor.0)
      */
+    message capops_ready();
     message monitor_initialized();
     message new_monitor_notify(coreid_t core_id);
     message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
@@ -90,12 +102,7 @@ interface intermon "The Interface between monitors" {
 
     message cap_send_request(con_id_t con_id,
                              capid_t capid,
-                             caprep cap,
-                             errval err,
-                             bool give_away,
-                             bool has_descendents,
-                             coremask on_cores,
-                             bool null_cap);
+                             captx cap);
 
     message span_domain_request(state_id_t state_id,
                                 genpaddr vnodebase,
@@ -138,6 +145,38 @@ interface intermon "The Interface between monitors" {
                              uint8 payload[size]);
     message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err,
                               caprep cap, bool null_cap);
+
+    // cap operation messages
+    message capops_request_copy(coreid dest, caprep cap, capop_st st);
+    message capops_recv_copy(caprep cap, uint8 owner_relations, capop_st st);
+    message capops_recv_copy_result(errval status, capaddr_t cap, capbits_t bits, capslot_t slot, capop_st st);
+
+    message capops_move_request(caprep cap, uint8 relations, capop_st st);
+    message capops_move_result(errval status, capop_st st);
+    message capops_retrieve_request(caprep cap, capop_st st);
+    message capops_retrieve_result(errval status, uint8 relations, capop_st st);
+
+    message capops_delete_remote(caprep cap, capop_st st);
+    message capops_delete_remote_result(errval status, capop_st st);
+
+    message capops_revoke_mark(caprep cap, capop_st st);
+    message capops_revoke_ready(capop_st st);
+    message capops_revoke_commit(capop_st st);
+    message capops_revoke_done(capop_st st);
+
+    // XXX: uint32 for bits? -MN
+    message capops_request_retype(caprep src, uint32 desttype, uint32 destbits, capop_st st);
+    message capops_retype_response(errval status, capop_st st);
+
+    // ownership / relation messages
+    message capops_update_owner(caprep cap, capop_st st);
+    message capops_owner_updated(capop_st st);
+
+    message capops_find_cap(caprep cap, capop_st st);
+    message capops_find_cap_result(errval status, capop_st st);
+
+    message capops_find_descendants(caprep cap, capop_st st);
+    message capops_find_descendants_result(errval status, capop_st st);
 
     /* Tracing Framework */
 

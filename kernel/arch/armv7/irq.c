@@ -23,6 +23,7 @@
 #include <exec.h>
 #include <stdio.h>
 #include <syscall.h>
+#include <arch/arm/syscall_arm.h>
 #include <kcb.h>
 #include <arch/armv7/start_aps.h>
 

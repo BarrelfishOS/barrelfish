@@ -15,6 +15,8 @@
 #include "monitor.h"
 #include <barrelfish_kpi/init.h>
 #include <barrelfish/dispatch.h>
+#include <barrelfish/deferred.h>
+#include <barrelfish/domain.h>
 #include <trace/trace.h>
 
 #ifdef __k1om__
@@ -113,13 +115,6 @@ static errval_t boot_bsp_core(int argc, char *argv[])
     }
 #endif
 
-    /* initialise rcap_db */
-    err = rcap_db_init();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "monitor rcap_db init failed");
-        return err;
-    }
-
     /* Spawn boot domains in menu.lst */
     err = spawn_all_domains();
     if (err_is_fail(err)) {
@@ -179,11 +174,13 @@ static errval_t boot_app_core(int argc, char *argv[])
     }
 #endif
 
-    /* initialise rcap_db */
-    err = rcap_db_init();
-    if(err_is_fail(err)) {
-        return err;
+    /* with memory alloc running, take part in cap ops */
+    DEBUG_CAPOPS("sending capops_ready to %"PRIuCOREID"\n", parent_core_id);
+    err = intermon_binding->tx_vtbl.capops_ready(intermon_binding, NOP_CONT);
+    if (err_is_fail(err)) {
+        return err_push(err, MON_ERR_SEND_REMOTE_MSG);
     }
+    ((struct intermon_state*)intermon_binding->st)->capops_ready = true;
 
     /* Set up monitor rpc channel */
     err = monitor_rpc_init();
@@ -268,6 +265,24 @@ errval_t request_ramfs_serv_iref(struct intermon_binding *st)
 
 void ipi_test(void);
 
+#ifdef MONITOR_HEARTBEAT
+static void mon_heartbeat(void *arg) {
+    assert(arg != NULL);
+    errval_t err;
+    debug_printf("my_core_id = %d; curr_core_id = %d\n", my_core_id,
+            disp_get_current_core_id());
+    struct deferred_event *ev = arg;
+    deferred_event_init(ev);
+    // 1 s == 1000 ms == 1e6 us
+    delayus_t one_sec = 15ULL*1000*1000;
+    err = deferred_event_register(ev, get_default_waitset(), one_sec, MKCLOSURE(mon_heartbeat, arg));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "heartbeat");
+    }
+    assert(err_is_ok(err));
+}
+#endif
+
 /**
  * \brief Use cmdline args to figure out which core the monitor is running on
  * and which cores to boot.
@@ -330,6 +345,11 @@ int main(int argc, char *argv[])
 #endif // tracing
 
     domain_mgmt_init();
+
+#ifdef MONITOR_HEARTBEAT
+    struct deferred_event ev;
+    mon_heartbeat(&ev);
+#endif
 
     for(;;) {
         err = event_dispatch(get_default_waitset());

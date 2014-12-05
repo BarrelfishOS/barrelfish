@@ -139,7 +139,7 @@ int main(int argc, char** argv)
     }
 
 #elif __pandaboard__
-    printf("Kaluga running on Pandaboard.\n");
+    debug_printf("Kaluga running on Pandaboard.\n");
 
     err = init_cap_manager();
     assert(err_is_ok(err));
