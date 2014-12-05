@@ -208,7 +208,7 @@ mdb_trace = False
 mdb_trace_no_recursive :: Bool
 mdb_trace_no_recursive = False
 
--- fail on invariant violaitions
+-- fail on invariant violations
 mdb_fail_invariants :: Bool
 mdb_fail_invariants = True
 

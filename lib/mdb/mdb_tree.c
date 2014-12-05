@@ -62,9 +62,10 @@ do { \
 
 // PP switch to toggle recursive checking of invariants by default
 #ifdef MDB_RECHECK_INVARIANTS
-// disable toplevel invariants checks as we're doing them anyway
+// disable toplevel invariants checks except for the assertion clause as we're
+// doing them anyway in CHECK_INVARIANTS_SUB
 #undef CHECK_INVARIANTS
-#define CHECK_INVARIANTS ((void)0)
+#define CHECK_INVARIANTS(cte, assertion) assert(assertion)
 #define CHECK_INVARIANTS_SUB(cte) mdb_check_subtree_invariants(cte)
 #else
 #define CHECK_INVARIANTS_SUB(cte) ((void)0)
