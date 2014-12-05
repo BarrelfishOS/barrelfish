@@ -27,4 +27,4 @@ module /armv5/sbin/startd boot
 #module	/armv5/sbin/serial
 #module	/armv5/sbin/fish
 
-#module /armv5/sbin/memtest
+module /armv5/sbin/memtest
