@@ -54,7 +54,7 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 #define CHECK_INVARIANTS(cte, assertion) \
 do { \
     assert(assertion); \
-    mdb_check_subtree_invariants(cte) \
+    mdb_check_subtree_invariants(cte); \
 } while(0)
 #else
 #define CHECK_INVARIANTS(cte, assertion) ((void)0)
