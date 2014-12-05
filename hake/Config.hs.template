@@ -214,7 +214,7 @@ mdb_fail_invariants = True
 
 -- check invariants before/after mdb_insert/mdb_remove.
 mdb_check_invariants :: Bool
-mdb_check_invariants = True
+mdb_check_invariants = False
 
 -- recheck invariants at each tracing point
 mdb_recheck_invariants :: Bool
