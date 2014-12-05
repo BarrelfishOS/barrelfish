@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Fish arm specific commands
+ * \brief Fish x86 specific commands
  */
 /*
  * Copyright (c) 2014, ETH Zurich.
@@ -11,19 +11,29 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <acpi_client/acpi_client.h>
 
 #include "fish.h"
 
+static bool acpi_connected = false;
+
 int reset(int argc, char *argv[])
 {
-   printf("RESET NOT SUPPORTED ON ARM\n");
-   return EXIT_SUCCESS;
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
+        assert(r == 0);
+        acpi_connected = true;
+    }
+    return acpi_reset();
 }
 
 int poweroff(int argc, char *argv[])
 {
-   printf("POWER OFF NOT SUPPORTED ON ARM\n");
-   return EXIT_SUCCESS;
+    if (!acpi_connected) {
+        int r = connect_to_acpi();
+        assert(r == 0);
+        acpi_connected = true;
+    }
+    return acpi_sleep(4);
 }

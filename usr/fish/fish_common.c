@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief fish - The Barrelfish shell
+ * \brief fish - Shell commands
  */
 
 /*
@@ -28,11 +28,17 @@
 #include <barrelfish/terminal.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
-#include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 #include <if/pixels_defs.h>
+
+#include <if/octopus_rpcclient_defs.h>
+#include <octopus/getset.h> // for oct_read TODO
+#include <octopus/trigger.h> // for NOP_TRIGGER
+#include <octopus/init.h> // oct_init
+
+#include "fish.h"
 
 #define MAX_LINE        512
 #define BOOTSCRIPT_NAME "/init.fish"
@@ -54,8 +60,6 @@ struct cmd {
 };
 
 static char *cwd;
-
-static bool acpi_connected = false;
 
 static int help(int argc, char *argv[]);
 
@@ -214,24 +218,24 @@ static void pixels_init(void)
             exit(EXIT_FAILURE);
         }
 
-	if (serv_iref == 0) {
-	    DEBUG_ERR(err, "failed to get a valid iref back from lookup");
-	    exit(EXIT_FAILURE);
-	}
+    if (serv_iref == 0) {
+        DEBUG_ERR(err, "failed to get a valid iref back from lookup");
+        exit(EXIT_FAILURE);
+    }
   
-	err = pixels_bind(serv_iref, 
-			  my_pixels_bind_cb, 
-			  &my_pixels_bindings[core],
-			  get_default_waitset(),
-			  IDC_BIND_FLAGS_DEFAULT);
-	if (err_is_fail(err)) {
-	    DEBUG_ERR(err, "bind request to pixels server failed immediately");
-	    exit(EXIT_FAILURE);
-	}
+    err = pixels_bind(serv_iref, 
+              my_pixels_bind_cb, 
+              &my_pixels_bindings[core],
+              get_default_waitset(),
+              IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "bind request to pixels server failed immediately");
+        exit(EXIT_FAILURE);
+    }
     }
 
     while (pixels_connected < NUM_PIXELS) 
-	messages_wait_and_handle_next();
+    messages_wait_and_handle_next();
     
     printf("connected to pixels server\n");
     pixels_inited = true;
@@ -344,28 +348,6 @@ static int spawnpixels(int argc, char *argv[])
     printf("Done\n");
 
     return EXIT_SUCCESS;
-}
-
-static int reset(int argc, char *argv[])
-{
-    if (!acpi_connected) {
-        int r = connect_to_acpi();
-        assert(r == 0);
-        acpi_connected = true;
-    }
-
-    return acpi_reset();
-}
-
-static int poweroff(int argc, char *argv[])
-{
-    if (!acpi_connected) {
-        int r = connect_to_acpi();
-        assert(r == 0);
-        acpi_connected = true;
-    }
-
-    return acpi_sleep(4);
 }
 
 static int ps(int argc, char *argv[])
@@ -1113,10 +1095,43 @@ static int freecmd(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
+static int nproc(int argc, char* argv[]) {
+    errval_t err, error_code;
+    octopus_trigger_id_t tid;
+    size_t count = 0;
+    char** names = NULL;
+    char* buffer;
+
+    static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
+    oct_init();
+
+    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, &buffer, &tid, &error_code);
+    if (err_is_fail(err) || err_is_fail(error_code)) {
+        DEBUG_ERR(err, "get_names failed");
+        goto out;
+    }
+
+    err = oct_parse_names(buffer, &names, &count);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "parse_names failed.");
+        goto out;
+    }
+
+out:
+    free(buffer);
+    oct_free_names(names, count);
+
+    printf("%zx\n", count);
+    return EXIT_SUCCESS;
+}
+
+
 static struct cmd commands[] = {
     {"help", help, "Output usage information about given shell command"},
     {"print_cspace", print_cspace, "Debug print-out of my cspace"},
     {"quit", quit, "Quit the shell"},
+    {"nproc", nproc, "Get amount of cores in system."},
     {"ps", ps, "List running processes"},
     {"demo", demo, "Run barrelfish demo"},
     {"pixels", spawnpixels, "Spawn pixels on all cores"},
