@@ -151,7 +151,7 @@ let
                 "arch/x86/perfmon.c", 
                 "arch/x86/perfmon_intel.c", 
                 "arch/x86/perfmon_amd.c", 
-                "arch/x86/rtc.c", 
+--              "arch/x86/rtc.c", 
                 "arch/x86/timing.c",
                 "arch/x86/startup_x86.c", 
                 "arch/x86/ipi_notify.c",
@@ -170,13 +170,10 @@ let
 
               ] ++ (if Config.microbenchmarks then ["arch/x86_64/microbenchmarks.c"] else []),
      mackerelDevices = [ "lpc_pic", 
-                         "pc16550d", 
                          "ia32", 
                          "amd64", 
                          "xapic", 
-                         "amd_vmcb", 
                          "cpuid", 
-                         "lpc_rtc", 
                          "xeon_phi/xeon_phi_serial" ],
      addLibraries = [ "elf_kernel" ] 
      },
