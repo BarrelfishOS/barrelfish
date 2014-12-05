@@ -94,7 +94,8 @@ out:
     oct_free_names(names, count);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "num_spawnds_online");
-        return 0;
+        debug_printf("error in octopus, setting num_monitors=1\n");
+        return 1;
     }
     return count;
 }
