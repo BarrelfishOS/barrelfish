@@ -43,6 +43,11 @@ class Gem5MachineBase(Machine):
         # we set this to 10 mins since gem5 is very slow
         return 600
 
+    def get_test_timeout(self):
+        # give gem5 tests enough time to complete
+        # 20 mins
+        return 15 * 60
+
     def get_machine_name(self):
         return self.name
 
