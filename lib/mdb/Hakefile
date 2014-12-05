@@ -19,7 +19,8 @@
     addCFlags = [
          if Config.mdb_trace_user then "-DMDB_TRACE" else "",
          if Config.mdb_fail_invariants_user then "-DMDB_FAIL_INVARIANTS" else "",
-         if Config.mdb_recheck_invariants_user then "-DMDB_RECHECK_INVARIANTS" else ""
+         if Config.mdb_recheck_invariants_user then "-DMDB_RECHECK_INVARIANTS" else "",
+         if Config.mdb_check_invariants_user then "-DMDB_CHECK_INVARIANTS" else ""
     ]
   },
 
@@ -53,7 +54,8 @@
            if Config.mdb_trace then "-DMDB_TRACE" else "",
            if Config.mdb_trace_no_recursive then "-DMDB_TRACE_NO_RECURSVIE" else "",
            if Config.mdb_fail_invariants then "-DMDB_FAIL_INVARIANTS" else "",
-           if Config.mdb_recheck_invariants then "-DMDB_RECHECK_INVARIANTS" else ""
+           if Config.mdb_recheck_invariants then "-DMDB_RECHECK_INVARIANTS" else "",
+           if Config.mdb_check_invariants_user then "-DMDB_CHECK_INVARIANTS" else ""
       ]
     }
 ]

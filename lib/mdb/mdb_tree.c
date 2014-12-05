@@ -49,37 +49,44 @@ mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 #define MDB_RET_INVARIANT(cte, failure) return failure
 #endif
 
-// PP switch to toggle checking of invariants by default
-#ifdef MDB_RECHECK_INVARIANTS
+// PP switch to toggle top-level checking of invariants
+#ifdef MDB_CHECK_INVARIANTS
 #define CHECK_INVARIANTS(cte) mdb_check_subtree_invariants(cte)
 #else
 #define CHECK_INVARIANTS(cte) ((void)0)
+#endif
+
+// PP switch to toggle recursive checking of invariants by default
+#ifdef MDB_RECHECK_INVARIANTS
+#define CHECK_INVARIANTS_SUB(cte) mdb_check_subtree_invariants(cte)
+#else
+#define CHECK_INVARIANTS_SUB(cte) ((void)0)
 #endif
 
 // printf tracing and entry/exit invariant checking
 #ifdef MDB_TRACE
 #define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) do { \
     printf("enter %s(" args_fmt ")\n", __func__, __VA_ARGS__); \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     printf("leave %s\n", __func__); \
     return; \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     printf("leave %s->" ret_fmt "\n", __func__, (ret)); \
     return (ret); \
 } while (0)
 #else
-#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) CHECK_INVARIANTS(valid_cte)
+#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) CHECK_INVARIANTS_SUB(valid_cte)
 #define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     return; \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     return (ret); \
 } while (0)
 #endif

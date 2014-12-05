@@ -212,21 +212,29 @@ mdb_trace_no_recursive = False
 mdb_fail_invariants :: Bool
 mdb_fail_invariants = True
 
+-- check invariants before/after mdb_insert/mdb_remove.
+mdb_check_invariants :: Bool
+mdb_check_invariants = True
+
 -- recheck invariants at each tracing point
 mdb_recheck_invariants :: Bool
-mdb_recheck_invariants = True
+mdb_recheck_invariants = False
 
 -- enable extensive tracing of mapping db implementation (userspace version)
 mdb_trace_user :: Bool
 mdb_trace_user = False
 
--- fail on invariant violaitions
+-- fail on invariant violations
 mdb_fail_invariants_user :: Bool
 mdb_fail_invariants_user = True
 
 -- recheck invariants at each tracing point
 mdb_recheck_invariants_user :: Bool
 mdb_recheck_invariants_user = True
+
+-- check invariants before/after mdb_insert/mdb_remove.
+mdb_check_invariants_user :: Bool
+mdb_check_invariants_user = True
 
 -- Select scheduler
 data Scheduler = RBED | RR deriving (Show,Eq)
