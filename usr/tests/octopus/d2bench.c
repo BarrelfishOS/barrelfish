@@ -21,6 +21,8 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
+#include <if/octopus_thc.h>
+
 #define MAX_ITERATIONS 500
 struct timestamp {
     cycles_t time0;

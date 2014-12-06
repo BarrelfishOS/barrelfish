@@ -22,6 +22,8 @@
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 
+#include <if/octopus_thc.h>
+
 /**
  * Usage: d2bench1 <#clients> <get|set>
  */

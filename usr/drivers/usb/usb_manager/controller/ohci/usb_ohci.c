@@ -166,18 +166,13 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
             hc->root_hub_num_ports );
 
     //char buf[8001];
+    // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
+    //    printf(buf);
+    //ohci_pr(buf, 5000, hc->ohci_base);
+    //printf(buf);
 
-           // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
-        //    printf(buf);
-            //ohci_pr(buf, 5000, hc->ohci_base);
-           //printf(buf);
-
-                       uint32_t* test = (uint32_t* )hc->ohci_base->base;
-                       test = test + (-0x800+0x44)/4;
-                       printf("TEST: %"PRIx32"", (*test)>>16);
-
-                       //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
-                       usb_ohci_root_hub_interrupt(hc);
+    //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
+    usb_ohci_root_hub_interrupt(hc);
 
     return USB_ERR_OK;
 }
