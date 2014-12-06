@@ -13,12 +13,13 @@
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/lmp_endpoints.h>
+#include <arch/x86/barrelfish/ipi_notify.h>
 #include <if/rcce_defs.h>
 
 #define MAXROUND 1000000
 #define ROUNDS_PER_SLICE 50
 
-extern uint32_t yield_timeslices;
+uint32_t yield_timeslices;
 extern struct rcce_binding *barray[MAX_CPUS];
 
 static bool req_done = false;
@@ -100,7 +101,7 @@ int RCCE_APP(int argc, char **argv){
         }
     }
   }
-  if (!ME) printf("RTL = %llu\n", sum/MAXROUND);
+  if (!ME) printf("RTL = %"PRIu64"\n", sum/MAXROUND);
   sum = 0;
   }
 
