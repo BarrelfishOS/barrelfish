@@ -29,3 +29,7 @@ cscope.out
 
 # Builds
 build*/
+
+# tup
+bin/
+Tuprules.lua
