@@ -497,13 +497,13 @@ static struct cmdarg cmdargs[] = {
  * Name of multiboot module containing program for init domains.
  */
 #if defined(__k1om__)
-#       define BSP_INIT_MODULE_PATH     "k1om/sbin/init"
+#       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "k1om/sbin/init"
 #elif defined(__x86_64__)
-#       define BSP_INIT_MODULE_PATH     "x86_64/sbin/init"
+#       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "x86_64/sbin/init"
 #elif defined(__scc__)
-#       define BSP_INIT_MODULE_PATH     "scc/sbin/init"
+#       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "scc/sbin/init"
 #elif defined(__i386__)
-#       define BSP_INIT_MODULE_PATH     "x86_32/sbin/init"
+#       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "x86_32/sbin/init"
 #else
 #       error "Unknown x86"
 #endif

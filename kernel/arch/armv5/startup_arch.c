@@ -32,7 +32,7 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
-#define BSP_INIT_MODULE_NAME    "armv5/sbin/init"
+#define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv5/sbin/init"
 
 #define INIT_L1_BYTES           (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
 
@@ -550,7 +550,7 @@ spawn_init(const char*      name,
     // On to userland...
     STARTUP_PROGRESS();
     dispatch(init_dcb);
-    
+
     panic("Not reached.");
 }
 

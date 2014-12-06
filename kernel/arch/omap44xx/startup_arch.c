@@ -35,11 +35,11 @@
                                       __FUNCTION__, __LINE__);
 
 #ifdef __ARM_ARCH_7M__//armv7-M : cortex-M3 processor on pandaboard
-#define BSP_INIT_MODULE_NAME    "armv7-m/sbin/init"
-#define APP_INIT_MODULE_NAME	"armv7-m/sbin/monitor"
+#define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv7-m/sbin/init"
+#define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv7-m/sbin/monitor"
 #else//"normal" armv7-A
-#define BSP_INIT_MODULE_NAME    "armv7/sbin/init"
-#define APP_INIT_MODULE_NAME	"armv7/sbin/monitor"
+#define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv7/sbin/init"
+#define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv7/sbin/monitor"
 #endif
 
 

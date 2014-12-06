@@ -22,26 +22,26 @@
 static coreid_t my_core_id;
 
 #if defined(__k1om__)
-#       define MONITOR_NAME  "k1om/sbin/monitor"
-#       define MEM_SERV_NAME "k1om/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "k1om/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "k1om/sbin/mem_serv"
 #elif defined(__x86_64__)
-#       define MONITOR_NAME  "x86_64/sbin/monitor"
-#       define MEM_SERV_NAME "x86_64/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "x86_64/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "x86_64/sbin/mem_serv"
 #elif defined(__scc__)
-#       define MONITOR_NAME  "scc/sbin/monitor"
-#       define MEM_SERV_NAME "scc/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "scc/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "scc/sbin/mem_serv"
 #elif defined(__i386__)
-#       define MONITOR_NAME  "x86_32/sbin/monitor"
-#       define MEM_SERV_NAME "x86_32/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "x86_32/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "x86_32/sbin/mem_serv"
 #elif defined(__ARM_ARCH_7A__)
-#       define MONITOR_NAME  "armv7/sbin/monitor"
-#       define MEM_SERV_NAME "armv7/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "armv7/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "armv7/sbin/mem_serv"
 #elif defined(__ARM_ARCH_7M__)
-#       define MONITOR_NAME  "armv7-m/sbin/monitor"
-#       define MEM_SERV_NAME "armv7-m/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "armv7-m/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "armv7-m/sbin/mem_serv"
 #elif defined(__arm__)
-#       define MONITOR_NAME  "armv5/sbin/monitor"
-#       define MEM_SERV_NAME "armv5/sbin/mem_serv"
+#       define MONITOR_NAME  BF_BINARY_PREFIX "armv5/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "armv5/sbin/mem_serv"
 #else
 #       error Unknown architecture
 #endif
@@ -313,8 +313,6 @@ int main(int argc, char *argv[])
             abort();
         }
     }
-
-    printf("Init done.\n");
 
     return EXIT_SUCCESS;
 }

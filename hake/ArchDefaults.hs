@@ -52,7 +52,7 @@ cFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
 cxxFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
        ++ commonCxxFlags
 
-cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH" ]]
+cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH", "BF_BINARY_PREFIX=\\\"\\\"" ] ]
                    ++ Config.defines
                    ++ Config.arch_defines options
 
