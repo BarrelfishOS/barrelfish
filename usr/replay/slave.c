@@ -165,7 +165,6 @@ static void handle_finish(struct replay_binding *b)
     assert(err_is_ok(err));
 }
 
-void cache_print_stats(void);
 static void handle_print_stats(struct replay_binding *b)
 {
     errval_t err;
@@ -176,7 +175,6 @@ static void handle_print_stats(struct replay_binding *b)
         msg(" op:%-10s cnt:%8" PRIu64  " time:%13.2lf avg:%9.3lf\n", top2str[i], op_cnt, op_time, op_time/(double)op_cnt);
     }
     msg("SLAVE[%u]: CACHE STATISTICS\n", disp_get_core_id());
-    cache_print_stats();
     err = b->tx_vtbl.slave_print_stats_reply(b, NOP_CONT);
     assert(err_is_ok(err));
 }
