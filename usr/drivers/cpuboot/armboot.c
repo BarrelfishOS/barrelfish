@@ -57,19 +57,19 @@ errval_t get_architecture_config(enum cpu_type type,
     {
         *arch_page_size = BASE_PAGE_SIZE;
         *monitor_binary = (cmd_monitor_binary == NULL) ?
-                          "/armv7/sbin/monitor" :
-                          get_binary_path("/armv7/sbin/%s", 
+                          "/" BF_BINARY_PREFIX "armv7/sbin/monitor" :
+                          get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                           cmd_monitor_binary);
 // TODO: That should not be static
 #if defined(__gem5__)
         *cpu_binary = (cmd_kernel_binary == NULL) ?
-                      "/armv7/sbin/cpu_arm_gem5" :
-                      get_binary_path("/armv7/sbin/%s", 
+                      "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
+                      get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                       cmd_kernel_binary);
 #elif defined(__pandaboard__)
         *cpu_binary = (cmd_kernel_binary == NULL) ?
-                      "/armv7/sbin/cpu_omap44xx" :
-                      get_binary_path("/armv7/sbin/%s", 
+                      "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
+                      get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                       cmd_kernel_binary);
 #else
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
