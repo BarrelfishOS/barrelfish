@@ -268,3 +268,9 @@ void arch_init(uint32_t     board_id,
               board_id, hal_get_board_id());
     }
 }
+
+struct kcb;
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    return SYS_ERR_OK;
+}
