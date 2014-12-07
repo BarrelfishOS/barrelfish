@@ -122,7 +122,8 @@ BENCH_x86= \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench
+	sbin/multihop_latency_bench \
+	sbin/tests/luatest
 
 BENCH_x86_64= \
 	$(BENCH_x86) \
