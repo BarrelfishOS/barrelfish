@@ -33,5 +33,6 @@ cscope.out
 build*/
 
 # tup
+.tup
 bin/
-Tuprules.lua
+/Tuprules.lua
