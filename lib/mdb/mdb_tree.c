@@ -108,7 +108,8 @@ do { \
 } while (0)
 #endif
 
-static struct cte *mdb_root = NULL;
+// Global for test_ops_with_root.c
+struct cte *mdb_root = NULL;
 #if IN_KERNEL
 struct kcb *my_kcb = NULL;
 #endif
