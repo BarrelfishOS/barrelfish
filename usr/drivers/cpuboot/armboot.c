@@ -48,9 +48,7 @@ errval_t get_architecture_config(enum cpu_type type,
                                 const char **monitor_binary,
                                 const char **cpu_binary)
 {
-    extern char* cmd_kernel_binary;
     extern char* cmd_monitor_binary;
-
     switch (type) {
 
     case CPU_ARM7:
@@ -62,11 +60,13 @@ errval_t get_architecture_config(enum cpu_type type,
                                           cmd_monitor_binary);
 // TODO: That should not be static
 #if defined(__gem5__)
+        extern char* cmd_kernel_binary;
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                       "/" BF_BINARY_PREFIX "armv7/sbin/cpu_arm_gem5" :
                       get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
                                       cmd_kernel_binary);
 #elif defined(__pandaboard__)
+        extern char* cmd_kernel_binary;
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                       "/" BF_BINARY_PREFIX "armv7/sbin/cpu_omap44xx" :
                       get_binary_path("/" BF_BINARY_PREFIX "armv7/sbin/%s", 
