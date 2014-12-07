@@ -18,6 +18,9 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+#include <lua/lualib.h>
 
 static char* program = "-- sieve.lua\n"
 "-- the sieve of Eratosthenes programmed with coroutines\n"
@@ -48,9 +51,7 @@ static char* program = "-- sieve.lua\n"
 "  x = filter(n, x)  -- now remove its multiples\n"
 "end\n";
 
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
+
 
 
 
