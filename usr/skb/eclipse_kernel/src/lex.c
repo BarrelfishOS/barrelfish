@@ -1308,7 +1308,9 @@ p_read_token_(value vs, type ts, value v, type t, value vc, type tc, value vm, t
 	default:		/* LexError() */
 	    len = token.term.val.nint;
 	    Make_Stack_String(len, token.term.val, s)
-	    Copy_Bytes(s, token.string, len + 1);
+            if (token.string) {
+                Copy_Bytes(s, token.string, len + 1);
+            }
  	    token.term.tag.kernel = TSTRG;
             break;
 
@@ -1341,6 +1343,7 @@ p_read_token_(value vs, type ts, value v, type t, value vc, type tc, value vm, t
 
 	case IDENTIFIER:
 	case QIDENTIFIER:
+            assert(token.string);
 	    token.term.val.did = enter_dict_n(token.string, token.term.val.nint, 0);
 	    token.term.tag.kernel = token.term.val.did == d_.nil ? TNIL : TDICT;
 	    break;
