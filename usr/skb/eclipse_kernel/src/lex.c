@@ -38,6 +38,7 @@
 /*
  * INCLUDES:
  */
+#include <assert.h>
 
 #include <math.h>
 
