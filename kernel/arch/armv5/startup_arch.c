@@ -242,7 +242,7 @@ create_modules_from_initrd(struct bootinfo* bi,
     size_t bytes;
 
     if (cpio_get_file_by_name(initrd_base, initrd_bytes,
-                              "armv5/menu.lst.modules",
+                              "menu.lst.modules",
                               &data, &bytes))
     {
         assert(bytes < BASE_PAGE_SIZE);
