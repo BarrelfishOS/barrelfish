@@ -346,8 +346,6 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
 
     /* wait till the request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
-
     }
 
     /* compare the result */
@@ -366,7 +364,6 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
 
     /* wait till request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
     }
 
     /* compare the values */
