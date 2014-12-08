@@ -29,6 +29,45 @@ K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 # upload Xeon Phi images to nfs share (leave blank to cancel)
 BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
 
+#################################################################################
+# Additional submodule targets
+#################################################################################
+$(info Additional submodules:) 
+
+# Shoal submodule
+ifneq ("$(wildcard $(SRCDIR)lib/shoal/Hakefile)","")
+    $(info + shoal:      [YES])
+    SUBMODULE_SHOAL=1
+    SHOAL= \
+    	sbin/tests/shl_simple	
+else
+    $(info + shoal:      [NO])
+	SUBMODULE_SHOAL=0
+	SHOAL=
+endif
+
+# Green Marl Submodule
+ifneq ("$(wildcard $(SRCDIR)usr/green-marl/Hakefile)","")
+    $(info + green-marl: [YES])
+	SUBMODULE_GREEN_MARL=1
+else
+    $(info + green-marl: [NO])
+	SUBMODULE_GREEN_MARL=0
+endif
+
+# green-marl depends on presence of shoal
+ifneq "$(and $(SUBMODULE_GREEN_MARL),$(SUBMODULE_SHOAL))" ""
+    $(info + green-marl: [ENABLED])    
+	GREEN_MARL= \
+		sbin/gm_tc \
+		sbin/gm_pr
+else
+    $(info + green-marl: [DISABLED])
+	GREEN_MARL=
+endif
+
+
+
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
 	sbin/rcce_lu_A1 \
@@ -50,149 +89,129 @@ BIN_RCCE_BT= \
 
 # All test domains
 TESTS_COMMON= \
+	sbin/fputest \
+	sbin/fread_test \
+	sbin/fscanf_test \
 	sbin/hellotest \
 	sbin/idctest \
 	sbin/memtest \
-	sbin/fread_test \
-	sbin/fscanf_test \
 	sbin/schedtest \
 	sbin/testerror \
-	sbin/yield_test \
-	sbin/fputest
+	sbin/yield_test
+	
+TESTS_x86= \
+	sbin/tests/luatest	
 
 TESTS_x86_64= \
-	sbin/mdbtest_range_query \
-	sbin/mdbtest_addr_zero \
-	sbin/ata_rw28_test \
+	$(TESTS_x86) \
 	sbin/arrakis_hellotest \
-	sbin/socketpipetest \
-	sbin/spantest \
-	sbin/testconcurrent \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/tweedtest \
-	sbin/thctest \
-	sbin/testdesc \
-	sbin/testdesc-child \
-	sbin/multihoptest \
-	sbin/cryptotest \
-	sbin/net-test \
-	sbin/xcorecap \
-	sbin/xcorecapserv \
-	sbin/bomp_sync \
+	sbin/ata_rw28_test \
 	sbin/bomp_cpu_bound \
 	sbin/bomp_cpu_bound_progress \
+	sbin/bomp_sync \
 	sbin/bomp_sync_progress \
 	sbin/bomp_test \
 	sbin/bulk_shm \
+	sbin/cryptotest \
+	sbin/mdbtest_addr_zero \
+	sbin/mdbtest_range_query \
 	sbin/mem_affinity \
-	sbin/phoenix_kmeans \
-	sbin/spin \
-	sbin/tests/dma_test \
-	sbin/tests/cxxtest \
-	sbin/tests/xphi_nameservice_test \
-	sbin/tlstest \
-	sbin/timer_test \
+	sbin/multihoptest \
+	sbin/net-test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
+	sbin/phoenix_kmeans \
+	sbin/socketpipetest \
+	sbin/spantest \
+	sbin/spin \
+	sbin/testconcurrent \
+	sbin/testdesc \
+	sbin/testdesc-child \
+	sbin/tests/cxxtest \
+	sbin/tests/dma_test \
+	sbin/tests/xphi_nameservice_test \
+	sbin/thcidctest \
+	sbin/thcminitest \
+	sbin/thctest \
+	sbin/timer_test \
+	sbin/tlstest \
+	sbin/tweedtest \
+	sbin/xcorecap \
+	sbin/xcorecapserv
 
 TESTS_k1om= \
+	$(TESTS_x86) \
+	sbin/tests/dma_test \
 	sbin/tests/xeon_phi_inter \
 	sbin/tests/xeon_phi_test \
-	sbin/tests/dma_test \
 	sbin/tests/xphi_nameservice_test
+	
 
 # All benchmark domains
 BENCH_COMMON= \
 	sbin/channel_cost_bench \
-	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_buffer_bench \
+	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_payload_bench \
 	sbin/xcorecapbench
 
 BENCH_x86= \
-	sbin/udp_throughput \
-	sbin/ump_latency \
-	sbin/ump_exchange \
-	sbin/ump_latency_cache \
-	sbin/ump_throughput \
-	sbin/ump_send \
-	sbin/ump_receive \
-	sbin/timer_test \
+	sbin/multihop_latency_bench \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench \
-	sbin/tests/luatest
+	sbin/timer_test \
+	sbin/udp_throughput \
+	sbin/ump_exchange \
+	sbin/ump_latency \
+	sbin/ump_latency_cache \
+	sbin/ump_receive \
+	sbin/ump_send \
+	sbin/ump_throughput
 
 BENCH_x86_64= \
 	$(BENCH_x86) \
+	$(BIN_RCCE_BT) \
+	$(BIN_RCCE_LU) \
+	sbin/ahci_bench \
+	sbin/apicdrift_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_work \
+	sbin/benchmarks/xphi_ump_bench \
 	sbin/bomp_benchmark_cg \
 	sbin/bomp_benchmark_ft \
 	sbin/bomp_benchmark_is \
-	sbin/mdb_bench \
-	sbin/mdb_bench_old \
-	sbin/ahci_bench \
-	sbin/apicdrift_bench \
-	sbin/bulkbench \
-	sbin/lrpc_bench \
-	sbin/placement_bench \
-	sbin/phases_bench \
-	sbin/phases_scale_bench \
-	sbin/shared_mem_clock_bench \
-	$(BIN_RCCE_BT) \
-	$(BIN_RCCE_LU) \
-	sbin/tsc_bench \
-	sbin/netthroughput \
 	sbin/bulk_transfer_passthrough \
+	sbin/bulkbench \
 	sbin/bulkbench_micro_echo \
-	sbin/bulkbench_micro_throughput \
 	sbin/bulkbench_micro_rtt \
-	sbin/benchmarks/xphi_ump_bench \
-	sbin/rcce_pingpong \
+	sbin/bulkbench_micro_throughput \
 	sbin/elb_app \
 	sbin/elb_app_tcp \
-	sbin/benchmarks/dma_bench \
-	sbin/benchmarks/bomp_mm \
-	sbin/benchmarks/xomp_spawn \
-	sbin/benchmarks/xomp_share \
-	sbin/benchmarks/xomp_work	
+	sbin/lrpc_bench \
+	sbin/mdb_bench \
+	sbin/mdb_bench_old \
+	sbin/netthroughput \
+	sbin/phases_bench \
+	sbin/phases_scale_bench \
+	sbin/placement_bench \
+	sbin/rcce_pingpong \
+	sbin/shared_mem_clock_bench \
+	sbin/tsc_bench
 
 BENCH_k1om=\
 	$(BENCH_x86) \
-	sbin/benchmarks/dma_bench \
-	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_xump_bench \
 	sbin/benchmarks/bomp_mm \
-	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/dma_bench \
 	sbin/benchmarks/xomp_share \
-	sbin/benchmarks/xomp_work
-
-# adding submodules to targets
-
-$(info Additional submodules:)
-ifneq ("$(wildcard $(SRCDIR)lib/shoal/Hakefile)","")
-$(info + shoal:      [YES])
-SHOAL= \
-	sbin/tests/shl_simple
-	
-ifneq ("$(wildcard $(SRCDIR)usr/green-marl/Hakefile)","")
-$(info + green-marl: [YES])
-GREEN_MARL= \
-  	sbin/gm_tc
-    	
-else # no green-marl module
-$(info + green-marl: [NO])
-GREEN_MARL=
-endif
-
-else # no additional modules
-$(info + green-marl: [NO])
-$(info + shoal:      [NO])
-GREEN_MARL=
-SHOAL=
-endif
-   
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_work \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/benchmarks/xphi_xump_bench
+  
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -604,6 +623,34 @@ $(TESTS): %.txt: %.cfg tools/bin/simulator
 schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
 
+######################################################################
+#
+# Green Marl Targets
+#
+######################################################################
+
+GM_APPS=$(SRCDIR)usr/green-marl/apps/src
+	
+define \n
+
+
+endef
+	
+    #%/generated/triangle_counting.{h, cc} : tools/bin/gm_comp
+$(ARCH)/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
+	$(foreach a,$(HAKE_ARCHS), \
+		mkdir -p $(a)/usr/green-marl ${\n}\
+		mkdir -p $(a)/include/green-marl ${\n}\
+		tools/bin/gm_comp -o=$(a)/usr/green-marl -t=cpp_omp  $(GM_APPS)/$*.gm ${\n} \
+		mv $(a)/usr/green-marl/$*.h $(a)/include/green-marl ${\n} \
+	)
+
+tools/bin/gm_comp :
+	test -s ./tools/bin/gm_comp || { echo "Compiler does already exist"; exit 0; }
+	# this target generates the green-marl compiler in the tools/bin directory
+	cd $(SRCDIR)/usr/green-marl && make compiler
+	mv $(SRCDIR)/usr/green-marl/bin/gm_comp ./tools/bin/
+	cd $(SRCDIR)/usr/green-marl && make clean
 
 ######################################################################
 #
