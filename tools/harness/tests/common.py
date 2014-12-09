@@ -215,27 +215,33 @@ class InteractiveTest(TestCommon):
 
     def wait_for_fish(self):
         debug.verbose("Waiting for fish.")
-        self.console.expect("fish v0.2 -- pleased to meet you!")
+        self.console.expect("fish v0.2 -- pleased to meet you!",
+                timeout=self.test_timeout)
         self.wait_for_prompt()
 
     def interact(self):
         # Implement interaction with console
         pass
 
+    def set_timeouts(self, machine):
+        self.boot_timeout = machine.get_boot_timeout()
+        if not self.boot_timeout:
+            self.boot_timeout = DEFAULT_BOOT_TIMEOUT.seconds
+        self.test_timeout = machine.get_test_timeout()
+        if not self.test_timeout:
+            self.test_timeout = DEFAULT_TEST_TIMEOUT.seconds
+
     def collect_data(self, machine):
         fh = machine.get_output()
-        
-        if not machine.get_boot_timeout():
-            tt = 180
-        else:
-            tt = machine.get_boot_timeout()
 
-        self.console = fdpexpect.fdspawn(fh, timeout=tt)
+
+        self.console = fdpexpect.fdspawn(fh)
         self.console.logfile = tempfile.NamedTemporaryFile()
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 
-                                 pexpect.TIMEOUT, pexpect.EOF])
+                                 pexpect.TIMEOUT, pexpect.EOF],
+                                 timeout=self.boot_timeout)
             if index == 0:
                 self.boot_phase = False
                 break
@@ -259,6 +265,7 @@ class InteractiveTest(TestCommon):
 
     def run(self, build, machine, testdir):
         modules = self.get_modules(build, machine)
+        self.set_timeouts(machine)
         self.boot(machine, modules)
         return self.collect_data(machine)
 

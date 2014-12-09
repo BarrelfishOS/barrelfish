@@ -142,6 +142,11 @@ class QEMUMachineMultiproc(QEMUMachineX64):
         # 4core qemu needs a bit longer to boot
         return 240
 
+    def get_test_timeout(self):
+        # give gem5 tests enough time to complete
+        # 20 mins
+        return 10 * 60
+
     def get_ncores(self):
         return 4
 
