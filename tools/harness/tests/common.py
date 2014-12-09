@@ -56,7 +56,6 @@ class TestCommon(Test):
         targets = self.get_build_targets(build, machine)
         # set custom test timeout if machine specifies one
         test_timeout_secs = machine.get_test_timeout()
-        debug.verbose('test_timeout_secs: %d' % test_timeout_secs)
         if not test_timeout_secs:
             test_timeout_secs = DEFAULT_TEST_TIMEOUT
         else:
