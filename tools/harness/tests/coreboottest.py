@@ -9,7 +9,7 @@
 # ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import tests, debug, time, pexpect
+import tests, debug, pexpect
 from common import InteractiveTest
 
 START_CPU_DRIVER = "Barrelfish CPU driver starting"

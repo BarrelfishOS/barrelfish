@@ -56,6 +56,7 @@ class TestCommon(Test):
         targets = self.get_build_targets(build, machine)
         # set custom test timeout if machine specifies one
         test_timeout_secs = machine.get_test_timeout()
+        debug.verbose('test_timeout_secs: %d' % test_timeout_secs)
         if not test_timeout_secs:
             test_timeout_secs = DEFAULT_TEST_TIMEOUT
         else:
@@ -235,7 +236,7 @@ class InteractiveTest(TestCommon):
         fh = machine.get_output()
 
 
-        self.console = fdpexpect.fdspawn(fh)
+        self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
         self.console.logfile = tempfile.NamedTemporaryFile()
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
