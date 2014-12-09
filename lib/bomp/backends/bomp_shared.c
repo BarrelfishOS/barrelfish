@@ -43,7 +43,7 @@ static void bomp_run_on(int core_id,
 {
     int actual_id = core_id + disp_get_core_id();
     thread_func_t func = (thread_func_t) cfunc;
-    debug_printf("%s: stack size: %zu\n", __FUNCTION__, thread_stack_size);
+
     errval_t err = domain_thread_create_on_varstack(actual_id, func, arg,
                                                     thread_stack_size);
     if (err_is_fail(err)) {
