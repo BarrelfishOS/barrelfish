@@ -168,8 +168,6 @@ static errval_t fill(struct memobj *memobj,
                      struct capref frame,
                      size_t frame_offset)
 {
-    errval_t err;
-
     struct memobj_numa *mo_numa = (struct memobj_numa*) memobj;
 
     /* we take a single capability per node using offset as the node ID */
@@ -183,6 +181,8 @@ static errval_t fill(struct memobj *memobj,
     }
 
 #if CHECK_FRAME_SIZE
+    errval_t err;
+
     /* we must make sure the frame is big enough */
     struct frame_identity fid;
 
