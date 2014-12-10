@@ -36,3 +36,4 @@ build*/
 .tup
 bin/
 /Tuprules.lua
+/logs
