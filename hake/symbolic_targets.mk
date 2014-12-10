@@ -52,7 +52,7 @@ ifneq ("$(wildcard $(SRCDIR)usr/green-marl/Hakefile)","")
 	SUBMODULE_GREEN_MARL=1
 else
     $(info + green-marl: [NO])
-	SUBMODULE_GREEN_MARL=0
+	SUBMODULE_GREEN_MARL=
 endif
 
 # green-marl depends on presence of shoal
