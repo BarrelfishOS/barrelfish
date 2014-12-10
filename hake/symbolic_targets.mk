@@ -32,14 +32,14 @@ BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
 #################################################################################
 # Additional submodule targets
 #################################################################################
-$(info Additional submodules:) 
+$(info Additional submodules:)
 
 # Shoal submodule
-ifneq ("$(wildcard $(SRCDIR)lib/shoal/Hakefile)","")
+ifneq ("$(wildcard $(SRCDIR)/lib/shoal/Hakefile)","")
     $(info + shoal:      [YES])
     SUBMODULE_SHOAL=1
     SHOAL= \
-    	sbin/tests/shl_simple	
+    	sbin/tests/shl_simple
 else
     $(info + shoal:      [NO])
 	SUBMODULE_SHOAL=0
@@ -47,7 +47,7 @@ else
 endif
 
 # Green Marl Submodule
-ifneq ("$(wildcard $(SRCDIR)usr/green-marl/Hakefile)","")
+ifneq ("$(wildcard $(SRCDIR)/usr/green-marl/Hakefile)","")
     $(info + green-marl: [YES])
 	SUBMODULE_GREEN_MARL=1
 else
@@ -57,7 +57,7 @@ endif
 
 # green-marl depends on presence of shoal
 ifneq "$(and $(SUBMODULE_GREEN_MARL),$(SUBMODULE_SHOAL))" ""
-    $(info + green-marl: [ENABLED])    
+    $(info + green-marl: [ENABLED])
 	GREEN_MARL= \
 		sbin/gm_tc \
 		sbin/gm_pr
@@ -98,9 +98,9 @@ TESTS_COMMON= \
 	sbin/schedtest \
 	sbin/testerror \
 	sbin/yield_test
-	
+
 TESTS_x86= \
-	sbin/tests/luatest	
+	sbin/tests/luatest
 
 TESTS_x86_64= \
 	$(TESTS_x86) \
@@ -145,7 +145,7 @@ TESTS_k1om= \
 	sbin/tests/xeon_phi_inter \
 	sbin/tests/xeon_phi_test \
 	sbin/tests/xphi_nameservice_test
-	
+
 
 # All benchmark domains
 BENCH_COMMON= \
@@ -211,7 +211,7 @@ BENCH_k1om=\
 	sbin/benchmarks/xomp_work \
 	sbin/benchmarks/xphi_ump_bench \
 	sbin/benchmarks/xphi_xump_bench
-  
+
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -281,7 +281,7 @@ MODULES_x86_64= \
 	sbin/bulk_shm \
 	$(GREEN_MARL) \
 	$(SHOAL) \
-	sbin/corectrl 
+	sbin/corectrl
 
 MODULES_k1om= \
 	sbin/weever \
@@ -290,7 +290,7 @@ MODULES_k1om= \
 	sbin/corectrl \
 	xeon_phi_multiboot \
 	$(GREEN_MARL) \
-	$(SHOAL) 
+	$(SHOAL)
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -426,7 +426,7 @@ install: $(MODULES)
 .PHONY : install
 
 
-install_headers: 
+install_headers:
 	echo "Installing header files..." ; \
 	for a in ${HAKE_ARCHS}; do \
 	  mkdir -p "$$a" ; \
@@ -450,7 +450,7 @@ MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
 	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
 	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
 
-ifeq ($(filter $(x86_64),$(ARCH)),) 
+ifeq ($(filter $(x86_64),$(ARCH)),)
     QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
@@ -630,12 +630,12 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 ######################################################################
 
 GM_APPS=$(SRCDIR)usr/green-marl/apps/src
-	
+
 define \n
 
 
 endef
-	
+
     #%/generated/triangle_counting.{h, cc} : tools/bin/gm_comp
 $(ARCH)/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
 	$(foreach a,$(HAKE_ARCHS), \
