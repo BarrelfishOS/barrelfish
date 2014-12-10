@@ -80,8 +80,6 @@ void GOMP_parallel(void (*fn)(void *),
      * 4) call parallel end
      */
 
-    debug_printf("GOMP_parallel: Flags: %x\n", flags);
-
     GOMP_parallel_start(fn, data, num_threads);
     fn(data);
     GOMP_parallel_end();
