@@ -24,7 +24,7 @@ class GreenMarl_PageRank(TestCommon):
         # TODO: nfs location and number of cores...
         modules.add_module("gm_pr", ["spawnflags=2",
                                      "/nfs/soc-LiveJournal1.bin",
-                                     machine.ncores,
+                                     machine.get_ncores(),
                                      "nfs://10.110.4.4/mnt/local/nfs/acreto/"])
 
         modules.add_module("e1000n", ["auto", "noirq"])
@@ -57,7 +57,7 @@ class GreenMarl_TriangleCounting(TestCommon):
         # TODO: nfs location and number of cores...
         modules.add_module("gm_pr", ["spawnflags=2",
                                      "/nfs/soc-LiveJournal1.bin",
-                                     machine.ncores,
+                                     machine.get_ncores(),
                                      "nfs://10.110.4.4/mnt/local/nfs/acreto/"])
 
         modules.add_module("e1000n", ["auto", "noirq"])
