@@ -25,8 +25,6 @@ static void after_prepare(void *arg);
 
 static volatile bool finished;
 
-static volatile int counter = 0;
-
 static errval_t init_tracing(void)
 {
     trace_reset_all();

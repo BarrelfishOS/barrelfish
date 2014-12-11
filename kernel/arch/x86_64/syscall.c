@@ -328,21 +328,6 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
     return sr;
 }
 
-static inline void __monitor(const void *eax, unsigned long ecx,
-                 unsigned long edx)
-{
-    /* "monitor %eax, %ecx, %edx;" */
-    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc8;"
-                          :: "a" (eax), "c" (ecx), "d"(edx));
-}
-
-static inline void __mwait(unsigned long eax, unsigned long ecx)
-{
-    /* "mwait %eax, %ecx;" */
-    __asm__ __volatile__ (".byte 0x0f, 0x01, 0xc9;"
-                          :: "a" (eax), "c" (ecx));
-}
-
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {

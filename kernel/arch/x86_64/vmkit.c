@@ -133,7 +133,7 @@ vm_exec (struct dcb *dcb)
     register uintptr_t rbp __asm("rbp") = ctrl->regs.rbp;
 
     __asm volatile ("sti\n\t"       // allow intr to happen inside the host
-                    "vmrun\n\t"     // execute the guest
+                    "vmrun %%rax\n\t"     // execute the guest
                     "cli\n\t"       // disable intr in the host again
                     "stgi\n\t"      // enable the global intr flag
         : "+r" (rbx), "+r" (rcx), "+r" (rdx), "+r" (rbp), "+r" (rsi), "+r" (rdi),
@@ -150,7 +150,7 @@ vm_exec (struct dcb *dcb)
 
     __asm volatile ("mov %[nrbp], %%rbp\n\t"
                     "sti\n\t"       // allow intr to happen inside the host
-                    "vmrun\n\t"     // execute the guest
+                    "vmrun %%rax\n\t"     // execute the guest
                     "cli\n\t"       // disable intr in the host again
                     "stgi\n\t"      // enable the global intr flag
                     "mov %%rbp, %[nrbp]\n\t"
@@ -182,12 +182,12 @@ vm_exec (struct dcb *dcb)
 
 static inline void
 vmload (lpaddr_t vmcb) {
-    __asm volatile ("vmload" : : "a" (vmcb) : "memory");
+    __asm volatile ("vmload %%rax" : : "a" (vmcb) : "memory");
 }
 
 static inline void
 vmsave (lpaddr_t vmcb) {
-    __asm volatile ("vmsave" : : "a" (vmcb) : "memory");
+    __asm volatile ("vmsave %%rax" : : "a" (vmcb) : "memory");
 }
 
 static inline void

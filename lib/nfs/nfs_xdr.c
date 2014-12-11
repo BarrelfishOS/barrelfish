@@ -191,16 +191,11 @@ xdr_post_op_attr (XDR *xdrs, post_op_attr *objp)
 {
      if (!xdr_bool (xdrs, &objp->attributes_follow))
          return FALSE;
-    switch (objp->attributes_follow) {
-    case TRUE:
+    if (objp->attributes_follow) {
          if (!xdr_fattr3 (xdrs, &objp->post_op_attr_u.attributes))
              return FALSE;
-        break;
-    case FALSE:
-        break;
-    default:
-        return FALSE;
     }
+
     return TRUE;
 }
 
@@ -221,15 +216,9 @@ xdr_pre_op_attr (XDR *xdrs, pre_op_attr *objp)
 {
      if (!xdr_bool (xdrs, &objp->attributes_follow))
          return FALSE;
-    switch (objp->attributes_follow) {
-    case TRUE:
+    if (objp->attributes_follow) {
          if (!xdr_wcc_attr (xdrs, &objp->pre_op_attr_u.attributes))
              return FALSE;
-        break;
-    case FALSE:
-        break;
-    default:
-        return FALSE;
     }
     return TRUE;
 }
@@ -249,15 +238,9 @@ xdr_post_op_fh3 (XDR *xdrs, post_op_fh3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->handle_follows))
          return FALSE;
-    switch (objp->handle_follows) {
-    case TRUE:
+    if (objp->handle_follows) {
          if (!xdr_nfs_fh3 (xdrs, &objp->post_op_fh3_u.handle))
              return FALSE;
-        break;
-    case FALSE:
-        break;
-    default:
-        return FALSE;
     }
     return TRUE;
 }
@@ -275,13 +258,9 @@ xdr_set_mode3 (XDR *xdrs, set_mode3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->set_it))
          return FALSE;
-    switch (objp->set_it) {
-    case TRUE:
+    if (objp->set_it) {
          if (!xdr_mode3 (xdrs, &objp->set_mode3_u.mode))
              return FALSE;
-        break;
-    default:
-        break;
     }
     return TRUE;
 }
@@ -291,13 +270,9 @@ xdr_set_uid3 (XDR *xdrs, set_uid3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->set_it))
          return FALSE;
-    switch (objp->set_it) {
-    case TRUE:
+    if (objp->set_it) {
          if (!xdr_uid3 (xdrs, &objp->set_uid3_u.uid))
              return FALSE;
-        break;
-    default:
-        break;
     }
     return TRUE;
 }
@@ -307,13 +282,9 @@ xdr_set_gid3 (XDR *xdrs, set_gid3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->set_it))
          return FALSE;
-    switch (objp->set_it) {
-    case TRUE:
+    if (objp->set_it) {
          if (!xdr_gid3 (xdrs, &objp->set_gid3_u.gid))
              return FALSE;
-        break;
-    default:
-        break;
     }
     return TRUE;
 }
@@ -323,13 +294,9 @@ xdr_set_size3 (XDR *xdrs, set_size3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->set_it))
          return FALSE;
-    switch (objp->set_it) {
-    case TRUE:
+    if (objp->set_it) {
          if (!xdr_size3 (xdrs, &objp->set_size3_u.size))
              return FALSE;
-        break;
-    default:
-        break;
     }
     return TRUE;
 }
@@ -431,15 +398,9 @@ xdr_sattrguard3 (XDR *xdrs, sattrguard3 *objp)
 {
      if (!xdr_bool (xdrs, &objp->check))
          return FALSE;
-    switch (objp->check) {
-    case TRUE:
+    if (objp->check) {
          if (!xdr_nfstime3 (xdrs, &objp->sattrguard3_u.obj_ctime))
              return FALSE;
-        break;
-    case FALSE:
-        break;
-    default:
-        return FALSE;
     }
     return TRUE;
 }

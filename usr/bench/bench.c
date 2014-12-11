@@ -203,7 +203,7 @@ static void bts_clr_benchmark(void)
 
 static void clr_benchmark(void)
 {
-    uint64_t mem;
+    uint64_t mem = 0;
 
     for(int i = 0; i < MICROBENCH_ITERATIONS; i++) {
         __asm__ __volatile__ (
