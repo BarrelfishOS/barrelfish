@@ -648,9 +648,12 @@ $(ARCH)/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
 tools/bin/gm_comp :
 	test -s ./tools/bin/gm_comp || { echo "Compiler does already exist"; exit 0; }
 	# this target generates the green-marl compiler in the tools/bin directory
-	cd $(SRCDIR)/usr/green-marl && make compiler
+	make -C $(SRCDIR)/usr/green-marl compiler -j 8
 	mv $(SRCDIR)/usr/green-marl/bin/gm_comp ./tools/bin/
-	cd $(SRCDIR)/usr/green-marl && make clean
+	make -C $(SRCDIR)/usr/green-marl clean
+	$(foreach a,$(HAKE_ARCHS), \
+		rm -rf $(a)/usr/green-marl/* ${\n}\
+	)
 
 ######################################################################
 #
