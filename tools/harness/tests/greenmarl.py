@@ -42,9 +42,22 @@ class GreenMarl_PageRank(TestCommon):
     def process_data(self, testdir, rawiter):
         # the test passed iff the last line is the finish string
         lastline = ''
+        passed = False;
         for line in rawiter:
-            lastline = line
-        passed = lastline.startswith(self.get_finish_string())
+            if line.startswith(self.get_finish_string()) :
+                passed = True;
+                break;
+            elif line.startswith("Aborted") :
+                passed = False;
+                break;
+        return PassFailResult(passed)
+
+    def process_data(self, testdir, rawiter):
+        passed = False
+        for line in rawiter:
+            if line.startswith(self.get_finish_string()):
+               passed = True
+               break
         return PassFailResult(passed)
 
 @tests.add_test
