@@ -1076,21 +1076,6 @@ errors xeon_phi XEON_PHI_ERR_ {
     failure CLIENT_REGISTER      "Xeon Phi client could not be registered with the driver",
     failure CLIENT_BUSY          "The connection to the Xeon Phi driver is busy",
     failure INVALID_ID           "Supplied Xeon Phi ID is invalid",
-    
-    
- //   failure DMA_NOT_INITIALIZED  "DMA library has not been initialized",
- //   failure DMA_NUM_DESC         "Descriptor number must be a power of two",
- //   failure DMA_ID_NOT_EXISTS    "The DMA transfer with that ID does not exist ",
- //   failure DMA_NOT_SUPPORTED    "The DMA transfer is not supported.",
- //   failure DMA_BUSY             "All DMA channels are busy",
- //   failure DMA_IDLE             "All DMA channels are idle",
- //  failure DMA_MEM_REGISTERED   "The memory has not been registered",
- //   failure DMA_MEM_ALIGN        "The address / bytes has a wrong alignment",
- //   failure DMA_MEM_OVERLAP      "The memory addresses overlap",
- //   failure DMA_RPC_IN_PROGRESS  "There is currently an RPC going on",
- //   failure DMA_NO_DESC          "There are not enough DMA descriptors left",
- //   failure DMA_REQ_SIZE         "The requested transfer size is too big",
- //   failure DMA_MEM_OUT_OF_RANGE "The physical address is out of range",
 };
 
 errors dma DMA_ERR_ {
@@ -1130,4 +1115,11 @@ errors xomp XOMP_ERR_ {
     failure INVALID_MEMORY        "the memory has not been registred / shared",
     failure INVALID_TOKEN         "the token was invalid",
     failure INVALID_ARGUMENTS     "the library was initialized with invalid args",
+};
+
+errors numa NUMA_ERR_ {
+    failure NOT_AVAILABLE         "NUMA functionality is not available",
+    failure BITMAP_PARSE          "Parsing of the bitmap character string failed",
+    failure BITMAP_RANGE          "The bitmap is too small to hold the data",
+    failure NUMA_MEMBIND          "Setting the memory binding failed",
 };
