@@ -1122,4 +1122,6 @@ errors numa NUMA_ERR_ {
     failure BITMAP_PARSE          "Parsing of the bitmap character string failed",
     failure BITMAP_RANGE          "The bitmap is too small to hold the data",
     failure NUMA_MEMBIND          "Setting the memory binding failed",
+    failure LIB_INIT              "Library initialization failure",
+    failure SKB                   "Failed to query or connect the SKB",
 };

@@ -100,7 +100,8 @@ TESTS_COMMON= \
 	sbin/yield_test
 
 TESTS_x86= \
-	sbin/tests/luatest
+	sbin/tests/luatest \
+	sbin/tests/numatest
 
 TESTS_x86_64= \
 	$(TESTS_x86) \

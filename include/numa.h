@@ -26,7 +26,7 @@
 typedef coreid_t nodeid_t;
 
 ///< the maximum number of nodes supported
-#define NUMA_MAX_NUMNODES 256
+#define NUMA_MAX_NUMNODES 16
 
 ///< specify the local node for allocation
 #define NUMA_NODE_LOCAL ((nodeid_t)-1)
@@ -35,13 +35,17 @@ typedef coreid_t nodeid_t;
 #define NUMA_NODE_INVALID ((uintptr_t)-1)
 
 typedef enum numa_policy {
-    NUMA_POLICY_DEFAULT,  ///< default numa policy
-    NUMA_POLICY_STRICT   ///< strict numa policy
+    NUMA_POLICY_DEFAULT,   ///< default numa policy
+    NUMA_POLICY_STRICT,    ///< strict numa policy
+    NUMA_POLICY_PREFERRED  ///< preferred memory policy
 } numa_policy_t;
 
 struct numa_bm {
 
 };
+
+///< typedef for the nodemask
+typedef uint32_t nodemask_t;
 
 /**
  * \brief checks if numa support is available
@@ -73,7 +77,14 @@ coreid_t numa_max_cores(void);
  *
  * \return ID of the current node
  */
-nodeid_t numa_current_node();
+nodeid_t numa_current_node(void);
+
+/**
+ * \brief returns the size of the node mask
+ *
+ * \return size of the node mask
+ */
+nodeid_t numa_num_possible_nodes(void);
 
 /**
  * \brief Obtains the maximum number of nodes the system can handle
@@ -87,13 +98,6 @@ static inline nodeid_t numa_max_possible_node(void)
 {
     return numa_num_possible_nodes() - 1;
 }
-
-/**
- * \brief returns the size of the node mask
- *
- * \return size of the node mask
- */
-nodeid_t numa_num_possible_nodes();
 
 /**
  * \brief Obtains the number of all memory nodes in the system
@@ -147,7 +151,7 @@ extern struct numa_bm *numa_all_cpus_ptr;
  *
  * \returns number of CPUs the domain is allowed to use
  */
-coreid_t numa_num_task_cpus();
+coreid_t numa_num_task_cpus(void);
 
 /**
  * \brief returns the number of nodes on which the calling domain is allowed to
@@ -155,7 +159,7 @@ coreid_t numa_num_task_cpus();
  *
  * \returns number of nodes the domain is allowed to use
  */
-nodeid_t numa_num_task_nodes();
+nodeid_t numa_num_task_nodes(void);
 
 /**
  * \brief parses line , which is a character string
@@ -536,7 +540,7 @@ nodeid_t numa_node_of_cpu(coreid_t cpu);
  * \returns pointer to a new bitmask
  *          NULL on failure
  */
-struct numa_bm *numa_allocate_cpumask();
+struct numa_bm *numa_allocate_cpumask(void);
 
 /**
  * \brief frees a previously allocated CPU bitmask
@@ -551,7 +555,7 @@ void numa_free_cpumask(struct numa_bm *cpumask);
  * \returns pointer to a new bitmask
  *          NULL on failure
  */
-struct numa_bm *numa_allocate_nodemask();
+struct numa_bm *numa_allocate_nodemask(void);
 
 /**
  * \brief frees a previously allocated node bitmask
