@@ -761,12 +761,12 @@ const char *
 elf32_get_symbolname(struct Elf32_Ehdr *head, struct Elf32_Sym *sym);
 
 void elf64_relocate(genvaddr_t dst, genvaddr_t src,
-                    struct Elf64_Rela * SAFE NONNULL rela, size_t size,
-                    struct Elf64_Sym * SAFE NONNULL symtab, size_t symsize,
+                    struct Elf64_Rela * rela, size_t size,
+                    struct Elf64_Sym * symtab, size_t symsize,
                     genvaddr_t start, void *vbase);
 void elf32_relocate(genvaddr_t dst, genvaddr_t src,
-                    struct Elf32_Rel * SAFE NONNULL rela, size_t size,
-                    struct Elf32_Sym * SAFE NONNULL symtab, size_t symsize,
+                    struct Elf32_Rel * rela, size_t size,
+                    struct Elf32_Sym * symtab, size_t symsize,
                     genvaddr_t start, void *vbase);
 
 typedef errval_t (*elf_allocator_fn)(void *state, genvaddr_t base,

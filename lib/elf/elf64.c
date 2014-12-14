@@ -69,8 +69,8 @@ genvaddr_t elf_virtual_base64(struct Elf64_Ehdr *ehead)
  *
  * \return Pointer to first ELF section header of type 'type', or NULL.
  */
-struct Elf64_Shdr * SAFE
-elf64_find_section_header_type(struct Elf64_Shdr * SAFE NONNULL shdr,
+struct Elf64_Shdr *
+elf64_find_section_header_type(struct Elf64_Shdr * shdr,
                                uint32_t entries, uint32_t type)
 {
     int i;
@@ -366,8 +366,8 @@ elf64_find_symbol_by_addr(genvaddr_t elf_base, size_t elf_bytes,
  *
  * \return Pointer to first ELF section header loaded at 'addr', or NULL.
  */
-static struct Elf64_Shdr * SAFE
-elf64_find_section_header_vaddr(struct Elf64_Shdr * SAFE NONNULL shdr,
+static struct Elf64_Shdr *
+elf64_find_section_header_vaddr(struct Elf64_Shdr * shdr,
                                 uint32_t entries, genvaddr_t addr)
 {
     int i;
@@ -402,8 +402,8 @@ elf64_find_section_header_vaddr(struct Elf64_Shdr * SAFE NONNULL shdr,
  * \param vbase         Pointer to ELF image in virtual memory.
  */
 void elf64_relocate(genvaddr_t dst, genvaddr_t src,
-                    struct Elf64_Rela * SAFE NONNULL rela, size_t size,
-                    struct Elf64_Sym * SAFE NONNULL symtab, size_t symsize,
+                    struct Elf64_Rela * rela, size_t size,
+                    struct Elf64_Sym * symtab, size_t symsize,
                     genvaddr_t start, void *vbase)
 {
     genvaddr_t base = dst - src, abase = dst - start;

@@ -45,9 +45,7 @@ let arch = "x86_64"
                                            "-Wmissing-declarations",
                                            "-Wmissing-field-initializers",
                                            "-Wredundant-decls",
-                                           "-Werror" ] ]
-                          ++ [ Str "-imacros",
-                               NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
+                                           "-Werror" ] ],
              optIncludes = [ NoDep SrcTree "src" "/include",
                              NoDep SrcTree "src" "/include/oldc", 
                              NoDep SrcTree "src" "/include/c", 

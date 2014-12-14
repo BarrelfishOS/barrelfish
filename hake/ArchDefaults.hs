@@ -26,9 +26,7 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-declarations",
                                 "-Wmissing-field-initializers",
                                 "-Wredundant-decls",
-                                "-Werror",
-                                "-imacros" ] ]
-         ++ [ NoDep SrcTree "src" "/include/deputy/nodeputy.h" ]
+                                "-Werror" ] ]
 
 commonCFlags = [ Str s | s <- [ "-std=c99",
                                 "-U__STRICT_ANSI__", -- for newlib headers

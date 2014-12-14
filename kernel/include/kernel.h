@@ -115,12 +115,12 @@ static inline int bitaddralign(size_t n, lpaddr_t base_addr)
 #define LOG_DEBUG       4       ///< Debug
 
 void debug_print_backtrace(void);
-void panic(const char * NTS, ...)
+void panic(const char *, ...)
     __attribute__((noreturn, format(printf, 1, 2)));
 void breakpoint(void);
 void printk(int level, const char *msg, ...)
     __attribute__ ((format(printf, 2, 3)));
-int printf_nolog(const char * NTS fmt, ...)
+int printf_nolog(const char * fmt, ...)
     __attribute__ ((format(printf, 1, 2)));
 void wait_cycles(uint64_t duration);
 void kernel_startup_early(void);

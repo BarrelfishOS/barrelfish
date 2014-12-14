@@ -390,8 +390,8 @@ elf32_get_symbolname(struct Elf32_Ehdr *head,
  * \param vbase         Pointer to ELF image in virtual memory.
  */
 void elf32_relocate(genvaddr_t dst, genvaddr_t src,
-                    struct Elf32_Rel * SAFE NONNULL rel, size_t size,
-                    struct Elf32_Sym * SAFE NONNULL symtab, size_t symsize,
+                    struct Elf32_Rel * rel, size_t size,
+                    struct Elf32_Sym * symtab, size_t symsize,
                     genvaddr_t start, void *vbase)
 {
     genvaddr_t base = dst - src, abase = dst - start;
