@@ -123,6 +123,36 @@ get_core_id_list(L) :-
         L = []
     ).
 
+       
+extract_size(range(_,X,_),X).
+	
+
+%  extract_size(range(_,X,_),X).
+   
+    
+% this function gets the system RAM size    
+get_system_ram_size(RetBase,RetLimit) :-
+	mem_region_type(MemType, ram),
+	findall(range(MemBase, MemSize, MemType), memory_region(MemBase, _, MemSize, MemType, _), List),
+	maplist(extract_size, List, Sizes),
+	RetBase = 0,
+	sum(Sizes, RetLimit).
+
+% get the system NUMA topology
+get_system_topology(Nnodes,Ncores, Lnodes, Lcores) :-
+    ( is_predicate(cpu_affinity/3) ->
+        findall(ID, corename(ID, _, _), TmpL), sort(TmpL, Lnodes),
+        Lcores = [],
+        Ncores = 23,
+        Nnodes = 123
+        ;
+        get_system_ram_size(RetBase, RetLimit),
+        Lnodes = [node(0, RetBase, RetLimit)],
+        findall(cpu(0,ID,ARCH,APIC), corename(ID, ARCH, APIC), TmpL), sort(TmpL, Lcores),
+        Nnodes = 1,
+        available_nr_cores(Ncores)
+    ).
+
 % 7. find the available number of cores
 
 available_nr_cores(Nr) :-
