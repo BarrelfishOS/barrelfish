@@ -10,7 +10,7 @@
 -- 
 --------------------------------------------------------------------------
 
-[ 
+[
   build application { target = "xcorecap",
                       cFiles = [ "xcorecap.c" ],
                       flounderBindings = [ "xcorecap" ]

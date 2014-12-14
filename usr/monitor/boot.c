@@ -54,11 +54,14 @@ void boot_core_request(struct monitor_binding *b, coreid_t id,
                        struct capref frame)
 {
     errval_t err;
+    struct intermon_state *imon_st = NULL;
 
     struct intermon_binding *ibind;
     err = intermon_binding_get(id, &ibind);
     if (err_is_ok(err)) {
-        ((struct intermon_state*)ibind->st)->originating_client = b;
+        imon_st = ibind->st;
+        imon_st->originating_client = b;
+        imon_st->capops_ready = false;
         return;
     }
 
@@ -128,7 +131,9 @@ void boot_core_request(struct monitor_binding *b, coreid_t id,
 
     struct intermon_binding* ib = (struct intermon_binding*)ump_binding;
     err = intermon_init(ib, id);
-    ((struct intermon_state*)ib->st)->originating_client = b;
+    imon_st = ib->st;
+    imon_st->originating_client = b;
+    imon_st->capops_ready = false;
 
     return;
 

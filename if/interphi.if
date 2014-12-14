@@ -20,7 +20,7 @@ interface interphi "Interface between host and card side driver" {
     rpc domain_wait(in char name[length],
                     in uint64 state,
                     out uint64 domid,
-                    out uint64 state,
+                    out uint64 rstate,
                     out errval msgerr);
     
     rpc domain_register(in char name[length],

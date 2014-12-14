@@ -1,8 +1,7 @@
 /**
  * \file
  * \brief Spawn daemon for Barrelfish.
- * At boot, decides which cores to boot and which domains to spawn.
- * After boot, offers a service on each core to spawn programs from
+ * Offers a service on each core to spawn programs from
  * the file system.
  */
 
@@ -40,7 +39,7 @@ static void init_environ(void)
 
     /* PATH=/arch/sbin */
     char pathstr[64];
-    snprintf(pathstr, sizeof(pathstr), "/%s/sbin",
+    snprintf(pathstr, sizeof(pathstr), "/" BF_BINARY_PREFIX "%s/sbin",
              cpu_type_to_archstr(CURRENT_CPU_TYPE));
     pathstr[sizeof(pathstr) - 1] = '\0';
     r = setenv("PATH", pathstr, 0);

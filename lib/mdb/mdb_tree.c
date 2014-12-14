@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdio.h>
 #if IN_KERNEL
+#include <kernel.h>
 #include <kcb.h>
 #endif
 
@@ -25,58 +26,90 @@
 #endif
 #define C(cte) (&(cte)->cap)
 
+// define panic() for user-land build
+#ifndef IN_KERNEL
+#define panic(msg...) \
+    do { \
+        printf(msg); \
+        abort(); \
+    }while(0)
+#endif
+
 // PP switch to change behaviour if invariants fail
 #ifdef MDB_FAIL_INVARIANTS
 // on failure, dump mdb and terminate
+__attribute__((noreturn))
 static void
-mdb_dump_and_fail(struct cte *cte, int failure)
+mdb_dump_and_fail(struct cte *cte, enum mdb_invariant failure)
 {
     mdb_dump(cte, 0);
-    printf("failed on cte %p with failure %d\n", cte, failure);
-    // XXX: what is "proper" way to always terminate?
-    assert(false);
+    panic("failed on cte %p with failure %s (%d)\n",
+          cte, mdb_invariant_to_str(failure), failure);
 }
 #define MDB_RET_INVARIANT(cte, failure) mdb_dump_and_fail(cte, failure)
 #else
 #define MDB_RET_INVARIANT(cte, failure) return failure
 #endif
 
-// PP switch to toggle checking of invariants by default
-#ifdef MDB_RECHECK_INVARIANTS
-#define CHECK_INVARIANTS(cte) mdb_check_subtree_invariants(cte)
+// PP switch to toggle top-level checking of invariants
+#ifdef MDB_CHECK_INVARIANTS
+#define CHECK_INVARIANTS(root, cte, reach) \
+do { \
+    if (mdb_is_reachable(root, cte) != reach) { \
+        panic("mdb_is_reachable(%p,%p) != %d", root, cte, reach); \
+    } \
+    mdb_check_subtree_invariants(cte); \
+} while(0)
 #else
-#define CHECK_INVARIANTS(cte) ((void)0)
+#define CHECK_INVARIANTS(root, cte, reach) ((void)0)
+#endif
+
+// PP switch to toggle recursive checking of invariants by default
+#ifdef MDB_RECHECK_INVARIANTS
+// disable toplevel invariants checks except for the assertion clause as we're
+// doing them anyway in CHECK_INVARIANTS_SUB
+#undef CHECK_INVARIANTS
+#define CHECK_INVARIANTS(root, cte, reach) \
+do { \
+    if (mdb_is_reachable(root, cte) != reach) { \
+        panic("mdb_is_reachable(%p,%p) != %d", root, cte, reach); \
+    } \
+} while(0)
+#define CHECK_INVARIANTS_SUB(cte) mdb_check_subtree_invariants(cte)
+#else
+#define CHECK_INVARIANTS_SUB(cte) ((void)0)
 #endif
 
 // printf tracing and entry/exit invariant checking
 #ifdef MDB_TRACE
 #define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) do { \
     printf("enter %s(" args_fmt ")\n", __func__, __VA_ARGS__); \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     printf("leave %s\n", __func__); \
     return; \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     printf("leave %s->" ret_fmt "\n", __func__, (ret)); \
     return (ret); \
 } while (0)
 #else
-#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) CHECK_INVARIANTS(valid_cte)
+#define MDB_TRACE_ENTER(valid_cte, args_fmt, ...) CHECK_INVARIANTS_SUB(valid_cte)
 #define MDB_TRACE_LEAVE_SUB(valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     return; \
 } while (0)
 #define MDB_TRACE_LEAVE_SUB_RET(ret_fmt, ret, valid_cte) do { \
-    CHECK_INVARIANTS(valid_cte); \
+    CHECK_INVARIANTS_SUB(valid_cte); \
     return (ret); \
 } while (0)
 #endif
 
-static struct cte *mdb_root = NULL;
+// Global for test_ops_with_root.c
+struct cte *mdb_root = NULL;
 #if IN_KERNEL
 struct kcb *my_kcb = NULL;
 #endif
@@ -126,6 +159,7 @@ mdb_init(struct kcb *k)
     return SYS_ERR_OK;
 }
 
+
 /*
  * Debug printing.
  */
@@ -134,6 +168,44 @@ void
 mdb_dump_all_the_things(void)
 {
     mdb_dump(mdb_root, 0);
+}
+
+static void print_cte(struct cte *cte, char *indent_buff)
+{
+    struct mdbnode *node = N(cte);
+    char extra[255] = { 0 };
+    struct capability *cap = C(cte);
+    switch (cap->type) {
+        case ObjType_CNode:
+            snprintf(extra, 255,
+                    "[guard=0x%08"PRIxCADDR",guard_size=%"PRIu8",rightsmask=%"PRIu8"]",
+                    cap->u.cnode.guard, cap->u.cnode.guard_size,
+                    cap->u.cnode.rightsmask);
+            break;
+        case ObjType_EndPoint:
+            snprintf(extra, 255,
+                    "[listener=%p,epoffset=0x%08"PRIxLVADDR",epbuflen=%"PRIu32"]",
+                    cap->u.endpoint.listener,cap->u.endpoint.epoffset,cap->u.endpoint.epbuflen);
+            break;
+        case ObjType_Dispatcher:
+            snprintf(extra, 255, "[dcb=%p]", cap->u.dispatcher.dcb);
+            break;
+        case ObjType_IO:
+            snprintf(extra, 255, "[start=0x%04"PRIx16",end=0x%04"PRIx16"]",
+                    cap->u.io.start, cap->u.io.end);
+            break;
+        default:
+            break;
+    }
+    printf("%s%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
+            "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
+            "type=%"PRIu8",remote_rels=%d%d%d,extra=%s}\n",
+            indent_buff,
+            cte, node->left, node->right, node->end, node->end_root,
+            node->level, get_address(C(cte)), get_size(C(cte)),
+            (uint8_t)C(cte)->type, node->remote_copies,
+            node->remote_ancs, node->remote_descs,extra);
+    return;
 }
 
 void
@@ -155,6 +227,7 @@ mdb_dump(struct cte *cte, int indent)
     }
 
     struct mdbnode *node = N(cte);
+    assert(node);
 
     if (node->left) {
         if (node->left == cte) {
@@ -165,13 +238,7 @@ mdb_dump(struct cte *cte, int indent)
         }
     }
 
-    printf("%s%p{left=%p,right=%p,end=0x%08"PRIxGENPADDR",end_root=%"PRIu8","
-            "level=%"PRIu8",address=0x%08"PRIxGENPADDR",size=0x%08"PRIx64","
-            "type=%"PRIu8",remote_rels=%d}\n",
-            indent_buff,
-            cte, node->left, node->right, node->end, node->end_root,
-            node->level, get_address(C(cte)), get_size(C(cte)),
-            (uint8_t)C(cte)->type, N(cte)->remote_relations);
+    print_cte(cte, indent_buff);
 
     if (node->right) {
         if (node->right == cte) {
@@ -193,6 +260,9 @@ mdb_check_subtree_invariants(struct cte *cte)
 {
     if (!cte) {
         return MDB_INVARIANT_OK;
+    }
+    if (C(cte)->type == 0) {
+        mdb_dump_all_the_things();
     }
     assert(C(cte)->type != 0);
 
@@ -284,6 +354,28 @@ mdb_check_invariants(void)
         printf("mdb_check_invariants() -> %d\n", res);
     }
     return res;
+}
+
+static bool
+mdb_is_reachable(struct cte *root, struct cte *cte)
+{
+    if (!root) {
+        return false;
+    }
+    if (root == cte) {
+        return true;
+    }
+    if (N(root)->left) {
+        if (mdb_is_reachable(N(root)->left, cte)) {
+            return true;
+        }
+    }
+    if (N(root)->right) {
+        if (mdb_is_reachable(N(root)->right, cte)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /*
@@ -518,7 +610,15 @@ errval_t
 mdb_insert(struct cte *new_node)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", new_node);
+#ifdef IN_KERNEL
+#ifdef MDB_TRACE_NO_RECURSIVE
+    char prefix[50];
+    snprintf(prefix, 50, "mdb_insert.%d: ", my_core_id);
+    print_cte(new_node, prefix);
+#endif
+#endif
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
+    CHECK_INVARIANTS(mdb_root, new_node, true);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
 }
 
@@ -566,6 +666,9 @@ mdb_exchange_nodes(struct cte *first, struct cte *first_parent,
 
     mdb_update_end(first);
     mdb_update_end(second);
+
+    assert(mdb_is_reachable(mdb_root, first));
+    assert(mdb_is_reachable(mdb_root, second));
 }
 
 static void
@@ -587,6 +690,7 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
     assert(compare_caps(C(target), C(*current), true) != 0);
     assert(mdb_is_child(target, target_parent));
     assert(mdb_is_child(*current, parent));
+    assert(mdb_is_reachable(mdb_root, target));
 
     struct cte *current_ = *current;
 
@@ -616,7 +720,8 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
                                 current_, dir, ret_target);
         }
         else if (N(current_)->right) {
-            // right is null, left non-null -> current is level 0 node with
+            assert(N(current_)->level == 0);
+            // right is non-null, left null -> current is level 0 node with
             // horizontal right link, and is also the successor of the target.
             // in this case, exchange current and current right, then current
             // (at its new position) and the target.
@@ -630,11 +735,13 @@ mdb_exchange_remove(struct cte *target, struct cte *target_parent,
             N(new_current)->right = NULL;
             *ret_target = current_;
             *current = new_current;
+            assert(!mdb_is_reachable(mdb_root, target));
             MDB_TRACE_LEAVE_SUB(NULL);
         }
     }
 
     if (*ret_target) {
+        assert(!mdb_is_reachable(mdb_root, target));
         // implies we recursed further down to find a leaf. need to rebalance.
         current_ = mdb_rebalance(current_);
         *current = current_;
@@ -693,6 +800,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
         }
         else if (!N(current_)->left) {
             // move to right child then go left (dir=-1)
+            // curr, new_right = xchg_rm(elem, parent, current.right, current, -1)
             struct cte *new_current = NULL;
             struct cte *new_right = N(current_)->right;
             mdb_exchange_remove(target, parent, &new_right, current_, -1,
@@ -700,9 +808,11 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             assert(new_current);
             current_ = new_current;
             N(current_)->right = new_right;
+            assert(!mdb_is_reachable(mdb_root, target));
         }
         else {
             // move to left child then go right (dir=1)
+            // curr, new_left = xchg_rm(elem, parent, current.left, current, 1)
             struct cte *new_current = NULL;
             struct cte *new_left = N(current_)->left;
             mdb_exchange_remove(target, parent, &new_left, current_, 1,
@@ -710,6 +820,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
             assert(new_current);
             current_ = new_current;
             N(current_)->left = new_left;
+            assert(!mdb_is_reachable(mdb_root, target));
         }
     }
 
@@ -728,7 +839,16 @@ errval_t
 mdb_remove(struct cte *target)
 {
     MDB_TRACE_ENTER(mdb_root, "%p", target);
+    CHECK_INVARIANTS(mdb_root, target, true);
+#ifdef IN_KERNEL
+#ifdef MDB_TRACE_NO_RECURSIVE
+    char prefix[50];
+    snprintf(prefix, 50, "mdb_remove.%d: ", my_core_id);
+    print_cte(target, prefix);
+#endif
+#endif
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
+    CHECK_INVARIANTS(mdb_root, target, false);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 
@@ -1165,4 +1285,9 @@ mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node)
         return SYS_ERR_CAP_NOT_FOUND;
     }
     return SYS_ERR_OK;
+}
+
+bool mdb_reachable(struct cte *cte)
+{
+    return mdb_is_reachable(mdb_root, cte);
 }

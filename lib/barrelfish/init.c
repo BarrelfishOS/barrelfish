@@ -52,13 +52,17 @@ void libc_exit(int status)
 
     // Use spawnd if spawned through spawnd
     if(disp_get_domain_id() == 0) {
+#if 0 // XXX: revocation goes through the mon, but monitor ep is revoked in the process
         err = cap_revoke(cap_dispatcher);
         if (err_is_fail(err)) {
-	    sys_print("revoking dispatcher failed in _Exit, spinning!", 100);
+            DEBUG_ERR(err, "revoking dispatcher failed in _Exit, spinning!");
+	    //sys_print("revoking dispatcher failed in _Exit, spinning!", 100);
 	    while (1) {}
         }
         err = cap_delete(cap_dispatcher);
-        sys_print("deleting dispatcher failed in _Exit, spinning!", 100);
+        DEBUG_ERR(err, "deleting dispatcher failed in _Exit, spinning!");
+        //sys_print("deleting dispatcher failed in _Exit, spinning!", 100);
+#endif
 
         // XXX: Leak all other domain allocations
     } else {
@@ -68,6 +72,7 @@ void libc_exit(int status)
         }
     }
 
+    thread_exit();
     // If we're not dead by now, we wait
     while (1) {}
 }

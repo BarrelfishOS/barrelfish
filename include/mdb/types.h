@@ -23,8 +23,9 @@ struct mdbnode {
     genpaddr_t end;
     mdb_root_t end_root;
     mdb_level_t level;
-    bool revocable;
-    bool remote_relations;
+    bool remote_copies:1, remote_ancs:1, remote_descs:1;
+    bool locked:1, in_delete:1;
+    coreid_t owner;
 };
 
 #ifndef IN_KERNEL

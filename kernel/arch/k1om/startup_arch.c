@@ -257,27 +257,27 @@ static void init_page_tables(struct spawn_state *st, alloc_phys_func alloc_phys)
     int     pagecn_pagemap = 0;
     // Map PML4 (slot 0 in pagecn)
     caps_create_new(ObjType_VNode_x86_64_pml4, mem_to_local_phys((lvaddr_t)init_pml4),
-                    BASE_PAGE_BITS, 0,
+                    BASE_PAGE_BITS, 0, my_core_id,
                     caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     // Map PDPT into successive slots in pagecn
     for(size_t i = 0; i < INIT_PDPT_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdpt,
                         mem_to_local_phys((lvaddr_t)init_pdpt) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map PDIR into successive slots in pagecn
     for(size_t i = 0; i < INIT_PDIR_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_pdir,
                         mem_to_local_phys((lvaddr_t)init_pdir) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Map page tables into successive slots in pagecn
     for(size_t i = 0; i < INIT_PTABLE_SIZE; i++) {
         caps_create_new(ObjType_VNode_x86_64_ptable,
                         mem_to_local_phys((lvaddr_t)init_ptable) + i * BASE_PAGE_SIZE,
-                        BASE_PAGE_BITS, 0,
+                        BASE_PAGE_BITS, 0, my_core_id,
                         caps_locate_slot(CNODE(st->pagecn), pagecn_pagemap++));
     }
     // Connect all page tables to page directories.
@@ -366,7 +366,7 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     struct cte *iocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_SYSMEM);
     err = caps_create_new(ObjType_DevFrame, XEON_PHI_SYSMEM_BASE,
                           XEON_PHI_SYSMEM_SIZE_BITS, XEON_PHI_SYSMEM_SIZE_BITS,
-                          iocap);
+                          my_core_id, iocap);
     /*
      * XXX: there is no IO on the xeon phi, we use this slot to put in the
      *      capability to the host memory, as this can be seen as IO
@@ -374,10 +374,10 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     struct cte *mmiocap = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_IO);
     err = caps_create_new(ObjType_DevFrame, XEON_PHI_SBOX_BASE,
                           XEON_PHI_SBOX_SIZE_BITS, XEON_PHI_SBOX_SIZE_BITS,
-                          mmiocap);
+                          my_core_id, mmiocap);
 
     struct cte *coreboot = caps_locate_slot(CNODE(st->taskcn), TASKCN_SLOT_COREBOOT);
-    err = caps_create_new(ObjType_DevFrame, 0, 16, 16, coreboot);
+    err = caps_create_new(ObjType_DevFrame, 0, 16, 16, my_core_id, coreboot);
 
     assert(err_is_ok(err));
 
@@ -505,7 +505,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
                                                   TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
-                          core_data->urpc_frame_bits,
+                          core_data->urpc_frame_bits, my_core_id,
                           core_data->urpc_frame_bits, urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;

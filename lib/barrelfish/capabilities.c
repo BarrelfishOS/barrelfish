@@ -22,6 +22,7 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
+#include <stdio.h>
 
 /// Root CNode
 struct cnoderef cnode_root = {
@@ -167,20 +168,24 @@ static inline bool backoff(int count)
  */
 static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
                                   uint8_t size_bits, capaddr_t to, capaddr_t slot,
-                                  int dcn_vbits)
+                                  int to_vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {
         err = mrc->vtbl.remote_cap_retype(mrc, cap_root, src,
                                           (uint64_t)new_type,
                                           size_bits, to, slot,
-                                          dcn_vbits, &remote_cap_err);
+                                          to_vbits, &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap retype\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 
@@ -200,6 +205,10 @@ static errval_t cap_retype_remote(capaddr_t src, enum objtype new_type,
 static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -208,7 +217,7 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 }
@@ -227,6 +236,10 @@ static errval_t cap_delete_remote(capaddr_t src, uint8_t vbits)
 static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
 {
     struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    if (!mrc) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+
     errval_t err, remote_cap_err;
     int count = 0;
     do {
@@ -235,7 +248,7 @@ static errval_t cap_revoke_remote(capaddr_t src, uint8_t vbits)
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
         }
-    } while (remote_cap_err == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
+    } while (err_no(remote_cap_err) == MON_ERR_REMOTE_CAP_RETRY && backoff(++count));
 
     return remote_cap_err;
 }
@@ -269,7 +282,7 @@ errval_t cap_retype(struct capref dest_start, struct capref src,
     err = invoke_cnode_retype(cap_root, scp_addr, new_type, size_bits,
                               dcn_addr, dest_start.slot, dcn_vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_retype_remote(scp_addr, new_type, size_bits,
                                  dcn_addr, dest_start.slot, dcn_vbits);
     } else {
@@ -322,7 +335,7 @@ errval_t cap_delete(struct capref cap)
 
     err = invoke_cnode_delete(cap_root, caddr, vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_delete_remote(caddr, vbits);
     } else {
         return err;
@@ -346,7 +359,7 @@ errval_t cap_revoke(struct capref cap)
 
     err = invoke_cnode_revoke(cap_root, caddr, vbits);
 
-    if (err == SYS_ERR_RETRY_THROUGH_MONITOR) {
+    if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         return cap_revoke_remote(caddr, vbits);
     } else {
         return err;
@@ -615,7 +628,7 @@ errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 
     err = cap_destroy(ram);
     if (err_is_fail(err)) {
-        return err;
+        return err_push(err, LIB_ERR_CAP_DESTROY);
     }
 
     if (retbytes != NULL) {

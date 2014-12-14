@@ -195,10 +195,46 @@ lazy_thc | elem "armv7" architectures   = False
 	 | elem "xscale" architectures  = False
          | otherwise                    = True
 
--- Select remote cap database implementation
-data Rcap_db = RCAP_DB_NULL | RCAP_DB_CENTRAL | RCAP_DB_TWOPC deriving (Show,Eq)
-rcap_db :: Rcap_db
-rcap_db = RCAP_DB_NULL
+-- Enable capability tracing debug facility
+caps_trace :: Bool
+caps_trace = False
+
+-- Mapping Database configuration options (this affects lib/mdb/)
+-- enable extensive tracing of mapping db implementation
+mdb_trace :: Bool
+mdb_trace = False
+
+-- enable tracing of top level mdb_insert, mdb_remove calls
+mdb_trace_no_recursive :: Bool
+mdb_trace_no_recursive = False
+
+-- fail on invariant violations
+mdb_fail_invariants :: Bool
+mdb_fail_invariants = True
+
+-- check invariants before/after mdb_insert/mdb_remove.
+mdb_check_invariants :: Bool
+mdb_check_invariants = False
+
+-- recheck invariants at each tracing point
+mdb_recheck_invariants :: Bool
+mdb_recheck_invariants = False
+
+-- enable extensive tracing of mapping db implementation (userspace version)
+mdb_trace_user :: Bool
+mdb_trace_user = False
+
+-- fail on invariant violations
+mdb_fail_invariants_user :: Bool
+mdb_fail_invariants_user = True
+
+-- recheck invariants at each tracing point
+mdb_recheck_invariants_user :: Bool
+mdb_recheck_invariants_user = True
+
+-- check invariants before/after mdb_insert/mdb_remove.
+mdb_check_invariants_user :: Bool
+mdb_check_invariants_user = True
 
 -- Select scheduler
 data Scheduler = RBED | RR deriving (Show,Eq)
@@ -269,7 +305,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
-             if heteropanda then "HETEROPANDA" else ""
+             if heteropanda then "HETEROPANDA" else "",
+             if caps_trace then "TRACE_PMEM_CAPS" else ""
              ], d /= "" ]
 
 -- Sets the include path for the libc

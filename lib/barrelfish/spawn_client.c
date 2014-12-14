@@ -81,7 +81,7 @@ static errval_t bind_client(coreid_t coreid)
         namebuf[sizeof(namebuf) - 1] = '\0';
 
         iref_t iref;
-        err = nameservice_lookup(namebuf, &iref);
+        err = nameservice_blocking_lookup(namebuf, &iref);
         if (err_is_fail(err)) {
             //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
             return err;
@@ -148,7 +148,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  struct capref argcn_cap, spawn_flags_t flags,
                                  domainid_t *ret_domainid)
 {
-    struct spawn_rpc_client *cl;
     errval_t err, msgerr;
 
     // default to copying our environment
@@ -156,49 +155,13 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         envp = environ;
     }
 
-    // do we have a spawn client connection for this core?
-    assert(coreid < MAX_CPUS);
-    cl = get_spawn_rpc_client(coreid);
-    if (cl == NULL) {
-        char namebuf[16];
-        snprintf(namebuf, sizeof(namebuf), "spawn.%u", coreid);
-        namebuf[sizeof(namebuf) - 1] = '\0';
-
-        iref_t iref;
-        err = nameservice_blocking_lookup(namebuf, &iref);
-        if (err_is_fail(err)) {
-            //DEBUG_ERR(err, "spawn daemon on core %u not found\n", coreid);
-            return err;
-        }
-
-        // initiate bind
-        struct spawn_bind_retst bindst = { .present = false };
-        err = spawn_bind(iref, spawn_bind_cont, &bindst, get_default_waitset(),
-                         IDC_BIND_FLAGS_DEFAULT);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn_bind failed");
-        }
-
-        // XXX: block for bind completion
-        while (!bindst.present) {
-            messages_wait_and_handle_next();
-        }
-
-        if (err_is_fail(bindst.err)) {
-            USER_PANIC_ERR(bindst.err, "asynchronous error during spawn_bind");
-        }
-        assert(bindst.b != NULL);
-
-        cl = malloc(sizeof(struct spawn_rpc_client));
-        assert(cl != NULL);
-
-        err = spawn_rpc_client_init(cl, bindst.b);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "spawn_rpc_client_init failed");
-        }
-
-        set_spawn_rpc_client(coreid, cl);
+    err = bind_client(coreid);
+    if (err_is_fail(err)) {
+        return err;
     }
+
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
+    assert(cl != NULL);
 
     // construct argument "string"
     // \0-separated strings in contiguous character buffer
@@ -255,9 +218,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     struct monitor_binding *mb = get_monitor_binding();
     struct waitset *mon_ws = mb->waitset;
     mb->change_waitset(mb, &cl->rpc_waitset);
-
-
-
 
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
         err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,

@@ -476,8 +476,9 @@ static void usb_power_on(void)
             &sysctrl_padconf_core_base, gpio62_mux);
 
     /* delay to give the hardware time to reset TODO: propper delay*/
-    for (int j = 0; j < 4000; j++) {
-        printf("%c", 0xE);
+    for (int j = 0; j < 2000; j++) {
+        printf("%c", 0x20);
+        printf("%c", 0x08);
     }
 
     hsusb_init();
@@ -490,8 +491,9 @@ static void usb_power_on(void)
     /* enable the USB HUB */
     omap44xx_gpio_setdataout_wr(&gpio_2_base, (1UL << HSUSB_HUB_RESET));
 
-    for (int j = 0; j < 4000; j++) {
-        printf("%c", 0xE);
+    for (int j = 0; j < 2000; j++) {
+        printf("%c", 0x20);
+        printf("%c", 0x08);
     }
 
     printf("  > performing softreset on the USB PHY\n");

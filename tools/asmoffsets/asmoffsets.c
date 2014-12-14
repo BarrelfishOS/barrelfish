@@ -185,8 +185,8 @@ void dummy(void)
 #else
 #error "Define architecture"
 #endif
-    ASSERT(sizeof(struct cte) <= (1 << OBJBITS_CTE));
-    ASSERT(sizeof(struct dcb) <= (1 << OBJBITS_DISPATCHER));
+    ASSERT(sizeof(struct cte) <= (1UL << OBJBITS_CTE));
+    ASSERT(sizeof(struct dcb) <= (1UL << OBJBITS_DISPATCHER));
 
     union lmp_recv_header rcvheader;
     EMIT(SIZEOF_LMP_RECV_HEADER, sizeof(rcvheader));

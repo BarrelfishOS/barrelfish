@@ -191,9 +191,9 @@ void init_environ(void)
 {
     int r;
 
-    /* PATH=/arch/sbin */
+    /* PATH=/build-arch/sbin */
     char pathstr[64];
-    snprintf(pathstr, sizeof(pathstr), "/%s/sbin",
+    snprintf(pathstr, sizeof(pathstr), "/" BF_BINARY_PREFIX "%s/sbin",
              cpu_type_to_archstr(CURRENT_CPU_TYPE));
     pathstr[sizeof(pathstr) - 1] = '\0';
     r = setenv("PATH", pathstr, 0);

@@ -346,8 +346,6 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
 
     /* wait till the request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
-
     }
 
     /* compare the result */
@@ -366,7 +364,6 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
 
     /* wait till request is done */
     while (*((volatile uint32_t*) (tmp + 0x00A4)) & (1 << 31)) {
-        printf("%c", 0xE);
     }
 
     /* compare the values */
@@ -377,7 +374,7 @@ static usb_error_t pandaboard_checkup(uintptr_t base, int argc, char *argv[])
     return (USB_ERR_OK);
 }
 
-#endif /* __arm__ */
+#endif /* __pandaboard__ */
 
 /*
  * ========================================================================
@@ -427,7 +424,7 @@ int main(int argc, char *argv[])
     /* the default tuple size is 2, since on x86 the interrupts can be routed */
     uint8_t arg_tuple_size = 2;
 
-#if __arm__
+#if __pandaboard__
 
     /* ARM / PandaBoard related setup and checks */
 
@@ -464,7 +461,7 @@ int main(int argc, char *argv[])
     }
     uint32_t intr_vector;
     err = inthandler_setup(usb_hc_intr_handler, NULL,
-            uint32_t &intr_vector);
+            &intr_vector);
     /* TODO: register interrupt routing.. */
 #endif
 

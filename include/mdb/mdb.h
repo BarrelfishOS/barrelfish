@@ -26,11 +26,11 @@ void set_init_mapping(struct cte *dest_start, size_t num);
 bool has_descendants(struct cte *cte);
 bool has_ancestors(struct cte *cte);
 bool has_copies(struct cte *cte);
+struct cte *mdb_find_ancestor(struct cte *cte);
 void remove_mapping(struct cte *cte);
 errval_t mdb_get_copy(struct capability *cap, struct capability **ret);
 bool mdb_is_sane(void);
-void set_cap_remote(struct cte *cte, bool is_remote);
-bool is_cap_remote(struct cte *cte);
+void mdb_set_relations(struct cte *cte, uint8_t relations, uint8_t mask);
 
 __END_DECLS
 

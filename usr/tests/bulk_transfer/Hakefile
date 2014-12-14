@@ -20,13 +20,6 @@
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       architectures = ["x86_64"]
                  },
-  build application { target = "bulk_nettrans",
-                      cFiles = [ "bulk_nettrans.c" ],
-                      mackerelDevices = [ "e10k", "e10k_q" ],
-                      addLibraries =  [ "bulk_transfer" ],
-                      architectures = ["x86_64"]
-                 },
-
   build application { target = "bulk_shm",
                       cFiles = [ "bulk_shm.c" ],
                       flounderBindings = [ "bulk_ctrl" ],

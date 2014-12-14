@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "monitor.h"
+#include <monitor.h>
 
 /**
  * \brief Enqueue on a waitset queue.
@@ -172,10 +172,12 @@ errval_t monitor_enqueue_send_at_front(struct monitor_binding *b, struct msg_que
 /// NB: Not part of the queue functionality
 void destroy_outgoing_cap(void *arg)
 {
+    DEBUG_CAPOPS("cleaning up outgoing cap\n");
     struct capref *cap = arg;
     assert(cap != NULL);
     assert(!capref_is_null(*cap));
 
+    DEBUG_CAPOPS("cleaning up outgoing cap: cap_destroy\n");
     errval_t err = cap_destroy(*cap);
     if (err_is_fail(err)) {
         if(err_no(err) != SYS_ERR_CAP_NOT_FOUND) {
@@ -183,6 +185,7 @@ void destroy_outgoing_cap(void *arg)
         }
     }
 
+    DEBUG_CAPOPS("cleaning up outgoing cap: free\n");
     free(cap);
 }
 

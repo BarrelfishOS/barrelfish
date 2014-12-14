@@ -52,6 +52,10 @@ class Machine(object):
         """Returns a machine-specific timeout (in seconds), or None for the default"""
         return None
 
+    def get_test_timeout(self):
+        """Returns a machine-specific timeout (in seconds), or None for the default"""
+        return None
+
     def get_tftp_dir(self):
         """Return a unique TFTP boot directory for this machine."""
         raise NotImplementedError

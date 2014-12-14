@@ -175,6 +175,15 @@ class HakeReleaseTraceBuild(HakeBuildBase):
         conf["trace"] = "True"
         return conf
 
+class HakeReleaseMdbInvariantsBuild(HakeReleaseBuild):
+    """optimisations, no debug information, but MDB invariant checking"""
+    name = 'release_mdbinvariants'
+
+    def _get_hake_conf(self, *args):
+        conf = super(HakeReleaseBuild, self)._get_hake_conf(*args)
+        conf["mdb_check_invariants"] = "True"
+        return conf
+
 class HakeDebugBuild(HakeBuildBase):
     """Default Hake build: debug symbols, optimisations, assertions"""
     name = 'debug'
@@ -196,6 +205,7 @@ class HakeDebugTraceBuild(HakeBuildBase):
 
 
 all_builds = [HakeReleaseBuild, HakeDebugBuild, HakeReleaseTraceBuild,
+              HakeReleaseMdbInvariantsBuild,
               HakeDebugTraceBuild, HakeReleaseGem5Build]
 
 def mk_libc_builds():

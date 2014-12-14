@@ -12,11 +12,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ARCH_X86_64_BARRELFISH_LMP_CHAN_H
-#define ARCH_X86_64_BARRELFISH_LMP_CHAN_H
+#ifndef ARCH_K1OM_BARRELFISH_LMP_CHAN_H
+#define ARCH_K1OM_BARRELFISH_LMP_CHAN_H
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
+#include <barrelfish/cspace.h>
 #include <barrelfish_kpi/lmp.h>
 
 /**
@@ -113,4 +114,4 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
 #define lmp_chan_send0(lc, flags, send_cap) \
   lmp_ep_send0((lc)->remote_cap, (flags), (send_cap))
 
-#endif // ARCH_X86_64_BARRELFISH_LMP_CHAN_H
+#endif // ARCH_K1OM_BARRELFISH_LMP_CHAN_H

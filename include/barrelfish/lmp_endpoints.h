@@ -19,6 +19,8 @@
 
 #include <barrelfish/waitset.h>
 #include <barrelfish_kpi/lmp.h>
+#include <barrelfish/caddr.h>
+#include <barrelfish_kpi/dispatcher_handle.h>
 
 __BEGIN_DECLS
 

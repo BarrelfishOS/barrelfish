@@ -18,7 +18,7 @@
 #include <sys/cdefs.h>
 
 #include <barrelfish/waitset.h>
-#include <barrelfish/threads.h>
+#include <barrelfish/thread_sync.h>
 
 __BEGIN_DECLS
 

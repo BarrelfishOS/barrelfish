@@ -16,6 +16,8 @@
 #ifndef BARRELFISH_WAITSET_H
 #define BARRELFISH_WAITSET_H
 
+#include <barrelfish/types.h>
+#include <errors/errno.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

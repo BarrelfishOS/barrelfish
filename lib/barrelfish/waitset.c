@@ -493,6 +493,7 @@ errval_t event_dispatch_debug(struct waitset *ws)
  */
 errval_t event_dispatch_non_block(struct waitset *ws)
 {
+    assert(ws != NULL);
     struct event_closure closure;
     errval_t err = check_for_event(ws, &closure);
 

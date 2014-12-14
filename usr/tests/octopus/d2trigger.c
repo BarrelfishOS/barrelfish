@@ -23,6 +23,8 @@
 #include <skb/skb.h>
 #include <octopus/octopus.h>
 
+#include <if/octopus_thc.h>
+
 #include "common.h"
 
 static void trigger_handler(octopus_mode_t m, char* record, void* state)

@@ -19,6 +19,8 @@ sftp-config.json
 # Haskell and C intermediate files
 *.o
 *.hi
+*.hi-boot
+*.o-boot
 
 # ctags
 .tags_sorted_by_file
@@ -29,3 +31,9 @@ cscope.out
 
 # Builds
 build*/
+
+# tup
+.tup
+bin/
+/Tuprules.lua
+/logs

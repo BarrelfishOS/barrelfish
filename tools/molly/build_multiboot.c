@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
   }
 
   // MMAPS:
-  fprintf(o, "  mbi.mmap_length = sizeof(mbi_mmaps);\n", n_mmaps);
+  fprintf(o, "  mbi.mmap_length = sizeof(mbi_mmaps);\n");
   fprintf(o, "  mbi.mmap_addr = (uint32_t)(uint64_t) mbi_mmaps;\n");
   for (int i = 0; i < n_mmaps; i ++) {
     fprintf(o, "  mbi_mmaps[%d].size = sizeof(struct multiboot_mmap);\n", i);

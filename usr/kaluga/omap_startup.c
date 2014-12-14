@@ -189,3 +189,12 @@ errval_t default_start_function(coreid_t where, struct module_info* driver,
 }
 
 #endif
+
+
+#ifdef __gem5__
+errval_t default_start_function(coreid_t where, struct module_info* driver,
+        char* record)
+{
+    assert(!"NYI");
+}
+#endif

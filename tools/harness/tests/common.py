@@ -54,13 +54,13 @@ class TestCommon(Test):
     def setup(self, build, machine, testdir):
         # build the default set of targets
         targets = self.get_build_targets(build, machine)
-        # HACK: we write menu.lst here for arm_gem5 target, since it must
-        # be known at compile time, also set test time out to 20 mins
-        # this should really be set per test, since multihop_latency won't complete in 20 mins
-        if machine.get_bootarch() == "arm_gem5":
-        	path = os.path.join(build.build_dir, 'menu.lst')
-        	machine._write_menu_lst(self.get_modules(build,machine).get_menu_data('/'), path)
-        	self.test_timeout_delta = datetime.timedelta(seconds=1200)
+        # set custom test timeout if machine specifies one
+        test_timeout_secs = machine.get_test_timeout()
+        if not test_timeout_secs:
+            test_timeout_secs = DEFAULT_TEST_TIMEOUT
+        else:
+            test_timeout_secs = datetime.timedelta(seconds=test_timeout_secs)
+        self.test_timeout_delta = test_timeout_secs
         build.build(targets)
 
         # lock the machine
@@ -215,27 +215,33 @@ class InteractiveTest(TestCommon):
 
     def wait_for_fish(self):
         debug.verbose("Waiting for fish.")
-        self.console.expect("fish v0.2 -- pleased to meet you!")
+        self.console.expect("fish v0.2 -- pleased to meet you!",
+                timeout=self.test_timeout)
         self.wait_for_prompt()
 
     def interact(self):
         # Implement interaction with console
         pass
 
+    def set_timeouts(self, machine):
+        self.boot_timeout = machine.get_boot_timeout()
+        if not self.boot_timeout:
+            self.boot_timeout = DEFAULT_BOOT_TIMEOUT.seconds
+        self.test_timeout = machine.get_test_timeout()
+        if not self.test_timeout:
+            self.test_timeout = DEFAULT_TEST_TIMEOUT.seconds
+
     def collect_data(self, machine):
         fh = machine.get_output()
-        
-        if not machine.get_boot_timeout():
-            tt = 180
-        else:
-            tt = machine.get_boot_timeout()
 
-        self.console = fdpexpect.fdspawn(fh, timeout=tt)
+
+        self.console = fdpexpect.fdspawn(fh, timeout=self.test_timeout)
         self.console.logfile = tempfile.NamedTemporaryFile()
 
         while self.boot_attempts < MAX_BOOT_ATTEMPTS:
             index = self.console.expect(["Barrelfish CPU driver starting", 
-                                 pexpect.TIMEOUT, pexpect.EOF])
+                                 pexpect.TIMEOUT, pexpect.EOF],
+                                 timeout=self.boot_timeout)
             if index == 0:
                 self.boot_phase = False
                 break
@@ -259,6 +265,7 @@ class InteractiveTest(TestCommon):
 
     def run(self, build, machine, testdir):
         modules = self.get_modules(build, machine)
+        self.set_timeouts(machine)
         self.boot(machine, modules)
         return self.collect_data(machine)
 

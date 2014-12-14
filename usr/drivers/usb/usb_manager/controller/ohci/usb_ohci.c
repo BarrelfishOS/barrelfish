@@ -54,7 +54,7 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
 
     char status[512];
     ohci_control_pr(status, 512, hc->ohci_base);
-    printf(status);
+    puts(status);
 
     /*
      * check the ownership of the host controller
@@ -166,18 +166,13 @@ static usb_error_t usb_ohci_init_controller(usb_ohci_hc_t *hc, uint8_t suspend)
             hc->root_hub_num_ports );
 
     //char buf[8001];
+    // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
+    //    printf(buf);
+    //ohci_pr(buf, 5000, hc->ohci_base);
+    //printf(buf);
 
-           // ohci_rh_descra_pr(buf, 15999, hc->ohci_base);
-        //    printf(buf);
-            //ohci_pr(buf, 5000, hc->ohci_base);
-           //printf(buf);
-
-                       uint32_t* test = (uint32_t* )hc->ohci_base->base;
-                       test = test + (-0x800+0x44)/4;
-                       printf("TEST: %"PRIx32"", (*test)>>16);
-
-                       //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
-                       usb_ohci_root_hub_interrupt(hc);
+    //ohci_cmdstatus_ocr_wrf(hc->ohci_base, 0x1);
+    usb_ohci_root_hub_interrupt(hc);
 
     return USB_ERR_OK;
 }
@@ -198,7 +193,12 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
     /*
      * initialize the mackerel framework
      */
-    ohci_initialize(&ohci_base, (mackerel_addr_t) base);
+// TODO: Why does 32-bit expect mackerel_io_t?
+#ifdef __x86__
+    ohci_initialize(&ohci_base, (mackerel_io_t)base);
+#else
+    ohci_initialize(&ohci_base, (mackerel_addr_t)base);
+#endif
     hc->ohci_base = &ohci_base;
 
     /*

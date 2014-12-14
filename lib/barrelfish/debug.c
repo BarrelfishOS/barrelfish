@@ -16,6 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/debug.h>
+#include <barrelfish/sys_debug.h>
 #include <barrelfish/dispatch.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <stdarg.h>
@@ -66,6 +67,9 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     } u;
 
     struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    if (!r) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
     err = r->vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
     if (err_is_fail(err)){
         return err;
@@ -77,6 +81,19 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
     *ret = u.capability;
 
     return msgerr;
+}
+
+/**
+ * \brief Enable fine-grained tracing of cap operations on address range
+ * [start_addr, start_addr+size)
+ */
+errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size)
+{
+    if (enable) {
+        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR"\n",
+                start_addr, start_addr+size);
+    }
+    return sys_debug_cap_trace_ctrl(enable, start_addr, size);
 }
 
 /**
@@ -194,6 +211,12 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "ID capability (coreid 0x%" PRIxCOREID
                         " core_local_id 0x%" PRIx32 ")", cap->u.id.coreid,
                         cap->u.id.core_local_id);
+
+    case ObjType_PerfMon:
+        return snprintf(buf, len, "PerfMon cap");
+
+    case ObjType_Null:
+        return snprintf(buf, len, "Null cap (empty slot)");
 
     default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
@@ -320,7 +343,7 @@ void debug_my_cspace(void)
 
 int debug_print_capref(char *buf, size_t len, struct capref cap)
 {
-    return snprintf(buf, len, "CNode addr 0x%" PRIxCADDR
+    return snprintf(buf, len, "CNode addr 0x%08" PRIxCADDR
                               ", vbits = %d, slot %" PRIuCADDR ", vbits = %d",
                     get_cnode_addr(cap),  get_cnode_valid_bits(cap), cap.slot,
                     get_cap_valid_bits(cap));

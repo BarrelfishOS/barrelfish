@@ -11,38 +11,46 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
+#ifndef INVOCATIONS_ARCH_H
+#define INVOCATIONS_ARCH_H
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
+#include <barrelfish_kpi/distcaps.h>            // for distcap_state_t
+#include <barrelfish_kpi/syscalls.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish/debug.h>
 
- static inline struct sysret cap_invoke(struct capref to, uintptr_t cmd,
-                                        uintptr_t arg1, uintptr_t arg2,
-                                        uintptr_t arg3, uintptr_t arg4,
-                                        uintptr_t arg5)
- {
-     uint8_t invoke_bits = get_cap_valid_bits(to);
-     capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
+/**
+ * capability invocation syscall wrapper, copied from x86_64 version
+ */
+static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
+                                       uintptr_t arg2, uintptr_t arg3,
+                                       uintptr_t arg4, uintptr_t arg5,
+                                       uintptr_t arg6)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(to);
+    capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
 
-     return syscall((invoke_bits << 16) | (cmd << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, arg1, arg2, arg3, arg4, arg5);
- }
+    // invoke_bits << 16 | cmd << 8 | syscall_invoke
+    uint32_t invocation = ((invoke_bits << 16) | (arg1 << 8) | SYSCALL_INVOKE);
 
-#define cap_invoke6(to, _a, _b, _c, _d, _e, _f)                    \
+    return syscall(invocation, invoke_cptr, arg2, arg3, arg4, arg5, arg6);
+}
+
+#define cap_invoke6(to, _a, _b, _c, _d, _e, _f)        \
     cap_invoke(to, _a, _b, _c, _d, _e, _f)
-#define cap_invoke5(to, _a, _b, _c, _d, _e)                        \
+#define cap_invoke5(to, _a, _b, _c, _d, _e)            \
     cap_invoke6(to, _a, _b, _c, _d, _e, 0)
-#define cap_invoke4(to, _a, _b, _c, _d)                            \
+#define cap_invoke4(to, _a, _b, _c, _d)                \
     cap_invoke5(to, _a, _b, _c, _d, 0)
-#define cap_invoke3(to, _a, _b, _c)                                \
+#define cap_invoke3(to, _a, _b, _c)                    \
     cap_invoke4(to, _a, _b, _c, 0)
-#define cap_invoke2(to, _a, _b)                                    \
+#define cap_invoke2(to, _a, _b)                        \
     cap_invoke3(to, _a, _b, 0)
-#define cap_invoke1(to, _a)                                        \
+#define cap_invoke1(to, _a)                            \
     cap_invoke2(to, _a, 0)
-
 
 /**
  * \brief Retype a capability.
@@ -237,6 +245,28 @@ static inline errval_t invoke_cnode_revoke(struct capref root, capaddr_t cap,
 
     return syscall4((invoke_bits << 16) | (CNodeCmd_Revoke << 8) | SYSCALL_INVOKE,
                     invoke_cptr, cap, bits).error;
+}
+
+static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
+                                              int bits, distcap_state_t *ret)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(root);
+    capaddr_t invoke_cptr = get_cap_addr(root) >> (CPTR_BITS - invoke_bits);
+
+    assert (bits <= 0xff);
+
+    struct sysret sysret =
+        syscall4((invoke_bits << 16) | (CNodeCmd_GetState << 8) | SYSCALL_INVOKE,
+                invoke_cptr, cap, bits);
+
+    assert(ret != NULL);
+    if (err_is_ok(sysret.error)) {
+        *ret = sysret.value;
+    }
+    else {
+        *ret = 0;
+    }
+    return sysret.error;
 }
 
 // XXX: workaround for an inlining bug in gcc 4.3.4
@@ -556,25 +586,6 @@ invoke_dispatcher_properties(struct capref dispatcher,
                     invoke_cptr, (type << 16) | weight, deadline, wcet, period, release).error;
 }
 
-static inline errval_t
-invoke_monitor_get_arch_id(uintptr_t *core_id)
-{
-    assert(core_id != NULL);
-
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    struct sysret sysret =
-        syscall2((invoke_bits << 16) | (KernelCmd_Get_arch_id << 8) | SYSCALL_INVOKE,
-                 invoke_cptr);
-
-    if (sysret.error == SYS_ERR_OK) {
-        *core_id = sysret.value;
-    }
-
-    return sysret.error;
-}
-
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
                                                uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,
@@ -642,3 +653,5 @@ static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpadd
 
     return sr.error;
 }
+
+#endif // INVOCATIONS_ARCH_H

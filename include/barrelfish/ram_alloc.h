@@ -16,9 +16,13 @@
 #ifndef BARRELFISH_RAM_ALLOC_H
 #define BARRELFISH_RAM_ALLOC_H
 
+#include <stdint.h>
+#include <errors/errno.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+
+struct capref;
 
 typedef errval_t (* ram_alloc_func_t)(struct capref *ret, uint8_t size_bits,
                                       uint64_t minbase, uint64_t maxlimit);

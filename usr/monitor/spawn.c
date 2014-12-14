@@ -14,7 +14,7 @@
 
 #define _USE_XOPEN /* for strdup() in string.h */
 
-#include "monitor.h"
+#include <monitor.h>
 #include <barrelfish/cpu_arch.h>
 
 extern char **environ;

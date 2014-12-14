@@ -102,12 +102,12 @@ errval_t get_architecture_config(enum cpu_type type,
     {
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_kernel_binary == NULL) ?
-                        "/x86_64/sbin/monitor" :
-                        get_binary_path("/x86_64/sbin/%s",
+                        "/" BF_BINARY_PREFIX "x86_64/sbin/monitor" :
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s", 
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
-                        "/x86_64/sbin/cpu" :
-                        get_binary_path("/x86_64/sbin/%s",
+                        "/" BF_BINARY_PREFIX "x86_64/sbin/cpu" :
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s", 
                                         cmd_kernel_binary);
     }
     break;
@@ -116,12 +116,12 @@ errval_t get_architecture_config(enum cpu_type type,
     {
         *arch_page_size = X86_32_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_kernel_binary == NULL) ?
-                        "/x86_32/sbin/monitor" :
-                        get_binary_path("/x86_32/sbin/%s",
+                        "/" BF_BINARY_PREFIX "x86_32/sbin/monitor" :
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s", 
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
-                        "/x86_32/sbin/cpu" :
-                        get_binary_path("/x86_32/sbin/%s",
+                        "/" BF_BINARY_PREFIX "x86_32/sbin/cpu" :
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s", 
                                         cmd_kernel_binary);
     }
     break;
@@ -130,12 +130,12 @@ errval_t get_architecture_config(enum cpu_type type,
     {
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_kernel_binary == NULL) ?
-                        "/k1om/sbin/monitor" :
-                        get_binary_path("/k1om/sbin/%s",
+                        "/" BF_BINARY_PREFIX "k1om/sbin/monitor" :
+                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s", 
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
-                        "/k1om/sbin/cpu" :
-                        get_binary_path("/k1om/sbin/%s",
+                        "/" BF_BINARY_PREFIX "k1om/sbin/cpu" :
+                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s", 
                                         cmd_kernel_binary);
     }
     break;

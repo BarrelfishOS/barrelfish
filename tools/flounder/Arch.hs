@@ -1,15 +1,15 @@
-{- 
+{-
    Arch.hs: Architecture-specific information needed for stub generation.
 
   Part of Flounder: a message passing IDL for Barrelfish
-   
+
   Copyright (c) 2007-2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module Arch (Arch (..), parse_arch) where
 
@@ -18,7 +18,7 @@ import Syntax
 -- everything the generic LMP backend needs to know about the architecture
 data Arch = Arch {
     archname :: String, -- name of the architecture
-    
+
     -- architecture-specific sizes
     wordsize :: Int,    -- size of words, in bits
     ptrsize  :: Int,    -- size of pointers, in bits

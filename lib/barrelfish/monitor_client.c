@@ -309,6 +309,8 @@ errval_t monitor_client_new_binding(monitor_bind_continuation_fn *cont, void *st
 
 errval_t monitor_cap_set_remote(struct capref cap, bool remote)
 {
+    return ERR_NOTIMP;
+#if 0
     struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
     assert(mc != NULL);
     errval_t err, reterr;
@@ -319,6 +321,7 @@ errval_t monitor_cap_set_remote(struct capref cap, bool remote)
     } else {
         return reterr;
     }
+#endif
 }
 
 struct bind_state {
@@ -354,7 +357,11 @@ static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
     errval_t err;
 
     struct bind_state *st = (void *)st_arg;
-    assert(iref != 0);
+    if (iref == 0) {
+        st->err = LIB_ERR_GET_MON_BLOCKING_IREF;
+        st->done = true;
+        return;
+    }
 
     struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
     assert(mbb != NULL);

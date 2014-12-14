@@ -18,6 +18,7 @@
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/lmp.h>
+#include <barrelfish_kpi/syscalls.h>
 
 /**
  * \brief Send a message on the given LMP channel, if possible

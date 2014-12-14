@@ -35,8 +35,8 @@
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
-#define BSP_INIT_MODULE_NAME    "armv7/sbin/init"
-#define APP_INIT_MODULE_NAME	"armv7/sbin/monitor"
+#define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv7/sbin/init"
+#define APP_INIT_MODULE_NAME	BF_BINARY_PREFIX "armv7/sbin/monitor"
 
 
 
@@ -281,7 +281,7 @@ void create_module_caps(struct spawn_state *st)
     // create cap for strings area in first slot of modulecn
     assert(st->modulecn_slot == 0);
     err = caps_create_new(ObjType_Frame, mmstrings_phys, BASE_PAGE_BITS,
-                          BASE_PAGE_BITS,
+                          BASE_PAGE_BITS, my_core_id,
                           caps_locate_slot(CNODE(st->modulecn),
                                            st->modulecn_slot++));
     assert(err_is_ok(err));
@@ -317,7 +317,7 @@ void create_module_caps(struct spawn_state *st)
             assert(st->modulecn_slot < (1UL << st->modulecn->cap.u.cnode.bits));
             // create as DevFrame cap to avoid zeroing memory contents
             err = caps_create_new(ObjType_DevFrame, base_addr, block_size,
-                                  block_size,
+                                  block_size, my_core_id,
                                   caps_locate_slot(CNODE(st->modulecn),
                                                    st->modulecn_slot++));
             assert(err_is_ok(err));
@@ -464,6 +464,7 @@ static void init_page_tables(void)
 			ObjType_VNode_ARM_l1,
 			mem_to_local_phys((lvaddr_t)init_l1),
 			vnode_objbits(ObjType_VNode_ARM_l1), 0,
+                        my_core_id,
 			caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
 	);
 
@@ -478,6 +479,7 @@ static void init_page_tables(void)
 				ObjType_VNode_ARM_l2,
 				mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
 				objbits_vnode, 0,
+                                my_core_id,
 				caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
 		);
 	}
@@ -536,7 +538,7 @@ static struct dcb *spawn_init_common(const char *name,
      * present.
      */
     struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, iocap);
+    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));
 
     struct dispatcher_shared_generic *disp
@@ -642,8 +644,8 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     		TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
-    		core_data->urpc_frame_bits,
-    		core_data->urpc_frame_bits, urpc_frame_cte);
+            core_data->urpc_frame_bits, core_data->urpc_frame_bits,
+            my_core_id, urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);

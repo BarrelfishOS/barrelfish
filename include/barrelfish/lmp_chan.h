@@ -20,6 +20,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <barrelfish/idc.h>
+#include <assert.h>
 
 __BEGIN_DECLS
 

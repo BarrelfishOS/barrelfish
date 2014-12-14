@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_VSPACE_LAYOUT_H
 #define LIBBARRELFISH_VSPACE_LAYOUT_H
 
+#include <assert.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS

@@ -15,7 +15,13 @@
     target = "mdb",
     cFiles = [ "mdb_tree.c", "mdb.c" ],
     addLibraries = [ "barrelfish" ],
-    addIncludes = [ "/include/barrelfish" ]
+    addIncludes = [ "/include/barrelfish" ],
+    addCFlags = [
+         if Config.mdb_trace_user then "-DMDB_TRACE" else "",
+         if Config.mdb_fail_invariants_user then "-DMDB_FAIL_INVARIANTS" else "",
+         if Config.mdb_recheck_invariants_user then "-DMDB_RECHECK_INVARIANTS" else "",
+         if Config.mdb_check_invariants_user then "-DMDB_CHECK_INVARIANTS" else ""
+    ]
   },
 
   let
@@ -27,7 +33,8 @@
           libopts = libGetOptionsForArch arch args
           opts = kopts {
               extraIncludes = extraIncludes libopts,
-              optSuffix = optSuffix libopts
+              optSuffix = optSuffix libopts,
+              extraFlags = extraFlags libopts
             }
           predicatesFile = "/capabilities/cap_predicates.c"
           predicatesObj = objectFilePath opts predicatesFile
@@ -42,6 +49,13 @@
     build Args.defaultArgs {
       buildFunction = buildKernelMdbFn,
       target = "mdb_kernel",
-      cFiles = [ "mdb_tree.c", "mdb.c" ]
+      cFiles = [ "mdb_tree.c", "mdb.c" ],
+      addCFlags = [
+           if Config.mdb_trace then "-DMDB_TRACE" else "",
+           if Config.mdb_trace_no_recursive then "-DMDB_TRACE_NO_RECURSVIE" else "",
+           if Config.mdb_fail_invariants then "-DMDB_FAIL_INVARIANTS" else "",
+           if Config.mdb_recheck_invariants then "-DMDB_RECHECK_INVARIANTS" else "",
+           if Config.mdb_check_invariants then "-DMDB_CHECK_INVARIANTS" else ""
+      ]
     }
 ]

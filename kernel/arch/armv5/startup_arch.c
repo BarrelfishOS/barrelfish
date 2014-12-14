@@ -26,15 +26,13 @@
 #include <barrelfish_kpi/paging_arm_v5.h>
 #include <startup.h>
 
-#include <romfs_size.h>
-
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
 
 #define STARTUP_PROGRESS()      debug(SUBSYS_STARTUP, "%s:%d\n",          \
                                       __FUNCTION__, __LINE__);
 
-#define BSP_INIT_MODULE_NAME    "armv5/sbin/init"
+#define BSP_INIT_MODULE_NAME    BF_BINARY_PREFIX "armv5/sbin/init"
 
 #define INIT_L1_BYTES           (ARM_L1_MAX_ENTRIES * ARM_L1_BYTES_PER_ENTRY)
 
@@ -244,7 +242,7 @@ create_modules_from_initrd(struct bootinfo* bi,
     size_t bytes;
 
     if (cpio_get_file_by_name(initrd_base, initrd_bytes,
-                              "armv5/menu.lst.modules",
+                              "menu.lst.modules",
                               &data, &bytes))
     {
         assert(bytes < BASE_PAGE_SIZE);
@@ -259,6 +257,7 @@ create_modules_from_initrd(struct bootinfo* bi,
                   ObjType_Frame,
                   mem_to_local_phys(mmstrings_base),
                   BASE_PAGE_BITS, BASE_PAGE_BITS,
+                  my_core_id,
                   caps_locate_slot(
                       CNODE(spawn_state.modulecn),
                       spawn_state.modulecn_slot++)
@@ -317,6 +316,7 @@ create_modules_from_initrd(struct bootinfo* bi,
                 err = caps_create_new(
                           ObjType_DevFrame, pa, BASE_PAGE_BITS,
                           BASE_PAGE_BITS,
+                          my_core_id,
                           caps_locate_slot(
                               CNODE(spawn_state.modulecn),
                               spawn_state.modulecn_slot++)
@@ -403,7 +403,7 @@ spawn_init(const char*      name,
      * present.
      */
     struct cte *iocap = caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_IO);
-    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, iocap);
+    errval_t  err = caps_create_new(ObjType_IO, 0, 0, 0, my_core_id, iocap);
     assert(err_is_ok(err));
 
     struct dispatcher_shared_generic *disp
@@ -441,6 +441,7 @@ spawn_init(const char*      name,
         ObjType_VNode_ARM_l1,
         mem_to_local_phys((lvaddr_t)init_l1),
             vnode_objbits(ObjType_VNode_ARM_l1), 0,
+            my_core_id,
             caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
         );
 
@@ -455,6 +456,7 @@ spawn_init(const char*      name,
             ObjType_VNode_ARM_l2,
             mem_to_local_phys((lvaddr_t)init_l2) + (i << objbits_vnode),
             objbits_vnode, 0,
+            my_core_id,
             caps_locate_slot(CNODE(spawn_state.pagecn), pagecn_pagemap++)
             );
     }
@@ -515,6 +517,7 @@ spawn_init(const char*      name,
     STARTUP_PROGRESS();
 
     create_modules_from_initrd(bootinfo, initrd_base, initrd_bytes);
+    debug(SUBSYS_STARTUP, "used %"PRIuCSLOT" slots in modulecn\n", spawn_state.modulecn_slot);
 
     STARTUP_PROGRESS();
     create_phys_caps(&spawn_state.physaddrcn->cap, bootinfo);
@@ -547,7 +550,7 @@ spawn_init(const char*      name,
     // On to userland...
     STARTUP_PROGRESS();
     dispatch(init_dcb);
-    
+
     panic("Not reached.");
 }
 

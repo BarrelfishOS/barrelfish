@@ -23,6 +23,8 @@
 
 #include <sys/cdefs.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
+#include <barrelfish_kpi/registers_arch.h>
+#include <barrelfish_kpi/types.h>
 
 __BEGIN_DECLS
 

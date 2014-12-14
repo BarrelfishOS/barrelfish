@@ -8,6 +8,7 @@
  */
 
 interface monitor_mem "Inter-monitor memory allocation" {
+
     /* Struct to marshal caps between cores */
     typedef struct {
         uint64 w0;
@@ -17,5 +18,7 @@ interface monitor_mem "Inter-monitor memory allocation" {
     } caprep;
 
     rpc alloc(in uint8 size_bits, in genpaddr minbase, in genpaddr maxlimit,
-              out errval err, out caprep caprep);
+              in coreid from, out errval err, out caprep caprep);
+
+    rpc free(in caprep caprep, in genpaddr base, in uint8 size_bits, out errval status);
 };
