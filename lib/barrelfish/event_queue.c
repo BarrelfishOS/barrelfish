@@ -4,6 +4,21 @@
  *
  * This code implements a thread-safe queue of pending events which are
  * serviced by a single waitset.
+ *
+ * [!] WARNING: current realization of event queues is unsuitable for
+ * cross-core operation. Crux of the issue: trigger channel for waitset
+ * belonging to *another* core but waitsets are assumed to be local to a
+ * dispatcher.
+ *
+ * Example scenario:
+ * - Consumer C (on core 0) calls get_next_event and blocks on
+ *   ws->waiting_threads.
+ * - Producer P (on core 1) invokes event_queue_add which in turn triggers
+ *   channel. P disables its dispatcher, unblocks a thread and C is returned.
+ *   Code assumes remote wakeup should not occur but C is on core 0.
+ *
+ * For further details see:
+ *   https://lists.inf.ethz.ch/mailman/private/barrelfish/2013/002746.html
  */
 
 /*
