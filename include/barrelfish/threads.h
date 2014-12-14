@@ -15,13 +15,15 @@
 #ifndef LIBBARRELFISH_THREADS_H
 #define LIBBARRELFISH_THREADS_H
 
+#include <assert.h>
+#include <limits.h>
+#include <sys/cdefs.h>
+
 #include <barrelfish/caddr.h> // for struct capref.
 #include <barrelfish/thread_sync.h>
-#include <barrelfish/caddr.h>
 #include <barrelfish_kpi/registers_arch.h>
 #include <barrelfish_kpi/dispatcher_handle.h>
 #include <errors/errno.h>
-#include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
@@ -74,6 +76,27 @@ uintptr_t thread_id(void);
 uintptr_t thread_get_id(struct thread *t);
 void thread_set_id(uintptr_t id);
 
+typedef int thread_once_t;
+#define THREAD_ONCE_INIT INT_MAX
+
+extern __thread thread_once_t thread_once_local_epoch;
+extern void thread_once_internal(thread_once_t *control, void (*func)(void));
+
+/**
+ * \brief Run a routine exactly once; use this for thread-safe initialization.
+ *
+ * \param control Control word - should be initialized with THREAD_ONCE_INIT.
+ * \param func Callback to be invoked.
+ */
+static inline void thread_once(thread_once_t *control, void (*func)(void)) {
+    assert(control != NULL);
+    assert(func != NULL);
+    thread_once_t x = *control; // unprotected access
+    if (x > thread_once_local_epoch) {
+        thread_once_internal(control, func);
+    }
+}
+
 __END_DECLS
 
-#endif
+#endif  // LIBBARRELFISH_THREADS_H
