@@ -77,6 +77,7 @@ static void event_queue_runner(void *arg)
 
     if (q->head != NULL) {
         // queue is non-empty: trigger ourselves again
+        // (note: event registrations are single shot)
         struct event_closure self = {
             .handler = event_queue_runner,
             .arg = arg
@@ -209,13 +210,14 @@ errval_t event_queue_trigger(struct event_queue *q)
 
     struct event_queue_node *qn = next_event(q);
 
-    thread_mutex_unlock(&q->mutex);
-
     if (qn == NULL) {
+        thread_mutex_unlock(&q->mutex);
         return LIB_ERR_EVENT_QUEUE_EMPTY;
     }
 
-    // trigger closure on waitset
     qn->run = true;
+    thread_mutex_unlock(&q->mutex);
+
+    // trigger closure on waitset
     return waitset_chan_trigger_closure(q->waitset, &q->waitset_state, qn->event);
 }
