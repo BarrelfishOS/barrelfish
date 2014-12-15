@@ -293,7 +293,9 @@ int pthread_join(pthread_t thread, void **retval)
     errval_t err = thread_join(thread->thread, NULL);
     assert(err_is_ok(err));
 
-    *retval = thread->retval;
+    if (retval != NULL) {
+        *retval = thread->retval;
+    }
     free(thread);
     return 0;
 }
