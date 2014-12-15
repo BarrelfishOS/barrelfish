@@ -154,7 +154,7 @@ static usb_error_t usb_hub_reattach_port(struct usb_hub *hub, uint8_t portno)
                 USB_DEBUG("Port %u is suspended. Wake up.\n", portno);
                 err = usb_hub_clear_port_feature(hub->device,
                         USB_HUB_FEATURE_PORT_SUSPEND, portno);
-                USB_WAIT(USB_DELAY_PORT_POWERUP);
+                lib_usb_wait(USB_DELAY_PORT_POWERUP);
             }
 
             err = usb_hub_reset_port(hub->device, portno);
@@ -402,7 +402,7 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
         return (err);
     }
 
-    USB_WAIT(USB_DELAY_PORT_POWERUP);
+    lib_usb_wait(USB_DELAY_PORT_POWERUP);
 
     uint8_t portno = 0;
     uint8_t removable = 0;
@@ -446,7 +446,7 @@ usb_error_t usb_hub_init(struct usb_device *hub_device)
         }
 
         /* wait for powerdelay ms till the power power is good  */
-        USB_WAIT(powerdelay);
+        lib_usb_wait(powerdelay);
     }
 
     /* start the interrupt transfer */

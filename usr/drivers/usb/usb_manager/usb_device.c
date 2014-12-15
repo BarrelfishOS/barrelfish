@@ -550,7 +550,7 @@ struct usb_device *usb_device_alloc(struct usb_host_controller *hc,
     }
 
     /* wait till the address has settled */
-    USB_WAIT(USB_DELAY_SET_ADDRESS*5);
+    lib_usb_wait(USB_DELAY_SET_ADDRESS);
 
     /*
      * this check has to be done, since there may be a controller specific
@@ -712,7 +712,7 @@ void usb_device_free(struct usb_device * device, uint8_t flag)
 
     uint8_t timeout = 0;
     while (!usb_device_detached) {
-        USB_WAIT(10);
+        lib_usb_wait(10);
         if (timeout > 5) {
             break;
         }

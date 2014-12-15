@@ -39,7 +39,7 @@ usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
     ehci_usbcmd_hcr_wrf(&hc->ehci_base, 1);
 
     /* wait some time to let rest complete */
-    USB_WAIT(200);
+    lib_usb_wait(200);
 
     for (uint8_t i = 0; i < 10; i++) {
         if (ehci_usbcmd_hcr_rdf(&hc->ehci_base)) {
@@ -47,7 +47,7 @@ usb_error_t usb_ehci_hc_reset(usb_ehci_hc_t *hc)
              * the host controller sets this bit to 0 if the rest is complete
              * therefore we have to wait some more time
              */
-            USB_WAIT(200);
+            lib_usb_wait(200);
             continue;
         }
     }
@@ -110,7 +110,7 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
     /*
      * Wait some time before start checking
      */
-    USB_WAIT(200);
+    lib_usb_wait(200);
 
     /* wait until the reset is done */
     for (uint8_t i = 0; i < 10; i++) {
@@ -118,7 +118,7 @@ static usb_error_t usb_ehci_hc_halt(usb_ehci_hc_t *hc)
             /* all activity halted, return */
             return (USB_ERR_OK);
         }
-        USB_WAIT(200);
+        lib_usb_wait(200);
     }
 
     /* check if halted */
@@ -173,12 +173,12 @@ usb_error_t usb_ehci_initialize_controller(usb_ehci_hc_t *hc)
     ehci_configflag_cf_wrf(&hc->ehci_base, 1);
 
     /* wait till the HC is up and running */
-    USB_WAIT(200);
+    lib_usb_wait(200);
     for (uint32_t i = 0; i < 10; i++) {
         if (!ehci_usbsts_hch_rdf(&hc->ehci_base)) {
             break;
         }
-        USB_WAIT(200);
+        lib_usb_wait(200);
     }
 
 

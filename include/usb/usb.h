@@ -17,6 +17,8 @@
 #include <usb/usb_error.h>
 #include <usb/usb_descriptor.h>
 
+#include <barrelfish/deferred.h>
+
 /// definition for the USB
 #define USB_MANAGER_SERVICE "usb_manager_service_name"
 
@@ -121,10 +123,6 @@ typedef struct usb_status usb_status_t;
 #define USB_DELAY_WAIT 10
 #define USB_DELAY_RECOVERY 10
 
-#define USB_WAIT(ms) \
-    for (uint32_t wait_i = 0; wait_i < 2*(ms); wait_i++) { printf("%c", 0x20); printf("%c", 0x08); };
-
-
 /*
  * debug message control
  */
@@ -167,6 +165,16 @@ typedef struct usb_status usb_status_t;
 //#define USB_DEBUG_HID(x...) debug_printf(x)
 #define USB_DEBUG_HID(x...)
 
+/*
+ * Wait a specific amount of milliseconds. This is a replacement for the USB_WAIT macro.
+ *
+ * \param ms Milliseconds to wait
+ *
+ * \return the error value from barrelfish_usleep
+ */
+static inline errval_t lib_usb_wait(uint32_t ms) {
+    return barrelfish_usleep(1000 * ms);
+}
 
 usb_error_t usb_lib_init(uint8_t init_config);
 

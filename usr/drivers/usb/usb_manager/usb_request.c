@@ -222,7 +222,7 @@ usb_error_t usb_handle_request(struct usb_device *device, uint16_t flags,
 
         /* wait till completed... */
         while (!usb_transfer_completed(xfer)) {
-            USB_WAIT(10);
+            lib_usb_wait(10);
             //thread_yield();
         }
 

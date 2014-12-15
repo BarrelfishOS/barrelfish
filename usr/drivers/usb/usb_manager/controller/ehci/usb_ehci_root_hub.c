@@ -341,12 +341,12 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                             && (!ehci_portsc_fpr_rdf(&hc->ehci_base, req->wIndex))) {
                         ehci_portsc_fpr_wrf(&hc->ehci_base, req->wIndex, 1);
                     }
-                    USB_WAIT(20);
+                    lib_usb_wait(20);
 
                     ehci_portsc_sus_wrf(&hc->ehci_base, req->wIndex, 0);
                     ehci_portsc_fpr_wrf(&hc->ehci_base, req->wIndex, 0);
                     ehci_portsc_ls_wrf(&hc->ehci_base, req->wIndex, 0x3);
-                    USB_WAIT(4);
+                    lib_usb_wait(4);
                     break;
                 case USB_HUB_FEATURE_PORT_POWER:
                     ehci_portsc_pp_wrf(&hc->ehci_base, req->wIndex, 0);
@@ -451,11 +451,11 @@ usb_error_t usb_ehci_roothub_exec(struct usb_device *device,
                     }
                     /* initiate reset sequence */
                     ehci_portsc_pr_wrf(&hc->ehci_base, req->wIndex, 1);
-                    USB_WAIT(200);
+                    lib_usb_wait(200);
 
                     /* clear the reset */
                     ehci_portsc_pr_wrf(&hc->ehci_base, req->wIndex, 0);
-                    USB_WAIT(200);
+                    lib_usb_wait(200);
 
                     if (ehci_portsc_pr_rdf(&hc->ehci_base, req->wIndex)) {
                         debug_printf("exec: timeout while resetting port\n");

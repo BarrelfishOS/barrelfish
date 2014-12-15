@@ -18,6 +18,8 @@
 #include <sys/cdefs.h>
 #include <barrelfish/waitset.h>
 
+#include <barrelfish_kpi/dispatcher_handle.h>
+
 __BEGIN_DECLS
 
 struct deferred_event {

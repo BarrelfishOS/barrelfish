@@ -239,7 +239,7 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
 
     /* wait till the reset sequence is over */
     while (1) {
-        USB_WAIT(USB_DELAY_PORT_RESET);
+        lib_usb_wait(USB_DELAY_PORT_RESET);
 
         timeout += USB_DELAY_PORT_RESET;
 
@@ -291,7 +291,7 @@ usb_error_t usb_hub_reset_port(struct usb_device *hub, uint8_t port)
     }
 
     /* give the device time to recover from reset */
-    USB_WAIT(USB_DELAY_PORT_RECOVERY);
+    lib_usb_wait(USB_DELAY_PORT_RECOVERY);
 
     USB_DEBUG_TR_RETURN;
     return (err);
