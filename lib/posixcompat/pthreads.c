@@ -65,8 +65,10 @@ static int start_pthread(void *arg)
 
     // Call all key destructors
     for(pthread_key_t i = 0; i < key_index; i++) {
-        if(destructors[i] != NULL) {
-            destructors[i]((void *)myself->keys[i]);
+        if ((destructors[i] != NULL) && (myself->keys[i] != NULL)) {
+            void *value = (void *) myself->keys[i];
+            myself->keys[i] = NULL;
+            destructors[i](value);
         }
     }
 
@@ -326,9 +328,8 @@ int pthread_key_delete(pthread_key_t key)
     thread_mutex_lock(&key_mutex);
 
     int result = EINVAL;
-
-    if (key < PTHREAD_KEYS_MAX) {
-        /* TODO: do something */
+    if ((key < PTHREAD_KEYS_MAX) && (destructors[key] != NULL)) {
+        destructors[key] = NULL;
         result = 0;
     }
 
