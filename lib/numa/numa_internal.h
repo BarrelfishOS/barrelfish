@@ -22,6 +22,8 @@
 #ifndef NUMA_INTERNAL_H_
 #define NUMA_INTERNAL_H_
 
+#include <barrelfish_kpi/cpu.h>
+
 #include "numa_debug.h"
 
 /*
@@ -41,36 +43,37 @@ extern uint8_t numa_initialized;
  * \brief numa topology information of the system
  */
 struct numa_topology {
-    nodeid_t num_nodes;      ///< number of nodes in the system
-    coreid_t num_cores;      ///< number of cores in the system
-    nodeid_t preferred;      ///< the preferred node of the domain
-    numa_policy_t strict;    ///< numa policy
-    numa_policy_t bind;      ///< memory bind policy
-    size_t pagesize;         ///< numa page size
-    struct numa_node *nodes; ///< nodes in the system
-    struct numa_core *cores; ///< cores in the system
+    nodeid_t num_nodes;        ///< number of nodes in the system
+    coreid_t num_cores;        ///< number of cores in the system
+    nodeid_t preferred;        ///< the preferred node of the domain
+    numa_policy_t strict;      ///< numa policy
+    numa_policy_t bind;        ///< memory bind policy
+    size_t pagesize;           ///< numa page size
+    struct numa_node *nodes;   ///< nodes in the system
+    struct numa_core **cores;  ///< cores in the system (sorted by core id)
 };
 
 /**
  * \brief represents a numa node
  */
 struct numa_node {
-    nodeid_t id;             ///< id of the node
-    uint16_t apicid;         ///< apic id for the node (core 0)
-    coreid_t num_cores;      ///< number of cores within the
-    struct numa_core *cores; ///< pointer to the cores array
-    struct bitmask *coresbm; ///< bitmask for the cores
-    lpaddr_t mem_base;       ///< base address of the memory
-    lpaddr_t mem_size;       ///< size of the memory region
+    nodeid_t id;               ///< id of the node
+    uint16_t apicid;           ///< apic id for the node (core 0)
+    coreid_t num_cores;        ///< number of cores within the
+    struct numa_core *cores;   ///< pointer to the cores array
+    struct bitmask *coresbm;   ///< bitmask for the cores
+    lpaddr_t mem_base;         ///< base address of the memory
+    lpaddr_t mem_limit;         ///< size of the memory region
 };
 
 /**
  * \brief represents a core
  */
 struct numa_core {
-    coreid_t id;             ///< id of the core
-    uint16_t apicid;         ///< apic id of the core
-    struct numa_node *node;  ///< node of the core
+    coreid_t id;               ///< id of the core
+    uint16_t apicid;           ///< apic id of the core
+    enum cpu_type arch;        ///< architecture
+    struct numa_node *node;    ///< node of the core
 };
 
 extern struct numa_topology numa_topology;
@@ -91,6 +94,11 @@ extern struct numa_topology numa_topology;
  */
 errval_t numa_get_topology_from_skb(struct numa_topology *topology);
 
-
+/**
+ * \brief dumps the numa topology structure
+ *
+ * \param topology pointer to the topology to dump
+ */
+void numa_dump_topology(struct numa_topology *topology);
 
 #endif /* NUMA_INTERNAL_H_ */

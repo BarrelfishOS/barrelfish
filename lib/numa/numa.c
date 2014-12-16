@@ -57,16 +57,26 @@ struct numa_topology numa_topology;
  */
 errval_t numa_available(void)
 {
+    errval_t err;
 
     if (numa_initialized) {
-        return SYS_ERR_OK;
+        return (numa_initialized == 0xff) ? NUMA_ERR_LIB_INIT : SYS_ERR_OK;
     }
 
     NUMA_DEBUG_INIT("Initializing libnuma...\n");
 
-    numa_get_topology_from_skb(&numa_topology);
+    err = numa_get_topology_from_skb(&numa_topology);
+    if (err_is_fail(err)) {
+        numa_initialized = 0xff;
+        return err_push(err, NUMA_ERR_LIB_INIT);
+    }
 
-    NUMA_DEBUG_INIT("done.\n");
+#if NUMA_DEBUG_ENABLED
+    numa_dump_topology(&numa_topology);
+#endif
+
+    numa_initialized = 0x1;
+
     return SYS_ERR_OK;
 }
 
@@ -86,7 +96,7 @@ nodeid_t numa_max_node(void)
  *
  * \returns the maximum number of cores in the system
  */
-coreid_t numa_max_cores(void)
+coreid_t numa_max_core(void)
 {
     // XXX: assume the IDs are 0...n-1
     return numa_topology.num_cores - 1;
@@ -100,7 +110,7 @@ coreid_t numa_max_cores(void)
 nodeid_t numa_current_node(void)
 {
     // XXX: do we need disp_get_core_id() here?
-    return numa_topology.cores[disp_get_current_core_id()].node->id;
+    return numa_topology.cores[disp_get_current_core_id()]->node->id;
 }
 
 /**
@@ -201,7 +211,7 @@ size_t numa_node_size(nodeid_t node, uintptr_t *freep)
         // TODO: figure out how much memory is left in the node
     }
 
-    return numa_topology.nodes[node].mem_size;
+    return (numa_topology.nodes[node].mem_limit - numa_topology.nodes[node].mem_base);
 }
 
 /**
@@ -423,7 +433,7 @@ errval_t numa_node_to_cpus(nodeid_t node, struct numa_bm *mask)
 nodeid_t numa_node_of_cpu(coreid_t cpu)
 {
     if (cpu < numa_topology.num_cores) {
-        return numa_topology.cores[cpu].node->id;
+        return numa_topology.cores[cpu]->node->id;
     } else {
         NUMA_WARNING("Core ID exceeds number of present cores");
         return (nodeid_t)NUMA_NODE_INVALID;

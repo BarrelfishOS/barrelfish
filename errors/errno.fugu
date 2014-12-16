@@ -1135,4 +1135,5 @@ errors numa NUMA_ERR_ {
     failure NUMA_MEMBIND          "Setting the memory binding failed",
     failure LIB_INIT              "Library initialization failure",
     failure SKB                   "Failed to query or connect the SKB",
+    failure SKB_DATA              "The returned data from the SKB is incomplete",
 };

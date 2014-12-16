@@ -68,9 +68,9 @@ nodeid_t numa_max_node(void);
 /**
  * \brief returns the highest ID of the present cores
  *
- * \returns the maximum number of cores in the system
+ * \returns the maximum coreID in the system
  */
-coreid_t numa_max_cores(void);
+coreid_t numa_max_core(void);
 
 /**
  * \brief returns the current node the domain is running on
