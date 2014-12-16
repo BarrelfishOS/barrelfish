@@ -22,17 +22,22 @@
 #ifndef __NUMA_H
 #define __NUMA_H 1
 
-///< typedef for the NUMA node IDs
-typedef coreid_t nodeid_t;
-
 ///< the maximum number of nodes supported
 #define NUMA_MAX_NUMNODES 16
+
+#if NUMA_MAX_NUMNODES > MAX_NODEID
+#error maximum node bigger than maximum nodeid
+#endif
 
 ///< specify the local node for allocation
 #define NUMA_NODE_LOCAL ((nodeid_t)-1)
 
 ///< error value for the numa node size
 #define NUMA_NODE_INVALID ((uintptr_t)-1)
+
+///< error value for invalid cores
+#define NUMA_CORE_INVALID ((coreid_t)-1);
+
 
 typedef enum numa_policy {
     NUMA_POLICY_DEFAULT,   ///< default numa policy

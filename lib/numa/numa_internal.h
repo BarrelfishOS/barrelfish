@@ -117,14 +117,16 @@ void numa_dump_topology(struct numa_topology *topology);
 
 #define numa_check_node_id(_id) \
     if (_id >= numa_topology.num_nodes) { \
-        NUMA_WARNING("Node ID exceeds number of available nodes"); \
+        NUMA_WARNING("Node ID exceeds number of available nodes: %" PRIuNODEID "/%" \
+                      PRIuNODEID, _id, numa_topology.num_nodes); \
         return NUMA_NODE_INVALID; \
     }
 
 #define numa_check_core_id(_id) \
-    if (_id >= numa_topology.num_nodes) { \
-        NUMA_WARNING("Core ID exceeds number of available cores"); \
-        return NUMA_NODE_INVALID; \
+    if (_id >= numa_topology.num_cores) { \
+        NUMA_WARNING("Core ID exceeds number of available cores: %"PRIuCOREID \
+                     "/%" PRIuCOREID, _id, numa_topology.num_cores); \
+        return (coreid_t)-1; \
     }
 
 #else

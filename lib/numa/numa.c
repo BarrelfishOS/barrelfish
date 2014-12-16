@@ -78,6 +78,8 @@ errval_t numa_available(void)
 
     numa_initialized = 0x1;
 
+    /* TODO: initialize bitmap pointers */
+
     return SYS_ERR_OK;
 }
 
@@ -88,6 +90,8 @@ errval_t numa_available(void)
  */
 nodeid_t numa_max_node(void)
 {
+    numa_check_init();
+
     // XXX: assume nodes are 0..n-1
     return numa_topology.num_nodes - 1;
 }
@@ -99,6 +103,8 @@ nodeid_t numa_max_node(void)
  */
 coreid_t numa_max_core(void)
 {
+    numa_check_init();
+
     // XXX: assume the IDs are 0...n-1
     return numa_topology.num_cores - 1;
 }
@@ -110,6 +116,8 @@ coreid_t numa_max_core(void)
  */
 nodeid_t numa_current_node(void)
 {
+    numa_check_init();
+
     // XXX: do we need disp_get_core_id() here?
     return numa_topology.cores[disp_get_current_core_id()]->node->id;
 }
@@ -121,6 +129,8 @@ nodeid_t numa_current_node(void)
  */
 nodeid_t numa_num_possible_nodes(void)
 {
+    numa_check_init();
+
     return NUMA_MAX_NUMNODES;
 }
 
@@ -134,6 +144,8 @@ nodeid_t numa_num_possible_nodes(void)
  */
 nodeid_t numa_num_configured_nodes(void)
 {
+    numa_check_init();
+
     // XXX: we have all nodes configures
     return numa_topology.num_nodes;
 }
@@ -148,6 +160,8 @@ nodeid_t numa_num_configured_nodes(void)
  */
 struct numa_bm *numa_get_mems_allowed(void)
 {
+    numa_check_init();
+
     assert(!"NYI");
     return 0;
 }
@@ -162,6 +176,8 @@ struct numa_bm *numa_get_mems_allowed(void)
  */
 coreid_t numa_num_configured_cpus(void)
 {
+    numa_check_init();
+
     // XXX we assume that we can schedule all cores
     return numa_topology.num_cores;
 }
@@ -173,6 +189,8 @@ coreid_t numa_num_configured_cpus(void)
  */
 coreid_t numa_num_task_cpus(void)
 {
+    numa_check_init();
+
     // XXX: we do not have any restrictions yet, return all cores
     return numa_topology.num_cores;
 }
@@ -185,6 +203,8 @@ coreid_t numa_num_task_cpus(void)
  */
 nodeid_t numa_num_task_nodes(void)
 {
+    numa_check_init();
+
     // XXX: We do not have any restrictions yet. just return all nodes
     return numa_topology.num_nodes;
 }
@@ -203,6 +223,7 @@ nodeid_t numa_num_task_nodes(void)
  */
 size_t numa_node_size(nodeid_t node, uintptr_t *freep)
 {
+    numa_check_init();
     numa_check_node_id(node);
 
     if (freep) {
@@ -220,6 +241,7 @@ size_t numa_node_size(nodeid_t node, uintptr_t *freep)
  */
 lpaddr_t numa_node_base(nodeid_t node)
 {
+    numa_check_init();
     numa_check_node_id(node);
 
     return numa_topology.nodes[node].mem_base;
@@ -232,6 +254,7 @@ lpaddr_t numa_node_base(nodeid_t node)
  */
 nodeid_t numa_preferred(void)
 {
+    numa_check_init();
     return numa_current_node();
 }
 
@@ -247,8 +270,11 @@ nodeid_t numa_preferred(void)
  */
 void numa_set_preferred(nodeid_t node)
 {
+    numa_check_init();
+
     if (node >= numa_topology.num_nodes) {
-        NUMA_WARNING("Node ID exceeds number of available nodes");
+        NUMA_WARNING("Node ID exceeds number of available nodes %" PRIuNODEID "/%"
+                     PRIuNODEID, node, numa_topology.num_nodes);
         return;
     }
 
@@ -268,6 +294,8 @@ void numa_set_preferred(nodeid_t node)
  */
 errval_t numa_run_on_node(nodeid_t node)
 {
+    numa_check_init();
+
     USER_PANIC("running the domain on a specific node is not supported yet\n");
     return 0;
 }
@@ -283,6 +311,8 @@ errval_t numa_run_on_node(nodeid_t node)
  */
 errval_t numa_run_on_node_mask(struct numa_bm *nodemask)
 {
+    numa_check_init();
+
     USER_PANIC("running the domain on a specific node is not supported yet\n");
     return 0;
 }
@@ -295,6 +325,8 @@ errval_t numa_run_on_node_mask(struct numa_bm *nodemask)
  */
 struct numa_bm *numa_get_run_node_mask(void)
 {
+    numa_check_init();
+
     return numa_all_nodes_ptr;
 }
 
@@ -309,6 +341,8 @@ struct numa_bm *numa_get_run_node_mask(void)
  */
 void numa_set_bind_policy(numa_policy_t strict)
 {
+    numa_check_init();
+
     if (strict == NUMA_POLICY_STRICT) {
         numa_topology.bind = strict;
     } else {
@@ -328,6 +362,8 @@ void numa_set_bind_policy(numa_policy_t strict)
  */
 void numa_set_strict(numa_policy_t strict)
 {
+    numa_check_init();
+
     if (strict == NUMA_POLICY_STRICT) {
         numa_topology.strict = strict;
     } else {
@@ -349,6 +385,8 @@ void numa_set_strict(numa_policy_t strict)
  */
 uint32_t numa_distance(nodeid_t from, nodeid_t to)
 {
+    numa_check_init();
+
     assert(!"NYI");
     return 0;
 }
@@ -365,6 +403,8 @@ uint32_t numa_distance(nodeid_t from, nodeid_t to)
  */
 errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask)
 {
+    numa_check_init();
+
     assert(!"NYI");
     return 0;
 }
@@ -381,6 +421,8 @@ errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask)
  */
 errval_t numa_sched_setaffinity(domainid_t did, struct numa_bm *mask)
 {
+    numa_check_init();
+
     assert(!"NYI");
     return 0;
 }
@@ -393,6 +435,8 @@ errval_t numa_sched_setaffinity(domainid_t did, struct numa_bm *mask)
  */
 size_t numa_pagesize(void)
 {
+    numa_check_init();
+
     return numa_topology.pagesize;
 }
 
@@ -412,6 +456,8 @@ size_t numa_pagesize(void)
  */
 errval_t numa_node_to_cpus(nodeid_t node, struct numa_bm *mask)
 {
+    numa_check_init();
+
     assert(!"NYI");
     return 0;
 }
@@ -427,10 +473,9 @@ errval_t numa_node_to_cpus(nodeid_t node, struct numa_bm *mask)
  */
 nodeid_t numa_node_of_cpu(coreid_t cpu)
 {
-    if (cpu < numa_topology.num_cores) {
-        return numa_topology.cores[cpu]->node->id;
-    } else {
-        NUMA_WARNING("Core ID exceeds number of present cores");
-        return (nodeid_t)NUMA_NODE_INVALID;
-    }
+    numa_check_init();
+
+    numa_check_core_id(cpu);
+
+    return numa_topology.cores[cpu]->node->id;
 }

@@ -37,27 +37,28 @@ void numa_dump_topology(struct numa_topology *topology)
 
     printf("dumping NUMA topology\n");
     printf(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n\n");
-    printf("Cores: %" PRIuCOREID "  Nodes: %u\n", topology->num_cores,
+
+    printf("Cores: %" PRIuCOREID "  Nodes: %" PRIuNODEID" \n", topology->num_cores,
            topology->num_nodes);
 
     printf("---------------------------------------\n");
     for (nodeid_t nodeid = 0; nodeid < topology->num_nodes; ++nodeid) {
         struct numa_node *node = &topology->nodes[nodeid];
-        printf(" # Node %u:  [0x%016" PRIxLPADDR ", 0x%016" PRIxLPADDR "] of %"
-               PRIu64 " MB\n", nodeid, node->mem_base, node->mem_limit,
+        printf(" # Node %" PRIuNODEID ":  [0x%016" PRIxLPADDR ", 0x%016" PRIxLPADDR
+               "] of %" PRIu64 " MB\n", nodeid, node->mem_base, node->mem_limit,
                (node->mem_limit - node->mem_base) >> 20);
         for (coreid_t coreid = 0; coreid < node->num_cores; ++coreid) {
             struct numa_core *core = &node->cores[coreid];
-            printf("  + Core %-3" PRIuCOREID ": [apic=%-3" PRIu16 ", node=%-3d]\n",
-                   core->id, core->apicid, core->node->id);
+            printf("  + Core %-3" PRIuCOREID ": [apic=%-3" PRIu16 ", node=%-3"
+                        PRIuNODEID "]\n", core->id, core->apicid, core->node->id);
         }
     }
 
     printf("---------------------------------------\n");
     for (coreid_t coreid = 0; coreid < topology->num_cores; ++coreid) {
         struct numa_core *core = topology->cores[coreid];
-        printf(" # Core %-3" PRIuCOREID ": [apic=%-3" PRIu16 ", node=%-3d]\n",
-               coreid, core->apicid, core->node->id);
+        printf(" # Core %-3" PRIuCOREID ": [apic=%-3" PRIu16 ", node=%-3"
+               PRIuNODEID "]\n", coreid, core->apicid, core->node->id);
     }
 
     printf("\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
@@ -102,11 +103,19 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
         return err_push(err, NUMA_ERR_SKB_DATA);
     }
 
-    NUMA_DEBUG_INIT("discovered topology with %" PRIu32 " nodes, %" PRIu32 " cores\n",
-                    node, core);
+    NUMA_DEBUG_INIT("discovered topology with %" PRIuNODEID " nodes, %" PRIuCOREID
+                    " cores\n", node, core);
 
-    if (!core || !node) {
-        USER_PANIC("invalid data returned\n");
+    if (!core || !node || node > core) {
+        NUMA_ERROR("invalid number of cores %" PRIu32 " or nodes %" PRIu32 ".",
+                   core, node);
+        return err_push(err, NUMA_ERR_SKB_DATA);
+    }
+
+    if (core >= MAX_COREID || node >= NUMA_MAX_NUMNODES) {
+        NUMA_ERROR("too large number of cores %" PRIu32 " or nodes %" PRIu32 ".",
+                   core, node);
+        return err_push(err, NUMA_ERR_SKB_DATA);
     }
 
     topology->num_cores = (coreid_t) core;
@@ -157,15 +166,15 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
 
         // TODO: topology->nodes[node].coresbm = allocbm()
 
-        NUMA_DEBUG_INIT("  > node %u [0x%016" PRIxLPADDR", 0x%016" PRIxLPADDR"] (%"
-                        PRIuLPADDR" MB)\n",
+        NUMA_DEBUG_INIT("  > node %" PRIuNODEID " [0x%016" PRIxLPADDR", 0x%016"
+                        PRIxLPADDR "] (%" PRIuLPADDR " MB)\n",
                         node, base, limit, (limit-base) >> 20);
         parsed++;
     }
 
     if ((nodeid_t) parsed != topology->num_nodes) {
-        NUMA_DEBUG_INIT("node list incomplete: %" PRIu32 ", %" PRIu32 "\n", parsed,
-                        topology->num_nodes);
+        NUMA_DEBUG_INIT("node list incomplete: %" PRIuNODEID ", %" PRIuNODEID "\n",
+                        parsed, topology->num_nodes);
         err = NUMA_ERR_SKB_DATA;
         goto error_out;
     }
@@ -186,7 +195,7 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
             break;
         }
         if (!(node < topology->num_nodes)) {
-            NUMA_DEBUG_INIT("core %" PRIuCOREID " invalid node id %" PRIu32 "\n",
+            NUMA_DEBUG_INIT("core %" PRIuCOREID " invalid node id %" PRIuNODEID "\n",
                             core, node);
             err = NUMA_ERR_SKB_DATA;
             goto error_out;
@@ -213,8 +222,8 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
             goto error_out;
         }
 
-        NUMA_DEBUG_INIT("  > %s core %"PRIuCOREID" apic=%"PRIu32", node=%"PRIu32"\n",
-                        arch, (coreid_t )core, apic, node);
+        NUMA_DEBUG_INIT("  > %s core %" PRIuCOREID" apic=%" PRIu32 ", node=%"
+                        PRIuNODEID "\n", arch, (coreid_t )core, apic, node);
         parsed++;
     }
 
@@ -232,6 +241,3 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
     return err;
 
 }
-
-
-

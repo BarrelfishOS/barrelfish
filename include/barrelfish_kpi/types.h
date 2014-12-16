@@ -86,6 +86,15 @@ typedef uint8_t	coreid_t;
 #define MAX_COREID  255 // limit of coreid_t type (see comment above)
 #endif
 
+/* node id type */
+typedef coreid_t nodeid_t;
+#define PRIuNODEID PRIu8
+#define PRIxNODEID PRIx8
+
+#ifndef MAX_NODEID
+#define MAX_NODEID 255
+#endif
+
 /* ID capability ID */
 // Returned if IDCmd_Identify is invoked on an ID capability.
 typedef uint64_t idcap_id_t;
