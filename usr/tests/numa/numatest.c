@@ -22,7 +22,7 @@ int main (void)
 
     if (numa_available() == SYS_ERR_OK) {
         debug_printf("num nodes=%u\n", numa_max_node());
-        debug_printf("num cores: %u\n", numa_max_cores());
+        debug_printf("num cores: %u\n", numa_max_core());
     } else {
         debug_printf("numa not available\n");
     }
