@@ -23,7 +23,7 @@ class GreenMarl_PageRank(TestCommon):
         modules = super(GreenMarl_PageRank, self).get_modules(build, machine)
         # TODO: nfs location and number of cores...
         modules.add_module("gm_pr", ["spawnflags=2",
-                                     "/nfs/soc-LiveJournal1.bin",
+                                     "/nfs/test.bin",
                                      machine.get_ncores(),
                                      "nfs://10.110.4.4/mnt/local/nfs/acreto/"])
 
@@ -33,7 +33,7 @@ class GreenMarl_PageRank(TestCommon):
         return modules
 
     def get_finish_string(self):
-        return "XXXXXXXXXX SHL DONE XXXXXXXXXXXXXX"
+        return "XXXXXXXXXX GM DONE XXXXXXXXXXXXXX"
 
     def boot(self, *args):
         super(GreenMarl_PageRank, self).boot(*args)
@@ -80,7 +80,7 @@ class GreenMarl_TriangleCounting(TestCommon):
         return modules
 
     def get_finish_string(self):
-        return "XXXXXXXXXX SHL DONE XXXXXXXXXXXXXX"
+        return "XXXXXXXXXX GM DONE XXXXXXXXXXXXXX"
 
     def boot(self, *args):
         super(GreenMarl_PageRank, self).boot(*args)
