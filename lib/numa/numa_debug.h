@@ -34,7 +34,7 @@
 
 #define NUMA_DEBUG_ALLOC(x...) NUMA_DEBUG_PRINT("[numa alloc] " x);
 
-#define NUMA_ERROR(x...) debug_printf("[numa error] %s :" x "\n",  __FUNCTION__);
-#define NUMA_WARNING(x...) debug_printf("[numa  warn] %s :" x "\n",  __FUNCTION__);
+#define NUMA_ERROR(x...) debug_printf("[numa error] %s():" x "\n",  __FUNCTION__);
+#define NUMA_WARNING(x...) debug_printf("[numa  warn] %s():" x "\n",  __FUNCTION__);
 
 #endif /* NUMA_DEBUG_H_ */
