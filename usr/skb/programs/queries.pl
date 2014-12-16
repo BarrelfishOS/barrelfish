@@ -123,35 +123,70 @@ get_core_id_list(L) :-
         L = []
     ).
 
-       
-extract_size(range(_,X,_),X).
-	
+get_core_info(ProxDomain, CoreID, Arch, ApicID) :-
+    ( is_predicate(cpu_affinity/3) -> 
+        corename(CoreID,Arch,apic(ApicID)),
+        cpu_affinity(ApicID, _, ProxDomain)
+        ;
+        corename(CoreID,Arch,apic(ApicID)),
+        ProxDomain = 0  
+    ).
 
-%  extract_size(range(_,X,_),X).
-   
-    
+
+
 % this function gets the system RAM size    
 get_system_ram_size(RetBase,RetLimit) :-
-	mem_region_type(MemType, ram),
-	findall(range(MemBase, MemSize, MemType), memory_region(MemBase, _, MemSize, MemType, _), List),
-	maplist(extract_size, List, Sizes),
-	RetBase = 0,
-	sum(Sizes, RetLimit).
+    findall(range(MemBase, MemLimit), (
+        mem_region_type(MemType, ram), 
+        memory_region(MemBase, _, MemSize, MemType, _),
+        MemLimit is MemBase + MemSize
+    ), List),
+    maplist(extractbase, List, Bases),
+    maplist(extractlimit, List, Limits),
+    min(Bases, RetBase),
+    max(Limits, RetLimit).
+
+
+extractbasenode(range(X,_,_),X).
+extractlimitnode(range(_,X,_),X).
+
+
+get_node_ram_size(ProxDomain,RetBase,RetLimit) :-
+    is_predicate(memory_affinity/3),
+    findall(range(MemBase, MemLimit, ProxDomain), (
+        memory_affinity(MemBase,MemSize,ProxDomain), 
+        MemLimit is MemBase + MemSize
+    ), List),
+    maplist(extractbasenode, List, Bases),
+    maplist(extractlimitnode, List, Limits),
+    min(Bases, RetBase),
+    max(Limits, RetLimit).
+
+get_node_info(ProxDomain, RetBase, RetLimit) :-
+    ( is_predicate(memory_affinity/3) ->
+        get_node_ram_size(ProxDomain, RetBase, RetLimit)
+    ;
+        get_system_ram_size(RetBase, RetLimit),
+        ProxDomain = 0
+    ).
+
+% obtains the number of available nodes
+available_nr_nodes(Nnodes) :-
+    get_system_topology(Nnodes, _, _, _).
 
 % get the system NUMA topology
 get_system_topology(Nnodes,Ncores, Lnodes, Lcores) :-
-    ( is_predicate(cpu_affinity/3) ->
-        findall(ID, corename(ID, _, _), TmpL), sort(TmpL, Lnodes),
-        Lcores = [],
-        Ncores = 23,
-        Nnodes = 123
-        ;
-        get_system_ram_size(RetBase, RetLimit),
-        Lnodes = [node(0, RetBase, RetLimit)],
-        findall(cpu(0,ID,ARCH,APIC), corename(ID, ARCH, APIC), TmpL), sort(TmpL, Lcores),
-        Nnodes = 1,
-        available_nr_cores(Ncores)
-    ).
+    findall(node(ProxDomain, RetBase, RetLimit), (
+        (is_predicate(memory_affinity/3) ->
+            memory_affinity(_,_,ProxDomain)
+            ;
+            ProxDomain = 0
+        ),
+        get_node_info(ProxDomain, RetBase, RetLimit)
+    ), TmpN), sort(TmpN, Lnodes),
+    findall(cpu(NODE,ID,APIC,ARCH), get_core_info(NODE, ID, ARCH, APIC), TmpL), sort(TmpL, Lcores),
+    length(Lnodes, Nnodes),
+    length(Lcores, Ncores).
 
 % 7. find the available number of cores
 
