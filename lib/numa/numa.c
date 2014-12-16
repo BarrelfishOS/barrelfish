@@ -46,6 +46,7 @@ struct numa_bm *numa_all_cpus_ptr;
  */
 struct numa_topology numa_topology;
 
+
 /**
  * \brief checks if numa support is available
  *
@@ -202,10 +203,7 @@ nodeid_t numa_num_task_nodes(void)
  */
 size_t numa_node_size(nodeid_t node, uintptr_t *freep)
 {
-    if (node < numa_topology.num_nodes) {
-        NUMA_WARNING("Node ID exceeds number of available nodes");
-        return NUMA_NODE_INVALID;
-    }
+    numa_check_node_id(node);
 
     if (freep) {
         // TODO: figure out how much memory is left in the node
@@ -222,10 +220,7 @@ size_t numa_node_size(nodeid_t node, uintptr_t *freep)
  */
 lpaddr_t numa_node_base(nodeid_t node)
 {
-    if (node < numa_topology.num_nodes) {
-        NUMA_WARNING("Node ID exceeds number of available nodes");
-        return NUMA_NODE_INVALID;
-    }
+    numa_check_node_id(node);
 
     return numa_topology.nodes[node].mem_base;
 }

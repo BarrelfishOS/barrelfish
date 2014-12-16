@@ -101,4 +101,36 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology);
  */
 void numa_dump_topology(struct numa_topology *topology);
 
+/*
+ * ----------------------------------------------------------------------------
+ * macros for library checks
+ * ----------------------------------------------------------------------------
+ */
+
+#define NUMA_CHECK_STRICT 1
+
+#if NUMA_CHECK_STRICT
+#define numa_check_init() \
+    if (numa_initialized != 0x1) { \
+        USER_PANIC("NUMA library has not been initialized\n"); \
+    }
+
+#define numa_check_node_id(_id) \
+    if (_id >= numa_topology.num_nodes) { \
+        NUMA_WARNING("Node ID exceeds number of available nodes"); \
+        return NUMA_NODE_INVALID; \
+    }
+
+#define numa_check_core_id(_id) \
+    if (_id >= numa_topology.num_nodes) { \
+        NUMA_WARNING("Core ID exceeds number of available cores"); \
+        return NUMA_NODE_INVALID; \
+    }
+
+#else
+#define numa_check_init()
+#define numa_check_node_id(_id)
+#define numa_check_core_id(_id)
+#endif
+
 #endif /* NUMA_INTERNAL_H_ */
