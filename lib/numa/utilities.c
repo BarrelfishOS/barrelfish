@@ -92,11 +92,8 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
                             "writeln(Lnodes),writeln(Lcores).");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "skb query failed");
-        printf("<<<<<<<error: %s\n>>>>>>>>>", skb_get_error_output());
         return err_push(err, NUMA_ERR_SKB);
     }
-
-    printf("###########\n\n %s \n\n #############", skb_get_output());
 
     uint32_t core = 0;
     uint32_t node = 0;
