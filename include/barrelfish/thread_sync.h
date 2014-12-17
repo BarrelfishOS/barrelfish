@@ -16,6 +16,8 @@
 #define LIBBARRELFISH_THREAD_SYNC_H
 
 #include <stdint.h>
+#include <limits.h> // for INT_MAX
+
 #include <barrelfish_kpi/spinlocks_arch.h>
 
 /// A thread of execution
@@ -59,5 +61,8 @@ struct thread_sem {
 #       define THREAD_SEM_INITIALIZER \
     { 0, (struct thread *)NULL, 0 }
 #endif
+
+typedef int thread_once_t;
+#define THREAD_ONCE_INIT INT_MAX
 
 #endif

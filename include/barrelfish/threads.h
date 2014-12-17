@@ -16,7 +16,6 @@
 #define LIBBARRELFISH_THREADS_H
 
 #include <assert.h>
-#include <limits.h>
 #include <sys/cdefs.h>
 
 #include <barrelfish/caddr.h> // for struct capref.
@@ -75,9 +74,6 @@ void *thread_get_tls_key(int);
 uintptr_t thread_id(void);
 uintptr_t thread_get_id(struct thread *t);
 void thread_set_id(uintptr_t id);
-
-typedef int thread_once_t;
-#define THREAD_ONCE_INIT INT_MAX
 
 extern __thread thread_once_t thread_once_local_epoch;
 extern void thread_once_internal(thread_once_t *control, void (*func)(void));

@@ -47,6 +47,8 @@
 #include <sched.h>
 #include <time.h>
 
+#include <barrelfish/thread_sync.h> // for THREAD_ONCE_INIT
+
 /*
  * Run-time invariant values:
  */
@@ -85,15 +87,9 @@
 #define PTHREAD_CANCELED		((void *) 1)
 
 /*
- * Flags for once initialization.
- */
-#define PTHREAD_NEEDS_INIT  0
-#define PTHREAD_DONE_INIT   1
-
-/*
  * Static once initialization values.
  */
-#define PTHREAD_ONCE_INIT   { PTHREAD_NEEDS_INIT, NULL }
+#define PTHREAD_ONCE_INIT   THREAD_ONCE_INIT
 
 /*
  * Static initialization values.

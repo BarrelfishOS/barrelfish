@@ -36,6 +36,8 @@
 #ifndef _SYS__PTHREADTYPES_H_
 #define _SYS__PTHREADTYPES_H_
 
+#include <barrelfish/thread_sync.h> // for thread_once_t
+
 /*
  * Forward structure definitions.
  *
@@ -47,7 +49,6 @@ struct pthread_cond;
 struct pthread_cond_attr;
 struct pthread_mutex;
 struct pthread_mutex_attr;
-struct pthread_once;
 struct pthread_rwlock;
 struct pthread_rwlockattr;
 struct pthread_barrier;
@@ -71,7 +72,7 @@ typedef struct	pthread_mutex_attr	*pthread_mutexattr_t;
 typedef struct	pthread_cond		*pthread_cond_t;
 typedef struct	pthread_cond_attr	*pthread_condattr_t;
 typedef int     			pthread_key_t;
-typedef struct	pthread_once		pthread_once_t;
+typedef thread_once_t			pthread_once_t;
 typedef struct	pthread_rwlock		*pthread_rwlock_t;
 typedef struct	pthread_rwlockattr	*pthread_rwlockattr_t;
 typedef struct	pthread_barrier		*pthread_barrier_t;
@@ -86,13 +87,5 @@ typedef struct	pthread_spinlock	*pthread_spinlock_t;
  */
 typedef void	*pthread_addr_t;
 typedef void	*(*pthread_startroutine_t)(void *);
-
-/*
- * Once definitions.
- */
-struct pthread_once {
-	int		state;
-	pthread_mutex_t	mutex;
-};
 
 #endif /* ! _SYS__PTHREADTYPES_H_ */

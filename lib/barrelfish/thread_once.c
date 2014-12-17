@@ -32,8 +32,6 @@
 //   "Dynamic Initialization and Destruction with Concurrency"
 //   http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2008/n2660.htm
 
-#include <limits.h>
-
 #include <barrelfish/threads.h>
 
 /// Protects global_epoch and all thread_once_t writes.

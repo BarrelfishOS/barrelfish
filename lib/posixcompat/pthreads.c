@@ -688,20 +688,6 @@ int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
     if (ctrl == NULL || init == NULL) {
         return EINVAL;
     }
-
-
-    pthread_mutex_lock(&ctrl->mutex);
-
-
-    if (!ctrl->state)
-    {
-        //pthread_cleanup_push(ptw32_mcs_lock_release, &node);
-        (*init)();
-        //pthread_cleanup_pop(0);
-        ctrl->state = 1;
-    }
-
-    pthread_mutex_unlock(&ctrl->mutex);
-
+    thread_once(ctrl, init);
     return 0;
 }
