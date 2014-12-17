@@ -30,6 +30,7 @@ class GreenMarl_PageRank(TestCommon):
         modules.add_module("e1000n", ["auto", "noirq"])
         modules.add_module("NGD_mng", ["auto"])
         modules.add_module("netd", ["auto"])
+        modules.add_module("/shl__settings.lua")
         return modules
 
     def get_finish_string(self):
