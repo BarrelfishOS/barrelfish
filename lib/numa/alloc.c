@@ -19,6 +19,8 @@
 #include <barrelfish/barrelfish.h>
 
 #include <numa.h>
+#include "numa_internal.h"
+
 
 /** \brief   returns the current interleave mask
  *
@@ -110,6 +112,9 @@ struct numa_bm *numa_get_membind(void){
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
 void *numa_alloc_onnode(size_t size, nodeid_t node){
+
+    //numa_check_node_id(node);
+
     assert(!"NYI");
     return 0;
 }
