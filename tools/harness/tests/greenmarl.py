@@ -8,6 +8,7 @@
 ##########################################################################
 
 import re
+import os
 import tests
 from common import TestCommon
 from results import PassFailResult
@@ -21,10 +22,14 @@ class GreenMarl_PageRank(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(GreenMarl_PageRank, self).get_modules(build, machine)
-        # TODO: nfs location and number of cores...
+        if 'SHL__NUM_CORES' in os.environ :
+            ncores = os.environ['SHL__NUM_CORES']
+        else:
+            ncores = machine.get_ncores()
+        
         modules.add_module("gm_pr", ["spawnflags=2",
-                                     "/nfs/test.bin",
-                                     machine.get_ncores(),
+                                     "/nfs/soc-LiveJournal1.bin",
+                                     ncores,
                                      "nfs://10.110.4.4/mnt/local/nfs/acreto/"])
 
         modules.add_module("e1000n", ["auto", "noirq"])
