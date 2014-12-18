@@ -27,8 +27,8 @@ static struct bomp_state *bomp_st;
 
 static rsrcid_t my_rsrc_id;
 
-static const char *my_manifest = "B 1\n"             // Normal phase
-                "G 80 160 80 480\n";// Gang phase
+//static const char *my_manifest = "B 1\n"             // Normal phase
+//                "G 80 160 80 480\n";// Gang phase
 
 static void set_numa(unsigned id)
 {
@@ -145,8 +145,8 @@ static struct thread_sem init_sem = THREAD_SEM_INITIALIZER
 
 static int remote_init(void *dumm)
 {
-    errval_t err = rsrc_join(my_rsrc_id);
-    assert(err_is_ok(err));
+//    errval_t err = rsrc_join(my_rsrc_id);
+    //assert(err_is_ok(err));
 
     thread_sem_post(&init_sem);
     thread_detach(thread_self());
@@ -167,16 +167,18 @@ static void bomp_span_domain(int nos_threads,
 {
     int my_core_id = disp_get_core_id();
 
+    errval_t err;
+
     // Remember default stack size
     thread_stack_size = stack_size;
 
     // Submit manifest (derived from program)
-    errval_t err = rsrc_manifest(my_manifest, &my_rsrc_id);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "rsrc_manifest");
-        abort();
-    }
+//     = rsrc_manifest(my_manifest, &my_rsrc_id);
+//
+//    if (err_is_fail(err)) {
+ //       DEBUG_ERR(err, "rsrc_manifest");
+ //       abort();
+ //   }
 
     /* Span domain to all cores */
     for (int i = 1; i < nos_threads; ++i) {
