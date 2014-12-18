@@ -637,8 +637,7 @@ define \n
 
 endef
 
-    #%/generated/triangle_counting.{h, cc} : tools/bin/gm_comp
-$(HAKE_ARCHS)/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
+x86_64/usr/green-marl/%.cc k1om/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
 	$(foreach a,$(HAKE_ARCHS), \
 		mkdir -p $(a)/usr/green-marl ${\n}\
 		mkdir -p $(a)/include/green-marl ${\n}\
