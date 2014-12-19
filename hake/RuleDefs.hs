@@ -152,6 +152,7 @@ kernelOptions arch = Options {
             optInterconnectDrivers = [],
             optFlounderBackends = [],
             extraFlags = [],
+            extraCxxFlags = [],
             extraDefines = [],
             extraIncludes = [],
             extraDependencies = [],
@@ -935,7 +936,8 @@ appGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_app_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
@@ -993,7 +995,8 @@ arrakisAppGetOptionsForArch arch args =
                      optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
                                ((optLibs $ options arch) \\
                                 [ In InstallTree arch "/lib/libbarrelfish.a" ]),
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
@@ -1046,7 +1049,8 @@ libGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_lib_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }

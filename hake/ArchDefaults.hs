@@ -123,6 +123,7 @@ options arch archFamily = Options {
             optInterconnectDrivers = ["lmp", "ump", "multihop"],
             optFlounderBackends = ["lmp", "ump", "multihop"],
             extraFlags = [],
+            extraCxxFlags = [],
             extraDefines = [],
             extraIncludes = [],
             extraDependencies = [],
@@ -177,7 +178,7 @@ cxxCompiler arch cxxcompiler opts phase src obj =
     let incls = (optIncludes opts) ++ (extraIncludes opts)
         flags = (optCxxFlags opts) 
                 ++ (optDefines opts)
-                ++ [ Str f | f <- extraFlags opts ]
+                ++ [ Str f | f <- extraCxxFlags opts ]
                 ++ [ Str f | f <- extraDefines opts ]
         deps = (optDependencies opts) ++ (extraDependencies opts)
     in
@@ -214,7 +215,7 @@ makeCxxDepend arch cxxcompiler opts phase src obj depfile =
     let incls = (optIncludes opts) ++ (extraIncludes opts)
         flags = (optCxxFlags opts) 
                 ++ (optDefines opts)
-                ++ [ Str f | f <- extraFlags opts ]
+                ++ [ Str f | f <- extraCxxFlags opts ]
                 ++ [ Str f | f <- extraDefines opts ]
     in
       [ Str ('@':cxxcompiler) ] ++ flags 
