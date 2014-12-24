@@ -19,7 +19,8 @@
 #include <barrelfish/barrelfish.h>
 
 #include <numa.h>
-
+#include <numa_internal.h>
+#include <bitmap.h>
 
 
 /**
@@ -35,9 +36,10 @@
  *
  * If the string length is zero, then the numa_no_nodes_ptr is returned
  */
-struct numa_bm *numa_parse_nodestring(char *string)
+struct bitmap *numa_parse_nodestring(char *string)
 {
-
+    assert(!"NYI");
+    return NULL;
 }
 
 /**
@@ -51,19 +53,30 @@ struct numa_bm *numa_parse_nodestring(char *string)
  * The string is a comma-separated list of cpu numbers or cpu ranges
  * Examples: 1-5,7,10 !4-5 +0-3
  */
-struct numa_bm *numa_parse_cpustring(char *string)
+struct bitmap *numa_parse_cpustring(char *string)
 {
-
+    assert(!"NYI");
+    return NULL;
 }
 
-struct numa_bm *numa_allocate_cpumask();
+/**
+ * \brief allocating a bitmap to hold all the configured CPUs
+ * @return
+ */
+struct bitmap *numa_allocate_cpumask(void)
+{
+    return bitmap_alloc(numa_topology.num_cores);
+}
 
 /**
  * \brief frees a previously allocated CPU bitmask
  *
  * \param cpumask pointer to a previously allocated CPU bitmask
  */
-void numa_free_cpumask(struct numa_bm *cpumask);
+void numa_free_cpumask(struct bitmap *cpumask)
+{
+    bitmap_free(cpumask);
+}
 
 /**
  * \brief allocates a bit mask to represent the nodes in the system
@@ -71,14 +84,20 @@ void numa_free_cpumask(struct numa_bm *cpumask);
  * \returns pointer to a new bitmask
  *          NULL on failure
  */
-struct numa_bm *numa_allocate_nodemask();
+struct bitmap *numa_allocate_nodemask(void)
+{
+    return bitmap_alloc(NUMA_MAX_NUMNODES);
+}
 
 /**
  * \brief frees a previously allocated node bitmask
  *
  * \param nodemask pointer to a previously allocated node bitmask
  */
-void numa_free_nodemask(struct numa_bm *nodemask);
+void numa_free_nodemask(struct bitmap *nodemask)
+{
+    bitmap_free(nodemask);
+}
 
 /**
  * \brief allocates a bitmask structure and its associated bit mask
@@ -88,7 +107,10 @@ void numa_free_nodemask(struct numa_bm *nodemask);
  * \returns pointer to the bitmask
  *          NULL on error
  */
-struct numa_bm *numa_bitmask_alloc(unsigned int n);
+struct bitmap *numa_bitmask_alloc(unsigned int n)
+{
+    return bitmap_alloc(n);
+}
 
 /**
  * \brief sets all bits in the bit mask to 0.
@@ -97,7 +119,11 @@ struct numa_bm *numa_bitmask_alloc(unsigned int n);
  *
  * \returns pointer to the cleared bit map
  */
-struct numa_bm *numa_bitmask_clearall(struct numa_bm *bmp);
+struct bitmap *numa_bitmask_clearall(struct bitmap *bmp)
+{
+    bitmap_clear_all(bmp);
+    return bmp;
+}
 
 /**
  * \brief clears the n-th bit of a bitmask
@@ -107,7 +133,11 @@ struct numa_bm *numa_bitmask_clearall(struct numa_bm *bmp);
  *
  * \returns pointer to the bitmask
  */
-struct numa_bm *numa_bitmask_clearbit(struct numa_bm *bmp, unsigned int n);
+struct bitmap *numa_bitmask_clearbit(struct bitmap *bmp, unsigned int n)
+{
+    bitmap_clear_bit(bmp, n);
+    return bmp;
+}
 
 /**
  * \brief checks if two bitmasks are equal
@@ -118,14 +148,20 @@ struct numa_bm *numa_bitmask_clearbit(struct numa_bm *bmp, unsigned int n);
  * \return TRUE if the bitmasks are equal
  *         FALSE if the are distinct
  */
-bool numa_bitmask_equal(const struct numa_bm *bmp1, const struct numa_bm *bmp2);
+bool numa_bitmask_equal(const struct bitmap *bmp1, const struct bitmap *bmp2)
+{
+    return bitmap_equal(bmp1, bmp2);
+}
 
 /**
  * \brief frees the memory of a bitmask
  *
  * \param bmp the bitmask to be freed
  */
-void numa_bitmask_free(struct numa_bm *bmp);
+void numa_bitmask_free(struct bitmap *bmp)
+{
+    bitmap_free(bmp);
+}
 
 /**
  * \brief checks if the n-th bit is set in the bitmask
@@ -136,7 +172,10 @@ void numa_bitmask_free(struct numa_bm *bmp);
  * \returns TRUE if the n-th bit is set
  *          FALSE otherwise
  */
-bool numa_bitmask_isbitset(const struct numa_bm *bmp, unsigned int n);
+bool numa_bitmask_isbitset(const struct bitmap *bmp, unsigned int n)
+{
+    return bitmap_is_bit_set(bmp, n);
+}
 
 /**
  * \brief returns the size (in bytes) of the bit mask
@@ -145,7 +184,10 @@ bool numa_bitmask_isbitset(const struct numa_bm *bmp, unsigned int n);
  *
  * \returns the size of the memory in bytes rounded up to a multiple of wordsize
  */
-size_t numa_bitmask_nbytes(struct numa_bm *bmp);
+size_t numa_bitmask_nbytes(struct bitmap *bmp)
+{
+    return bitmap_get_nbytes(bmp);
+}
 
 /**
  * \brief sets all bits of a bitmask to 1
@@ -154,7 +196,11 @@ size_t numa_bitmask_nbytes(struct numa_bm *bmp);
  *
  * \returns the bitmask
  */
-struct numa_bm *numa_bitmask_setall(struct numa_bm *bmp);
+struct bitmap *numa_bitmask_setall(struct bitmap *bmp)
+{
+    bitmap_set_all(bmp);
+    return bmp;
+}
 
 /**
  * \brief sets the n-th bit of a bitmask to 1
@@ -164,7 +210,11 @@ struct numa_bm *numa_bitmask_setall(struct numa_bm *bmp);
  *
  * \returns the bitmask
  */
-struct numa_bm *numa_bitmask_setbit(struct numa_bm *bmp, unsigned int n);
+struct bitmap *numa_bitmask_setbit(struct bitmap *bmp, unsigned int n)
+{
+    bitmap_set_bit(bmp, n);
+    return bmp;
+}
 
 /**
  * \brief copies the bitmask to a nodemask
@@ -175,7 +225,10 @@ struct numa_bm *numa_bitmask_setbit(struct numa_bm *bmp, unsigned int n);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_bitmask_to_nodemask(struct numa_bm *bmp, nodemask_t *nodemask);
+void copy_bitmask_to_nodemask(struct bitmap *bmp, nodemask_t *nodemask)
+{
+    assert(!"NYI*");
+}
 
 /**
  * \brief copies the contents of a nodemask into the bitmask
@@ -186,7 +239,11 @@ void copy_bitmask_to_nodemask(struct numa_bm *bmp, nodemask_t *nodemask);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct numa_bm *bmp);
+void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct bitmap *bmp)
+{
+    assert(!"NYI*");
+}
+
 
 /**
  * \brief copies one bitmask into another
@@ -197,7 +254,10 @@ void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct numa_bm *bmp);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_bitmask_to_bitmask(struct numa_bm *bmpfrom, struct numa_bm *bmpto);
+void copy_bitmask_to_bitmask(struct bitmap *bmpfrom, struct bitmap *bmpto)
+{
+    bitmap_copy(bmpto, bmpfrom);
+}
 
 /**
  * \brief returns a count of the bits that are set in the body of the bitmask
@@ -206,5 +266,8 @@ void copy_bitmask_to_bitmask(struct numa_bm *bmpfrom, struct numa_bm *bmpto);
  *
  * \return number of set bits in this bitmask
  */
-uint32_t numa_bitmask_weight(const struct numa_bm *bmp);
+uint32_t numa_bitmask_weight(const struct bitmap *bmp)
+{
+    return bitmap_get_weight(bmp);
+}
 

@@ -19,7 +19,7 @@
 #include <barrelfish/barrelfish.h>
 
 #include <numa.h>
-
+#include <bitmap.h>
 #include "numa_internal.h"
 
 uint8_t numa_initialized = 0x0;
@@ -28,18 +28,18 @@ uint8_t numa_initialized = 0x0;
  * \brief bitmask that is allocated by the library with bits representing all nodes
  *        on which the calling task may allocate memory.
  */
-struct numa_bm *numa_all_nodes_ptr;
+struct bitmap *numa_all_nodes_ptr;
 
 /**
  * \brief points to a bitmask that is allocated by the library and left all zeroes.
  */
-struct numa_bm *numa_no_nodes_ptr;
+struct bitmap *numa_no_nodes_ptr;
 
 /**
  * \brief points to a bitmask that is allocated by the library with bits
  *        representing all cpus on which the calling task may execute.
  */
-struct numa_bm *numa_all_cpus_ptr;
+struct bitmap *numa_all_cpus_ptr;
 
 /**
  * \brief data structure representing the numa topology
@@ -74,6 +74,41 @@ errval_t numa_available(void)
 
 #if NUMA_DEBUG_ENABLED
     numa_dump_topology(&numa_topology);
+#endif
+
+    numa_all_cpus_ptr = numa_allocate_cpumask();
+    if(numa_all_cpus_ptr == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    for (coreid_t i = 0; i < numa_topology.num_cores; ++i) {
+        bitmap_set_bit(numa_all_cpus_ptr, numa_topology.cores[i]->id);
+    }
+
+#if NUMA_DEBUG_ENABLED
+    bitmap_dump(numa_all_cpus_ptr);
+#endif
+
+    numa_all_nodes_ptr = numa_allocate_nodemask();
+    if(numa_all_nodes_ptr == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    for (nodeid_t i = 0; i < numa_topology.num_nodes; ++i) {
+        bitmap_set_bit(numa_all_nodes_ptr, numa_topology.nodes[i].id);
+    }
+
+#if NUMA_DEBUG_ENABLED
+    bitmap_dump(numa_all_nodes_ptr);
+#endif
+
+    numa_no_nodes_ptr = numa_allocate_nodemask();
+    if(numa_no_nodes_ptr == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+#if NUMA_DEBUG_ENABLED
+    bitmap_dump(numa_no_nodes_ptr);
 #endif
 
     numa_initialized = 0x1;
@@ -158,12 +193,12 @@ nodeid_t numa_num_configured_nodes(void)
  * returns the mask of nodes from which the process is allowed to allocate memory
  * in it's current cpuset context.
  */
-struct numa_bm *numa_get_mems_allowed(void)
+struct bitmap *numa_get_mems_allowed(void)
 {
     numa_check_init();
 
-    assert(!"NYI");
-    return 0;
+    /* we don't have restriction yet. */
+    return numa_all_nodes_ptr;
 }
 
 /**
@@ -309,7 +344,7 @@ errval_t numa_run_on_node(nodeid_t node)
  * \returns SYS_ERR_OK on SUCCESS
  *          errval on FAILURE
  */
-errval_t numa_run_on_node_mask(struct numa_bm *nodemask)
+errval_t numa_run_on_node_mask(struct bitmap *nodemask)
 {
     numa_check_init();
 
@@ -323,7 +358,7 @@ errval_t numa_run_on_node_mask(struct numa_bm *nodemask)
  *
  * \returns bitmap represening the coreids the domain is allowed to run
  */
-struct numa_bm *numa_get_run_node_mask(void)
+struct bitmap *numa_get_run_node_mask(void)
 {
     numa_check_init();
 
@@ -401,7 +436,7 @@ uint32_t numa_distance(nodeid_t from, nodeid_t to)
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask)
+errval_t numa_sched_getaffinity(domainid_t did, struct bitmap *mask)
 {
     numa_check_init();
 
@@ -419,7 +454,7 @@ errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask)
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t numa_sched_setaffinity(domainid_t did, struct numa_bm *mask)
+errval_t numa_sched_setaffinity(domainid_t did, struct bitmap *mask)
 {
     numa_check_init();
 
@@ -454,12 +489,30 @@ size_t numa_pagesize(void)
  * The user must pass a bitmask structure with a mask buffer long enough to
  * represent all possible cpu's
  */
-errval_t numa_node_to_cpus(nodeid_t node, struct numa_bm *mask)
+errval_t numa_node_to_cpus(nodeid_t node, struct bitmap *mask)
 {
     numa_check_init();
 
-    assert(!"NYI");
-    return 0;
+    if (!(node < numa_topology.num_nodes)) {
+        return NUMA_ERR_NODEID_INVALID;
+    }
+
+    if (bitmap_get_nbits(mask) < numa_topology.num_cores) {
+        return NUMA_ERR_BITMAP_RANGE;
+    }
+
+    bitmap_clear_all(mask);
+
+    struct numa_node *nnode = &numa_topology.nodes[node];
+    for (coreid_t i = 0; i < nnode->num_cores; ++i) {
+        bitmap_set_bit(mask, nnode->cores[i].id);
+    }
+
+#if NUMA_DEBUG_ENABLED
+    bitmap_dump(mask);
+#endif
+
+    return SYS_ERR_OK;
 }
 
 
@@ -478,4 +531,23 @@ nodeid_t numa_node_of_cpu(coreid_t cpu)
     numa_check_core_id(cpu);
 
     return numa_topology.cores[cpu]->node->id;
+}
+
+
+/**
+ * \brief gets the number of cores for the given numa node
+ *
+ * \param node NUMA node to get the number of cores
+ *
+ * \returns number of cores for the node
+ */
+coreid_t numa_num_node_cpus(nodeid_t node)
+{
+    if (node >= numa_topology.num_nodes) {
+        NUMA_WARNING("Node ID exceeds number of available nodes: %" PRIuNODEID "/%"
+                      PRIuNODEID, node, numa_topology.num_nodes);
+        return 0;
+    }
+
+    return numa_topology.nodes[node].num_cores;
 }

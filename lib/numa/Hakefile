@@ -13,12 +13,13 @@
     cFiles = [ 
         "numa.c",
         "alloc.c",
+        "numa_bitmap.c", 
         "policy.c",
         "utilities.c" 
     ],
     addLibraries = libDeps [
-        "skb"
+        "skb",
+        "bitmap"
     ]
-    
   }
 ]

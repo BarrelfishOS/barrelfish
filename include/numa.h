@@ -45,12 +45,8 @@ typedef enum numa_policy {
     NUMA_POLICY_PREFERRED  ///< preferred memory policy
 } numa_policy_t;
 
-struct numa_bm {
-
-};
-
 ///< typedef for the nodemask
-typedef uint32_t nodemask_t;
+typedef struct bitmask nodemask_t;
 
 /**
  * \brief checks if numa support is available
@@ -122,7 +118,7 @@ nodeid_t numa_num_configured_nodes(void);
  * returns the mask of nodes from which the process is allowed to allocate memory
  * in it's current cpuset context.
  */
-struct numa_bm *numa_get_mems_allowed(void);
+struct bitmap *numa_get_mems_allowed(void);
 
 /**
  * \brief returns the total numberof CPUs in the system
@@ -138,18 +134,18 @@ coreid_t numa_num_configured_cpus(void);
  * \brief bitmask that is allocated by the library with bits representing all nodes
  *        on which the calling task may allocate memory.
  */
-extern struct numa_bm *numa_all_nodes_ptr;
+extern struct bitmap *numa_all_nodes_ptr;
 
 /**
  * \brief points to a bitmask that is allocated by the library and left all zeroes.
  */
-extern struct numa_bm *numa_no_nodes_ptr;
+extern struct bitmap *numa_no_nodes_ptr;
 
 /**
  * \brief points to a bitmask that is allocated by the library with bits
  *        representing all cpus on which the calling task may execute.
  */
-extern struct numa_bm *numa_all_cpus_ptr;
+extern struct bitmap *numa_all_cpus_ptr;
 
 /**
  * \brief returns the number of cpus that the calling domain is allowed to use.
@@ -179,7 +175,7 @@ nodeid_t numa_num_task_nodes(void);
  *
  * XXX according to the man pages this function is only used internally
  */
-errval_t numa_parse_bitmap(char *line, struct numa_bm *mask);
+errval_t numa_parse_bitmap(char *line, struct bitmap *mask);
 
 /**
  * \brief parses a character string list of nodes into a bit mask.
@@ -194,7 +190,7 @@ errval_t numa_parse_bitmap(char *line, struct numa_bm *mask);
  *
  * If the string length is zero, then the numa_no_nodes_ptr is returned
  */
-struct numa_bm *numa_parse_nodestring(char *string);
+struct bitmap *numa_parse_nodestring(char *string);
 
 /**
  * \brief parses a character string list of cpus into a bit mask.
@@ -207,7 +203,7 @@ struct numa_bm *numa_parse_nodestring(char *string);
  * The string is a comma-separated list of cpu numbers or cpu ranges
  * Examples: 1-5,7,10 !4-5 +0-3
  */
-struct numa_bm *numa_parse_cpustring(char *string);
+struct bitmap *numa_parse_cpustring(char *string);
 
 /**
  * \brief obtains the size of a node
@@ -260,7 +256,7 @@ void numa_set_preferred(nodeid_t node);
  * returns the current interleave mask if the task's memory allocation policy is
  * page interleaved. Otherwise, this function returns an empty mask.
  */
-struct numa_bm *numa_get_interleave_mask(void);
+struct bitmap *numa_get_interleave_mask(void);
 
 /**
  * \brief sets the memory interleave mask for the current task to nodemask
@@ -272,14 +268,14 @@ struct numa_bm *numa_get_interleave_mask(void);
  *
  * This bitmask is considered to be a hint. Fallback to other nodes may be possible
  */
-void numa_set_interleave_mask(struct numa_bm *nodemask);
+void numa_set_interleave_mask(struct bitmap *nodemask);
 
 /**
  * \brief binds the current task and its children to the nodes specified in nodemask.
  *
  * \param nodemask  bitmap representing the nodes
  */
-void numa_bind(struct numa_bm *nodemask);
+void numa_bind(struct bitmap *nodemask);
 
 /**
  * \brief sets the memory allocation policy for the calling task to local allocation.
@@ -295,14 +291,14 @@ void numa_set_localalloc(void);
  *
  * an empty mask or not allowed nodes in the mask will result in an error
  */
-errval_t numa_set_membind(struct numa_bm *nodemask);
+errval_t numa_set_membind(struct bitmap *nodemask);
 
 /**
  * \brief returns the mask of nodes from which memory can currently be allocated.
  *
  * \return bitmap of nodes from which can be allocated
  */
-struct numa_bm *numa_get_membind(void);
+struct bitmap *numa_get_membind(void);
 
 /**
  * \brief allocates memory on a specific node.
@@ -351,7 +347,7 @@ void *numa_alloc_interleaved(size_t size);
  * should only be used for large areas consisting of multiple pages.
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_interleaved_subset(size_t size, struct numa_bm *nodemask);
+void *numa_alloc_interleaved_subset(size_t size, struct bitmap *nodemask);
 
 /**
  * \brief allocates size bytes of memory with the current NUMA policy.
@@ -444,14 +440,14 @@ errval_t numa_run_on_node(nodeid_t node);
  * \returns SYS_ERR_OK on SUCCESS
  *          errval on FAILURE
  */
-errval_t numa_run_on_node_mask(struct numa_bm *nodemask);
+errval_t numa_run_on_node_mask(struct bitmap *nodemask);
 
 /**
  * \brief returns a mask of CPUs on which the current task is allowed to run.
  *
  * \returns bitmap represening the coreids the domain is allowed to run
  */
-struct numa_bm *numa_get_run_node_mask(void);
+struct bitmap *numa_get_run_node_mask(void);
 
 /**
  * \brief specify the memory bind policy
@@ -495,7 +491,7 @@ uint32_t numa_distance(nodeid_t from, nodeid_t to);
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask);
+errval_t numa_sched_getaffinity(domainid_t did, struct bitmap *mask);
 
 /**
  * \brief sets a domain's allowed cpu's to those cpu's specified in mask.
@@ -506,7 +502,7 @@ errval_t numa_sched_getaffinity(domainid_t did, struct numa_bm *mask);
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t numa_sched_setaffinity(domainid_t did, struct numa_bm *mask);
+errval_t numa_sched_setaffinity(domainid_t did, struct bitmap *mask);
 
 /**
  * \brief returns the page size
@@ -527,7 +523,25 @@ size_t numa_pagesize(void);
  * The user must pass a bitmask structure with a mask buffer long enough to
  * represent all possible cpu's
  */
-errval_t numa_node_to_cpus(nodeid_t node, struct numa_bm *mask);
+errval_t numa_node_to_cpus(nodeid_t node, struct bitmap *mask);
+
+
+/**
+ * \brief gets the number of cores for the given numa node
+ *
+ * \param node NUMA node to get the number of cores
+ *
+ * \returns number of cores for the node
+ */
+coreid_t numa_num_node_cpus(nodeid_t node);
+
+/**
+ * \brief gets the system's core ID for a node/local core id configuration
+ *
+ * \param
+ */
+coreid_t numa_node_get_core(nodeid_t node, coreid_t local_core_id);
+
 
 /**
  * \brief returns the node that a cpu belongs to
@@ -545,14 +559,14 @@ nodeid_t numa_node_of_cpu(coreid_t cpu);
  * \returns pointer to a new bitmask
  *          NULL on failure
  */
-struct numa_bm *numa_allocate_cpumask(void);
+struct bitmap *numa_allocate_cpumask(void);
 
 /**
  * \brief frees a previously allocated CPU bitmask
  *
  * \param cpumask pointer to a previously allocated CPU bitmask
  */
-void numa_free_cpumask(struct numa_bm *cpumask);
+void numa_free_cpumask(struct bitmap *cpumask);
 
 /**
  * \brief allocates a bit mask to represent the nodes in the system
@@ -560,14 +574,14 @@ void numa_free_cpumask(struct numa_bm *cpumask);
  * \returns pointer to a new bitmask
  *          NULL on failure
  */
-struct numa_bm *numa_allocate_nodemask(void);
+struct bitmap *numa_allocate_nodemask(void);
 
 /**
  * \brief frees a previously allocated node bitmask
  *
  * \param nodemask pointer to a previously allocated node bitmask
  */
-void numa_free_nodemask(struct numa_bm *nodemask);
+void numa_free_nodemask(struct bitmap *nodemask);
 
 /**
  * \brief allocates a bitmask structure and its associated bit mask
@@ -577,7 +591,7 @@ void numa_free_nodemask(struct numa_bm *nodemask);
  * \returns pointer to the bitmask
  *          NULL on error
  */
-struct numa_bm *numa_bitmask_alloc(unsigned int n);
+struct bitmap *numa_bitmask_alloc(unsigned int n);
 
 /**
  * \brief sets all bits in the bit mask to 0.
@@ -586,7 +600,7 @@ struct numa_bm *numa_bitmask_alloc(unsigned int n);
  *
  * \returns pointer to the cleared bit map
  */
-struct numa_bm *numa_bitmask_clearall(struct numa_bm *bmp);
+struct bitmap *numa_bitmask_clearall(struct bitmap *bmp);
 
 /**
  * \brief clears the n-th bit of a bitmask
@@ -596,7 +610,7 @@ struct numa_bm *numa_bitmask_clearall(struct numa_bm *bmp);
  *
  * \returns pointer to the bitmask
  */
-struct numa_bm *numa_bitmask_clearbit(struct numa_bm *bmp, unsigned int n);
+struct bitmap *numa_bitmask_clearbit(struct bitmap *bmp, unsigned int n);
 
 /**
  * \brief checks if two bitmasks are equal
@@ -607,14 +621,14 @@ struct numa_bm *numa_bitmask_clearbit(struct numa_bm *bmp, unsigned int n);
  * \return TRUE if the bitmasks are equal
  *         FALSE if the are distinct
  */
-bool numa_bitmask_equal(const struct numa_bm *bmp1, const struct numa_bm *bmp2);
+bool numa_bitmask_equal(const struct bitmap *bmp1, const struct bitmap *bmp2);
 
 /**
  * \brief frees the memory of a bitmask
  *
  * \param bmp the bitmask to be freed
  */
-void numa_bitmask_free(struct numa_bm *bmp);
+void numa_bitmask_free(struct bitmap *bmp);
 
 /**
  * \brief checks if the n-th bit is set in the bitmask
@@ -625,7 +639,7 @@ void numa_bitmask_free(struct numa_bm *bmp);
  * \returns TRUE if the n-th bit is set
  *          FALSE otherwise
  */
-bool numa_bitmask_isbitset(const struct numa_bm *bmp, unsigned int n);
+bool numa_bitmask_isbitset(const struct bitmap *bmp, unsigned int n);
 
 /**
  * \brief returns the size (in bytes) of the bit mask
@@ -634,7 +648,7 @@ bool numa_bitmask_isbitset(const struct numa_bm *bmp, unsigned int n);
  *
  * \returns the size of the memory in bytes rounded up to a multiple of wordsize
  */
-size_t numa_bitmask_nbytes(struct numa_bm *bmp);
+size_t numa_bitmask_nbytes(struct bitmap *bmp);
 
 /**
  * \brief sets all bits of a bitmask to 1
@@ -643,7 +657,7 @@ size_t numa_bitmask_nbytes(struct numa_bm *bmp);
  *
  * \returns the bitmask
  */
-struct numa_bm *numa_bitmask_setall(struct numa_bm *bmp);
+struct bitmap *numa_bitmask_setall(struct bitmap *bmp);
 
 /**
  * \brief sets the n-th bit of a bitmask to 1
@@ -653,7 +667,7 @@ struct numa_bm *numa_bitmask_setall(struct numa_bm *bmp);
  *
  * \returns the bitmask
  */
-struct numa_bm *numa_bitmask_setbit(struct numa_bm *bmp, unsigned int n);
+struct bitmap *numa_bitmask_setbit(struct bitmap *bmp, unsigned int n);
 
 /**
  * \brief copies the bitmask to a nodemask
@@ -664,7 +678,7 @@ struct numa_bm *numa_bitmask_setbit(struct numa_bm *bmp, unsigned int n);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_bitmask_to_nodemask(struct numa_bm *bmp, nodemask_t *nodemask);
+void copy_bitmask_to_nodemask(struct bitmap *bmp, nodemask_t *nodemask);
 
 /**
  * \brief copies the contents of a nodemask into the bitmask
@@ -675,7 +689,7 @@ void copy_bitmask_to_nodemask(struct numa_bm *bmp, nodemask_t *nodemask);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct numa_bm *bmp);
+void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct bitmap *bmp);
 
 /**
  * \brief copies one bitmask into another
@@ -686,7 +700,7 @@ void copy_nodemask_to_bitmask(nodemask_t *nodemask, struct numa_bm *bmp);
  * If the two areas differ in size, the copy is truncated to the size of the
  * receiving field or zero-filled.
  */
-void copy_bitmask_to_bitmask(struct numa_bm *bmpfrom, struct numa_bm *bmpto);
+void copy_bitmask_to_bitmask(struct bitmap *bmpfrom, struct bitmap *bmpto);
 
 /**
  * \brief returns a count of the bits that are set in the body of the bitmask
@@ -695,7 +709,7 @@ void copy_bitmask_to_bitmask(struct numa_bm *bmpfrom, struct numa_bm *bmpto);
  *
  * \return number of set bits in this bitmask
  */
-uint32_t numa_bitmask_weight(const struct numa_bm *bmp);
+uint32_t numa_bitmask_weight(const struct bitmap *bmp);
 
 /**
  * \brief  moves a list of pages in the address space of the current domain
@@ -725,8 +739,8 @@ errval_t numa_move_pages(domainid_t did,
  * \returns SYS_ERR_OK on SUCCESS
  */
 errval_t numa_migrate_pages(domainid_t did,
-                            struct numa_bm *fromnodes,
-                            struct numa_bm *tonodes);
+                            struct bitmap *fromnodes,
+                            struct bitmap *tonodes);
 
 /**
  * is a libnuma internal function that can be overridden by the user program. This

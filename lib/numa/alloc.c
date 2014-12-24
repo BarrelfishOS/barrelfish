@@ -29,7 +29,7 @@
  * returns the current interleave mask if the task's memory allocation policy is
  * page interleaved. Otherwise, this function returns an empty mask.
  */
-struct numa_bm *numa_get_interleave_mask(void)
+struct bitmap *numa_get_interleave_mask(void)
 {
     assert(!"NYI");
     return 0;
@@ -46,7 +46,7 @@ struct numa_bm *numa_get_interleave_mask(void)
  *
  * This bitmask is considered to be a hint. Fallback to other nodes may be possible
  */
-void numa_set_interleave_mask(struct numa_bm *nodemask)
+void numa_set_interleave_mask(struct bitmap *nodemask)
 {
     assert(!"NYI");
 }
@@ -57,7 +57,7 @@ void numa_set_interleave_mask(struct numa_bm *nodemask)
  *
  * \param nodemask  bitmap representing the nodes
  */
-void numa_bind(struct numa_bm *nodemask)
+void numa_bind(struct bitmap *nodemask)
 {
     assert(!"NYI");
 }
@@ -81,7 +81,7 @@ void numa_set_localalloc(void)
  *
  * an empty mask or not allowed nodes in the mask will result in an error
  */
-errval_t numa_set_membind(struct numa_bm *nodemask)
+errval_t numa_set_membind(struct bitmap *nodemask)
 {
     assert(!"NYI");
     return 0;
@@ -93,7 +93,7 @@ errval_t numa_set_membind(struct numa_bm *nodemask)
  *
  * \return bitmap of nodes from which can be allocated
  */
-struct numa_bm *numa_get_membind(void){
+struct bitmap *numa_get_membind(void){
     assert(!"NYI");
     return 0;
 }
@@ -162,7 +162,7 @@ void *numa_alloc_interleaved(size_t size)
  * should only be used for large areas consisting of multiple pages.
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_interleaved_subset(size_t size, struct numa_bm *nodemask)
+void *numa_alloc_interleaved_subset(size_t size, struct bitmap *nodemask)
 {
     assert(!"NYI");
     return 0;
@@ -281,8 +281,8 @@ errval_t numa_move_pages(domainid_t did,
  * \returns SYS_ERR_OK on SUCCESS
  */
 errval_t numa_migrate_pages(domainid_t did,
-                            struct numa_bm *fromnodes,
-                            struct numa_bm *tonodes)
+                            struct bitmap *fromnodes,
+                            struct bitmap *tonodes)
 {
     assert(!"NYI");
     return 0;
