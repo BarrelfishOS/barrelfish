@@ -49,6 +49,11 @@ errval_t skb_client_connect(void)
     iref_t iref;
     struct skb_state *skb_state = get_skb_state();
 
+    /* check if the RPC client alreay has been initialized */
+    if (skb_state->skb != NULL) {
+        return SYS_ERR_OK;
+    }
+
     err = nameservice_blocking_lookup("skb", &iref);
     if (err_is_fail(err)) {
         return err;
