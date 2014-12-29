@@ -518,21 +518,6 @@ int omp_is_initial_device(void)
 #ifdef BARRELFISH
 #include <barrelfish/threads.h>
 #include <barrelfish/thread_sync.h>
-
-/// internal declaration of a simple lock
-struct __omp_lock
-{
-    struct thread_mutex mutex;
-    uint8_t initialized;
-};
-
-struct __omp_nested_lock
-{
-    struct thread_mutex mutex;
-    uint32_t count;
-    void *owner;
-    uint8_t initialized;
-};
 #else
 #include <pthread.h>
 /// internal declaration of a simple lock
@@ -564,17 +549,11 @@ struct __omp_nested_lock
  * The effect of these routines is to initialize the lock to the unlocked state;
  * that is, no task owns the lock.
  */
-void omp_init_lock(omp_lock_t *arg)
+void omp_init_lock(omp_lock_t *lock)
 {
-    struct __omp_lock *lock = NULL;
 #ifdef BARRELFISH
     switch (g_bomp_state->backend_type) {
         case BOMP_BACKEND_BOMP:
-            lock = calloc(1, sizeof(struct __omp_lock));
-            if (lock == NULL) {
-                printf("failed to allocate lock\n");
-                abort();
-            }
             thread_mutex_init(&lock->mutex);
             break;
         case BOMP_BACKEND_XOMP:
@@ -585,15 +564,9 @@ void omp_init_lock(omp_lock_t *arg)
             break;
     }
 #else
-    lock = calloc(1, sizeof(struct __omp_lock));
-    if (lock == NULL) {
-        printf("failed to allocate lock\n");
-        abort();
-    }
     pthread_mutex_init(&lock->mutex, NULL);
 #endif
     lock->initialized = 0x1;
-    *arg = (omp_lock_t) lock;
 }
 
 /**
@@ -610,7 +583,6 @@ void omp_destroy_lock(omp_lock_t *arg)
 #ifdef BARRELFISH
     switch (g_bomp_state->backend_type) {
         case BOMP_BACKEND_BOMP:
-            free(lock);
             break;
         case BOMP_BACKEND_XOMP:
             assert("NYI");
@@ -621,9 +593,7 @@ void omp_destroy_lock(omp_lock_t *arg)
     }
 #else
     pthread_mutex_destroy(&lock->mutex);
-    free(lock);
 #endif
-    *arg = NULL;
 }
 
 /**
@@ -634,7 +604,7 @@ void omp_destroy_lock(omp_lock_t *arg)
  * Each of these routines causes suspension of the task executing the routine
  * until the specified lock is available and then sets the lock.
  */
-void omp_set_lock(omp_lock_t arg)
+void omp_set_lock(omp_lock_t *arg)
 {
     struct __omp_lock *lock = (struct __omp_lock *) arg;
     assert(lock->initialized);
@@ -653,7 +623,7 @@ void omp_set_lock(omp_lock_t arg)
  * For a simple lock, the omp_unset_lock routine causes the lock to become
  * unlocked.
  */
-void omp_unset_lock(omp_lock_t arg)
+void omp_unset_lock(omp_lock_t *arg)
 {
     struct __omp_lock *lock = (struct __omp_lock *) arg;
     assert(lock->initialized);
@@ -678,7 +648,7 @@ void omp_unset_lock(omp_lock_t arg)
  * For a simple lock, the omp_test_lock routine returns true if the lock is
  * successfully set; otherwise, it returns false.
  */
-int omp_test_lock(omp_lock_t arg)
+int omp_test_lock(omp_lock_t *arg)
 {
     struct __omp_lock *lock = (struct __omp_lock *) arg;
     assert(lock->initialized);
@@ -704,15 +674,10 @@ int omp_test_lock(omp_lock_t arg)
  */
 void omp_init_nest_lock(omp_nest_lock_t *arg)
 {
-    struct __omp_nested_lock *nlock = NULL;
+    struct __omp_nested_lock *nlock = arg;
 #ifdef BARRELFISH
     switch (g_bomp_state->backend_type) {
         case BOMP_BACKEND_BOMP:
-            nlock = calloc(1, sizeof(struct __omp_nested_lock));
-            if (nlock == NULL) {
-                printf("failed to allocate lock\n");
-                abort();
-            }
             thread_mutex_init(&nlock->mutex);
             break;
         case BOMP_BACKEND_XOMP:
@@ -733,8 +698,6 @@ void omp_init_nest_lock(omp_nest_lock_t *arg)
     nlock->owner = NULL;
     nlock->count = 0;
     nlock->initialized = 1;
-
-    *arg = (omp_lock_t) nlock;
 }
 
 /**
@@ -751,7 +714,6 @@ void omp_destroy_nest_lock(omp_nest_lock_t *arg)
 #ifdef BARRELFISH
     switch (g_bomp_state->backend_type) {
         case BOMP_BACKEND_BOMP:
-            free(nlock);
             break;
         case BOMP_BACKEND_XOMP:
             assert("NYI");
@@ -764,7 +726,6 @@ void omp_destroy_nest_lock(omp_nest_lock_t *arg)
     pthread_mutex_destroy(&lock->mutex);
     free(nlock);
 #endif
-    *arg = NULL;
 }
 
 /**
@@ -780,7 +741,7 @@ void omp_destroy_nest_lock(omp_nest_lock_t *arg)
  * or retains, ownership of the lock, and the nesting count for the lock is
  * incremented.
  */
-void omp_set_nest_lock(omp_nest_lock_t arg)
+void omp_set_nest_lock(omp_nest_lock_t *arg)
 {
     struct __omp_nested_lock *nlock = (struct __omp_nested_lock *) arg;
     assert(nlock->initialized);
@@ -808,7 +769,7 @@ void omp_set_nest_lock(omp_nest_lock_t arg)
  * count, and causes the lock to become unlocked if the resulting nesting count
  * is zero.
  */
-void omp_unset_nest_lock(omp_nest_lock_t arg)
+void omp_unset_nest_lock(omp_nest_lock_t *arg)
 {
     struct __omp_nested_lock *nlock = (struct __omp_nested_lock *) arg;
     assert(nlock->initialized);
@@ -839,7 +800,7 @@ void omp_unset_nest_lock(omp_nest_lock_t arg)
  * For a nestable lock, the omp_test_nest_lock routine returns the new nesting
  * count if the lock is successfully set; otherwise, it returns zero.
  */
-int omp_test_nest_lock(omp_nest_lock_t arg)
+int omp_test_nest_lock(omp_nest_lock_t *arg)
 {
     struct __omp_nested_lock *nlock = (struct __omp_nested_lock *) arg;
     assert(nlock->initialized);
