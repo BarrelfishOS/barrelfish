@@ -48,7 +48,7 @@ struct xeon_phi_dma_channel;
 /**
  * \brief pointer type conversion
  */
-static inline struct xeon_phi_dma_device *dma_device_to_ioat(struct dma_device *dev)
+static inline struct xeon_phi_dma_device *dma_device_to_xeon_phi(struct dma_device *dev)
 {
     return (struct xeon_phi_dma_device *) dev;
 }

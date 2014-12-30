@@ -199,8 +199,9 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
 
     req->common.setup = *setup;
 
-    *id = req->common.id;
-
+    if (id) {
+        *id = req->common.id;
+    }
     /* set the request pointer in the last descriptor */
     dma_desc_set_request(desc, &req->common);
 

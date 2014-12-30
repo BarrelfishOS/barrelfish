@@ -42,10 +42,5 @@ typedef enum dma_client_st
 } dma_client_st_t;
 
 
-/**
- * \brief initializes the DMA library
- */
-errval_t ioat_dma_init(uint8_t dca_enabled);
-
 
 #endif  /* LIB_DMA_CLIENT_H */
