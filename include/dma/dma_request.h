@@ -29,6 +29,7 @@ typedef enum dma_req_type
     DMA_REQ_TYPE_MEM_REMOVE,   ///<
     DMA_REQ_TYPE_NOP,          ///< NULL / NOP request
     DMA_REQ_TYPE_MEMCPY,       ///< Memcpy request
+    DMA_REQ_TYPE_MEMSET,       ///< Memset request
     DMA_REQ_TYPE_STATUS,
     DMA_REQ_TYPE_GENERAL,
     DMA_REQ_TYPE_KEYNON,
@@ -66,6 +67,15 @@ struct dma_req_setup
             uint8_t ctrl_intr :1;  ///< do an interrupt upon completion
             uint8_t ctrl_fence :1; ///< do a mem fence upon completion
         } memcpy;                  ///< memcpy request
+
+        struct
+        {
+            lpaddr_t dst;          ///< source physical address
+            uint64_t val;          ///< value to set
+            size_t bytes;          ///< size of the transfer in bytes
+            uint8_t ctrl_intr :1;  ///< do an interrupt upon completion
+            uint8_t ctrl_fence :1; ///< do a mem fence upon completion
+        } memset;                  ///< memcpy request
         struct {
 
         } nop;
@@ -181,6 +191,33 @@ errval_t dma_request_memcpy_chan(struct dma_channel *chan,
  *          errval on error
  */
 errval_t dma_request_memcpy(struct dma_device *dev,
+                            struct dma_req_setup *setup,
+                            dma_req_id_t *id);
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param chan  DMA channel
+ * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memset_chan(struct dma_channel *chan,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id);
+
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param dev   DMA device
+ * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memset(struct dma_device *dev,
                             struct dma_req_setup *setup,
                             dma_req_id_t *id);
 

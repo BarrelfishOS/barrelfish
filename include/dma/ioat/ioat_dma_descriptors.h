@@ -52,7 +52,23 @@ void ioat_dma_desc_fill_memcpy(struct dma_descriptor *desc,
                                lpaddr_t dst,
                                uint32_t size,
                                ioat_dma_desc_ctrl_t ctrl);
-
+/**
+ * \brief initializes the hardware specific part of the descriptor
+ *
+ * \param desc  IOAT DMA descriptor
+ * \param src   Source address of the transfer
+ * \param dst   destination address of the transfer
+ * \param size  number of bytes to copy
+ * \param ctrl  control flags
+ *
+ * XXX: this function assumes that the size of the descriptor has already been
+ *      checked and must match the maximum transfer size of the channel
+ */
+void ioat_dma_desc_fill_memset(struct dma_descriptor *desc,
+                               uint64_t data,
+                               lpaddr_t dst,
+                               uint32_t size,
+                               ioat_dma_desc_ctrl_t ctrl);
 /**
  * \brief initializes the hardware specific part of the descriptor to be used
  *        for nop descriptors (null descriptors)

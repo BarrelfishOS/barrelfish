@@ -21,6 +21,10 @@ typedef errval_t (*memcpy_fn_t)(struct dma_channel *chan,
                                 struct dma_req_setup *setup,
                                 dma_req_id_t *id);
 
+typedef errval_t (*memset_fn_t)(struct dma_channel *chan,
+                                struct dma_req_setup *setup,
+                                dma_req_id_t *id);
+
 typedef errval_t (*chan_poll_fn_t)(struct dma_channel *chan);
 
 /**
@@ -29,6 +33,7 @@ typedef errval_t (*chan_poll_fn_t)(struct dma_channel *chan);
 struct dma_channel_fn
 {
     memcpy_fn_t memcpy;
+    memset_fn_t memset;
     chan_poll_fn_t poll;
 };
 

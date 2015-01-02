@@ -248,3 +248,43 @@ errval_t dma_request_memcpy(struct dma_device *dev,
     return dma_request_memcpy_chan(chan, setup, id);
 }
 
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param chan  DMA channel
+ * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memset_chan(struct dma_channel *chan,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id)
+{
+    if (chan->f.memset == NULL) {
+        return DMA_ERR_REQUEST_UNSUPPORTED;
+    }
+
+    return chan->f.memset(chan, setup, id);
+}
+
+/**
+ * \brief issues a new DMA memcpy request based on the setup information
+ *
+ * \param dev   DMA device
+ * \param setup DMA request setup information
+ * \param id    returns the DMA request ID
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_request_memset(struct dma_device *dev,
+                            struct dma_req_setup *setup,
+                            dma_req_id_t *id)
+{
+    struct dma_channel *chan = dma_device_get_channel(dev);
+    return dma_request_memset_chan(chan, setup, id);
+}
+
+

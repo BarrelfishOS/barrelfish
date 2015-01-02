@@ -41,7 +41,34 @@ inline void ioat_dma_desc_fill_memcpy(struct dma_descriptor *desc,
     uint8_t *vbase = dma_desc_get_desc_handle(desc);
     ioat_dma_desc_size_insert(vbase, size);
     ioat_dma_desc_ctrl_insert(vbase, *((uint32_t *) ctrl));
+    ioat_dma_desc_ctrl_op_insert(ctrl, ioat_dma_desc_op_copy);
     ioat_dma_desc_src_insert(vbase, src);
+    ioat_dma_desc_dst_insert(vbase, dst);
+}
+
+/**
+ * \brief initializes the hardware specific part of the descriptor
+ *
+ * \param desc  IOAT DMA descriptor
+ * \param src   Source address of the transfer
+ * \param dst   destination address of the transfer
+ * \param size  number of bytes to copy
+ * \param ctrl  control flags
+ *
+ * XXX: this function assumes that the size of the descriptor has already been
+ *      checked and must match the maximum transfer size of the channel
+ */
+inline void ioat_dma_desc_fill_memset(struct dma_descriptor *desc,
+                                      uint64_t data,
+                                      lpaddr_t dst,
+                                      uint32_t size,
+                                      ioat_dma_desc_ctrl_t ctrl)
+{
+    uint8_t *vbase = dma_desc_get_desc_handle(desc);
+    ioat_dma_desc_size_insert(vbase, size);
+    ioat_dma_desc_ctrl_op_insert(ctrl, ioat_dma_desc_op_memset);
+    ioat_dma_desc_ctrl_insert(vbase, *((uint32_t *) ctrl));
+    ioat_dma_desc_src_insert(vbase, data);
     ioat_dma_desc_dst_insert(vbase, dst);
 }
 

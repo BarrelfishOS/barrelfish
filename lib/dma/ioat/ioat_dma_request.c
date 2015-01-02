@@ -183,7 +183,7 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
             req->desc_tail = desc;
 
             ioat_dma_desc_ctrl_fence_insert(ctrl, setup->args.memcpy.ctrl_fence);
-            ioat_dma_desc_ctrl_int_en_insert(ctrl, setup->args.memcpy.ctrl_intr);
+            ioat_dma_desc_ctrl_int_en_insert(ctrl, setup->args.memcpy.ctrl_intr);\
             ioat_dma_desc_ctrl_compl_write_insert(ctrl, 0x1);
         } else {
             bytes = max_xfer_size;
@@ -227,6 +227,112 @@ errval_t ioat_dma_request_memcpy(struct dma_device *dev,
 {
     struct dma_channel *chan = dma_device_get_channel(dev);
     return ioat_dma_request_memcpy_chan(chan, setup, id);
+}
+
+/**
+ * \brief issues a memcpy request to the given channel
+ *
+ * \param chan  IOAT DMA channel
+ * \param setup request setup information
+ * \param id    returns the generated request id
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_request_memset_chan(struct dma_channel *chan,
+                                      struct dma_req_setup *setup,
+                                      dma_req_id_t *id)
+{
+    assert(chan->device->type == DMA_DEV_TYPE_IOAT);
+
+    struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *) chan;
+
+    uint32_t num_desc = req_num_desc_needed(ioat_chan, setup->args.memset.bytes);
+
+    IOATREQ_DEBUG("DMA Memset request: [0x%016lx]->[0x%016lx] of %lu bytes (%u desc)\n",
+                  setup->args.memset.src, setup->args.memset.dst,
+                  setup->args.memset.bytes, num_desc);
+
+    struct dma_ring *ring = ioat_dma_channel_get_ring(ioat_chan);
+
+    if (num_desc > dma_ring_get_space(ring)) {
+        IOATREQ_DEBUG("Too less space in ring: %u / %u\n", num_desc,
+                      dma_ring_get_space(ring));
+        return DMA_ERR_NO_DESCRIPTORS;
+    }
+
+    struct ioat_dma_request *req = request_alloc();
+    if (req == NULL) {
+        IOATREQ_DEBUG("No request descriptors for holding request data\n");
+        return DMA_ERR_NO_REQUESTS;
+    }
+
+    dma_request_common_init(&req->common, chan, setup->type);
+
+    ioat_dma_desc_ctrl_array_t ctrl = {
+        0
+    };
+
+    struct dma_descriptor *desc;
+    size_t length = setup->args.memset.bytes;
+    lpaddr_t src_data = setup->args.memset.val;
+    lpaddr_t dst = setup->args.memset.dst;
+    size_t bytes, max_xfer_size = dma_channel_get_max_xfer_size(chan);
+    do {
+        desc = dma_ring_get_next_desc(ring);
+
+        if (!req->desc_head) {
+            req->desc_head = desc;
+        }
+        if (length <= max_xfer_size) {
+            /* the last one */
+            bytes = length;
+            req->desc_tail = desc;
+
+            ioat_dma_desc_ctrl_fence_insert(ctrl, setup->args.memset.ctrl_fence);
+            ioat_dma_desc_ctrl_int_en_insert(ctrl, setup->args.memset.ctrl_intr);
+            ioat_dma_desc_ctrl_compl_write_insert(ctrl, 0x1);
+        } else {
+            bytes = max_xfer_size;
+        }
+
+        ioat_dma_desc_fill_memset(desc, src_data, dst, bytes, ctrl);
+        dma_desc_set_request(desc, NULL);
+
+        length -= bytes;
+        dst += bytes;
+    } while (length > 0);
+
+    req->common.setup = *setup;
+
+    if (id) {
+        *id = req->common.id;
+    }
+    /* set the request pointer in the last descriptor */
+    dma_desc_set_request(desc, &req->common);
+
+    assert(req->desc_tail);
+    assert(dma_desc_get_request(req->desc_tail));
+
+    return ioat_dma_channel_submit_request(ioat_chan, req);
+}
+
+/**
+ * \brief issues a memset request to a channel of the given device
+ *
+ * \param dev   IOAT DMA device
+ * \param setup request setup information
+ * \param id    returns the generated request id
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_request_memset(struct dma_device *dev,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id)
+{
+    struct dma_channel *chan = dma_device_get_channel(dev);
+    return ioat_dma_request_memset_chan(chan, setup, id);
 }
 
 /**

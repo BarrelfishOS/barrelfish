@@ -1072,6 +1072,7 @@ device ioat_dma msbfirst ( addr cfg_base, addr bar ) "IOAT DMA (Crystal Beach) r
      */
     constants desc_opcodes "IOAT DMA Descriptor OP Codes" {
         desc_op_copy    = 0x00 "Copy Operation";
+        desc_op_memset  = 0x01 "Memset Operation";
         desc_op_xor     = 0x87 "For Xor Descriptor";
         desc_op_xor_val = 0x88 "For Xor descriptor";
     };

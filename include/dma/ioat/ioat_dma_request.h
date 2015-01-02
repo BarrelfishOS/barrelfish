@@ -59,6 +59,32 @@ errval_t ioat_dma_request_memcpy(struct dma_device *dev,
                                  dma_req_id_t *id);
 
 /**
+ * \brief issues a memcpy request to the given channel
+ *
+ * \param chan  IOAT DMA channel
+ * \param setup request setup information
+ * \param id    returns the generated request id
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_request_memset_chan(struct dma_channel *chan,
+                                      struct dma_req_setup *setup,
+                                      dma_req_id_t *id);
+/**
+ * \brief issues a memset request to a channel of the given device
+ *
+ * \param dev   IOAT DMA device
+ * \param setup request setup information
+ * \param id    returns the generated request id
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on failure
+ */
+errval_t ioat_dma_request_memset(struct dma_device *dev,
+                                 struct dma_req_setup *setup,
+                                 dma_req_id_t *id);
+/**
  * \brief issues a NOP / NULL descriptor request on the given channel
  *
  * \param chan  IOAT DMA channel

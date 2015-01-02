@@ -242,6 +242,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     dma_chan->state = DMA_CHAN_ST_PREPARED;
     dma_chan->f.memcpy = ioat_dma_request_memcpy_chan;
+    dma_chan->f.memset = ioat_dma_request_memset_chan;
     dma_chan->f.poll = ioat_dma_channel_poll;
 
     *ret_chan = chan;
@@ -490,6 +491,9 @@ errval_t ioat_dma_channel_poll(struct dma_channel *chan)
 
     if (ioat_dma_channel_is_halted(status)) {
         IOATCHAN_DEBUG("channel is in error state\n", chan->id);
+        char buf[512];
+        ioat_dma_chan_err_pr(buf, 512, &ioat_chan->channel);
+        printf("channel error: %s\n", buf);
         assert(!"NYI: error event handling");
     }
 
