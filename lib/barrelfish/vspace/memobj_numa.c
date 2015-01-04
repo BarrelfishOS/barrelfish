@@ -286,7 +286,7 @@ static errval_t pagefault(struct memobj *memobj,
 
         /* map the copy */
         err = pmap->f.map(pmap, base + vregion_offset + offset, copy,
-                          map_offset, mo_numa->stride, flags, NULL, NULL);
+                          map_offset, map_size, flags, NULL, NULL);
         if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MAP);
         }
