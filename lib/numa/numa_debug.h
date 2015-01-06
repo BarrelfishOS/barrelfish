@@ -22,7 +22,7 @@
 #ifndef NUMA_DEBUG_H_
 #define NUMA_DEBUG_H_
 
-#define NUMA_DEBUG_ENABLED 1
+#define NUMA_DEBUG_ENABLED 0
 
 #if NUMA_DEBUG_ENABLED
 #define NUMA_DEBUG_PRINT(x...) debug_printf(x);
