@@ -1048,7 +1048,7 @@ ahci_init_cb(void *st, errval_t err, struct ahci_binding *b)
 {
     TRACE_ENTER;
     struct fat_mount *mount = st;
-    
+
     if (err_is_fail(err)) {
         mount->bind_err = err;
         return;
@@ -1065,7 +1065,7 @@ ahci_close_cb(void *arg)
 
 #elif defined(__pandaboard__)
 
-static void 
+static void
 bind_cb(void *st, errval_t err, struct ata_rw28_binding *b)
 {
     printf("%s:%d\n", __FUNCTION__, __LINE__);
@@ -1075,7 +1075,7 @@ bind_cb(void *st, errval_t err, struct ata_rw28_binding *b)
     }
 
     struct fat_mount *mount = (struct fat_mount*) st;
-    
+
     err = ata_rw28_rpc_client_init(&mount->ata_rw28_rpc, b);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "RPC initialization failed");

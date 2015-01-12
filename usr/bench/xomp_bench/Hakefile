@@ -1,0 +1,53 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2010, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/bomp_benchmark
+--
+--------------------------------------------------------------------------
+
+let template =  application {
+    addCFlags = [ 
+        "-DBOMP", 
+        "-fopenmp" 
+    ],
+    addLibraries = [ 
+        "bomp", 
+        "bench", 
+        "trace" 
+    ],
+    architectures = [ 
+        "x86_64", 
+        "k1om" 
+    ]
+}
+in
+[ build template { 
+    target = "benchmarks/xomp_spawn", 
+    cFiles = [ 
+        "spawn_bench.c",
+        "common.c" 
+    ]
+    
+  },
+  
+  build template { 
+    target = "benchmarks/xomp_share", 
+    cFiles = [ 
+        "share_bench.c",
+        "common.c" 
+    ] 
+  },
+  
+  build template { 
+    target = "benchmarks/xomp_work", 
+    cFiles = [ 
+        "work_bench.c",
+        "common.c"
+    ]
+  }
+]

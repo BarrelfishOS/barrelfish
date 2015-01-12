@@ -78,7 +78,12 @@ _DEFUN(_remove_r, (ptr, filename),
   return 0;
 }
 
+/*
+
 #ifndef _REENT_ONLY
+
+ XXX: this function causes problems with posix's remove() defined in
+      libposixcompat
 
 int
 _DEFUN(remove, (filename),
@@ -88,3 +93,6 @@ _DEFUN(remove, (filename),
 }
 
 #endif
+*/
+
+

@@ -106,6 +106,7 @@ data Options = Options {
       optInterconnectDrivers :: [String],
       optFlounderBackends :: [String],
       extraFlags :: [String],
+      extraCxxFlags :: [String],
       extraDefines :: [String],
       extraIncludes :: [RuleToken],
       extraDependencies :: [RuleToken],

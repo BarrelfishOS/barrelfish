@@ -17,6 +17,7 @@
                "ata_rw28",
                "bcast",
                "bench",
+               "bomp",
                "boot_perfmon",
                "bulkbench",
                "diskd",

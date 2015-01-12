@@ -24,7 +24,28 @@ interface xomp "Xeon Phi openMP interface" {
     rpc add_memory(in cap frame,
                    in uint64 addr,
                    in uint8 type,
-                   out errval msgerr);
+                   out errval msgerr); 
+    
+    
+    /**
+     * \brief asks the worker domain to update its local replicate or to 
+     *        write its local changes back
+     *
+     * \param [IN]  addr        physical address of the frame to update
+     * \param [IN]  offset      offset into the frame
+     * \param [IN]  length      length of the region to update
+     * \param [IN]  direction   direction of the memcpy operation
+     * \param [IN]  state       state pointer 
+     * \param [OUT] msg_err     outcome of the operation
+     * \param [OUT] state       state pointer
+     */
+    rpc update_memory(in uint64 addr,
+                      in uint64 offset,
+                      in uint64 length,
+                      in uint8  direction,
+                      in uint64 state,
+                      out errval msg_err,
+                      out uint64 state);
 
     /**
      * \brief notifies the worker domain to obtain memory from the local

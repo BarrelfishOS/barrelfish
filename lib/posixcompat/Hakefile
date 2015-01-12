@@ -82,7 +82,14 @@
                              "epoll.c", 
                              "inet_ntop.c", 
                              "inet_pton.c" ],
-                  flounderDefs = [ "unixsock", "octopus", "monitor", "terminal" ],
+                  flounderDefs = [ 
+                        "unixsock", 
+                        "octopus", 
+                        "monitor", 
+                        "terminal",
+                        "terminal_config",
+                        "terminal_session"
+                  ],
                   flounderBindings = [ "unixsock", "octopus" ],
 		          flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
                   flounderTHCStubs = [ "octopus" ]

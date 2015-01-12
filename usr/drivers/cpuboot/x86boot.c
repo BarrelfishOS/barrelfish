@@ -18,7 +18,9 @@
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
 #include <barrelfish/deferred.h>
 
-
+#ifdef __k1om__
+#include <barrelfish_kpi/asm_inlines_arch.h>
+#endif
 #include <arch/x86/start_aps.h>
 #include <target/x86_64/offsets_target.h>
 #include <target/x86_32/offsets_target.h>
@@ -58,10 +60,11 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
     assert(step == 1 || step == 2 || step == 4);
 
     *apic_id = (core_id * step);
-    if (apic_id == my_arch_id) {
+    if (*apic_id == my_arch_id) {
         *apic_id += step;
     }
     *cpu_type = CPU_K1OM;
+    return SYS_ERR_OK;
 #else
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
@@ -162,14 +165,34 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 {
     DEBUG("%s:%d: start_aps_x86_64_start\n", __FILE__, __LINE__);
 
+    errval_t err;
+
     // Copy the startup code to the real-mode address
     uint8_t *real_src = (uint8_t *) &x86_64_start_ap;
     uint8_t *real_end = (uint8_t *) &x86_64_start_ap_end;
 
     struct capref bootcap;
+
+#ifdef __k1om__
+    struct capref realmodecap;
+
+    realmodecap.cnode = cnode_task;
+    realmodecap.slot  = TASKCN_SLOT_COREBOOT;
+    err = slot_alloc(&bootcap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Allocating a new slot");
+    }
+
+    err = cap_copy(bootcap, realmodecap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Copying capability");
+    }
+
+
+#else
     struct acpi_rpc_client* acl = get_acpi_rpc_client();
     errval_t error_code;
-    errval_t err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
+    err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
                                                     &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
@@ -177,6 +200,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     if (err_is_fail(error_code)) {
         USER_PANIC_ERR(error_code, "mm_alloc_range_proxy return failed.");
     }
+#endif
 
     void* real_base;
     err = vspace_map_one_frame(&real_base, 1<<16, bootcap, NULL, NULL);
@@ -232,9 +256,8 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     end = bench_tsc();
 
 #if  defined(__k1om__)
-    barrelfish_usleep(10*1000);
+    delay_ms(10);
 #endif
-
     err = invoke_send_init_ipi(ipi_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
@@ -242,7 +265,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     }
 
 #if  defined(__k1om__)
-    barrelfish_usleep(200*1000);
+    delay_ms(200);
 #endif
 
     // x86 protocol actually would like us to do this twice
@@ -272,7 +295,7 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
     return -1;
 }
 
-
+#ifndef __k1om__
 int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 {
     DEBUG("%s:%d: start_aps_x86_32_start\n", __FILE__, __LINE__);
@@ -376,6 +399,7 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
     assert(!"badness");
     return -1;
 }
+#endif
 
 /**
  * Allocates memory for kernel binary.
@@ -434,7 +458,8 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
                                     genpaddr_t arch_page_size)
 {
     switch (cpu_head->e_machine) {
-    case EM_X86_64: {
+    case EM_X86_64:
+    case EM_K1OM: {
         struct Elf64_Shdr *rela, *symtab, *symhead =
             (struct Elf64_Shdr *)(cpu_binary + (uintptr_t)cpu_head->e_shoff);
 
@@ -629,6 +654,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     struct x86_core_data *core_data = (struct x86_core_data *)cpu_buf_memory;
     switch (cpu_head->e_machine) {
     case EM_X86_64:
+    case EM_K1OM:
         core_data->elf.size = sizeof(struct Elf64_Shdr);
         core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;
         core_data->elf.num  = cpu_head->e_shnum;
@@ -682,9 +708,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     if (cpu_type == CPU_X86_64 || cpu_type == CPU_K1OM) {
         start_aps_x86_64_start(hwid, foreign_cpu_reloc_entry);
     }
+
+#ifndef __k1om__
     else if (cpu_type == CPU_X86_32) {
         start_aps_x86_32_start(hwid, foreign_cpu_reloc_entry);
     }
+#endif
 
     /* Clean up */
     // XXX: Should not delete the remote caps?

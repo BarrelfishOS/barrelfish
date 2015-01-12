@@ -100,6 +100,25 @@ rep_fill:
         cmp $4096 * 4, %ecx // 4*4096 / 8 = 2048, 2048*2 = 4GB
         jne rep_fill
 
+ #ifdef __k1om__
+        mov $0, %ecx
+        mov $PAGE_BITS, %ebx
+ rep_mmio:
+        mov %ebx, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET(%ecx)
+        movl $0x8, init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET + 4(%ecx)
+        add $0x200000, %ebx
+        add $8, %ecx
+        cmp $4096, %ecx
+        jne rep_mmio
+
+        // add mapping
+        mov $(init_ap_pdpt - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET), %ecx
+        add $256, %ecx
+        mov $(init_ap_pdirMMIO - x86_64_start_ap + X86_64_REAL_MODE_LINEAR_OFFSET), %ebx
+        addl $TABLE_BITS, %ebx
+        mov %ebx, (%ecx)
+ #endif
+
         // enable page address extension
         mov %cr4,%eax
         or $PAE,%eax
@@ -216,7 +235,11 @@ init_ap_pdir3:
         .align X86_64_BASE_PAGE_SIZE
 init_ap_pdir4:
         .fill X86_64_BASE_PAGE_SIZE, 1, 0
-
+#ifdef __k1om__
+        .align X86_64_BASE_PAGE_SIZE
+init_ap_pdirMMIO:
+        .fill X86_64_BASE_PAGE_SIZE, 1, 0
+#endif
         // the absolute destination address to the first C function in the kernel.
         // The address is copied to this variable by start_aps_startall.
         .global x86_64_init_ap_absolute_entry

@@ -29,6 +29,7 @@ enum memobj_type {
     ONE_FRAME_ONE_MAP,
     MEMOBJ_VFS, // see lib/vfs/mmap.c
     MEMOBJ_FIXED,
+    MEMOBJ_NUMA
 };
 
 typedef uint32_t memobj_flags_t;
@@ -123,6 +124,19 @@ struct memobj_fixed {
     size_t        *offsets;    ///< the offset into the tracked frames
 };
 
+/**
+ * this memobj can be mapped into a single vregion and is backed by a s
+ * this memobj can be mapped into a single vregion and backed by a fixed number
+ * of equal sized frames
+ */
+struct memobj_numa {
+    struct memobj    m;          ///< public memobj interface
+    uint32_t         node_count; ///< number of nodes in the machine
+    size_t           stride;     ///< size of the regions to map
+    struct vregion  *vregion;    ///< the associated vregion
+    struct capref   *frames;     ///< the tracked frames
+};
+
 errval_t memobj_create_pinned(struct memobj_pinned *memobj, size_t size,
                               memobj_flags_t flags);
 
@@ -146,6 +160,11 @@ errval_t memobj_create_fixed(struct memobj_fixed *memobj, size_t size,
                              size_t chunk_size);
 
 errval_t memobj_destroy_fixed(struct memobj *memobj);
+
+errval_t memobj_create_numa(struct memobj_numa *numa, size_t size,
+                            memobj_flags_t flags, size_t node_count, size_t stride);
+
+errval_t memobj_destroy_numa(struct memobj *memobj);
 
 __END_DECLS
 

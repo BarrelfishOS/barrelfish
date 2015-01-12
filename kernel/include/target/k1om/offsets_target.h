@@ -34,12 +34,15 @@
 #ifndef KERNEL_TARGET_K1OM_OFFSETS_H
 #define KERNEL_TARGET_K1OM_OFFSETS_H
 
+
+
 /**
  * Absolute size of virtual address space. This is 48-bit on x86-64
  * currently, which equals 256 TBytes and allows for 512 PML4 slots,
  * each of which can map 512 GBytes.
  */
-#define K1OM_VADDR_SPACE_SIZE        ((genpaddr_t)1 << 48)
+#define K1OM_VADDR_SPACE_BITS 48
+#define K1OM_VADDR_SPACE_SIZE        ((genpaddr_t)1 << K1OM_VADDR_SPACE_BITS)
 
 /**
  * Absolute size of physical address space. This is also 40-bit.
@@ -48,7 +51,8 @@
  *
  * The Intel® Xeon Phi™ coprocessor supports 40-bit physical address in 64-bit.
  */
-#define K1OM_PADDR_SPACE_SIZE        ((genpaddr_t)1 << 40)
+#define X1OM_PADDR_SPACE_BITS 40
+#define K1OM_PADDR_SPACE_SIZE        ((genpaddr_t)1 << X1OM_PADDR_SPACE_BITS)
 
 /**
  * Start address of kernel image in physical memory. This is passed to
@@ -60,6 +64,8 @@
  * Kernel stack size -- 16KB
  */
 #define K1OM_KERNEL_STACK_SIZE       0x4000
+
+
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this

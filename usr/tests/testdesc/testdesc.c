@@ -168,7 +168,7 @@ static errval_t spawn_child(struct capref fdcap)
                                     NULL_CAP, NULL_CAP);
 
     err = spawn_program_with_caps(core, argv[0], argv, NULL, inheritcn_cap,
-                                  NULL_CAP, SPAWN_NEW_DOMAIN, &new_domain);
+                                  NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN, &new_domain);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed spawn on core %d", core);

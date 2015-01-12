@@ -48,7 +48,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         if (mi != NULL) {
             err = mi->start_function(0, mi, record);
             if (err_is_fail(err)) {
-                printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n", 
+                printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n",
                        barrelfish_id);
                 goto out;
             }
@@ -104,7 +104,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         if (barrelfish_id == my_core_id) {
             return SYS_ERR_OK;
         }
-        
+
         argv = malloc((argc+4) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
         snprintf(barrelfish_id_s, 10, "%"PRIu64"", barrelfish_id);
@@ -116,7 +116,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
         // Copy kernel args over to new core
         struct module_info* cpu_module = find_module("cpu");
         if (cpu_module != NULL && strlen(cpu_module->args) > 1) {
-            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n", 
+            KALUGA_DEBUG("%s:%s:%d: Boot with cpu arg %s and barrelfish_id_s=%s\n",
                          __FILE__, __FUNCTION__, __LINE__, cpu_module->args, barrelfish_id_s);
             argv[argc] = "-a";
             argc += 1;
@@ -156,7 +156,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 
     err = spawn_program_with_caps(where, mi->path, argv,
                                   environ, inheritcn_cap,
-                                  NULL_CAP, SPAWN_NEW_DOMAIN, 
+                                  NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN,
                                   &mi->did[0]);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", mi->path);
@@ -184,7 +184,7 @@ static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
             errval_t err = oct_set("all_spawnds_up { iref: 0 }");
             assert(err_is_ok(err));
         }
-    }   
+    }
 }
 
 errval_t wait_for_all_spawnds(void)
@@ -205,7 +205,7 @@ errval_t wait_for_all_spawnds(void)
     }
 
     // No we should be able to get core count
-    // of all cores to estimate the amount of 
+    // of all cores to estimate the amount of
     // spawnd's we have to expect (one per core)
     char** names;
     size_t count;

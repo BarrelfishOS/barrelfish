@@ -66,6 +66,13 @@ errval_t sys_debug_get_tsc_per_ms(uint64_t *ret)
     return sr.error;
 }
 
+errval_t sys_debug_get_apic_id(uint8_t *ret)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_APIC_ID);
+    *ret = sr.value;
+    return sr.error;
+}
+
 errval_t sys_debug_get_apic_timer(uint32_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_APIC_TIMER);
@@ -105,4 +112,10 @@ errval_t sys_debug_set_breakpoint(uintptr_t addr, uint8_t mode, uint8_t length)
 {
     return syscall5(SYSCALL_DEBUG,
                     DEBUG_SET_BREAKPOINT, addr, mode, length).error;
+}
+
+errval_t sys_debug_cap_trace_ctrl(bool enable, genpaddr_t start, gensize_t size)
+{
+    return syscall5(SYSCALL_DEBUG,
+                    DEBUG_TRACE_PMEM_CTRL, enable, start, size).error;
 }

@@ -30,12 +30,25 @@
 #define OMP_SUPPORT_DYNAMIC 0
 
 #include <stddef.h> // for size_t
+#include <barrelfish_kpi/spinlocks_arch.h>
+#include <barrelfish/thread_sync.h>
 
 /* a simple OpenMP lock */
-typedef void *omp_lock_t;
+typedef struct __omp_lock
+{
+    struct thread_mutex mutex;
+    uint8_t initialized;
+} omp_lock_t;
 
 /* a nestable OpenMP lock */
-typedef void *omp_nest_lock_t;
+typedef struct __omp_nested_lock
+{
+    struct thread_mutex mutex;
+    void *owner;
+    uint32_t count;
+    uint8_t initialized;
+} omp_nest_lock_t;
+
 
 /**
  * BOMP backend types
@@ -108,9 +121,73 @@ int bomp_switch_backend(bomp_backend_t backend);
 bomp_backend_t bomp_get_backend(void);
 
 
+///< Default Stacksize for BOMP threads
+#define BOMP_DEFAULT_STACKSIZE (64 * 1024)
+
+///< Flag indicating that all threads should be used
+#define BOMP_THREADS_ALL ((unsigned int) -1)
+
+/*
+ * ------------------------------------------------------------------------------
+ * BOMP initialization Functions
+ * ------------------------------------------------------------------------------
+ */
+
+/**
+ * \brief initializes the BOMP library using the indicated cores of the BM
+ *
+ * \param coresbm		bitmap representing the cores to run on
+ * \param stack_size	size of the thread's stack in bytes
+ *
+ * \returns	0 on SUCCESS
+ *          non-zero on FAILURE
+ */
+int bomp_init_cores(void *coresbm, size_t stack_size);
+
+/**
+ * \brief initializes the BOMP library with the given stack sizes
+ *
+ * \param stack_size	size of the thread's stack in bytes
+ *
+ * \returns	0 on SUCCESS
+ *          non-zero on FAILURE
+ *
+ * This function will use the first nthreads cores to run on
+ */
+int bomp_init_varstack(unsigned int nthreads, size_t stack_size);
+
+/**
+ * \brief initializes the BOMP library using the given thread number
+ *
+ * \param nthreads	the number of threads to prepare
+ *
+ * \returns	0 on SUCCESS
+ *          non-zero on FAILURE
+ *
+ * This function will use the first nthreads cores and the default stack size
+ * for the BOMP threads to run on.
+ */
+static inline int bomp_init(unsigned int nthreads)
+{
+	return bomp_init_varstack(nthreads, BOMP_DEFAULT_STACKSIZE);
+}
+
+
+
+
+#if 0
+/*
+ * Backend specific main thread runners
+ * needed on Barrelfish as we don't dynamically grow thread stacks
+ */
+typedef int (*main_func_t)(void *);
+int bomp_run_main(main_func_t mainfunc, void *mainarg, size_t stacksize);
+#endif
+
 /*
  * OpenMP Library API as defined by openmp.org
  */
+
 extern void omp_set_num_threads(int num_threads);
 extern int omp_get_num_threads(void);
 extern int omp_get_max_threads(void);
@@ -134,15 +211,15 @@ extern int omp_in_final(void);
 
 extern void omp_init_lock(omp_lock_t *lock);
 extern void omp_destroy_lock(omp_lock_t *lock);
-extern void omp_set_lock(omp_lock_t lock);
-extern void omp_unset_lock(omp_lock_t lock);
-extern int omp_test_lock(omp_lock_t lock);
+extern void omp_set_lock(omp_lock_t *lock);
+extern void omp_unset_lock(omp_lock_t *lock);
+extern int omp_test_lock(omp_lock_t *lock);
 
 extern void omp_init_nest_lock(omp_nest_lock_t *lock);
 extern void omp_destroy_nest_lock(omp_nest_lock_t *lock);
-extern void omp_set_nest_lock(omp_nest_lock_t lock);
-extern void omp_unset_nest_lock(omp_nest_lock_t lock);
-extern int omp_test_nest_lock(omp_nest_lock_t lock);
+extern void omp_set_nest_lock(omp_nest_lock_t *lock);
+extern void omp_unset_nest_lock(omp_nest_lock_t *lock);
+extern int omp_test_nest_lock(omp_nest_lock_t *lock);
 
 extern double omp_get_wtime(void);
 extern double omp_get_wtick(void);

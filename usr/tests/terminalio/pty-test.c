@@ -85,7 +85,7 @@ static void spawn_shell(int ttyfd)
     /* spawn shell on the same core */
     debug_printf("About to spawn fish.\n");
     err = spawn_program_with_caps(my_core_id, shell, shell_argv, NULL,
-                                  inheritcn_cap, NULL_CAP, SPAWN_NEW_DOMAIN,
+                                  inheritcn_cap, NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN,
                                   NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error spawning shell.");

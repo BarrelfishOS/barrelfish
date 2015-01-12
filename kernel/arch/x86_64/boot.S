@@ -13,13 +13,23 @@
  */
 
 #include <multiboot.h>
+
+#ifdef __k1om__
+#include <target/k1om/offsets_target.h>
+#define KERNEL_STACK_SIZE K1OM_KERNEL_STACK_SIZE
+#define KERNEL_STACK k1om_kernel_stack
+#else
 #include <target/x86_64/offsets_target.h>
+#define KERNEL_STACK_SIZE X86_64_KERNEL_STACK_SIZE
+#define KERNEL_STACK x86_64_kernel_stack
+#endif
 
 /* The flags for the Multiboot header */
 #define MB_FLAGS (MULTIBOOT_HEADER_FLAG_MODS_PGALIGNED | MULTIBOOT_HEADER_FLAG_NEED_MEMINFO)
 
 	.text
-	.globl	start, halt
+	.globl start, halt
+
 	/* Multiboot header, 4-byte aligned */
 	.align	4
 	.long	MULTIBOOT_HEADER_MAGIC               /* magic */
@@ -28,7 +38,7 @@
 
 start:
 	/* Initialize the stack pointer */
-	lea	(x86_64_kernel_stack + X86_64_KERNEL_STACK_SIZE)(%rip), %rsp
+	lea	(KERNEL_STACK + KERNEL_STACK_SIZE)(%rip), %rsp
 
 	/* Reset EFLAGS */
 	pushq	$0

@@ -152,6 +152,7 @@ kernelOptions arch = Options {
             optInterconnectDrivers = [],
             optFlounderBackends = [],
             extraFlags = [],
+            extraCxxFlags = [],
             extraDefines = [],
             extraIncludes = [],
             extraDependencies = [],
@@ -457,6 +458,15 @@ compileGeneratedCFile opts src =
               makeDependObj o2 arch src
             ]
 
+compileGeneratedCxxFile :: Options -> String -> HRule
+compileGeneratedCxxFile opts src =
+    let o2 = opts { optSuffix = "" }
+        arch = optArch o2
+    in
+      Rules [ Rule (cxxCompiler o2 arch src (objectFilePath o2 src) ),
+              makeDependCxxObj o2 arch src
+            ]
+
 compileCFiles :: Options -> [String] -> HRule
 compileCFiles opts srcs = Rules [ compileCFile opts s | s <- srcs ]
 compileCxxFiles :: Options -> [String] -> HRule
@@ -464,6 +474,9 @@ compileCxxFiles opts srcs = Rules [ compileCxxFile opts s | s <- srcs ]
 compileGeneratedCFiles :: Options -> [String] -> HRule
 compileGeneratedCFiles opts srcs =
     Rules [ compileGeneratedCFile opts s | s <- srcs ]
+compileGeneratedCxxFiles :: Options -> [String] -> HRule
+compileGeneratedCxxFiles opts srcs =
+    Rules [ compileGeneratedCxxFile opts s | s <- srcs ]
 
 --
 -- Add a set of C (or whatever) dependences on a *generated* file.
@@ -882,6 +895,8 @@ allObjectPaths opts args =
                 ++
                 [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
+                ++
+                (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
     ]
 
 allLibraryPaths :: Args.Args -> [String]
@@ -911,7 +926,9 @@ applicationBuildFn af tf args =
 
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
-                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
+                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
+                         ++                         
+                         [ NoDep BuildTree arch a | a <- Args.addGeneratedIncludes args],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
@@ -919,7 +936,8 @@ appGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_app_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
@@ -933,6 +951,7 @@ appBuildArch af tf args arch =
         gencsrc = Args.generatedCFiles args
         gencxxsrc = Args.generatedCxxFiles args
         
+
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
@@ -978,7 +997,8 @@ arrakisAppGetOptionsForArch arch args =
                      optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
                                ((optLibs $ options arch) \\
                                 [ In InstallTree arch "/lib/libbarrelfish.a" ]),
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
@@ -1031,7 +1051,8 @@ libGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_lib_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args ++ Args.addCxxFlags args,
+                     extraFlags = Args.addCFlags args, 
+                     extraCxxFlags = Args.addCxxFlags args,
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }

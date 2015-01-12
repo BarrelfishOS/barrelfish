@@ -27,7 +27,46 @@ ARM_OBJCOPY?=arm-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
 # upload Xeon Phi images to nfs share (leave blank to cancel)
-BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/local/nfs/barrelfish/xeon_phi"
+BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
+
+#################################################################################
+# Additional submodule targets
+#################################################################################
+$(info Additional submodules:)
+
+# Shoal submodule
+ifneq ("$(wildcard $(SRCDIR)/lib/shoal/Hakefile)","")
+    $(info + shoal:      [YES])
+    SUBMODULE_SHOAL=1
+    SHOAL= \
+    	sbin/tests/shl_simple
+else
+    $(info + shoal:      [NO])
+	SUBMODULE_SHOAL=0
+	SHOAL=
+endif
+
+# Green Marl Submodule
+ifneq ("$(wildcard $(SRCDIR)/usr/green-marl/Hakefile)","")
+    $(info + green-marl: [YES])
+	SUBMODULE_GREEN_MARL=1
+else
+    $(info + green-marl: [NO])
+	SUBMODULE_GREEN_MARL=
+endif
+
+# green-marl depends on presence of shoal
+ifneq "$(and $(SUBMODULE_GREEN_MARL),$(SUBMODULE_SHOAL))" ""
+    $(info + green-marl: [ENABLED])
+	GREEN_MARL= \
+		sbin/gm_tc \
+		sbin/gm_pr
+else
+    $(info + green-marl: [DISABLED])
+	GREEN_MARL=
+endif
+
+
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -50,95 +89,130 @@ BIN_RCCE_BT= \
 
 # All test domains
 TESTS_COMMON= \
+	sbin/fputest \
+	sbin/fread_test \
+	sbin/fscanf_test \
 	sbin/hellotest \
 	sbin/idctest \
 	sbin/memtest \
-	sbin/fread_test \
-	sbin/fscanf_test \
 	sbin/schedtest \
 	sbin/testerror \
-	sbin/yield_test \
-	sbin/fputest
+	sbin/yield_test
+
+TESTS_x86= \
+	sbin/tests/luatest \
+	sbin/tests/numatest
 
 TESTS_x86_64= \
-	sbin/mdbtest_range_query \
-	sbin/mdbtest_addr_zero \
-	sbin/ata_rw28_test \
+	$(TESTS_x86) \
 	sbin/arrakis_hellotest \
-	sbin/socketpipetest \
-	sbin/spantest \
-	sbin/testconcurrent \
-	sbin/thcidctest \
-	sbin/thcminitest \
-	sbin/tweedtest \
-	sbin/thctest \
-	sbin/cxxtest \
-	sbin/testdesc \
-	sbin/testdesc-child \
-	sbin/multihoptest \
+	sbin/ata_rw28_test \
+	sbin/bomp_cpu_bound \
+	sbin/bomp_cpu_bound_progress \
+	sbin/bomp_sync \
+	sbin/bomp_sync_progress \
+	sbin/bomp_test \
+	sbin/bulk_shm \
 	sbin/cryptotest \
+	sbin/mdbtest_addr_zero \
+	sbin/mdbtest_range_query \
+	sbin/mem_affinity \
+	sbin/multihoptest \
 	sbin/net-test \
-	sbin/xcorecap \
-	sbin/xcorecapserv \
-	sbin/tlstest \
-	sbin/timer_test \
 	sbin/net_openport_test \
 	sbin/perfmontest \
+	sbin/phoenix_kmeans \
+	sbin/socketpipetest \
+	sbin/spantest \
+	sbin/spin \
+	sbin/testconcurrent \
+	sbin/testdesc \
+	sbin/testdesc-child \
+	sbin/tests/cxxtest \
+	sbin/tests/dma_test \
+	sbin/tests/xphi_nameservice_test \
+	sbin/thcidctest \
+	sbin/thcminitest \
+	sbin/thctest \
+	sbin/timer_test \
+	sbin/tlstest \
+	sbin/tweedtest \
+	sbin/xcorecap \
+	sbin/xcorecapserv
+
+TESTS_k1om= \
+	$(TESTS_x86) \
+	sbin/tests/dma_test \
+	sbin/tests/xeon_phi_inter \
+	sbin/tests/xeon_phi_test \
+	sbin/tests/xphi_nameservice_test
 
 
 # All benchmark domains
 BENCH_COMMON= \
 	sbin/channel_cost_bench \
-	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_buffer_bench \
+	sbin/flounder_stubs_empty_bench \
 	sbin/flounder_stubs_payload_bench \
 	sbin/xcorecapbench
 
 BENCH_x86= \
-	sbin/udp_throughput \
-	sbin/ump_latency \
-	sbin/ump_exchange \
-	sbin/ump_latency_cache \
-	sbin/ump_throughput \
-	sbin/ump_send \
-	sbin/ump_receive \
-	sbin/timer_test \
+	sbin/multihop_latency_bench \
 	sbin/net_openport_test \
 	sbin/perfmontest \
 	sbin/thc_v_flounder_empty \
-	sbin/multihop_latency_bench
+	sbin/timer_test \
+	sbin/udp_throughput \
+	sbin/ump_exchange \
+	sbin/ump_latency \
+	sbin/ump_latency_cache \
+	sbin/ump_receive \
+	sbin/ump_send \
+	sbin/ump_throughput
 
 BENCH_x86_64= \
 	$(BENCH_x86) \
+	$(BIN_RCCE_BT) \
+	$(BIN_RCCE_LU) \
+	sbin/ahci_bench \
+	sbin/apicdrift_bench \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_work \
+	sbin/benchmarks/xphi_ump_bench \
 	sbin/bomp_benchmark_cg \
 	sbin/bomp_benchmark_ft \
 	sbin/bomp_benchmark_is \
+	sbin/bulk_transfer_passthrough \
+	sbin/bulkbench \
+	sbin/bulkbench_micro_echo \
+	sbin/bulkbench_micro_rtt \
+	sbin/bulkbench_micro_throughput \
+	sbin/elb_app \
+	sbin/elb_app_tcp \
+	sbin/lrpc_bench \
 	sbin/mdb_bench \
 	sbin/mdb_bench_old \
-	sbin/ahci_bench \
-	sbin/apicdrift_bench \
-	sbin/bulkbench \
-	sbin/lrpc_bench \
-	sbin/placement_bench \
+	sbin/netthroughput \
 	sbin/phases_bench \
 	sbin/phases_scale_bench \
+	sbin/placement_bench \
+	sbin/rcce_pingpong \
 	sbin/shared_mem_clock_bench \
-	$(BIN_RCCE_BT) \
-	$(BIN_RCCE_LU) \
-	sbin/tsc_bench \
-	sbin/netthroughput \
-	sbin/xomp_test_cpp \
-	sbin/bulk_transfer_passthrough \
-	sbin/bulkbench_micro_echo \
-	sbin/bulkbench_micro_throughput \
-	sbin/bulkbench_micro_rtt
+	sbin/tsc_bench
 
 BENCH_k1om=\
-	$(BENCH_x86)
+	$(BENCH_x86) \
+	sbin/benchmarks/bomp_mm \
+	sbin/benchmarks/dma_bench \
+	sbin/benchmarks/xomp_share \
+	sbin/benchmarks/xomp_spawn \
+	sbin/benchmarks/xomp_work \
+	sbin/benchmarks/xphi_ump_bench \
+	sbin/benchmarks/xphi_xump_bench
 
-
-GREEN_MARL= \
-	sbin/gm_tc \
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -164,11 +238,6 @@ MODULES_x86_64= \
 	sbin/arrakismon \
 	sbin/bench \
 	sbin/bfscope \
-	sbin/bomp_sync \
-	sbin/bomp_cpu_bound \
-	sbin/bomp_cpu_bound_progress \
-	sbin/bomp_sync_progress \
-	sbin/bomp_test \
 	sbin/boot_perfmon \
 	sbin/datagatherer \
 	sbin/ahcid \
@@ -185,16 +254,11 @@ MODULES_x86_64= \
 	sbin/hpet \
 	sbin/lpc_kbd \
 	sbin/lpc_timer \
-	sbin/mem_affinity \
 	sbin/mem_serv_dist \
-	sbin/elb_app \
-	sbin/elb_app_tcp \
 	sbin/lo_queue \
 	sbin/pci \
 	sbin/acpi \
 	sbin/kaluga \
-	sbin/phoenix_kmeans \
-	sbin/rcce_pingpong \
 	sbin/serial \
 	sbin/angler \
 	sbin/sshd \
@@ -205,31 +269,29 @@ MODULES_x86_64= \
 	sbin/vmkitmon \
 	sbin/webserver \
 	sbin/routing_setup \
-	$(BIN_CONSENSUS) \
 	sbin/bcached \
-	sbin/spin \
 	sbin/xeon_phi_mgr \
 	sbin/xeon_phi \
 	sbin/dma_mgr \
 	sbin/ioat_dma \
 	sbin/virtio_blk_host \
 	sbin/virtio_blk \
-	sbin/xeon_phi_inter \
-	sbin/xeon_phi_test \
-	sbin/dma_test \
 	sbin/block_server \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	sbin/corectrl \
-
+	$(GREEN_MARL) \
+	$(SHOAL) \
+	sbin/corectrl
 
 MODULES_k1om= \
-    sbin/weever \
+	sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
+	sbin/corectrl \
 	xeon_phi_multiboot \
-	$(GREEN_MARL)
+	$(GREEN_MARL) \
+	$(SHOAL)
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -365,7 +427,7 @@ install: $(MODULES)
 .PHONY : install
 
 
-install_headers: 
+install_headers:
 	echo "Installing header files..." ; \
 	for a in ${HAKE_ARCHS}; do \
 	  mkdir -p "$$a" ; \
@@ -389,7 +451,7 @@ MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
 	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
 	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
 
-ifeq ($(ARCH),x86_64)
+ifeq ($(filter $(x86_64),$(ARCH)),)
     QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
@@ -562,6 +624,36 @@ $(TESTS): %.txt: %.cfg tools/bin/simulator
 schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
 
+######################################################################
+#
+# Green Marl Targets
+#
+######################################################################
+
+GM_APPS=$(SRCDIR)usr/green-marl/apps/src
+
+define \n
+
+
+endef
+
+x86_64/usr/green-marl/%.cc k1om/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
+	$(foreach a,$(HAKE_ARCHS), \
+		mkdir -p $(a)/usr/green-marl ${\n}\
+		mkdir -p $(a)/include/green-marl ${\n}\
+		tools/bin/gm_comp -o=$(a)/usr/green-marl -t=cpp_omp  $(GM_APPS)/$*.gm ${\n} \
+		mv $(a)/usr/green-marl/$*.h $(a)/include/green-marl ${\n} \
+	)
+
+tools/bin/gm_comp :
+	test -s ./tools/bin/gm_comp || { echo "Compiler does already exist"; exit 0; }
+	# this target generates the green-marl compiler in the tools/bin directory
+	make -C $(SRCDIR)/usr/green-marl compiler -j 8
+	mv $(SRCDIR)/usr/green-marl/bin/gm_comp ./tools/bin/
+	make -C $(SRCDIR)/usr/green-marl clean
+	$(foreach a,$(HAKE_ARCHS), \
+		rm -rf $(a)/usr/green-marl/* ${\n}\
+	)
 
 ######################################################################
 #

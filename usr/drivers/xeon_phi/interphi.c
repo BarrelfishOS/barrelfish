@@ -434,6 +434,8 @@ static void domain_wait_call_rx(struct interphi_binding *_binding,
 
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
 
+    st->args.domain.state = state;
+
     msg_st->err = domain_wait(name, local_node, (void *)state, &st->args.domain.domid);
     switch(err_no(msg_st->err)) {
         case SYS_ERR_OK:

@@ -1,0 +1,47 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/bomp
+-- 
+--------------------------------------------------------------------------
+
+[ build library { 
+    target = "bomp_new", 
+    cFiles = concat [ find cInDir dir | dir <- ["."] ], 
+    addLibraries = [ 
+      "bench",        -- for basic benchmarking
+      "numa", -- get topology information
+      "bitmap"
+    ],
+    addIncludes = [
+      "include"
+    ],
+    flounderDefs = [
+        "bomp"
+    ],
+    flounderBindings = [
+        "bomp"
+    ],
+    architectures = [
+      "x86_64", 
+      "k1om"
+    ]
+  }  ,
+  
+  build application {
+    target = "bomp_new_test",
+    cFiles = ["test/test.c"],
+    addCFlags = ["-fopenmp"],
+    addLibraries = ["bomp_new"],
+    architectures = [
+      "x86_64", 
+      "k1om"
+    ]
+  }          
+] 
+

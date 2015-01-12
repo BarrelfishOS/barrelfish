@@ -32,11 +32,11 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <if/intermon_defs.h>
 
-#if defined(__x86__)
+#if defined(__x86__) && !defined(__k1om__)
 #include <acpi_client/acpi_client.h>
 #endif
 
-#define DEBUG_CPUBOOT 1
+#define DEBUG_CPUBOOT 0
 #ifdef DEBUG_CPUBOOT
 #define DEBUG(x...) if (debug_flag) debug_printf(x)
 #else

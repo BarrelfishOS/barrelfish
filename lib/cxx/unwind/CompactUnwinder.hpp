@@ -333,7 +333,7 @@ int CompactUnwinder_x86_64<A>::stepWithCompactEncodingRBPFrame(
     default:
       (void)functionStart;
       _LIBUNWIND_DEBUG_LOG("bad register for RBP frame, encoding=%08X for "
-                           "function starting at 0x%" PRIx64 "\n",
+                           "function starting at 0x%llX\n",
                             compactEncoding, functionStart);
       _LIBUNWIND_ABORT("invalid compact unwind encoding");
     }
@@ -452,7 +452,7 @@ int CompactUnwinder_x86_64<A>::stepWithCompactEncodingFrameless(
       break;
     default:
       _LIBUNWIND_DEBUG_LOG("bad register for frameless, encoding=%08X for "
-                           "function starting at 0x%" PRIx64 "\n",
+                           "function starting at 0x%llX\n",
                             encoding, functionStart);
       _LIBUNWIND_ABORT("invalid compact unwind encoding");
     }

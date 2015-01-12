@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
             args[0] = "program";
             args[1] = NULL;
             err = spawn_program(disp_get_core_id(), "/x86_64/sbin/semtest",
-                                args, NULL, SPAWN_NEW_DOMAIN, NULL);
+                                args, NULL, SPAWN_FLAGS_NEW_DOMAIN, NULL);
             assert(err_is_ok(err));
         }
     } else {

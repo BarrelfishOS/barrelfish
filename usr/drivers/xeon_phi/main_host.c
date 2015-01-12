@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <octopus/octopus.h>
 #include <vfs/vfs.h>
 #include <pci/pci.h>

@@ -27,8 +27,8 @@ static struct bomp_state *bomp_st;
 
 static rsrcid_t my_rsrc_id;
 
-static const char *my_manifest = "B 1\n"             // Normal phase
-                                 "G 80 160 80 480\n";// Gang phase
+//static const char *my_manifest = "B 1\n"             // Normal phase
+//                "G 80 160 80 480\n";// Gang phase
 
 static void set_numa(unsigned id)
 {
@@ -38,12 +38,12 @@ static void set_numa(unsigned id)
 static size_t thread_stack_size = 0;
 
 static void bomp_run_on(int core_id,
-                         void* cfunc,
-                         void *arg)
+                        void* cfunc,
+                        void *arg)
 {
     int actual_id = core_id + disp_get_core_id();
     thread_func_t func = (thread_func_t) cfunc;
-    debug_printf("%s: stack size: %zu\n", __FUNCTION__, thread_stack_size);
+
     errval_t err = domain_thread_create_on_varstack(actual_id, func, arg,
                                                     thread_stack_size);
     if (err_is_fail(err)) {
@@ -64,15 +64,18 @@ static int bomp_thread_fn(void *xdata)
     /* Wait for the Barrier */
     bomp_barrier_wait(work_data->barrier);
     thread_detach(thread_self());
+    thread_exit();
     return 0;
 }
 
 #define THREAD_OFFSET   0
 /* #define THREAD_OFFSET   12 */
 
-void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads)
+void bomp_start_processing(void (*fn)(void *),
+                           void *data,
+                           unsigned nthreads)
 {
-     assert(g_bomp_state);
+    assert(g_bomp_state);
 
     /* Create Threads and ask them to process the function specified */
     /* Let them die as soon as they are done */
@@ -82,22 +85,23 @@ void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads)
 
     g_bomp_state->num_threads = nthreads;
 
-    char *memory = calloc(1, nthreads * sizeof(struct bomp_thread_local_data *)
-                            + sizeof(struct bomp_barrier)
-                            + nthreads * sizeof(struct bomp_work));
+    char *memory = calloc(
+                    1,
+                    nthreads * sizeof(struct bomp_thread_local_data *)
+                                    + sizeof(struct bomp_barrier)
+                                    + nthreads * sizeof(struct bomp_work));
     assert(memory != NULL);
 
-    g_bomp_state->tld = (struct bomp_thread_local_data **)memory;
+    g_bomp_state->tld = (struct bomp_thread_local_data **) memory;
     memory += nthreads * sizeof(struct bomp_thread_local_data *);
 
-
     /* Create a barier for the work that will be carried out by the threads */
-    barrier = (struct bomp_barrier *)memory;
+    barrier = (struct bomp_barrier *) memory;
     memory += sizeof(struct bomp_barrier);
     bomp_barrier_init(barrier, nthreads);
 
     /* For main thread */
-    xdata = (struct bomp_work * )memory;
+    xdata = (struct bomp_work *) memory;
     memory += sizeof(struct bomp_work);
 
     xdata->fn = fn;
@@ -107,7 +111,7 @@ void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads)
     bomp_set_tls(xdata);
 
     for (i = 1; i < nthreads; i++) {
-        xdata = (struct bomp_work *)memory;
+        xdata = (struct bomp_work *) memory;
         memory += sizeof(struct bomp_work);
 
         xdata->fn = fn;
@@ -116,7 +120,8 @@ void bomp_start_processing(void (*fn) (void *), void *data, unsigned nthreads)
         xdata->barrier = barrier;
 
         /* Create threads */
-        bomp_run_on(i + THREAD_OFFSET, bomp_thread_fn, xdata);
+        bomp_run_on(i * BOMP_DEFAULT_CORE_STRIDE + THREAD_OFFSET, bomp_thread_fn,
+                    xdata);
     }
 }
 
@@ -135,13 +140,13 @@ void bomp_end_processing(void)
     g_bomp_state->num_threads = 1;
 }
 
-
-static struct thread_sem init_sem = THREAD_SEM_INITIALIZER;
+static struct thread_sem init_sem = THREAD_SEM_INITIALIZER
+;
 
 static int remote_init(void *dumm)
 {
-    errval_t err = rsrc_join(my_rsrc_id);
-    assert(err_is_ok(err));
+//    errval_t err = rsrc_join(my_rsrc_id);
+    //assert(err_is_ok(err));
 
     thread_sem_post(&init_sem);
     thread_detach(thread_self());
@@ -162,20 +167,24 @@ static void bomp_span_domain(int nos_threads,
 {
     int my_core_id = disp_get_core_id();
 
+    errval_t err;
+
     // Remember default stack size
     thread_stack_size = stack_size;
 
     // Submit manifest (derived from program)
-    errval_t err = rsrc_manifest(my_manifest, &my_rsrc_id);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "rsrc_manifest");
-        abort();
-    }
+//     = rsrc_manifest(my_manifest, &my_rsrc_id);
+//
+//    if (err_is_fail(err)) {
+ //       DEBUG_ERR(err, "rsrc_manifest");
+ //       abort();
+ //   }
 
     /* Span domain to all cores */
-    for (int i = my_core_id + 1; i < nos_threads + my_core_id; i++) {
-        err = domain_new_dispatcher(i, domain_init_done, NULL);
+    for (int i = 1; i < nos_threads; ++i) {
+        //for (int i = my_core_id + BOMP_DEFAULT_CORE_STRIDE; i < nos_threads + my_core_id; i++) {
+        coreid_t core = my_core_id + (i * BOMP_DEFAULT_CORE_STRIDE);
+        err = domain_new_dispatcher(core, domain_init_done, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to span domain");
             printf("Failed to span domain to %d\n", i);
@@ -188,8 +197,10 @@ static void bomp_span_domain(int nos_threads,
     }
 
     /* Run a remote init function on remote cores */
-    for (int i = my_core_id + 1; i < nos_threads + my_core_id; i++) {
-        err = domain_thread_create_on(i, remote_init, NULL);
+    //for (int i = my_core_id + 1; i < nos_threads + my_core_id; i++) {
+    for (int i = 1; i < nos_threads; ++i) {
+        coreid_t core = my_core_id + (i * BOMP_DEFAULT_CORE_STRIDE);
+        err = domain_thread_create_on(core, remote_init, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "domain_thread_create_on failed");
             printf("domain_thread_create_on failed on %d\n", i);
@@ -243,13 +254,7 @@ int bomp_bomp_init_varstack(uint32_t nthreads, size_t stack_size)
     bomp_st->backend.end_processing = bomp_end_processing;
     bomp_common_init(bomp_st);
     g_bomp_state = bomp_st;
-    debug_printf("bomp_span_domain...");
-    debug_printf("thread stack: 0x%lx bytes\n", stack_size);
     bomp_span_domain(nthreads, stack_size);
-    debug_printf("bomp_span_domain...done");
-
-
-
     return 0;
 }
 

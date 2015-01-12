@@ -1,0 +1,80 @@
+/*
+ * Copyright (c) 2014, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/**
+ * \brief interface between bomp thrads
+ */
+interface bomp "Barrelfish OpenMP Interface" {
+
+    /*
+     * ==========================================================================
+     * Messages between Node Masters and Worker Threads
+     * ==========================================================================
+     */
+	
+    /**
+     * \brief initiates the execution of a thread
+     * 
+     * \param fn    Address of the function to call
+     * \param addr  Pointer to the argument 
+     * \param tid	The thread's ID
+     * \param icv   The thread's task control variables
+     */    
+    message execute(uint64 fn, 
+    				uint64 arg, 
+					uint32 tid,
+					uint64 icv);
+    
+    /**
+     * \brief message signalling the termination of a bomp thread
+     * 
+     * \param status The thread's return value
+     */
+    message done(errval status);
+    
+    /*
+     * ==========================================================================
+     * Messages between Domain Master and Node Masters
+     * ==========================================================================
+     */
+    
+    rpc initialize(out errval status,
+    		       out uint32 nthreads);
+    
+    
+    
+    /* 
+     * -------------------------------------------------------------------------
+     * Execution
+     * -------------------------------------------------------------------------
+     */
+    
+    message execute_range(uint64 fn, 
+    					  uint64 addr, 
+						  uint32 from, 
+						  uint32 to,
+						  uint32 nthreads);
+    
+    
+    /*
+     * -------------------------------------------------------------------------
+     * Memory 
+     * -------------------------------------------------------------------------
+     */
+    rpc map(in cap frame,
+            in uint64 addr,
+            out errval status);
+    
+    
+    rpc update(in uint64 addr,
+               in uint64 offset,
+               in uint64 length,
+               out errval status);
+   
+};

@@ -12,8 +12,8 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 
+#include <stdlib.h>
 #include "fish.h"
 
 int reset(int argc, char *argv[])

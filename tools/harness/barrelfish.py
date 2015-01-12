@@ -134,7 +134,9 @@ def default_bootmodules(build, machine):
         m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
-        or machine.name == "tomme1" or machine.name == "tomme2":
+        or machine.name == "tomme1" or machine.name == "tomme2" \
+        or machine.name == "babybel1" or machine.name == "babybel2" \
+        or machine.name == "babybel3" :
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"])

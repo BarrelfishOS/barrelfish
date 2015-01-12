@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-    target = "cxxtest",
+    target = "tests/cxxtest",
     cxxFiles = [ 
         "test.cpp",
         "stl_list.cpp",
@@ -25,13 +25,13 @@
         "stl_io.cpp",
         "cxx11.cpp"
     ],
-    addLibraries = [ 
-        "vfs", 
-        "nfs", 
-        "ahci", 
-        "lwip", 
-        "timer" 
-    ],
+    --addLibraries = [ 
+        --"vfs", 
+        --"nfs", 
+        --"ahci", 
+        --"lwip", 
+        --"timer" 
+    --],
 	architectures = [ 
         "x86_64",
         "k1om"

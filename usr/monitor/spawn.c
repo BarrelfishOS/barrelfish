@@ -79,6 +79,17 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
             return err_push(err, SPAWN_ERR_COPY_IRQ_CAP);
         }
     }
+
+    if (!strcmp(name, "corectrl")) {
+        dest.cnode = si->taskcn;
+        dest.slot  = TASKCN_SLOT_COREBOOT;
+        src.cnode = cnode_task;
+        src.slot  = TASKCN_SLOT_COREBOOT;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            return err_push(err, SPAWN_ERR_COPY_IRQ_CAP);
+        }
+    }
 #endif
 
     return SYS_ERR_OK;
@@ -247,7 +258,8 @@ errval_t spawn_all_domains(void)
            !strcmp(short_name, "cpu") ||
            !strcmp(short_name, "monitor") ||
            !strcmp(short_name, "mem_serv")||
-           !strcmp(short_name, "xeon_phi")) {
+           !strcmp(short_name, "xeon_phi") ||
+           !strcmp(short_name, "corectrl")) {
             continue;
         }
 

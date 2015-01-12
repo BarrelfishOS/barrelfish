@@ -12,7 +12,7 @@
 
 
 [ build application { 
-    target = "xomp_test", 
+    target = "tests/xomp_test", 
     cFiles = [ 
       "main.c",
       "processing.c" 
@@ -33,7 +33,7 @@
   },
   
   build application { 
-    target = "xomp_test_cpp", 
+    target = "tests/xomp_test_cpp", 
     cxxFiles = [ 
       "main.cpp"
     ],

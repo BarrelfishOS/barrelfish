@@ -165,7 +165,7 @@ void dma_channel_enq_request_tail(struct dma_channel *chan,
  *          DMA_ERR_REQUEST_UNFINISHED if the request has not been completed yet
  *
  */
-errval_t dma_channel_poll(struct dma_channel *chan)
+inline errval_t dma_channel_poll(struct dma_channel *chan)
 {
     if (chan->f.poll) {
         return chan->f.poll(chan);

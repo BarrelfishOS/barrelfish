@@ -38,6 +38,7 @@
 #include <arch/x86/apic.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/startup_x86.h>
+
 #ifdef __scc__
 #       include <rck.h>
 #endif
@@ -552,6 +553,7 @@ void kernel_startup(void)
         /* spawn init */
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
+        start_ap_signal();
         // if we have a kernel control block, use it
         if (kcb_current && kcb_current->is_valid) {
             debug(SUBSYS_STARTUP, "have valid kcb, restoring state\n");

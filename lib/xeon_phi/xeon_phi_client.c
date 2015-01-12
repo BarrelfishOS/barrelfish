@@ -112,13 +112,24 @@ static inline errval_t check_online(uint8_t xid)
     if (xphi_present[xid]) {
         return SYS_ERR_OK;
     }
+
+#ifdef __k1om__
+    if (xid == disp_xeon_phi_id()) {
+        xphi_present[xid] = 1;
+        return SYS_ERR_OK;
+    }
+#endif
+
     char buf[20];
     snprintf(buf, 20, "xeon_phi.%u.ready", xid);
     xphi_dom_id_t result;
     err = xeon_phi_domain_blocking_lookup(buf, &result);
-    if (err_is_fail(err) || ((uint32_t) result != 0xcafebabe)) {
+    if (err_is_fail(err) || result != 0xcafebabe) {
         USER_PANIC_ERR(err, "result: %lx, %x", result, (uint32_t )result);
     }
+
+    xphi_present[xid] = 1;
+
     return err;
 }
 
@@ -454,6 +465,8 @@ static errval_t xphi_client_register(struct xeon_phi_client *cl)
     struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
     svc_st->args.domain.domid = disp_get_domain_id();
     svc_st->args.domain.core = disp_get_core_id();
+
+    /// XXX: bug, this fails if disp_name() length == DISP_NAME_LEN
     svc_st->args.domain.name = disp_name();
 
     DEBUG_XPHI("registration {%s} with domid:%x\n", svc_st->args.domain.name,
@@ -675,8 +688,10 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
 
     size_t argstrlen = strlen(path) + 1;
 
-    for (int i = 0; argv[i] != NULL; i++) {
-        argstrlen += strlen(argv[i]) + 1;
+    if (argv) {
+        for (int i = 0; argv[i] != NULL; i++) {
+            argstrlen += strlen(argv[i]) + 1;
+        }
     }
 
     char cmdline[argstrlen];
@@ -684,10 +699,12 @@ errval_t xeon_phi_client_spawn(xphi_id_t xid,
     strcpy(&cmdline[0], path);
     cmdline[argstrpos++] = '\0';
 
-    for (int i = 0; argv[i] != NULL; i++) {
-        strcpy(&cmdline[argstrpos], argv[i]);
-        argstrpos += strlen(argv[i]);
-        cmdline[argstrpos++] = '\0';
+    if (argv) {
+        for (int i = 0; argv[i] != NULL; i++) {
+            strcpy(&cmdline[argstrpos], argv[i]);
+            argstrpos += strlen(argv[i]);
+            cmdline[argstrpos++] = '\0';
+        }
     }
 
     msg_st->cleanup = NULL;

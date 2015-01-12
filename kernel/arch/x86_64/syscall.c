@@ -22,21 +22,23 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
+#include <fpu.h>
 #include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
 #include <arch/x86/perfmon.h>
-#include <vmkit.h>
+#include <arch/x86/debugregs.h>
+#include <arch/x86/syscall.h>
+#include <arch/x86/timing.h>
+#include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/sys_debug.h>
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
-#include <arch/x86/debugregs.h>
 #include <trace/trace.h>
-#include <arch/x86/syscall.h>
-#include <arch/x86/timing.h>
-#include <fpu.h>
-#include <arch/x86/ipi_notify.h>
+#ifndef __k1om__
+#include <vmkit.h>
 #include <dev/amd_vmcb_dev.h>
+#endif
 
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 
@@ -83,7 +85,7 @@ static struct sysret handle_retype_common(struct capability *root,
     uint64_t source_cptr     = args[0];
     uint64_t type            = args[1];
     uint64_t objbits         = args[2];
-    uint64_t  dest_cnode_cptr = args[3];
+    uint64_t dest_cnode_cptr = args[3];
     uint64_t dest_slot       = args[4];
     uint64_t dest_vbits      = args[5];
 
@@ -159,7 +161,7 @@ static struct sysret handle_map(struct capability *ptable,
 
     TRACE(KERNEL, SC_MAP, 0);
     struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
-                   pte_count);
+                   	           pte_count);
     TRACE(KERNEL, SC_MAP, 1);
     return sr;
 }
@@ -345,7 +347,8 @@ static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
                                                  uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
+    uint8_t bits   = args[1];
+    
     struct capability *retbuf = (void *)args[2];
 
     return sys_monitor_identify_cap(root, cptr, bits, retbuf);
@@ -426,8 +429,8 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = args[pos];
-    int cnode_vbits    = args[pos + 1];
-    size_t slot        = args[pos + 2];
+    int cnode_vbits      = args[pos + 1];
+    size_t slot          = args[pos + 2];
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
@@ -452,7 +455,7 @@ static struct sysret monitor_nullify_cap(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
     capaddr_t cptr = args[0];
-    uint8_t bits = args[1];
+    uint8_t bits   = args[1];
 
     return sys_monitor_nullify_cap(cptr, bits);
 }
@@ -463,7 +466,6 @@ static struct sysret monitor_handle_sync_timer(struct capability *kern_cap,
     uint64_t synctime = args[0];
     return sys_monitor_handle_sync_timer(synctime);
 }
-
 
 static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
@@ -506,6 +508,7 @@ static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
     return sys_io(to, cmd, port, data);
 }
 
+#ifndef __k1om__
 static struct sysret
 handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 {
@@ -594,6 +597,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     return SYSRET(SYS_ERR_OK);
 }
+#endif
 
 static struct sysret monitor_handle_domain_id(struct capability *monitor_cap,
                                               int cmd, uintptr_t *args)
@@ -903,7 +907,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Dispatcher] = {
         [DispatcherCmd_Setup] = handle_dispatcher_setup,
         [DispatcherCmd_Properties] = handle_dispatcher_properties,
+#ifndef __k1om__
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest,
+#endif
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
     },
     [ObjType_KernelControlBlock] = {
@@ -1097,13 +1103,13 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 		  panic("Dispatcher needs to be enabled for this invocation");
 		}
 
-                // save calling dispatcher's registers, so that when the dispatcher
-                // next runs, it has a valid state in the relevant save area.
-                // Save RIP, RFLAGS, RSP and set RAX (return value) for later resume
-                save_area->rax = retval.error; // XXX: x86 1st return register
-                save_area->rip = rip;
-                save_area->eflags = rflags;
-                save_area->rsp = user_stack_save;
+		// save calling dispatcher's registers, so that when the dispatcher
+		// next runs, it has a valid state in the relevant save area.
+		// Save RIP, RFLAGS, RSP and set RAX (return value) for later resume
+		save_area->rax = retval.error; // XXX: x86 1st return register
+		save_area->rip = rip;
+		save_area->eflags = rflags;
+		save_area->rsp = user_stack_save;
 
 		if(!dcb_current->is_vm_guest) {
 		  /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
@@ -1118,11 +1124,15 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 			 [zero] "r" (0)
 			 );
 		} else {
+#ifndef __k1om__
 		  lpaddr_t lpaddr = gen_phys_to_local_phys(dcb_current->guest_desc.vmcb.cap.u.frame.base);
 		  amd_vmcb_t vmcb;
 		  amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
 		  save_area->fs = amd_vmcb_fs_selector_rd(&vmcb);
 		  save_area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+#else
+          panic("VM Guests not supported on Xeon Phi");
+#endif
 		}
 
                 dispatch(to->u.endpoint.listener);

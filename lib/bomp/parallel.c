@@ -79,8 +79,8 @@ void GOMP_parallel(void (*fn)(void *),
      * 3) call the function
      * 4) call parallel end
      */
-    assert(!"NYI");
 
+    GOMP_parallel_start(fn, data, num_threads);
     fn(data);
     GOMP_parallel_end();
 }

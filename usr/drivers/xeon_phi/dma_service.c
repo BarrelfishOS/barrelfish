@@ -6,7 +6,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
-
+#include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <dma/xeon_phi/xeon_phi_dma.h>
 #include <dma/xeon_phi/xeon_phi_dma_device.h>
@@ -15,7 +15,7 @@
 #include <dma/dma_service.h>
 #include <dma/dma_mem_mgr.h>
 #include <dma/dma_manager_client.h>
-
+#include <dma/dma_bench.h>
 #include <xeon_phi/xeon_phi.h>
 
 #include "xeon_phi_internal.h"
@@ -232,6 +232,10 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     }
 
     phi->dma = (struct dma_device *)dev;
+
+#if DMA_BENCH_RUN_BENCHMARK
+    dma_bench_run_default_xphi((struct dma_device *)dev);
+#endif
 
     iref_t svc_iref;
     char svc_name[30];

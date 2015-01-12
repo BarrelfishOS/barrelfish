@@ -600,8 +600,8 @@ void ldt_init_disabled(dispatcher_handle_t handle)
         // XXX: can't call usual debug/panic code, as curdispatcher() won't work
         char buf[128];
         snprintf(buf, sizeof(buf),
-                 "%.*s.%u: fatal error in ldt_init_disabled(). Aborted.\n",
-                 DISP_NAME_LEN, disp->d.name, disp_priv->generic.core_id);
+                 "%.*s.%u: fatal error in ldt_init_disabled(). %s Aborted.\n",
+                 DISP_NAME_LEN, disp->d.name, disp_priv->generic.core_id, err_getstring(err));
         sys_print(buf, sizeof(buf));
         while (1) {disp_yield_disabled(handle);}
     }

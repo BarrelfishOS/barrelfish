@@ -109,6 +109,7 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
 
   // walk each frame
   while (true) {
+    _Unwind_Reason_Code result;
 
     // ask libuwind to get next frame (skip over first frame which is
     // _Unwind_Backtrace())
@@ -119,6 +120,28 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
       return _URC_END_OF_STACK;
     }
 
+#if LIBCXXABI_ARM_EHABI
+    // Get the information for this frame.
+    unw_proc_info_t frameInfo;
+    if (unw_get_proc_info(&cursor, &frameInfo) != UNW_ESUCCESS) {
+      return _URC_END_OF_STACK;
+    }
+
+    struct _Unwind_Context *context = (struct _Unwind_Context *)&cursor;
+    size_t off;
+    size_t len;
+    const uint32_t* unwindInfo = (uint32_t *) frameInfo.unwind_info;
+    unwindInfo = decode_eht_entry(unwindInfo, &off, &len);
+    if (unwindInfo == NULL) {
+      return _URC_FAILURE;
+    }
+
+    result = _Unwind_VRS_Interpret(context, unwindInfo, off, len);
+    if (result != _URC_CONTINUE_UNWIND) {
+      return _URC_END_OF_STACK;
+    }
+#endif // LIBCXXABI_ARM_EHABI
+
     // debugging
     if (_LIBUNWIND_TRACING_UNWINDING) {
       char functionName[512];
@@ -127,14 +150,13 @@ _Unwind_Backtrace(_Unwind_Trace_Fn callback, void *ref) {
       unw_get_proc_name(&cursor, functionName, 512, &offset);
       unw_get_proc_info(&cursor, &frameInfo);
       _LIBUNWIND_TRACE_UNWINDING(
-          " _backtrace: start_ip=0x%" PRIx64 ", func=%s, lsda=0x%" PRIx64 ", context=%p\n",
-          frameInfo.start_ip, functionName, frameInfo.lsda,
+          " _backtrace: start_ip=0x%llX, func=%s, lsda=0x%llX, context=%p\n",
+          (long long)frameInfo.start_ip, functionName, (long long)frameInfo.lsda,
           &cursor);
     }
 
     // call trace function with this frame
-    _Unwind_Reason_Code result =
-        (*callback)((struct _Unwind_Context *)(&cursor), ref);
+    result = (*callback)((struct _Unwind_Context *)(&cursor), ref);
     if (result != _URC_NO_REASON) {
       _LIBUNWIND_TRACE_UNWINDING(" _backtrace: ended because callback "
                                  "returned %d\n",
@@ -171,7 +193,7 @@ _LIBUNWIND_EXPORT uintptr_t _Unwind_GetCFA(struct _Unwind_Context *context) {
   unw_cursor_t *cursor = (unw_cursor_t *)context;
   unw_word_t result;
   unw_get_reg(cursor, UNW_REG_SP, &result);
-  _LIBUNWIND_TRACE_API("_Unwind_GetCFA(context=%p) => 0x%" PRIx64 "\n", context,
+  _LIBUNWIND_TRACE_API("_Unwind_GetCFA(context=%p) => 0x%llX\n", context,
                   (uint64_t) result);
   return (uintptr_t)result;
 }
