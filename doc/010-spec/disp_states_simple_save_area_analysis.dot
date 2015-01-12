@@ -12,4 +12,4 @@ digraph {
 	running_d -> notrunning_d [label="disabled_save_area"];
 	notrunning_d -> running_d;
 	notrunning_e -> running_d;
-};
+}
