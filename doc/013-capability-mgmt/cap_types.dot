@@ -14,4 +14,4 @@ digraph {
 
 	Dispatcher -> EndPoint [arrowhead=normal];
 	Dispatcher -> Dispatcher [arrowhead=dot];
-};
+}

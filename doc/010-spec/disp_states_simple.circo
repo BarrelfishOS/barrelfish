@@ -17,4 +17,4 @@ digraph {
 
 	idc -> running [label="resume()", style="dashed", fontname="Times-Italic"];
 	idc -> notrunning [label="Preempt"];
-};
+}

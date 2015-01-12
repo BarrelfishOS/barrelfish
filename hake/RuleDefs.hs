@@ -930,6 +930,9 @@ appBuildArch af tf args arch =
         opts = appGetOptionsForArch arch args
         csrcs = Args.cFiles args
         cxxsrcs = Args.cxxFiles args
+        gencsrc = Args.generatedCFiles args
+        gencxxsrc = Args.generatedCxxFiles args
+        
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
@@ -941,6 +944,8 @@ appBuildArch af tf args arch =
               ++
               [ compileCFiles opts csrcs,
                 compileCxxFiles opts cxxsrcs,
+                compileGeneratedCFiles opts gencsrc,
+                compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
                 mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
               ]
@@ -984,6 +989,8 @@ arrakisAppBuildArch af tf args arch =
         opts = arrakisAppGetOptionsForArch arch args
         csrcs = Args.cFiles args
         cxxsrcs = Args.cxxFiles args
+        gencsrc = Args.generatedCFiles args
+        gencxxsrc = Args.generatedCxxFiles args
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
@@ -995,6 +1002,8 @@ arrakisAppBuildArch af tf args arch =
               ++
               [ compileCFiles opts csrcs,
                 compileCxxFiles opts cxxsrcs,
+                compileGeneratedCFiles opts gencsrc,
+                compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
                 mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
               ]
@@ -1032,6 +1041,8 @@ libBuildArch af tf args arch =
         opts = libGetOptionsForArch arch args
         csrcs = Args.cFiles args
         cxxsrcs = Args.cxxFiles args
+        gencsrc = Args.generatedCFiles args
+        gencxxsrc = Args.generatedCxxFiles args
     in
       Rules ( flounderRules opts args csrcs
               ++
@@ -1039,6 +1050,8 @@ libBuildArch af tf args arch =
               ++
               [ compileCFiles opts csrcs,
                 compileCxxFiles opts cxxsrcs,
+                compileGeneratedCFiles opts gencsrc,
+                compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
                 staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths args)
               ]
