@@ -1,0 +1,10 @@
+Name: PCRE
+Description: Perl Compatible Regular Expressions
+URL: http://www.pcre.org/
+License: BSD
+Version: 8.20 (2011-10-21)
+
+Notes: No modifications, only contains the subset of full source tree.
+  config.h.generic       -> config.h
+  pcre.h.generic         -> pcre.h
+  pcre_chartables.c.dist -> pcre_chartables.c
