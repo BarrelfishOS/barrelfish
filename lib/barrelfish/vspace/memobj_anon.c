@@ -191,8 +191,8 @@ static errval_t unpin(struct memobj *memobj, struct vregion *vregion,
  *
  * Pagefault relies on frames inserted in order
  */
-static errval_t fill(struct memobj *memobj, genvaddr_t offset, struct capref frame,
-                     size_t size)
+static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capref frame,
+                     size_t size, genpaddr_t foffset)
 {
     errval_t err;
     struct memobj_anon *anon = (struct memobj_anon*)memobj;
@@ -220,9 +220,10 @@ static errval_t fill(struct memobj *memobj, genvaddr_t offset, struct capref fra
             return LIB_ERR_SLAB_ALLOC_FAIL;
         }
     }
-    new->offset = offset;
-    new->frame  = frame;
-    new->size   = size;
+    new->offset  = offset;
+    new->frame   = frame;
+    new->size    = size;
+    new->foffset = foffset;
 
     {
         struct frame_identity id;
@@ -266,6 +267,11 @@ static errval_t fill(struct memobj *memobj, genvaddr_t offset, struct capref fra
         new->next = NULL;
     }
     return SYS_ERR_OK;
+}
+static errval_t fill(struct memobj *memobj, genvaddr_t offset, struct capref frame,
+                     size_t size)
+{
+    return fill_foff(memobj, offset, frame, size, 0);
 }
 
 /**
@@ -361,7 +367,8 @@ static errval_t pagefault(struct memobj *memobj, struct vregion *vregion,
             genvaddr_t vregion_off   = vregion_get_offset(vregion);
             vregion_flags_t flags = vregion_get_flags(vregion);
             err = pmap->f.map(pmap, base + vregion_off + walk->offset,
-                              walk->frame, 0, walk->size, flags, NULL, NULL);
+                              walk->frame, walk->foffset, walk->size, flags,
+                              NULL, NULL);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MAP);
             }
@@ -411,6 +418,7 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
     memobj->f.pin          = pin;
     memobj->f.unpin        = unpin;
     memobj->f.fill         = fill;
+    memobj->f.fill_foff    = fill_foff;
     memobj->f.unfill       = unfill;
     memobj->f.pagefault    = pagefault;
     memobj->f.pager_free   = pager_free;
