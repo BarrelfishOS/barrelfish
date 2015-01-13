@@ -24,7 +24,12 @@ module /armv7/sbin/spawnd boot
 module /armv7/sbin/startd boot
 
 # Booting the first core manually:
-module /armv7/sbin/corectrl boot boot 1 
+# the boot parameter here is used by monitor and corectrl, if we ever clean up
+# eating of special arguments for special domains, e.g. 'boot' to indicate
+# that a domain should be spawned by the BSP monitor this line should be
+#     module /armv7/sbin/corectrl boot boot 1
+# -SG, 2015-01-13
+module /armv7/sbin/corectrl boot 1
 
 # General user domains
 #module	/armv7/sbin/serial

@@ -252,14 +252,19 @@ errval_t spawn_all_domains(void)
         }
 
         /* Do not spawn special domains */
-        if(!strcmp(short_name, "init") ||
-           !strcmp(short_name, "skb") ||
-           !strcmp(short_name, "ramfsd") ||
-           !strcmp(short_name, "cpu") ||
-           !strcmp(short_name, "monitor") ||
-           !strcmp(short_name, "mem_serv")||
-           !strcmp(short_name, "xeon_phi") ||
-           !strcmp(short_name, "corectrl")) {
+        if(!strcmp(short_name, "init")
+           || !strcmp(short_name, "skb")
+           || !strcmp(short_name, "ramfsd")
+           || !strcmp(short_name, "cpu")
+           || !strcmp(short_name, "monitor")
+           || !strcmp(short_name, "mem_serv")
+           || !strcmp(short_name, "xeon_phi")
+#if __k1om
+           // only skip corectrl on xeon phi, -SG,2015-01-13
+           || !strcmp(short_name, "corectrl")
+#endif
+          )
+        {
             continue;
         }
 

@@ -143,7 +143,7 @@ def default_bootmodules(build, machine):
         else:
             m.add_module("%s/sbin/pci" % a, ["auto"])
 
-    if a == "arm_gem5":
+    if a == "armv7":
     	if machine.get_ncores() == 2:
     		m.add_module("corectrl", ["boot", "1"])
     	elif machine.get_ncores() == 4:
