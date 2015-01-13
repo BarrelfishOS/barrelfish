@@ -48,6 +48,8 @@ struct memobj_funcs {
                       genvaddr_t offset, size_t range);
     errval_t (*fill)(struct memobj *memobj, genvaddr_t offset, struct capref frame,
                      size_t size);
+    errval_t (*fill_foff)(struct memobj *memobj, genvaddr_t offset, struct capref frame,
+                     size_t size, genpaddr_t foffset);
     errval_t (*unfill)(struct memobj *memobj, genvaddr_t offset,
                        struct capref *ret_frame, genvaddr_t *ret_offset);
     errval_t (*pagefault)(struct memobj* memobj, struct vregion* region,
@@ -100,6 +102,7 @@ struct memobj_frame_list {
     struct capref frame;            ///< Capability of the frame
     size_t size;                    ///< Size of the frame
     genpaddr_t pa;                  ///< XXX: physical address of frame
+    genpaddr_t foffset;             ///< Offset into frame
     struct memobj_frame_list *next;
 };
 

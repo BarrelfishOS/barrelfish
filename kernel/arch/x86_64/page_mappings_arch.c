@@ -440,7 +440,9 @@ void paging_dump_tables(struct dcb *dispatcher)
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
 
     // loop over pdpts
-    for (int pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE-1; pdpt_index++) {
+    size_t kernel_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
+    printk(LOG_NOTE, "1st kernel pml4e: %zu\n", kernel_pml4e);
+    for (int pdpt_index = 0; pdpt_index < kernel_pml4e; pdpt_index++) {
 
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
         if (!pdpt->raw) { continue; }

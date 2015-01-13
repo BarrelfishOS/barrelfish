@@ -1,0 +1,34 @@
+Name: libc++ / libc++abi
+URL: http://libcxx.llvm.org/
+License: "BSD-Like" and MIT
+
+The C++ stack consists of the following pieces:
+
+1) Compiler: uses the build machine's native toolchain and passes flags (e.g.
+   `-nostdinc++ -nodefaultlibs`) to target Barrelfish and use it's headers and
+   libraries.
+
+   Hake can build C++ libraries and applications; for an example of how this
+   works see: //usr/tests/cxx
+
+2) libc++: implementation of the Standard Template Library (STL)
+   Provides <vector>, <thread>, etc. and has support for C++{11,14}
+
+   SVN Revision: 215186 (08 Aug 2014)
+   SVN URL: http://llvm.org/svn/llvm-project/libcxx/trunk
+   Browse: https://github.com/llvm-mirror/libcxx/tree/f2e8c04540be96d58ed72bc1e150df38a4e20ed8
+
+3) libc++abi: ABI library -- runtime support for RTTI, exception handling,
+   and (working) stack unwinding.
+
+   SVN Revision: 215186 (08 Aug 2014), Last Changed Rev: 214877
+   SVN URL: http://llvm.org/svn/llvm-project/libcxxabi/trunk
+   Browse: https://github.com/llvm-mirror/libcxxabi/tree/48092cc8cedd8990c7713678c4f056e01d2f0401
+
+An alternative approach for C++ support is to use build a full GCC cross-
+compiler.  Build scripts and more information can be found at:
+  http://wiki.barrelfish.org/CrossCompiler
+
+This can be convenient when integrating with other build systems (e.g. CMake /
+autotools), however exceptions currently do not work with this variant.  Fixing
+this requires patching libgcc's stack unwinder or adjusting it to use libc++.

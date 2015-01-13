@@ -1,0 +1,43 @@
+Name: dlmalloc
+Description: Doug Lea's Memory Allocator
+URL: http://g.oswego.edu/dl/html/malloc.html
+License: Public Domain
+Version: 2.8.4 (27 May 2009)
+
+Usage: add this to your program and link against libdmalloc.
+
+    #include <dmalloc/dmalloc.h>
+
+    typedef void *(*alt_malloc_t)(size_t bytes);
+    extern alt_malloc_t alt_malloc;
+
+    typedef void (*alt_free_t)(void *p);
+    extern alt_free_t alt_free;
+
+    typedef void *(*alt_realloc_t)(void *p, size_t bytes);
+    extern alt_realloc_t alt_realloc;
+
+    __attribute__((constructor)) static void init_dmalloc(void) {
+        alt_malloc = &dlmalloc;
+        alt_free = &dlfree;
+        alt_realloc = &dlrealloc;
+    }
+
+This vastly outperforms the default allocator in oldc and it is not unusual to
+see substantial performance improvements in large applications (e.g. SharedDB).
+
+Keep in mind there also may be some incompatibilities:
+* The switch to dlmalloc only happens once constructors functions run.  Ideally
+  this happen before any C++ ctors as they may allocate memory.  In addition,
+  there is a small window between `barrelfish_init_onthread` and `crtbegin`
+  where memory may be allocated via oldc.
+* Unresolved issue with domain spanning:
+  https://lists.inf.ethz.ch/pipermail/barrelfish-users/2013-February/000912.html
+
+Changes:
+* Header only exports standard allocation routines (dlmalloc, dlfree, dlcalloc,
+  dlrealloc). The library also implements aligned variants and statistics.
+* Allocates backing memory with morecore instead of mmap. Does not currently
+  release memory back to the system.
+* Prints error message on corruption but does not reset heap structures.
+* Uses Barrelfish mutex instead of its own custom spin lock variant.

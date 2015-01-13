@@ -1,0 +1,101 @@
+Name: lwIP
+Description: A Lightweight TCP/IP stack
+URL: http://savannah.nongnu.org/projects/lwip/
+License: BSD
+Version: 1.3.1 (18 Aug 2009)
+
+Usage and known issues
+----------------------
+* See //README_NETWORKING which covers general aspects of the network stack.
+
+* lwIP needs to be initialized before usage:
+  1. Call 'lwip_init_auto' or one of its variants.
+  2. Start a thread running 'network_polling_loop' or make sure to regularly
+     service events on 'lwip_waitset'.
+  Look at 'network_setup_helper' in //usr/net-test.
+
+  A common culprit of neglecting to do this is that socket calls return an
+  invalid handle (fd = -1) or fail with the error "out of memory in pool
+  NETCONN".
+
+* For a high-level overview of lwIP consider reading:
+    Dunkels, Adam. "Design and Implementation of the lwIP TCP/IP Stack."
+    Swedish Institute of Computer Science 2 (2001): 77.
+  Last seen at:
+    http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.109.1795
+
+  Some information in that document may be outdated so it is also a good idea
+  to complement this by reading the latest manual:
+    http://lwip.wikia.com/
+
+* lwIP exposes three different levels of APIs:
+   - 'Raw': event-based, directly interface with internal stack (supports
+     zero-copy), bypasses OS support layer but only one thread can run the
+     packet processing loop and perform socket operations.
+   - 'Netconn': sequential API, designed to be easier to use but preserve
+     zero-copy, provides more abstraction and thread synchronisation.
+   - 'Sockets': BSD-style, blocking calls.
+   More details can be found in:
+     http://lwip.wikia.com/wiki/Application_API_layers
+     http://www.actel.com/documents/A2F_AC365_AN.pdf
+
+* BSD-style sockets are available (see posixcompat) but these are known to have
+  problems. Small scale tests work fine but in a multi-threaded environment,
+  assertion failures can be triggered in lwIP's core/API layer.
+
+  Applications are recommended to use the event-based 'raw' API if possible:
+    http://git.savannah.gnu.org/cgit/lwip.git/tree/doc/rawapi.txt
+    http://lwip.wikia.com/wiki/Raw/native_API
+    http://lwip.wikia.com/wiki/Raw/TCP
+  For example usage see //usr/netfile and //usr/webserver.
+
+  (Note: failure reason is not known but the sockets API should be thread-safe.
+  http://lists.gnu.org/archive/html/lwip-users/2010-04/msg00055.html)
+
+* Possible deadlock when using the loopback interface:
+  https://lists.inf.ethz.ch/pipermail/barrelfish-users/2013-February/000908.html
+
+Modifications
+-------------
+* Some of the components added to the Barrelfish port:
+  - include/lwip/barrelfish.h, src/barrelfish/*
+
+  - src/sys_arch.c
+    OS-specific emulation layer which implements semaphores, mailboxes and
+    thread support.
+      http://git.savannah.gnu.org/cgit/lwip.git/tree/doc/sys_arch.txt
+      http://lwip.wikia.com/wiki/Porting_for_an_OS
+      http://git.savannah.gnu.org/cgit/lwip/lwip-contrib.git/tree/ports
+
+  - include/netif/bfeth.h, src/netif/bfeth.c
+    Transmits packets to and from the network driver.
+
+  - include/lwip/sock_serialise.h
+    Copies socket handles. Used for inheritance of file descriptors in a newly
+    spawned dispatcher.
+
+* lwIP needs to be invoked at regular intervals so it can handle tasks such as
+  TCP retransmissions. In the Barrelfish port this is done by registering a
+  periodic event during lwIP initialisation which calls 'tcp_tmr' every 250 ms.
+  For this to work, the application needs to service lwIP's own waitset.
+
+* Operations which are ordinarily handled by lwIP are instead performed
+  centrally by the network daemon (netd):
+  - Port number allocations; see 'tcp_bind', idc_net_control.c and net_ports.if
+  - ARP lookups; see ARP_lookup_client.c and net_ARP.if
+
+* lwIP requests memory from the OS and divvies this up internally.
+  - The backing buffers for these memory pools are created from frame
+    capabilities so they can be passed to device drivers
+    (see src/barrelfish/mem_barrelfish.c)
+  - The default pool sizes should suffice but you may need to increase them
+    (see //include/lwip/opt.h)
+
+* Support for PPP (Point-to-Point Protocol) has been removed:
+    include/netif/ppp_oe.h
+    src/netif/ppp/*
+
+* Code style has been modified extensively. To compare against upstream version,
+  first build a recent version of LLVM/Clang, normalize formatting of both
+  codebases and then run the diff:
+    $ find . -name '*.[ch]' -exec clang-format -i {} \;

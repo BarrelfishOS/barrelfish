@@ -285,7 +285,13 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         else {
             printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bits %"PRIu8"\n", ram.base, ram.bits);
         }
-        assert(err_is_ok(err));
+        if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
+            printk(LOG_WARN, "dropped ram cap base %08"PRIxGENPADDR" bits %"PRIu8"\n", ram.base, ram.bits);
+            err = SYS_ERR_OK;
+
+        } else {
+            assert(err_is_ok(err));
+        }
     }
 
     return err;
