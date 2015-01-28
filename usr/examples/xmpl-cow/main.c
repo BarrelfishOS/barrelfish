@@ -33,6 +33,7 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     assert(type == EXCEPT_PAGEFAULT);
     assert(subtype == PAGEFLT_WRITE);
     uintptr_t addr = (uintptr_t) vaddr;
+    uintptr_t faddr = addr & ~BASE_PAGE_MASK;
     uintptr_t base = (uintptr_t) cow_vbuf;
     if (addr < base || addr >= base + BUFSIZE) {
         debug_printf("unexpected write pagefault on %p\n", vaddr);
@@ -47,10 +48,17 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     assert(m);
     errval_t err;
     struct capref retframe;
+    struct capref f = (struct capref) { .cnode = cow_frames, .slot = frame_id };
     size_t retoff;
+    struct vregion *vr;
+    void *buf;
+    // copy data from faulting page to new page
+    err = vspace_map_one_frame(&buf, BASE_PAGE_SIZE, f, NULL, &vr);
+    assert(err_is_ok(err));
+    memcpy(buf, (void *)faddr, BASE_PAGE_SIZE);
+    vregion_destroy(vr);
     err = m->f.unfill(m, frame_id * BASE_PAGE_SIZE, &retframe, &retoff);
     assert(err_is_ok(err));
-    struct capref f = (struct capref) { .cnode = cow_frames, .slot = frame_id };
     err = m->f.fill(m, frame_id * BASE_PAGE_SIZE, f, BASE_PAGE_SIZE);
     assert(err_is_ok(err));
     err = m->f.pagefault(m, cow_vregion, frame_id * BASE_PAGE_SIZE, 0);
@@ -162,9 +170,7 @@ int main(int argc, char *argv[])
     // write stuff to region
     buf = vbuf;
     debug_printf("%s:%d: %p, %lu pages\n", __FUNCTION__, __LINE__, buf, BUFSIZE / BASE_PAGE_SIZE);
-    for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i++) {
-        buf[i*BASE_PAGE_SIZE] = i % 256;
-    }
+    memset(buf, 0xAA, BUFSIZE);
 
     debug_printf("%s:%d\n", __FUNCTION__, __LINE__);
     // create cow copy
@@ -187,13 +193,16 @@ int main(int argc, char *argv[])
 
     // do stuff cow copy
     uint8_t *cbuf = cow_vbuf;
-    for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i+=4) {
-        cbuf[i * BASE_PAGE_SIZE] = 255 - (i%256);
+    for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i+=2) {
+        cbuf[i * BASE_PAGE_SIZE + 1] = 0x55;
     }
     // verify results
     for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i++) {
-        printf("buf[%d] = %d; cbuf[%d] = %d\n", i, buf[i*BASE_PAGE_SIZE], i,
+        printf("page %d\n", i);
+        printf("buf[0] = %d; cbuf[0] = %d\n", buf[i*BASE_PAGE_SIZE],
                 cbuf[i*BASE_PAGE_SIZE]);
+        printf("buf[1] = %d; cbuf[1] = %d\n", buf[i*BASE_PAGE_SIZE+1],
+                cbuf[i*BASE_PAGE_SIZE+1]);
     }
     debug_dump_hw_ptables();
     return EXIT_SUCCESS;
