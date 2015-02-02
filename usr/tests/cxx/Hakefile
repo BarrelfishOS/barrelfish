@@ -36,5 +36,14 @@
         "x86_64",
         "k1om"
     ]
+  },
+  build application {
+    target = "tests/cxxtest_inc_bf",
+    cxxFiles = [
+        "test_inc_barrelfish.cpp"
+    ],
+    architectures = [
+    "x86_64"
+    ]
   }
 ]
