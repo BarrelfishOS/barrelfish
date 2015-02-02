@@ -124,7 +124,7 @@ static inline errval_t ump_chan_state_init(struct ump_chan_state *c,
     }
 
     c->pos = 0;
-    c->buf = buf;
+    c->buf = (volatile struct ump_message *) buf;
     c->dir = dir;
     c->bufmsgs = size / UMP_MSG_BYTES;
     c->epoch = 1;
@@ -149,8 +149,8 @@ static inline errval_t ump_chan_state_init(struct ump_chan_state *c,
 static inline volatile struct ump_message *ump_impl_poll(struct ump_chan_state *c)
 {
     assert(c->dir == UMP_INCOMING);
-    struct ump_control ctrl = c->buf[c->pos].header.control;
-    if (ctrl.epoch == c->epoch) {
+    ump_control_t ctrl_epoch =  c->buf[c->pos].header.control.epoch;
+    if (ctrl_epoch == c->epoch) {
         return &c->buf[c->pos];
     } else {
         return NULL;
