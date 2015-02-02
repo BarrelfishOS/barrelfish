@@ -109,9 +109,9 @@ struct memobj_frame_list {
 struct memobj_anon {
     struct memobj m;
     struct vregion_list *vregion_list;    ///< List of vregions mapped into the obj
-    struct slab_alloc vregion_slab;       ///< Slab to back the vregion list
+    struct slab_allocator vregion_slab;       ///< Slab to back the vregion list
     struct memobj_frame_list *frame_list; ///< List of frames tracked by the obj
-    struct slab_alloc frame_slab;         ///< Slab to back the frame list
+    struct slab_allocator frame_slab;         ///< Slab to back the frame list
 };
 
 /**

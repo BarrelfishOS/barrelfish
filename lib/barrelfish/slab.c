@@ -32,7 +32,7 @@ STATIC_ASSERT_SIZEOF(struct block_head, SLAB_BLOCK_HDRSIZE);
  * \param blocksize Size of blocks to be allocated by this allocator
  * \param refill_func Pointer to function to call when out of memory (or NULL)
  */
-void slab_init(struct slab_alloc *slabs, size_t blocksize,
+void slab_init(struct slab_allocator *slabs, size_t blocksize,
                slab_refill_func_t refill_func)
 {
     slabs->slabs = NULL;
@@ -48,7 +48,7 @@ void slab_init(struct slab_alloc *slabs, size_t blocksize,
  * \param buf Pointer to start of memory region
  * \param buflen Size of memory region (in bytes)
  */
-void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen)
+void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen)
 {
     /* setup slab_head structure at top of buffer */
     assert(buflen > sizeof(struct slab_head));
@@ -83,7 +83,7 @@ void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen)
  *
  * \returns Pointer to block on success, NULL on error (out of memory)
  */
-void *slab_alloc(struct slab_alloc *slabs)
+void *slab_alloc(struct slab_allocator *slabs)
 {
     errval_t err;
     /* find a slab with free blocks */
@@ -122,7 +122,7 @@ void *slab_alloc(struct slab_alloc *slabs)
  * \param slabs Pointer to slab allocator instance
  * \param block Pointer to block previously returned by #slab_alloc
  */
-void slab_free(struct slab_alloc *slabs, void *block)
+void slab_free(struct slab_allocator *slabs, void *block)
 {
     if (block == NULL) {
         return;
@@ -157,7 +157,7 @@ void slab_free(struct slab_alloc *slabs, void *block)
  *
  * \returns Free block count
  */
-size_t slab_freecount(struct slab_alloc *slabs)
+size_t slab_freecount(struct slab_allocator *slabs)
 {
     size_t ret = 0;
 
@@ -176,7 +176,7 @@ size_t slab_freecount(struct slab_alloc *slabs)
  * \param slabs Pointer to slab allocator instance
  * \param bytes (Minimum) amount of memory to map
  */
-static errval_t slab_refill_pages(struct slab_alloc *slabs, size_t bytes)
+static errval_t slab_refill_pages(struct slab_allocator *slabs, size_t bytes)
 {
     errval_t err;
     struct capref frame_cap;
@@ -204,7 +204,7 @@ static errval_t slab_refill_pages(struct slab_alloc *slabs, size_t bytes)
  *
  * \param slabs Pointer to slab allocator instance
  */
-errval_t slab_default_refill(struct slab_alloc *slabs)
+errval_t slab_default_refill(struct slab_allocator *slabs)
 {
     return slab_refill_pages(slabs, BASE_PAGE_SIZE);
 }

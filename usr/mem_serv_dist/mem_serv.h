@@ -101,7 +101,7 @@ extern struct mm mm_local;
 /// Monitor's binding to this mem_serv
 extern struct mem_binding *monitor_mem_binding;
 
-errval_t slab_refill(struct slab_alloc *slabs);
+errval_t slab_refill(struct slab_allocator *slabs);
 
 errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
                                      uint8_t bits);

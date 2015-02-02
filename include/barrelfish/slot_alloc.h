@@ -43,7 +43,7 @@ struct single_slot_allocator {
     struct capref cap;          ///< Cap of the cnode the allocator is tracking
     struct cnoderef cnode;      ///< Cnode the allocator is tracking
     struct cnode_meta *head;    ///< Linked list of free slots
-    struct slab_alloc slab;     ///< Slab for backing the list
+    struct slab_allocator slab;     ///< Slab for backing the list
 };
 
 struct slot_allocator_list {
@@ -58,7 +58,7 @@ struct multi_slot_allocator {
     struct slot_allocator_list *head; ///< List of single slot allocators
     struct slot_allocator_list *reserve; ///< One single allocator in reserve
 
-    struct slab_alloc slab;      ///< Slab backing the slot_allocator_list
+    struct slab_allocator slab;      ///< Slab backing the slot_allocator_list
 
     struct vspace_mmu_aware mmu_state;
 };
@@ -67,7 +67,7 @@ struct range_slot_allocator {
     struct capref cnode_cap;     ///< capref for the cnode
     struct cnoderef cnode;       ///< cnoderef for the cnode to allocate from
     struct cnode_meta *meta;     ///< Linked list of meta data
-    struct slab_alloc slab;      ///< Slab allocation
+    struct slab_allocator slab;      ///< Slab allocation
     struct thread_mutex mutex;   ///< Mutex for thread safety
 };
 

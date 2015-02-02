@@ -49,7 +49,7 @@ struct mmnode {
  * them to allocate its memory, we declare it in the public header.
  */
 struct mm {
-    struct slab_alloc slabs;///< Slab allocator used for allocating nodes
+    struct slab_allocator slabs;///< Slab allocator used for allocating nodes
     slot_alloc_t slot_alloc;///< Slot allocator for allocating cspace
     void *slot_alloc_inst;  ///< Opaque instance pointer for slot allocator
     struct mmnode *root;    ///< Root node

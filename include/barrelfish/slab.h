@@ -20,10 +20,10 @@
 __BEGIN_DECLS
 
 // forward declarations
-struct slab_alloc;
+struct slab_allocator;
 struct block_head;
 
-typedef errval_t (*slab_refill_func_t)(struct slab_alloc *slabs);
+typedef errval_t (*slab_refill_func_t)(struct slab_allocator *slabs);
 
 struct slab_head {
     struct slab_head *next; ///< Next slab in the allocator
@@ -33,19 +33,19 @@ struct slab_head {
 
 struct slot_allocator;
 
-struct slab_alloc {
+struct slab_allocator {
     struct slab_head *slabs;    ///< Pointer to list of slabs
     size_t blocksize;           ///< Size of blocks managed by this allocator
     slab_refill_func_t refill_func;  ///< Refill function
 };
 
-void slab_init(struct slab_alloc *slabs, size_t blocksize,
+void slab_init(struct slab_allocator *slabs, size_t blocksize,
                slab_refill_func_t refill_func);
-void slab_grow(struct slab_alloc *slabs, void *buf, size_t buflen);
-void *slab_alloc(struct slab_alloc *slabs);
-void slab_free(struct slab_alloc *slabs, void *block);
-size_t slab_freecount(struct slab_alloc *slabs);
-errval_t slab_default_refill(struct slab_alloc *slabs);
+void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen);
+void *slab_alloc(struct slab_allocator *slabs);
+void slab_free(struct slab_allocator *slabs, void *block);
+size_t slab_freecount(struct slab_allocator *slabs);
+errval_t slab_default_refill(struct slab_allocator *slabs);
 
 // size of block header
 #define SLAB_BLOCK_HDRSIZE (sizeof(void *))

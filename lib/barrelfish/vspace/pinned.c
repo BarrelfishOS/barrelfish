@@ -81,7 +81,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
     struct pinned_state *state = get_current_pinned_state();
 
     // Select slab type
-    struct slab_alloc *slab;
+    struct slab_allocator *slab;
     switch(slab_type) {
     case VREGION_LIST:
         slab = &state->vregion_list_slab;

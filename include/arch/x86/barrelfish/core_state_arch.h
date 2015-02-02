@@ -27,8 +27,8 @@ struct pinned_state {
     struct memobj_pinned memobj;
     struct vregion vregion;
     lvaddr_t offset;
-    struct slab_alloc vregion_list_slab;
-    struct slab_alloc frame_list_slab;
+    struct slab_allocator vregion_list_slab;
+    struct slab_allocator frame_list_slab;
 };
 
 struct core_state_arch {

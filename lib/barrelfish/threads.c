@@ -61,7 +61,7 @@ static struct thread staticthread = {
 static struct thread_mutex staticthread_lock = THREAD_MUTEX_INITIALIZER;
 
 /// Storage metadata for thread structures (and TLS data)
-static struct slab_alloc thread_slabs;
+static struct slab_allocator thread_slabs;
 static struct vspace_mmu_aware thread_slabs_vm;
 
 // XXX: mutex and spinlock protecting thread slabs in spanned domains
@@ -205,7 +205,7 @@ void thread_remove_from_queue(struct thread **queue, struct thread *thread)
 }
 
 /// Refill backing storage for thread region
-static errval_t refill_thread_slabs(struct slab_alloc *slabs)
+static errval_t refill_thread_slabs(struct slab_allocator *slabs)
 {
     assert(slabs == &thread_slabs);
 

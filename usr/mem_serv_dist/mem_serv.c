@@ -111,7 +111,7 @@ static void dump_ram_region(int index, struct mem_region* m)
 }
 #endif // 0
 
-errval_t slab_refill(struct slab_alloc *slabs)
+errval_t slab_refill(struct slab_allocator *slabs)
 {
     errval_t err;
 

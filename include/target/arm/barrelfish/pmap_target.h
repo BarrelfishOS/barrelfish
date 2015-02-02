@@ -41,7 +41,7 @@ struct pmap_arm {
     struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
-    struct slab_alloc slab;     ///< Slab allocator for the vnode lists
+    struct slab_allocator slab;     ///< Slab allocator for the vnode lists
     uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
 };
 
