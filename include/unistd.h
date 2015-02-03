@@ -217,6 +217,7 @@ int          access(const char*pathname,int mode);
 unsigned int alarm(unsigned int seconds);
 int          chdir(const char*pathname);
 int          chown(const char *path, uid_t owner, gid_t group);
+int          fchown(int fd, uid_t owner, gid_t group);
 int          close(int fd);
 int          dup(int oldfd);
 int          dup2(int oldfd, int newfd);

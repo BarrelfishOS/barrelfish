@@ -18,9 +18,22 @@ int chmod(const char *path, mode_t mode)
     return 0;
 }
 
+int fchmod(int fd, mode_t mode)
+{
+    POSIXCOMPAT_DEBUG("Warning: fchmod(%d, %o) ignored\n", fd, mode);
+    return 0;
+}
+
 int chown(const char *path, uid_t owner, gid_t group)
 {
     POSIXCOMPAT_DEBUG("Warning: chown(\"%s\", %d, %d) ignored\n",
                       path, owner, group);
+    return 0;
+}
+
+int fchown(int fd, uid_t owner, gid_t group)
+{
+    POSIXCOMPAT_DEBUG("Warning: chown(%d, %d, %d) ignored\n",
+                      fd, owner, group);
     return 0;
 }

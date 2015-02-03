@@ -68,10 +68,13 @@ struct stat {
 __BEGIN_DECLS
 mode_t umask(mode_t mask);
 int chmod(const char *path, mode_t mode);
+int fchmod(int fd, mode_t mode);
 int mkdir(const char *pathname, int mode);
 int mkfifo(const char *pathname, mode_t mode);
 int __stat(const char *pathname, struct stat *buf);
-#define stat(x,y) __stat(x,y)
+static inline int stat(const char *pathname, struct stat *buf) {
+    return __stat(pathname, buf);
+}
 int fstat(int fd, struct stat*buf);
 int lstat(const char *path, struct stat *buf);
 __END_DECLS

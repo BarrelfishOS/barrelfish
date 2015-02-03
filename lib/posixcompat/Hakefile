@@ -44,6 +44,7 @@
                              "kill.c",
                              "link.c",
                              "lseek.c",
+                             "mmap.c",
                              "mkdir.c",
                              "open.c",
                              "pipe.c",
