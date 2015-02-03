@@ -81,6 +81,28 @@
 #  define START_KERNEL_PHYS X86_64_START_KERNEL_PHYS
 #endif
 
+static const char *idt_descs[] =
+{
+    [IDT_DE]    = "#DE: Divide Error",
+    [IDT_DB]    = "#DB: Debug",
+    [IDT_NMI]   = "Nonmaskable External Interrupt",
+    [IDT_BP]    = "#BP: Breakpoint",
+    [IDT_OF]    = "#OF: Overflow",
+    [IDT_BR]    = "#BR: Bound Range Exceeded",
+    [IDT_UD]    = "#UD: Undefined/Invalid Opcode",
+    [IDT_NM]    = "#NM: No Math Coprocessor",
+    [IDT_DF]    = "#DF: Double Fault",
+    [IDT_FPUGP] = "Coprocessor Segment Overrun",
+    [IDT_TS]    = "#TS: Invalid TSS",
+    [IDT_NP]    = "#NP: Segment Not Present",
+    [IDT_SS]    = "#SS: Stack Segment Fault",
+    [IDT_GP]    = "#GP: General Protection Fault",
+    [IDT_PF]    = "#PF: Page Fault",
+    [IDT_MF]    = "#MF: FPU Floating-Point Error",
+    [IDT_AC]    = "#AC: Alignment Check",
+    [IDT_MC]    = "#MC: Machine Check",
+    [IDT_XF]    = "#XF: SIMD Floating-Point Exception",
+};
 
 /**
  * \brief Define IRQ handler number 'num'.
@@ -776,8 +798,8 @@ static __attribute__ ((used))
         // TODO: provide more useful information about the cause
         panic("machine check exception while in user mode");
     } else { // All other traps
-        printk(LOG_WARN, "user trap #%d%s in '%.*s': IP %lx, error %lx\n",
-               vec, disabled ? " WHILE DISABLED" : "",
+        printk(LOG_WARN, "user trap #%d: %s%s in '%.*s': IP %lx, error %lx\n",
+               vec, idt_descs[vec], disabled ? " WHILE DISABLED" : "",
                DISP_NAME_LEN, disp->name, rip, error);
         assert(disp_save_area == dispatcher_get_trap_save_area(handle));
         if (disabled) {
