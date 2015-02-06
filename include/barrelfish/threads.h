@@ -71,6 +71,7 @@ void thread_set_tls_key(int, void *);
 void *thread_get_tls_key(int);
 
 uintptr_t thread_id(void);
+uintptr_t thread_get_id(struct thread *t);
 void thread_set_id(uintptr_t id);
 
 __END_DECLS

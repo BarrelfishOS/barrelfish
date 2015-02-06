@@ -18,6 +18,7 @@ struct   pthread_mutex_attr
 struct pthread_mutex {
     struct thread_mutex mutex;
     int locked;
+    struct pthread_mutex_attr attrs;
 };
 
 
@@ -148,7 +149,15 @@ int pthread_mutex_init(pthread_mutex_t *mutex,
 
     thread_mutex_init(&(*mutex)->mutex);
     (*mutex)->locked = 0;
-    return 0;
+    if (attr && *attr) {
+        debug_printf("kind = %u\n", (*attr)->kind);
+        memcpy(&(*mutex)->attrs, *attr, sizeof(struct pthread_mutex_attr));
+    } else {
+        (*mutex)->attrs.kind = PTHREAD_MUTEX_NORMAL;
+        (*mutex)->attrs.robustness = 0;
+        (*mutex)->attrs.pshared = PTHREAD_PROCESS_PRIVATE;
+    }
+    return  0;
 }
 
 int pthread_mutex_destroy(pthread_mutex_t *mutex)
@@ -170,7 +179,11 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
 
     (*mutex)->locked++;
     thread_mutex_unlock(&mutex_mutex);
-    thread_mutex_lock_nested(&(*mutex)->mutex);
+    if ((*mutex)->attrs.kind == PTHREAD_MUTEX_RECURSIVE) {
+        thread_mutex_lock_nested(&(*mutex)->mutex);
+    } else {
+        thread_mutex_lock(&(*mutex)->mutex);
+    }
     return 0;
 }
 

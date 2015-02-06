@@ -93,6 +93,9 @@ static void thread_entry(thread_func_t start_func, void *start_data)
     assert(!"thread_exit returned");
 }
 
+/// int counter for assigning initial thread ids
+static uintptr_t threadid = 0;
+
 #ifndef NDEBUG
 /// Debugging assertions on thread queues
 static void check_queue(struct thread *queue)
@@ -445,6 +448,9 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     newthread->stack_top = (char *)newthread->stack_top
         - (lvaddr_t)newthread->stack_top % STACK_ALIGNMENT;
 
+    // set thread's ID
+    newthread->id = threadid++;
+
     // init registers
     registers_set_initial(&newthread->regs, newthread, (lvaddr_t)thread_entry,
                           (lvaddr_t)newthread->stack_top,
@@ -587,6 +593,11 @@ struct thread *thread_self(void)
 uintptr_t thread_id(void)
 {
     return thread_self()->id;
+}
+
+uintptr_t thread_get_id(struct thread *t)
+{
+    return t->id;
 }
 
 void thread_set_id(uintptr_t id)
