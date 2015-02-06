@@ -170,7 +170,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex)
 
     (*mutex)->locked++;
     thread_mutex_unlock(&mutex_mutex);
-    thread_mutex_lock(&(*mutex)->mutex);
+    thread_mutex_lock_nested(&(*mutex)->mutex);
     return 0;
 }
 
