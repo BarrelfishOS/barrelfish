@@ -222,6 +222,7 @@ def main(options):
                 debug.log('test complete, processing results')
                 try:
                     passed = harness.process_results(test, path)
+                    debug.log('result: %s' % ("PASS" if passed else "FAIL"))
                 except Exception:
                     retval = False
                     msg = 'Exception while processing results'
