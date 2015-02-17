@@ -102,7 +102,7 @@ int main(int argc, const char *argv[])
 {
     errval_t err;
 
-    printf("Spawnd up.\n");
+    printf("spawnd.%u up.\n", get_my_core_id());
 
 
     vfs_init();
