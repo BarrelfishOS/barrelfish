@@ -36,7 +36,7 @@ delete_steps_init(struct waitset *ws)
 
     struct waitset *myws = delete_steps_get_waitset();
     if (myws != NULL) {
-        debug_printf("delete stepping already initialized with ws=%p\n", myws);
+        DEBUG_CAPOPS("delete stepping already initialized with ws=%p, doing nothing\n", myws);
         return;
     }
 
