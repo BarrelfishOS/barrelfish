@@ -102,13 +102,11 @@ int main(int argc, const char *argv[])
 {
     errval_t err;
 
-    printf("spawnd.%u up.\n", get_my_core_id());
-
-
-    vfs_init();
-    
     my_core_id = disp_get_core_id();
 
+    printf("spawnd.%u up.\n", my_core_id);
+
+    vfs_init();
 
     // read in the bootmodules file so that we know what to start
     get_bootmodules();
