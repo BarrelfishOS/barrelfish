@@ -27,6 +27,10 @@ extern "C" {
 #include <windows.h>
 #endif
 
+#ifdef BARRELFISH
+#include <barrelfish/deferred.h> // for barrelfish_usleep()
+#endif
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 thread::~thread()
@@ -111,10 +115,10 @@ namespace this_thread
 void
 sleep_for(const chrono::nanoseconds& ns)
 {
-#ifndef BARRELFISH
     using namespace chrono;
     if (ns > nanoseconds::zero())
     {
+#ifndef BARRELFISH
         seconds s = duration_cast<seconds>(ns);
         timespec ts;
         typedef decltype(ts.tv_sec) ts_sec;
@@ -132,11 +136,12 @@ sleep_for(const chrono::nanoseconds& ns)
 
         while (nanosleep(&ts, &ts) == -1 && errno == EINTR)
             ;
-    }
 #else
-	/* todo: add sleep here */
-	abort();    
+        // round up to next microsecond
+        microseconds us = duration_cast<microseconds>(ns);
+        barrelfish_usleep(us.count());
 #endif
+    }
 }
 
 }  // this_thread
