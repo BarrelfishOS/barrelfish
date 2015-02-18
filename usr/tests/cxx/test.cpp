@@ -21,7 +21,7 @@ int main(int argc,
     stl_map_test();
     stl_exception_test();
     cx11_test();
-
+    stl_thread_test();
 
     std::cout << "Tests done: SUCCESS" << std::endl;
     return 0;

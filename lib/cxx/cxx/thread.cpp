@@ -38,7 +38,6 @@ thread::~thread()
 void
 thread::join()
 {
-#ifndef BARRELFISH
     int ec = pthread_join(__t_, 0);
 #ifndef _LIBCPP_NO_EXCEPTIONS
     if (ec)
@@ -47,11 +46,6 @@ thread::join()
     (void)ec;
 #endif  // _LIBCPP_NO_EXCEPTIONS
     __t_ = 0;
-#else
-	// TODO: thread join
-	/* thread_join() */
-	abort();
-#endif
 }
 
 void
