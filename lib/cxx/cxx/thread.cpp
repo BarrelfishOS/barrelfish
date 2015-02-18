@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 #ifdef BARRELFISH
+#include <barrelfish/debug.h> // for USER_PANIC
 #include <barrelfish/deferred.h> // for barrelfish_usleep()
 #endif
 
@@ -70,7 +71,7 @@ thread::detach()
 #else
 	/* todo: thread_detach() */
 //	thread_detach(__t__);
-      abort();
+    USER_PANIC("thread_detach() NYI");
     // throw system_error(error_code(ENOSYS, system_category()), "thread::detach not implemented");
 #endif
 }
