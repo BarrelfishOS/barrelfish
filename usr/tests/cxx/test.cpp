@@ -18,6 +18,7 @@ int main(int argc,
     std::cout << "This is cxx test" << std::endl;
     stl_list_test();
     stl_vector_test();
+    stl_map_test();
     stl_exception_test();
     cx11_test();
 

@@ -186,6 +186,24 @@ static void stl_vector_test_simple(void)
     cout << "OK." << endl;
 }
 
+static void stl_vector_test_emplace(void)
+{
+    std::cout << "STL vector: emplace test: ";
+
+    vector<int> v;
+    v.emplace_back(0);
+    v.emplace_back(1);
+    int i = 0;
+    for (auto it = v.begin(); it != v.end(); ++it, ++i) {
+        if (*it != i) {
+            cout << "Value mismatch: " << *it << " / " << i << endl;
+            abort();
+        }
+    }
+    cout << "OK." << endl;
+    return;
+}
+
 void stl_vector_test(void)
 {
     std::cout << "STL Vector tests" << std::endl;
@@ -193,4 +211,5 @@ void stl_vector_test(void)
     stl_vector_test_strings();
     stl_vector_2d();
     stl_vector_iter();
+    stl_vector_test_emplace();
 }

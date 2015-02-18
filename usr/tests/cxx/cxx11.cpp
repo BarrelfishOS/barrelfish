@@ -15,9 +15,9 @@
 
 using namespace std;
 
-static void cx11_lampda_test(void)
+static void cx11_lambda_test(void)
 {
-    cout << "cx11 lampda" << endl;
+    cout << "cx11 lambda" << endl;
 
     std::vector<int> v;
     v.push_back(1);
@@ -37,11 +37,16 @@ static void cx11_ranged_forloop_test(void)
     cout << "cx11 ranged forloop" << endl;
 
     std::map<std::string, std::vector<int>> map;
-    std::vector<int> v;
+    std::vector<int> v, v2;
     v.push_back(1);
     v.push_back(2);
     v.push_back(3);
+    v2.push_back(4);
+    v2.push_back(5);
+    v2.push_back(6);
+    v2.push_back(7);
     map["one"] = v;
+    map["two"] = v2;
 
     for(const auto& kvp : map)
     {
@@ -49,7 +54,7 @@ static void cx11_ranged_forloop_test(void)
 
       for(auto val : kvp.second)
       {
-         std::cout << val << std::endl;
+         std::cout << " " << val << std::endl;
       }
     }
 
@@ -65,5 +70,5 @@ void cx11_test(void)
     cout << "cx11_test" << endl;
 
     cx11_ranged_forloop_test();
-    cx11_lampda_test();
+    cx11_lambda_test();
 }
