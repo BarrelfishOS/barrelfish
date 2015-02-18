@@ -17,9 +17,9 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/debug.h>
 #include <trace/trace.h>
+#include <if/e10k_defs.h>
 
 #ifndef VF
-#       include <if/e10k_defs.h>
 #       include <dev/e10k_dev.h>
 #else
 #       include <dev/e10k_vf_dev.h>

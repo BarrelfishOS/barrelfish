@@ -17,10 +17,9 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
 #include <ipv4/lwip/inet.h>
+#include <if/e10k_defs.h>
 
-#ifndef VF
-#    include <if/e10k_defs.h>
-#else
+#ifdef VF
 #    include <if/e10k_vf_defs.h>
 #    include <if/e10k_vf_rpcclient_defs.h>
 #    include <dev/e10k_vf_dev.h>
