@@ -733,6 +733,10 @@ void thread_set_status(int status) {
     me->return_value = status;
 }
 
+void *thread_get_stack_top(void) {
+    return thread_self()->stack_top;
+}
+
 /**
  * \brief Yield the calling thread
  *
