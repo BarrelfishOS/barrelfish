@@ -272,6 +272,9 @@ errval_t term_client_blocking_write(struct term_client *client,
     assert(outdata != NULL);
     memcpy(outdata, data, length);
 
+    /* tell user how much we've written (before applying filters) */
+    *written = length;
+
     /* apply output filters */
     term_filter_apply(client->output_filters, &outdata, &length);
 
@@ -293,6 +296,10 @@ errval_t term_client_blocking_write(struct term_client *client,
     }
 
  out:
+    /* reset amount written if error */
+    if (err_is_fail(err)) {
+        *written = 0;
+    }
     /* free data */
     free(outdata);
     return err;
