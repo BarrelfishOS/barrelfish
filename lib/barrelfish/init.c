@@ -151,6 +151,7 @@ static bool request_done = false;
 
 static bool parse_argv(struct spawn_domain_params *params, size_t *morecore_alignment)
 {
+    assert(params);
     // grab pagesize config from argv if available
     size_t morecore_pagesize = MORECORE_PAGESIZE;
     int i = 1;
@@ -243,11 +244,23 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         // in the base cn.
         err = morecore_init(BASE_PAGE_SIZE);
     } else {
+        /* if there is a pagesize supplied, use this one */
         size_t morecore_pagesize = 0;
-        parse_argv(params, &morecore_pagesize);
-#if defined(__i386__) && !defined(CONFIG_PSE)
-        morecore_pagesize = BASE_PAGE_SIZE;
+        if (params != NULL && params->pagesize) {
+            morecore_pagesize =  params->pagesize;
+
+            assert(morecore_pagesize == BASE_PAGE_SIZE
+#ifdef __x86_64__
+                   || morecore_pagesize == HUGE_PAGE_SIZE
 #endif
+                   || morecore_pagesize == LARGE_PAGE_SIZE );
+
+        } else {
+            parse_argv(params, &morecore_pagesize);
+#if defined(__i386__) && !defined(CONFIG_PSE)
+            morecore_pagesize = BASE_PAGE_SIZE;
+#endif
+        }
         err = morecore_init(morecore_pagesize);
     }
     if (err_is_fail(err)) {

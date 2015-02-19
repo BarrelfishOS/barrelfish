@@ -24,6 +24,7 @@
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/waitset_chan.h>
+#include <barrelfish_kpi/domain_params.h>
 #include <arch/registers.h>
 #include <barrelfish/dispatch.h>
 #include <if/interdisp_defs.h>
@@ -51,6 +52,7 @@ struct remote_core_state {
     struct span_domain_state *span_domain_state; ///< Reference to the span_domain_state of the "server"
     bool initialized;             ///< true if remote core is fully initialized
     int cnt;                      ///< Used to count dispatcher connected
+    size_t pagesize;              ///< the pagesize to be used for the heap
 };
 
 ///< Struct for spanning domains state machine
@@ -461,8 +463,13 @@ static int remote_core_init_enabled(void *arg)
     struct remote_core_state *remote_core_state =
         (struct remote_core_state*)arg;
 
+    /* construct a temporary spawn param to supply the morecore alignment */
+    struct spawn_domain_params params;
+    memset(&params, 0, sizeof(params));
+    params.pagesize =  remote_core_state->pagesize;
+
     /* Initialize the barrelfish library */
-    err = barrelfish_init_onthread(NULL);
+    err = barrelfish_init_onthread(&params);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "barrelfish_init_onthread failed");
         abort();
@@ -648,6 +655,10 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     }
     remote_core_state->core_id = disp_get_core_id();
     remote_core_state->iref    = domain_state->iref;
+
+    /* get the alignment of the morecore state */
+    struct morecore_state *state = get_morecore_state();
+    remote_core_state->pagesize = state->mmu_state.alignment;
 
     /* Create the thread for the new dispatcher to init on */
     struct thread *newthread =
