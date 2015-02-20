@@ -60,8 +60,9 @@ struct sysret {
 
 #define SYSCALL_X86_RELOAD_LDT      8     ///< Reload the LDT register (x86_64)
 #define SYSCALL_SUSPEND             9     ///< Suspend the CPU
+#define SYSCALL_GET_ABS_TIME        10    ///< Get time elapsed since boot
 
-#define SYSCALL_COUNT               10     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
+#define SYSCALL_COUNT               11     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
 
 /*
  * To understand system calls it might be helpful to know that there

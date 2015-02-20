@@ -1195,6 +1195,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         TRACE(KERNEL, SC_SUSPEND, 1);
         break;
 
+    case SYSCALL_GET_ABS_TIME:
+        retval = sys_get_absolute_time();
+        break;
+
     case SYSCALL_DEBUG:
         switch(arg0) {
         case DEBUG_CONTEXT_COUNTER_RESET:

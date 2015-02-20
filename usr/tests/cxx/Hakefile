@@ -23,6 +23,7 @@
         "stl_templates.cpp",
         "stl_threads.cpp",
         "stl_io.cpp",
+        "stl_chrono.cpp",
         "cxx11.cpp"
     ],
     --addLibraries = [ 

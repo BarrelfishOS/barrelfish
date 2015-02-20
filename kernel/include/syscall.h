@@ -63,6 +63,7 @@ struct sysret sys_kernel_add_kcb(struct kcb* new_kcb);
 struct sysret sys_kernel_remove_kcb(struct kcb* kcb_addr);
 struct sysret sys_kernel_suspend_kcb_sched(bool toggle);
 struct sysret sys_handle_kcb_identify(struct capability* to);
+struct sysret sys_get_absolute_time(void);
 
 /*
  * Monitor syscalls

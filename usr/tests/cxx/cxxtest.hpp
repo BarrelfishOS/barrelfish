@@ -14,5 +14,6 @@ void stl_map_test(void);
 void stl_exception_test(void);
 void stl_thread_test(void);
 void cx11_test(void);
+void stl_chrono_test(void);
 
 #endif /* CXXTEST_H_ */

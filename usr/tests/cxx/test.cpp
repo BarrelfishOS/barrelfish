@@ -23,6 +23,8 @@ int main(int argc,
     cx11_test();
     stl_thread_test();
 
+    stl_chrono_test();
+
     std::cout << "Tests done: SUCCESS" << std::endl;
     return 0;
 }

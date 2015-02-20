@@ -119,6 +119,17 @@ steady_clock::now() _NOEXCEPT
     return time_point(duration(fp()));
 }
 
+#elif defined (BARRELFISH)
+#include <barrelfish/syscalls.h>
+// For BF we're doing something similar to the Mach code above where we use
+// the number of milliseconds elapsed since boot for steady_clock.
+steady_clock::time_point
+steady_clock::now() _NOEXCEPT
+{
+    auto t = static_cast<steady_clock::rep>(sys_get_absolute_time() * 1000 * 1000);
+    return time_point(duration(t));
+}
+
 #else  // __APPLE__
 // FIXME: We assume that clock_gettime(CLOCK_MONOTONIC) works on
 // non-apple systems.  Instead, we should check _POSIX_TIMERS and
