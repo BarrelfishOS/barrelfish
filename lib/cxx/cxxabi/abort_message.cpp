@@ -26,12 +26,32 @@
 #   endif
 #endif
 
+#ifdef BARRELFISH
+// XXX: do not want to include <barrelfish/domain.h> <barrelfish/dispatch.h>
+// and <barrelfish/threads.h> here, so we give the plain declarations for the
+// functions we need to get Barrelfish styling in the abort message.
+// -SG, 2015-02-18
+#define DISP_NAME_LEN   16
+extern "C" {
+extern const char *disp_name(void);
+extern coreid_t disp_get_core_id(void);
+extern uintptr_t thread_id(void);
+}
+#endif
+
 __attribute__((visibility("hidden"), noreturn))
 void abort_message(const char* format, ...)
 {
     // write message to stderr
 #if __APPLE__
     fprintf(stderr, "libc++abi.dylib: ");
+#endif
+
+#ifdef BARRELFISH
+    // use Barrelfish debug_printf style to get info about dispatcher and
+    // thread.
+    fprintf(stderr, "\033[34m%.*s.\033[31m%u.%lu\033[0m: ", DISP_NAME_LEN,
+            disp_name(), disp_get_core_id(), thread_id());
 #endif
     va_list list;
     va_start(list, format);
