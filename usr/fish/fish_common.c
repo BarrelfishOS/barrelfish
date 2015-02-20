@@ -504,6 +504,61 @@ static int cat(int argc, char *argv[])
     return ret;
 }
 
+#define LINE_SIZE 16
+static int hd(int argc, char *argv[])
+{
+    if(argc < 2) {
+        printf("Usage: %s [file...]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
+    uint8_t buf[1024];
+    size_t size;
+    vfs_handle_t vh;
+    errval_t err;
+    int ret = EXIT_SUCCESS;
+
+    for (int i = 1; i < argc; i++) {
+        char *path = vfs_path_mkabsolute(cwd, argv[i]);
+        err = vfs_open(path, &vh);
+        free(path);
+        if (err_is_fail(err)) {
+            printf("%s: file not found\n", argv[i]);
+            ret = EXIT_FAILURE;
+            continue;
+        }
+
+        printf("Contents of %s\n", argv[i]);
+        int k=0;
+        do {
+            err = vfs_read(vh, buf, sizeof(buf), &size);
+            if (err_is_fail(err)) {
+                // XXX: Close any files that might be open
+                DEBUG_ERR(err, "error reading file");
+                return EXIT_FAILURE;
+            }
+
+            for (int j = k%LINE_SIZE; j < size; j++) {
+                if (j % LINE_SIZE == 0) {
+                    printf("%08X: ", k+j);
+                }
+                printf("%02x%s", buf[j], (j+1)%LINE_SIZE == 0 ? "\n" : " ");
+            }
+            k+=size;
+        } while(size > 0);
+        if (k%LINE_SIZE) {
+            printf("\n");
+        }
+
+        err = vfs_close(vh);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "in vfs_close");
+        }
+    }
+
+    return ret;
+}
+
 static int cat2(int argc, char *argv[])
 {
     errval_t err;
@@ -1146,6 +1201,7 @@ static struct cmd commands[] = {
     {"pwd", pwd, "Print current working directory"},
     {"touch", touch, "Create an empty file"},
     {"cat", cat, "Print the contents of file(s)"},
+    {"hd", hd, "Print the contents of file(s) as hexdump"},
     {"cat2", cat2, "Print the contents of file(s) into another file"},
     {"dd", dd, "copy stuff"},
     {"cp", cp, "Copy files"},
