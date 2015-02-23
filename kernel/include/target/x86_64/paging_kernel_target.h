@@ -231,7 +231,7 @@ static inline void paging_x86_64_map_huge(union x86_64_ptable_entry *entry,
     tmp.huge.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.huge.always1 = 1;
     tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
-    
+
     *entry = tmp;
 }
 
@@ -266,7 +266,7 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
     tmp.large.base_addr = base >> 21;
-    
+
     *entry = tmp;
 }
 
@@ -300,6 +300,71 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
 #endif
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.base.base_addr = base >> 12;
+
+    *entry = tmp;
+}
+
+
+/**
+ * \brief Modify flags of a huge page.
+ *
+ * From small page table entry, pointed to by 'entry', maps physical address
+ * 'base' with page attribute bitmap 'bitmap'.
+ *
+ * \param entry         Pointer to page table entry to map from.
+ * \param bitmap        Bitmap to apply to page attributes.
+ */
+static inline void paging_x86_64_modify_flags_huge(union x86_64_ptable_entry * entry,
+                                                   uint64_t bitmap)
+{
+    union x86_64_ptable_entry tmp = *entry;
+
+    tmp.huge.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.huge.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.huge.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.huge.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
+    tmp.huge.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
+#ifdef __k1om__
+    tmp.huge.global = 0;
+#else
+    tmp.huge.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#endif
+    tmp.huge.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+    tmp.huge.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.huge.always1 = 1;
+
+    *entry = tmp;
+}
+
+
+/**
+ * \brief Modify flags of a large page.
+ *
+ * From small page table entry, pointed to by 'entry', maps physical address
+ * 'base' with page attribute bitmap 'bitmap'.
+ *
+ * \param entry         Pointer to page table entry to map from.
+ * \param bitmap        Bitmap to apply to page attributes.
+ */
+static inline void paging_x86_64_modify_flags_large(union x86_64_ptable_entry *entry,
+                                              uint64_t bitmap)
+{
+    union x86_64_ptable_entry tmp = *entry;
+
+    tmp.large.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.large.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.large.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.large.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
+    tmp.large.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
+#ifdef __k1om__
+    /* The Xeon Phi has no support for global pages */
+    tmp.large.global = 0;
+#else
+    tmp.large.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
+#endif
+    tmp.large.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+    tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.large.always1 = 1;
 
     *entry = tmp;
 }

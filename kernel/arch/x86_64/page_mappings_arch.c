@@ -92,7 +92,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
 
                 // check offset within frame
                 genpaddr_t off = offset;
-              
+
                 if (off + pte_count * X86_64_LARGE_PAGE_SIZE > get_size(src)) {
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
@@ -453,6 +453,24 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
 {
     struct cte *mapping = cte_for_cap(frame);
     struct mapping_info *info = &mapping->mapping_info;
+    struct cte *leaf_pt;
+    errval_t err;
+    err = mdb_find_cap_for_address(info->pte, &leaf_pt);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    genvaddr_t vaddr;
+    size_t entry2 = (info->pte - get_address(&leaf_pt->cap)) /
+                    PTABLE_ENTRY_SIZE;
+    err = compile_vaddr(leaf_pt, entry2, &vaddr);
+    if (err_is_fail(err)) {
+        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
+            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
+        }
+        else {
+            return err;
+        }
+    }
 
     /* Calculate page access protection flags */
     // Get frame cap rights
@@ -468,10 +486,30 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     /* Calculate location of page table entries we need to modify */
     lvaddr_t base = local_phys_to_mem(info->pte) + offset;
 
-    for (int i = 0; i < pages; i++) {
-        union x86_64_ptable_entry *entry =
-            (union x86_64_ptable_entry *)base + i;
-        paging_x86_64_modify_flags(entry, flags);
+    switch(leaf_pt->cap.type) {
+        case ObjType_VNode_x86_64_ptable :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                paging_x86_64_modify_flags(entry, flags);
+            }
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                paging_x86_64_modify_flags_large(entry, flags);
+            }
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                paging_x86_64_modify_flags_huge(entry, flags);
+            }
+            break;
+        default:
+            return SYS_ERR_WRONG_MAPPING;
     }
 
     /* do full TLB flush */

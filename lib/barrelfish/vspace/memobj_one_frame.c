@@ -98,7 +98,19 @@ static errval_t unmap_region(struct memobj *memobj, struct vregion *vregion)
 static errval_t protect(struct memobj *memobj, struct vregion *vregion,
                         genvaddr_t offset, size_t range, vs_prot_flags_t flags)
 {
-    USER_PANIC("NYI");
+    struct vspace *vspace = vregion_get_vspace(vregion);
+    struct pmap *pmap = vspace_get_pmap(vspace);
+    genvaddr_t base = vregion_get_base_addr(vregion);
+    genvaddr_t vregion_offset = vregion_get_offset(vregion);
+    errval_t err;
+    size_t ret_size;
+    err = pmap->f.modify_flags(pmap, base + offset + vregion_offset, range,
+                               flags, &ret_size);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+    }
+
+    return SYS_ERR_OK;
 }
 
 /**

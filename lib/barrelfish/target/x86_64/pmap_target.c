@@ -814,29 +814,41 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
 {
     errval_t err = SYS_ERR_OK;
-    struct vnode *ptable = find_ptable(pmap, vaddr);
-    uint16_t ptentry = X86_64_PTABLE_BASE(vaddr);
-    if (ptable) {
-        struct vnode *page = find_vnode(ptable, ptentry);
-        if (page) {
-            if (inside_region(ptable, ptentry, pages)) {
-                // we're modifying part of a valid mapped region
-                // arguments to invocation: invoke frame cap, first affected
-                // page (as offset from first page in mapping), #affected
-                // pages, new flags. Invocation mask flags based on capability
-                // access permissions.
-                size_t off = ptentry - page->entry;
-                paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
-                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
-                        err_getstring(err), err);
-                return err;
-            } else {
-                // overlaps some region border
-                return LIB_ERR_PMAP_EXISTING_MAPPING;
-            }
-        }
+
+    struct vnode *pt = NULL, *page = NULL;
+
+    if (!find_mapping(pmap, vaddr, &pt, &page)) {
+        return LIB_ERR_PMAP_FIND_VNODE;
     }
+    assert(pt && pt->is_vnode && page && !page->is_vnode);
+
+    uint16_t ptentry = X86_64_PTABLE_BASE(vaddr);
+    if (is_large_page(page)) {
+        //large 2M page
+        ptentry = X86_64_PDIR_BASE(vaddr);
+    } else if (is_huge_page(page)) {
+        //huge 1GB page
+        ptentry = X86_64_PDPT_BASE(vaddr);
+    }
+
+    if (inside_region(pt, ptentry, pages)) {
+        // we're modifying part of a valid mapped region
+        // arguments to invocation: invoke frame cap, first affected
+        // page (as offset from first page in mapping), #affected
+        // pages, new flags. Invocation mask flags based on capability
+        // access permissions.
+        size_t off = ptentry - page->entry;
+        paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
+        //printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
+        //                 err_getstring(err), err);
+        return err;
+    } else {
+        // overlaps some region border
+        return LIB_ERR_PMAP_EXISTING_MAPPING;
+    }
+
+
     return SYS_ERR_OK;
 }
 
@@ -854,17 +866,44 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 {
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
-    size = ROUND_UP(size, X86_64_BASE_PAGE_SIZE);
-    size_t pages = size / X86_64_BASE_PAGE_SIZE;
+
+    //determine if we unmap a larger page
+    struct vnode* page = NULL;
+
+    if (!find_mapping(x86, vaddr, NULL, &page)) {
+        //TODO: better error --> LIB_ERR_PMAP_NOT_MAPPED
+        return LIB_ERR_PMAP_UNMAP;
+    }
+
+    assert(!page->is_vnode);
+
+    size_t page_size = X86_64_BASE_PAGE_SIZE;
+    size_t table_base = X86_64_PTABLE_BASE(vaddr);
+    uint8_t map_bits= X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
+    if (is_large_page(page)) {
+        //large 2M page
+        page_size = X86_64_LARGE_PAGE_SIZE;
+        table_base = X86_64_PDIR_BASE(vaddr);
+        map_bits = X86_64_LARGE_PAGE_BITS + X86_64_PTABLE_BITS;
+    } else if (is_huge_page(page)) {
+        //huge 1GB page
+        page_size = X86_64_HUGE_PAGE_SIZE;
+        table_base = X86_64_PDPT_BASE(vaddr);
+        map_bits = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
+    }
+
+    // TODO: match new policy of map when implemented
+    size = ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
+
+    size_t pages = size / page_size;
 
     // vaddr and vend specify begin and end of the region (inside a mapping)
     // that should receive the new set of flags
     //
-    // TODO: figure out page_size etc of original mapping
-    uint8_t map_bits = X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
-
-    if (is_same_pdir(vaddr, vend)) {
+    if (is_same_pdir(vaddr, vend) ||
+        (is_same_pdpt(vaddr, vend) && is_large_page(page)) ||
+        (is_same_pml4(vaddr, vend) && is_huge_page(page))) {
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
@@ -873,25 +912,26 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
     else { // slow path
         // modify first part
-        uint32_t c = X86_64_PTABLE_SIZE - X86_64_PTABLE_BASE(vaddr);
+        uint32_t c = X86_64_PTABLE_SIZE - table_base;
         err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
         // modify full leaves
-        vaddr += c * X86_64_BASE_PAGE_SIZE;
+        vaddr += c * page_size;
         while (get_addr_prefix(vaddr, map_bits) < get_addr_prefix(vend, map_bits)) {
             c = X86_64_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
-            vaddr += c * X86_64_BASE_PAGE_SIZE;
+            vaddr += c * page_size;
         }
 
         // modify remaining part
-        c = X86_64_PTABLE_BASE(vend) - X86_64_PTABLE_BASE(vaddr);
+        c = get_addr_prefix(vend, map_bits-X86_64_PTABLE_BITS) -
+                get_addr_prefix(vaddr, map_bits-X86_64_PTABLE_BITS);
         if (c) {
             err = do_single_modify_flags(x86, vaddr, c, flags);
             if (err_is_fail(err)) {
