@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
     for(int i = 1; i <= num_span; i++) {
         debug_printf("starting thread on %d\n", mycore + i); 
 
-        err = domain_thread_create_on(mycore + i, do_hello, NULL);
+        err = domain_thread_create_on(mycore + i, do_hello, NULL, NULL);
 
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed thread create %d", i);

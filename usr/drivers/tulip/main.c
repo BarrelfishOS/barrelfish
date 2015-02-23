@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     // lwip_demo();
     tcp_server();
 
-    thread_exit();
+    thread_exit(0);
     assert(!"thread_exit returned");
     return EXIT_FAILURE;
 }

@@ -14,5 +14,8 @@
                       cFiles = [ "spantest.c" ],
                       addLibraries = [ "trace" ],
                       flounderDefs = [ "monitor" ]
+                    },
+  build application { target = "xcorejoin",
+                      cFiles = [ "xcorejoin.c" ]
                     }
 ]

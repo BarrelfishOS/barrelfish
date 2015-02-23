@@ -122,7 +122,7 @@ tpool_t* tpool_create (int num_threads)
         if(i < num_threads - 1) {
             do {
                 err = domain_thread_create_on(i + my_core_id + 1, thread_loop,
-                                              &tpool->thread_args[i]);
+                                              &tpool->thread_args[i], NULL);
                 if (err_no(err) == LIB_ERR_NO_SPANNED_DISP) {
                     thread_yield();
                 }

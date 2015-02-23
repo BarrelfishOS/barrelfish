@@ -45,7 +45,7 @@ static void bomp_run_on(int core_id,
     thread_func_t func = (thread_func_t) cfunc;
 
     errval_t err = domain_thread_create_on_varstack(actual_id, func, arg,
-                                                    thread_stack_size);
+                                                    thread_stack_size, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "domain_thread_create_on failed");
         printf("domain_thread_create_on failed on %d\n", actual_id);
@@ -64,7 +64,7 @@ static int bomp_thread_fn(void *xdata)
     /* Wait for the Barrier */
     bomp_barrier_wait(work_data->barrier);
     thread_detach(thread_self());
-    thread_exit();
+    thread_exit(0); // XXX: should return work_fn return value?
     return 0;
 }
 
@@ -200,7 +200,7 @@ static void bomp_span_domain(int nos_threads,
     //for (int i = my_core_id + 1; i < nos_threads + my_core_id; i++) {
     for (int i = 1; i < nos_threads; ++i) {
         coreid_t core = my_core_id + (i * BOMP_DEFAULT_CORE_STRIDE);
-        err = domain_thread_create_on(core, remote_init, NULL);
+        err = domain_thread_create_on(core, remote_init, NULL, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "domain_thread_create_on failed");
             printf("domain_thread_create_on failed on %d\n", i);

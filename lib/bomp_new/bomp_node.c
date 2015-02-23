@@ -203,7 +203,7 @@ static errval_t bomp_node_init_local(nodeid_t nodeid,
     }
 
     BOMP_DEBUG_NODE("creating thread on core %" PRIuCOREID "\n", core);
-    err = domain_thread_create_on(core, bomp_node_msg_handler, node);
+    err = domain_thread_create_on(core, bomp_node_msg_handler, node, NULL);
     if (err_is_fail(err)) {
         // XXX> error handling
         return err;

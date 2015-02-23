@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
     }
 
     for (int i = my_core_id + 1; i < nthreads + my_core_id; i++) {
-        err = domain_thread_create_on(i, remote_init, NULL);
+        err = domain_thread_create_on(i, remote_init, NULL, NULL);
         assert(err_is_ok(err));
         thread_sem_wait(&init_sem);
     }

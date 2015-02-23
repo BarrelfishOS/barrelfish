@@ -21,7 +21,7 @@ typedef void* (*backend_get_tls_fn_t)(void);
 typedef void (*backend_synchronize_fn_t)(void);
 typedef void (*backend_set_tls_fn_t)(void *data);
 typedef void* (*backend_get_thread_fn_t)(void);
-typedef void (*backend_thread_exit_fn_t)(void);
+typedef void (*backend_thread_exit_fn_t)(int status);
 typedef void (*backend_end_processing_fn_t)(void);
 typedef struct thread *(*backend_thread_create_fn_t)(bomp_thread_func_t start_func,
                                               void *arg, size_t stacksize);

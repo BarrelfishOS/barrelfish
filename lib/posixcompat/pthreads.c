@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <posixcompat.h> // for pthread_placement stuff
+
 typedef void (*destructor_fn_t)(void *);
 typedef void *(*start_fn_t)(void *);
 
@@ -44,6 +46,7 @@ struct pthread_rwlock
 
 struct pthread {
     struct thread *thread;
+    int core; //< for spanned domains core on which thread is running
     const void *keys[PTHREAD_KEYS_MAX];
     start_fn_t start_fn;
     void *arg;
@@ -77,6 +80,16 @@ static int start_pthread(void *arg)
     return 0;
 }
 
+/*
+ * Optional pthread placement policy for spanned domains
+ */
+static pthread_placement_fn pthread_placement = NULL;
+errval_t posixcompat_pthread_set_placement_fn(pthread_placement_fn fn)
+{
+    pthread_placement = fn;
+    return SYS_ERR_OK;
+}
+
 int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
                    void *(*start_routine) (void *), void *arg)
 {
@@ -89,7 +102,19 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
     (*pthread)->arg = arg;
 
     // Start the thread
-    (*pthread)->thread = thread_create(start_pthread, *pthread);
+    (*pthread)->core = disp_get_core_id();
+    if (pthread_placement) {
+        (*pthread)->core = pthread_placement(PTHREAD_ACTION_CREATE, 0);
+    }
+    struct thread *nt;
+    errval_t err = domain_thread_create_on((*pthread)->core, start_pthread, *pthread, &nt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pthread_create");
+        return 1;
+    }
+    (*pthread)->thread = nt;
+    debug_printf("%s: %p -> %"PRIuPTR"\n", __FUNCTION__, *pthread,
+            thread_get_id((*pthread)->thread));
     return 0;
 }
 
@@ -305,8 +330,13 @@ int pthread_cond_destroy(pthread_cond_t *cond)
 
 int pthread_join(pthread_t thread, void **retval)
 {
+    debug_printf("%s: %p\n", __FUNCTION__, thread);
     errval_t err = thread_join(thread->thread, NULL);
     assert(err_is_ok(err));
+
+    if (pthread_placement) {
+        pthread_placement(PTHREAD_ACTION_DESTROY, thread->core);
+    }
 
     if (retval != NULL) {
         *retval = thread->retval;

@@ -178,7 +178,7 @@ int init_tweed(int workers_requested,
         args->origin = disp_get_core_id();
 
         err = domain_thread_create_on(i + disp_get_core_id(), start_worker_thread, 
-                                 args);
+                                 args, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to run a function on remote core");
         }

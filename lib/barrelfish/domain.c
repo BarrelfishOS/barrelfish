@@ -158,7 +158,7 @@ static void send_cap_reply(struct interdisp_binding *st, errval_t err)
 
 static void create_thread_request(struct interdisp_binding *b,
                                   genvaddr_t funcaddr, genvaddr_t argaddr,
-                                  uint64_t stacksize)
+                                  uint64_t stacksize, genvaddr_t req)
 {
     thread_func_t start_func = (thread_func_t)(uintptr_t)funcaddr;
     void *arg = (void *)(uintptr_t)argaddr;
@@ -171,6 +171,24 @@ static void create_thread_request(struct interdisp_binding *b,
         newthread = thread_create(start_func, arg);
     }
     assert(newthread != NULL);
+    errval_t err = b->tx_vtbl.create_thread_reply(b, NOP_CONT, SYS_ERR_OK,
+                                                  (genvaddr_t)newthread, req);
+    assert(err_is_ok(err));
+}
+
+struct create_thread_req {
+    struct thread *thread;
+    bool reply_received;
+};
+
+static void create_thread_reply(struct interdisp_binding *b,
+                                errval_t err, genvaddr_t thread, genvaddr_t req)
+{
+    assert(err_is_ok(err));
+    // fill out request
+    struct create_thread_req *r = (struct create_thread_req*)req;
+    r->thread = (struct thread *)thread;
+    r->reply_received = true;
 }
 
 static void wakeup_thread_request(struct interdisp_binding *b,
@@ -215,7 +233,7 @@ static void span_slave_done_handler(void *cs)
 {
     USER_PANIC("shouldn't be called");
     free(cs);
-    thread_exit();
+    thread_exit(0);
 }
 
 static void span_slave_done_request(struct interdisp_binding *b)
@@ -251,8 +269,9 @@ static struct interdisp_rx_vtbl interdisp_vtbl = {
     .send_cap_request = send_cap_request,
     .send_cap_reply = send_cap_reply,
 
-    .wakeup_thread    = wakeup_thread_request,
-    .create_thread    = create_thread_request,
+    .wakeup_thread         = wakeup_thread_request,
+    .create_thread_request = create_thread_request,
+    .create_thread_reply   = create_thread_reply,
 
     // XXX: Hack to allow domain_new_dispatcher() to proceed when not all
     // default waitsets are serviced
@@ -871,7 +890,8 @@ errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id)
 
 errval_t domain_thread_create_on_varstack(coreid_t core_id,
                                           thread_func_t start_func,
-                                          void *arg, size_t stacksize)
+                                          void *arg, size_t stacksize,
+                                          struct thread **newthread)
 {
     if (disp_get_core_id() == core_id) {
         struct thread *th = NULL;
@@ -881,6 +901,9 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
             th = thread_create_varstack(start_func, arg, stacksize);
         }
         if (th != NULL) {
+            if (newthread) {
+                *newthread = th;
+            }
             return SYS_ERR_OK;
         } else {
             return LIB_ERR_THREAD_CREATE;
@@ -894,22 +917,39 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
         }
 
         struct interdisp_binding *b = domain_state->b[core_id];
-        err = b->tx_vtbl.create_thread(b, NOP_CONT,
-                                       (genvaddr_t)(uintptr_t)start_func,
-                                       (genvaddr_t)(uintptr_t)arg,
-                                       stacksize);
+        struct create_thread_req *req = malloc(sizeof(*req));
+        req->reply_received = false;
+        // use special waitset to make sure loop exits properly.
+        struct waitset ws, *old_ws = b->waitset;
+        waitset_init(&ws);
+        b->change_waitset(b, &ws);
+        err = b->tx_vtbl.create_thread_request(b, NOP_CONT,
+                                               (genvaddr_t)(uintptr_t)start_func,
+                                               (genvaddr_t)(uintptr_t)arg,
+                                               stacksize, (genvaddr_t)req);
         if (err_is_fail(err)) {
             return err;
         }
+
+        while (!req->reply_received) {
+            event_dispatch(&ws);
+        }
+
+        if (newthread) {
+            *newthread = req->thread;
+        }
+        free(req);
+
+        b->change_waitset(b, old_ws);
 
         return SYS_ERR_OK;
     }
 }
 
 errval_t domain_thread_create_on(coreid_t core_id, thread_func_t start_func,
-                                 void *arg)
+                                 void *arg, struct thread **newthread)
 {
-    return domain_thread_create_on_varstack(core_id, start_func, arg, 0);
+    return domain_thread_create_on_varstack(core_id, start_func, arg, 0, newthread);
 }
 
 /**

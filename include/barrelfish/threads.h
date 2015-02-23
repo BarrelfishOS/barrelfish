@@ -35,7 +35,7 @@ struct thread *thread_create_varstack(thread_func_t start_func, void *arg,
                                       size_t stacksize);
 void thread_yield(void);
 void thread_yield_dispatcher(struct capref endpoint);
-void thread_exit(void);
+void thread_exit(int status);
 struct thread *thread_self(void);
 errval_t thread_join(struct thread *thread, int *retval);
 errval_t thread_detach(struct thread *thread);

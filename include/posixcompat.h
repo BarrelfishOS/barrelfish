@@ -23,6 +23,13 @@ errval_t spawn_setup_fds(struct capref *frame, int rfd);
 errval_t posixcompat_unpack_fds(void);
 iref_t posixcompat_pts_get_iref(int fd);
 
+enum pthread_action {
+    PTHREAD_ACTION_CREATE,
+    PTHREAD_ACTION_DESTROY,
+};
+typedef int (*pthread_placement_fn)(enum pthread_action action, int coreid);
+errval_t posixcompat_pthread_set_placement_fn(pthread_placement_fn fn);
+
 __END_DECLS
 
 #endif

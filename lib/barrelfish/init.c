@@ -72,7 +72,7 @@ void libc_exit(int status)
         }
     }
 
-    thread_exit();
+    thread_exit(status);
     // If we're not dead by now, we wait
     while (1) {}
 }

@@ -18,7 +18,8 @@ interface interdisp "Interface between domains spanning cores" {
 	message send_cap_reply(errval err);
 
 	message wakeup_thread(genvaddr thread);
-	message create_thread(genvaddr start_func, genvaddr arg, uint64 stacksize);
+	message create_thread_request(genvaddr start_func, genvaddr arg, uint64 stacksize, genvaddr req);
+	message create_thread_reply(errval err, genvaddr thread, genvaddr req);
 
 	message span_slave();
 	message span_slave_done();

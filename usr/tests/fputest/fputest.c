@@ -43,7 +43,7 @@ static int fpu_thread(void *arg)
             j++;
             if(j == 3) {
                 printf("fputest passed successfully!\n");
-                thread_exit();
+                thread_exit(0);
             }
         }
     }
@@ -63,6 +63,6 @@ int main(int argc, char *argv[])
         thread_create(fpu_thread, (void *)(uintptr_t)i);
     }
 
-    thread_exit();
+    thread_exit(0);
     return 0;
 }

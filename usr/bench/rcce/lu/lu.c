@@ -198,5 +198,5 @@ int main(int argc, char **argv)
     a.argv = argv;
 
     thread_create_varstack(lu_bootstrap, &a, LU_STACK_SIZE);
-    thread_exit();
+    thread_exit(0);
 }

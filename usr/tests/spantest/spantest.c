@@ -367,7 +367,7 @@ int main(int argc, char *argv[])
     //trace_dump();
 
     for(int i = 1; i < cores; i++) {
-        err = domain_thread_create_on(i, remote, NULL);
+        err = domain_thread_create_on(i, remote, NULL, NULL);
         assert(err_is_ok(err));
     }
 

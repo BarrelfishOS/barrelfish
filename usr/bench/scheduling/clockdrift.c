@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
 
     // Start all threads
     for (int i = my_core_id + 1; i < nthreads + my_core_id; i++) {
-        err = domain_thread_create_on(i, apic_measure_loop, NULL);
+        err = domain_thread_create_on(i, apic_measure_loop, NULL, NULL);
         assert(err_is_ok(err));
     }
 

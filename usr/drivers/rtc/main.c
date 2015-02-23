@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
     assert(r == 0);
 
     // Stick around waiting for input
-    thread_exit();
+    thread_exit(0);
     assert(!"thread_exit returned");
     return EXIT_FAILURE;
 }

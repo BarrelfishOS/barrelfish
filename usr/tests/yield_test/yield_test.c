@@ -46,5 +46,5 @@ int main(int argc, char *argv[])
         assert(err_is_ok(err));
     }
 
-    thread_exit();
+    thread_exit(0);
 }

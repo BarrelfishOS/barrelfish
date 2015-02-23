@@ -243,7 +243,7 @@ int main(int argc, char **argv)
 
 
     curr_core_nr = (my_core_id + 1) % nr_available_cores;
-    err = domain_thread_create_on(curr_core_nr, writemem, intarray);
+    err = domain_thread_create_on(curr_core_nr, writemem, intarray, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not create thread on core\n");
     }
@@ -258,12 +258,12 @@ int main(int argc, char **argv)
     thread_cond_init(&all_done_condition);
     
     curr_core_nr = (my_core_id + 1) % nr_available_cores;
-    err = domain_thread_create_on(curr_core_nr, increment_tmp_var, NULL);
+    err = domain_thread_create_on(curr_core_nr, increment_tmp_var, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not create thread on core\n");
     }
     curr_core_nr = (my_core_id) % nr_available_cores;
-    err = domain_thread_create_on(curr_core_nr, increment_tmp_var, NULL);
+    err = domain_thread_create_on(curr_core_nr, increment_tmp_var, NULL, NULL);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not create thread on core\n");
     }
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
     s = 0;
     curr_core_nr = (my_core_id + 1) % nr_available_cores;
     while (curr_core_nr != my_core_id) {
-        err = domain_thread_create_on(curr_core_nr, create_skb_channel, 0);
+        err = domain_thread_create_on(curr_core_nr, create_skb_channel, 0, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "could not create thread on core\n");
             break;
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 
     uint64_t start_l2_cache_misses = rdpmc(0);
     for (int i = 0; i < NR_ALLOCATED_THREADS; i++) {
-        err = domain_thread_create_on(curr_core_nr, initialize_memory, &as[i]);
+        err = domain_thread_create_on(curr_core_nr, initialize_memory, &as[i], NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "could not create thread on core\n");
         }
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
     curr_core_nr = (my_core_id + 1) % nr_available_cores;
     start_l2_cache_misses = rdpmc(0);
     for (int i = 0; i < NR_ALLOCATED_THREADS; i++) {
-        err = domain_thread_create_on(curr_core_nr, initialize_number, &as[i]);
+        err = domain_thread_create_on(curr_core_nr, initialize_number, &as[i], NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "could not create thread on core\n");
         }
@@ -385,7 +385,7 @@ int main(int argc, char **argv)
     curr_core_nr = (my_core_id + 1) % nr_available_cores;
     start_l2_cache_misses = rdpmc(0);
     for (int i = 0; i < NR_ALLOCATED_THREADS; i++) {
-        err = domain_thread_create_on(curr_core_nr, sqr, &as[i]);
+        err = domain_thread_create_on(curr_core_nr, sqr, &as[i], NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "could not create thread on core\n");
         }

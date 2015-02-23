@@ -88,8 +88,8 @@ __attribute__((unused)) static bool stack_warned=0;
 static void thread_entry(thread_func_t start_func, void *start_data)
 {
     assert((lvaddr_t)start_func >= BASE_PAGE_SIZE);
-    start_func(start_data);
-    thread_exit();
+    int retval = start_func(start_data);
+    thread_exit(retval);
     assert(!"thread_exit returned");
 }
 
@@ -707,7 +707,7 @@ static int cleanup_thread(void *arg)
 /**
  * \brief Terminate the calling thread
  */
-void thread_exit(void)
+void thread_exit(int status)
 {
     struct thread *me = thread_self();
 
@@ -785,7 +785,7 @@ void thread_exit(void)
         disp_resume(handle, &dg->cleanupthread->regs);
     } else {
         // We're not detached -- wakeup joiner
-        me->return_value = 0;   // XXX: Should be an argument to thread_exit()
+        me->return_value = status;
         me->state = THREAD_STATE_EXITED;
         thread_cond_signal(&me->exit_condition);
 
