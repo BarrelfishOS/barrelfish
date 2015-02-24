@@ -205,6 +205,32 @@ static void wakeup_thread_request(struct interdisp_binding *b,
     disp_enable(handle);
 }
 
+static void join_thread_request(struct interdisp_binding *b,
+                                genvaddr_t taddr, genvaddr_t req)
+{
+    struct thread *thread = (struct thread *)taddr;
+    assert(thread->coreid == disp_get_core_id());
+    int retval = 0;
+    errval_t err = thread_join(thread, &retval);
+    err = b->tx_vtbl.join_thread_reply(b, NOP_CONT, err, retval, req);
+    assert(err_is_ok(err));
+}
+
+struct join_thread_req {
+    errval_t err;
+    int retval;
+    bool reply_received;
+};
+
+static void join_thread_reply(struct interdisp_binding *b,
+                              errval_t err, uint64_t retval, genvaddr_t req)
+{
+    struct join_thread_req *r = (struct join_thread_req *)req;
+    r->err = err;
+    r->retval = retval;
+    r->reply_received = true;
+}
+
 /*
  * XXX: The whole span_slave*() thing is a hack to allow all
  * dispatchers to wait on both the monitor and interdisp waitsets
@@ -272,6 +298,9 @@ static struct interdisp_rx_vtbl interdisp_vtbl = {
     .wakeup_thread         = wakeup_thread_request,
     .create_thread_request = create_thread_request,
     .create_thread_reply   = create_thread_reply,
+
+    .join_thread_request   = join_thread_request,
+    .join_thread_reply     = join_thread_reply,
 
     // XXX: Hack to allow domain_new_dispatcher() to proceed when not all
     // default waitsets are serviced
@@ -950,6 +979,50 @@ errval_t domain_thread_create_on(coreid_t core_id, thread_func_t start_func,
                                  void *arg, struct thread **newthread)
 {
     return domain_thread_create_on_varstack(core_id, start_func, arg, 0, newthread);
+}
+
+errval_t domain_thread_join(struct thread *thread, int *retval)
+{
+    coreid_t core_id = thread->coreid;
+    debug_printf("%s: joining %p, coreid %d\n", __FUNCTION__, thread, core_id);
+    if (disp_get_core_id() == core_id) {
+        return thread_join(thread, retval);
+    } else {
+        struct domain_state *domain_state = get_domain_state();
+        errval_t err;
+
+        if (domain_state->b[core_id] == NULL) {
+            return LIB_ERR_NO_SPANNED_DISP;
+        }
+
+        struct interdisp_binding *b = domain_state->b[core_id];
+        struct join_thread_req *req = malloc(sizeof(*req));
+        req->reply_received = false;
+        // use special waitset to make sure loop exits properly.
+        struct waitset ws, *old_ws = b->waitset;
+        waitset_init(&ws);
+        b->change_waitset(b, &ws);
+        err = b->tx_vtbl.join_thread_request(b, NOP_CONT,
+                                             (genvaddr_t)thread,
+                                             (genvaddr_t)req);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        while (!req->reply_received) {
+            event_dispatch(&ws);
+        }
+        // change waitset back
+        b->change_waitset(b, old_ws);
+
+        if (retval) {
+            *retval = req->retval;
+        }
+        err = req->err;
+        free(req);
+
+        return err;
+    }
 }
 
 /**

@@ -331,7 +331,7 @@ int pthread_cond_destroy(pthread_cond_t *cond)
 int pthread_join(pthread_t thread, void **retval)
 {
     debug_printf("%s: %p\n", __FUNCTION__, thread);
-    errval_t err = thread_join(thread->thread, NULL);
+    errval_t err = domain_thread_join(thread->thread, NULL);
     assert(err_is_ok(err));
 
     if (pthread_placement) {

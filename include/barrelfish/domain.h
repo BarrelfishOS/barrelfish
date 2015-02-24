@@ -75,6 +75,7 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
                                           thread_func_t start_func,
                                           void *arg, size_t stacksize,
                                           struct thread **newthread);
+errval_t domain_thread_join(struct thread *thread, int *retval);
 errval_t domain_send_cap(coreid_t core_id, struct capref cap);
 errval_t domain_wakeup_on(dispatcher_handle_t disp, struct thread *thread);
 errval_t domain_wakeup_on_disabled(dispatcher_handle_t disp,

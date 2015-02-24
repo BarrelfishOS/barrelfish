@@ -507,6 +507,8 @@ struct thread *thread_create(thread_func_t start_func, void *arg)
 errval_t thread_join(struct thread *thread, int *retval)
 {
     assert(thread != NULL);
+    // this function should only be called for threads on same core
+    assert(thread->coreid == disp_get_core_id());
 
     thread_mutex_lock(&thread->exit_lock);
     if(thread->detached) {
