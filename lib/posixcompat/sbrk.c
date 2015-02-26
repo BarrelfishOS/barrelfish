@@ -12,7 +12,7 @@
 
 #if __SIZEOF_POINTER__ == 8
 //need lot of memory...
-#define SBRK_REGION_BYTES (1024*1024*8000ULL)
+#define SBRK_REGION_BYTES (1024*1024*200000ULL)
 #else // still huge, but slightly more achievable in a 32-bit address space!
 #define SBRK_REGION_BYTES (256 * 1024 * 1024)
 #endif
