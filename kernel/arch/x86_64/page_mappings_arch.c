@@ -209,7 +209,9 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     }
 
     if (src->type != ObjType_Frame &&
-        src->type != ObjType_DevFrame) { // Right mapping
+        src->type != ObjType_DevFrame &&
+        src->type != ObjType_RAM &&
+        !type_is_vnode(src->type)) { // Right mapping
         debug(SUBSYS_PAGING, "src type invalid\n");
         return SYS_ERR_WRONG_MAPPING;
     }
@@ -240,7 +242,11 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     flags |= X86_64_PTABLE_PRESENT;
     // Make sure page-tables are never writeable from user-space
     if (type_is_vnode(src->type)) {
-        flags |= X86_64_PTABLE_ACCESS_READONLY;
+        if (flags & ~X86_64_PTABLE_READ_WRITE) {
+            printf("%s:%s:%d: WRITE permission on page table masked.\n",
+                    __FILE__, __FUNCTION__, __LINE__);
+        }
+        flags &= ~X86_64_PTABLE_READ_WRITE;
     }
 
 
