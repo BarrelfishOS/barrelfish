@@ -135,8 +135,15 @@ History:
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/resource.h>
+#include <inttypes.h>
 
-#define ALL_PRIVILEGES (PROT_READ | PROT_WRITE | PROT_EXEC)
+
+#if defined(BARRELFISH)
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/except.h>
+//#include <barrelfish/threads.h>
+//#include <barrelfish/sys_debug.h>
+#endif
 
 #define PAGES 100
 #define ADDS 1000000
@@ -148,23 +155,27 @@ int bogo1, bogo2;
 char *please_protect, *please_unprotect;
 struct rusage t0, t1, t2, t3, t4, t5, t6, t7, t8;
 struct timeval tod0, tod1, tod2, tod3, tod4, tod5, tod6, tod7, tod8;
+uint64_t ticks0, ticks1, ticks2, ticks3, ticks4, ticks5, ticks6;
 
 // a permutation of the pages
 int perm[PAGES];
 
-static int usrtime(struct rusage a, struct rusage b)
+static int __attribute__((unused))
+usrtime(struct rusage a, struct rusage b)
 {
     return (b.ru_utime.tv_sec - a.ru_utime.tv_sec) * 1000000 +
            (b.ru_utime.tv_usec - a.ru_utime.tv_usec);
 }
 
-static int systime(struct rusage a, struct rusage b)
+static int __attribute__((unused))
+systime(struct rusage a, struct rusage b)
 {
     return (b.ru_stime.tv_sec - a.ru_stime.tv_sec) * 1000000 +
            (b.ru_stime.tv_usec - a.ru_stime.tv_usec);
 }
 
-static int tod(struct timeval a, struct timeval b)
+static int __attribute__((unused))
+tod(struct timeval a, struct timeval b)
 { return (b.tv_sec - a.tv_sec) * 1000000 + (b.tv_usec - a.tv_usec); }
 
 static int xrand(void) {
@@ -174,39 +185,200 @@ static int xrand(void) {
 
 int count = 0;
 
-void nop(void) {}
+static void nop(void) {}
 void (*do_nothing)(void) = nop;
 
-static void handler(int x) {
-    count++;
-    if (count >= 0) {
-        if (please_protect)
-            mprotect(please_protect, pagesize, PROT_NONE);
-        mprotect(please_unprotect, pagesize, ALL_PRIVILEGES);
+#if defined(__linux__)
+#define ALL_PRIVILEGES (PROT_READ | PROT_WRITE | PROT_EXEC)
+#define NO_PRIVILEGES  PROT_NONE
+const char osName[] = "Linux";
+#elif defined(BARRELFISH)
+#define ALL_PRIVILEGES (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_EXECUTE)
+#define NO_PRIVILEGES 0x0
+const char osName[] = "Barrelfish";
+#endif
+
+
+#if defined(__linux__)
+#elif defined(BARRELFISH)
+// Barrelfish
+#define EX_STACK_SIZE 16384
+static char ex_stack[EX_STACK_SIZE];
+static char *ex_stack_end = ex_stack + EX_STACK_SIZE;
+
+struct bf_mem {
+    struct capref  frame;
+    void           *vmem;
+    struct memobj  *memobj;
+    struct vregion *vregion;
+};
+
+
+static void
+bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
+{
+    errval_t err;
+    size_t retfsize, retmsize;
+    const size_t nbytes = npages*BASE_PAGE_SIZE;
+
+    // allocate a frame
+    err = frame_alloc(&bfmem->frame, nbytes, &retfsize);
+    if (err_is_fail(err)) {
+        fprintf(stderr, "frame_alloc: %s\n", err_getstring(err));
+        abort();
+    }
+    assert(retfsize >= nbytes);
+
+    // This does not work:
+    //  modify_flags() cannot find the mapping
+    //
+    // err = vspace_map_one_frame_attr(&bfmem->vmem, retsize, bfmem->frame,
+    //                                 VREGION_FLAGS_READ_WRITE,
+    //                                 &bfmem->memobj,
+    //                                 &bfmem->vregion);
+    // if (err_is_fail(err)) {
+    //     fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
+    //     abort();
+    // }
+
+    // create a mapping (empty initially)
+    err = vspace_map_anon_attr(&bfmem->vmem, &bfmem->memobj, &bfmem->vregion,
+                               nbytes, &retmsize, ALL_PRIVILEGES);
+    if (err_is_fail(err)) {
+         fprintf(stderr, "vspace_map_anon_attr: %s\n", err_getstring(err));
+         abort();
+    }
+
+    // allocate a new cnode
+    cslot_t slots;
+    struct cnoderef cnode;
+    struct capref   cnode_cap;
+    err = cnode_create(&cnode_cap, &cnode, npages, &slots);
+    if (err_is_fail(err)) {
+         fprintf(stderr, "cnode_create: %s\n", err_getstring(err));
+         abort();
+    }
+    assert(slots >= npages);
+
+    struct memobj  *mobj = bfmem->memobj;
+    struct vregion *vreg = bfmem->vregion;
+    struct capref  frame = bfmem->frame;
+    struct capref  fc = (struct capref) { .cnode = cnode, .slot = 0};
+    size_t offset = 0;
+    for (size_t i = 0; i < npages; i++) {
+        // copy the cap to the slot
+        err = cap_copy(fc, frame);
+        if (err_is_fail(err)) {
+            fprintf(stderr, "cap_copy: %s\n", err_getstring(err));
+            abort();
+        }
+
+        // fill the vspace, and pagefault it
+        err = mobj->f.fill_foff(mobj, offset, fc, pagesize, offset);
+        if (err_is_fail(err)) {
+            fprintf(stderr, "f.fill_off: %s\n", err_getstring(err));
+            abort();
+        }
+        err = mobj->f.pagefault(mobj, vreg, offset, 0);
+        if (err_is_fail(err)) {
+            fprintf(stderr, "f.pagefault: %s\n", err_getstring(err));
+            abort();
+        }
+
+        offset += pagesize;
+
+        // move to the next slot
+        fc.slot++;
     }
 }
+
+static void
+bf_protect(struct bf_mem *bfm, size_t off, size_t len,
+           vs_prot_flags_t flags)
+{
+    //debug_printf("%s: off:%zd len:%zd flags:%u\n", __FUNCTION__, off, len, flags);
+    errval_t err;
+    err = bfm->memobj->f.protect(bfm->memobj, bfm->vregion, off, len, flags);
+    if (err_is_fail(err)) {
+        fprintf(stderr, "vmpup: memobj.f.protect: %s\n", err_getstring(err));
+        abort();
+    }
+
+}
+
+struct bf_mem BFmem;
+
+#else
+#error "Unknown OS"
+#endif
+
+static void handler(int unused) {
+    count++;
+    if (count >= 0) {
+        if (please_protect) {
+            #if defined(__linux__)
+            mprotect(please_protect, pagesize, NO_PRIVILEGES);
+            #elif defined(BARRELFISH)
+            assert((uintptr_t)BFmem.vmem <= (uintptr_t)please_protect);
+            uintptr_t off_protect = (uintptr_t)please_protect - (uintptr_t)BFmem.vmem;
+            bf_protect(&BFmem, off_protect, pagesize, NO_PRIVILEGES);
+            #endif
+        }
+
+        #if defined(__linux__)
+        mprotect(please_unprotect, pagesize, ALL_PRIVILEGES);
+        #elif defined(BARRELFISH)
+        assert((uintptr_t)BFmem.vmem <= (uintptr_t)please_unprotect);
+        uintptr_t off_unprotect = (uintptr_t)please_unprotect - (uintptr_t)BFmem.vmem;
+        bf_protect(&BFmem, off_unprotect, pagesize, ALL_PRIVILEGES);
+        #endif
+    }
+}
+
+#if defined(__linux__)
+static inline
+uint64_t rdtsc(void)
+{
+    uint32_t eax, edx;
+    __asm volatile ("rdtsc" : "=a" (eax), "=d" (edx));
+    return ((uint64_t)edx << 32) | eax;
+}
+#define debug_printf printf
+#endif
+
+#if defined(BARRELFISH)
+static void
+bf_handler(enum exception_type type, int subtype,
+           void *vaddr,
+           arch_registers_state_t *regs,
+           arch_registers_fpu_state_t *fpuregs)
+{
+    //debug_printf("got exception %d(%d) on %p\n", type, subtype, vaddr);
+    assert(type == EXCEPT_PAGEFAULT);
+    assert(subtype == PAGEFLT_WRITE);
+    handler(0);
+}
+#endif
 
 int main(int argc, char **argv)
 {
     register int i, j, k;
 
-    if (argc < 3) {
-        printf("Please run:   %s machine-type opsys\n"
-               "For example:  %s Dec3100 Ultrix3.1\n",
-               argv[0], argv[0]);
-        exit(1);
-    }
-
-    pagesize = getpagesize();
-
     char *mem;
+    #if defined(__linux__)
+    pagesize = getpagesize();
     if (posix_memalign((void **)&mem, pagesize, PAGES*pagesize) != 0) {
         perror("posix_memalign");
         abort();
     }
-
-    printf("%s & %s & %% machine and operating system\n", argv[1], argv[2]);
     signal(SIGSEGV, handler);
+    #elif defined(BARRELFISH)
+    pagesize = BASE_PAGE_SIZE;
+    bf_alloc_pages(&BFmem, PAGES);
+    mem = BFmem.vmem;
+    thread_set_exception_handler(bf_handler, NULL, ex_stack, ex_stack_end, NULL, NULL);
+    debug_printf("MEM=%p\n", mem);
+    #endif
 
 
     for (i = 0; i < PAGES; i++)
@@ -225,7 +397,8 @@ int main(int argc, char **argv)
     }
 
     getrusage(0, &t1);
-    gettimeofday(&tod1, 0);
+    //gettimeofday(&tod1, 0);
+    ticks1 = rdtsc();
     i = ADDS / 20;
     j = 0;
     do {
@@ -236,10 +409,18 @@ int main(int argc, char **argv)
     } while (--i > 0);
 
     getrusage(0, &t2);
-    gettimeofday(&tod2, 0);
+    //gettimeofday(&tod2, 0);
+    ticks2 = rdtsc();
 
     for (i = 0; i < ROUNDS; i++) {
-        mprotect(mem, PAGES * pagesize, PROT_NONE);
+        #if defined(__linux__)
+        mprotect(mem, PAGES * pagesize, NO_PRIVILEGES);
+        #elif defined(BARRELFISH)
+        //bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
+        for (size_t p=0; p<PAGES; p++) {
+            bf_protect(&BFmem, p*pagesize, pagesize, NO_PRIVILEGES);
+        }
+        #endif
         for (j = 0; j < PAGES; j++) {
             // select next page, and write on it
             please_unprotect = mem + perm[j] * pagesize;
@@ -248,15 +429,25 @@ int main(int argc, char **argv)
         }
     }
     getrusage(0, &t3);
-    gettimeofday(&tod3, 0);
+    ticks3 = rdtsc();
+    //gettimeofday(&tod3, 0);
 
-    mprotect(mem, PAGES * pagesize, PROT_NONE);
+    #if defined(__linux__)
+    mprotect(mem, PAGES * pagesize, NO_PRIVILEGES);
     mprotect(mem + perm[PAGES - 1] * pagesize, pagesize, ALL_PRIVILEGES);
+    #elif defined(BARRELFISH)
+    //bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
+    for (size_t p=0; p<PAGES; p++) {
+        bf_protect(&BFmem, p*pagesize, pagesize, NO_PRIVILEGES);
+    }
+    bf_protect(&BFmem, perm[PAGES - 1] * pagesize, pagesize, ALL_PRIVILEGES);
+    #endif
 
     please_protect = mem + perm[PAGES - 1] * pagesize;
     *please_protect = 0;
     getrusage(0, &t4);
-    gettimeofday(&tod4, 0);
+    ticks4 = rdtsc();
+    //gettimeofday(&tod4, 0);
     for (i = 0; i < ROUNDS; i++)
         for (j = 0; j < PAGES; j++) {
             please_unprotect = mem + perm[j] * pagesize;
@@ -265,7 +456,8 @@ int main(int argc, char **argv)
             please_protect = please_unprotect;
         }
     getrusage(0, &t5);
-    gettimeofday(&tod5, 0);
+    ticks5 = rdtsc();
+    //gettimeofday(&tod5, 0);
 
     if (count != 2 * ROUNDS * PAGES)
         printf("Operating system bug, only %d traps instead of %d\n", count,
@@ -276,8 +468,26 @@ int main(int argc, char **argv)
                          returns from the trap AFTER the trapping instruction! */
         *please_unprotect = 10;
     getrusage(0, &t6);
+    ticks6 = rdtsc();
     gettimeofday(&tod6, 0);
 
+    printf("OS:%s\n", osName);
+    printf("%28s: %6.1f (ticks/page) %d pages\n",
+        "prot1+trap+unprot",
+        (ticks5-ticks4)/(double)(ROUNDS*PAGES),
+        PAGES);
+
+    printf("%28s: %6.1f (ticks/page) %d pages\n",
+        "protN+trap+unprot",
+        (ticks3-ticks2)/(double)(ROUNDS*PAGES),
+        PAGES);
+
+    printf("%28s: %6.1f (ticks/page) %d pages\n",
+        "trap only",
+        (ticks6-ticks5)/(double)(ROUNDS*PAGES),
+        PAGES);
+
+    /*
     printf("%4.3f & %6.3f & %6.3f & %% %7.1f add\n",
            usrtime(t1, t2) / (double)ADDS, systime(t1, t2) / (double)ADDS,
            tod(tod1, tod2) / (double)ADDS, tod(tod1, tod2) / (double)1e6);
@@ -297,5 +507,6 @@ int main(int argc, char **argv)
     printf("%8.2f & %% VM-PUP rating\n",
            3000.0 / ((tod(tod4, tod5) + tod(tod2, tod3) + tod(tod5, tod6)) /
                      (double)(ROUNDS * PAGES)));
+    */
     exit(0);
 }
