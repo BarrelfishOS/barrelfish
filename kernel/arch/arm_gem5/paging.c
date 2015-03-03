@@ -94,11 +94,6 @@ void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes)
 }
 
 
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
-
 static void
 paging_map_device_section(uintptr_t ttbase, lvaddr_t va, lpaddr_t pa)
 {

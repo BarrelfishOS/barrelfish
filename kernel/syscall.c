@@ -334,11 +334,6 @@ sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_sl
     }
 }
 
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
-
 struct sysret
 sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
         int source_vbits, uintptr_t flags, uintptr_t offset,

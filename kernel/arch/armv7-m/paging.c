@@ -56,11 +56,6 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
     return (address & (bytes - 1)) == 0;
 }
 
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
-
 /*
  * \brief read the version number of the table (called ignored3), to see if the upper half 
  * of the table has been modified and needs to be replicated. 

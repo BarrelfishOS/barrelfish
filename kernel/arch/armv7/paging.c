@@ -32,11 +32,6 @@ inline static int aligned(uintptr_t address, uintptr_t bytes)
     return (address & (bytes - 1)) == 0;
 }
 
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
-
 
 union arm_l2_entry;
 static void

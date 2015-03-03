@@ -62,6 +62,11 @@ static inline struct cte *caps_locate_slot(lpaddr_t cnode, cslot_t offset)
                           (1UL << OBJBITS_CTE) * offset);
 }
 
+static inline struct cte *cte_for_cap(struct capability *cap)
+{
+    return (struct cte *) ((char *)cap - offsetof(struct cte, cap));
+}
+
 int sprint_cap(char *buf, size_t len, struct capability *cap);
 void caps_trace(const char *func, int line, struct cte *cte, const char *msg);
 errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bits,

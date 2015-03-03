@@ -20,11 +20,6 @@
 #include <string.h>
 #include <cap_predicates.h>
 
-static inline struct cte *cte_for_cap(struct capability *cap)
-{
-    return (struct cte *) (cap - offsetof(struct cte, cap));
-}
-
 #ifdef CONFIG_PAE
 /// Map within a x86_32 pdpt
 static errval_t x86_32_pdpt(struct capability *dest, cslot_t slot,
