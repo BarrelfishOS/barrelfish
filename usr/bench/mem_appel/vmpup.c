@@ -218,7 +218,7 @@ static void
 bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
 {
     errval_t err;
-    size_t retfsize, retmsize;
+    size_t retfsize;
     const size_t nbytes = npages*BASE_PAGE_SIZE;
 
     // allocate a frame
@@ -229,66 +229,14 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
     }
     assert(retfsize >= nbytes);
 
-    // This does not work:
-    //  modify_flags() cannot find the mapping
-    //
-    // err = vspace_map_one_frame_attr(&bfmem->vmem, retsize, bfmem->frame,
-    //                                 VREGION_FLAGS_READ_WRITE,
-    //                                 &bfmem->memobj,
-    //                                 &bfmem->vregion);
-    // if (err_is_fail(err)) {
-    //     fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
-    //     abort();
-    // }
-
-    // create a mapping (empty initially)
-    err = vspace_map_anon_attr(&bfmem->vmem, &bfmem->memobj, &bfmem->vregion,
-                               nbytes, &retmsize, ALL_PRIVILEGES);
+    // map frame rw
+    err = vspace_map_one_frame_attr(&bfmem->vmem, retfsize, bfmem->frame,
+                                    VREGION_FLAGS_READ_WRITE,
+                                    &bfmem->memobj,
+                                    &bfmem->vregion);
     if (err_is_fail(err)) {
-         fprintf(stderr, "vspace_map_anon_attr: %s\n", err_getstring(err));
-         abort();
-    }
-
-    // allocate a new cnode
-    cslot_t slots;
-    struct cnoderef cnode;
-    struct capref   cnode_cap;
-    err = cnode_create(&cnode_cap, &cnode, npages, &slots);
-    if (err_is_fail(err)) {
-         fprintf(stderr, "cnode_create: %s\n", err_getstring(err));
-         abort();
-    }
-    assert(slots >= npages);
-
-    struct memobj  *mobj = bfmem->memobj;
-    struct vregion *vreg = bfmem->vregion;
-    struct capref  frame = bfmem->frame;
-    struct capref  fc = (struct capref) { .cnode = cnode, .slot = 0};
-    size_t offset = 0;
-    for (size_t i = 0; i < npages; i++) {
-        // copy the cap to the slot
-        err = cap_copy(fc, frame);
-        if (err_is_fail(err)) {
-            fprintf(stderr, "cap_copy: %s\n", err_getstring(err));
-            abort();
-        }
-
-        // fill the vspace, and pagefault it
-        err = mobj->f.fill_foff(mobj, offset, fc, pagesize, offset);
-        if (err_is_fail(err)) {
-            fprintf(stderr, "f.fill_off: %s\n", err_getstring(err));
-            abort();
-        }
-        err = mobj->f.pagefault(mobj, vreg, offset, 0);
-        if (err_is_fail(err)) {
-            fprintf(stderr, "f.pagefault: %s\n", err_getstring(err));
-            abort();
-        }
-
-        offset += pagesize;
-
-        // move to the next slot
-        fc.slot++;
+        fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
+        abort();
     }
 }
 
@@ -416,10 +364,7 @@ int main(int argc, char **argv)
         #if defined(__linux__)
         mprotect(mem, PAGES * pagesize, NO_PRIVILEGES);
         #elif defined(BARRELFISH)
-        //bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
-        for (size_t p=0; p<PAGES; p++) {
-            bf_protect(&BFmem, p*pagesize, pagesize, NO_PRIVILEGES);
-        }
+        bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
         #endif
         for (j = 0; j < PAGES; j++) {
             // select next page, and write on it
@@ -436,10 +381,7 @@ int main(int argc, char **argv)
     mprotect(mem, PAGES * pagesize, NO_PRIVILEGES);
     mprotect(mem + perm[PAGES - 1] * pagesize, pagesize, ALL_PRIVILEGES);
     #elif defined(BARRELFISH)
-    //bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
-    for (size_t p=0; p<PAGES; p++) {
-        bf_protect(&BFmem, p*pagesize, pagesize, NO_PRIVILEGES);
-    }
+    bf_protect(&BFmem, 0, PAGES*pagesize, NO_PRIVILEGES);
     bf_protect(&BFmem, perm[PAGES - 1] * pagesize, pagesize, ALL_PRIVILEGES);
     #endif
 
@@ -482,10 +424,10 @@ int main(int argc, char **argv)
         (ticks3-ticks2)/(double)(ROUNDS*PAGES),
         PAGES);
 
-    printf("%28s: %6.1f (ticks/page) %d pages\n",
+    printf("%28s: %6.1f (ticks/page) %d traps\n",
         "trap only",
-        (ticks6-ticks5)/(double)(ROUNDS*PAGES),
-        PAGES);
+        (ticks6-ticks5)/(double)(TRAPS),
+        TRAPS);
 
     /*
     printf("%4.3f & %6.3f & %6.3f & %% %7.1f add\n",
