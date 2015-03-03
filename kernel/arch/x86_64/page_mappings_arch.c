@@ -448,6 +448,14 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief modify flags of mapping for `frame`.
+ *
+ * \arg frame the frame whose mapping should be modified
+ * \arg offset the offset from the first page table entry in entries
+ * \arg pages the number of pages to modify
+ * \arg mflags the new flags
+ */
 errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
                                     size_t pages, size_t mflags)
 {
@@ -458,18 +466,6 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     err = mdb_find_cap_for_address(info->pte, &leaf_pt);
     if (err_is_fail(err)) {
         return err;
-    }
-    genvaddr_t vaddr;
-    size_t entry2 = (info->pte - get_address(&leaf_pt->cap)) /
-                    PTABLE_ENTRY_SIZE;
-    err = compile_vaddr(leaf_pt, entry2, &vaddr);
-    if (err_is_fail(err)) {
-        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
-            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
-        }
-        else {
-            return err;
-        }
     }
 
     /* Calculate page access protection flags */
@@ -483,8 +479,12 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     // Unconditionally mark the page present
     flags |= X86_64_PTABLE_PRESENT;
 
-    /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = local_phys_to_mem(info->pte) + offset;
+    assert(offset < X86_64_PTABLE_SIZE);
+    assert(offset + pages < X86_64_PTABLE_SIZE);
+
+    /* Calculate location of first pt entry we need to modify */
+    lvaddr_t base = local_phys_to_mem(info->pte) +
+        offset * sizeof(union x86_64_ptable_entry);
 
     switch(leaf_pt->cap.type) {
         case ObjType_VNode_x86_64_ptable :

@@ -227,7 +227,7 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
 }
 
 // TODO: cleanup arch compatibility mess for page size selection
-errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
+errval_t paging_tlb_flush_range(struct cte *frame, size_t offset, size_t pages)
 {
     // reconstruct first virtual address for TLB flushing
     struct cte *leaf_pt;
@@ -239,6 +239,7 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
     genvaddr_t vaddr;
     size_t entry = (frame->mapping_info.pte - get_address(&leaf_pt->cap)) /
         PTABLE_ENTRY_SIZE;
+    entry += offset;
     err = compile_vaddr(leaf_pt, entry, &vaddr);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {

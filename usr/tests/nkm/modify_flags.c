@@ -4,7 +4,9 @@
 #include <barrelfish/except.h>
 #include <stdio.h>
 
-static void *vbase = NULL;
+static void *vbase = NULL, *vend = NULL;
+static struct memobj *memobj = NULL;
+static struct vregion *vregion = NULL;
 
 #define EX_STACK_SIZE 16384
 static char ex_stack[EX_STACK_SIZE];
@@ -12,13 +14,17 @@ static char ex_stack[EX_STACK_SIZE];
 static void handler(enum exception_type type, int subtype, void *addr,
         arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
 {
-    debug_printf("got exception %d(%d) on %p\n", type, subtype, addr);
+    static int count = 0;
+    debug_printf("got exception %d(%d) on %p [%d]\n", type, subtype, addr, ++count);
+    errval_t err;
     assert(type == EXCEPT_PAGEFAULT);
     assert(subtype == PAGEFLT_WRITE);
-    assert(addr == vbase);
+    assert(addr >= vbase && addr < vend);
     debug_printf("got expected write pagefault on %p\n", addr);
-    // exit program
-    exit(0);
+    // unprotect 4k page
+    genvaddr_t offset = (genvaddr_t)addr - (genvaddr_t)vbase;
+    err = memobj->f.protect(memobj, vregion, offset, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
+    assert(err_is_ok(err));
 }
 
 int main(void)
@@ -26,11 +32,9 @@ int main(void)
     struct capref frame;
     errval_t err;
     size_t retsize;
-    err = frame_alloc(&frame, BASE_PAGE_SIZE, &retsize);
+    err = frame_alloc(&frame, 16 * BASE_PAGE_SIZE, &retsize);
     assert(err_is_ok(err));
     // map read-write
-    struct memobj *memobj;
-    struct vregion *vregion;
     err = vspace_map_anon_attr(&vbase, &memobj, &vregion, retsize, &retsize,
             VREGION_FLAGS_READ_WRITE);
     assert(err_is_ok(err));
@@ -39,6 +43,7 @@ int main(void)
     err = memobj->f.pagefault(memobj, vregion, 0, 0);
     assert(err_is_ok(err));
     assert(vbase);
+    vend = (unsigned char *)vbase + retsize;
     unsigned char *base = vbase;
     debug_printf("filling region %p\n", base);
     for (int i = 0; i < retsize; i++) {
@@ -72,10 +77,10 @@ int main(void)
     assert(err_is_ok(err));
 
     // this should fault
-    debug_printf("provoke write pagefault on %p\n", base);
-    base[0] = 0x42;
-
-    assert(!"reached");
+    for (int i = 0; i < retsize / BASE_PAGE_SIZE; i++) {
+        debug_printf("provoke write pagefault on %p\n", base);
+        base[i * BASE_PAGE_SIZE] = 0x42;
+    }
 
     return 0;
 }

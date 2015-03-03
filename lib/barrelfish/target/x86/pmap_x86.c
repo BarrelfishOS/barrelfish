@@ -93,7 +93,18 @@ struct vnode *find_vnode(struct vnode *root, uint16_t entry)
     struct vnode *n;
 
     for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if(n->entry == entry) {
+        if (!n->is_vnode) {
+            // check whether entry is inside a large region
+            uint16_t end = n->entry + n->u.frame.pte_count;
+            if (n->entry <= entry && entry < end) {
+                //if (n->entry < entry) {
+                //    debug_printf("%d \\in [%d, %d]\n", entry, n->entry, end);
+                //}
+                return n;
+            }
+        }
+        else if(n->entry == entry) {
+            // return n if n is a vnode and the indices match
             return n;
         }
     }

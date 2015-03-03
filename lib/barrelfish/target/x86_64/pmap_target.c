@@ -714,8 +714,8 @@ static inline bool is_huge_page(struct vnode *p)
  * \brief Remove page mappings
  *
  * \param pmap     The pmap object
- * \param vaddr    The start of the virtual addres to remove
- * \param size     The size of virtual address to remove
+ * \param vaddr    The start of the virtual region to remove
+ * \param size     The size of virtual region to remove
  * \param retsize  If non-NULL, filled in with the actual size removed
  */
 static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
@@ -748,6 +748,11 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         page_size = X86_64_HUGE_PAGE_SIZE;
         table_base = X86_64_PDPT_BASE(vaddr);
         map_bits = X86_64_HUGE_PAGE_BITS + X86_64_PTABLE_BITS;
+    }
+    if (page->entry > table_base) {
+        debug_printf("trying to partially unmap region\n");
+        // XXX: error code
+        return LIB_ERR_PMAP_FIND_VNODE;
     }
 
     // TODO: match new policy of map when implemented
@@ -823,12 +828,15 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
     assert(pt && pt->is_vnode && page && !page->is_vnode);
 
     uint16_t ptentry = X86_64_PTABLE_BASE(vaddr);
+    size_t pagesize = BASE_PAGE_SIZE;
     if (is_large_page(page)) {
         //large 2M page
         ptentry = X86_64_PDIR_BASE(vaddr);
+        pagesize = LARGE_PAGE_SIZE;
     } else if (is_huge_page(page)) {
         //huge 1GB page
         ptentry = X86_64_PDPT_BASE(vaddr);
+        pagesize = HUGE_PAGE_SIZE;
     }
 
     if (inside_region(pt, ptentry, pages)) {
@@ -845,6 +853,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
         return err;
     } else {
         // overlaps some region border
+        // XXX: need better error
         return LIB_ERR_PMAP_EXISTING_MAPPING;
     }
 
@@ -857,7 +866,8 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
  * \brief Modify page mapping
  *
  * \param pmap     The pmap object
- * \param vaddr    The virtual address to unmap
+ * \param vaddr    The first virtual address for which to change the flags
+ * \param size     The length of the region to change in bytes
  * \param flags    New flags for the mapping
  * \param retsize  If non-NULL, filled in with the actual size modified
  */
@@ -875,7 +885,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         return LIB_ERR_PMAP_UNMAP;
     }
 
-    assert(!page->is_vnode);
+    assert(page && !page->is_vnode);
 
     size_t page_size = X86_64_BASE_PAGE_SIZE;
     size_t table_base = X86_64_PTABLE_BASE(vaddr);
