@@ -10,9 +10,9 @@
 
 static inline errval_t clean_dirty_bits(struct capref vnode) {
 
-    struct sysret sysret = cap_invoke1(vnode, VNodeCmd_CleanDirtyBits);
-    assert(ret != NULL);
-    return sysret.error;
+    struct sysret ret = cap_invoke1(vnode, VNodeCmd_CleanDirtyBits);
+    printf("%s:%s:%d: cleared %lu dirty bits\n", __FILE__, __FUNCTION__, __LINE__, ret.value);
+    return ret.error;
 }
 
 static inline errval_t invoke_vnode_identify(struct capref vnode,

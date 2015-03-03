@@ -590,6 +590,39 @@ static struct sysret handle_vnode_identify(struct capability *to,
     };
 }
 
+static struct sysret handle_clean_dirty_bits(struct capability *to,
+                                             int cmd, uintptr_t *args)
+{
+    assert(to->type == ObjType_VNode_x86_64_ptable);
+    size_t cleared = 0;
+
+    genpaddr_t dest_gp   = get_address(to);
+    lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
+    lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    //printf("%s:%s:%d: dest_gp = %"PRIxGENVADDR" dest_lp = %"PRIxLVADDR" dest_lv = %"PRIxLVADDR" \n",
+    //       __FILE__, __FUNCTION__, __LINE__, dest_gp, dest_lp, dest_lv);
+
+    lvaddr_t* addr = (lvaddr_t*)dest_lv;
+
+    if (addr == NULL) {
+        printf("%s:%s:%d: Page table has invalid base address\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        goto out;
+    }
+
+    for (int i=0; i < X86_64_PTABLE_SIZE; i++) {
+        if (addr[i] & X86_64_PTABLE_DIRTY) {
+            cleared++;
+        }
+        addr[i] &= ~X86_64_PTABLE_DIRTY;
+    }
+
+out:
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = cleared,
+    };
+}
 
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
@@ -1195,6 +1228,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_VNode_x86_64_ptable] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
