@@ -238,15 +238,46 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
         fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
         abort();
     }
+    genvaddr_t mem = (genvaddr_t) bfmem->vmem;
+    if (X86_64_PDIR_BASE(mem) != X86_64_PDIR_BASE(mem + retfsize - 1)) {
+        debug_printf("WARN: mapping overlaps leaf pt!\n");
+    }
 }
 
+__attribute__((unused))
+static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
+{
+    paging_x86_64_flags_t pmap_flags =
+        PTABLE_USER_SUPERVISOR | PTABLE_EXECUTE_DISABLE;
+
+    if (!(vregion_flags & VREGION_FLAGS_GUARD)) {
+        if (vregion_flags & VREGION_FLAGS_WRITE) {
+            pmap_flags |= PTABLE_READ_WRITE;
+        }
+        if (vregion_flags & VREGION_FLAGS_EXECUTE) {
+            pmap_flags &= ~PTABLE_EXECUTE_DISABLE;
+        }
+        if (vregion_flags & VREGION_FLAGS_NOCACHE) {
+            pmap_flags |= PTABLE_CACHE_DISABLED;
+        }
+    }
+
+    return pmap_flags;
+}
+
+#define DIRECT_INVOKE
 static void
 bf_protect(struct bf_mem *bfm, size_t off, size_t len,
            vs_prot_flags_t flags)
 {
     //debug_printf("%s: off:%zd len:%zd flags:%u\n", __FUNCTION__, off, len, flags);
     errval_t err;
+#if defined(DIRECT_INVOKE)
+    err = invoke_frame_modify_flags(bfm->frame, off / pagesize, len / pagesize,
+            vregion_to_pmap_flag(flags));
+#else
     err = bfm->memobj->f.protect(bfm->memobj, bfm->vregion, off, len, flags);
+#endif
     if (err_is_fail(err)) {
         fprintf(stderr, "vmpup: memobj.f.protect: %s\n", err_getstring(err));
         abort();
