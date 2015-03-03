@@ -41,35 +41,36 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    printf("%s:%s:%d: Hi, lets map our own ptable!\n", 
+    printf("%s:%s:%d: Hi, lets map our own ptable!\n",
            __FILE__, __FUNCTION__, __LINE__);
 
     struct pmap* pmap = get_current_pmap();
     assert(pmap != NULL);
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
-    printf("%s:%s:%d: About to print the vnode tree\n", 
+    printf("%s:%s:%d: About to print the vnode tree\n",
            __FILE__, __FUNCTION__, __LINE__);
     struct vnode* current = &x86->root;
     print_vnodes(current, 0);
 
     current = &x86->root;
     char capbuffer[1024];
-    
+
     struct capref pml4 = current->u.frame.cap;
     debug_print_cap_at_capref(capbuffer, 1024, pml4);
     printf("%s\n", capbuffer);
 
-    struct frame_identity id = { .base = 0, .bits = 0 };
-    err = invoke_frame_identify(pml4, &id);
+
+    struct vnode_identity id = { .base = 0, .type = 0 };
+    err = invoke_vnode_identify(pml4, &id);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Invoke frame identify failed.");
+        USER_PANIC_ERR(err, "Invoke vnode identify failed.");
     }
-    printf("%s:%s:%d: pml4.bits = %d\n", 
-           __FILE__, __FUNCTION__, __LINE__, id.bits);
+    printf("%s:%s:%d: pml4.type = %d\n", __FILE__, __FUNCTION__, __LINE__, id.type);
+
 
     void *retaddr = NULL;
-    err = vspace_map_one_frame(&retaddr, (size_t)1<<id.bits, pml4, NULL, NULL);
+    err = vspace_map_one_frame(&retaddr, X86_64_PTABLE_SIZE, pml4, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Can not map PML4 table.");
     }

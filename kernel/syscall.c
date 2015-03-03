@@ -384,7 +384,6 @@ sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
     err = caps_lookup_slot(src_croot, source_cptr, source_level, &src_cap,
                            CAPRIGHTS_READ);
     if (err_is_fail(err)) {
-        printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
 
