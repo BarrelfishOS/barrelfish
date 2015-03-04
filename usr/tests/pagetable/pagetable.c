@@ -7,29 +7,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/invocations_arch.h>
 
-
-static inline errval_t clean_dirty_bits(struct capref vnode) {
-
-    struct sysret ret = cap_invoke1(vnode, VNodeCmd_CleanDirtyBits);
-    printf("%s:%s:%d: cleared %lu dirty bits\n", __FILE__, __FUNCTION__, __LINE__, ret.value);
-    return ret.error;
-}
-
-static inline errval_t invoke_vnode_identify(struct capref vnode,
-                                             struct frame_identity *ret)
-{
-    struct sysret sysret = cap_invoke1(vnode, VNodeCmd_Identify);
-    assert(ret != NULL);
-    if (err_is_ok(sysret.error)) {
-        ret->base = sysret.value & (~BASE_PAGE_MASK);
-        ret->bits = sysret.value & BASE_PAGE_MASK;
-        return sysret.error;
-    }
-    ret->base = 0;
-    ret->bits = 0;
-    return sysret.error;
-}
-
 static void print_vnodes(struct vnode* current, int depth) {
     char pad[depth+1];
     for (int i=0; i<depth; i++) {
@@ -100,13 +77,19 @@ static void find_pagetables(struct vnode* current) {
 
                 debug_print_cap_at_capref(capbuffer, 1024, current->u.vnode.cap);
                 printf("vnode: cap=%s\n", capbuffer);
-                for(int i=0; i<10; i++) {
+
+                for(size_t i=0; i < X86_64_PTABLE_SIZE; i++) {
                     bool is_dirty = (ptable[i] & X86_64_PTABLE_DIRTY) > 0;
-                    printf("retaddr[%d] = 0x%"PRIxGENPADDR" is_dirty = %d\n", i, ptable[i], is_dirty);
-                    clean_dirty_bits(current->u.vnode.cap);
+                    if (is_dirty) {
+                        printf("retaddr[%zu] = 0x%"PRIxGENPADDR" is_dirty = %d\n", i, ptable[i], is_dirty);
+                    }
                 }
 
-                //printf("%s:%s:%d: \n", __FILE__, __FUNCTION__, __LINE__);
+                size_t how_many = 0;
+                err = invoke_clean_dirty_bits(current->u.vnode.cap, &how_many);
+                if (err_is_fail(err)) {
+                    USER_PANIC_ERR(err, "clean dirty bits failed.");
+                }
             }
 
             find_pagetables(current->u.vnode.children);
