@@ -28,6 +28,8 @@ struct vnode { // NB: misnomer :)
             struct capref cap;         ///< VNode cap
             struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct vnode  *children;   ///< Children of this VNode
+            lvaddr_t virt_base;        ///< vaddr of mapped page table
+            struct capref page_table_frame;
         } vnode; // for non-leaf node (maps another vnode)
         struct {
             struct capref cap;         ///< Frame cap

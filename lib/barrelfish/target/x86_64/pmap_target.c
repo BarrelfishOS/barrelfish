@@ -1169,6 +1169,8 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     assert(!capref_is_null(x86->root.u.vnode.cap));
     assert(!capref_is_null(x86->root.u.vnode.invokable));
     x86->root.u.vnode.children  = NULL;
+    x86->root.u.vnode.virt_base = 0;
+    x86->root.u.vnode.page_table_frame  = NULL_CAP;
     x86->root.next              = NULL;
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
