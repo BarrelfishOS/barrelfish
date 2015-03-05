@@ -25,10 +25,11 @@ struct vnode { // NB: misnomer :)
     struct capref mapping;     ///< mapping cap associated with this node
     union {
         struct {
+            lvaddr_t base;             ///< Virtual address start of page (upper level bits)
             struct capref cap;         ///< VNode cap
             struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct vnode  *children;   ///< Children of this VNode
-            lvaddr_t virt_base;        ///< vaddr of mapped page table
+            lvaddr_t virt_base;        ///< vaddr of mapped RO page table in user-space
             struct capref page_table_frame;
         } vnode; // for non-leaf node (maps another vnode)
         struct {
