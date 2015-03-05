@@ -20,7 +20,7 @@
 
 /// Amount of virtual space for malloc
 #ifdef __x86_64__
-#       define HEAP_REGION (3500UL * 1024 * 1024) /* 2GB */
+#       define HEAP_REGION (32UL * 1024UL * 1024 * 1024) /* 32GB */
 #else
 #       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #endif
@@ -118,11 +118,15 @@ errval_t morecore_init(size_t alignment)
 #endif
     morecore_flags |= (alignment == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
 
+    /* put the alignment to 4G to force the heap to start > 4G */
     err = vspace_mmu_aware_init_aligned(&state->mmu_state, NULL, HEAP_REGION,
-                                        alignment, morecore_flags);
+                                        (4UL << 30), morecore_flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
+
+    /* overwrite alignment field in vspace_mmu_aware state */
+    state->mmu_state.alignment = alignment;
 
     sys_morecore_alloc = morecore_alloc;
     sys_morecore_free = morecore_free;
