@@ -118,34 +118,20 @@ int main(int argc, char *argv[])
     print_vnodes(current, 0);
     find_pagetables(current);
 
-    /*current = &x86->root;
-    char capbuffer[1024];
+    void *sbrk(intptr_t increment);
+    void* base = sbrk(0);
+    void* limit = sbrk(1<<20); // 1mb
+    assert(base != NULL);
+    printf("%s:%s:%d: base = %p limit = %p\n", __FILE__, __FUNCTION__, __LINE__, base, limit);
+    assert(limit > base);
 
-    struct capref pml4 = current->u.frame.cap;
-    debug_print_cap_at_capref(capbuffer, 1024, pml4);
-    printf("%s\n", capbuffer);
+    struct memobj_anon* get_sbrk_memobj(void);
+    struct vregion* get_sbrk_vregion(void);
 
-
-    struct vnode_identity id = { .base = 0, .type = 0 };
-    err = invoke_vnode_identify(pml4, &id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Invoke vnode identify failed.");
-    }
-    printf("%s:%s:%d: pml4.type = %d\n", __FILE__, __FUNCTION__, __LINE__, id.type);
-
-
-    void *retaddr = NULL;
-    err = vspace_map_one_frame(&retaddr, X86_64_PTABLE_SIZE, pml4, NULL, NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Can not map PML4 table.");
-    }
-
-    lvaddr_t* ptable = (lvaddr_t*)retaddr;
-    printf("retaddr[0] = 0x%"PRIxGENPADDR"\n", ptable[0]);
-    printf("retaddr[1] = 0x%"PRIxGENPADDR"\n", ptable[1]);
-    printf("retaddr[1] = 0x%"PRIxGENPADDR"\n", ptable[2]);
-    printf("retaddr[1] = 0x%"PRIxGENPADDR"\n", ptable[3]);
-    printf("retaddr[1] = 0x%"PRIxGENPADDR"\n", ptable[4]);*/
+    struct memobj_anon* m = get_sbrk_memobj();
+    struct vregion* vr = get_sbrk_vregion();
+    assert(m != NULL);
+    assert(vr != NULL);
 
     return EXIT_SUCCESS;
 }

@@ -12,6 +12,7 @@
 
 [ 
   build application { target = "pagetable",
-                      cFiles = [ "pagetable.c" ]
+                      cFiles = [ "pagetable.c" ],
+                      addLibraries = libDeps ["posixcompat"]
                     }
 ]

@@ -17,18 +17,32 @@
 #define SBRK_REGION_BYTES (256 * 1024 * 1024)
 #endif
 
+static void *base;
+static size_t offset = 0;
+static size_t goffset = 0;
+static struct memobj_anon memobj_;
+static struct memobj *memobj = NULL;
+static struct vregion vregion_;
+static struct vregion *vregion = NULL;
+
+struct memobj_anon* get_sbrk_memobj(void);
+struct memobj_anon* get_sbrk_memobj(void)
+{
+    assert(memobj != NULL);
+    return (struct memobj_anon*) memobj;
+}
+
+struct vregion* get_sbrk_vregion(void);
+struct vregion* get_sbrk_vregion(void)
+{
+    assert(vregion != NULL);
+    return vregion;
+}
+
 void *sbrk(intptr_t increment)
 {
     errval_t err;
     size_t orig_offset;
-
-    static void *base;
-    static size_t offset = 0;
-    static size_t goffset = 0;
-    static struct memobj_anon memobj_;
-    static struct memobj *memobj = NULL;
-    static struct vregion vregion_;
-    static struct vregion *vregion = NULL;
 
     if (!memobj) { // Initialize
         err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
