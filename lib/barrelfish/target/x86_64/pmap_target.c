@@ -169,7 +169,9 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
 /**
  * \brief Returns the vnode for the pagetable mapping a given vspace address
  */
-static inline errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
+ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
+                                   struct vnode **ptable);
+errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
                                   struct vnode **ptable)
 {
     errval_t err;

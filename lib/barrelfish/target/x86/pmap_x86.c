@@ -215,6 +215,9 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     newvnode->next      = root->u.vnode.children;
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
+    newvnode->u.vnode.virt_base = 0;
+    newvnode->u.vnode.page_table_frame  = NULL_CAP;
+
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
