@@ -56,7 +56,7 @@ void remove_vnode(struct vnode *root, struct vnode *item);
  */
 errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
                      enum objtype type, uint32_t entry,
-                     struct vnode **retvnode);
+                     struct vnode **retvnode, genvaddr_t base);
 
 /**
  * \brief remove vnodes with no leafs in [entry .. entry+len), destroy their

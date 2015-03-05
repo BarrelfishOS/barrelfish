@@ -126,7 +126,7 @@ static errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
     // PDIR mapping
     if((*ptable = find_vnode(pdir, X86_32_PDIR_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_32_ptable,
-                          X86_32_PDIR_BASE(base), ptable);
+                          X86_32_PDIR_BASE(base), ptable, base);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }

@@ -116,7 +116,7 @@ static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
     // PML4 mapping
     if((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt,
-                            X86_64_PML4_BASE(base), pdpt);
+                            X86_64_PML4_BASE(base), pdpt, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
             if ((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) != NULL) {
@@ -150,7 +150,7 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
     // PDPT mapping
     if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
-                            X86_64_PDPT_BASE(base), pdir);
+                            X86_64_PDPT_BASE(base), pdir, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
             if ((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) != NULL) {
@@ -185,7 +185,7 @@ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
     // PDIR mapping
     if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
-                            X86_64_PDIR_BASE(base), ptable);
+                            X86_64_PDIR_BASE(base), ptable, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
             if ((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) != NULL) {

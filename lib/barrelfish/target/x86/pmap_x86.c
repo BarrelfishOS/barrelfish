@@ -160,7 +160,7 @@ void remove_vnode(struct vnode *root, struct vnode *item)
  */
 errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
                      enum objtype type, uint32_t entry,
-                     struct vnode **retvnode)
+                     struct vnode **retvnode, genvaddr_t base)
 {
     errval_t err;
 
@@ -217,7 +217,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     newvnode->u.vnode.children = NULL;
     newvnode->u.vnode.virt_base = 0;
     newvnode->u.vnode.page_table_frame  = NULL_CAP;
-    newvnode->u.vnode.base = 0;
+    newvnode->u.vnode.base = base;
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
