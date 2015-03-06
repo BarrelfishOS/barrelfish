@@ -147,7 +147,7 @@ History:
 
 #define PAGES 100
 #define ADDS 1000000
-#define ROUNDS 100
+#define ROUNDS 1000
 #define TRAPS 5000
 
 int pagesize;
@@ -265,7 +265,7 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
     return pmap_flags;
 }
 
-#define DIRECT_INVOKE
+//#define DIRECT_INVOKE
 static void
 bf_protect(struct bf_mem *bfm, size_t off, size_t len,
            vs_prot_flags_t flags)
@@ -357,6 +357,12 @@ int main(int argc, char **argv)
     mem = BFmem.vmem;
     thread_set_exception_handler(bf_handler, NULL, ex_stack, ex_stack_end, NULL, NULL);
     debug_printf("MEM=%p\n", mem);
+#ifdef DIRECT_INVOKE
+    debug_printf("USING DIRECT INVOCATIONS\n");
+#endif
+#ifdef NDEBUG
+    debug_printf("ASSERTIONS DISABLED\n");
+#endif
     #endif
 
 
