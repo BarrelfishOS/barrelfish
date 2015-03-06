@@ -426,8 +426,9 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
         paging_x86_64_modify_flags(entry, flags);
     }
 
-    /* flush affected TLB entries and return */
-    return paging_tlb_flush_range(mapping, pages);
+    /* do full TLB flush */
+    do_full_tlb_flush();
+    return SYS_ERR_OK;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
