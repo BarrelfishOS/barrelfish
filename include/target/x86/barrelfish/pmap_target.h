@@ -16,11 +16,13 @@
 #define TARGET_X86_BARRELFISH_PMAP_H
 
 #include <barrelfish/pmap.h>
+#include <barrelfish_kpi/capbits.h>
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
     uint16_t      entry;       ///< Page table entry of this VNode
     bool          is_vnode;    ///< Is this a vnode, or a (leaf) page mapping
+    enum objtype  type;        ///< Type of cap in the vnode
     struct vnode  *next;       ///< Next entry in list of siblings
     struct capref mapping;     ///< mapping cap associated with this node
     union {

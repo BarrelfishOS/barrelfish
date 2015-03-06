@@ -1158,6 +1158,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
               sizeof(x86->slab_buffer));
     x86->refill_slabs = min_refill_slabs;
 
+    x86->root.type = ObjType_VNode_x86_64_pml4;
     x86->root.is_vnode          = true;
     x86->root.u.vnode.cap       = vnode;
     x86->root.u.vnode.invokable = vnode;
