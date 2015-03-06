@@ -16,7 +16,7 @@
 #define TARGET_X86_BARRELFISH_PMAP_H
 
 #include <barrelfish/pmap.h>
-#include <barrelfish_kpi/capbits.h>
+#include <barrelfish_kpi/capabilities.h>
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
