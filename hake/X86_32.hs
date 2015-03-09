@@ -47,7 +47,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-section-start,.text=0x300000",
-               Str "-Wl,-section-start,.data.rel.ro=0x600000",
+               Str "-Wl,-section-start,.data.rel.ro=0x640000",
                Str "-Wl,-z,max-page-size=0x1000",
                Str "-Wl,--build-id=none",
                Str "-m32"]

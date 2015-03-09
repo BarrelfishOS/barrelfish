@@ -451,7 +451,7 @@ MENU_LST=-kernel $(shell sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' menu.lst) \
 	-append '$(shell sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' menu.lst)' \
 	-initrd '$(shell sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' menu.lst | awk '{ if(NR == 1) printf($$0); else printf("," $$0) } END { printf("\n") }')'
 
-ifeq ($(filter $(x86_64),$(ARCH)),)
+ifeq ($(ARCH),x86_64)
     QEMU_CMD=qemu-system-x86_64 -smp 2 -m 1024 -net nic,model=e1000 -net user $(AHCI) -nographic $(MENU_LST)
 	GDB=x86_64-pc-linux-gdb
 	CLEAN_HD=qemu-img create $(DISK) 10M
