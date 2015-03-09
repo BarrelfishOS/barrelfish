@@ -172,7 +172,8 @@ static void create_thread_request(struct interdisp_binding *b,
     }
     assert(newthread != NULL);
     errval_t err = b->tx_vtbl.create_thread_reply(b, NOP_CONT, SYS_ERR_OK,
-                                                  (genvaddr_t)newthread, req);
+                                                  (genvaddr_t)(lvaddr_t)newthread,
+                                                  req);
     assert(err_is_ok(err));
 }
 
@@ -186,8 +187,8 @@ static void create_thread_reply(struct interdisp_binding *b,
 {
     assert(err_is_ok(err));
     // fill out request
-    struct create_thread_req *r = (struct create_thread_req*)req;
-    r->thread = (struct thread *)thread;
+    struct create_thread_req *r = (struct create_thread_req*)(lvaddr_t)req;
+    r->thread = (struct thread *)(lvaddr_t)thread;
     r->reply_received = true;
 }
 
@@ -208,7 +209,7 @@ static void wakeup_thread_request(struct interdisp_binding *b,
 static void join_thread_request(struct interdisp_binding *b,
                                 genvaddr_t taddr, genvaddr_t req)
 {
-    struct thread *thread = (struct thread *)taddr;
+    struct thread *thread = (struct thread *)(lvaddr_t)taddr;
     assert(thread->coreid == disp_get_core_id());
     int retval = 0;
     errval_t err = thread_join(thread, &retval);
@@ -225,7 +226,7 @@ struct join_thread_req {
 static void join_thread_reply(struct interdisp_binding *b,
                               errval_t err, uint64_t retval, genvaddr_t req)
 {
-    struct join_thread_req *r = (struct join_thread_req *)req;
+    struct join_thread_req *r = (struct join_thread_req *)(lvaddr_t)req;
     r->err = err;
     r->retval = retval;
     r->reply_received = true;
@@ -955,7 +956,8 @@ errval_t domain_thread_create_on_varstack(coreid_t core_id,
         err = b->tx_vtbl.create_thread_request(b, NOP_CONT,
                                                (genvaddr_t)(uintptr_t)start_func,
                                                (genvaddr_t)(uintptr_t)arg,
-                                               stacksize, (genvaddr_t)req);
+                                               stacksize,
+                                               (genvaddr_t)(lvaddr_t)req);
         if (err_is_fail(err)) {
             return err;
         }
@@ -1003,8 +1005,8 @@ errval_t domain_thread_join(struct thread *thread, int *retval)
         waitset_init(&ws);
         b->change_waitset(b, &ws);
         err = b->tx_vtbl.join_thread_request(b, NOP_CONT,
-                                             (genvaddr_t)thread,
-                                             (genvaddr_t)req);
+                                             (genvaddr_t)(lvaddr_t)thread,
+                                             (genvaddr_t)(lvaddr_t)req);
         if (err_is_fail(err)) {
             return err;
         }
