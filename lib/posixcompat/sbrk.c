@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
+#include <posixcompat.h>
 
 #if __SIZEOF_POINTER__ == 8
 //need lot of memory...
@@ -18,25 +19,33 @@
 #endif
 
 static void *base;
-static size_t offset = 0;
-static size_t goffset = 0;
+static size_t offset = 0; ///< How much is currently used
+static size_t goffset = 0; ///< Maximum ever allocated
 static struct memobj_anon memobj_;
 static struct memobj *memobj = NULL;
 static struct vregion vregion_;
 static struct vregion *vregion = NULL;
 
-struct memobj_anon* get_sbrk_memobj(void);
-struct memobj_anon* get_sbrk_memobj(void)
+struct memobj_anon* sbrk_get_memobj(void)
 {
     assert(memobj != NULL);
     return (struct memobj_anon*) memobj;
 }
 
-struct vregion* get_sbrk_vregion(void);
-struct vregion* get_sbrk_vregion(void)
+struct vregion* sbrk_get_vregion(void)
 {
     assert(vregion != NULL);
     return vregion;
+}
+
+void* sbrk_get_base(void)
+{
+    return base;
+}
+
+size_t sbrk_get_offset(void)
+{
+    return offset;
 }
 
 void *sbrk(intptr_t increment)
