@@ -18,7 +18,7 @@
 #define SBRK_REGION_BYTES (256 * 1024 * 1024)
 #endif
 
-static void *base;
+static void *base = NULL;
 static size_t offset = 0; ///< How much is currently used
 static size_t goffset = 0; ///< Maximum ever allocated
 static struct memobj_anon memobj_;
@@ -40,11 +40,13 @@ struct vregion* sbrk_get_vregion(void)
 
 void* sbrk_get_base(void)
 {
+    assert(base != NULL);
     return base;
 }
 
 size_t sbrk_get_offset(void)
 {
+    assert(offset != 0);
     return offset;
 }
 
