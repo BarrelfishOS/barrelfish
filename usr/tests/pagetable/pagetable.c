@@ -4,8 +4,14 @@
  **/
 #include <stdio.h>
 #include <inttypes.h>
+#include <assert.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/invocations_arch.h>
+#include <barrelfish/except.h>
+
+#define ALL_PRIVILEGES (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE | VREGION_FLAGS_EXECUTE)
+#define NO_PRIVILEGES 0x0
 
 static void print_vnodes(struct vnode* current, int depth) {
     char pad[depth+1];
@@ -132,6 +138,8 @@ int main(int argc, char *argv[])
     struct vregion* vr = get_sbrk_vregion();
     assert(m != NULL);
     assert(vr != NULL);
+
+
 
     return EXIT_SUCCESS;
 }

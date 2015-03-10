@@ -5,3 +5,9 @@ buildCApplication{
 }
 
 
+buildCApplication{ 
+    target = "pagefaults",
+    cFiles = { "protect.c" },
+    addLibraries = {"posixcompat"}
+}
+
