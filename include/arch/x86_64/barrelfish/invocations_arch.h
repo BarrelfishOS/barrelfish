@@ -258,15 +258,18 @@ static inline errval_t invoke_frame_identify(struct capref frame,
  *                 from the first page in the mapping identified by `frame`
  * \param pages    Number of pages that should get new set of flags
  * \param flags    New set of flags
+ * \param va_hint  Hint for selective TLB flushing
  *
  * \return Error code
  */
 static inline errval_t invoke_frame_modify_flags(struct capref frame,
                                                  size_t offset,
                                                  size_t pages,
-                                                 size_t flags)
+                                                 size_t flags,
+                                                 genvaddr_t va_hint)
 {
-    return cap_invoke4(frame, FrameCmd_ModifyFlags, offset, pages, flags).error;
+    return cap_invoke5(frame, FrameCmd_ModifyFlags, offset,
+                       pages, flags, va_hint).error;
 }
 
 static inline errval_t invoke_iocap_in(struct capref iocap, enum io_cmd cmd,

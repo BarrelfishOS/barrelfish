@@ -847,16 +847,20 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
         // access permissions.
         size_t off = ptentry - page->entry;
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
-        //printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
-        //                 err_getstring(err), err);
+        // calculate TLB flushing hint
+        genvaddr_t va_hint = 0;
+        if (pages == 1) {
+            // do assisted selective flush for single page
+            va_hint = vaddr & ~X86_64_BASE_PAGE_MASK;
+        }
+        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages,
+                                        pmap_flags, va_hint);
         return err;
     } else {
         // overlaps some region border
         // XXX: need better error
         return LIB_ERR_PMAP_EXISTING_MAPPING;
     }
-
 
     return SYS_ERR_OK;
 }

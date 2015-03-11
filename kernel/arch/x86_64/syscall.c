@@ -491,8 +491,9 @@ static struct sysret handle_frame_modify_flags(struct capability *to,
                              // page in mapped region
     size_t pages  = args[1]; // #pages to modify
     size_t flags  = args[2]; // new flags
+    genvaddr_t va = args[3]; // virtual addr hint
 
-    errval_t err = page_mappings_modify_flags(to, offset, pages, flags);
+    errval_t err = page_mappings_modify_flags(to, offset, pages, flags, va);
 
     return (struct sysret) {
         .error = err,

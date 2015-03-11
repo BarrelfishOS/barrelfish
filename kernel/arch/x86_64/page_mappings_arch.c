@@ -455,9 +455,11 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
  * \arg offset the offset from the first page table entry in entries
  * \arg pages the number of pages to modify
  * \arg mflags the new flags
+ * \arg va_hint a user-supplied virtual address for hinting selective TLB
+ *              flushing
  */
 errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
-                                    size_t pages, size_t mflags)
+                                    size_t pages, size_t mflags, genvaddr_t va_hint)
 {
     struct cte *mapping = cte_for_cap(frame);
     struct mapping_info *info = &mapping->mapping_info;
@@ -486,6 +488,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     lvaddr_t base = local_phys_to_mem(info->pte) +
         offset * sizeof(union x86_64_ptable_entry);
 
+    size_t pagesize = BASE_PAGE_SIZE;
     switch(leaf_pt->cap.type) {
         case ObjType_VNode_x86_64_ptable :
             for (int i = 0; i < pages; i++) {
@@ -500,6 +503,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
                     (union x86_64_ptable_entry *)base + i;
                 paging_x86_64_modify_flags_large(entry, flags);
             }
+            pagesize = LARGE_PAGE_SIZE;
             break;
         case ObjType_VNode_x86_64_pdpt :
             for (int i = 0; i < pages; i++) {
@@ -507,13 +511,28 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
                     (union x86_64_ptable_entry *)base + i;
                 paging_x86_64_modify_flags_huge(entry, flags);
             }
+            pagesize = HUGE_PAGE_SIZE;
             break;
         default:
             return SYS_ERR_WRONG_MAPPING;
     }
 
-    /* do full TLB flush */
-    do_full_tlb_flush();
+    if (va_hint != 0) {
+        if (va_hint > BASE_PAGE_SIZE) {
+            // use as direct hint
+            for (int i = 0; i < pages; i++) {
+                // XXX: check proper instructions for large/huge pages
+                do_one_tlb_flush(va_hint + i * pagesize);
+            }
+        } else if (va_hint == 1) {
+            // XXX: remove this or cleanup interface, -SG, 2015-03-11
+            // do computed selective flush
+            return paging_tlb_flush_range(mapping, offset, pages);
+        }
+    } else {
+        /* do full TLB flush */
+        do_full_tlb_flush();
+    }
     return SYS_ERR_OK;
 }
 
