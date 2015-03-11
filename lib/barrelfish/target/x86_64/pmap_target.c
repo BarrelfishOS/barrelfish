@@ -863,6 +863,9 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     return ret;
 }
 
+#ifdef PMAP_SELECTIVE_FLUSH_DEBUG
+int pmap_selective_flush = 0;
+#endif
 static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
 {
@@ -886,10 +889,23 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
         // calculate TLB flushing hint
         genvaddr_t va_hint = 0;
+#ifdef PMAP_SELECTIVE_FLUSH_DEBUG
+        if (pmap_selective_flush == 2) {
+            // do assisted selective flush
+            va_hint = vaddr & ~(info.page_size - 1);
+        } else if (pmap_selective_flush == 1) {
+            // do computed selective flush
+            va_hint = 1;
+        }
+#else
+        /*
+         * default strategy is to only use selective flushing for single page
+         */
         if (pages == 1) {
             // do assisted selective flush for single page
             va_hint = vaddr & ~(info.page_size - 1);
         }
+#endif
         err = invoke_mapping_modify_flags(info.page->mapping, off, pages,
                                           pmap_flags, va_hint);
         return err;

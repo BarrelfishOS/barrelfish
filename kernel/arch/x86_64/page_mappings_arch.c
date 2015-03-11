@@ -419,6 +419,7 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                     (union x86_64_ptable_entry *)base + i;
                 paging_x86_64_modify_flags(entry, flags);
             }
+            pagesize = LARGE_PAGE_SIZE;
             break;
         case ObjType_VNode_x86_64_pdir :
             for (int i = 0; i < pages; i++) {

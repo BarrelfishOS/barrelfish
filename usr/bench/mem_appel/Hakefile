@@ -18,14 +18,24 @@
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DDIRECT_INVOKE" ]
                     },
-  build application { target = "benchmarks/mem_appel_di_dnd",
+  build application { target = "benchmarks/mem_appel_sf",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
-                      addCFlags = [ "-DDIRECT_INVOKE", "-DNDEBUG" ]
+                      addCFlags = [ "-DSELECTIVE_FLUSH" ]
                     },
-  build application { target = "benchmarks/mem_appel_dnd",
+  build application { target = "benchmarks/mem_appel_sfh",
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
-                      addCFlags = [ "-DNDEBUG" ]
+                      addCFlags = [ "-DSELECTIVE_FLUSH", "-DSF_HINT" ]
+                    },
+  build application { target = "benchmarks/mem_appel_di_sf",
+                      cFiles = [ "vmpup.c" ],
+                      addLibraries = libDeps [ "posixcompat"],
+                      addCFlags = [ "-DDIRECT_INVOKE", "-DSELECTIVE_FLUSH" ]
+                    },
+  build application { target = "benchmarks/mem_appel_di_sfh",
+                      cFiles = [ "vmpup.c" ],
+                      addLibraries = libDeps [ "posixcompat"],
+                      addCFlags = [ "-DDIRECT_INVOKE", "-DSELECTIVE_FLUSH", "-DSF_HINT" ]
                     }
 ]

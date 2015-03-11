@@ -265,17 +265,29 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
     return pmap_flags;
 }
 
-//#define DIRECT_INVOKE
+extern int pmap_selective_flush;
 static void
 bf_protect(struct bf_mem *bfm, size_t off, size_t len,
            vs_prot_flags_t flags)
 {
     //debug_printf("%s: off:%zd len:%zd flags:%u\n", __FUNCTION__, off, len, flags);
     errval_t err;
+    genvaddr_t va_hint = 0;
+#if defined(SELECTIVE_FLUSH) && defined(SF_HINT)
+    // do hint-based selective flush
+    va_hint = (genvaddr_t)bfm->vmem + off;
+    pmap_selective_flush = 2;
+#elif defined(SELECTIVE_FLUSH)
+    // do computed selective flush
+    va_hint = 1;
+    pmap_selective_flush = 1;
+#endif
 #if defined(DIRECT_INVOKE)
     err = invoke_frame_modify_flags(bfm->frame, off / pagesize, len / pagesize,
-            vregion_to_pmap_flag(flags));
+            vregion_to_pmap_flag(flags), va_hint);
 #else
+    // silence compiler about unused variable va_hint.
+    va_hint = va_hint;
     err = bfm->memobj->f.protect(bfm->memobj, bfm->vregion, off, len, flags);
 #endif
     if (err_is_fail(err)) {
