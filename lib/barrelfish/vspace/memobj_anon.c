@@ -139,16 +139,45 @@ static errval_t unmap_region(struct memobj *memobj, struct vregion *vregion)
 static errval_t protect(struct memobj *memobj, struct vregion *vregion,
                         genvaddr_t offset, size_t range, vs_prot_flags_t flags)
 {
-    struct vspace *vspace  = vregion_get_vspace(vregion);
-    struct pmap *pmap      = vspace_get_pmap(vspace);
-    genvaddr_t base        = vregion_get_base_addr(vregion);
-    genvaddr_t vregion_off = vregion_get_offset(vregion);
+    struct memobj_anon *anon = (struct memobj_anon*)memobj;
     errval_t err;
 
-    err = pmap->f.modify_flags(pmap, base + vregion_off + offset, range,
-                               flags, &range);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+    /* protect the affected area in the pmap */
+    struct vspace *vspace = vregion_get_vspace(vregion);
+    struct pmap *pmap     = vspace_get_pmap(vspace);
+    genvaddr_t vregion_base  = vregion_get_base_addr(vregion);
+    genvaddr_t vregion_off   = vregion_get_offset(vregion);
+    //size_t vregion_size = vregion_get_size(vregion);
+    //genvaddr_t vregion_end = vregion_off + vregion_size;
+
+    //printf("(%s:%d) protect(0x%"PRIxGENVADDR", memobj->size = %zd) vregion size = %zd offset=%zd range=%zd\n", __FILE__, __LINE__, vregion_base + vregion_off, memobj->size, vregion_size, offset, range);
+
+    offset += vregion_base + vregion_off;
+
+    // protect all affected frames
+    struct memobj_frame_list *fwalk = anon->frame_list;
+    //printf("vregion_off = 0x%"PRIxGENVADDR"\n", vregion_off);
+    //printf("vregion_end = 0x%"PRIxGENVADDR"\n", vregion_end);
+    while (fwalk && range) {
+        //printf("fwalk->offset = %zd\n", fwalk->offset);
+        //printf("fwalk->next   = %p\n", fwalk->next);
+        if (offset >= fwalk->offset && offset < fwalk->offset + fwalk->size) {
+
+            size_t range_in_frame = fwalk->offset + fwalk->size - offset;
+            size_t min = range_in_frame < range ? range_in_frame : range;
+
+            size_t retsize;
+            err = pmap->f.modify_flags(pmap, offset, min, flags, &retsize);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+            }
+            range -= retsize;
+            offset += retsize;
+        }
+        fwalk = fwalk->next;
+    }
+    if (range > 0) {
+        return LIB_ERR_VSPACE_VREGION_NOT_FOUND;
     }
 
     return SYS_ERR_OK;
