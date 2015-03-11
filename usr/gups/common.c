@@ -6,8 +6,21 @@
  */
 
 #include <RandomAccess.h>
-#include <numa.h>
+#include <string.h>
 
+#ifdef BARRELFISH
+#include <numa.h>
+#else
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#endif
+
+#ifdef BARRELFISH
 void *HPCC_malloc(size_t bytes, size_t alignment)
 {
     errval_t err;
@@ -83,7 +96,42 @@ void HPCC_free(void *addr)
         USER_PANIC_ERR(err, "unmapping table");
     }
 }
+#else
+void *HPCC_malloc(size_t bytes, size_t alignment)
+{
+    void *res;
+    int flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE;
+    switch (alignment) {
+        case 4096UL:
+            break;
+        case (2UL*1024*1024):
+            flags |= MAP_HUGETLB;
+            break;
+        case (1024UL*1024*1024):
+            flags |= MAP_HUGETLB;
+            break;
+        default:
+            printf("Invalid alignment: %" PRIu64 "\n", alignment);
+            exit(1);
+            break;
+    }
+    bytes = (bytes + (alignment - 1)) & ~(alignment - 1);
+    res = mmap(NULL, bytes + alignment, PROT_READ | PROT_WRITE, flags, -1, 0);
+        if (res==MAP_FAILED) {
+            perror("mmap");
+            exit(1);
+        }
+        return res;
+}
 
+void HPCC_free(void *addr)
+{
+    return;
+    if (munmap(addr, 0) == -1) {
+        perror("Error un-mmapping the file");
+    }
+}
+#endif
 uint64_t parse_memory(char *str)
 {
     size_t length = strlen(str);
@@ -129,7 +177,10 @@ void common_main(int argc, char *argv[], HPCC_Params *params)
     params->HPLMaxProcMem = parse_memory(argv[1]);
     params->TableAlignment = parse_memory(argv[2]);
     params->NumReps = parse_memory(argv[3]);
+
+#ifdef BARRELFISH
     bench_init();
+#endif
 
     srand(time(NULL));
 }

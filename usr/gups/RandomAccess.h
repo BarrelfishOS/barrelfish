@@ -1,9 +1,15 @@
 /* -*- mode: C; tab-width: 2; indent-tabs-mode: nil; -*- */
 
 #include <stdio.h>
-#include <barrelfish/barrelfish.h>
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
+
+#ifdef BARRELFISH
 #include <bench/bench.h>
-#include <time.h>
+#include <barrelfish/barrelfish.h>
+#else
+#include <bench.h>
+#endif
 
 
 
@@ -100,3 +106,14 @@ uint64_t parse_memory(char *str);
 void common_main(int argc, char *argv[], HPCC_Params *params);
 void HPCC_free(void *addr);
 void *HPCC_malloc(size_t bytes, size_t alignment);
+
+#ifndef BARRELFISH
+#include <sys/time.h>
+#include <sys/resource.h>
+static inline uint64_t get_timems()
+        {
+            struct timeval t;
+            gettimeofday(&t, NULL);
+            return (uint64_t)(t.tv_sec * 1000.0 + t.tv_usec*1e-3);
+        }
+#endif

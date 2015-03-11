@@ -124,7 +124,7 @@ int HPCC_RandomAccess_LCG(HPCC_Params *params,
 
     Table = HPCC_malloc(sizeof(uint64_t) * TableSize, params->TableAlignment);
     if (!Table) {
-        USER_PANIC("could not allocate table");
+        printf("could not allocate table");
         return 1;
     }
 
@@ -148,16 +148,22 @@ int HPCC_RandomAccess_LCG(HPCC_Params *params,
         }
 
         /* Begin timing here */
+#ifdef BARRELFISH
         cycles_t t_start = bench_tsc();
+#else
+        cycles_t t_start = get_timems();
+#endif
         RandomAccessUpdate_LCG(TableSize, Table);
 
         /* End timed section */
+#ifdef BARRELFISH
         cycles_t t_end = bench_tsc();
-        /* time elapsed in seconds */
-
         t_diff = bench_tsc_to_ms(bench_time_diff(t_start, t_end));
-
-        printf("# Round: %" PRIuCYCLES "ms\n", t_diff);
+#else
+        cycles_t t_end = get_timems();
+        t_diff = bench_time_diff(t_start, t_end);
+#endif
+        printf("# Round: %" PRIu64 "ms\n", t_diff);
 
     } while (!bench_ctl_add_run(bench, &t_diff));
 

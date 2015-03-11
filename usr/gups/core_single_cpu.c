@@ -45,8 +45,9 @@
  */
 
 #include <stdio.h>
+#ifdef BARRELFISH
 #include <barrelfish/barrelfish.h>
-#include <bench/bench.h>
+#endif
 #include "RandomAccess.h"
 
 /* Number of updates to table (suggested: 4x number of table entries) */
@@ -143,7 +144,7 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
 
     Table = HPCC_malloc(sizeof(uint64_t) * TableSize, params->TableAlignment);
     if (!Table) {
-        USER_PANIC("could not allocate table");
+        printf("could not allocate table");
         return 1;
     }
 
@@ -167,17 +168,24 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
         }
 
         /* Begin timing here */
+#ifdef BARRELFISH
         cycles_t t_start = bench_tsc();
-
+#else
+        cycles_t t_start = get_timems();
+#endif
         RandomAccessUpdate(TableSize, Table);
 
         /* End timed section */
+#ifdef BARRELFISH
         cycles_t t_end = bench_tsc();
+        t_diff = bench_tsc_to_ms(bench_time_diff(t_start, t_end));
+#else
+        cycles_t t_end = get_timems();
+        t_diff = bench_time_diff(t_start, t_end);
+#endif
         /* time elapsed in seconds */
 
-        t_diff = bench_tsc_to_ms(bench_time_diff(t_start, t_end));
-
-        printf("# Round: %" PRIuCYCLES "ms\n", t_diff);
+        printf("# Round: %" PRIu64 "ms\n", t_diff);
 
     } while(!bench_ctl_add_run(bench, &t_diff));
 
