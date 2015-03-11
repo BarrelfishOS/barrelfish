@@ -152,7 +152,7 @@ static errval_t protect(struct memobj *memobj, struct vregion *vregion,
 
     //printf("(%s:%d) protect(0x%"PRIxGENVADDR", memobj->size = %zd) vregion size = %zd offset=%zd range=%zd\n", __FILE__, __LINE__, vregion_base + vregion_off, memobj->size, vregion_size, offset, range);
 
-    offset += vregion_base + vregion_off;
+    offset += vregion_off;
 
     // protect all affected frames
     struct memobj_frame_list *fwalk = anon->frame_list;
@@ -164,10 +164,10 @@ static errval_t protect(struct memobj *memobj, struct vregion *vregion,
         if (offset >= fwalk->offset && offset < fwalk->offset + fwalk->size) {
 
             size_t range_in_frame = fwalk->offset + fwalk->size - offset;
-            size_t min = range_in_frame < range ? range_in_frame : range;
+            size_t size = range_in_frame < range ? range_in_frame : range;
 
             size_t retsize;
-            err = pmap->f.modify_flags(pmap, offset, min, flags, &retsize);
+            err = pmap->f.modify_flags(pmap, vregion_base + offset, size, flags, &retsize);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
