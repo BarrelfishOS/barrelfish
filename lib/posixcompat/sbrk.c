@@ -38,7 +38,7 @@ struct vregion* sbrk_get_vregion(void)
     return vregion;
 }
 
-/*void* sbrk_get_base(void) 
+void* sbrk_get_base(void) 
 {
     assert(base != NULL);
     return base;
@@ -48,7 +48,7 @@ size_t sbrk_get_offset(void)
 {
     assert(offset != 0);
     return offset;
-}*/
+}
 
 void *sbrk(intptr_t increment)
 {
