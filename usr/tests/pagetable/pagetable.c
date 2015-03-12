@@ -131,11 +131,11 @@ int main(int argc, char *argv[])
     printf("%s:%s:%d: base = %p limit = %p\n", __FILE__, __FUNCTION__, __LINE__, base, limit);
     assert(limit > base);
 
-    struct memobj_anon* get_sbrk_memobj(void);
-    struct vregion* get_sbrk_vregion(void);
+    struct memobj_anon* sbrk_get_memobj(void);
+    struct vregion* sbrk_get_vregion(void);
 
-    struct memobj_anon* m = get_sbrk_memobj();
-    struct vregion* vr = get_sbrk_vregion();
+    struct memobj_anon* m = sbrk_get_memobj();
+    struct vregion* vr = sbrk_get_vregion();
     assert(m != NULL);
     assert(vr != NULL);
 
