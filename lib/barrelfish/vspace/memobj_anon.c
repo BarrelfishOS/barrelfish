@@ -147,12 +147,25 @@ static errval_t protect(struct memobj *memobj, struct vregion *vregion,
     struct pmap *pmap     = vspace_get_pmap(vspace);
     genvaddr_t vregion_base  = vregion_get_base_addr(vregion);
     genvaddr_t vregion_off   = vregion_get_offset(vregion);
-    //size_t vregion_size = vregion_get_size(vregion);
-    //genvaddr_t vregion_end = vregion_off + vregion_size;
+    size_t vregion_size = vregion_get_size(vregion);
+    genvaddr_t vregion_end = vregion_off + vregion_size;
 
     //printf("(%s:%d) protect(0x%"PRIxGENVADDR", memobj->size = %zd) vregion size = %zd offset=%zd range=%zd\n", __FILE__, __LINE__, vregion_base + vregion_off, memobj->size, vregion_size, offset, range);
 
+    if (offset + range >= vregion_end) {
+        return LIB_ERR_MEMOBJ_WRONG_OFFSET;
+    }
+
     offset += vregion_off;
+
+    // Special handling if the range cannot span frames
+    if (range <= BASE_PAGE_SIZE) {
+        err = pmap->f.modify_flags(pmap, vregion_base + offset, range, flags, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+        }
+        return SYS_ERR_OK;
+    }
 
     // protect all affected frames
     struct memobj_frame_list *fwalk = anon->frame_list;
