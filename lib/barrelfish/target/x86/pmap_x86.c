@@ -305,6 +305,8 @@ struct serial_entry {
     uint16_t entry;     ///< Entry #
     uint8_t depth;      ///< Depth of this node (0 = root)
     cslot_t slot;       ///< Slot number (in page cnode) of vnode cap
+    enum objtype type;  ///< Type of the vnode cap
+    lvaddr_t base;
 };
 
 static errval_t serialise_tree(int depth, struct vnode *v,
@@ -327,6 +329,8 @@ static errval_t serialise_tree(int depth, struct vnode *v,
     out[(*outpos)++] = (struct serial_entry) {
         .depth = depth,
         .entry = v->entry,
+        .type = v->type,
+        .base = v->u.vnode.base,
         .slot = v->u.vnode.cap.slot,
     };
 
@@ -396,7 +400,9 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         n->u.vnode.cap.slot      = (*in)->slot;
         n->u.vnode.invokable     = n->u.vnode.cap;
         n->u.vnode.children      = NULL;
+        n->u.vnode.base = (*in)->base;
         n->next                  = parent->u.vnode.children;
+        n->type = (*in)->type;
         parent->u.vnode.children = n;
 
         // Count cnode_page slots that are in use
