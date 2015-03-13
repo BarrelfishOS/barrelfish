@@ -132,11 +132,11 @@ int HPCC_RandomAccess_LCG(HPCC_Params *params,
 
     /* Print parameters for run */
 
-    printf("# Main table (@%p)size   = 2^%" PRIu64 " = %" PRIu64 " words\n", Table,
+    printf("# GUPSLGC: Main table (@%p)size   = 2^%" PRIu64 " = %" PRIu64 " words\n", Table,
            logTableSize, TableSize);
-    printf("# Number of updates = %" PRIu64 "\n", NUPDATE);
+    printf("# GUPSLGC: Number of updates = %" PRIu64 "\n", NUPDATE);
 
-    printf("# Starting GUPS benchmark with %" PRIu32 " runs\n", params->NumReps);
+    printf("# GUPSLGC: Starting GUPS benchmark with %" PRIu32 " runs\n", params->NumReps);
     bench_ctl_t *bench = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, params->NumReps);
 
     cycles_t t_diff;
@@ -163,7 +163,7 @@ int HPCC_RandomAccess_LCG(HPCC_Params *params,
         cycles_t t_end = get_timems();
         t_diff = bench_time_diff(t_start, t_end);
 #endif
-        printf("# Round: %" PRIu64 "ms\n", t_diff);
+        printf("# GUPSLGC: Round: %" PRIu64 "ms\n", t_diff);
 
     } while (!bench_ctl_add_run(bench, &t_diff));
 
@@ -179,9 +179,9 @@ int HPCC_RandomAccess_LCG(HPCC_Params *params,
     *GUPs *= 1e-9 * NUPDATE;
     /* Print timing results */
 
-    printf("CPU time used  = %.6f seconds\n", t_elapsed);
-    printf("%.9f Billion(10^9) (s=%.9f) Updates per second [GUP/s] using %" PRIu64
-    " pages\n",
+    printf("GUPSLGC: CPU time used  = %.6f seconds (LCG)\n", t_elapsed);
+    printf("GUPSLGC: %.9f Billion(10^9) (s=%.9f) Updates per second [GUP/s] using %" PRIu64
+    " pages (LCG)\n",
            *GUPs, t_err, params->TableAlignment);
 
     /* Verification of results (in serial or "safe" mode; optional) */

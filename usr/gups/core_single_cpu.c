@@ -152,11 +152,11 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
 
     /* Print parameters for run */
 
-    printf("# Main table (@%p)size   = 2^%" PRIu64 " = %" PRIu64 " words\n",
+    printf("# GUPS: Main table (@%p)size   = 2^%" PRIu64 " = %" PRIu64 " words\n",
            Table, logTableSize, TableSize);
-    printf("# Number of updates = %" PRIu64 "\n", NUPDATE);
+    printf("# GUPS: Number of updates = %" PRIu64 "\n", NUPDATE);
 
-    printf("# Starting GUPS benchmark with %" PRIu32 " runs\n", params->NumReps);
+    printf("# GUPS: Starting GUPS benchmark with %" PRIu32 " runs\n", params->NumReps);
     bench_ctl_t *bench = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, params->NumReps);
 
     cycles_t t_diff;
@@ -185,7 +185,7 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
 #endif
         /* time elapsed in seconds */
 
-        printf("# Round: %" PRIu64 "ms\n", t_diff);
+        printf("# GUPS: Round: %" PRIu64 "ms\n", t_diff);
 
     } while(!bench_ctl_add_run(bench, &t_diff));
 
@@ -201,8 +201,8 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
     *GUPs *= 1e-9 * NUPDATE;
     /* Print timing results */
 
-    printf("CPU time used  = %.6f seconds\n", t_elapsed);
-    printf("%.9f Billion(10^9) (s=%.9f) Updates per second [GUP/s] using %" PRIu64
+    printf("GUPS: CPU time used  = %.6f seconds\n", t_elapsed);
+    printf("GUPS: %.9f Billion(10^9) (s=%.9f) Updates per second [GUP/s] using %" PRIu64
            " pages\n", *GUPs, t_err, params->TableAlignment);
 
     /* Verification of results (in serial or "safe" mode; optional) */
@@ -220,7 +220,7 @@ int HPCC_RandomAccess(HPCC_Params *params, int doIO, double *GUPs, int *failure)
         }
     }
 
-    printf("Found %" PRIu64 " errors in %" PRIu64 " locations (%s).\n", temp,
+    printf("GUPS: Found %" PRIu64 " errors in %" PRIu64 " locations (%s).\n", temp,
            TableSize, (temp <= 0.01 * TableSize) ? "passed" : "failed");
 
     if (temp <= 0.01 * TableSize) {
