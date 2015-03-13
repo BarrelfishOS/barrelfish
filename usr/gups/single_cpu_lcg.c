@@ -9,6 +9,9 @@
  */
 
 #include "RandomAccess.h"
+#ifdef DUNE
+#include <dune.h>
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -18,6 +21,11 @@ int main(int argc, char *argv[])
 
     HPCC_Params params;
     localGUPs = 0.0;
+
+#ifdef DUNE
+	if (dune_init_and_enter())
+		errx(1, "dune_init_and_enter()");
+#endif
 
     common_main(argc, argv, &params);
 

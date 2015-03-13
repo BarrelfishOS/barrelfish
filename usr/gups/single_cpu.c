@@ -9,9 +9,18 @@
  */
 #include "RandomAccess.h"
 
+#ifdef DUNE
+#include <dune.h>
+#endif
+
 int main(int argc, char *argv[])
 {
     /* just one node */
+
+#ifdef DUNE
+	if (dune_init_and_enter())
+		errx(1, "dune_init_and_enter()");
+#endif
 
     int errCount, failure = 0;
     double localGUPs;
