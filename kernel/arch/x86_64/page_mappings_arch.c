@@ -481,8 +481,13 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     // Unconditionally mark the page present
     flags |= X86_64_PTABLE_PRESENT;
 
-    assert(offset < X86_64_PTABLE_SIZE);
-    assert(offset + pages < X86_64_PTABLE_SIZE);
+    // check arguments
+    if (offset >= X86_64_PTABLE_SIZE) { // Within pagetable
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+    if (offset + pages > X86_64_PTABLE_SIZE) { // mapping size ok
+        return SYS_ERR_VM_MAP_SIZE;
+    }
 
     /* Calculate location of first pt entry we need to modify */
     lvaddr_t base = local_phys_to_mem(info->pte) +
@@ -520,6 +525,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
     if (va_hint != 0) {
         if (va_hint > BASE_PAGE_SIZE) {
             // use as direct hint
+            // invlpg should work for large/huge pages
             for (int i = 0; i < pages; i++) {
                 // XXX: check proper instructions for large/huge pages
                 do_one_tlb_flush(va_hint + i * pagesize);
