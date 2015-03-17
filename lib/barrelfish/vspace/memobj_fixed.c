@@ -367,9 +367,7 @@ errval_t memobj_destroy_fixed(struct memobj *memobj)
 
     errval_t err = SYS_ERR_OK;
 
-    struct vregion *vregion = NULL;
-
-    err = vregion_destroy(vregion);
+    err = vregion_destroy(m->vregion);
     free(m->frames);
     free(m->offsets);
     return err;

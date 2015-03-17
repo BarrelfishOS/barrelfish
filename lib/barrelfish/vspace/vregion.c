@@ -144,6 +144,10 @@ errval_t vregion_destroy(struct vregion *vregion)
 {
     errval_t err;
 
+    if (!vregion) {
+        return SYS_ERR_OK;
+    }
+
     struct vspace *vspace = vregion_get_vspace(vregion);
     if (vspace != NULL) {
         err = vspace_remove_vregion(vspace, vregion);

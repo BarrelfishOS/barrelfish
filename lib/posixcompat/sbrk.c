@@ -21,7 +21,7 @@
 static void *base = NULL;
 static size_t offset = 0; ///< How much is currently used
 static size_t goffset = 0; ///< Maximum ever allocated
-static struct memobj_anon memobj_;
+static struct memobj_append memobj_;
 static struct memobj *memobj = NULL;
 static struct vregion vregion_;
 static struct vregion *vregion = NULL;
@@ -56,9 +56,9 @@ void *sbrk(intptr_t increment)
     size_t orig_offset;
 
     if (!memobj) { // Initialize
-        err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
-                                       SBRK_REGION_BYTES, NULL,
-                                       VREGION_FLAGS_READ_WRITE, 0);
+        err = vspace_map_append_nomalloc(&base, &memobj_, &vregion_,
+                                         SBRK_REGION_BYTES, NULL,
+                                         VREGION_FLAGS_READ_WRITE, 0);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;

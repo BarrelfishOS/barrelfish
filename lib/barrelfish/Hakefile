@@ -23,6 +23,7 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "vspace/vregion.c", "vspace/memobj_one_frame.c",
                     "vspace/memobj_one_frame_lazy.c",
                     "vspace/utils.c", "vspace/memobj_fixed.c", "vspace/memobj_numa.c",
+                    "vspace/memobj_anon.c", "vspace/memobj_append.c",
                     "vspace/memobj_one_frame_one_map.c", "vspace/mmu_aware.c",
                     "slot_alloc/single_slot_alloc.c", "slot_alloc/slot_alloc.c",
                     "slot_alloc/range_slot_alloc.c", "slot_alloc/twolevel_slot_alloc.c",
@@ -56,7 +57,7 @@ in
                               "arch/x86_32/sys_debug.c", "target/x86_32/pmap_target.c",
                               "target/x86/pmap_x86.c",
                               "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
-                              "vspace/pinned.c", "vspace/memobj_anon.c",
+                              "vspace/pinned.c",
                               "arch/x86/perfmon.c", "arch/x86/tls.c",
                               "arch/x86/sys_debug.c"]
       archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
@@ -64,7 +65,7 @@ in
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
-                                 "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
+                                 "vspace/memobj_pinned.c", "vspace/pinned.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c",
                                  "arch/x86/sys_debug.c"]
       archfam_srcs "k1om"   = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
@@ -72,20 +73,19 @@ in
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
-                                 "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
+                                 "vspace/memobj_pinned.c", "vspace/pinned.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c",
                                  "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
-                                 "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "vspace/arch/arm/layout.c",
+                                 "vspace/pinned.c", "vspace/arch/arm/layout.c",
                                  "arch/arm/sys_debug.c"]
       archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
                                    "arch/aarch64/context.S",
                                    "arch/aarch64/pmap_arch.c", "arch/aarch64/sys_debug.c",
                                    "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
-                                   "vspace/pinned.c", "vspace/memobj_anon.c",
+                                   "vspace/pinned.c",
                                    "vspace/arch/aarch64/layout.c" ]
 
       archfam_srcs _         = []
@@ -155,28 +155,25 @@ in
                               "arch/x86_32/sys_debug.c", "target/x86_32/pmap_target.c",
                               "target/x86/pmap_x86.c",
                               "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
-                              "vspace/pinned.c", "vspace/memobj_anon.c",
-                              "arch/x86/perfmon.c", "arch/x86/tls.c",
+                              "vspace/pinned.c", "arch/x86/perfmon.c", "arch/x86/tls.c",
                               "arch/x86/sys_debug.c"]
       archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
                                  "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
-                                 "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
+                                 "vspace/memobj_pinned.c", "vspace/pinned.c",
                                  "arch/x86/perfmon.c", "arch/x86/tls.c",
                                  "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
-                                 "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "vspace/arch/arm/layout.c",
+                                 "vspace/pinned.c", "vspace/arch/arm/layout.c",
                                  "arch/arm/sys_debug.c"]
       archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
                                    "arch/aarch64/pmap_arch.c", "arch/aarch64/sys_debug.c",
                                    "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
-                                   "vspace/pinned.c", "vspace/memobj_anon.c",
-                                   "vspace/arch/aarch64/layout.c" ]
+                                   "vspace/pinned.c", "vspace/arch/aarch64/layout.c" ]
 
       archfam_srcs _         = []
 
