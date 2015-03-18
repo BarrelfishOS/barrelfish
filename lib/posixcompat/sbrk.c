@@ -101,7 +101,7 @@ void *sbrk(intptr_t increment)
         return (void *)-1;
     }
 
-    err = memobj->f.fill(memobj, goffset, frame, inc_bytes);
+    err = memobj->f.fill(memobj, goffset, frame, 0);
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err, "memobj->f.fill failed");
         cap_destroy(frame);

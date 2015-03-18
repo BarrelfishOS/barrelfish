@@ -153,6 +153,7 @@ struct memobj_append {
     struct capref  *frames;            ///< array of frame caps backing the object
     genvaddr_t     *offsets;           ///< offsets into object for associated frames
     gensize_t      *frame_sizes;       ///< sizes of frame caps
+    size_t         *frame_offsets;     ///< offsets into frame caps
     size_t          frame_count;       ///< number of entries in arrays
     size_t          first_free_frame;  ///< first free entry in arrays
     genvaddr_t      already_faulted;   ///< highest offset in object that we already mapped
