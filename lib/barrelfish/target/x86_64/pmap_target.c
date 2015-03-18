@@ -303,8 +303,16 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     assert(page);
     page->is_vnode = false;
     page->entry = table_base;
+#ifdef PMAP_LL
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
+#elif defined(PMAP_ARRAY)
+    for (int i = 0; i < pte_count; i++) {
+        ptable->u.vnode.children[table_base+i] = page;
+    }
+#else
+#error Invalid pmap datastructure
+#endif
     page->u.frame.cap = frame;
     page->u.frame.offset = offset;
     page->u.frame.flags = flags;
@@ -490,7 +498,7 @@ static size_t max_slabs_for_mapping(size_t bytes)
     size_t max_ptable = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
     size_t max_pdir   = DIVIDE_ROUND_UP(max_ptable, X86_64_PTABLE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pdir, X86_64_PTABLE_SIZE);
-    return max_pages + max_ptable + max_pdir + max_pdpt;
+    return 2 * max_ptable + max_pdir + max_pdpt;
 }
 
 static size_t max_slabs_for_mapping_large(size_t bytes)
@@ -498,14 +506,14 @@ static size_t max_slabs_for_mapping_large(size_t bytes)
     size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_64_LARGE_PAGE_SIZE);
     size_t max_pdir   = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pdir, X86_64_PTABLE_SIZE);
-    return max_pages  + max_pdir + max_pdpt;
+    return 2 * max_pdir + max_pdpt;
 }
 
 static size_t max_slabs_for_mapping_huge(size_t bytes)
 {
     size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_64_HUGE_PAGE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
-    return max_pages  + max_pdpt;
+    return 2 * max_pdpt;
 }
 
 /**
@@ -529,8 +537,11 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
     /* Keep looping till we have #request slabs */
     while (slab_freecount(&pmap->slab) < request) {
         // Amount of bytes required for #request
-        size_t bytes = SLAB_STATIC_SIZE(request - slab_freecount(&pmap->slab),
+        size_t slabs_req = request - slab_freecount(&pmap->slab);
+        size_t bytes = SLAB_STATIC_SIZE(slabs_req,
                                         sizeof(struct vnode));
+        bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
+        bytes *= 4;
 
         /* Get a frame of that size */
         struct capref cap;
@@ -576,7 +587,7 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
 /// Minimally refill the slab allocator
 static errval_t min_refill_slabs(struct pmap_x86 *pmap)
 {
-    return refill_slabs(pmap, 5);
+    return refill_slabs(pmap, 16);
 }
 
 /**
@@ -638,7 +649,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     // Refill slab allocator if necessary
     size_t slabs_free = slab_freecount(&x86->slab);
 
-    max_slabs += 5; // minimum amount required to map a page
+    max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
@@ -1053,6 +1064,7 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
 
 
 
+#if defined(PMAP_LL)
 static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen, size_t *items_written)
 {
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
@@ -1093,14 +1105,68 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
     }
     return SYS_ERR_OK;
 }
+#elif defined(PMAP_ARRAY)
+static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen, size_t *items_written)
+{
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+    struct pmap_dump_info *buf_ = buf;
+
+    struct vnode *pml4 = &x86->root;
+    struct vnode *pdpt, *pdir, *pt, *frame;
+    assert(pml4 != NULL);
+
+    *items_written = 0;
+
+    // iterate over PML4 entries
+    size_t pml4_index, pdpt_index, pdir_index, pt_index;
+    for (pml4_index = 0; pml4_index < X86_64_PTABLE_SIZE; pml4_index++) {
+        if (!(pdpt = pml4->u.vnode.children[pml4_index])) {
+            // skip empty entries
+            continue;
+        }
+        // iterate over pdpt entries
+        for (pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE; pdpt_index++) {
+            if (!(pdir = pdpt->u.vnode.children[pdpt_index])) {
+                // skip empty entries
+                continue;
+            }
+            // iterate over pdir entries
+            for (pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
+                if (!(pt = pdir->u.vnode.children[pdir_index])) {
+                    // skip empty entries
+                    continue;
+                }
+                // iterate over pt entries
+                for (pt_index = 0; pt_index < X86_64_PTABLE_SIZE; pt_index++) {
+                    if (!(frame = pt->u.vnode.children[pt_index])) {
+                        // skip empty entries
+                        continue;
+                    }
+                    if (*items_written < buflen) {
+                        buf_->pml4_index = pml4_index;
+                        buf_->pdpt_index = pdpt_index;
+                        buf_->pdir_index = pdir_index;
+                        buf_->pt_index   = pt_index;
+                        buf_->cap = frame->u.frame.cap;
+                        buf_->offset = frame->u.frame.offset;
+                        buf_->flags = frame->u.frame.flags;
+                        buf_++;
+                        (*items_written)++;
+                    }
+                }
+            }
+        }
+    }
+    return SYS_ERR_OK;
+}
+#else
+#error Invalid pmap datastructure
+#endif
 
 static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
                                    size_t alignment, genvaddr_t *retvaddr)
 {
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
-
-    struct vnode *walk_pml4 = x86->root.u.vnode.children;
-    assert(walk_pml4 != NULL); // assume there's always at least one existing entry
 
     if (alignment == 0) {
         alignment = BASE_PAGE_SIZE;
@@ -1109,6 +1175,10 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
     }
     size = ROUND_UP(size, alignment);
     assert(size < 512ul * 1024 * 1024 * 1024); // pml4 size
+
+#if defined(PMAP_LL)
+    struct vnode *walk_pml4 = x86->root.u.vnode.children;
+    assert(walk_pml4 != NULL); // assume there's always at least one existing entry
 
     // try to find free pml4 entry
     bool f[512];
@@ -1130,8 +1200,18 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
             break;
         }
     }
+#elif defined(PMAP_ARRAY)
+    genvaddr_t first_free = 16;
+    for (; first_free < X86_64_PTABLE_SIZE; first_free++) {
+        if (!x86->root.u.vnode.children[first_free]) {
+            break;
+        }
+    }
+#else
+#error Invalid pmap datastructure
+#endif
     //debug_printf("first_free: %"PRIuGENVADDR"\n", first_free);
-    if (first_free < 512) {
+    if (first_free < X86_64_PTABLE_SIZE) {
         //debug_printf("first_free: %"PRIuGENVADDR"\n", first_free);
         *retvaddr = first_free << 39;
         return SYS_ERR_OK;
@@ -1194,10 +1274,16 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     }
     assert(!capref_is_null(x86->root.u.vnode.cap));
     assert(!capref_is_null(x86->root.u.vnode.invokable));
+#if defined(PMAP_LL)
     x86->root.u.vnode.children  = NULL;
+    x86->root.next              = NULL;
+#elif defined(PMAP_ARRAY)
+    memset(x86->root.u.vnode.children, 0, sizeof(struct vnode *)*PTABLE_SIZE);
+#else
+#error Invalid pmap datastructure
+#endif
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
-    x86->root.next              = NULL;
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets

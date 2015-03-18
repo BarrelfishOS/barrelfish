@@ -17,6 +17,7 @@
 
 #include <barrelfish/pmap.h>
 #include <barrelfish_kpi/capabilities.h>
+#include <barrelfish_kpi/paging_arch.h> // for PTABLE_SIZE
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
@@ -30,7 +31,13 @@ struct vnode { // NB: misnomer :)
             lvaddr_t base;             ///< Virtual address start of page (upper level bits)
             struct capref cap;         ///< VNode cap
             struct capref invokable;    ///< Copy of VNode cap that is invokable
-            struct vnode  *children;   ///< Children of this VNode
+#ifdef PMAP_LL
+            struct vnode *children;
+#elif defined(PMAP_ARRAY)
+            struct vnode  *children[PTABLE_SIZE];   ///< Children of this VNode
+#else
+#error Invalid pmap datastructure
+#endif
             lvaddr_t virt_base;        ///< vaddr of mapped RO page table in user-space
             struct capref page_table_frame;
         } vnode; // for non-leaf node (maps another vnode)
@@ -50,11 +57,11 @@ struct pmap_x86 {
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
     errval_t (*refill_slabs)(struct pmap_x86 *); ///< Function to refill slabs
-    struct slab_allocator slab;     ///< Slab allocator for the vnode lists
+    struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
     size_t used_cap_slots;      ///< Current count of capability slots allocated by pmap code
-    uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
+    uint8_t slab_buffer[SLAB_STATIC_SIZE(32, sizeof(struct vnode))];   ///< Initial buffer to back the allocator
 };
 
 #endif // TARGET_X86_BARRELFISH_PMAP_H
