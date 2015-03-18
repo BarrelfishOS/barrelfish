@@ -879,6 +879,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
     assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
+    assert(pages <= PTABLE_SIZE);
 
     if (inside_region(info.page_table, info.table_base, pages)) {
         // we're modifying part of a valid mapped region
@@ -945,6 +946,8 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
 
     assert(info.page && !info.page->is_vnode);
+    // XXX: be more graceful about size == 0? -SG, 2017-11-28.
+    assert(size > 0);
 
     // TODO: match new policy of map when implemented
     size = ROUND_UP(size, info.page_size);
@@ -958,6 +961,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         (is_same_pdpt(vaddr, vend) && is_large_page(info.page)) ||
         (is_same_pml4(vaddr, vend) && is_huge_page(info.page))) {
         // fast path
+        assert(pages <= PTABLE_SIZE);
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
             trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
@@ -967,6 +971,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     else { // slow path
         // modify first part
         uint32_t c = X86_64_PTABLE_SIZE - info.table_base;
+        assert(c <= PTABLE_SIZE);
         err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
             trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
@@ -989,6 +994,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         c = get_addr_prefix(vend, info.map_bits - X86_64_PTABLE_BITS) -
                 get_addr_prefix(vaddr, info.map_bits - X86_64_PTABLE_BITS);
         if (c) {
+            assert(c <= PTABLE_SIZE);
             err = do_single_modify_flags(x86, vaddr, c, flags);
             if (err_is_fail(err)) {
                 trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
