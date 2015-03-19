@@ -790,13 +790,6 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     assert(err_is_ok(err));
 #endif
 
-#ifndef CONFIG_SVM
-    // Initialize VMCS for the single virtual-CPU here instead of in 
-    // userspace, where the privilege level is not 0.
-    err = initialize_vmcs(vmcb_cte->cap.u.frame.base);
-    assert(err_is_ok(err));
-#endif
-
     // 2. Set up the target DCB
 /*     dcb->guest_desc.monitor_ep = ep_cap; */
     dcb->vspace = vnode_cap->u.vnode_x86_64_pml4.base;

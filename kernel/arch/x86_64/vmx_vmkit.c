@@ -392,6 +392,7 @@ static uint64_t vmx_read_msr(uint32_t index) {
 	break;
     default:
         assert(!"MSR index not supported");
+        panic("MSR index %d not supported\n", index)
     }
     return val;
 }

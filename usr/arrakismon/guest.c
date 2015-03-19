@@ -471,6 +471,9 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si) {
     g->dcb_cap = si->dcb;
     err = invoke_dispatcher_setup_guest(g->dcb_cap, ep_cap, si->vtree,
                                         g->vmcb_cap, g->ctrl_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "guest setup");
+    }
     assert(err_is_ok(err));
 
     err = invoke_dispatcher(si->dcb, cap_dispatcher, si->rootcn_cap,
