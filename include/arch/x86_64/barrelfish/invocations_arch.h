@@ -184,6 +184,116 @@ static inline errval_t invoke_dispatcher_vmclear(struct capref dispatcher)
 }
 
 /**
+ * \brief Execute vmread on the VMCS of the VM guest DCB
+ *
+ * The VMCS must be current and active.
+ *
+ * \param dcb       Dispatcher capability
+ * \param encoding  Encoding of the field to read from the VMCS
+ * \param addr      The address to write the value of the field to.
+ */
+static inline errval_t invoke_dispatcher_vmread(struct capref dispatcher,
+						uintptr_t encoding,
+						lvaddr_t *addr)
+{
+    return cap_invoke3(dispatcher, DispatcherCmd_Vmread,
+		       encoding, (uintptr_t)addr).error;
+}
+
+/**
+ * \brief Execute vmwrite on the VMCS of the VM guest DCB
+ *
+ * The VMCS must be current and active.
+ *
+ * \param dcb       Dispatcher capability
+ * \param encoding  Encoding of the field to write to the VMCS.
+ * \param value     Value of the field to write.
+ */
+
+static inline errval_t invoke_dispatcher_vmwrite(struct capref dispatcher,
+						 uintptr_t encoding,
+						 uintptr_t value)
+{
+    return cap_invoke3(dispatcher, DispatcherCmd_Vmwrite,
+		       encoding, value).error;
+}
+
+/**
+ * \brief Execute vmptrld on the VMCS of the VM guest DCB
+ *
+ * \param dcb       Dispatcher capability
+ */
+static inline errval_t invoke_dispatcher_vmptrld(struct capref dispatcher)
+{
+    return cap_invoke1(dispatcher, DispatcherCmd_Vmptrld).error;
+}
+
+/**
+ * \brief Execute vmclear on the VMCS of the VM guest DCB
+ *
+ * \param dcb       Dispatcher capability
+ */
+static inline errval_t invoke_dispatcher_vmclear(struct capref dispatcher)
+{
+    return cap_invoke1(dispatcher, DispatcherCmd_Vmclear).error;
+}
+
+/**
+ * \brief Execute vmread on the VMCS of the VM guest DCB
+ *
+ * The VMCS must be current and active.
+ *
+ * \param dcb       Dispatcher capability
+ * \param encoding  Encoding of the field to read from the VMCS
+ * \param addr      The address to write the value of the field to.
+ */
+static inline errval_t invoke_dispatcher_vmread(struct capref dispatcher,
+						uintptr_t encoding,
+						lvaddr_t *addr)
+{
+    return cap_invoke3(dispatcher, DispatcherCmd_Vmread,
+		       encoding, (uintptr_t)addr).error;
+}
+
+/**
+ * \brief Execute vmwrite on the VMCS of the VM guest DCB
+ *
+ * The VMCS must be current and active.
+ *
+ * \param dcb       Dispatcher capability
+ * \param encoding  Encoding of the field to write to the VMCS.
+ * \param value     Value of the field to write.
+ */
+
+static inline errval_t invoke_dispatcher_vmwrite(struct capref dispatcher,
+						 uintptr_t encoding,
+						 uintptr_t value)
+{
+    return cap_invoke3(dispatcher, DispatcherCmd_Vmwrite,
+		       encoding, value).error;
+}
+
+/**
+ * \brief Execute vmptrld on the VMCS of the VM guest DCB
+ *
+ * \param dcb       Dispatcher capability
+ */
+static inline errval_t invoke_dispatcher_vmptrld(struct capref dispatcher)
+{
+    return cap_invoke1(dispatcher, DispatcherCmd_Vmptrld).error;
+}
+
+/**
+ * \brief Execute vmclear on the VMCS of the VM guest DCB
+ *
+ * \param dcb       Dispatcher capability
+ */
+static inline errval_t invoke_dispatcher_vmclear(struct capref dispatcher)
+{
+    return cap_invoke1(dispatcher, DispatcherCmd_Vmclear).error;
+}
+
+/**
  * \brief Setup a VM guest DCB
  *
  * \param dcb       Dispatcher capability
