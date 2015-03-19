@@ -15,11 +15,7 @@
 typedef uint64_t cycles_t;
 #include <sys/cdefs.h>
 
-#ifndef DUNE
 #include <inttypes.h>
-#else
-#include <dune.h>
-#endif
 
 #define BENCH_IGNORE_WATERMARK 0XDEADBEEF
 

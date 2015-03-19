@@ -2,7 +2,6 @@ CC=gcc
 CFLAGS=-O2 -std=gnu99 -I. -I../../include/arch/x86_64/ -I../../include/arch/x86/ -L/mnt/scratch
 DEPS=bench.h
 
-
 ifeq ($(DUNE),1)
 	DUNE=/mnt/scratch/skaestle/software/dune/libdune
 	CFLAGS+=-I$(DUNE) -L$(DUNE) -ldune -DDUNE
