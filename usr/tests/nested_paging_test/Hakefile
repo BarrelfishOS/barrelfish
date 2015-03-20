@@ -11,6 +11,6 @@
 --------------------------------------------------------------------------
 
 [ build arrakisapplication { target = "arrakis_nestedpaging",
-                             cFiles = [ "nestedpaging.c" ]
+                             cFiles = [ "nestedpaging.c", "main.c" ]
                            }
 ]
