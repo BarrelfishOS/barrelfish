@@ -240,8 +240,8 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     flags |= X86_64_PTABLE_FLAGS(mflags);
     // Unconditionally mark the page present
     flags |= X86_64_PTABLE_PRESENT;
-    // Make sure page-tables are never writeable from user-space
-    if (type_is_vnode(src->type)) {
+    // Make sure non-guest page-tables are never writeable from user-space
+    if (type_is_vnode(src->type) && !dcb_current->is_vm_guest) {
         if (flags & ~X86_64_PTABLE_READ_WRITE) {
             //printf("%s:%s:%d: WRITE permission on page table masked.\n",
             //        __FILE__, __FUNCTION__, __LINE__);
