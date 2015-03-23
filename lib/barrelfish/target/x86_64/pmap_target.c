@@ -115,8 +115,11 @@ static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PML4 mapping
     if((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt,
-                            X86_64_PML4_BASE(base), pdpt, base);
+        enum objtype type = type_is_ept(pmap->root.type) ?
+            ObjType_VNode_x86_64_ept_pdpt :
+            ObjType_VNode_x86_64_pdpt;
+        err = alloc_vnode(pmap, root, type, X86_64_PML4_BASE(base),
+                pdpt, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
             if ((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) != NULL) {
@@ -149,7 +152,10 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PDPT mapping
     if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
+        enum objtype type = type_is_ept(pmap->root.type) ?
+            ObjType_VNode_x86_64_ept_pdir :
+            ObjType_VNode_x86_64_pdir;
+        err = alloc_vnode(pmap, pdpt, type,
                             X86_64_PDPT_BASE(base), pdir, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
@@ -184,7 +190,10 @@ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PDIR mapping
     if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
-        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
+        enum objtype type = type_is_ept(pmap->root.type) ?
+            ObjType_VNode_x86_64_ept_ptable :
+            ObjType_VNode_x86_64_ptable;
+        err = alloc_vnode(pmap, pdir, type,
                             X86_64_PDIR_BASE(base), ptable, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
@@ -1299,6 +1308,19 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     x86->max_mappable_va = (genvaddr_t)0xffffff8000000000;
 
     return SYS_ERR_OK;
+}
+
+errval_t pmap_x86_64_init_ept(struct pmap *pmap, struct vspace *vspace,
+                              struct capref vnode,
+                              struct slot_allocator *opt_slot_alloc)
+{
+    errval_t err;
+    err = pmap_x86_64_init(pmap, vspace, vnode, opt_slot_alloc);
+    struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
+
+    x86->root.type = ObjType_VNode_x86_64_ept_pml4;
+
+    return err;
 }
 
 /**

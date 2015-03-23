@@ -40,7 +40,7 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
@@ -58,6 +58,10 @@ distcap_needs_locality(enum objtype type)
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_64_ept_pml4:
+    case ObjType_VNode_x86_64_ept_pdpt:
+    case ObjType_VNode_x86_64_ept_pdir:
+    case ObjType_VNode_x86_64_ept_ptable:
     case ObjType_VNode_x86_32_pdpt:
     case ObjType_VNode_x86_32_pdir:
     case ObjType_VNode_x86_32_ptable:
@@ -77,6 +81,10 @@ distcap_needs_locality(enum objtype type)
     case ObjType_VNode_x86_64_pdpt_Mapping:
     case ObjType_VNode_x86_64_pdir_Mapping:
     case ObjType_VNode_x86_64_ptable_Mapping:
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
     case ObjType_VNode_x86_32_pdpt_Mapping:
     case ObjType_VNode_x86_32_pdir_Mapping:
     case ObjType_VNode_x86_32_ptable_Mapping:
@@ -90,7 +98,7 @@ distcap_needs_locality(enum objtype type)
     }
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

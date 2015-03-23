@@ -18,9 +18,9 @@
                       mackerelDevices = [ "amd_vmcb", "lpc_timer",
                                           "pc16550d_mem", "pci_hdr0_mem" ],
                       addLibraries = libDeps [ "spawndomain", "x86emu", "vfs", "elf", "timer", "lwip" ],
-                      flounderDefs = [ "monitor", "monitor_blocking", "arrakis" ],
+                      flounderDefs = [ "monitor", "monitor_blocking", "arrakis", "hyper" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
-  		      flounderBindings = [ "arrakis" ],
+  		      flounderBindings = [ "arrakis", "hyper" ],
                       architectures = ["x86_64"]
                     }
 ]

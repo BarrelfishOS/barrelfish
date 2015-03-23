@@ -35,6 +35,13 @@ typedef bool (*lpc_virtual_irq_pending) (void *user_data, uint8_t *irq,
 typedef void (*lpc_virtual_irq_handler) (void *user_data, uint8_t irq,
         uint8_t irq_prio);
 
+#ifndef CONFIG_SVM
+/**
+ * \brief Check whether the guest-VM is accepting interrupts.
+ */
+typedef bool (*lpc_virtual_irq_accepting) (void *user_data);
+#endif
+
 // LPC Timer
 union lpc_pit_tcw {
     struct {
@@ -248,6 +255,9 @@ struct lpc {
     struct apic     *apic;  ///< The APIC to send IRQs to
     lpc_virtual_irq_handler     virq_handler;
     lpc_virtual_irq_pending     virq_pending;
+#ifndef CONFIG_SVM
+    lpc_virtual_irq_accepting   virq_accepting;
+#endif
     void *                      virq_user_data;
     // NMI Controller
     bool                nmi_masked;
@@ -285,8 +295,11 @@ struct lpc {
 
 int lpc_init(void);
 struct lpc * lpc_new (lpc_virtual_irq_handler virq_handler,
-                      lpc_virtual_irq_pending virq_pending, void *user_data,
-                      struct apic *apic);
+                      lpc_virtual_irq_pending virq_pending,
+#ifndef CONFIG_SVM
+		      lpc_virtual_irq_accepting virq_accepting,
+#endif 
+		      void *user_data, struct apic *apic);
 int lpc_handle_pio_read (struct lpc *l, uint16_t port, enum opsize size,
                          uint32_t *val);
 int lpc_handle_pio_write (struct lpc *l, uint16_t port, enum opsize size,

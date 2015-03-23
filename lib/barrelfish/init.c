@@ -29,6 +29,7 @@
 #include <barrelfish/systime.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
+#include <if/hyper_defs.h>
 #include <trace/trace.h>
 #include <octopus/init.h>
 #include "threads_priv.h"
@@ -110,6 +111,9 @@ void barrelfish_libc_glue_init(void)
 }
 
 static void monitor_bind_cont(void *st, errval_t err, struct monitor_binding *b);
+#ifdef ARRAKIS
+static void hyper_bind_cont(void *st, errval_t err, struct hyper_binding *b);
+#endif
 
 #ifdef CONFIG_TRACE
 errval_t trace_my_setup(void)
@@ -199,6 +203,7 @@ static bool parse_argv(struct spawn_domain_params *params, size_t *morecore_alig
  */
 errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 {
+    debug_printf("bf_init_onthread\n");
     errval_t err;
 
     // do we have an environment?
@@ -312,6 +317,9 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         return err_push(err, LIB_ERR_MONITOR_RPC_BIND);
     }
 
+#ifndef ARRAKIS
+    // should only do this for arrakis domains after we have connection to
+    // hypervisor service
     /* XXX: Setup the channel with mem_serv and use the channel instead */
     err = ram_alloc_set(NULL);
     if (err_is_fail(err)) {
@@ -323,6 +331,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MORECORE_INIT);
     }
+#endif
 
 #ifdef CONFIG_TRACE
     err = trace_my_setup();
@@ -345,6 +354,52 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
             return err_push(err, LIB_ERR_NAMESERVICE_CLIENT_INIT);
         }
     }
+
+#ifdef ARRAKIS
+    /* connect to hypervisor service */
+    char hyper[256];
+    snprintf(hyper, 256, "arrakis.%d.hyper", disp_get_core_id());
+    hyper[255] = 0;
+    iref_t hyper_iref;
+    err = nameservice_blocking_lookup(hyper, &hyper_iref);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "hyper ns lookup");
+    }
+    assert(err_is_ok(err));
+    request_done = false;
+    struct hyper_binding *hb;
+    err = hyper_bind(hyper_iref, hyper_bind_cont, &hb, default_ws,
+            IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    assert(err_is_ok(err));
+    while (!request_done) {
+        messages_wait_and_handle_next();
+    }
+    hyper_rpc_client_init(hb);
+    struct capref dispframe = {
+        .cnode = cnode_task,
+        .slot = TASKCN_SLOT_DISPFRAME,
+    };
+    struct frame_identity fi;
+    err = invoke_frame_identify(dispframe, &fi);
+    assert(err_is_ok(err));
+    debug_printf("registering with hypervisor using %"PRIu64"\n",
+            fi.base);
+    err = hb->rpc_tx_vtbl.register_client(hb, fi.base);
+    assert(err_is_ok(err));
+    set_hyper_binding(hyper_rpc);
+
+    // connect to mem_serv
+    err = ram_alloc_set(NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC_SET);
+    }
+
+    // switch morecore to intended configuration
+    err = morecore_reinit();
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MORECORE_INIT);
+    }
+#endif
 
     // init terminal
     err = terminal_init();
@@ -387,6 +442,15 @@ static void monitor_bind_cont(void *st, errval_t err, struct monitor_binding *b)
     // signal completion
     request_done = true;
 }
+
+#ifdef ARRAKIS
+static void hyper_bind_cont(void *st, errval_t err, struct hyper_binding *b)
+{
+    struct hyper_binding **hb = st;
+    *hb = b;
+    request_done = true;
+}
+#endif
 
 /**
  *  \brief Initialise libbarrelfish, while disabled.

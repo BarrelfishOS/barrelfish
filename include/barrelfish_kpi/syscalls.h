@@ -55,12 +55,13 @@ struct sysret {
 #define SYSCALL_X86_RELOAD_LDT       9    ///< Reload the LDT register (x86_64)
 #define SYSCALL_SUSPEND             10    ///< Suspend the CPU
 #define SYSCALL_GET_ABS_TIME        11    ///< Get time elapsed since boot
+#define SYSCALL_MAP_NPT             12    ///< Unused? -SG, 2017-11-28.
 
 /* Architecture-specific syscalls - ARMv7 */
 #define SYSCALL_ARMv7_CACHE_CLEAN    8    ///< Clean (write back) by VA
 #define SYSCALL_ARMv7_CACHE_INVAL    9    ///< Invalidate (discard) by VA
 
-#define SYSCALL_COUNT               12     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
+#define SYSCALL_COUNT               13     ///< Number of syscalls [0..SYSCALL_COUNT - 1]
 
 /*
  * To understand system calls it might be helpful to know that there

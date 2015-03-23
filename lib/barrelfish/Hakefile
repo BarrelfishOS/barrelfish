@@ -200,7 +200,7 @@ in
                     addCFlags = [ "-DARRAKIS", "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis",
                                          "proc_mgmt", "terminal", "terminal_config",
-                                         "terminal_session" ],
+                                         "terminal_session", "hyper" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
@@ -209,7 +209,8 @@ in
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
                                               ("proc_mgmt", ["rpcclient"]),
-                                              ("arrakis", ["rpcclient"])],
+                                              ("arrakis", ["rpcclient"]),
+                                              ("hyper", ["rpcclient"])],
                     addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }

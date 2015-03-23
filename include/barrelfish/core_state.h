@@ -83,11 +83,17 @@ struct mem_binding;
 struct spawn_binding;
 struct arrakis_binding;
 struct proc_mgmt_binding;
+#ifdef ARRAKIS
+struct hyper_binding;
+#endif
 
 struct core_state_generic {
     struct waitset default_waitset;
     struct monitor_binding *monitor_binding;
     struct monitor_blocking_binding *monitor_blocking_binding;
+#ifdef ARRAKIS
+    struct hyper_binding *hyper_binding;
+#endif
     struct mem_binding *mem_st;
     struct morecore_state morecore_state;
     struct ram_alloc_state ram_alloc_state;

@@ -792,8 +792,8 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // 2. Set up the target DCB
 /*     dcb->guest_desc.monitor_ep = ep_cap; */
-    dcb->vspace = vnode_cap->u.vnode_x86_64_pml4.base;
     dcb->is_vm_guest = true;
+    dcb->guest_desc.vspace = vnode_cap->u.vnode_x86_64_pml4.base;
 /*     dcb->guest_desc.vmcb = vmcb_cap->u.frame.base; */
 /*     dcb->guest_desc.ctrl = (void *)x86_64_phys_to_mem(ctrl_cap->u.frame.base); */
 
@@ -1263,6 +1263,27 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
+    [ObjType_VNode_x86_64_ept_pml4] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_pdpt] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_pdir] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_ptable] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
@@ -1338,11 +1359,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     }
 };
 
-/* syscall C entry point; called only from entry.S so no prototype in header */
-struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
-                          uint64_t *args, uint64_t rflags, uint64_t rip);
-struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
-                          uint64_t *args, uint64_t rflags, uint64_t rip)
+struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                         uint64_t *args, uint64_t rflags, uint64_t rip,
+                         struct capability *root);
+struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                         uint64_t *args, uint64_t rflags, uint64_t rip,
+                         struct capability *root)
 {
     struct sysret retval = { .error = SYS_ERR_OK, .value = 0 };
 
@@ -1376,8 +1398,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Capability to invoke
         struct capability *to = NULL;
-        retval.error = caps_lookup_cap(&dcb_current->cspace.cap, invoke_cptr,
-                                       invoke_level, &to, CAPRIGHTS_READ);
+        retval.error = caps_lookup_cap(root, invoke_cptr, invoke_level,
+                                       &to, CAPRIGHTS_READ);
         if (err_is_fail(retval.error)) {
             break;
         }
@@ -1496,6 +1518,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
             uint64_t cmd = args[0];
             if (cmd >= CAP_MAX_CMD) {
+                printk(LOG_NOTE, "illegal invocation: cmd %lu > MAX_CMD %d\n",
+                        cmd, CAP_MAX_CMD);
                 retval.error = SYS_ERR_ILLEGAL_INVOCATION;
                 break;
             }
@@ -1652,4 +1676,13 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
     }
 
     return retval;
+}
+
+/* syscall C entry point; called only from entry.S so no prototype in header */
+struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                          uint64_t *args, uint64_t rflags, uint64_t rip);
+struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                          uint64_t *args, uint64_t rflags, uint64_t rip)
+{
+    return sys_vmcall(syscall, arg0, arg1, args, rflags, rip, &dcb_current->cspace.cap);
 }

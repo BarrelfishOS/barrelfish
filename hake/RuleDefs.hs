@@ -1348,6 +1348,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
     where xord = [  "crypto"
                   , "zlib"
                   , "posixcompat"
+                  , "posixcompat_arrakis"
                   , "term_server"
                   , "vfs"
                   , "ahci"

@@ -85,7 +85,7 @@ static inline struct cte *cte_for_cap(struct capability *cap)
 static inline size_t caps_get_mapping_offset(struct capability *cap) {
 
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(50 == ObjType_Num, "Check Mapping definitions");
+    STATIC_ASSERT(58 == ObjType_Num, "Check Mapping definitions");
 
     switch (cap->type) {
     case ObjType_VNode_AARCH64_l3_Mapping:
@@ -101,6 +101,10 @@ static inline size_t caps_get_mapping_offset(struct capability *cap) {
     case ObjType_VNode_x86_64_pdir_Mapping:
     case ObjType_VNode_x86_64_pdpt_Mapping:
     case ObjType_VNode_x86_64_pml4_Mapping:
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
     case ObjType_DevFrame_Mapping:
     case ObjType_Frame_Mapping:
         return cap->u.frame_mapping.offset << 10;
@@ -164,13 +168,17 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(50 == ObjType_Num, "knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "knowledge of all cap types");
 STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
 #define MAPPING_TYPES \
     ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_pdpt_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_pdir_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_ptable_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pml4_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdpt_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdir_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_ptable_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_pdpt_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_pdir_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_ptable_Mapping) | \
@@ -194,6 +202,10 @@ STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
      (1ull<<ObjType_VNode_x86_64_pdpt) | \
      (1ull<<ObjType_VNode_x86_64_pdir) | \
      (1ull<<ObjType_VNode_x86_64_ptable) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pml4) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdpt) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdir) | \
+     (1ul<<ObjType_VNode_x86_64_ept_ptable) | \
      (1ull<<ObjType_VNode_x86_32_pdpt) | \
      (1ull<<ObjType_VNode_x86_32_pdir) | \
      (1ull<<ObjType_VNode_x86_32_ptable) | \

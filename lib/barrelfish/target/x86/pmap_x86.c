@@ -325,6 +325,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
                     PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pmap_x86: vnode_map\n");
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
