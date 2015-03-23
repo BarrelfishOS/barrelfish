@@ -246,6 +246,9 @@ static inline struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
     }
 }
 
+struct vnode* ALL_THE_VNODES[512];
+size_t all_the_vnodes_cnt = 0;
+
 static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                               genvaddr_t vend, struct capref frame,
                               size_t offset, size_t pte_count,
@@ -278,6 +281,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         //normal 4K pages, mapped into ptable
         err = get_ptable(pmap, vaddr, &ptable);
         table_base = X86_64_PTABLE_BASE(vaddr);
+        ALL_THE_VNODES[all_the_vnodes_cnt++] = ptable;
     }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
