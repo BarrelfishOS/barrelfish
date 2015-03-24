@@ -52,19 +52,17 @@ size_t sbrk_get_offset(void)
 
 uint64_t sbrk_times = 0;
 
-static unsigned stats_rtclock(void) {
-    struct timeval t;
-    struct timezone tz;
-
-    if (gettimeofday(&t, &tz) == -1) {
-        return 0;
-    }
-    return (t.tv_sec * 1000 + t.tv_usec / 1000);
+static inline unsigned long bf_ticks(void)
+{
+   unsigned int a, d;
+   __asm__ volatile("rdtsc" : "=a" (a), "=d" (d));
+   return ((unsigned long) a) | (((unsigned long) d) << 32);
 }
+
 
 void *sbrk(intptr_t increment)
 {
-    uint64_t start = stats_rtclock();
+    uint64_t start = bf_ticks();
     errval_t err;
     size_t orig_offset;
 
@@ -130,7 +128,7 @@ void *sbrk(intptr_t increment)
         return (void *)-1;
     }
 
-    uint64_t end = stats_rtclock();
+    uint64_t end = bf_ticks();
     sbrk_times += end - start;
 
     void *ret = base + orig_offset;
