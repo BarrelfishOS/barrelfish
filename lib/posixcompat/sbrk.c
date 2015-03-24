@@ -50,8 +50,21 @@ size_t sbrk_get_offset(void)
     return offset;
 }
 
+uint64_t sbrk_times = 0;
+
+static unsigned stats_rtclock(void) {
+    struct timeval t;
+    struct timezone tz;
+
+    if (gettimeofday(&t, &tz) == -1) {
+        return 0;
+    }
+    return (t.tv_sec * 1000 + t.tv_usec / 1000);
+}
+
 void *sbrk(intptr_t increment)
 {
+    uint64_t start = stats_rtclock();
     errval_t err;
     size_t orig_offset;
 
@@ -116,6 +129,9 @@ void *sbrk(intptr_t increment)
                   "memobj->f.pagefault failed");
         return (void *)-1;
     }
+
+    uint64_t end = stats_rtclock();
+    sbrk_times += end - start;
 
     void *ret = base + orig_offset;
     return ret;
