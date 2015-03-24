@@ -141,32 +141,39 @@ static errval_t protect(struct memobj *memobj,
         // iterative binary search from
         // http://en.wikipedia.org/wiki/Binary_search_algorithm#Iterative
         // XXX: BROKEN!!!
-#if 0
-        int imin = 0, imax = append->first_free_frame;
+
+#if 1
+        // binary search
+        int imin = 0;
+        int imax = append->first_free_frame - 1;
         int first_idx = -1;
-        while (imax >= imin) {
-            int imid = imin + (imax - imin) / 2;
-            //debug_printf("imin=%d, imid=%d, imax=%d\n", imin, imid, imax);
-            if (imid > 0 && imid < append->first_free_frame &&
-                append->offsets[imid-1] <= offset &&
-                append->offsets[imid] > offset)
-            {
-                first_idx = imid;
-                break;
-            }
-            else if (append->offsets[imid] < offset) {
+        int found = 0;
+        while (!found && (imin <= imax)) {
+            int imid = (imin + imax) / 2;
+//            debug_printf("imin=%d, imid=%d, imax=%d\n", imin, imid, imax);
+            genvaddr_t mid_offset = append->offsets[imid];
+            if (mid_offset < offset) {
                 imin = imid + 1;
-            } else {
+            } else if (mid_offset > offset) {
                 imax = imid - 1;
+            } else {
+                first_idx = imid;
+                found = 1;
             }
         }
+        if (!found) {
+            first_idx = imax;
+        }
+
 #else
+        // linear search
         int first_idx = -1;
         for (first_idx = 0;
              first_idx < append->first_free_frame && append->offsets[first_idx] < offset;
              first_idx++);
         first_idx -= 1;
 #endif
+
 #if 0
         for (int i = 0; i < append->first_free_frame; i++) {
             debug_printf("offsets[%d] = %"PRIxGENVADDR"\n", i, append->offsets[i]);
