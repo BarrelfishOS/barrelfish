@@ -106,7 +106,9 @@ static inline bool is_huge_page(struct vnode *p)
 /**
  * \brief Returns the vnode for the pdpt mapping a given vspace address
  */
-static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
+errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdpt);
+errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
                                 struct vnode **pdpt)
 {
     errval_t err;
@@ -139,7 +141,9 @@ static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
  * \brief Returns the vnode for the page directory mapping a given vspace
  * address
  */
-static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
+errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdir);
+errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
                                 struct vnode **pdir)
 {
     errval_t err;

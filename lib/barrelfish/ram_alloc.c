@@ -85,8 +85,10 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
     struct hyper_rpc_client *hc = get_hyper_rpc_client();
     err = hc->vtbl.npt_map(hc, *ret, &err2);
     assert(err_is_ok(err));
+    if (err_is_fail(err2)) {
+        DEBUG_ERR(err2, "while calling hypervisor for EPT mapping");
+    }
     assert(err_is_ok(err2));
-    //sys_map_npt(fi.base, fi.bits);
 #endif
 #endif
 

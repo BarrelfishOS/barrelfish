@@ -26,7 +26,10 @@
 
 #include <if/hyper_defs.h>
 
+#define G_NAME_LEN 64
 struct guest {
+    char name[G_NAME_LEN];
+    uint64_t dispframe; // unique identifier for this guest
     // indicates whether the guest is runnable atm or waiting
     bool                    runnable;
     // Monitor endpoint for this guest
@@ -91,6 +94,9 @@ struct guest {
     struct pci              *pci;
     // some settings which belong to an upcomming CPU abstraction
     bool                    a20_gate_enabled;
+
+    // list of guests
+    struct guest *next;
 };
 
 /**
@@ -528,6 +534,6 @@ errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
 errval_t
 alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes);
 
-void npt_map(struct hyper_binding *b, struct capref mem);
+void npt_map_handler(struct hyper_binding *b, struct capref mem);
 
 #endif // GUEST_H

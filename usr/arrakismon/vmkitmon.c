@@ -345,8 +345,15 @@ static struct arrakis_rx_vtbl rx_vtbl = {
     .spawn_arrakis_domain_call = spawn_handler,
 };
 
+static void hy_register_handler(struct hyper_binding *b, uint64_t dispframe)
+{
+    b->st = (void *)dispframe;
+    b->tx_vtbl.register_client_response(b, NOP_CONT);
+}
+
 static struct hyper_rx_vtbl hy_rx_vtbl = {
-    .npt_map_call = npt_map,
+    .npt_map_call = npt_map_handler,
+    .register_client_call = hy_register_handler,
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)
@@ -398,6 +405,7 @@ static errval_t connect_cb(void *st, struct arrakis_binding *b)
 
 static errval_t hy_connect_cb(void *st, struct hyper_binding *b)
 {
+    // copy my message receive handler vtable to the binding
     b->rx_vtbl = hy_rx_vtbl;
     return SYS_ERR_OK;
 }

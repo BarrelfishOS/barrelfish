@@ -9,4 +9,5 @@
 
 interface hyper "Arrakis Hypervisor RPC interface" {
   rpc npt_map(in cap mem, out errval ret);
+  rpc register_client(in uint64 disp_handle);
 };

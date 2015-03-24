@@ -55,6 +55,9 @@
 
 #define VREGION_FLAGS_ALL (VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_EXECUTE)
 
+// list of guests
+struct guest *guests = NULL;
+
 static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 {
     paging_x86_64_flags_t pmap_flags =
@@ -647,6 +650,10 @@ static void ept_map_vnode(struct guest *g, struct vnode *v)
 }
 
 extern errval_t vspace_add_vregion(struct vspace *vspace, struct vregion *region);
+errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdpt);
+errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
+                                struct vnode **pdir);
 extern errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
                            struct vnode **ptable);
 static void ept_force_mapping(struct guest *g, struct capref mem)
@@ -671,22 +678,62 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
     err = vspace_add_vregion(g->vspace, v);
     assert(err_is_ok(err));
 
-    // get leaf pt through pmap
     struct pmap_x86 *pmap = (struct pmap_x86 *)vspace_get_pmap(g->vspace);
     struct vnode *pt;
-    err = get_ptable(pmap, v->base, &pt);
-    assert(err_is_ok(err));
-
     paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(VREGION_FLAGS_ALL);
-    size_t npages = v->size / BASE_PAGE_SIZE;
-    err = vnode_map(pt->u.vnode.cap, mem, X86_64_PTABLE_BASE(v->base),
-            pmap_flags, 0, npages);
-    assert(err_is_ok(err));
+    size_t npages = 0;
+
+    if (fi.bits >= 30) {
+        // do huge page mappings
+        // get pdpt through pmap
+        err = get_pdpt(pmap, v->base, &pt);
+        assert(err_is_ok(err));
+        assert(pt->is_vnode);
+        npages = v->size / HUGE_PAGE_SIZE;
+        printf("     %zu 1G pages\n", npages);
+        assert(npages <= 512);
+        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDPT_BASE(v->base),
+                pmap_flags, 0, npages);
+    } else if (fi.bits >= 21) {
+        // do large page mappings
+        err = get_pdir(pmap, v->base, &pt);
+        assert(err_is_ok(err));
+        assert(pt->is_vnode);
+        npages = v->size / LARGE_PAGE_SIZE;
+        printf("     %zu 2M pages\n", npages);
+        assert(npages < 512);
+        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDIR_BASE(v->base),
+                pmap_flags, 0, npages);
+    } else {
+        // get leaf pt through pmap
+        err = get_ptable(pmap, v->base, &pt);
+        assert(err_is_ok(err));
+        npages = v->size / BASE_PAGE_SIZE;
+        printf("     %zu 4k pages\n", npages);
+        // should never be full ptable
+        assert(npages < 512);
+        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PTABLE_BASE(v->base),
+                pmap_flags, 0, npages);
+        assert(err_is_ok(err));
+    }
 }
 
-void npt_map(struct hyper_binding *b, struct capref mem)
+void npt_map_handler(struct hyper_binding *b, struct capref mem)
 {
-    debug_printf("got npt_map request\n");
+    uint64_t dispframe = (uint64_t)b->st;
+    struct guest *g;
+    for (g = guests; g; g = g->next) {
+        if (g->dispframe == dispframe) {
+            break;
+        }
+    }
+    if (g == NULL) {
+        b->tx_vtbl.npt_map_response(b, NOP_CONT, ARRA_ERR_GUEST_NOT_FOUND);
+        return;
+    }
+
+    ept_force_mapping(g, mem);
+    b->tx_vtbl.npt_map_response(b, NOP_CONT, SYS_ERR_OK);
 }
 
 /* This method duplicates some code from spawndomain since we need to spawn very
@@ -790,6 +837,15 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     err = cap_copy(g->dcb_cap, si->dcb);
     assert(err_is_ok(err));
 
+    // set guests disp handle
+    strncpy(g->name, si->name, G_NAME_LEN);
+    g->name[G_NAME_LEN-1] = 0;
+
+    struct frame_identity fi;
+    err = invoke_frame_identify(si->dispframe, &fi);
+    assert(err_is_ok(err));
+    g->dispframe = fi.base;
+
     err = invoke_dispatcher_setup_guest(g->dcb_cap, ep_cap, si->vtree,
                                         g->vmcb_cap, g->ctrl_cap);
     if (err_is_fail(err)) {
@@ -867,13 +923,6 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
       printf("vregion %d: base = %" PRIxGENVADDR ", region = %" PRIxGENVADDR "\n",
 	     i, si->base[i], vregion_get_base_addr(si->vregion[i]));
     }
-
-#ifdef ARRAKIS_USE_NESTED_PAGING
-    // set up the guests physical address space
-    g->mem_low_va = 0;
-    // FIXME: Hardcoded guest memory size
-    g->mem_high_va = 1ULL << 39;   // 512 GiB
-#endif
 }
 
 #if 0
@@ -1230,6 +1279,9 @@ guest_create (void)
   struct guest *newguest = malloc(sizeof(struct guest));
   memset(newguest, 0, sizeof(struct guest));
   guest_setup(newguest);
+  // insert in list
+  newguest->next = guests;
+  guests = newguest;
   return newguest;
 }
 

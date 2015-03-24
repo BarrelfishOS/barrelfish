@@ -374,6 +374,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
     while (!request_done) {
         messages_wait_and_handle_next();
     }
+    set_hyper_binding(hb);
     hyper_rpc_client_init(hb);
     struct capref dispframe = {
         .cnode = cnode_task,
@@ -386,7 +387,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
             fi.base);
     err = hb->rpc_tx_vtbl.register_client(hb, fi.base);
     assert(err_is_ok(err));
-    set_hyper_binding(hyper_rpc);
 
     // connect to mem_serv
     err = ram_alloc_set(NULL);
