@@ -508,11 +508,13 @@ u32_t inet_addr(const char *cp)
 u8_t pbuf_free_tagged(struct pbuf *p, const char *func_name, int line_no)
 {
     assert(!"NYI");
+    return 0;
 }
 
 u8_t pbuf_header(struct pbuf *p, s16_t header_size_increment)
 {
     assert(!"NYI");
+    return 0;
 }
 
 struct udp_pcb;
@@ -521,12 +523,14 @@ err_t udp_send(struct udp_pcb *pcb, struct pbuf *p);
 err_t udp_send(struct udp_pcb *pcb, struct pbuf *p)
 {
     assert(!"NYI");
+    return 0;
 }
 
 struct udp_pcb *udp_new(void);
 struct udp_pcb *udp_new(void)
 {
     assert(!"NYI");
+    return 0;
 }
 
 void udp_recv(struct udp_pcb *pcb,
@@ -547,17 +551,20 @@ void udp_remove(struct udp_pcb *pcb);
 void udp_remove(struct udp_pcb *pcb)
 {
     assert(!"NYI");
+    return 0;
 }
 
 err_t udp_connect(struct udp_pcb *pcb, ip_addr_t *ipaddr, u16_t port);
 err_t udp_connect(struct udp_pcb *pcb, ip_addr_t *ipaddr, u16_t port)
 {
     assert(!"NYI");
+    return 0;
 }
 
 struct pbuf *pbuf_alloc_tagged(pbuf_layer layer, u16_t length, pbuf_type type, const char *func_name, int line_no)
 {
     assert(!"NYI");
+    return 0;
 }
 
 void lwip_record_event_simple(uint8_t event_type, uint64_t ts);
@@ -570,12 +577,14 @@ uint64_t wrapper_perform_lwip_work(void);
 uint64_t wrapper_perform_lwip_work(void)
 {
     assert(!"NYI");
+    return 0;
 }
 
 bool lwip_init_auto(void);
 bool lwip_init_auto(void)
 {
     assert(!"NYI");
+    return 0;
 }
 
 /******** NYI *********/

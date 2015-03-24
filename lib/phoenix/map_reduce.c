@@ -524,6 +524,8 @@ static void *start_my_work (thread_arg_t* th_arg)
         assert (0);
         break;
     }
+
+    return NULL;
 }
 
 static void start_thread_pool (
@@ -543,6 +545,7 @@ static void start_thread_pool (
         break;
     default:
         assert (0);
+        thread_func = NULL;
         break;
     }
 
