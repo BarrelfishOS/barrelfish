@@ -283,7 +283,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         err = get_ptable(pmap, vaddr, &ptable);
         table_base = X86_64_PTABLE_BASE(vaddr);
         ALL_THE_VNODES[all_the_vnodes_cnt++] = ptable;
-        assert(all_the_vnodes_cnt < MAX_ENTRIES);
+        assert(all_the_vnodes_cnt <= MAX_ENTRIES);
     }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
