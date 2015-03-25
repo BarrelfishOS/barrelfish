@@ -1574,6 +1574,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             wbinvd();
             break;
 
+        case DEBUG_FLUSH_TLB:
+            do_full_tlb_flush();
+            break;
+
         case DEBUG_SEND_IPI:
             apic_send_std_ipi(arg1, args[0], args[1]);
             break;
