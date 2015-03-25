@@ -38,7 +38,7 @@
 #include "pci_host.h"
 
 #define ARRAKIS_USE_NESTED_PAGING
-#define EPT_ONE_TO_ONE
+//#define EPT_FINE_GRAINED
 
 #define VMCB_SIZE       0x1000      // 4KB
 #ifdef CONFIG_SVM
@@ -515,31 +515,115 @@ initialize_vmcb (struct guest *self) {
     // svm requires guest EFER.SVME to be set
     amd_vmcb_efer_svme_wrf(&self->vmcb, 1);
 }
-#endif
 
-static void
-idc_handler(void *arg)
+static
+errval_t ept_map_one_frame_fixed_attr(struct guest *g, lvaddr_t addr, size_t size,
+                                    struct capref frame, vregion_flags_t flags,
+                                    struct memobj **retmemobj,
+                                    struct vregion **retvregion)
 {
-    struct guest *g = arg;
-    errval_t err;
+    errval_t err1, err2;
+    struct memobj *memobj   = NULL;
+    struct vregion *vregion = NULL;
 
-    // consume message
-    struct lmp_recv_buf buf = { .buflen = 0 };
-    err = lmp_endpoint_recv(g->monitor_ep, &buf, NULL);
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+
+    // Allocate space
+    memobj = malloc(sizeof(struct memobj_one_frame));
+    if (!memobj) {
+        err1 = LIB_ERR_MALLOC_FAIL;
+        goto error;
+    }
+    vregion = malloc(sizeof(struct vregion));
+    if (!vregion) {
+        err1 = LIB_ERR_MALLOC_FAIL;
+        goto error;
+    }
+
+    // Create mappings
+    err1 = memobj_create_one_frame((struct memobj_one_frame*)memobj, size, 0);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_MEMOBJ_CREATE_ONE_FRAME);
+        goto error;
+    }
+
+    err1 = memobj->f.fill(memobj, 0, frame, size);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_MEMOBJ_FILL);
+        goto error;
+    }
+
+    err1 = vregion_map_fixed(vregion, g->vspace, memobj, 0, size, addr, flags);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_VREGION_MAP);
+        goto error;
+    }
+
+    err1 = memobj->f.pagefault(memobj, vregion, 0, 0);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
+        goto error;
+    }
+
+    if (retmemobj) {
+        *retmemobj = memobj;
+    }
+    if (retvregion) {
+        *retvregion = vregion;
+    }
+    return SYS_ERR_OK;
+
+ error:
+    DEBUG_ERR(err1, "in %s", __FUNCTION__);
+    if (memobj) {
+        err2 = memobj_destroy_one_frame(memobj);
+        if (err_is_fail(err2)) {
+            DEBUG_ERR(err2, "memobj_destroy_anon failed");
+        }
+    }
+    if (vregion) {
+        err2 = vregion_destroy(vregion);
+        if (err_is_fail(err2)) {
+            DEBUG_ERR(err2, "vregion_destroy failed");
+        }
+    }
+    return err1;
+}
+
+static void ept_map(struct guest *g, struct capref cap)
+{
+    errval_t err;
+    struct capref ept_copy;
+    err = guest_slot_alloc(g, &ept_copy);
+    assert(err_is_ok(err));
+    err = cap_copy(ept_copy, cap);
     assert(err_is_ok(err));
 
-    // run real handler
-    guest_handle_vmexit(g);
+    struct frame_identity fi;
+    err = invoke_frame_identify(ept_copy, &fi);
 
-    // re-register
-    struct event_closure cl = {
-        .handler = idc_handler,
-        .arg = arg,
-    };
-    err = lmp_endpoint_register(g->monitor_ep, get_default_waitset(), cl);
+    printf("%s: creating identity mapping for 0x%"PRIxGENPADDR", %lu bytes\n",
+            __FUNCTION__, fi.base, (1ul<<fi.bits));
+
+    err = ept_map_one_frame_fixed_attr(g, fi.base, 1ull << fi.bits,
+            ept_copy, VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_EXECUTE,
+            NULL, NULL);
     assert(err_is_ok(err));
 }
 
+static void ept_map_vnode(struct guest *g, struct vnode *v)
+{
+    assert(v->is_vnode);
+
+    ept_map(g, v->u.vnode.cap);
+
+    for (int i = 0; i < PTABLE_SIZE; i++) {
+        struct vnode *c = v->u.vnode.children[i];
+        if (c && c->is_vnode) {
+            ept_map_vnode(g, c);
+        }
+    }
+}
 static
 errval_t ept_map_one_frame_fixed_attr(struct guest *g, lvaddr_t addr, size_t size,
                                     struct capref frame, vregion_flags_t flags,
@@ -648,6 +732,31 @@ static void ept_map_vnode(struct guest *g, struct vnode *v)
         }
     }
 }
+#endif
+
+static void
+idc_handler(void *arg)
+{
+    struct guest *g = arg;
+    errval_t err;
+
+    // consume message
+    struct lmp_recv_buf buf = { .buflen = 0 };
+    err = lmp_endpoint_recv(g->monitor_ep, &buf, NULL);
+    assert(err_is_ok(err));
+
+    // run real handler
+    guest_handle_vmexit(g);
+
+    // re-register
+    struct event_closure cl = {
+        .handler = idc_handler,
+        .arg = arg,
+    };
+    err = lmp_endpoint_register(g->monitor_ep, get_default_waitset(), cl);
+    assert(err_is_ok(err));
+}
+
 
 extern errval_t vspace_add_vregion(struct vspace *vspace, struct vregion *region);
 errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
@@ -741,6 +850,42 @@ void npt_map_handler(struct hyper_binding *b, struct capref mem)
     b->tx_vtbl.npt_map_response(b, NOP_CONT, SYS_ERR_OK);
 }
 
+#ifndef EPT_FINE_GRAINED
+static void ept_setup_low512g(struct guest *g)
+{
+    errval_t err;
+    struct pmap_x86 *pmap = (struct pmap_x86 *)vspace_get_pmap(g->vspace);
+    struct vnode *vn;
+    // get first pdpt (512g)
+    err = get_pdpt(pmap, 0, &vn);
+    assert(err_is_ok(err));
+    union x86_64_ptable_entry *pt;
+    struct capref ept_copy;
+    err = slot_alloc(&ept_copy);
+    err+= cap_copy(ept_copy, vn->u.vnode.cap);
+    err+= vspace_map_one_frame_attr((void**)&pt, BASE_PAGE_SIZE, ept_copy,
+                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    assert(err_is_ok(err));
+    genvaddr_t base = 0;
+    for (int i = 0; i < PTABLE_SIZE; i++) {
+        union x86_64_ptable_entry tmp;
+        tmp.raw = X86_64_PTABLE_CLEAR;
+
+        tmp.huge.present = 1;
+        tmp.huge.read_write = 1;
+        tmp.huge.user_supervisor = 1;
+        tmp.huge.always1 = 1;
+        tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
+
+        // write back cached translations
+        tmp.raw |= (6 << 4);
+
+        pt[i] = tmp;
+
+        base += HUGE_PAGE_SIZE;
+    }
+}
+#endif
 /* This method duplicates some code from spawndomain since we need to spawn very
  * special domains */
 void
@@ -749,7 +894,6 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     errval_t err;
 
 #ifdef ARRAKIS_USE_NESTED_PAGING
-#ifdef EPT_ONE_TO_ONE
     g->vspace = malloc(sizeof(*(g->vspace)));
     assert(g->vspace);
     struct capref ept_pml4_cap;
@@ -765,6 +909,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     err = vspace_init(g->vspace, pmap);
     assert(err_is_ok(err));
 
+#ifdef EPT_FINE_GRAINED
     // populate the guest physical address space
     // regions for binary
     for (struct vregion *v = si->vspace->head; v; v = v->next) {
@@ -812,8 +957,9 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
         // force insert the mappings here
         ept_force_mapping(g, mem);
     }
-#else // GUEST 1:1
-
+#else
+    // 1g pages for 1:1 ept
+    ept_setup_low512g(g);
 #endif
 #else
     // set guest's vspace to vspace we created when loading binary

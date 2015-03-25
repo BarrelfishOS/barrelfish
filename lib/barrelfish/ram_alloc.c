@@ -68,7 +68,7 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
-#if 1
+#if 0
 #ifdef ARRAKIS
     if (err_is_fail(err)) {
         return err;

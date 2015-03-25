@@ -27,9 +27,41 @@
 
 #include <dev/ia32_dev.h>
 
+#define ARRAKIS_EPT
 // Execution, entry, and exit controls that we want to use 
 // for each VM
-#ifdef CONFIG_ARRAKISMON
+#if defined(CONFIG_ARRAKISMON) && !defined(ARRAKIS_EPT)
+// Arrakis w/o EPT
+#define GUEST_PIN_BASE_CTLS_ENABLE \
+    (PIN_CTLS_EXT_INTR | PIN_CTLS_NMI | PIN_CTLS_VIRT_NMI)
+
+#define GUEST_PIN_BASE_CTLS_DISABLE \
+    (0)
+
+#define GUEST_PP_CTLS_ENABLE \
+    (PP_CLTS_MSRBMP | PP_CLTS_IOBMP | PP_CLTS_HLT)
+
+#define GUEST_PP_CTLS_DISABLE \
+    (0)
+
+#define GUEST_SP_CTLS_ENABLE \
+    (0)
+     
+#define GUEST_SP_CTLS_DISABLE \
+    (0)
+
+#define GUEST_EXIT_CTLS_ENABLE \
+    (EXIT_CLTS_HOST_SIZE | EXIT_CLTS_SAVE_EFER | EXIT_CLTS_LOAD_EFER)
+
+#define GUEST_EXIT_CTLS_DISABLE \
+    (0)
+
+#define GUEST_ENTRY_CTLS_ENABLE \
+    (ENTRY_CLTS_LOAD_EFER | ENTRY_CLTS_LOAD_DBG | ENTRY_CLTS_IA32E_MODE)
+
+#define GUEST_ENTRY_CTLS_DISABLE \
+    (0)
+#elif defined(CONFIG_ARRAKISMON)
 #define GUEST_PIN_BASE_CTLS_ENABLE \
     (PIN_CTLS_EXT_INTR | PIN_CTLS_NMI | PIN_CTLS_VIRT_NMI)
 
