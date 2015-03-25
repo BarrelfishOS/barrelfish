@@ -138,9 +138,6 @@ static errval_t protect(struct memobj *memobj,
         }
         return SYS_ERR_OK;
     } else {
-        // iterative binary search from
-        // http://en.wikipedia.org/wiki/Binary_search_algorithm#Iterative
-        // XXX: BROKEN!!!
 
 #if 1
         // binary search
@@ -171,10 +168,12 @@ static errval_t protect(struct memobj *memobj,
         for (first_idx = 0;
              first_idx < append->first_free_frame && append->offsets[first_idx] < offset;
              first_idx++);
+        // XXX Bug: Do not adjust if we find last frame
         first_idx -= 1;
 #endif
 
 #if 0
+        debug_printf("offset -> %zx range -> %zx flags -> %zu\n", offset, range, (size_t) flags);
         for (int i = 0; i < append->first_free_frame; i++) {
             debug_printf("offsets[%d] = %"PRIxGENVADDR"\n", i, append->offsets[i]);
         }
@@ -183,7 +182,7 @@ static errval_t protect(struct memobj *memobj,
 #endif
 
         while(range) {
-            size_t fsize = append->frame_sizes[first_idx++];
+            size_t fsize = append->frame_sizes[first_idx] - (offset - append->offsets[first_idx]);
             size_t to_protect = fsize < range ? fsize : range;
 
             /// XXX: offset % BASE_PAGE_SIZE != 0?
@@ -198,6 +197,7 @@ static errval_t protect(struct memobj *memobj,
             }
             range -= ret_size;
             offset += ret_size;
+            first_idx++;
         }
         //USER_PANIC("memobj_append: protect: searching for frame NYI\n");
     }
