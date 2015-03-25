@@ -1075,7 +1075,7 @@ vmx_vmkit_vmenter (struct dcb *dcb)
         // get dcb->vspace masked with width of physical address space and
         // mask out low 12 bits
         uint64_t eptp_root = 0x6ull | (3 << 3);
-        eptp_root |= (dcb->vspace & pa_width_mask()) & ~BASE_PAGE_MASK;
+        eptp_root |= (dcb->guest_desc.vspace & pa_width_mask()) & ~BASE_PAGE_MASK;
         // set bits 5:3 to 0x3 (i.e. 1 less than length of ept walks)
         //eptp_root |= 0x18;
         //printk(LOG_NOTE, "setting EPTP_F to 0x%lx\n", eptp_root);
@@ -1084,9 +1084,9 @@ vmx_vmkit_vmenter (struct dcb *dcb)
             err = vmwrite(VMX_EPTP_F, eptp_root);
             assert(err_is_ok(err));
         }
-        if (old_guest_cr3 != dcb->guest_desc.vspace) {
-            printk(LOG_NOTE, "setting GUEST_CR3 to 0x%lx\n", dcb->guest_desc.vspace);
-            err = vmwrite(VMX_GUEST_CR3, dcb->guest_desc.vspace);
+        if (old_guest_cr3 != dcb->vspace) {
+            printk(LOG_NOTE, "setting GUEST_CR3 to 0x%lx\n", dcb->vspace);
+            err = vmwrite(VMX_GUEST_CR3, dcb->vspace);
             assert(err_is_ok(err));
         }
         /*
@@ -1215,10 +1215,8 @@ vmx_vmenter_loop:
 
                 //printf("doing VMMCALL: %lu %lx %lx\n", regs->rdi, regs->rsi, regs->rdx);
 
-                paging_x86_64_context_switch(dcb->guest_desc.vspace);
                 struct sysret ret = sys_vmcall(regs->rdi, regs->rsi, regs->rdx,
                         args, guest_rflags, guest_rip + instr_len, &dcb->cspace.cap);
-                paging_x86_64_context_switch(dcb->vspace);
 
                 //printf("VMMCALL done\n");
 

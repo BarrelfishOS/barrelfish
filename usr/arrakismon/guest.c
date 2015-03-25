@@ -880,6 +880,9 @@ static void ept_setup_low512g(struct guest *g)
         // write back cached translations
         // set bits 5:3 to 6
         tmp.raw |= (0x6 << 3);
+        // set accessed and dirty to avoid extra memory refs --> same as dune
+        // cf. dune's kern/ept.c:454--459.
+        tmp.raw |= (0x3 << 8);
 
         pt[i] = tmp;
 
@@ -999,7 +1002,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     assert(err_is_ok(err));
     g->dispframe = fi.base;
 
-    err = invoke_dispatcher_setup_guest(g->dcb_cap, ep_cap, si->vtree,
+    err = invoke_dispatcher_setup_guest(g->dcb_cap, ep_cap, ept_pml4_cap,
                                         g->vmcb_cap, g->ctrl_cap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "guest setup");
@@ -1007,7 +1010,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     assert(err_is_ok(err));
 
     err = invoke_dispatcher(si->dcb, cap_dispatcher, si->rootcn_cap,
-			    ept_pml4_cap, si->dispframe, false);
+			    si->vtree, si->dispframe, false);
     assert(err_is_ok(err));
 
     // Setup virtual machine
@@ -1070,7 +1073,8 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, regs->rip);
     err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, regs->eflags);
     assert(err_is_ok(err));
-    debug_printf("init ip: %lx, sp: %lx\n", regs->rip, regs->rsp);
+    debug_printf("guest domain vpid %d init ip: %lx, sp: %lx\n",
+            last_guest_asid, regs->rip, regs->rsp);
 #endif
     for(int i = 0; i < si->vregions; i++) {
       printf("vregion %d: base = %" PRIxGENVADDR ", region = %" PRIxGENVADDR "\n",
