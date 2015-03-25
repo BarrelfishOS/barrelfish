@@ -203,7 +203,6 @@ static bool parse_argv(struct spawn_domain_params *params, size_t *morecore_alig
  */
 errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 {
-    debug_printf("bf_init_onthread\n");
     errval_t err;
 
     // do we have an environment?

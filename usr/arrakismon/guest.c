@@ -850,7 +850,7 @@ void npt_map_handler(struct hyper_binding *b, struct capref mem)
     b->tx_vtbl.npt_map_response(b, NOP_CONT, SYS_ERR_OK);
 }
 
-#ifndef EPT_FINE_GRAINED
+#if defined(ARRAKIS_USE_NESTED_PAGING) && !defined(EPT_FINE_GRAINED)
 static void ept_setup_low512g(struct guest *g)
 {
     errval_t err;
@@ -878,7 +878,8 @@ static void ept_setup_low512g(struct guest *g)
         tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
 
         // write back cached translations
-        tmp.raw |= (6 << 4);
+        // set bits 5:3 to 6
+        tmp.raw |= (0x6 << 3);
 
         pt[i] = tmp;
 
@@ -892,11 +893,11 @@ void
 spawn_guest_domain (struct guest *g, struct spawninfo *si)
 {
     errval_t err;
+    struct capref ept_pml4_cap;
 
 #ifdef ARRAKIS_USE_NESTED_PAGING
     g->vspace = malloc(sizeof(*(g->vspace)));
     assert(g->vspace);
-    struct capref ept_pml4_cap;
     err = guest_slot_alloc(g, &ept_pml4_cap);
     assert(err_is_ok(err));
     err = vnode_create(ept_pml4_cap, ObjType_VNode_x86_64_pml4);
@@ -962,6 +963,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     ept_setup_low512g(g);
 #endif
 #else
+    ept_pml4_cap = si->vtree;
     // set guest's vspace to vspace we created when loading binary
     g->vspace = si->vspace;
 #endif

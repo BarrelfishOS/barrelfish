@@ -1067,6 +1067,10 @@ vmx_vmkit_vmenter (struct dcb *dcb)
     assert(dcb->is_vm_guest);
 
     if (ept_enabled()) {
+        uint64_t old_eptp_root, old_guest_cr3;
+        err = vmread(VMX_EPTP_F, &old_eptp_root);
+        err+= vmread(VMX_GUEST_CR3, &old_guest_cr3);
+        assert(err_is_ok(err));
         // dcb->vspace is root of EPT, dcb->guest.vspace is root of guest AS
         // get dcb->vspace masked with width of physical address space and
         // mask out low 12 bits
@@ -1075,11 +1079,16 @@ vmx_vmkit_vmenter (struct dcb *dcb)
         // set bits 5:3 to 0x3 (i.e. 1 less than length of ept walks)
         //eptp_root |= 0x18;
         //printk(LOG_NOTE, "setting EPTP_F to 0x%lx\n", eptp_root);
-        err = vmwrite(VMX_EPTP_F, eptp_root);
-	assert(err_is_ok(err));
-        //printk(LOG_NOTE, "setting GUEST_CR3 to 0x%lx\n", dcb->guest_desc.vspace);
-        err = vmwrite(VMX_GUEST_CR3, dcb->guest_desc.vspace);
-	assert(err_is_ok(err));
+        if (old_eptp_root != eptp_root) {
+            printk(LOG_NOTE, "setting EPTP_F to 0x%lx\n", eptp_root);
+            err = vmwrite(VMX_EPTP_F, eptp_root);
+            assert(err_is_ok(err));
+        }
+        if (old_guest_cr3 != dcb->guest_desc.vspace) {
+            printk(LOG_NOTE, "setting GUEST_CR3 to 0x%lx\n", dcb->guest_desc.vspace);
+            err = vmwrite(VMX_GUEST_CR3, dcb->guest_desc.vspace);
+            assert(err_is_ok(err));
+        }
         /*
         printk(LOG_NOTE, "doing INVEPT\n");
         uint64_t invept_desc[2] = { 0 };
