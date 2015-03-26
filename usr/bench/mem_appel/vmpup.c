@@ -230,8 +230,8 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
     assert(retfsize >= nbytes);
 
     // map frame rw
-    err = vspace_map_one_frame_attr(&bfmem->vmem, retfsize, bfmem->frame,
-                                    VREGION_FLAGS_READ_WRITE,
+    err = vspace_map_one_frame_attr_aligned(&bfmem->vmem, retfsize, bfmem->frame,
+                                    VREGION_FLAGS_READ_WRITE, LARGE_PAGE_SIZE,
                                     &bfmem->memobj,
                                     &bfmem->vregion);
     if (err_is_fail(err)) {
@@ -273,6 +273,8 @@ bf_protect(struct bf_mem *bfm, size_t off, size_t len,
     //debug_printf("%s: off:%zd len:%zd flags:%u\n", __FUNCTION__, off, len, flags);
     errval_t err;
     genvaddr_t va_hint = 0;
+    // full flush
+    pmap_selective_flush = 0;
 #if defined(SELECTIVE_FLUSH) && defined(SF_HINT)
     // do hint-based selective flush
     va_hint = (genvaddr_t)bfm->vmem + off;

@@ -926,8 +926,12 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
             // do assisted selective flush
             va_hint = vaddr & ~(info.page_size - 1);
         } else if (pmap_selective_flush == 1) {
-            // do computed selective flush
-            va_hint = 1;
+            // do selective flush when #pages == 1
+            if (pages == 1) {
+                va_hint = vaddr & ~X86_64_BASE_PAGE_MASK;
+            } else {
+                va_hint = 0;
+            }
         }
 #else
         /*
