@@ -15,6 +15,7 @@
                     flounderDefs = [ "ping_pong" ],
                     flounderBindings = [ "ping_pong" ],
                     flounderTHCStubs = [ "ping_pong" ],
-                    addLibraries = [ "thc" ]
+                    addLibraries = [ "thc" ],
+                    addCFlags = ["-Wno-shadow" ]
                  }
 ]
