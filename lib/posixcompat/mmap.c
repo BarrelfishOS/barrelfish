@@ -13,7 +13,7 @@
 
 void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    POSIXCOMPAT_DEBUG("Warning: mmap(%p, %zx, %d, %d, %d, %zu) ignored\n"
+    POSIXCOMPAT_DEBUG("Warning: mmap(%p, %zx, %d, %d, %d, %zu) ignored\n",
             addr, length, prot, flags, fd, offset);
     USER_PANIC("mmap NYI!");
     return NULL;
@@ -21,7 +21,7 @@ void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
 
 int munmap(void *addr, size_t length)
 {
-    POSIXCOMPAT_DEBUG("Warning: munmap(%p, %zx) ignored\n"
+    POSIXCOMPAT_DEBUG("Warning: munmap(%p, %zx) ignored\n",
             addr, length);
     USER_PANIC("mmap NYI!");
     return -1;

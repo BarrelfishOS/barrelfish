@@ -324,7 +324,9 @@ int pthread_cond_broadcast(pthread_cond_t *cond)
 
 int pthread_cond_destroy(pthread_cond_t *cond)
 {
-    free(cond);
+    if (cond != NULL) {
+        free(*cond);
+    }
     return 0;
 }
 
