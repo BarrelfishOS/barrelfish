@@ -12,7 +12,11 @@
 
 #include <sys/cdefs.h>
 
+// Depending on header include order, this may collide with the definition in
+// newlib's <dirent.h>  See open issue: https://code.systems.ethz.ch/T58#1169
+#ifndef NAME_MAX
 #define NAME_MAX 512
+#endif
 
 struct dirent {
 //    long d_ino;
