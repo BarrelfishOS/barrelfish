@@ -2,7 +2,7 @@ Name: dlmalloc
 Description: Doug Lea's Memory Allocator
 URL: http://g.oswego.edu/dl/html/malloc.html
 License: Public Domain
-Version: 2.8.4 (27 May 2009)
+Version: 2.8.6 (29 Aug 2012)
 
 Usage: add this to your program and link against libdmalloc.
 
@@ -26,6 +26,10 @@ Usage: add this to your program and link against libdmalloc.
 This vastly outperforms the default allocator in oldc and it is not unusual to
 see substantial performance improvements in large applications (e.g. SharedDB).
 
+The header file <dmalloc/dmalloc.h> exports the standard allocation routines
+(dlmalloc, dlfree, dlcalloc, dlrealloc) along with aligned/chunked variants and
+functions to retrieve statistics.
+
 Keep in mind there also may be some incompatibilities:
 * The switch to dlmalloc only happens once constructors functions run.  Ideally
   this happen before any C++ ctors as they may allocate memory.  In addition,
@@ -35,9 +39,11 @@ Keep in mind there also may be some incompatibilities:
   https://lists.inf.ethz.ch/pipermail/barrelfish-users/2013-February/000912.html
 
 Changes:
-* Header only exports standard allocation routines (dlmalloc, dlfree, dlcalloc,
-  dlrealloc). The library also implements aligned variants and statistics.
+* The header doesn't declare `dlmallinfo` or `struct mallinfo` because the
+  field types don't match with Newlib's <malloc.h> (size_t vs. int).  These are
+  still enabled in the implementation if you want to try though.
+* Similarly, support for independent allocation spaces (MSPACES=0) is not
+  exposed for now.
 * Allocates backing memory with morecore instead of mmap. Does not currently
   release memory back to the system.
-* Prints error message on corruption but does not reset heap structures.
 * Uses Barrelfish mutex instead of its own custom spin lock variant.
