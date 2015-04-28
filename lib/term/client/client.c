@@ -14,6 +14,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <if/terminal_config_defs.h>
 #include <term/client/client.h>
 
 #include "filter_priv.h"

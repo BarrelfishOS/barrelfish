@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <barrelfish/barrelfish.h>
+#include <if/terminal_config_defs.h>
 #include <collections/list.h>
 #include <term/client/client.h>
 #include <term/client/filter.h>

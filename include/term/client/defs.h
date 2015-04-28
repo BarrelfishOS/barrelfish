@@ -20,7 +20,6 @@
 #include <collections/list.h>
 #include <errors/errno.h>
 #include <if/terminal_defs.h>
-#include <if/terminal_config_defs.h>
 #include <term/defs.h>
 
 #include <stdbool.h>

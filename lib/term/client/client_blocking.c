@@ -21,6 +21,7 @@
 #include <if/octopus_defs.h>
 #include <if/octopus_rpcclient_defs.h>
 #include <if/terminal_defs.h>
+#include <if/terminal_config_defs.h>
 #include <octopus/getset.h>
 #include <octopus/trigger.h>
 #include <term/client/client_blocking.h>

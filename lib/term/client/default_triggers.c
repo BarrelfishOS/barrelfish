@@ -15,6 +15,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <if/terminal_config_defs.h>
 #include <term/client/default_triggers.h>
 
 static void term_trigger_kill_handler(void *arg)

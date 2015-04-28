@@ -17,6 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/terminal.h>
+#include <if/terminal_config_defs.h>
 #include <term/client/client_blocking.h>
 
 struct terminal_state {
