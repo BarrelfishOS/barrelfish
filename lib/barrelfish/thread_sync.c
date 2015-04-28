@@ -184,15 +184,15 @@ void thread_mutex_lock(struct thread_mutex *mutex)
                 (uintptr_t)mutex);
 
     acquire_spinlock(&mutex->lock);
-    if (mutex->locked > 0) {
+    while (mutex->locked > 0) {
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
-    } else {
-        mutex->locked = 1;
-        mutex->holder = disp_gen->current;
-        release_spinlock(&mutex->lock);
-        disp_enable(handle);
+        acquire_spinlock(&mutex->lock);
     }
+    mutex->locked = 1;
+    mutex->holder = disp_gen->current;
+    release_spinlock(&mutex->lock);
+    disp_enable(handle);
 
     trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_LEAVE,
                 (uintptr_t)mutex);
@@ -214,16 +214,16 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
                 (uintptr_t)mutex);
 
     acquire_spinlock(&mutex->lock);
-    if (mutex->locked > 0
+    while (mutex->locked > 0
         && mutex->holder != disp_gen->current) {
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
-    } else {
-        mutex->locked++;
-        mutex->holder = disp_gen->current;
-        release_spinlock(&mutex->lock);
-        disp_enable(handle);
+        acquire_spinlock(&mutex->lock);
     }
+    mutex->locked++;
+    mutex->holder = disp_gen->current;
+    release_spinlock(&mutex->lock);
+    disp_enable(handle);
 
     trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_MUTEX_LOCK_NESTED_LEAVE,
                 (uintptr_t)mutex);
