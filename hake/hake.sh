@@ -25,6 +25,9 @@ usage() {
     echo "  The way you use this script is to create a new directory for your"
     echo "  build tree, cd into it, and run this script with the --source-dir"
     echo "  argument specifying the top of the source tree."
+    echo ""
+    echo "  Known architectures may include: "
+    echo "     x86_64 x86_32 armv5 arm11mp scc xscale armv7 armv7-m k10m"
     exit 1;
 }
 
