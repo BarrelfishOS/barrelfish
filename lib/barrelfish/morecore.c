@@ -144,6 +144,9 @@ errval_t morecore_reinit(void)
     if (remapsize <= mapoffset) {
         // don't need to do anything if we only recreate the exact same
         // mapping
+        // XXX: do we need/want to recreate existing mappings with a larger
+        // page size here? If so, what is the implication on early boot
+        // domains that don't have access to mem_serv? -SG, 2015-04-30.
         return SYS_ERR_OK;
     }
     struct capref frame;

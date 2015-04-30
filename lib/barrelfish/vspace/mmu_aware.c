@@ -97,24 +97,40 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     size_t ret_size = 0;
 
     if (req_size > 0) {
-        if ((state->mapoffset & LARGE_PAGE_MASK) == 0 &&
-            state->alignment >= LARGE_PAGE_SIZE)
+#if __x86_64__
+        if ((state->vregion.flags & VREGION_FLAGS_HUGE) &&
+            (state->mapoffset & HUGE_PAGE_MASK) == 0)
         {
-            // this is an opportunity to switch to 2M pages
+            // this is an opportunity to switch to 1G pages if requested.
             // we know that we can use large pages without jumping through hoops
-            // if state->alignment is at least LARGE_PAGE_SIZE as we always create
-            // the vregion with VREGION_FLAGS_LARGE.
+            // if state->vregion.flags has VREGION_FLAGS_HUGE set and
+            // mapoffset is aligned to at least HUGE_PAGE_SIZE.
+            alloc_size = ROUND_UP(req_size, HUGE_PAGE_SIZE);
+
+            // goto allocation directly so we can avoid nasty code interaction
+            // between #if __x86_64__ and the size checks, we want to be able
+            // to use 2M pages on x86_64 also. -SG, 2015-04-30.
+            goto allocate;
+        }
+#endif
+        if ((state->vregion.flags & VREGION_FLAGS_LARGE) &&
+            (state->mapoffset & LARGE_PAGE_MASK) == 0)
+        {
+            // this is an opportunity to switch to 2M pages if requested.
+            // we know that we can use large pages without jumping through hoops
+            // if state->vregion.flags has VREGION_FLAGS_LARGE set and
+            // mapoffset is aligned to at least LARGE_PAGE_SIZE.
             alloc_size = ROUND_UP(req_size, LARGE_PAGE_SIZE);
         }
         // Create frame of appropriate size
-retry:
+allocate:
         err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
                 // we can only get 4k frames for now; retry with 4k
                 if (alloc_size > BASE_PAGE_SIZE && origsize < BASE_PAGE_SIZE) {
                     alloc_size = BASE_PAGE_SIZE;
-                    goto retry;
+                    goto allocate;
                 }
                 return err_push(err, LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS);
             }
