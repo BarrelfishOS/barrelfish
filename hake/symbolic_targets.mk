@@ -29,45 +29,6 @@ K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 # upload Xeon Phi images to nfs share (leave blank to cancel)
 BARRELFISH_NFS_DIR ?="emmentaler.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
 
-#################################################################################
-# Additional submodule targets
-#################################################################################
-$(info Additional submodules:)
-
-# Shoal submodule
-ifneq ("$(wildcard $(SRCDIR)/lib/shoal/Hakefile)","")
-    $(info + shoal:      [YES])
-    SUBMODULE_SHOAL=1
-    SHOAL= \
-    	sbin/tests/shl_simple
-else
-    $(info + shoal:      [NO])
-	SUBMODULE_SHOAL=0
-	SHOAL=
-endif
-
-# Green Marl Submodule
-ifneq ("$(wildcard $(SRCDIR)/usr/green-marl/Hakefile)","")
-    $(info + green-marl: [YES])
-	SUBMODULE_GREEN_MARL=1
-else
-    $(info + green-marl: [NO])
-	SUBMODULE_GREEN_MARL=
-endif
-
-# green-marl depends on presence of shoal
-ifneq "$(and $(SUBMODULE_GREEN_MARL),$(SUBMODULE_SHOAL))" ""
-    $(info + green-marl: [ENABLED])
-	GREEN_MARL= \
-		sbin/gm_tc \
-		sbin/gm_pr
-else
-    $(info + green-marl: [DISABLED])
-	GREEN_MARL=
-endif
-
-
-
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
 	sbin/rcce_lu_A1 \
@@ -280,8 +241,6 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	$(GREEN_MARL) \
-	$(SHOAL) \
 	sbin/corectrl
 
 MODULES_k1om= \
@@ -290,8 +249,6 @@ MODULES_k1om= \
 	sbin/xeon_phi \
 	sbin/corectrl \
 	xeon_phi_multiboot \
-	$(GREEN_MARL) \
-	$(SHOAL)
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -623,37 +580,6 @@ $(TESTS): %.txt: %.cfg tools/bin/simulator
 
 schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 	for f in $^; do tools/bin/simulator $$f $(RUNTIME) | diff -q - `dirname $$f`/`basename $$f .cfg`.txt || exit 1; done
-
-######################################################################
-#
-# Green Marl Targets
-#
-######################################################################
-
-GM_APPS=$(SRCDIR)usr/green-marl/apps/src
-
-define \n
-
-
-endef
-
-x86_64/usr/green-marl/%.cc k1om/usr/green-marl/%.cc : tools/bin/gm_comp $(GM_APPS)/%.gm
-	$(foreach a,$(HAKE_ARCHS), \
-		mkdir -p $(a)/usr/green-marl ${\n}\
-		mkdir -p $(a)/include/green-marl ${\n}\
-		tools/bin/gm_comp -o=$(a)/usr/green-marl -t=cpp_omp  $(GM_APPS)/$*.gm ${\n} \
-		mv $(a)/usr/green-marl/$*.h $(a)/include/green-marl ${\n} \
-	)
-
-tools/bin/gm_comp :
-	test -s ./tools/bin/gm_comp || { echo "Compiler does already exist"; exit 0; }
-	# this target generates the green-marl compiler in the tools/bin directory
-	make -C $(SRCDIR)/usr/green-marl compiler -j 8
-	mv $(SRCDIR)/usr/green-marl/bin/gm_comp ./tools/bin/
-	make -C $(SRCDIR)/usr/green-marl clean
-	$(foreach a,$(HAKE_ARCHS), \
-		rm -rf $(a)/usr/green-marl/* ${\n}\
-	)
 
 ######################################################################
 #
