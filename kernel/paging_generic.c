@@ -274,7 +274,7 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
 #elif defined(__ARM_ARCH_5__)
             // XXX: cannot add code here without breaking CPU driver?!
             // -SG, 2015-05-04.
-#elif defined(__ARM_ARCH_7__)
+#elif defined(__ARM_ARCH_7A__)
         case ObjType_VNode_ARM_l1:
             panic("large page support for ARM NYI!\n");
             break;
