@@ -23,8 +23,8 @@
 struct oct_reply_state;
 
 struct skb_writer {
-    char buffer[MAX_QUERY_LENGTH]; // TODO can be bigger than max query length...
     size_t length;
+    char buffer[MAX_QUERY_LENGTH]; // TODO can be bigger than max query length...
 };
 
 struct oct_query_state {

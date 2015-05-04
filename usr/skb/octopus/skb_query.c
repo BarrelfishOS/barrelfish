@@ -75,14 +75,20 @@ static errval_t transform_ec_error(int res)
 
 static void read_eclipse_queue(int qid, struct skb_writer* w)
 {
+    assert(w != NULL);
     int res = 0;
 
     do {
-        res = ec_queue_read(qid, w->buffer + w->length, BUFFER_SIZE - res);
+        res = ec_queue_read(qid, w->buffer + w->length, MAX_QUERY_LENGTH - res);
         w->length += res;
-    } while ((res != 0) && (w->length < BUFFER_SIZE));
+    } while ((res != 0) && w->length < MAX_QUERY_LENGTH);
 
-    w->buffer[w->length] = '\0';
+    if (w->length >= 0 && w->length < MAX_QUERY_LENGTH) {
+        w->buffer[w->length] = '\0';
+    }
+    else {
+        assert(!"Out of bounds, increase MAX_QUERY_LENGTH?");
+    }
 }
 
 static errval_t run_eclipse(struct oct_query_state* st)
@@ -521,7 +527,7 @@ errval_t find_subscribers(struct ast_object* ast, struct oct_query_state* sqs)
 
 errval_t set_binding(octopus_binding_type_t type, uint64_t id, void* binding)
 {
-    struct oct_query_state* dqs = malloc(sizeof(struct oct_query_state));
+    struct oct_query_state* dqs = calloc(1, sizeof(struct oct_query_state));
     if (dqs == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }

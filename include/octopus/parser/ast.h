@@ -22,7 +22,7 @@
 #include <barrelfish/barrelfish.h>
 #include <octopus/definitions.h>
 #else
-#define MAX_QUERY_LENGTH (5*1024)
+#define MAX_QUERY_LENGTH (10*1024)
 #define SYS_ERR_OK 0
 #define OCT_ERR_PARSER_FAIL 2
 typedef long errval_t;
