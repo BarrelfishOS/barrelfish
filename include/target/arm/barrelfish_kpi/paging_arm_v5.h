@@ -23,7 +23,7 @@
 
 /* 1MB large pages */
 #define LARGE_PAGE_BITS         20
-#define LARGE_PAGE_SIZE         (1u << PAGE_LARGE_BITS)
+#define LARGE_PAGE_SIZE         (1u << LARGE_PAGE_BITS)
 #define LARGE_PAGE_MASK         (LARGE_PAGE_SIZE - 1)
 #define LARGE_PAGE_OFFSET(a)    ((a) & LARGE_PAGE_MASK)
 

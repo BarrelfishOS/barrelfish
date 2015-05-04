@@ -254,7 +254,7 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
     // flush TLB entries for all modified pages
     size_t page_size = 0;
     switch(leaf_pt->cap.type) {
-#if __x86_64__
+#if defined(__x86_64__)
         case ObjType_VNode_x86_64_ptable:
             page_size = X86_64_BASE_PAGE_SIZE;
             break;
@@ -264,14 +264,17 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
         case ObjType_VNode_x86_64_pdpt:
             page_size = X86_64_HUGE_PAGE_SIZE;
             break;
-#elif __i386__
+#elif defined(__i386__)
         case ObjType_VNode_x86_32_ptable:
             page_size = X86_32_BASE_PAGE_SIZE;
             break;
         case ObjType_VNode_x86_32_pdir:
             page_size = X86_32_LARGE_PAGE_SIZE;
             break;
-#elif __arm__
+#elif defined(__ARM_ARCH_5__)
+            // XXX: cannot add code here without breaking CPU driver?!
+            // -SG, 2015-05-04.
+#elif defined(__ARM_ARCH_7__)
         case ObjType_VNode_ARM_l1:
             panic("large page support for ARM NYI!\n");
             break;
