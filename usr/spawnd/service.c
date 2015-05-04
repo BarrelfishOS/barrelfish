@@ -561,26 +561,26 @@ static void wait_handler(struct spawn_binding *b, domainid_t domainid,
         if(err_is_fail(err)) {
             DEBUG_ERR(err, "wait_response");
         }
-    }
-
-    if(!nohang || ps->status == PS_STATUS_ZOMBIE) {
-        // Enqueue the waiter
-        struct ps_waiter *waiter = malloc(sizeof(struct ps_waiter));
-        assert(waiter != NULL);
-        waiter->next = ps->waiters;
-        waiter->binding = b;
-        ps->waiters = waiter;
     } else {
-        // nohang and no zombie, return error
-        err = b->tx_vtbl.wait_response(b, NOP_CONT, 0, SPAWN_ERR_DOMAIN_RUNNING);
-        if(err_is_fail(err)) {
-            DEBUG_ERR(err, "wait_response");
+        if(!nohang || ps->status == PS_STATUS_ZOMBIE) {
+            // Enqueue the waiter
+            struct ps_waiter *waiter = malloc(sizeof(struct ps_waiter));
+            assert(waiter != NULL);
+            waiter->next = ps->waiters;
+            waiter->binding = b;
+            ps->waiters = waiter;
+        } else {
+            // nohang and no zombie, return error
+            err = b->tx_vtbl.wait_response(b, NOP_CONT, 0, SPAWN_ERR_DOMAIN_RUNNING);
+            if(err_is_fail(err)) {
+                DEBUG_ERR(err, "wait_response");
+            }
         }
-    }
 
-    // Cleanup if zombie (will send the reply)
-    if(ps->status == PS_STATUS_ZOMBIE) {
-        cleanup_domain(domainid);
+        // Cleanup if zombie (will send the reply)
+        if(ps->status == PS_STATUS_ZOMBIE) {
+            cleanup_domain(domainid);
+        }
     }
 }
 
