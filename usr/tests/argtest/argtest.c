@@ -1,10 +1,9 @@
 /**
  * \file
- * \brief
+ * \brief arguments test.
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, ETH Zurich.
  * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
@@ -13,17 +12,12 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef BARRELFISH_MORECORE_H
-#define BARRELFISH_MORECORE_H
+#include <stdio.h>
 
-#include <sys/cdefs.h>
-
-__BEGIN_DECLS
-
-errval_t morecore_init(size_t alignment);
-void morecore_use_optimal(void);
-errval_t morecore_reinit(void);
-
-__END_DECLS
-
-#endif
+int main(int argc, char *argv[])
+{
+    for (int i = 0; i < argc; i++) {
+        printf("argv[%d] = %s\n", i, argv[i]);
+    }
+    return 0;
+}

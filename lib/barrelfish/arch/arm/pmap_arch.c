@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /*
@@ -83,6 +83,11 @@
 // in hardware we use 12 bits for L1 and 8 bits for L2.
 #define ARM_USER_L1_OFFSET(addr) ((uintptr_t)(addr >> 22) & 0x3ffu)
 #define ARM_USER_L2_OFFSET(addr) ((uintptr_t)(addr >> 12) & 0x3ffu)
+
+//large mapping flags
+#define FLAGS_LARGE        0x0100
+#define FLAGS_SECTION      0x0200
+#define FLAGS_SUPERSECTION 0x0300
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -281,13 +286,25 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
                               struct capref frame, size_t offset, size_t pte_count,
                               vregion_flags_t flags)
 {
+    errval_t err = SYS_ERR_OK;
     // Get the page table
     struct vnode *ptable;
-    errval_t err = get_ptable(pmap, vaddr, &ptable);
+    uintptr_t index;
+    if (flags&FLAGS_SECTION) {
+        //section mapping (1MB)
+        //mapped in the L1 table at root
+        ptable = &pmap->root;
+        index = ARM_USER_L1_OFFSET(vaddr);
+        printf("do_single_map: large path\n");
+    } else {
+        //4k mapping
+        err = get_ptable(pmap, vaddr, &ptable);
+        index = ARM_USER_L2_OFFSET(vaddr);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
-    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags&~FLAGS_SUPERSECTION);
     // XXX: reassess the following note -SG
     // NOTE: strictly speaking a l2 entry only has 8 bits, but due to the way
     // Barrelfish allocates l1 and l2 tables, we use 10 bits for the tracking
@@ -303,6 +320,7 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
     page->u.frame.cap = frame;
+    page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
     // Map entry into the page table
@@ -319,12 +337,28 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+    size_t page_size;
+    size_t offset_level;
+    // determine mapping specific parts
+    if (flags&FLAGS_SECTION) {
+        //section mapping (1MB)
+        page_size = LARGE_PAGE_SIZE;
+        offset_level = ARM_L1_OFFSET(vaddr);
+        printf("do_map: large path\n");
+        printf("page_size: %i, size: %i\n", page_size, size);
+    } else {
+        //normal 4k mapping
+        page_size = BASE_PAGE_SIZE;
+        offset_level = ARM_L2_OFFSET(vaddr);
+    }
 
-    size = ROUND_UP(size, BASE_PAGE_SIZE);
-    size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
+    size = ROUND_UP(size, page_size);
+    size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
-    if (ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) {
+    //should be trivially true for section mappings
+    if ((ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) ||
+        flags&FLAGS_SECTION) {
         // fast path
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
@@ -333,8 +367,8 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         }
     } else { // multiple leaf page tables
         // first leaf
-        uint32_t c = ARM_L2_MAX_ENTRIES - ARM_L2_OFFSET(vaddr);
-        genvaddr_t temp_end = vaddr + c * BASE_PAGE_SIZE;
+        uint32_t c = ARM_L2_MAX_ENTRIES - offset_level;
+        genvaddr_t temp_end = vaddr + c * page_size;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -343,8 +377,8 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         // map full leaves
         while (ARM_L1_OFFSET(temp_end) < ARM_L1_OFFSET(vend)) { // update vars
             vaddr = temp_end;
-            temp_end = vaddr + ARM_L2_MAX_ENTRIES * BASE_PAGE_SIZE;
-            offset += c * BASE_PAGE_SIZE;
+            temp_end = vaddr + ARM_L2_MAX_ENTRIES * page_size;
+            offset += c * page_size;
             c = ARM_L2_MAX_ENTRIES;
             // copy cap
             struct capref next;
@@ -366,7 +400,7 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
         }
 
         // map remaining part
-        offset += c * BASE_PAGE_SIZE;
+        offset += c * page_size;
         c = ARM_L2_OFFSET(vend) - ARM_L2_OFFSET(temp_end);
         if (c) {
             // copy cap
@@ -424,6 +458,13 @@ max_slabs_required(size_t bytes)
     // Perform a slab allocation for every L1 (do_map -> find_vnode)
     size_t l1entries = DIVIDE_ROUND_UP(l2entries, 1024);
     return pages + l2entries + l1entries;
+}
+static size_t max_slabs_required_large(size_t bytes)
+{
+    // similar to the above, but larger page size and mapped only in a higher lvl paging structure
+    size_t pages = DIVIDE_ROUND_UP(bytes, LARGE_PAGE_SIZE);
+    size_t l1entries = DIVIDE_ROUND_UP(pages, 1024);
+    return pages + l1entries;
 }
 
 /**
@@ -516,13 +557,31 @@ map(struct pmap     *pmap,
 {
     struct pmap_arm *pmap_arm = (struct pmap_arm *)pmap;
 
-    size   += BASE_PAGE_OFFSET(offset);
-    size    = ROUND_UP(size, BASE_PAGE_SIZE);
-    offset -= BASE_PAGE_OFFSET(offset);
+    size_t base;
+    size_t page_size;
+    size_t slabs_required;
+    
+    // adjust the mapping to be on page boundaries
+    if (flags&FLAGS_SECTION) {
+        //section mapping (1MB)
+        base = LARGE_PAGE_OFFSET(offset);
+        page_size = LARGE_PAGE_SIZE;
+        slabs_required = max_slabs_required_large(size);
+        printf("map: large path, page_size: %i, base: %i, slabs: %i, size: %i\n", page_size, base, slabs_required, size);
+    } else {
+        //4k mapping
+        base = BASE_PAGE_OFFSET(offset);
+        page_size = BASE_PAGE_SIZE;
+        slabs_required = max_slabs_required(size);
+    }
+    size   += base;
+    size    = ROUND_UP(size, page_size);
+    offset -= base;
 
     const size_t slabs_reserve = 3; // == max_slabs_required(1)
     uint64_t  slabs_free       = slab_freecount(&pmap_arm->slab);
-    size_t    slabs_required   = max_slabs_required(size) + slabs_reserve;
+
+    slabs_required += slabs_reserve;
 
     if (slabs_required > slabs_free) {
         if (get_current_pmap() == pmap) {
@@ -680,6 +739,65 @@ determine_addr(struct pmap   *pmap,
     return SYS_ERR_OK;
 }
 
+/** \brief Retrieves an address that can currently be used for large mappings
+  *
+  */
+static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
+                                   size_t alignment, genvaddr_t *retvaddr)
+{
+    struct pmap_arm *pmap_arm = (struct pmap_arm *)pmap;
+
+    struct vnode *walk_pdir = pmap_arm->root.u.vnode.children;
+    assert(walk_pdir != NULL); // assume there's always at least one existing entry
+
+    if (alignment == 0) {
+        alignment = BASE_PAGE_SIZE;
+    } else {
+        alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
+    }
+    size = ROUND_UP(size, alignment);
+
+    size_t free_count = DIVIDE_ROUND_UP(size, LARGE_PAGE_SIZE);
+    //debug_printf("need %zu contiguous free pdirs\n", free_count);
+
+    // compile pdir free list
+    // barrelfish treats L1 as 1024 entries
+    bool f[1024];
+    for (int i = 0; i < 1024; i++) {
+        f[i] = true;
+    }
+    f[walk_pdir->entry] = false;
+    while (walk_pdir) {
+        assert(walk_pdir->is_vnode);
+        f[walk_pdir->entry] = false;
+        walk_pdir = walk_pdir->next;
+    }
+    genvaddr_t first_free = 384;
+    for (; first_free < 512; first_free++) {
+        if (f[first_free]) {
+            for (int i = 1; i < free_count; i++) {
+                if (!f[first_free + i]) {
+                    // advance pointer
+                    first_free = first_free+i;
+                    goto next;
+                }
+            }
+            break;
+        }
+next:
+        assert(1 == 1);// make compiler shut up about label
+    }
+    //printf("first free: %li\n", (uint32_t)first_free);
+    if (first_free + free_count <= 512) {
+        *retvaddr = first_free << 22;
+        return SYS_ERR_OK;
+    } else {
+        return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
+    }
+}
+
+
+
 static errval_t do_single_modify_flags(struct pmap_arm *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
 {
@@ -813,6 +931,7 @@ deserialise(struct pmap *pmap, void *buf, size_t buflen)
 
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = determine_addr,
+    .determine_addr_raw = determine_addr_raw,
     .map = map,
     .unmap = unmap,
     .modify_flags = modify_flags,

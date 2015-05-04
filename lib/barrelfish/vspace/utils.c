@@ -5,11 +5,12 @@
 
 /*
  * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -115,10 +116,10 @@ errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
         free(memobj);
         free(vregion);
     }
-    
+
     *ret_memobj = (struct memobj *)memobj;
     *ret_vregion = vregion;
-    
+
     return err;
 }
 
@@ -136,7 +137,7 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
 
     struct memobj_anon *memobj = NULL;
     struct vregion *vregion = NULL;
-    
+
     // Allocate space
     memobj = malloc(sizeof(struct memobj_anon));
     assert(memobj != NULL);
@@ -151,10 +152,10 @@ errval_t vspace_map_anon_attr(void **retaddr, struct memobj **ret_memobj,
       free(memobj);
       free(vregion);
     }
-    
+
     *ret_memobj = (struct memobj *)memobj;
     *ret_vregion = vregion;
-    
+
     return err;
 }
 
@@ -324,6 +325,20 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
                                    struct memobj **retmemobj,
                                    struct vregion **retvregion)
 {
+    return vspace_map_one_frame_attr_aligned(retaddr, size,
+            frame, flags, 0, retmemobj, retvregion);
+}
+
+/**
+ * \brief Wrapper for creating and mapping a memory object
+ * of type one frame with specific flags and a specific alignment
+ */
+errval_t vspace_map_one_frame_attr_aligned(void **retaddr, size_t size,
+                                   struct capref frame, vregion_flags_t flags,
+                                   size_t alignment,
+                                   struct memobj **retmemobj,
+                                   struct vregion **retvregion)
+{
     errval_t err1, err2;
     struct memobj *memobj   = NULL;
     struct vregion *vregion = NULL;
@@ -331,12 +346,12 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
     size = ROUND_UP(size, BASE_PAGE_SIZE);
 
     // Allocate space
-    memobj = malloc(sizeof(struct memobj_one_frame));
+    memobj = calloc(1, sizeof(struct memobj_one_frame));
     if (!memobj) {
         err1 = LIB_ERR_MALLOC_FAIL;
         goto error;
     }
-    vregion = malloc(sizeof(struct vregion));
+    vregion = calloc(1, sizeof(struct vregion));
     if (!vregion) {
         err1 = LIB_ERR_MALLOC_FAIL;
         goto error;
@@ -355,7 +370,8 @@ errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
         goto error;
     }
 
-    err1 = vregion_map(vregion, get_current_vspace(), memobj, 0, size, flags);
+    err1 = vregion_map_aligned(vregion, get_current_vspace(), memobj, 0, size,
+            flags, alignment);
     if (err_is_fail(err1)) {
         err1 = err_push(err1, LIB_ERR_VREGION_MAP);
         goto error;

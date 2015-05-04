@@ -5,11 +5,12 @@
 
 /*
  * Copyright (c) 2009, 2010, ETH Zurich.
+ * Copyright (c) 2014 HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef LIBBARRELFISH_VREGION_H
@@ -26,7 +27,10 @@ __BEGIN_DECLS
 #define VREGION_FLAGS_NOCACHE  0x08 // Caching disabled
 #define VREGION_FLAGS_MPB      0x10 // Message passing buffer
 #define VREGION_FLAGS_GUARD    0x20 // Guard page
-#define VREGION_FLAGS_MASK     0x2f // Mask of all individual VREGION_FLAGS
+// XXX: figure out how to do this arch-independent(?) -SG, 2014-06-16
+#define VREGION_FLAGS_LARGE    0x40 // Map large pages, if possible
+#define VREGION_FLAGS_HUGE     0x80 // Map huge pages, if possible
+#define VREGION_FLAGS_MASK     0xff // Mask of all individual VREGION_FLAGS
 
 #define VREGION_FLAGS_READ_WRITE \
     (VREGION_FLAGS_READ | VREGION_FLAGS_WRITE)

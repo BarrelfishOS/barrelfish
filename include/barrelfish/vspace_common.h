@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -52,6 +53,11 @@ errval_t vspace_map_anon_fixed(genvaddr_t base, size_t size,
                                struct memobj **ret_memobj);
 errval_t vspace_map_one_frame_attr(void **retaddr, size_t size,
                                    struct capref frame, vregion_flags_t flags,
+                                   struct memobj **retmemobj,
+                                   struct vregion **retvregion);
+errval_t vspace_map_one_frame_attr_aligned(void **retaddr, size_t size,
+                                   struct capref frame, vregion_flags_t flags,
+                                   size_t alignment,
                                    struct memobj **retmemobj,
                                    struct vregion **retvregion);
 errval_t vspace_map_one_frame(void **retaddr, size_t size, struct capref frame,

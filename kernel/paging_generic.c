@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2012 ETH Zurich.
+ * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <paging_generic.h>
@@ -225,6 +226,7 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
     return SYS_ERR_CAP_NOT_FOUND;
 }
 
+// TODO: cleanup arch compatibility mess for page size selection
 errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
 {
     // reconstruct first virtual address for TLB flushing
@@ -250,9 +252,36 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
             PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
             vaddr, vaddr+(pages * BASE_PAGE_SIZE));
     // flush TLB entries for all modified pages
+    size_t page_size = 0;
+    switch(leaf_pt->cap.type) {
+#if __x86_64__
+        case ObjType_VNode_x86_64_ptable:
+            page_size = X86_64_BASE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pdir:
+            page_size = X86_64_LARGE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pdpt:
+            page_size = X86_64_HUGE_PAGE_SIZE;
+            break;
+#elif __i386__
+        case ObjType_VNode_x86_32_ptable:
+            page_size = X86_32_BASE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_32_pdir:
+            page_size = X86_32_LARGE_PAGE_SIZE;
+            break;
+#else
+#error setup page sizes for arch
+#endif
+        default:
+            break;
+    }
+    assert(page_size);
+    // TODO: check what tlb flushing instructions expect for large/huge pages
     for (int i = 0; i < pages; i++) {
         do_one_tlb_flush(vaddr);
-        vaddr += BASE_PAGE_SIZE;
+        vaddr += page_size;
     }
 
     return SYS_ERR_OK;

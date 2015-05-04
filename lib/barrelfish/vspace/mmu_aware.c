@@ -8,16 +8,18 @@
 
 /*
  * Copyright (c) 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/vspace_mmu_aware.h>
 #include <barrelfish/core_state.h>
+#include <string.h>
 
 /// Minimum free memory before we return it to memory server
 #define MIN_MEM_FOR_FREE        (1 * 1024 * 1024)
@@ -33,8 +35,16 @@
  */
 errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
 {
+    return vspace_mmu_aware_init_aligned(state, size, 0,
+            VREGION_FLAGS_READ_WRITE);
+}
+
+errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
+        size_t size, size_t alignment, vregion_flags_t flags)
+{
     state->size = size;
     state->consumed = 0;
+    state->alignment = alignment;
 
     errval_t err;
 
@@ -44,9 +54,9 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
         return err_push(err, LIB_ERR_MEMOBJ_CREATE_ANON);
     }
 
-    err = vregion_map(&state->vregion, get_current_vspace(),
-                      &state->memobj.m, 0, size,
-                      VREGION_FLAGS_READ_WRITE);
+    err = vregion_map_aligned(&state->vregion, get_current_vspace(),
+                              &state->memobj.m, 0, size,
+                              flags, alignment);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VREGION_MAP);
     }
@@ -83,13 +93,29 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     } else {
         req_size -= state->mapoffset - state->offset;
     }
+    size_t alloc_size = req_size;
     size_t ret_size = 0;
 
-    if(req_size > 0) {
+    if (req_size > 0) {
+        if ((state->mapoffset & LARGE_PAGE_MASK) == 0 &&
+            state->alignment >= LARGE_PAGE_SIZE)
+        {
+            // this is an opportunity to switch to 2M pages
+            // we know that we can use large pages without jumping through hoops
+            // if state->alignment is at least LARGE_PAGE_SIZE as we always create
+            // the vregion with VREGION_FLAGS_LARGE.
+            alloc_size = ROUND_UP(req_size, LARGE_PAGE_SIZE);
+        }
         // Create frame of appropriate size
-        err = frame_create(frame, req_size, &ret_size);
+retry:
+        err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
+                // we can only get 4k frames for now; retry with 4k
+                if (alloc_size > BASE_PAGE_SIZE && origsize < BASE_PAGE_SIZE) {
+                    alloc_size = BASE_PAGE_SIZE;
+                    goto retry;
+                }
                 return err_push(err, LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS);
             }
             return err_push(err, LIB_ERR_FRAME_CREATE);
@@ -131,6 +157,74 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     return SYS_ERR_OK;
 }
 
+errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
+                                struct capref frame, size_t size)
+{
+    errval_t err;
+    struct vregion *vregion;
+    struct capref oldframe;
+    void *vbuf;
+    // create copy of new region
+    err = slot_alloc(&oldframe);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_copy(oldframe, frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = vspace_map_one_frame_attr_aligned(&vbuf, size, oldframe,
+            VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE, LARGE_PAGE_SIZE,
+            NULL, &vregion);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    // copy over data to new frame
+    genvaddr_t gen_base = vregion_get_base_addr(&state->vregion);
+    memcpy(vbuf, (void*)gen_base, state->mapoffset);
+
+    err = vregion_destroy(vregion);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t offset = 0;
+    // Unmap backing frames for [0, size) in state.vregion
+    do {
+        err = state->memobj.m.f.unfill(&state->memobj.m, 0, &oldframe,
+                &offset);
+        if (err_is_fail(err) &&
+            err_no(err) != LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET)
+        {
+            return err_push(err, LIB_ERR_MEMOBJ_UNMAP_REGION);
+        }
+        struct frame_identity fi;
+        // increase address
+        err = invoke_frame_identify(oldframe, &fi);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        offset += (1UL<<fi.bits);
+        err = cap_destroy(oldframe);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } while(offset < state->mapoffset);
+
+    // Map new frame in
+    err = state->memobj.m.f.fill(&state->memobj.m, 0, frame, size);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_FILL);
+    }
+    err = state->memobj.m.f.pagefault(&state->memobj.m, &state->vregion, 0, 0);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_MEMOBJ_PAGEFAULT_HANDLER);
+    }
+
+    state->mapoffset = size;
+    return SYS_ERR_OK;
+}
+
 errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
                                 lvaddr_t base, size_t bytes)
 {
@@ -144,11 +238,11 @@ errval_t vspace_mmu_aware_unmap(struct vspace_mmu_aware *state,
     genvaddr_t min_offset = 0;
     bool success = false;
 
-    assert(vspace_lvaddr_to_genvaddr(base) > vregion_get_base_addr(&state->vregion));
+    assert(vspace_lvaddr_to_genvaddr(base) >= vregion_get_base_addr(&state->vregion));
     assert(base + bytes == (lvaddr_t)eaddr);
 
-    assert(bytes < state->consumed);
-    assert(bytes < state->offset);
+    assert(bytes <= state->consumed);
+    assert(bytes <= state->offset);
 
     // Reduce offset
     state->offset -= bytes;

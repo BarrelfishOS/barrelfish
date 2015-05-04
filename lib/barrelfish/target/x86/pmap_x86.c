@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,6 +16,212 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/pmap.h>
 #include "target/x86/pmap_x86.h"
+
+// this should work for x86_64 and x86_32.
+bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
+               bool only_pages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    uint32_t end_entry = entry + len;
+
+    // region we check [entry .. end_entry)
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        // n is page table, we need to check if it's anywhere inside the
+        // region to check [entry .. end_entry)
+        // this amounts to n->entry == entry for len = 1
+        if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
+            if (only_pages) {
+                return has_vnode(n, 0, PTABLE_SIZE, true);
+            }
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("1: found page table inside our region\n");
+#endif
+            return true;
+        } else if (n->is_vnode) {
+            // all other vnodes do not overlap with us, so go to next
+            assert(n->entry < entry || n->entry >= end_entry);
+            continue;
+        }
+        // this remains the same regardless of `only_pages`.
+        // n is frame [n->entry .. end)
+        // 3 cases:
+        // 1) entry < n->entry && end_entry >= end --> n is a strict subset of
+        // our region
+        // 2) entry inside n (entry >= n->entry && entry < end)
+        // 3) end_entry inside n (end_entry >= n->entry && end_entry < end)
+        uint32_t end = n->entry + n->u.frame.pte_count;
+        if (entry < n->entry && end_entry >= end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("2: found a strict subset of our region: (%"
+                    PRIu32"--%"PRIu32") < (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+        if (entry >= n->entry && entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("3: found a region starting inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+        if (end_entry > n->entry && end_entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("4: found a region ending inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * \brief Starting at a given root, return the vnode with entry equal to #entry
+ */
+struct vnode *find_vnode(struct vnode *root, uint16_t entry)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    for(n = root->u.vnode.children; n != NULL; n = n->next) {
+        if(n->entry == entry) {
+            return n;
+        }
+    }
+    return NULL;
+}
+
+bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+
+    struct vnode *n;
+
+    for (n = root->u.vnode.children; n; n = n->next) {
+        if (!n->is_vnode) {
+            uint16_t end = n->entry + n->u.frame.pte_count;
+            if (n->entry <= entry && entry + npages <= end) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void remove_vnode(struct vnode *root, struct vnode *item)
+{
+    assert(root->is_vnode);
+    struct vnode *walk = root->u.vnode.children;
+    struct vnode *prev = NULL;
+    while (walk) {
+        if (walk == item) {
+            if (prev) {
+                prev->next = walk->next;
+                return;
+            } else {
+                root->u.vnode.children = walk->next;
+                return;
+            }
+        }
+        prev = walk;
+        walk = walk->next;
+    }
+    USER_PANIC("Should not get here");
+}
+
+/**
+ * \brief Allocates a new VNode, adding it to the page table and our metadata
+ */
+errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
+                     enum objtype type, uint32_t entry,
+                     struct vnode **retvnode)
+{
+    errval_t err;
+
+    struct vnode *newvnode = slab_alloc(&pmap->slab);
+    if (newvnode == NULL) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    }
+
+    // The VNode capability
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &newvnode->u.vnode.cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    err = vnode_create(newvnode->u.vnode.cap, type);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_CREATE);
+    }
+
+    // Map it
+    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
+                    PTABLE_ACCESS_DEFAULT, 0, 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
+
+    // The VNode meta data
+    newvnode->is_vnode  = true;
+    newvnode->entry     = entry;
+    newvnode->next      = root->u.vnode.children;
+    root->u.vnode.children = newvnode;
+    newvnode->u.vnode.children = NULL;
+
+    *retvnode = newvnode;
+    return SYS_ERR_OK;
+}
+
+void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
+                         uint32_t entry, size_t len)
+{
+    errval_t err;
+    uint32_t end_entry = entry + len;
+    for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
+        if (n->entry >= entry && n->entry < end_entry) {
+            // sanity check and skip leaf entries
+            if (!n->is_vnode) {
+                continue;
+            }
+            // here we know that all vnodes we're interested in are
+            // page tables
+            assert(n->is_vnode);
+            if (n->u.vnode.children) {
+                remove_empty_vnodes(pmap, n, 0, PTABLE_SIZE);
+            }
+
+            // unmap
+            err = vnode_unmap(root->u.vnode.cap, n->u.vnode.cap, n->entry, 1);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
+                        err_getstring(err));
+            }
+
+            // delete capability
+            err = cap_destroy(n->u.vnode.cap);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: cap_destroy: %s\n",
+                        err_getstring(err));
+            }
+
+            // remove vnode from list
+            remove_vnode(root, n);
+            slab_free(&pmap->slab, n);
+        }
+    }
+}
+
 
 /*
  * The serialisation format is depressingly ad-hoc, and assumes a depth-first

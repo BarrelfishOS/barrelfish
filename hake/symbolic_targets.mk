@@ -228,6 +228,7 @@ MODULES_x86_64= \
 	sbin/slideshow \
 	sbin/vbe \
 	sbin/vmkitmon \
+	sbin/vnode_map_test \
 	sbin/webserver \
 	sbin/routing_setup \
 	sbin/bcached \

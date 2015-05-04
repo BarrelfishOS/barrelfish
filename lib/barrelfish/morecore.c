@@ -5,11 +5,12 @@
 
 /*
  * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -107,14 +108,22 @@ Header *get_malloc_freep(void)
     return get_morecore_state()->header_freep;
 }
 
-errval_t morecore_init(void)
+errval_t morecore_init(size_t alignment)
 {
     errval_t err;
     struct morecore_state *state = get_morecore_state();
 
     thread_mutex_init(&state->mutex);
 
-    err = vspace_mmu_aware_init(&state->mmu_state, HEAP_REGION);
+    // setup flags that match the alignment
+    vregion_flags_t morecore_flags = VREGION_FLAGS_READ_WRITE;
+#if __x86_64__
+    morecore_flags |= (alignment == HUGE_PAGE_SIZE ? VREGION_FLAGS_HUGE : 0);
+#endif
+    morecore_flags |= (alignment == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
+
+    err = vspace_mmu_aware_init_aligned(&state->mmu_state, HEAP_REGION,
+            alignment, morecore_flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
@@ -123,4 +132,25 @@ errval_t morecore_init(void)
     sys_morecore_free = morecore_free;
 
     return SYS_ERR_OK;
+}
+
+errval_t morecore_reinit(void)
+{
+    errval_t err;
+    struct morecore_state *state = get_morecore_state();
+
+    size_t mapoffset = state->mmu_state.mapoffset;
+    size_t remapsize = ROUND_UP(mapoffset, state->mmu_state.alignment);
+    if (remapsize <= mapoffset) {
+        // don't need to do anything if we only recreate the exact same
+        // mapping
+        return SYS_ERR_OK;
+    }
+    struct capref frame;
+    size_t retsize;
+    err = frame_alloc(&frame, remapsize, &retsize);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return vspace_mmu_aware_reset(&state->mmu_state, frame, remapsize);
 }

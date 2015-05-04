@@ -1,0 +1,17 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/vnode_map_test
+-- 
+--------------------------------------------------------------------------
+
+[ build application { target = "vnode_map_test",
+                      cFiles = [ "vnode_map_test.c" ]
+                    }
+]
+

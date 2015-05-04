@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef TARGET_X86_64_BARRELFISH_KPI_PAGING_H
@@ -21,15 +22,21 @@ typedef uint64_t paging_x86_64_flags_t;
 
 /** The system's base page size is 4kB */
 #define X86_64_BASE_PAGE_BITS                  12
-#define X86_64_BASE_PAGE_SIZE                  0x1000
+#define X86_64_BASE_PAGE_SIZE                  (1<<X86_64_BASE_PAGE_BITS)
 #define X86_64_BASE_PAGE_MASK                  (X86_64_BASE_PAGE_SIZE - 1)
 #define X86_64_BASE_PAGE_OFFSET(a)             ((a) & X86_64_BASE_PAGE_MASK)
 
 /** The system's large page size is 2MB */
 #define X86_64_LARGE_PAGE_BITS                  21
-#define X86_64_LARGE_PAGE_SIZE                  0x200000
+#define X86_64_LARGE_PAGE_SIZE                  (1<<X86_64_LARGE_PAGE_BITS)
 #define X86_64_LARGE_PAGE_MASK                  (X86_64_LARGE_PAGE_SIZE - 1)
 #define X86_64_LARGE_PAGE_OFFSET(a)             ((a) & X86_64_LARGE_PAGE_MASK)
+
+/** The system's huge page size is 1GB */
+#define X86_64_HUGE_PAGE_BITS                  30
+#define X86_64_HUGE_PAGE_SIZE                  (1<<X86_64_HUGE_PAGE_BITS)
+#define X86_64_HUGE_PAGE_MASK                  (X86_64_HUGE_PAGE_SIZE - 1)
+#define X86_64_HUGE_PAGE_OFFSET(a)             ((a) & X86_64_HUGE_PAGE_MASK)
 
 /**
  * Bits within the various page directories and tables.
@@ -45,7 +52,9 @@ typedef uint64_t paging_x86_64_flags_t;
 #define X86_64_PTABLE_READ_WRITE       (((paging_x86_64_flags_t)1) << 1)
 #define X86_64_PTABLE_PRESENT          (((paging_x86_64_flags_t)1) << 0)
 
-#define X86_64_PTABLE_SIZE         512     /**< Page directory/table size */
+#define X86_64_PTABLE_BITS         9       /**< Page directory/table size in bits */
+/** Page directory/table size */
+#define X86_64_PTABLE_SIZE         (1UL<<X86_64_PTABLE_BITS)
 #define X86_64_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */
 #define X86_64_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
 

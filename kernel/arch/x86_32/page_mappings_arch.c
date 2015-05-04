@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <kernel.h>
@@ -70,12 +71,13 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
                             struct capability * src, uintptr_t flags,
                             uintptr_t offset, uintptr_t pte_count)
 {
+    //printf("x86_32_pdir\n");
     if (slot >= X86_32_PTABLE_SIZE) { // Slot within page table
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (pte_count > 1) { // disallow more than one page at a time
-        // XXX: this prevents mapping multiple superpages at a time
+    if (slot + pte_count > X86_32_PTABLE_SIZE) {
+        // check that mapping fits page directory
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -84,6 +86,59 @@ static errval_t x86_32_pdir(struct capability *dest, cslot_t slot,
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 #endif
+
+    // large page code
+    if(src->type == ObjType_Frame || src->type == ObjType_DevFrame)
+    {
+        cslot_t last_slot = slot + pte_count;
+
+        // check offset within frame
+        if (offset + pte_count * X86_32_LARGE_PAGE_SIZE > get_size(src)) {
+            return SYS_ERR_FRAME_OFFSET_INVALID;
+        }
+
+        /* Calculate page access protection flags */
+        // Get frame cap rights
+        paging_x86_32_flags_t flags_large =
+            paging_x86_32_cap_to_page_flags(src->rights);
+        // Mask with provided access rights mask
+        flags_large = paging_x86_32_mask_attrs(flags_large, X86_32_PTABLE_ACCESS(flags));
+        // Add additional arch-specific flags
+        flags_large |= X86_32_PTABLE_FLAGS(flags);
+        // Unconditionally mark the page present
+        flags_large |= X86_32_PTABLE_PRESENT;
+
+        // Convert destination base address
+        genpaddr_t dest_gp   = get_address(dest);
+        lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
+        lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+        // Convert source base address
+        genpaddr_t src_gp   = get_address(src);
+        lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
+        // Set metadata
+        struct cte *src_cte = cte_for_cap(src);
+        src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_32_ptable_entry);
+        src_cte->mapping_info.pte_count = pte_count;
+        src_cte->mapping_info.offset = offset;
+
+        for (; slot < last_slot; slot++, offset += X86_32_LARGE_PAGE_SIZE) {
+            union x86_32_ptable_entry *entry =
+                (union x86_32_ptable_entry *)dest_lv + slot;
+
+            /* FIXME: Flush TLB if the page is already present
+             * in the meantime, since we don't do this, we just assert that
+             * we never reuse a VA mapping */
+            if (X86_32_IS_PRESENT(entry)) {
+                printf("Trying to map into an already present page NYI.\n");
+                return SYS_ERR_VNODE_SLOT_INUSE;
+            }
+
+            // Carry out the page mapping
+            paging_x86_32_map_large(entry, src_lp + offset, flags_large);
+        }
+
+        return SYS_ERR_OK;
+    }
 
     if (src->type != ObjType_VNode_x86_32_ptable) { // Right mapping
         return SYS_ERR_WRONG_MAPPING;
@@ -117,6 +172,7 @@ static errval_t x86_32_ptable(struct capability *dest, cslot_t slot,
                               struct capability * src, uintptr_t uflags,
                               uintptr_t offset, uintptr_t pte_count)
 {
+    //printf("x86_32_ptable\n");
     if (slot >= X86_32_PTABLE_SIZE) { // Slot within page table
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
@@ -359,7 +415,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     // flush TLB for unmapped pages
     // TODO: heuristic that decides if selective or full flush is more
     //       efficient?
-    if (num_pages > 1) {
+    //       currently set to trivially flush entire tlb to make large page unmapping work
+    if (num_pages > 1 || true) {
         do_full_tlb_flush();
     } else {
         do_one_tlb_flush(vaddr);
@@ -407,9 +464,9 @@ void paging_dump_tables(struct dcb *dispatcher)
 
 #ifdef CONFIG_PAE
     // loop over pdpt entries
-    for (int pdir_index = 0; pdir_index < X86_64_PDPTE_SIZE; pdir_index++) {
+    for (int pdir_index = 0; pdir_index < X86_32_PDPTE_SIZE; pdir_index++) {
         // get pdir
-        union x86_32_pdpte_entry *pdir = (union x86_64_pdir_entry *)root_pt + pdir_index;
+        union x86_32_pdpte_entry *pdir = (union x86_32_pdpte_entry *)root_pt + pdir_index;
         if (!pdir->raw) { continue; }
         genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
         lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
@@ -418,10 +475,20 @@ void paging_dump_tables(struct dcb *dispatcher)
         lvaddr_t pdir_lv = root_pt;
 #endif
 
-        for (int ptable_index = 0; ptable_index < X86_32_PDIR_SIZE; ptable_index++) {
+        // only go to 512 because upper half of address space is kernel space
+        // (1:1 mapped)
+        // TODO: figure out what we need to do here for PAE
+        for (int ptable_index = 0; ptable_index < 512; ptable_index++) {
             // get ptable
             union x86_32_pdir_entry *ptable = (union x86_32_pdir_entry *)pdir_lv + ptable_index;
+            union x86_32_ptable_entry *large = (union x86_32_ptable_entry *)ptable;
             if (!ptable->raw) { continue; }
+            if (large->large.always1) {
+                // large page
+                genpaddr_t paddr = large->large.base_addr << X86_32_LARGE_PAGE_BITS;
+                printf("%d.%d: 0x%"PRIxGENPADDR"\n", pdir_index,
+                        ptable_index, paddr);
+            }
             genpaddr_t ptable_gp = ptable->d.base_addr << BASE_PAGE_BITS;
             lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 

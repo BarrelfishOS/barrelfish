@@ -1,6 +1,7 @@
 
 /*
  * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2014, HP Labs.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -269,6 +270,8 @@ errors libbarrelfish LIB_ERR_ {
     failure PMAP_ADDR_NOT_FREE "The requested address range is not free",
     failure PMAP_FIND_VNODE   "vnode not found",
     failure PMAP_EXISTING_MAPPING "Cannot replace existing mapping, unmap first",
+    failure PMAP_FRAME_SIZE "Given Frame to small to fulfil mapping request",
+    failure PMAP_FRAME_IDENTIFY "Frame could not be identified",
 
     failure OUT_OF_VIRTUAL_ADDR  "Out of virtual address",
 
