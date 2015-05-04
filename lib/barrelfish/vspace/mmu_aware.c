@@ -197,14 +197,14 @@ errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
     }
     // copy over data to new frame
     genvaddr_t gen_base = vregion_get_base_addr(&state->vregion);
-    memcpy(vbuf, (void*)gen_base, state->mapoffset);
+    memcpy(vbuf, (void*)(lvaddr_t)gen_base, state->mapoffset);
 
     err = vregion_destroy(vregion);
     if (err_is_fail(err)) {
         return err;
     }
 
-    size_t offset = 0;
+    genvaddr_t offset = 0;
     // Unmap backing frames for [0, size) in state.vregion
     do {
         err = state->memobj.m.f.unfill(&state->memobj.m, 0, &oldframe,

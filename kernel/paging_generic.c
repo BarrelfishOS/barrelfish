@@ -271,6 +271,13 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t pages)
         case ObjType_VNode_x86_32_pdir:
             page_size = X86_32_LARGE_PAGE_SIZE;
             break;
+#elif __arm__
+        case ObjType_VNode_ARM_l1:
+            panic("large page support for ARM NYI!\n");
+            break;
+        case ObjType_VNode_ARM_l2:
+            page_size = BASE_PAGE_SIZE;
+            break;
 #else
 #error setup page sizes for arch
 #endif

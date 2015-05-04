@@ -92,7 +92,7 @@
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 {
-    STATIC_ASSERT(0x2f == VREGION_FLAGS_MASK, "");
+    STATIC_ASSERT(0xff == VREGION_FLAGS_MASK, "");
     STATIC_ASSERT(0x0f == KPI_PAGING_FLAGS_MASK, "");
     STATIC_ASSERT(VREGION_FLAGS_READ    == KPI_PAGING_FLAGS_READ,    "");
     STATIC_ASSERT(VREGION_FLAGS_WRITE   == KPI_PAGING_FLAGS_WRITE,   "");
@@ -289,17 +289,17 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     errval_t err = SYS_ERR_OK;
     // Get the page table
     struct vnode *ptable;
-    uintptr_t index;
+    uintptr_t entry;
     if (flags&FLAGS_SECTION) {
         //section mapping (1MB)
         //mapped in the L1 table at root
         ptable = &pmap->root;
-        index = ARM_USER_L1_OFFSET(vaddr);
+        entry = ARM_USER_L1_OFFSET(vaddr);
         printf("do_single_map: large path\n");
     } else {
         //4k mapping
         err = get_ptable(pmap, vaddr, &ptable);
-        index = ARM_USER_L2_OFFSET(vaddr);
+        entry = ARM_USER_L2_OFFSET(vaddr);
     }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
