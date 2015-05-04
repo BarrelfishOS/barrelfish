@@ -189,7 +189,7 @@
                     assemblyFiles = arch_assembly (archFamily arch),
                     addCFlags = [ "-DARRAKIS", "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis",
-                                         "terminal" ],
+                                         "terminal", "terminal_config", "terminal_session" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
