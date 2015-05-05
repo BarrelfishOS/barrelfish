@@ -105,7 +105,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
             return SYS_ERR_OK;
         }
 
-        argv = malloc((argc+4) * sizeof(char *));
+        argv = malloc((argc+5) * sizeof(char *));
         memcpy(argv, mi->argv, argc * sizeof(char *));
         snprintf(barrelfish_id_s, 10, "%"PRIu64"", barrelfish_id);
 
