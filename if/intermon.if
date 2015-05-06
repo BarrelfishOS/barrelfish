@@ -144,7 +144,7 @@ interface intermon "The Interface between monitors" {
     message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack,
                              uint8 payload[size]);
     message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err,
-                              caprep cap, bool null_cap);
+                              caprep cap, bool null_cap, coreid owner);
 
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);

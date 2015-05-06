@@ -1234,7 +1234,8 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
 
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap);
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap,
+        coreid_t owner);
 
 static void multihop_cap_send_forward_cont(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
@@ -1277,6 +1278,7 @@ static void multihop_cap_send_request_handler(
     errval_t err;
     struct capability capability;
     intermon_caprep_t caprep;
+    coreid_t capowner;
     memset(&caprep, 0, sizeof(caprep));
     bool null_cap = capref_is_null(cap);
 
@@ -1294,6 +1296,12 @@ static void multihop_cap_send_request_handler(
         err = monitor_cap_identify(cap, &capability);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "monitor_cap_identify failed, ignored");
+            return;
+        }
+
+        err = monitor_get_domcap_owner(get_cap_domref(cap), &capowner);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "getting owner failed, ignored");
             return;
         }
 
@@ -1336,6 +1344,7 @@ static void multihop_cap_send_request_handler(
     me->args.err = msgerr;
     me->args.cap = caprep;
     me->args.null_cap = null_cap;
+    me->args.owner = capowner;
     me->elem.cont = multihop_cap_send_intermon_forward_cont;
 
     err = intermon_enqueue_send(b, &ist->queue, get_default_waitset(),
@@ -1350,7 +1359,8 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
     struct multihop_intermon_capability_forwarding_state *st =
             (struct multihop_intermon_capability_forwarding_state *) e;
     multihop_cap_send_intermon_forward(b, st->args.vci, st->args.direction,
-        st->args.capid, st->args.err, st->args.cap, st->args.null_cap);
+        st->args.capid, st->args.err, st->args.cap, st->args.null_cap,
+        st->args.owner);
     free(e);
 }
 
@@ -1360,14 +1370,15 @@ static void multihop_cap_send_intermon_forward_cont(struct intermon_binding *b,
  */
 static inline void multihop_cap_send_intermon_forward(
         struct intermon_binding *b, multihop_vci_t vci, uint8_t direction,
-        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap)
+        uint32_t capid, errval_t msgerr, intermon_caprep_t caprep, bool null_cap,
+        coreid_t owner)
 {
 
     errval_t err;
 
     // try to forward
     err = b->tx_vtbl.multihop_cap_send(b, NOP_CONT, vci, direction, capid, msgerr,
-            caprep, null_cap);
+            caprep, null_cap, owner);
 
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -1403,11 +1414,11 @@ static inline void multihop_cap_send_intermon_forward(
 static void multihop_intermon_cap_send_handler(
         struct intermon_binding *intermon_binding, multihop_vci_t vci,
         uint8_t direction, uint32_t capid, errval_t msgerr,
-        intermon_caprep_t caprep, bool null_cap)
+        intermon_caprep_t caprep, bool null_cap, coreid_t owner)
 {
 
     MULTIHOP_DEBUG(
-            "monitor on core %d received a capability (from other monitor). VCI %llu, direction %d, cap ID %d\n", my_core_id, (unsigned long long) vci, direction, capid);
+            "monitor on core %d received a capability (from other monitor). VCI %llu, direction %d, cap ID %d, owner %d\n", my_core_id, (unsigned long long) vci, direction, capid, owner);
 
     errval_t err;
     struct monitor_multihop_chan_state *chan_state = forwarding_table_lookup(
@@ -1435,9 +1446,7 @@ static void multihop_intermon_cap_send_handler(
             }
 
             // create capability
-            // note that we just pass anything as core_id, because
-            // it is not being used
-            err = monitor_cap_create(cap, capability, my_core_id);
+            err = monitor_cap_create(cap, capability, owner);
             if (err_is_fail(err)) {
                 slot_free(cap);
 
