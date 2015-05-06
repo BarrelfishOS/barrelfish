@@ -69,6 +69,7 @@ errors kernel SYS_ERR_ {
 
     // errors on the monitor-kernel interface
     failure DELETE_LAST_OWNED   "Tried to delete the last copy of a locally owned capability that may have remote copies",
+    failure DELETE_REMOTE_LOCAL "Tried to delete foreign copies from local copy",
     failure CAP_LOCKED          "The cap has already been locked",
     success RAM_CAP_CREATED     "A new RAM cap has been created",
 

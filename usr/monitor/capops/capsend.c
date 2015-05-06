@@ -57,7 +57,7 @@ capsend_owner(struct domcapref capref, struct msg_queue_elem *queue_elem)
 }
 
 /*
- * Multicast helpers {{{1
+ * Multicast helpers {{{2
  */
 
 struct capsend_mc_msg_st;
@@ -166,7 +166,7 @@ capsend_broadcast(struct capsend_mc_st *bc_st, struct capsend_destset *dests,
     size_t online_monitors = num_monitors_online();
     // do not count self when calculating #dest cores
     dest_count = online_monitors - 1;
-    DEBUG_CAPOPS("%s: dest_count = %d\n", __FUNCTION__, dest_count);
+    DEBUG_CAPOPS("%s: dest_count = %zu\n", __FUNCTION__, dest_count);
     DEBUG_CAPOPS("%s: num_queued = %d\n", __FUNCTION__, bc_st->num_queued);
     DEBUG_CAPOPS("%s: num_pending = %d\n", __FUNCTION__, bc_st->num_pending);
     if (dests && dests->set == NULL) {

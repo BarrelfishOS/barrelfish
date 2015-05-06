@@ -366,6 +366,11 @@ errval_t caps_delete_foreigns(struct cte *cte)
 {
     errval_t err;
     struct cte *next;
+    if (cte->mdbnode.owner == my_core_id) {
+        debug(SUBSYS_CAPS, "%s called on %d for %p, owner=%d\n",
+                __FUNCTION__, my_core_id, cte, cte->mdbnode.owner);
+        return SYS_ERR_DELETE_REMOTE_LOCAL;
+    }
     assert(cte->mdbnode.owner != my_core_id);
     if (cte->mdbnode.in_delete) {
         printk(LOG_WARN,
@@ -375,20 +380,22 @@ errval_t caps_delete_foreigns(struct cte *cte)
 
     TRACE_CAP_MSG("del copies of", cte);
 
+    // XXX: should we go predecessor as well?
     for (next = mdb_successor(cte);
          next && is_copy(&cte->cap, &next->cap);
          next = mdb_successor(cte))
     {
-        assert(next->mdbnode.owner = my_core_id);
-        if (cte->mdbnode.in_delete) {
+        // XXX: should this be == or != ?
+        assert(next->mdbnode.owner != my_core_id);
+        if (next->mdbnode.in_delete) {
             printk(LOG_WARN,
                    "foreign caps with in_delete set,"
                    " this should not happen");
         }
         err = cleanup_copy(next);
         if (err_is_fail(err)) {
-            panic("error while deleting foreign copy for remote_delete:"
-                  " 0x%"PRIuERRV"\n", err);
+            panic("error while deleting extra foreign copy for remote_delete:"
+                  " %"PRIuERRV"\n", err);
         }
     }
 
@@ -404,7 +411,7 @@ errval_t caps_delete_foreigns(struct cte *cte)
     err = caps_try_delete(cte);
     if (err_is_fail(err)) {
         panic("error while deleting foreign copy for remote_delete:"
-              " 0x%"PRIuERRV"\n", err);
+              " %"PRIuERRV"\n", err);
     }
 
     return SYS_ERR_OK;

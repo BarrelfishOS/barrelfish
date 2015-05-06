@@ -413,7 +413,7 @@ delete_trylock_cont(void *st)
                                           0, 0, &relations);
     GOTO_IF_ERR(err, report_error);
 
-    if (!(relations && RRELS_COPY_BIT)) {
+    if (!(relations & RRELS_COPY_BIT)) {
         // no remote relations, proceed with final delete
         DEBUG_CAPOPS("%s: deleting last copy\n", __FUNCTION__);
         delete_last(del_st);
@@ -485,6 +485,6 @@ free_st:
     free(del_st);
 
 err_cont:
-    DEBUG_CAPOPS("%s: calling result handler with err=%d\n", __FUNCTION__, err);
+    DEBUG_CAPOPS("%s: calling result handler with err=%"PRIuERRV"\n", __FUNCTION__, err);
     result_handler(err, st);
 }

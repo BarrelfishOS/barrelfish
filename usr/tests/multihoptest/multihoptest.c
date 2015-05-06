@@ -120,6 +120,7 @@ static void send_cont(void *arg)
         assert(err_is_ok(err));
 
 #ifdef __gem5__
+        // XXX: why do we need to do this for gem5 only? -SG, 2015-05-05.
         struct test_multihop_binding *mb = (struct test_multihop_binding *)b;
         mb->capst.tx_capnum = 0;
 #endif
