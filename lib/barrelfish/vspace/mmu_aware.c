@@ -128,7 +128,7 @@ allocate:
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
                 // we can only get 4k frames for now; retry with 4k
-                if (alloc_size > BASE_PAGE_SIZE && origsize < BASE_PAGE_SIZE) {
+                if (alloc_size > BASE_PAGE_SIZE && req_size <= BASE_PAGE_SIZE) {
                     alloc_size = BASE_PAGE_SIZE;
                     goto allocate;
                 }
