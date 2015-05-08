@@ -56,7 +56,13 @@ struct pthread_mutex;
 struct pthread_mutex_attr;
 struct pthread_rwlock;
 struct pthread_rwlockattr;
-struct pthread_barrier;
+typedef struct {
+	int count;
+	int max_count;
+	struct thread_sem mutex;
+	struct thread_sem barrier;
+	struct thread_sem reset;
+} pthread_barrier_t;
 struct pthread_barrier_attr;
 struct pthread_spinlock;
 
@@ -80,7 +86,7 @@ typedef int     			pthread_key_t;
 typedef thread_once_t			pthread_once_t;
 typedef struct	pthread_rwlock		*pthread_rwlock_t;
 typedef struct	pthread_rwlockattr	*pthread_rwlockattr_t;
-typedef struct	pthread_barrier		*pthread_barrier_t;
+//typedef struct	pthread_barrier		*pthread_barrier_t;
 typedef struct	pthread_barrierattr	*pthread_barrierattr_t;
 typedef struct	pthread_spinlock	*pthread_spinlock_t;
 

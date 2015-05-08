@@ -237,7 +237,7 @@ int	_EXFUN(unsetenv,(const char *__string));
 int	_EXFUN(_unsetenv_r,(struct _reent *, const char *__string));
 #endif
 
-#if defined(__rtems__) || defined(BARRELFISH)
+#if defined(__rtems__) || (defined(BARRELFISH) && !defined(__cplusplus))
 int _EXFUN(posix_memalign,(void **, size_t, size_t));
 #endif
 

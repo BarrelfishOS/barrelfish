@@ -533,7 +533,55 @@ int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
     return (result);
 }
 
+int pthread_barrier_init(pthread_barrier_t *barrier, 
+			const pthread_barrierattr_t *attr, 
+			unsigned max_count)
+{
+	barrier->count = 0;
+	barrier->max_count = max_count;
 
+	thread_sem_init(&barrier->mutex, 1);
+	thread_sem_init(&barrier->barrier, 0);
+	thread_sem_init(&barrier->reset, 1);
+
+	return 0;
+}
+
+int pthread_barrier_wait(pthread_barrier_t *barrier)
+{
+	// waiting at the barrier
+	thread_sem_wait(&barrier->mutex);
+	barrier->count++;
+	if (barrier->count == barrier->max_count) {
+		thread_sem_wait(&barrier->reset);
+		thread_sem_post(&barrier->barrier);
+	}
+	thread_sem_post(&barrier->mutex);
+
+	thread_sem_wait(&barrier->barrier);
+	thread_sem_post(&barrier->barrier);
+
+	// reseting the barrier to be reused further
+	thread_sem_wait(&barrier->mutex);
+	barrier->count--;
+	if (barrier->count == 0) {
+		thread_sem_wait(&barrier->barrier);
+		thread_sem_post(&barrier->reset);
+	}
+	thread_sem_post(&barrier->mutex);
+	
+	thread_sem_wait(&barrier->reset);
+	thread_sem_post(&barrier->reset);
+
+	return 0;
+}
+
+
+int pthread_barrier_destroy(pthread_barrier_t *barrier)
+{
+	// no dynamically allocated objects to be freed
+	return 0;
+}
 
 int pthread_equal(pthread_t pt1, pthread_t pt2)
 {
