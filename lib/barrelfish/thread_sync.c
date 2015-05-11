@@ -187,6 +187,8 @@ void thread_mutex_lock(struct thread_mutex *mutex)
     while (mutex->locked > 0) {
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
+        handle = disp_disable();
+        disp_gen = get_dispatcher_generic(handle);
         acquire_spinlock(&mutex->lock);
     }
     mutex->locked = 1;
@@ -218,6 +220,8 @@ void thread_mutex_lock_nested(struct thread_mutex *mutex)
         && mutex->holder != disp_gen->current) {
         thread_block_and_release_spinlock_disabled(handle, &mutex->queue,
                                                    &mutex->lock);
+        handle = disp_disable();
+        disp_gen = get_dispatcher_generic(handle);
         acquire_spinlock(&mutex->lock);
     }
     mutex->locked++;
@@ -353,15 +357,17 @@ void thread_sem_wait(struct thread_sem *sem)
     dispatcher_handle_t disp = disp_disable();
     acquire_spinlock(&sem->lock);
 
-    if(sem->value < 1) {
+    while (sem->value < 1) {
         // Not possible to decrement -- wait!
         thread_block_and_release_spinlock_disabled(disp, &sem->queue, &sem->lock);
-    } else {
-        // Decrement possible
-        sem->value--;
-        release_spinlock(&sem->lock);
-        disp_enable(disp);
+        disp = disp_disable();
+        acquire_spinlock(&sem->lock);
     }
+
+    // Decrement possible
+    sem->value--;
+    release_spinlock(&sem->lock);
+    disp_enable(disp);
 
     trace_event(TRACE_SUBSYS_THREADS, TRACE_EVENT_THREADS_SEM_WAIT_LEAVE,
                 (uintptr_t)sem);
