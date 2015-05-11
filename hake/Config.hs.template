@@ -49,7 +49,7 @@ newlib_malloc = "oldmalloc"
 -- respectively. x86_32 accepts "small" and "large" for 4kB and 2MB/4MB pages
 -- respectively. All other architectures default to their default page size.
 morecore_pagesize :: String
-morecore_pagesize = "large"
+morecore_pagesize = "small"
 
 -- Use a frame pointer
 use_fp :: Bool
