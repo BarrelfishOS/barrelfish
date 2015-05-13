@@ -28,13 +28,13 @@
 
 _BEGIN_STD_C
 
-typedef struct 
+typedef struct
 {
   int quot; /* quotient */
   int rem; /* remainder */
 } div_t;
 
-typedef struct 
+typedef struct
 {
   long quot; /* quotient */
   long rem; /* remainder */
@@ -138,7 +138,7 @@ float	_EXFUN(strtof,(const char *__restrict __n, char **__restrict __end_PTR));
 #endif
 #ifndef __STRICT_ANSI__
 /* the following strtodf interface is deprecated...use strtof instead */
-# ifndef strtodf 
+# ifndef strtodf
 #  define strtodf strtof
 # endif
 #endif
@@ -237,7 +237,7 @@ int	_EXFUN(unsetenv,(const char *__string));
 int	_EXFUN(_unsetenv_r,(struct _reent *, const char *__string));
 #endif
 
-#ifdef __rtems__
+#if defined(__rtems__) || defined(BARRELFISH)
 int _EXFUN(posix_memalign,(void **, size_t, size_t));
 #endif
 
