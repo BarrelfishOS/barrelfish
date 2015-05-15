@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetsstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/tests/posixcompat
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "fdinherit",
@@ -15,4 +15,11 @@
                       addLibraries = [ "posixcompat", "lwip", "vfs" ]
                     }
 ]
+
+[ build application { target = "pthread_join",
+                      cFiles = [ "pthreads.c" ],
+                      addLibraries = [ "posixcompat", "lwip", "vfs" ]
+                    }
+]
+
 
