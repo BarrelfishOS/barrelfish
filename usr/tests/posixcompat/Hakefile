@@ -13,10 +13,9 @@
 [ build application { target = "fdinherit",
                       cFiles = [ "fdinherit.c" ],
                       addLibraries = [ "posixcompat", "lwip", "vfs" ]
-                    }
-]
+                    },
 
-[ build application { target = "pthread_join",
+  build application { target = "pthread_join",
                       cFiles = [ "pthreads.c" ],
                       addLibraries = [ "posixcompat", "lwip", "vfs" ]
                     }
