@@ -14,20 +14,20 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *  This product includes software developed by Chris Provenzano.
- * 4. The name of Chris Provenzano may not be used to endorse or promote 
+ * 4. The name of Chris Provenzano may not be used to endorse or promote
  *	  products derived from this software without specific prior written
  *	  permission.
  *
  * THIS SOFTWARE IS PROVIDED BY CHRIS PROVENZANO ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY 
+ * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY
  * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
  * $FreeBSD$
@@ -36,6 +36,8 @@
 #ifndef _SYS__PTHREADTYPES_H_
 #define _SYS__PTHREADTYPES_H_
 
+#include <sched.h>
+#include <stdbool.h>
 #include <barrelfish/thread_sync.h> // for thread_once_t
 
 /*
@@ -44,7 +46,10 @@
  * These are mostly opaque to the user.
  */
 struct pthread;
-struct pthread_attr;
+struct pthread_attr {
+    bool affinity_set;
+    cpu_set_t affinity;
+};
 struct pthread_cond;
 struct pthread_cond_attr;
 struct pthread_mutex;
@@ -66,7 +71,7 @@ struct pthread_spinlock;
 typedef struct	pthread			*pthread_t;
 #define	_PTHREAD_T_DECLARED
 #endif
-typedef struct	pthread_attr		*pthread_attr_t;
+typedef struct	pthread_attr		pthread_attr_t;
 typedef struct	pthread_mutex		*pthread_mutex_t;
 typedef struct	pthread_mutex_attr	*pthread_mutexattr_t;
 typedef struct	pthread_cond		*pthread_cond_t;

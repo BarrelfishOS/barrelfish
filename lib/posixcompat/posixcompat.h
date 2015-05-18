@@ -17,7 +17,7 @@ struct stat;
 
 void _posixcompat_vfs_info_to_stat(struct vfs_fileinfo *info, struct stat *buf);
 
-#if 0
+#if 1
 #define POSIXCOMPAT_DEBUG(x...) debug_printf(x)
 #define POSIXCOMPAT_DEBUG_ENABLED
 #else

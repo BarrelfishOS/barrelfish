@@ -294,6 +294,9 @@ int		pthread_setconcurrency(int);
 void		__pthread_cleanup_push_imp(void (*)(void *), void *,
 			struct _pthread_cleanup_info *);
 void		__pthread_cleanup_pop_imp(int);
+int pthread_attr_setaffinity_np(pthread_attr_t *attr,
+                   size_t cpusetsize, const cpu_set_t *cpuset);
 __END_DECLS
+
 
 #endif

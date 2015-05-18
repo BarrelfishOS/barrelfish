@@ -16,6 +16,8 @@
 
 #include <posixcompat.h> // for pthread_placement stuff
 
+#include "posixcompat.h"
+
 typedef void (*destructor_fn_t)(void *);
 typedef void *(*start_fn_t)(void *);
 
@@ -123,9 +125,20 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
 
     // Start the thread
     (*pthread)->core = disp_get_core_id();
-    if (pthread_placement) {
+    if (attr->affinity_set) {
+        // Simple allocation policy: Pick the first core that is in the set
+        for (size_t i = 0; i < MAX_COREID; i++) {
+            if (CPU_ISSET(i, &attr->affinity)) {
+                POSIXCOMPAT_DEBUG("pthread affinity: spawn new thread on core %zu\n", i);
+                (*pthread)->core = i;
+                break;
+            }
+        }
+    }
+    else if (pthread_placement) {
         (*pthread)->core = pthread_placement(PTHREAD_ACTION_CREATE, 0);
     }
+
     struct thread *nt;
     errval_t err = domain_thread_create_on_varstack(
                      (*pthread)->core, start_pthread, *pthread, stacksize, &nt);
@@ -135,7 +148,7 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
     }
 
     (*pthread)->thread = nt;
-    debug_printf("%s: %p -> %"PRIuPTR"\n", __FUNCTION__, *pthread,
+    POSIXCOMPAT_DEBUG("%s: %p -> %"PRIuPTR"\n", __FUNCTION__, *pthread,
             thread_get_id((*pthread)->thread));
     return 0;
 }
@@ -181,7 +194,8 @@ int pthread_attr_init(pthread_attr_t *attr)
 {
     *attr = malloc(sizeof(struct pthread_attr));
     (*attr)->stacksize = THREADS_DEFAULT_STACK_BYTES;
-    // No attributes
+    CPU_ZERO(&attr->affinity);
+    attr->affinity_set = 0;
     return 0;
 }
 
@@ -199,7 +213,7 @@ int pthread_mutex_init(pthread_mutex_t *mutex,
     thread_mutex_init(&(*mutex)->mutex);
     (*mutex)->locked = 0;
     if (attr && *attr) {
-        debug_printf("kind = %u\n", (*attr)->kind);
+        POSIXCOMPAT_DEBUG("kind = %u\n", (*attr)->kind);
         memcpy(&(*mutex)->attrs, *attr, sizeof(struct pthread_mutex_attr));
     } else {
         (*mutex)->attrs.kind = PTHREAD_MUTEX_NORMAL;
@@ -356,7 +370,7 @@ int pthread_cond_destroy(pthread_cond_t *cond)
 
 int pthread_join(pthread_t thread, void **retval)
 {
-    debug_printf("%s: %p\n", __FUNCTION__, thread);
+    POSIXCOMPAT_DEBUG("%s: %p\n", __FUNCTION__, thread);
     errval_t err = domain_thread_join(thread->thread, NULL);
     assert(err_is_ok(err));
 
@@ -713,6 +727,31 @@ int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
         return EINVAL;
     }
     thread_once(ctrl, init);
+    return 0;
+}
+
+/**
+ * The function sets the CPU affinity mask of the thread
+ * to the CPU set pointed to by cpuset.
+ * If the call is successful, and the thread is not currently
+ * running on one of the CPUs in cpuset, then it is migrated to one of
+ * those CPUs.
+ *
+ * \retval EFAULT A supplied memory address was invalid.
+ * \retval EINVAL The affinity bit mask mask contains no processors that are
+ * currently physically on the system (TODO).
+ *
+ **/
+int pthread_attr_setaffinity_np(pthread_attr_t *attr,
+                   size_t cpusetsize, const cpu_set_t *cpuset)
+{
+    if (attr == NULL || cpuset == NULL) {
+        return EFAULT;
+    }
+
+    // TODO: Query octopus to check that the affinity mask is sane (EINVAL)!
+    memcpy(&attr->affinity, cpuset, cpusetsize);
+    attr->affinity_set = true;
     return 0;
 }
 
