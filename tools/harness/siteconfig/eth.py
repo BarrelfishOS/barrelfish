@@ -11,7 +11,7 @@ import getpass
 import siteconfig
 
 # FIXME: Check why exactly ikq03 does not want to run httperf
-LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(4,8)]
+LOADGEN_HOSTS = ['emmentaler%d.ethz.ch' % n for n in range(1,4)]
 #LOADGEN_HOSTS = ['ikq0%d.ethz.ch' % n for n in range(4,5)]
 
 class ETH(siteconfig.BaseSite):
