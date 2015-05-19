@@ -153,7 +153,7 @@ class QEMUMachineMultiproc(QEMUMachineX64):
 @machines.add_machine
 class QEMUMachineX32Uniproc(QEMUMachineX32):
     '''Uniprocessor x86_32 QEMU'''
-    name = 'qemu1_x32'
+    name = 'qemu1-32'
 
     def get_ncores(self):
         return 1
@@ -161,7 +161,7 @@ class QEMUMachineX32Uniproc(QEMUMachineX32):
 @machines.add_machine
 class QEMUMachineX32Multiproc(QEMUMachineX32):
     '''Multiprocessor x86_32 QEMU (4 CPUs)'''
-    name = 'qemu4_x32'
+    name = 'qemu4-32'
 
     def get_ncores(self):
         return 4
