@@ -261,19 +261,67 @@ static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uin
     assert(err_is_ok(err));
 }
 
-static void msix_enable_handler(struct pci_binding *b)
+static void msix_enable_addr_handler(struct pci_binding *b, uint8_t bus,
+                                      uint8_t dev, uint8_t fun)
 {
     struct client_state *cc = (struct client_state *) b->st;
-    struct pci_address addr = {
-        .bus= cc->bus,
-        .device=cc->dev,
-        .function=cc->fun,
-    };
+    struct pci_address addr;
+
+    /* XXX: find another way to do this */
+
+    if (bus == cc->bus && dev == cc->dev) {
+        addr.bus= bus;
+        addr.device=dev;
+        addr.function=fun;
+    } else {
+        addr.bus= cc->bus;
+        addr.device=cc->dev;
+        addr.function=fun;
+    }
+
     errval_t err;
     uint16_t count;
 
+    debug_printf("enabling MSI-X for device (%u, %u, %u)\n", addr.bus,
+                 addr.device, addr.function);
+
     err = pci_msix_enable(&addr, &count);
     err = b->tx_vtbl.msix_enable_response(b, NOP_CONT, err, count);
+    assert(err_is_ok(err));
+}
+
+static void msix_enable_handler(struct pci_binding *b)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    msix_enable_addr_handler(b, cc->bus, cc->dev, cc->fun);
+}
+
+static void msix_vector_init_addr_handler(struct pci_binding *b, uint8_t bus,
+                                          uint8_t dev, uint8_t fun, uint16_t idx,
+                                          uint8_t destination, uint8_t vector)
+{
+    struct client_state *cc = (struct client_state *) b->st;
+    struct pci_address addr;
+
+    /* XXX: find another way to do this */
+
+    if (bus == cc->bus && dev == cc->dev) {
+        addr.bus= bus;
+        addr.device=dev;
+        addr.function=fun;
+    } else {
+        addr.bus= cc->bus;
+        addr.device=cc->dev;
+        addr.function=fun;
+    }
+
+    debug_printf("initialize MSI-X vector for device (%u, %u, %u)\n", addr.bus,
+                     addr.device, addr.function);
+
+    errval_t err;
+
+    err = pci_msix_vector_init(&addr, idx, destination, vector);
+    err = b->tx_vtbl.msix_vector_init_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
 
@@ -281,16 +329,9 @@ static void msix_vector_init_handler(struct pci_binding *b, uint16_t idx,
                                      uint8_t destination, uint8_t vector)
 {
     struct client_state *cc = (struct client_state *) b->st;
-    struct pci_address addr = {
-        .bus= cc->bus,
-        .device=cc->dev,
-        .function=cc->fun,
-    };
-    errval_t err;
 
-    err = pci_msix_vector_init(&addr, idx, destination, vector);
-    err = b->tx_vtbl.msix_vector_init_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
+    msix_vector_init_addr_handler(b, cc->bus, cc->dev, cc->fun, idx, destination,
+                                  vector);
 }
 
 struct pci_rx_vtbl pci_rx_vtbl = {
@@ -303,7 +344,9 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .write_conf_header_call = write_conf_header_handler,
 
     .msix_enable_call = msix_enable_handler,
+    .msix_enable_addr_call = msix_enable_addr_handler,
     .msix_vector_init_call = msix_vector_init_handler,
+    .msix_vector_init_addr_call = msix_vector_init_addr_handler,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

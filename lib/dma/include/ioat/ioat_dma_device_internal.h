@@ -10,6 +10,8 @@
 #ifndef IOAT_DMA_DEVICE_INTERNAL_H
 #define IOAT_DMA_DEVICE_INTERNAL_H
 
+#include <pci/pci.h>
+
 #include <dma_mem_utils.h>
 
 #include <dma_device_internal.h>

@@ -263,21 +263,44 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t pci_msix_enable(uint16_t *count)
+errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count)
 {
     errval_t err, msgerr;
-    err = pci_client->vtbl.msix_enable(pci_client, &msgerr, count);
+    if (addr == NULL) {
+        err = pci_client->vtbl.msix_enable(pci_client, &msgerr, count);
+    } else {
+        err = pci_client->vtbl.msix_enable_addr(pci_client, addr->bus, addr->device,
+                                                addr->function, &msgerr, count);
+    }
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t pci_msix_enable(uint16_t *count)
+{
+    return pci_msix_enable_addr(NULL, count);
+}
+
+errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t idx,
+                                   uint8_t destination, uint8_t vector)
+{
+    errval_t err, msgerr;
+    if (addr == NULL) {
+        err = pci_client->vtbl.msix_vector_init(pci_client, idx, destination,
+                                                    vector, &msgerr);
+    } else {
+        err = pci_client->vtbl.msix_vector_init_addr(pci_client, addr->bus,
+                                                     addr->device, addr->function,
+                                                     idx, destination,
+                                                     vector, &msgerr);
+    }
+
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t pci_msix_vector_init(uint16_t idx, uint8_t destination,
                               uint8_t vector)
 {
-    errval_t err, msgerr;
-    err = pci_client->vtbl.msix_vector_init(pci_client, idx, destination,
-                                            vector, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-
+    return pci_msix_vector_init_addr(NULL, idx, destination, vector);
 }
 
 static void bind_cont(void *st, errval_t err, struct pci_binding *b)

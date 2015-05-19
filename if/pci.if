@@ -63,10 +63,18 @@ interface pci "The PCI Interface" {
     rpc write_conf_header(in uint32 dword, in uint32 val, out errval err);
 
     /* Enable MSI-X for the specified PCI device. */
+    rpc msix_enable_addr(in uint8 bus, in uint8 dev, in uint8 fn,
+                         out errval err,
+                         out uint16 vec_count);
     rpc msix_enable(out errval err,
                     out uint16 vec_count);
 
     /* Configure specified MSI-X vector */
+    rpc msix_vector_init_addr(in uint8 bus, in uint8 dev, in uint8 fn,
+                              in uint16 idx,        /* Index of MSI-X vector */
+                              in uint8 destination, /* Interrupt Destination */
+                              in uint8 vector,      /* Interrupt Vector */
+                              out errval err);
     rpc msix_vector_init(in uint16 idx,        /* Index of MSI-X vector */
                          in uint8 destination, /* Interrupt Destination */
                          in uint8 vector,      /* Interrupt Vector */

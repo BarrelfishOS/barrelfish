@@ -7,6 +7,7 @@
  */
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/waitset.h>
 #include <bench/bench.h>
 #include <dev/ioat_dma_dev.h>
 
@@ -30,6 +31,10 @@ struct ioat_dma_device
     ioat_dma_cbver_t version;           ///< Crystal Beach version number
 
     struct dma_mem complstatus;         ///< memory region for channels CHANSTS
+    struct pci_address pci_addr;        ///< the PCI address of the device
+
+    uint8_t irq_msix_vector;
+    uint16_t irq_msix_count;
 
     uint32_t flags;
 };
@@ -149,7 +154,15 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
     }
 
     if (dev->flags & IOAT_DMA_DEV_F_DCA) {
-        /*TODO: DCA initialization device->dca = ioat3_dca_init(pdev, device->reg_base);*/
+        /*
+         * TODO: DCA initialization
+         * device->dca = ioat3_dca_init(pdev, device->reg_base);
+         */
+    }
+
+    err = ioat_dma_device_irq_setup(dev, DMA_IRQ_MSIX);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -173,10 +186,48 @@ void ioat_dma_device_get_complsts_addr(struct ioat_dma_device *dev,
     *mem = dev->complstatus;
     mem->bytes = IOAT_DMA_COMPLSTATUS_SIZE;
     mem->paddr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->common.channels.next);
-    mem->frame = NULL_CAP
-    ;
+    mem->frame = NULL_CAP;
     mem->vaddr += (IOAT_DMA_COMPLSTATUS_SIZE * dev->common.channels.next++);
+}
 
+#if IOAT_DEBUG_INTR_ENABLED
+///< flag indicating that the interrupt has happened for debugging purposes
+static uint32_t msix_intr_happened = 0;
+#include <dma/ioat/ioat_dma_request.h>
+#endif
+
+static void ioat_dma_device_irq_handler(void* arg)
+{
+    errval_t err;
+    struct dma_device *dev = arg;
+
+    IOATDEV_DEBUG("############ MSIX INTERRUPT HAPPENED.\n", dev->id);
+
+#if IOAT_DEBUG_INTR_ENABLED
+    msix_intr_happened=1;
+#endif
+
+    err = ioat_dma_device_poll_channels(dev);
+    if (err_is_fail(err)) {
+        if (err_no(err) == DMA_ERR_DEVICE_IDLE) {
+            IOATDEV_DEBUG("WARNING: MSI-X interrupt on idle device\n", dev->id);
+            return;
+        }
+        USER_PANIC_ERR(err, "dma poll device returned an error\n");
+    }
+}
+
+/**
+ * \brief gets the local apic ID from the CPU id
+ *
+ * \return local apic ID
+ */
+static inline uint8_t get_local_apic_id(void)
+{
+    uint32_t eax, ebx;
+
+    cpuid(1, &eax, &ebx, NULL, NULL);
+    return  ebx >> 24;
 }
 
 /**
@@ -188,14 +239,45 @@ void ioat_dma_device_get_complsts_addr(struct ioat_dma_device *dev,
 errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
                                    dma_irq_t type)
 {
+    errval_t err;
+
     ioat_dma_intrctrl_t intcrtl = 0;
     intcrtl = ioat_dma_intrctrl_intp_en_insert(intcrtl, 1);
 
     dev->common.irq_type = type;
     switch (type) {
         case DMA_IRQ_MSIX:
-            IOATDEV_DEBUG("Initializing MSI-X interrupts \n", dev->common.id);
-            assert(!"NYI");
+            /* The number of MSI-X vectors should equal the number of channels */
+            IOATDEV_DEBUG("MSI-X interrupt setup for device (%u, %u, %u)\n",
+                          dev->common.id, dev->pci_addr.bus, dev->pci_addr.device,
+                          dev->pci_addr.function);
+
+            err = pci_msix_enable_addr(&dev->pci_addr, &dev->irq_msix_count);
+            if (err_is_fail(err)) {
+                return err;
+            }
+
+            assert(dev->irq_msix_count > 0);
+
+            IOATDEV_DEBUG("MSI-X enabled #vecs=%d\n", dev->common.id,
+                          dev->irq_msix_count);
+
+            err = pci_setup_inthandler(ioat_dma_device_irq_handler, dev,
+                                       &dev->irq_msix_vector);
+            assert(err_is_ok(err));
+
+            uint8_t dest = get_local_apic_id();
+
+            IOATDEV_DEBUG("MSI-X routing to apic=%u\n", dev->common.id,
+                          dest);
+
+            err = pci_msix_vector_init_addr(&dev->pci_addr, 0, dest,
+                                            dev->irq_msix_vector);
+            assert(err_is_ok(err));
+
+            /* enable the interrupts */
+            intcrtl = ioat_dma_intrctrl_msix_vec_insert(intcrtl, 1);
+            intcrtl = ioat_dma_intrctrl_intp_en_insert(intcrtl, 1);
             break;
         case DMA_IRQ_MSI:
             IOATDEV_DEBUG("Initializing MSI interrupts \n", dev->common.id);
@@ -213,6 +295,42 @@ errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
     }
 
     ioat_dma_intrctrl_wr(&dev->device, intcrtl);
+
+
+#if IOAT_DEBUG_INTR_ENABLED
+    /*
+     * check if interrupts are working.
+     */
+    msix_intr_happened = 0;
+
+    struct ioat_dma_channel *chan;
+    chan = (struct ioat_dma_channel *)dev->common.channels.c[0];
+
+    ioat_dma_request_nop_chan(chan);
+    err = ioat_dma_channel_issue_pending(chan);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    while(msix_intr_happened == 0) {
+        uint64_t status = ioat_dma_channel_get_status(chan);
+        err = event_dispatch_non_block(get_default_waitset());
+
+        if (!ioat_dma_channel_is_active(status) && !ioat_dma_channel_is_idle(status)) {
+            USER_PANIC("DMA request turned channel into erroneous state.")
+        }
+
+        switch(err_no(err)) {
+            case LIB_ERR_NO_EVENT:
+                thread_yield();
+                break;
+            case SYS_ERR_OK:
+                continue;
+            default:
+                USER_PANIC_ERR(err, "dispatching event");
+        }
+    }
+#endif
 
     return SYS_ERR_OK;
 }
@@ -232,13 +350,15 @@ errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
 /**
  * \brief initializes a IOAT DMA device with the giving capability
  *
- * \param mmio capability representing the device's MMIO registers
- * \param dev  returns a pointer to the device structure
+ * \param mmio     capability representing the device's MMIO registers
+ * \param pci_addr the PCI address of this device
+ * \param dev      returns a pointer to the device structure
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t ioat_dma_device_init(struct capref mmio,
+                              struct pci_address *pci_addr,
                               struct ioat_dma_device **dev)
 {
     errval_t err;
@@ -265,6 +385,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     dma_dev->mmio.paddr = mmio_id.base;
     dma_dev->mmio.bytes = (1UL << mmio_id.bits);
     dma_dev->mmio.frame = mmio;
+    ioat_device->pci_addr = *pci_addr;
 
     IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%u kB}\n",
                   dma_dev->id, mmio_id.base, 1 << mmio_id.bits);
@@ -272,8 +393,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     err = vspace_map_one_frame_attr((void**) &dma_dev->mmio.vaddr,
                                     dma_dev->mmio.bytes, dma_dev->mmio.frame,
                                     VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                    NULL,
-                                    NULL);
+                                    NULL, NULL);
     if (err_is_fail(err)) {
         free(ioat_device);
         return err;

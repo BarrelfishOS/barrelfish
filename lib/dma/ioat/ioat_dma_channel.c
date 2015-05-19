@@ -31,8 +31,6 @@ struct ioat_dma_channel
     struct dma_mem completion;
     struct dma_ring *ring;          ///< Descriptor ring
     uint64_t status;                 ///< channel status
-    uint8_t irq_vector;
-    size_t irq_msix;
 };
 
 /**

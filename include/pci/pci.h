@@ -19,6 +19,12 @@
 #include <pci/mem.h>
 #include <pci/devids.h>
 
+struct pci_address {
+    uint8_t bus;
+    uint8_t device;
+    uint8_t function;
+};
+
 typedef void (*pci_driver_init_fn)(struct device_mem *bar_info,
                                    int nr_mapped_bars);
 typedef void (*legacy_driver_init_fn)(void);
@@ -74,6 +80,17 @@ errval_t pci_client_connect(void);
 errval_t pci_msix_enable(uint16_t *count);
 
 /**
+ * \brief enables MSI-X interupts for a given device
+ *
+ * \param addr  PCI address of the device to activate or NULL if don't care
+ * \param count returns the number of supported MSI-X interrupts
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on FAILURE
+ */
+errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count);
+
+/**
  * Configure an MSI-X vector
  * @param index       MSI-X Vector index
  * @param destination Destination APIC where the interrupt should be sent
@@ -81,5 +98,14 @@ errval_t pci_msix_enable(uint16_t *count);
  */
 errval_t pci_msix_vector_init(uint16_t index, uint8_t destination,
                               uint8_t vector);
+/**
+ * Configure an MSI-X vector
+ * \param addr  PCI address of the device to activate or NULL if don't care
+ * \param index       MSI-X Vector index
+ * \param destination Destination APIC where the interrupt should be sent
+ * \param vector      Interrupt vector to send
+ */
+errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t index,
+                                   uint8_t destination, uint8_t vector);
 
 #endif

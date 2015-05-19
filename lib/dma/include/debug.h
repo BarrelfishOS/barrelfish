@@ -110,7 +110,7 @@
 #define DMAMGR_DEBUG(x...)
 #endif
 #if DMA_DEBUG_DESC_ENABLED
-#define DMADESC_DEBUG(x...) IOAT_DEBUG_PRINT("[dma desc] " x)
+#define DMADESC_DEBUG(x...) DMA_DEBUG_PRINT("[dma desc] " x)
 #else
 #define DMADESC_DEBUG(x...)
 #endif

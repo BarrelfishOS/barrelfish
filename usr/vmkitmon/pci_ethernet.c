@@ -28,11 +28,6 @@
 #define PCI_CONFIG_DATA_PORT    0x0cfc
 #define PCI_ETHERNET_IRQ 11
 
-struct pci_address {
-    uint8_t bus;
-    uint8_t device;
-    uint8_t function;
-};
 
 static struct guest *guest_info;
 static struct pci_ethernet *pci_ethernet_unique;
@@ -73,7 +68,7 @@ static void confspace_write(struct pci_device *dev,
     if(addr.d.fnct_nr != 0) {
         return;
     }
-    
+
     if(addr.d.doubleword < 0x40) {
         errval_t r = pci_write_conf_header(addr.d.doubleword, val);
         if(err_is_fail(r)) {
@@ -110,7 +105,7 @@ static void pci_ethernet_init(void *bar_info, int nr_allocated_bars)
 {
 	VMKIT_PCI_DEBUG("pci_ethernet_init. nr_allocated_bars: %d!\n", nr_allocated_bars);
     struct device_mem *bar = (struct device_mem *)bar_info;
-    
+
     eth_base_paddr = bar[0].paddr;
 
     struct pci_ethernet * eth = pci_ethernet_unique;
@@ -264,7 +259,7 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 {
     struct pci_device *dev = calloc(1, sizeof(struct pci_device));
     struct pci_ethernet *host = calloc(1, sizeof(struct pci_ethernet));
-    
+
     pci_ethernet_unique = host;
     host->pci_device = dev;
     guest_info = g;
@@ -277,12 +272,12 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
     dev->state = host;
     dev->irq = PCI_ETHERNET_IRQ;
     dev->lpc = lpc;
-    
+
     //Connect to pci server
 	errval_t r = pci_client_connect();
 	assert(err_is_ok(r));
 	VMKIT_PCI_DEBUG("connected to pci\n");
-    
+
     //Register as driver
 	r = pci_register_driver_irq((pci_driver_init_fn)pci_ethernet_init,
                                 PCI_CLASS_ETHERNET,

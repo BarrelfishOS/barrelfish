@@ -33,13 +33,15 @@ static inline struct ioat_dma_device *dma_device_to_ioat(struct dma_device *dev)
 /**
  * \brief initializes a IOAT DMA device with the giving capability
  *
- * \param mmio capability representing the device's MMIO registers
- * \param dev  returns a pointer to the device structure
+ * \param mmio     capability representing the device's MMIO registers
+ * \param pci_addr the PCI address of this device
+ * \param dev      returns a pointer to the device structure
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t ioat_dma_device_init(struct capref mmio,
+                              struct pci_address *pci_addr,
                               struct ioat_dma_device **dev);
 
 /**
