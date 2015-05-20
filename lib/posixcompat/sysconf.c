@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <vfs/fdtab.h> /* For MAX_FD */
+#include <octopus/octopus.h>
 
 #include "posixcompat.h"
 
@@ -21,6 +22,23 @@ long sysconf(int name)
     switch(name) {
     case _SC_OPEN_MAX:
         return MAX_FD;
+
+    case _SC_NPROCESSORS_ONLN:
+        {
+            oct_init();
+
+            static char* local_apics = "r'hw\\.processor\\.[0-9]+' { enabled: 1 }";
+            char** names;
+            size_t count;
+            errval_t err = oct_get_names(&names, &count, local_apics);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Can not get core count");
+                return 1;
+            }
+            oct_free_names(names, count);
+
+            return count;
+        }
 
     default:
         POSIXCOMPAT_DEBUG("sysconf(%d): No implementation for this "
