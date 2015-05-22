@@ -1,20 +1,38 @@
 The following people have contributed code to Barrelfish:
 
+Reto Achermann <reto.achermann@inf.ethz.ch>
 Zachary Anderson <zachary.anderson@inf.ethz.ch>
 Paul Barham <Paul.Barham@microsoft.com>
 Andrew Baumann <andrewb@inf.ethz.ch>
 Richard Black <Richard.Black@microsoft.com>
 Justin Cappos <justin@cs.arizona.edu>
+Zaheer Chothia <zchothia@inf.ethz.ch>
+Andreas Dillier <dilliera@ethz.ch>
 Pierre-Evariste Dagand <pedagand@gmail.com>
+Raphael Fuchs <fuchs.raphael@gmail.com>
+Simon Gerber <simon.gerber@inf.ethz.ch>
+David Gerhard <gerhardd@student.ethz.ch>
+Jana Giceva <gicevaj@inf.ethz.ch>
 Ankush Gupta <guptaan@student.ethz.ch>
+Claudio Föllmi <foellmic@student.ethz.ch>
 Tim Harris <tharris@microsoft.com>
+Samuel Hitz <samuel.hitz@gmail.com>
 Orion Hodson <ohodson@microsoft.com>
+Moritz Hoffmann <moritzho@inf.ethz.ch>
+Lukas Humbel <humbell@ethz.ch>
 Rebecca Isaacs <Rebecca.Isaacs@microsoft.com>
 Stefan Kästle <stefan.kaestle@inf.ethz.ch>
 Antoine Kaufmann <antoinek@student.ethz.ch>
+Yauhen Klimiankou <yauhenk@student.ethz.ch>
+Kornilios Kourtis <kkourt@inf.ethz.ch>
 Ihor Kuz <ihor.kuz@nicta.com.au>
+Reto Lindegger <lreto@ethz.ch>
+Zeus Gómez Marmolejo <zeus.gomez@bsc.es>
 Ross McIlroy <rmcilroy@microsoft.com>
 Dominik Menzi <dmenzi@student.ethz.ch>
+Wang Nan <wangnan0@huawei.com>
+Mark Nevill <mark@nevill.ch>
+Mateusz Olczak <mateusz@olczak.se>
 Simon Peter <speter@inf.ethz.ch>
 Amar Phanishayee <amarp+@cs.cmu.edu>
 Kaveh Razavi <razavik@student.ethz.ch>
@@ -25,4 +43,7 @@ Bram Scheidegger <brams@student.ethz.ch>
 Adrian Schüpbach <scadrian@inf.ethz.ch>
 Akhilesh Singhania <akhi@inf.ethz.ch>
 Pravin Shinde <shindep@student.ethz.ch>
+Manuel Stocker <mensi@vis.ethz.ch>
 Animesh Trivedi <atrivedi@student.ethz.ch>
+Sebastian Wicki <swicki@student.ethz.ch>
+Gerd Zellweger <mail@gerdzellweger.com>
