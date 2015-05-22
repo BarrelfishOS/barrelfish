@@ -816,7 +816,7 @@ errval_t virtio_vq_host_poll(struct virtqueue_host **vqh,
             continue;
         }
         err = virtio_vq_host_desc_dequeue(vq);
-        if (err_is_fail(err) && !err_no(err) == VIRTIO_ERR_NO_DESC_AVAIL) {
+        if (err_is_fail(err) && err_no(err) != VIRTIO_ERR_NO_DESC_AVAIL) {
             return err;
         }
     }
