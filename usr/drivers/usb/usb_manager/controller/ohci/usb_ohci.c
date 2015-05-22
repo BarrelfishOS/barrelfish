@@ -244,7 +244,7 @@ usb_error_t usb_ohci_init(usb_ohci_hc_t *hc, uintptr_t base)
      */
     hc->hcca = usb_ohci_hcca_alloc();
 
-    for (uint16_t i = 0; i < USB_OHCI_NO_EP_DESCRIPTORS; i++) {
+    for (uint16_t i = 0; i < USB_OHCI_NO_IRQS; i++) {
         hc->hcca->hcca_interrupt_table[i] = hc->qh_intr_last[i
                 | USB_OHCI_NO_EP_DESCRIPTORS / 2]->ed_self;
     }
