@@ -133,6 +133,10 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         } else if (monitor_ep.u.endpoint.listener != NULL) {
             uintptr_t payload = dcb->domain_id;
             err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false);
+            if (err_is_fail(err)) {
+                printk(LOG_NOTE, "while notifying monitor about domain exit: %"PRIuERRV".\n", err);
+                printk(LOG_NOTE, "please add the console output to the following bug report: https://code.systems.ethz.ch/T78\n");
+            }
             assert(err_is_ok(err));
         }
 
