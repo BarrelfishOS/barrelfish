@@ -235,8 +235,8 @@ void paging_map_user_pages_l1(lvaddr_t table_base, lvaddr_t va, lpaddr_t pa)
     e.coarse.domain       = 0;
     e.coarse.base_address = (pa >> 10);
 
-    uintptr_t* l1table = (uintptr_t*)table_base;
-    l1table[va / BYTES_PER_SECTION] = e.raw;
+    union l1_entry *l1table = (union l1_entry*)table_base;
+    l1table[va / BYTES_PER_SECTION] = e;
 }
 
 void paging_set_l2_entry(uintptr_t* l2e, lpaddr_t addr, uintptr_t flags)
@@ -583,13 +583,24 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
 
 void paging_dump_tables(struct dcb *dispatcher)
 {
-    printf("dump_hw_page_tables\n");
     lvaddr_t l1 = local_phys_to_mem(dispatcher->vspace);
 
     for (int l1_index = 0; l1_index < ARM_L1_MAX_ENTRIES; l1_index++) {
         // get level2 table
-        union l1_entry *l2 = (union l1_entry *)l1 + l1_index;
-        if (!l2->raw) { continue; }
+        union l1_entry *l2 = ((union l1_entry *)l1) + l1_index;
+        if (L1_TYPE(l2->raw) == L1_TYPE_INVALID_ENTRY) { continue; }
+
+        if (L1_TYPE(l2->raw) == L1_TYPE_SECTION_ENTRY) {
+            genpaddr_t paddr = ((genpaddr_t)l2->section.base_address) << 20u;
+            printf("%d: 0x%"PRIxGENPADDR"\n", l1_index, paddr);
+            continue;
+        }
+
+        else if (L1_TYPE(l2->raw) != L1_TYPE_COARSE_ENTRY) {
+            printf("%d: 0x%"PRIx32" -> type = %d not handled\n", l1_index, l2->raw, L1_TYPE(l2->raw));
+            continue;
+        }
+
         genpaddr_t ptable_gp = (genpaddr_t)(l2->coarse.base_address) << 10;
         lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
