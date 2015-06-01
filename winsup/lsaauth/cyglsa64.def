@@ -1,0 +1,9 @@
+LIBRARY "cyglsa64"
+
+EXPORTS
+LsaApInitializePackage
+LsaApLogonUserEx
+LsaApLogonTerminated
+LsaApCallPackage
+LsaApCallPackagePassthrough = LsaApCallPackage
+LsaApCallPackageUntrusted = LsaApCallPackage
