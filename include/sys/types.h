@@ -99,8 +99,9 @@ typedef __clockid_t     clockid_t;
 #define _CLOCKID_T_DECLARED
 #endif
 
-#ifndef _TIME_T_DECLARED
+#ifndef __time_t_defined
 typedef __time_t  time_t;
+#define __time_t_defined
 #define _TIME_T_DECLARED
 #endif
 

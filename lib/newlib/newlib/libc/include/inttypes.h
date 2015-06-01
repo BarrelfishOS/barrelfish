@@ -143,7 +143,8 @@
 #define SCNxFAST16	__SCN16(x)
 
 /* 32-bit types */
-#if __have_long32
+// XXX: PRI*32 l##x for 32-bit Barrelfish makes problems. -SG, 2015-06-01.
+#if __have_long32 && !defined(BARRELFISH)
 #define __PRI32(x) __STRINGIFY(l##x)
 #define __SCN32(x) __STRINGIFY(l##x)
 #else

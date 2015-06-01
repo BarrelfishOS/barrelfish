@@ -30,6 +30,7 @@ if Config.libc == "newlib" then [ build library {
     "strcspn.c",
     "strdup.c",
     "strdup_r.c",
+    "strerror.c",
     "strlcat.c",
     "strlcpy.c",
     "strlen.c",
