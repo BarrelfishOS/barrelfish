@@ -172,7 +172,7 @@ errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **ret
 #endif
     errval_t err = mdb_find_cap_for_address(paddr, &mem);
     if (err_is_fail(err)) {
-        printf("could not find a cap for 0x%"PRIxGENPADDR" (%ld)\n", paddr, err);
+        printf("could not find a cap for 0x%"PRIxGENPADDR" (%"PRIuERRV")\n", paddr, err);
         return err;
     }
 #if 0

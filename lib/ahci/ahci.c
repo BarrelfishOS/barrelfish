@@ -467,7 +467,7 @@ errval_t ahci_close(struct ahci_binding *_binding, struct event_closure _continu
     // unmap controller memory
     errval_t err = cap_destroy(_binding->port_info.hba_cap);
     if (err_is_fail(err)) {
-        printf("cap_destroy: %s (%ld)\n", err_getstring(err), err);
+        printf("cap_destroy: %s (%"PRIuERRV")\n", err_getstring(err), err);
     }
     ahci_mgmt_close_call__tx(mgmt_binding, NOP_CONT, _binding->port_id);
 

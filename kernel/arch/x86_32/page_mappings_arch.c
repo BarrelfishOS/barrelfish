@@ -271,7 +271,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     if (src_cte->mapping_info.pte) {
         // already mapped
 #if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: this copy is already mapped @0x%lx\n", src_cte->mapping_info.pte);
+        printf("caps_copy_to_vnode: this copy is already mapped @0x%"PRIxLPADDR"\n", src_cte->mapping_info.pte);
 #endif
 #if RETURN_ON_ERROR
         return SYS_ERR_VM_ALREADY_MAPPED;
@@ -303,7 +303,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
     if (err_is_fail(r)) {
-        printf("caps_copy_to_vnode: handler func returned %ld\n", r);
+        printf("caps_copy_to_vnode: handler func returned %"PRIuERRV"\n", r);
     }
 #if 0
     else {
