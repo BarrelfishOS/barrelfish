@@ -40,6 +40,28 @@ quadword_aligned:
 
   .p2align 4
 loop:
+#ifdef __k1om__
+  /*
+   * XXX: K1OM does not support movntiq instructions, using normal move instead
+   * There may be a better way for doing this.
+   */
+  movq rax,     (rdi)
+  movq rax,   8 (rdi)
+  movq rax,  16 (rdi)
+  movq rax,  24 (rdi)
+  movq rax,  32 (rdi)
+  movq rax,  40 (rdi)
+  movq rax,  48 (rdi)
+  movq rax,  56 (rdi)
+  movq rax,  64 (rdi)
+  movq rax,  72 (rdi)
+  movq rax,  80 (rdi)
+  movq rax,  88 (rdi)
+  movq rax,  96 (rdi)
+  movq rax, 104 (rdi)
+  movq rax, 112 (rdi)
+  movq rax, 120 (rdi)
+#else
   movntiq rax,     (rdi)
   movntiq rax,   8 (rdi)
   movntiq rax,  16 (rdi)
@@ -56,13 +78,22 @@ loop:
   movntiq rax, 104 (rdi)
   movntiq rax, 112 (rdi)
   movntiq rax, 120 (rdi)
-
+#endif
   leaq    128 (rdi), rdi
 
   dec     rcx
   jnz     loop
-
+#ifdef __k1om__
+  /*
+   * XXX:
+   * Though CPUID can be used as the fencing operation, better options are
+   * "LOCK ADD [RSP],0" (a dummy atomic add) or XCHG (which combines a store
+   *  and a fence)
+   */
+  lock add  $0, (rsp)
+#else
   sfence
+#endif
   movq    rdx, rcx
   andq    $127, rcx
   rep     stosb

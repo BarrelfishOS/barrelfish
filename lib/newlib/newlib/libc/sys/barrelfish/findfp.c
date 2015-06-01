@@ -16,6 +16,10 @@
  */
 /* No user fns here.  Pesch 15apr92. */
 
+/* Barrelfish-specific version: copied from stdio/findfp.c.  We need to keep
+ * this seperate so that we can fill appropriate (i.e., non vfs dependent)
+ * functions for stdin/stdout/stderr */
+
 #include <_ansi.h>
 #include <reent.h>
 #include <stdio.h>
@@ -24,7 +28,17 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/lock.h>
-#include "local.h"
+
+#include "../../stdio/local.h" /* XXX: Ugly */
+
+#ifdef _RENT_SMALL
+#error "Not sure if _RENT_SMALL will work for barrelfish. Please check it"
+#endif
+
+#ifdef __LARGE64_FILES
+#error "Not sure if _LARGE64_FILES will work for barrelfish. Please check it"
+#endif
+
 
 #ifdef _REENT_SMALL
 const struct __sFILE_fake __sf_fake_stdin =
@@ -35,11 +49,79 @@ const struct __sFILE_fake __sf_fake_stderr =
     {_NULL, 0, 0, 0, 0, {_NULL, 0}, 0, _NULL};
 #endif
 
-#if (defined (__OPTIMIZE_SIZE__) || defined (PREFER_SIZE_OVER_SPEED))
-_NOINLINE_STATIC _VOID
-#else
+/* functions for stdin/stdout/stderr that do not depend on vfs
+ * similar to: oldc/src/sys-barrelfish/sys_stdio.c */
+size_t (*_libc_terminal_read_func)(char *, size_t);
+size_t (*_libc_terminal_write_func)(const char *, size_t);
+
+static _READ_WRITE_RETURN_TYPE
+_DEFUN(term_read, (ptr, cookie, buf, n),
+       struct _reent *ptr _AND
+       void *cookie _AND
+       char *buf _AND
+       int n)
+{
+    if (_libc_terminal_read_func) {
+        return _libc_terminal_read_func((char *)buf, n);
+    } else {
+        return -1;
+    }
+}
+
+static _READ_WRITE_RETURN_TYPE
+_DEFUN(read_fail, (ptr, cookie, buf, n),
+       struct _reent *ptr _AND
+       void *cookie _AND
+       char *buf _AND
+       int n)
+{
+    return -1;
+}
+
+static _READ_WRITE_RETURN_TYPE
+_DEFUN(term_write, (ptr, cookie, buf, n),
+       struct _reent *ptr _AND
+       void *cookie _AND
+       char const *buf _AND
+       int n)
+{
+    if (_libc_terminal_write_func) {
+        return _libc_terminal_write_func((char *)buf, n);
+    } else {
+        return -1;
+    }
+}
+
+static _READ_WRITE_RETURN_TYPE
+_DEFUN(write_fail, (ptr, cookie, buf, n),
+       struct _reent *ptr _AND
+       void *cookie _AND
+       char const *buf _AND
+       int n)
+{
+    return -1;
+}
+
+static _fpos_t
+_DEFUN(seek_fail, (ptr, cookie, offset, whence),
+       struct _reent *ptr _AND
+       void *cookie _AND
+       _fpos_t offset _AND
+       int whence)
+{
+    return -1;
+}
+
+
+static int
+_DEFUN(close_fail, (ptr, cookie),
+       struct _reent *ptr _AND
+       void *cookie)
+{
+    return  -1;
+}
+
 static _VOID
-#endif
 _DEFUN(std, (ptr, flags, file, data),
             FILE *ptr _AND
             int flags _AND
@@ -66,11 +148,7 @@ _DEFUN(std, (ptr, flags, file, data),
   ptr->_flags |= __SL64;
 #endif /* __LARGE64_FILES */
   ptr->_seek = __sseek;
-#ifdef _STDIO_CLOSE_PER_REENT_STD_STREAMS
   ptr->_close = __sclose;
-#else /* _STDIO_CLOSE_STD_STREAMS */
-  ptr->_close = NULL;
-#endif /* _STDIO_CLOSE_STD_STREAMS */
 #if !defined(__SINGLE_THREAD__) && !defined(_REENT_SMALL)
   __lock_init_recursive (ptr->_lock);
   /*
@@ -85,27 +163,23 @@ _DEFUN(std, (ptr, flags, file, data),
 #endif
 }
 
-struct glue_with_file {
-  struct _glue glue;
-  FILE file;
-};
-
 struct _glue *
 _DEFUN(__sfmoreglue, (d, n),
        struct _reent *d _AND
        register int n)
 {
-  struct glue_with_file *g;
+  struct _glue *g;
+  FILE *p;
 
-  g = (struct glue_with_file *)
-    _malloc_r (d, sizeof (*g) + (n - 1) * sizeof (FILE));
+  g = (struct _glue *) _malloc_r (d, sizeof (*g) + n * sizeof (FILE));
   if (g == NULL)
     return NULL;
-  g->glue._next = NULL;
-  g->glue._niobs = n;
-  g->glue._iobs = &g->file;
-  memset (&g->file, 0, n * sizeof (FILE));
-  return &g->glue;
+  p = (FILE *) (g + 1);
+  g->_next = NULL;
+  g->_niobs = n;
+  g->_iobs = p;
+  memset (p, 0, n * sizeof (FILE));
+  return g;
 }
 
 /*
@@ -120,7 +194,7 @@ _DEFUN(__sfp, (d),
   int n;
   struct _glue *g;
 
-  _newlib_sfp_lock_start ();
+  __sfp_lock_acquire ();
 
   if (!_GLOBAL_REENT->__sdidinit)
     __sinit (_GLOBAL_REENT);
@@ -133,7 +207,7 @@ _DEFUN(__sfp, (d),
 	  (g->_next = __sfmoreglue (d, NDYNAMIC)) == NULL)
 	break;
     }
-  _newlib_sfp_lock_exit ();
+  __sfp_lock_release ();
   d->_errno = ENOMEM;
   return NULL;
 
@@ -144,7 +218,7 @@ found:
 #ifndef __SINGLE_THREAD__
   __lock_init_recursive (fp->_lock);
 #endif
-  _newlib_sfp_lock_end ();
+  __sfp_lock_release ();
 
   fp->_p = NULL;		/* no current pointer */
   fp->_w = 0;			/* nothing to read or write */
@@ -174,22 +248,8 @@ _VOID
 _DEFUN(_cleanup_r, (ptr),
        struct _reent *ptr)
 {
-  int (*cleanup_func) (struct _reent *, FILE *);
-#ifdef _STDIO_BSD_SEMANTICS
-  /* BSD and Glibc systems only flush streams which have been written to
-     at exit time.  Calling flush rather than close for speed, as on
-     the aforementioned systems. */
-  cleanup_func = __sflushw_r;
-#else
-  /* Otherwise close files and flush read streams, too.
-     Note we call flush directly if "--enable-lite-exit" is in effect.  */
-#ifdef _LITE_EXIT
-  cleanup_func = _fflush_r;
-#else
-  cleanup_func = _fclose_r;
-#endif
-#endif
-  _CAST_VOID _fwalk_reent (ptr, cleanup_func);
+  _CAST_VOID _fwalk(ptr, fclose);
+  /* _CAST_VOID _fwalk (ptr, fflush); */	/* `cheating' */
 }
 
 #ifndef _REENT_ONLY
@@ -218,6 +278,7 @@ _DEFUN(__sinit, (s),
 
   /* make sure we clean up on exit */
   s->__cleanup = _cleanup_r;	/* conservative */
+  s->__sdidinit = 1;
 
   s->__sglue._next = NULL;
 #ifndef _REENT_SMALL
@@ -226,11 +287,6 @@ _DEFUN(__sinit, (s),
 #else
   s->__sglue._niobs = 0;
   s->__sglue._iobs = NULL;
-  /* Avoid infinite recursion when calling __sfp  for _GLOBAL_REENT.  The
-     problem is that __sfp checks for _GLOBAL_REENT->__sdidinit and calls
-     __sinit if it's 0. */
-  if (s == _GLOBAL_REENT)
-    s->__sdidinit = 1;
   s->_stdin = __sfp(s);
   s->_stdout = __sfp(s);
   s->_stderr = __sfp(s);
@@ -257,7 +313,19 @@ _DEFUN(__sinit, (s),
      when the underlying fd 2 is write-only.  */
   std (s->_stderr, __SRW | __SNBF, 2, s);
 
-  s->__sdidinit = 1;
+  /* Barrelfish: non VFS dependent stdin/stdout/stderr */
+  s->_stdin->_read  = term_read;
+  s->_stdin->_write = write_fail;
+  s->_stdin->_seek  = seek_fail;
+  s->_stdin->_close = close_fail; /* XXX ? */
+  s->_stdout->_read  = read_fail;
+  s->_stdout->_write = term_write;
+  s->_stdout->_seek  = seek_fail;
+  s->_stdout->_close = close_fail; /* XXX ? */
+  s->_stderr->_read  = read_fail;
+  s->_stderr->_write = term_write;
+  s->_stderr->_seek  = seek_fail;
+  s->_stderr->_close = close_fail; /* XXX ? */
 
   __sinit_lock_release ();
 }

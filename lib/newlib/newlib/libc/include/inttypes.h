@@ -19,6 +19,7 @@
 #include <stdint.h>
 #define __need_wchar_t
 #include <stddef.h>
+#include <stdlib.h>
 
 #define __STRINGIFY(a) #a
 
@@ -309,7 +310,13 @@ extern "C" {
 extern intmax_t  imaxabs(intmax_t j);
 extern imaxdiv_t imaxdiv(intmax_t numer, intmax_t denomer);
 extern intmax_t  strtoimax(const char *__restrict, char **__restrict, int);
-extern uintmax_t strtoumax(const char *__restrict, char **__restrict, int);
+//extern uintmax_t strtoumax(const char *__restrict, char **__restrict, int);
+
+static inline uintmax_t strtoumax(const char *s, char **endp, int base)
+{
+    return strtoull(s, endp, base);
+}
+
 extern intmax_t  wcstoimax(const wchar_t *__restrict, wchar_t **__restrict, int);
 extern uintmax_t wcstoumax(const wchar_t *__restrict, wchar_t **__restrict, int);
 

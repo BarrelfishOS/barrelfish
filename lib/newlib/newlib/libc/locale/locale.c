@@ -107,7 +107,7 @@ beginning with <<"LC_">>.
 
 <<localeconv>> returns a pointer to a structure (also defined in
 `<<locale.h>>') describing the locale-specific conventions currently
-in effect.  
+in effect.
 
 <<_localeconv_r>> and <<_setlocale_r>> are reentrant versions of
 <<localeconv>> and <<setlocale>> respectively.  The extra argument
@@ -199,7 +199,7 @@ int __mlocale_changed = 0;
 char *_PathLocale = NULL;
 
 static
-struct lconv lconv = 
+struct lconv lconv =
 {
   ".", "", "", "", "", "", "", "", "", "",
   CHAR_MAX, CHAR_MAX, CHAR_MAX, CHAR_MAX,
@@ -280,7 +280,7 @@ _DEFUN(_setlocale_r, (p, category, locale),
 {
 #ifndef _MB_CAPABLE
   if (locale)
-    { 
+    {
       if (strcmp (locale, "POSIX") && strcmp (locale, "C")
 	  && strcmp (locale, ""))
         return NULL;
@@ -969,7 +969,7 @@ _DEFUN_VOID(__locale_cjk_lang)
 }
 
 struct lconv *
-_DEFUN(_localeconv_r, (data), 
+_DEFUN(_localeconv_r, (data),
       struct _reent *data)
 {
 #ifdef __HAVE_LOCALE_INFO__
@@ -1039,5 +1039,278 @@ _DEFUN_VOID(localeconv)
 {
   return _localeconv_r (_REENT);
 }
-
 #endif
+
+
+
+/* Free the data associated with a locale dataset previously returned
+   by a call to `setlocale_r'.  */
+void freelocale (locale_t __dataset)
+{
+
+     int cnt;
+
+    /* This static object is returned for newlocale (LC_ALL_MASK, "C").  */
+    if (__dataset == NULL)
+      return;
+#if 0
+    /* We modify global data (the usage counts).  */
+    __libc_rwlock_wrlock (__libc_setlocale_lock);
+
+    for (cnt = 0; cnt < __LC_LAST; ++cnt)
+      if (cnt != LC_ALL && __dataset->__locales[cnt]->usage_count != UNDELETABLE)
+        /* We can remove the data.  */
+        _nl_remove_locale (cnt, __dataset->__locales[cnt]);
+
+    /* It's done.  */
+    __libc_rwlock_unlock (__libc_setlocale_lock);
+#endif
+    /* Free the locale_t handle itself.  */
+    free (__dataset);
+}
+
+/* Return a reference to a data structure representing a set of locale
+   datasets.  Unlike for the CATEGORY parameter for `setlocale' the
+   CATEGORY_MASK parameter here uses a single bit for each category,
+   made by OR'ing together LC_*_MASK bits above.  */
+locale_t newlocale (int __category_mask, __const char *__locale,
+                locale_t __base)
+{
+    return (__locale_t) malloc (sizeof (struct __locale_struct));
+#if 0
+  /* Intermediate memory for result.  */
+  const char *newnames[__LC_LAST];
+  struct __locale_struct result;
+  __locale_t result_ptr;
+  char *locale_path;
+  size_t locale_path_len;
+  const char *locpath_var;
+  int cnt;
+  size_t names_len;
+
+  /* We treat LC_ALL in the same way as if all bits were set.  */
+  if (category_mask == 1 << LC_ALL)
+    category_mask = (1 << __LC_LAST) - 1 - (1 << LC_ALL);
+
+  /* Sanity check for CATEGORY argument.  */
+  if ((category_mask & ~((1 << __LC_LAST) - 1 - (1 << LC_ALL))) != 0)
+    ERROR_RETURN;
+
+  /* `newlocale' does not support asking for the locale name. */
+  if (locale == NULL)
+    ERROR_RETURN;
+
+  if (base == _nl_C_locobj_ptr)
+    /* We're to modify BASE, returned for a previous call with "C".
+       We can't really modify the read-only structure, so instead
+       start over by copying it.  */
+    base = NULL;
+
+  if ((base == NULL || category_mask == (1 << __LC_LAST) - 1 - (1 << LC_ALL))
+      && (category_mask == 0 || !strcmp (locale, "C")))
+    /* Asking for the "C" locale needn't allocate a new object.  */
+    return _nl_C_locobj_ptr;
+
+  /* Allocate memory for the result.  */
+  if (base != NULL)
+    result = *base;
+  else
+    /* Fill with pointers to C locale data.  */
+    result = _nl_C_locobj;
+
+  /* If no category is to be set we return BASE if available or a
+     dataset using the C locale data.  */
+  if (category_mask == 0)
+    {
+      result_ptr = (__locale_t) malloc (sizeof (struct __locale_struct));
+      if (result_ptr == NULL)
+        return NULL;
+      *result_ptr = result;
+
+      goto update;
+    }
+
+  /* We perhaps really have to load some data.  So we determine the
+     path in which to look for the data now.  The environment variable
+     `LOCPATH' must only be used when the binary has no SUID or SGID
+     bit set.  If using the default path, we tell _nl_find_locale
+     by passing null and it can check the canonical locale archive.  */
+  locale_path = NULL;
+  locale_path_len = 0;
+
+  locpath_var = getenv ("LOCPATH");
+  if (locpath_var != NULL && locpath_var[0] != '\0')
+    {
+      if (__argz_create_sep (locpath_var, ':',
+                             &locale_path, &locale_path_len) != 0)
+        return NULL;
+
+      if (__argz_add_sep (&locale_path, &locale_path_len,
+                          _nl_default_locale_path, ':') != 0)
+        return NULL;
+    }
+
+  /* Get the names for the locales we are interested in.  We either
+     allow a composite name or a single name.  */
+  for (cnt = 0; cnt < __LC_LAST; ++cnt)
+    if (cnt != LC_ALL)
+      newnames[cnt] = locale;
+  if (strchr (locale, ';') != NULL)
+    {
+      /* This is a composite name.  Make a copy and split it up.  */
+      char *np = strdupa (locale);
+      char *cp;
+      int specified_mask = 0;
+
+      while ((cp = strchr (np, '=')) != NULL)
+        {
+          for (cnt = 0; cnt < __LC_LAST; ++cnt)
+            if (cnt != LC_ALL
+                && (size_t) (cp - np) == _nl_category_name_sizes[cnt]
+                && memcmp (np, (_nl_category_names.str
+                                + _nl_category_name_idxs[cnt]), cp - np) == 0)
+              break;
+
+          if (cnt == __LC_LAST)
+            /* Bogus category name.  */
+            ERROR_RETURN;
+
+          /* Found the category this clause sets.  */
+          specified_mask |= 1 << cnt;
+          newnames[cnt] = ++cp;
+          cp = strchr (cp, ';');
+          if (cp != NULL)
+            {
+              /* Examine the next clause.  */
+              *cp = '\0';
+              np = cp + 1;
+            }
+          else
+            /* This was the last clause.  We are done.  */
+            break;
+        }
+
+      if (category_mask &~ specified_mask)
+        /* The composite name did not specify all categories we need.  */
+        ERROR_RETURN;
+    }
+
+  /* Protect global data.  */
+  __libc_rwlock_wrlock (__libc_setlocale_lock);
+
+  /* Now process all categories we are interested in.  */
+  names_len = 0;
+  for (cnt = 0; cnt < __LC_LAST; ++cnt)
+    {
+      if ((category_mask & 1 << cnt) != 0)
+        {
+          result.__locales[cnt] = _nl_find_locale (locale_path,
+                                                   locale_path_len,
+                                                   cnt, &newnames[cnt]);
+          if (result.__locales[cnt] == NULL)
+            {
+            free_cnt_data_and_exit:
+              while (cnt-- > 0)
+                if (((category_mask & 1 << cnt) != 0)
+                    && result.__locales[cnt]->usage_count != UNDELETABLE)
+                  /* We can remove the data.  */
+                  _nl_remove_locale (cnt, result.__locales[cnt]);
+
+              /* Critical section left.  */
+              __libc_rwlock_unlock (__libc_setlocale_lock);
+              return NULL;
+            }
+
+          if (newnames[cnt] != _nl_C_name)
+            names_len += strlen (newnames[cnt]) + 1;
+        }
+      else if (cnt != LC_ALL && result.__names[cnt] != _nl_C_name)
+        /* Tally up the unchanged names from BASE as well.  */
+        names_len += strlen (result.__names[cnt]) + 1;
+    }
+
+  /* We successfully loaded all required data.  Allocate a new structure.
+     We can't just reuse the BASE pointer, because the name strings are
+     changing and we need the old name string area intact so we can copy
+     out of it into the new one without overlap problems should some
+     category's name be getting longer.  */
+  result_ptr = malloc (sizeof (struct __locale_struct) + names_len);
+  if (result_ptr == NULL)
+    {
+      cnt = __LC_LAST;
+      goto free_cnt_data_and_exit;
+    }
+
+  if (base == NULL)
+    {
+      /* Fill in this new structure from scratch.  */
+
+      char *namep = (char *) (result_ptr + 1);
+
+      /* Install copied new names in the new structure's __names array.
+         If resolved to "C", that is already in RESULT.__names to start.  */
+      for (cnt = 0; cnt < __LC_LAST; ++cnt)
+        if ((category_mask & 1 << cnt) != 0 && newnames[cnt] != _nl_C_name)
+          {
+            result.__names[cnt] = namep;
+            namep = __stpcpy (namep, newnames[cnt]) + 1;
+          }
+
+      *result_ptr = result;
+    }
+  else
+    {
+      /* We modify the base structure.  */
+
+      char *namep = (char *) (result_ptr + 1);
+
+      for (cnt = 0; cnt < __LC_LAST; ++cnt)
+        if ((category_mask & 1 << cnt) != 0)
+          {
+            if (base->__locales[cnt]->usage_count != UNDELETABLE)
+              /* We can remove the old data.  */
+              _nl_remove_locale (cnt, base->__locales[cnt]);
+            result_ptr->__locales[cnt] = result.__locales[cnt];
+
+            if (newnames[cnt] == _nl_C_name)
+              result_ptr->__names[cnt] = _nl_C_name;
+            else
+              {
+                result_ptr->__names[cnt] = namep;
+                namep = __stpcpy (namep, newnames[cnt]) + 1;
+              }
+          }
+        else if (cnt != LC_ALL)
+          {
+            /* The RESULT members point into the old BASE structure.  */
+            result_ptr->__locales[cnt] = result.__locales[cnt];
+            if (result.__names[cnt] == _nl_C_name)
+              result_ptr->__names[cnt] = _nl_C_name;
+            else
+              {
+                result_ptr->__names[cnt] = namep;
+                namep = __stpcpy (namep, result.__names[cnt]) + 1;
+              }
+          }
+
+      free (base);
+    }
+
+  /* Critical section left.  */
+  __libc_rwlock_unlock (__libc_setlocale_lock);
+
+  /* Update the special members.  */
+ update:
+  {
+    union locale_data_value *ctypes = result_ptr->__locales[LC_CTYPE]->values;
+    result_ptr->__ctype_b = (const unsigned short int *)
+      ctypes[_NL_ITEM_INDEX (_NL_CTYPE_CLASS)].string + 128;
+    result_ptr->__ctype_tolower = (const int *)
+      ctypes[_NL_ITEM_INDEX (_NL_CTYPE_TOLOWER)].string + 128;
+    result_ptr->__ctype_toupper = (const int *)
+      ctypes[_NL_ITEM_INDEX (_NL_CTYPE_TOUPPER)].string + 128;
+  }
+
+  return result_ptr;
+#endif
+}

@@ -243,6 +243,11 @@ int _EXFUN(posix_memalign,(void **, size_t, size_t));
 
 #endif /* ! __STRICT_ANSI__ */
 
+#if 0 // do we really need these? -SG, 2015-06-01.
+unsigned long long _EXFUN(strtoull,(const char *__n, char **__end_PTR, int __base));
+unsigned long long _EXFUN(_strtoull_r,(struct _reent *, const char *__n, char **__end_PTR, int __base));
+#endif
+
 char *	_EXFUN(_dtoa_r,(struct _reent *, double, int, int, int *, int*, char**));
 #ifndef __CYGWIN__
 _PTR	_EXFUN_NOTHROW(_malloc_r,(struct _reent *, size_t));
@@ -279,6 +284,16 @@ _VOID	_EXFUN(qsort_r,(_PTR __base, size_t __nmemb, size_t __size, int (*_compar)
 extern long double strtold (const char *__restrict, char **__restrict);
 #endif
 #endif /* _HAVE_LONG_DOUBLE */
+
+/* from POSIX (see libposixcompat) */
+void srandom(unsigned long x);
+char *initstate(unsigned long seed, char *arg_state, long n);
+char *setstate(char *arg_state);
+long random(void);
+int  posix_openpt(int oflag);
+int unlockpt(int fd);
+int grantpt(int fd);
+char *ptsname(int fd);
 
 _END_STD_C
 

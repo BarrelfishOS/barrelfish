@@ -1,0 +1,31 @@
+Name: newlib
+Description: C library intended for use on embedded systems
+URL: http://sourceware.org/newlib/
+License: BSD-like / Public Domain
+Version: 2.0.2 (2015-05-03)
+
+Porting notes
+--------------
+A generic description of the porting process can be found here:
+  http://wiki.osdev.org/Porting_Newlib
+
+* This only contains the subset of full source tree.
+  - autoconf build system removed and replaced with Hake.
+  - This is the default libc but that can be changed in `hake/Config.hs`.
+  - libgloss was removed. This usually provides startup code and some basic
+    syscalls (e.g. _exit, sbrk, kill).  In the case of Barrelfish these are in
+    posixcompat and //lib/crt0 respectively.
+
+* libc and libm are used verbatim with no/minimal modifications.
+  Most functions are included, although some are omitted because they are not
+  supported or simply because they have not been needed yet.
+  Notable omissions: iconv, (reent), posix, signal, stdio64, unix, xdr
+
+* A thin layer implements a small number of Barrelfish-specific system calls:
+    newlib/libc/sys/barrelfish/*syscalls.c
+
+* Some header files are shadowed (e.g. <unistd.h>) -- i.e. they exist in both
+  `//include` and `newlib/libc/include`.  If there are missing definitions,
+  make sure to add them to the first one.  Some other headers (e.g. <signal.h>)
+  have been renamed so they are not found, since these are not available on
+  Barrelfish.

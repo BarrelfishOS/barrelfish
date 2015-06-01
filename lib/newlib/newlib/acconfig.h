@@ -9,7 +9,7 @@
 /* Newlib version */
 #undef _NEWLIB_VERSION
 
-/* C99 formats support (such as %a, %zu, ...) in IO functions like
+/* C99 formats support (such as %a, %lu, ...) in IO functions like
  * printf/scanf enabled */
 #undef _WANT_IO_C99_FORMATS
 

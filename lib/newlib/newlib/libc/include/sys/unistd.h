@@ -1,3 +1,5 @@
+#error This header is not compatible with Barrelfish! Use the Barrelfish version in include/sys/unistd.h instead.
+
 #ifndef _SYS_UNISTD_H
 #define _SYS_UNISTD_H
 

@@ -233,8 +233,25 @@ _DEFUN (_dtoa_r,
   double ds;
   char *s, *s0;
 
+#ifdef __k1om__
+  // double _d; union double_union d
+  ds = _d;
+  __uint32_t *_di = (__uint32_t *)(&ds);
+  d.i[0] = *_di;
+  d.i[1] = *(_di+1);
+  /**
+   * with using "d.d = _d;" this error happens:
+   *
+   * (insn 2915 251 253 2 (set (mem/c:DF (plus:DI (reg/f:DI 6 bp)
+   *             (const_int -88 [0xffffffffffffffa8])) [22 %sfp+-40 S8 A64])
+   *     (reg:DF 21 xmm0)) ../barrelfish/lib/newlib/newlib/libc/stdlib/dtoa.c:242 107 {*movdf_internal_rex64}
+   *  (nil))
+   * ../barrelfish/lib/newlib/newlib/libc/stdlib/dtoa.c:870:1:
+   * internal compiler error: in reload_cse_simplify_operands, at postreload.c:403
+   */
+#else
   d.d = _d;
-
+#endif
   _REENT_CHECK_MP(ptr);
   if (_REENT_MP_RESULT(ptr))
     {

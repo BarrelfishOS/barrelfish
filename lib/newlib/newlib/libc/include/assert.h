@@ -6,12 +6,16 @@
 extern "C" {
 #endif
 
+#ifndef _ASSERT_H_
+#define _ASSERT_H_
+
 #include "_ansi.h"
 
 #undef assert
 
 #ifdef NDEBUG           /* required by ANSI standard */
-# define assert(__e) ((void)0)
+#define assert(__e)     ((void)sizeof(__e)) /* barrelfish assert */
+/* # define assert(__e) ((void)0) */
 #else
 # define assert(__e) ((__e) ? (void)0 : __assert_func (__FILE__, __LINE__, \
 						       __ASSERT_FUNC, #__e))
@@ -44,6 +48,8 @@ void _EXFUN(__assert_func, (const char *, int, const char *, const char *)
 #if __STDC_VERSION__ >= 201112L && !defined __cplusplus
 # define static_assert _Static_assert
 #endif
+
+#endif /* _ASSERT_H_ */
 
 #ifdef __cplusplus
 }
