@@ -1,7 +1,0 @@
-if Config.libc == "newlib" then
-[ build library { 
-  target = "newlib",
-  addLibraries = [ "newlib_" ]
-   }
-]
-else []
