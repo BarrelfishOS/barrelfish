@@ -50,7 +50,11 @@ cFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
 cxxFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
        ++ commonCxxFlags
 
-cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH", "BF_BINARY_PREFIX=\\\"\\\"" ] ]
+cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
+                                            "BF_BINARY_PREFIX=\\\"\\\"",
+                                            "_WANT_IO_C99_FORMATS" -- newlib C99 printf format specifiers
+                                          ]
+                   ]
                    ++ Config.defines
                    ++ Config.arch_defines options
 
@@ -268,24 +272,12 @@ archive :: String -> Options -> [String] -> [String] -> String -> String -> [ Ru
 archive arch opts objs libs name libname =
     [ Str "rm -f ", Out arch libname ]
     ++ 
-    [ NL, Str "ar cr ", Out arch libname ] 
+    [ NL, Str "ar crT ", Out arch libname ]
     ++ 
     [ In BuildTree arch o | o <- objs ]
     ++
     if libs == [] then []
-                  else (
-      [ NL, Str ("rm -fr tmp-" ++ arch ++ name ++ "; mkdir tmp-" ++ arch ++ name) ]
-      ++
-      [ NL, Str ("cd tmp-" ++ arch ++ name ++ "; for i in ") ]
-      ++
-      [ In BuildTree arch a | a <- libs ]
-      ++
-      [ Str "; do mkdir `basename $$i`; (cd `basename $$i`; ar x ../../$$i); done" ]
-      ++
-      [ NL, Str "ar q ", Out arch libname, Str (" tmp-" ++ arch ++ name ++ "/*/*.o") ]
-      ++
-      [ NL, Str ("rm -fr tmp-" ++ arch ++ name) ]
-    )
+                  else [ In BuildTree arch a | a <- libs ]
     ++
     [ NL, Str "ranlib ", Out arch libname ]
 

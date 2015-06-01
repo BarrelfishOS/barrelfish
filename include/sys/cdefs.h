@@ -109,9 +109,13 @@
  * Macro to test if we're using a specific version of gcc or later.
  */
 #if defined(__GNUC__) && !defined(__INTEL_COMPILER)
+// this may already be defined by
+// lib/newlib/newlib/libc/include/sys/features.h
+#if !defined(__GNUC_PREREQ__)
 #define	__GNUC_PREREQ__(ma, mi)	\
 	(__GNUC__ > (ma) || __GNUC__ == (ma) && __GNUC_MINOR__ >= (mi))
-#else
+#endif
+#elif !defined(__GNUC_PREREQ__)
 #define	__GNUC_PREREQ__(ma, mi)	0
 #endif
 

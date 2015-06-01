@@ -41,7 +41,10 @@ extern "C" {
 # endif
 #endif /* __GNUC_PREREQ */
 /* Version with trailing underscores for BSD compatibility. */
+// this may already be defined by include/sys/cdefs.h
+#ifndef __GNUC_PREREQ__
 #define	__GNUC_PREREQ__(ma, mi)	__GNUC_PREREQ(ma, mi)
+#endif
 
 /* RTEMS adheres to POSIX -- 1003.1b with some features from annexes.  */
 

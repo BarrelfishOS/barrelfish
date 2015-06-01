@@ -119,8 +119,3 @@ time(time_t *timer)
     return val;
 #endif
 }
-
-void tzset(void)
-{
-    // XXX: Ignored for now
-}

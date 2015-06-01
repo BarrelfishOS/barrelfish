@@ -82,7 +82,7 @@ char 	*_EXFUN(strdup,(const char *));
 #ifndef __STRICT_ANSI__
 char 	*_EXFUN(_strdup_r,(struct _reent *, const char *));
 #endif
-#if __XSI_VISIBLE >= 700
+#if __XSI_VISIBLE >= 700 || defined(BARRELFISH)
 char 	*_EXFUN(strndup,(const char *, size_t));
 #endif
 

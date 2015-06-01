@@ -1,8 +1,8 @@
 if Config.libc == "newlib" then [ build library {
   target = "search",
   cFiles = [
+    "bsd_qsort_r.c",
     "bsearch.c",
-    "qsort.c",
     "hash.c",
     "hash_bigkey.c",
     "hash_buf.c",
@@ -11,11 +11,14 @@ if Config.libc == "newlib" then [ build library {
     "hash_page.c",
     "hcreate.c",
     "hcreate_r.c",
+    "qsort.c",
+    "qsort_r.c",
     "tdelete.c",
     "tdestroy.c",
     "tfind.c",
     "tsearch.c",
-    "twalk.c"],
+    "twalk.c"
+    ],
   addCFlags  = Config.newlibAddCFlags,
   omitCFlags = [ "-Wold-style-definition",
                  "-Wstrict-prototypes",

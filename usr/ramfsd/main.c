@@ -280,22 +280,6 @@ static errval_t append_to_file(struct dirent *f, const char *str)
     return SYS_ERR_OK;
 }
 
-/* maybe this should be in libc -- apparently it's a GNU extension */
-static void *memrchr(const void *p, int c, size_t n)
-{
-    const char *s = &((const char *)p)[n - 1];
-
-    while (n--) {
-        if (*s == c) {
-            return (void *) s;
-        }
-        s--;
-    }
-
-    return NULL;
-}
-
-
 // try to remove the 'irrelevant' prefix of a multiboot path
 // eg. "/username/blerg/x86_64/sbin/foo..." becomes "/x86_64/sbin/foo..."
 static const char *remove_prefix(const char *path)

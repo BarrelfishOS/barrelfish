@@ -104,11 +104,6 @@ typedef __time_t  time_t;
 #define _TIME_T_DECLARED
 #endif
 
-struct timespec {
-    time_t  tv_sec;         /* seconds */
-    long    tv_nsec;        /* and nanoseconds */
-};
-
 #ifndef _UID_T_DECLARED
 typedef __uid_t   uid_t;
 #define _UID_T_DECLARED
