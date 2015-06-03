@@ -1,17 +1,4 @@
 if Config.libc == "newlib" then
-let
-    arch_srcs "x86_64"  = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
-    arch_srcs "k1om"    = [ "machine/x86_64/" ++ x | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
-    arch_srcs "x86_32"  = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
-    arch_srcs "scc"     = [ "machine/i386/" ++ x   | x <- ["setjmp.S", "memcpy.S", "memset.S"]]
-    arch_srcs "armv5"   = [ "machine/arm/setjmp.S" ]
-    arch_srcs "arm11mp" = [ "machine/arm/setjmp.S" ]
-    arch_srcs "xscale"  = [ "machine/arm/setjmp.S" ]
-    arch_srcs "armv7"   = [ "machine/arm/setjmp.S" ]
-    arch_srcs "armv7-m" = [ "machine/arm/setjmp.S" ]
-    arch_srcs "armv8"   = [ "machine/arm/setjmp.S" ]
-    arch_srcs  x        = error ("Unknown architecture for newlib: " ++ x)
-in
 [ build library {
   target = "newc",
   addCFlags  = Config.newlibAddCFlags,
@@ -20,7 +7,8 @@ in
                  "-Wimplicit-function-declaration",
                  "-Werror"],
   addLibraries = [
-      "ctype"
+      "machine" -- put this first, so machine-specific symbols are found before generic ones
+    , "ctype"
     , "search"
     , "string"
     , "argz"
@@ -33,7 +21,6 @@ in
     , "errno"
     , "misc"
     , "sys"
-    , "machine" -- put this last, so machine-specific symbols overwrite generic ones
     ],
   architectures = [arch]
 } | arch <- allArchitectures ]
