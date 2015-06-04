@@ -174,8 +174,15 @@ get_node_info(ProxDomain, RetBase, RetLimit) :-
 available_nr_nodes(Nnodes) :-
     get_system_topology(Nnodes, _, _, _).
 
+% get the system locality information
+get_system_locality(Ldistances) :-
+    ( is_predicate(node_distance/3) ->
+        findall(node_distance(I, J, E), node_distance(I, J, E), TmpL), sort(TmpL, Ldistances);
+        Ldistances = []
+    ).
+
 % get the system NUMA topology
-get_system_topology(Nnodes,Ncores, Lnodes, Lcores) :-
+get_system_topology(Nnodes,Ncores, Lnodes, Lcores, Llocalities) :-
     findall(node(ProxDomain, RetBase, RetLimit), (
         (is_predicate(memory_affinity/3) ->
             memory_affinity(_,_,ProxDomain)
@@ -185,6 +192,7 @@ get_system_topology(Nnodes,Ncores, Lnodes, Lcores) :-
         get_node_info(ProxDomain, RetBase, RetLimit)
     ), TmpN), sort(TmpN, Lnodes),
     findall(cpu(NODE,ID,APIC,ARCH), get_core_info(NODE, ID, ARCH, APIC), TmpL), sort(TmpL, Lcores),
+    get_system_locality(Llocalities),
     length(Lnodes, Nnodes),
     length(Lcores, Ncores).
 
