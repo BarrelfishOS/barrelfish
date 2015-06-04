@@ -656,6 +656,8 @@ static ACPI_STATUS set_apic_mode(void)
 
 static void process_srat(ACPI_TABLE_SRAT *srat)
 {
+    ACPI_DEBUG("processing system resource affinity table...\n");
+
     assert(!strncmp(srat->Header.Signature, "SRAT", ACPI_NAME_SIZE));
     assert(srat->TableRevision == 1);
 
@@ -736,7 +738,94 @@ static void process_srat(ACPI_TABLE_SRAT *srat)
             break;
         }
     }
+
+    ACPI_DEBUG("done processing srat...\n");
 }
+
+/**
+ * \brief parses the system locality distance table.
+ *
+ * \param slit  pointer to the SLIT table in memory
+ *
+ * This optional table provides a matrix that describes the relative distance
+ * (memory latency) between all System Localities, which are also referred to as
+ * Proximity Domains
+ */
+static void process_slit(ACPI_TABLE_SLIT *slit)
+{
+    ACPI_DEBUG("processing system locality distance table...\n");
+
+    assert(!strncmp(slit->Header.Signature, ACPI_SIG_SLIT, ACPI_NAME_SIZE));
+    assert(slit->Header.Revision == 1);
+
+    UINT64 locality_count = slit->LocalityCount;
+
+    for (UINT64 i = 0; i < locality_count; ++i) {
+        for (UINT64 j = 0; j < locality_count; ++j) {
+            /*
+             *  The diagonal elements of the matrix, the relative distances from a
+             *  System Locality to itself are normalized to a value of 10. The
+             *  relative distances for the non-diagonal elements are scaled to be
+             *  relative to 10
+             */
+            UINT8 entry = slit->Entry[i*locality_count + j];
+            skb_add_fact("node_distance(%" PRIu64 ", %" PRIu64 ", %"PRIu8").", i,
+                         j, entry);
+            assert(j!=i || entry == 10);
+            ACPI_DEBUG("locality: %lu -> %lu = %u\n", i, j, entry);
+        }
+    }
+
+    ACPI_DEBUG("done processing slit\n");
+}
+
+/**
+ * \brief parses the Memory Topology Table.
+ *
+ * \param slit  pointer to the PMTT table in memory
+ *
+ * This optional table provides a matrix that describes the relative distance
+ * (memory latency) between all System Localities, which are also referred to as
+ * Proximity Domains
+ */
+static void process_pmtt(ACPI_TABLE_PMTT *pmtt)
+{
+    ACPI_DEBUG("processing Platform Memory Topology Table....\n");
+
+    assert(!strncmp(pmtt->Header.Signature, ACPI_SIG_PMTT, ACPI_NAME_SIZE));
+    assert(pmtt->Header.Revision == 1);
+
+    void *pos = (void *)pmtt + ACPI_PMTT_OFFSET;
+
+    // Scan subtables
+    while(pos < (void *)pmtt + pmtt->Header.Length) {
+
+        ACPI_PMTT_CMADS *shead = pos;
+        switch(shead->Type) {
+            case ACPI_PMTT_CMAD_TYPE_SOCKET:
+                ACPI_DEBUG("pmtt socket table\n");
+
+                pos += ACPI_PMTT_MEMCTRL_OFFSET;
+                break;
+            case ACPI_PMTT_CMAD_TYPE_MEMCTRL:
+                ACPI_DEBUG("pmtt memory controller table\n");
+                ACPI_PMTT_MEMCTRL *mctrl = pos;
+                pos += ACPI_PMTT_DIMM_OFSET(mctrl->NumProximityDomains);
+                break;
+            case ACPI_PMTT_CMAD_TYPE_DIMM:
+
+                pos += sizeof(ACPI_PMTT_DIMM);
+                break;
+            default:
+                ACPI_DEBUG("WARNING: invalid type %u\n", shead->Type);
+                break;
+        }
+    }
+
+
+    ACPI_DEBUG("done processing pmtt.\n");
+}
+
 
 int init_acpi(void)
 {
@@ -819,11 +908,54 @@ int init_acpi(void)
     //pci_program_bridges();
     //ACPI_DEBUG("PCI programming completed\n");
 
-    ACPI_TABLE_HEADER *srat_header;
-    as = AcpiGetTable("SRAT", 1, &srat_header);
+    ACPI_TABLE_HEADER *acpi_table_header;
+
+    as = AcpiGetTable(ACPI_SIG_SRAT, 1, &acpi_table_header);
+    ACPI_DEBUG("has SRAT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
     if(ACPI_SUCCESS(as)) {
-        process_srat((ACPI_TABLE_SRAT *)srat_header);
+        process_srat((ACPI_TABLE_SRAT *)acpi_table_header);
     }
 
+    /*
+     * try to parse the SLIT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_SLIT, 1, &acpi_table_header);
+    ACPI_DEBUG("has SLIT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+    if(ACPI_SUCCESS(as)) {
+        process_slit((ACPI_TABLE_SLIT *)acpi_table_header);
+    }
+
+    /*
+     * try to parse the PMTT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_PMTT, 1, &acpi_table_header);
+    ACPI_DEBUG("has PMTT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+    if(ACPI_SUCCESS(as)) {
+        process_pmtt((ACPI_TABLE_PMTT *)acpi_table_header);
+    }
+
+    /*
+     * try to parse the PSDT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_PSDT, 1, &acpi_table_header);
+    ACPI_DEBUG("has PSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+
+    /*
+     * try to parse the RSDT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_RSDT, 1, &acpi_table_header);
+    ACPI_DEBUG("has RSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+
+    /*
+     * try to parse the SSDT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_SSDT, 1, &acpi_table_header);
+    ACPI_DEBUG("has SSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+
+    /*
+     * try to parse the XSDT. This is an optional table
+     */
+    as = AcpiGetTable(ACPI_SIG_XSDT, 1, &acpi_table_header);
+    ACPI_DEBUG("has XSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
     return 0;
 }

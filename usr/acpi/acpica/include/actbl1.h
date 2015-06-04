@@ -142,6 +142,7 @@
 #define ACPI_SIG_HEST           "HEST"      /* Hardware Error Source Table */
 #define ACPI_SIG_MADT           "APIC"      /* Multiple APIC Description Table */
 #define ACPI_SIG_MSCT           "MSCT"      /* Maximum System Characteristics Table */
+#define ACPI_SIG_PMTT           "PMTT"      /* Platform Memory Topology Table */
 #define ACPI_SIG_SBST           "SBST"      /* Smart Battery Specification Table */
 #define ACPI_SIG_SLIT           "SLIT"      /* System Locality Distance Information Table */
 #define ACPI_SIG_SRAT           "SRAT"      /* System Resource Affinity Table */
@@ -1136,6 +1137,112 @@ typedef struct acpi_srat_x2apic_cpu_affinity
 /* Flags for ACPI_SRAT_CPU_AFFINITY and ACPI_SRAT_X2APIC_CPU_AFFINITY */
 
 #define ACPI_SRAT_CPU_ENABLED       (1)         /* 00: Use affinity structure */
+
+
+/*******************************************************************************
+ *
+ * PMTT - Platform Memory Topology Table
+ *
+ ******************************************************************************/
+/**
+ * Table 5-92 Common Memory Aggregator Device Structure
+ */
+typedef struct acpi_pmtt_cmads
+{
+    UINT8  Type;      /* The field describes type of the Memory Aggregator Device. */
+    UINT8  Reserved;  /* Reserved, must be zero.  */
+    UINT16 Length;    /* Length in bytes for this Structure.  */
+    UINT16 Flags;     /* see ACPI_PMTT_CMAD_FLAG_* */
+    UINT16 Reserved2; /* Reserved, must be zero. */
+} ACPI_PMTT_CMADS;
+
+/* The field describes type of the Memory Aggregator Device. */
+#define ACPI_PMTT_CMAD_TYPE_SOCKET  0
+#define ACPI_PMTT_CMAD_TYPE_MEMCTRL 1
+#define ACPI_PMTT_CMAD_TYPE_DIMM    2
+
+/* ACPI PMTT CMAD flags */
+#define ACPI_PMTT_CMAD_FLAG_LEVEL_MASK    (1 << 0)
+#define ACPI_PMTT_CMAD_FLAG_LEVEL_TOP     (1 << 0)
+#define ACPI_PMTT_CMAD_FLAG_ELEM_MASK     (1 << 1)
+#define ACPI_PMTT_CMAD_FLAG_ELEM_PHYSICAL (1 << 1)
+#define ACPI_PMTT_CMAD_FLAG_ELEM_LOGICAL  (0 << 1)
+#define ACPI_PMTT_CMAD_FLAG_TYPE_MASK     (3 << 2)
+#define ACPI_PMTT_CMAD_FLAG_TYPE_VOLATILE (2 << 2)
+#define ACPI_PMTT_CMAD_FLAG_TYPE_NVOLATIL (1 << 2)
+#define ACPI_PMTT_CMAD_FLAG_TYPE_BOTH     (0 << 2)
+
+/**
+ * Table 5-95 Physical Components Identifier Structure
+ */
+typedef struct acpi_pmtt_dimm
+{
+    ACPI_PMTT_CMADS Header;     /* common header for the PMTT tables */
+    UINT16 PhysicalComponentID; /* Uniquely identifies the physical memory component in the system */
+    UINT16 Reserved;
+    UINT32 SizeOfDIMM;          /* Size in MB of the DIMM device */
+    UINT32 SMBIOSHandle;        /* Refers to Type 17 table handle of corresponding SMBIOS record. */
+} ACPI_PMTT_DIMM;
+
+#define ACPI_PMTT_DIMM_SMBIOS_NOT_VALID 0xFFFFFFFF
+
+/**
+ * Table 5-94 Memory Controller Structure
+ */
+typedef struct acpi_pmtt_memctrl
+{
+    ACPI_PMTT_CMADS Header;              /* common header for the PMTT tables */
+    UINT32          ReadLatency;         /* [ns] as seen at the controller for a cacheline. */
+    UINT32          WriteLatency;        /* [ns] as seen at the controller for a cacheline. */
+    UINT32          ReadBandwith;        /* [MB/s] */
+    UINT32          WriteBandwidth;      /* [MB/s] */
+    UINT16          OptAccessUnit;       /* [Bytes] */
+    UINT16          OptAccessAlign;      /* [Bytes] */
+    UINT16          Reserved;
+    UINT16          NumProximityDomains; /* Number of Proximity Domains that immediately follow.  */
+    UINT32          ProximityDomains[];  /* Proximity domains for memory address space(s) spawned by this memory controller */
+} ACPI_PMTT_MEMCTRL;
+
+#define ACPI_PMTT_PCIS_OFFSET(memctrl) \
+                (memctrl->ProximityDomains[memctrl->NumProximityDomains])
+
+#define ACPI_PMTT_DIMM_OFSET(M) (32 + (4 * M))
+
+/**
+ * Table 5-93 Socket Structure
+ */
+typedef struct acpi_pmtt_socket
+{
+    ACPI_PMTT_CMADS   Header;           /* common header for the PMTT tables */
+    UINT16            Reserved;         /* Reserved, must be zero.  */
+    UINT16            SockedIdentifier; /* Uniquely identifies the socket in the system. */
+    UINT16            Reserved2;        /* Reserved, must be zero.  */
+    ACPI_PMTT_MEMCTRL memctrl[];        /* A list of Memory Controller Structures. */
+} ACPI_PMTT_SOCKET;
+
+#define ACPI_PMTT_PCIS_OFFSET(memctrl) \
+                (memctrl->ProximityDomains[memctrl->NumProximityDomains])
+
+#define ACPI_PMTT_MEMCTRL_OFFSET 12
+
+/*
+ * NOTE:
+ * Length in bytes of the entire PMTT. The length implies the number of Memory
+ * Aggregator structures at the end of the table.
+ */
+
+
+/**
+ * Table 5-91 Platform Memory Topology Table
+ */
+typedef struct acpi_table_pmtt
+{
+    ACPI_TABLE_HEADER  Header;    /* Common ACPI table header */
+    UINT64             Reserved;  /* Reserved, must be zero */
+    ACPI_PMTT_CMADS    mads[];    /* A list of memory aggregator device structures. */
+} ACPI_TABLE_PMTT;
+
+#define ACPI_PMTT_OFFSET 8
 
 
 /* Reset to default packing */
