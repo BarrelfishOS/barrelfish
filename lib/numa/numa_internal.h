@@ -49,6 +49,7 @@ struct numa_topology {
     numa_policy_t strict;      ///< numa policy
     numa_policy_t bind;        ///< memory bind policy
     size_t pagesize;           ///< numa page size
+    uint32_t *distances;       ///< numa distances
     struct numa_node *nodes;   ///< nodes in the system
     struct numa_core **cores;  ///< cores in the system (sorted by core id)
 };

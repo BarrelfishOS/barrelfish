@@ -422,8 +422,11 @@ uint32_t numa_distance(nodeid_t from, nodeid_t to)
 {
     numa_check_init();
 
-    assert(!"NYI");
-    return 0;
+    if (from >= numa_topology.num_nodes || to >= numa_topology.num_nodes) {
+        return (uint32_t)NUMA_NODE_INVALID;
+    }
+
+    return numa_topology.distances[from * numa_topology.num_nodes + to];
 }
 
 

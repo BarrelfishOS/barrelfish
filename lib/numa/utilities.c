@@ -61,6 +61,22 @@ void numa_dump_topology(struct numa_topology *topology)
                PRIuNODEID "]\n", coreid, core->apicid, core->node->id);
     }
 
+    printf("---------------------------------------\n");
+    printf("Locality map:\n");
+    printf("     ");
+    for (coreid_t node_from = 0; node_from < topology->num_nodes; ++node_from) {
+        printf("%02" PRIuNODEID " ", node_from);
+    }
+    printf("\n");
+    for (coreid_t node_from = 0; node_from < topology->num_nodes; ++node_from) {
+        printf("  %02" PRIuNODEID  " ", node_from);
+        for (coreid_t node_to = 0; node_to < topology->num_nodes; ++node_to) {
+            printf("%02" PRIu32 " ",
+                   topology->distances[node_from * topology->num_nodes + node_to]);
+        }
+        printf("\n");
+    }
+
     printf("\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n");
 }
 
@@ -88,9 +104,9 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
         return err_push(err, NUMA_ERR_SKB);
     }
 
-    err = skb_execute_query("get_system_topology(Nnodes,Ncores,Lnodes,Lcores),"
+    err = skb_execute_query("get_system_topology(Nnodes,Ncores,Lnodes,Lcores,Llocalities),"
                             "writeln(num(nodes(Nnodes),cores(Ncores))),"
-                            "writeln(Lnodes),writeln(Lcores).");
+                            "writeln(Lnodes),writeln(Lcores), writeln(Llocalities).");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "skb query failed");
         return err_push(err, NUMA_ERR_SKB);
@@ -125,16 +141,17 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
     topology->strict = NUMA_POLICY_DEFAULT;
 
     topology->nodes = malloc(node * sizeof(struct numa_node)
+                                + node * node * sizeof(uint32_t)
                                 + core * sizeof(struct numa_core)
                                 + core * sizeof(void *));
     if (topology->nodes == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-
     struct numa_core *cores_array = (struct numa_core *)(topology->nodes + node);
 
     topology->cores = (struct numa_core **) (cores_array + core);
+    topology->distances = (uint32_t*)(topology->cores + core);
 
     /* skip over the initial node and core information */
     char *output = strchr(skb_get_output(), '\n') + 1;
@@ -230,6 +247,35 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
     if ((coreid_t) parsed != topology->num_cores) {
         NUMA_DEBUG_INIT("core list incomplete: %" PRIuCOREID ", %" PRIuCOREID "\n",
                         (coreid_t )parsed, topology->num_cores);
+        err = NUMA_ERR_SKB_DATA;
+        goto error_out;
+    }
+
+    output = strchr(output, '\n') + 1;
+    skb_read_list_init_offset(&parser, output, 0);
+    parsed = 0;
+
+    uint32_t from, to;
+    uint32_t distance;
+    NUMA_DEBUG_INIT("parsing locality information...\n");
+    while (skb_read_list(&parser, "node_distance(%" PRIuNODEID ", %" PRIuNODEID ", %" PRIu32 ")",
+                          &from, &to, &distance)) {\
+        NUMA_DEBUG_INIT("  > [%" PRIuNODEID "] -> [%" PRIuNODEID "] = %" PRIu32"\n",
+                        from, to, distance);
+        topology->distances[from * topology->num_nodes + to] = distance;
+        parsed++;
+    }
+
+    if (parsed == 0) {
+        NUMA_DEBUG_INIT("locality list not existent setting all to 10...\n");
+        for (nodeid_t i = 0; i < topology->num_nodes; ++i) {
+            for (nodeid_t j = 0; j < topology->num_nodes; ++j) {
+                topology->distances[from * topology->num_nodes + to] = 10;
+            }
+        }
+    } else if (parsed != (uint32_t)topology->num_nodes * topology->num_nodes) {
+        NUMA_DEBUG_INIT("locality list incomplete: %" PRIu32" / %" PRIu32 "\n",
+                        parsed, (uint32_t)topology->num_nodes * topology->num_nodes);
         err = NUMA_ERR_SKB_DATA;
         goto error_out;
     }

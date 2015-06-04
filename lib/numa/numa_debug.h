@@ -34,7 +34,11 @@
 
 #define NUMA_DEBUG_ALLOC(x...) NUMA_DEBUG_PRINT("[numa alloc] " x);
 
-#define NUMA_ERROR(fmt, ...) debug_printf("[numa error] " fmt " in %s():", __VA_ARGS__, __FUNCTION__);
-#define NUMA_WARNING(fmt, ...) debug_printf("[numa  warn] " fmt " in %s():", __VA_ARGS__, __FUNCTION__);
+#define NUMA_ERROR(fmt, ...) \
+                debug_printf("[numa error] " fmt " in %s():", \
+                             __VA_ARGS__, __FUNCTION__);
+#define NUMA_WARNING(fmt, ...) \
+                debug_printf("[numa  warn] " fmt " in %s():", \
+                             __VA_ARGS__, __FUNCTION__);
 
 #endif /* NUMA_DEBUG_H_ */
