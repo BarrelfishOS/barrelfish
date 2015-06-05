@@ -126,6 +126,7 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
                  struct sockaddr *src_addr, socklen_t *addrlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    ssize_t ret = 0;
 
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
@@ -135,18 +136,22 @@ ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags,
 
     case FDTAB_TYPE_LWIP_SOCKET:
         lwip_mutex_lock();
-        ssize_t ret = lwip_recvfrom(e->fd, buf, len, flags, src_addr, addrlen);
+        ret = lwip_recvfrom(e->fd, buf, len, flags, src_addr, addrlen);
         lwip_mutex_unlock();
-        return ret;
+        break;
 
     case FDTAB_TYPE_AVAILABLE:
         errno = EBADF;
-        return -1;
+        ret = -1;
+        break;
 
     default:
         errno = ENOTSOCK;
-        return -1;
+        ret = -1;
+        break;
     }
+
+    return ret;
 }
 
 static void unixsock_sent(void *arg)
@@ -265,6 +270,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
                const struct sockaddr *dest_addr, socklen_t addrlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    ssize_t ret = 0;
 
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
@@ -274,23 +280,28 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
 
     case FDTAB_TYPE_LWIP_SOCKET:
         lwip_mutex_lock();
-        ssize_t ret = lwip_sendto(e->fd, buf, len, flags, dest_addr, addrlen);
+        ret = lwip_sendto(e->fd, buf, len, flags, dest_addr, addrlen);
         lwip_mutex_unlock();
-        return ret;
+        break;
 
     case FDTAB_TYPE_AVAILABLE:
         errno = EBADF;
-        return -1;
+        ret = -1;
+        break;
 
     default:
         errno = ENOTSOCK;
-        return -1;
+        ret = -1;
+        break;
     }
+
+    return ret;
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    ssize_t ret = 0;
 
     switch(e->type) {
     case FDTAB_TYPE_UNIX_SOCKET:
@@ -319,26 +330,30 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
         }
 
         lwip_mutex_lock();
-        ssize_t ret = lwip_sendto(e->fd, buf, totalsize, flags,
-                                  msg->msg_name, msg->msg_namelen);
+        ret = lwip_sendto(e->fd, buf, totalsize, flags, msg->msg_name,
+                          msg->msg_namelen);
         lwip_mutex_unlock();
         free(buf);
 #else
         lwip_mutex_lock();
-        ssize_t ret = lwip_sendmsg(e->fd, msg, flags);
+        ret = lwip_sendmsg(e->fd, msg, flags);
         lwip_mutex_unlock();
 #endif
 
-        return ret;
+        break;
 
     case FDTAB_TYPE_AVAILABLE:
         errno = EBADF;
-        return -1;
+        ret = -1;
+        break;
 
     default:
         errno = ENOTSOCK;
-        return -1;
+        ret = -1;
+        break;
     }
+
+    return ret;
 }
 
 int socket(int domain, int type, int protocol)
@@ -713,17 +728,19 @@ int setsockopt(int sockfd, int level, int optname, const void *optval,
                socklen_t optlen)
 {
     struct fdtab_entry *e = fdtab_get(sockfd);
+    int ret = 0;
 
     switch(e->type) {
     case FDTAB_TYPE_LWIP_SOCKET:
-        return lwip_setsockopt(e->fd, level, optname, optval, optlen);
+        ret = lwip_setsockopt(e->fd, level, optname, optval, optlen);
+        break;
 
     default:
         assert(!"NYI");
         break;
     }
 
-    return -1;
+    return ret;
 }
 
 static void unixsock_bound(void *st, errval_t err, struct unixsock_binding *b)

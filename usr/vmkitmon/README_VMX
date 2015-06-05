@@ -1,0 +1,126 @@
+=====================================================================================
+VMkit monitor with Intel VMX virtualization extensions
+=====================================================================================
+
+IMPLEMENTATION
+
+Most information associated with the monitor implementation and the virtual hardware 
+that is used is contained in the thesis "VMkit A lightweight hypervisor library for 
+Barrelfish."
+
+Other details (especially those affiliated with Intel extensions):
+
+Two configuration variables, config_svm and config_arrakismon, in hake/Config.hs 
+determine what hardware virtualization extensions are used and what types of guest 
+VMs can be used, respectively. This should be changed later to allow both Arrakis 
+domains and normal guests to exist simultaneously. Since changes in guest.c for Intel 
+VMX extensions make use of config_svm immensely, an abstraction library could be 
+introduced in the future to make the monitor code easier to read. 
+
+Most significant changes when using Intel VMX extensions:
+
+-The VMCS of each guest-VM are accessed and modified by the privileged instructions 
+vmread and vmwrite. This currently requires issuing syscalls that execute these 
+corresponding instructions. Other privileged instructions are required to be 
+executed when launching/resuming each guest.
+
+-The initialization of the VMCS is currently performed in kernel-space when the DCB 
+is setup.
+
+-A CR0 shadow must be used to cause a VM-exit and dispatch the monitor when 
+protected-mode is disabled.   
+
+-The interception of certain events (such as executing specific instructions) is 
+managed by setting specific VMX controls.
+
+-When interrupts are processed, the most prioritized interrupt is injected (by  
+virq_handler in guest.c) only when the guest is willing to accept interrupts: changes 
+had to be made to lpc.c to assert a virtual interrupt only when the function 
+virq_accepting returns true.
+
+When there is a interrupt pending, but the guest is unwilling to accept them, an 
+interrupt-window can be created at this time to cause a VM-exit as soon as possible. 
+However, this is not yet implemented.
+
+-Prior to VM-entry, the host state that is restored on VM-exit must be manually 
+saved into the VMCS. The function vmx_set_host_state in vmx_vmkit.c executes a series 
+of vmwrite instructions to accomplish this.
+
+-Because rigorous checks are performed by the processor on the guest-state area, 
+host-state area, equivalent checks (in vmx_check.s) occur before the guest is 
+launched for the first time; this can assist in determining the exact test(s) the 
+processor fails on. 
+  
+=====================================================================================
+
+ASSUMPTIONS AND CAVEATS
+
+The assumptions and caveats from the original implementation still hold. For example:
+- The existence of only one guest that makes use of only one vCPU is supported.
+
+- Each guest-VM is allocated 2 GB of memory. The amount, however, can easily be 
+changed in guest.c.
+
+- At most eleven different MSRs can be set and accessed by the guest.
+...
+
+More assumptions when using Intel extensions:
+
+-In the interrupt handler in the real-mode emulator, software interrupts are always 
+intercepted.
+
+-If a VM-exit transpires because of a VM-entry failure due to invalid guest state, 
+it is assumed that an invalid guest GS limit with a value of 0x10ffef is the cause.
+With the Linux version that was used to test the implementation, this type of VM-exit 
+occurs only once.
+
+Note that there may be other problems/issues that we are yet unaware of.
+    
+=====================================================================================
+
+TESTING
+
+The script tools/harness/scalebench.py can be run with tools/harness/tests/vmkit.py  
+as an argument. The test successfully terminates when the string "bash-4.0#" is 
+printed to console output. 
+
+Changes might need to be made to the modules that are loaded; these are specified in 
+tools/harness/barrelfish.py and tools/harness/tests/vmkit.py.
+
+=====================================================================================
+
+TODO
+
+- Supporting other VM-exit reasons and implementing corresponding handlers in the 
+monitor or in kernel space, if necessary.
+
+- Additional checks (in vmx_checks.s) for when the guest is in virtual-8086 mode, 
+when PAE paging is in use, and on several fields comprising guest non-register state.
+
+- Using VM-entry event injection for reflecting guest (both benign and contributory) 
+exceptions, injecting non-maskable interrupts (NMIs), and other events.
+
+- When a VM-exit occurs due to an external interrupt and the guest is unwilling to 
+accept interrupts, allow the option of creating an interrupt window by setting a
+VM-execution control to cause a VM-exit to allow the injection of a pending interrupt. 
+A NMI-window could also be created for virtual NMIs.
+
+- Allowing support for multi-core VMs. One should be able to simply port the VMkit 
+modifications presented in the thesis (http://www.barrelfish.org/ma-humbell-final.pdf) 
+by Lukas Humbel when (and if) they are committed to Barrelfish.
+
+- Permitting more than one VMCS and the moving of a VMCS between processors.
+
+- APIC virtualization
+
+...
+
+=====================================================================================
+
+DOCUMENTATION
+
+Implementation is based on Intel 64 and IA-32 Architectures Software Developer's 
+Manual Volume 3C: System Programming Guide, Part 3 (June 2014) -
+
+http://www.intel.com/content/dam/www/public/us/en/documents/manuals/
+64-ia-32-architectures-software-developer-vol-3c-part-3-manual.pdf

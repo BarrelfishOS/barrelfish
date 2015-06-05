@@ -15,4 +15,6 @@ time_t timegm(struct tm *);
 
 __END_DECLS
 
+int nanosleep(const struct timespec *req, struct timespec *rem);
+
 #endif /* __BF_TIME_H */

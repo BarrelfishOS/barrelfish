@@ -106,7 +106,8 @@ union x86_64_ptable_entry {
         uint64_t        dirty           :1;
         uint64_t        always1         :1;
         uint64_t        global          :1;
-        uint64_t        available       :3;
+        uint64_t        available       :2;
+        uint64_t        vtd_snoop       :1;
         uint64_t        attr_index      :1;
         uint64_t        reserved        :17;
         uint64_t        base_addr       :10;
@@ -124,7 +125,8 @@ union x86_64_ptable_entry {
         uint64_t        dirty           :1;
         uint64_t        always1         :1;
         uint64_t        global          :1;
-        uint64_t        available       :3;
+        uint64_t        available       :2;
+        uint64_t        vtd_snoop       :1;
         uint64_t        attr_index      :1;
         uint64_t        reserved        :8;
         uint64_t        base_addr       :X86_64_PAGING_LARGE_BASE_BITS;
@@ -142,7 +144,8 @@ union x86_64_ptable_entry {
         uint64_t        dirty           :1;
         uint64_t        attr_index      :1;
         uint64_t        global          :1;
-        uint64_t        available       :3;
+        uint64_t        available       :2;
+        uint64_t        vtd_snoop       :1;
         uint64_t        base_addr       :X86_64_PAGING_BASE_BASE_BITS;
         uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
@@ -265,6 +268,7 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     tmp.large.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
     tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.large.always1 = 1;
+    tmp.large.vtd_snoop = bitmap & X86_64_VTD_PAGE_SNOOP ? 1 : 0;
     tmp.large.base_addr = base >> 21;
     
     *entry = tmp;
@@ -299,6 +303,7 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
     tmp.base.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
 #endif
     tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.base.vtd_snoop = bitmap & X86_64_VTD_PAGE_SNOOP ? 1 : 0;
     tmp.base.base_addr = base >> 12;
 
     *entry = tmp;

@@ -25,6 +25,7 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include "intel_vtd.h"
 #include <trace/trace.h>
 
 struct pci_resources {
@@ -621,6 +622,10 @@ static int acpi_init(void)
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiInitializeObjects failed\n");
         return -1;
+    }
+
+    if (!vtd_force_off) {
+        vtd_init();
     }
 
     return 0;

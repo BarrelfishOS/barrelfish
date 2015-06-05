@@ -480,6 +480,41 @@ static struct sysret handle_frame_identify(struct capability *to,
     };
 }
 
+static struct sysret handle_vnode_identify(struct capability *to,
+					   int cmd, uintptr_t *args)
+{
+    // Return with physical base address of the VNode
+    // XXX: pack type into bottom bits of base address
+    assert(to->type == ObjType_VNode_x86_64_pml4 ||
+	   to->type == ObjType_VNode_x86_64_pdpt ||
+	   to->type == ObjType_VNode_x86_64_pdir ||
+	   to->type == ObjType_VNode_x86_64_ptable);
+    
+    uint64_t base_addr = 0;
+    switch (to->type) {
+    case ObjType_VNode_x86_64_pml4:
+        base_addr = (uint64_t)(to->u.vnode_x86_64_pml4.base);
+	break;
+    case ObjType_VNode_x86_64_pdpt:
+	base_addr = (uint64_t)(to->u.vnode_x86_64_pdpt.base);
+	break;
+    case ObjType_VNode_x86_64_pdir:
+	base_addr = (uint64_t)(to->u.vnode_x86_64_pdir.base);
+	break;
+    case ObjType_VNode_x86_64_ptable:
+	base_addr = (uint64_t)(to->u.vnode_x86_64_ptable.base);
+	break;
+    default:
+        break;
+    }
+    assert((base_addr & BASE_PAGE_MASK) == 0);
+
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
+    };
+}
+
 static struct sysret handle_frame_modify_flags(struct capability *to,
                                                int cmd, uintptr_t *args)
 {
@@ -500,12 +535,77 @@ static struct sysret handle_frame_modify_flags(struct capability *to,
     };
 }
 
+
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint64_t    port = args[0];
     uint64_t    data = args[1]; // ignored for input
 
     return sys_io(to, cmd, port, data);
+}
+
+static struct sysret handle_vmread(struct capability *to, 
+				   int cmd, uintptr_t *args) 
+{
+#ifdef CONFIG_SVM
+    return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
+#else
+    errval_t err;
+    struct dcb *dcb = to->u.dispatcher.dcb;
+    lpaddr_t vmcs_base = dcb->guest_desc.vmcb.cap.u.frame.base;
+    if (vmcs_base != vmptrst()) {
+        err = SYS_ERR_VMKIT_VMX_VMFAIL_INVALID;
+    } else {
+        err = vmread(args[0], (lvaddr_t *)args[1]);
+    }
+    return SYSRET(err);
+#endif
+}
+
+static struct sysret handle_vmwrite(struct capability *to, 
+				    int cmd, uintptr_t *args) 
+{
+#ifdef CONFIG_SVM
+    return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
+#else
+    errval_t err;
+    struct dcb *dcb = to->u.dispatcher.dcb;
+    lpaddr_t vmcs_base = dcb->guest_desc.vmcb.cap.u.frame.base;
+    if (vmcs_base != vmptrst()) {
+        err = SYS_ERR_VMKIT_VMX_VMFAIL_INVALID;
+    } else {
+        err = vmwrite(args[0], args[1]);
+    }
+    return SYSRET(err);
+#endif
+}
+
+static struct sysret handle_vmptrld(struct capability *to, 
+				    int cmd, uintptr_t *args) 
+{
+#ifdef CONFIG_SVM
+    return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
+#else
+    errval_t err;
+    struct dcb *dcb = to->u.dispatcher.dcb;
+    lpaddr_t vmcs_base = dcb->guest_desc.vmcb.cap.u.frame.base;
+    err = vmptrld(vmcs_base);
+    return SYSRET(err);
+#endif
+}
+
+static struct sysret handle_vmclear(struct capability *to, 
+				    int cmd, uintptr_t *args) 
+{
+#ifdef CONFIG_SVM
+    return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
+#else
+    errval_t err;
+    struct dcb *dcb = to->u.dispatcher.dcb;
+    lpaddr_t vmcs_base = dcb->guest_desc.vmcb.cap.u.frame.base;
+    err = vmclear(vmcs_base);
+    return SYSRET(err);
+#endif
 }
 
 #ifndef __k1om__
@@ -587,6 +687,13 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_VMKIT_CTRL));
     }
+
+#ifndef CONFIG_SVM
+    // Initialize VMCS for the single virtual-CPU here instead of in 
+    // userspace, where the privilege level is not 0.
+    err = initialize_vmcs(vmcb_cte->cap.u.frame.base);
+    assert(err_is_ok(err));
+#endif
 
     // 2. Set up the target DCB
 /*     dcb->guest_desc.monitor_ep = ep_cap; */
@@ -911,6 +1018,10 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest,
 #endif
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+	[DispatcherCmd_Vmread] = handle_vmread,
+	[DispatcherCmd_Vmwrite] = handle_vmwrite,
+	[DispatcherCmd_Vmptrld] = handle_vmptrld,
+	[DispatcherCmd_Vmclear] = handle_vmclear,
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify,
@@ -933,18 +1044,22 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
     },
     [ObjType_VNode_x86_64_pml4] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_pdpt] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_pdir] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_ptable] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
@@ -1125,11 +1240,18 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 			 );
 		} else {
 #ifndef __k1om__
+#ifdef CONFIG_SVM
 		  lpaddr_t lpaddr = gen_phys_to_local_phys(dcb_current->guest_desc.vmcb.cap.u.frame.base);
 		  amd_vmcb_t vmcb;
 		  amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
 		  save_area->fs = amd_vmcb_fs_selector_rd(&vmcb);
 		  save_area->gs = amd_vmcb_gs_selector_rd(&vmcb);
+#else
+                  errval_t err;
+                  err = vmread(VMX_GUEST_FS_SEL, (uint64_t *)&save_area->fs);
+                  err += vmread(VMX_GUEST_GS_SEL, (uint64_t *)&save_area->gs);
+                  assert(err_is_ok(err));
+#endif
 #else
           panic("VM Guests not supported on Xeon Phi");
 #endif

@@ -17,7 +17,9 @@
 #include "vmkitmon.h"
 #include <barrelfish/lmp_endpoints.h>
 #include "x86.h"
+#ifdef CONFIG_SVM
 #include "svm.h"
+#endif
 #include "realmode.h"
 #include "hdd.h"
 #include "console.h"
@@ -30,8 +32,16 @@
 #include "pci_ethernet.h"
 
 #define VMCB_SIZE       0x1000      // 4KB
+
+#ifdef CONFIG_SVM
 #define IOPM_SIZE       0x3000      // 12KB
 #define MSRPM_SIZE      0x2000      // 8KB
+#else
+#define IOBMP_A_SIZE    0x1000      // 4KB
+#define IOBMP_B_SIZE    0x1000      // 4KB
+#define MSRPM_SIZE      0x1000      // 4KB
+#endif
+
 #define RM_MEM_SIZE     (0x100000 + BASE_PAGE_SIZE)    // 1MB + A20 gate space
 
 #define APIC_BASE       0xfee00000
@@ -40,11 +50,55 @@
 
 #define MIN(x,y) ((x)<(y)?(x):(y))
 
+#ifndef CONFIG_SVM
+extern uint16_t saved_exit_reason;
+extern uint64_t saved_exit_qual, saved_rip;
+
+// List of MSRs that are saved on VM-exit and loaded on VM-entry.
+static uint32_t msr_list[VMX_MSR_COUNT] = 
+    {X86_MSR_KERNEL_GS_BASE, X86_MSR_STAR, X86_MSR_LSTAR, X86_MSR_CSTAR, X86_MSR_SFMASK};
+
+// Saved priority of the most recent irq that is asserted.
+uint8_t interrupt_priority = 0;
+#endif
+
+#ifndef CONFIG_SVM
+static inline int vmx_guest_msr_index(uint32_t msr_index)
+{
+    for (int i = 0; i < VMX_MSR_COUNT; i++) {
+        if (msr_list[i] == msr_index) {
+            return i;
+	}
+    }
+    return -1;
+}
+
+static void initialize_guest_msr_area(struct guest *g)
+{ 
+    struct msr_entry *guest_msr_area = (struct msr_entry *)g->msr_area_va;  
+    
+    // The values of the MSRs in the guest MSR area are all set to 0.
+    for (int i = 0; i < VMX_MSR_COUNT; i++) {
+        guest_msr_area[i].index = msr_list[i];
+	guest_msr_area[i].val = 0x0;
+    }
+    
+    errval_t err = invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXIT_MSR_STORE_F, g->msr_area_pa);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXIT_MSR_STORE_CNT, VMX_MSR_COUNT);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_ENTRY_MSR_LOAD_F, g->msr_area_pa);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_ENTRY_MSR_LOAD_CNT, VMX_MSR_COUNT);
+    assert(err_is_ok(err));
+}
+#endif
+
 lvaddr_t guest_offset = 0;
 static struct guest __guest;
 static struct guest *__guestp = NULL;
+
+#ifdef CONFIG_SVM
 /// stores the last used guest ASID
 static uint32_t last_guest_asid = 0;
+#endif
 
 // FIXME: this is somewhat broken by design... we should emit proper exceptions
 //        to the guest opposed to just halt the VM
@@ -220,7 +274,12 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 static void
 initialize_iopm (struct guest *self) {
     // intercept all IO port accesses (for now)
+#ifdef CONFIG_SVM
     memset((void*)self->iopm_va, 0xFF, IOPM_SIZE);
+#else 
+    memset((void*)self->iobmp_a_va, 0xFF, IOBMP_A_SIZE);
+    memset((void*)self->iobmp_b_va, 0xFF, IOBMP_B_SIZE);
+#endif
 }
 
 // access_mode: 0 all access, 1 read intercept, 2 write intercept, 3 all interc.
@@ -260,7 +319,6 @@ static void
 initialize_msrpm (struct guest *g) {
     // intercept all MSR accesses (for now)
     memset((void*)g->msrpm_va, 0xff, MSRPM_SIZE);
-
 #if 0
     // allow performance counters and evnets MSR accesses
     set_msr_access (g, 0xc0010000, 0);
@@ -314,6 +372,7 @@ do {                                             \
 
 /* This method initializes a new VMCB memory regsion and sets the initial
  * machine state as defined by the AMD64 architecture specification */
+#ifdef CONFIG_SVM
 static void
 initialize_vmcb (struct guest *self) {
     amd_vmcb_initialize(&self->vmcb, (mackerel_addr_t)self->vmcb_va);
@@ -388,6 +447,7 @@ initialize_vmcb (struct guest *self) {
     // svm requires guest EFER.SVME to be set
     amd_vmcb_efer_svme_wrf(&self->vmcb, 1);
 }
+#endif
 
 static void
 idc_handler(void *arg)
@@ -458,6 +518,15 @@ spawn_guest_domain (struct guest *self) {
                                         self->vmcb_cap, self->ctrl_cap);
     assert(err_is_ok(err));
 
+#ifndef CONFIG_SVM
+    initialize_guest_msr_area(self);
+
+    err = 0;
+    err += invoke_dispatcher_vmwrite(self->dcb_cap, VMX_IOBMP_A_F, self->iobmp_a_pa);
+    err += invoke_dispatcher_vmwrite(self->dcb_cap, VMX_IOBMP_B_F, self->iobmp_b_pa);
+    err += invoke_dispatcher_vmwrite(self->dcb_cap, VMX_MSRBMP_F, self->msrpm_pa);
+    assert(err_is_ok(err));
+#endif
     // set up the guests physical address space
     self->mem_low_va = 0;
     // FIXME: Hardcoded guest memory size
@@ -479,11 +548,20 @@ install_grub_stage2 (struct guest *g, void *img, size_t img_size)
      * http://www.gnu.org/software/grub/manual/html_node/Memory-map.html */
     memcpy((void *)(guest_to_host(g->mem_low_va + 0x8000)), img, img_size);
     // according to grub stage2 source its entry point is at 0x8200
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, 0x8200);
     // switch to the first segment
     amd_vmcb_cs_selector_wr(&g->vmcb, 0x0);
     amd_vmcb_cs_base_wr(&g->vmcb, 0x0);
     amd_vmcb_cs_limit_wr(&g->vmcb, 0xffff);
+#else
+    errval_t err = invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, 0x8200);    
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_SEL, 0x0);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_BASE, 0x0);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_LIM, 0xffff); 
+    assert(err_is_ok(err));
+#endif
+
 }
 
 #if 0
@@ -515,19 +593,48 @@ virq_pending (void *ud, uint8_t *irq, uint8_t *irq_prio)
     assert(ud != NULL);
 
     struct guest *g = ud;
-
+#ifdef CONFIG_SVM
     if (amd_vmcb_vintr_rd(&g->vmcb).virq == 1) {
+#else
+    uint64_t info;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_ENTRY_INTR_INFO, &info);
+    assert(err_is_ok(err));
+    if (!!(info & (1UL << 31))) {
+#endif
         if (irq != NULL) {
+#ifdef CONFIG_SVM
             *irq = amd_vmcb_vintr_rd(&g->vmcb).vintr_vector;
+#else
+	    *irq = info & 0xff;
+#endif
         }
         if (irq_prio != NULL) {
+#ifdef CONFIG_SVM
             *irq_prio = amd_vmcb_vintr_rd(&g->vmcb).vintr_prio;
+#else
+	    *irq_prio = interrupt_priority;
+#endif
         }
         return true;
     } else {
         return false;
     }
 }
+
+#ifndef CONFIG_SVM
+static bool 
+virq_accepting (void *ud)
+{
+    assert(ud != NULL);
+    
+    struct guest *g = ud;
+    
+    uint64_t guest_rflags;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
+    assert(err_is_ok(err));
+    return (guest_rflags & (1UL << 9));
+}
+#endif
 
 static void
 virq_handler (void *ud, uint8_t irq, uint8_t irq_prio)
@@ -537,11 +644,25 @@ virq_handler (void *ud, uint8_t irq, uint8_t irq_prio)
     struct guest *g = ud;
 
     // tell the hw extensions that there is a virtual IRQ pending
+#ifdef CONFIG_SVM
     amd_vmcb_vintr_virq_wrf(&g->vmcb, 1);
     amd_vmcb_vintr_vintr_prio_wrf(&g->vmcb, irq_prio);
     amd_vmcb_vintr_vintr_vector_wrf(&g->vmcb, irq);
     amd_vmcb_vintr_v_ign_tpr_wrf(&g->vmcb, 1);
+#else
+    uint64_t guest_rflags;    
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
+    assert(guest_rflags & (1UL << 9));
 
+    uint64_t info = (0 << 8 /*HWINTR*/) | (1UL << 31 /*INTR VALID*/) | irq;
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_ENTRY_INTR_INFO, info);
+    
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_ACTIV_STATE, 0x0);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_INTR_STATE, 0x0);
+    assert(err_is_ok(err));
+
+    interrupt_priority = irq_prio;
+#endif
     // if the guest is currently waiting then we have to restart it to make
     // forward progress
     if (!g->runnable) {
@@ -588,7 +709,7 @@ guest_setup (struct guest *g)
     }
     g->ctrl->num_vm_exits_with_monitor_invocation = 0;
     g->ctrl->num_vm_exits_without_monitor_invocation = 0;
-
+#ifdef CONFIG_SVM
     // allocate memory for the iopm
     err = frame_alloc(&g->iopm_cap, IOPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
@@ -601,7 +722,47 @@ guest_setup (struct guest *g)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
     }
+#else
+    // allocate memory for I/O bitmap A
+    err = frame_alloc(&g->iobmp_a_cap, IOBMP_A_SIZE, NULL);
+    assert_err(err, "frame_alloc");
+    err = invoke_frame_identify(g->iobmp_a_cap, &fi);
+    assert_err(err, "frame_identify");
+    g->iobmp_a_pa = fi.base;
+    err = vspace_map_one_frame_attr((void**)&g->iobmp_a_va, IOBMP_A_SIZE, g->iobmp_a_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
+    }
 
+    // allocate memory for I/O bitmap B
+    err = frame_alloc(&g->iobmp_b_cap, IOBMP_B_SIZE, NULL);
+    assert_err(err, "frame_alloc");
+    err = invoke_frame_identify(g->iobmp_b_cap, &fi);
+    assert_err(err, "frame_identify");
+    g->iobmp_b_pa = fi.base;
+    err = vspace_map_one_frame_attr((void**)&g->iobmp_b_va, IOBMP_B_SIZE, g->iobmp_b_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
+    }
+
+    // allocate memory for the guest MSR store/load area
+    err = frame_alloc(&g->msr_area_cap, VMX_MSR_AREA_SIZE, NULL);
+    assert_err(err, "frame_alloc");
+    err = invoke_frame_identify(g->msr_area_cap, &fi);
+    assert_err(err, "frame_identify");
+    g->msr_area_pa = fi.base;
+    err = vspace_map_one_frame_attr((void**)&g->msr_area_va, VMX_MSR_AREA_SIZE,
+                                    g->msr_area_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
+    }
+#endif
     // allocate memory for the msrpm
     err = frame_alloc(&g->msrpm_cap, MSRPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
@@ -619,8 +780,9 @@ guest_setup (struct guest *g)
     // initialize the allocated structures
     initialize_iopm(g);
     initialize_msrpm(g);
+#ifdef CONFIG_SVM
     initialize_vmcb(g);
-
+#endif
     // spawn the guest domain
     spawn_guest_domain(g);
     assert (grub_image != NULL);
@@ -629,7 +791,11 @@ guest_setup (struct guest *g)
 
     // add virtual hardware
     g->apic = apic_new(APIC_BASE);
-    g->lpc = lpc_new(virq_handler, virq_pending, g, g->apic);
+    g->lpc = lpc_new(virq_handler, virq_pending,
+#ifndef CONFIG_SVM
+		     virq_accepting,
+#endif 
+		     g, g->apic);
     if (hdd0_image != NULL) {
         g->hdds[0] = hdd_new_from_memory(hdd0_image, hdd0_image_size);
         g->hdd_count++;
@@ -701,6 +867,50 @@ run_realmode (struct guest *g)
     return 0;
 };
 
+#ifndef CONFIG_SVM
+// Return true if the "Enable EPT" Secondary Processor-based control is 
+// set in the VMCS, else false.
+static inline bool vmx_ept_enabled(struct guest *g)
+{
+    uint64_t sp_controls;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_EXEC_SEC_PROC, &sp_controls);
+    assert(err_is_ok(err));
+    return ((sp_controls & SP_CLTS_ENABLE_EPT) != 0);
+}
+
+// Set or clear the "Descriptor-table exiting" Secondary Processor-based 
+// control if val is 1 or 0, respectively.
+static inline void vmx_intercept_desc_table_wrf(struct guest *g, int val)
+{
+    assert(val == 0 || val == 1);
+
+    uint64_t sec_proc_ctrls;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_EXEC_SEC_PROC, &sec_proc_ctrls);
+    if (val) {
+        uint64_t prim_proc_ctrls;
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXEC_PRIM_PROC, &prim_proc_ctrls);
+	assert(prim_proc_ctrls & PP_CLTS_SEC_CTLS);
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC, 
+					 sec_proc_ctrls | SP_CLTS_DESC_TABLE);
+    } else {
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC, 
+					 sec_proc_ctrls & ~SP_CLTS_DESC_TABLE);
+    }
+    assert(err_is_ok(err));
+}
+
+
+// Before entering the guest, synchronize the CR0 shadow with the guest 
+// CR0 value that is potentially changed in the real-mode emulator.
+static inline void vmx_set_cr0_shadow(struct guest *g)
+{
+    uint64_t cr0_shadow;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &cr0_shadow);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_CR0_RD_SHADOW, cr0_shadow);
+    assert(err_is_ok(err));
+}
+#endif
+
 /**
  * \brief Marks a guest as runnable.
  *
@@ -719,6 +929,7 @@ guest_make_runnable (struct guest *g, bool run)
     /* If the guest is currently in real mode (CR0.PE flag clear) then we do not
      * schedule the domain to run the virtualization but run the real-mode
      * emulation */
+#ifdef CONFIG_SVM
     if (UNLIKELY(run && amd_vmcb_cr0_rd(&g->vmcb).pe == 0)) {
         if (!g->emulated_before_exit) {
             // do the inverse of the code below
@@ -739,6 +950,16 @@ guest_make_runnable (struct guest *g, bool run)
             // mark guest as emulated
             g->emulated_before_exit = true;
         }
+#else
+    uint64_t guest_cr0;
+    err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
+    assert(err_is_ok(err));
+    if (UNLIKELY(run && (guest_cr0 & CR0_PE) == 0)) {
+        if (!g->emulated_before_exit) {
+	    vmx_intercept_desc_table_wrf(g, 1);
+	    g->emulated_before_exit = true;
+	}
+#endif
 #if 0 /* why create a thread for this? it seems fine without! -AB */
         struct thread *t = thread_create((thread_func_t)run_realmode, g);
         assert(t != NULL);
@@ -753,6 +974,7 @@ guest_make_runnable (struct guest *g, bool run)
     /* every time we move the machine from the emulated to virtualized we need
      * to adjust some intercepts */
     if (UNLIKELY(run && g->emulated_before_exit)) {
+#ifdef CONFIG_SVM
         // we enforce NP to be enabled (no shadow paging support)
         assert(amd_vmcb_np_rd(&g->vmcb).enable == 1);
 
@@ -779,7 +1001,13 @@ guest_make_runnable (struct guest *g, bool run)
         // we have to be outside of real mode for this to work
         assert(amd_vmcb_cr0_rd(&g->vmcb).pe != 0);
         amd_vmcb_intercepts_intn_wrf(&g->vmcb, 0);
-
+#else
+        bool ept_enabled = vmx_ept_enabled(g);
+	assert(ept_enabled);
+	vmx_intercept_desc_table_wrf(g, 0);
+	assert(guest_cr0 & CR0_PE);
+	vmx_set_cr0_shadow(g);
+#endif
         // mark guest as not emulated
         g->emulated_before_exit = false;
     }
@@ -800,6 +1028,7 @@ guest_make_runnable (struct guest *g, bool run)
 #define HANDLER_ERR_OK          (0)
 #define HANDLER_ERR_FATAL       (-1)
 
+#ifdef CONFIG_SVM
 static int
 handle_vmexit_unhandeled (struct guest *g)
 {
@@ -837,6 +1066,81 @@ handle_vmexit_unhandeled (struct guest *g)
 
     return HANDLER_ERR_FATAL;
 }
+#else
+static int
+handle_vmexit_unhandeled (struct guest *g)
+{
+    printf("Unhandeled guest vmexit:\n");
+    printf(" exit reason:\t %"PRIu16"\n", saved_exit_reason);
+    printf(" exit qualification:\t %"PRIx64"\n", saved_exit_qual);
+    printf(" next rip (I/O instruction):\t %"PRIx64"\n", saved_rip);
+
+    uint64_t gpaddr;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GPADDR_F, &gpaddr);
+    printf(" guest physical-address:\t %"PRIx64"\n", gpaddr);
+
+    uint64_t guest_cr0, guest_cr3, guest_cr4;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);    
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR3, &guest_cr3);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR4, &guest_cr4);
+
+    uint64_t guest_efer, guest_rip;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_EFER_F, &guest_efer);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+
+    uint64_t guest_cs_sel, guest_cs_base, guest_cs_lim, 
+        guest_cs_access;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_SEL, &guest_cs_sel);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_LIM, &guest_cs_lim);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_ACCESS, &guest_cs_access);
+
+    uint64_t guest_ds_sel, guest_ds_base, guest_ds_lim, 
+        guest_ds_access;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_SEL, &guest_ds_sel);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_LIM, &guest_ds_lim);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_ACCESS, &guest_ds_access);
+
+    uint64_t guest_es_sel, guest_es_base, guest_es_lim, 
+        guest_es_access;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_SEL, &guest_es_sel);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_BASE, &guest_es_base);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_LIM, &guest_es_lim);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_ACCESS, &guest_es_access);
+
+    uint64_t guest_ss_sel, guest_ss_base, guest_ss_lim, 
+        guest_ss_access;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_SEL, &guest_ss_sel);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_BASE, &guest_ss_base);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_LIM, &guest_ss_lim);
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_ACCESS, &guest_ss_access);
+    assert(err_is_ok(err));
+
+    printf("VMCS save area:\n");
+    printf(" cr0:\t%lx\n", guest_cr0);
+    printf(" cr3:\t%lx\n", guest_cr3);
+    printf(" cr4:\t%lx\n", guest_cr4);
+    printf(" efer:\t%lx\n", guest_efer);
+    printf(" rip:\t%lx\n", guest_rip);
+    printf(" cs:\tselector %lx, base %lx, limit %lx, access %lx\n",
+           guest_cs_sel, guest_cs_base, guest_cs_lim, guest_cs_access);
+    printf(" ds:\tselector %lx, base %lx, limit %lx, access %lx\n",
+           guest_ds_sel, guest_ds_base, guest_ds_lim, guest_ds_access);
+    printf(" es:\tselector %lx, base %lx, limit %lx, access %lx\n",
+           guest_es_sel, guest_es_base, guest_es_lim, guest_es_access);
+    printf(" ss:\tselector %lx, base %lx, limit %lx, access %lx\n",
+           guest_ss_sel, guest_ss_base, guest_ss_lim, guest_ss_access);
+    printf(" rax:\t%lx\n", g->ctrl->regs.rax);
+    printf(" rbx:\t%lx\n", g->ctrl->regs.rbx);
+    printf(" rcx:\t%lx\n", g->ctrl->regs.rcx);
+    printf(" rdx:\t%lx\n", g->ctrl->regs.rdx);
+    printf(" rsi:\t%lx\n", g->ctrl->regs.rsi);
+    printf(" rdi:\t%lx\n", g->ctrl->regs.rdi);
+
+    return HANDLER_ERR_FATAL;  
+}
+#endif
 
 static inline uint64_t
 lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
@@ -845,7 +1149,14 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
     uint64_t *page_table;
 
     // get a pointer to the pml4 table
+#ifdef CONFIG_SVM
     page_table = (uint64_t *)guest_to_host(amd_vmcb_cr3_rd(&g->vmcb));
+#else
+    uint64_t guest_cr3;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR3, &guest_cr3);
+    assert(err_is_ok(err));
+    page_table = (uint64_t *)guest_to_host(guest_cr3);
+#endif
     // get pml4 entry
     union x86_lm_pml4_entry pml4e = { .raw = page_table[va.u.pml4_idx] };
     assert (pml4e.u.p == 1);
@@ -865,7 +1176,8 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
     // get pd entry
     union x86_lm_pd_entry pde = { .raw = page_table[va.u.pd_idx] };
     if (pde.u.p == 0) {
-        printf("g2h %lx, pml4e %p %lx, pdpe %p %lx, pde %p %lx\n", guest_to_host(0), &pml4e, pml4e.raw, &pdpe, pdpe.raw, &pde, pde.raw);
+        printf("g2h %lx, pml4e %p %lx, pdpe %p %lx, pde %p %lx\n", 
+	       guest_to_host(0), &pml4e, pml4e.raw, &pdpe, pdpe.raw, &pde, pde.raw);
     }
     assert(pde.u.p == 1);
     // check for 2MB page (PS bit set)
@@ -887,13 +1199,26 @@ lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
 {
 //	printf("lookup_paddr_legacy_mode enter\n");
     // PAE not supported
+#ifdef CONFIG_SVM
     guest_assert(g, amd_vmcb_cr4_rd(&g->vmcb).pae == 0);
-
+#else
+    uint64_t guest_cr4;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR4, &guest_cr4);
+    guest_assert(g, (guest_cr4 & CR4_PAE) == 0);
+#endif
     union x86_legm_va va = { .raw = vaddr };
     uint32_t *page_table;
 
     // get a pointer to the pd table
+#ifdef CONFIG_SVM
     page_table = (uint32_t *)guest_to_host(amd_vmcb_cr3_rd(&g->vmcb));
+#else
+    uint64_t guest_cr3;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR3, &guest_cr3);
+    assert(err_is_ok(err));
+    page_table = (uint32_t *)guest_to_host(guest_cr3);
+#endif
+
     // get pd entry
     union x86_legm_pd_entry pde = { .raw = page_table[va.u.pd_idx] };
     assert (pde.u.p == 1);
@@ -915,34 +1240,74 @@ lookup_paddr_legacy_mode (struct guest *g, uint32_t vaddr)
 static inline int
 get_instr_arr (struct guest *g, uint8_t **arr)
 {
+#ifdef CONFIG_SVM
     if (UNLIKELY(amd_vmcb_cr0_rd(&g->vmcb).pg == 0)) {
+#else
+    uint64_t guest_cr0;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
+    if (UNLIKELY((guest_cr0 & CR0_PG) == 0)) {
+#endif
     	//printf("Segmentation active!\n");
         // without paging
         // take segmentation into account
+#ifdef CONFIG_SVM
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
                amd_vmcb_cs_base_rd(&g->vmcb) +
                amd_vmcb_rip_rd(&g->vmcb));
+#else 
+	uint64_t guest_cs_base, guest_rip;
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base);
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+        *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
+			   guest_cs_base + guest_rip);	
+#endif
     } else {
         // with paging
+#ifdef CONFIG_SVM
         if (amd_vmcb_efer_rd(&g->vmcb).lma == 1) {
+#else
+	uint64_t guest_efer;
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_EFER_F, &guest_efer);
+	if (guest_efer & EFER_LMA) {
+#endif
             // long mode
+#ifdef CONFIG_SVM
             if (amd_vmcb_cs_attrib_rd(&g->vmcb).l == 1) {
                 // 64-bit mode
                 *arr = (uint8_t *)guest_to_host(lookup_paddr_long_mode(g,
                                                 amd_vmcb_rip_rd(&g->vmcb)));
+#else
+	    uint64_t cs_access_rights, guest_rip;
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_ACCESS, &cs_access_rights);
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+	    if (cs_access_rights & ACCESS_RIGHTS_LONG_MODE) {
+                *arr = (uint8_t *)guest_to_host(lookup_paddr_long_mode(g,
+                                                guest_rip));	       
+#endif
             } else {
                 // cmpatibility mode
                 guest_assert(g, !"compatiblity mode not supported yet");
             }
         } else {
             // Legacy (aka. Paged Protected) Mode
+#ifdef CONFIG_SVM
             assert(amd_vmcb_cr0_rd(&g->vmcb).pe == 1);
 
             *arr = (uint8_t *)guest_to_host(lookup_paddr_legacy_mode(g,
                                             amd_vmcb_rip_rd(&g->vmcb)));
+#else
+	    assert(guest_cr0 & CR0_PE);
+
+	    uint64_t guest_rip;
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+            *arr = (uint8_t *)guest_to_host(lookup_paddr_legacy_mode(g,
+                                            guest_rip));	    
+#endif
         }
     }
-
+#ifndef CONFIG_SVM
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1009,7 +1374,13 @@ handle_vmexit_cr_access (struct guest *g)
 {
     int r;
     uint8_t *code = NULL;
-
+#ifndef CONFIG_SVM
+    errval_t err = 0;
+    if (g->emulated_before_exit) {
+        assert(saved_exit_reason == VMX_EXIT_REASON_CR_ACCESS);
+        assert(((saved_exit_qual >> 0) & 0xf) == 0);
+    }
+#endif
     // fetch the location to the code
     r = get_instr_arr(g, &code);
     if (r != HANDLER_ERR_OK) {
@@ -1032,7 +1403,11 @@ handle_vmexit_cr_access (struct guest *g)
         // read from CR
         switch (mod.u.regop) {
         case 0:
+#ifdef CONFIG_SVM
             val = amd_vmcb_cr0_rd_raw(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &val);
+#endif
             break;
         default:
             printf("CR access: unknown CR source register\n");
@@ -1067,7 +1442,11 @@ handle_vmexit_cr_access (struct guest *g)
         // write to CR
         switch (mod.u.regop) {
         case 0:
+#ifdef CONFIG_SVM
             amd_vmcb_cr0_wr_raw(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CR0, val);
+#endif
             break;
         default:
             printf("CR access: unknown CR destination register\n");
@@ -1076,8 +1455,14 @@ handle_vmexit_cr_access (struct guest *g)
     }
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 3);
-
+#else
+    uint64_t guest_rip;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 3);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1089,8 +1474,13 @@ handle_vmexit_ldt (struct guest *g)
     uint8_t *mem;
 
     // this handler supports only real-mode
+#ifdef CONFIG_SVM
     assert(amd_vmcb_cr0_rd(&g->vmcb).pe == 0);
-
+#else
+    uint64_t guest_cr0;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
+    assert((guest_cr0 & CR0_PE) == 0);
+#endif
     // fetch the location to the code
     r = get_instr_arr(g, &code);
     if (r != HANDLER_ERR_OK) {
@@ -1119,7 +1509,13 @@ handle_vmexit_ldt (struct guest *g)
         // byte 3-4 hold a 16 bit address to a mem location where the first word
         // holds the limit and the following dword holds the base
         // this address is relative to DS base
+#ifdef CONFIG_SVM
         addr = *(uint16_t *)&code[3] + amd_vmcb_ds_base_rd(&g->vmcb);
+#else
+	uint64_t guest_ds_base;
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
+	addr = *(uint16_t *)&code[3] + guest_ds_base;
+#endif
     }
 
     // santity check on the addr
@@ -1132,25 +1528,66 @@ handle_vmexit_ldt (struct guest *g)
     // load the actual register
     if (modrm.u.regop == 2) {
         // LGDT
+#ifdef CONFIG_SVM
         amd_vmcb_gdtr_limit_wr(&g->vmcb, *(uint16_t*)(mem + addr));
         amd_vmcb_gdtr_base_wr(&g->vmcb, *(uint32_t*)(mem + addr + 2));
+#else
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_LIM, 
+					 *(uint16_t*)(mem + addr));
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_BASE, 
+					 *(uint32_t*)(mem + addr + 2));
+#endif
+
     } else if (modrm.u.regop == 3) {
         // LIDT
+#ifdef CONFIG_SVM
         amd_vmcb_idtr_limit_wr(&g->vmcb, *(uint16_t*)(mem + addr));
         amd_vmcb_idtr_base_wr(&g->vmcb, *(uint32_t*)(mem + addr + 2));
+#else
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_LIM, 
+					 *(uint16_t*)(mem + addr));
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_BASE, 
+					 *(uint32_t*)(mem + addr + 2));
+#endif
     } else {
         assert(!"not reached");
     }
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     if (addr32) {
         amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 7);
     } else {
         amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 5);
     }
-
+#else
+    uint64_t guest_rip;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    if (addr32) {
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 7);
+    } else {
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 5);
+    }
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
+
+#ifndef CONFIG_SVM
+static inline void vmx_vmcs_rflags_cf_wrf(struct guest *g, int val) { 
+    assert(val == 0 || val == 1);
+    uint64_t guest_rflags;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
+    if (val) {
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, 
+					 guest_rflags | RFLAGS_CF);
+    } else {
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, 
+					 guest_rflags & (~RFLAGS_CF));
+    }
+    assert(err_is_ok(err));
+}
+#endif
 
 static int
 handle_vmexit_swint (struct guest *g)
@@ -1171,7 +1608,14 @@ handle_vmexit_swint (struct guest *g)
     uint8_t int_num = code[1];
 
     // check whether the guest is in real mode
+#ifdef CONFIG_SVM
     if (amd_vmcb_cr0_rd(&g->vmcb).pe == 0) {
+#else
+    uint64_t guest_ds_base, es_guest_base;
+    uint64_t guest_cr0, guest_rip; 
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
+    if ((guest_cr0 & CR0_PE) == 0) {
+#endif
         // in real mode the interrupts starting at 10 have different meaning
         // examine the sw interrupt
         switch (int_num) {
@@ -1199,7 +1643,11 @@ handle_vmexit_swint (struct guest *g)
                 // Bootable CD-ROM - GET STATUS
                 if (guest_get_ax(g) == 0x4b01) {
                     // no cdrom support
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                 }
                 // DISK RESET
                 else if (guest_get_ah(g) == 0) {
@@ -1221,14 +1669,22 @@ handle_vmexit_swint (struct guest *g)
 
                         // set some return values for success
                         guest_set_ah(g, 0);
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                         guest_set_bl(g, 0);
                         // store the geometry into the correct registers
                         guest_set_cx(g, c << 6 | (s & 0x3f));
                         guest_set_dh(g, h);
                         guest_set_dl(g, g->hdd_count);
                     } else {
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                         // it is not really clear to me what ah should contain
                         // when the drive is not present, so set it to FF
                         guest_set_ah(g, 1);
@@ -1236,7 +1692,11 @@ handle_vmexit_swint (struct guest *g)
                 }
                 // INT 13 Extensions - INSTALLATION CHECK
                 else if (guest_get_ah(g) == 0x41 && guest_get_bx(g) == 0x55aa) {
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                     guest_set_bx(g, 0xaa55);
                     guest_set_ah(g, 0x01); // Drive extensions 1.x
                     guest_set_al(g, 0);
@@ -1248,7 +1708,11 @@ handle_vmexit_swint (struct guest *g)
 
                     // only respond to installed hard disks
                     if ((dl >> 7) && ((dl & 0x7f) < g->hdd_count)) {
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                         guest_set_ah(g, 0);
 
                         struct disk_access_block {
@@ -1262,13 +1726,24 @@ handle_vmexit_swint (struct guest *g)
                         } __attribute__ ((packed));
 
                         // memory location of the disk access block
+#ifdef CONFIG_SVM
                         uintptr_t mem = guest_to_host(g->mem_low_va) +
                                         amd_vmcb_ds_base_rd(&g->vmcb) +
                                         guest_get_si(g);
+#else 
+			err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
+                        uintptr_t mem = guest_to_host(g->mem_low_va) +
+                                        guest_ds_base + guest_get_si(g);			
+#endif
+
                         struct disk_access_block *dap = (void *)mem;
 
                         if (dap->size < 0x10) {
+#ifdef CONFIG_SVM
                             amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                             guest_set_ah(g, 1);
                         } else {
                             // dap->transfer buffer points to a real-mode segment
@@ -1284,12 +1759,20 @@ handle_vmexit_swint (struct guest *g)
                             dap->count = count;
 
                             if (r != HANDLER_ERR_OK) {
+#ifdef CONFIG_SVM
                                 amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+				vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                                 guest_set_ah(g, 1);
                             }
                         }
                     } else {
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                         // it is not really clear to me what ah should contain
                         // when the drive is not present, so set it to FF
                         guest_set_ah(g, 1);
@@ -1313,16 +1796,31 @@ handle_vmexit_swint (struct guest *g)
                         } __attribute__ ((packed));
 
                         // memory where the drive info shall be stored
+#ifdef CONFIG_SVM
                         uintptr_t mem = guest_to_host(g->mem_low_va) +
                                         amd_vmcb_ds_base_rd(&g->vmcb) +
                                         guest_get_si(g);
+#else
+			err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
+                        uintptr_t mem = guest_to_host(g->mem_low_va) +
+                                        guest_ds_base + guest_get_si(g);			
+#endif
+
                         struct drive_params *drp = (void *)mem;
 
                         // sanity check
                         if (drp->size < sizeof(struct drive_params)) {
+#ifdef CONFIG_SVM
                             amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                         } else {
+#ifdef CONFIG_SVM
                             amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+			    vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                             guest_set_ah(g, 0);
 
                             drp->size = sizeof(struct drive_params);
@@ -1336,7 +1834,11 @@ handle_vmexit_swint (struct guest *g)
                             drp->bytes_per_sector = 512; // FIXME: Hardcoded
                         }
                     } else {
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                         // it is not really clear to me what ah should contain
                         // when the drive is not present, so set it to FF
                         guest_set_ah(g, 0x1);
@@ -1350,24 +1852,40 @@ handle_vmexit_swint (struct guest *g)
                 // ENABLE A20 GATE
                 if (guest_get_ax(g) == 0x2401) {
                     g->a20_gate_enabled = true;
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                     guest_set_ah(g, 0);
                 }
                 // APM INSTALLATION CHECK
                 else if (guest_get_ax(g) == 0x5300) {
                     // we do not support APM - set carry flag to indicate error
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                 }
                 // APM DISCONNECT
                 else if (guest_get_ax(g) == 0x5304) {
                     // we do not support APM - set carry flag to indicate error
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                 }
                 // GET MEMORY SIZE FOR >64M CONFIGURATIONS
                 else if (guest_get_ax(g) == 0xe801) {
                     // we do not support this BIOS call
                     // both grub and linux may also use the 0xe820 call
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                 }
                 // GET SYSTEM MEMORY MAP
                 // EDX has to contain 0x534d4150 (== 'SMAP')
@@ -1376,13 +1894,22 @@ handle_vmexit_swint (struct guest *g)
                     // for now we return only one entry containing the real mem
                     if (guest_get_ebx(g) > 1 || guest_get_ecx(g) < 20) {
                         // wrong input params -> report error
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                     } else {
                         // taken from http://www.ctyme.com/intr/rb-1741.htm
+#ifdef CONFIG_SVM
                         uintptr_t addr = guest_to_host(g->mem_low_va) +
                                          amd_vmcb_es_base_rd(&g->vmcb) +
                                          guest_get_di(g);
-
+#else
+			err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_BASE, &es_guest_base);
+                        uintptr_t addr = guest_to_host(g->mem_low_va) +
+                                         es_guest_base + guest_get_di(g);
+#endif
                         // set EAX to 'SMAP'
                         guest_set_eax(g, 0x534D4150);
                         // returned bytes (always 20)
@@ -1419,20 +1946,32 @@ handle_vmexit_swint (struct guest *g)
                         }
 
                         // mark success
+#ifdef CONFIG_SVM
                         amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+			vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                     }
                 }
                 // SYSTEM - Get Intel SpeedStep (IST) information
                 else if (guest_get_ax(g) == 0xe980) {
                     // not supportet yet
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                 }
                 // SYSTEM - GET CONFIGURATION (XT >1986/1/10,AT mdl 3x9,
                 // CONV,XT286,PS)
                 // GRUB BUG: it puts 0xc0 into AX instead of AH
                 else if (guest_get_ax(g) == 0xc0) {
                     // we do not support this
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                     guest_set_ah(g, 0x80);
                 }
                 // GET EXTENDED MEMORY SIZE
@@ -1443,13 +1982,21 @@ handle_vmexit_swint (struct guest *g)
                     guest_set_ax(g, MIN(0x3c00 /* 16MB */,
                                  (g->mem_high_va - g->mem_low_va) / 1024));
                     // indicate no error occured
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                 }
                 // SYSTEM - GET CONFIGURATION (XT >1986/1/10,AT mdl 3x9,
                 // CONV,XT286,PS)
                 else if (guest_get_ah(g) == 0xc0) {
                     // we do not support this
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 1);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 1);
+#endif
                     guest_set_ah(g, 0x80);
                 // SYSTEM - SET BIOS MODE
                 } else if (guest_get_ah(g) == 0xec) {
@@ -1479,7 +2026,11 @@ handle_vmexit_swint (struct guest *g)
                     guest_set_dh(g, s);
                     guest_set_dl(g, 0);
                     // mark success
+#ifdef CONFIG_SVM
                     amd_vmcb_rflags_cf_wrf(&g->vmcb, 0);
+#else
+		    vmx_vmcs_rflags_cf_wrf(g, 0);
+#endif
                 } else {
                     printf("Unhandeled method on INT 0x1a\n");
                     return handle_vmexit_unhandeled(g);
@@ -1496,8 +2047,13 @@ handle_vmexit_swint (struct guest *g)
     }
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 2);
-
+#else
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 2);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1520,14 +2076,27 @@ static int
 handle_vmexit_ioio (struct guest *g)
 {
     int r;
+#ifdef CONFIG_SVM
     uint64_t info1 = amd_vmcb_exitinfo1_rd(&g->vmcb);
     enum x86_io_access io;
     uint16_t port = info1 >> 16;
+#else
+    errval_t err = 0;
+    if (!g->emulated_before_exit) {
+        err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_QUAL, &saved_exit_qual); 
+	uint64_t instr_len, guest_rip;
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_INSTR_LEN, &instr_len);
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+	saved_rip = guest_rip + instr_len;
+    }
+    uint16_t port = (saved_exit_qual >> 16) & 0xffff;
+#endif
     bool write;
     enum opsize size;
     uint32_t val;
     bool newapi = false; // needed as a transition
 
+#ifdef CONFIG_SVM
     // copy the access flags
     // FIXME: this severely exploits the way the x86_io_access flags are set up
     io = (info1 >> 1);
@@ -1543,7 +2112,19 @@ handle_vmexit_ioio (struct guest *g)
     } else if (io & X86_IO_ACCESS_SZ32) {
         size = OPSIZE_32;
     }
-
+#else
+    write = ((saved_exit_qual >> 3) & 0x1) == 0;
+    size = OPSIZE_8;
+    if ((saved_exit_qual & 0x7) == 0) {
+        size = OPSIZE_8;
+    } else if ((saved_exit_qual & 0x7) == 1) {
+        size = OPSIZE_16;
+    } else if ((saved_exit_qual & 0x7) == 3) {
+        size = OPSIZE_32;
+    } else {
+        assert(!"Invalid size of access value");
+    }
+#endif
     // fetch the source val if neccessary
     if (write) {
         switch (size) {
@@ -1710,14 +2291,25 @@ handle_vmexit_ioio (struct guest *g)
     }
 
     // the following IP is stored in the exitinfo2 field
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_exitinfo2_rd(&g->vmcb));
-
+#else
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, saved_rip);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
 static int
 handle_vmexit_msr (struct guest *g) {
+#ifdef CONFIG_SVM
     bool write = amd_vmcb_exitinfo1_rd(&g->vmcb) == 1;
+#else
+    int msr_index;
+    errval_t err = 0;
+    bool write = (saved_exit_reason == VMX_EXIT_REASON_WRMSR);
+    struct msr_entry *guest_msr_area = (struct msr_entry *)g->msr_area_va;
+#endif
     uint32_t msr = guest_get_ecx(g);
     uint64_t val;
 
@@ -1729,23 +2321,48 @@ handle_vmexit_msr (struct guest *g) {
         // store the read value into the corresponding location
         switch (msr) {
         case X86_MSR_SYSENTER_CS:
+#ifdef CONFIG_SVM
             amd_vmcb_sysenter_cs_wr(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_SYSENTER_CS, val);
+#endif
             break;
         case X86_MSR_SYSENTER_ESP:
+#ifdef CONFIG_SVM
             amd_vmcb_sysenter_esp_wr(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_SYSENTER_ESP, val);	    
+#endif
             break;
         case X86_MSR_SYSENTER_EIP:
+#ifdef CONFIG_SVM
             amd_vmcb_sysenter_eip_wr(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_SYSENTER_EIP, val);
+#endif
             break;
         case X86_MSR_EFER:
+#ifdef CONFIG_SVM
             amd_vmcb_efer_wr_raw(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_EFER_F, val);
+#endif
             break;
         case X86_MSR_FS_BASE:
+#ifdef CONFIG_SVM
             amd_vmcb_fs_base_wr(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_FS_BASE, val);
+#endif
             break;
         case X86_MSR_GS_BASE:
+#ifdef CONFIG_SVM
             amd_vmcb_gs_base_wr(&g->vmcb, val);
+#else
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GS_BASE, val);
+#endif
             break;
+#ifdef CONFIG_SVM
         case X86_MSR_KERNEL_GS_BASE:
             amd_vmcb_kernel_gs_base_wr(&g->vmcb, val);
             break;
@@ -1764,28 +2381,63 @@ handle_vmexit_msr (struct guest *g) {
         default:
             printf("MSR: unhandeled MSR write access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
+#else
+	default:
+	    msr_index = vmx_guest_msr_index(msr);
+	    if (msr_index == -1) {
+	        printf("MSR: unhandeled MSR write access to %x\n", msr);
+		return handle_vmexit_unhandeled(g);	    
+	    }	
+	    guest_msr_area[msr_index].val = val;
+	    break;
+#endif
         }
     } else {
         // read the value from the corresponding location
         switch (msr) {
         case X86_MSR_SYSENTER_CS:
+#ifdef CONFIG_SVM
             val = amd_vmcb_sysenter_cs_rd(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SYSENTER_CS, &val);
+#endif
             break;
         case X86_MSR_SYSENTER_ESP:
+#ifdef CONFIG_SVM
             val = amd_vmcb_sysenter_esp_rd(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SYSENTER_ESP, &val);
+#endif
             break;
         case X86_MSR_SYSENTER_EIP:
+#ifdef CONFIG_SVM
             val = amd_vmcb_sysenter_eip_rd(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SYSENTER_EIP, &val);
+#endif
             break;
         case X86_MSR_EFER:
+#ifdef CONFIG_SVM
             val = amd_vmcb_efer_rd_raw(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_EFER_F, &val);
+#endif
             break;
         case X86_MSR_FS_BASE:
+#ifdef CONFIG_SVM
             val = amd_vmcb_fs_base_rd(&g->vmcb);
+#else
+	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_FS_BASE, &val);
+#endif
             break;
         case X86_MSR_GS_BASE:
+#ifdef CONFIG_SVM
             val = amd_vmcb_gs_base_rd(&g->vmcb);
+#else
+	    err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_GS_BASE, &val);
+#endif
             break;
+#ifdef CONFIG_SVM
         case X86_MSR_KERNEL_GS_BASE:
             val = amd_vmcb_kernel_gs_base_rd(&g->vmcb);
             break;
@@ -1804,6 +2456,16 @@ handle_vmexit_msr (struct guest *g) {
         default:
             printf("MSR: unhandeled MSR read access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
+#else
+	default:
+	    msr_index = vmx_guest_msr_index(msr);
+	    if (msr_index == -1) {
+	      printf("MSR: unhandeled MSR read access to %x\n", msr);
+	      return handle_vmexit_unhandeled(g);	    
+	    }	
+	    val = guest_msr_area[msr_index].val;
+	    break;
+#endif
         }
 
         // store the value in EDX:EAX
@@ -1812,8 +2474,14 @@ handle_vmexit_msr (struct guest *g) {
     }
 
     // advance the rip beyond the current instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 2);
-
+#else
+    uint64_t guest_rip;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 2);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1862,8 +2530,14 @@ handle_vmexit_cpuid (struct guest *g) {
     guest_set_edx(g, edx);
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 2);
-
+#else
+    uint64_t guest_rip;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 2);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1875,8 +2549,14 @@ handle_vmexit_vmmcall (struct guest *g) {
            g->ctrl->num_vm_exits_without_monitor_invocation);*/
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 3);
-
+#else
+    uint64_t guest_rip;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 3);
+    assert(err_is_ok(err));
+#endif
     return HANDLER_ERR_OK;
 }
 
@@ -1887,11 +2567,24 @@ handle_vmexit_hlt (struct guest *g) {
     lpc_pic_process_irqs(g->lpc);
 
     // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
     amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) + 1);
+#else
+    uint64_t guest_rip;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 1);
+#endif
 
     // running HLT with IRQs masked does not make any sense
     // FIXME: this assert silly, shutting down the VM would be the right way
+#ifdef CONFIG_SVM
     guest_assert(g, amd_vmcb_rflags_rd(&g->vmcb).intrf == 1);
+#else
+    uint64_t guest_rflags;
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
+    assert(err_is_ok(err));
+    guest_assert(g, guest_rflags & RFLAGS_IF);
+#endif
     if (virq_pending(g, NULL, NULL)) {
         // there is an IRQ pending, proceed as normal, the CPU will take it
     } else {
@@ -2057,7 +2750,13 @@ static int register_needs_translation(uint64_t addr){
 static int
 handle_vmexit_npf (struct guest *g) {
     int r;
+#ifdef CONFIG_SVM
     uint64_t fault_addr = amd_vmcb_exitinfo2_rd(&g->vmcb);
+#else
+    uint64_t fault_addr, guest_rip;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GPADDR_F, &fault_addr);
+    assert(err_is_ok(err));
+#endif
     uint8_t *code = NULL;
 
     // check for fault inside the guest physical memory region
@@ -2092,9 +2791,15 @@ handle_vmexit_npf (struct guest *g) {
         }
 
         // advance the rip beyond the instruction
+#ifdef CONFIG_SVM
         amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
                         decode_mov_instr_length(g, code));
-
+#else
+	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 
+					 decode_mov_instr_length(g, code));
+	assert(err_is_ok(err));
+#endif
         return HANDLER_ERR_OK;
     }
     }
@@ -2126,8 +2831,15 @@ handle_vmexit_npf (struct guest *g) {
 									goto error;
 								}
 							}
+#ifdef CONFIG_SVM
 							amd_vmcb_rip_wr(&g->vmcb, amd_vmcb_rip_rd(&g->vmcb) +
 							                        decode_mov_instr_length(g, code));
+#else
+							err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
+							err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 
+											 decode_mov_instr_length(g, code));
+							assert(err_is_ok(err));
+#endif
 							return HANDLER_ERR_OK;
 						}
 					}
@@ -2143,6 +2855,7 @@ handle_vmexit_npf (struct guest *g) {
 
 typedef int (*vmexit_handler)(struct guest *g);
 
+#ifdef CONFIG_SVM
 static vmexit_handler vmexit_handlers[0x8c] = {
     [SVM_VMEXIT_CR0_READ] = handle_vmexit_cr_access,
     [SVM_VMEXIT_CR0_WRITE] = handle_vmexit_cr_access,
@@ -2156,15 +2869,28 @@ static vmexit_handler vmexit_handlers[0x8c] = {
     [SVM_VMEXIT_VMMCALL] = handle_vmexit_vmmcall,
     [SVM_VMEXIT_HLT] = handle_vmexit_hlt
 };
+#else
+static vmexit_handler vmexit_handlers[0x8c] = {
+    [VMX_EXIT_REASON_CPUID] = handle_vmexit_cpuid,
+    [VMX_EXIT_REASON_HLT] = handle_vmexit_hlt,
+    [VMX_EXIT_REASON_VMCALL] = handle_vmexit_vmmcall,
+    [VMX_EXIT_REASON_CR_ACCESS] = handle_vmexit_cr_access,
+    [VMX_EXIT_REASON_INOUT] = handle_vmexit_ioio,
+    [VMX_EXIT_REASON_RDMSR] = handle_vmexit_msr,
+    [VMX_EXIT_REASON_WRMSR] = handle_vmexit_msr,
+    [VMX_EXIT_REASON_GDTR_IDTR] = handle_vmexit_ldt,
+    [VMX_EXIT_REASON_EPT_FAULT] = handle_vmexit_npf,
+    [VMX_EXIT_REASON_SWINT] = handle_vmexit_swint
+};
+#endif
 
 void
 guest_handle_vmexit (struct guest *g) {
 	//struct pci_ethernet * eth = (struct pci_ethernet * ) g->pci->bus[0]->device[2]->state;//
 	//printf("guest_handle_vmexit\n");
-    uint64_t exitcode = amd_vmcb_exitcode_rd(&g->vmcb);
-
     vmexit_handler handler;
-
+#ifdef CONFIG_SVM
+    uint64_t exitcode = amd_vmcb_exitcode_rd(&g->vmcb);
     if (exitcode == SVM_VMEXIT_NPF) {
         handler = handle_vmexit_npf;
     } else if (LIKELY(vmexit_handlers[exitcode] != NULL)) {
@@ -2173,7 +2899,20 @@ guest_handle_vmexit (struct guest *g) {
         handle_vmexit_unhandeled(g);
         return;
     }
+#else
+    if (!g->emulated_before_exit) {
+        errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_REASON, 
+						(uint64_t *)&saved_exit_reason);
+	assert(err_is_ok(err));
+    }
 
+    if (LIKELY(vmexit_handlers[saved_exit_reason] != NULL)) {
+        handler = vmexit_handlers[saved_exit_reason];
+    } else {
+        handle_vmexit_unhandeled(g);
+	return;
+    }
+#endif
     int r = handler(g);
     if (LIKELY(r == HANDLER_ERR_OK)) {
         if (g->runnable) {
@@ -2181,3 +2920,4 @@ guest_handle_vmexit (struct guest *g) {
         }
     }
 }
+

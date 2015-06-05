@@ -1,8 +1,18 @@
+/*
+ * Copyright (c) 2013, 2014, University of Washington.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #include <pthread.h>
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <errno.h>
 #include <string.h>
+#include <signal.h>
 
 #include <posixcompat.h> // for pthread_placement stuff
 
@@ -53,6 +63,10 @@ struct pthread {
     void *retval;
 };
 
+struct pthread_attr {
+    int stacksize;
+};
+
 static pthread_key_t key_index = 0;
 static struct thread_mutex key_mutex = THREAD_MUTEX_INITIALIZER;
 static destructor_fn_t destructors[PTHREAD_KEYS_MAX];
@@ -93,6 +107,12 @@ errval_t posixcompat_pthread_set_placement_fn(pthread_placement_fn fn)
 int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
                    void *(*start_routine) (void *), void *arg)
 {
+    size_t stacksize = THREADS_DEFAULT_STACK_BYTES;
+
+    if(attr != NULL) {
+        stacksize = (*attr)->stacksize;
+    }
+
     *pthread = malloc(sizeof(struct pthread));
     assert(*pthread != NULL);
     memset(*pthread, 0, sizeof(struct pthread));
@@ -107,11 +127,13 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
         (*pthread)->core = pthread_placement(PTHREAD_ACTION_CREATE, 0);
     }
     struct thread *nt;
-    errval_t err = domain_thread_create_on((*pthread)->core, start_pthread, *pthread, &nt);
+    errval_t err = domain_thread_create_on_varstack(
+                     (*pthread)->core, start_pthread, *pthread, stacksize, &nt);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pthread_create");
         return 1;
     }
+
     (*pthread)->thread = nt;
     debug_printf("%s: %p -> %"PRIuPTR"\n", __FUNCTION__, *pthread,
             thread_get_id((*pthread)->thread));
@@ -157,6 +179,8 @@ int pthread_setspecific(pthread_key_t key, const void *val)
 
 int pthread_attr_init(pthread_attr_t *attr)
 {
+    *attr = malloc(sizeof(struct pthread_attr));
+    (*attr)->stacksize = THREADS_DEFAULT_STACK_BYTES;
     // No attributes
     return 0;
 }
@@ -690,4 +714,45 @@ int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
     }
     thread_once(ctrl, init);
     return 0;
+}
+
+int pthread_setcancelstate(int state, int *oldstate)
+{
+    // XXX: Not supported
+    if(oldstate != NULL) {
+        *oldstate = PTHREAD_CANCEL_ENABLE;
+    }
+    return 0;
+}
+
+int pthread_setcanceltype(int type, int *oldtype)
+{
+    // XXX: Not supported
+    if(oldtype != NULL) {
+        *oldtype = PTHREAD_CANCEL_DEFERRED;
+    }
+    return 0;
+}
+
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
+{
+    return sigprocmask(how, set, oldset);
+}
+
+int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stacksize)
+{
+    *stacksize = (*attr)->stacksize;
+    return 0;
+}
+
+int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize)
+{
+    (*attr)->stacksize = stacksize;
+    return 0;
+}
+
+int pthread_cancel(pthread_t thread)
+{
+    assert(!"NYI");
+    return -1;
 }

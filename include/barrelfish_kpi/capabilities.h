@@ -166,6 +166,7 @@ enum cnode_cmd {
 enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
+    VNodeCmd_Identify,   ///< Return the physical address of the VNode
 };
 
 /**
@@ -218,7 +219,11 @@ enum dispatcher_cmd {
     DispatcherCmd_Properties,       ///< Set dispatcher properties
     DispatcherCmd_PerfMon,          ///< Performance monitoring
     DispatcherCmd_SetupGuest,       ///< Set up the DCB of a guest domain
-    DispatcherCmd_DumpPTables       ///< Dump hw page tables of dispatcher
+    DispatcherCmd_DumpPTables,      ///< Dump hw page tables of dispatcher
+    DispatcherCmd_Vmread,           ///< Execute vmread on the current and active VMCS      
+    DispatcherCmd_Vmwrite,          ///< Execute vmwrite on the current and active VMCS
+    DispatcherCmd_Vmptrld,          ///< Make VMCS clear and inactive
+    DispatcherCmd_Vmclear           ///< Make VMCS current and active 
 };
 
 /**
@@ -269,6 +274,7 @@ enum perfmon_cmd {
     PerfmonCmd_Write        ///< Read current performance counter values
 };
 
+
 /**
  * ID capability commands.
  */
@@ -295,6 +301,14 @@ enum ipi_cmd {
 struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
     uint8_t bits;      ///< Size of frame, in bits
+};
+
+/**
+ * \brief Values returned from the VNode identify invocation
+ */
+struct vnode_identity {
+    genpaddr_t base;   ///< Physical base address of the VNode
+    uint8_t type;      ///< Type of VNode
 };
 
 #ifdef __scc__

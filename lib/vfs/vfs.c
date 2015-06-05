@@ -230,6 +230,7 @@ errval_t vfs_create(const char *path, vfs_handle_t *handle)
     }
 
     // call fs ops func
+    assert(m->ops != NULL);
     assert(m->ops->create != NULL);
     errval_t ret = m->ops->create(m->st, relpath, handle);
 

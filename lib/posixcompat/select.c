@@ -361,7 +361,7 @@ finish:
 
 finish_no_ws_changed:
     // Remove timeout from waitset if it was set
-    if(timeout != NULL) {
+    if(timeout != NULL && !toe.fired) {
         deferred_event_cancel(&timeout_event);
     }
 

@@ -1106,7 +1106,7 @@ vfsdeps :: [VFSModules] -> [LibDepTree]
 vfsdeps []                  = [LibDep "vfs"]
 vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
 vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
-vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci" ] ++ vfsdeps xs
+vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs
 vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
 
 libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
@@ -1146,6 +1146,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "term_server"
                   , "vfs"
                   , "ahci"
+		  , "megaraid"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"

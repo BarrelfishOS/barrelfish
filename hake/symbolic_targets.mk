@@ -242,7 +242,9 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	sbin/corectrl
+	sbin/corectrl \
+	sbin/megaraid \
+	lib/libmegaraid.a
 
 MODULES_k1om= \
 	sbin/weever \

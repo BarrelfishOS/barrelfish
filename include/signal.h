@@ -223,6 +223,7 @@ int __sigaction(int signum, const struct sigaction *act,
               struct sigaction *oldact);
 #define sigaction(a,b,c) __sigaction(a,b,c)
 int raise(int sig);
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 __END_DECLS
 
 #endif // BARRELFISH_SIGNAL_H_

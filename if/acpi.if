@@ -42,6 +42,16 @@ interface acpi "acpi RPC Interface" {
     // Kludge: retrieve frame cap to VBE BIOS;
     rpc get_vbe_bios_cap(out errval err, out cap cap, out uint32 size);
 
+    rpc create_domain(in cap pml4, out errval err);
+
+    rpc delete_domain(in cap pml4, out errval err);
+
+    rpc vtd_add_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
+
+    rpc vtd_remove_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
+
+    rpc vtd_id_dom_add_devices(out errval err);
+    
     // More Kludge; cap retrieval for pci
     // We need a designated service to maintain the physical address
     // space caps (to avoid sibling errors).

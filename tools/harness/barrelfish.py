@@ -139,9 +139,9 @@ def default_bootmodules(build, machine):
         or machine.name == "babybel3" :
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
-                                             "skb_bridge_program=bridge_bios"])
+                                             "skb_bridge_program=bridge_bios"] + machine.get_pci_args())
         else:
-            m.add_module("%s/sbin/pci" % a, ["auto"])
+            m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
 
     if a == "armv7":
     	if machine.get_ncores() == 2:
