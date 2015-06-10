@@ -21,8 +21,8 @@ int main (void)
     debug_printf("numa test started...\n");
 
     if (numa_available() == SYS_ERR_OK) {
-        debug_printf("num nodes=%u\n", numa_max_node());
-        debug_printf("num cores: %u\n", numa_max_core());
+        debug_printf("num nodes=%u\n", numa_max_node() + 1);
+        debug_printf("num cores: %u\n", numa_max_core() + 1);
     } else {
         debug_printf("numa not available\n");
     }
