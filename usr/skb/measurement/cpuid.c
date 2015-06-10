@@ -53,9 +53,9 @@ void gather_cpuid_data(coreid_t core_id)
     uint8_t i = 0;
     struct cpuid_cacheinfo ci;
     while(cpuid_cache_info(&ci, i) == SYS_ERR_OK) {
-        skb_add_fact("cpu_cache(%s, %"PRIuCOREID", %"PRIu8", %s, %"PRIu64
+        skb_add_fact("cpu_cache(%"PRIuCOREID", %s, %"PRIu8", %s, %"PRIu64
                      ", %"PRIu16", %"PRIu16", %"PRIu8", %"PRIu8").",
-                     ci.name, core_id,ci.level, cpuid_cache_type_string(ci.type),
+                     core_id, ci.name, ci.level, cpuid_cache_type_string(ci.type),
                      ci.size, ci.associativity, ci.linesize, ci.shared,
                      ci.inclusive);
         i++;
@@ -80,8 +80,8 @@ void gather_cpuid_data(coreid_t core_id)
 
     struct cpuid_adressspaceinfo ai;
     cpuid_address_space_info(&ai);
-    skb_add_fact("cpu_addrspace(%"PRIu8 ", %"PRIu32 ", %"PRIu32").",
-                 ai.physical, ai.virtual, ai.guest_physical);
+    skb_add_fact("cpu_addrspace(%" PRIuCOREID ", %" PRIu8 ", %"PRIu32 ", %"PRIu32").",
+                    core_id, ai.physical, ai.virtual, ai.guest_physical);
 
 
 }
