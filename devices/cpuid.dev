@@ -231,7 +231,7 @@ device cpuid lsbfirst () "ia32 / Intel64 CPUID instruction results" {
     // EAX=0x04 : Deterministic cache parameters leaf (Intel only)
     //
 
-    constants intel_cache_type "Intel cache type field" {
+    constants intel_cachetype "Intel cache type field" {
 	ct_null		= 0 "Null, no more caches";
 	ct_data		= 1 "Data cache";
 	ct_instruction	= 2 "Instruction cache";
@@ -240,7 +240,7 @@ device cpuid lsbfirst () "ia32 / Intel64 CPUID instruction results" {
 
     space dcpa(i) valuewise "Deterministic cache parameters leaf A";
     regarray cache_type ro dcpa(0x00)[4] "Cache type information" {
-	ctf		5 type(intel_cache_type) "Cache type";
+	ctf		5 type(intel_cachetype) "Cache type";
 	level		3 "Cache level (starts at 1)";
 	self_init	1 "Self initializing";
 	fully_assoc	1 "Fully associative";

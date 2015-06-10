@@ -17,6 +17,8 @@
 [ mackerel2 (options arch) f
   | f <- [ "ac97_base_audio",
            "ac97_ext_audio",
+           "cpuid_intel",
+           "cpuid_amd",
            "ac97_ext_codec",
            "ac97_ext_modem",
            "ahci_hba",

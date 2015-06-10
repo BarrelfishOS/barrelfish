@@ -1,0 +1,277 @@
+/*
+ * Copyright (c) 2015, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * cpuid_intel.dev
+ *
+ * DESCRIPTION: ia32 CPU ID instruction results
+ * 
+ * See:
+ *   Intel Architecture Manual, Volume 2A, pp. 3-163 - ff., April 2015
+ *   Table 3-17. Information Returned by CPUID Instruction  
+ */
+
+device cpuid_intel lsbfirst () "ia32 / Intel64 CPUID instruction results" {
+   
+    /*
+     *============================================================================
+     * Basic Information. 
+     *============================================================================
+     */
+    
+    /*
+     * CPUID(0, _)
+     * --------------------------------------------------------------------------- 
+     */
+    datatype basic0 lsbfirst (32) "" {
+        max_cpuid 32 rw "Maximum Input Value for Basic CPUID Information";
+        vendor0   32 rw "Vendor string part 1";
+        vendor2   32 rw "Vendor string part 3";
+        vendor1   32 rw "Vendor string part 2";
+    };
+    
+    /*
+     * CPUID(1, _)
+     * --------------------------------------------------------------------------- 
+     */
+    constants proc_type width(2) "" {
+        original = 0x00 "Original OEM Processor";
+        overdrive= 0x01 "Intel OverDrive® Processor";
+        dual     = 0x02 "Dual processor (not applicable to Intel486 processors)";
+        reserved = 0x03 "Intel reserved";
+    };
+    
+    datatype family lsbfirst(32) "" {
+        /* Version Information: Type, Family, Model, and Stepping ID (see Figure 3-5) */
+        
+        stepping    4 rw  "Processor Stepping ID";
+        model       4 rw  "Processor Model";
+        family      4 rw  "Processor Family";
+        proctype    2 rw  "Processor Type";
+        _           2 mbz "Reserved";
+        extmodel    4 rw "Extended Model ID";
+        extfamily   8 rw "Extended Family ID";
+        _           4 mbz "Reserved";
+    };
+    
+    /* EAX=1 */
+    
+    datatype miscinfo lsbfirst(32) "" {
+        
+        brand_idx    8 rw "Brand index";
+        cflush_sz    8 rw "CLFLUSH line size (Value * 8 = cache line size in bytes)";
+        max_log_proc 8 rw "Maximum number of addressable IDs for logical processors"; 
+                           /*in this physical package. 
+                           The nearest power-of-2 integer that is not smaller than 
+                           EBX[23:16] is the number of unique initial APIC IDs 
+                           reserved for addressing different logical processors in a 
+                           physical package. */ 
+        init_apicid  8 rw  "Initial APIC ID";
+    };
+    
+    datatype features lsbfirst(32) "" {
+        /* Feature Information (see Figure 3-6 and Table 3-19) */
+        sse3        1 rw "Streaming SIMD Extensions 3 (SSE3). ";
+        pclmulqdq   1 rw "PCLMULQDQ.";
+        dtes64      1 rw "64-bit DS Area";
+        monitor     1 rw "MONITOR/MWAIT"; 
+        ds_cpl      1 rw "CPL Qualified Debug Store. ";
+        vmx         1 rw "Virtual Machine Extensions";
+        smx         1 rw "Safer Mode Extensions. ";
+        eist        1 rw "Enhanced Intel SpeedStep® technology. ";
+        tm2         1 rw "Thermal Monitor 2";
+        ssse3       1 rw "Supplemental Streaming SIMD Extensions 3 (SSSE3)";
+        cntx_id     1 rw "L1 Context ID. A";
+        sdbg        1 rw "IA32_DEBUG_INTERFACE MSR ";
+        fma         1 rw "FMA extensions using YMM state.";
+        cmpxchg16b  1 rw "CMPXCHG16B Available";
+        xtpr        1 rw "xTPR Update Control";
+        pdcm        1 rw "Perfmon and Debug Capability";
+        _           1 mbz "";
+        pcid        1 rw "Process-context identifiers";
+        dca         1 rw "ability to prefetch data from a memory mapped device.";
+        sse4_1      1 rw "supports SSE4.1. ";
+        sse4_2      1 rw "supports SSE4.2. ";
+        x2apic      1 rw "supports x2APIC feature";
+        movbe       1 rw "supports MOVBE instruction";
+        popcnt      1 rw "supports the POPCNT instruction.";
+        tsc_one     1 rw "local APIC timer supports one-shot operation ";
+        aesni       1 rw " AESNI instruction extensions";
+        xsave       1 rw " XSAVE/XRSTOR processor ";
+        osxsave     1 rw "OS has set CR4.OSXSAVE[bit 18] to enable XSETBV/XGETBV instruction";
+        avx         1 rw "AVX instruction extensions";
+        f16c        1 rw "16-bit floating-point conversion instructions.";
+        rdrand      1 rw "supports RDRAND instruction.";
+        _           1 mbz "";
+    
+        /* Feature Information (see Figure 3-7 and Table 3-20) */
+        fpu         1 rw "Floating Point Unit On-Chip";
+        vme         1 rw "Virtual 8086 Mode Enhancements";
+        de          1 rw "Debugging Extensions. ";
+        pse         1 rw "Page Size Extension";
+        tsc         1 rw "Time Stamp Counter.";
+        msr         1 rw "Model Specific Registers RDMSR and WRMSR Instructions";
+        pae         1 rw "Physical Address Extension";
+        mce         1 rw "Machine Check Exception. ";
+        cx8         1 rw "CMPXCHG8B Instruction.";
+        apic        1 rw "APIC On-Chip. ";
+        _           1 mbz "";
+        sep         1 rw "SYSENTER and SYSEXIT Instructions.";
+        mtrr        1 rw "Memory Type Range Registers";
+        pge         1 rw "Page Global Bit";
+        mca         1 rw "Machine Check Architecture.";
+        cmov        1 rw "Conditional Move Instructions";
+        pat         1 rw "Page Attribute Table";
+        pse36       1 rw "36-Bit Page Size Extension";
+        psn         1 rw "Processor Serial Number. ";
+        clfsh       1 rw "CLFLUSH Instruction";
+        _           1 rw "";
+        ds          1 rw "Debug Store";
+        acpi        1 rw "Thermal Monitor and Software Controlled Clock Facilities";
+        mmx         1 rw "Intel MMX Technology";
+        fxsr        1 rw "FXSAVE and FXRSTOR Instructions";
+        sse         1 rw "SSE1";
+        sse2        1 rw "SSE2";
+        ss          1 rw "Self Snoop";
+        htt         1 rw "Max APIC IDs reserved field is Valid";
+        tm          1 rw "Thermal Monitor";
+        _           1 mbz "";
+        pbe         1 rw "Pending Break Enable. ";
+    };
+    
+   
+    /* EAX=2 */
+    datatype cache_info lsbfirst (32) "" {
+        d0      8  "ignored, always 0x01";
+        d1      8  "Descriptor 01";
+        d2      8  "Descriptor 02";
+        d3      7  "Descriptor 03";
+        v0      1 "Contains valid descriptors";                     
+    };
+    
+    /* EAX=3 */
+    /* not used post P3 */
+    
+    /*
+     *---------------------------------------------------------------------
+     * Deterministic Cache Parameters EAX=4, ECX=idx
+     *---------------------------------------------------------------------
+     */
+     
+     constants cache_type "Intel Cache Type values" {
+        cache_type_null     = 0x0 "No more caches";
+        cache_type_data     = 0x1 "data cache";
+        cache_type_instr    = 0x2 "Instruction Cache";
+        cache_type_unified  = 0x3 "Unified Cache";
+     };
+     
+     /* EAX */
+     datatype cache_info_basic lsbfirst (32) "" {
+        ctype        5 "Cache Type Field";
+        level       3 "Cache Level (starts at 1)";
+        selfinit    1 "Self Initializing cache level (does not need SW initialization)";
+        fullyassoc  1 "Fully Associative cache";
+        _           4 "Reserved";
+        maxlog      12 "Maximum number of addressable IDs for logical processors sharing this cache - 1";
+        maxphys     6 "Maximum number of addressable IDs for processor cores in the physical package - 1";     
+     };
+    
+    datatype cache_info_ebx lsbfirst (32) "" {
+       coherency  12 "System Coherency Line Size - 1";
+       partitions 10 "Physical Line partitions - 1";
+       assoc      10 "Ways of associativity - 1";
+    };
+    
+    datatype cache_info_ecx lsbfirst (32) "" {
+       num_sets    32 "The number of Sets - 1";
+    };
+    
+    datatype cache_info_edx lsbfirst (32) "" {
+       wb_inv     1  "Write-Back Invalidate/Invalidate";
+       inclusive  1 "Cache Inclusiveness";
+       cpx_idx    1 "Complex Cache Indexing";
+       _         29 "";
+    };
+    
+    /*
+     * CPUID(0x16, _)  Processor Frequency Information Leaf
+     * --------------------------------------------------------------------------- 
+     */
+     datatype frequency lsbfirst (32) "" {
+        mhz 16 "Processor frequency in mhz";
+        _   16 "Reserved";
+     };
+     
+    /*
+     *---------------------------------------------------------------------
+     * Extended Information
+     *---------------------------------------------------------------------
+     */
+    
+    /* extended topology enumaration leaf, eax = 0xb */
+    datatype topology_eax lsbfirst (32) "" {
+        x2apic_shift 5  "";
+        _            27 "";
+    };
+    datatype topology_ebx lsbfirst (32) "" {
+        logical_proc 16  "";
+        _            16 "";
+    };
+    datatype topology_ecx lsbfirst (32) "" {
+        level_number 8 "";
+        level_type   8 "";
+        _            16 "";
+    };
+    datatype topology_edx lsbfirst (32) "" {
+        x2apic 32 "";
+    };
+    
+    constants topology_level "Intel Cache Type values" {
+        topology_level_invalid     = 0x0 "Invalid";
+        topology_level_smt         = 0x1 "SMT";
+        topology_level_core        = 0x2 "Core";
+        topology_level_package     = 0x3 "Package";
+     };
+    
+        
+    /*
+     * CPUID(0x80000001, _)  Extended Function CPUID Informatio
+     * --------------------------------------------------------------------------- 
+     */
+     datatype features_ext_edx "" {
+        _       11 "";
+        syscall  1 "SYSCALL/SYSRET available in 64-bit mode";
+        _        8 "";
+        nx       1 "Execute Disable Bit available";
+        _        5 "";
+        page1G   1 "1-GByte pages are available if 1";
+        rdtscp   1 "RDTSCP and IA32_TSC_AUX are available if 1";
+        _        1 "";
+        lm       1 "Intel 64 Architecture available if 1";
+        _        2 "";
+     }; 
+     
+    
+    
+    /*
+     * CPUID(0x80000008, _)
+     * --------------------------------------------------------------------------- 
+     */
+    datatype addrspace lsbfirst(32) " Long Mode Address Size Identifiers (eax)" {
+        physical    8 rw  "Maximum physical byte address size in bits";
+        linear      8 rw  "Maximum linear byte address size in bits. ";  
+        _          16 mbz "reserved";
+    };
+};
+
+    
+	    
+
+    
+    
+	

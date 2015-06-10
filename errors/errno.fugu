@@ -1143,3 +1143,9 @@ errors numa NUMA_ERR_ {
     failure NODEID_INVALID        "Invalid node ID",
     failure COREID_INVALID        "Invalid core ID",
 };
+
+errors cpuid CPUID_ERR_ {
+    failure UNSUPPORTED_FUNCTION    "This function is not valid on this CPU.",
+    failure UNKNOWN_VENDOR          "The CPU vendor is not supported",
+    failure INVALID_INDEX           "There is no leaf with this index",
+};
