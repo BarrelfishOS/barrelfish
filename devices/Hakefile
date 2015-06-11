@@ -62,6 +62,7 @@
            "ti_i2c",
            "ti_twl6030",
            "sdhc",
+           "apm88xxxx/apm88xxxx_pc16550",
            "omap/ehci",
            "omap/ohci",
            "omap/omap_uart",

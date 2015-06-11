@@ -484,7 +484,9 @@ let
                 "arch/apm88xxxx/init.c",
                 "arch/apm88xxxx/paging.c",
                 "arch/apm88xxxx/uart.c" ],
-     mackerelDevices = [ "arm" ],
+     mackerelDevices = [ "arm",
+                         "apm88xxxx/apm88xxxx_pc16550"
+                       ],
      addLibraries = [ "elf", "cpio" ]
      }
   ]
