@@ -199,4 +199,7 @@ interface monitor "The monitor to client Interface" {
     response bfscope_flush_ack();
 
     message migrate_dispatcher(uintptr domain_id);
+
+    // Capability debugging
+    message debug_print_capabilities();
 };

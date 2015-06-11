@@ -113,4 +113,10 @@ struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
                                      uint8_t ret_cn_bits,
                                      cslot_t ret_slot);
 
+/*
+ * System calls for debug output.
+ */
+struct sysret
+sys_debug_print_capabilities(void);
+
 #endif

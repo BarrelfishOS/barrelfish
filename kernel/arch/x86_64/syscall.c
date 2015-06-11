@@ -1260,6 +1260,11 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         }
         break;
 
+    case SYSCALL_DEBUG_PRINT_CAPABILITIES: {
+        retval = sys_debug_print_capabilities();
+        break;
+    }
+
     default:
         printk(LOG_ERR, "sys_syscall: Illegal system call! "
                "(0x%lx, 0x%lx, 0x%lx)\n", syscall, arg0, arg1);

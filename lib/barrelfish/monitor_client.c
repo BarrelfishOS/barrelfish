@@ -406,3 +406,13 @@ errval_t monitor_client_blocking_rpc_init(void)
     
     return st.err;
 }
+
+errval_t monitor_debug_print_cababilities(void)
+{
+    errval_t err;
+
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.debug_print_capabilities(mb, NOP_CONT);
+
+    return err;
+}

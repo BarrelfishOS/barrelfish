@@ -47,6 +47,8 @@ errval_t monitor_client_blocking_rpc_init(void);
 
 errval_t monitor_cap_set_remote(struct capref cap, bool remote);
 
+errval_t monitor_debug_print_cababilities(void);
+
 __END_DECLS
 
 #endif // BARRELFISH_MONITOR_CLIENT_H

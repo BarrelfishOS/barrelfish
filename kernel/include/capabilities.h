@@ -120,6 +120,12 @@ errval_t caps_delete(struct cte *cte);
 errval_t caps_revoke(struct cte *cte);
 
 /*
+ * Cap debugging
+ */
+
+errval_t caps_debug_print(struct cte *cte);
+
+/*
  * Cap tracing
  */
 

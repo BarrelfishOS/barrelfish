@@ -1318,3 +1318,40 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
     return SYS_ERR_OK;
 }
+
+
+// If you create more capability types you need to deal with them
+// in the table below.
+STATIC_ASSERT(27 == ObjType_Num, "Knowledge of all cap types");
+
+
+errval_t
+caps_debug_print(struct cte *c)
+{
+    printk(LOG_NOTE, "%s\n", __FUNCTION__);
+    switch (c->cap.type) {
+    // all cap types
+    case ObjType_CNode: {
+        struct CNode *cn = &(c->cap.u.cnode);
+        for (cslot_t slot = 0; slot < 1UL << cn->bits; slot++) {
+
+            errval_t err = caps_debug_print(
+                    (struct cte *) local_phys_to_mem(
+                            cn->cnode + slot * sizeof(*c)));
+            if (err_is_fail(err)) {
+                return err;
+            }
+        }
+        break;
+    }
+    case ObjType_Frame: {
+        break;
+    }
+    default: {
+        // Unhandled source type for mint
+        return SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+    }
+
+    return SYS_ERR_OK;
+}

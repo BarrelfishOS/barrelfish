@@ -630,3 +630,11 @@ struct sysret sys_get_absolute_time(void)
         .value = kernel_now + kcb_current->kernel_off,
     };
 }
+
+struct sysret
+sys_debug_print_capabilities(void) {
+
+    caps_debug_print(&dcb_current->cspace);
+
+    return SYSRET(SYS_ERR_OK);
+}

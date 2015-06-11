@@ -23,6 +23,7 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish_kpi/init.h>
 #include <barrelfish/debug.h>
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/terminal.h>
@@ -120,6 +121,11 @@ static int quit(int argc, char *argv[])
 static int print_cspace(int argc, char *argv[])
 {
     debug_my_cspace();
+    return EXIT_SUCCESS;
+}
+
+static int debug_print_caps(int argc, char *argv[]) {
+    monitor_debug_print_cababilities();
     return EXIT_SUCCESS;
 }
 
@@ -1212,6 +1218,7 @@ static struct cmd commands[] = {
     {"src", src, "Execute the list of commands in a file"},
     {"printenv", printenv, "Display environment variables"},
     {"free", freecmd, "Display amount of free memory in the system"},
+    {"debug_print_caps", debug_print_caps, "Display cspace debug information"},
 };
 
 static void getline(char *input, size_t size)

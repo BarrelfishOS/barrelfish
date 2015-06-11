@@ -18,6 +18,7 @@
 #include <trace_definitions/trace_defs.h>
 #include <if/mem_defs.h>
 #include <barrelfish/monitor_client.h>
+#include <barrelfish/syscalls.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>
 #include "capops.h"
@@ -804,6 +805,10 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
+static void debug_print_capabilities(struct monitor_binding *b) {
+    sys_debug_print_capabilities();
+}
+
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
 
@@ -828,7 +833,9 @@ struct monitor_rx_vtbl the_table = {
 
     .span_domain_request    = span_domain_request,
 
-    .migrate_dispatcher_request = migrate_dispatcher_request
+    .migrate_dispatcher_request = migrate_dispatcher_request,
+
+    .debug_print_capabilities = debug_print_capabilities
 };
 
 errval_t monitor_client_setup(struct spawninfo *si)
