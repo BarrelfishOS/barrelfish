@@ -65,7 +65,7 @@ device cpuid_amd lsbfirst () "ia32 / Intel64 CPUID instruction results" {
         ds_cpl      1 rw "CPL Qualified Debug Store. ";
         vmx         1 rw "Virtual Machine Extensions";
         smx         1 rw "Safer Mode Extensions. ";
-        eist        1 rw "Enhanced Intel SpeedStep® technology. ";
+        eist        1 rw "Enhanced Intel SpeedStep(r) technology. ";
         tm2         1 rw "Thermal Monitor 2";
         ssse3       1 rw "Supplemental Streaming SIMD Extensions 3 (SSSE3)";
         cntx_id     1 rw "L1 Context ID. A";
