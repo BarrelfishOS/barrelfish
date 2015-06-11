@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief User-side system call implementation
+ * \brief User-side system call implementation, architecture-independent
  */
 
 /*
@@ -20,9 +20,22 @@
 /* For documentation on system calls see include/barrelfish/syscalls.h
  */
 
-uint64_t sys_get_absolute_time(void)
+errval_t sys_yield(capaddr_t target)
 {
-    struct sysret r = syscall1(SYSCALL_GET_ABS_TIME);
-    assert(err_is_ok(r.error));
-    return r.value;
+    return syscall2(SYSCALL_YIELD, target).error;
+}
+
+errval_t sys_suspend(bool halt)
+{
+    return syscall2(SYSCALL_SUSPEND, halt).error;
+}
+
+errval_t sys_print(const char *string, size_t length)
+{
+    return syscall3(SYSCALL_PRINT, (uintptr_t)string, length).error;
+}
+
+errval_t
+sys_debug_print_capabilities(void) {
+    return syscall1(SYSCALL_DEBUG_PRINT_CAPABILITIES).error;
 }

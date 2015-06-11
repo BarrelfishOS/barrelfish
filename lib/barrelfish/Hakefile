@@ -27,7 +27,7 @@
                       "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
                       "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
                       "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c"
+                      "inthandler.c", "deferred.c", "syscalls.c"
                     ]
 
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
@@ -127,7 +127,7 @@
                       "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
                       "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
                       "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c"
+                      "inthandler.c", "deferred.c", "syscalls.c"
                     ]
 
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
