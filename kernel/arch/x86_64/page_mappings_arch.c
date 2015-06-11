@@ -522,18 +522,11 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
             return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (va_hint != 0) {
-        if (va_hint > BASE_PAGE_SIZE) {
-            // use as direct hint
-            // invlpg should work for large/huge pages
-            for (int i = 0; i < pages; i++) {
-                // XXX: check proper instructions for large/huge pages
-                do_one_tlb_flush(va_hint + i * pagesize);
-            }
-        } else if (va_hint == 1) {
-            // XXX: remove this or cleanup interface, -SG, 2015-03-11
-            // do computed selective flush
-            return paging_tlb_flush_range(mapping, offset, pages);
+    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
+        // use as direct hint
+        // invlpg should work for large/huge pages
+        for (int i = 0; i < pages; i++) {
+            do_one_tlb_flush(va_hint + i * pagesize);
         }
     } else {
         /* do full TLB flush */

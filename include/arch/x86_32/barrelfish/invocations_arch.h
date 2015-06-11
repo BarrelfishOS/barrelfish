@@ -349,13 +349,11 @@ static inline errval_t invoke_frame_identify(struct capref frame,
 static inline errval_t invoke_frame_modify_flags(struct capref frame,
                                                  size_t offset,
                                                  size_t pages,
-                                                 size_t flags)
+                                                 size_t flags,
+                                                 genvaddr_t va_hint)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
-
-    return syscall5((invoke_bits << 16) | (FrameCmd_ModifyFlags << 8) |
-                    SYSCALL_INVOKE, invoke_cptr, offset, pages, flags).error;
+    return cap_invoke5(frame, FrameCmd_ModifyFlags, offset,
+                       pages, flags, va_hint).error;
 }
 
 

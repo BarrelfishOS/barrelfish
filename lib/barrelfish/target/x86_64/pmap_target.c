@@ -885,8 +885,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     struct vnode* page = NULL;
 
     if (!find_mapping(x86, vaddr, NULL, &page)) {
-        //TODO: better error --> LIB_ERR_PMAP_NOT_MAPPED
-        return LIB_ERR_PMAP_UNMAP;
+        return LIB_ERR_PMAP_NOT_MAPPED;
     }
 
     assert(page && !page->is_vnode);
@@ -914,7 +913,6 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
     // vaddr and vend specify begin and end of the region (inside a mapping)
     // that should receive the new set of flags
-    //
     if (is_same_pdir(vaddr, vend) ||
         (is_same_pdpt(vaddr, vend) && is_large_page(page)) ||
         (is_same_pml4(vaddr, vend) && is_huge_page(page))) {

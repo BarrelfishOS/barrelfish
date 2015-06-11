@@ -68,24 +68,31 @@ typedef uint32_t paging_x86_32_flags_t;
 #define X86_32_PTABLE_PRESENT          (((paging_x86_32_flags_t)1) << 0)
 
 #ifdef CONFIG_PAE
-#define X86_32_PDPTE_SIZE              4
-#define X86_32_PDPTE_MASK              3
-#define X86_32_PDPTE_CLEAR             0
+#define X86_32_PDPTE_BITS    2
+#define X86_32_PDPTE_SIZE    (1U<<X86_32_PDPTE_BITS)
+#define X86_32_PDPTE_MASK    (X86_32_PDPTE_SIZE - 1)
+#define X86_32_PDPTE_CLEAR   0
 
-#define X86_32_PDIR_SIZE           512
+#define X86_32_PDIR_BITS     9
+#define X86_32_PDIR_SIZE     (1U<<X86_32_PDIR_BITS)
+#define X86_32_PDIR_MASK     (X86_32_PDIR_SIZE - 1)
+#define X86_32_PDIR_CLEAR    0
 
-#define X86_32_PTABLE_SIZE         512     /**< Page directory/table size */
-#define X86_32_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */
-#define X86_32_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
+#define X86_32_PTABLE_BITS   9
+#define X86_32_PTABLE_SIZE   (1U<<X86_32_PTABLE_BITS)  /**< Page directory/table size */
+#define X86_32_PTABLE_MASK   (X86_32_PTABLE_SIZE-1)    /**< Page dir/table address mask */
+#define X86_32_PTABLE_CLEAR  0                         /**< Bitmap of a clear table entry */
 
 #else
-#define X86_32_PDIR_SIZE           1024
-#define X86_32_PDIR_MASK           0x3ff
-#define X86_32_PDIR_CLEAR          0
+#define X86_32_PDIR_BITS     10
+#define X86_32_PDIR_SIZE     (1U << X86_32_PDIR_BITS)
+#define X86_32_PDIR_MASK     (X86_32_PDIR_SIZE - 1)
+#define X86_32_PDIR_CLEAR    0
 
-#define X86_32_PTABLE_SIZE         1024    /**< Page directory/table size */
-#define X86_32_PTABLE_MASK         0x3ff   /**< Page dir/table address mask */
-#define X86_32_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
+#define X86_32_PTABLE_BITS   10
+#define X86_32_PTABLE_SIZE   (1U<<X86_32_PTABLE_BITS)  /**< Page directory/table size */
+#define X86_32_PTABLE_MASK   (X86_32_PTABLE_SIZE - 1)  /**< Page dir/table address mask */
+#define X86_32_PTABLE_CLEAR  0                         /**< Bitmap of a clear table entry */
 
 #endif
 

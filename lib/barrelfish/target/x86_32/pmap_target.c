@@ -150,18 +150,6 @@ static struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
 #endif
 }
 
-static struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
-{
-    struct vnode *pdir = find_pdir(pmap, base);
-
-    if (pdir) {
-        // PDIR mapping
-        return find_vnode(pdir, X86_32_PDIR_BASE(base));
-    } else {
-        return NULL;
-    }
-}
-
 static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                               genvaddr_t vend, struct capref frame,
                               size_t offset, size_t pte_count,
@@ -660,31 +648,45 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
 {
     errval_t err = SYS_ERR_OK;
-    struct vnode *ptable = find_ptable(pmap, vaddr);
+
+    struct vnode *pt = NULL, *page = NULL;
+
+    if (!find_mapping(pmap, vaddr, &pt, &page)) {
+        return LIB_ERR_PMAP_FIND_VNODE;
+    }
+
+    assert(pt && pt->is_vnode && page && !page->is_vnode);
+
     uint16_t ptentry = X86_32_PTABLE_BASE(vaddr);
-    if (ptable) {
-        struct vnode *page = find_vnode(ptable, ptentry);
-        if (page) {
-            if (inside_region(ptable, ptentry, pages)) {
-                // we're modifying part of a valid mapped region
-                // arguments to invocation: invoke frame cap, first affected
-                // page (as offset from first page in mapping), #affected
-                // pages, new flags. Invocation should check compatibility of
-                // new set of flags with cap permissions.
-                size_t off = ptentry - page->entry;
-                paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
-                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
-                printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
-                        err_getstring(err), err);
-                return err;
-            } else {
-                // overlaps some region border
-                return LIB_ERR_PMAP_EXISTING_MAPPING;
-            }
+    size_t pagesize = BASE_PAGE_SIZE;
+    if (is_large_page(page)) {
+        //large 2M page
+        ptentry = X86_32_PDIR_BASE(vaddr);
+        pagesize = LARGE_PAGE_SIZE;
+    }
+
+    if (inside_region(pt, ptentry, pages)) {
+        // we're modifying part of a valid mapped region
+        // arguments to invocation: invoke frame cap, first affected
+        // page (as offset from first page in mapping), #affected
+        // pages, new flags. Invocation should check compatibility of
+        // new set of flags with cap permissions.
+        size_t off = ptentry - page->entry;
+        paging_x86_32_flags_t pmap_flags = vregion_to_pmap_flag(flags);
+        // calculate TLB flushing hint
+        genvaddr_t va_hint = 0;
+        if (pages == 1) {
+            // do assisted selective flush for single page
+            va_hint = vaddr & ~X86_32_BASE_PAGE_MASK;
         }
+        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags, va_hint);
+        printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
+                err_getstring(err), err);
+        return err;
     }
     return SYS_ERR_OK;
 }
+
 /**
  * \brief Modify page mapping
  *
@@ -700,11 +702,35 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 {
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
-    size = ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
-    size_t pages = DIVIDE_ROUND_UP(size, X86_32_BASE_PAGE_SIZE);
+
+    //determine if we unmap a larger page
+    struct vnode* page = NULL;
+
+    if (!find_mapping(x86, vaddr, NULL, &page)) {
+        return LIB_ERR_PMAP_NOT_MAPPED;
+    }
+
+    assert(page && !page->is_vnode);
+
+    size_t page_size = X86_32_BASE_PAGE_SIZE;
+    size_t table_base = X86_32_PTABLE_BASE(vaddr);
+    uint8_t map_bits= X86_32_BASE_PAGE_BITS + X86_32_PTABLE_BITS;
+    if (is_large_page(page)) {
+        //large 2/4M page
+        page_size = X86_32_LARGE_PAGE_SIZE;
+        table_base = X86_32_PDIR_BASE(vaddr);
+        map_bits = X86_32_LARGE_PAGE_BITS + X86_32_PTABLE_BITS;
+    }
+
+    // TODO: match new policy of map when implemented
+    size = ROUND_UP(size, page_size);
     genvaddr_t vend = vaddr + size;
 
-    if (is_same_pdir(vaddr, vend)) {
+    size_t pages = size / page_size;
+
+    if (is_same_pdir(vaddr, vend) ||
+        (is_same_pdpt(vaddr, vend) && is_large_page(page)))
+    {
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
@@ -715,19 +741,18 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         uint32_t c = X86_32_PTABLE_SIZE - X86_32_PTABLE_BASE(vaddr);
         err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_VNODE_UNMAP);
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
         // unmap full leaves
-        vaddr += c * X86_32_BASE_PAGE_SIZE;
+        vaddr += c * page_size;
         while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_32_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_32_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
-            vaddr += c * X86_32_BASE_PAGE_SIZE;
+            vaddr += c * page_size;
         }
 
         // unmap remaining part

@@ -18,6 +18,7 @@
 #include <target/x86_32/paging_kernel_target.h>
 #include <target/x86_32/offsets_target.h>
 #include <paging_kernel_arch.h>
+#include <mdb/mdb_tree.h>
 #include <string.h>
 #include <cap_predicates.h>
 
@@ -429,32 +430,72 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
 }
 
 errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
-                                    size_t pages, size_t uflags)
+                                    size_t pages, size_t mflags, genvaddr_t va_hint)
 {
     struct cte *mapping = cte_for_cap(frame);
     struct mapping_info *info = &mapping->mapping_info;
+    struct cte *leaf_pt;
+    errval_t err;
+    err = mdb_find_cap_for_address(info->pte, &leaf_pt);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_32_flags_t flags =
         paging_x86_32_cap_to_page_flags(frame->rights);
     // Mask with provided access rights mask
-    flags = paging_x86_32_mask_attrs(flags, X86_32_PTABLE_ACCESS(uflags));
+    flags = paging_x86_32_mask_attrs(flags, X86_32_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags
-    flags |= X86_32_PTABLE_FLAGS(uflags);
+    flags |= X86_32_PTABLE_FLAGS(mflags);
     // Unconditionally mark the page present
     flags |= X86_32_PTABLE_PRESENT;
 
-    /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = local_phys_to_mem(info->pte) + offset;
-
-    for (int i = 0; i < pages; i++) {
-        union x86_32_ptable_entry *entry =
-            (union x86_32_ptable_entry *)base + i;
-        paging_x86_32_modify_flags(entry, flags);
+    // check arguments
+    if (offset >= X86_32_PTABLE_SIZE) { // Within pagetable
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+    if (offset + pages > X86_32_PTABLE_SIZE) { // mapping size ok
+        return SYS_ERR_VM_MAP_SIZE;
     }
 
-    return paging_tlb_flush_range(mapping, offset, pages);
+    /* Calculate location of page table entries we need to modify */
+    lvaddr_t base = local_phys_to_mem(info->pte) +
+        offset * sizeof(union x86_32_ptable_entry);
+
+    size_t pagesize = BASE_PAGE_SIZE;
+    switch(leaf_pt->cap.type) {
+        case ObjType_VNode_x86_32_ptable :
+            for (int i = 0; i < pages; i++) {
+                union x86_32_ptable_entry *entry =
+                    (union x86_32_ptable_entry *)base + i;
+                paging_x86_32_modify_flags(entry, flags);
+            }
+            break;
+        case ObjType_VNode_x86_32_pdir :
+            for (int i = 0; i < pages; i++) {
+                union x86_32_ptable_entry *entry =
+                    (union x86_32_ptable_entry *)base + i;
+                paging_x86_32_modify_flags_large(entry, flags);
+            }
+            pagesize = LARGE_PAGE_SIZE;
+            break;
+        default:
+            return SYS_ERR_WRONG_MAPPING;
+    }
+
+    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
+        // use as direct hint
+        // invlpg should work for large/huge pages
+        for (int i = 0; i < pages; i++) {
+            do_one_tlb_flush(va_hint + i * pagesize);
+        }
+    } else {
+        /* do full TLB flush */
+        do_full_tlb_flush();
+    }
+    return SYS_ERR_OK;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
