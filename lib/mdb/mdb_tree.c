@@ -1291,3 +1291,49 @@ bool mdb_reachable(struct cte *cte)
 {
     return mdb_is_reachable(mdb_root, cte);
 }
+
+errval_t
+mdb_traverse(mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data)
+{
+    return mdb_traverse_subtree(mdb_root, order, cb, data);
+}
+
+errval_t
+mdb_traverse_subtree(struct cte *cte, mdb_tree_traversal_order order,
+        mdb_tree_traversal_fn cb, void *data)
+{
+    struct mdbnode *node = N(cte);
+    assert(node);
+
+    struct cte *first, *second;
+    if (order == MDB_TRAVERSAL_ORDER_ASCENDING) {
+        first = node->left;
+        second = node->right;
+    } else {
+        first = node->right;
+        second = node->left;
+    }
+
+    errval_t err;
+
+    if (first) {
+        err = mdb_traverse_subtree(first, order, cb, data);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    err = cb(cte, data);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (second) {
+        err = mdb_traverse_subtree(second, order, cb, data);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+    return SYS_ERR_OK;
+}
