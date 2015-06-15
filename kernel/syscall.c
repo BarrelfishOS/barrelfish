@@ -641,6 +641,16 @@ static bool sys_debug_print_capabilities_check_cnode(struct cte *cte, struct cte
         return true;
     }
 
+    if (type == ObjType_KernelControlBlock) {
+        // We are looking at init's rootcn, and found the reference to it in
+        // the KCB.
+        struct kcb *kcb = (struct kcb*) local_phys_to_mem(get_address(&cte->cap));
+        struct cte *cn = (struct cte*) local_phys_to_mem(get_address(&kcb->init_rootcn.cap));
+        struct cte *cn_task = (struct cte*) local_phys_to_mem(get_address(&cn[ROOTCN_SLOT_TASKCN].cap));
+        *dispatcher = &cn_task[TASKCN_SLOT_DISPATCHER];
+        return true;
+    }
+
     struct cte *cn = (struct cte*) local_phys_to_mem(get_address(&cte->cap));
 
     if (type == ObjType_CNode) {
@@ -671,12 +681,16 @@ static errval_t sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
     struct cte *result;
     errval_t err = mdb_find_cap_for_address(mem_to_local_phys((lvaddr_t) cte), &result);
     if (err_is_fail(err)) {
-        printk(LOG_ERR, "Type of cap: %d\n", cte->cap.type);
+        printk(LOG_ERR, "Type of cap: %d, kernel address %p, phys. address 0x%"PRIxLPADDR"\n", cte->cap.type, cte, mem_to_local_phys((lvaddr_t) cte));
+        printk(LOG_ERR, "kcb_current = %p\n", kcb_current);
         printk(LOG_ERR, "%s:%s:%d \n", __FILE__, __FUNCTION__, __LINE__);
+        mdb_dump_all_the_things();
         return err;
     }
 
-    assert(result->cap.type == ObjType_CNode);
+    assert(result->cap.type == ObjType_CNode ||
+           result->cap.type == ObjType_Dispatcher ||
+           result->cap.type == ObjType_KernelControlBlock);
 
     struct cte *dispatcher;
 
@@ -688,6 +702,8 @@ static errval_t sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
             return err;
         }
     }
+
+    assert(dispatcher->cap.type == ObjType_Dispatcher);
 
     struct dcb *dcb = dispatcher->cap.u.dispatcher.dcb;
     dispatcher_handle_t handle = dcb->disp;
