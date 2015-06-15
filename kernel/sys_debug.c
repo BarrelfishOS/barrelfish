@@ -15,6 +15,7 @@
 #include <kernel.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys_debug.h>
 #include <syscall.h>
 #include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/syscalls.h>
@@ -162,7 +163,8 @@ static bool sys_debug_print_capabilities_check_cnode(struct cte *cte, struct cte
     return false;
 }
 
-static errval_t sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
+static errval_t
+sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
 //    printk(LOG_NOTE, "cte=%p\n", cte);
 
     struct dcb *my_dcb = (struct dcb *) data;
@@ -200,17 +202,22 @@ static errval_t sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
         get_dispatcher_shared_generic(handle);
 
     if (my_dcb == dcb) {
-        printk(LOG_NOTE, "disp->name=%s\n", disp->name);
+//        printk(LOG_NOTE, "disp->name=%s\n", disp->name);
         caps_debug_print(cte, NULL);
     }
 
     return SYS_ERR_OK;
 }
 
+errval_t
+debug_print_cababilities(struct dcb *dispatcher) {
+    return mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, sys_debug_print_capabilities_cb, dispatcher);
+}
+
 struct sysret
 sys_debug_print_capabilities(void) {
 
-    errval_t err = mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, sys_debug_print_capabilities_cb, dcb_current);
+    errval_t err = debug_print_cababilities(dcb_current);
 
     return SYSRET(err);
 }

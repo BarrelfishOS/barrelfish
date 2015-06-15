@@ -124,15 +124,16 @@ static int print_cspace(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-static int debug_print_caps(int argc, char *argv[]) {
+static int dump_caps(int argc, char *argv[]) {
     errval_t err;
-    if (argc > 1 && strncmp("monitor", argv[1], 7)) {
-        err = monitor_debug_print_cababilities();
+    if (argc > 1) {
+        domainid_t domain = strtol(argv[1], NULL, 10);
+        err = spawn_dump_capabilities(domain);
     } else {
         err = sys_debug_print_capabilities();
     }
     if (err_is_fail(err)) {
-        printf("%s: error debug print cababilities: %s\n", argv[0], err_getstring(err));
+        printf("%s: error dumping capabilities: %s\n", argv[0], err_getstring(err));
         DEBUG_ERR(err, "Error\n");
         return EXIT_FAILURE;
     }
@@ -1230,7 +1231,7 @@ static struct cmd commands[] = {
     {"src", src, "Execute the list of commands in a file"},
     {"printenv", printenv, "Display environment variables"},
     {"free", freecmd, "Display amount of free memory in the system"},
-    {"debug_print_caps", debug_print_caps, "Display cspace debug information"},
+    {"dump_caps", dump_caps, "Display cspace debug information"},
 };
 
 static void getline(char *input, size_t size)

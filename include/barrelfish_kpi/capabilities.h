@@ -218,7 +218,8 @@ enum dispatcher_cmd {
     DispatcherCmd_Properties,       ///< Set dispatcher properties
     DispatcherCmd_PerfMon,          ///< Performance monitoring
     DispatcherCmd_SetupGuest,       ///< Set up the DCB of a guest domain
-    DispatcherCmd_DumpPTables       ///< Dump hw page tables of dispatcher
+    DispatcherCmd_DumpPTables,      ///< Dump hw page tables of dispatcher
+    DispatcherCmd_DumpCapabilities  ///< Dump capabilities of dispatcher
 };
 
 /**

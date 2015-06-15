@@ -24,6 +24,7 @@
 #include <if/spawn_defs.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 #include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/invocations_arch.h>
 
 #include "internal.h"
 #include "ps.h"
@@ -635,6 +636,26 @@ static void status_handler(struct spawn_binding *b, domainid_t domainid)
     }
 }
 
+
+static errval_t dump_capabilities(domainid_t domainid) {
+    struct ps_entry *ps = ps_get(domainid);
+
+    if(ps == NULL) {
+        return SPAWN_ERR_DOMAIN_NOTFOUND;
+    }
+
+    return invoke_dispatcher_dump_capabilities(ps->dcb);
+}
+
+static void dump_capabilities_handler(struct spawn_binding *b, domainid_t domainid) {
+    errval_t err = dump_capabilities(domainid);
+
+    err = b->tx_vtbl.dump_capabilities_response(b, NOP_CONT, err);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "debug_print_capabilities_response");
+    }
+}
+
 static struct spawn_rx_vtbl rx_vtbl = {
     .spawn_domain_call = spawn_handler,
     .spawn_domain_with_caps_call = spawn_with_caps_handler,
@@ -644,6 +665,7 @@ static struct spawn_rx_vtbl rx_vtbl = {
     .wait_call = wait_handler,
     .get_domainlist_call = get_domainlist_handler,
     .status_call = status_handler,
+    .dump_capabilities_call = dump_capabilities_handler
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)

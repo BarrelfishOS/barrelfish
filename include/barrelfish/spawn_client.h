@@ -59,6 +59,7 @@ errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,
                                    struct capref sidcap,
                                    struct capref kernelcap);
 
+errval_t spawn_dump_capabilities(domainid_t domainid);
 __END_DECLS
 
 #endif // BARRELFISH_SPAWN_CLIENT_H

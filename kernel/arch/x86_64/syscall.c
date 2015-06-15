@@ -14,6 +14,7 @@
 
 #include <kernel.h>
 #include <kcb.h>
+#include <sys_debug.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <mdb/mdb.h>
@@ -742,6 +743,20 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret dispatcher_dump_capabilities(struct capability *cap,
+                                             int cmd, uintptr_t *args)
+{
+    assert(cap->type == ObjType_Dispatcher);
+
+    printf("dispatcher_dump_capabilities\n");
+
+    struct dcb *dispatcher = cap->u.dispatcher.dcb;
+
+    errval_t err = debug_print_cababilities(dispatcher);
+
+    return SYSRET(err);
+}
+
 /*
  * \brief Activate performance monitoring
  *
@@ -912,6 +927,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest,
 #endif
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify,

@@ -36,4 +36,7 @@ interface spawn "Interface to spawn domains" {
 
     rpc status(in domainid domain_id, out ps_entry ps_entry, out char argv[len],
     	       out errval err);
+
+    // Capability debugging
+    rpc dump_capabilities(in domainid domain_id, out errval err);
 };

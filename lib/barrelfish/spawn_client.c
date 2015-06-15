@@ -611,6 +611,28 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
 }
 
 /**
+ * \brief Dump capabilities for a given domain
+ */
+errval_t spawn_dump_capabilities(domainid_t domainid)
+{
+    errval_t err, reterr;
+
+    err = bind_client(disp_get_core_id());
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    assert(cl != NULL);
+
+    err = cl->vtbl.dump_capabilities(cl, domainid, &reterr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return reterr;
+}
+
+/**
  * \brief Utility function to create an inherit cnode
  * and copy caps into it.
  *
