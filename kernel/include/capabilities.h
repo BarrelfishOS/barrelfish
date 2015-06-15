@@ -120,16 +120,6 @@ errval_t caps_delete(struct cte *cte);
 errval_t caps_revoke(struct cte *cte);
 
 /*
- * Cap debugging
- */
-struct cap_visited_list {
-    struct cap_visited_list *parent;
-    struct cte *c;
-};
-
-errval_t caps_debug_print(struct cte *cte, struct cap_visited_list *);
-
-/*
  * Cap tracing
  */
 

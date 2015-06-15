@@ -130,7 +130,9 @@ static int dump_caps(int argc, char *argv[]) {
         domainid_t domain = strtol(argv[1], NULL, 10);
         err = spawn_dump_capabilities(domain);
     } else {
-        err = sys_debug_print_capabilities();
+        dispatcher_handle_t handle = curdispatcher();
+        struct capref dcb = get_dispatcher_generic(handle)->dcb_cap;
+        err = invoke_dispatcher_dump_capabilities(dcb);
     }
     if (err_is_fail(err)) {
         printf("%s: error dumping capabilities: %s\n", argv[0], err_getstring(err));

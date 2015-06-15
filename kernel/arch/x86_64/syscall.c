@@ -1271,11 +1271,6 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             retval.value = apic_get_id();
             break;
 
-        case DEBUG_PRINT_CAPABILITIES: {
-            retval = sys_debug_print_capabilities();
-            break;
-        }
-
         default:
             printk(LOG_ERR, "invalid sys_debug msg type\n");
         }

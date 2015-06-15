@@ -92,7 +92,3 @@ errval_t sys_debug_cap_trace_ctrl(bool enable, genpaddr_t start, gensize_t size)
                     DEBUG_TRACE_PMEM_CTRL, enable, start, size).error;
 }
 
-errval_t
-sys_debug_print_capabilities(void) {
-    return syscall2(SYSCALL_DEBUG, DEBUG_PRINT_CAPABILITIES).error;
-}
