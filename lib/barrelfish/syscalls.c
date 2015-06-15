@@ -34,8 +34,3 @@ errval_t sys_print(const char *string, size_t length)
 {
     return syscall3(SYSCALL_PRINT, (uintptr_t)string, length).error;
 }
-
-errval_t
-sys_debug_print_capabilities(void) {
-    return syscall1(SYSCALL_DEBUG_PRINT_CAPABILITIES).error;
-}

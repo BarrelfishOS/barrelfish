@@ -27,7 +27,7 @@
                       "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
                       "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
                       "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c", "syscalls.c"
+                      "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
                     ]
 
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
@@ -55,26 +55,30 @@
                               "target/x86/pmap_x86.c",
                               "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
                               "vspace/pinned.c", "vspace/memobj_anon.c",
-                              "arch/x86/perfmon.c", "arch/x86/tls.c"]
+                              "arch/x86/perfmon.c", "arch/x86/tls.c",
+                              "arch/x86/sys_debug.c"]
       archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
                                  "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "arch/x86/perfmon.c", "arch/x86/tls.c"]
+                                 "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                 "arch/x86/sys_debug.c"]
       archfam_srcs "k1om"   = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
                                  "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "arch/x86/perfmon.c", "arch/x86/tls.c"]
+                                 "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                 "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "vspace/arch/arm/layout.c" ]
+                                 "vspace/arch/arm/layout.c",
+                                 "arch/arm/sys_debug.c"]
       archfam_srcs _         = []
 
       -- sources specific to the architecture
@@ -127,7 +131,7 @@
                       "slot_alloc/single_slot_alloc.c", "slot_alloc/multi_slot_alloc.c",
                       "slot_alloc/slot_alloc.c", "slot_alloc/range_slot_alloc.c",
                       "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                      "inthandler.c", "deferred.c", "syscalls.c"
+                      "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
                     ]
 
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
@@ -155,19 +159,22 @@
                               "target/x86/pmap_x86.c",
                               "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
                               "vspace/pinned.c", "vspace/memobj_anon.c",
-                              "arch/x86/perfmon.c", "arch/x86/tls.c"]
+                              "arch/x86/perfmon.c", "arch/x86/tls.c",
+                              "arch/x86/sys_debug.c"]
       archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
                                  "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
                                  "arch/x86_64/ldt.c",
                                  "target/x86_64/pmap_target.c", "target/x86/pmap_x86.c",
                                  "vspace/arch/x86_64/layout.c",
                                  "vspace/memobj_pinned.c", "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "arch/x86/perfmon.c", "arch/x86/tls.c"]
+                                 "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                 "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
                                  "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
-                                 "vspace/arch/arm/layout.c" ]
+                                 "vspace/arch/arm/layout.c",
+                                 "arch/arm/sys_debug.c"]
       archfam_srcs _         = []
 
       -- sources specific to the architecture
