@@ -801,7 +801,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(size_t i = 0; i < numobjs; i++) {
             // Initialize type specific fields
             src_cap.u.kernelcontrolblock.kcb = (struct kcb *)
-                (lvaddr + i * (1UL << OBJBITS_DISPATCHER));
+                (lvaddr + i * (1UL << OBJBITS_KCB));
             // Insert the capability
             err = set_cap(&dest_caps[i].cap, &src_cap);
             if (err_is_fail(err)) {
