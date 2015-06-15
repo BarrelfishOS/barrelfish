@@ -59,6 +59,9 @@
     flounderExtraBindings = [
       ("octopus", ["rpcclient"])
     ],
+    flounderTHCStubs = [ 
+      "octopus" 
+    ],      
     mackerelDevices = [ 
       "xeon_phi/xeon_phi_apic", 
       "xeon_phi/xeon_phi_boot", 
