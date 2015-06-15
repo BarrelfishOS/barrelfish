@@ -1025,6 +1025,11 @@ static struct sysret handle_debug_syscall(int msg)
             break;
         #endif
 
+        case DEBUG_PRINT_CAPABILITIES: {
+            retval = sys_debug_print_capabilities();
+            break;
+        }
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
             retval.error = err_push(retval.error, SYS_ERR_ILLEGAL_SYSCALL);

@@ -41,6 +41,7 @@ let
                "startup.c",
                "stdlib.c",
                "string.c",
+               "sys_debug.c",
                "syscall.c",
                "wakeup.c",
                "useraccess.c",

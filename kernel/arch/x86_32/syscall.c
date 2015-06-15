@@ -1169,6 +1169,11 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
             }
             break;
 
+        case DEBUG_PRINT_CAPABILITIES: {
+            retval = sys_debug_print_capabilities();
+            break;
+        }
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type\n");
         }
