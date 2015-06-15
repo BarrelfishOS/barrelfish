@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <syscall.h>
+#include <barrelfish_kpi/init.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
@@ -631,10 +632,82 @@ struct sysret sys_get_absolute_time(void)
     };
 }
 
+
+static bool sys_debug_print_capabilities_check_cnode(struct cte *cte, struct cte **dispatcher) {
+    enum objtype type = cte->cap.type;
+
+    if (type == ObjType_Dispatcher) {
+        *dispatcher = cte;
+        return true;
+    }
+
+    struct cte *cn = (struct cte*) local_phys_to_mem(get_address(&cte->cap));
+
+    if (type == ObjType_CNode) {
+        // are we task cnode?
+        if (cn[TASKCN_SLOT_DISPATCHER].cap.type == ObjType_Dispatcher) {
+            *dispatcher = &cn[TASKCN_SLOT_DISPATCHER];
+            return true;
+        }
+
+        if (cn[ROOTCN_SLOT_TASKCN].cap.type == ObjType_CNode) {
+            struct cte *cn_task = (struct cte*) local_phys_to_mem(get_address(&cn[ROOTCN_SLOT_TASKCN].cap));
+
+            if (cn_task[TASKCN_SLOT_DISPATCHER].cap.type == ObjType_Dispatcher) {
+                *dispatcher = &cn_task[TASKCN_SLOT_DISPATCHER];
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static errval_t sys_debug_print_capabilities_cb(struct cte *cte, void *data) {
+//    printk(LOG_NOTE, "cte=%p\n", cte);
+
+    struct dcb *my_dcb = (struct dcb *) data;
+
+    struct cte *result;
+    errval_t err = mdb_find_cap_for_address(mem_to_local_phys((lvaddr_t) cte), &result);
+    if (err_is_fail(err)) {
+        printk(LOG_ERR, "Type of cap: %d\n", cte->cap.type);
+        printk(LOG_ERR, "%s:%s:%d \n", __FILE__, __FUNCTION__, __LINE__);
+        return err;
+    }
+
+    assert(result->cap.type == ObjType_CNode);
+
+    struct cte *dispatcher;
+
+    while (!sys_debug_print_capabilities_check_cnode(result, &dispatcher)) {
+        err = mdb_find_cap_for_address(mem_to_local_phys((lvaddr_t) result), &result);
+        if (err_is_fail(err)) {
+            printk(LOG_ERR, "Type of cap: %d\n", cte->cap.type);
+            printk(LOG_ERR, "%s:%s:%d \n", __FILE__, __FUNCTION__, __LINE__);
+            return err;
+        }
+    }
+
+    struct dcb *dcb = dispatcher->cap.u.dispatcher.dcb;
+    dispatcher_handle_t handle = dcb->disp;
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(handle);
+
+    if (my_dcb == dcb) {
+        printk(LOG_NOTE, "disp->name=%s\n", disp->name);
+    }
+
+    return SYS_ERR_OK;
+}
+
 struct sysret
 sys_debug_print_capabilities(void) {
 
-    caps_debug_print(&dcb_current->cspace);
+    errval_t err = mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, sys_debug_print_capabilities_cb, dcb_current);
 
-    return SYSRET(SYS_ERR_OK);
+
+//    caps_debug_print(&dcb_current->cspace, NULL);
+
+    return SYSRET(err);
 }

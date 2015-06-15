@@ -125,7 +125,19 @@ static int print_cspace(int argc, char *argv[])
 }
 
 static int debug_print_caps(int argc, char *argv[]) {
-    monitor_debug_print_cababilities();
+    errval_t err;
+    if (argc > 1 && strncmp("monitor", argv[1], 7)) {
+        err = monitor_debug_print_cababilities();
+    } else {
+        err = sys_debug_print_capabilities();
+    }
+    if (err_is_fail(err)) {
+        printf("%s: error debug print cababilities: %s\n", argv[0], err_getstring(err));
+        DEBUG_ERR(err, "Error\n");
+        return EXIT_FAILURE;
+    }
+
+
     return EXIT_SUCCESS;
 }
 
