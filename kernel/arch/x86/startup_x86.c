@@ -550,9 +550,16 @@ void kernel_startup(void)
         /* Initialize the location to allocate phys memory from */
         bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
+        /* allocate initial KCB */
+        kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+        assert(kcb_current);
+
         /* spawn init */
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_PATH, bsp_alloc_phys);
     } else {
+        kcb_current = (struct kcb *)
+            local_phys_to_mem((lpaddr_t) kcb_current);
+
         start_ap_signal();
         // if we have a kernel control block, use it
         if (kcb_current && kcb_current->is_valid) {

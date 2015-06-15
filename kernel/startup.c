@@ -25,9 +25,6 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 
-// HACK! Remove and don't reference this, kcb points here in case we're bsp
-// This should be exposed as regular cap.
-struct kcb bspkcb; 
 struct kcb *kcb_current;
 
 coreid_t my_core_id;
@@ -142,10 +139,11 @@ struct dcb *spawn_module(struct spawn_state *st,
 #endif
 
     /* Set up root cnode and the caps it contains */
-    // must be static, because this CTE will be entered into the MDB!
-    // don't want this to be static, as the memory backing the data section of
-    // the kernel can and will disappear when we reboot a core with a
-    // different kernel but want to restore the state
+    // Has to be valid after leaving this stack frame, because this CTE will
+    // be entered into the MDB!
+    // Don't want this to be part of the data section, as the memory backing
+    // the data section of the kernel can and will disappear when we reboot a
+    // core with a different kernel but want to restore the state
     struct cte *rootcn = &kcb_current->init_rootcn;
     mdb_init(kcb_current);
     kcb_current->is_valid = true;
@@ -161,6 +159,21 @@ struct dcb *spawn_module(struct spawn_state *st,
                           BASE_PAGE_BITS, DEFAULT_CNODE_BITS, my_core_id,
                           rootcn);
     assert(err_is_ok(err));
+
+    // on BSP core: Add BSP KCB to rootcn
+    if (apic_is_bsp()) {
+        // cannot use caps_create_new() here, as that would zero out KCB, so
+        // we replicate the cap initialization here.
+        struct capability bspkcb_cap;
+        memset(&bspkcb_cap, 0, sizeof(struct capability));
+        bspkcb_cap.type = ObjType_KernelControlBlock;
+        bspkcb_cap.rights = CAPRIGHTS_ALLRIGHTS;
+        bspkcb_cap.u.kernelcontrolblock.kcb = kcb_current;
+        // find slot in init rootcn
+        struct cte *bspkcb = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_BSPKCB);
+        assert(bspkcb && bspkcb->cap.type == ObjType_Null);
+        memcpy(&bspkcb->cap, &bspkcb_cap, sizeof(struct capability));
+    }
 
     // Task cnode in root cnode
     st->taskcn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_TASKCN);

@@ -458,9 +458,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         panic("error while mapping physical memory!");
     }
 
-    kcb_current = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb_current);
-
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT
@@ -645,9 +642,6 @@ void arch_init(uint64_t magic, void *pointer)
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
 
-        extern struct kcb bspkcb;
-        memset(&bspkcb, 0, sizeof(bspkcb));
-        kcb_current = &bspkcb;
     } else { /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =
             (struct x86_core_data*)(dest - BASE_PAGE_SIZE);
