@@ -215,7 +215,23 @@ static errval_t unfill(struct memobj *memobj,
                        struct capref *ret_frame,
                        genvaddr_t *ret_offset)
 {
-    USER_PANIC("NYI");
+    struct memobj_numa *mo_numa = (struct memobj_numa*) memobj;
+
+    /* we take a single capability per node using offset as the node ID */
+    if (offset >= mo_numa->node_count) {
+        return LIB_ERR_MEMOBJ_WRONG_OFFSET;
+    }
+
+    /* check if we already have a capability for that node */
+    if (capref_is_null((mo_numa->frames[offset]))) {
+        return LIB_ERR_MEMOBJ_UNFILL_TOO_HIGH_OFFSET;
+    }
+
+    if (ret_frame) {
+        *ret_frame = mo_numa->frames[offset];
+    }
+    mo_numa->frames[offset] = NULL_CAP;
+
     return SYS_ERR_OK;
 }
 
