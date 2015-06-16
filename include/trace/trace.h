@@ -20,15 +20,15 @@
 #endif
 
 
-#if defined(__x86_64__) || defined(__i386__)
 #ifndef IN_KERNEL
 /* XXX: private includes from libbarrelfish */
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/curdispatcher_arch.h>
 #else // IN_KERNEL
+#if defined(__x86_64__) || defined(__i386__)
 #include <arch/x86/apic.h> // XXX!
-#endif // IN_KERNEL
 #endif // __x86_64__ || __i386__
+#endif // IN_KERNEL
 
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/waitset.h> // struct event_closure
