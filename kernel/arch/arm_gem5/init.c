@@ -275,10 +275,6 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     // Relocate global to "memory"
     global = (struct global*)local_phys_to_mem((lpaddr_t)global);
 
-    // Relocate kcb_current to "memory"
-    kcb_current = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb_current);
-
     // Map-out low memory
     if(glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP) {
         struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
@@ -365,9 +361,6 @@ void arch_init(void *pointer)
         // Construct the global structure
         memset(&global->locks, 0, sizeof(global->locks));
         
-        extern struct kcb bspkcb;
-        memset(&bspkcb, 0, sizeof(bspkcb));
-        kcb_current = &bspkcb;
     } else {
         global = (struct global *)GLOBAL_VBASE;
         memset(&global->locks, 0, sizeof(global->locks));

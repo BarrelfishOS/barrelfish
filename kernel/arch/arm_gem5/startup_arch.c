@@ -693,24 +693,28 @@ void arm_kernel_startup(void)
     /* Initialize the core_data */
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
-    struct arm_core_data *core_data
-    = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+    struct arm_core_data *core_data =
+            (void *) ((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
 
-    if(hal_cpu_is_bsp())
-    {
+    if (hal_cpu_is_bsp()) {
     	/* Initialize the location to allocate phys memory from */
         printf("start_free_ram = 0x%lx\n", glbl_core_data->start_free_ram);
     	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
+        /* allocate initial KCB */
+        kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+        assert(kcb_current);
+
+        /* spawn init */
     	init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
 
         pit_start(0);
 
-    }
-    else
-    {
+    } else {
+        kcb_current = (struct kcb *)
+            local_phys_to_mem((lpaddr_t) kcb_current);
 
     	my_core_id = core_data->dst_core_id;
 

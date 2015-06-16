@@ -543,9 +543,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
 #endif
 
-    kcb_current = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb_current);
-
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT

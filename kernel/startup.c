@@ -161,7 +161,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     assert(err_is_ok(err));
 
     // on BSP core: Add BSP KCB to rootcn
-    if (apic_is_bsp()) {
+    if (arch_core_is_bsp()) {
         // cannot use caps_create_new() here, as that would zero out KCB, so
         // we replicate the cap initialization here.
         struct capability bspkcb_cap;

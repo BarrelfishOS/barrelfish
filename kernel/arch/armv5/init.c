@@ -211,9 +211,6 @@ void arch_init(uint32_t     board_id,
         debug(SUBSYS_STARTUP, "elf_file %08"PRIxLVADDR"\n", elf_file);
 
         my_core_id = hal_get_cpu_id();
-        extern struct kcb bspkcb;
-        memset(&bspkcb, 0, sizeof(bspkcb));
-        kcb_current = &bspkcb;
         
         pic_init();
         pit_init(tick_hz);
