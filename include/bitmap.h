@@ -35,7 +35,7 @@ extern "C" {
 ///< bitmap structure public declaration
 struct bitmap;
 
-typedef uint32_t bitmap_bit_t;
+typedef int32_t bitmap_bit_t;
 
 ///< value returned if the bits are invalid.
 #define BITMAP_BIT_NONE ((bitmap_bit_t)-1)

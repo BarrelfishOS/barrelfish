@@ -34,10 +34,10 @@ typedef uint32_t bitmap_data_t;
  */
 struct bitmap
 {
-    bitmap_bit_t nbits;     ///< the number of bits this bitmap has
-    bitmap_bit_t weight;    ///< caches the number of set bits
-    bitmap_bit_t first;     ///< caches the position of the first bit
-    bitmap_bit_t last;      ///< caches the number of the last bit
+    uint32_t       nbits;   ///< the number of bits this bitmap has
+    uint32_t       weight;  ///< caches the number of set bits
+    uint32_t       first;   ///< caches the position of the first bit
+    uint32_t       last;    ///< caches the number of the last bit
     bitmap_data_t *data;    ///< stores the bit map
 };
 
@@ -55,7 +55,7 @@ struct bitmap
  * \return pointer to the allocated bitmap on success
  *         NULL on failure
  */
-struct bitmap *bitmap_alloc(bitmap_bit_t nbits)
+struct bitmap *bitmap_alloc(uint32_t nbits)
 {
     struct bitmap *bm = calloc(1, sizeof(*bm) + BITMAP_DATA_SIZE(nbits));
     if (bm == NULL) {
@@ -162,7 +162,7 @@ errval_t bitmap_deserialize(struct bitmap *bm, const void *src, size_t length)
  *
  * \return size of the bitmap in bytes
  */
-bitmap_bit_t bitmap_get_nbytes(const struct bitmap *bm)
+uint32_t bitmap_get_nbytes(const struct bitmap *bm)
 {
     return (bitmap_bit_t)(BITMAP_DATA_SIZE(bm->nbits) * sizeof(bitmap_data_t));
 }
@@ -174,7 +174,7 @@ bitmap_bit_t bitmap_get_nbytes(const struct bitmap *bm)
  *
  * \return size of the bitmap in bits
  */
-bitmap_bit_t bitmap_get_nbits(const struct bitmap *bm)
+uint32_t bitmap_get_nbits(const struct bitmap *bm)
 {
     return bm->nbits;
 }
@@ -186,7 +186,7 @@ bitmap_bit_t bitmap_get_nbits(const struct bitmap *bm)
  *
  * \return number of set bits
  */
-bitmap_bit_t bitmap_get_weight(const struct bitmap *bm)
+uint32_t bitmap_get_weight(const struct bitmap *bm)
 {
     return bm->weight;
 }
@@ -305,14 +305,14 @@ bitmap_bit_t bitmap_get_last(const struct bitmap *bm)
  * \brief gets the index of the next bit set
  *
  * \param bm    the bitmap to check
- * \param i     index of the next bit to check
+ * \param i     bit to start checking from (not inclusive)
  *
  * \return  index of the next set bit
  *          BITMAP_BIT_NONE if none is set
  */
 bitmap_bit_t bitmap_get_next(const struct bitmap *bm, bitmap_bit_t i)
 {
-    for (bitmap_bit_t k = i; k < bm->nbits; ++k) {
+    for (bitmap_bit_t k = i+1; k < bm->nbits; ++k) {
         if (bitmap_is_bit_set(bm, k)) {
             return k;
         }
@@ -332,7 +332,7 @@ bitmap_bit_t bitmap_get_next(const struct bitmap *bm, bitmap_bit_t i)
 bitmap_bit_t bitmap_get_prev(const struct bitmap *bm, bitmap_bit_t i)
 {
     if (i < bm->nbits) {
-        for (bitmap_bit_t k = i; k >= 0; --k) {
+        for (bitmap_bit_t k = i-1; k >= 0; --k) {
             if (bitmap_is_bit_set(bm, k)) {
                 return k;
             }
@@ -396,9 +396,9 @@ void bitmap_clear_bit(struct bitmap *bm, bitmap_bit_t i)
             bm->data[i/BITMAP_BITS_PER_ELEMENT] = data;
             if (bm->weight) {
                 if (bm->last == i) {
-                    bm->last = bitmap_get_prev(bm, i - 1);
+                    bm->last = bitmap_get_prev(bm, i);
                 } else if (bm->first == i) {
-                    bm->first = bitmap_get_next(bm, i + 1);
+                    bm->first = bitmap_get_next(bm, i);
                 }
             } else {
                 bm->first = BITMAP_BIT_NONE;
