@@ -942,10 +942,6 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
-        
-        extern struct kcb bspkcb;
-        memset(&bspkcb, 0, sizeof(bspkcb));
-        kcb_current = &bspkcb;
 #ifdef HETEROPANDA
         //boot up a cortex-m3 core
         

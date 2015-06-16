@@ -491,14 +491,14 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
      * There are three different types of interrupt flows that are supported in
      * the Intel Xeon Phi coprocessor:
      *
-     * + Local Interrupts – These are the interrupts that are destined for one
+     * + Local Interrupts These are the interrupts that are destined for one
      *   (or more) of the Intel Xeon Phi coprocessor cores located on the
      *   originating device. They appear in the form of APIC messages on the
      *   APIC serial bus.
-     * + Remote Interrupts – These are the interrupts which are destined for one
+     * + Remote Interrupts These are the interrupts which are destined for one
      *   (or more) of the Intel Xeon Phi coprocessor cores in other Intel Xeon
      *   PhiTM coprocessor devices. They appear as MMIO accesses on the PEG port.
-     * + System Interrupts – These are the interrupts which are destined for
+     * + System Interrupts These are the interrupts which are destined for
      *   the host processor(s). They appear as INTx/MSI/MSI-X messages on the
      *   PEG port, depending upon the PCI configuration settings.
      */
@@ -692,10 +692,6 @@ void arch_init(uint64_t magic,
         glbl_core_data->mmap_length = mb->mmap_length;
         glbl_core_data->mmap_addr = mb->mmap_addr;
         glbl_core_data->xeon_phi_id = mb->xeon_phi_id;
-        
-        extern struct kcb bspkcb;
-        memset(&bspkcb, 0, sizeof(bspkcb));
-        kcb_current = &bspkcb;
     } else {
         /* No multiboot info, use the core_data struct */
         struct x86_core_data *core_data =

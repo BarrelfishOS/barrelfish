@@ -722,10 +722,6 @@ void arch_init(uint32_t magic, void *pointer)
             glbl_core_data->cmdline = mb->cmdline;
             glbl_core_data->mmap_length = mb->mmap_length;
             glbl_core_data->mmap_addr = mb->mmap_addr;
-
-            extern struct kcb bspkcb;
-            memset(&bspkcb, 0, sizeof(bspkcb));
-            kcb_current = &bspkcb;
         }
         break;
 
