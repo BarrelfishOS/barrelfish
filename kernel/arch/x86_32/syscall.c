@@ -13,6 +13,7 @@
  */
 
 #include <kernel.h>
+#include <sys_debug.h>
 #include <syscall.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <capabilities.h>
@@ -804,6 +805,16 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret dispatcher_dump_capabilities(struct capability *cap,
+                                             int cmd, uintptr_t *args)
+{
+    assert(cap->type == ObjType_Dispatcher);
+    struct dcb *dispatcher = cap->u.dispatcher.dcb;
+    errval_t err = debug_print_cababilities(dispatcher);
+    return SYSRET(err);
+}
+
+
 static struct sysret kernel_add_kcb(struct capability *kern_cap,
                                     int cmd, uintptr_t *args)
 {
@@ -845,6 +856,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Properties]   = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]      = handle_dispatcher_perfmon,
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify,

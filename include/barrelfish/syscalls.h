@@ -59,7 +59,6 @@ errval_t sys_print(const char *string, size_t length);
  * \brief get time elapsed since system boot.
  */
 uint64_t sys_get_absolute_time(void);
-
 __END_DECLS
 
 #endif //LIBBARRELFISH_SYSCALL_H

@@ -1318,4 +1318,3 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
     return SYS_ERR_OK;
 }
-

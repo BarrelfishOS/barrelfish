@@ -379,6 +379,11 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
     return cap_invoke1(dispcap, DispatcherCmd_DumpPTables).error;
 }
 
+static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)
+{
+    return cap_invoke1(dispcap, DispatcherCmd_DumpCapabilities).error;
+}
+
 static inline errval_t invoke_perfmon_activate(struct capref perfmon_cap,
                                                uint8_t event, uint8_t perf_umask,
                                                bool kernel, uint8_t counter_id,

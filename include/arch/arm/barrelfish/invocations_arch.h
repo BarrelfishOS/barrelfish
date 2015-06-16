@@ -587,6 +587,15 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
             SYSCALL_INVOKE, invoke_cptr).error;
 }
 
+static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(dispcap);
+    capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
+
+    return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpCapabilities << 8) |
+            SYSCALL_INVOKE, invoke_cptr).error;
+}
+
 static inline errval_t
 invoke_dispatcher_properties(
     struct capref dispatcher,

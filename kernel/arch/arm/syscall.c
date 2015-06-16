@@ -21,6 +21,7 @@
 #include <dispatch.h>
 #include <exec.h>
 #include <stdio.h>
+#include <sys_debug.h>
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <start_aps.h>
@@ -757,6 +758,16 @@ static struct sysret dispatcher_dump_ptables(
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret dispatcher_dump_capabilities(struct capability *cap,
+        arch_registers_state_t* context, int argc)
+{
+    assert(cap->type == ObjType_Dispatcher);
+    assert(2 == argc);
+    struct dcb *dispatcher = cap->u.dispatcher.dcb;
+    errval_t err = debug_print_cababilities(dispatcher);
+    return SYSRET(err);
+}
+
 static struct sysret handle_idcap_identify(struct capability *to,
                                            arch_registers_state_t *context,
                                            int argc)
@@ -790,7 +801,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_Setup]       = handle_dispatcher_setup,
         [DispatcherCmd_Properties]  = handle_dispatcher_properties,
         [DispatcherCmd_PerfMon]     = handle_dispatcher_perfmon,
-        [DispatcherCmd_DumpPTables] = dispatcher_dump_ptables,
+        [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
+        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify
@@ -1024,11 +1036,6 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = gt_read_high();
             break;
         #endif
-
-        case DEBUG_PRINT_CAPABILITIES: {
-            retval = sys_debug_print_capabilities();
-            break;
-        }
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
