@@ -68,8 +68,7 @@ errval_t numa_available(void)
 
     err = numa_get_topology_from_skb(&numa_topology);
     if (err_is_fail(err)) {
-        numa_initialized = 0xff;
-        return err_push(err, NUMA_ERR_LIB_INIT);
+        goto out_err;
     }
 
 #if NUMA_DEBUG_ENABLED
@@ -78,7 +77,8 @@ errval_t numa_available(void)
 
     numa_all_cpus_ptr = numa_allocate_cpumask();
     if(numa_all_cpus_ptr == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+        err =  LIB_ERR_MALLOC_FAIL;
+        goto out_err1;
     }
 
     for (coreid_t i = 0; i < numa_topology.num_cores; ++i) {
@@ -91,7 +91,8 @@ errval_t numa_available(void)
 
     numa_all_nodes_ptr = numa_allocate_nodemask();
     if(numa_all_nodes_ptr == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+        err =  LIB_ERR_MALLOC_FAIL;
+        goto out_err2;
     }
 
     for (nodeid_t i = 0; i < numa_topology.num_nodes; ++i) {
@@ -104,7 +105,19 @@ errval_t numa_available(void)
 
     numa_no_nodes_ptr = numa_allocate_nodemask();
     if(numa_no_nodes_ptr == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
+        err =  LIB_ERR_MALLOC_FAIL;
+        goto out_err3;
+    }
+
+    numa_alloc_bind_mask = numa_allocate_nodemask();
+    if(numa_alloc_bind_mask == NULL) {
+        err =  LIB_ERR_MALLOC_FAIL;
+        goto out_err4;
+    }
+    numa_alloc_interleave_mask = numa_allocate_nodemask();
+    if(numa_alloc_interleave_mask == NULL) {
+        err =  LIB_ERR_MALLOC_FAIL;
+        goto out_err5;
     }
 
 #if NUMA_DEBUG_ENABLED
@@ -113,9 +126,22 @@ errval_t numa_available(void)
 
     numa_initialized = 0x1;
 
-    /* TODO: initialize bitmap pointers */
-
     return SYS_ERR_OK;
+
+    /* cleanup in case of error */
+    out_err5:
+    free(numa_alloc_bind_mask);
+    out_err4:
+    free(numa_no_nodes_ptr);
+    out_err3:
+    free(numa_all_nodes_ptr);
+    out_err2:
+    free(numa_all_cpus_ptr);
+    out_err1:
+    numa_free_topology(&numa_topology);
+    out_err:
+    numa_initialized = 0xff;
+    return err_push(err, NUMA_ERR_LIB_INIT);
 }
 
 /**

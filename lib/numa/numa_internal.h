@@ -77,7 +77,14 @@ struct numa_core {
     struct numa_node *node;    ///< node of the core
 };
 
+///< stores the topology information
 extern struct numa_topology numa_topology;
+
+///< numa interleave mask for allocations
+extern struct bitmap *numa_alloc_interleave_mask;
+
+///< numa bind mask for allocations
+extern struct bitmap *numa_alloc_bind_mask;
 
 /*
  * ----------------------------------------------------------------------------
@@ -94,6 +101,13 @@ extern struct numa_topology numa_topology;
  *          errval on FAILURE
  */
 errval_t numa_get_topology_from_skb(struct numa_topology *topology);
+
+/**
+ * \brief frees the numa topology structure
+ *
+ * \param topology pointer to the topology information structure
+ */
+void numa_free_topology(struct numa_topology *topology);
 
 /**
  * \brief dumps the numa topology structure

@@ -23,6 +23,16 @@ int main (void)
     if (numa_available() == SYS_ERR_OK) {
         debug_printf("num nodes=%u\n", numa_max_node() + 1);
         debug_printf("num cores: %u\n", numa_max_core() + 1);
+
+        debug_printf("interleaved test\n");
+        void *buf = numa_alloc_interleaved(1024*1024, 4096);
+
+        debug_printf("alloc on node test\n");
+        buf = numa_alloc_onnode(1024*1024, 0, 4096);
+
+        debug_printf("normal alloc test\n");
+        buf = numa_alloc(1024*1024, 4096);
+
     } else {
         debug_printf("numa not available\n");
     }

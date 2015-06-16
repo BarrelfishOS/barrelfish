@@ -303,8 +303,9 @@ struct bitmap *numa_get_membind(void);
 /**
  * \brief allocates memory on a specific node.
  *
- * \param size  size of the region in bytes
- * \param node  ID of the node to allocate from
+ * \param size      size of the region in bytes
+ * \param node      ID of the node to allocate from
+ * \param pagesize  page size to be used for the mapping
  *
  * \returns pointer to memory region
  *
@@ -312,53 +313,59 @@ struct bitmap *numa_get_membind(void);
  * if the specified node is externally denied to this process, this call will fail.
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_onnode(size_t size, nodeid_t node);
+void *numa_alloc_onnode(size_t size, nodeid_t node, size_t pagesize);
 
 /**
  * \brief allocates size bytes of memory on the local node
  *
  * \param size  size of the memory region in bytes
+ * \param pagesize  page size to be used for the mapping
  *
  * \returns pointer to memory region
  *
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_local(size_t size);
+void *numa_alloc_local(size_t size, size_t pagesize);
 
 /**
  * \brief allocates size bytes of memory page interleaved on all nodes.
  *
- * \param size   size of the memory region in bytes
+ * \param size      size of the memory region in bytes
+ * \param pagesize  page size to be used for the mapping
  *
  * \returns pointer to the mapped memory region
  *
  * should only be used for large areas consisting of multiple pages.
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_interleaved(size_t size);
+void *numa_alloc_interleaved(size_t size, size_t pagesize);
 
 /**
- * \brief allocates size bytes of memory page interleaved on all nodes.
+ * \brief allocates size bytes of memory page interleaved the nodes specified in
+ *        the nodemask.
  *
  * \param size     size of the memory region in bytes
  * \param nodemask subset of nodes to consider for allocation
+ * \param pagesize  page size to be used for the mapping
+ *
  * \returns pointer to the mapped memory region
  *
  * should only be used for large areas consisting of multiple pages.
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc_interleaved_subset(size_t size, struct bitmap *nodemask);
+void *numa_alloc_interleaved_subset(size_t size, size_t pagesize,
+                                    struct bitmap *nodemask);
 
 /**
  * \brief allocates size bytes of memory with the current NUMA policy.
  *
- * \param size  size of the memory region in bytes
- *
+ * \param size      size of the memory region in bytes
+ * \param pagesize  page size to be used for the mapping
  * \returns pointer to the mapped memory region
  *
  * The memory must be freed with numa_free(). On errors NULL is returned.
  */
-void *numa_alloc(size_t size);
+void *numa_alloc(size_t size, size_t pagesize);
 
 /**
  * \brief changes the size of the memory area.

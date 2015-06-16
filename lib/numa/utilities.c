@@ -285,5 +285,17 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
     error_out:
     free(topology->nodes);
     return err;
+}
 
+/**
+ * \brief frees the numa topology structure
+ *
+ * \param topology pointer to the topology information structure
+ */
+void numa_free_topology(struct numa_topology *topology)
+{
+    if (topology && topology->nodes) {
+        free(topology->nodes);
+    }
+    memset(topology, 0, sizeof(*topology));
 }
