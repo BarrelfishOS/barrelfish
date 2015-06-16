@@ -74,7 +74,7 @@ static errval_t bomp_node_init_threads(nodeid_t nodeid,
         node->threads[i].node = node;
         if (core == disp_get_core_id()) {
             /* master thread */
-            core = (coreid_t)bitmap_get_next(bm, core + 1);
+            core = (coreid_t)bitmap_get_next(bm, core);
             continue;
         }
 
@@ -84,7 +84,7 @@ static errval_t bomp_node_init_threads(nodeid_t nodeid,
             return err;
         }
 
-        core = (coreid_t)bitmap_get_next(bm, core + 1);
+        core = (coreid_t)bitmap_get_next(bm, core);
     }
     node->threads_active = 0;
     node->tls = thread_get_tls();
