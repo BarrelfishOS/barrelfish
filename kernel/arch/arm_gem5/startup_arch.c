@@ -28,6 +28,7 @@
 #include <offsets.h>
 #include <startup_arch.h>
 #include <global.h>
+#include <kcb.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
