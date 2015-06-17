@@ -32,12 +32,7 @@
 #include <arch/x86/perfmon_intel.h>
 #include <arch/x86/perfmon_amd.h>
 #include <arch/x86/rtc.h>
-#ifdef __scc__
-#       include <rck.h>
-#       include <diteinfo.h>
-#else
-#       include <arch/x86/ipi_notify.h>
-#endif
+#include <arch/x86/ipi_notify.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/startup_x86.h>
@@ -476,27 +471,6 @@ static inline void enable_pg(void)
     __asm volatile("mov %[cr0], %%cr0" :: [cr0] "r" (cr0));
 }
 
-#ifdef __scc__
-static inline void enable_caches(void)
-{
-    uint32_t cr0;
-
-    __asm volatile("mov %%cr0, %[cr0]" : [cr0] "=r" (cr0));
-    cr0 &= ~CR0_CD;
-    cr0 &= ~CR0_NW;
-    __asm volatile("mov %[cr0], %%cr0" :: [cr0] "r" (cr0));
-}
-
-static inline void enable_message_passing(void)
-{
-    uint32_t cr4;
-
-    __asm volatile("mov %%cr4, %[cr4]" : [cr4] "=r" (cr4));
-    cr4 |= CR4_MPE;
-    __asm volatile("mov %[cr4], %%cr4" :: [cr4] "r" (cr4));
-}
-#endif
-
 static inline void enable_monitor_mwait(void)
 {
     uint32_t eax, ebx, ecx, edx;
@@ -539,9 +513,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
      * that end up calling a conio.c function may be called between
      * paging_reset() and conio_relocate_vidmem()!
      */
-#ifndef __scc__
     conio_relocate_vidmem(local_phys_to_mem(VIDEO_MEM));
-#endif
 
     /*
      * Also reset the global descriptor table (GDT), so we get
@@ -563,19 +535,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Initialize local APIC
     apic_init();
 
-#ifdef __scc__
-    enable_message_passing();
-
-    // Initialize Rockcreek driver
-    rck_init();
-
-    // XXX: Set core ID and fake APIC ID to be the tile's core ID
-    my_core_id = apic_id = rck_get_coreid();
-    printf("My APIC ID: %d\n", apic_id);
-#endif
-
     // do not remove/change this printf: needed by regression harness
-#ifndef __scc__
     printf("Barrelfish CPU driver starting on x86_32 core %u\n", apic_id);
 
     if(apic_is_bsp()) {
@@ -585,9 +545,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Initialize real-time clock
     rtc_init();
-#else
-    printf("Barrelfish CPU driver starting on scc core %u\n", apic_id);
-#endif
 
     // Initialize local APIC timer
     if (kernel_ticks_enabled) {
@@ -599,10 +556,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         apic_mask_timer();
     }
 
-#ifndef __scc__
     // Initialize IPI notification mechanism
     ipi_notify_init();
-#endif
 
     // Enable SYSCALL/SYSRET fast system calls
     /* enable_fast_syscalls(); */
@@ -615,7 +570,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Enable FPU and MMX
     enable_fpu();
 
-#ifndef __scc__
     // Enable user-mode RDPMC opcode
     enable_user_rdpmc();
 
@@ -627,7 +581,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // Check/Enable MONITOR/MWAIT opcodes
     enable_monitor_mwait();
-#endif
 
     // Call main kernel startup function -- this should never return
     kernel_startup();
@@ -665,15 +618,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
  */
 void arch_init(uint32_t magic, void *pointer)
 {
-#ifdef __scc__
-    // Enable caches
-    enable_caches();
-#endif
-
     // Sanitize the screen
-#ifndef __scc__
     conio_cls();
-#endif
     // Initialize serial, only initialize HW if we are
     // the first kernel
     serial_console_init((magic == MULTIBOOT_INFO_MAGIC));
@@ -724,27 +670,6 @@ void arch_init(uint32_t magic, void *pointer)
             glbl_core_data->mmap_addr = mb->mmap_addr;
         }
         break;
-
-#ifdef __scc__
-    case DITE_BOOT_MAGIC:
-        {
-            struct diteinfo *di = (struct diteinfo *)(dest - BASE_PAGE_SIZE);
-            elf = (struct x86_coredata_elf *)&di->elf;
-
-            memset(glbl_core_data, 0, sizeof(struct x86_core_data));
-            glbl_core_data->start_free_ram = di->start_free_ram;
-            glbl_core_data->mods_addr = di->mods_addr;
-            glbl_core_data->mods_count = di->mods_count;
-            glbl_core_data->cmdline = di->cmdline;
-            glbl_core_data->mmap_length = di->mmap_length;
-            glbl_core_data->mmap_addr = di->mmap_addr;
-            glbl_core_data->urpc_frame_base = di->urpc_frame_base;
-            glbl_core_data->urpc_frame_bits = di->urpc_frame_bits;
-            glbl_core_data->src_core_id = di->src_core_id;
-            glbl_core_data->chan_id = di->chan_id;
-        }
-        break;
-#endif
 
     case KERNEL_BOOT_MAGIC:
         global = (struct global*)pointer;
