@@ -576,5 +576,10 @@ void arm_kernel_startup(phys_mmap_t* mmap,
                 panic("Invalid initrd filesystem\n");
     }
 
+    /* allocate initial KCB */
+    kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+    memset(kcb_current, 0, sizeof(*kcb_current));
+    assert(kcb_current);
+
     spawn_init(BSP_INIT_MODULE_NAME, 0, initrd_cpio_base, initrd_bytes);
 }

@@ -27,6 +27,7 @@
 #include <offsets.h>
 #include <startup_arch.h>
 #include <global.h>
+#include <kcb.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
@@ -713,6 +714,11 @@ void arm_kernel_startup(void)
     	/* Initialize the location to allocate phys memory from */
     	bsp_init_alloc_addr = glbl_core_data->start_free_ram;
 
+        /* allocate initial KCB */
+        kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+        memset(kcb_current, 0, sizeof(*kcb_current));
+        assert(kcb_current);
+
         // Bring up init
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME, bsp_alloc_phys);
 
@@ -720,6 +726,9 @@ void arm_kernel_startup(void)
 
     } else {
         printf("Doing non-BSP related bootup \n");
+
+        kcb_current = (struct kcb *)
+            local_phys_to_mem((lpaddr_t) kcb_current);
 
         /* Initialize the allocator with the information passed to us */
         app_alloc_phys_start = glbl_core_data->memory_base_start;

@@ -979,10 +979,6 @@ void arch_init(void *pointer)
         *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
     }
 
-    if (kcb_current == NULL) {
-        panic("Did not receive a valid KCB.");
-    }
-
     // XXX: print kernel address for debugging with gdb
     printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
             local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);

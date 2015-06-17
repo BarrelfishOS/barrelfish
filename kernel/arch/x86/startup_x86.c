@@ -552,6 +552,7 @@ void kernel_startup(void)
 
         /* allocate initial KCB */
         kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+        memset(kcb_current, 0, sizeof(*kcb_current));
         assert(kcb_current);
 
         /* spawn init */

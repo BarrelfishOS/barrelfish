@@ -74,7 +74,7 @@
                                  "arch/x86/perfmon.c", "arch/x86/tls.c",
                                  "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
-                                 "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
+                                 "arch/arm/pmap_arch.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "vspace/arch/arm/layout.c",
@@ -170,7 +170,7 @@
                                  "arch/x86/perfmon.c", "arch/x86/tls.c",
                                  "arch/x86/sys_debug.c"]
       archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
-                                 "arch/arm/pmap_arch.c", "arch/arm/sys_debug.c",
+                                 "arch/arm/pmap_arch.c",
                                  "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
                                  "vspace/pinned.c", "vspace/memobj_anon.c",
                                  "vspace/arch/arm/layout.c",
