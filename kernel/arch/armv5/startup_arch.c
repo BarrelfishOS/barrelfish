@@ -25,6 +25,7 @@
 #include <phys_mmap.h>
 #include <barrelfish_kpi/paging_arm_v5.h>
 #include <startup.h>
+#include <kcb.h>
 
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
@@ -577,7 +578,7 @@ void arm_kernel_startup(phys_mmap_t* mmap,
     }
 
     /* allocate initial KCB */
-    kcb_current = (struct kcb *) local_phys_to_mem(bsp_alloc_phys(sizeof(*kcb_current)));
+    kcb_current = (struct kcb *) local_phys_to_mem(alloc_phys(sizeof(*kcb_current)));
     memset(kcb_current, 0, sizeof(*kcb_current));
     assert(kcb_current);
 
