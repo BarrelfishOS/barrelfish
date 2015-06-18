@@ -19,11 +19,7 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish/ldt.h>
 #include <arch/ldt.h>
-#ifdef __k1om__
-#include <target/k1om/barrelfish_kpi/cpu_target.h> // segment_descriptor
-#else
 #include <target/x86_64/barrelfish_kpi/cpu_target.h> // segment_descriptor
-#endif
 #include <barrelfish_kpi/cpu_arch.h> // segment_descriptor
 #include <stdio.h>
 #include <string.h>
