@@ -25,6 +25,7 @@ static inline uint64_t rdtsc(void)
     return ((uint64_t)edx << 32) | eax;
 }
 
+#ifndef __k1om__
 /** \brief This code reads the cycle counter -- flushing the
     instruction pipeline first. Throws away the processor ID information. */
 static inline uint64_t rdtscp(void)
@@ -33,6 +34,13 @@ static inline uint64_t rdtscp(void)
     __asm volatile ("rdtscp" : "=a" (eax), "=d" (edx) :: "ecx");
     return ((uint64_t)edx << 32) | eax;
 }
+#else
+static inline uint64_t rdtscp(void)
+{
+    /* K1OM does not support rdtscp */
+    return rdtsc();
+}
+#endif
 
 static inline uint64_t rdpmc(uint32_t counter)
 {
