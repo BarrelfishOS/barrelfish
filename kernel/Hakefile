@@ -475,8 +475,11 @@ let
   cpuDriver {
      target = "apm88xxxx",
      architectures = [ "armv8" ],
-     assemblyFiles = [ "arch/apm88xxxx/boot.S" ],
+     assemblyFiles = [ "arch/apm88xxxx/boot.S",
+                       "arch/armv8/exceptions.S"
+                     ],
      cFiles = [ "arch/armv8/exec.c",
+                "arch/armv8/exn.c",
                 "arch/armv8/irq.c",
                 "arch/armv8/kludges.c",
                 "arch/armv8/kputchar.c",

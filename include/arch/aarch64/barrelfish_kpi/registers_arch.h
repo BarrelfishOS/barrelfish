@@ -61,7 +61,7 @@
 #define LR_REG   32
 #define PC_REG   33
 
-#define NUM_REGS 33            /* cpsr, x0-x30, sp, pc */
+#define NUM_REGS 34            /* cpsr, x0-x30, sp, pc */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
 
@@ -116,7 +116,7 @@ union registers_aarch64 {
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
 };
 
-STATIC_ASSERT_SIZEOF(union registers_aarch64, 34 * 8);
+STATIC_ASSERT_SIZEOF(union registers_aarch64, NUM_REGS * sizeof(uint64_t));
 
 STATIC_ASSERT((REG_OFFSET(THREAD_REGISTER) * sizeof(uint64_t)) == offsetof(struct registers_aarch64_named, rtls), "Thread register conflict");
 
