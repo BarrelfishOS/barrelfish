@@ -1,23 +1,22 @@
 /**
  * \file
- * \brief Bootstrap the kernel for ARMv7 processors.  This code is
+ * \brief Bootstrap the kernel for UEFI/ARMv8 platforms.  This code is
  *      entered from the bootloader (typically arm_molly, RedBoot,
  *      etc.).
  */
 /*
- * Copyright (c) 2009 ETH Zurich.
+ * Copyright (c) 2015 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef __ASSEMBLER__
 #define __ASSEMBLER__   1
 #endif
 
-#include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // BOOT_STACK_PHYS
 
         .text
@@ -31,22 +30,29 @@
 start:
         // On entry:
         //
-        // MMU disabled
-        // Caches in unknown state, but no lockdown
-        // No TLB lockdown.
-        // CPU is in a priviledged mode.
+        // Single core running (not guaranteed to be core 0)
+        // CPU is in highest non-secure privilege mode: EL2 or EL1
+        // MMU enabled, 4k translation granule, 1:1 mapping of all RAM, using
+        // TTBR0.
+        // Little-endian mode
+        // Core caches (L1&L2) and TLB enabled
+        // Non-architectural caches disabled
+        // Interrupts enabled
+        // Generic timer initialized and enabled
+        // >= 128KiB stack
+        // ACPI tables available
+        // Register x0 contains handle to ACPI root table
+        // Register x1 contains a pointer to the UEFI memory map
         //
-        // TODO: ensure mode
 
         //init stack
-        ldr     x1, =kernel_stack
-        mov     sp, x1
+        ldr     x15, =kernel_stack
+        mov     sp, x15
         add     sp, sp, #KERNEL_STACK_SIZE
 
         ldr     PIC_REGISTER, got_base
 
-        //prepare argument
-        mov     x0, x2
+        // maybe prepare arguments
         b       arch_init
         b       halt
 
