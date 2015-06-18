@@ -12,26 +12,12 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef INIT_H
-#define INIT_H
+#ifndef K1OM_INIT_H
+#define K1OM_INIT_H 1
 
-/// Magic value passed when kernel is booted by itself (and not bootloader)
-#define KERNEL_BOOT_MAGIC       0x33e1f154
-
+///< boot magic when the first kernel of the Xeon Phi gets booted
 #define K1OM_BOOT_MAGIC         0xB001B001
 
+#include <arch/x86_64/init.h>
 
-#ifndef __ASSEMBLER__
-
-extern bool idt_initialized;
-
-void arch_init(uint64_t magic, void *pointer) __attribute__ ((noreturn));
-
-/**
- * Fast system call entry point (in Assembler).
- */
-extern void syscall_entry(void);
-
-#endif
-
-#endif
+#endif /* K1OM_INIT_H */
