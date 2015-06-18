@@ -143,7 +143,7 @@ options arch archFamily = Options {
 -- C compiler
 --
 cCompiler arch compiler opts phase src obj = 
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
@@ -159,7 +159,7 @@ cCompiler arch compiler opts phase src obj =
 -- the C preprocessor, like C compiler but with -E
 --
 cPreprocessor arch compiler opts phase src obj = 
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
@@ -177,7 +177,7 @@ cPreprocessor arch compiler opts phase src obj =
 -- C++ compiler
 --
 cxxCompiler arch cxxcompiler opts phase src obj = 
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optCxxFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraCxxFlags opts ]
@@ -194,7 +194,7 @@ cxxCompiler arch cxxcompiler opts phase src obj =
 -- Create C file dependencies
 --
 makeDepend arch compiler opts phase src obj depfile =
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
@@ -214,7 +214,7 @@ makeDepend arch compiler opts phase src obj depfile =
 -- Create C++ file dependencies
 --
 makeCxxDepend arch cxxcompiler opts phase src obj depfile =
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optCxxFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraCxxFlags opts ]
@@ -235,7 +235,7 @@ makeCxxDepend arch cxxcompiler opts phase src obj depfile =
 --
 cToAssembler :: String -> String -> Options -> String -> String -> String -> String -> [ RuleToken ]
 cToAssembler arch compiler  opts phase src afile objdepfile =
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
@@ -253,7 +253,7 @@ cToAssembler arch compiler  opts phase src afile objdepfile =
 --
 assembler :: String -> String -> Options -> String -> String -> [ RuleToken ]
 assembler arch compiler opts src obj = 
-    let incls = (optIncludes opts) ++ (extraIncludes opts)
+    let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]

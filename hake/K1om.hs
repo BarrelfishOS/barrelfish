@@ -84,6 +84,9 @@ ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
+kernelOptIncludes = [NoDep SrcTree "src" ("/include/target/x86_64"), 
+                     NoDep SrcTree "src" ("/include/arch/x86_64")] 
+
 options = (ArchDefaults.options arch archFamily) { 
             optFlags = cFlags,
             optCxxFlags = cxxFlags,
@@ -91,7 +94,11 @@ options = (ArchDefaults.options arch archFamily) {
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
             optInterconnectDrivers = ["lmp", "ump", "multihop"],
-            optFlounderBackends = ["lmp", "ump", "multihop"]
+            optFlounderBackends = ["lmp", "ump", "multihop"],
+            optIncludes = ArchDefaults.cStdIncs arch archFamily
+                          ++
+                          [NoDep SrcTree "src" ("/include/target/x86_64"), 
+                           NoDep SrcTree "src" ("/include/arch/x86_64")]
           }
 
 --

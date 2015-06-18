@@ -117,6 +117,11 @@ archFamily arch = optArchFamily (options arch)
 --
 -------------------------------------------------------------------------
 
+kernelOptIncludes :: String -> [ RuleToken ]
+kernelOptIncludes arch
+    | arch == "k1om"  = K1om.kernelOptIncludes
+    | otherwise = [ ]
+
 kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include" ]]
                  ++
@@ -129,6 +134,7 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     Config.libcInc,
                     "/include/c",
                     "/include/target" ./. archFamily arch]]
+                 ++ kernelOptIncludes arch
 
 kernelOptions arch = Options {
             optArch = arch,
