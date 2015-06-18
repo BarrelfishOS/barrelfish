@@ -84,7 +84,9 @@ ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
-kernelOptIncludes = [NoDep SrcTree "src" ("/include/target/x86_64"), 
+-- adding x86_64 includes to the K1OM architecture
+kernelOptIncludes = [NoDep SrcTree "src" ("/kernel/include/arch/x86_64"),
+                     NoDep SrcTree "src" ("/include/target/x86_64"), 
                      NoDep SrcTree "src" ("/include/arch/x86_64")] 
 
 options = (ArchDefaults.options arch archFamily) { 
