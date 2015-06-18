@@ -50,7 +50,7 @@
 /// Pointer to bootinfo structure for init
 static struct bootinfo *bootinfo = (struct bootinfo *)BOOTINFO_BASE;
 
-static struct spawn_state spawn_state;
+struct spawn_state spawn_state;
 
 /**
  * Page map level 4 table for init user address space.
@@ -455,7 +455,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     // we run out of root cnode slots by aligning the memory we declare free
     // to 1MB.
     lpaddr_t init_alloc_end = alloc_phys(0);
-    lpaddr_t align = 1UL << 20; // 1MB
+    lpaddr_t align = 4UL << 20; // 4MB
     // XXX: No checks are in place to make sure that init_alloc_end_aligned
     // is actually a valid physical memory address (e.g. a location at which
     // RAM exists.
@@ -503,12 +503,13 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
                                                   TASKCN_SLOT_MON_URPC);
-    // XXX: Create as devframe so the memory is not zeroed out
-    err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
-                          core_data->urpc_frame_bits, my_core_id,
-                          core_data->urpc_frame_bits, urpc_frame_cte);
+    // use fact that cap is foreign to avoid zeroing it
+    assert(core_data->src_core_id != my_core_id);
+    err = caps_create_new(ObjType_Frame, core_data->urpc_frame_base,
+                          core_data->urpc_frame_bits,
+                          core_data->urpc_frame_bits, core_data->src_core_id,
+                          urpc_frame_cte);
     assert(err_is_ok(err));
-    urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
     /* Map urpc frame at MON_URPC_BASE */

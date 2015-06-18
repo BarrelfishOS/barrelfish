@@ -39,9 +39,8 @@
 #include <arch/x86/start_aps.h>
 #include <arch/x86/ipi_notify.h>
 #include <barrelfish_kpi/cpu_arch.h>
-#include <target/k1om/barrelfish_kpi/cpu_target.h>
+#include <target/x86_64/barrelfish_kpi/cpu_target.h>
 #include <barrelfish_kpi/asm_inlines_arch.h>
-
 #include <coreboot.h>
 #include <kcb.h>
 
@@ -462,9 +461,6 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         panic("error while mapping physical memory!");
     }
 
-    kcb_current = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb_current);
-
     /*
      * Also reset the global descriptor table (GDT), so we get
      * segmentation again and can catch interrupts/exceptions (the IDT
@@ -514,10 +510,10 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     if (kernel_ticks_enabled) {
         timing_calibrate();
         bool periodic = true;
-#ifdef CONFIG_ONESHOT_TIMER
+        #ifdef CONFIG_ONESHOT_TIMER
         // we probably need a global variable like kernel_ticks_enabled
         periodic = false;
-#endif
+        #endif
         apic_timer_init(false, periodic);
         timing_apic_timer_set_ms(kernel_timeslice);
     } else {
@@ -602,6 +598,8 @@ void arch_init(uint64_t magic,
         dest += BASE_PAGE_SIZE;
     }
 
+    apic_bsp = magic == K1OM_BOOT_MAGIC;
+
     // XXX: print kernel address for debugging with gdb
     printf("Kernel starting at address 0x%"PRIxLVADDR"\n", local_phys_to_mem(dest));
 
@@ -611,18 +609,6 @@ void arch_init(uint64_t magic,
      * If magic value does not match what we expect, we cannot proceed safely.
      */
     switch (magic) {
-        case MULTIBOOT_INFO_MAGIC:
-            /* kernel is started with multiboot information available */
-            mb = (struct multiboot_info *) pointer;
-
-            // Construct the global structure and store its address to retrieve it
-            // across relocation
-            memset(&global->locks, 0, sizeof(global->locks));
-            addr_global = (uint64_t) global;
-
-            printf("Barrelfish (with multiboot )\n");
-            break;
-
         case KERNEL_BOOT_MAGIC:
             /* kernel is started by another kernel */
             global = (struct global*) pointer;
@@ -681,7 +667,6 @@ void arch_init(uint64_t magic,
         glbl_core_data->start_free_ram =
             ROUND_UP(max(multiboot_end_addr(mb), (uintptr_t)&_end_kernel),
                      BASE_PAGE_SIZE);
-
         printf("Start Free RAM at 0x%x (%i MB)\n",
                glbl_core_data->start_free_ram,
                glbl_core_data->start_free_ram >> 20);

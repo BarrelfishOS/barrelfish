@@ -20,11 +20,8 @@
 #include <irq.h>
 #include <x86.h>
 #include <dispatch.h>
-#ifdef __k1om__
-#include <target/k1om/barrelfish_kpi/cpu_target.h>
-#else
 #include <target/x86_64/barrelfish_kpi/cpu_target.h>
-#endif
+
 /**
  * \brief Reboots the system.
  *
