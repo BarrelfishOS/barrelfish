@@ -105,20 +105,7 @@ void dummy(void)
     DECL_LIMIT(DISP_PRIV_STACK_LIMIT, struct dispatcher_generic, stack);
     DECL_LIMIT(DISP_PRIV_TRAP_STACK_LIMIT, struct dispatcher_generic, trap_stack);
 
-#if defined __x86_64__
-    DECL(DISP_X86_64_CRIT_PC_LOW, struct dispatcher_shared_x86_64, crit_pc_low);
-    DECL(DISP_X86_64_CRIT_PC_HIGH, struct dispatcher_shared_x86_64, crit_pc_high);
-    DECL(DISP_X86_64_LDT_BASE, struct dispatcher_shared_x86_64, ldt_base);
-    DECL(DISP_X86_64_LDT_NPAGES, struct dispatcher_shared_x86_64, ldt_npages);
-    EMIT(LDT_LO_SEL, LDT_LO_SEL);
-    EMIT(LDT_HI_SEL, LDT_HI_SEL);
-    EMIT(LDT_SELECTOR, GSEL(LDT_LO_SEL, SEL_UPL));
-    DECL(DISP_X86_64_ENABLED_AREA, struct dispatcher_shared_x86_64, enabled_save_area);
-    DECL(DISP_X86_64_DISABLED_AREA, struct dispatcher_shared_x86_64, disabled_save_area);
-    DECL(DISP_X86_64_TRAP_AREA, struct dispatcher_shared_x86_64, trap_save_area);
-#endif
-
-#if defined __k1om__
+#if defined (__x86_64__) || defined(__k1om__)
     DECL(DISP_X86_64_CRIT_PC_LOW, struct dispatcher_shared_x86_64, crit_pc_low);
     DECL(DISP_X86_64_CRIT_PC_HIGH, struct dispatcher_shared_x86_64, crit_pc_high);
     DECL(DISP_X86_64_LDT_BASE, struct dispatcher_shared_x86_64, ldt_base);
