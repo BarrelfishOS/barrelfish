@@ -27,9 +27,9 @@ static void paging_dump(void)
             for (int j = 0; j < 512; j++) {
                 union armv8_ttable_entry *entry1 = lvl1 + j;
                 if (entry1->d.valid && entry1->d.mb1) {
-                    printf("%d: level 1 table @%lx\n", i, (entry1->d.base)<<BASE_PAGE_BITS);
+                    printf("  %d: level 2 table @%lx\n", j, (entry1->d.base)<<BASE_PAGE_BITS);
                 } else if (entry1->block_l1.valid) {
-                    printf("%d: level 1 block @%lx\n", i,
+                    printf("  %d: level 1 block @%lx\n", j,
                             (entry1->block_l1.base) << HUGE_PAGE_BITS);
                 }
             }
@@ -44,8 +44,8 @@ void arch_init(void *pointer, EFI_MEMORY_DESCRIPTOR *uefi_mmap);
 // Currently
 void arch_init(void *pointer, EFI_MEMORY_DESCRIPTOR *uefi_mmap)
 {
-    // break to attach gdb here
-    __asm volatile ("wfi":::);
+    // uncomment line below to force wait to attach gdb here
+    // __asm volatile ("wfi":::);
 
     // set both console ports: UART0 is the one that's connected to the DB9
     // connector on the back of the mustang boxes.
