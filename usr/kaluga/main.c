@@ -29,17 +29,19 @@
 #include <if/monitor_defs.h>
 
 #include <vfs/vfs.h>
+#include <pci/pci.h> // for pci_addr
 #include <octopus/octopus.h>
 #include <skb/skb.h>
 #include <thc/thc.h>
 
 #include <trace/trace.h>
 
-
 #include "kaluga.h"
+
 
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
+struct pci_address eth0 = {0xff, 0xff, 0xff};
 
 static void add_start_function_overrides(void)
 {
@@ -51,8 +53,18 @@ static void add_start_function_overrides(void)
 static void parse_arguments(int argc, char** argv)
 {
     for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "apicid=", sizeof("apicid")) == 0) {
-            my_arch_id = strtol(argv[i] + sizeof("apicid"), NULL, 10);
+        if (strncmp(argv[i], "apicid=", 7) == 0) {
+            my_arch_id = strtol(argv[i] + 7, NULL, 10);
+        } else if (strncmp(argv[i], "eth0=", 5) == 0) {
+            int parsed = sscanf(argv[i], "eth0=%" SCNu8 ":%" SCNu8 ":%" SCNu8,
+                                &eth0.bus, &eth0.device, &eth0.function);
+            printf("Kaluga using eth0=%u:%u:%u as network device\n", eth0.bus,
+                         eth0.device, eth0.function);
+            if (parsed != 3) {
+                eth0.bus = 0xff;
+                eth0.device = 0xff;
+                eth0.function = 0xff;
+            }
         } else if (strcmp(argv[i], "boot") == 0) {
             // ignored
         }

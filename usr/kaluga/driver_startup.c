@@ -8,6 +8,10 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #endif
 
+#ifdef __x86__
+#include <pci/pci.h>
+#endif
+
 #include "kaluga.h"
 
 #ifdef __x86__
@@ -80,6 +84,23 @@ errval_t start_networking(coreid_t core,
     assert(driver != NULL);
     errval_t err = SYS_ERR_OK;
 
+    uint64_t vendor_id, device_id, bus, dev, fun;
+
+    /* check if we are using the supplied pci address of eth0 */
+    if (eth0.bus != 0xff || eth0.device != 0xff || eth0.function != 0xff) {
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                            &bus, &dev, &fun, &vendor_id, &device_id);
+        assert(err_is_ok(err));
+
+        if ((eth0.bus != (uint8_t)bus)
+             | (eth0.device != (uint8_t)dev)
+             | (eth0.function != (uint8_t)fun)) {
+            KALUGA_DEBUG("start_networking: skipping card %" PRIu64 ":% "PRIu64 ":% "
+                         PRIu64"\n", bus, dev, fun);
+            return KALUGA_ERR_DRIVER_NOT_AUTO;
+        }
+    }
+
     if (is_started(driver)) {
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
@@ -99,9 +120,8 @@ errval_t start_networking(coreid_t core,
         KALUGA_DEBUG("NGD_mng not found or not declared as auto.");
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
+
     err = default_start_function(core, driver, record);
-    //err = spawn_program(core, driver->path, driver->argv + 1, environ, 0,
-    //                    get_did_ptr(driver));
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Spawning %s failed.", driver->path);
         return err;
