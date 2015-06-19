@@ -4,7 +4,6 @@
 
 #pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
 
-
 void paging_context_switch(lpaddr_t ttbr)
 {
     panic("NYI");

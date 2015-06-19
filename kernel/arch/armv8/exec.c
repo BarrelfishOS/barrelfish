@@ -19,7 +19,7 @@
 #include <arm_hal.h>
 #include <exec.h>
 #include <misc.h>
-#include <cp15.h>   // for invalidating tlb and cache
+#include <sysreg.h>   // for invalidating tlb and cache
 
 //static arch_registers_state_t upcall_state;
 

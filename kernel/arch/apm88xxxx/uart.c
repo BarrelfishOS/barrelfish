@@ -13,7 +13,8 @@
 // #ports
 #define NUM_PORTS 4
 
-unsigned serial_console_port, serial_debug_port;
+unsigned serial_console_port = 0;
+unsigned serial_debug_port = 0;
 
 // port base addresses for lookup by port no
 static const mackerel_addr_t portbases[NUM_PORTS] =
@@ -23,8 +24,14 @@ static apm88xxxx_pc16550_t ports[NUM_PORTS];
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
+    // XXX: remove once we have data section
+    port = 0;
     if (port >= NUM_PORTS) {
         return SYS_ERR_SERIAL_PORT_INVALID;
+    }
+
+    if (ports[port].base == portbases[port]) {
+        return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
@@ -53,6 +60,8 @@ errval_t serial_early_init(unsigned port)
  */
 void serial_putchar(unsigned port, char c)
 {
+    // XXX: remove once we have data section
+    port = 0;
     assert(port < NUM_PORTS);
     assert(ports[port].base != 0);
     // Wait until FIFO can hold more characters

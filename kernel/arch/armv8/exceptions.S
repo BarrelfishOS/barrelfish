@@ -17,10 +17,16 @@
 #include <exceptions.h>
 
 // macro for creating table entries that are nicely aligned
-.macro vector_entry label idx
+.macro vector_entry label
 // every entry is at 128 byte boundary
 .align 7
     b   \label
+.endm
+
+// macro for getting current exception level (result in arg)
+.macro get_cur_el reg
+    mrs     \reg, currentel
+    ubfm    \reg, \reg, #2, #3 // extract currentel[3:2]
 .endm
 
 // macro for saving exception frame: needs to match with struct layout in C
@@ -45,10 +51,20 @@
     stp      x0,  x1, [sp, #-16]!
     // save old SP: 48 + 32 * 8
     add     x1, sp, #288
+    get_cur_el x0
+    cmp     x0, #1
+    b.ne    push_get_el2_state_\@
     // save ELR_EL1
     mrs     x2, elr_el1
     // save SPSR_EL1
     mrs     x3, spsr_el1
+    b       push_el_state_cont_\@
+push_get_el2_state_\@:
+    // save ELR_EL1
+    mrs     x2, elr_el2
+    // save SPSR_EL1
+    mrs     x3, spsr_el2
+push_el_state_cont_\@:
     // store pair of lr and sp just after x29
     stp     x30, x1, [sp, #240]
     // store pair of elr_el1, and spsr_el1 just after sp
@@ -58,16 +74,27 @@
 // macro for restoring from exception frame: needs to match with struct layout
 // in C code
 .macro pop_state_from_exn_frame
-    // load elr_el1, spsr_el1
+    // load elr, spsr
     ldp     x21, x22, [sp, #256]
     ldp     x0, x1, [sp], #16
     ldp     x2, x3, [sp], #16
     ldp     x4, x5, [sp], #16
     ldp     x6, x7, [sp], #16
     ldp     x8, x9, [sp], #16
+    get_cur_el x10
+    cmp     x10, #1
+    b.ne    pop_restore_el2_state_\@
     // set elr and spsr
     msr     elr_el1, x21
     msr     spsr_el1, x22
+    b       pop_state_cont_\@
+pop_restore_el2_state_\@:
+    cmp     x10, #2
+    b.ne    halt
+    // set elr and spsr
+    msr     elr_el2, x21
+    msr     spsr_el2, x22
+pop_state_cont_\@:
     ldp      x10, x11, [sp], #16
     ldp      x12, x13, [sp], #16
     ldp      x14, x15, [sp], #16
@@ -89,28 +116,28 @@
 .align 12
 exception_vectors:
     // current EL with SP_EL0: NYI/unused
-    vector_entry invalid_handler  0 // sync
-    vector_entry invalid_handler  1 // IRQ/vIRQ
-    vector_entry invalid_handler  2 // FIQ/vFIQ
-    vector_entry invalid_handler  3 // SError/vSError
+    vector_entry invalid_handler    // sync
+    vector_entry invalid_handler    // IRQ/vIRQ
+    vector_entry invalid_handler    // FIQ/vFIQ
+    vector_entry invalid_handler    // SError/vSError
 
     // current EL with SP_ELcur
-    vector_entry sync_handler     4 // sync
-    vector_entry irq_handler      5 // IRQ/vIRQ
-    vector_entry fiq_handler      6 // FIQ/vFIQ
-    vector_entry serror_handler   7 // SError/vSError
+    vector_entry sync_handler       // sync
+    vector_entry irq_handler        // IRQ/vIRQ
+    vector_entry fiq_handler        // FIQ/vFIQ
+    vector_entry serror_handler     // SError/vSError
 
-    // lower EL running AArch64
-    vector_entry invalid_handler  8 // sync
-    vector_entry invalid_handler  9 // IRQ/vIRQ
-    vector_entry invalid_handler 10 // FIQ/vFIQ
-    vector_entry invalid_handler 11 // SError/vSError
+    // lower EL running AArch64: NYI
+    vector_entry invalid_handler    // sync
+    vector_entry invalid_handler    // IRQ/vIRQ
+    vector_entry invalid_handler    // FIQ/vFIQ
+    vector_entry invalid_handler    // SError/vSError
 
     // lower EL running AArch32: unsupported
-    vector_entry invalid_handler 12 // sync
-    vector_entry invalid_handler 13 // IRQ/vIRQ
-    vector_entry invalid_handler 14 // FIQ/vFIQ
-    vector_entry invalid_handler 15 // SError/vSError
+    vector_entry invalid_handler    // sync
+    vector_entry invalid_handler    // IRQ/vIRQ
+    vector_entry invalid_handler    // FIQ/vFIQ
+    vector_entry invalid_handler    // SError/vSError
 
 
 // we are using unsigned bitfield moves (ubfm, C6-789) to extract fields from
@@ -145,16 +172,15 @@ exception_vectors:
 .global invalid_handler
 .type invalid_handler @function
 invalid_handler:
-    mrs x20, elr_el1    // store exception link register to x20
-    mrs x21, spsr_el1   // store saved pstate to x21
-    mrs x22, esr_el1    // store exception syndrome register to x22
+    mrs     x20, elr_el1    // store exception link register to x20
+    mrs     x21, spsr_el1   // store saved pstate to x21
+    mrs     x22, esr_el1    // store exception syndrome register to x22
 
-    ubfm x23, x22, #ESR_EC_L, #ESR_EC_H
-    ubfm x24, x22, #ESR_ISS_L, #ESR_ISS_H
+    ubfm    x23, x22, #ESR_EC_L, #ESR_EC_H
+    ubfm    x24, x22, #ESR_ISS_L, #ESR_ISS_H
 
-    // abort()
-1:  wfi
-    b   1b
+    b       halt
+
 
         //
         // void sync_handler(void)
@@ -166,8 +192,23 @@ invalid_handler:
 sync_handler:
     push_state_to_exn_frame
 
-    // extract exception details from ESR
+    // get current EL
+    get_cur_el x0
+    cmp     x0, #1
+    // != -> check for EL2
+    b.ne    sync_handler_check_el2
+    // == -> extract from  esr_el
+    // extract exception details from ESR_EL1
     mrs     x1, esr_el1
+    b       sync_handler_common
+sync_handler_check_el2:
+    cmp     x0, #2
+    b.ne    halt
+    // == -> use el2 registers
+    // extract exception details from ESR_EL1
+    mrs     x1, esr_el2
+
+sync_handler_common:
     // Exception Class to x2
     ubfm    x2, x1, #ESR_EC_L, #ESR_EC_H
     // Fault to x3
@@ -180,6 +221,7 @@ sync_handler:
     b.eq    handle_pf_abort
     // otherwise, goto unknown_handler(esr)
     b.ne    handle_sync_abort
+    b       sync_handler_epi
 handle_pf_abort:
     // goto invalid_handler if fault == 0
     cbz     x3, invalid_handler
@@ -191,6 +233,7 @@ handle_pf_abort:
     mov     x0, sp
     bl      page_fault
 
+sync_handler_epi:
     pop_state_from_exn_frame
     eret
 

@@ -22,7 +22,7 @@
         .text
 
         .globl start, halt, got_base
-        .extern kernel_stack, glbl_core_data
+        .extern glbl_core_data, exception_vectors
 
         // Used to track phys memory allocator limit globally.
         alloc_top .req x11
@@ -45,10 +45,10 @@ start:
         // Register x1 contains a pointer to the UEFI memory map
         //
 
-        //init stack
-        ldr     x15, =kernel_stack
-        mov     sp, x15
-        add     sp, sp, #KERNEL_STACK_SIZE
+        // set exception vectors for EL1 and EL2
+        adrp    x15, exception_vectors
+        msr     vbar_el1, x15
+        msr     vbar_el2, x15
 
         ldr     PIC_REGISTER, got_base
 
@@ -60,8 +60,8 @@ start:
 /**
  * extern "C" void halt(void) __attribute__((noreturn))
  */
-halt:
-        b       .
+halt:   wfi
+        b       halt
 
 /**********************************************************************/
 .ltorg

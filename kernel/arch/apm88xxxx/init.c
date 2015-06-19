@@ -1,60 +1,71 @@
 #include <kernel.h>
 #include <serial.h>
 #include <uefi_mmap.h>
+#include <sysreg.h>
+#include <multiboot.h>
 
-/**
- * \brief Kernel stack.
- *
- * This is the one and only kernel stack for a kernel instance.
+/*
+ * Create kernel page tables (high 256G)
+ * We use GB sections (level 1 entries that point to memory)
  */
-uintptr_t kernel_stack[KERNEL_STACK_SIZE / sizeof(uintptr_t)] __attribute__ ((aligned(16)));
+static void paging_init(void)
+{
+    return;
+}
 
+static void paging_dump(void)
+{
+    lvaddr_t lvl0 = sysreg_read_ttbr0();
+    lvl0 = lvl0;
+}
+
+bool is_bsp = true;
 
 __attribute__((noreturn))
-void arch_init(void *arg1, EFI_MEMORY_DESCRIPTOR *uefi_mmap);
+void arch_init(void *pointer, EFI_MEMORY_DESCRIPTOR *uefi_mmap);
 // Currently
-void arch_init(void *arg1, EFI_MEMORY_DESCRIPTOR *uefi_mmap)
+void arch_init(void *pointer, EFI_MEMORY_DESCRIPTOR *uefi_mmap)
 {
-    // set console port: UART0 is the one that's connected to the DB9
+    // break to attach gdb here
+    __asm volatile ("wfi":::);
+
+    // set both console ports: UART0 is the one that's connected to the DB9
     // connector on the back of the mustang boxes.
     serial_console_port = 0;
+    serial_debug_port   = 0;
 
     // init serial console, skip hwinit, as the port is guaranteed to be
     // initialized by UEFI.
     serial_console_init(false);
 
-    // print something
-    printf("Barrelfish APM88xxxx CPU driver starting at addr 0x%"
-            PRIxLVADDR" on core %"PRIuCOREID" xxxxxxxxxx\n",
-            local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
+    if (is_bsp) {
+        printf("ACPI root table (RSDP):  %p\n", pointer);
+        printf("UEFI memory map pointer: %p\n", uefi_mmap);
 
-    printf("ACPI root table (RSDP):  %p\n", arg1);
-    printf("UEFI memory map pointer: %p\n", uefi_mmap);
+        printf("First memory map entry:\n");
+        printf(" Type:      %x\n", uefi_mmap->Type);
+        printf(" PhysStart: 0x%lx\n", uefi_mmap->PhysicalStart);
+        printf(" VirtStart: 0x%lx\n", uefi_mmap->VirtualStart);
+        printf(" #pages:    %lu\n", uefi_mmap->NumberOfPages);
+        printf(" Attrs:     %lx\n", uefi_mmap->Attribute);
 
-    uint32_t *mmap_ptr = (uint32_t *)uefi_mmap;
+        struct multiboot_info *mb = pointer;
+        mb = mb;
 
-    printf("Test 1: %p\n", mmap_ptr);
-    printf("Test 2: %p\n", mmap_ptr+1);
-    printf("Test 3: %p\n", mmap_ptr+2);
-    printf("Test 4: %p\n", mmap_ptr+3);
-    printf("Test 5: %p\n", mmap_ptr+4);
-#if 0
-    for (int i = 0; i < 8; i++) {
-        printf("%016lx: 0x%08x\n", (uint64_t)(mmap_ptr+i), mmap_ptr[i]);
+        // TODO: finish BSP core init
+    } else {
+        // TODO: AP core init
     }
 
-    printf("First memory map entry:\n");
-    printf(" Type:      %x\n", uefi_mmap->Type);
-    printf(" PhysStart: 0x%lx\n", uefi_mmap->PhysicalStart);
-    printf(" VirtStart: 0x%lx\n", uefi_mmap->VirtualStart);
-    printf(" #pages:    %lu\n", uefi_mmap->NumberOfPages);
-    printf(" Attrs:     %lx\n", uefi_mmap->Attribute);
+    // print something
+    printf("Barrelfish APM88xxxx CPU driver starting at addr 0x%"
+            PRIxLVADDR" on core %"PRIuCOREID"\n",
+            local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
 
-#endif
-
-    *(uint32_t*)0x1c020000 = 'a';
+    paging_dump();
+    paging_init();
 
     while(1) {
-        __asm volatile ("nop":::);
+        __asm volatile ("wfi":::);
     }
 }
