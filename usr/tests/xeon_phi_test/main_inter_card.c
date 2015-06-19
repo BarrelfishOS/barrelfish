@@ -6,12 +6,14 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
-#include <barrelfish/barrelfish.h>
-#include <barrelfish/ump_chan.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include <barrelfish/barrelfish.h>
+#include <barrelfish/dispatch.h>
+#include <barrelfish/ump_chan.h>
 
 #include <dma/xeon_phi/xeon_phi_dma.h>
 #include <dma/dma_request.h>

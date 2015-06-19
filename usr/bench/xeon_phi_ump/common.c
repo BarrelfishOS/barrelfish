@@ -12,6 +12,7 @@
 #include <limits.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/dispatch.h>
 #include <barrelfish/ump_chan.h>
 #include <bench/bench.h>
 #include <xeon_phi/xeon_phi.h>

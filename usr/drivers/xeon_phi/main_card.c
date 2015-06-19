@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/dispatch.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 

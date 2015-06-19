@@ -13,6 +13,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/dispatch.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_domain.h>

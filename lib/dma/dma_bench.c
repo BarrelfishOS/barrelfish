@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/dispatch.h>
 #include <barrelfish/sys_debug.h>
 #include <bench/bench.h>
 #include <xeon_phi/xeon_phi.h>
