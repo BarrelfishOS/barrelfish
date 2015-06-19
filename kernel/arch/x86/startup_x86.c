@@ -73,6 +73,8 @@ static lpaddr_t app_alloc_phys(size_t size)
         panic("Out of memory, increase CORE_DATA_PAGES");
     }
 
+    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
+
     return addr;
 }
 
@@ -100,6 +102,9 @@ static lpaddr_t bsp_alloc_phys(size_t size)
     lpaddr_t addr = bsp_init_alloc_addr;
 
     bsp_init_alloc_addr += npages * BASE_PAGE_SIZE;
+
+    memset((void*)local_phys_to_mem(addr), 0, npages * BASE_PAGE_SIZE);
+
     return addr;
 }
 
