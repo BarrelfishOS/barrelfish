@@ -3,6 +3,7 @@
 #include <uefi_mmap.h>
 #include <sysreg.h>
 #include <multiboot.h>
+#include <paging_kernel_arch.h>
 
 /*
  * Create kernel page tables (high 256G)
@@ -15,8 +16,25 @@ static void paging_init(void)
 
 static void paging_dump(void)
 {
-    lvaddr_t lvl0 = sysreg_read_ttbr0();
-    lvl0 = lvl0;
+    union armv8_ttable_entry *lvl0 =
+        (union armv8_ttable_entry *)sysreg_read_ttbr0();
+    for (int i = 0; i < 512; i++) {
+        union armv8_ttable_entry *entry0 = lvl0 + i;
+        if (entry0->d.valid && entry0->d.mb1) {
+            printf("%d: level 1 table @%lx\n", i, (entry0->d.base)<<BASE_PAGE_BITS);
+            union armv8_ttable_entry *lvl1 =
+                (union armv8_ttable_entry *)((uint64_t)(entry0->d.base)<<BASE_PAGE_BITS);
+            for (int j = 0; j < 512; j++) {
+                union armv8_ttable_entry *entry1 = lvl1 + j;
+                if (entry1->d.valid && entry1->d.mb1) {
+                    printf("%d: level 1 table @%lx\n", i, (entry1->d.base)<<BASE_PAGE_BITS);
+                } else if (entry1->block_l1.valid) {
+                    printf("%d: level 1 block @%lx\n", i,
+                            (entry1->block_l1.base) << HUGE_PAGE_BITS);
+                }
+            }
+        }
+    }
 }
 
 bool is_bsp = true;
