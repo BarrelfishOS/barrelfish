@@ -21,7 +21,7 @@
 
         .text
 
-        .globl start, halt, got_base
+        .globl start, halt
         .extern glbl_core_data, exception_vectors
 
         // Used to track phys memory allocator limit globally.
@@ -50,8 +50,6 @@ start:
         msr     vbar_el1, x15
         msr     vbar_el2, x15
 
-        ldr     PIC_REGISTER, got_base
-
         // maybe prepare arguments
         b       arch_init
         b       halt
@@ -60,13 +58,16 @@ start:
 /**
  * extern "C" void halt(void) __attribute__((noreturn))
  */
+.type halt @function
 halt:   wfi
         b       halt
 
 /**********************************************************************/
+#if 0
 .ltorg
 
 got_base:
         .word                                   // Initialized by linker
 
         .end
+#endif
