@@ -16,7 +16,8 @@ let template = application {
             "../../../kernel/include/arch/x86_64/", 
             "../../../kernel/include" 
         ],
-        flounderDefs = ["monitor_blocking", "monitor"],
+        flounderDefs = ["monitor_blocking", "monitor" ],
+        flounderExtraDefs = [("monitor_blocking", ["rpcclient"])],
         flounderBindings = ["intermon"]
     }
 in [
