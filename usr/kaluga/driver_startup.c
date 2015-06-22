@@ -4,13 +4,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
 
+#include <pci/pci.h> // for pci_address
+
 #ifdef __arm__
 #include <if/monitor_blocking_rpcclient_defs.h>
 #endif
 
-#ifdef __x86__
-#include <pci/pci.h>
-#endif
 
 #include "kaluga.h"
 
