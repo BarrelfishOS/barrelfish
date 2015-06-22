@@ -18,6 +18,8 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/spawn_client.h>
+#include <octopus/octopus.h>
 
 #include <xeon_phi/xeon_phi.h>
 
@@ -67,6 +69,12 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     return SYS_ERR_OK;
 }
 
+/*
+ * -------------------------------------------------------------------------------
+ * event loop
+ * -------------------------------------------------------------------------------
+ */
+
 /**
  * \brief handles events on the waitset and polls for completed DMA transfers
  *        and new data on the serial line (host only)
@@ -114,6 +122,114 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
 
 }
 
+/*
+ * -------------------------------------------------------------------------------
+ * booting cores
+ * -------------------------------------------------------------------------------
+ */
+
+static char *cores_arg = NULL;
+coreid_t cores_count = 0;
+coreid_t cores_seen = 0;
+
+#define USE_OCTOPUS_EVENTS 0
+#if USE_OCTOPUS_EVENTS
+
+
+
+
+octopus_trigger_id_t cores_tid;
+
+static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
+{
+    debug_printf("spawnd_change_event...\n");
+    if (mode & OCT_ON_SET) {
+        debug_printf("spawnd found: %s\n", record);
+        cores_seen++;
+
+        if (cores_seen == cores_count) {
+            errval_t err = oct_set("all_spawnds_up { iref: 0 }");
+            assert(err_is_ok(err));
+            err = oct_remove_trigger(cores_tid);
+            assert(err_is_ok(err));
+        }
+    }
+}
+
+#endif
+
+static errval_t boot_cores(void)
+{
+    errval_t err;
+
+    debug_printf("booting cores...\n");
+
+    char *arg[4];
+    arg[0] = "corectrl";
+    arg[1] = "boot";
+
+    /* spawn core boot */
+    if (cores_arg != NULL) {
+        arg[2] = cores_arg;
+    } else {
+        arg[2] = "1:9";
+        cores_count = 10;
+
+    }
+    arg[3] = NULL;
+
+#if USE_OCTOPUS_EVENTS
+    debug_printf("setting trigger...\n");
+
+    /* set trigger for booting cors */
+    err = oct_trigger_existing_and_watch("r'spawn.[0-9]+' { iref: _ }",
+                                          spawnd_change_event, &cores_count,
+                                          &cores_tid);
+    if (err_is_fail(err)) {
+        /* TODO: ERROR HANDLING */
+    }
+#endif
+    debug_printf("spawning corectrl...\n");
+
+    domainid_t new_domain;
+    struct capref coreboot_cap = {cnode_task, TASKCN_SLOT_COREBOOT};
+
+    err = spawn_program_with_caps(0, "k1om/sbin/corectrl", arg, NULL, NULL_CAP,
+                                  coreboot_cap, 0, &new_domain);
+    assert(err_is_ok(err));
+
+#if !USE_OCTOPUS_EVENTS
+    debug_printf("waiting for spawn...\n");
+    for (cores_seen = 0; cores_seen < cores_count; ++cores_seen) {
+        char buf[10];
+        debug_printf("XX waiting for spawn.%u\n", cores_seen);
+        snprintf(buf, 10, "spawn.%u", cores_seen);
+        err = nameservice_blocking_lookup(buf, NULL);
+        assert(err_is_ok(err));
+    }
+
+    err = oct_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
+#endif
+
+    return SYS_ERR_OK;
+}
+
+static void parse_arguments(int argc, char** argv)
+{
+    for (int i = 1; i < argc; i++) {
+        if (strncmp(argv[i], "cpus=", 5) == 0) {
+            cores_arg = argv[i] + 5;
+        }
+    }
+}
+
+/*
+ * -------------------------------------------------------------------------------
+ * Main
+ * -------------------------------------------------------------------------------
+ */
+
 int main(int argc,
          char *argv[])
 {
@@ -135,6 +251,8 @@ int main(int argc,
         xphi.topology[i].local = &xphi;
     }
 
+    parse_arguments(argc, argv);
+
     XDEBUG("Initializing system memory cap manager...\n");
     err = sysmem_cap_manager_init(sysmem_cap);
     if (err_is_fail(err)) {
@@ -144,6 +262,17 @@ int main(int argc,
     err = map_mmio_space(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not map the mmio space");
+    }
+
+    err = oct_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Octopus initialization failed.");
+    }
+
+    /* boot cores */
+    err = boot_cores();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawning coreboot\n");
     }
 
     /* wait until the kernels are booted and spawnds are ready */

@@ -78,9 +78,6 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         if (err_is_fail(err)) {
             return err_push(err, SPAWN_ERR_COPY_IRQ_CAP);
         }
-    }
-
-    if (!strcmp(name, "corectrl")) {
         dest.cnode = si->taskcn;
         dest.slot  = TASKCN_SLOT_COREBOOT;
         src.cnode = cnode_task;
@@ -259,10 +256,6 @@ errval_t spawn_all_domains(void)
            || !strcmp(short_name, "monitor")
            || !strcmp(short_name, "mem_serv")
            || !strcmp(short_name, "xeon_phi")
-#if __k1om
-           // only skip corectrl on xeon phi, -SG,2015-01-13
-           || !strcmp(short_name, "corectrl")
-#endif
           )
         {
             continue;

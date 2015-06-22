@@ -95,6 +95,7 @@
       "spawndomain", 
       "xeon_phi_client",
       "dma",
+      "octopus",
       "dma_service",
       "bench"
     ],
