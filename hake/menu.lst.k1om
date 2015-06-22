@@ -27,7 +27,7 @@ module  /k1om/sbin/spawnd boot
 module  /k1om/sbin/startd boot
 
 # drivers
-module /k1om/sbin/corectrl boot 1:10
+module /k1om/sbin/corectrl auto
 
 # GDDR Memory we have 6GB on our Xeon PHi
 mmap map 0x0000000000 0x00FEE00000 1

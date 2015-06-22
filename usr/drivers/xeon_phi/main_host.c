@@ -35,6 +35,8 @@
 
 struct xeon_phi xphi;
 
+uint8_t xphi_dma_enabled = 1;
+
 /**
  * \brief mounts the NFS path given by parameter
  *
@@ -129,6 +131,8 @@ int main(int argc,
     char *xeon_phi_nfs_uri = XEON_PHI_NFS_PATH;
     char *xeon_phi_multiboot_path = XEON_PHI_MULTIBOOT;
 
+    uint8_t xeon_phi_dma_enabled = 1;
+
     XDEBUG("Xeon Phi host module started.\n");
 
     memset(&xphi, 0, sizeof(xphi));
@@ -167,13 +171,15 @@ int main(int argc,
     }
 
     for (uint8_t i = 1; i < argc - 1; ++i) {
-        if (strncmp(argv[i], "-nfs=", 5)==0) {
-            xeon_phi_nfs_uri = argv[i] + 5;
+        if (strncmp(argv[i], "--nfs=", 6)==0) {
+            xeon_phi_nfs_uri = argv[i] + 6;
             xphi.use_nfs = 1;
-        } else if (strncmp(argv[i], "-bootloader=", 12)==0) {
-            xeon_phi_bootloader_path = argv[i] + 12;
-        } else if (strncmp(argv[i], "-multiboot=", 11)==0) {
-            xeon_phi_multiboot_path = argv[i] + 11;
+        } else if (strncmp(argv[i], "--bootloader=", 13)==0) {
+            xeon_phi_bootloader_path = argv[i] + 14;
+        } else if (strncmp(argv[i], "--multiboot=", 12)==0) {
+            xeon_phi_multiboot_path = argv[i] + 12;
+        } else if (strncmp(argv[i], "--no-dma", 8)==0) {
+            xeon_phi_dma_enabled = 0;
         } else if (strncmp(argv[i], "auto", 4)==0) {
             /* no op */
         } else {
@@ -231,9 +237,11 @@ int main(int argc,
 
     interphi_wait_for_client(&xphi);
 
-    err = xdma_service_init(&xphi);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
+    if (xeon_phi_dma_enabled) {
+        err = xdma_service_init(&xphi);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
+        }
     }
 
     err = xeon_phi_service_init(&xphi);
@@ -263,9 +271,12 @@ int main(int argc,
     char buf[20];
     snprintf(buf, 20, "xeon_phi.%u.ready", xphi.id);
 
-    XDEBUG("register ready: %s\n", buf);
+    XDEBUG("registering ready\n");
     err = domain_register(buf, 0xcafebabe);
     assert(err_is_ok(err));
+
+    /* signal for the test */
+    debug_printf("Xeon Phi operational: %s\n", buf);
 
     XDEBUG("initialization done. Going into main message loop\n");
 
