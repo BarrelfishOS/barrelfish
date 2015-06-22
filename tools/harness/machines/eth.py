@@ -38,11 +38,23 @@ class ETHMachine(Machine):
     def get_ncores(self):
         return self._eth_machines[self.name]['ncores']
 
+    def get_host_ncores(self):
+        if 'host_ncores' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['host_ncores']
+        else :
+            return self._eth_machines[self.name]['ncores']
+
     def get_cores_per_socket(self):
         return self._eth_machines[self.name]['cores_per_socket']
 
     def get_tickrate(self):
         return self._eth_machines[self.name]['tickrate']
+
+    def get_host_tickrate(self):
+        if 'host_tickrate' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['host_tickrate']
+        else :
+            return self._eth_machines[self.name]['tickrate']
 
     def get_perfcount_type(self):
         return self._eth_machines[self.name]['perfcount_type']

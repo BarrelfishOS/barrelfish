@@ -9,6 +9,7 @@
 
 import os.path
 import builds
+import re
 
 class BootModules(object):
     """Modules to boot (ie. the menu.lst file)"""
@@ -129,19 +130,26 @@ def default_bootmodules(build, machine):
     if a == "x86_64" or a == "x86_32":
         m.add_module("%s/sbin/acpi" % a, ["boot"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
-        m.add_module("%s/sbin/kaluga" % a, ["boot"])
         m.add_module("%s/sbin/routing_setup" %a, ["boot"])
         m.add_module("%s/sbin/corectrl" % a, ["auto"])
 
+        is_babybel = 0
+        if re.search("babybel[1-4]|xeon_phi_[1-4]", machine.name) :
+            is_babybel = 1
+
         if machine.name == "sbrinz1" or machine.name == "sbrinz2" \
         or machine.name == "tomme1" or machine.name == "tomme2" \
-        or machine.name == "babybel1" or machine.name == "babybel2" \
-        or machine.name == "babybel3" :
+        or is_babybel == 1 :
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
                                              "skb_bridge_program=bridge_bios"])
         else:
             m.add_module("%s/sbin/pci" % a, ["auto"])
+
+        if is_babybel :
+            m.add_module("%s/sbin/kaluga" % a, ["boot", "eth0=4:0:0"])
+        else :
+            m.add_module("%s/sbin/kaluga" % a, ["boot"])
 
     if a == "armv7":
     	if machine.get_ncores() == 2:

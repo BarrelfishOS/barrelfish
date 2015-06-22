@@ -10,6 +10,8 @@
 import sys, os, errno, re
 import debug
 
+MPSS_LINUX_PATH=':/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin:/opt/mpss/3.4/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux'
+
 
 class Build(object):
     name = None # should be overriden by a subclass
@@ -104,6 +106,8 @@ class HakeBuildBase(Build):
 
     def configure(self, checkout, archs):
         srcdir = checkout.get_base_dir()
+        if "k1om" in archs :
+            os.environ['PATH'] = os.environ['PATH'] + MPSS_LINUX_PATH
         self._make_build_dir()
         self._write_hake_conf(srcdir, archs)
         self._run_hake(srcdir, archs)
