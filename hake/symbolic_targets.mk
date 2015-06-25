@@ -26,8 +26,6 @@ ARM_GCC?=arm-linux-gnueabi-gcc
 ARM_OBJCOPY?=arm-linux-gnueabi-objcopy
 K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
 
-# upload Xeon Phi images to nfs share (leave blank to cancel)
-BARRELFISH_NFS_DIR ?="emmentaler1.ethz.ch:/mnt/local/nfs/barrelfish/xeon_phi"
 
 # All binaries of the RCCE LU benchmark
 BIN_RCCE_LU= \
@@ -172,7 +170,7 @@ BENCH_k1om=\
 	sbin/benchmarks/xomp_spawn \
 	sbin/benchmarks/xomp_work \
 	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_xump_bench
+	sbin/benchmarks/xphi_xump_bench 
 
 
 # Default list of modules to build/install for all enabled architectures
@@ -248,8 +246,7 @@ MODULES_k1om= \
 	sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
-	sbin/corectrl \
-	xeon_phi_multiboot \
+	sbin/corectrl 
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -361,23 +358,14 @@ install: $(MODULES)
 	for m in ${MODULES}; do \
 	  if [ ! -f ${INSTALL_PREFIX}/$$m ] || \
 	      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then \
-	       if [ "$$m" != "k1om/xeon_phi_multiboot" ]; then \
 	         do_update=1; \
 	      	 echo "  > Installing $$m" ; \
 	    	 mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m); \
 	    	 install -p $$m ${INSTALL_PREFIX}/$$m; \
-	       fi; \
 	  fi; \
 	done; \
 	if [ ! $$do_update ]; then \
 		echo "  > All up to date" ; \
-	else \
-		if [ -f "k1om/xeon_phi_multiboot" ] && [ $(BARRELFISH_NFS_DIR)  ]; then \
-			echo ""; \
-			echo "Uploading to NFS share $(BARRELFISH_NFS_DIR) ..." ; \
-			scp k1om/xeon_phi_multiboot $(BARRELFISH_NFS_DIR); \
-			scp	k1om/sbin/weever $(BARRELFISH_NFS_DIR); \
-		fi; \
 	fi; \
 	echo ""; \
 	echo "done." ; \
@@ -588,35 +576,9 @@ schedsim-check: $(wildcard $(SRCDIR)/tools/schedsim/*.cfg)
 #
 ######################################################################
 
-# we have to filter out the moduels that are generated below
-MODULES_k1om_filtered = $(filter-out xeon_phi_multiboot, \
-						$(filter-out sbin/weever,$(MODULES_k1om)))
+k1om/sbin/weever: k1om/sbin/weever_elf
+	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever
 
-# Intel Xeon Phi-specific modules
-XEON_PHI_MODULES =\
-	$(foreach m,$(MODULES_COMMON),k1om/$(m)) \
-	$(foreach m,$(MODULES_k1om_filtered),k1om/$(m)) \
-	$(foreach m,$(BENCH_COMMON),k1om/$(m)) \
-	$(foreach m,$(TESTS_COMMON),k1om/$(m)) \
-	$(foreach m,$(BENCH_k1om),k1om/$(m)) \
-	$(foreach m,$(TESTS_k1om),k1om/$(m))
-
-menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
-	cp $< $@
-
-k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
-						 k1om/xeon_phi_multiboot \
-						 k1om/tools/weever/.marker
-	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
-
-k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
-	tools/bin/weever_creator ./k1om/sbin/weever.bin > ./k1om/sbin/weever
-
-k1om/sbin/weever.bin: k1om/sbin/weever_elf
-	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
-
-k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
-	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
 
 
 #######################################################################

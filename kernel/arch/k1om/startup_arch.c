@@ -158,11 +158,21 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
     char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
     lpaddr_t last_end_addr = 0;
 
-    char *clean_mmap_addr;
-    uint32_t clean_mmap_length;
-    cleanup_bios_regions(mmap_addr, &clean_mmap_addr, &clean_mmap_length);
+    struct multiboot_mmap *mbi_mmaps = (struct multiboot_mmap *)mmap_addr;
+    uint8_t swapped;
+    do {
+        swapped = false;
+        for (uint32_t i = 1; i < glbl_core_data->mmap_length / sizeof(struct multiboot_mmap); ++i) {
+            if (mbi_mmaps[i-1].base_addr > mbi_mmaps[i].base_addr) {
+                struct multiboot_mmap tmp = mbi_mmaps[i-1];
+                mbi_mmaps[i-1] = mbi_mmaps[i];
+                mbi_mmaps[i] = tmp;
+                swapped = true;
+            }
+        }
+    } while(swapped);
 
-    for(char *m = clean_mmap_addr; m < clean_mmap_addr + clean_mmap_length;) {
+    for(char *m = mmap_addr; m < mmap_addr + glbl_core_data->mmap_length;) {
         struct multiboot_mmap *mmap = (struct multiboot_mmap * SAFE)TC(m);
 
         debug(SUBSYS_STARTUP, "MMAP %lx--%lx Type %u\n",

@@ -28,7 +28,6 @@
 
 #include <xeon_phi/xeon_phi.h>
 
-#include "mbi.h"
 
 #include "../../kernel/include/multiboot.h"
 
@@ -203,44 +202,15 @@ loader(uint64_t magic,
         eabort('E', 'a');
     }
 
-    multiboot_info = get_multiboot();
-
     print_status('S', '1');
 
     /*
-     * Copy the multiboot image closer to the kernel
+     * XXX: copying the boot loader information structure around
      */
-    lpaddr_t mb_img_start = ROUND_UP((lpaddr_t )&_end_bootloader, BASE_PAGE_SIZE)
-            ;
-    if (mb_img_start + bp->cmdline_size > bp->cmdline_ptr) {
-        eabort('E', '1');
-    }
-    memcpy((void *) mb_img_start, (void *) (uintptr_t)bp->cmdline_ptr, bp->cmdline_size);
-    bp->cmdline_ptr = mb_img_start;
 
-    mb_img_start = ROUND_UP(mb_img_start+bp->cmdline_size, 1<<20);
-    lpaddr_t mb_img_orig = bp->ramdisk_image;
-    if (mb_img_start + bp->ramdisk_size > bp->ramdisk_image) {
-        mb_img_orig = bp->ramdisk_image + bp->ramdisk_size + BASE_PAGE_SIZE;
-        memcpy((void *) mb_img_orig, (void *)(uintptr_t) bp->ramdisk_image, bp->ramdisk_size);
-        print_status('C', '1');
-    }
 
-    memcpy((void *) mb_img_start, (void *) mb_img_orig, bp->ramdisk_size);
+    multiboot_info = (struct multiboot_info *)(uint64_t)bp->mbi;
 
-    bp->ramdisk_image = mb_img_start;
-    /*
-     * the multiboot does only stores the offsets within the multiboot image
-     * thus we have to adjust the addresses in the multiboot info struct
-     */
-    struct multiboot_modinfo *mod;
-    mod = (struct multiboot_modinfo *) (uintptr_t) multiboot_info->mods_addr;
-
-    for (size_t i = 0; i < multiboot_info->mods_count; i++) {
-        mod->mod_start += mb_img_start;
-        mod->mod_end += mb_img_start;
-        mod++;
-    }
     print_status('S', '2');
 
     /* look up the kernel module */
@@ -254,10 +224,8 @@ loader(uint64_t magic,
     }
 
     /* set the start address where we can allocate ram */
-    phys_alloc_start = ROUND_UP(mb_img_start + bp->ramdisk_size,
+    phys_alloc_start = ROUND_UP(bp->ramdisk_image + bp->ramdisk_size,
                                 BASE_PAGE_SIZE)+BASE_PAGE_SIZE;
-
-    bp->ramdisk_image = (uint32_t) mb_img_start;
 
     lpaddr_t kernel_start = phys_alloc_start;
 

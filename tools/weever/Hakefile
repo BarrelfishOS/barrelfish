@@ -64,7 +64,6 @@ let arch = "k1om"
                              NoDep SrcTree "src" "/tools/weever",   
                              NoDep BuildTree arch "/include", 
                              NoDep SrcTree "src" "/include/arch/x86_64" ],
-             optDependencies = [Dep BuildTree arch "/tools/weever/mbi.c"],                         
              optDefines = [],
              optLibs = [],
              optLdFlags = [ Str s | s <- [ "-Wl,-N ",
@@ -80,11 +79,9 @@ let arch = "k1om"
              optSuffix = "_for_weever" 
            }
     objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c", "elf64.c" ] ]
-                ++ [generatedObjectFilePath opts "/tools/weever/mbi.c"]
                                             
 in 
   [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c" ],
-    compileGeneratedCFiles opts ["/tools/weever/mbi.c"],
     assembleSFiles opts [ "boot.S" ],
     link opts objs [] "weever_elf"
   ]

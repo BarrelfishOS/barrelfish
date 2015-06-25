@@ -50,7 +50,7 @@ static errval_t mount_nfs_path(char *uri)
 {
     errval_t err;
 
-    if (uri == NULL) {
+    if (uri == NULL || strncmp(uri, "nfs://", 6)) {
         return SYS_ERR_OK;
     }
 
@@ -127,9 +127,8 @@ int main(int argc,
 {
     errval_t err;
 
-    char *xeon_phi_bootloader_path = XEON_PHI_BOOTLOADER;
-    char *xeon_phi_nfs_uri = XEON_PHI_NFS_PATH;
-    char *xeon_phi_multiboot_path = XEON_PHI_MULTIBOOT;
+    char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
+    char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
 
     uint8_t xeon_phi_dma_enabled = 1;
 
@@ -171,13 +170,12 @@ int main(int argc,
     }
 
     for (uint8_t i = 1; i < argc - 1; ++i) {
-        if (strncmp(argv[i], "--nfs=", 6)==0) {
-            xeon_phi_nfs_uri = argv[i] + 6;
-            xphi.use_nfs = 1;
-        } else if (strncmp(argv[i], "--bootloader=", 13)==0) {
-            xeon_phi_bootloader_path = argv[i] + 14;
-        } else if (strncmp(argv[i], "--multiboot=", 12)==0) {
-            xeon_phi_multiboot_path = argv[i] + 12;
+        if (strncmp(argv[i], "--tftp=", 7)==0) {
+            xeon_phi_mod_uri = argv[i] + 7;
+        } else if (strncmp(argv[i], "--nfs=", 6)==0) {
+            xeon_phi_mod_uri = argv[i] + 6;
+        } else if (strncmp(argv[i], "--modlist=", 10)==0) {
+            xeon_phi_mod_list = argv[i] + 10;
         } else if (strncmp(argv[i], "--no-dma", 8)==0) {
             xeon_phi_dma_enabled = 0;
         } else if (strncmp(argv[i], "auto", 4)==0) {
@@ -187,8 +185,8 @@ int main(int argc,
         }
     }
 
-    XDEBUG("Xeon Phi Images: bootloader: {%s}, multiboot: {%s}, nfs: {%s}\n",
-           xeon_phi_bootloader_path, xeon_phi_multiboot_path, xeon_phi_nfs_uri);
+    XDEBUG("Xeon Phi Images: mod_list: {%s}, mod_uri: {%s}\n", xeon_phi_mod_list,
+           xeon_phi_mod_uri);
 
     /* set the client flag to false */
     xphi.is_client = XEON_PHI_IS_CLIENT;
@@ -201,7 +199,7 @@ int main(int argc,
     }
 
     // map the nfs path
-    err = mount_nfs_path(xeon_phi_nfs_uri);
+    err = mount_nfs_path(xeon_phi_mod_uri);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not map the NFS paths");
     }
@@ -230,7 +228,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not register with the other drivers");
     }
 
-    err = xeon_phi_boot(&xphi, xeon_phi_bootloader_path, xeon_phi_multiboot_path);
+    err = xeon_phi_boot(&xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not boot the card\n");
     }

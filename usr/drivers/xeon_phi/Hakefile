@@ -42,7 +42,8 @@
       "xeon_phi_manager_client",
       "xeon_phi_client",
       "octopus",
-      "mm"
+      "mm",
+      "tftp_client"
     ],
     flounderDefs = [
       "interphi", 

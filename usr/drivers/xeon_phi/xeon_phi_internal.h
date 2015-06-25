@@ -21,8 +21,8 @@
 /// the name of the Xeon Phi bootloader image
 #define XEON_PHI_BOOTLOADER "/weever"
 
-/// the name of the Xeon Phi multiboot image containint the modules
-#define XEON_PHI_MULTIBOOT "/xeon_phi_multiboot"
+/// name of the file containing the modules to be loaded
+#define XEON_PHI_MOD_LIST "menu.lst.k1om"
 
 /// the name fo the nfs path to mount
 #define XEON_PHI_NFS_PATH NULL
@@ -118,7 +118,6 @@ struct xeon_phi
     uint32_t os_size;       ///< the size of the OS image
     char *cmdline;          ///< pointer to the bootloader cmdline
     uint32_t cmdlen;        ///< the length of the cmd line
-    uint8_t use_nfs;        ///< the bootmodules are on a NFS location
 
     uint8_t id;             ///< card id for identifying the card
     iref_t iref;

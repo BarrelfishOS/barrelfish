@@ -68,6 +68,11 @@
 
 #define XEON_PHI_MEM_MASK 0xFFFFFFFFFFULL
 
+/**
+ * layout of the boot parameter data structure
+ *
+ * XXX: some fields will be overwritten by the Xeon Phi firmware!
+ */
 struct xeon_phi_boot_params
 {
     uint8_t reserved[0x54];
@@ -107,7 +112,8 @@ struct xeon_phi_boot_params
     uint32_t xeon_phi_id;
     uint64_t msg_base;      /// pointer to the host message base address
     uint8_t msg_size_bits;      /// size of the messaging channel
-    uint64_t multiboot;     /// pointer to the multiboot information
+    //uint64_t multiboot;     /// pointer to the multiboot information
+    uint32_t mbi;
 }__attribute__((packed));
 
 
