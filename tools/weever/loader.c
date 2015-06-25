@@ -248,7 +248,7 @@ loader(uint64_t magic,
         eabort('E', '4');
     }
 
-    multiboot_info->xeon_phi_id = (uint8_t)bp->xeon_phi_id;
+    multiboot_info->xeon_phi_id = (uint8_t)(bp->xeon_phi_id & 0xff);
 
 
     print_status('S', '3');

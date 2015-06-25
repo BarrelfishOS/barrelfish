@@ -102,6 +102,8 @@ struct multiboot_info {
 
 #ifdef __k1om__
     uint8_t     xeon_phi_id;
+#else
+    uint8_t     padding;
 #endif
 };
 
