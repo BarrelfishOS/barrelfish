@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-# MAKEOPTS=-j12 ./scalebench.py -m xeon_phi_1 -B /mnt/local/acreto/barrelfish/build -t xeon_phi_spawn /mnt/local/acreto/barrelfish/ /mnt/local/acreto/harness-results/ -v
+# MAKEOPTS=-j12 ./scalebench.py -m xeon_phi_1 -B /mnt/local/" + machine.get_tftp_subdir() + "/barrelfish/build -t xeon_phi_spawn /mnt/local/" + machine.get_tftp_subdir() + "/barrelfish/ /mnt/local/" + machine.get_tftp_subdir() + "/harness-results/ -v
 
 
 import re, os, sys, debug, shutil, datetime
@@ -17,74 +17,90 @@ from common import TestCommon
 from barrelfish import BootModules
 from results import PassFailResult
 
-XEON_PHI_IMAGE_NFS="nfs://10.110.4.4/mnt/local/nfs/barrelfish/xeon_phi/"
-XEON_PHI_IMAGE_LOCATION="/mnt/local/nfs/barrelfish/xeon_phi/"
-#module /acreto/x86_64/sbin/xeon_phi_mgr
+#module /" + machine.get_tftp_subdir() + "/x86_64/sbin/xeon_phi_mgr
 
 @tests.add_test
 class XeonPhi_Spawn_test(TestCommon):
     '''Xeon Phi Spawn test'''
     name = "xeon_phi_spawn"
-
-    image_dir=XEON_PHI_IMAGE_NFS
-    nfs_dir=XEON_PHI_IMAGE_LOCATION
     nphi = 2
 
     def set_xeon_phi_bootmodules(self, build_dir, machine):
-        fullpath = os.path.join(build_dir, 'menu.lst.k1om')
-        f = open(fullpath, 'a')
+        fullpath = os.path.join(machine.get_tftp_dir(), 'menu.lst.k1om')
+        f = open(fullpath, 'w')
+
+        machine.get_tftp_subdir()
+
+        f.write("title   Barrelfish \n")
+        f.write("root    (nd) \n")
+        f.write("kernel  /" + machine.get_tftp_subdir() + "/k1om/sbin/weever\n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/cpu loglevel=4 \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/init\n")
+
+        # Domains spawned by init
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/mem_serv\n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/monitor\n")
+
+        # Special boot time domains spawned by monitor
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/ramfsd boot \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/skb boot \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/xeon_phi boot \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/spawnd boot \n")
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/startd boot \n")
+
+        # drivers
+        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/corectrl auto \n")
+
+        # GDDR Memory we have 6GB on our Xeon PHi
+        f.write("mmap map 0x0000000000 0x00FEE00000 1 \n")
+        # memory hole for the APIC and the flash rom 
+        f.write("mmap map 0x00FEE00000 0x120000 3 \n")
+        f.write("mmap map 0x0100000000 0x80000000 1 \n")
+        # put additional modules herei
         f.write("\n")
-        # put additional modules here
         f.close()
 
 
     def setup(self, build, machine, testdir) :
-       
-        # setup xeon phi nfs directory
-
-        timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
-        run_name = "harness_" + str(timestamp)
-        self.image_dir = os.path.join(XEON_PHI_IMAGE_LOCATION, run_name)
-        self.nfs_dir=os.path.join(XEON_PHI_IMAGE_NFS, run_name)
-
-        debug.verbose('creating image directory' + self.image_dir)
-        os.makedirs(self.image_dir)
-
-        # setup menu.lst.k1om
-        menulst = os.path.join(build.build_dir, "menu.lst.k1om")
-        if (os.path.isfile(menulst)) :
-            os.remove(menulst)
-        debug.checkcmd(["make", "menu.lst.k1om"], cwd=build.build_dir)
-        self.set_xeon_phi_bootmodules(build.build_dir, machine)
-
-        debug.checkcmd(["make", "k1om/sbin/weever"], cwd=build.build_dir)
-
         super(XeonPhi_Spawn_test, self).setup(build, machine, testdir)
 
-    def run(self, build, machine, testdir):
-        xphi_img = os.path.join(build.build_dir, 'k1om/xeon_phi_multiboot')
+        # setup menu.lst.k1om
+        menulst = os.path.join(machine.get_tftp_dir(), "menu.lst.k1om")
+        if (os.path.isfile(menulst)) :
+            os.remove(menulst)
+        self.set_xeon_phi_bootmodules(build.build_dir, machine)
 
-        debug.verbose('copying xeon phi <' + xphi_img + '>image to ' + self.image_dir)
-        shutil.copy(xphi_img, self.image_dir)
+    def get_build_targets(self, build, machine):
+        targets = super(XeonPhi_Spawn_test, self).get_build_targets(build, machine)
+        targets.append('k1om/sbin/weever')
+        targets.append('k1om/sbin/cpu')
+        targets.append('k1om/sbin/init')
+        targets.append('k1om/sbin/mem_serv')
+        targets.append('k1om/sbin/monitor')
+        targets.append('k1om/sbin/ramfsd')
+        targets.append('k1om/sbin/xeon_phi')
+        targets.append('k1om/sbin/spawnd')
+        targets.append("k1om/sbin/skb")
+        targets.append('k1om/sbin/startd')
+        targets.append('k1om/sbin/corectrl')
+        return targets
 
-        xphi_img = os.path.join(build.build_dir, 'k1om/sbin/weever')
+    
 
-        debug.verbose('copying xeon phi <' + xphi_img + '>image to ' + self.image_dir)
-        shutil.copy(xphi_img, self.image_dir)
-        
-        return super(XeonPhi_Spawn_test, self).run(build, machine, testdir)
 
     def cleanup(self, machine):
         # remove the xeon phi image directory
-        debug.verbose('removing ' + self.image_dir)
-        shutil.rmtree(self.image_dir, ignore_errors=True)
+        menulst = os.path.join(machine.get_tftp_dir(), "menu.lst.k1om")
+        if (os.path.isfile(menulst)) :
+            os.remove(menulst)
         super(XeonPhi_Spawn_test, self).cleanup(machine)        
 
     def get_modules(self, build, machine):
         modules = super(XeonPhi_Spawn_test, self).get_modules(build, machine)
         modules.add_module("xeon_phi_mgr", [""])
         modules.add_module("xeon_phi", ["auto", 
-                                        "--nfs=" + self.nfs_dir])
+                                        "--tftp=tftp://10.110.4.4:69",
+                                        "--modlist=/" + machine.get_tftp_subdir() + "/menu.lst.k1om"])
         modules.add_module("e1000n", ["auto", "noirq"])
         modules.add_module("NGD_mng", ["auto"])
         modules.add_module("netd", ["auto"])

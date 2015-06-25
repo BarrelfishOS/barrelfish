@@ -75,6 +75,10 @@ class ETHMachine(Machine):
         user = getpass.getuser()
         return os.path.join(TFTP_PATH, user, self.name + "_harness")
 
+    def get_tftp_subdir(self):
+        user = getpass.getuser()
+        return os.path.join(user, self.name + "_harness")            
+
     def _write_menu_lst(self, data, path):
         debug.verbose('writing %s' % path)
         debug.debug(data)
