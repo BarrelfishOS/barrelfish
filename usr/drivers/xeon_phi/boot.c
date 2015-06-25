@@ -452,10 +452,11 @@ static errval_t download_modules_generic(struct xeon_phi *phi, size_t offset,
         mbi_mods[i].mod_end = mbi_mods[i].mod_start + imgsize;
 
         offset = ALIGN(offset + imgsize);
-        strings_offset += (cmdlength + 1);
 
-        XBOOT_DEBUG("module %30s @ 0x08%lx  size %lu kB\n",
+        XBOOT_DEBUG("module %35s @ 0x08%lx  size %lu kB\n",
                     (char *)phi->apt.vbase + strings_offset, offset, imgsize >> 10);
+
+        strings_offset += (cmdlength + 1);
     }
 
     bp->ramdisk_size = offset - bp->ramdisk_image;
@@ -746,7 +747,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     struct xeon_phi_boot_params *bp;
     bp = (struct xeon_phi_boot_params *)(phi->apt.vbase + phi->os_offset);
     bp->xeon_phi_id = 0xFF00;
-    bp->xeon_phi_id |= phi->id;
+    bp->xeon_phi_id += phi->id;
 
     err = interphi_init(phi, NULL_CAP);
     if (err_is_fail(err)) {
