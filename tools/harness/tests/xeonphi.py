@@ -20,10 +20,10 @@ from results import PassFailResult
 #module /" + machine.get_tftp_subdir() + "/x86_64/sbin/xeon_phi_mgr
 
 @tests.add_test
-class XeonPhi_Spawn_test(TestCommon):
+class XeonPhi_Boot_Test(TestCommon):
     '''Xeon Phi Spawn test'''
-    name = "xeon_phi_spawn"
-    nphi = 2
+    name = "xeon_phi_boot"
+    nphi = 0;
 
     def set_xeon_phi_bootmodules(self, build_dir, machine):
         fullpath = os.path.join(machine.get_tftp_dir(), 'menu.lst.k1om')
@@ -62,16 +62,18 @@ class XeonPhi_Spawn_test(TestCommon):
 
 
     def setup(self, build, machine, testdir) :
-        super(XeonPhi_Spawn_test, self).setup(build, machine, testdir)
+        super(XeonPhi_Boot_Test, self).setup(build, machine, testdir)
 
         # setup menu.lst.k1om
         menulst = os.path.join(machine.get_tftp_dir(), "menu.lst.k1om")
         if (os.path.isfile(menulst)) :
             os.remove(menulst)
         self.set_xeon_phi_bootmodules(build.build_dir, machine)
+        self.nphi = machine.get_xphi_ncards()
+        
 
     def get_build_targets(self, build, machine):
-        targets = super(XeonPhi_Spawn_test, self).get_build_targets(build, machine)
+        targets = super(XeonPhi_Boot_Test, self).get_build_targets(build, machine)
         targets.append('k1om/sbin/weever')
         targets.append('k1om/sbin/cpu')
         targets.append('k1om/sbin/init')
@@ -93,10 +95,10 @@ class XeonPhi_Spawn_test(TestCommon):
         menulst = os.path.join(machine.get_tftp_dir(), "menu.lst.k1om")
         if (os.path.isfile(menulst)) :
             os.remove(menulst)
-        super(XeonPhi_Spawn_test, self).cleanup(machine)        
+        super(XeonPhi_Boot_Test, self).cleanup(machine)        
 
     def get_modules(self, build, machine):
-        modules = super(XeonPhi_Spawn_test, self).get_modules(build, machine)
+        modules = super(XeonPhi_Boot_Test, self).get_modules(build, machine)
         modules.add_module("xeon_phi_mgr", [""])
         modules.add_module("xeon_phi", ["auto", 
                                         "--tftp=tftp://10.110.4.4:69",
@@ -110,7 +112,7 @@ class XeonPhi_Spawn_test(TestCommon):
 
     def is_finished(self, line):
         #m = re.search("Xeon Phi operational: xeon_phi.([0-9]).ready", line)
-        m = re.search("Xeon Phi operational: xeon_phi.1.ready", line)
+        m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
         if m :
             return True
         else :
@@ -120,7 +122,7 @@ class XeonPhi_Spawn_test(TestCommon):
         return "Xeon Phi operational: xeon_phi.([0-9]).ready"
 
     def boot(self, *args):
-        super(XeonPhi_Spawn_test, self).boot(*args)
+        super(XeonPhi_Boot_Test, self).boot(*args)
 #        self.set_timeout(NFS_TIMEOUT)
 
     def process_data(self, testdir, rawiter):
@@ -128,7 +130,7 @@ class XeonPhi_Spawn_test(TestCommon):
         lastline = ''
         passed = False;
         for line in rawiter:
-            m = re.search("Xeon Phi operational: xeon_phi.1.ready", line)
+            m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
             if m :
                 passed = True
                

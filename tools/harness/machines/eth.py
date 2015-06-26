@@ -38,11 +38,23 @@ class ETHMachine(Machine):
     def get_ncores(self):
         return self._eth_machines[self.name]['ncores']
 
-    def get_host_ncores(self):
-        if 'host_ncores' in self._eth_machines[self.name] :
-            return self._eth_machines[self.name]['host_ncores']
+    def get_xphi_ncores(self):
+        if 'xphi_ncores' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['xphi_ncores']
         else :
-            return self._eth_machines[self.name]['ncores']
+            return 0
+
+    def get_xphi_ncards(self):
+        if 'xphi_ncards' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['xphi_ncards']
+        else :
+            return 0
+
+    def get_xphi_ram_gb(self):
+        if 'xphi_ram_gb' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['xphi_ram_gb']
+        else :
+            return 0
 
     def get_cores_per_socket(self):
         return self._eth_machines[self.name]['cores_per_socket']
@@ -50,11 +62,11 @@ class ETHMachine(Machine):
     def get_tickrate(self):
         return self._eth_machines[self.name]['tickrate']
 
-    def get_host_tickrate(self):
-        if 'host_tickrate' in self._eth_machines[self.name] :
-            return self._eth_machines[self.name]['host_tickrate']
+    def get_xphi_tickrate(self):
+        if 'xphi_tickrate' in self._eth_machines[self.name] :
+            return self._eth_machines[self.name]['xphi_tickrate']
         else :
-            return self._eth_machines[self.name]['tickrate']
+            return 0
 
     def get_perfcount_type(self):
         return self._eth_machines[self.name]['perfcount_type']
