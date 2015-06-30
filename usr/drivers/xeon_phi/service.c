@@ -229,6 +229,8 @@ static void register_call_recv(struct xeon_phi_driver_binding *_binding,
 {
     struct xeon_phi *phi = _binding->st;
 
+    interphi_wait_for_client(phi);
+    
     assert(id < XEON_PHI_NUM_MAX);
     phi->topology[id].binding = _binding;
     phi->topology[id].state = XNODE_STATE_READY;

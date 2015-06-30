@@ -223,17 +223,17 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not do the card initialization\n");
     }
 
-    err = service_register(&xphi, irefs, num);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register with the other drivers");
-    }
-
     err = xeon_phi_boot(&xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not boot the card\n");
     }
 
     interphi_wait_for_client(&xphi);
+
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
 
     if (xeon_phi_dma_enabled) {
         err = xdma_service_init(&xphi);

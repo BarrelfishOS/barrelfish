@@ -939,8 +939,6 @@ errval_t interphi_wait_for_client(struct xeon_phi *phi)
 
     struct xnode *node = &phi->topology[phi->id];
 
-    assert(node->state == XNODE_STATE_WAIT_CONNECTION);
-
     while (node->state == XNODE_STATE_WAIT_CONNECTION) {
         uint32_t data = 0x0;
         uint32_t serial_recv = 0xF;
