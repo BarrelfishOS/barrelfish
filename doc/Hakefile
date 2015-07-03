@@ -1,0 +1,36 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2015, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitätstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /platforms/x86
+-- 
+--------------------------------------------------------------------------
+
+[     
+    platform "Documentation" []
+    [ ("docs", "/" ++ f) | f <- [
+         "TN-000-Overview.pdf",
+         "TN-001-Glossary.pdf",
+         "TN-002-Mackerel.pdf",
+         "TN-003-Hake.pdf",
+         "TN-004-VirtualMemory.pdf",
+         "TN-005-SCC.pdf",
+         "TN-006-Routing.pdf",
+         "TN-008-Tracing.pdf",
+         "TN-009-Notifications.pdf",
+         "TN-010-Spec.pdf",
+         "TN-011-IDC.pdf",
+         "TN-012-Services.pdf",
+         "TN-013-CapabilityManagement.pdf",
+         "TN-014-bulk-transfer.pdf",
+         "TN-015-DiskDriverArchitecture.pdf",
+         "TN-016-Serial.pdf",
+         "TN-017-ARM.pdf",
+         "TN-018-PracticalGuide.pdf",
+         "TN-019-DeviceDriver.pdf" ]]
+    "Documentation for Barrelfish"
+]

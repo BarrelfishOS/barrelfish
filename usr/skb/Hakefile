@@ -15,7 +15,7 @@ let ramfs_files = find inDir "eclipse_kernel/lib" ".eco"
                   find inDir "programs" ".pl"
                   ++
                   find inDir "external_libraries/lib" ".eco"
-    ramdisk = "skb_ramfs.cpio.gz"
+    ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",
   		                cFiles = [ "skb_main.c", "skb_service.c", "queue.c",

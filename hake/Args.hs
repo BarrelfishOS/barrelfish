@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Arguments to major Hake targets
 -- 
@@ -70,10 +70,10 @@ defaultArgs = Args {
       architectures = allArchitectures
 }
 
-allArchitectures = [ "x86_64", "x86_32", "armv5", "arm11mp", "scc", "xscale", "armv7", "armv7-m", "k1om" ]
-allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "scc", "k1om" ]
+allArchitectures = [ "x86_64", "x86_32", "armv5", "arm11mp", "xscale", "armv7", "armv7-m", "k1om" ]
+allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "k1om" ]
 -- architectures that currently support THC
-thcArchitectures = ["x86_64", "x86_32", "scc"]
+thcArchitectures = ["x86_64", "x86_32"]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends

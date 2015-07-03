@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Default architecture-specific definitions for Barrelfish
 -- 
@@ -33,7 +33,7 @@ commonCFlags = [ Str s | s <- [ "-std=c99",
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",
                                 "-Wmissing-prototypes" ] ]
-                 ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
+                 ++ [ Str (if Config.use_fp then "-fno-omit-frame-pointer" else "") ]
 
 commonCxxFlags = [ Str s | s <- [ "-nostdinc++",
                                   "-fexceptions",
@@ -42,7 +42,7 @@ commonCxxFlags = [ Str s | s <- [ "-nostdinc++",
                                   "-DLIBCXX_CXX_ABI=libcxxabi",
                                   "-I" ] ]
                  ++ [ NoDep SrcTree "src" "/include/cxx" ]
-                 ++ [ ContStr Config.use_fp "-fno-omit-frame-pointer" ""]
+                 ++ [ Str (if Config.use_fp then "-fno-omit-frame-pointer" else "") ]
 
 cFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
        ++ commonCFlags

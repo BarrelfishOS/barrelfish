@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_mic.
 --
@@ -28,13 +28,12 @@ import qualified ArchDefaults
 arch = "k1om"
 archFamily = "k1om"
 
-compiler = "k1om-mpss-linux-gcc"
-objcopy  = "k1om-mpss-linux-objcopy"
-objdump  = "k1om-mpss-linux-objdump"
-ar       = "k1om-mpss-linux-ar"
-ranlib   = "k1om-mpss-linux-anlib"
-cxxcompiler = "k1om-mpss-linux-g++"
-
+compiler    = Config.k1om_cc
+objcopy     = Config.k1om_objcopy
+objdump     = Config.k1om_objdump
+ar          = Config.k1om_ar
+ranlib      = Config.k1om_ranlib
+cxxcompiler = Config.k1om_cxx
 
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",

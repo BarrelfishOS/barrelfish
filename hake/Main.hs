@@ -6,7 +6,7 @@
   
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
-  ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+  ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 -}
   
 
@@ -154,8 +154,9 @@ resolveRelativePaths o (Rule tokens) root
 resolveRelativePaths o (Include token) root
     = Include ( resolveRelativePath o token root )
 resolveRelativePaths o (Error s) root 
-    = (Error s)
-
+    = Error s
+resolveRelativePaths o (Phony name dbl tokens) root 
+    = Phony name dbl [ resolveRelativePath o t root | t <- tokens ]
 
 --- Now resolve at the level of individual rule tokens.  At this
 --- level, we need to take into account the tree (source, build, or
@@ -175,34 +176,46 @@ resolveRelativePath o (Target a f) root =
     (Target a (resolveRelativePathName o BuildTree a f root))
 resolveRelativePath _ (Str s) _ = (Str s)
 resolveRelativePath _ (NStr s) _ = (NStr s)
-resolveRelativePath _ (ContStr b s1 s2) _ = (ContStr b s1 s2)
 resolveRelativePath _ (ErrorMsg s) _ = (ErrorMsg s)
 resolveRelativePath _ NL _ = NL
 
---- Now we get down to the nitty gritty.  We have a tree (source,
---- build, or install), an architecture (e.g. ARM), a pathname, and
---- the pathname of the Hakefile in which it occurs.
-
+--- Now we get down to the nitty gritty.  We have, in order:
+---   o: The options in force.
+---   t: The tree (source, build, or install)
+---   a: The architecture (e.g. armv7)
+---   p: The pathname we want to resolve to a full path, and
+---   h: The dirname of the Hakefile in which it occurs.
+--- If the tree is SrcTree or the architecture is "root", everything
+--- is relative to the top-level directory for that tree.  Otherwise,
+--- it's relative to the top-level directory plus the architecture.
 resolveRelativePathName :: Opts -> TreeRef -> String -> String -> String -> String
-resolveRelativePathName o InstallTree "root" f root = 
-    resolveRelativePathName' ((opt_installdir o)) "root" f root
-resolveRelativePathName o _ "root" f root = 
-    "." ./. f
-resolveRelativePathName o SrcTree a f root =
-    resolveRelativePathName' (opt_sourcedir o) a f root
-resolveRelativePathName o BuildTree a f root =
-    resolveRelativePathName' ("." ./. a) a f root
-resolveRelativePathName o InstallTree a f root =
-    resolveRelativePathName' ((opt_installdir o) ./. a) a f root
 
---- This is where the work is done: take 'root' (pathname relative to
+resolveRelativePathName o SrcTree "root" f h = 
+    resolveRelativePathName' ((opt_sourcedir o)) f h
+resolveRelativePathName o BuildTree "root" f h = 
+    resolveRelativePathName' "." f h
+resolveRelativePathName o InstallTree "root" f h = 
+    resolveRelativePathName' ((opt_installdir o)) f h
+
+resolveRelativePathName o SrcTree a f h =
+    resolveRelativePathName' (opt_sourcedir o) f h
+resolveRelativePathName o BuildTree a f h =
+    resolveRelativePathName' ("." ./. a) f h
+resolveRelativePathName o InstallTree a f h =
+    resolveRelativePathName' ((opt_installdir o) ./. a) f h
+
+--- This is where the work is done: take 'hd' (pathname relative to
 --- us of the Hakefile) and resolve the filename we're interested in
 --- relative to this.  This gives us a pathname relative to some root
 --- of some architecture tree, then return this relative to the actual
 --- tree we're interested in.  It's troubling that this takes more
 --- bytes to explain than to code.
-resolveRelativePathName' d a f root = 
-    let af = Path.relToFile f root
+---   d:    Pathname of top directory of the tree (source, build, install)
+---   f:    Filename we are interested in, relative to 'root' below
+---   hd:   Directory containing the Hakefile
+---   
+resolveRelativePathName' d f hd = 
+    let af = Path.relToFile f hd
         rf = Path.makeRel $ Path.relToDir af "/" 
     in Path.relToDir rf d
 
@@ -228,6 +241,7 @@ makeDirs1 (Include tok) =
       Just d -> [d]
 makeDirs1 (Rule toks) = [d | Just d <- [ tokDir t | t <- toks ]]
 makeDirs1 (Error s) = []
+makeDirs1 (Phony name dbl toks) = [d | Just d <- [ tokDir t | t <- toks ]]
 
 tokDir :: RuleToken -> Maybe String
 tokDir (In t a f) = tokDir1 f
@@ -238,7 +252,6 @@ tokDir (PreDep t a f) =  tokDir1 f
 tokDir (Target a f) =  tokDir1 f
 tokDir (Str s) = Nothing
 tokDir (NStr s) = Nothing
-tokDir (ContStr b s1 s2) = Nothing
 tokDir (ErrorMsg s) = Nothing
 tokDir NL = Nothing
 
@@ -271,6 +284,9 @@ makeMakefileSection :: String -> HRule -> String
 makeMakefileSection fname rules = 
     "# From: " ++ fname ++ "\n\n" ++ makeMakeRules rules
 
+-- Format a rule or rules, of any type (including errors, inclusions,
+-- etc.).  See makeMakeRules1 below for how to format rule tokens
+-- properly
 makeMakeRules :: HRule -> String
 makeMakeRules (Rules hrules)
     = unlines [ s | s <- [ makeMakeRules h | h <- hrules ], s /= "" ]
@@ -282,8 +298,18 @@ makeMakeRules (Include token) = unlines [
     "include " ++ (formatToken token),
     "endif"]
 makeMakeRules (Error s) = "$(error " ++ s ++ ")\n"
-makeMakeRules (Rule tokens) = 
-    let outs = nub [ f | (Out a f) <- tokens ] ++ [ f | (Target a f) <- tokens ]
+makeMakeRules (Phony name dbl tokens) 
+    = ".PHONY: " ++ name ++ "\n" ++ makeMakeRules1 ([ Target "build" name ] ++ tokens) dbl
+makeMakeRules (Rule tokens) = makeMakeRules1 tokens False
+
+-- Now we get down to brass tacks.  Format a rule proper.  Sort out
+-- which tokens needs to be in the rule head, dependencies, body, etc.
+-- `dbl` specifies a double-colon rule, which is typically used for
+-- Phony rules generated as part of the help system.
+makeMakeRules1 :: [RuleToken] -> Bool -> String
+makeMakeRules1 tokens dbl = 
+    let outs = nub [ f | (Out a f) <- tokens ] 
+               ++ [ f | (Target a f) <- tokens ]
         dirs = nub [ (Path.dirname f) ./. ".marker" | f <- outs ]
         deps = nub [ f | (In t a f) <- tokens ] ++ [ f | (Dep t a f) <- tokens ] 
         predeps = nub [ f | (PreDep t a f) <- tokens ] 
@@ -293,7 +319,7 @@ makeMakeRules (Rule tokens) =
     in if outs == [] then
       ("# hake: omitted rule with no output: " ++ ruleBody)
     else
-      (spaceSep outs) ++ ": " 
+      (spaceSep outs) ++ (if dbl then ":: " else ": ")
       ++ 
       -- It turns out that if you add 'dirs' here, in an attempt to
       -- get Make to build the directories as well, it goes a bit
@@ -323,7 +349,7 @@ stripSrcDir s = Path.removePrefix Config.source_dir s
 
 hakeModule :: [String] -> [(String,String)] -> String
 hakeModule allfiles hakefiles = 
-    let unqual_imports = ["RuleDefs", "HakeTypes", "Path", "Args"]
+    let unqual_imports = ["RuleDefs", "HakeTypes", "Path", "Args" ]
         qual_imports = ["Config", "Data.List" ]
         relfiles = [ stripSrcDir f | f <- allfiles ]
         wrap1 n c = wrapLet "build a" 

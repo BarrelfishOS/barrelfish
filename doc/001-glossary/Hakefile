@@ -11,6 +11,6 @@
 ----------------------------------------------------------------------
 
 [ buildTechNoteWithDeps "Glossary.tex" "TN-001-Glossary.pdf" False False []
-                            [ Str "runghc", In SrcTree "src" "Main.hs", Str ">", 
+                            [ Str Config.runghc, In SrcTree "src" "Main.hs", Str ">", 
                               Out "tools" "/tmp/gloss-from-haskell.tex", NL ]
 ]

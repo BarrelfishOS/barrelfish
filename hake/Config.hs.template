@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, 2012, 2013, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, 2013, 2015 ETH Zurich.
 -- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
@@ -18,6 +18,33 @@ import HakeTypes
 import Data.Char
 import qualified Args
 import Data.List
+
+--
+-- Toolchain definitions.  By default, these rely on $PATH 
+--
+arm_cc       = "arm-linux-gnueabi-gcc"
+arm_objcopy  = "arm-linux-gnueabi-objcopy"
+arm_objdump  = "arm-linux-gnueabi-objdump"
+arm_ar       = "arm-linux-gnueabi-ar"
+arm_ranlib   = "arm-linux-gnueabi-ranlib"
+arm_cxx      = "arm-linux-gnueabi-g++"
+
+x86_cc       = "gcc"
+x86_cxx      = "g++"
+
+k1om_cc      = "k1om-mpss-linux-gcc"
+k1om_objcopy = "k1om-mpss-linux-objcopy"
+k1om_objdump = "k1om-mpss-linux-objdump"
+k1om_ar      = "k1om-mpss-linux-ar"
+k1om_ranlib  = "k1om-mpss-linux-anlib"
+k1om_cxx     = "k1om-mpss-linux-g++"
+
+gem5         = "gem5.fast"
+runghc	     = "runghc"    -- run GHC interactively
+circo	     = "circo"     -- from graphviz
+dot          = "dot"       --   "    "
+inkscape     = "inkscape"
+
 
 -- path to source and install directories; these are automatically set by hake.sh at setup time 
 source_dir :: String

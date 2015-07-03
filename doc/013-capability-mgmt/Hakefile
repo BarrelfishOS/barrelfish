@@ -12,7 +12,7 @@
 
 let
   figoutput f = "/tmp/" ++ f ++ ".pdf"
-  dot f = [ Str "dot", Str "-Tpdf",
+  dot f = [ Str Config.dot, Str "-Tpdf",
             In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
   in
  [ buildTechNoteWithDeps "CapMgmt.tex" "TN-013-CapabilityManagement.pdf" True False [] 

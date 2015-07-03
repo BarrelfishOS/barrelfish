@@ -6,7 +6,7 @@
 #
 # This file is distributed under the terms in the attached LICENSE file.
 # If you do not find this file, copies can be found by writing to:
-# ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+# ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
 DFLTARCHS="\"x86_64\""
@@ -27,7 +27,7 @@ usage() {
     echo "  argument specifying the top of the source tree."
     echo ""
     echo "  Known architectures may include: "
-    echo "     x86_64 x86_32 armv5 arm11mp scc xscale armv7 armv7-m k10m"
+    echo "     x86_64 x86_32 armv5 arm11mp xscale armv7 armv7-m k10m"
     exit 1;
 }
 
@@ -149,15 +149,7 @@ fi
 echo "Running hake..."
 #./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -s -N -K64M -A64M -ls -lf || exit
 ./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -N -K64M -A64M || exit
-cat <<EOF
 
-OK - Hake has bootstrapped.  You should now have a Makefile in this
-directory, and you can type "make" to build a predefined target.
-
-To change configuration options, edit the Config.hs file in the hake
-subdirectory of this directory and run "make rehake".
-
-To change the set of symbolic make targets available (for example, to
-build a different set of modules or architectures for your boot image),
-edit the local copy of the symbolic_targets.mk in this directory.
-EOF
+echo "Now running initial make to build dependencies."
+echo " (remove the '-j 4' if your system has trouble handling this" 
+make -j 4 help

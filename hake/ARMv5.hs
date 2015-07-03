@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on ARMv5 ISA.
 --
@@ -29,12 +29,12 @@ import qualified ArchDefaults
 arch = "armv5"
 archFamily = "arm"
 
-compiler = "arm-linux-gnueabi-gcc"
-objcopy  = "arm-linux-gnueabi-objcopy"
-objdump  = "arm-linux-gnueabi-objdump"
-ar       = "arm-linux-gnueabi-ar"
-ranlib   = "arm-linux-gnueabi-ranlib"
-cxxcompiler = "arm-linux-gnueabi-g++"
+compiler    = Config.arm_cc
+objcopy     = Config.arm_objcopy
+objdump     = Config.arm_objdump
+ar          = Config.arm_ar
+ranlib      = Config.arm_ranlib
+cxxcompiler = Config.arm_cxx
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
