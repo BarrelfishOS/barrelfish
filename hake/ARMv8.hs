@@ -29,12 +29,14 @@ import qualified ArchDefaults
 arch = "armv8"
 archFamily = "aarch64"
 
-compiler = "aarch64-apm-linux-gnu-gcc"
-objcopy  = "aarch64-apm-linux-gnu-objcopy"
-objdump  = "aarch64-apm-linux-gnu-objdump"
-ar       = "aarch64-apm-linux-gnu-ar"
-ranlib   = "aarch64-apm-linux-gnu-ranlib"
-cxxcompiler = "aarch64-apm-linux-gnu-g++"
+toolprefix = "aarch64-none-elf-"
+
+compiler = toolprefix ++ "gcc"
+objcopy  = toolprefix ++ "objcopy"
+objdump  = toolprefix ++ "objdump"
+ar       = toolprefix ++ "ar"
+ranlib   = toolprefix ++ "ranlib"
+cxxcompiler = toolprefix ++ "g++"
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
