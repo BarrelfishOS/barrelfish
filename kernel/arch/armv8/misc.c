@@ -4,6 +4,7 @@
  * This file contains miscellaneous architecture-independent kernel support
  * code that doesn't belong anywhere else.
  */
+/* XXX - why is this in an arch-specific directory? */
 
 /*
  * Copyright (c) 2007, 2008, ETH Zurich.

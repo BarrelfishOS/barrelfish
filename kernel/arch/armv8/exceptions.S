@@ -29,6 +29,7 @@
     ubfm    \reg, \reg, #2, #3 // extract currentel[3:2]
 .endm
 
+/* XXX - add a cross-reference. */
 // macro for saving exception frame: needs to match with struct layout in C
 // code
 .macro push_state_to_exn_frame
@@ -110,7 +111,7 @@ pop_state_cont_\@:
 .endm
 
 .global exception_vectors
-// why?
+// XXX - why?
 .type exception_vectors @function
 // page-align exception vector table, cf. ARM reference manual, p.D7-2138
 .align 12

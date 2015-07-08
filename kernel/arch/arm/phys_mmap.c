@@ -2,6 +2,8 @@
  * \file
  * \brief Rudimentary physical memory map implementation.
  */
+/* XXX - why is this rudimentary? */
+/* XXX - why is this in ARM-specific code? */
 
 /*
  * Copyright (c) 2008, 2010, ETH Zurich.

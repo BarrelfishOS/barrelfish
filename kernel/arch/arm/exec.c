@@ -20,12 +20,14 @@
 #include <exec.h>
 #include <exceptions.h>
 #include <misc.h>
+/* XXX - not AArch64-compatible. */
 #include <cp15.h>   // for invalidating tlb and cache
 
 static arch_registers_state_t upcall_state;
 
 extern uint32_t ctr;
 static inline __attribute__((noreturn))
+/* XXX - not 64-bit clean, not AArch64-compatible. */
 void do_resume(uint32_t *regs)
 {
     STATIC_ASSERT(CPSR_REG ==  0, "");
@@ -108,6 +110,7 @@ execute(lvaddr_t entry)
     arch_registers_state_t *state = &upcall_state;
     assert(0 != disp_arm->got_base);
 
+    /* XXX - not AArch64-compatible. */
     state->named.r10 = disp_arm->got_base;
 
     struct dispatcher_shared_generic *disp_gen
@@ -142,6 +145,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
     do_resume(state->regs);
 }
 
+/* XXX - not AArch64-compatible. */
 void wait_for_interrupt(void)
 {
     // REVIEW: Timer interrupt could be masked here.
