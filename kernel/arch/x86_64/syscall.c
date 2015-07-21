@@ -301,6 +301,75 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
     };
 }
 
+/*
+ *  MVAS Extension
+ */
+static struct sysret handle_inherit(struct capability *dest,
+                                  int cmd, uintptr_t *args)
+{
+    errval_t err;
+
+    capaddr_t source_cptr   = args[0];
+    int       source_vbits  = args[1];
+    uint64_t  start         = args[2];
+    uint64_t  end           = args[3];
+
+    if (start >= 512 || end >= 512) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    if (start >= end) {
+        return SYSRET(SYS_ERR_OK);
+    }
+
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+    struct capability *src  = &src_cte->cap;
+
+    if (dest->type != src->type) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
+    }
+
+    lvaddr_t dst_addr, src_addr;
+    switch(dest->type) {
+        case ObjType_VNode_x86_64_ptable :
+            dst_addr = dest->u.vnode_x86_64_ptable.base;
+            src_addr = src->u.vnode_x86_64_ptable.base;
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            dst_addr = dest->u.vnode_x86_64_pdir.base;
+            src_addr = src->u.vnode_x86_64_pdir.base;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            dst_addr = dest->u.vnode_x86_64_pdpt.base;
+            src_addr = src->u.vnode_x86_64_pdpt.base;
+            break;
+        case ObjType_VNode_x86_64_pml4 :
+            dst_addr = dest->u.vnode_x86_64_pml4.base;
+            src_addr = src->u.vnode_x86_64_pml4.base;
+            break;
+        default:
+            return SYSRET(SYS_ERR_CNODE_TYPE);
+            break;
+    }
+
+    uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
+    uint64_t *src_entry = (uint64_t *)local_phys_to_mem(src_addr);
+
+    for (uint64_t i = start; i < end; ++i) {
+        printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
+        printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
+        dst_entry[i] = src_entry[i];
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 /// Different handler for cap operations performed by the monitor
 static struct sysret monitor_handle_retype(struct capability *kernel_cap,
                                            int cmd, uintptr_t *args)
@@ -1232,6 +1301,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdpt] = {
         [VNodeCmd_Identify] = handle_vnode_identify,

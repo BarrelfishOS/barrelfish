@@ -166,6 +166,18 @@ static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
     return invoke_cnode_get_state(cap_root, caddr, level, state);
 }
 
+/*
+ * MVAS extension
+ */
+static inline errval_t vnode_inherit(struct capref dest, struct capref src,
+                                     cslot_t start, cslot_t end)
+{
+    uint8_t svbits = get_cap_valid_bits(src);
+    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+
+    return invoke_vnode_inherit(dest, saddr, svbits, start, end);
+}
+
 __END_DECLS
 
 /**

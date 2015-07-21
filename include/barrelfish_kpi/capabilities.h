@@ -410,6 +410,7 @@ enum vnode_cmd {
     VNodeCmd_Identify,   ///< Return the physical address of the VNode
     VNodeCmd_ModifyFlags,
     VNodeCmd_CleanDirtyBits, ///< Cleans all dirty bit in the table
+    VNodeCmd_Inherit,
 };
 
 /**

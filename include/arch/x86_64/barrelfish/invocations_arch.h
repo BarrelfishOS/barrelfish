@@ -280,4 +280,15 @@ static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpadd
     return sr.error;
 }
 
+/*
+ * MVA extensions
+ */
+
+static inline errval_t invoke_vnode_inherit(struct capref dest, capaddr_t src, int frombits,
+                                            cslot_t start, cslot_t end)
+{
+    return cap_invoke5(dest, VNodeCmd_Inherit, src, frombits, start, end).error;
+}
+
+
 #endif
