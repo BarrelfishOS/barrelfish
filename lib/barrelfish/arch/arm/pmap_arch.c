@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2010-2013 ETH Zurich.
+ * Copyright (c) 2010-2015 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -61,10 +61,10 @@
 
 // Location of VSpace managed by this system.
 #ifdef __ARM_ARCH_7M__
-//virtual section 0x40000000-0x40100000 can not be used as regular memory 
+//virtual section 0x40000000-0x40100000 can not be used as regular memory
 //because of "bit-banding".
 //0x42000000-0x44000000 is also dangerous, so we start after that
-//XXX: there are more virtual regions we 
+//XXX: there are more virtual regions we
 //are not allowed to use -> find out where to reserve those
 #define VSPACE_BEGIN   ((lvaddr_t)(1UL*1024*1024*1024 + 64UL*1024*1024))    //0x44000000
 #else       //"normal" arm architectures
@@ -83,11 +83,6 @@
 // in hardware we use 12 bits for L1 and 8 bits for L2.
 #define ARM_USER_L1_OFFSET(addr) ((uintptr_t)(addr >> 22) & 0x3ffu)
 #define ARM_USER_L2_OFFSET(addr) ((uintptr_t)(addr >> 12) & 0x3ffu)
-
-//large mapping flags
-#define FLAGS_LARGE        0x0100
-#define FLAGS_SECTION      0x0200
-#define FLAGS_SUPERSECTION 0x0300
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -109,23 +104,162 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     return (uintptr_t)flags;
 }
 
+// debug print preprocessor flag for this file
+//#define LIBBARRELFISH_DEBUG_PMAP
+
 /**
- * \brief Starting at a given root, return the vnode with entry equal to #entry
+ * \brief check whether region A = [start_a .. end_a) overlaps
+ * region B = [start_b .. end_b).
+ * \return true iff A overlaps B
  */
-static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
+static bool is_overlapping(uint16_t start_a, uint16_t end_a, uint16_t start_b, uint16_t end_b)
+{
+    return
+        // B strict subset of A
+        (start_a < start_b && end_a >= end_b)
+        // start_a inside B
+        || (start_a >= start_b && start_a < end_b)
+        // end_a inside B
+        || (end_a > start_b && end_a < end_b);
+}
+
+/**
+ * \brief Check whether vnode `root' has entries in between [entry ..
+ * entry+len).
+ * \param root the vnode to look at
+ * \param entry first entry of the region to check
+ * \param len   length of the region to check
+ * \param only_pages true == do not report previously allocated lower-level
+ *                   page tables that are empty
+ * \return true iff entries exist in region.
+ */
+#if defined(LIBBARRELFISH_DEBUG_PMAP)
+#define DEBUG_HAS_VNODE
+#endif
+static bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
+               bool only_pages)
 {
     assert(root != NULL);
     assert(root->is_vnode);
     struct vnode *n;
 
+    uint32_t end_entry = entry + len;
+#ifdef DEBUG_HAS_VNODE
+    debug_printf("%s: checking region [%"PRIu32"--%"PRIu32"], only_pages = %d\n",
+            __FUNCTION__, entry, end_entry, only_pages);
+#endif
+
+    bool found_pages = false;
+    for (n = root->u.vnode.children; n; n = n->next) {
+        // region to check [entry .. end_entry)
+        if (n->is_vnode) {
+#ifdef DEBUG_HAS_VNODE
+            debug_printf("%s: looking at vnode: entry = %d, mapped = %"PRIx8"\n",
+                    __FUNCTION__, n->entry, n->u.vnode.mapped);
+#endif
+            // n is page table, we need to check if each mapped 1k L2 overlaps
+            // with the region to check [entry .. end_entry)
+            for (int i = 0; i < L2_PER_PAGE; i++) {
+                // ith 1k L2 is mapped
+#ifdef DEBUG_HAS_VNODE
+                debug_printf("%s: n->u.vnode.mapped & (1 << %d) == %d\n",
+                        __FUNCTION__, i, n->u.vnode.mapped & (1 << i));
+#endif
+                if (L2_IS_MAPPED(n, i)) {
+#ifdef DEBUG_HAS_VNODE
+                    debug_printf("%s: check overlapping: %"PRIu32"--%"PRIu32
+                            " <> %"PRIu32"--%"PRIu32"\n",
+                            __FUNCTION__, entry, end_entry,
+                            n->entry + i, n->entry + i + 1);
+#endif
+                    if (is_overlapping(entry, end_entry, n->entry + i, n->entry + i + 1)) {
+                        if (only_pages) {
+                            uint16_t rec_start = i * PTABLE_SIZE;
+#ifdef DEBUG_HAS_VNODE
+                            debug_printf("%s: checking recursively in %"PRIu16"--%"PRIu16"\n",
+                                    __FUNCTION__, rec_start, rec_start + PTABLE_SIZE);
+#endif
+                            found_pages = found_pages
+                                || has_vnode(n, rec_start, PTABLE_SIZE, true);
+                            if (found_pages) {
+                                return true;
+                            }
+                        } else {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } else {
+            // not vnode
+            uint32_t end = n->entry + n->u.frame.pte_count;
+#ifdef DEBUG_HAS_VNODE
+            debug_printf("%s: looking at region: [%"PRIu32"--%"PRIu32"]\n",
+                    __FUNCTION__, n->entry, end);
+#endif
+
+            // do checks
+            if (is_overlapping(entry, end_entry, n->entry, end)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * \brief Starting at a given root, return the vnode with entry equal to #entry
+ * \return vnode at index `entry` or NULL
+ */
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+#define DEBUG_FIND_VNODE
+#endif
+static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+#ifdef DEBUG_FIND_VNODE
+    debug_printf("%s: looking for %"PRIu16"\n", __FUNCTION__, entry);
+#endif
+
     for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if(n->entry == entry) {
+        if (n->is_vnode &&
+            is_overlapping(entry, entry + 1, n->entry, n->entry + L2_PER_PAGE)) {
+#ifdef DEBUG_FIND_VNODE
+            debug_printf("%s: found ptable at [%"PRIu16"--%"PRIu16"]\n",
+                    __FUNCTION__, n->entry, n->entry + L2_PER_PAGE);
+#endif
+            return n;
+        }
+        else if (n->is_vnode) {
+            assert(!is_overlapping(entry, entry + 1, n->entry, n->entry + L2_PER_PAGE));
+            // ignore all other vnodes;
+            continue;
+        }
+
+        // not vnode
+        assert(!n->is_vnode);
+        uint16_t end = n->entry + n->u.frame.pte_count;
+#ifdef DEBUG_FIND_VNODE
+        debug_printf("%s: looking at section [%"PRIu16"--%"PRIu16"]\n", __FUNCTION__, n->entry, end);
+#endif
+        if (n->entry <= entry && entry < end) {
+#ifdef DEBUG_FIND_VNODE
+            debug_printf("%d \\in [%d, %d]\n", entry, n->entry, end);
+#endif
             return n;
         }
     }
     return NULL;
 }
 
+/**
+ * \brief check whether region [entry, entry+npages) is contained in a child
+ * of `root`.
+ */
 static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
 {
     assert(root != NULL);
@@ -145,31 +279,9 @@ static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
     return false;
 }
 
-static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-    struct vnode *n;
-
-    uint32_t end_entry = entry + len;
-
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (n->is_vnode && n->entry == entry) {
-            return true;
-        }
-        // n is frame
-        uint32_t end = n->entry + n->u.frame.pte_count;
-        if (n->entry < entry && end > end_entry) {
-            return true;
-        }
-        if (n->entry >= entry && n->entry < end_entry) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
+/**
+ * \brief remove vnode `item` from linked list of children of `root`
+ */
 static void remove_vnode(struct vnode *root, struct vnode *item)
 {
     assert(root->is_vnode);
@@ -188,7 +300,91 @@ static void remove_vnode(struct vnode *root, struct vnode *item)
         prev = walk;
         walk = walk->next;
     }
-    assert(!"Should not get here");
+    USER_PANIC("Should not get here");
+}
+
+static void unmap_l2_table(struct vnode *root, struct vnode *n, uint16_t e)
+{
+    errval_t err;
+    uint32_t entry = ROUND_DOWN(n->entry, L2_PER_PAGE) + e;
+    if (L2_IS_MAPPED(n, e)) {
+        err = vnode_unmap(root->u.vnode.cap[0], n->u.vnode.cap[e],
+                entry, 1);
+        if (err_is_fail(err)) {
+            debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
+                    err_getstring(err));
+            abort();
+        }
+
+        // delete capability, if not entry 0
+        if (e) {
+            err = cap_destroy(n->u.vnode.cap[e]);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: cap_destroy: %s\n",
+                        err_getstring(err));
+                abort();
+            }
+        }
+    }
+}
+
+/**
+ * \brief (recursively) remove empty page tables in region [entry ..
+ * entry+len) in vnode `root`.
+ */
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+#define DEBUG_REMOVE_EMPTY_VNODES
+#endif
+static void remove_empty_vnodes(struct slab_allocator *vnode_alloc, struct vnode *root,
+                         uint32_t entry, size_t len)
+{
+    // precondition: root does not have pages in [entry, entry+len)
+    assert(!has_vnode(root, entry, len, true));
+
+    errval_t err;
+    uint32_t end_entry = entry + len;
+    for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
+        // sanity check and skip leaf entries
+        if (!n->is_vnode) {
+            continue;
+        }
+        // here we know that all vnodes we're interested in are
+        // page tables
+        assert(n->is_vnode);
+
+        if (entry < n->entry && end_entry >= n->entry + L2_PER_PAGE) {
+            // whole entry in region: completely unmap&free L2 page
+            for (int i = 0; i < L2_PER_PAGE; i++) {
+                unmap_l2_table(root, n, i);
+            }
+
+            // delete last copy of pt cap
+            err = cap_destroy(n->u.vnode.cap[0]);
+            assert(err_is_ok(err));
+
+            // remove vnode from list
+            remove_vnode(root, n);
+            slab_free(vnode_alloc, n);
+        } else if (entry >= n->entry && entry < n->entry + L2_PER_PAGE) {
+            // tail end of vnode in region:
+            uint16_t e = entry - n->entry;
+#ifdef DEBUG_REMOVE_EMPTY_VNODES
+            debug_printf("overlap: %"PRIu16" entries\n", e);
+#endif
+            for (; e < L2_PER_PAGE; e++) {
+                unmap_l2_table(root, n, e);
+            }
+        } else if (end_entry > n->entry && end_entry < n->entry + L2_PER_PAGE) {
+            // start of vnode in region
+            uint16_t e = end_entry - n->entry;
+#ifdef DEBUG_REMOVE_EMPTY_VNODES
+            debug_printf("overlap: %"PRIu16" entries\n", e);
+#endif
+            for (int i = 0; i < e; i++) {
+                unmap_l2_table(root, n, i);
+            }
+        }
+    }
 }
 
 /**
@@ -208,26 +404,24 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
     newvnode->is_vnode = true;
 
     // The VNode capability
-    err = slot_alloc(&newvnode->u.vnode.cap);
+    err = slot_alloc(&newvnode->u.vnode.cap[0]);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    err = vnode_create(newvnode->u.vnode.cap, type);
+    err = vnode_create(newvnode->u.vnode.cap[0], type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
-
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1);
-
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_MAP);
+    for (int i = 1; i < L2_PER_PAGE; i++) {
+        newvnode->u.vnode.cap[i] = NULL_CAP;
     }
 
     // The VNode meta data
-    newvnode->entry            = entry;
+    newvnode->entry            = ROUND_DOWN(entry, L2_PER_PAGE);
+    assert(newvnode->entry % L2_PER_PAGE == 0);
     newvnode->next             = root->u.vnode.children;
+    newvnode->u.vnode.mapped   = 0x0; // no entries mapped
     root->u.vnode.children     = newvnode;
     newvnode->u.vnode.children = NULL;
 
@@ -240,6 +434,9 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
 /**
  * \brief Returns the vnode for the pagetable mapping a given vspace address
  */
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+#define DEBUG_GET_PTABLE
+#endif
 static errval_t get_ptable(struct pmap_arm  *pmap,
                            genvaddr_t        vaddr,
                            struct vnode    **ptable)
@@ -247,7 +444,8 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
     // of L2 is 1 page of L2 entries (4 tables) so we use 10 bits for the L1
     // idx here
-    uintptr_t idx = ARM_USER_L1_OFFSET(vaddr);
+    uintptr_t idx = ARM_L1_OFFSET(vaddr);
+    uintptr_t page_idx = L2_PAGE_IDX(idx);
     if ((*ptable = find_vnode(&pmap->root, idx)) == NULL)
     {
         // L1 table entries point to L2 tables so allocate an L2
@@ -255,6 +453,11 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
 
         struct vnode *tmp = NULL; // Tmp variable for passing to alloc_vnode
 
+#ifdef DEBUG_GET_PTABLE
+        uintptr_t fidx = ROUND_DOWN(idx, L2_PER_PAGE);
+        debug_printf("allocating 4 x L2, entries = %"PRIuPTR"--%z"PRIuPTR"\n",
+                 fidx, fidx+4);
+#endif
         errval_t err = alloc_vnode(pmap, &pmap->root, ObjType_VNode_ARM_l2,
                                    idx, &tmp);
         if (err_is_fail(err)) {
@@ -264,10 +467,66 @@ static errval_t get_ptable(struct pmap_arm  *pmap,
         assert(tmp != NULL);
         *ptable = tmp; // Set argument to received value
 
-
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
+    }
+    assert(ptable);
+    struct vnode *pt = *ptable;
+    if (!pt->is_vnode) {
+        debug_printf("found section @%d, trying to get ptable for %d\n",
+                pt->entry, idx);
+    }
+    assert(pt->is_vnode);
+#ifdef DEBUG_GET_PTABLE
+    debug_printf("have ptable: %p\n", pt);
+    debug_printf("mapped = %x\n", pt->u.vnode.mapped);
+    debug_printf("page_idx = %d\n", page_idx);
+    debug_printf("l2_is_mapped: %d\n", L2_IS_MAPPED(pt, page_idx));
+#endif
+    if (!L2_IS_MAPPED(pt, page_idx)) {
+#ifdef DEBUG_GET_PTABLE
+        debug_printf("need to map entry %d\n", page_idx);
+#endif
+        errval_t err;
+        uintptr_t offset = L2_PAGE_OFFSET(idx);
+#ifdef DEBUG_GET_PTABLE
+        debug_printf("mapping L1 entry %d at offset %"PRIuPTR"\n", idx, offset);
+#endif
+
+        // create copy of ptable cap for this index, if it doesn't exist
+        // already
+        if (capref_is_null(pt->u.vnode.cap[page_idx])) {
+#ifdef DEBUG_GET_PTABLE
+            debug_printf("allocating slot for chunk %d\n", page_idx);
+#endif
+            err = slot_alloc(&pt->u.vnode.cap[page_idx]);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_VNODE_MAP);
+            }
+
+#ifdef DEBUG_GET_PTABLE
+            debug_printf("creating copy for chunk %d\n", page_idx);
+#endif
+            err = cap_copy(pt->u.vnode.cap[page_idx], pt->u.vnode.cap[0]);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_VNODE_MAP);
+            }
+        }
+
+#ifdef DEBUG_GET_PTABLE
+            debug_printf("calling vnode_map() for chunk %d\n", page_idx);
+#endif
+        // map single 1k ptable
+        err = vnode_map(pmap->root.u.vnode.cap[0], pt->u.vnode.cap[page_idx], idx,
+                KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, offset, 1);
+
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_VNODE_MAP);
+        }
+
+        // set 1k ptable as mapped
+        pt->u.vnode.mapped |= 1 << page_idx;
     }
 
     return SYS_ERR_OK;
@@ -278,7 +537,7 @@ static struct vnode *find_ptable(struct pmap_arm  *pmap,
 {
     // NB Strictly there are 12 bits in the ARM L1, but allocations unit
     // of L2 is 1 page of L2 entries (4 tables) so
-    uintptr_t idx = ARM_USER_L1_OFFSET(vaddr);
+    uintptr_t idx = ARM_L1_OFFSET(vaddr);
     return find_vnode(&pmap->root, idx);
 }
 
@@ -290,41 +549,95 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     // Get the page table
     struct vnode *ptable;
     uintptr_t entry;
-    if (flags&FLAGS_SECTION) {
+    bool is_large = false;
+
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
+    }
+
+    if (flags & VREGION_FLAGS_LARGE &&
+        (vaddr & LARGE_PAGE_MASK) == 0 &&
+        fi.bits >= LARGE_PAGE_BITS &&
+        (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         //mapped in the L1 table at root
+        //
         ptable = &pmap->root;
-        entry = ARM_USER_L1_OFFSET(vaddr);
-        printf("do_single_map: large path\n");
+        entry = ARM_L1_OFFSET(vaddr);
+        is_large = true;
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        printf("do_single_map: large path: entry=%zu\n", entry);
+#endif
     } else {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        debug_printf("%s: 4k path: mapping %"PRIxGENVADDR"\n", __FUNCTION__, vaddr);
+        debug_printf("4k path: L1 entry: %zu\n", ARM_USER_L1_OFFSET(vaddr));
+#endif
         //4k mapping
+        // XXX: reassess the following note -SG
+        // NOTE: strictly speaking a l2 entry only has 8 bits, while a l1 entry
+        // has 12 bits, but due to the way Barrelfish allocates l1 and l2 tables,
+        // we use 10 bits for the entry here and in the map syscall
         err = get_ptable(pmap, vaddr, &ptable);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "get_ptable() in do_single_map");
+            return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+        }
         entry = ARM_USER_L2_OFFSET(vaddr);
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        debug_printf("%s: 4k path: L2 entry=%zu\n", __FUNCTION__, entry);
+        debug_printf("%s: ptable->is_vnode = %d\n",
+                __FUNCTION__, ptable->is_vnode);
+#endif
     }
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
+
+    // convert flags
+    flags &= ~(VREGION_FLAGS_LARGE | VREGION_FLAGS_HUGE);
+    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
+
+    uintptr_t user_pte_count = pte_count;
+    if (is_large) {
+        user_pte_count = DIVIDE_ROUND_UP(pte_count, L2_PER_PAGE);
     }
-    uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags&~FLAGS_SUPERSECTION);
-    // XXX: reassess the following note -SG
-    // NOTE: strictly speaking a l2 entry only has 8 bits, but due to the way
-    // Barrelfish allocates l1 and l2 tables, we use 10 bits for the tracking
-    // idx here and in the map syscall
-    uintptr_t idx = ARM_USER_L2_OFFSET(vaddr);
+
+    // check if there is an overlapping mapping
+    if (has_vnode(ptable, entry, pte_count, false)) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        debug_printf("has_vnode, only_pages=false  returned true\n");
+#endif
+        if (has_vnode(ptable, entry, pte_count, true)) {
+            printf("page already exists in 0x%"
+                    PRIxGENVADDR"--0x%"PRIxGENVADDR"\n", vaddr, vend);
+            return LIB_ERR_PMAP_EXISTING_MAPPING;
+        } else {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("has_vnode, only_pages=true  returned false, cleaning up empty ptables\n");
+#endif
+            // clean out empty page tables. We do this here because we benefit
+            // from having the page tables in place when doing lots of small
+            // mappings
+            // XXX: TODO: fix this + mapping of L2 to work on single 1k
+            // chunks
+            remove_empty_vnodes(&pmap->slab, ptable, entry, pte_count);
+        }
+    }
+
     // Create user level datastructure for the mapping
-    bool has_page = has_vnode(ptable, idx, pte_count);
-    assert(!has_page);
     struct vnode *page = slab_alloc(&pmap->slab);
     assert(page);
     page->is_vnode = false;
-    page->entry = idx;
+    page->entry = entry;
     page->next  = ptable->u.vnode.children;
     ptable->u.vnode.children = page;
     page->u.frame.cap = frame;
     page->u.frame.flags = flags;
-    page->u.frame.pte_count = pte_count;
+    page->u.frame.pte_count = user_pte_count;
+    page->u.frame.kernel_pte_count = pte_count;
 
     // Map entry into the page table
-    err = vnode_map(ptable->u.vnode.cap, frame, idx,
+    err = vnode_map(ptable->u.vnode.cap[0], frame, entry,
                     pmap_flags, offset, pte_count);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -339,13 +652,26 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
     errval_t err;
     size_t page_size;
     size_t offset_level;
+
+    // get base address and size of frame
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_DO_MAP);
+    }
+
     // determine mapping specific parts
-    if (flags&FLAGS_SECTION) {
+    if (flags & VREGION_FLAGS_LARGE &&
+        (vaddr & LARGE_PAGE_MASK) == 0 &&
+        fi.bits >= LARGE_PAGE_BITS &&
+        (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         page_size = LARGE_PAGE_SIZE;
         offset_level = ARM_L1_OFFSET(vaddr);
+#ifdef LIBBARRELFISH_DEBUG_PMAP
         printf("do_map: large path\n");
-        printf("page_size: %i, size: %i\n", page_size, size);
+        printf("page_size: %zx, size: %zx\n", page_size, size);
+#endif
     } else {
         //normal 4k mapping
         page_size = BASE_PAGE_SIZE;
@@ -354,11 +680,20 @@ static errval_t do_map(struct pmap_arm *pmap, genvaddr_t vaddr,
 
     size = ROUND_UP(size, page_size);
     size_t pte_count = DIVIDE_ROUND_UP(size, page_size);
+    if (flags & VREGION_FLAGS_LARGE) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        printf("#pages: 0x%zu\n", pte_count);
+#endif
+    }
     genvaddr_t vend = vaddr + size;
 
+    if ((1UL << fi.bits) < size) {
+        return LIB_ERR_PMAP_FRAME_SIZE;
+    }
+
     //should be trivially true for section mappings
-    if ((ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend-1)) ||
-        flags&FLAGS_SECTION) {
+    if ((ARM_L1_OFFSET(vaddr) == ARM_L1_OFFSET(vend)) ||
+        flags & VREGION_FLAGS_LARGE) {
         // fast path
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
@@ -461,10 +796,9 @@ max_slabs_required(size_t bytes)
 }
 static size_t max_slabs_required_large(size_t bytes)
 {
-    // similar to the above, but larger page size and mapped only in a higher lvl paging structure
-    size_t pages = DIVIDE_ROUND_UP(bytes, LARGE_PAGE_SIZE);
-    size_t l1entries = DIVIDE_ROUND_UP(pages, 1024);
-    return pages + l1entries;
+    // always need only one slab, as we can represent any size section mapping
+    // in a single struct vnode.
+    return 1;
 }
 
 /**
@@ -557,17 +891,31 @@ map(struct pmap     *pmap,
 {
     struct pmap_arm *pmap_arm = (struct pmap_arm *)pmap;
 
+    errval_t err;
     size_t base;
     size_t page_size;
     size_t slabs_required;
-    
+
+    struct frame_identity fi;
+    err = invoke_frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
+    }
+
     // adjust the mapping to be on page boundaries
-    if (flags&FLAGS_SECTION) {
+    if (flags & VREGION_FLAGS_LARGE &&
+        (vaddr & LARGE_PAGE_MASK) == 0 &&
+        fi.bits >= LARGE_PAGE_BITS &&
+        (fi.base & LARGE_PAGE_MASK) == 0) {
         //section mapping (1MB)
         base = LARGE_PAGE_OFFSET(offset);
         page_size = LARGE_PAGE_SIZE;
         slabs_required = max_slabs_required_large(size);
-        printf("map: large path, page_size: %i, base: %i, slabs: %i, size: %i\n", page_size, base, slabs_required, size);
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        size_t frame_sz = 1ULL<<fi.bits;
+        printf("map: large path, page_size: %i, base: %i, slabs: %i, size: %i,"
+                "frame size: %zu\n", page_size, base, slabs_required, size, frame_sz);
+#endif
     } else {
         //4k mapping
         base = BASE_PAGE_OFFSET(offset);
@@ -585,7 +933,7 @@ map(struct pmap     *pmap,
 
     if (slabs_required > slabs_free) {
         if (get_current_pmap() == pmap) {
-            errval_t err = refill_slabs(pmap_arm, slabs_required);
+            err = refill_slabs(pmap_arm, slabs_required);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
@@ -610,11 +958,12 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
 {
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
-    if (pt) {
+    // pt->is_vnode == non-large mapping
+    if (pt && pt->is_vnode) {
         // analog to do_single_map we use 10 bits for tracking pages in user space -SG
         struct vnode *page = find_vnode(pt, ARM_USER_L2_OFFSET(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap,
+            err = vnode_unmap(pt->u.vnode.cap[0], page->u.frame.cap,
                               page->entry, page->u.frame.pte_count);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "vnode_unmap");
@@ -634,6 +983,22 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
         else {
             return LIB_ERR_PMAP_FIND_VNODE;
         }
+    } else if (pt) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+        debug_printf("section unmap: entry = %zu, pte_count = %zu\n",
+                pt->entry, pt->u.frame.kernel_pte_count);
+#endif
+        err = vnode_unmap(pmap->root.u.vnode.cap[0], pt->u.frame.cap,
+                          pt->entry, pt->u.frame.kernel_pte_count);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "vnode_unmap");
+            return err_push(err, LIB_ERR_VNODE_UNMAP);
+        }
+
+        remove_vnode(&pmap->root, pt);
+        slab_free(&pmap->slab, pt);
+    } else {
+        return LIB_ERR_PMAP_FIND_VNODE;
     }
 
     return SYS_ERR_OK;
@@ -719,23 +1084,31 @@ determine_addr(struct pmap   *pmap,
 {
     assert(pmap->vspace->head);
 
-    assert(alignment <= BASE_PAGE_SIZE); // NYI
+    if (alignment == 0) {
+        alignment = BASE_PAGE_SIZE;
+    } else {
+        alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
+    }
+    size_t size = ROUND_UP(memobj->size, alignment);
 
     struct vregion *walk = pmap->vspace->head;
     while (walk->next) { // Try to insert between existing mappings
         genvaddr_t walk_base = vregion_get_base_addr(walk);
-        genvaddr_t walk_size = vregion_get_size(walk);
+        genvaddr_t walk_size = ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE);
+        genvaddr_t walk_end  = ROUND_UP(walk_base + walk_size, alignment);
         genvaddr_t next_base = vregion_get_base_addr(walk->next);
 
-        if (next_base > walk_base + walk_size + memobj->size &&
+        if (next_base > walk_end + size &&
             walk_base + walk_size > VSPACE_BEGIN) { // Ensure mappings are larger than VSPACE_BEGIN
-            *vaddr = walk_base + walk_size;
+            *vaddr = walk_end;
             return SYS_ERR_OK;
         }
         walk = walk->next;
     }
 
-    *vaddr = vregion_get_base_addr(walk) + vregion_get_size(walk);
+    *vaddr = ROUND_UP((vregion_get_base_addr(walk)
+                       + ROUND_UP(vregion_get_size(walk), alignment)),
+                       alignment);
     return SYS_ERR_OK;
 }
 
@@ -962,7 +1335,7 @@ pmap_init(struct pmap   *pmap,
               sizeof(pmap_arm->slab_buffer));
 
     pmap_arm->root.is_vnode         = true;
-    pmap_arm->root.u.vnode.cap      = vnode;
+    pmap_arm->root.u.vnode.cap[0]   = vnode;
     pmap_arm->root.next             = NULL;
     pmap_arm->root.u.vnode.children = NULL;
 
