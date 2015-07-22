@@ -93,7 +93,7 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
     } else {
         req_size -= state->mapoffset - state->offset;
     }
-    size_t alloc_size = req_size;
+    size_t alloc_size = ROUND_UP(req_size, BASE_PAGE_SIZE);
     size_t ret_size = 0;
 
     if (req_size > 0) {

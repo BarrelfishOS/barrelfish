@@ -21,7 +21,7 @@
 
 int main(void)
 {
-#if !defined(CONFIG_PSE)
+#if defined(__x86__) && !defined(CONFIG_PSE)
     debug_printf("PSE not enabled, change Config.hs and rebuild.\n");
     return 0;
 #endif

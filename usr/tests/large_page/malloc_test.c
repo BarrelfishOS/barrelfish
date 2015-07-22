@@ -25,14 +25,18 @@ int main(void)
     for (int k = 0; k < RUNS; k++) {
         // touch every 4k page in region
         bufs[k] = malloc(BUFSIZE);
+        if (!bufs[k]) {
+            debug_printf("malloc %d FAILED\n", k);
+            break;
+        }
         uint8_t *buf = bufs[k];
-        for (int i = 0; i < BUFSIZE / X86_64_BASE_PAGE_SIZE; i++) {
+        for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i++) {
             buf[i*BASE_PAGE_SIZE] = i % 256;
         }
         // clear out caches
         sys_debug_flush_cache();
         int errors = 0;
-        for (int i = 0; i < BUFSIZE / X86_64_BASE_PAGE_SIZE; i++) {
+        for (int i = 0; i < BUFSIZE / BASE_PAGE_SIZE; i++) {
             if (buf[i*BASE_PAGE_SIZE] != i % 256) {
                 debug_printf("mismatch in page %d: expected %d, was %d\n",
                         i, i % 256, buf[i*BASE_PAGE_SIZE]);
