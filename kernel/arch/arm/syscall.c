@@ -1007,6 +1007,9 @@ static struct sysret handle_debug_syscall(int msg)
 {
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
+        case DEBUG_FLUSH_CACHE:
+            cp15_invalidate_i_and_d_caches_fast();
+            break;
         case DEBUG_CONTEXT_COUNTER_RESET:
             dispatch_csc_reset();
             break;
