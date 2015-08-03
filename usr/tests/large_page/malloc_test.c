@@ -15,12 +15,28 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/sys_debug.h>
 
-#define RUNS 2
+#define DEFAULT_RUNS 2
 // 128MB buffer
-#define BUFSIZE (128UL*1024*1024)
+#define DEFAULT_BUFSIZE (128UL*1024*1024)
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    unsigned long BUFSIZE = DEFAULT_BUFSIZE;
+    unsigned RUNS = DEFAULT_RUNS;
+    if (argc == 2) {
+        if (strcmp(argv[1], "-h") == 0) {
+            debug_printf("usage: %s <bufsize> <runs>\n", argv[0]);
+            debug_printf("  both arguments are optional, defaults are:\n");
+            debug_printf("    BUFSIZE = %lu\n", DEFAULT_BUFSIZE);
+            debug_printf("    RUNS = %u\n", DEFAULT_RUNS);
+            return 0;
+        }
+        BUFSIZE = strtol(argv[1], NULL, 0);
+    }
+    if (argc == 3) {
+        RUNS = strtol(argv[1], NULL, 0);
+    }
+    debug_printf("running malloc test with BUFSIZE = %lu, runs = %u\n", BUFSIZE, RUNS);
     void *bufs[RUNS];
     for (int k = 0; k < RUNS; k++) {
         // touch every 4k page in region
