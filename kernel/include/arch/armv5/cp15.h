@@ -14,6 +14,11 @@
 
 void cp15_invalidate_i_and_d_caches(void);
 
+static inline void cp15_invalidate_i_and_d_caches_fast(void)
+{
+    cp15_invalidate_i_and_d_caches();
+}
+
 /**
  * \brief Read domain access control register
  */
