@@ -143,7 +143,6 @@ caps_map_l1(struct capability* dest,
     // XXX: magic constant
     if (slot >= 4096) {
         printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id >= 4096");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
@@ -154,7 +153,6 @@ caps_map_l1(struct capability* dest,
         printf("offset = %"PRIuPTR", pte_count=%"PRIuPTR
                 ", src->size = %"PRIuGENSIZE", src->type = %d\n",
                 offset, pte_count, get_size(src), src->type);
-        panic("oops: ptable offset invalid");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -166,7 +164,6 @@ caps_map_l1(struct capability* dest,
 
     if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET)) {
         printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 

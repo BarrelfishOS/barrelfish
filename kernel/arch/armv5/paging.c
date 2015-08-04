@@ -305,52 +305,57 @@ caps_map_l1(struct capability* dest,
     //
     // See lib/barrelfish/arch/arm/pmap_arch.c for more discussion.
     //
+    // XXX: magic constant
     const int ARM_L1_SCALE = 4;
 
-    if (slot >= 1024) {
-        printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id >= 1024");
+    if (slot >= 4096) {
+        printf("Error: slot = %"PRIuCSLOT"\n",slot);
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (pte_count != 1) {
-        printf("pte_count = %zu\n",(size_t)pte_count);
-        panic("oops: pte_count");
+    // check offset within frame
+    if ((offset + pte_count * 1024 > get_size(src)) ||
+            ((offset % 1024) != 0)) {
+        printf("Error: offset = %"PRIuPTR", pte_count=%"PRIuPTR
+               ", src->size = %"PRIuGENSIZE", src->type = %d\n",
+                offset, pte_count, get_size(src), src->type);
+        return SYS_ERR_FRAME_OFFSET_INVALID;
+    }
+
+    // check mapping does not overlap leaf page table
+    if (slot + pte_count > 4096) {
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    if (src->type != ObjType_VNode_ARM_l2) {
-        panic("oops: wrong src type");
-        return SYS_ERR_WRONG_MAPPING;
-    }
 
-    if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET) / ARM_L1_SCALE) {
+    if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET)) {
         printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id");
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 
+    debug(SUBSYS_PAGING, "caps_map_l1: mapping %"PRIuPTR" L2 tables @%"PRIuCSLOT"\n",
+            pte_count, slot);
     // Destination
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union l1_entry* entry = (union l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
+    union l1_entry* entry = (union l1_entry*)dest_lvaddr + slot;
 
     // Source
     genpaddr_t src_gpaddr = get_address(src);
-    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
+    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr) + offset;
 
-    assert(offset == 0);
     assert(aligned(src_lpaddr, 1u << 10));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 16384));
 
     struct cte *src_cte = cte_for_cap(src);
     src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr + (slot * ARM_L1_SCALE);
+    src_cte->mapping_info.pte = dest_lpaddr + slot;
     src_cte->mapping_info.offset = 0;
 
-    for (int i = 0; i < 4; i++, entry++)
+    for (int i = 0; i < pte_count; i++, entry++)
     {
+
         entry->raw = 0;
         entry->coarse.type   = L1_TYPE_COARSE_ENTRY;
         entry->coarse.mb1    = 1;
@@ -358,7 +363,7 @@ caps_map_l1(struct capability* dest,
         entry->coarse.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
-              slot * ARM_L1_SCALE + i, entry, entry->raw);
+              slot + i, entry, entry->raw);
     }
 
     cp15_invalidate_tlb();
