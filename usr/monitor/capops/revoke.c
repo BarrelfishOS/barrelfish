@@ -67,6 +67,8 @@ capops_revoke(struct domcapref cap,
 {
     errval_t err;
 
+    DEBUG_CAPOPS("%s ## start revocation protocol\n", __FUNCTION__);
+
     distcap_state_t state;
     err = dom_cnode_get_state(cap, &state);
     GOTO_IF_ERR(err, report_error);
@@ -87,6 +89,7 @@ capops_revoke(struct domcapref cap,
 
     if (distcap_state_is_foreign(state)) {
         // need to retrieve ownership
+        DEBUG_CAPOPS("%s getting cap ownership\n", __FUNCTION__);
         capops_retrieve(rst->cap, revoke_retrieve__rx, rst);
     }
     else {
@@ -133,8 +136,10 @@ revoke_result__rx(errval_t result,
         }
     }
 
+    DEBUG_CAPOPS("%s ## revocation completed, calling %p\n", __FUNCTION__,
+                 st->result_handler);
+
     st->result_handler(result, st->st);
-    free(st);
 }
 
 static void
@@ -146,6 +151,7 @@ revoke_retrieve__rx(errval_t result, void *st_)
         revoke_result__rx(result, st, false);
     }
     else {
+
 #ifndef NDEBUG
         distcap_state_t state;
         errval_t err = dom_cnode_get_state(st->cap, &state);
@@ -170,6 +176,8 @@ revoke_local(struct revoke_master_st *st)
                                      st->cap.bits);
     PANIC_IF_ERR(err, "marking revoke");
 
+
+    DEBUG_CAPOPS("%s ## revocation: mark phase\n", __FUNCTION__);
     // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
     err = capsend_relations(&st->rawcap, revoke_mark__send,
             &st->revoke_mc_st, &st->dests);
@@ -294,7 +302,7 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
         return;
     }
 
-    DEBUG_CAPOPS("%s: sending commit\n", __FUNCTION__);
+    DEBUG_CAPOPS("%s ## revocation: commit phase\n", __FUNCTION__);
     err = capsend_relations(&rvk_st->rawcap, revoke_commit__send,
             &rvk_st->revoke_mc_st, &rvk_st->dests);
     PANIC_IF_ERR(err, "enqueing revoke_commit multicast");
@@ -398,12 +406,16 @@ void
 revoke_done__rx(struct intermon_binding *b,
                 genvaddr_t st)
 {
+    DEBUG_CAPOPS("%s\n", __FUNCTION__);
+
     struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;
+
     if (!capsend_handle_mc_reply(&rvk_st->revoke_mc_st)) {
         // multicast not complete
         return;
     }
 
+    DEBUG_CAPOPS("%s ## revocation: fin phase\n", __FUNCTION__);
     rvk_st->remote_fin = true;
     if (rvk_st->local_fin) {
         revoke_result__rx(SYS_ERR_OK, rvk_st, true);

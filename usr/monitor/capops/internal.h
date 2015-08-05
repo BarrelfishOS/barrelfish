@@ -37,6 +37,7 @@ struct result_closure {
 
 #define GOTO_IF_ERR(err, label) do { \
     if (err_is_fail(err)) { \
+        DEBUG_ERR(err, "%s:%u -> goto err\n", __FUNCTION__, __LINE__); \
         goto label; \
     } \
 } while (0)
