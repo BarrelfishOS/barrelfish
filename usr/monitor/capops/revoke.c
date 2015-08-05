@@ -134,6 +134,7 @@ revoke_result__rx(errval_t result,
     }
 
     st->result_handler(result, st->st);
+    free(st);
 }
 
 static void
@@ -145,6 +146,12 @@ revoke_retrieve__rx(errval_t result, void *st_)
         revoke_result__rx(result, st, false);
     }
     else {
+#ifndef NDEBUG
+        distcap_state_t state;
+        errval_t err = dom_cnode_get_state(st->cap, &state);
+        PANIC_IF_ERR(err, "dom_cnode_get_state");
+        assert(!distcap_state_is_foreign(state));
+#endif
         revoke_local(st);
     }
 }
