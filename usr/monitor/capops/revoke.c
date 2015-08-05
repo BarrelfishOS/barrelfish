@@ -87,7 +87,7 @@ capops_revoke(struct domcapref cap,
 
     if (distcap_state_is_foreign(state)) {
         // need to retrieve ownership
-        capops_retrieve(rst->cap, revoke_retrieve__rx, st);
+        capops_retrieve(rst->cap, revoke_retrieve__rx, rst);
     }
     else {
         if (num_monitors_online() == 1) {
