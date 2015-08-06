@@ -24,6 +24,16 @@
 /// Minimum free memory before we return it to memory server
 #define MIN_MEM_FOR_FREE        (1 * 1024 * 1024)
 
+void vspace_mmu_aware_set_slot_alloc(struct vspace_mmu_aware *state,
+                                     struct slot_allocator *slot_allocator)
+{
+    if (slot_allocator) {
+        state->slot_alloc = slot_allocator;
+    } else {
+        state->slot_alloc = get_default_slot_allocator();
+    }
+}
+
 /**
  * \brief Initialize vspace_mmu_aware struct
  *
@@ -35,16 +45,24 @@
  */
 errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
 {
-    return vspace_mmu_aware_init_aligned(state, size, 0,
+    return vspace_mmu_aware_init_aligned(state, NULL, size, 0,
             VREGION_FLAGS_READ_WRITE);
 }
 
 errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
-        size_t size, size_t alignment, vregion_flags_t flags)
+                                       struct slot_allocator *slot_allocator,
+                                       size_t size, size_t alignment,
+                                       vregion_flags_t flags)
 {
     state->size = size;
     state->consumed = 0;
     state->alignment = alignment;
+
+    if (slot_allocator) {
+        state->slot_alloc = slot_allocator;
+    } else {
+        state->slot_alloc = get_default_slot_allocator();
+    }
 
     errval_t err;
 
@@ -79,11 +97,12 @@ errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
  * or region of memory). This is to facilitate retrying with different
  * constraints.
  */
-errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
-                              struct capref frame, size_t req_size,
+errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state, size_t req_size,
                               void **retbuf, size_t *retsize)
 {
     errval_t err;
+
+    struct capref frame;
 
     // Calculate how much still to map in
     size_t origsize = req_size;
@@ -124,6 +143,11 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state,
         }
         // Create frame of appropriate size
 allocate:
+        err = state->slot_alloc->alloc(state->slot_alloc, &frame);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC_NO_SPACE);
+        }
+
         err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
@@ -146,6 +170,7 @@ allocate:
                 debug_err(__FILE__, __func__, __LINE__, err,
                           "cap_delete failed");
             }
+            state->slot_alloc->free(state->slot_alloc, frame);
             return LIB_ERR_VSPACE_MMU_AWARE_NO_SPACE;
         }
 
@@ -180,6 +205,7 @@ errval_t vspace_mmu_aware_reset(struct vspace_mmu_aware *state,
     struct vregion *vregion;
     struct capref oldframe;
     void *vbuf;
+
     // create copy of new region
     err = slot_alloc(&oldframe);
     if (err_is_fail(err)) {

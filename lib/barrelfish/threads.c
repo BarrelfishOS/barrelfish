@@ -212,18 +212,12 @@ static errval_t refill_thread_slabs(struct slab_allocator *slabs)
 {
     assert(slabs == &thread_slabs);
 
-    struct capref frame;
     size_t size;
     void *buf;
     errval_t err;
 
-    err = slot_alloc(&frame);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
     size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-    err = vspace_mmu_aware_map(&thread_slabs_vm, frame, blocksize, &buf, &size);
+    err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize, &buf, &size);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_MAP);
     }
@@ -1165,13 +1159,8 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
             void *buf;
             errval_t err;
 
-            err = slot_alloc(&frame);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "in slot_alloc while prefilling thread slabs\n");
-            }
-
             size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-            err = vspace_mmu_aware_map(&thread_slabs_vm, frame, blocksize,
+            err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize,
                                        &buf, &size);
             if (err_is_fail(err)) {
                 slot_free(frame);
