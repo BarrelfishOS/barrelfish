@@ -33,6 +33,7 @@ struct device_mem {
     /* NB: it should be the case that bytes = (1 << bits) * nr_caps */
     struct memobj *memobj;   // valid after map_device()
     struct vregion *vregion; // valid after map_device()
+    uint8_t bar_nr; // BAR number
 };
 
 errval_t map_device(struct device_mem *mem);

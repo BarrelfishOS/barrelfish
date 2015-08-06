@@ -65,6 +65,7 @@ errval_t device_reregister_interrupt(uint8_t coreid, int vector,
                  uint32_t vendor_id, uint32_t device_id, uint32_t *bus,
                  uint32_t *dev,uint32_t *fun);
 int pci_bar_to_caps_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t BAR);
+int pci_get_bar_nr_for_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx);
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index);
 struct capref pci_get_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                      uint8_t index, int cap_nr);

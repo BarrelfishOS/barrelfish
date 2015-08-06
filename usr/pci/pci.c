@@ -122,6 +122,14 @@ int pci_bar_to_caps_index(uint8_t bus,
     return -1;
 }
 
+int pci_get_bar_nr_for_index(uint8_t bus,
+                            uint8_t dev,
+                            uint8_t fun,
+                            uint8_t idx)
+{
+    return (dev_caps[bus][dev][fun][idx].bar_nr);
+}
+
 int pci_get_nr_caps_for_bar(uint8_t bus,
                             uint8_t dev,
                             uint8_t fun,

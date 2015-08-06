@@ -141,10 +141,10 @@ reply:
 static void get_cap_response_resend(void *arg);
 
 static void get_cap_response_cont(struct pci_binding *b, errval_t err,
-                                  struct capref cap, uint8_t type)
+                                  struct capref cap, uint8_t type, uint8_t bar_nr)
 {
     errval_t e;
-    e = b->tx_vtbl.get_cap_response(b, NOP_CONT, err, cap, type);
+    e = b->tx_vtbl.get_cap_response(b, NOP_CONT, err, cap, type, bar_nr);
     if(err_is_fail(e)) {
         if(err_no(e) == FLOUNDER_ERR_TX_BUSY) {
             struct client_state *st = b->st;
@@ -153,6 +153,7 @@ static void get_cap_response_cont(struct pci_binding *b, errval_t err,
             me->err = err;
             me->cap = cap;
             me->type = type;
+            me->bar_nr = bar_nr;
             st->cont_st = me;
 
             e = b->register_send(b, get_default_waitset(),
@@ -169,7 +170,7 @@ static void get_cap_response_resend(void *arg)
     struct pci_binding *b = arg;
     struct client_state *st = b->st;
     struct pci_get_cap_response__args *a = st->cont_st;
-    get_cap_response_cont(b, a->err, a->cap, a->type);
+    get_cap_response_cont(b, a->err, a->cap, a->type, a->bar_nr);
     free(a);
 }
 
@@ -189,6 +190,8 @@ static void get_cap_handler(struct pci_binding *b, uint32_t idx,
                                                    st->fun, idx, cap_nr);
         uint8_t type = pci_get_cap_type_for_device(st->bus, st->dev,
                                                    st->fun, idx);
+        uint8_t bar_nr = pci_get_bar_nr_for_index(st->bus, st->dev,
+                                                   st->fun, idx);
 /*
 XXX: I/O-Cap??
         uint8_t type = st->bar_info[idx].type;
@@ -201,7 +204,7 @@ XXX: I/O-Cap??
         }
 */
 
-        get_cap_response_cont(b, SYS_ERR_OK, cap, type);
+        get_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }
 }
 

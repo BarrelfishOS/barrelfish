@@ -134,7 +134,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
             uint8_t type;
 
             err = pci_client->vtbl.get_cap(pci_client, nb, nc, &msgerr, &cap,
-                                           &type);
+                                           &type, &bar->bar_nr);
             if (err_is_fail(err) || err_is_fail(msgerr)) {
                 if (err_is_ok(err)) {
                     err = msgerr;
