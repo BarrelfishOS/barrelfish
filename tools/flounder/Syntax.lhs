@@ -107,6 +107,7 @@ The builtin types being:
 >                  | IRef
 >                  | Cap
 >                  | GiveAwayCap
+>                  | ErrVal
 >                    deriving (Enum, Eq)
 
 Which are shown with:
@@ -129,6 +130,7 @@ Which are shown with:
 >     show IRef = "iref"
 >     show Cap = "cap"
 >     show GiveAwayCap = "give_away_cap"
+>     show ErrVal = "errval"
 
 > instance Read TypeBuiltin where
 >     readsPrec _ = \s -> case s of 
@@ -150,6 +152,7 @@ Which are shown with:
 >                                "iref" -> [(IRef, "")]
 >                                "cap" -> [(Cap, "")]
 >                                "give_away_cap" -> [(GiveAwayCap, "")]
+>                                "errval" -> [(ErrVal, "")]
 >                                _ -> error  $ "Undefined builtin type " ++ s
 
 Hence, we can define:

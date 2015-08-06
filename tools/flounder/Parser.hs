@@ -57,7 +57,7 @@ semiSep    = P.semiSep lexer
 symbol     = P.symbol lexer
 natural    = P.natural lexer
 
-builtinTypes = map show [UInt8 ..] ++ ["int"] -- int is legacy -AB
+builtinTypes = map show [UInt8 ..] ++ ["errval"] ++ ["int"] -- int is legacy -AB
 
 -- identifyBuiltin :: [(String, Declaration)] -> String -> TypeRef
 identifyBuiltin typeDcls typeName = 

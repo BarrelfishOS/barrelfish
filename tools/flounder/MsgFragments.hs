@@ -233,6 +233,7 @@ bitsizeof_builtin _ IRef = 32 -- FIXME: move out of flounder
 bitsizeof_builtin _ Char = 8
 bitsizeof_builtin _ String = undefined
 bitsizeof_builtin _ Cap = undefined
+bitsizeof_builtin _ ErrVal = 32
 bitsizeof_builtin _ GiveAwayCap = undefined
 
 

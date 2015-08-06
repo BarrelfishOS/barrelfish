@@ -439,7 +439,7 @@ cc_rx_fn ifn types msg@(RPC name rpcargs metaargs) =
         vtbl = gen_binding `C.FieldOf` "rx_vtbl"
         pr_region_var = C.Variable "completed_st" `C.DerefField` "dma_region"
         output_arg_expr :: Maybe Direction -> MessageArgument -> [C.Expr]
-        output_arg_expr _ (Arg (TypeAlias "errval" _) (Name "status")) = [C.Variable "SYS_ERR_OK"]
+        output_arg_expr _ (Arg (Builtin ErrVal) (Name "status")) = [C.Variable "SYS_ERR_OK"]
         output_arg_expr (Just RX) (Arg (Builtin UInt8) (DynamicArray _ _)) = [C.Variable dma_data_name, dma_size]
         output_arg_expr _ arg = error ("unrecoginized output argument " ++ (show arg))
 
