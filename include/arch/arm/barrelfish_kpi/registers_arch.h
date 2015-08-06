@@ -113,7 +113,7 @@ registers_set_param(arch_registers_state_t *regs, uint32_t param)
 }
 
 static inline void
-registers_get_param(arch_registers_state_t *regs, uint32_t *param)
+registers_get_param(arch_registers_state_t *regs, uintptr_t *param)
 {
     *param = regs->named.r0;
 }
