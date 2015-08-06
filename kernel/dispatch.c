@@ -355,8 +355,8 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
  * \param ep     Endpoint capability to send to
  * \param payload_len Length (in number of words) of payload
  */
-static errval_t lmp_can_deliver_payload(struct capability *ep,
-                                        size_t payload_len)
+errval_t lmp_can_deliver_payload(struct capability *ep,
+                                 size_t payload_len)
 {
     assert(ep != NULL);
     assert(ep->type == ObjType_EndPoint);

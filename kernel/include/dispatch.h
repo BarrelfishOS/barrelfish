@@ -72,6 +72,8 @@ static inline const char *get_disp_name(struct dcb *dcb)
 extern struct dcb *dcb_current, *fpu_dcb;
 
 void dispatch(struct dcb *dcb) __attribute__ ((noreturn));
+errval_t lmp_can_deliver_payload(struct capability *ep,
+                                 size_t payload_len);
 errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              uintptr_t *payload, size_t payload_len,
                              bool captransfer);
