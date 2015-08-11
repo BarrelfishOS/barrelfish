@@ -201,7 +201,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "webserver",
                            "xeon_phi",
                            "xeon_phi_mgr"
-                           ]]
+                           ]] ++ modules_common
     
     -- the following are broken in the newidc system
     modules_x86_64_broken  = [ "/sbin/" ++ f | f <- [ 
@@ -297,7 +297,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
    --
    
     platform "X86_64_Basic" [ "x86_64" ]
-      ([ ("x86_64", f) | f <- modules_x86_64 ] ++
+      ([ ("x86_64", f) | f <- modules_x86_64 ]
+       ++
        [ ("",       f) | f <- modules_generic])
       "Basic 64-bit x86 PC build",
 
