@@ -351,6 +351,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.pandaboard",
             Str "--baseaddr", Str "0x82001000",
             Str "--image",    Out "root" "/pandaboard_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
@@ -362,6 +364,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--baseaddr", Str "0x00",
             Str "--cflags",   Str "\"-march=armv7-m -mcpu=cortex-m3 -mthumb\"",
             Str "--image",    Out "root" "/pandaboard_m3image_intermediate",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7-m" m) | m <- pandaM3Modules ]),
 
@@ -383,6 +387,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--baseaddr", Str "0x82001000",
             Str "--extra",    In BuildTree "root" "/pandaboard_m3image",
             Str "--image",    Out "root" "/pandaboard_hetero_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
@@ -393,6 +399,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5_mc",
             Str "--baseaddr", Str "0x00100000",
             Str "--image",    Out "root" "/arm_gem5_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- gem5Modules ]),
 
