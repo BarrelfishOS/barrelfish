@@ -11,6 +11,8 @@
 
 DFLTARCHS="\"x86_64\""
 RUN_HAKE="Yes"
+TOOLCHAIN="ubuntu"
+HAKEDIR=$(dirname $0)
 
 usage() { 
     echo "Usage: $0 <options>"
@@ -21,6 +23,8 @@ usage() {
     echo "       $DFLTARCHS"
     echo "   -n|--no-hake: just rebuild hake itself, don't run it (only useful"
     echo "       for debugging hake)"
+    echo "   -t|--toolchain: toolchain to use when bootstrapping a new"
+    echo "       build tree (-t list for available options)."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
     echo "  build tree, cd into it, and run this script with the --source-dir"
@@ -29,6 +33,15 @@ usage() {
     echo "  Known architectures may include: "
     echo "     x86_64 x86_32 armv5 arm11mp xscale armv7 armv7-m k10m"
     exit 1;
+}
+
+toolchains() {
+    TOOLCHAINS=$(ls ${HAKEDIR}/Config.hs.* | sed s/.*Config\.hs\.//)
+    echo "Available toolchains:"
+    for tc in ${TOOLCHAINS}; do
+        echo "   $tc"
+    done
+    exit 1
 }
 
 #
@@ -48,25 +61,38 @@ while [ $# -ne 0 ]; do
     case $1 in
 	"-a"|"--architecture") 
 	    if [ -z "$NEWARCHS" ] ; then
-		NEWARCHS="\"$2\""
+		    NEWARCHS="\"$2\""
 	    else
-		NEWARCHS="$NEWARCHS, \"$2\""
+		    NEWARCHS="$NEWARCHS, \"$2\""
 	    fi
+        shift 
 	    ;;
 	"-i"|"--install-dir")
 	    INSTALLDIR="$2"
+        shift 
 	    ;;
 	"-s"|"--source-dir")
 	    SRCDIR="$2"
+        shift 
 	    ;;
 	"-n"|"--no-hake")
 	    RUN_HAKE="No"
 	    ;;
+    "-t"|"--toolchain")
+        TOOLCHAIN="$2"
+        shift
+        if [ "${TOOLCHAIN}" == "list" ]; then
+            toolchains
+        fi
+        if [ ! -f ${HAKEDIR}/Config.hs.${TOOLCHAIN} ]; then
+            echo "Unknown toolchain \"${TOOLCHAIN}\""
+            exit 1
+        fi
+        ;;
 	*) 
 	    usage
 	    ;;
     esac
-    shift 
     shift
 done
 
@@ -104,7 +130,8 @@ fi
 
 echo "Setting up hake build directory..."
 if [ ! -f hake/Config.hs ]; then
-    cp $SRCDIR/hake/Config.hs.template hake/Config.hs
+    echo "Bootstrapping with toolchain \"${TOOLCHAIN}\""
+    cp $SRCDIR/hake/Config.hs.${TOOLCHAIN} hake/Config.hs
     cat >> hake/Config.hs <<EOF
 
 -- Automatically added by hake.sh. Do NOT copy these definitions to the defaults

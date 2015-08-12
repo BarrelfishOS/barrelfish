@@ -22,12 +22,16 @@ import Data.List
 --
 -- Toolchain definitions.  By default, these rely on $PATH 
 --
-arm_cc       = "arm-linux-gnueabi-gcc"
-arm_objcopy  = "arm-linux-gnueabi-objcopy"
-arm_objdump  = "arm-linux-gnueabi-objdump"
-arm_ar       = "arm-linux-gnueabi-ar"
-arm_ranlib   = "arm-linux-gnueabi-ranlib"
-arm_cxx      = "arm-linux-gnueabi-g++"
+arm_gcc_path = "/home/netos/tools/gcc-arm-embedded/" ++
+               "gcc-arm-none-eabi-4_9-2014q4" ++
+               "/bin/"
+arm_gcc_prefix = "arm-none-eabi-"
+arm_cc       = arm_gcc_path ++ arm_gcc_prefix ++ "gcc"
+arm_objcopy  = arm_gcc_path ++ arm_gcc_prefix ++ "objcopy"
+arm_objdump  = arm_gcc_path ++ arm_gcc_prefix ++ "objdump"
+arm_ar       = arm_gcc_path ++ arm_gcc_prefix ++ "ar"
+arm_ranlib   = arm_gcc_path ++ arm_gcc_prefix ++ "ranlib"
+arm_cxx      = arm_gcc_path ++ arm_gcc_prefix ++ "g++"
 
 x86_cc       = "gcc"
 x86_cxx      = "g++"
