@@ -288,7 +288,8 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t offset, size_t pages)
 #error setup page sizes for arch
 #endif
         default:
-            panic("cannot find page size for cap type: %d\n", leaf_pt->cap);
+            panic("cannot find page size for cap type: %d\n",
+                  leaf_pt->cap.type);
             break;
     }
     assert(page_size);
