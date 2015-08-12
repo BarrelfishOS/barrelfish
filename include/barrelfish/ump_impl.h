@@ -36,6 +36,9 @@ __BEGIN_DECLS
 # endif
 #elif defined(__arm__)
 #  define CACHELINE_BYTES 32
+#elif defined(__aarch64__)
+// XXX: is this true?
+#  define CACHELINE_BYTES 64
 #else
 # error set CACHELINE_BYTES appropriately
 #endif

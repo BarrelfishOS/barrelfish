@@ -43,6 +43,8 @@ typedef genpaddr_t memsize_t;
 #elif defined(__arm__)
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31
+#elif defined(__aarch64__)
+#       define MAXSIZEBITS     48 // XXX: what's the right value here?
 #else
 #       error Unknown architecture
 #endif
