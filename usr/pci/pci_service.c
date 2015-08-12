@@ -183,7 +183,7 @@ static void get_cap_handler(struct pci_binding *b, uint32_t idx,
 
     if (idx >= st->nr_allocated_bars) {
         e = b->tx_vtbl.get_cap_response(b, NOP_CONT, PCI_ERR_WRONG_INDEX,
-                                        NULL_CAP, 0);
+                                        NULL_CAP, 0, 0);
         assert(err_is_ok(e));
     } else {
         struct capref cap = pci_get_cap_for_device(st->bus, st->dev,
