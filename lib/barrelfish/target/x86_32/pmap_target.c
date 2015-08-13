@@ -57,6 +57,10 @@ static paging_x86_32_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
         if (vregion_flags & VREGION_FLAGS_NOCACHE) {
             pmap_flags |= X86_32_PTABLE_CACHE_DISABLED;
         }
+        else if (vregion_flags & VREGION_FLAGS_WRITE_COMBINING) {
+            // PA4 is configured as write-combining
+            pmap_flags |= PTABLE_ATTR_INDEX;
+        }
 #ifdef __scc__
         if (vregion_flags & VREGION_FLAGS_MPB) {
             pmap_flags |= SCC_PTABLE_MESSAGE_BUFFER;
