@@ -87,7 +87,7 @@
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 {
-    STATIC_ASSERT(0xff == VREGION_FLAGS_MASK, "");
+    STATIC_ASSERT(0x1ff == VREGION_FLAGS_MASK, "");
     STATIC_ASSERT(0x0f == KPI_PAGING_FLAGS_MASK, "");
     STATIC_ASSERT(VREGION_FLAGS_READ    == KPI_PAGING_FLAGS_READ,    "");
     STATIC_ASSERT(VREGION_FLAGS_WRITE   == KPI_PAGING_FLAGS_WRITE,   "");
@@ -96,6 +96,10 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     if ((flags & VREGION_FLAGS_MPB) != 0) {
         // XXX: ignore MPB flag on ARM, otherwise the assert below fires -AB
         flags &= ~VREGION_FLAGS_MPB;
+    }
+    if ((flags & VREGION_FLAGS_WRITE_COMBINING) != 0) {
+        // XXX mask out write-combining flag on ARM
+        flags &= ~VREGION_FLAGS_WRITE_COMBINING;
     }
     if ((flags & VREGION_FLAGS_GUARD) != 0) {
         flags = 0;
