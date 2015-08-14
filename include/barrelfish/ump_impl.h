@@ -200,6 +200,7 @@ static inline volatile struct ump_message *ump_impl_get_next(
     // construct header
     ctrl->epoch = c->epoch;
 
+#ifdef __x86_64__
     if(debug_notify_syscall) {
         printf("ump_impl_get_next while forbidden from %p, %p, %p, %p, %p, %p, %p\n",
                __builtin_return_address(0),
@@ -210,6 +211,7 @@ static inline volatile struct ump_message *ump_impl_get_next(
                __builtin_return_address(5),
                __builtin_return_address(6));
     }
+#endif
 
     volatile struct ump_message *msg = &c->buf[c->pos];
 

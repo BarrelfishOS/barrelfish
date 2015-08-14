@@ -242,18 +242,19 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     if (dcb->disabled) {
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
-                  disp->name, (uint64_t)registers_get_ip(disabled_area));
+                    disp->name, (uint64_t)registers_get_ip(disabled_area));
             assert(dispatcher_is_disabled_ip(handle,
-                                             registers_get_ip(disabled_area)));
+                        registers_get_ip(disabled_area)));
         }
 
+#if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
             resume(disabled_area);
-        }
-#if defined(__x86_64__) && !defined(__k1om__)
-        else {
+        } else {
             vmkit_vmenter(dcb);
         }
+#else
+        resume(disabled_area);
 #endif
     } else {
         if (disp != NULL) {
@@ -261,13 +262,14 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
             assert(disp->dispatcher_run != 0);
             disp->disabled = 1;
         }
+#if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
             execute(disp->dispatcher_run);
-    }
-#if defined(__x86_64__) && !defined(__k1om__)
-        else {
+        } else {
             vmkit_vmexec(dcb, (disp) ? disp->dispatcher_run : 0);
         }
+#else
+        execute(disp->dispatcher_run);
 #endif
     }
 } // end function: dispatch
