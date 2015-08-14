@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008, ETH Zurich.
+ * Copyright (c) 2013, University of Washington.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.

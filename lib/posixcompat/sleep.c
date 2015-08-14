@@ -14,3 +14,9 @@ unsigned int sleep(unsigned int seconds)
 {
     return usleep((useconds_t)seconds * 1000000);
 }
+
+int nanosleep(const struct timespec *req, struct timespec *rem)
+{
+    assert(!"NYI");
+    return -1;
+}

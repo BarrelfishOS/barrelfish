@@ -38,6 +38,12 @@ struct cnoderef cnode_root = {
     .size_bits = DEFAULT_CNODE_BITS, \
     .guard_size = GUARD_REMAINDER(2 * DEFAULT_CNODE_BITS) }
 
+#define PAGE_CNODE_INIT { \
+    .address = ROOTCN_SLOT_PAGECN << DEFAULT_CN_ADDR_BITS, \
+    .address_bits = DEFAULT_CNODE_BITS, \
+    .size_bits = PAGE_CNODE_BITS, \
+    .guard_size = 0 }
+
 /// Task CNode
 struct cnoderef cnode_task = TASK_CNODE_INIT;
 
@@ -58,12 +64,7 @@ struct cnoderef cnode_super = {
 };
 
 /// Page CNode
-struct cnoderef cnode_page = {
-    .address = ROOTCN_SLOT_PAGECN << DEFAULT_CN_ADDR_BITS,
-    .address_bits = DEFAULT_CNODE_BITS,
-    .size_bits = PAGE_CNODE_BITS,
-    .guard_size = 0
-};
+struct cnoderef cnode_page = PAGE_CNODE_INIT;
 
 /// Module CNode
 struct cnoderef cnode_module = {
@@ -149,6 +150,12 @@ struct capref cap_initep = {
 struct capref cap_sessionid = {
     .cnode = TASK_CNODE_INIT,
     .slot = TASKCN_SLOT_SESSIONID
+};
+
+/// Root PML4 VNode
+struct capref cap_vroot = {
+    .cnode = PAGE_CNODE_INIT,
+    .slot = CPTR_PML4_BASE
 };
 
 static inline bool backoff(int count)

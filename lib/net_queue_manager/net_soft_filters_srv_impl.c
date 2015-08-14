@@ -29,6 +29,7 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <bfdmuxvm/vm.h>
 #include <if/net_soft_filters_defs.h>
+#include <if/net_queue_manager_defs.h>
 #include "queue_manager_local.h"
 #include "queue_manager_debug.h"
 

@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009-2011, 2013, ETH Zurich.
+# Copyright (c) 2013, 2014, University of Washington.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -18,6 +18,12 @@ RACKPOWER=os.path.join(TOOLS_PATH, 'rackpower')
 
 class UWMachine(Machine):
     _uw_machines = uw_machinedata.machines
+
+    host2mgmt = {
+        'bigfish.cs.washington.edu': 'bigfish-e1k1.cs.washington.edu',
+        'swingout1.cs.washington.edu': 'swingout1-brcm1.cs.washington.edu',
+        'swingout5.cs.washington.edu': 'swingout5-brcm1.cs.washington.edu'
+        }
 
     def __init__(self, options):
         super(UWMachine, self).__init__(options)
@@ -50,6 +56,9 @@ class UWMachine(Machine):
     def get_kernel_args(self):
         return self._uw_machines[self.name].get('kernel_args')
 
+    def get_pci_args(self):
+        return self._uw_machines[self.name].get('pci_args')
+
     def get_boot_timeout(self):
         return self._uw_machines[self.name].get('boot_timeout')
 
@@ -57,7 +66,7 @@ class UWMachine(Machine):
         return self.get_machine_name() + '.cs.washington.edu'
 
     def get_ip(self):
-        return socket.gethostbyname(self.get_hostname())
+        return socket.gethostbyname(self.host2mgmt[self.get_hostname()])
 
     def get_tftp_dir(self):
         user = getpass.getuser()
@@ -133,11 +142,20 @@ class UWMachine(Machine):
         self.__rackboot(["-b", "-n"])
 
     def __rackpower(self, arg):
-        try:
-            debug.checkcmd([RACKPOWER, arg, self.get_machine_name()])
-        except subprocess.CalledProcessError:
-            debug.warning("rackpower %s %s failed" %
-                          (arg, self.get_machine_name()))
+        retries = 3
+        failed = False
+        while retries > 0:
+            try:
+                debug.checkcmd([RACKPOWER, arg, self.get_machine_name()])
+            except subprocess.CalledProcessError:
+                debug.warning("rackpower %s %s failed" %
+                        (arg, self.get_machine_name()))
+                failed = True
+                if retries > 0:
+                    debug.verbose("retrying...")
+                    retries -= 1
+            if not failed:
+                break
 
     def reboot(self):
         self.__rackpower('-r')

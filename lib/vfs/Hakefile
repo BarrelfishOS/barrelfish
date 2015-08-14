@@ -1,4 +1,3 @@
-
 --------------------------------------------------------------------------
 -- Copyright (c) 2007-2012, ETH Zurich.
 -- All rights reserved.
@@ -16,7 +15,8 @@
                              "vfs_nfs.c", "vfs_ramfs.c", "cache.c",
                              "vfs_blockdevfs.c", "vfs_blockdevfs_ahci.c",
                              "vfs_blockdevfs_ata.c", "vfs_cache.c", "vfs_fat.c",
-                             "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c"
+                             "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c",
+                             "vfs_blockdevfs_megaraid.c"
                            ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
@@ -35,7 +35,7 @@
                              "cache.c", "vfs_blockdevfs.c",
                              "vfs_blockdevfs_ahci.c", "vfs_blockdevfs_ata.c",
                              "vfs_cache.c", "vfs_fat.c", "vfs_fat_conv.c",
-                             "fdtab.c", "vfs_fd.c"
+                             "fdtab.c", "vfs_fd.c", "vfs_blockdevfs_megaraid.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",

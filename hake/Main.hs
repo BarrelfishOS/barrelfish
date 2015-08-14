@@ -26,6 +26,7 @@ import Data.Dynamic
 import Data.Maybe
 import Data.List
 import Control.Monad
+import Control.Parallel.Strategies
 
 import RuleDefs
 import HakeTypes
@@ -211,7 +212,7 @@ resolveRelativePathName' d a f root =
 --
 makeDirectories :: [(String, HRule)] -> String
 makeDirectories r = 
-    let alldirs = makeDirs1 (Rules [ rl | (f,rl) <- r ])
+    let alldirs = makeDirs1 (Rules [ rl | (f,rl) <- r ]) `using` parListChunk 200 rdeepseq
         marker d = d ./. ".marker"
     in unlines ([ "# Directories follow" ] ++
                 [ "hake_dirs: " ++ (marker d) ++ "\n\n" ++
@@ -265,7 +266,7 @@ allowedArchs = all (\a -> a `elem` (Config.architectures ++ specialArchitectures
 --
 makeMakefile :: [(String, HRule)] -> String
 makeMakefile r = 
-  unlines $ intersperse "" [makeMakefileSection f rl | (f,rl) <- r]
+  unlines $ intersperse "" ([makeMakefileSection f rl | (f,rl) <- r] `using` parList rdeepseq)
 
 makeMakefileSection :: String -> HRule -> String
 makeMakefileSection fname rules = 

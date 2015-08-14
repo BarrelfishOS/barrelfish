@@ -248,12 +248,12 @@ static void idc_request_device_info(struct bulk_e10k *bu)
 /** e10k interface: Register memory for descriptor rings */
 static void idc_register_queue_memory(struct bulk_e10k *bu)
 {
-    errval_t r;
+    errval_t r = SYS_ERR_OK;
     DEBUG("idc_register_queue_memory()\n");
 
-    r = e10k_register_queue_memory__tx(bu->binding, NOP_CONT, bu->qi,
-        bu->txframe, bu->txhwbframe, bu->rxframe, bu->buffer_size, E10K_HDRSZ,
-        bu->int_vector, bu->int_core, USE_INTERRUPTS, false);
+    /* r = e10k_register_queue_memory__tx(bu->binding, NOP_CONT, bu->qi, */
+    /*     bu->txframe, bu->txhwbframe, bu->rxframe, bu->buffer_size, E10K_HDRSZ, */
+    /*     bu->int_vector, bu->int_core, USE_INTERRUPTS, false); */
     assert(err_is_ok(r));
 }
 

@@ -37,6 +37,6 @@ void ec_init(void);
 
 void start_service(void);
 
-
+extern bool vtd_force_off;
 
 #endif /* ACPI_SHARED_H_ */

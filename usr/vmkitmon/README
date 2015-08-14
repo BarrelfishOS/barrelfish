@@ -13,6 +13,24 @@ NOTE II: VMkit does not compile in cmake debug mode atm. The RBP register is
 accessed when saving and restoring the guest's state. The standard
 "RelWithDebInfo" works.
 
+The construction of the disk image:
+
+The image is composed of a partition table and a partition (hd0,0) with an ext3 
+filesystem containing the GRUB menu.lst (in the boot/grub directory as 
+specified in the GRUB stage 2 image), the Linux kernel, initramfs, and other 
+pertinent files, which can be accessed in a relatively simple manner by using 
+loop devices in Linux:
+
+losetup /dev/loop0 system-bench.img
+losetup -o 32256 /dev/loop1 /dev/loop0
+mk -t ext3 /dev/loop1
+mount -t ext3 /dev/loop1 /mnt/example
+
+The offset 32256, the start sector of the partition multiplied by the sector 
+size (in bytes), is obtained by using a disk partitioning utility/application 
+such as fdisk or cfdisk. In this case, the start sector is 63 and the sector 
+size is 512 bytes.
+
 
 GRUB
 ====

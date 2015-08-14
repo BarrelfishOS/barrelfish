@@ -190,10 +190,10 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                 debug(SUBSYS_STARTUP, "RAM %lx--%lx\n", base_addr, end_addr);
                 err = create_caps_to_cnode(base_addr, end_addr - base_addr,
                                            RegionType_Empty, &spawn_state, bootinfo);
-                if (err_no(err) == SYS_ERR_SLOTS_IN_USE) {
-                    printk(LOG_WARN, "not able to create RAM caps for all physical memory in the system, CNode full\n");
+                if(err_is_fail(err)) {
+		    printk(LOG_WARN, "Skipping RAM %lx--%lx...\n", base_addr, end_addr);
                 }
-                assert(err_is_ok(err));
+                /* assert(err_is_ok(err)); */
             }
         } else if (mmap->base_addr > local_phys_to_gen_phys(init_alloc_addr)) {
             /* XXX: The multiboot spec just says that mapping types other than

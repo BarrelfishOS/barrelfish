@@ -110,8 +110,8 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%"PRIuPTR"\033[0m: ", DISP_NAME_LEN, disp_name(),
-                   disp_get_core_id(), thread_id());
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%"PRIuPTR"\033[0m: ",
+                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), thread_id());
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
@@ -410,4 +410,12 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
     if (err != 0) {
         err_print_calltrace(err);
     }
+}
+
+bool debug_notify_syscall = false;
+
+void debug_control_plane_forbidden(void);
+void debug_control_plane_forbidden(void)
+{
+    debug_notify_syscall = true;
 }

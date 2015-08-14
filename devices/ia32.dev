@@ -87,6 +87,65 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	_		48;
     };
 
+    register vmx_basic ro msr(0x480) "Basic VMX Capabilities" {
+        vmcs_rev_id    31 "VMCS Revision Identifier";
+	_              1 mbz;
+ 	region_size    13 "Bytes that should be allocated for VMXON and VMCS regions";
+	_	       3;
+	paddr_width    1 "Physical address width Limited to 32 Bits";   
+	dual_mon       1 "Dual-monitor treatment supported";
+	mem_type       4 "Memory tpe used to access VMCS with VMREAD/VMWRITE";
+	instr_info_io  1 "INS/OUTS info is reported in VM-exit instruction-information";
+	ctls_clear     1 "Controls that default to 1 may be cleared to 0";
+	_ 	       8;
+    };
+
+    // Capability Reporting Registers for VMX Controls
+    register vmx_pinbased_ctls ro msr(0x481) "Pin-based Controls" type(uint64);     
+    register vmx_ppbased_ctls ro msr(0x482) "Primary Processor-based Controls" type(uint64);
+    register vmx_exit_ctls ro msr(0x483) "VM-exit Controls" type(uint64);
+    register vmx_entry_ctls ro msr(0x484) "VM-entry Controls" type(uint64);
+    register vmx_spbased_ctls ro msr(0x48b) "Secondary Processor-based Controls" type(uint64);
+     
+    // Capability Reporting Registers for VMX Flex Controls
+    register vmx_true_pinbased_ctls ro msr(0x48d) "Pin-based Flex Controls" type(uint64);
+    register vmx_true_ppbased_ctls ro msr(0x48e) "Primary Processor-based Flex Controls" type(uint64);
+    register vmx_true_exit_ctls ro msr(0x48f) "VM-exit Flex Controls" type(uint64);
+    register vmx_true_entry_ctls ro msr(0x490) "VM-entry Flex Controls" type(uint64);
+
+    // Capability Reporting Registers of CR0 and CR4 bits
+    register vmx_cr0_fixed0 ro msr(0x486) "CR0 Bits Fixed to 0" type(uint64);
+    register vmx_cr0_fixed1 ro msr(0x487) "CR0 Bits Fixed to 1" type(uint64);
+    register vmx_cr4_fixed0 ro msr(0x488) "CR4 Bits Fixed to 0" type(uint64);
+    register vmx_cr4_fixed1 ro msr(0x489) "CR4 Bits Fixed to 1" type(uint64);
+
+    register vmx_ept_vpid ro msr(0x48c) "EPT and VPID Capabilities" {
+        eot            1 "Support execute-only translation";
+	_              5;
+	pwl4           1 "Support page-walk length of 4";
+	_	       1;
+	ucmt           1 "Support uncacheable memory type";
+	_	       5;
+	wbmt 	       1 "Support write-back memory type";
+	_	       1;
+	ps21 	       1 "Support EPT PDE mapping to 2MB page";
+	ps30	       1 "Support EPT PDE mapping to 1GB page";
+	_ 	       2;
+	invept_instr   1 "Support the instruction INVEPT";
+	ept_adf        1 "Support EPT accessed and dirty flags";
+	_ 	       3;
+	invept_sct     1 "Support single-context INVEPT type";
+	invept_act     1 "Support all-context INVEPT type";
+	_ 	       5;
+	invvpid_instr  1 "Support the instruction INVVPID";
+	_ 	       7;
+	invvpid_iat    1 "Support individual-address INVVPID type";
+	invvpid_sct    1 "Support single-context INVVPID type";
+	invvpid_act    1 "Support all-context INVVPID type";
+	invvpid_scrgt  1 "Support single-context-retaining-globals INVVPID type";
+     	_ 	       20; 
+    };        
+
     register bios_updt_trig rw msr(0x79) "BIOS update trigger" type(uint64);
     register bios_sign_id rw msr(0x8b) "BIOS update signature" type(uint64);
     register smm_monitor_ctl rw msr(0x9b) "SMM Monitor config" type(uint64);
@@ -341,6 +400,9 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 
     register lstar msr(0xc0000082) "Long mode Syscall target address" 
 	type(uint64);
+
+    register cstar msr(0xc0000083) "Compatibility mode Syscall target address"
+        type(uint64);  
 
     register fmask msr(0xc0000084) "SYSCALL EFLAGS mask" {
 	v	32 "Value";

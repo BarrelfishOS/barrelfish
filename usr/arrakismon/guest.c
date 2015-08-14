@@ -30,8 +30,14 @@
 #include "pci_host.h"
 
 #define VMCB_SIZE       0x1000      // 4KB
+#ifdef CONFIG_SVM
 #define IOPM_SIZE       0x3000      // 12KB
 #define MSRPM_SIZE      0x2000      // 8KB
+#else
+#define IOBMP_A_SIZE    0x1000      // 4KB
+#define IOBMP_B_SIZE    0x1000      // 4BB
+#define MSRPM_SIZE      0x1000      // 4KB
+#endif
 #define RM_MEM_SIZE     (0x100000 + BASE_PAGE_SIZE)    // 1MB + A20 gate space
 
 #define APIC_BASE       0xfee00000
@@ -207,7 +213,12 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 static void
 initialize_iopm (struct guest *self) {
     // intercept all IO port accesses (for now)
+#ifdef CONFIG_SVM
     memset((void*)self->iopm_va, 0xFF, IOPM_SIZE);
+#else 
+    memset((void*)self->iobmp_a_va, 0xFF, IOBMP_A_SIZE);
+    memset((void*)self->iobmp_b_va, 0xFF, IOBMP_B_SIZE);
+#endif
 }
 
 // access_mode: 0 all access, 1 read intercept, 2 write intercept, 3 all interc.
@@ -312,6 +323,7 @@ do {                                             \
     amd_vmcb_##x## _limit_wr((vmcb), 0xffffffff);   \
 } while (0)
 
+#ifdef CONFIG_SVM
 /* This method initializes a new VMCB memory regsion and sets the initial
  * machine state as defined by the AMD64 architecture specification */
 static void
@@ -388,6 +400,7 @@ initialize_vmcb (struct guest *self) {
     // svm requires guest EFER.SVME to be set
     amd_vmcb_efer_svme_wrf(&self->vmcb, 1);
 }
+#endif
 
 static void
 idc_handler(void *arg)
@@ -469,6 +482,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si) {
     // Setup virtual machine
     arch_registers_state_t *regs =
         dispatcher_get_disabled_save_area(si->handle);
+#ifdef CONFIG_SVM
     amd_vmcb_rax_wr(&g->vmcb, regs->rax);
     memcpy(&g->ctrl->regs, regs, sizeof(arch_registers_state_t));
     amd_vmcb_rsp_wr(&g->vmcb, regs->rsp);
@@ -513,7 +527,19 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si) {
 
     // Disable nested paging
     amd_vmcb_np_enable_wrf(&g->vmcb, 0);
+#else
+    err = 0;
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_IOBMP_A_F, g->iobmp_a_pa);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_IOBMP_B_F, g->iobmp_b_pa);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_MSRBMP_F, g->msrpm_pa);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_VPID, ++last_guest_asid);
 
+    memcpy(&g->ctrl->regs, regs, sizeof(arch_registers_state_t));
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RSP, regs->rsp);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, regs->rip);
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, regs->eflags);
+    assert(err_is_ok(err));
+#endif
     for(int i = 0; i < si->vregions; i++) {
       printf("vregion %d: base = %" PRIxGENVADDR ", region = %" PRIxGENVADDR "\n",
 	     i, si->base[i], vregion_get_base_addr(si->vregion[i]));
@@ -718,6 +744,7 @@ guest_setup (struct guest *g)
     g->ctrl->num_vm_exits_with_monitor_invocation = 0;
     g->ctrl->num_vm_exits_without_monitor_invocation = 0;
 
+#ifdef CONFIG_SVM
     // allocate memory for the iopm
     err = frame_alloc(&g->iopm_cap, IOPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
@@ -730,7 +757,33 @@ guest_setup (struct guest *g)
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
     }
+#else
+    // allocate memory for I/O bitmap A
+    err = frame_alloc(&g->iobmp_a_cap, IOBMP_A_SIZE, NULL);
+    assert_err(err, "frame_alloc");
+    err = invoke_frame_identify(g->iobmp_a_cap, &fi);
+    assert_err(err, "frame_identify");
+    g->iobmp_a_pa = fi.base;
+    err = vspace_map_one_frame_attr((void**)&g->iobmp_a_va, IOBMP_A_SIZE, g->iobmp_a_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
+    }
 
+    // allocate memory for I/O bitmap B
+    err = frame_alloc(&g->iobmp_b_cap, IOBMP_B_SIZE, NULL);
+    assert_err(err, "frame_alloc");
+    err = invoke_frame_identify(g->iobmp_b_cap, &fi);
+    assert_err(err, "frame_identify");
+    g->iobmp_b_pa = fi.base;
+    err = vspace_map_one_frame_attr((void**)&g->iobmp_b_va, IOBMP_B_SIZE, g->iobmp_b_cap,
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame_attr failed");
+    }
+#endif
     // allocate memory fot the msrpm
     err = frame_alloc(&g->msrpm_cap, MSRPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
@@ -748,8 +801,9 @@ guest_setup (struct guest *g)
     // initialize the allocated structures
     initialize_iopm(g);
     initialize_msrpm(g);
+#ifdef CONFIG_SVM
     initialize_vmcb(g);
-
+#endif
     // spawn the guest domain
     /* spawn_guest_domain(g); */
     /* assert (grub_image != NULL); */

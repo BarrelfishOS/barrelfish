@@ -46,3 +46,4 @@ uint64_t bench_tsc_per_ms(void)
 {
     return tscperms;
 }
+

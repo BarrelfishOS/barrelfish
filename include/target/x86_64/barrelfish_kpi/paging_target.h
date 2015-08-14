@@ -42,6 +42,7 @@ typedef uint64_t paging_x86_64_flags_t;
  * Bits within the various page directories and tables.
  */
 #define X86_64_PTABLE_EXECUTE_DISABLE  (((paging_x86_64_flags_t)1) << 63)
+#define X86_64_VTD_PAGE_SNOOP          (((paging_x86_64_flags_t)1) << 11)
 #define X86_64_PTABLE_GLOBAL_PAGE      (((paging_x86_64_flags_t)1) << 8)
 #define X86_64_PTABLE_ATTR_INDEX       (((paging_x86_64_flags_t)1) << 7)
 #define X86_64_PTABLE_DIRTY            (((paging_x86_64_flags_t)1) << 6)

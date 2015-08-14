@@ -1300,6 +1300,11 @@ static void query_bars(pci_hdr0_t devhdr,
                           i, origbase64, bar_mapping_size64(base64),
                           (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
+	      PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %" PRIx64 ", %s\n",
+			addr.bus, addr.device, addr.function,
+			i, origbase64 << 7, bar_mapping_size64(base64),
+			(bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+
                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
                              "16'%" PRIx64 ", mem, %s, %d).", addr.bus,
                              addr.device, addr.function, i, origbase64,
@@ -1309,6 +1314,11 @@ static void query_bars(pci_hdr0_t devhdr,
 
                 i++;  //step one forward, because it is a 64bit BAR
             } else {
+	      PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
+			addr.bus, addr.device, addr.function,
+			i, barorigaddr.base << 7, bar_mapping_size(bar),
+			(bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+
                 //32bit BAR
                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32
                              ", mem, %s, %d).", addr.bus, addr.device, addr.function,
@@ -1318,6 +1328,9 @@ static void query_bars(pci_hdr0_t devhdr,
                              type);
             }
         } else {
+	  PCI_DEBUG("(%u,%u,%u): IO BAR %d at 0x%x, size %x\n",
+		    addr.bus, addr.device, addr.function,
+		    i, barorigaddr.base << 7, bar_mapping_size(bar));
             //bar(addr(bus, device, function), barnr, orig address, size, space).
             //where space = mem | io
             skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%" PRIx32 ", io, "

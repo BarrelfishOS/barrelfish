@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2013, ETH Zurich.
+ * Copyright (c) 2011, 2013, 2014, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -24,6 +24,12 @@ int _posixcompat_add_child(pid_t pid);
 pid_t wait(int *status)
 {
     return waitpid(-1, status, 0);
+}
+
+pid_t wait3(int *status, int options, struct rusage *rusage)
+{
+    // XXX: Won't touch rusage at all
+    return waitpid(-1, status, options);
 }
 
 pid_t waitpid(pid_t pid, int *status, int options)

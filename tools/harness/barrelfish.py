@@ -142,9 +142,9 @@ def default_bootmodules(build, machine):
         or is_babybel == 1 :
             # PCI allocation broken, use BIOS plan
             m.add_module("%s/sbin/pci" % a, ["auto",
-                                             "skb_bridge_program=bridge_bios"])
+                                             "skb_bridge_program=bridge_bios"] + machine.get_pci_args())
         else:
-            m.add_module("%s/sbin/pci" % a, ["auto"])
+            m.add_module("%s/sbin/pci" % a, ["auto"] + machine.get_pci_args())
 
         if is_babybel :
             m.add_module("%s/sbin/kaluga" % a, ["boot", "eth0=4:0:0"])

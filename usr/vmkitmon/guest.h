@@ -15,7 +15,11 @@
 #define GUEST_H
 
 #include <barrelfish/barrelfish.h>
+#ifdef CONFIG_SVM
 #include <dev/amd_vmcb_dev.h>
+#else
+#include "vmx.h"
+#endif
 
 struct guest {
     // indicates whether the guest is runnable atm or waiting
@@ -32,15 +36,34 @@ struct guest {
     struct capref           ctrl_cap;
     struct guest_control    *ctrl;
     // IOPM data (IO port access)
+#ifdef CONFIG_SVM
     struct capref           iopm_cap;
     lpaddr_t                 iopm_pa;
     lvaddr_t                 iopm_va;
+#else
+    // I/O bitmap A
+    struct capref iobmp_a_cap;
+    lpaddr_t iobmp_a_pa;
+    lvaddr_t iobmp_a_va;
+  
+    // I/O bitmap B
+    struct capref iobmp_b_cap;
+    lpaddr_t iobmp_b_pa;
+    lvaddr_t iobmp_b_va;
+
+    // Guest MSR store/load area
+    struct capref msr_area_cap;
+    lpaddr_t msr_area_pa;
+    lvaddr_t msr_area_va;  
+#endif
     // MSRPM data (MSR access)
     struct capref           msrpm_cap;
     lpaddr_t                 msrpm_pa;
     lvaddr_t                 msrpm_va;
+#ifdef CONFIG_SVM
     // Mackerel data structure to VMCV
     amd_vmcb_t              vmcb;
+#endif
     // Guest dispatcher
     struct capref           dcb_cap;
     // Guests physical address space (virtual to the domain)
@@ -93,69 +116,117 @@ static inline lvaddr_t
 static inline uint64_t
 guest_get_rax (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rax_rd(&g->vmcb);
+#else
+    return g->ctrl->regs.rax;
+#endif
 }
 
 static inline void
 guest_set_rax (struct guest *g, uint64_t val)
 {
+#ifdef CONFIG_SVM
     amd_vmcb_rax_wr(&g->vmcb, val);
+#else
+    g->ctrl->regs.rax = val;
+#endif
 }
 
 static inline uint32_t
 guest_get_eax (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rax_rd(&g->vmcb) & 0xffffffff;
+#else
+    return (g->ctrl->regs.rax) & 0xffffffff;
+#endif
 }
 
 static inline void
 guest_set_eax (struct guest *g, uint32_t val)
 {
+#ifdef CONFIG_SVM
     uint64_t buf = amd_vmcb_rax_rd(&g->vmcb);
     buf = (buf & ~0xffffffff) | val;
     amd_vmcb_rax_wr(&g->vmcb, buf);
+#else
+    uint64_t buf = g->ctrl->regs.rax;
+    buf = (buf & ~0xffffffff) | val;
+    g->ctrl->regs.rax = buf;
+#endif
 }
 
 static inline uint16_t
 guest_get_ax (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rax_rd(&g->vmcb) & 0xffff;
+#else
+    return (g->ctrl->regs.rax) & 0xffff;
+#endif
 }
 
 static inline void
 guest_set_ax (struct guest *g, uint16_t val)
 {
+#ifdef CONFIG_SVM
     uint64_t buf = amd_vmcb_rax_rd(&g->vmcb);
     buf = (buf & ~0xffff) | val;
     amd_vmcb_rax_wr(&g->vmcb, buf);
+#else
+    uint64_t buf = g->ctrl->regs.rax;
+    buf = (buf & ~0xffff) | val;
+    g->ctrl->regs.rax = buf;
+#endif
 }
 
 static inline uint8_t
 guest_get_ah (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rax_rd(&g->vmcb) >> 8;
+#else
+    return (g->ctrl->regs.rax) >> 8;
+#endif
 }
 
 static inline void
 guest_set_ah (struct guest *g, uint8_t val)
 {
+#ifdef CONFIG_SVM
     uint64_t buf = amd_vmcb_rax_rd(&g->vmcb);
     buf = (buf & ~0xff00) | ((uint64_t)val) << 8;
     amd_vmcb_rax_wr(&g->vmcb, buf);
+#else
+    uint64_t buf = g->ctrl->regs.rax;
+    buf = (buf & ~0xff00) | ((uint64_t)val) << 8;
+    g->ctrl->regs.rax = buf;
+#endif
 }
 
 static inline uint8_t
 guest_get_al (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rax_rd(&g->vmcb);
+#else
+    return g->ctrl->regs.rax;
+#endif
 }
 
 static inline void
 guest_set_al (struct guest *g, uint8_t val)
 {
+#ifdef CONFIG_SVM
     uint64_t buf = amd_vmcb_rax_rd(&g->vmcb);
     buf = (buf & ~0xff) | val;
     amd_vmcb_rax_wr(&g->vmcb, buf);
+#else
+    uint64_t buf = g->ctrl->regs.rax;
+    buf = (buf & ~0xff) | val;
+    g->ctrl->regs.rax = buf;
+#endif
 }
 
 
@@ -403,13 +474,25 @@ guest_set_si (struct guest *g, uint16_t val)
 static inline uint64_t
 guest_get_rsp (struct guest *g)
 {
+#ifdef CONFIG_SVM
     return amd_vmcb_rsp_rd(&g->vmcb);
+#else
+    uint64_t guest_rsp;
+    errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RSP, &guest_rsp);
+    assert(err_is_ok(err));
+    return guest_rsp;
+#endif
 }
 
 static inline void
 guest_set_rsp (struct guest *g, uint64_t val)
 {
+#ifdef CONFIG_SVM
     amd_vmcb_rsp_wr(&g->vmcb, val);
+#else
+    errval_t err = invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RSP, val);
+    assert(err_is_ok(err));
+#endif
 }
 
 

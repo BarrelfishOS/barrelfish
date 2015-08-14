@@ -13,8 +13,19 @@
 
 [ build library { target = "ahci",
                       cFiles = [ "ahci.c", "ahci_util.c", "sata_fis.c", "ahci_dma_pool.c" ],
-                      flounderBindings = [ "ahci_mgmt" ],
-                      flounderExtraBindings = [ ("ahci_mgmt", ["rpcclient"]) ],
+                      flounderDefs = [ "ata_rw28" ],
+                      flounderBindings = [ "ahci_mgmt", "ata_rw28" ],
+                      flounderExtraBindings = [ ("ahci_mgmt", ["rpcclient"]),
+                                                ("ata_rw28", ["ahci", "rpcclient"]) ],
+                      mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
+                      addLibraries = [ ]
+                },
+  build library { target = "ahci_vsic",
+                      cFiles = [ "ahci.c", "ahci_util.c", "sata_fis.c", "ahci_dma_pool.c", "storage_vsic.c" ],
+                      flounderDefs = [ "ata_rw28" ],
+                      flounderBindings = [ "ahci_mgmt", "ata_rw28" ],
+                      flounderExtraBindings = [ ("ahci_mgmt", ["rpcclient"]),
+                                                ("ata_rw28", ["ahci", "rpcclient"]) ],
                       mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
                       addLibraries = [ ]
                 }
