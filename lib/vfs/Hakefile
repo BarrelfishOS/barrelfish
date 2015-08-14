@@ -49,5 +49,16 @@
                                             ("ata_rw28", ["ahci", "rpcclient"])
                                           ],
                   flounderDefs = [ "monitor" ]
+                },
+  build library { target = "vfs_ramfs",
+                  cFiles = [ "vfs.c", "vfs_path.c", "fopen.c", "vfs_ramfs.c",
+                             "cache.c", "vfs_cache.c", "fdtab.c", "vfs_fd.c"
+                           ],
+                  addCFlags = [ "-DDISABLE_NFS", "-DDISABLE_BLOCKDEV" ],
+                  flounderBindings = [ "trivfs", "bcache" ],
+                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
+                                            ("bcache", ["rpcclient"])
+                                          ],
+                  flounderDefs = [ "monitor" ]
                 }
 ]

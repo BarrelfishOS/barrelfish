@@ -101,6 +101,10 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
         // XXX mask out write-combining flag on ARM
         flags &= ~VREGION_FLAGS_WRITE_COMBINING;
     }
+    if ((flags & VREGION_FLAGS_VTD_SNOOP) != 0) {
+        // XXX mask out vtd-snooping flag on ARM
+        flags &= ~VREGION_FLAGS_VTD_SNOOP;
+    }
     if ((flags & VREGION_FLAGS_GUARD) != 0) {
         flags = 0;
     }

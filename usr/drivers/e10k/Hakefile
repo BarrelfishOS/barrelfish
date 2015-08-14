@@ -45,7 +45,7 @@
                       cFiles = [ "e10k_vf.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q", "e10k_vf" ],
-                      flounderBindings = [ "e10k_vf" ],
+                      flounderBindings = [ "e10k_vf", "net_queue_manager" ],
                       flounderExtraBindings = [ ("e10k_vf", ["rpcclient"]) ],
                       flounderDefs = [ "e10k_vf" ],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
@@ -82,7 +82,7 @@
 
   build application { target = "e10k_queue_elb",
                       cFiles = [ "e10k_qdriver.c", "helper.c" ],
-                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf" ],
                       --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps ["ethernet_latency_benchmark", "bench",

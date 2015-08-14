@@ -22,7 +22,7 @@
   build application { target = "fish",
                       cFiles = [ "fish_common.c", "fish_arm.c", "font.c" ],
                       flounderExtraBindings = [("octopus", ["rpcclient"])],
-                      addLibraries = libDeps ["trace", "skb", "vfs", "lwip", "octopus" ],
+                      addLibraries = libDeps ["trace", "skb", "vfs_ramfs", "lwip", "octopus" ],
                       flounderBindings = [ "pixels" ],
                       architectures = [  "armv7" ]
                     }

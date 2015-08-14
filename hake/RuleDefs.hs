@@ -1144,6 +1144,7 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 str2dep :: String -> LibDepTree
 str2dep  str
     | str == "vfs"           = libvfs_deps_all
+    | str == "vfs_ramfsonly" = LibDeps $ [ LibDep "vfs_ramfs" ]
     | str == "vfs_nonfs"     = libvfs_deps_nonfs
     | str == "posixcompat"   = libposixcompat_deps
     | str == "lwip"          = liblwip_deps

@@ -11,14 +11,27 @@
 [
   build application { target = "fread_test",
                       cFiles = [ "fread_test.c" ],
-                      addLibraries = libDeps ["vfs", "lwip" ]
+                      addLibraries = libDeps ["vfs", "lwip" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "fscanf_test",
                       cFiles = [ "fscanf_test.c" ],
-                      addLibraries = libDeps ["vfs", "lwip" ]
+                      addLibraries = libDeps ["vfs", "lwip" ],
+                      architectures = [ "x86_64", "x86_32" ]
+                    },
+  build application { target = "fread_test",
+                      cFiles = [ "fread_test.c" ],
+                      addLibraries = libDeps ["vfs_ramfs" ],
+                      architectures = [ "armv5", "armv7", "armv8" ]
+                    },
+  build application { target = "fscanf_test",
+                      cFiles = [ "fscanf_test.c" ],
+                      addLibraries = libDeps ["vfs_ramfs" ],
+                      architectures = [ "armv5", "armv7", "armv8" ]
                     },
   build application { target = "fat_test",
                       cFiles = [ "fat_test.c" ],
-                      addLibraries = libDeps ["vfs", "lwip" ]
+                      addLibraries = libDeps ["vfs", "lwip" ],
+                      architectures = [ "x86_64", "x86_32" ]
                     }
   ]

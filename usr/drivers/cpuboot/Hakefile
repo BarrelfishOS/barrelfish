@@ -34,7 +34,7 @@ in [
         architectures = ["k1om"]
     },
     build template {
-        addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
+        addLibraries = libDeps ["vfs_ramfs", "spawndomain", "elf", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "armboot.c"],
         architectures = ["armv7", "armv5"]
     }

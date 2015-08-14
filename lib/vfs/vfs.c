@@ -150,11 +150,23 @@ errval_t vfs_mount(const char *mountpoint, const char *uri)
     } else if (strncmp(uri, "ramfs", len) == 0) {
         err = vfs_ramfs_mount(uri, &m->st, &m->ops);
     } else if (strncmp(uri, "blockdevfs", len) == 0) {
+#ifndef DISABLE_BLOCKDEV
         err = vfs_blockdevfs_mount(uri, &m->st, &m->ops);
+#else
+        err = VFS_ERR_UNKNOWN_FILESYSTEM;
+#endif
     } else if (strncmp(uri, "fat16", len) == 0) {
+#ifndef DISABLE_BLOCKDEV
         err = vfs_fat_mount(uri, &m->st, &m->ops);
+#else
+        err = VFS_ERR_UNKNOWN_FILESYSTEM;
+#endif
     } else if (strncmp(uri, "fat32", len) == 0) {
+#ifndef DISABLE_BLOCKDEV
         err = vfs_fat_mount(uri, &m->st, &m->ops);
+#else
+        err = VFS_ERR_UNKNOWN_FILESYSTEM;
+#endif
     } else {
         debug_printf("VFS: unknown file system %.*s\n", (int)len, uri);
         err = VFS_ERR_UNKNOWN_FILESYSTEM;
