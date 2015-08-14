@@ -1034,7 +1034,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_SetupGuest] = handle_dispatcher_setup_guest,
 #endif
         [DispatcherCmd_DumpPTables]  = dispatcher_dump_ptables,
-        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
+        [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities,
 	[DispatcherCmd_Vmread] = handle_vmread,
 	[DispatcherCmd_Vmwrite] = handle_vmwrite,
 	[DispatcherCmd_Vmptrld] = handle_vmptrld,

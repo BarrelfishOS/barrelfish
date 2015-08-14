@@ -220,11 +220,11 @@ enum dispatcher_cmd {
     DispatcherCmd_PerfMon,          ///< Performance monitoring
     DispatcherCmd_SetupGuest,       ///< Set up the DCB of a guest domain
     DispatcherCmd_DumpPTables,      ///< Dump hw page tables of dispatcher
-    DispatcherCmd_DumpCapabilities  ///< Dump capabilities of dispatcher
+    DispatcherCmd_DumpCapabilities, ///< Dump capabilities of dispatcher
     DispatcherCmd_Vmread,           ///< Execute vmread on the current and active VMCS      
     DispatcherCmd_Vmwrite,          ///< Execute vmwrite on the current and active VMCS
     DispatcherCmd_Vmptrld,          ///< Make VMCS clear and inactive
-    DispatcherCmd_Vmclear           ///< Make VMCS current and active 
+    DispatcherCmd_Vmclear,          ///< Make VMCS current and active 
 };
 
 /**
