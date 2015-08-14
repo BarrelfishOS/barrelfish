@@ -249,11 +249,12 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 
         if(!dcb->is_vm_guest) {
             resume(disabled_area);
-#if defined(__x86_64__) && !defined(__k1om__)
-        } else {
-            vmkit_vmenter(dcb);
-#endif
         }
+#if defined(__x86_64__) && !defined(__k1om__)
+        else {
+            vmkit_vmenter(dcb);
+        }
+#endif
     } else {
         if (disp != NULL) {
             debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
@@ -262,8 +263,9 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         }
         if(!dcb->is_vm_guest) {
             execute(disp->dispatcher_run);
+    }
 #if defined(__x86_64__) && !defined(__k1om__)
-        } else {
+        else {
             vmkit_vmexec(dcb, (disp) ? disp->dispatcher_run : 0);
         }
 #endif
