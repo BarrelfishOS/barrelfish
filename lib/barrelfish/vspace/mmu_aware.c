@@ -58,11 +58,7 @@ errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
     state->consumed = 0;
     state->alignment = alignment;
 
-    if (slot_allocator) {
-        state->slot_alloc = slot_allocator;
-    } else {
-        state->slot_alloc = get_default_slot_allocator();
-    }
+    vspace_mmu_aware_set_slot_alloc(state, slot_allocator);
 
     errval_t err;
 
