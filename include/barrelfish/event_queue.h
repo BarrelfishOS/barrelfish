@@ -51,6 +51,7 @@ void event_queue_add(struct event_queue *q, struct event_queue_node *qn,
                      struct event_closure event);
 errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn);
 errval_t event_queue_trigger(struct event_queue *q);
+errval_t event_queue_flush(struct event_queue *q);
 
 __END_DECLS
 

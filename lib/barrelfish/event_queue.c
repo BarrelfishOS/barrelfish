@@ -211,6 +211,26 @@ errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn)
 }
 
 /**
+ * \brief Flush all pending events from the event queue.
+ *
+ * \param q Event queue.
+ */
+errval_t
+event_queue_flush(struct event_queue *q) {
+
+    thread_mutex_lock(&q->mutex);
+
+    struct event_queue_node *qn;
+    do {
+        qn = next_event(q);
+    } while (qn);
+
+    thread_mutex_unlock(&q->mutex);
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Trigger the next event on a queue which is operating in one-shot mode
  *
  * Must not be called before the previously-triggered event has run.
