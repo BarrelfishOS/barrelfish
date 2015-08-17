@@ -55,7 +55,7 @@ static uint64_t htonll(uint64_t value)
     }
 }
 
-static uint64_t cmd_cnt = 0;
+static uintptr_t cmd_cnt = 0;
 
 static uint8_t *pmem_start = NULL;
 static uintptr_t paddr_start = 0;

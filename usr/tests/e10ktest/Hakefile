@@ -32,14 +32,18 @@
                       cFiles = [ "subways.c" ],
                       flounderDefs = [ "subways", "acpi" ],
                       flounderBindings = [ "subways" ],
-		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]),
+                                                ("monitor", ["lmp"])
+                                              ],
                       addLibraries = [ "e10k_vf", "skb", "acpi_client" ]
                     },
   build application { target = "subways_e1000",
                       cFiles = [ "subways.c" ],
                       flounderDefs = [ "subways", "acpi" ],
                       flounderBindings = [ "subways" ],
-		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]),
+                                                ("monitor", ["lmp"])
+                                              ],
                       addLibraries = [ "e1000n", "skb", "acpi_client" ]
                     },
   build application { target = "e10ktest",

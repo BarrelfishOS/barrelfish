@@ -35,7 +35,7 @@
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      flounderBindings = [ "e10k", "e10k_vf" ],
+                      flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf" ],
                       flounderDefs = [ "e10k_vf" ],
                       addLibraries = libDeps [ "pci", "bench", "trace", "skb" ],
                       addCFlags = [ "-DLIBRARY" ]

@@ -9,6 +9,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/invocations_arch.h>
 #include <barrelfish/sys_debug.h>
 #include <acpi.h>
 #include <mm/mm.h>
@@ -388,7 +389,7 @@ static inline uint64_t vtd_map(uint64_t va, uint64_t pa, lvaddr_t *pt, int level
 {
     struct capref pe_frame;
     struct frame_identity pe_id;
-    uint64_t *vtp = pt;
+    lvaddr_t *vtp = pt;
 
     int e = 0;
     for (int current_level = 1; current_level <= levels; current_level++) {
@@ -407,7 +408,7 @@ static inline uint64_t vtd_map(uint64_t va, uint64_t pa, lvaddr_t *pt, int level
 	    break;
 	}
 	if (current_level == levels) break;
-	if (vtp[e + X86_64_PTABLE_SIZE] == 0) {
+	if (vtp[e + PTABLE_SIZE] == 0) {
 	    int bytes = 2 * BASE_PAGE_SIZE;
 	    bytes = (current_level == (levels-1)) ?  bytes : 2 * bytes;
  
@@ -418,7 +419,7 @@ static inline uint64_t vtd_map(uint64_t va, uint64_t pa, lvaddr_t *pt, int level
 	    err = vspace_map_one_frame_attr(&vbase, bytes, pe_frame, 
 					    vtd_map_attr, NULL, NULL);
 	    assert(err_is_ok(err));
-	    assert(((uint64_t)vbase & BASE_PAGE_MASK) == 0);
+	    assert(((lvaddr_t)vbase & BASE_PAGE_MASK) == 0);
     
 	    err = invoke_frame_identify(pe_frame, &pe_id);
 	    assert(err_is_ok(err));
@@ -426,9 +427,9 @@ static inline uint64_t vtd_map(uint64_t va, uint64_t pa, lvaddr_t *pt, int level
 
 	    union sl_pdir_entry *entry = (union sl_pdir_entry *)vtp + e;
 	    sl_map_table(entry, pe_id.base);
-	    vtp[e + X86_64_PTABLE_SIZE] = (uint64_t)vbase;
+	    vtp[e + PTABLE_SIZE] = (lvaddr_t)vbase;
 	}
-	vtp = (uint64_t *)vtp[e + X86_64_PTABLE_SIZE]; 
+	vtp = (lvaddr_t *)vtp[e + PTABLE_SIZE];
     }
 
     union sl_ptable_entry *entry = (union sl_ptable_entry *)vtp + e;
@@ -482,7 +483,7 @@ static void vtd_create_identity_domain(void)
     // Map only the first 1024 GB of physical memory. Attempting to map
     // the entire address space with this current implementation is 
     // infeasible.
-    uint64_t max_addr = 1UL << 40;
+    uint64_t max_addr = 1ULL << 40;
     errval_t err;
     struct frame_identity pe_frame_id;
     struct capref pe_frame;
@@ -495,7 +496,7 @@ static void vtd_create_identity_domain(void)
 				    vtd_map_attr, NULL, NULL);
     assert(err_is_ok(err));
     assert((pe_frame_id.base & X86_64_BASE_PAGE_MASK) == 0 &&
-	   ((uint64_t)pe_vaddr & X86_64_BASE_PAGE_MASK) == 0);
+	   ((lvaddr_t)pe_vaddr & X86_64_BASE_PAGE_MASK) == 0);
     
     struct capref empty_pml4;
     err = slot_alloc(&empty_pml4);

@@ -1022,8 +1022,8 @@ static void pci_init_card(int bar_count)
     assert(bar_count >= 2);
 #ifdef BARRELFISH
     map_device(&bar_info[0]);
-    DEBUG("BAR[0] mapped (v=%llx p=%llx l=%llx)\n",
-            (unsigned long long) bar_info[0].vaddr,
+    DEBUG("BAR[0] mapped (v=%p p=%llx l=%llx)\n",
+            bar_info[0].vaddr,
             (unsigned long long) bar_info[0].paddr,
             (unsigned long long) bar_info[0].bytes);
 
