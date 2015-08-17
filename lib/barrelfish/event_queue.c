@@ -109,6 +109,31 @@ static void event_queue_runner(void *arg)
 }
 
 /**
+ * \brief Cancel the runner if mode is continuous and queue is empty.
+ *
+ * Must hold this event_queue's mutex.
+ *
+ * \param q The event queue
+ */
+static errval_t
+event_queue_cancel_runner(struct event_queue *q)
+{
+    errval_t err = SYS_ERR_OK;
+
+    if (q->head == NULL && q->mode == EVENT_QUEUE_CONTINUOUS) {
+        assert(q->tail == NULL);
+        err = waitset_chan_deregister(&q->waitset_state);
+        if (err_is_fail(err)) {
+            // can fail if the event already fired, but this is ok
+            if (err_no(err) == LIB_ERR_CHAN_NOT_REGISTERED) {
+                err = SYS_ERR_OK;
+            }
+        }
+    }
+    return err;
+}
+
+/**
  * \brief Add a new event to an event queue
  *
  * \param q Event queue
@@ -168,7 +193,7 @@ void event_queue_add(struct event_queue *q, struct event_queue_node *qn,
  */
 errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
     if (qn->run) {
         return LIB_ERR_EVENT_ALREADY_RUN;
@@ -197,17 +222,11 @@ errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn)
     }
 
     // if the queue is now empty, we should cancel the runner
-    if (q->head == NULL && q->mode == EVENT_QUEUE_CONTINUOUS) {
-        assert(q->tail == NULL);
-        err = waitset_chan_deregister(&q->waitset_state);
-        if (err_is_fail(err)) {
-            // can fail if the event already fired, but this is ok
-            assert(err_no(err) == LIB_ERR_CHAN_NOT_REGISTERED);
-        }
-    }
+    err = event_queue_cancel_runner(q);
 
     thread_mutex_unlock(&q->mutex);
-    return SYS_ERR_OK;
+
+    return err;
 }
 
 /**
@@ -217,6 +236,7 @@ errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn)
  */
 errval_t
 event_queue_flush(struct event_queue *q) {
+    errval_t err = SYS_ERR_OK;
 
     thread_mutex_lock(&q->mutex);
 
@@ -225,9 +245,11 @@ event_queue_flush(struct event_queue *q) {
         qn = next_event(q);
     } while (qn);
 
+    err = event_queue_cancel_runner(q);
+
     thread_mutex_unlock(&q->mutex);
 
-    return SYS_ERR_OK;
+    return err;
 }
 
 /**
