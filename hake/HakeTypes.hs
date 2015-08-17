@@ -15,7 +15,7 @@ module HakeTypes where
 import Data.Typeable
 
 data TreeRef = SrcTree | BuildTree | InstallTree
-             deriving (Show,Eq)
+             deriving (Show,Eq,Ord)
 
 data RuleToken = In     TreeRef String String -- Input to the computation
                | Dep    TreeRef String String -- Extra (implicit) dependency
@@ -28,7 +28,7 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | ContStr Bool String String   -- Conditional string 
                | ErrorMsg String              -- Error message: $(error x)
                | NL                           -- New line
-                 deriving (Show,Eq)
+                 deriving (Show,Eq,Ord)
 
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
