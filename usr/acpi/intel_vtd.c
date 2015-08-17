@@ -796,7 +796,12 @@ int vtd_init(void)
     if (ACPI_FAILURE(as)) {
         return 1;
     }
-   
+
+    if (vtd_units == NULL) {
+        VTD_DEBUG("DMA remapping: no HW units, not enabling\n");
+        return 0;
+    }
+
     // When we have finished parsing the DMAR table, we create the identity 
     // domain and determine the domain-id bounds that can be used on all 
     // hardware units.
