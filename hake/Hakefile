@@ -19,12 +19,14 @@ in
           Str "-package ghc",
           Str "-package ghc-paths",
           Str "-rtsopts=all",
-          Str "-with-rtsopts=\"-K32m\"",
+          --Str "-with-rtsopts=\"-K32m\"",
+          Str "-with-rtsopts=\"-T\"",
           Str "-o", Out "hake" "/hake",
           Str "-outputdir", NoDep BuildTree "hake" "/",
           NStr "-i", NoDep SrcTree "src" "",
           NStr "-i", NoDep BuildTree "hake" "/",
-          In SrcTree "src" "Main.hs",
+          --In SrcTree "src" "Main.hs",
+          In SrcTree "src" "Hake2.hs",
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"
         ] 

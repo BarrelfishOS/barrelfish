@@ -268,28 +268,35 @@ allowedArchs :: [String] -> Bool
 allowedArchs = all (\a -> a `elem` (Config.architectures ++ specialArchitectures))
     where specialArchitectures = ["", "src", "hake", "root", "tools", "docs"]
 
-makefileSection :: Handle -> [FilePath] -> (String, [String] -> HRule) -> IO ()
-makefileSection h allfiles (hake_name, rule_schema) = do
+makefileSection :: Handle -> Opts -> [FilePath] ->
+                   (String, [String] -> HRule) -> IO (S.Set FilePath)
+makefileSection h opts allfiles (hake_name, rule_schema) = do
     hPutStrLn h $ "# From: " ++ hake_name ++ "\n"
-    makefileRule h (rule_schema allfiles)
+    makefileRule h $
+        resolveRelativePaths opts (rule_schema allfiles) hake_name
 
-makefileRule :: Handle -> HRule -> IO ()
-makefileRule h (Error s) =
-    hPutStr h $ "$(error " ++ s ++ ")"
-makefileRule h (Rules rules) =
-    mapM_ (makefileRule h) rules
-makefileRule h (Include token) =
+makefileRule :: Handle -> HRule -> IO (S.Set FilePath)
+makefileRule h (Error s) = do
+    hPutStrLn h $ "$(error " ++ s ++ ")\n"
+    return S.empty
+makefileRule h (Rules rules) = do
+    dir_lists <- mapM (makefileRule h) rules
+    return $ S.unions dir_lists
+makefileRule h (Include token) = do
     when (allowedArchs [frArch token]) $
-        mapM_ (hPutStr h) [
+        mapM_ (hPutStrLn h) [
             "ifeq ($(MAKECMDGOALS),clean)",
             "else ifeq ($(MAKECMDGOALS),rehake)",
             "else ifeq ($(MAKECMDGOALS),Makefile)",
             "else",
             "include " ++ (formatToken token),
-            "endif" ]
+            "endif",
+            "" ]
+    return S.empty
 makefileRule h (HakeTypes.Rule tokens) =
-    when (allowedArchs (map frArch tokens)) $
-        makefileRuleInner h tokens False
+    if allowedArchs (map frArch tokens)
+        then makefileRuleInner h tokens False
+        else return S.empty
 makefileRule h (Phony name double_colon tokens) = do
     hPutStrLn h $ ".PHONY: " ++ name
     makefileRuleInner h (Target "build" name : tokens) double_colon
@@ -298,7 +305,11 @@ printTokens :: Handle -> S.Set RuleToken -> IO ()
 printTokens h tokens =
     S.foldr (\t m -> hPutStr h (formatToken t) >> m) (return ()) tokens
 
-makefileRuleInner :: Handle -> [RuleToken] -> Bool -> IO ()
+printDirs :: Handle -> S.Set FilePath -> IO ()
+printDirs h dirs =
+    S.foldr (\d m -> hPutStr h (d ++ " ") >> m) (return ()) dirs
+
+makefileRuleInner :: Handle -> [RuleToken] -> Bool -> IO (S.Set FilePath)
 makefileRuleInner h tokens double_colon = do
     if S.null (ruleOutputs compiledRule)
     then do
@@ -308,7 +319,7 @@ makefileRuleInner h tokens double_colon = do
         printTokens h $ ruleOutputs compiledRule
         if double_colon then hPutStr h ":: " else hPutStr h ": "
         printTokens h $ ruleDepends compiledRule
-        printTokens h $ ruleDirs compiledRule
+        printDirs h $ ruleDirs compiledRule
         when (not (S.null (rulePreDepends compiledRule))) $ do
             hPutStr h " | "
             printTokens h $ rulePreDepends compiledRule
@@ -317,16 +328,127 @@ makefileRuleInner h tokens double_colon = do
     where
         compiledRule = compileRule tokens
 
-        doBody :: IO ()
-        doBody =
+        doBody :: IO (S.Set FilePath)
+        doBody = do
             when (ruleBody compiledRule /= []) $ do
                 hPutStr h "\t"
                 mapM_ (hPutStr h . formatToken) $ ruleBody compiledRule
-                hPutStrLn h ""
+            hPutStrLn h "\n"
+            return $ ruleDirs compiledRule
+
+---
+--- Functions to resolve relative path names in rules. 
+---
+--- First, the outer function: resolve path names in an HRule. The
+--- third argument, 'root', is frequently the pathname of the Hakefile
+--- relative to the source tree - since relative pathnames in
+--- Hakefiles are interpreted relative to the Hakefile location.
+---
+resolveRelativePaths :: Opts -> HRule -> String -> HRule
+resolveRelativePaths o (Rules hrules) root 
+    = Rules [ resolveRelativePaths o r root | r <- hrules ]
+resolveRelativePaths o (HakeTypes.Rule tokens) root
+    = HakeTypes.Rule [ resolveRelativePath o t root | t <- tokens ]
+resolveRelativePaths o (Include token) root
+    = Include ( resolveRelativePath o token root )
+resolveRelativePaths o (Error s) root 
+    = Error s
+resolveRelativePaths o (Phony name dbl tokens) root 
+    = Phony name dbl [ resolveRelativePath o t root | t <- tokens ]
+
+--- Now resolve at the level of individual rule tokens.  At this
+--- level, we need to take into account the tree (source, build, or
+--- install).
+resolveRelativePath :: Opts -> RuleToken -> String -> RuleToken
+resolveRelativePath o (In t a f) root = 
+    (In t a (resolveRelativePathName o t a f root))
+resolveRelativePath o (Out a f) root = 
+    (Out a (resolveRelativePathName o BuildTree a f root))
+resolveRelativePath o (Dep t a f) root = 
+    (Dep t a (resolveRelativePathName o t a f root))
+resolveRelativePath o (NoDep t a f) root = 
+    (NoDep t a (resolveRelativePathName o t a f root))
+resolveRelativePath o (PreDep t a f) root = 
+    (PreDep t a (resolveRelativePathName o t a f root))
+resolveRelativePath o (Target a f) root = 
+    (Target a (resolveRelativePathName o BuildTree a f root))
+resolveRelativePath _ (Str s) _ = (Str s)
+resolveRelativePath _ (NStr s) _ = (NStr s)
+resolveRelativePath _ (ErrorMsg s) _ = (ErrorMsg s)
+resolveRelativePath _ NL _ = NL
+
+--- Now we get down to the nitty gritty.  We have, in order:
+---   o: The options in force.
+---   t: The tree (source, build, or install)
+---   a: The architecture (e.g. armv7)
+---   p: The pathname we want to resolve to a full path, and
+---   h: The dirname of the Hakefile in which it occurs.
+--- If the tree is SrcTree or the architecture is "root", everything
+--- is relative to the top-level directory for that tree.  Otherwise,
+--- it's relative to the top-level directory plus the architecture.
+resolveRelativePathName :: Opts -> TreeRef -> String -> String -> String -> String
+
+resolveRelativePathName o SrcTree "root" f h = 
+    resolveRelativePathName' ((opt_sourcedir o)) f h
+resolveRelativePathName o BuildTree "root" f h = 
+    resolveRelativePathName' "." f h
+resolveRelativePathName o InstallTree "root" f h = 
+    resolveRelativePathName' ((opt_installdir o)) f h
+
+resolveRelativePathName o SrcTree a f h =
+    resolveRelativePathName' (opt_sourcedir o) f h
+resolveRelativePathName o BuildTree a f h =
+    resolveRelativePathName' ("." </> a) f h
+resolveRelativePathName o InstallTree a f h =
+    resolveRelativePathName' ((opt_installdir o) </> a) f h
+
+--- This is where the work is done: take 'hd' (pathname relative to
+--- us of the Hakefile) and resolve the filename we're interested in
+--- relative to this.  This gives us a pathname relative to some root
+--- of some architecture tree, then return this relative to the actual
+--- tree we're interested in.  It's troubling that this takes more
+--- bytes to explain than to code.
+---   d:    Pathname of top directory of the tree (source, build, install)
+---   f:    Filename we are interested in, relative to 'root' below
+---   hd:   Directory containing the Hakefile
+---   
+resolveRelativePathName' d f hd = 
+    let af = Path.relToFile f hd
+        rf = Path.makeRel $ Path.relToDir af "/" 
+    in Path.relToDir rf d
+
+makeHakeDeps :: Handle -> Opts -> [String] -> IO ()
+makeHakeDeps h o l = do
+    makefileRule h rule
+    hPutStrLn h ".DELETE_ON_ERROR:\n" -- this applies to all targets in the Makefile
+    where
+        hake = resolveRelativePath o (In InstallTree "root" "/hake/hake") ""
+        makefile = resolveRelativePath o (Out "root" (opt_makefilename o)) "/Hakefile"
+        rule = HakeTypes.Rule
+                    ( [ hake, 
+                        Str "--source-dir", Str (opt_sourcedir o),
+                        Str "--install-dir", Str (opt_installdir o),
+                        Str "--output-filename", makefile
+                      ] ++
+                      [ Dep SrcTree "root" h | h <- l ]
+                    )
+
+makeDirectories :: Handle -> S.Set FilePath -> IO ()
+makeDirectories h dirs = do
+    hPutStrLn h "# Directories follow"
+    mapM_ (makeDir h) (S.toList (S.delete ("." </> ".marker") dirs))
+
+makeDir :: Handle -> FilePath -> IO ()
+makeDir h dir = do
+    hPutStrLn h $ "hake_dirs: " ++ dir ++ "\n"
+    hPutStrLn h $ dir ++ ":"
+    hPutStrLn h $ "\tmkdir -p " ++ (takeDirectory dir)
+    hPutStrLn h $ "\ttouch " ++ dir
+    hPutStrLn h ""
 
 scanTokens :: [RuleToken] -> (S.Set RuleToken, S.Set RuleToken,
                               S.Set RuleToken, [RuleToken],
-                              S.Set RuleToken)
+                              S.Set FilePath)
 scanTokens [] = (S.empty, S.empty, S.empty, [], S.empty)
 scanTokens (t:ts) =
     case t of
@@ -342,8 +464,8 @@ scanTokens (t:ts) =
         (outs, deps, predeps, body, dirs) = scanTokens ts
         body' = if inRule t then t:body else body
 
-        dirOf :: FilePath -> RuleToken
-        dirOf f = Str $ (takeDirectory f) </> ".marker"
+        dirOf :: FilePath -> FilePath
+        dirOf f = (takeDirectory f) </> ".marker"
 
 data CompiledRule =
     CompiledRule {
@@ -351,7 +473,7 @@ data CompiledRule =
         ruleDepends    :: S.Set RuleToken,
         rulePreDepends :: S.Set RuleToken,
         ruleBody       :: [RuleToken],
-        ruleDirs       :: S.Set RuleToken
+        ruleDirs       :: S.Set FilePath
     }
 
 compileRule :: [RuleToken] -> CompiledRule
@@ -413,7 +535,9 @@ body =  do
     liftIO $ putStrLn $ "Generating " ++ (opt_makefilename opts)
     makefile <- liftIO $ openFile(opt_makefilename opts) WriteMode
     liftIO $ makefilePreamble makefile opts args
-    liftIO $ mapM_ (makefileSection makefile allfiles) rules
+    liftIO $ makeHakeDeps makefile opts $ map fst hakefiles
+    dirs <- liftIO $ mapM (makefileSection makefile opts allfiles) rules
+    liftIO $ makeDirectories makefile (S.unions dirs)
 
     liftIO gcStats
 
