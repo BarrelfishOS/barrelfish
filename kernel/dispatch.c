@@ -31,7 +31,7 @@
 #  include <arch/x86/apic.h>
 #endif
 
-#ifdef __x86_64__
+#if defined(__x86_64__) && !defined(__k1om__)
 #  include <vmkit.h>
 #endif
 
