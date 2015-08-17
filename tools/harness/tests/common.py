@@ -255,14 +255,10 @@ class InteractiveTest(TestCommon):
             machine.force_write(self.console)
             try:
                 self.interact()
-            except pexpect.TIMEOUT, e:
+            except (pexpect.TIMEOUT, OSError), e:
                 self.console.logfile.seek(0)
                 print "Interaction timed out:"
-                print self.console.logfile.readlines()
-                raise e
-            except OSError, e:
-                self.console.logfile.seek(0)
-                print self.console.logfile.readlines()
+                print ''.join(self.console.logfile.readlines())
                 raise e
 
         self.console.logfile.seek(0)
