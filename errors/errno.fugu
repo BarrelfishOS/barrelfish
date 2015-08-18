@@ -804,6 +804,7 @@ errors vtd VTD_ERR_ {
     failure DEV_USED        "The device is currently used by another domain",
     failure FULL            "No more domains can be created",
     failure NO_UNITS	    "Hardware doesn't contain any VT-d hardware units",
+    failure NOT_ENABLED     "VT-d not enabled",
 };
 
 // errors in the SKB

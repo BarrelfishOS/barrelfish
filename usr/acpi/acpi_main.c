@@ -35,6 +35,7 @@
 uintptr_t my_apic_id;
 
 bool vtd_force_off;
+bool vtd_enabled = false;
 
 // Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;

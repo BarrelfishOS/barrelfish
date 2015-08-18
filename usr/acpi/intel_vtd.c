@@ -16,6 +16,7 @@
 #include <skb/skb.h>
 #include <pci/confspace/pci_confspace.h>
 
+#include "acpi_shared.h"
 #include "intel_vtd.h"
 #include "vtd_debug.h"
 
@@ -211,6 +212,7 @@ static inline genpaddr_t pml4_base(struct capref cap)
 // Removes a device from the domain specified by pml4.
 errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct capref pml4)
 {
+    if (!vtd_enabled) return VTD_ERR_NOT_ENABLED;
     if (vtd_no_units(vtd_units)) return VTD_ERR_NO_UNITS;
     if (!valid_device(bus, dev, func)) return VTD_ERR_DEV_NOT_FOUND;
   
@@ -258,6 +260,7 @@ errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct ca
 errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capref pml4)
 {
     errval_t err;
+    if (!vtd_enabled) return VTD_ERR_NOT_ENABLED;
     if (vtd_no_units(vtd_units)) return VTD_ERR_NO_UNITS;
     if (!valid_device(bus, dev, func)) return VTD_ERR_DEV_NOT_FOUND;
     
@@ -325,6 +328,7 @@ static void vtd_create_did_bounds(struct vtd_unit *head, struct vtd_domain_list 
 // Creates a new domain for an application using a capability to its root PML4.
 errval_t vtd_create_domain(struct capref pml4)
 {
+    if (!vtd_enabled) return VTD_ERR_NOT_ENABLED;
     if (vtd_no_units(vtd_units)) return VTD_ERR_NO_UNITS;
  
     // Check that pml4 is a capability for a x86-64 PML4 VNode
@@ -360,6 +364,7 @@ errval_t vtd_create_domain(struct capref pml4)
 // Removes a domain for an application with the specified root PML4.
 errval_t vtd_remove_domain(struct capref pml4)
 {
+    if (!vtd_enabled) return VTD_ERR_NOT_ENABLED;
     if (vtd_no_units(vtd_units)) return VTD_ERR_NO_UNITS;
 
     // Check that pml4 is a capability for a x86-64 PML4 VNode
@@ -488,15 +493,15 @@ static void vtd_create_identity_domain(void)
     struct frame_identity pe_frame_id;
     struct capref pe_frame;
     void *pe_vaddr;
-    err = frame_alloc(&pe_frame, 2 * X86_64_BASE_PAGE_SIZE, NULL);
+    err = frame_alloc(&pe_frame, 2 * BASE_PAGE_SIZE, NULL);
     assert(err_is_ok(err));
     err = invoke_frame_identify(pe_frame, &pe_frame_id);
     assert(err_is_ok(err));
     err = vspace_map_one_frame_attr(&pe_vaddr, 1 << pe_frame_id.bits, pe_frame,
 				    vtd_map_attr, NULL, NULL);
     assert(err_is_ok(err));
-    assert((pe_frame_id.base & X86_64_BASE_PAGE_MASK) == 0 &&
-	   ((lvaddr_t)pe_vaddr & X86_64_BASE_PAGE_MASK) == 0);
+    assert((pe_frame_id.base & BASE_PAGE_MASK) == 0 &&
+	   ((lvaddr_t)pe_vaddr & BASE_PAGE_MASK) == 0);
     
     struct capref empty_pml4;
     err = slot_alloc(&empty_pml4);
@@ -743,6 +748,7 @@ static ACPI_STATUS vtd_parse_dmar_table(void)
 // Add devices on this platform to the identity domain
 void vtd_identity_domain_add_devices(void)
 {
+    if (!vtd_enabled) return;
     if (vtd_no_units(vtd_units)) return;
 
     errval_t err;
@@ -799,7 +805,12 @@ int vtd_init(void)
 
     if (vtd_units == NULL) {
         VTD_DEBUG("DMA remapping: no HW units, not enabling\n");
-        return 0;
+        return 1;
+    }
+
+    if (vtd_page_bits(vtd_units) < 21) {
+        VTD_DEBUG("VT-d: no large page support, not enabling\n");
+        return 1;
     }
 
     // When we have finished parsing the DMAR table, we create the identity 
