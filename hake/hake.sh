@@ -156,6 +156,7 @@ fi
 echo "Building hake..."
 ghc -O --make -XDeriveDataTypeable \
     -package ghc \
+    -package ghc-mtl \
     -package ghc-paths \
     -o hake/hake \
     -outputdir hake \
@@ -163,7 +164,6 @@ ghc -O --make -XDeriveDataTypeable \
     -ihake \
     -rtsopts=all \
     -threaded \
-    -with-rtsopts="-K32m" \
     $SRCDIR/hake/Main.hs $LDFLAGS || exit 1
 
     # -eventlog \
@@ -175,7 +175,8 @@ fi
 
 echo "Running hake..."
 #./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -s -N -K64M -A64M -ls -lf || exit
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -N -K64M -A64M || exit
+#./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -N -K64M -A64M || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -T || exit
 
 echo "Now running initial make to build dependencies."
 echo " (remove the '-j 4' if your system has trouble handling this" 

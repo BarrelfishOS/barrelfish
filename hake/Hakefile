@@ -25,8 +25,7 @@ in
           Str "-outputdir", NoDep BuildTree "hake" "/",
           NStr "-i", NoDep SrcTree "src" "",
           NStr "-i", NoDep BuildTree "hake" "/",
-          --In SrcTree "src" "Main.hs",
-          In SrcTree "src" "Hake2.hs",
+          In SrcTree "src" "Main.hs",
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"
         ] 
