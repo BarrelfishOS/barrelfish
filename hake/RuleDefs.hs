@@ -1107,7 +1107,7 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
 libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
-                                  libvfs_deps_all, LibDep "term_server" ]
+                                  (libvfs_deps_all "vfs"), LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
@@ -1120,20 +1120,21 @@ libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
-vfsdeps :: [VFSModules] -> [LibDepTree]
-vfsdeps []                  = [LibDep "vfs"]
-vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
-vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
-vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs
-vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
+vfsdeps :: [VFSModules] -> String -> [LibDepTree]
+vfsdeps [] t                  = [LibDep t]
+vfsdeps (VFS_RamFS:xs) t      = [] ++ vfsdeps xs t
+vfsdeps (VFS_NFS:xs) t        = [libnfs_deps] ++ vfsdeps xs t
+vfsdeps (VFS_BlockdevFS:xs) t = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs t
+vfsdeps (VFS_FAT:xs) t        = [] ++ vfsdeps xs t
 
-libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
-                                            VFS_FAT]
-libvfs_deps_nonfs      = LibDeps $ vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT]
-libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
-libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
-libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
-libvfs_deps_fat        = LibDeps $ vfsdeps [VFS_FAT, VFS_BlockdevFS]
+libvfs_deps_all t        = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
+                                               VFS_FAT] t)
+libvfs_deps_noblockdev t = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS] t)
+libvfs_deps_nonfs t      = LibDeps $ (vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT] t)
+libvfs_deps_nfs t        = LibDeps $ (vfsdeps [VFS_NFS] t)
+libvfs_deps_ramfs t      = LibDeps $ (vfsdeps [VFS_RamFS] t)
+libvfs_deps_blockdevfs t = LibDeps $ (vfsdeps [VFS_BlockdevFS] t)
+libvfs_deps_fat t        = LibDeps $ (vfsdeps [VFS_FAT, VFS_BlockdevFS] t)
 
 -- flatten the dependency tree
 flat :: [LibDepTree] -> [LibDepTree]
@@ -1143,9 +1144,10 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 
 str2dep :: String -> LibDepTree
 str2dep  str
-    | str == "vfs"           = libvfs_deps_all
-    | str == "vfs_ramfsonly" = LibDeps $ [ LibDep "vfs_ramfs" ]
-    | str == "vfs_nonfs"     = libvfs_deps_nonfs
+    | str == "vfs"           = libvfs_deps_all str
+    | str == "vfs_ramfs"     = libvfs_deps_ramfs str
+    | str == "vfs_nonfs"     = libvfs_deps_nonfs str
+    | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
     | str == "posixcompat"   = libposixcompat_deps
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
