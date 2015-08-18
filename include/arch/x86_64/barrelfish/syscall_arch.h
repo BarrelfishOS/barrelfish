@@ -128,6 +128,7 @@ static inline struct sysret syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
                  __builtin_return_address(1),
                  __builtin_return_address(2));
         BF_SYSCALL_BODY(SYSCALL_PRINT, (uint64_t)str, 256, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, "");
+        return (struct sysret){/*error*/ SYS_ERR_ILLEGAL_SYSCALL, /*value*/ 0};
     }
 
     BF_SYSCALL_BODY(num, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
