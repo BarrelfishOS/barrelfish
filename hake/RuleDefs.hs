@@ -616,7 +616,7 @@ flounderExtraBinding opts ifn backends =
 flounderBindingHelper :: Options -> String -> [String] -> String -> [String] -> HRule
 flounderBindingHelper opts ifn backends cfile srcs = Rules $
     [ flounderRule opts $ args ++ [flounderIfFileLoc ifn, Out arch cfile ],
-        compileGeneratedCFile opts cfile,
+        compileGeneratedCFile (opts { extraDependencies = [flounderHeader] }) cfile,
         flounderDefsDepend opts ifn allbackends srcs]
     ++ [extraGeneratedCDependency opts (flounderIfDrvDefsPath ifn d) cfile
         | d <- allbackends]
@@ -625,6 +625,7 @@ flounderBindingHelper opts ifn backends cfile srcs = Rules $
         archfam = optArchFamily opts
         args = [Str "-a", Str archfam] ++ [Str $ "--" ++ d ++ "-stub" | d <- backends]
         allbackends = backends `union` optFlounderBackends opts \\ ["generic"]
+        flounderHeader = Dep BuildTree arch $ flounderIfDefsPath ifn
 
 --
 -- Build a Flounder THC header file from a definition.
