@@ -1,3 +1,5 @@
+import Control.Concurrent.Async
+
 import Control.Monad.Error
 
 import Data.Dynamic
@@ -117,11 +119,16 @@ listFiles root = do
         return ([], [])
     where
         walkchildren :: [FilePath] -> IO ([FilePath], [(FilePath, String)])
-        walkchildren [] = return ([], [])
-        walkchildren (child:siblings) = do
-            (allfiles, hakefiles) <- walkchild child
-            (allfilesS, hakefilesS) <- walkchildren siblings
-            return $ (allfiles ++ allfilesS, hakefiles ++ hakefilesS)
+        walkchildren children = do
+            children_async <- mapM (async.walkchild) children
+            results <- mapM wait children_async
+            return $ joinResults results
+            where
+                joinResults :: [([a],[b])] -> ([a],[b])
+                joinResults [] = ([],[])
+                joinResults ((as,bs):xs) =
+                    let (as',bs') = joinResults xs in
+                        (as ++ as', bs ++ bs')
 
         walkchild :: FilePath -> IO ([FilePath], [(FilePath, String)])
         walkchild child = do
