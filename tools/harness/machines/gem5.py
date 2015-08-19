@@ -106,7 +106,7 @@ class Gem5MachineBase(Machine):
         env = dict(os.environ)
         if 'LD_LIBRARY_PATH' in env:
             del env['LD_LIBRARY_PATH']
-        self.child = subprocess.Popen(cmd, stderr=devnull, env=env)
+        self.child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, env=env)
         time.sleep(GEM5_START_TIMEOUT)
 
     def shutdown(self):
@@ -136,7 +136,7 @@ class Gem5MachineBase(Machine):
         self.telnet_connected = False
         while not self.telnet_connected:
             try:
-                self.telnet = telnetlib.Telnet("localhost", 3456)
+                self.telnet = telnetlib.Telnet("localhost", self.telnet_port)
                 self.telnet_connected = True
                 self.output = self.telnet.get_socket().makefile()
             except IOError, e:
@@ -187,13 +187,23 @@ class Gem5MachineARMMultiCore(Gem5MachineARM):
     def get_cores_per_socket(self):
         return 1
 
+    def get_free_port(self):
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(('', 0))
+        # extract port from addrinfo
+        self.telnet_port = s.getsockname()[1]
+        s.close()
+
     def _get_cmdline(self):
+        self.get_free_port()
         script_path = os.path.join(self.options.sourcedir, 'tools/arm_gem5', 'gem5script.py')
         return ([GEM5_PATH + 'gem5.fast', script_path, \
                  '--kernel=%s'%self.kernel_img, \
                  '--caches', \
                  '--l2cache', \
-                 '--n=%s' % self.get_ncores()]
+                 '--n=%s' % self.get_ncores(), \
+                 '--console-port=%s' % self.telnet_port]
                 + GEM5_CACHES_ENABLE)
 
 # SK: this will not work, since gem5 uses the menu.lst specified in the arm_gem5_image
