@@ -188,8 +188,6 @@ driveGhc makefile o allfiles hakefiles = do
                           Ghc (S.Set FilePath)
         buildSections' dirs [] = return dirs
         buildSections' dirs ((abs_hakepath, contents):hs) = do
-            --liftIO $ putStrLn (fst h)
-            --liftIO $ gcStats
             let hakepath = makeRelative (opt_sourcedir o) abs_hakepath
             rule <- evaluate hakepath contents
             dirs' <- liftIO $ makefileSection makefile o hakepath rule
@@ -287,10 +285,13 @@ makefilePreamble h opts args =
              "HAKE_ARCHS=" ++ (concat $ intersperse " " Config.architectures),
              "include ./symbolic_targets.mk" ])
 
+arch_list :: S.Set String
+arch_list = S.fromList (Config.architectures ++
+                        ["", "src", "hake", "root", "tools", "docs"])
+
 -- a rule is included if it has only "special" architectures and enabled architectures
 allowedArchs :: [String] -> Bool
-allowedArchs = all (\a -> a `elem` (Config.architectures ++ specialArchitectures))
-    where specialArchitectures = ["", "src", "hake", "root", "tools", "docs"]
+allowedArchs = all (\a -> a `S.member` arch_list)
 
 makefileSection :: Handle -> Opts -> FilePath -> HRule -> IO (S.Set FilePath)
 makefileSection h opts hakepath rule = do
@@ -442,7 +443,7 @@ relPath treeroot path hakepath =
     treeroot </> stripSlash (hakepath </> path)
 
 -- Strip any leading slash from the filename.  This is much faster than
--- 'makeRelative "/"'
+-- 'makeRelative "/"'.
 stripSlash :: FilePath -> FilePath
 stripSlash ('/':cs) = cs
 stripSlash cs = cs
