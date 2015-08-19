@@ -439,12 +439,13 @@ treePath o InstallTree arch path hakepath =
 ---   hd:   Directory containing the Hakefile
 ---   
 relPath treeroot path hakepath =
-    treeroot </> makeRelative "/" (hakepath </> path)
-{--
-    let af = Path.relToFile path hakepath
-        rf = Path.makeRel $ Path.relToDir af "/" 
-    in Path.relToDir rf treeroot
---}
+    treeroot </> stripSlash (hakepath </> path)
+
+-- Strip any leading slash from the filename.  This is much faster than
+-- 'makeRelative "/"'
+stripSlash :: FilePath -> FilePath
+stripSlash ('/':cs) = cs
+stripSlash cs = cs
 
 makeHakeDeps :: Handle -> Opts -> [String] -> IO ()
 makeHakeDeps h o l = do
