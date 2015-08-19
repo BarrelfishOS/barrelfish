@@ -322,7 +322,7 @@ static void caps_mark_revoke_copy(struct cte *cte)
     if (err_is_fail(err)) {
         // this should not happen as there is a copy of the cap
         panic("error while marking/deleting cap copy for revoke:"
-              " 0x%"PRIuERRV"\n", err);
+              " %"PRIuERRV"\n", err);
     }
 }
 
@@ -369,7 +369,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
     else if (err_is_fail(err)) {
         // some serious mojo went down in the cleanup voodoo
         panic("error while marking/deleting descendant cap for revoke:"
-              " 0x%"PRIuERRV"\n", err);
+              " %"PRIuERRV"\n", err);
     }
 }
 
