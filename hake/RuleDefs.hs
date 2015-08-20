@@ -1148,7 +1148,6 @@ str2dep  str
     | str == "vfs_ramfs"     = libvfs_deps_ramfs str
     | str == "vfs_nonfs"     = libvfs_deps_nonfs str
     | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
-    | str == "posixcompat"   = libposixcompat_deps
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
     | str == "ssh"           = libssh_deps
