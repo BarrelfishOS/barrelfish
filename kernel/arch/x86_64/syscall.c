@@ -549,7 +549,7 @@ static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 static struct sysret handle_vmread(struct capability *to, 
 				   int cmd, uintptr_t *args) 
 {
-#ifdef CONFIG_SVM
+#if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
 #else
     errval_t err;
@@ -567,7 +567,7 @@ static struct sysret handle_vmread(struct capability *to,
 static struct sysret handle_vmwrite(struct capability *to, 
 				    int cmd, uintptr_t *args) 
 {
-#ifdef CONFIG_SVM
+#if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
 #else
     errval_t err;
@@ -585,7 +585,7 @@ static struct sysret handle_vmwrite(struct capability *to,
 static struct sysret handle_vmptrld(struct capability *to, 
 				    int cmd, uintptr_t *args) 
 {
-#ifdef CONFIG_SVM
+#if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
 #else
     errval_t err;
@@ -599,7 +599,7 @@ static struct sysret handle_vmptrld(struct capability *to,
 static struct sysret handle_vmclear(struct capability *to, 
 				    int cmd, uintptr_t *args) 
 {
-#ifdef CONFIG_SVM
+#if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
 #else
     errval_t err;
