@@ -625,7 +625,7 @@ static int acpi_init(void)
     }
 
     if (!vtd_force_off) {
-        vtd_enabled = (vtd_init() == 0);
+        vtd_init();
     }
 
     return 0;

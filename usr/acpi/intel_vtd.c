@@ -16,11 +16,11 @@
 #include <skb/skb.h>
 #include <pci/confspace/pci_confspace.h>
 
-#include "acpi_shared.h"
 #include "intel_vtd.h"
 #include "vtd_debug.h"
 
 extern struct mm pci_mm_physaddr;
+static bool vtd_enabled = false;
 
 // cache coherency for frame mappings
 static bool cache_coherence = false;
@@ -812,6 +812,8 @@ int vtd_init(void)
         VTD_DEBUG("VT-d: no large page support, not enabling\n");
         return 1;
     }
+
+    vtd_enabled = true;
 
     // When we have finished parsing the DMAR table, we create the identity 
     // domain and determine the domain-id bounds that can be used on all 
