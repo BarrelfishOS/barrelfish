@@ -619,8 +619,9 @@ flounderExtraBinding opts ifn backends =
 flounderBindingHelper :: Options -> String -> [String] -> String -> [String] -> HRule
 flounderBindingHelper opts ifn backends cfile srcs = Rules $
     [ flounderRule opts $ args ++ [flounderIfFileLoc ifn, Out arch cfile ],
-        compileGeneratedCFile (opts { extraDependencies = [flounderHeader] }) cfile,
+        compileGeneratedCFile opts cfile,
         flounderDefsDepend opts ifn allbackends srcs]
+    ++ [extraGeneratedCDependency opts (flounderIfDefsPath ifn) cfile]
     ++ [extraGeneratedCDependency opts (flounderIfDrvDefsPath ifn d) cfile
         | d <- allbackends]
     where
@@ -628,7 +629,6 @@ flounderBindingHelper opts ifn backends cfile srcs = Rules $
         archfam = optArchFamily opts
         args = [Str "-a", Str archfam] ++ [Str $ "--" ++ d ++ "-stub" | d <- backends]
         allbackends = backends `union` optFlounderBackends opts \\ ["generic"]
-        flounderHeader = Dep BuildTree arch $ flounderIfDefsPath ifn
 
 --
 -- Build a Flounder THC header file from a definition.
@@ -940,7 +940,8 @@ appGetOptionsForArch arch args =
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
-                         [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
+                         [Dep BuildTree arch s |
+                            s <- Args.addGeneratedDependencies args]
                    }
 
 appBuildArch af tf args arch =

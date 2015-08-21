@@ -80,6 +80,7 @@ isPredependency _ = False
 
 isOutput :: RuleToken -> Bool
 isOutput (Out _ _) = True
+isOutput (Target _ _) = True
 isOutput _ = False
 
 formatToken :: RuleToken -> String

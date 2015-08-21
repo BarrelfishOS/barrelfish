@@ -431,10 +431,10 @@ makefileRuleInner h tokens double_colon = do
         printTokens h $ ruleOutputs compiledRule
         if double_colon then hPutStr h ":: " else hPutStr h ": "
         printTokens h $ ruleDepends compiledRule
-        printDirs h $ ruleDirs compiledRule
-        when (not (S.null (rulePreDepends compiledRule))) $ do
-            hPutStr h " | "
-            printTokens h $ rulePreDepends compiledRule
+        -- printDirs h $ ruleDirs compiledRule
+        hPutStr h " | directories "
+        --when (not (S.null (rulePreDepends compiledRule))) $ do
+        printTokens h $ rulePreDepends compiledRule
         hPutStrLn h ""
         doBody
     where
@@ -569,7 +569,16 @@ makeHakeDeps h o l = do
 makeDirectories :: Handle -> S.Set FilePath -> IO ()
 makeDirectories h dirs = do
     hPutStrLn h "# Directories follow"
-    mapM_ (makeDir h) (S.toList (S.delete ("." </> ".marker") dirs))
+    --mapM_ (makeDir h) (S.toList (S.delete ("." </> ".marker") dirs))
+    hPutStrLn h "DIRECTORIES=\\"
+    mapM_ (\d -> hPutStrLn h $ "    " ++ d ++ " \\") (S.toList dirs)
+    hPutStrLn h "\n"
+    hPutStrLn h ".PHONY: directories"
+    hPutStr h "directories: $(DIRECTORIES)"
+    hPutStrLn h ""
+    hPutStrLn h "%.marker:"
+    hPutStrLn h "\tmkdir -p `dirname $@`"
+    hPutStrLn h "\ttouch $@"
 
 makeDir :: Handle -> FilePath -> IO ()
 makeDir h dir = do
@@ -637,6 +646,8 @@ body =  do
     liftIO $ putStrLn $ "Generating build directory dependencies..."
     liftIO $ makeDirectories makefile dirs
 
+    liftIO $ hFlush makefile
+    liftIO $ hClose makefile
     return ()
 
 main :: IO () 
