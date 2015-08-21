@@ -69,6 +69,19 @@ isFileRef (ErrorMsg _) = False
 isFileRef NL = False
 isFileRef _ = True
 
+isDependency :: RuleToken -> Bool
+isDependency (In _ _ _) = True
+isDependency (Dep _ _ _) = True
+isDependency _ = False
+
+isPredependency :: RuleToken -> Bool
+isPredependency (PreDep _ _ _) = True
+isPredependency _ = False
+
+isOutput :: RuleToken -> Bool
+isOutput (Out _ _) = True
+isOutput _ = False
+
 formatToken :: RuleToken -> String
 formatToken (In _ a f) = f ++ " "
 formatToken (Out a f) = f ++ " "

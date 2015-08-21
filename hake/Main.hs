@@ -1,3 +1,15 @@
+{- 
+  Hake: a meta build system for Barrelfish
+
+  Copyright (c) 2009, 2015, ETH Zurich.
+  All rights reserved.
+  
+  This file is distributed under the terms in the attached LICENSE file.
+  If you do not find this file, copies can be found by writing to:
+  ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-}
+  
+-- Asynchronous IO for walking directories
 import Control.Concurrent.Async
 
 import Control.Monad.Error
@@ -12,22 +24,23 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO
-import System.Mem
 
-import GHC hiding (Target, Ghc, GhcT, runGhc, runGhcT, FunBind, Match)
+-- The GHC API.  We use the mtl-compatible version in order to use liftIO
+-- within the GHC monad.
+import GHC hiding (Target, Ghc, runGhc, FunBind, Match)
 import GHC.Paths (libdir)
 import Control.Monad.Ghc
 import DynFlags (defaultFatalMessager, defaultFlushOut,
                  xopt_set, ExtensionFlag (Opt_DeriveDataTypeable))
-import GHC.Stats
 
+-- We parse and pretty-print Hakefiles.
 import Language.Haskell.Exts
 
+-- Hake components
 import RuleDefs
 import HakeTypes
 import qualified Args
 import qualified Config
-import qualified Path
 
 data HakeError = HakeError String Int
 instance Error HakeError
@@ -91,7 +104,8 @@ usage = unlines [ "Usage: hake <options>",
                   "   --verbose"
                 ]
 
--- check the configuration options, returning an error string if they're insane
+-- Check the configuration options, returning an error string if they're
+-- invalid.
 configErrors :: Maybe String
 configErrors
     | unknownArchs /= [] =
@@ -106,9 +120,8 @@ configErrors
     where
         unknownArchs = Config.architectures \\ Args.allArchitectures
 
---
--- Walk all over a directory tree and build a complete list of pathnames
---
+-- Walk the source tree and build a complete list of pathnames, loading any
+-- Hakefiles.
 listFiles :: FilePath -> IO ([FilePath], [(FilePath, String)])
 listFiles root = do
     isdir <- doesDirectoryExist root
@@ -120,6 +133,8 @@ listFiles root = do
     where
         walkchildren :: [FilePath] -> IO ([FilePath], [(FilePath, String)])
         walkchildren children = do
+            -- Walk the child directories in parallel.  This speeds things up
+            -- dramatically over NFS, with its high latency.
             children_async <- mapM (async.walkchild) children
             results <- mapM wait children_async
             return $ joinResults results
@@ -140,23 +155,37 @@ listFiles root = do
                 return $ ((root </> child) : allfiles,
                           hake ++ hakefiles)
             where
+                -- Load Hakfiles eagerly.  This amounts to <1MB for
+                -- Barrelfish (2015).
                 maybeHake "Hakefile" = do
                     contents <- readFile (root </> child)
                     return [(root </> child, contents)]
                 maybeHake _ = return []
 
+        -- Don't descend into revision-control or build directories.
         ignore :: FilePath -> Bool
         ignore "."          = True
         ignore ".."         = True
         ignore "CMakeFiles" = True
         ignore ".hg"        = True
-        ignore "build"      = True
         ignore ".git"       = True
+        ignore "build"      = True
         ignore _            = False
 
-instance Show SuccessFlag
-instance Show RunResult
+--
+-- Hake parsing using the GHC API
+--
 
+-- We invoke GHC to parse the Hakefiles in a preconfigured environment,
+-- to implement the Hake DSL.
+evalHakeFiles :: Handle -> Opts -> [FilePath] -> [(FilePath, String)] ->
+                 IO (S.Set FilePath)
+evalHakeFiles makefile o allfiles hakefiles =
+    defaultErrorHandler defaultFatalMessager defaultFlushOut $
+        runGhc (Just libdir) $
+        driveGhc makefile o allfiles hakefiles
+
+-- This is the code that executes in the GHC monad.
 driveGhc :: Handle -> Opts -> [FilePath] -> [(FilePath, String)] ->
             Ghc (S.Set FilePath)
 driveGhc makefile o allfiles hakefiles = do
@@ -169,12 +198,13 @@ driveGhc makefile o allfiles hakefiles = do
         objectDir = Just "./hake"
     }
 
-    -- Set compilation targets
+    -- Set compilation targets i.e. everything that needs to be built from
+    -- source (*.hs).
     targets <- mapM (\m -> guessTarget m Nothing) source_modules
     setTargets targets
     load LoadAllTargets
 
-    -- Import modules
+    -- Import both system and Hake modules.
     setContext
         ([IIDecl $ simpleImportDecl $ mkModuleName m |
             m <- modules] ++
@@ -182,6 +212,7 @@ driveGhc makefile o allfiles hakefiles = do
                 ideclQualified = True
           } | m <- qualified_modules])
 
+    -- Emit Makefile sections corresponding to Hakefiles
     buildSections hakefiles
 
     where
@@ -191,6 +222,9 @@ driveGhc makefile o allfiles hakefiles = do
         modules = [ "Prelude", "HakeTypes", "RuleDefs", "Path", "Args" ]
         qualified_modules = [ "Config", "Data.List" ]
 
+        -- Evaluate one Hakefile, and emit its Makefile section.  We collect
+        -- referenced directories as we go, to generate the 'directories'
+        -- rules later.
         buildSections' :: (S.Set FilePath) -> [(FilePath, String)] ->
                           Ghc (S.Set FilePath)
         buildSections' dirs [] = return dirs
@@ -203,6 +237,8 @@ driveGhc makefile o allfiles hakefiles = do
         buildSections :: [(FilePath, String)] -> Ghc (S.Set FilePath)
         buildSections hs = buildSections' S.empty hs
 
+        -- Evaluate a Hakefile, returning something of the form
+        -- Rule [...]
         evaluate :: FilePath -> String -> Ghc HRule
         evaluate hakepath hake_raw = do
             case hake_parse of
@@ -211,8 +247,11 @@ driveGhc makefile o allfiles hakefiles = do
                             prettyPrintWithMode (defaultMode {layout = PPNoLayout}) $
                                 wrapHake hakepath hake_expr
 
+                    -- Evaluate in GHC
                     val <- dynCompileExpr $ hake_wrapped ++ " :: [String] -> HRule"
                     let rule = fromDyn val (\_ -> Error "failed")
+
+                    -- Path resolution
                     let resolved_rule =
                             resolvePaths o (takeDirectory hakepath)
                                            (rule allfiles)
@@ -222,13 +261,7 @@ driveGhc makefile o allfiles hakefiles = do
             where
                 hake_parse = parseHake hakepath hake_raw
 
-evalHakeFiles :: Handle -> Opts -> [FilePath] -> [(FilePath, String)] ->
-                 IO (S.Set FilePath)
-evalHakeFiles makefile o allfiles hakefiles =
-    defaultErrorHandler defaultFatalMessager defaultFlushOut $
-        runGhc (Just libdir) $
-        driveGhc makefile o allfiles hakefiles
-
+-- Parse a Hakefile, prior to wrapping it with Hake definitions
 parseHake :: FilePath -> String -> Either Exp HakeError
 parseHake filename contents =
     case result of
@@ -243,12 +276,50 @@ parseHake filename contents =
                     baseLanguage = Haskell2010 })
                 contents
 
+-- Split a Hake rule up by token type.  It's more efficient to do this
+-- in a single pass, than to filter each as it's required.
+data CompiledRule =
+    CompiledRule {
+        ruleOutputs    :: S.Set RuleToken,
+        ruleDepends    :: S.Set RuleToken,
+        rulePreDepends :: S.Set RuleToken,
+        ruleBody       :: [RuleToken],
+        ruleDirs       :: S.Set FilePath
+    }
+
+compileRule :: [RuleToken] -> CompiledRule
+compileRule [] = CompiledRule S.empty  S.empty  S.empty  []  S.empty
+compileRule (t:ts) =
+    let CompiledRule outs deps predeps body dirs = compileRule ts
+        outs'    = if isOutput t then S.insert t outs else outs
+        deps'    = if isDependency t then S.insert t deps else deps
+        predeps' = if isPredependency t then S.insert t predeps else predeps
+        body'    = if inRule t then t:body else body
+        dirs'    = if isFileRef t &&
+                      inTree (frPath t) &&
+                      takeDirectory (frPath t) /= "."
+                   then S.insert (replaceFileName (frPath t) ".marker") dirs
+                   else dirs
+    in
+    CompiledRule outs' deps' predeps' body' dirs'
+    where
+        inTree :: FilePath -> Bool
+        inTree p =
+            case splitDirectories p of
+                "..":_ -> False
+                "/":_ -> False
+                _ -> True
+
+-- We wrap the AST of the parsed Hakefile to defind the 'find' and 'build'
+-- primitives, and generate the correct expression type (HRule).  The result
+-- is an unevaluted function [FilePath] -> HRule, that needs to be supplied
+-- with the list of all files in the source directory.
 wrapHake :: FilePath -> Exp -> Exp
 wrapHake hakefile hake_exp =
     Paren (
     Lambda dummy_loc [PVar (Ident "allfiles")] (
     Let (BDecls
-        [FunBind [Match
+        [FunBind [Match -- This is 'find'
             dummy_loc
             (Ident "find")
             [PVar (Ident "fn"), PVar (Ident "arg")]
@@ -262,7 +333,7 @@ wrapHake hakefile hake_exp =
 
         FunBind [Match
             dummy_loc
-            (Ident "build")
+            (Ident "build") -- This is 'build'
             [PVar (Ident "a")]
             Nothing
             (UnGuardedRhs
@@ -280,6 +351,11 @@ wrapHake hakefile hake_exp =
         dummy_loc = SrcLoc { srcFilename = "<hake internal>",
                                 srcLine = 0, srcColumn = 0 }
 
+--
+-- Makefile generation
+--
+
+-- The Makefile header, generated once.
 makefilePreamble :: Handle -> Opts -> [String] -> IO ()
 makefilePreamble h opts args = 
     mapM_ (hPutStrLn h)
@@ -292,14 +368,19 @@ makefilePreamble h opts args =
              "HAKE_ARCHS=" ++ (concat $ intersperse " " Config.architectures),
              "include ./symbolic_targets.mk" ])
 
+-- There a several valid top-level build directores, apart from the
+-- architecture-specific one.
 arch_list :: S.Set String
 arch_list = S.fromList (Config.architectures ++
                         ["", "src", "hake", "root", "tools", "docs"])
 
--- a rule is included if it has only "special" architectures and enabled architectures
+-- A rule is included if it applies to only "special" and configured
+-- architectures.
 allowedArchs :: [String] -> Bool
 allowedArchs = all (\a -> a `S.member` arch_list)
 
+-- The section corresponding to a Hakefile.  These routines all collect
+-- and directories they see.
 makefileSection :: Handle -> Opts -> FilePath -> HRule -> IO (S.Set FilePath)
 makefileSection h opts hakepath rule = do
     hPutStrLn h $ "# From: " ++ hakepath ++ "\n"
@@ -366,14 +447,31 @@ makefileRuleInner h tokens double_colon = do
             hPutStrLn h "\n"
             return $ ruleDirs compiledRule
 
----
---- Functions to resolve relative path names in rules. 
----
---- First, the outer function: resolve path names in an HRule. The
---- third argument, 'root', is frequently the pathname of the Hakefile
---- relative to the source tree - since relative pathnames in
---- Hakefiles are interpreted relative to the Hakefile location.
----
+--
+-- Functions to resolve path names in rules. 
+--
+-- Absolute paths are interpreted relative to one of the three trees: source,
+-- build or install.  Relative paths are interpreted relative to the directory
+-- containing the Hakefile that referenced them, within one of the above tree.
+-- Both build and install trees are divided by architecture, while the source
+-- tree is not.  All paths are output relative to the build directory.
+--
+-- For example, if we are building for architecture 'x86_64', with build tree
+-- '/home/user/barrelfish/build' and build tree '/home/user/barrelfish'
+-- (relative path '../', and we are compiling a Hakefile at 'apps/init/Hakefile'
+-- (relative path  '../apps/init/Hakefile'), we would resolve as follows:
+--
+--   In SourceTree "../apps/init" "x86_64" "main.c"
+--      -> "../apps/init/main.c"
+--   In BuildTree "../apps/init" "x86_64" "/include/generated.h"
+--      -> "./x86_64/include/generated.h"
+--   Out BuildTree "../apps/init" "root" "/doc/manual.pdf"
+--      -> "./doc/manual.pdf"
+--
+-- Note that the 'root' architecture is special, and always refers to the root
+-- of the relevant tree.
+
+-- Recurse through the Hake AST
 resolvePaths :: Opts -> FilePath -> HRule -> HRule
 resolvePaths o hakepath (Rules hrules)
     = Rules $ map (resolvePaths o hakepath) hrules
@@ -386,9 +484,8 @@ resolvePaths o hakepath (Error s)
 resolvePaths o hakepath (Phony name dbl tokens)
     = Phony name dbl $ map (resolveTokenPath o hakepath) tokens
 
---- Now resolve at the level of individual rule tokens.  At this
---- level, we need to take into account the tree (source, build, or
---- install).
+-- Now resolve at the level of individual rule tokens.  At this level,
+-- we need to take into account the tree (source, build, or install).
 resolveTokenPath :: Opts -> FilePath -> RuleToken -> RuleToken
 -- An input token specifies which tree it refers to.
 resolveTokenPath o hakepath (In tree arch path) = 
@@ -411,24 +508,24 @@ resolveTokenPath o hakepath (Target arch path) =
 -- Other tokens don't contain paths to resolve.
 resolveTokenPath _ _ token = token
 
---- Now we get down to the nitty gritty.  We have, in order:
----   o:        The options in force
----   tree:     The tree (source, build, or install)
----   arch:     The architecture (e.g. armv7)
----   path:     The pathname we want to resolve
----   hakepath: The directory containing the Hakefile
---- If the tree is SrcTree or the architecture is "root", everything
---- is relative to the top-level directory for that tree.  Otherwise,
---- it's relative to the top-level directory plus the architecture.
+-- Now we get down to the nitty gritty.  We have, in order:
+--   o:        The options in force
+--   tree:     The tree (source, build, or install)
+--   arch:     The architecture (e.g. armv7)
+--   path:     The pathname we want to resolve
+--   hakepath: The directory containing the Hakefile
+-- If the tree is SrcTree or the architecture is "root", everything
+-- is relative to the top-level directory for that tree.  Otherwise,
+-- it's relative to the top-level directory plus the architecture.
 treePath :: Opts -> TreeRef -> FilePath -> FilePath -> FilePath -> FilePath
-
+-- The architecture 'root' is special.
 treePath o SrcTree "root" path hakepath = 
     relPath (opt_sourcedir o) path hakepath
 treePath o BuildTree "root" path hakepath = 
     relPath "." path hakepath
 treePath o InstallTree "root" path hakepath = 
     relPath (opt_installdir o) path hakepath
-
+-- Source-tree paths don't get an architecture.
 treePath o SrcTree arch path hakepath =
     relPath (opt_sourcedir o) path hakepath
 treePath o BuildTree arch path hakepath =
@@ -436,16 +533,11 @@ treePath o BuildTree arch path hakepath =
 treePath o InstallTree arch path hakepath =
     relPath (opt_installdir o </> arch) path hakepath
 
---- This is where the work is done: take 'hd' (pathname relative to
---- us of the Hakefile) and resolve the filename we're interested in
---- relative to this.  This gives us a pathname relative to some root
---- of some architecture tree, then return this relative to the actual
---- tree we're interested in.  It's troubling that this takes more
---- bytes to explain than to code.
----   d:    Pathname of top directory of the tree (source, build, install)
----   f:    Filename we are interested in, relative to 'root' below
----   hd:   Directory containing the Hakefile
----   
+-- First evaluate the given path 'path', relative to the Hakefile directory
+-- 'hakepath'.  If 'path' is absolute (i.e. begins with a /), it is unchanged.
+-- Otherwise it is appended to 'hakepath'.  We then treat this as a relative
+-- path (by removing any initial /), and append it to the relevant tree root
+-- (which may or may not have an architecture path appended already).
 relPath treeroot path hakepath =
     treeroot </> stripSlash (hakepath </> path)
 
@@ -455,10 +547,11 @@ stripSlash :: FilePath -> FilePath
 stripSlash ('/':cs) = cs
 stripSlash cs = cs
 
+-- Emit the rule to rebuild the Hakefile.
 makeHakeDeps :: Handle -> Opts -> [String] -> IO ()
 makeHakeDeps h o l = do
     makefileRule h rule
-    hPutStrLn h ".DELETE_ON_ERROR:\n" -- this applies to all targets in the Makefile
+    hPutStrLn h ".DELETE_ON_ERROR:\n" -- this applies to following targets.
     where
         hake = resolveTokenPath o "" (In InstallTree "root" "/hake/hake")
         makefile = resolveTokenPath o "/" (Out "root" (opt_makefilename o))
@@ -471,6 +564,7 @@ makeHakeDeps h o l = do
                       [ Dep SrcTree "root" h | h <- l ]
                     )
 
+-- Emit the rules to create the build directories
 makeDirectories :: Handle -> S.Set FilePath -> IO ()
 makeDirectories h dirs = do
     hPutStrLn h "# Directories follow"
@@ -484,63 +578,13 @@ makeDir h dir = do
     hPutStrLn h $ "\ttouch " ++ dir
     hPutStrLn h ""
 
-scanTokens :: [RuleToken] -> (S.Set RuleToken, S.Set RuleToken,
-                              S.Set RuleToken, [RuleToken],
-                              S.Set FilePath)
-scanTokens [] = (S.empty, S.empty, S.empty, [], S.empty)
-scanTokens (t:ts) =
-    case t of
-        Out _ f      -> (S.insert t outs, deps, predeps, body', dirs' f)
-        Target _ f   -> (S.insert t outs, deps, predeps, body', dirs' f)
-        In _ _ f     -> (outs, S.insert t deps, predeps, body', dirs' f)
-        Dep _ _ f    -> (outs, S.insert t deps, predeps, body', dirs' f)
-        PreDep _ _ f -> (outs, deps, S.insert t predeps, body', dirs' f)
-        NoDep _ _ f  -> (outs, deps, predeps, body', dirs' f)
-        _            -> (outs, deps, predeps, body', dirs)
-    where
-        (outs, deps, predeps, body, dirs) = scanTokens ts
-        body' = if inRule t then t:body else body
-        dirs' f = if Path.isBelow (takeDirectory f) "." &&
-                     takeDirectory f /= "."
-                  then S.insert (dirOf f) dirs else dirs
-
-        dirOf :: FilePath -> FilePath
-        dirOf f = (takeDirectory f) </> ".marker"
-
-
-data CompiledRule =
-    CompiledRule {
-        ruleOutputs    :: S.Set RuleToken,
-        ruleDepends    :: S.Set RuleToken,
-        rulePreDepends :: S.Set RuleToken,
-        ruleBody       :: [RuleToken],
-        ruleDirs       :: S.Set FilePath
-    }
-
-compileRule :: [RuleToken] -> CompiledRule
-compileRule tokens
-    = CompiledRule {
-        ruleOutputs    = outs,
-        ruleDepends    = deps,
-        rulePreDepends = predeps,
-        ruleBody       = body,
-        ruleDirs       = dirs
-        }
-    where
-        (outs, deps, predeps, body, dirs) = scanTokens tokens
-
-gcStats :: IO ()
-gcStats = do
-    performGC
-    gc_stats <- getGCStats
-    putStrLn $ show (currentBytesUsed gc_stats) ++ " - " ++
-               show (numGcs gc_stats) ++ " - " ++
-               show (maxBytesUsed gc_stats) ++ " - " ++
-               show (wallSeconds gc_stats)
+--
+-- The top level
+--
 
 body :: HakeMonad ()
 body =  do
-    -- parse arguments; architectures default to config file
+    -- Parse arguments; architectures default to config file
     args <- liftIO $ System.Environment.getArgs
     let o1 = parse_arguments args
         al = if opt_architectures o1 == [] 
@@ -551,8 +595,8 @@ body =  do
     when (opt_usage_error opts') $
         throwError (HakeError usage 1)
 
-    -- sanity-check configuration settings
-    -- this is currently known at compile time, but might not always be!
+    -- Check configuration settings.
+    -- This is currently known at compile time, but might not always be!
     when (isJust configErrors) $
         throwError (HakeError ("Error in configuration: " ++
                                (fromJust configErrors)) 2)
@@ -572,33 +616,25 @@ body =  do
     liftIO $ putStrLn ("Install directory: " ++ opt_installdir opts ++
                        " (" ++ opt_abs_installdir opts ++ ")")
 
-    liftIO gcStats
-
+    -- Find Hakefiles
     liftIO $ putStrLn "Reading directory tree..."
     (allfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
     let relfiles = map (makeRelative $ opt_sourcedir opts') allfiles
 
-    liftIO gcStats
-
+    -- Open the Makefile and write the preamble
     liftIO $ putStrLn $ "Opening " ++ (opt_makefilename opts)
     makefile <- liftIO $ openFile(opt_makefilename opts) WriteMode
     liftIO $ makefilePreamble makefile opts args
     liftIO $ makeHakeDeps makefile opts $ map fst hakefiles
 
-    liftIO gcStats
-
+    -- Evaluate Hakefiles
     liftIO $ putStrLn $ "Evaluating " ++ show (length hakefiles) ++
                         " Hakefiles..."
     dirs <- liftIO $ evalHakeFiles makefile opts relfiles hakefiles
 
-    liftIO gcStats
-
-    liftIO $ putStrLn $ show $ S.size dirs
-
+    -- Emit directory rules
     liftIO $ putStrLn $ "Generating build directory dependencies..."
     liftIO $ makeDirectories makefile dirs
-
-    liftIO gcStats
 
     return ()
 

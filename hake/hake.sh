@@ -174,9 +174,7 @@ if [ "$RUN_HAKE" == "No" ] ; then
 fi
 
 echo "Running hake..."
-#./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -s -N -K64M -A64M -ls -lf || exit
-#./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -N -K64M -A64M || exit
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -T || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -T -H128M -A4M -N4 || exit
 
 echo "Now running initial make to build dependencies."
 echo " (remove the '-j 4' if your system has trouble handling this" 
