@@ -45,11 +45,11 @@ header_file infile schema@(Schema name _ _) body =
 
 sockeye_header_file :: String -> Schema -> C.Unit
 sockeye_header_file infile intf = 
-    header_file infile intf (intf_header_body infile intf)
+    header_file infile intf (schema_header_body infile intf)
 
 
-intf_header_body :: String -> Schema -> [C.Unit]
-intf_header_body infile schema@(Schema name descr decls) = 
+schema_header_body :: String -> Schema -> [C.Unit]
+schema_header_body infile schema@(Schema name descr decls) = 
     let
         (types, facts, queries) = Backend.partitionTypesFactsQueries decls
         --messages = rpcs_to_msgs messagedecls
@@ -60,11 +60,14 @@ intf_header_body infile schema@(Schema name descr decls) =
         C.Include C.Standard "skb/skb.h",
         C.Blank,
 
-
-
         C.MultiComment [ "Concrete type definitions" ],
         C.UnitList $ define_types name types,
         C.Blank,
+        C.Blank,
+
+        C.MultiComment [ "Fact attribute fields" ],
+        C.Blank,
+        C.UnitList [ fact_attributes name f | f <- facts ],
         C.Blank,
 
         C.MultiComment [ "Fact type signatures" ],
@@ -75,9 +78,7 @@ intf_header_body infile schema@(Schema name descr decls) =
         C.MultiComment [ "Query type signatures" ],
         C.Blank,
         C.UnitList [ query_signature name q | q <- queries ],
-        C.Blank,
-
-        C.MultiComment [ "And we're done" ]
+        C.Blank
       ]
 
 
@@ -91,15 +92,15 @@ intf_header_body infile schema@(Schema name descr decls) =
 
 fact_signature :: String -> FactDef -> C.Unit
 fact_signature sname f = C.UnitList [ 
-    C.MultiDoxi (["@brief  " ++ desc,
+    C.MultiDoxy (["@brief  " ++ desc,
                   ""] ++ param_desc),
     C.FunctionDecl C.NoScope (C.TypeName "errval_t") name params,
     C.Blank
   ]
   where 
-    name = fact_sig_type sname f
+    name = fact_sig_type sname "add" f 
     desc = fact_desc f 
-    params = concat payload
+    params = [C.Param (C.Ptr $ C.Struct $ (fact_attrib_type sname f)) "arg"]
     param_desc = [ fact_param_desc a | a <- fact_args f ]  
     payload = case f of
         Fact _ _ args -> [ fact_argdecl sname a | a <- args ]
@@ -116,8 +117,67 @@ query_signature sname q =
         Query _ _ args -> [ query_argdecl sname a | a <- args ]
 
 
+fact_attributes :: String -> FactDef -> C.Unit
+fact_attributes sname f = C.UnitList [ 
+    C.MultiDoxy (["Fact: " ++ name, 
+                  "@brief  " ++ desc]),
+    C.StructDecl name params,
+    C.Blank,
+    C.DoxyComment ("typedef for the " ++ name ++ " attribute type"),
+    C.TypeDef (C.Struct name) (name ++ "_t"),
+    C.Blank,
+    fact_fmt_str sname f,
+    C.Blank
+  ]
+  where 
+    name = fact_attrib_type sname f
+    desc = fact_desc f 
+    params = concat payload
+    payload = case f of
+        Fact _ _ args -> [ fact_attrib_decl sname a | a <- args ]
 
 
+attr_fmt_type_wr :: String -> FactAttribute -> String
+attr_fmt_type_wr sn (FAttrib t (Name n) d) = case t of
+    Builtin builtin ->  "%\" " ++ builtin_fmt_wr builtin ++ " \""
+    TypeVar name -> "typevar"
+    FactType name -> type_c_define sn name "FMT_WRITE"
+    TypeAlias alias builtin -> "alias_type"
+
+attr_fmt_type_rd :: String -> FactAttribute -> String
+attr_fmt_type_rd sn (FAttrib t (Name n) d) = case t of
+    Builtin builtin ->  "%\" " ++ builtin_fmt_rd builtin ++ " \""
+    TypeVar name -> "typevar"
+    FactType name -> type_c_define sn name "FMT_READ"
+    TypeAlias alias builtin -> "alias_type"
+
+attr_access_rd :: String -> String -> FactAttribute -> String
+attr_access_rd arg sn (FAttrib t (Name n) d) = case t of
+    FactType name -> type_c_define sn name "FIELDS(&("++"(" ++ arg ++ ")->" ++ n ++"))"
+    _ -> "(" ++ arg ++ ")->" ++ n
+
+fact_fmt_str :: String -> FactDef -> C.Unit
+fact_fmt_str sname f=  C.UnitList [
+    C.DoxyComment ("define for printing the " ++ name ++ "fact"),
+    (C.Define (type_c_define sname (fact_name f) "FMT_WRITE") [] params_wr),
+    C.DoxyComment ("define for reading the " ++ name ++ "fact"),
+    (C.Define (type_c_define sname (fact_name f) "FMT_READ") [] params_rd),
+    C.DoxyComment ("define for accessing the  " ++ name ++ "fact attributes"),
+    (C.Define (type_c_define sname (fact_name f) "FIELDS") [ "_arg" ] field_access),
+    C.Blank
+  ]
+  where 
+    name = fact_attrib_type sname f
+    desc = fact_desc f 
+    params_wr = "\"" ++ name ++ "(" ++ (intercalate ", " write) ++ ")\""
+    write = case f of
+        Fact _ _ args -> [ (attr_fmt_type_wr sname a) | a <- args ]
+    params_rd = "\"" ++ name ++ "(" ++ (intercalate ", " read) ++ ")\""
+    read = case f of
+        Fact _ _ args -> [ (attr_fmt_type_rd sname a) | a <- args ]   
+    field_access = "(" ++ (intercalate ", " fields) ++ ")"
+    fields = case f of
+        Fact _ _ args -> [ attr_access_rd "_arg" sname a | a <- args ]  
 
 {-
 

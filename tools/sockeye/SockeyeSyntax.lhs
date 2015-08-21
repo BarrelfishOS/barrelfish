@@ -79,6 +79,7 @@ we construct a new type, it can use either built-in types, such as
 
 > data TypeRef = Builtin TypeBuiltin
 >              | TypeVar String
+>              | FactType String
 >              | TypeAlias String TypeBuiltin
 >     deriving (Show)
 
@@ -132,13 +133,48 @@ Which are shown with:
 >                                "int32" -> [(Int32, "")]
 >                                "int64" -> [(Int64, "")]
 >                                "intptr" -> [(IntPtr, "")]
->                                "int" -> [(Int32, "")] -- XXX: why? -AB
 >                                "size" -> [(Size, "")]
 >                                "bool" -> [(Bool, "")]
 >                                "string" -> [(String, "")]
 >                                "char" -> [(Char, "")]
 >                                "iref" -> [(IRef, "")]
 >                                _ -> error  $ "Undefined builtin type " ++ s
+
+
+> builtin_fmt_wr :: TypeBuiltin -> String
+> builtin_fmt_wr (UInt8) = "PRIu8"
+> builtin_fmt_wr (UInt16) = "PRIu16"
+> builtin_fmt_wr (UInt32) = "PRIu32"
+> builtin_fmt_wr (UInt64) = "PRIu64"
+> builtin_fmt_wr (UIntPtr) = "PRIuPTR"
+> builtin_fmt_wr (Int8) = "PRIi8"
+> builtin_fmt_wr (Int16) = "PRIi16"
+> builtin_fmt_wr (Int32) = "PRIi32"
+> builtin_fmt_wr (Int64) = "PRIi64"
+> builtin_fmt_wr (IntPtr) = "PRIuPTR"
+> builtin_fmt_wr (Size) = "PRIuSIZE"
+> builtin_fmt_wr (Bool) = "i"
+> builtin_fmt_wr (String) = "s"
+> builtin_fmt_wr (Char) = "c"
+> builtin_fmt_wr (IRef) = "PRIuIREF"
+
+
+> builtin_fmt_rd :: TypeBuiltin -> String
+> builtin_fmt_rd (UInt8) = "SCNu8"
+> builtin_fmt_rd (UInt16) = "SCNu16"
+> builtin_fmt_rd (UInt32) = "SCNu32"
+> builtin_fmt_rd (UInt64) = "SCNu64"
+> builtin_fmt_rd (UIntPtr) = "SCNuPTR"
+> builtin_fmt_rd (Int8) = "SCNi8"
+> builtin_fmt_rd (Int16) = "SCNi16"
+> builtin_fmt_rd (Int32) = "SCNi32"
+> builtin_fmt_rd (Int64) = "SCNi64"
+> builtin_fmt_rd (IntPtr) = "SCNuPTR"
+> builtin_fmt_rd (Size) = "SCNuSIZE"
+> builtin_fmt_rd (Bool) = "i"
+> builtin_fmt_rd (String) = "s"
+> builtin_fmt_rd (Char) = "c"
+> builtin_fmt_rd (IRef) = "SCNuIREF"
 
 Hence, we can define:
 

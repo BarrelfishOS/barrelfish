@@ -146,14 +146,32 @@ pFct typeDcls = do { reserved "fact"
                    }
 
 
-factAttribs typeDecls = do { t <- identifier
+factAttribs typeDecls = do { b <-factAttribType typeDecls
                            ; i <- identifier
                            ; d <- option i stringLit
-                           ; b <- identifyBuiltin typeDecls t
                            ; symbol ";"
                            ; return (FAttrib b (Name i) d)
                            }
  
+--- XXX: verify that the fact is already defined
+factAttribTypeRef typeDecls = do {  reserved "fact"
+                                 ; t <- identifier 
+                               --  ; b <- identifyBuiltin typeDecls t
+                                 ; return $ FactType t
+                              --   ; return b
+                                 }
+
+factAttribTypeBultIn typeDecls = do { t <- identifier 
+                                    ; b <- identifyBuiltin typeDecls t
+                                    ; return b
+                                    }
+
+
+factAttribType typeDcls = try (factAttribTypeRef typeDcls)
+                        <|> (factAttribTypeBultIn typeDcls)
+
+
+
 
 queryParams typeDecls = do { i <- identifier
                            ; symbol "="

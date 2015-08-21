@@ -16,8 +16,217 @@ module SockeyeCodeBackend where
 import Data.Char
 
 
+
+import Data.List
+import Data.Char
+
 import qualified CAbsSyntax as C
-import SockeyeSyntax (Schema (Schema))
+import SockeyeSyntax
+
+
+import qualified Backend
+import BackendCommon
+
+include_header_name n = "facts/" ++ ifscope n "schema.h"
+
+add_fn_name n = ifscope n "add" 
+
+
+------------------------------------------------------------------------
+-- Language mapping: Create the generic header file for the interface
+------------------------------------------------------------------------
+
+compile :: String -> String -> Schema -> String
+compile infile outfile schema = 
+    unlines $ C.pp_unit $ sockeye_code_file infile schema
+
+
+sockeye_code_file :: String -> Schema -> C.Unit
+sockeye_code_file infile (Schema name descr decls) = 
+      let
+        (types, facts, queries) = Backend.partitionTypesFactsQueries decls
+        --messages = rpcs_to_msgs messagedecls
+    in
+      C.UnitList [
+      schema_preamble infile name descr,
+      C.Blank,
+
+      C.Include C.Standard "barrelfish/barrelfish.h",
+      C.Include C.Standard "flounder/flounder_support.h",
+      C.Include C.Standard ("facts/" ++ name ++ "_schema.h"),
+      C.Blank,
+
+      C.MultiComment [ "Fact type signatures" ],
+      C.Blank,
+      C.UnitList [ fact_fn name f | f <- facts ],
+      C.Blank,
+
+      C.MultiComment [ "Query type signatures" ],
+      C.Blank,
+      C.UnitList [ query_fn name q | q <- queries ],
+      C.Blank
+    ]
+    
+  
+
+--
+-- Generate type definitions for each fact signature
+--
+  
+fact_fn :: String -> FactDef -> C.Unit
+fact_fn sname f = C.UnitList [ 
+    C.MultiDoxy (["@brief  " ++ desc,
+                  ""] ++ param_desc),
+    C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
+      C.VarDecl C.NoScope C.NonConst (C.TypeName "errval_t") "err" Nothing,
+      C.SBlank,
+      C.Ex $ C.Assignment errvar (C.Call "skb_client_connect" []),
+      C.If (C.Call "err_is_fail" [errvar]) 
+        [C.Return $ errvar] [],
+      C.SBlank,
+      C.Ex $ C.Assignment errvar (C.Call "skb_add_fact" [C.Variable add_fact_string, (C.Call add_fact_args [C.Variable "args"])]),
+      C.Return $ errvar
+    ],
+    C.Blank
+  ]
+  where 
+    name = fact_sig_type sname "add" f 
+    desc = fact_desc f 
+    params = [C.Param (C.Ptr $ C.Struct $ (fact_attrib_type sname f)) "arg"]
+    param_desc = [ fact_param_desc a | a <- fact_args f ]  
+    payload = case f of
+        Fact _ _ args -> [ fact_argdecl sname a | a <- args ]
+    add_fact_string = type_c_define sname (fact_name f) "FMT_READ"
+    add_fact_args = type_c_define sname (fact_name f) "FIELDS"
+
+
+
+query_fn :: String -> QueryDef -> C.Unit
+query_fn sname q = 
+  C.FunctionDecl C.NoScope (C.TypeName "errval_t") name params 
+  where 
+    name = query_sig_type sname q
+    params = concat payload
+    payload = case q of
+        Query _ _ args -> [ query_argdecl sname a | a <- args ]
+
+
+
+
+fact_attributes :: String -> FactDef -> C.Unit
+fact_attributes sname f = C.UnitList [ 
+    C.MultiDoxy (["Fact: " ++ name, 
+                  "@brief  " ++ desc]),
+    C.StructDecl name params,
+    C.TypeDef (C.Struct name) (name ++ "_t"),
+    C.Blank
+  ]
+  where 
+    name = fact_attrib_type sname f
+    desc = fact_desc f 
+    params = concat payload
+    payload = case f of
+        Fact _ _ args -> [ fact_attrib_decl sname a | a <- args ]
+
+
+
+
+{-
+
+--
+-- Generate a struct to hold the arguments of a message while it's being sent.
+-- 
+msg_argstruct :: String -> [TypeDef] -> MessageDef -> C.Unit
+msg_argstruct ifname typedefs m@(RPC n args _) = 
+    C.StructDecl (msg_argstruct_name ifname n) 
+         (concat [ rpc_argdecl ifname a | a <- args ])
+msg_argstruct ifname typedefs m@(Message _ n [] _) = C.NoOp
+msg_argstruct ifname typedefs m@(Message _ n args _) =
+    let tn = msg_argstruct_name ifname n
+    in
+      C.StructDecl tn (concat [ msg_argstructdecl ifname typedefs a
+                               | a <- args ])
+
+--
+-- Generate a union of all the above
+-- 
+intf_union :: String -> [MessageDef] -> C.Unit
+intf_union ifn msgs = 
+    C.UnionDecl (binding_arg_union_type ifn)
+         ([ C.Param (C.Struct $ msg_argstruct_name ifn n) n
+            | m@(Message _ n a _) <- msgs, 0 /= length a ]
+          ++
+          [ C.Param (C.Struct $ msg_argstruct_name ifn n) n
+            | m@(RPC n a _) <- msgs, 0 /= length a ]
+         )
+
+--
+-- Generate a struct defn for a vtable for the interface
+--
+intf_vtbl :: String -> Direction -> [MessageDef] -> C.Unit
+intf_vtbl n d ml = 
+    C.StructDecl (intf_vtbl_type n d) [ intf_vtbl_param n m d | m <- ml ]
+
+intf_vtbl_param :: String -> MessageDef -> Direction ->  C.Param
+intf_vtbl_param ifn m d = C.Param (C.Ptr $ C.TypeName $ msg_sig_type ifn m d) (msg_name m)
+
+--
+-----------------------------------------------------------------
+-- Code to generate concrete type definitions
+-----------------------------------------------------------------
+
+-}
+
+define_types :: String -> [TypeDef] -> [C.Unit]
+define_types schemaName types = 
+    [ define_type schemaName t | t <- types ]
+
+define_type :: String -> TypeDef -> C.Unit
+define_type sname (TAliasT newType originType) =
+    C.TypeDef (type_c_type sname $ Builtin originType) (type_c_name1 sname newType)
+
+{-
+This enumeration:
+\begin{verbatim}
+typedef enum {
+    foo, bar, baz
+} some_enum;
+\end{verbatim}
+
+Generates the following code:
+\begin{verbatim}
+enum ifname_some_enum_t {
+    ifname_some_enum_t_foo = 1,
+    ifname_some_enum_t_bar = 2,
+    ifname_some_enum_t_baz = 3,
+}
+\end{verbatim}
+-}
+
+
+define_type sname (TEnum name elements) = 
+    C.EnumDecl (type_c_name1 sname name) 
+         [ C.EnumItem (type_c_enum sname e) Nothing | e <- elements ]
+
+
+   
+
+{-
+A typedef'd alias:
+\begin{verbatim}
+typedef uint32 alias_type;
+\end{verbatim}
+
+Should compile to:
+\begin{verbatim}
+typedef uint32_t ifname_alias_type_t;
+\end{verbatim}
+-}
+
+define_type sname (TAlias newType originType) = 
+    C.TypeDef (type_c_type sname originType) (type_c_name1 sname newType)
+
+
 {-
 import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name)
 import BackendCommon
@@ -398,7 +607,3 @@ multihop_bind_backend ifn cont =
     }
 
 -}
-
-compile :: String -> String -> SockeyeSyntax.Schema -> String
-compile infile outfile schema = 
-    ""

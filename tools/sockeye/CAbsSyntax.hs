@@ -221,8 +221,9 @@ pp_constspec NonConst = ""
 -- Note that we treat static inlines as their own construct.  It's easier. 
 --
 data Unit = Comment String
+          | DoxyComment String
           | MultiComment [ String ]
-          | MultiDoxi [ String ]
+          | MultiDoxy [ String ]
           | TypeDef TypeSpec String
           | FunctionDef ScopeSpec TypeSpec String [ Param ] [ Stmt ]
           | StaticInline TypeSpec String [ Param ] [ Stmt ]
@@ -247,8 +248,9 @@ data Unit = Comment String
 
 pp_unit :: Unit -> [ String ] 
 pp_unit (Comment s) = [ "// " ++ s ]
+pp_unit (DoxyComment s) = [ "///< " ++ s ]
 pp_unit (MultiComment sl) = ["/*"] ++ [ " * " ++ s | s <- sl ] ++ [ " */"] 
-pp_unit (MultiDoxi sl) = ["/**"] ++ [ " * " ++ s | s <- sl ] ++ [ " */"] 
+pp_unit (MultiDoxy sl) = ["/**"] ++ [ " * " ++ s | s <- sl ] ++ [ " */"] 
 pp_unit (TypeDef ts s) = [ "typedef " ++ (pp_typespec ts s) ++ ";" ]
 pp_unit (FunctionDef sc ts n pl body) =
     [ (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl) ] ++ (pp_fnbody body)
