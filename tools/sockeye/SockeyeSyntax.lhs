@@ -153,9 +153,9 @@ Which are shown with:
 > builtin_fmt_wr (Int64) = "PRIi64"
 > builtin_fmt_wr (IntPtr) = "PRIuPTR"
 > builtin_fmt_wr (Size) = "PRIuSIZE"
-> builtin_fmt_wr (Bool) = "i"
-> builtin_fmt_wr (String) = "s"
-> builtin_fmt_wr (Char) = "c"
+> builtin_fmt_wr (Bool) = "\"i\""
+> builtin_fmt_wr (String) = "\"s\""
+> builtin_fmt_wr (Char) = "\"c\""
 > builtin_fmt_wr (IRef) = "PRIuIREF"
 
 
@@ -171,9 +171,9 @@ Which are shown with:
 > builtin_fmt_rd (Int64) = "SCNi64"
 > builtin_fmt_rd (IntPtr) = "SCNuPTR"
 > builtin_fmt_rd (Size) = "SCNuSIZE"
-> builtin_fmt_rd (Bool) = "i"
-> builtin_fmt_rd (String) = "s"
-> builtin_fmt_rd (Char) = "c"
+> builtin_fmt_rd (Bool) = "\"i\""
+> builtin_fmt_rd (String) = "\"s\""
+> builtin_fmt_rd (Char) = "\"c\""
 > builtin_fmt_rd (IRef) = "SCNuIREF"
 
 Hence, we can define:
