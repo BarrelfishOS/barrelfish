@@ -13,7 +13,7 @@
 if Config.libc == "oldc" then
 [(
   let
-    common_src = ["src" ./. f | f <- [
+    common_src = ["src" </> f | f <- [
         "e_acos.c", "e_acosf.c", "e_acosh.c", "e_acoshf.c", "e_asin.c", "e_asinf.c",
         "e_atan2.c", "e_atan2f.c", "e_atanh.c", "e_atanhf.c", "e_cosh.c", "e_coshf.c", "e_exp.c",
         "e_expf.c", "e_fmod.c", "e_fmodf.c", "e_gamma.c", "e_gamma_r.c", "e_gammaf.c",
@@ -50,7 +50,7 @@ if Config.libc == "oldc" then
         "s_fabs.c", "s_frexp.c", "s_isnan.c", "s_ldexp.c", "s_modf.c"]]
 
     (longdouble_dir, arch_csrc, arch_asmsrc) = case a of
-        "x86_64" -> ("ld80", ["amd64/fenv.c"], ["amd64" ./. f | f <- [
+        "x86_64" -> ("ld80", ["amd64/fenv.c"], ["amd64" </> f | f <- [
                         "e_remainderf.S", "e_sqrt.S", "s_llrintf.S",
                         "s_lrintf.S", "s_remquof.S", "s_scalbnf.S", "e_sqrtf.S",
                         "s_llrintl.S", "s_lrintl.S", "s_remquol.S",
@@ -59,11 +59,11 @@ if Config.libc == "oldc" then
         _ -> ("", [], [])
 
     longdouble_src = if longdouble_dir == "" then [] else (
-        [longdouble_dir ./. f | f <- [
+        [longdouble_dir </> f | f <- [
                 "invtrig.c", "k_cosl.c", "k_sinl.c", "k_tanl.c",
                 "s_exp2l.c", "s_nanl.c"]]
         ++
-        ["src" ./. f | f <- [
+        ["src" </> f | f <- [
                 "e_acosl.c", "e_asinl.c", "e_atan2l.c", "e_fmodl.c",
                 "e_hypotl.c", "e_remainderl.c", "e_sqrtl.c",
                 "s_atanl.c", "s_ceill.c", "s_cosl.c", "s_cprojl.c", "s_csqrtl.c",

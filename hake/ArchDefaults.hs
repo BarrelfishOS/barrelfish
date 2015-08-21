@@ -14,7 +14,7 @@ module ArchDefaults where
 
 import Data.List
 import HakeTypes
-import Path
+import System.FilePath
 import qualified Config
 
 commonFlags = [ Str s | s <- [ "-fno-builtin",
@@ -60,10 +60,10 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
 
 cStdIncs arch archFamily =
     [ NoDep SrcTree "src" "/include",
-      NoDep SrcTree "src" ("/include/arch" ./. archFamily),
+      NoDep SrcTree "src" ("/include/arch" </> archFamily),
       NoDep SrcTree "src" Config.libcInc,
       NoDep SrcTree "src" "/include/c",
-      NoDep SrcTree "src" ("/include/target" ./. archFamily),
+      NoDep SrcTree "src" ("/include/target" </> archFamily),
       NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
       NoDep SrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",

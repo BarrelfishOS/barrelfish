@@ -14,7 +14,6 @@
 module ARMv7_M where
 --module names can not contain "-", so I went for an underscore instead
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 

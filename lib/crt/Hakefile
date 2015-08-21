@@ -21,10 +21,10 @@ let
              extraDependencies = [ Dep BuildTree arch "/include/asmoffsets.h" ],
              extraDefines = [ "-Wno-array-bounds" ]
            }
-    adir = "arch" ./. archFamily arch
+    adir = "arch" </> archFamily arch
 in
-    Rules [assembleSFile opts (adir  ./. "crt0.S"),
-           copy opts (adir ./. "crt0.o") "/lib/crt0.o",
+    Rules [assembleSFile opts (adir  </> "crt0.S"),
+           copy opts (adir </> "crt0.o") "/lib/crt0.o",
            compileCFile opts ("crtbegin.c"),
            copy opts "crtbegin.o" "/lib/crtbegin.o",
            compileCFile opts ("crtend.c"),

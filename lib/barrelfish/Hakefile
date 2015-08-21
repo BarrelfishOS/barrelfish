@@ -12,7 +12,7 @@
 --
 --------------------------------------------------------------------------
 
-[(let arch_dir = "arch" ./. archFamily arch
+[(let arch_dir = "arch" </> archFamily arch
       common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                       "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
                       "waitset.c", "event_queue.c", "event_mutex.c",
@@ -115,11 +115,11 @@
                                               ("spawn", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
-                    addIncludes = [ "include", "include" ./. arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }
  ) | arch <- allArchitectures ] ++
-[(let arch_dir = "arch" ./. archFamily arch
+[(let arch_dir = "arch" </> archFamily arch
       common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                       "thread_sync.c", "slab.c", "domain.c", "idc.c",
                       "waitset.c", "event_queue.c", "event_mutex.c",
@@ -211,7 +211,7 @@
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
-                    addIncludes = [ "include", "include" ./. arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }
  ) | arch <- allArchitectures ]

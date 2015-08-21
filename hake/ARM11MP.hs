@@ -16,7 +16,6 @@
 module ARM11MP where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ARMv5
 import qualified ArchDefaults

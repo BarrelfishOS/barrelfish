@@ -15,7 +15,6 @@
 module K1om where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 

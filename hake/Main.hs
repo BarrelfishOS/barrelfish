@@ -218,8 +218,9 @@ driveGhc makefile o allfiles hakefiles = do
     where
         module_paths = [ (opt_installdir o) </> "hake", ".", 
                          (opt_bfsourcedir o) </> "hake" ]
-        source_modules = [ "HakeTypes", "RuleDefs", "Path", "Args", "Config" ]
-        modules = [ "Prelude", "HakeTypes", "RuleDefs", "Path", "Args" ]
+        source_modules = [ "HakeTypes", "RuleDefs", "Args", "Config" ]
+        modules = [ "Prelude", "System.FilePath", "HakeTypes", "RuleDefs",
+                    "Args" ]
         qualified_modules = [ "Config", "Data.List" ]
 
         -- Evaluate one Hakefile, and emit its Makefile section.  We collect

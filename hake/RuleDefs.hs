@@ -13,7 +13,7 @@
 
 module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
-import Path
+import System.FilePath
 import qualified X86_64
 import qualified K1om
 import qualified X86_32
@@ -45,7 +45,10 @@ inRule _ = True
 --
 withSuffix :: [String] -> String -> String -> [String]
 withSuffix af tf arg =
-    [ basename f | f <- af, f `isInSameDirAs` tf, isSuffixOf arg f ]
+    [ takeFileName f | f <- af,
+                       takeDirectory f == takeDirectory tf,
+                       takeExtension f == arg ]
+
 withSuffices :: [String] -> String -> [String] -> [String]
 withSuffices af tf args =
     concat [ withSuffix af tf arg | arg <- args ]
@@ -56,12 +59,12 @@ withSuffices af tf args =
 inDir :: [String] -> String -> String -> String -> [String]
 inDir af tf dir suffix =
     -- Dummy is here so that we can find files in the same dir :-/
-    let subdir = (if head dir == '/' then absdir else reldir) ./. "dummy"
+    let subdir = (if head dir == '/' then absdir else reldir) </> "dummy"
         absdir = if head tf == '/' then dir else '.':dir
-        reldir = (dirname tf) ./. dir
+        reldir = (takeDirectory tf) </> dir
         files = withSuffix af subdir suffix
     in
-        [ dir ./. f | f <- files ]
+        [ dir </> f | f <- files ]
 
 cInDir :: [String] -> String -> String -> [String]
 cInDir af tf dir = inDir af tf dir ".c"
@@ -124,14 +127,14 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include" ]]
                  ++
                  [ NoDep SrcTree "src" f | f <- [
-                    "/kernel/include/arch" ./. arch,
-                    "/kernel/include/arch" ./. archFamily arch,
+                    "/kernel/include/arch" </> arch,
+                    "/kernel/include/arch" </> archFamily arch,
                     "/kernel/include",
                     "/include",
-                    "/include/arch" ./. archFamily arch,
+                    "/include/arch" </> archFamily arch,
                     Config.libcInc,
                     "/include/c",
-                    "/include/target" ./. archFamily arch]]
+                    "/include/target" </> archFamily arch]]
                  ++ kernelOptIncludes arch
 
 kernelOptions arch = Options {
@@ -305,17 +308,17 @@ dependFilePath :: String -> String
 dependFilePath obj = obj ++ ".depend"
 
 objectFilePath :: Options -> String -> String
-objectFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".o")
+objectFilePath opts src = optSuffix opts </> replaceExtension src ".o"
 
 generatedObjectFilePath :: Options -> String -> String
-generatedObjectFilePath opts src = (removeSuffix src) ++ ".o"
+generatedObjectFilePath opts src = replaceExtension src ".o"
 
 preprocessedFilePath :: Options -> String -> String
-preprocessedFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".i")
+preprocessedFilePath opts src = optSuffix opts </> replaceExtension src ".i"
 
 -- Standard convention is that human generated assembler is .S, machine generated is .s
 assemblerFilePath :: Options -> String -> String
-assemblerFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".s")
+assemblerFilePath opts src = optSuffix opts </> replaceExtension src ".s"
 
 
 -------------------------------------------------------------------------
@@ -517,8 +520,8 @@ includeFile opts hdr =
 -- Build a Mackerel header file from a definition.
 --
 mackerelProgLoc = In InstallTree "tools" "/bin/mackerel"
-mackerelDevFileLoc d = In SrcTree "src" ("/devices" ./. (d ++ ".dev"))
-mackerelDevHdrPath d = "/include/dev/" ./. (d ++ "_dev.h")
+mackerelDevFileLoc d = In SrcTree "src" ("/devices" </> (d ++ ".dev"))
+mackerelDevHdrPath d = "/include/dev/" </> (d ++ "_dev.h")
 
 mackerel2 :: Options -> String -> HRule
 mackerel2 opts dev = mackerel_generic opts dev "shift-driver"
@@ -546,26 +549,26 @@ mackerelDependencies opts d srcs =
 --
 
 flounderProgLoc = In InstallTree "tools" "/bin/flounder"
-flounderIfFileLoc ifn = In SrcTree "src" ("/if" ./. (ifn ++ ".if"))
+flounderIfFileLoc ifn = In SrcTree "src" ("/if" </> (ifn ++ ".if"))
 
 -- new-style stubs: path for generic header
-flounderIfDefsPath ifn = "/include/if" ./. (ifn ++ "_defs.h")
+flounderIfDefsPath ifn = "/include/if" </> (ifn ++ "_defs.h")
 -- new-style stubs: path for specific backend header
-flounderIfDrvDefsPath ifn drv = "/include/if" ./. (ifn ++ "_" ++ drv ++ "_defs.h")
+flounderIfDrvDefsPath ifn drv = "/include/if" </> (ifn ++ "_" ++ drv ++ "_defs.h")
 
 -- new-style stubs: generated C code (for all default enabled backends)
 flounderBindingPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_flounder_bindings.c")
+    (optSuffix opts) </> (ifn ++ "_flounder_bindings.c")
 -- new-style stubs: generated C code (for extra backends enabled by the user)
 flounderExtraBindingPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_flounder_extra_bindings.c")
+    (optSuffix opts) </> (ifn ++ "_flounder_extra_bindings.c")
 
-flounderTHCHdrPath ifn = "/include/if" ./. (ifn ++ "_thc.h")
+flounderTHCHdrPath ifn = "/include/if" </> (ifn ++ "_thc.h")
 flounderTHCStubPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_thc.c")
+    (optSuffix opts) </> (ifn ++ "_thc.c")
 
-applicationPath name = "/sbin" ./. name
-libraryPath libname = "/lib" ./. ("lib" ++ libname ++ ".a")
+applicationPath name = "/sbin" </> name
+libraryPath libname = "/lib" </> ("lib" ++ libname ++ ".a")
 kernelPath = "/sbin/cpu"
 
 -- construct include arguments to flounder for common types
@@ -576,8 +579,8 @@ kernelPath = "/sbin/cpu"
 flounderIncludes :: Options -> [RuleToken]
 flounderIncludes opts
     = concat [ [Str "-i", flounderIfFileLoc ifn]
-               | ifn <- [ "platform" ./. (optArch opts), -- XXX: optPlatform
-                          "arch" ./. (optArch opts),
+               | ifn <- [ "platform" </> (optArch opts), -- XXX: optPlatform
+                          "arch" </> (optArch opts),
                           "types" ] ]
 
 flounderRule :: Options -> [RuleToken] -> HRule
@@ -769,12 +772,12 @@ linkCxx opts objs libs bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
     | optArch opts == "armv7-m" = ARMv7_M.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
@@ -821,7 +824,7 @@ compileHaskellWithLibs prog main deps dirs =
             Str "--make ",
             In SrcTree "src" main,
             Str "-o ",
-            Out "tools" ("/bin" ./. prog),
+            Out "tools" ("/bin" </> prog),
             Str "$(LDFLAGS)" ]
           ++ concat [[ NStr "-i", NoDep SrcTree "src" d] | d <- dirs]
           ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
@@ -834,7 +837,7 @@ compileNativeC :: String -> [String] -> [String] -> [String] -> HRule
 compileNativeC prog cfiles cflags ldflags =
     Rule ([ Str nativeCCompiler,
             Str "-o",
-            Out "tools" ("/bin" ./. prog),
+            Out "tools" ("/bin" </> prog),
             Str "$(CFLAGS)",
             Str "$(LDFLAGS)" ]
           ++ [ (Str flag) | flag <- cflags ]
@@ -855,7 +858,7 @@ buildTechNoteWithDeps input output bib glo figs deps =
     in
       Rule ( [ Dep SrcTree "src" (f ++ ".pdf") | f <- figs]
              ++
-             [ Dep SrcTree "src" ("/doc/style" ./. f) | f <- style_files ]
+             [ Dep SrcTree "src" ("/doc/style" </> f) | f <- style_files ]
              ++
              [ Str "mkdir", Str "-p", working_dir, NL ]
              ++

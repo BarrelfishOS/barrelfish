@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [(let
-     arch_dir = "arch" ./. archFamily arch
+     arch_dir = "arch" </> archFamily arch
 
      arch_dirs "x86_32" = [ arch_dir, "arch/x86" ]
      arch_dirs "x86_64" = [ arch_dir, "arch/x86" ]
@@ -61,7 +61,7 @@
                                                   ("mem", ["rpcclient"]),
                                                   ("octopus", ["rpcclient"]) ],
                         addLinkFlags = [ "-e _start_init" ],
-                        addIncludes = "include" : [ "include" ./. a | a <- arch_dirs arch ],
+                        addIncludes = "include" : [ "include" </> a | a <- arch_dirs arch ],
                         addLibraries = (
  			    [ "spawndomain", "bench", "trace", "elf" ]
                             ++ idc_libraries)

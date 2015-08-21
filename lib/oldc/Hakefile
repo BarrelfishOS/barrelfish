@@ -13,7 +13,7 @@ if Config.libc == "oldc" then
 [(
   let
       -- architecture independent source files
-      generic_src = [ "src" ./. f | f <- [
+      generic_src = [ "src" </> f | f <- [
         "asctime.c",    "fseek.c",         "getchar.c",   "strncpy.c",
         "assert.c",     "ftell.c",         "getenv.c",    "rewind.c",   "strpbrk.c",
         "calloc.c",     "fwrite.c",        "getopt.c",    "scanf.c",    "strrchr.c",
@@ -59,7 +59,7 @@ if Config.libc == "oldc" then
         "locale/wctype.c", "string/strcasecmp.c" ]]
 
       -- architecture-dependent source files (relative to arch family)
-      archfam_src a = [ ("src/arch-" ++ a) ./. f | f <- archfam_files a ]
+      archfam_src a = [ ("src/arch-" ++ a) </> f | f <- archfam_files a ]
       archfam_files "x86_64" = ["flt_rounds.c"]
       archfam_files "x86_32" = ["flt_rounds.c"]
       archfam_files _ = []
@@ -67,10 +67,10 @@ if Config.libc == "oldc" then
       args = library { target = "oldc",
                     cFiles = generic_src ++ (archfam_src (archFamily a)),
                     architectures = [a],
-                    addIncludes = [ "src/gdtoa", "src/gdtoa" ./. archFamily a,
+                    addIncludes = [ "src/gdtoa", "src/gdtoa" </> archFamily a,
                                     "src/locale" ],
                     addCFlags = [ "-DNO_FENV_H", "-DNO_ERRNO", "-DHAVE_WCHAR" ],
-                    assemblyFiles = [ ("src/arch-" ++ archFamily a) ./. "jmp.S" ]
+                    assemblyFiles = [ ("src/arch-" ++ archFamily a) </> "jmp.S" ]
                   }
       defaultopts = libGetOptionsForArch a args
 

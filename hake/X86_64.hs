@@ -13,7 +13,6 @@
 module X86_64 where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
