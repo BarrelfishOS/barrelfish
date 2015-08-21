@@ -20,7 +20,7 @@
 #include "vtd_sl_paging.h"
 
 #define ROOT_TABLE_TYPE         vtd_rt
-#define NUM_ROOT_ENTRIES	256
+#define NUM_ROOT_ENTRIES	512
 
 #define VTD_FOR_EACH(var, head) for (var = (head); var; var = var->next)
 #define VTD_ADD_UNIT(x, head) do {(x)->next = (head); (head) = (x);} while(0)
