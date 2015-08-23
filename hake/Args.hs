@@ -13,9 +13,10 @@
 module Args where
 
 import HakeTypes
+import TreeDB
 
 data Args = Args { 
-      buildFunction :: [String] -> String -> Args -> HRule,
+      buildFunction :: TreeDB -> String -> Args -> HRule,
       target :: String,
       cFiles :: [String],
       generatedCFiles :: [String],
@@ -79,7 +80,7 @@ thcArchitectures = ["x86_64", "x86_32"]
 allFlounderBackends
     = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci" ]
 
-defaultBuildFn :: [String] -> String -> Args -> HRule
+defaultBuildFn :: TreeDB -> String -> Args -> HRule
 defaultBuildFn _ f _ = 
     Error ("Bad use of default Args in " ++ f)
 

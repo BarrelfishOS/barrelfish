@@ -13,6 +13,7 @@
 
 module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
+import Data.Maybe (fromMaybe)
 import System.FilePath
 import qualified X86_64
 import qualified K1om
@@ -25,6 +26,7 @@ import qualified ARMv7_M
 import HakeTypes
 import qualified Args
 import qualified Config
+import TreeDB
 
 import Debug.Trace
 -- enable debug spew
@@ -43,35 +45,29 @@ inRule _ = True
 --
 -- Look for a set of files: this is called using the "find" combinator
 --
-withSuffix :: [String] -> String -> String -> [String]
-withSuffix af tf arg =
-    [ takeFileName f | f <- af,
-                       takeDirectory f == takeDirectory tf,
-                       takeExtension f == arg ]
+withSuffix :: TreeDB -> String -> String -> [String]
+withSuffix srcDB hakepath extension =
+    fromMaybe [] $ tdbByDirExt (takeDirectory hakepath) extension srcDB
 
-withSuffices :: [String] -> String -> [String] -> [String]
-withSuffices af tf args =
-    concat [ withSuffix af tf arg | arg <- args ]
+withSuffices :: TreeDB -> String -> [String] -> [String]
+withSuffices srcDB hakepath extensions =
+    concat [ withSuffix srcDB hakepath ext | ext <- extensions ]
 
 --
 -- Find files with a given suffix in a given dir
 --
-inDir :: [String] -> String -> String -> String -> [String]
-inDir af tf dir suffix =
-    -- Dummy is here so that we can find files in the same dir :-/
-    let subdir = (if head dir == '/' then absdir else reldir) </> "dummy"
-        absdir = if head tf == '/' then dir else '.':dir
-        reldir = (takeDirectory tf) </> dir
-        files = withSuffix af subdir suffix
-    in
-        [ dir </> f | f <- files ]
+inDir :: TreeDB -> String -> String -> String -> [String]
+inDir srcDB hakepath dir extension =
+    fromMaybe [] $ tdbByDirExt (takeDirectory hakepath </> dir) extension srcDB
 
-cInDir :: [String] -> String -> String -> [String]
-cInDir af tf dir = inDir af tf dir ".c"
-cxxInDir :: [String] -> String -> String -> [String]
-cxxInDir af tf dir = (inDir af tf dir ".cpp") ++ (inDir af tf dir ".cc")
-sInDir :: [String] -> String -> String -> [String]
-sInDir af tf dir = inDir af tf dir ".S"
+cInDir :: TreeDB -> String -> String -> [String]
+cInDir tdb tf dir = inDir tdb tf dir ".c"
+
+cxxInDir :: TreeDB -> String -> String -> [String]
+cxxInDir tdb tf dir = (inDir tdb tf dir ".cpp") ++ (inDir tdb tf dir ".cc")
+
+sInDir :: TreeDB -> String -> String -> [String]
+sInDir tdb tf dir = inDir tdb tf dir ".S"
 
 -------------------------------------------------------------------------
 --
@@ -917,12 +913,12 @@ allLibraryPaths args =
 application :: Args.Args
 application = Args.defaultArgs { Args.buildFunction = applicationBuildFn }
 
-applicationBuildFn :: [String] -> String -> Args.Args -> HRule
-applicationBuildFn af tf args
+applicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
+applicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
-applicationBuildFn af tf args =
-    Rules [ appBuildArch af tf args arch | arch <- Args.architectures args ]
+applicationBuildFn tdb tf args =
+    Rules [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -944,7 +940,7 @@ appGetOptionsForArch arch args =
                             s <- Args.addGeneratedDependencies args]
                    }
 
-appBuildArch af tf args arch =
+appBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = appGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -978,12 +974,12 @@ appBuildArch af tf args arch =
 arrakisapplication :: Args.Args
 arrakisapplication = Args.defaultArgs { Args.buildFunction = arrakisApplicationBuildFn }
 
-arrakisApplicationBuildFn :: [String] -> String -> Args.Args -> HRule
-arrakisApplicationBuildFn af tf args
+arrakisApplicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
+arrakisApplicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Arrakis Application ") args) False
         = undefined
-arrakisApplicationBuildFn af tf args =
-    Rules [ arrakisAppBuildArch af tf args arch | arch <- Args.architectures args ]
+arrakisApplicationBuildFn tdb tf args =
+    Rules [ arrakisAppBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 arrakisAppGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -1005,7 +1001,7 @@ arrakisAppGetOptionsForArch arch args =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
 
-arrakisAppBuildArch af tf args arch =
+arrakisAppBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = arrakisAppGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -1037,10 +1033,10 @@ arrakisAppBuildArch af tf args arch =
 library :: Args.Args
 library = Args.defaultArgs { Args.buildFunction = libraryBuildFn }
 
-libraryBuildFn :: [String] -> String -> Args.Args -> HRule
-libraryBuildFn af tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
-libraryBuildFn af tf args =
-    Rules [ libBuildArch af tf args arch | arch <- Args.architectures args ]
+libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
+libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
+libraryBuildFn tdb tf args =
+    Rules [ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 libGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -1058,7 +1054,7 @@ libGetOptionsForArch arch args =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
 
-libBuildArch af tf args arch =
+libBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = libGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -1173,8 +1169,8 @@ cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn,
                                Args.target = "cpu" }
 
 -- CPU drivers are built differently
-cpuDriverBuildFn :: [String] -> String -> Args.Args -> HRule
-cpuDriverBuildFn af tf args = Rules []
+cpuDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
+cpuDriverBuildFn tdb tf args = Rules []
 
 --
 -- Build a platform

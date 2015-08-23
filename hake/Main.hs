@@ -31,7 +31,8 @@ import GHC hiding (Target, Ghc, runGhc, FunBind, Match)
 import GHC.Paths (libdir)
 import Control.Monad.Ghc
 import DynFlags (defaultFatalMessager, defaultFlushOut,
-                 xopt_set, ExtensionFlag (Opt_DeriveDataTypeable))
+                 xopt_set, ExtensionFlag(Opt_DeriveDataTypeable,
+                                         Opt_StandaloneDeriving))
 
 -- We parse and pretty-print Hakefiles.
 import Language.Haskell.Exts
@@ -41,6 +42,7 @@ import RuleDefs
 import HakeTypes
 import qualified Args
 import qualified Config
+import TreeDB
 
 data HakeError = HakeError String Int
 instance Error HakeError
@@ -123,44 +125,40 @@ configErrors
 -- Walk the source tree and build a complete list of pathnames, loading any
 -- Hakefiles.
 listFiles :: FilePath -> IO ([FilePath], [(FilePath, String)])
-listFiles root = do
-    isdir <- doesDirectoryExist root
-    if isdir then do
-        children <- getDirectoryContents root
-        walkchildren children
-    else
-        return ([], [])
+listFiles root
+    | ignore (takeFileName root) = return ([], [])
+    | otherwise = do
+        isdir <- doesDirectoryExist root
+        if isdir then do
+            children <- getDirectoryContents root
+            walkchildren children
+        else do
+            hake <- maybeHake root
+            return ([root], hake)
     where
+        -- Walk the child directories in parallel.  This speeds things up
+        -- dramatically over NFS, with its high latency.
         walkchildren :: [FilePath] -> IO ([FilePath], [(FilePath, String)])
         walkchildren children = do
-            -- Walk the child directories in parallel.  This speeds things up
-            -- dramatically over NFS, with its high latency.
             children_async <- mapM (async.walkchild) children
             results <- mapM wait children_async
             return $ joinResults results
-            where
-                joinResults :: [([a],[b])] -> ([a],[b])
-                joinResults [] = ([],[])
-                joinResults ((as,bs):xs) =
-                    let (as',bs') = joinResults xs in
-                        (as ++ as', bs ++ bs')
+
+        joinResults :: [([a],[b])] -> ([a],[b])
+        joinResults [] = ([],[])
+        joinResults ((as,bs):xs) =
+            let (as',bs') = joinResults xs in
+                (as ++ as', bs ++ bs')
 
         walkchild :: FilePath -> IO ([FilePath], [(FilePath, String)])
-        walkchild child = do
-            if ignore child
-            then return ([], [])
-            else do
-                (allfiles, hakefiles) <- listFiles (root </> child)
-                hake <- maybeHake child
-                return $ ((root </> child) : allfiles,
-                          hake ++ hakefiles)
-            where
-                -- Load Hakfiles eagerly.  This amounts to <1MB for
-                -- Barrelfish (2015).
-                maybeHake "Hakefile" = do
-                    contents <- readFile (root </> child)
-                    return [(root </> child, contents)]
-                maybeHake _ = return []
+        walkchild child = listFiles (root </> child)
+
+        -- Load Hakfiles eagerly.  This amounts to <1MB for Barrelfish (2015).
+        maybeHake path
+            | takeFileName path == "Hakefile" = do
+                contents <- readFile path
+                return [(path, contents)]
+            | otherwise = return []
 
         -- Don't descend into revision-control or build directories.
         ignore :: FilePath -> Bool
@@ -178,20 +176,21 @@ listFiles root = do
 
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
-evalHakeFiles :: Handle -> Opts -> [FilePath] -> [(FilePath, String)] ->
+evalHakeFiles :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO (S.Set FilePath)
-evalHakeFiles makefile o allfiles hakefiles =
+evalHakeFiles makefile o srcDB hakefiles =
     defaultErrorHandler defaultFatalMessager defaultFlushOut $
         runGhc (Just libdir) $
-        driveGhc makefile o allfiles hakefiles
+        driveGhc makefile o srcDB hakefiles
 
 -- This is the code that executes in the GHC monad.
-driveGhc :: Handle -> Opts -> [FilePath] -> [(FilePath, String)] ->
+driveGhc :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
             Ghc (S.Set FilePath)
-driveGhc makefile o allfiles hakefiles = do
+driveGhc makefile o srcDB hakefiles = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
-    let dflags' = foldl xopt_set dflags [ Opt_DeriveDataTypeable ]
+    let dflags' = foldl xopt_set dflags [ Opt_DeriveDataTypeable,
+                                          Opt_StandaloneDeriving ]
     _ <- setSessionDynFlags dflags'{
         importPaths = module_paths,
         hiDir = Just "./hake",
@@ -218,9 +217,10 @@ driveGhc makefile o allfiles hakefiles = do
     where
         module_paths = [ (opt_installdir o) </> "hake", ".", 
                          (opt_bfsourcedir o) </> "hake" ]
-        source_modules = [ "HakeTypes", "RuleDefs", "Args", "Config" ]
+        source_modules = [ "HakeTypes", "RuleDefs", "Args", "Config",
+                           "TreeDB" ]
         modules = [ "Prelude", "System.FilePath", "HakeTypes", "RuleDefs",
-                    "Args" ]
+                    "Args", "TreeDB"  ]
         qualified_modules = [ "Config", "Data.List" ]
 
         -- Evaluate one Hakefile, and emit its Makefile section.  We collect
@@ -249,13 +249,14 @@ driveGhc makefile o allfiles hakefiles = do
                                 wrapHake hakepath hake_expr
 
                     -- Evaluate in GHC
-                    val <- dynCompileExpr $ hake_wrapped ++ " :: [String] -> HRule"
+                    val <- dynCompileExpr $ hake_wrapped ++
+                                            " :: TreeDB -> HRule"
                     let rule = fromDyn val (\_ -> Error "failed")
 
                     -- Path resolution
                     let resolved_rule =
                             resolvePaths o (takeDirectory hakepath)
-                                           (rule allfiles)
+                                           (rule srcDB)
                     return resolved_rule
                 Right hake_error -> do
                     return $ Error "failed"
@@ -318,7 +319,7 @@ compileRule (t:ts) =
 wrapHake :: FilePath -> Exp -> Exp
 wrapHake hakefile hake_exp =
     Paren (
-    Lambda dummy_loc [PVar (Ident "allfiles")] (
+    Lambda dummy_loc [PVar (Ident "sourceDB")] (
     Let (BDecls
         [FunBind [Match -- This is 'find'
             dummy_loc
@@ -327,7 +328,7 @@ wrapHake hakefile hake_exp =
             Nothing
             (UnGuardedRhs
                 (Paren (App (App (App (Var (UnQual (Ident "fn")))
-                                      (Var (UnQual (Ident "allfiles"))))
+                                      (Var (UnQual (Ident "sourceDB"))))
                                  (Lit (String hakefile)))
                        (Var (UnQual (Ident "arg"))))))
             (BDecls [])],
@@ -340,7 +341,7 @@ wrapHake hakefile hake_exp =
             (UnGuardedRhs
                 (App (App (App (Paren (App (Var (UnQual (Ident "buildFunction")))
                                            (Var (UnQual (Ident "a")))))
-                               (Var (UnQual (Ident "allfiles"))))
+                               (Var (UnQual (Ident "sourceDB"))))
                           (Lit (String hakefile)))
                      (Var (UnQual (Ident "a")))))
             (BDecls [])]
@@ -630,6 +631,7 @@ body =  do
     liftIO $ putStrLn "Reading directory tree..."
     (allfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
     let relfiles = map (makeRelative $ opt_sourcedir opts') allfiles
+    let srcDB = tdbBuild relfiles
 
     -- Open the Makefile and write the preamble
     liftIO $ putStrLn $ "Opening " ++ (opt_makefilename opts)
@@ -640,7 +642,7 @@ body =  do
     -- Evaluate Hakefiles
     liftIO $ putStrLn $ "Evaluating " ++ show (length hakefiles) ++
                         " Hakefiles..."
-    dirs <- liftIO $ evalHakeFiles makefile opts relfiles hakefiles
+    dirs <- liftIO $ evalHakeFiles makefile opts srcDB hakefiles
 
     -- Emit directory rules
     liftIO $ putStrLn $ "Generating build directory dependencies..."
