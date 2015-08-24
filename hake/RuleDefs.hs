@@ -47,7 +47,8 @@ inRule _ = True
 --
 withSuffix :: TreeDB -> String -> String -> [String]
 withSuffix srcDB hakepath extension =
-    fromMaybe [] $ tdbByDirExt (takeDirectory hakepath) extension srcDB
+    map (\f -> "/" </> f) $
+        fromMaybe [] $ tdbByDirExt (takeDirectory hakepath) extension srcDB
 
 withSuffices :: TreeDB -> String -> [String] -> [String]
 withSuffices srcDB hakepath extensions =
@@ -58,7 +59,11 @@ withSuffices srcDB hakepath extensions =
 --
 inDir :: TreeDB -> String -> String -> String -> [String]
 inDir srcDB hakepath dir extension =
-    fromMaybe [] $ tdbByDirExt (takeDirectory hakepath </> dir) extension srcDB
+    map (\f -> "/" </> f) $
+        fromMaybe [] $
+            tdbByDirExt (dropTrailingPathSeparator $ normalise $
+                            takeDirectory hakepath </> dir)
+                        extension srcDB
 
 cInDir :: TreeDB -> String -> String -> [String]
 cInDir tdb tf dir = inDir tdb tf dir ".c"
