@@ -125,16 +125,19 @@ configErrors
 -- Walk the source tree and build a complete list of pathnames, loading any
 -- Hakefiles.
 listFiles :: FilePath -> IO ([FilePath], [(FilePath, String)])
-listFiles root
-    | ignore (takeFileName root) = return ([], [])
+listFiles root = listFiles' root root
+
+listFiles' :: FilePath -> FilePath -> IO ([FilePath], [(FilePath, String)])
+listFiles' root current
+    | ignore (takeFileName current) = return ([], [])
     | otherwise = do
-        isdir <- doesDirectoryExist root
+        isdir <- doesDirectoryExist current
         if isdir then do
-            children <- getDirectoryContents root
+            children <- getDirectoryContents current
             walkchildren children
         else do
-            hake <- maybeHake root
-            return ([root], hake)
+            hake <- maybeHake current
+            return ([makeRelative root current], hake)
     where
         -- Walk the child directories in parallel.  This speeds things up
         -- dramatically over NFS, with its high latency.
@@ -151,7 +154,7 @@ listFiles root
                 (as ++ as', bs ++ bs')
 
         walkchild :: FilePath -> IO ([FilePath], [(FilePath, String)])
-        walkchild child = listFiles (root </> child)
+        walkchild child = listFiles' root (current </> child)
 
         -- Load Hakfiles eagerly.  This amounts to <1MB for Barrelfish (2015).
         maybeHake path
@@ -629,8 +632,7 @@ body =  do
 
     -- Find Hakefiles
     liftIO $ putStrLn "Reading directory tree..."
-    (allfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
-    let relfiles = map (makeRelative $ opt_sourcedir opts') allfiles
+    (relfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
     let srcDB = tdbBuild relfiles
 
     -- Open the Makefile and write the preamble
