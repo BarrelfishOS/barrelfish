@@ -52,7 +52,8 @@ withSuffix srcDB hakepath extension =
 
 withSuffices :: TreeDB -> String -> [String] -> [String]
 withSuffices srcDB hakepath extensions =
-    concat [ withSuffix srcDB hakepath ext | ext <- extensions ]
+    map (\f -> "/" </> f) $
+        fromMaybe [] $ tdbByDirExts (takeDirectory hakepath) extensions srcDB
 
 --
 -- Find files with a given suffix in a given dir

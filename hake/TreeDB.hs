@@ -1,16 +1,17 @@
 module TreeDB(
     DirList,
-    dlEmpty, dlByExt, dlAdd, dlAddByExt,
+    dlEmpty, dlByExt, dlByExts, dlAdd, dlAddByExt,
 
     TreeDB,
     tdbEmpty, tdbByDir, tdbAdd, tdbAddDir,
     tdbBuild,
 
-    tdbByDirExt
+    tdbByDirExt, tdbByDirExts
     )
 where
 
 import qualified Data.ByteString.Char8 as C
+import Data.List
 import Data.Trie(Trie)
 import qualified Data.Trie as T
 import Data.Typeable
@@ -29,19 +30,36 @@ dlEmpty = []
 dlByExt :: String -> DirList -> [String]
 dlByExt _ [] = []
 dlByExt ext ((ext', names) : dirlist)
-    | ext == ext' = names
+    | ext' == ext = [n <.> ext' | n <- names]
     | otherwise = dlByExt ext dirlist
+
+-- Search for multiple extensions at once.  'exts' must be sorted, with no
+-- duplicates.
+dlByExts :: [String] -> DirList -> [String]
+dlByExts _ [] = []
+dlByExts [] _ = []
+dlByExts (ext:exts) ((ext', names):dirlist) =
+    case compare ext ext' of
+        -- 'ext' isn't in the list.
+        LT -> dlByExts exts ((ext', names):dirlist)
+        -- 'ext' is right here.
+        EQ -> [n <.> ext' | n <- names] ++ dlByExts exts dirlist
+        -- 'ext' may be in the remainder.  Nothing else can match here.
+        GT -> dlByExts (ext:exts) dirlist
 
 -- Insert a file, given its extension.  Again linear.
 dlAdd :: FilePath -> DirList -> DirList
 dlAdd file dirList =
     dlAddByExt (takeExtension file) (dropExtension file) dirList
 
+-- Keeps the list sorted by extension
 dlAddByExt ::  String -> String -> DirList -> DirList
 dlAddByExt ext name [] = [(ext, [name])]
-dlAddByExt ext name ((ext', names):dirlist)
-    | ext == ext' = (ext', name:names):dirlist
-    | otherwise = (ext', names):(dlAddByExt ext name dirlist)
+dlAddByExt ext name ((ext', names):dirlist) =
+    case compare ext ext' of
+        LT -> (ext, [name]):(ext', names):dirlist
+        EQ -> (ext', name:names):dirlist
+        GT -> (ext', names):(dlAddByExt ext name dirlist)
 
 --
 -- A map from directory to contents, excluding subdirectories.
@@ -90,5 +108,12 @@ tdbBuild files = foldr tdbAdd tdbEmpty files
 tdbByDirExt :: FilePath -> String -> TreeDB -> Maybe [FilePath]
 tdbByDirExt path ext treeDB = do
     dirList <- tdbByDir path treeDB
-    let basenames = dlByExt ext dirList
-    return [ path </> base <.> ext | base <- basenames ]
+    let filenames = dlByExt ext dirList
+    return [ path </> file | file <- filenames ]
+
+-- Look for multiple extensions.  'exts' need not be sorted.
+tdbByDirExts :: FilePath -> [String] -> TreeDB -> Maybe [FilePath]
+tdbByDirExts path exts treeDB = do
+    dirList <- tdbByDir path treeDB
+    let filenames = dlByExts (sort exts) dirList
+    return [ path </> file | file <- filenames ]
