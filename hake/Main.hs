@@ -369,8 +369,8 @@ makefilePreamble h opts args =
              "# Hake was invoked with the following command line args:" ] ++
            [ "#        " ++ a | a <- args ] ++
            [ "# ",
-             "SRCDIR=" ++ (opt_sourcedir opts),
-             "HAKE_ARCHS=" ++ (concat $ intersperse " " Config.architectures),
+             "SRCDIR=" ++ opt_sourcedir opts,
+             "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
              "include ./symbolic_targets.mk" ])
 
 -- There a several valid top-level build directores, apart from the
@@ -435,9 +435,7 @@ makefileRuleInner h tokens double_colon = do
         printTokens h $ ruleOutputs compiledRule
         if double_colon then hPutStr h ":: " else hPutStr h ": "
         printTokens h $ ruleDepends compiledRule
-        -- printDirs h $ ruleDirs compiledRule
         hPutStr h " | directories "
-        --when (not (S.null (rulePreDepends compiledRule))) $ do
         printTokens h $ rulePreDepends compiledRule
         hPutStrLn h ""
         doBody
