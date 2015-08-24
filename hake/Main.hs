@@ -573,7 +573,6 @@ makeHakeDeps h o l = do
 makeDirectories :: Handle -> S.Set FilePath -> IO ()
 makeDirectories h dirs = do
     hPutStrLn h "# Directories follow"
-    --mapM_ (makeDir h) (S.toList (S.delete ("." </> ".marker") dirs))
     hPutStrLn h "DIRECTORIES=\\"
     mapM_ (\d -> hPutStrLn h $ "    " ++ d ++ " \\") (S.toList dirs)
     hPutStrLn h "\n"
