@@ -153,16 +153,29 @@ fi
 # FIXME: do we really need this; doesn't ghc get the dependencies right? -AB
 #rm -f hake/*.hi hake/*.o 
 
+# RTS parameters for hake.  Tuned to perform well for the mid-2015 Barrelfish
+# tree, building over NFS.  Maximum heap size sits around 64MB, or a little
+# more, so 128MB minimises collections.  Parallelism is a balancing act
+# between performance in the tree walk on NFS systems (which benefits heavily
+# from parallelising the IO operations), and performance in Hakefile
+# evaluation, which generally gets *slower* with more threads, as the GHC
+# garbage collector ends up thrashing a lot.
+HAKE_RTSOPTS="-H128M -A4M -N4"
+
 echo "Building hake..."
-ghc -O --make -XDeriveDataTypeable \
+ghc -O --make \
+    -XDeriveDataTypeable \
+    -XStandaloneDeriving \
     -package ghc \
     -package ghc-mtl \
     -package ghc-paths \
+    -package bytestring-trie \
     -o hake/hake \
     -outputdir hake \
     -i$SRCDIR/hake \
     -ihake \
     -rtsopts=all \
+    -with-rtsopts="$HAKE_RTSOPTS" \
     -threaded \
     $SRCDIR/hake/Main.hs $LDFLAGS || exit 1
 
@@ -174,7 +187,7 @@ if [ "$RUN_HAKE" == "No" ] ; then
 fi
 
 echo "Running hake..."
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR" +RTS -T -H128M -A4M -N4 || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR" || exit
 
 echo "Now running initial make to build dependencies."
 echo " (remove the '-j 4' if your system has trouble handling this" 
