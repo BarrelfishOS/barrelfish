@@ -4,7 +4,7 @@ module TreeDB(
 
     TreeDB,
     tdbEmpty, tdbByDir, tdbAdd, tdbAddDir,
-    tdbBuild,
+    tdbBuild, tdbMerge,
 
     tdbByDirExt, tdbByDirExts
     )
@@ -99,6 +99,9 @@ tdbAddDir dir files treeDB
 
 tdbBuild :: [FilePath] -> TreeDB
 tdbBuild files = foldr tdbAdd tdbEmpty files
+
+tdbMerge :: TreeDB -> TreeDB -> TreeDB
+tdbMerge = T.unionL
 
 --
 -- Combined queries
