@@ -30,7 +30,8 @@ struct bitmap *numa_alloc_bind_mask;
 
 static void validate_page_size(size_t *pagesize, vregion_flags_t *flags)
 {
-#if !defined(__x86_64__)
+// XXX - Something is seriously wrong here.
+#if 0 // !defined(__x86_64__)
     if (*pagesize < LARGE_PAGE_SIZE) {
         *pagesize = BASE_PAGE_SIZE;
         *flags = VREGION_FLAGS_READ_WRITE;
@@ -365,7 +366,8 @@ void *numa_alloc_interleaved_subset(size_t size, size_t pagesize,
         goto out_err;
     }
 
-    return (void *)vregion_get_base_addr(vreg);
+    // XXX - Is this right?
+    return (void *)(uintptr_t)vregion_get_base_addr(vreg);
 
     out_err:
     for (int i = 0; i < node_idx; ++i) {
