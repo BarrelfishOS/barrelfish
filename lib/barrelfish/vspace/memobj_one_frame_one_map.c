@@ -42,23 +42,44 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
  */
 static errval_t unmap_region(struct memobj *memobj, struct vregion *vregion)
 {
-    USER_PANIC("NYI");
+    errval_t err;
+    struct memobj_one_frame_one_map *one_frame = (struct memobj_one_frame_one_map*)memobj;
+
+    if (one_frame->vregion != vregion) {
+        return LIB_ERR_MEMOBJ_VREGION_ALREADY_MAPPED;
+    }
+
+    struct vspace *vspace = vregion_get_vspace(vregion);
+    struct pmap *pmap     = vspace_get_pmap(vspace);
+    genvaddr_t vregion_base  = vregion_get_base_addr(vregion);
+    genvaddr_t vregion_off   = vregion_get_offset(vregion);
+
+    err = pmap->f.unmap(pmap, vregion_base + vregion_off, memobj->size, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_UNMAP);
+    }
+
+    one_frame->vregion = NULL;
+
     return SYS_ERR_OK;
 }
 
-/**
- * \brief Set the protection on a range
- *
- * \param memobj  The memory object
- * \param region  The vregion to modify the mappings on
- * \param offset  Offset into the memory object
- * \param range   The range of space to set the protection for
- * \param flags   The protection flags
- */
+
 static errval_t protect(struct memobj *memobj, struct vregion *vregion,
                         genvaddr_t offset, size_t range, vs_prot_flags_t flags)
 {
-    USER_PANIC("NYI");
+    struct vspace *vspace = vregion_get_vspace(vregion);
+    struct pmap *pmap = vspace_get_pmap(vspace);
+    genvaddr_t base = vregion_get_base_addr(vregion);
+    genvaddr_t vregion_offset = vregion_get_offset(vregion);
+    errval_t err;
+    size_t ret_size;
+    err = pmap->f.modify_flags(pmap, base + offset + vregion_offset, range,
+                               flags, &ret_size);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+    }
+
     return SYS_ERR_OK;
 }
 
