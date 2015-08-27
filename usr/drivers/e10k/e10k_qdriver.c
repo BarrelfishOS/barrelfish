@@ -12,18 +12,19 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include <if/net_queue_manager_defs.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/debug.h>
+#include <skb/skb.h>
 #include <trace/trace.h>
-#include <if/e10k_defs.h>
 
+#include <if/e10k_defs.h>
 #ifndef VF
 #       include <dev/e10k_dev.h>
 #else
 #       include <dev/e10k_vf_dev.h>
-#       include <if/e10k_vf_defs.h>
 #endif
 #include <dev/e10k_q_dev.h>
 #include <pci/pci.h>
@@ -78,7 +79,10 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref rx_frame,
                                       uint32_t rxbufsz,
                                       int16_t msix_intvec,
-                                      uint8_t msix_intdest);
+                                      uint8_t msix_intdest,
+				      lvaddr_t tx_va,
+				      lvaddr_t rx_va,
+				      lvaddr_t txhwb_va);
 static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate);
 static void idc_terminate_queue(void);
 
@@ -93,7 +97,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_interrupts,
-                              bool use_rsc) __attribute__((weak));
+                              bool use_rsc,
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va) __attribute__((weak));
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate) __attribute__((weak));
@@ -169,6 +176,9 @@ static bool use_rsc = false;
 
 /** Indicates whether MSI-X should be used */
 static bool use_msix = true;
+
+/** Indicates whether or the VT-d should be used for DMA remapping.*/
+static bool use_vtd = true; 
 
 /** Minimal delay between interrupts in us */
 static uint16_t interrupt_delay = 0;
@@ -424,14 +434,24 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
         }
         e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
 
-        e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
-            buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+	if (use_vtd) {
+	    e10k_queue_add_txbuf_ctx(q, (lvaddr_t)buffers[0].va, buffers[0].len,
+				     buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+	} else {
+            e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
+                buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
+        }
         start++;
    }
 
     for (i = start; i < count; i++) {
-        e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len,
-            buffers[i].opaque, (i == 0), (i == count - 1), totallen);
+        if (use_vtd) {
+	    e10k_queue_add_txbuf(q, (lvaddr_t)buffers[i].va, buffers[i].len,
+				 buffers[i].opaque, (i == 0), (i == count - 1), totallen);
+	} else {
+            e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len,
+                buffers[i].opaque, (i == 0), (i == count - 1), totallen);
+        }
     }
 
     e10k_queue_bump_txtail(q);
@@ -489,7 +509,11 @@ static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 {
     /* printf("Got %p from stack\n", opaque); */
     DEBUG("register_rx_buffer_fn: called\n");
-    e10k_queue_add_rxbuf(q, paddr, opaque);
+    if (use_vtd) {
+        e10k_queue_add_rxbuf(q, (lvaddr_t)vaddr, opaque);
+    } else {
+        e10k_queue_add_rxbuf(q, paddr, opaque);
+    }
     e10k_queue_bump_rxtail(q);
 
     DEBUG("register_rx_buffer_fn: terminated\n");
@@ -696,8 +720,24 @@ static void setup_queue(void)
         vector = 0;
         core = 0;
     }
-    idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
-                              vector, core);
+
+    if (use_vtd) {
+        err = skb_client_connect();
+        assert(err_is_ok(err));
+        err = skb_execute_query("vtd_enabled(0,_).");
+        if (err_is_fail(err)) {
+            use_vtd = false;
+        }
+    }
+
+    if (use_vtd) {
+        idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+                                  vector, core, (lvaddr_t)tx_virt, (lvaddr_t)rx_virt,
+                                  (lvaddr_t)txhwb_virt);
+    } else {
+        idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+                                  vector, core, 0, 0, 0);
+    }
 }
 
 /** Hardware queue initialized in card driver */
@@ -743,7 +783,10 @@ static void idc_register_queue_memory(uint8_t queue,
                                       struct capref rx,
                                       uint32_t rxbufsz,
                                       int16_t msix_intvec,
-                                      uint8_t msix_intdest)
+                                      uint8_t msix_intdest,
+				      lvaddr_t tx_va,
+				      lvaddr_t rx_va,
+				      lvaddr_t txhwb_va)
 {
 
     errval_t r;
@@ -751,13 +794,16 @@ static void idc_register_queue_memory(uint8_t queue,
 
     if (!standalone) {
         cd_register_queue_memory(NULL, queue, tx, txhwb, rx, rxbufsz,
-                msix_intvec, msix_intdest, use_interrupts, use_rsc);
+				 msix_intvec, msix_intdest, use_interrupts, use_rsc,
+				 tx_va, rx_va, txhwb_va);
+
         return;
     }
 
     r = e10k_register_queue_memory__tx(binding, NOP_CONT, queue,
                                        tx, txhwb, rx, rxbufsz, 0, msix_intvec,
-                                       msix_intdest, use_interrupts, use_rsc);
+                                       msix_intdest, use_interrupts, use_rsc,
+				       tx_va, rx_va, txhwb_va);
     // TODO: handle busy
     assert(err_is_ok(r));
 }
@@ -968,6 +1014,8 @@ void qd_argument(const char *arg)
         }
     } else if (strncmp(arg, "msix=", strlen("msix=") - 1) == 0) {
         use_msix = !!atol(arg + strlen("msix="));
+    } else if (strncmp(arg, "use_vtd=", strlen("use_vtd")-1) == 0) {
+        use_vtd = !!atol(arg + strlen("use_vtd="));
     } else {
         ethersrv_argument(arg);
     }
@@ -989,13 +1037,11 @@ extern struct waitset *lwip_waitset;
 #ifdef LIBRARY
 void arranet_polling_loop(void)
 {
-    /* errval_t err; */
-    /* err = event_dispatch_non_block(barrelfish_interrupt_waitset); */
     check_for_free_txbufs();
     if(!use_interrupts) {
         check_for_new_packets(1);
     } else {
-        assert(!"NYI?");
+        event_dispatch(get_default_waitset());
     }
 }
 #endif
@@ -1011,7 +1057,11 @@ void e1000n_polling_loop(struct waitset *ws)
     /* INITDEBUG("eventloop()\n"); */
 
     while (1) {
-        err = event_dispatch_non_block(ws);
+        if(use_interrupts) {
+            err = event_dispatch_debug(ws);
+        } else {
+            err = event_dispatch_non_block(ws);
+        }
 #ifdef LIBRARY
         check_for_free_txbufs();
 #else
@@ -1056,10 +1106,12 @@ void qd_interrupt(bool is_rx, bool is_tx)
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_NI_I, 0);
 #endif // TRACE_ETHERSRV_MODE
 
+    DEBUG("qd_int: rx=%d, tx=%d\n", is_rx, is_tx);
+    
     if (is_rx) {
         count = check_for_new_packets(0);
         if (count == 0) {
-            //printf("No RX\n");
+            DEBUG("XXX. No new packets although we got a rx interrupt\n");
         }
     }
     check_for_free_txbufs();
@@ -1120,7 +1172,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_ints,
-                              bool use_rsc_)
+                              bool use_rsc_,
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va)
 {
     USER_PANIC("Should not be called");
 }

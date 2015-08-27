@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2009, 2011, 2013, 2014, ETH Zurich.
+% Copyright (c) 2013, University of Washington.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.

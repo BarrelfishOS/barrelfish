@@ -105,6 +105,9 @@ let
                 "arch/x86_64/syscall.c",
                 "arch/x86_64/paging.c",
                 "arch/x86_64/vmkit.c" ,
+                "arch/x86_64/vmx_checks.c",
+                "arch/x86_64/vmx_vmkit.c",
+                "arch/x86_64/svm_vmkit.c",
                 "arch/x86_64/page_mappings_arch.c",
                 "arch/x86/apic.c",
                 "arch/x86/pic.c",
@@ -430,6 +433,31 @@ let
                          "omap/omap44xx_gpio",
                          "omap/omap44xx_mmu",
                          "omap/omap44xx_spinlock"],
+     addLibraries = [ "elf", "cpio" ]
+     },
+  --
+  -- Applied Micro APM88xxxx series SoC,
+  -- used to run a heterogenous system on the pandaboard
+  --
+
+  cpuDriver {
+     target = "apm88xxxx",
+     architectures = [ "armv8" ],
+     assemblyFiles = [ "arch/apm88xxxx/boot.S",
+                       "arch/armv8/exceptions.S"
+                     ],
+     cFiles = [ "arch/armv8/exec.c",
+                "arch/armv8/exn.c",
+                "arch/armv8/irq.c",
+                "arch/armv8/kludges.c",
+                "arch/armv8/kputchar.c",
+                "arch/armv8/misc.c",
+                "arch/apm88xxxx/init.c",
+                "arch/apm88xxxx/paging.c",
+                "arch/apm88xxxx/uart.c" ],
+     mackerelDevices = [ "arm",
+                         "apm88xxxx/apm88xxxx_pc16550"
+                       ],
      addLibraries = [ "elf", "cpio" ]
      }
   ]

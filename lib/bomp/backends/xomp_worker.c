@@ -371,7 +371,7 @@ static void gw_req_memory_call_rx(struct xomp_binding *b,
         return;
     }
 
-    uint8_t map_flags;
+    vregion_flags_t map_flags;
 
     switch ((xomp_frame_type_t) type) {
         case XOMP_FRAME_TYPE_MSG:

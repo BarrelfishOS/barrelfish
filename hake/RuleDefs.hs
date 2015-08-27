@@ -23,6 +23,7 @@ import qualified ARM11MP
 import qualified XScale
 import qualified ARMv7
 import qualified ARMv7_M
+import qualified ARMv8
 import HakeTypes
 import qualified Args
 import qualified Config
@@ -90,8 +91,7 @@ options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
 options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
--- Remove this...
-options "scc" = X86_32.options
+options "armv8" = ARMv8.options
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "k1om" = K1om.kernelCFlags
@@ -101,6 +101,7 @@ kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
+kernelCFlags "armv8" = ARMv8.kernelCFlags
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "k1om" = K1om.kernelLdFlags
@@ -110,6 +111,7 @@ kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 kernelLdFlags "armv7-m" = ARMv7_M.kernelLdFlags
+kernelLdFlags "armv8" = ARMv8.kernelLdFlags
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)
@@ -191,6 +193,7 @@ cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
     | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
     | optArch opts == "armv7-m" = ARMv7_M.cCompiler opts phase src obj
+    | optArch opts == "armv8" = ARMv8.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
@@ -228,6 +231,8 @@ makeDepend opts phase src obj depfile
         ARMv7.makeDepend opts phase src obj depfile
     | optArch opts == "armv7-m" = 
         ARMv7_M.makeDepend opts phase src obj depfile
+    | optArch opts == "armv8" = 
+        ARMv8.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -248,6 +253,7 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7-m" = ARMv7_M.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "armv8" = ARMv8.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 --
@@ -263,6 +269,7 @@ assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | optArch opts == "armv7" = ARMv7.assembler opts src obj
     | optArch opts == "armv7-m" = ARMv7_M.assembler opts src obj
+    | optArch opts == "armv8" = ARMv8.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
@@ -275,6 +282,7 @@ archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
     | optArch opts == "armv7-m" = ARMv7_M.archive opts objs libs name libname
+    | optArch opts == "armv8" = ARMv8.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -287,6 +295,7 @@ linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
     | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
     | optArch opts == "armv7-m" = ARMv7_M.linker opts objs libs bin
+    | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -782,6 +791,7 @@ linkKernel opts name objs libs
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
     | optArch opts == "armv7-m" = ARMv7_M.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
@@ -1092,7 +1102,7 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
 libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
-                                  libvfs_deps_all, LibDep "term_server" ]
+                                  (libvfs_deps_all "vfs"), LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
@@ -1105,20 +1115,21 @@ libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
-vfsdeps :: [VFSModules] -> [LibDepTree]
-vfsdeps []                  = [LibDep "vfs"]
-vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
-vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
-vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci" ] ++ vfsdeps xs
-vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
+vfsdeps :: [VFSModules] -> String -> [LibDepTree]
+vfsdeps [] t                  = [LibDep t]
+vfsdeps (VFS_RamFS:xs) t      = [] ++ vfsdeps xs t
+vfsdeps (VFS_NFS:xs) t        = [libnfs_deps] ++ vfsdeps xs t
+vfsdeps (VFS_BlockdevFS:xs) t = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs t
+vfsdeps (VFS_FAT:xs) t        = [] ++ vfsdeps xs t
 
-libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
-                                            VFS_FAT]
-libvfs_deps_nonfs      = LibDeps $ vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT]
-libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
-libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
-libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
-libvfs_deps_fat        = LibDeps $ vfsdeps [VFS_FAT, VFS_BlockdevFS]
+libvfs_deps_all t        = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
+                                               VFS_FAT] t)
+libvfs_deps_noblockdev t = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS] t)
+libvfs_deps_nonfs t      = LibDeps $ (vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT] t)
+libvfs_deps_nfs t        = LibDeps $ (vfsdeps [VFS_NFS] t)
+libvfs_deps_ramfs t      = LibDeps $ (vfsdeps [VFS_RamFS] t)
+libvfs_deps_blockdevfs t = LibDeps $ (vfsdeps [VFS_BlockdevFS] t)
+libvfs_deps_fat t        = LibDeps $ (vfsdeps [VFS_FAT, VFS_BlockdevFS] t)
 
 -- flatten the dependency tree
 flat :: [LibDepTree] -> [LibDepTree]
@@ -1128,9 +1139,10 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 
 str2dep :: String -> LibDepTree
 str2dep  str
-    | str == "vfs"           = libvfs_deps_all
-    | str == "vfs_nonfs"     = libvfs_deps_nonfs
-    | str == "posixcompat"   = libposixcompat_deps
+    | str == "vfs"           = libvfs_deps_all str
+    | str == "vfs_ramfs"     = libvfs_deps_ramfs str
+    | str == "vfs_nonfs"     = libvfs_deps_nonfs str
+    | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
     | str == "ssh"           = libssh_deps
@@ -1149,6 +1161,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "term_server"
                   , "vfs"
                   , "ahci"
+		  , "megaraid"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"

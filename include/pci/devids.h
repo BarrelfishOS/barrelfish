@@ -20,9 +20,11 @@
 #define PCI_VENDOR_REALTEK      0x10ec
 #define PCI_VENDOR_AMD          0x1022
 #define PCI_VENDOR_ATI          0x1002
+#define PCI_VENDOR_LSI		0x1000
 #define PCI_VENDOR_FISH         0xdada
 
 #define PCI_CLASS_MASS_STORAGE  0x1
+#define PCI_SUB_RAID		0x4
 #define PCI_SUB_SATA            0x6
 
 #define PCI_CLASS_ETHERNET      0x2

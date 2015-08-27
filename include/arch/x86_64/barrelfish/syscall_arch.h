@@ -65,6 +65,7 @@
         : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
         : "r11");
 #else
+#ifdef CONFIG_SVM
 #  define BF_SYSCALL_ASM(arg11, label) \
     __asm volatile("pushq %%rbp             \n\t"   \
                    "movq %%rcx, %%rbp       \n\t"   \
@@ -75,6 +76,18 @@
           "+r" (a3), "+r" (a4), "+r" (a5), "+r" (syscall_num)  \
         : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
         : "r11");
+#else 
+#  define BF_SYSCALL_ASM(arg11, label) \
+    __asm volatile("pushq %%rbp             \n\t"   \
+                   "movq %%rcx, %%rbp       \n\t"   \
+                   "vmcall                 \n\t"    \
+                   label                            \
+                   "popq %%rbp              \n\t"   \
+        : "+a" (a10_ret1), "+c" (arg11), "+d" (a2_ret2), "+r" (a1), \
+          "+r" (a3), "+r" (a4), "+r" (a5), "+r" (syscall_num)  \
+        : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
+        : "r11");
+#endif
 #endif
 #endif
 
@@ -99,11 +112,25 @@
     BF_SYSCALL_ASM(arg11, label)
 
 
+extern bool debug_notify_syscall;
+
+#include <stdio.h>
+
 static inline struct sysret syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
                  uint64_t arg3, uint64_t arg4, uint64_t arg5, uint64_t arg6,
                  uint64_t arg7, uint64_t arg8, uint64_t arg9, uint64_t arg10,
                  uint64_t arg11, uint64_t arg12)
 {
+    if(debug_notify_syscall && num == SYSCALL_INVOKE) {
+        char str[256];
+        snprintf(str, 256, "Syscall while forbidden! from %p, %p, %p\n",
+                 __builtin_return_address(0),
+                 __builtin_return_address(1),
+                 __builtin_return_address(2));
+        BF_SYSCALL_BODY(SYSCALL_PRINT, (uint64_t)str, 256, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, "");
+        return (struct sysret){/*error*/ SYS_ERR_ILLEGAL_SYSCALL, /*value*/ 0};
+    }
+
     BF_SYSCALL_BODY(num, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
                     arg10, arg11, arg12, "");
     return (struct sysret){/*error*/ a10_ret1, /*value*/ a2_ret2};

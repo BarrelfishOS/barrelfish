@@ -11,6 +11,7 @@
 #include <dispatch.h>
 #include <arm.h>
 #include <arm_hal.h>
+/* XXX - not AArch64-compatible. */
 #include <cp15.h>
 #include <exceptions.h>
 #include <exec.h>
@@ -124,6 +125,7 @@ void handle_user_undef(lvaddr_t fault_address,
     resume(&resume_area);
 }
 
+/* XXX - not 64-bit clean, not AArch64-compatible. */
 static int32_t bkpt_decode(lvaddr_t fault_address)
 {
     int32_t bkpt_id = -1;
@@ -139,6 +141,7 @@ static int32_t bkpt_decode(lvaddr_t fault_address)
     return bkpt_id;
 }
 
+/* XXX - not 64-bit clean, not AArch64-compatible. */
 void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state_t* save_area
     )
 {
@@ -245,6 +248,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state
 void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
 {
     uint32_t irq = 0;
+/* XXX - not revision-independent. */
 #if defined(__ARM_ARCH_7A__)
     irq = gic_get_active_irq();
 #else
@@ -252,6 +256,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     irq = pic_get_active_irq();
 #endif
 
+/* XXX - not 64-bit clean */
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
 
@@ -283,6 +288,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     // we just acknowledge it here
     else if(irq == 1)
     {
+/* XXX - not revision-independent. */
 #if defined(__ARM_ARCH_7A__)
     	gic_ack_irq(irq);
 #else
@@ -292,6 +298,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
     	dispatch(schedule());
     }
     else {
+/* XXX - not revision-independent. */
 #if defined(__ARM_ARCH_7A__)
         gic_ack_irq(irq);
         send_user_interrupt(irq);

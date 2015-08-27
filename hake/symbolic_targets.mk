@@ -91,9 +91,6 @@ BIN_RCCE_BT= \
 
 # All test domains
 TESTS_COMMON= \
-	sbin/fputest \
-	sbin/fread_test \
-	sbin/fscanf_test \
 	sbin/hellotest \
 	sbin/idctest \
 	sbin/memtest \
@@ -116,6 +113,9 @@ TESTS_x86_64= \
 	sbin/bomp_test \
 	sbin/bulk_shm \
 	sbin/cryptotest \
+	sbin/fputest \
+	sbin/fread_test \
+	sbin/fscanf_test \
 	sbin/mdbtest_addr_zero \
 	sbin/mdbtest_range_query \
 	sbin/mem_affinity \
@@ -275,7 +275,9 @@ MODULES_x86_64= \
 	sbin/block_server_client \
 	sbin/bs_user \
 	sbin/bulk_shm \
-	sbin/corectrl
+	sbin/corectrl \
+	sbin/megaraid \
+	lib/libmegaraid.a
 
 MODULES_k1om= \
 	sbin/weever \

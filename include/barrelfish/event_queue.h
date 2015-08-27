@@ -4,12 +4,12 @@
  */
 
 /*
- * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2010, 2015, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef BARRELFISH_EVENT_QUEUE_H
@@ -51,6 +51,7 @@ void event_queue_add(struct event_queue *q, struct event_queue_node *qn,
                      struct event_closure event);
 errval_t event_queue_cancel(struct event_queue *q, struct event_queue_node *qn);
 errval_t event_queue_trigger(struct event_queue *q);
+errval_t event_queue_flush(struct event_queue *q);
 
 __END_DECLS
 

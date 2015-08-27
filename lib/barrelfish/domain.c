@@ -1050,6 +1050,7 @@ void disp_set_core_id(coreid_t core_id)
     disp->core_id = core_id;
 }
 
+
 /**
  * \brief returns the address and the size of the EH frame
  *

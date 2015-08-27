@@ -20,7 +20,6 @@
 #include <contmng/contmng.h>
 #include <contmng/netbench.h>
 #include <procon/procon.h>
-#include <if/net_queue_manager_defs.h>
 #include <barrelfish/net_constants.h>
 #include <net_interfaces/flags.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2011, 2013, ETH Zurich.
+ * Copyright (c) 2013, 2014, University of Washington.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -53,6 +53,9 @@ struct queue_state {
 
     uint64_t rx_head;
     uint64_t tx_head;
+    lvaddr_t tx_va;
+    lvaddr_t rx_va;
+    lvaddr_t txhwb_va;
 };
 
 enum filter_l4type {
@@ -105,7 +108,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_interrupts,
-                              bool use_rsc);
+                              bool use_rsc,
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va);
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate);
@@ -316,8 +322,13 @@ static void queue_hw_init(uint8_t n)
 
 
     // Initialize RX queue in HW
-    e10k_vf_vfrdbal_wr(d, n, rx_phys);
-    e10k_vf_vfrdbah_wr(d, n, rx_phys >> 32);
+    if (queues[n].rx_va) {
+        e10k_vf_vfrdbal_wr(d, n, queues[n].rx_va);
+        e10k_vf_vfrdbah_wr(d, n, (queues[n].rx_va) >> 32);
+    } else {
+        e10k_vf_vfrdbal_wr(d, n, rx_phys);
+        e10k_vf_vfrdbah_wr(d, n, rx_phys >> 32);
+    }
     e10k_vf_vfrdlen_wr(d, n, rx_size);
 
     e10k_vf_vfsrrctl_bsz_pkt_wrf(d, n, queues[n].rxbufsz / 1024);
@@ -345,11 +356,14 @@ static void queue_hw_init(uint8_t n)
                                 queues[n].msix_intvec);
             }
             rxv = txv = queues[n].msix_index;
-        } else {
-            rxv = QUEUE_INTRX;
-            txv = QUEUE_INTTX;
         }
-        DEBUG("rxv=%d txv=%d\n", rxv, txv);
+
+        // XXX. Please double check, this is against the original intention
+        // Map rxv/txv to eicr bits that we can recognize
+        rxv = QUEUE_INTRX;
+        txv = QUEUE_INTTX;
+
+        // DEBUG("rxv=%d txv=%d\n", rxv, txv);
 
         // Setup mapping queue Rx/Tx -> interrupt
         uint8_t i = n / 2;
@@ -378,8 +392,13 @@ static void queue_hw_init(uint8_t n)
     assert(n < 4);
 
     // Initialize TX queue in HW
-    e10k_vf_vftdbal_wr(d, n, tx_phys);
-    e10k_vf_vftdbah_wr(d, n, tx_phys >> 32);
+    if (queues[n].rx_va) {
+        e10k_vf_vftdbal_wr(d, n, queues[n].tx_va);
+        e10k_vf_vftdbah_wr(d, n, (queues[n].tx_va) >> 32);
+    } else {
+        e10k_vf_vftdbal_wr(d, n, tx_phys);
+        e10k_vf_vftdbah_wr(d, n, tx_phys >> 32);
+    }
     e10k_vf_vftdlen_wr(d, n, tx_size);
 
     // Initialize TX head index write back
@@ -388,8 +407,13 @@ static void queue_hw_init(uint8_t n)
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
 
-        e10k_vf_vftdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
-        e10k_vf_vftdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+	if (queues[n].rx_va) {
+	    e10k_vf_vftdwbal_headwb_low_wrf(d, n, (queues[n].txhwb_va) >> 2);
+	    e10k_vf_vftdwbah_headwb_high_wrf(d, n, (queues[n].txhwb_va) >> 32);
+        } else {
+            e10k_vf_vftdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
+            e10k_vf_vftdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+        }
         e10k_vf_vftdwbal_headwb_en_wrf(d, n, 1);
     }
 
@@ -483,6 +507,8 @@ static void interrupt_handler(void* arg)
 {
     e10k_vf_vfeicr_t eicr = e10k_vf_vfeicr_rd(d);
 
+    DEBUG("interrupt vf (eicr=%x)\n", eicr);
+    
     if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
         e10k_vf_vfeicr_wr(d, eicr);
         qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
@@ -563,7 +589,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_irq,
-                              bool use_rsc)
+                              bool use_rsc,
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -591,6 +620,9 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].binding = b;
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
+    queues[n].tx_va = tx_va;
+    queues[n].rx_va = rx_va;
+    queues[n].txhwb_va = txhwb_va;
 
     queue_hw_init(n);
 
@@ -816,9 +848,12 @@ static errval_t e10k_vf_client_connect(void)
 {
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
+    char name[256];
+
+    snprintf(name, 256, "e10k_vf%u", pci_function);
 
     /* Connect to the pci server */
-    err = nameservice_blocking_lookup("e10k_vf", &iref);
+    err = nameservice_blocking_lookup(name, &iref);
     if (err_is_fail(err)) {
         return err;
     }

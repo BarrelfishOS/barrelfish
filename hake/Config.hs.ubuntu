@@ -228,8 +228,8 @@ memserv_percore = False
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
 lazy_thc | elem "armv7" architectures   = False
-	 | elem "armv5" architectures   = False
-	 | elem "xscale" architectures  = False
+     | elem "armv5" architectures   = False
+     | elem "xscale" architectures  = False
          | otherwise                    = True
 
 -- Enable capability tracing debug facility
@@ -295,6 +295,16 @@ nxe_paging = False
 oneshot_timer :: Bool
 oneshot_timer = False
 
+-- Enable hardware VM support for AMD's Secure Virtual Machine (SVM)
+-- If disabled, Intel's VMX hardware is supported instead
+config_svm :: Bool
+config_svm = True
+
+-- Enable the use of only Arrakis domains (with arrakismon)
+-- If disabled, use normal VM-guests (with vmkitmon)
+config_arrakismon :: Bool
+config_arrakismon = True
+
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [  
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
@@ -341,6 +351,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
+             if config_svm then "CONFIG_SVM" else "",
+             if config_arrakismon then "CONFIG_ARRAKISMON" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
              if heteropanda then "HETEROPANDA" else "",
              if caps_trace then "TRACE_PMEM_CAPS" else ""

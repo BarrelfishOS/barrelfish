@@ -30,7 +30,10 @@ interface e10k "e10k queue management interface" {
                                int16  msix_intvec,
                                uint8  msix_intdest,
                                bool   use_irq,
-                               bool   use_rsc);
+                               bool   use_rsc,
+			       uint64 tx_va,
+			       uint64 rx_va,
+			       uint64 txhwb_va);
     response queue_memory_registered();
 
     /* Modify interrupt rate for a particular queue */

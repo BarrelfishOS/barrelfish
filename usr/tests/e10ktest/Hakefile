@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2011, 2013, ETH Zurich.
+-- Copyright (c) 2007-2011, 2013, 2014, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -12,22 +12,44 @@
 
 [ build application { target = "e1000test",
                       cFiles = [ "e10ktest.c" ],
-                      flounderDefs = [ "net_queue_manager"],
-                      addLibraries = [ "e1000n" ]
+                      flounderDefs = [ "acpi" ],  
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
+                      addLibraries = [ "e1000n", "acpi_client", "skb" ]
                     },
   build application { target = "e10k_ctrl",
+                      flounderDefs = [ "acpi" ],  
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                       cFiles = [ "e10k_ctrl.c" ],
-                      flounderDefs = [ "net_queue_manager"],
-                      addLibraries = [ "e10k" ]
+                      addLibraries = [ "e10k", "acpi_client", "skb" ]
                     },
   build application { target = "e10ktest_vf",
+                      flounderDefs = [ "acpi" ],  
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                       cFiles = [ "e10ktest.c" ],
-                      flounderDefs = [ "net_queue_manager"],
-                      addLibraries = [ "e10k_vf" ]
+                      addLibraries = [ "e10k_vf", "skb", "acpi_client" ]
+                    },
+  build application { target = "subways",
+                      cFiles = [ "subways.c" ],
+                      flounderDefs = [ "subways", "acpi" ],
+                      flounderBindings = [ "subways" ],
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]),
+                                                ("monitor", ["lmp"])
+                                              ],
+                      addLibraries = [ "e10k_vf", "skb", "acpi_client" ]
+                    },
+  build application { target = "subways_e1000",
+                      cFiles = [ "subways.c" ],
+                      flounderDefs = [ "subways", "acpi" ],
+                      flounderBindings = [ "subways" ],
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]),
+                                                ("monitor", ["lmp"])
+                                              ],
+                      addLibraries = [ "e1000n", "skb", "acpi_client" ]
                     },
   build application { target = "e10ktest",
+                      flounderDefs = [ "acpi" ],  
+		      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
                       cFiles = [ "e10ktest.c" ],
-                      flounderDefs = [ "net_queue_manager"],
-                      addLibraries = [ "e10k" ]
+                      addLibraries = [ "e10k", "acpi_client", "skb" ]
                     }
 ]

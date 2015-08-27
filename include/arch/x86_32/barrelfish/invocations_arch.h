@@ -335,6 +335,24 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     return sysret.error;
 }
 
+static inline errval_t invoke_vnode_identify(struct capref vnode,
+					     struct vnode_identity *ret)
+{
+    struct sysret sysret = cap_invoke1(vnode, VNodeCmd_Identify);
+
+    assert(ret != NULL);
+    if (err_is_ok(sysret.error)) {
+        ret->base = sysret.value & (~BASE_PAGE_MASK);
+	ret->type = sysret.value & BASE_PAGE_MASK;
+        return sysret.error;
+    }
+
+    ret->base = 0;
+    ret->type = 0;
+    return sysret.error;
+}
+
+
 /**
  * \brief Modify mapping flags on parts of a mapped frame
  *

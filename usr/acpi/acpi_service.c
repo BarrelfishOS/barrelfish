@@ -21,6 +21,7 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
+#include "intel_vtd.h"
 
 extern bool mm_debug;
 
@@ -28,16 +29,15 @@ extern bool mm_debug;
 static void mm_alloc_range_proxy_handler(struct acpi_binding* b, uint8_t sizebits,
 		                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
-    //mm_debug = true;
+    ACPI_DEBUG("mm_alloc_range_proxy_handler: sizebits: %d, minbase: 0x%lx maxlimit: 0x%lx\n",
+	       sizebits, minbase, maxlimit);
 
     struct capref devframe = NULL_CAP;
     /* errval_t err = mm_alloc_range(&pci_mm_physaddr, sizebits, minbase, maxlimit, &devframe, NULL); */
     errval_t err = mm_realloc_range(&pci_mm_physaddr, sizebits, minbase, &devframe);
     if (err_is_fail(err)) {
-    	DEBUG_ERR(err, "mm alloc range failed...\n");
+    	DEBUG_ERR(err, "mm realloc range failed...\n");
     }
-
-    //mm_debug = false;
 
     err = b->tx_vtbl.mm_alloc_range_proxy_response(b, NOP_CONT, devframe, err);
     assert(err_is_ok(err));
@@ -260,6 +260,47 @@ static void get_vbe_bios_cap(struct acpi_binding *b)
     assert(err_is_ok(err));
 }
 
+static void create_domain(struct acpi_binding *b, struct capref pml4)
+{
+    errval_t err;
+    err = vtd_create_domain(pml4);
+    err = b->tx_vtbl.create_domain_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void delete_domain(struct acpi_binding *b, struct capref pml4)
+{
+    errval_t err;
+    err = vtd_remove_domain(pml4);
+    err = b->tx_vtbl.delete_domain_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void vtd_add_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
+			   uint32_t dev, uint32_t func, struct capref pml4)
+{
+    errval_t err;
+    err = vtd_domain_add_device(seg, bus, dev, func, pml4);
+    err = b->tx_vtbl.vtd_add_device_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void vtd_remove_device(struct acpi_binding *b, uint32_t seg, uint32_t bus, 
+			      uint32_t dev, uint32_t func, struct capref pml4)
+{
+    errval_t err;
+    err = vtd_domain_remove_device(seg, bus, dev, func, pml4);
+    err = b->tx_vtbl.vtd_remove_device_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void vtd_id_dom_add_devices(struct acpi_binding *b)
+{
+    errval_t err;
+    vtd_identity_domain_add_devices();
+    err = b->tx_vtbl.vtd_id_dom_add_devices_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
 
 struct acpi_rx_vtbl acpi_rx_vtbl = {
     .get_pcie_confspace_call = get_pcie_confspace,
@@ -275,6 +316,12 @@ struct acpi_rx_vtbl acpi_rx_vtbl = {
     .sleep_call = sleep_handler,
 
     .get_vbe_bios_cap_call = get_vbe_bios_cap,
+
+    .create_domain_call = create_domain,
+    .delete_domain_call = delete_domain,
+    .vtd_add_device_call = vtd_add_device,
+    .vtd_remove_device_call = vtd_remove_device,
+    .vtd_id_dom_add_devices_call = vtd_id_dom_add_devices,
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

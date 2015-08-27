@@ -384,7 +384,8 @@ enum AcpiDmarType
     ACPI_DMAR_TYPE_RESERVED_MEMORY      = 1,
     ACPI_DMAR_TYPE_ATSR                 = 2,
     ACPI_DMAR_HARDWARE_AFFINITY         = 3,
-    ACPI_DMAR_TYPE_RESERVED             = 4     /* 4 and greater are reserved */
+    ACPI_DMAR_TYPE_ANDD                 = 4,
+    ACPI_DMAR_TYPE_RESERVED             = 5     /* 5 and greater are reserved */
 };
 
 
@@ -484,6 +485,16 @@ typedef struct acpi_dmar_rhsa
     UINT32                  ProximityDomain;
 
 } ACPI_DMAR_RHSA;
+
+/* ACPI Name-space Device Declaration Structure */
+
+typedef struct acpi_dmar_andd
+{  
+  ACPI_DMAR_HEADER        Header;
+  UINT8                   Reserved[3];
+  UINT8                   DeviceNumber;
+  ACPI_STRING             ObjectName;
+} ACPI_DMAR_ANDD;
 
 
 /*******************************************************************************
@@ -1121,4 +1132,3 @@ typedef struct acpi_table_wdrt
 #pragma pack()
 
 #endif /* __ACTBL2_H__ */
-

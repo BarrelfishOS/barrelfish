@@ -64,6 +64,7 @@
            "ti_i2c",
            "ti_twl6030",
            "sdhc",
+           "apm88xxxx/apm88xxxx_pc16550",
            "omap/ehci",
            "omap/ohci",
            "omap/omap_uart",
@@ -106,7 +107,10 @@
            "xeon_phi/xeon_phi_dma_chan",
            "ioat_dma",
            "ioat_dma_chan",
-           "pci_sr_iov_cap"
+           "pci_sr_iov_cap",
+           "megaraid",
+	   "vtd",
+	   "vtd_iotlb"
          ], arch <- allArchitectures
 ] ++
 

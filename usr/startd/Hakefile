@@ -11,8 +11,21 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "startd",
-  		      cFiles = [ "main.c", "spawn.c" ],
-		      addLibraries = libDeps [ "spawndomain", "elf", "trace",
-                                       "dist", "vfs", "lwip" ]
+                      cFiles = [ "main.c", "spawn.c" ],
+                      addLibraries = libDeps [ "spawndomain", "elf", "trace",
+                                       "dist", "vfs" ],
+                      architectures = [ "x86_64", "x86_32" ]
+                   },
+ build application { target = "startd",
+                      cFiles = [ "main.c", "spawn.c" ],
+                      addLibraries = libDeps [ "spawndomain", "elf", "trace",
+                                       "dist", "vfs_noblockdev" ],
+                      architectures = [ "k1om" ]
+                   },
+ build application { target = "startd",
+                     cFiles = [ "main.c", "spawn.c" ],
+                     addLibraries = libDeps [ "spawndomain", "elf", "trace",
+                                       "dist", "vfs_ramfs" ],
+                     architectures = [ "armv5", "armv7", "armv8" ]
                    }
 ]

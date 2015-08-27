@@ -133,5 +133,7 @@ int main(int argc, char *argv[])
         abort();
     }
 
+    vtd_add_devices();
+
     messages_handler_loop();
 }

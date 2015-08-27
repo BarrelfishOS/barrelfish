@@ -282,10 +282,14 @@ errval_t paging_tlb_flush_range(struct cte *frame, size_t offset, size_t pages)
         case ObjType_VNode_ARM_l2:
             page_size = BASE_PAGE_SIZE;
             break;
+#elif defined(__ARM_ARCH_8A__)
+            // TODO: define ARMv8 paging
 #else
 #error setup page sizes for arch
 #endif
         default:
+            panic("cannot find page size for cap type: %d\n",
+                  leaf_pt->cap.type);
             break;
     }
     assert(page_size);

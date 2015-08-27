@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, ETH Zurich.
+ * Copyright (c) 2014, University of Washington.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -17,6 +17,8 @@
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
+#include <barrelfish/sys_debug.h>
+#include <skb/skb.h>
 #include <sys/socket.h>
 #include <netif/e1000.h>
 #include <limits.h>
@@ -26,6 +28,7 @@
 #include <netdb.h>
 #include <arranet.h>
 #include <arranet_impl.h>
+#include <acpi_client/acpi_client.h>
 
 #include "inet_chksum.h"
 
@@ -50,6 +53,9 @@ struct client_closure *g_cl = NULL;
 
 #define MAX_PEERS       256
 
+static int use_vtd = 0;
+static int vtd_coherency = 1;
+
 struct peer {
     uint32_t ip;
     struct eth_addr mac;
@@ -59,8 +65,15 @@ struct peer {
 // IP addresses are in network byte order!
 static struct peer peers[MAX_PEERS] = {
     {
+        // XXX: This needs to be updated each time the tap interface is re-initialized
         .ip = 0x0102000a,       // 10.0.2.1
-        .mac.addr = "\x86\x86\x0b\xda\x22\xd7",
+        /* .mac.addr = "\x86\x86\x0b\xda\x22\xd7", */
+        .mac.addr = "\x12\x67\xb9\x3e\xe2\x2c",
+    },
+    {
+        // XXX: This needs to be updated each time the tap interface is re-initialized
+        .ip = 0x0164a8c0,       // 192.168.100.1
+        .mac.addr = "\x5e\x93\xf2\xf1\xeb\xfa",
     },
     {
         .ip = 0xaf06d080,       // 128.208.6.175 - swingout2
@@ -83,7 +96,7 @@ static struct peer peers[MAX_PEERS] = {
         .mac.addr = "\xa0\x36\x9f\x10\x03\x52",
     },
 };
-static int peers_alloc = 6;             // Set number of static ARP here!
+static int peers_alloc = 7;             // Set number of static ARP here!
 
 #ifdef DEBUG_LATENCIES
 static int rx_packets_available = MAX_PACKETS;
@@ -91,12 +104,18 @@ static int rx_packets_available = MAX_PACKETS;
 
 struct socket {
     struct socket *prev, *next;
+    int type, protocol;
     int fd;
     bool passive, nonblocking, connected, hangup, shutdown;
     struct sockaddr_in bound_addr;
     struct sockaddr_in peer_addr;
     uint32_t my_seq, peer_seq, next_ack;
 };
+
+struct pkt_ip_headers {
+    struct eth_hdr eth;
+    struct ip_hdr ip;
+} __attribute__ ((packed));
 
 struct pkt_udp_headers {
     struct eth_hdr eth;
@@ -147,6 +166,7 @@ size_t hash_unaligned = 0;
 
 static bool arranet_udp_accepted = false;
 static bool arranet_tcp_accepted = false;
+static bool arranet_raw_accepted = false;
 
 //#define TCP_LOCAL_PORT_RANGE_START        0xc000
 #define TCP_LOCAL_PORT_RANGE_START        8081
@@ -244,7 +264,8 @@ struct mac2ip {
 static struct mac2ip ip_config[] = {
     {   // QEMU
         .mac = "\x52\x54\x00\x12\x34\x56",
-        .ip = 0x0a00020f,       // 10.0.2.15
+        /* .ip = 0x0a00020f,       // 10.0.2.15 */
+        .ip = 0xc0a8640f,       // 192.168.100.15
     },
     {
         // QEMU2
@@ -284,27 +305,14 @@ static struct mac2ip ip_config[] = {
 static uint8_t arranet_mymac[ETHARP_HWADDR_LEN];
 static uint32_t arranet_myip = 0;
 
-/******** NYI *********/
-
-struct thread_mutex *lwip_mutex = NULL;
-struct waitset *lwip_waitset = NULL;
-
-void lwip_mutex_lock(void)
-{
-}
-
-void lwip_mutex_unlock(void)
-{
-}
-
 int lwip_read(int s, void *mem, size_t len)
 {
-    assert(!"NYI");
+    return lwip_recv(s, mem, len, 0);
 }
 
 int lwip_write(int s, const void *data, size_t size)
 {
-    assert(!"NYI");
+    return lwip_send(s, data, size, 0);
 }
 
 int lwip_fcntl(int s, int cmd, int val)
@@ -438,11 +446,6 @@ int lwip_getsockname(int s, struct sockaddr *name, socklen_t *namelen)
     return 0;
 }
 
-struct hostent *lwip_gethostbyname(const char *name)
-{
-    assert(!"NYI");
-}
-
 int lwip_getaddrinfo(const char *nodename, const char *servname,
                      const struct addrinfo *hints, struct addrinfo **res)
 {
@@ -458,7 +461,11 @@ int lwip_getaddrinfo(const char *nodename, const char *servname,
     // Return dummy UDP socket address
     r->ai_flags = AI_PASSIVE;
     r->ai_family = AF_INET;
-    r->ai_socktype = SOCK_DGRAM;
+    if(hints->ai_socktype != 0) {
+        r->ai_socktype = hints->ai_socktype;
+    } else {
+        r->ai_socktype = SOCK_DGRAM;
+    }
     r->ai_protocol = hints->ai_protocol;
     r->ai_addrlen = sizeof(struct sockaddr_in);
     r->ai_addr = (struct sockaddr *)sa;
@@ -479,12 +486,12 @@ void lwip_freeaddrinfo(struct addrinfo *ai)
     }
 }
 
-int lwip_getpeername (int s, struct sockaddr *name, socklen_t *namelen)
-{
-    assert(!"NYI");
-}
-
 /* The following 2 are #defined in lwIP 1.4.1, but not in 1.3.1, duplicating them here */
+
+char *inet_ntoa(struct in_addr addr)
+{
+    return ipaddr_ntoa((ip_addr_t *)&addr);
+}
 
 int inet_aton(const char *cp, struct in_addr *addr)
 {
@@ -571,6 +578,29 @@ bool lwip_init_auto(void)
     assert(!"NYI");
 }
 
+/******** NYI *********/
+
+struct thread_mutex *lwip_mutex = NULL;
+struct waitset *lwip_waitset = NULL;
+
+void lwip_mutex_lock(void)
+{
+}
+
+void lwip_mutex_unlock(void)
+{
+}
+
+struct hostent *lwip_gethostbyname(const char *name)
+{
+    assert(!"NYI");
+}
+
+int lwip_getpeername(int s, struct sockaddr *name, socklen_t *namelen)
+{
+    assert(!"NYI");
+}
+
 /******** NYI END *********/
 
 void ethernetif_backend_init(char *service_name, uint64_t queueid,
@@ -596,13 +626,15 @@ void ethernetif_backend_init(char *service_name, uint64_t queueid,
 
 #define MAX_DRIVER_BUFS         16
 
-static genpaddr_t rx_pbase = 0;
-static genvaddr_t rx_vbase = 0;
+static genpaddr_t rx_pbase = 0, tx_pbase = 0;
+static genvaddr_t rx_vbase = 0, tx_vbase = 0;
 
 static struct packet tx_packets[MAX_PACKETS];
-static uint8_t tx_bufs[MAX_PACKETS][PACKET_SIZE];
+/* static uint8_t tx_bufs[MAX_PACKETS][PACKET_SIZE]; */
 static unsigned int tx_idx = 0;
 /* static ssize_t tx_packets_available = MAX_PACKETS; */
+
+#include <barrelfish/deferred.h>
 
 static void packet_output(struct packet *p)
 {
@@ -640,49 +672,71 @@ static void packet_output(struct packet *p)
         assert(q->len > 0);
 
         // Check if it's from the RX region
-        if(((genvaddr_t)q->payload) >= rx_vbase &&
-           ((genvaddr_t)q->payload) < rx_vbase + (MAX_PACKETS * PACKET_SIZE + 4096)) {
-            buf->pa = rx_pbase + ((genvaddr_t)q->payload - rx_vbase);
-        } else {
-            // Check if it's in morecore's region
-            struct morecore_state *mc_state = get_morecore_state();
-            struct vspace_mmu_aware *mmu_state = &mc_state->mmu_state;
-            genvaddr_t base = vregion_get_base_addr(&mmu_state->vregion);
-            struct memobj_frame_list *i;
+        /* printf("RX region: Comparing %p against [%p:%p]\n", */
+        /*        q->payload, */
+        /*        (void *)rx_vbase, */
+        /*        (void *)(rx_vbase + (MAX_PACKETS * PACKET_SIZE + 4096))); */
+	if (!use_vtd) {
+            if(((genvaddr_t)q->payload) >= rx_vbase &&
+               ((genvaddr_t)q->payload) < rx_vbase + (MAX_PACKETS * PACKET_SIZE + 4096)) {
+                buf->pa = rx_pbase + ((genvaddr_t)q->payload - rx_vbase);
+            } else if(((genvaddr_t)q->payload) >= tx_vbase &&
+                      ((genvaddr_t)q->payload) < tx_vbase + (MAX_PACKETS * PACKET_SIZE)) {
+                // It is from the TX region!
+                buf->pa = tx_pbase + ((genvaddr_t)q->payload - tx_vbase);
+            } else {
+                // Check if it's in morecore's region
+                struct morecore_state *mc_state = get_morecore_state();
+                struct vspace_mmu_aware *mmu_state = &mc_state->mmu_state;
+                genvaddr_t base = vregion_get_base_addr(&mmu_state->vregion);
+                struct memobj_frame_list *i;
 
-            // Walk frame list
-            for(i = mmu_state->memobj.frame_list; i != NULL; i = i->next) {
-                // If address is completely within frame, we can resolve
-                // XXX: Everything else would be easier with an IOMMU
-                if(base + i->offset <= (genvaddr_t)q->payload &&
-                   ((genvaddr_t)q->payload) + q->len < base + i->offset + i->size) {
-                    assert(i->pa != 0);
+                // Walk frame list
+                for(i = mmu_state->memobj.frame_list; i != NULL; i = i->next) {
+                    // If address is completely within frame, we can resolve
+                    // XXX: Everything else would be easier with an IOMMU
+		    /* printf("Heap: Comparing [%p:%p] against [%p:%p]\n", */
+		    /*        q->payload, q->payload + q->len, */
+		    /*        (void *)(base + i->offset), */
+		    /*        (void *)(base + i->offset + i->size)); */
+                    if(base + i->offset <= (genvaddr_t)q->payload &&
+                       ((genvaddr_t)q->payload) + q->len < base + i->offset + i->size) {
+                        assert(i->pa != 0);
 
-                    /* buf->pa = id.base + ((genvaddr_t)q->payload - base - i->offset); */
-                    buf->pa = i->pa + ((genvaddr_t)q->payload - base - i->offset);
-                    break;
-                }
-            }
-
-            if(i == NULL) {
-                // Check if it's in text/data region
-                int entry;
-                for(entry = 0; entry < mc_state->v2p_entries; entry++) {
-                    struct v2pmap *pmap = &mc_state->v2p_mappings[entry];
-
-                    if(pmap->va <= (genvaddr_t)q->payload &&
-                       ((genvaddr_t)q->payload) + q->len < pmap->va + pmap->size) {
-                        buf->pa = pmap->pa + ((genvaddr_t)q->payload - pmap->va);
+                        /* buf->pa = id.base + ((genvaddr_t)q->payload - base - i->offset); */
+                        buf->pa = i->pa + ((genvaddr_t)q->payload - base - i->offset);
                         break;
                     }
                 }
 
-                if(entry == mc_state->v2p_entries) {
-                    printf("Called from %p %p\n",
-                           __builtin_return_address(0),
-                           __builtin_return_address(1));
+                if(i == NULL) {
+                    // Check if it's in text/data region
+                    int entry;
+                    for(entry = 0; entry < mc_state->v2p_entries; entry++) {
+                        struct v2pmap *pmap = &mc_state->v2p_mappings[entry];
 
-                    USER_PANIC("Invalid pbuf! payload = %p, pa = %p\n", q->payload, buf->pa);
+                        // If address is completely within frame, we can resolve
+                        // XXX: Everything else would be easier with an IOMMU
+                        /* printf("BSS: Comparing [%p:%p] against [%p:%p]\n", */
+                        /*        q->payload, q->payload + q->len, */
+                        /*        (void *)(pmap->va), */
+                        /*        (void *)(pmap->va + pmap->size)); */
+                        if(pmap->va <= (genvaddr_t)q->payload &&
+                                ((genvaddr_t)q->payload) + q->len < pmap->va + pmap->size) {
+                            buf->pa = pmap->pa + ((genvaddr_t)q->payload - pmap->va);
+                            break;
+                        }
+                    }
+
+                    if(entry == mc_state->v2p_entries) {
+                        printf("Called from %p %p\n",
+                                __builtin_return_address(0),
+                                __builtin_return_address(1),
+                                __builtin_return_address(2));
+
+                        USER_PANIC("Invalid pbuf! payload = %p, pa = %p, subpacket = %d\n",
+                                   q->payload, buf->pa, n);
+                    }
                 }
             }
         }
@@ -766,6 +820,15 @@ struct recv_tcp_args {
     struct socket *sock;
 };
 
+struct recv_raw_args {
+    void *buf;
+    size_t len;
+    int recv_len;
+    struct sockaddr *src_addr;
+    socklen_t *addrlen;
+    /* struct packet **inpkt; */
+};
+
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 
 static void sock_recved_udp_packet(void *arg)
@@ -829,6 +892,42 @@ static void sock_recved_udp_packet(void *arg)
         *((void **)args->buf) = payload;
         *args->inpkt = inpkt;
     }
+
+    // Input packet is consumed in stack
+    inpkt = NULL;
+}
+
+static void sock_recved_raw_packet(void *arg)
+{
+    struct recv_raw_args *args = arg;
+    assert(inpkt != NULL);
+    assert(inpkt->next == NULL);
+
+    // Process headers
+    struct ip_hdr *iphdr = (struct ip_hdr *)(inpkt->payload + SIZEOF_ETH_HDR);
+    assert(args->buf != NULL);      // No accept() allowed
+    uint16_t pkt_len = ntohs(IPH_LEN(iphdr));
+    uint8_t *payload = (void *)iphdr;
+
+    // Fill in src_addr if provided
+    if(args->src_addr != NULL) {
+        struct sockaddr_in *addr = (struct sockaddr_in *)args->src_addr;
+
+        assert(*args->addrlen >= sizeof(struct sockaddr_in));
+        memset(addr, 0, sizeof(struct sockaddr_in));
+        addr->sin_len = sizeof(struct sockaddr_in);
+        addr->sin_family = AF_INET;
+        addr->sin_port = 0;
+        addr->sin_addr.s_addr = iphdr->src.addr;
+        *args->addrlen = sizeof(struct sockaddr_in);
+    }
+
+    // It's a recvfrom!
+    assert(args->len != 0);
+    args->recv_len = MIN(args->len, pkt_len);
+    memcpy(args->buf, payload, args->recv_len);
+    errval_t err = rx_register_buffer_fn_ptr(inpkt->pa, inpkt->payload, inpkt);
+    assert(err_is_ok(err));
 
     // Input packet is consumed in stack
     inpkt = NULL;
@@ -1022,10 +1121,18 @@ int lwip_socket(int domain, int type, int protocol)
         assert(!arranet_tcp_accepted);
         arranet_udp_accepted = true;
         break;
+
+    case SOCK_RAW:
+      assert(!arranet_tcp_accepted && !arranet_udp_accepted);
+      assert(protocol == IPPROTO_TCP);
+      arranet_raw_accepted = true;
+      break;
     }
 
     struct socket *sock = alloc_socket();
     assert(sock != NULL);
+    sock->type = type;
+    sock->protocol = protocol;
     /* printf("lwip_socket() = %d\n", sock->fd); */
     return sock->fd;
 }
@@ -1042,19 +1149,51 @@ int lwip_bind(int s, const struct sockaddr *name, socklen_t namelen)
 int lwip_recvfrom(int sockfd, void *buf, size_t len, int flags,
                   struct sockaddr *src_addr, socklen_t *addrlen)
 {
-    assert(arranet_udp_accepted);
+    assert(arranet_udp_accepted || arranet_raw_accepted);
     struct socket *sock = &sockets[sockfd];
-    struct recv_udp_args args = {
-        .buf = buf,
-        .len = len,
-        .src_addr = src_addr,
-        .addrlen = addrlen,
-    };
     struct waitset ws;
     waitset_init(&ws);
+    int *recv_len;
+    errval_t err;
+    struct recv_udp_args udp_args;
+    struct recv_raw_args raw_args;
 
-    errval_t err = waitset_chan_register_polled(&ws, &recv_chanstate,
-                                                MKCLOSURE(sock_recved_udp_packet, &args));
+    switch(sock->type) {
+    case SOCK_DGRAM:
+      {
+	  udp_args.buf = buf;
+	  udp_args.len = len;
+	  udp_args.src_addr = src_addr;
+	  udp_args.addrlen = addrlen;
+
+	  err = waitset_chan_register_polled(&ws, &recv_chanstate,
+					     MKCLOSURE(sock_recved_udp_packet, &udp_args));
+	  assert(err_is_ok(err));
+
+	  recv_len = &udp_args.recv_len;
+      }
+      break;
+
+    case SOCK_RAW:
+      {
+	  raw_args.buf = buf;
+	  raw_args.len = len;
+	  raw_args.src_addr = src_addr;
+	  raw_args.addrlen = addrlen;
+
+	  err = waitset_chan_register_polled(&ws, &recv_chanstate,
+					     MKCLOSURE(sock_recved_raw_packet, &raw_args));
+	  assert(err_is_ok(err));
+
+	  recv_len = &raw_args.recv_len;
+      }
+      break;
+
+    default:
+        assert(!"NYI");
+        break;
+    }
+
     assert(err_is_ok(err));
 
     /* if socket is ready, trigger event right away */
@@ -1069,7 +1208,7 @@ int lwip_recvfrom(int sockfd, void *buf, size_t len, int flags,
             err = waitset_chan_deregister(&recv_chanstate);
             assert(err_is_ok(err));
             errno = EAGAIN;
-            args.recv_len = -1;
+            *recv_len = -1;
         } else {
             assert(err_is_ok(err));
         }
@@ -1087,7 +1226,7 @@ int lwip_recvfrom(int sockfd, void *buf, size_t len, int flags,
 /* #endif */
 
     // Packet is now in buffer
-    return args.recv_len;
+    return *recv_len;
 }
 
 int recvfrom_arranet(int sockfd, void **buf, struct packet **p,
@@ -1147,6 +1286,7 @@ int recvfrom_arranet(int sockfd, void **buf, struct packet **p,
     return args.recv_len;
 }
 
+static struct pkt_ip_headers packet_ip_header;
 static struct pkt_udp_headers packet_udp_header;
 static struct pkt_tcp_headers packet_tcp_header;
 
@@ -1337,6 +1477,11 @@ int lwip_shutdown(int s, int how)
 
 int lwip_close(int s)
 {
+  if(arranet_udp_accepted) {
+    // XXX: Ignore for now
+    return 0;
+  }
+
     assert(arranet_tcp_accepted);
     struct socket *sock = &sockets[s];
 
@@ -1514,7 +1659,7 @@ int lwip_connect(int s, const struct sockaddr *name, socklen_t namelen)
 
 int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-    assert(arranet_udp_accepted);
+    assert(arranet_udp_accepted || arranet_raw_accepted);
     struct socket *sock = &sockets[sockfd];
 
 #ifdef DEBUG_LATENCIES
@@ -1557,7 +1702,13 @@ int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
     // Get new TX packet and copy data into it
     struct packet *newp = get_tx_packet();
     uint8_t *buf = newp->payload;
-    size_t pos = sizeof(struct pkt_udp_headers);
+    size_t pos;
+    if(sock->type == SOCK_DGRAM) {
+      pos = sizeof(struct pkt_udp_headers);
+    } else {
+      assert(sock->type == SOCK_RAW);
+      pos = sizeof(struct pkt_ip_headers);
+    }
 
 /* #ifdef DEBUG_LATENCIES */
 /*     if(memcache_transactions[1] < POSIX_TRANSA) { */
@@ -1604,11 +1755,18 @@ int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
     }
 #endif
 
-    newp->len = short_size + sizeof(struct pkt_udp_headers);
-    newp->next = NULL;
+    if(sock->type == SOCK_DGRAM) {
+        newp->len = short_size + sizeof(struct pkt_udp_headers);
 
-    // Slap UDP/IP/Ethernet headers in front
-    memcpy(buf, &packet_udp_header, sizeof(struct pkt_udp_headers));
+        // Slap UDP/IP/Ethernet headers in front
+        memcpy(buf, &packet_udp_header, sizeof(struct pkt_udp_headers));
+    } else {
+        assert(sock->type == SOCK_RAW);
+        newp->len = short_size + sizeof(struct pkt_ip_headers);
+        // Slap IP/Ethernet headers in front
+        memcpy(buf, &packet_ip_header, sizeof(struct pkt_ip_headers));
+    }
+    newp->next = NULL;
 
 /* #ifdef DEBUG_LATENCIES */
 /*     if(memcache_transactions[3] < POSIX_TRANSA) { */
@@ -1624,27 +1782,50 @@ int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 /*     } */
 /* #endif */
 
-    // Fine-tune headers
-    struct pkt_udp_headers *p = (struct pkt_udp_headers *)buf;
-    assert(msg->msg_name != NULL);
-    struct sockaddr_in *saddr = msg->msg_name;
-    assert(saddr->sin_family == AF_INET);
-    p->ip.dest.addr = saddr->sin_addr.s_addr;
-    p->udp.dest = saddr->sin_port;
-    struct peer *peer = peers_get_from_ip(p->ip.dest.addr);
-    p->eth.dest = peer->mac;
-    assert(sock->bound_addr.sin_port != 0);
-    p->udp.src = sock->bound_addr.sin_port;
-    p->udp.len = htons(short_size + sizeof(struct udp_hdr));
-    p->ip._len = htons(short_size + sizeof(struct udp_hdr) + IP_HLEN);
+    if (sock->type = SOCK_DGRAM) {
+        // Fine-tune headers
+        struct pkt_udp_headers *p = (struct pkt_udp_headers *)buf;
+        assert(msg->msg_name != NULL);
+        struct sockaddr_in *saddr = msg->msg_name;
+        assert(saddr->sin_family == AF_INET);
+        p->ip.dest.addr = saddr->sin_addr.s_addr;
+        p->udp.dest = saddr->sin_port;
+        struct peer *peer = peers_get_from_ip(p->ip.dest.addr);
+        p->eth.dest = peer->mac;
+        assert(sock->bound_addr.sin_port != 0);
+        p->udp.src = sock->bound_addr.sin_port;
+        p->udp.len = htons(short_size + sizeof(struct udp_hdr));
+        p->ip._len = htons(short_size + sizeof(struct udp_hdr) + IP_HLEN);
 #ifdef CONFIG_QEMU_NETWORK
-    p->ip._chksum = inet_chksum(&p->ip, IP_HLEN);
-    newp->flags = 0;
+        p->ip._chksum = inet_chksum(&p->ip, IP_HLEN);
+        newp->flags = 0;
 #else
-    // Hardware IP header checksumming on
-    p->ip._chksum = 0;
-    newp->flags = NETIF_TXFLAG_IPCHECKSUM;
+        // Hardware IP header checksumming on
+        p->ip._chksum = 0;
+        newp->flags = NETIF_TXFLAG_IPCHECKSUM;
 #endif
+    } else {
+      assert(sock->type == SOCK_RAW);
+      // Fine-tune headers
+      struct pkt_ip_headers *p = (struct pkt_ip_headers *)buf;
+      assert(msg->msg_name != NULL);
+      struct sockaddr_in *saddr = msg->msg_name;
+      assert(saddr->sin_family == AF_INET);
+      p->ip.dest.addr = saddr->sin_addr.s_addr;
+      struct peer *peer = peers_get_from_ip(p->ip.dest.addr);
+      assert(peer != NULL);
+      p->eth.dest = peer->mac;
+      p->ip._len = htons(short_size + IP_HLEN);
+      IPH_PROTO_SET(&p->ip, sock->protocol);
+#ifdef CONFIG_QEMU_NETWORK
+      p->ip._chksum = inet_chksum(&p->ip, IP_HLEN);
+      newp->flags = 0;
+#else
+      // Hardware IP header checksumming on
+      p->ip._chksum = 0;
+      newp->flags = NETIF_TXFLAG_IPCHECKSUM;
+#endif
+    }
 
 /* #ifdef DEBUG_LATENCIES */
 /*     if(memcache_transactions[4] < POSIX_TRANSA) { */
@@ -1753,6 +1934,7 @@ int lwip_accept(int s, struct sockaddr *addr, socklen_t *addrlen)
     struct socket *newsock = alloc_socket();
     newsock->nonblocking = sock->nonblocking;
     newsock->bound_addr = sock->bound_addr;
+    newsock->type = sock->type;
     socklen_t adlen = sizeof(struct sockaddr_in);
     struct recv_tcp_args args = {
         .buf = NULL,
@@ -1931,7 +2113,8 @@ void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
                dipaddr == arranet_myip) {
                 // Send reply
                 struct packet outp;
-                uint8_t payload[PACKET_SIZE];
+		// XXX: Static payload! Need to lock if multithreaded!
+                static uint8_t payload[PACKET_SIZE];
                 struct eth_hdr *myeth = (struct eth_hdr *)payload;
                 struct etharp_hdr *myarp = (struct etharp_hdr *)(payload + SIZEOF_ETH_HDR);
 
@@ -1954,11 +2137,18 @@ void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
                 memcpy(&myarp->dipaddr, &arphdr->sipaddr, sizeof(myarp->dipaddr));
 
                 outp.payload = payload;
-                outp.len = p->len;
+                outp.len = SIZEOF_ETHARP_PACKET;
+                /* outp.len = p->len; */
                 outp.next = NULL;
                 outp.flags = 0;
                 outp.opaque = NULL;
+
                 packet_output(&outp);
+		static int arp_count = 0;
+		arp_count++;
+		if(arp_count > 100) {
+		  printf("High ARP count!\n");
+		}
                 while(!e1000n_queue_empty()) thread_yield();
             }
         }
@@ -2032,6 +2222,16 @@ void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
             if(iphdr->dest.addr != arranet_myip) {
                 goto out;
             }
+
+	    // Take raw IP packets if that's accepted and ignore the rest
+	    if(arranet_raw_accepted) {
+                // XXX: Accept only TCP for now
+                if(IPH_PROTO(iphdr) == IP_PROTO_TCP) {
+                    goto accept;
+                } else {
+                    goto out;
+                }
+	    }
 
             if(IPH_PROTO(iphdr) == IP_PROTO_UDP) {
                 struct udp_hdr *udphdr = (struct udp_hdr *)(p->payload + SIZEOF_ETH_HDR + (IPH_HL(iphdr) * 4));
@@ -2223,6 +2423,7 @@ void process_received_packet(struct driver_rx_buffer *buffer, size_t count,
 #endif
             }
 
+	accept:
             // ARP management
             if(peers_get_from_ip(iphdr->src.addr) == NULL) {
                 struct peer *newpeer = peers_get_next_free();
@@ -2384,7 +2585,7 @@ bool lwip_sock_ready_read(int s)
             return false;
         }
     } else {
-        assert(arranet_udp_accepted);
+        assert(arranet_udp_accepted || arranet_raw_accepted);
         return inpkt != NULL;
     }
 }
@@ -2418,8 +2619,10 @@ bool lwip_sock_ready_write(int s)
         /* printf("lwip_sock_ready_write(%d)\n", s); */
     } else {
         assert(arranet_udp_accepted);
+
+        return tx_packets[tx_idx].len == 0 ? true : false;
         // XXX: Can also return true when one buffer is available in queue
-        return e1000n_queue_empty();
+        // return e1000n_queue_empty();
     }
 }
 
@@ -2596,7 +2799,7 @@ void arranet_polling_loop_proxy(void)
 }
 
 static const char *eat_opts[] = {
-    "function=", "interrupts=", "queue=", "msix=", "vf=", "device=", "bus=",
+    "function=", "interrupts=", "queue=", "msix=", "vf=", "device=", "bus=", "use_vtd=",
     NULL
 };
 
@@ -2606,6 +2809,31 @@ void lwip_arrakis_start(int *argc, char ***argv)
 
     waitset_chanstate_init(&recv_chanstate, CHANTYPE_LWIP_SOCKET);
     waitset_chanstate_init(&send_chanstate, CHANTYPE_LWIP_SOCKET);
+
+    errval_t err = skb_client_connect();
+    assert(err_is_ok(err));
+
+    err = skb_execute_query("vtd_enabled(0,C), write(vtd_coherency(C)).");
+    if (err_is_ok(err)) {
+        use_vtd = 1;
+        for(int i = 0; i < *argc; i++) { 
+	    if(!strncmp((*argv)[i], "use_vtd=", strlen("use_vtd=") - 1)) {
+	      use_vtd = !!atol((*argv)[i] + strlen("use_vtd="));
+                break;
+            }
+        }
+	err = skb_read_output("vtd_coherency(%d)", &vtd_coherency);
+	assert(err_is_ok(err));
+    } 
+   
+    if (use_vtd) {
+        err = connect_to_acpi();
+	assert(err_is_ok(err));
+	err = vtd_create_domain(cap_vroot);
+	assert(err_is_ok(err));
+	err = vtd_domain_add_device(0, 13, 16, 1, cap_vroot);
+	assert(err_is_ok(err));
+    }
 
     e1000n_driver_init(*argc, *argv);
 
@@ -2619,7 +2847,7 @@ void lwip_arrakis_start(int *argc, char ***argv)
     assert(ram_base != NULL);
 
     struct frame_identity id;
-    errval_t err = invoke_frame_identify(frame, &id);
+    err = invoke_frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     rx_pbase = id.base;
@@ -2630,10 +2858,10 @@ void lwip_arrakis_start(int *argc, char ***argv)
         struct packet *p = &rx_packets[i];
 
         // XXX: Use this for recvfrom_arranet to get alignment
-        p->payload = ram_base + (i * PACKET_SIZE) + 6;
-        p->pa = id.base + (i * PACKET_SIZE) + 6;
-        /* p->payload = ram_base + (i * PACKET_SIZE); */
-        /* p->pa = id.base + (i * PACKET_SIZE); */
+        /* p->payload = ram_base + (i * PACKET_SIZE) + 6; */
+        /* p->pa = id.base + (i * PACKET_SIZE) + 6; */
+        p->payload = ram_base + (i * PACKET_SIZE);
+        p->pa = id.base + (i * PACKET_SIZE);
         p->len = PACKET_SIZE;
         p->flags = 0;
 
@@ -2641,9 +2869,24 @@ void lwip_arrakis_start(int *argc, char ***argv)
         assert(err_is_ok(err));
     }
 
+    // Allocate TX buffers (to have them all backed by one frame)
+    uint8_t *tx_bufs = alloc_map_frame(VREGION_FLAGS_READ_WRITE,
+                                       MAX_PACKETS * PACKET_SIZE, &frame);
+    assert(tx_bufs != NULL);
+
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+    tx_pbase = id.base;
+    tx_vbase = (genvaddr_t)tx_bufs;
+
     // Initialize TX packet descriptors
     for(int i = 0; i < MAX_PACKETS; i++) {
-        tx_packets[i].payload = tx_bufs[i];
+        /* tx_packets[i].payload = tx_bufs[i]; */
+        tx_packets[i].payload = tx_bufs + (i * PACKET_SIZE);
+    }
+
+    if (!vtd_coherency) {// For the UDP echo server
+        sys_debug_flush_cache();
     }
 
     // Determine my static IP address
@@ -2658,6 +2901,25 @@ void lwip_arrakis_start(int *argc, char ***argv)
 
     if(arranet_myip == 0) {
         USER_PANIC("Arranet: No static IP config for this MAC address!\n");
+    }
+
+    /***** Initialize IP/Ethernet packet header template *****/
+    {
+        struct pkt_ip_headers *p = &packet_ip_header;
+
+        // Initialize Ethernet header
+        memcpy(&p->eth.src, mac, ETHARP_HWADDR_LEN);
+        p->eth.type = htons(ETHTYPE_IP);
+
+        // Initialize IP header
+        p->ip._v_hl = 69;
+        p->ip._tos = 0;
+        p->ip._id = htons(3);
+        p->ip._offset = 0;
+        p->ip._ttl = 0xff;
+        p->ip._proto = 0;
+        p->ip._chksum = 0;
+        p->ip.src.addr = arranet_myip;
     }
 
     /***** Initialize UDP/IP/Ethernet packet header template *****/

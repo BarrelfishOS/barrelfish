@@ -35,22 +35,22 @@
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      flounderBindings = [ "e10k", "e10k_vf" ],
-                      flounderDefs = [  "net_queue_manager", "e10k_vf" ],
+                      flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf" ],
+                      flounderDefs = [ "e10k_vf" ],
                       addLibraries = libDeps [ "pci", "bench", "trace", "skb" ],
-                      addCFlags = [ "-DLIBRARY", "-DVTON_DCBOFF" ]
+                      addCFlags = [ "-DLIBRARY" ]
                     },
 
   build library { target = "e10k_vf",
                       cFiles = [ "e10k_vf.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q", "e10k_vf" ],
-                      flounderBindings = [ "e10k_vf" ],
+                      flounderBindings = [ "e10k_vf", "net_queue_manager" ],
                       flounderExtraBindings = [ ("e10k_vf", ["rpcclient"]) ],
-                      flounderDefs = [  "net_queue_manager", "e10k_vf" ],
+                      flounderDefs = [ "e10k_vf" ],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
                       addLibraries = libDeps [ "pci", "bench", "trace", "skb" ],
-                      addCFlags = [ "-DLIBRARY", "-DVF", "-DVTON_DCBOFF" ]
+                      addCFlags = [ "-DLIBRARY", "-DVF" ]
                     },
 
   build application { target = "e10k_vf",
@@ -82,7 +82,7 @@
 
   build application { target = "e10k_queue_elb",
                       cFiles = [ "e10k_qdriver.c", "helper.c" ],
-                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf"  ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf" ],
                       --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps ["ethernet_latency_benchmark", "bench",
@@ -102,8 +102,7 @@
 
   build application { target = "e10k_queue_tlb",
                       cFiles = [ "e10k_qdriver.c", "helper.c"],
-                      flounderDefs = [ "e10k_vf" ],
-                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf"  ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k" ],
                       --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = [ "tcp_latency_benchmark", "trace", "bench",

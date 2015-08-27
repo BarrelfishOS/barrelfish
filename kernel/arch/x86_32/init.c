@@ -582,6 +582,9 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Check/Enable MONITOR/MWAIT opcodes
     enable_monitor_mwait();
 
+    // Setup Page Attribute Table MSR
+    configure_page_attribute_table();
+
     // Call main kernel startup function -- this should never return
     kernel_startup();
 

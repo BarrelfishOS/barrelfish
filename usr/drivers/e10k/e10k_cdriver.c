@@ -56,6 +56,10 @@ struct queue_state {
 
     uint64_t rx_head;
     uint64_t tx_head;
+
+    lvaddr_t tx_va;
+    lvaddr_t rx_va;
+    lvaddr_t txhwb_va;
 };
 
 enum filter_l4type {
@@ -130,7 +134,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_interrupts,
-                              bool use_rsc);
+                              bool use_rsc,
+                              uint64_t tx_va,
+                              uint64_t rx_va,
+                              uint64_t txhwb_va);
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate);
@@ -841,8 +848,13 @@ static void queue_hw_init(uint8_t n)
 
 
     // Initialize RX queue in HW
-    e10k_rdbal_1_wr(d, n, rx_phys);
-    e10k_rdbah_1_wr(d, n, rx_phys >> 32);
+    if (queues[n].rx_va) {
+        e10k_rdbal_1_wr(d, n, queues[n].rx_va);
+        e10k_rdbah_1_wr(d, n, (queues[n].rx_va) >> 32);
+    } else {
+        e10k_rdbal_1_wr(d, n, rx_phys);
+        e10k_rdbah_1_wr(d, n, rx_phys >> 32);
+    }
     e10k_rdlen_1_wr(d, n, rx_size);
 
     e10k_srrctl_1_bsz_pkt_wrf(d, n, queues[n].rxbufsz / 1024);
@@ -970,8 +982,13 @@ static void queue_hw_init(uint8_t n)
 #endif
 
     // Initialize TX queue in HW
-    e10k_tdbal_wr(d, n, tx_phys);
-    e10k_tdbah_wr(d, n, tx_phys >> 32);
+    if (queues[n].rx_va) {
+        e10k_tdbal_wr(d, n, queues[n].tx_va);
+        e10k_tdbah_wr(d, n, (queues[n].tx_va) >> 32);
+    } else {
+        e10k_tdbal_wr(d, n, tx_phys);
+        e10k_tdbah_wr(d, n, tx_phys >> 32);
+    }
     e10k_tdlen_wr(d, n, tx_size);
 
     // Initialize TX head index write back
@@ -979,9 +996,13 @@ static void queue_hw_init(uint8_t n)
         r = invoke_frame_identify(queues[n].txhwb_frame, &frameid);
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
-
-        e10k_tdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
-        e10k_tdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+        if (queues[n].rx_va) {
+            e10k_tdwbal_headwb_low_wrf(d, n, (queues[n].txhwb_va) >> 2);
+            e10k_tdwbah_headwb_high_wrf(d, n, (queues[n].txhwb_va) >> 32);
+        } else {
+            e10k_tdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
+            e10k_tdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+        }
         e10k_tdwbal_headwb_en_wrf(d, n, 1);
     }
 
@@ -1237,7 +1258,10 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
                               bool use_irq,
-                              bool use_rsc)
+                              bool use_rsc,
+                              uint64_t tx_va,
+                              uint64_t rx_va,
+                              uint64_t txhwb_va)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -1263,6 +1287,9 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].binding = b;
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
+    queues[n].tx_va = tx_va;
+    queues[n].rx_va = rx_va;
+    queues[n].txhwb_va = txhwb_va;
 
     queue_hw_init(n);
 

@@ -886,7 +886,6 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
     e1000_configure_rx(dev);
 
 
-
     /* --------------------- transmit setup --------------------- */
     if (dev->mac_type == e1000_82575
         || dev->mac_type == e1000_82576

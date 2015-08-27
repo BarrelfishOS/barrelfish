@@ -253,6 +253,16 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         }
     }
 
+    // have cap to return to monitor but no allocated slot and no room in
+    // monitor channel; have user retry over monitor rpc interface
+    if (ram.bits > 0 &&
+        !ret_ram_cap &&
+        err_is_fail(lmp_can_deliver_payload(&monitor_ep, len)))
+    {
+        return SYS_ERR_RETRY_THROUGH_MONITOR;
+    }
+
+
     err = cleanup_copy(cte);
     if (err_is_fail(err)) {
         return err;
@@ -279,7 +289,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             memset(&ramcte, 0, sizeof(ramcte));
             ramcte.cap.u.ram = ram;
             ramcte.cap.type = ObjType_RAM;
-            TRACE_CAP_MSG("reclaimed", ret_ram_cap);
+            TRACE_CAP_MSG("reclaimed", &ramcte);
 #endif
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
@@ -312,7 +322,7 @@ static void caps_mark_revoke_copy(struct cte *cte)
     if (err_is_fail(err)) {
         // this should not happen as there is a copy of the cap
         panic("error while marking/deleting cap copy for revoke:"
-              " 0x%"PRIuERRV"\n", err);
+              " %"PRIuERRV"\n", err);
     }
 }
 
@@ -359,7 +369,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
     else if (err_is_fail(err)) {
         // some serious mojo went down in the cleanup voodoo
         panic("error while marking/deleting descendant cap for revoke:"
-              " 0x%"PRIuERRV"\n", err);
+              " %"PRIuERRV"\n", err);
     }
 }
 

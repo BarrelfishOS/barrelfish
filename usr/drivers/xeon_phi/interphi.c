@@ -885,7 +885,8 @@ static void interphi_bind_cb(void *st,
                              errval_t err,
                              struct interphi_binding *_binding)
 {
-    XINTER_DEBUG("interphi_bind_cb: driver bound  %s\n", err_getstring(err));
+    XINTER_DEBUG("interphi_bind_cb: driver bound %p  %s\n", _binding,
+                 err_getstring(err));
 
     assert(_binding);
 
@@ -907,7 +908,7 @@ static void interphi_connect_cb(void *st,
                                 errval_t err,
                                 struct interphi_binding *_binding)
 {
-    XINTER_DEBUG("interphi_connect_cb: client driver connected\n");
+    XINTER_DEBUG("interphi_connect_cb: client driver connected %p\n", _binding);
 
     struct xnode *node = st;
 
@@ -1054,12 +1055,16 @@ errval_t interphi_init_xphi(uint8_t xphi,
         mi->fi.outbuf = addr;
         mi->fi.sendbase = id.base;
 
+        XINTER_DEBUG("client mode: connecting to server. %s\n", __FUNCTION__);
+
         err = interphi_connect(&mi->fi, interphi_bind_cb, node,
                                ws, IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         mi->fi.inbuf = addr;
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
+
+        XINTER_DEBUG("server mode: accepting connections. %s\n", __FUNCTION__);
 
         err = interphi_accept(&mi->fi, node, interphi_connect_cb,
                               ws, IDC_EXPORT_FLAGS_DEFAULT);
@@ -1173,12 +1178,16 @@ errval_t interphi_init(struct xeon_phi *phi,
         mi->fi.outbuf = addr;
         mi->fi.sendbase = id.base;
 
+        XINTER_DEBUG("client mode: connecting to server. %s\n", __FUNCTION__);
+
         err = interphi_connect(&mi->fi, interphi_bind_cb, &phi->topology[phi->id],
                                ws, IDC_EXPORT_FLAGS_DEFAULT);
     } else {
         mi->fi.inbuf = addr;
         mi->fi.outbuf = ((uint8_t*) addr) + mi->fi.outbufsize;
         mi->fi.sendbase = id.base + mi->fi.outbufsize;
+
+        XINTER_DEBUG("server mode: accepting connections. %s\n", __FUNCTION__);
 
         err = interphi_accept(&mi->fi, &phi->topology[phi->id],
                               interphi_connect_cb, ws, IDC_EXPORT_FLAGS_DEFAULT);

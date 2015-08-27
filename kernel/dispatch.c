@@ -31,7 +31,7 @@
 #  include <arch/x86/apic.h>
 #endif
 
-#ifdef __x86_64__
+#if defined(__x86_64__) && !defined(__k1om__)
 #  include <vmkit.h>
 #endif
 
@@ -234,15 +234,18 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     arch_registers_state_t *disabled_area =
         dispatcher_get_disabled_save_area(handle);
 
-    assert(disp != NULL);
-    disp->systime = kernel_now + kcb_current->kernel_off;
-	TRACE(KERNEL, SC_YIELD, 1);
+    if(disp != NULL) {
+        disp->systime = kernel_now + kcb_current->kernel_off;
+    }
+    TRACE(KERNEL, SC_YIELD, 1);
 	
     if (dcb->disabled) {
-        debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
-              disp->name, (uint64_t)registers_get_ip(disabled_area));
-        assert(dispatcher_is_disabled_ip(handle,
-                                         registers_get_ip(disabled_area)));
+        if (disp != NULL) {
+            debug(SUBSYS_DISPATCH, "resume %.*s at 0x%" PRIx64 "\n", DISP_NAME_LEN,
+                    disp->name, (uint64_t)registers_get_ip(disabled_area));
+            assert(dispatcher_is_disabled_ip(handle,
+                        registers_get_ip(disabled_area)));
+        }
 
 #if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
@@ -254,14 +257,16 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         resume(disabled_area);
 #endif
     } else {
-        debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
-        assert(disp->dispatcher_run != 0);
-        disp->disabled = 1;
+        if (disp != NULL) {
+            debug(SUBSYS_DISPATCH, "dispatch %.*s\n", DISP_NAME_LEN, disp->name);
+            assert(disp->dispatcher_run != 0);
+            disp->disabled = 1;
+        }
 #if defined(__x86_64__) && !defined(__k1om__)
         if(!dcb->is_vm_guest) {
             execute(disp->dispatcher_run);
         } else {
-            vmkit_vmexec(dcb, disp->dispatcher_run);
+            vmkit_vmexec(dcb, (disp) ? disp->dispatcher_run : 0);
         }
 #else
         execute(disp->dispatcher_run);
@@ -355,8 +360,8 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
  * \param ep     Endpoint capability to send to
  * \param payload_len Length (in number of words) of payload
  */
-static errval_t lmp_can_deliver_payload(struct capability *ep,
-                                        size_t payload_len)
+errval_t lmp_can_deliver_payload(struct capability *ep,
+                                 size_t payload_len)
 {
     assert(ep != NULL);
     assert(ep->type == ObjType_EndPoint);

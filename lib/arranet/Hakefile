@@ -12,6 +12,9 @@
 
 [ build library { target = "arranet",
                   cFiles = [ "arranet.c", "inet_chksum.c", "ip_addr.c" ],
-                  flounderDefs = [ "net_queue_manager" ]
+                  flounderDefs = [ "acpi", "net_queue_manager" ],
+                  flounderBindings = [ "acpi" ],
+                  flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
+                  addLibraries = [ "acpi_client", "skb" ]
                 }
 ]

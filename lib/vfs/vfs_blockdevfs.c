@@ -74,7 +74,7 @@ struct backend_ops {
 
 
 
-struct backend_ops backends[2] = {
+struct backend_ops backends[3] = {
     {
         .open = blockdevfs_ahci_open,
         .close = blockdevfs_ahci_close,
@@ -88,7 +88,14 @@ struct backend_ops backends[2] = {
         .read = blockdevfs_ata_read,
         .write = blockdevfs_ata_write,
         .flush = blockdevfs_ata_flush
-    }
+    },
+    {
+        .open = blockdevfs_megaraid_open,
+        .close = blockdevfs_megaraid_close,
+        .read = blockdevfs_megaraid_read,
+        .write = blockdevfs_megaraid_write,
+        .flush = blockdevfs_megaraid_flush,
+    },
 };
 
 
@@ -350,12 +357,15 @@ errval_t vfs_blockdevfs_mount(const char *uri, void **retst, struct vfs_ops **re
         assert(err_is_ok(err));
         err = blockdevfs_ata_init();
         assert(err_is_ok(err));             // Flounder
-
-        *retops = &blockdevfsops;
-        *retst = NULL;
-    }
-    else {
+    } else if(!strcmp(service, "megaraid")) {
+        err = blockdevfs_megaraid_init();
+        assert(err_is_ok(err));
+    } else {
         return VFS_ERR_BAD_URI;
     }
+
+    *retops = &blockdevfsops;
+    *retst = NULL;
+
     return SYS_ERR_OK;
 }

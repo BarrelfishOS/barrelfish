@@ -140,6 +140,7 @@ revoke_result__rx(errval_t result,
                  st->result_handler);
 
     st->result_handler(result, st->st);
+    free(st);
 }
 
 static void
