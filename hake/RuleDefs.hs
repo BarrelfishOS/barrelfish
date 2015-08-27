@@ -92,6 +92,7 @@ options "xscale" = XScale.options
 options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
 options "armv8" = ARMv8.options
+options s = error $ "Unknown architecture " ++ s
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "k1om" = K1om.kernelCFlags
@@ -102,6 +103,7 @@ kernelCFlags "xscale" = XScale.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
 kernelCFlags "armv8" = ARMv8.kernelCFlags
+kernelCFlags s = error $ "Unknown architecture " ++ s
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "k1om" = K1om.kernelLdFlags
@@ -112,6 +114,7 @@ kernelLdFlags "xscale" = XScale.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 kernelLdFlags "armv7-m" = ARMv7_M.kernelLdFlags
 kernelLdFlags "armv8" = ARMv8.kernelLdFlags
+kernelLdFlags s = error $ "Unknown architecture " ++ s
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)

@@ -32,7 +32,7 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
                    Str "-fPIE",
                    Str "-fno-stack-protector", 
-		   Str "-Wno-unused-but-set-variable",
+                   Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-D__x86__" ]
 
@@ -43,7 +43,7 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
-		 ++ [Str "-std=gnu++11"]
+         ++ [Str "-std=gnu++11"]
 
 cDefines = ArchDefaults.cDefines options
 

@@ -82,7 +82,6 @@
       archfam_srcs _         = []
 
       -- sources specific to the architecture
-      arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
@@ -181,7 +180,6 @@
       archfam_srcs _         = []
 
       -- sources specific to the architecture
-      arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs _     = []

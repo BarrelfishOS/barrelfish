@@ -455,9 +455,6 @@ doxygen: Doxyfile
 #
 ######################################################################
 
-k1om/sbin/weever: k1om/sbin/weever_elf
-	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever
-
 TESTS_k1om= \
 	$(TESTS_x86) \
 	sbin/tests/dma_test \
