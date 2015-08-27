@@ -83,6 +83,12 @@ let arch = "k1om"
 in 
   [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c" ],
     assembleSFiles opts [ "boot.S" ],
-    link opts objs [] "weever_elf"
+    link opts objs [] "weever_elf",
+    Rule [ Str Config.k1om_objcopy,
+           Str "-O binary",
+           Str "-R .note",
+           Str "-R .comment",
+           In BuildTree "k1om" "/sbin/weever_elf",
+           Out "k1om" "/sbin/weever" ]
   ]
   

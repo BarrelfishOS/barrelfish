@@ -14,17 +14,22 @@
 let
   hsInDir af tf dir = inDir af tf dir ".hs"
   hakesrc = find hsInDir "."
+  hake_rtsopts = "-H128M -A4M -N4"
 in
-[ Rule ([ Str "ghc -O --make -XDeriveDataTypeable",
+[ Rule ([ Str "ghc -O --make",
+          Str "-XDeriveDataTypeable",
+          Str "-XStandaloneDeriving",
           Str "-package ghc",
+          Str "-package ghc-mtl",
           Str "-package ghc-paths",
-          Str "-rtsopts=all",
-          --Str "-with-rtsopts=\"-K32m\"",
-          Str "-with-rtsopts=\"-T\"",
+          Str "-package bytestring-trie",
           Str "-o", Out "hake" "/hake",
           Str "-outputdir", NoDep BuildTree "hake" "/",
           NStr "-i", NoDep SrcTree "src" "",
           NStr "-i", NoDep BuildTree "hake" "/",
+          Str "-rtsopts=all",
+          Str ("-with-rtsopts=\"" ++ hake_rtsopts ++ "\""),
+          Str "-threaded",
           In SrcTree "src" "Main.hs",
           Dep InstallTree "" "Config.hs",
           Str "$(LDFLAGS)"

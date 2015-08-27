@@ -11,21 +11,21 @@
 --------------------------------------------------------------------------
 
 let bin_rcce_lu = [ "/sbin/" ++ f | f <- [ 
-	"rcce_lu_A1",
-	"rcce_lu_A2",
-	"rcce_lu_A4",
-	"rcce_lu_A8",
-	"rcce_lu_A16",
-	"rcce_lu_A32",
-	"rcce_lu_A64" ]]
+                        "rcce_lu_A1",
+                        "rcce_lu_A2",
+                        "rcce_lu_A4",
+                        "rcce_lu_A8",
+                        "rcce_lu_A16",
+                        "rcce_lu_A32",
+                        "rcce_lu_A64" ]]
 
     bin_rcce_bt = [ "/sbin/" ++ f | f <- [ 
-	"rcce_bt_A1",
-	"rcce_bt_A4",
-	"rcce_bt_A9",
-	"rcce_bt_A16",
-	"rcce_bt_A25",
-        "rcce_bt_A36" ]]
+                        "rcce_bt_A1",
+                        "rcce_bt_A4",
+                        "rcce_bt_A9",
+                        "rcce_bt_A16",
+                        "rcce_bt_A25",
+                        "rcce_bt_A36" ]]
 
     tests_common = [ "/sbin/" ++ f | f <- [
                         "fputest",
@@ -39,8 +39,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "yield_test" ] ]
 
     tests_x86 = [ "/sbin/" ++ f | f <- [ 
-                    "tests/luatest",
-                    "tests/numatest" ] ]
+                        "tests/luatest",
+                        "tests/numatest" ] ]
 
     tests_x86_64 = [ "/sbin/" ++ f | f <- [ 
                         "arrakis_hellotest",
@@ -80,12 +80,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     tests_x86_32 = tests_x86
 
+    tests_k1om = [ "/sbin/" ++ f | f <- [
+                        "tests/dma_test",
+                        "tests/xeon_phi_inter",
+                        "tests/xeon_phi_test",
+                        "tests/xphi_nameservice_test" ] ] ++ tests_x86
+
     bench_common = [ "/sbin/" ++ f | f <- [ 
-                       "channel_cost_bench",
-                       "flounder_stubs_buffer_bench",
-                       "flounder_stubs_empty_bench",
-                       "flounder_stubs_payload_bench",
-                       "xcorecapbench" ]]
+                        "channel_cost_bench",
+                        "flounder_stubs_buffer_bench",
+                        "flounder_stubs_empty_bench",
+                        "flounder_stubs_payload_bench",
+                        "xcorecapbench" ]]
 
     bench_x86 =  [ "/sbin/" ++ f | f <- [ 
                       "multihop_latency_bench",
@@ -134,6 +140,14 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     bench_x86_32 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu
 
+    bench_k1om = [ "/sbin/" ++ f | f <- [ 
+                        "benchmarks/bomp_mm",
+                        "benchmarks/dma_bench",
+                        "benchmarks/xomp_share",
+                        "benchmarks/xomp_spawn",
+                        "benchmarks/xomp_work",
+                        "benchmarks/xphi_ump_bench",
+                        "benchmarks/xphi_xump_bench" ] ] ++ bench_x86
 
     -- Default list of modules to build/install for all enabled architectures
     modules_common = [ "/sbin/" ++ f | f <- [ 
@@ -238,6 +252,12 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "sshd",
                            "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu
 
+    modules_k1om = [ "/sbin/" ++ f | f <- [
+                        "weever",
+                        "cpu",
+                        "xeon_phi",
+                        "corectrl" ] ]
+
     -- ARMv7-a Pandaboard modules
     pandaModules = [ "/sbin/" ++ f | f <- [
                         "cpu_omap44xx",
@@ -290,8 +310,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        ] ]
   in
  [
-
-
    --
    -- Rules to build assorted platforms
    --
@@ -331,6 +349,24 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        ++
        [ ("",       f) | f <- modules_generic])
       "32-bit x86 PC build with benchmarks and test suites",
+
+    platform "K1OM_Basic" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic Xeon Phi build",
+
+    platform "K1OM_Benchmarks" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ++ bench_k1om]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Xeon Phi build with benchmarks",
+
+    platform "K1OM_Full" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ++ bench_k1om ++ tests_k1om ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Xeon Phi build with benchmarks and test suites",
 
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
@@ -504,4 +540,3 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "Boot QEMU as an ARM11MPCore-based Realview board"
     
  ]
-     

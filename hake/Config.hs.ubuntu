@@ -18,35 +18,43 @@ import HakeTypes
 import Data.Char
 import qualified Args
 import Data.List
+import System.FilePath
 
 --
 -- Toolchain definitions.  By default, these rely on $PATH 
 --
-arm_gcc_path = ""
-arm_gcc_prefix = "arm-linux-gnueabi-"
-arm_cc       = arm_gcc_path ++ arm_gcc_prefix ++ "gcc"
-arm_objcopy  = arm_gcc_path ++ arm_gcc_prefix ++ "objcopy"
-arm_objdump  = arm_gcc_path ++ arm_gcc_prefix ++ "objdump"
-arm_ar       = arm_gcc_path ++ arm_gcc_prefix ++ "ar"
-arm_ranlib   = arm_gcc_path ++ arm_gcc_prefix ++ "ranlib"
-arm_cxx      = arm_gcc_path ++ arm_gcc_prefix ++ "g++"
+findTool path prefix tool = path </> (prefix ++ tool)
+
+arm_gnu_path = ""
+arm_gnu_prefix = "arm-linux-gnueabi-"
+arm_gnu_tool = findTool arm_gnu_path arm_gnu_prefix
+
+arm_cc       = arm_gnu_tool "gcc"
+arm_objcopy  = arm_gnu_tool "objcopy"
+arm_objdump  = arm_gnu_tool "objdump"
+arm_ar       = arm_gnu_tool "ar"
+arm_ranlib   = arm_gnu_tool "ranlib"
+arm_cxx      = arm_gnu_tool "g++"
 
 x86_cc       = "gcc"
 x86_cxx      = "g++"
 
-k1om_cc      = "k1om-mpss-linux-gcc"
-k1om_objcopy = "k1om-mpss-linux-objcopy"
-k1om_objdump = "k1om-mpss-linux-objdump"
-k1om_ar      = "k1om-mpss-linux-ar"
-k1om_ranlib  = "k1om-mpss-linux-anlib"
-k1om_cxx     = "k1om-mpss-linux-g++"
+k1om_gnu_path = ""
+k1om_gnu_prefix = "k1om-mpss-linux-"
+k1om_gnu_tool = findTool k1om_gnu_path k1om_gnu_prefix
+
+k1om_cc      = k1om_gnu_tool "gcc"
+k1om_objcopy = k1om_gnu_tool "objcopy"
+k1om_objdump = k1om_gnu_tool "objdump"
+k1om_ar      = k1om_gnu_tool "ar"
+k1om_ranlib  = k1om_gnu_tool "ranlib"
+k1om_cxx     = k1om_gnu_tool "g++"
 
 gem5         = "gem5.fast"
 runghc	     = "runghc"    -- run GHC interactively
 circo	     = "circo"     -- from graphviz
 dot          = "dot"       --   "    "
 inkscape     = "inkscape"
-
 
 -- path to source and install directories; these are automatically set by hake.sh at setup time 
 source_dir :: String

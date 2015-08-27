@@ -142,6 +142,13 @@ TESTS_x86_64= \
 	sbin/xcorecap \
 	sbin/xcorecapserv
 
+TESTS_k1om= \
+	$(TESTS_x86) \
+	sbin/tests/dma_test \
+	sbin/tests/xeon_phi_inter \
+	sbin/tests/xeon_phi_test \
+	sbin/tests/xphi_nameservice_test
+
 # All benchmark domains
 BENCH_COMMON= \
 	sbin/channel_cost_bench \
@@ -206,7 +213,6 @@ BENCH_k1om=\
 	sbin/benchmarks/xomp_work \
 	sbin/benchmarks/xphi_ump_bench \
 	sbin/benchmarks/xphi_xump_bench 
-
 
 # Default list of modules to build/install for all enabled architectures
 MODULES_COMMON= \
@@ -283,7 +289,8 @@ MODULES_k1om= \
 	sbin/weever \
 	sbin/cpu \
 	sbin/xeon_phi \
-	sbin/corectrl 
+	sbin/corectrl \
+	xeon_phi_multiboot
 
 # the following are broken in the newidc system
 MODULES_x86_64_broken= \
@@ -455,64 +462,8 @@ doxygen: Doxyfile
 #
 ######################################################################
 
-TESTS_k1om= \
-	$(TESTS_x86) \
-	sbin/tests/dma_test \
-	sbin/tests/xeon_phi_inter \
-	sbin/tests/xeon_phi_test \
-	sbin/tests/xphi_nameservice_test
-
-BENCH_k1om=\
-	$(BENCH_x86) \
-	sbin/benchmarks/bomp_mm \
-	sbin/benchmarks/dma_bench \
-	sbin/benchmarks/xomp_share \
-	sbin/benchmarks/xomp_spawn \
-	sbin/benchmarks/xomp_work \
-	sbin/benchmarks/xphi_ump_bench \
-	sbin/benchmarks/xphi_xump_bench
-
-MODULES_k1om= \
-	sbin/weever \
-	sbin/cpu \
-	sbin/xeon_phi \
-	sbin/corectrl \
-	xeon_phi_multiboot \
-
-# Objcopy utility from the Xeon Phi development tools
-K1OM_OBJCOPY?=k1om-mpss-linux-objcopy
-
-# we have to filter out the moduels that are generated below
-MODULES_k1om_filtered = $(filter-out xeon_phi_multiboot, \
-						$(filter-out sbin/weever,$(MODULES_k1om)))
-
-# Intel Xeon Phi-specific modules
-XEON_PHI_MODULES =\
-	$(foreach m,$(MODULES_COMMON),k1om/$(m)) \
-	$(foreach m,$(MODULES_k1om_filtered),k1om/$(m)) \
-	$(foreach m,$(BENCH_COMMON),k1om/$(m)) \
-	$(foreach m,$(TESTS_COMMON),k1om/$(m)) \
-	$(foreach m,$(BENCH_k1om),k1om/$(m)) \
-	$(foreach m,$(TESTS_k1om),k1om/$(m))
-
-menu.lst.k1om: $(SRCDIR)/hake/menu.lst.k1om
-	cp $< $@
-
-k1om/tools/weever/mbi.c: tools/bin/weever_multiboot \
-						 k1om/xeon_phi_multiboot \
-						 k1om/tools/weever/.marker
-	tools/bin/weever_multiboot k1om/multiboot.menu.lst.k1om k1om/tools/weever/mbi.c
-
-k1om/sbin/weever: k1om/sbin/weever.bin tools/bin/weever_creator
-	tools/bin/weever_creator ./k1om/sbin/weever.bin > ./k1om/sbin/weever
-
-k1om/sbin/weever.bin: k1om/sbin/weever_elf
-	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever.bin
-
-k1om/xeon_phi_multiboot: $(XEON_PHI_MODULES) menu.lst.k1om
-	$(SRCDIR)/tools/weever/multiboot/build_data_files.sh menu.lst.k1om k1om
-
-
+#k1om/sbin/weever: k1om/sbin/weever_elf
+#	$(K1OM_OBJCOPY) -O binary -R .note -R .comment -S k1om/sbin/weever_elf ./k1om/sbin/weever
 
 ################################################################################
 #
