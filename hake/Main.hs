@@ -628,12 +628,12 @@ body =  do
                        " (" ++ opt_abs_installdir opts ++ ")")
 
     -- Find Hakefiles
-    liftIO $ putStrLn "Reading directory tree..."
+    liftIO $ putStrLn "Scanning directory tree..."
     (relfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
     let srcDB = tdbBuild relfiles
 
     -- Open the Makefile and write the preamble
-    liftIO $ putStrLn $ "Opening " ++ (opt_makefilename opts)
+    liftIO $ putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
     makefile <- liftIO $ openFile(opt_makefilename opts) WriteMode
     liftIO $ makefilePreamble makefile opts args
     liftIO $ makeHakeDeps makefile opts $ map fst hakefiles
