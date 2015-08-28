@@ -62,8 +62,8 @@ architectures :: [String]
 -- architectures = undefined -- (set by hake.sh, see end of file)
 
 -- Optimisation flags (-Ox -g etc.) passed to compiler
-cOptFlags :: String
-cOptFlags = "-g -O2"
+cOptFlags :: [String]
+cOptFlags = ["-g", "-O2"]
 
 -- Selects which libc to compile with, "oldc" or "newlib"
 libc :: String

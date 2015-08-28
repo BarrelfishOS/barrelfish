@@ -16,6 +16,7 @@ module ARMv7_M where
 import HakeTypes
 import qualified Config
 import qualified ArchDefaults
+import Data.List
 
 -------------------------------------------------------------------------
 --
@@ -26,12 +27,12 @@ import qualified ArchDefaults
 arch = "armv7-m"
 archFamily = "arm"
 
-compiler    = Config.arm_cc
-objcopy     = Config.arm_objcopy
-objdump     = Config.arm_objdump
-ar          = Config.arm_ar
-ranlib      = Config.arm_ranlib
-cxxcompiler = Config.arm_cxx
+compiler    = Config.thumb_cc
+objcopy     = Config.thumb_objcopy
+objdump     = Config.thumb_objdump
+ar          = Config.thumb_ar
+ranlib      = Config.thumb_ranlib
+cxxcompiler = Config.thumb_cxx
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
@@ -96,12 +97,16 @@ options = (ArchDefaults.options arch archFamily) {
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+
+-- Heavy optimisation causes GCC to fail with unresolvable register spill.
+v7m_optFlags = (Config.cOptFlags \\ ["-O2", "-O3"]) ++ ["-Os"]
+
+cCompiler = ArchDefaults.cCompiler arch compiler v7m_optFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler v7m_optFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler v7m_optFlags
+assembler = ArchDefaults.assembler arch compiler v7m_optFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -171,8 +176,9 @@ linkKernel opts objs libs name =
         kbinary    = "/sbin/" ++ name
         kbootable  = kbinary ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch linkscript,
+        Rules [ Rule ([ Str compiler ] ++
+                      map Str Config.cOptFlags ++
+                    [ NStr "-T", In BuildTree arch linkscript,
                       Str "-o", Out arch kbinary,
                       NStr "-Wl,-Map,", Out arch kernelmap
                     ]

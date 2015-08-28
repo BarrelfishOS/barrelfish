@@ -90,12 +90,12 @@ options = (ArchDefaults.options arch archFamily) {
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -160,10 +160,11 @@ linkKernel opts objs libs kbin =
     let linkscript = "/kernel/linker.lds"
         kbootable  = kbin ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch linkscript,
-                      Str "-o", Out arch kbin
-                    ]
+        Rules [ Rule ([ Str compiler ] ++
+                      map Str Config.cOptFlags ++
+                      [ NStr "-T", In BuildTree arch linkscript,
+                        Str "-o", Out arch kbin
+                      ]
                     ++ (optLdFlags opts)
                     ++
                     [ In BuildTree arch o | o <- objs ]

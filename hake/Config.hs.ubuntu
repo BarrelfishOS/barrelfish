@@ -25,6 +25,7 @@ import System.FilePath
 --
 findTool path prefix tool = path </> (prefix ++ tool)
 
+-- ARM toolchain
 arm_gnu_path = ""
 arm_gnu_prefix = "arm-linux-gnueabi-"
 arm_gnu_tool = findTool arm_gnu_path arm_gnu_prefix
@@ -36,9 +37,27 @@ arm_ar       = arm_gnu_tool "ar"
 arm_ranlib   = arm_gnu_tool "ranlib"
 arm_cxx      = arm_gnu_tool "g++"
 
-x86_cc       = "gcc"
-x86_cxx      = "g++"
+-- ARM thumb (e.g. -M profile) toolchain
+thumb_gnu_path = "/opt/gcc-arm-none-eabi-4_6-2012q4/bin"
+thumb_gnu_prefix = "arm-none-eabi-"
+thumb_gnu_tool = findTool thumb_gnu_path thumb_gnu_prefix
 
+thumb_cc       = thumb_gnu_tool "gcc"
+thumb_objcopy  = thumb_gnu_tool "objcopy"
+thumb_objdump  = thumb_gnu_tool "objdump"
+thumb_ar       = thumb_gnu_tool "ar"
+thumb_ranlib   = thumb_gnu_tool "ranlib"
+thumb_cxx      = thumb_gnu_tool "g++"
+
+-- X86 (32/64) toolchain
+x86_gnu_path = ""
+x86_gnu_prefix = ""
+x86_gnu_tool = findTool x86_gnu_path x86_gnu_prefix
+
+x86_cc       = x86_gnu_tool "gcc"
+x86_cxx      = x86_gnu_tool "g++"
+
+-- Xeon Phi toolchain
 k1om_gnu_path = ""
 k1om_gnu_prefix = "k1om-mpss-linux-"
 k1om_gnu_tool = findTool k1om_gnu_path k1om_gnu_prefix
@@ -68,8 +87,8 @@ architectures :: [String]
 -- architectures = undefined -- (set by hake.sh, see end of file)
 
 -- Optimisation flags (-Ox -g etc.) passed to compiler
-cOptFlags :: String
-cOptFlags = "-g -O2"
+cOptFlags :: [String]
+cOptFlags = ["-g", "-O2"]
 
 -- Selects which libc to compile with, "oldc" or "newlib"
 libc :: String

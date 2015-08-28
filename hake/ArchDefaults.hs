@@ -71,15 +71,15 @@ cStdIncs arch archFamily =
       NoDep BuildTree arch "." ]
                       
 ldFlags arch = 
-    [ Str Config.cOptFlags,
-      In InstallTree arch "/lib/crt0.o",
+    map Str Config.cOptFlags ++
+    [ In InstallTree arch "/lib/crt0.o",
       In InstallTree arch "/lib/crtbegin.o",
       Str "-fno-builtin",
       Str "-nostdlib" ]
           
 ldCxxFlags arch = 
-    [ Str Config.cOptFlags,
-      In InstallTree arch "/lib/crt0.o",
+    map Str Config.cOptFlags ++
+    [ In InstallTree arch "/lib/crt0.o",
       In InstallTree arch "/lib/crtbegin.o",
       Str "-fno-builtin",
       Str "-nostdlib" ]
@@ -142,7 +142,9 @@ options arch archFamily = Options {
 --
 -- C compiler
 --
-cCompiler arch compiler opts phase src obj = 
+cCompiler :: String -> String -> [String] -> Options -> String ->
+             String -> String -> [RuleToken]
+cCompiler arch compiler opt_flags opts phase src obj = 
     let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
@@ -150,24 +152,27 @@ cCompiler arch compiler opts phase src obj =
                 ++ [ Str f | f <- extraDefines opts ]
         deps = (optDependencies opts) ++ (extraDependencies opts)
     in
-      [ Str compiler ] ++ flags ++ [ Str Config.cOptFlags ]
+      [ Str compiler ] ++ flags ++ (map Str opt_flags)
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ [ Str "-o", Out arch obj,
            Str "-c", In (if phase == "src" then SrcTree else BuildTree) phase src ]
       ++ deps
+
 --
 -- the C preprocessor, like C compiler but with -E
 --
-cPreprocessor arch compiler opts phase src obj = 
+cPreprocessor :: String -> String -> [String] -> Options -> String ->
+                 String -> String -> [RuleToken]
+cPreprocessor arch compiler opt_flags opts phase src obj = 
     let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
                 ++ [ Str f | f <- extraDefines opts ]
         deps = (optDependencies opts) ++ (extraDependencies opts)
-        cOptFlags = unwords ((words Config.cOptFlags) \\ ["-g"])
+        cOptFlags = opt_flags \\ ["-g"]
     in
-      [ Str compiler ] ++ flags ++ [ Str cOptFlags ]
+      [ Str compiler ] ++ flags ++ (map Str cOptFlags)
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ [ Str "-o", Out arch obj,
            Str "-E", In (if phase == "src" then SrcTree else BuildTree) phase src ]
@@ -176,7 +181,7 @@ cPreprocessor arch compiler opts phase src obj =
 --
 -- C++ compiler
 --
-cxxCompiler arch cxxcompiler opts phase src obj = 
+cxxCompiler arch cxxcompiler opt_flags opts phase src obj = 
     let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optCxxFlags opts) 
                 ++ (optDefines opts)
@@ -184,7 +189,7 @@ cxxCompiler arch cxxcompiler opts phase src obj =
                 ++ [ Str f | f <- extraDefines opts ]
         deps = (optDependencies opts) ++ (extraDependencies opts)
     in
-      [ Str cxxcompiler ] ++ flags ++ [ Str Config.cOptFlags ]
+      [ Str cxxcompiler ] ++ flags ++ (map Str opt_flags)
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ [ Str "-o", Out arch obj,
            Str "-c", In (if phase == "src" then SrcTree else BuildTree) phase src ]
@@ -233,16 +238,19 @@ makeCxxDepend arch cxxcompiler opts phase src obj depfile =
 --
 -- Compile a C program to assembler
 --
-cToAssembler :: String -> String -> Options -> String -> String -> String -> String -> [ RuleToken ]
-cToAssembler arch compiler  opts phase src afile objdepfile =
+cToAssembler :: String -> String -> [String] -> Options -> String -> String ->
+                String -> String -> [ RuleToken ]
+cToAssembler arch compiler opt_flags opts phase src afile objdepfile =
     let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
                 ++ [ Str f | f <- extraFlags opts ]
                 ++ [ Str f | f <- extraDefines opts ]
-        deps = [ Dep BuildTree arch objdepfile ] ++ (optDependencies opts) ++ (extraDependencies opts)
+        deps = [ Dep BuildTree arch objdepfile ] ++
+               (optDependencies opts) ++
+               (extraDependencies opts)
     in
-      [ Str compiler ] ++ flags ++ [ Str Config.cOptFlags ]
+      [ Str compiler ] ++ flags ++ (map Str opt_flags)
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ [ Str "-o ", Out arch afile, 
            Str "-S ", In (if phase == "src" then SrcTree else BuildTree) phase src ]
@@ -251,8 +259,9 @@ cToAssembler arch compiler  opts phase src afile objdepfile =
 --
 -- Assemble an assembly language file
 --
-assembler :: String -> String -> Options -> String -> String -> [ RuleToken ]
-assembler arch compiler opts src obj = 
+assembler :: String -> String -> [ String ] -> Options -> String ->
+             String -> [ RuleToken ]
+assembler arch compiler opt_flags opts src obj = 
     let incls = (extraIncludes opts) ++ (optIncludes opts)
         flags = (optFlags opts) 
                 ++ (optDefines opts)
@@ -260,7 +269,7 @@ assembler arch compiler opts src obj =
                 ++ [ Str f | f <- extraDefines opts ]
         deps = (optDependencies opts) ++ (extraDependencies opts)
     in
-      [ Str compiler ] ++ flags ++ [ Str Config.cOptFlags ]
+      [ Str compiler ] ++ flags ++ (map Str opt_flags)
       ++ concat [ [ NStr "-I", i ] | i <- incls ] 
       ++ [ Str "-o ", Out arch obj, Str "-c ", In SrcTree "src" src ]
       ++ deps

@@ -110,12 +110,12 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -125,8 +125,9 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 -- 
 linkKernel :: Options -> [String] -> [String] -> String -> HRule
 linkKernel opts objs libs kbin = 
-    Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                    NStr "-T", In BuildTree arch "/kernel/linker.lds",
+    Rules [ Rule ([ Str compiler ] ++
+                    map Str Config.cOptFlags ++
+                  [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
                     Str "-o", Out arch kbin 
                   ]
                   ++ (optLdFlags opts)
