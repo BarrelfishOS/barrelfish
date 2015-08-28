@@ -19,7 +19,6 @@ import qualified X86_64
 import qualified K1om
 import qualified X86_32
 import qualified ARMv5
-import qualified ARM11MP
 import qualified XScale
 import qualified ARMv7
 import qualified ARMv7_M
@@ -87,7 +86,6 @@ options "x86_64" = X86_64.options
 options "k1om" = K1om.options
 options "x86_32" = X86_32.options
 options "armv5" = ARMv5.options
-options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
 options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
@@ -98,7 +96,6 @@ kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "k1om" = K1om.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
 kernelCFlags "armv5" = ARMv5.kernelCFlags
-kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
@@ -109,7 +106,6 @@ kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "k1om" = K1om.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
 kernelLdFlags "armv5" = ARMv5.kernelLdFlags
-kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 kernelLdFlags "armv7-m" = ARMv7_M.kernelLdFlags
@@ -192,7 +188,6 @@ cCompiler opts phase src obj
     | optArch opts == "k1om"    = K1om.cCompiler opts phase src obj
     | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
     | optArch opts == "armv5"   = ARMv5.cCompiler opts phase src obj
-    | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
     | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
     | optArch opts == "armv7-m" = ARMv7_M.cCompiler opts phase src obj
@@ -226,8 +221,6 @@ makeDepend opts phase src obj depfile
         X86_32.makeDepend opts phase src obj depfile
     | optArch opts == "armv5" =
         ARMv5.makeDepend opts phase src obj depfile
-    | optArch opts == "arm11mp" =
-        ARM11MP.makeDepend opts phase src obj depfile
     | optArch opts == "xscale" =
         XScale.makeDepend opts phase src obj depfile
     | optArch opts == "armv7" = 
@@ -252,7 +245,6 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "k1om"  = K1om.cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv5"   = ARMv5.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7-m" = ARMv7_M.cToAssembler opts phase src afile objdepfile
@@ -268,7 +260,6 @@ assembler opts src obj
     | optArch opts == "k1om"  = K1om.assembler opts src obj
     | optArch opts == "x86_32"  = X86_32.assembler opts src obj
     | optArch opts == "armv5"   = ARMv5.assembler opts src obj
-    | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | optArch opts == "armv7" = ARMv7.assembler opts src obj
     | optArch opts == "armv7-m" = ARMv7_M.assembler opts src obj
@@ -281,7 +272,6 @@ archive opts objs libs name libname
     | optArch opts == "k1om"  = K1om.archive opts objs libs name libname
     | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
     | optArch opts == "armv5"     = ARMv5.archive opts objs libs name libname
-    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
     | optArch opts == "armv7-m" = ARMv7_M.archive opts objs libs name libname
@@ -294,7 +284,6 @@ linker opts objs libs bin
     | optArch opts == "k1om" = K1om.linker opts objs libs bin
     | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
     | optArch opts == "armv5"  = ARMv5.linker opts objs libs bin
-    | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
     | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
     | optArch opts == "armv7-m" = ARMv7_M.linker opts objs libs bin
@@ -790,7 +779,6 @@ linkKernel opts name objs libs
     | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
     | optArch opts == "armv7-m" = ARMv7_M.linkKernel opts objs [libraryPath l | l <- libs ] name

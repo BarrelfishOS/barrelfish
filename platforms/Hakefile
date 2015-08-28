@@ -384,10 +384,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv5", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
     "Very basic ARMv5 configuration for testing",
 
-    platform "ARM11MP" [ "arm11mp" ]
-    ([ ("arm11mp", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
-    "Very basic ARM11MP configuration for testing",
-
     platform "XScale" [ "xscale" ]
     ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
     "Very basic XScale configuration for testing",
@@ -536,13 +532,5 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--initrd", In BuildTree "armv5" "/romfs.cpio",
       Str "--arch", Str "armv5",
       Str "--debug", In SrcTree "tools" "/tools/debug.arm.gdb" ]
-    "Boot QEMU under GDB as an ARMv5-based Integrator/CP board",
-
-    boot "qemu_arm11mp" [ "arm11mp" ] [
-      In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--kernel", In BuildTree "arm11mp" "/sbin/cpu.bin",
-      Str "--initrd", In BuildTree "arm11mp" "/romfs.cpio",
-      Str "--arch", Str "arm11mp" ]
-    "Boot QEMU as an ARM11MPCore-based Realview board"
-    
+    "Boot QEMU under GDB as an ARMv5-based Integrator/CP board"
  ]

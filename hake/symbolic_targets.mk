@@ -349,11 +349,6 @@ MODULES_armv7=\
 	sbin/fish \
 	sbin/corectrl
 
-# ARM11MP-specific modules to build by default
-MODULES_arm11mp=\
-	sbin/cpu \
-	sbin/cpu.bin
-
 # construct list of all modules to be built (arch-specific and common for each arch)
 MODULES=$(foreach a,$(HAKE_ARCHS),$(foreach m,$(MODULES_$(a)),$(a)/$(m)) \
                                   $(foreach m,$(MODULES_COMMON),$(a)/$(m))) \
