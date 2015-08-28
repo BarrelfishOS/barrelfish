@@ -27,12 +27,12 @@ import qualified ArchDefaults
 arch = "xscale"
 archFamily = "arm"
 
-compiler    = Config.arm_cc
-objcopy     = Config.arm_objcopy
-objdump     = Config.arm_objdump
-ar          = Config.arm_ar
-ranlib      = Config.arm_ranlib
-cxxcompiler = Config.arm_cxx
+compiler    = Config.armeb_cc
+objcopy     = Config.armeb_objcopy
+objdump     = Config.armeb_objdump
+ar          = Config.armeb_ar
+ranlib      = Config.armeb_ranlib
+cxxcompiler = Config.armeb_cxx
 
 ourCommonFlags = [ Str "-Wno-packed-bitfield-compat",
                    Str "-Wno-format",

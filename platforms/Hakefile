@@ -388,6 +388,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("arm11mp", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
     "Very basic ARM11MP configuration for testing",
 
+    platform "XScale" [ "xscale" ]
+    ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
+    "Very basic XScale configuration for testing",
+
     --
     -- Rules to build assorted boot images
     --

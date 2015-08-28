@@ -49,6 +49,18 @@ thumb_ar       = thumb_gnu_tool "ar"
 thumb_ranlib   = thumb_gnu_tool "ranlib"
 thumb_cxx      = thumb_gnu_tool "g++"
 
+-- ARM big-endian (e.g. XScale) toolchain
+armeb_gnu_path = "/opt/gcc-linaro-4.9-2015.02-3-x86_64_armeb-eabi/bin"
+armeb_gnu_prefix = "armeb-eabi-"
+armeb_gnu_tool = findTool armeb_gnu_path armeb_gnu_prefix
+
+armeb_cc       = armeb_gnu_tool "gcc"
+armeb_objcopy  = armeb_gnu_tool "objcopy"
+armeb_objdump  = armeb_gnu_tool "objdump"
+armeb_ar       = armeb_gnu_tool "ar"
+armeb_ranlib   = armeb_gnu_tool "ranlib"
+armeb_cxx      = armeb_gnu_tool "g++"
+
 -- X86 (32/64) toolchain
 x86_gnu_path = ""
 x86_gnu_prefix = ""
