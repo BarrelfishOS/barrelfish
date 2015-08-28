@@ -13,6 +13,8 @@ DFLTARCHS="\"x86_64\""
 RUN_HAKE="Yes"
 TOOLCHAIN="ubuntu"
 HAKEDIR=$(dirname $0)
+DEFAULT_JOBS=4
+JOBS="$DEFAULT_JOBS"
 
 usage() { 
     echo "Usage: $0 <options>"
@@ -25,6 +27,7 @@ usage() {
     echo "       for debugging hake)"
     echo "   -t|--toolchain: toolchain to use when bootstrapping a new"
     echo "       build tree (-t list for available options)."
+    echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
     echo "  build tree, cd into it, and run this script with the --source-dir"
@@ -88,6 +91,10 @@ while [ $# -ne 0 ]; do
             echo "Unknown toolchain \"${TOOLCHAIN}\""
             exit 1
         fi
+        ;;
+	"-j"|"--jobs")
+	    JOBS="$2"
+        shift 
         ;;
 	*) 
 	    usage
@@ -191,4 +198,4 @@ echo "Running hake..."
 
 echo "Now running initial make to build dependencies."
 echo " (remove the '-j 4' if your system has trouble handling this" 
-make -j 4 help
+make -j "$JOBS" help
