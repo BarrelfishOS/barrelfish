@@ -35,6 +35,7 @@ ranlib      = Config.arm_ranlib
 cxxcompiler = Config.arm_cxx
 
 ourCommonFlags = [ Str "-Wno-packed-bitfield-compat",
+                   Str "-Wno-format",
                    Str "-fno-unwind-tables",
                    Str "-fshort-enums",
                    Str "-mcpu=xscale",
@@ -105,11 +106,11 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-unwind-tables",
-				"-fshort-enums",
+                                "-fshort-enums",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-mcpu=xscale",
-				"-mbig-endian",
+                                "-mbig-endian",
                                 "-mapcs",
                                 "-mabi=aapcs-linux",
                                 "-fPIE",
@@ -130,7 +131,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-ffreestanding",
                                 "-fomit-frame-pointer",
                                 "-mno-long-calls",
-                                "-Wmissing-noreturn",
+                                "-Wno-missing-noreturn",
+                                "-Wno-format",
                                 "-mno-apcs-stack-check",
                                 "-mno-apcs-reentrant",
                                 "-msingle-pic-base",
@@ -145,8 +147,8 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
                   Str "-nostdlib",
                   Str "-Wl,--fatal-warnings",
-		  Str "-mcpu=xscale",
-		  Str "-mbig-endian"
+          Str "-mcpu=xscale",
+          Str "-mbig-endian"
                 ]
 
 

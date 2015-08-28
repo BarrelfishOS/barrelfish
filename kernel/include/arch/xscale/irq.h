@@ -19,10 +19,6 @@ struct sysret irq_table_set(struct capability *to, struct idc_recv_msg *msg);
 struct sysret irq_table_delete(struct capability *to, struct idc_recv_msg *msg);
 
 struct kcb;
-inline errval_t irq_table_notify_domains(struct kcb *kcb);
-inline errval_t irq_table_notify_domains(struct kcb *kcb)
-{
-    return SYS_ERR_OK;
-}
+errval_t irq_table_notify_domains(struct kcb *kcb);
 
 #endif // KERNEL_ARCH_ARM_IRQ_H

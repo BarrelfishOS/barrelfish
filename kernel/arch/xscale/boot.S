@@ -84,7 +84,7 @@ start:
         /* Want to map low 1MB section with 1:1 to kernel address space */
         mov     r2, #(512 * 1024 * 1024)
         cmp     pc, r2
-        bhs     $start_rom_image
+        bhs     start_rom_image
 
         /*
         The ELF image is in RAM, copy it just above the
@@ -105,10 +105,10 @@ start:
         sub     r8, r8, #4
         add     pc, pc, r8                      // Jump to next line, but in relocated ELF image.
 
-$start_rom_image:
+start_rom_image:
         // NOP
 
-$start_expand_elf:
+start_expand_elf:
         // Zero physical region
         sub     r1, r7, r6                      // r1 = expanded ELF size
         ldr     r2, =0xfff00000
@@ -129,7 +129,7 @@ $start_expand_elf:
         bl      alloc_phys
         mov     r8, r0                          // r8 = L1 page table [KEEP]
 
-$start_map_kernel:
+start_map_kernel:
         ldr     r3, =0xfff00000                 // Map kernel section to physical section
         and     r1, r6, r3
         and     r2, sp, r3
@@ -149,7 +149,7 @@ $start_map_kernel:
 	bl      section_map
 
 
-$start_mmu_config:
+start_mmu_config:
         mcr     p15, 0, r8, c2, c0, 0           // Load TTBR with L1
         ldr     r0, =0x55555555                 // Initial domain permissions - all client [checked]
         mcr     p15, 0, r0, c3, c0, 0
@@ -167,7 +167,7 @@ $start_mmu_config:
         mov     r0, r0                          // Flat fetched.
 
         // Up until this point PC is in ELF file.
-$start_with_mmu_enabled:
+start_with_mmu_enabled:
         // MMU is enabled and PC is in the loaded ELF image.
 
         mov     r1, #0                          // Unmap section with VA = 0
@@ -177,11 +177,11 @@ $start_with_mmu_enabled:
         mov     r1, #0
         mcr     p15, 0, r1, c8, c7, 0           // Invalidate ID-TLB entry for section with VA = 0.
 
-$start_set_got_register:
+start_set_got_register:
         ldr     PIC_REGISTER, =got_base
 
 
-$start_set_init_arguments:
+start_set_init_arguments:
         ldmfd   sp!, {r0, r1}                   // r0 = board id
                                                 // r1 = paddr of kern args, already mapped 1:1 to vaddr
         ldr     r2, =KERNEL_OFFSET              // Convert paddr's to vaddr's
@@ -199,22 +199,22 @@ elf_header_is_valid:
         ldr     r1, [r0, #4]!                   // e_ident[4..7]
         ldr     r2, =0x00010101
         eors    r3, r1, r2
-        bne     $done
+        bne     done
         ldr     r1, [r0, #4]!                   // e_ident[8..11]
         mov     r2, #0
         eors    r3, r1, r2
-        bne     $done
+        bne     done
         ldr     r1, [r0, #4]!                   // e_ident[12..15]
         eors    r3, r1, r2
-        bne     $done
+        bne     done
         ldr     r1, [r0, #4]!                   // (e_type, e_machine)
         ldr     r2, =0x00280002
         eors    r3, r1, r2
-        bne     $done
+        bne     done
         ldr     r1, [r0, #4]!                   // e_version
         mov     r2, #1
         eors    r3, r1, r2
-$done:
+done:
         mvn     r3, r3
         bx      lr
 
@@ -242,11 +242,11 @@ elf_get_expanded_limits:
         add     r1, r1, r0                      // r1 = start of prog headers
         mul     r0, r2, r3                      // r0 = size of prog headers
         add     r3, r0, r1                      // r3 = end of prog headers
-        b       $looptest
-$loopstart:
+        b       looptest
+loopstart:
         ldr     r6, [r1, #20]                   // r6 = memsz
         cmp     r6, #0
-        beq     $loopinc                        // SKIP If memsz = 0
+        beq     loopinc                        // SKIP If memsz = 0
         ldr     r0, [r1, #8]                    // r0 = vaddr
         cmp     r0, r4
         movlo   r4, r0                          // r4 = min(r4, vaddr)
@@ -254,11 +254,11 @@ $loopstart:
         cmp     r6, r5
         movhs   r5, r6                          // r5 = max(r5, vaddr + memsz)
         ldr     r0, [r1, #28]                   // r0 = alignment
-$loopinc:
+loopinc:
         add     r1, r1, r2
-$looptest:
+looptest:
         cmp     r1, r3
-        bne     $loopstart
+        bne     loopstart
         mov     r0, r4
         mov     r1, r5
         ldmfd   sp!, {r4-r6, pc}
@@ -271,15 +271,15 @@ elf_expand:
         ldr     r3, [r0, #28]                   // r3 = e_phoff
         ldrh    r4, [r0, #44]                   // r4 = e_phnum
         add     r3, r0, r3                      // r3 = addr phdr[0]
-$elf_expand_start:
+elf_expand_start:
         subs    r4, r4, #1
-        beq     $elf_expand_done
+        beq     elf_expand_done
         ldr     r5, [r3, #4]                    // r5 = p_offset
         cmp     r5, #0
-        beq     $elf_expand_next
+        beq     elf_expand_next
         ldr     r6, [r3, #8]                    // r6 = p_vaddr
         cmp     r6, #0
-        beq     $elf_expand_next
+        beq     elf_expand_next
         stmfd   sp!, {r0-r3}                    // Save scratch registers
         mov     r7, r1                          // r7 = kernel_v
         add     r1, r0, r5                      // r1 = ptr to segment in file
@@ -288,11 +288,11 @@ $elf_expand_start:
         ldr     r2, [r3, #16]                   // r2 = p_filesz
         bl      memcpy
         ldmfd   sp!, {r0-r3}                    // Restore scratch registers
-$elf_expand_next:
+elf_expand_next:
         ldrh    r5, [r0, #42]                   // r5 = e_phentsize
         add     r3, r3, r5                      // r3 = addr phdr[next]
-        b       $elf_expand_start
-$elf_expand_done:
+        b       elf_expand_start
+elf_expand_done:
         ldmfd   sp!, {r4-r7, pc}
 
 /**
@@ -301,24 +301,24 @@ $elf_expand_done:
  */
 memzero:
         subs    r1, #4
-        blt     $zero0
+        blt     zero0
         mov     r2, #0
         mov     r3, #0
         subs    r1, #12
-        blt     $zero8
-$zero16:
+        blt     zero8
+zero16:
         stmia   r0!, {r2-r3}
         subs    r1, r1, #16
         stmia   r0!, {r2-r3}
-        bge     $zero16
-$zero8:
+        bge     zero16
+zero8:
         adds    r1, r1, #8
         stmgeia r0!, {r2, r3}
         subge   r1, #8
-$zero4:
+zero4:
         adds    r1, r1, #4
         stmgeia r0!, {r2}
-$zero0:
+zero0:
         bx      lr
 
 /**
@@ -329,24 +329,24 @@ $zero0:
 memcpy:
         stmfd   sp!, {r4, r5, lr}
         subs    r2, #16
-        blt     $cpy8
-$cpy16:
+        blt     cpy8
+cpy16:
         ldmia   r1!, {r4-r5}
         stmia   r0!, {r4-r5}
         subs    r2, r2, #16
         ldmia   r1!, {r4-r5}
         stmia   r0!, {r4-r5}
-        bge     $cpy16
-$cpy8:
+        bge     cpy16
+cpy8:
         adds    r2, r2, #8
         ldmgeia r1!, {r4, r5}
         subge   r2, #8
         stmgeia r0!, {r4, r5}
-$cpy4:
+cpy4:
         adds    r2, r2, #4
         ldrge   r4, [r0], #4
         strge   r4, [r1], #4
-$cpy0:
+cpy0:
         ldmfd   sp!, {r4, r5, pc}
 
 /**

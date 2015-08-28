@@ -27,6 +27,10 @@
 #include <startup.h>
 #include <kcb.h>
 
+#ifdef __XSCALE__
+#include <romfs_size.h>
+#endif
+
 #define CNODE(cte)              (cte)->cap.u.cnode.cnode
 #define UNUSED(x)               (x) = (x)
 
