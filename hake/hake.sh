@@ -197,5 +197,5 @@ echo "Running hake..."
 ./hake/hake --output-filename Makefile --source-dir "$SRCDIR" || exit
 
 echo "Now running initial make to build dependencies."
-echo " (remove the '-j 4' if your system has trouble handling this" 
+echo "Running $JOBS jobs at once (-j N to change this)."
 make -j "$JOBS" help
