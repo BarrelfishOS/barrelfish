@@ -35,6 +35,6 @@
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
                       flounderBindings = [ "spawn" ],
-                      architectures = [ "armv5", "armv7", "armv8" ]
+                      architectures = [ "armv5", "armv7", "armv7-m", "armv8" ]
                     }
 ]

@@ -335,7 +335,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
     }
 
     // Load cpu driver to the allocate space and do relocatation
-    uintptr_t reloc_entry;
+    uintptr_t reloc_entry= 0;
     err = elf_load_and_relocate(cpu_blob.vaddr,
                                 cpu_blob.size,
                                 cpu_mem.buf + arch_page_size,

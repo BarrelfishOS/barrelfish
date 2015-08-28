@@ -1019,9 +1019,12 @@ static struct sysret handle_debug_syscall(int msg)
 {
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
+#if !defined(__ARM_ARCH_7M__)
         case DEBUG_FLUSH_CACHE:
             cp15_invalidate_i_and_d_caches_fast();
             break;
+#endif
+
         case DEBUG_CONTEXT_COUNTER_RESET:
             dispatch_csc_reset();
             break;
@@ -1043,7 +1046,7 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         /* XXX - not revision-independent. */
-        #if defined(__pandaboard__)
+#if defined(__pandaboard__) && !defined(__ARM_ARCH_7M__)
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
             retval.value = gt_read_low();
             break;
@@ -1051,7 +1054,7 @@ static struct sysret handle_debug_syscall(int msg)
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
             retval.value = gt_read_high();
             break;
-        #endif
+#endif
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);

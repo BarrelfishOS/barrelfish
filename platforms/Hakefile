@@ -422,7 +422,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "-I", Str "binary",
             Str "-O", Str "elf32-littlearm",
             Str "-B", Str "arm",
-            Str "--rename-section", Str ".data=.rodata_thumb,alloc,load,readonly,data,contents",
+            Str "--rename-section", Str (".data=.rodata_thumb,alloc,load" ++
+                                         ",readonly,data,contents"),
             In BuildTree "root" "/pandaboard_m3image_intermediate",
             Out "root" "/pandaboard_m3image" ]),
     
@@ -431,10 +432,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.",
             Str "-D",         Str "HETEROPANDA",
-            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.heteropandaboard",
+            Str "--menu",     In SrcTree "tools"
+                                         "/hake/menu.lst.heteropanda_master",
             Str "--baseaddr", Str "0x82001000",
             Str "--extra",    In BuildTree "root" "/pandaboard_m3image",
-            Str "--image",    Out "root" "/pandaboard_hetero_image",
+            Str "--image",    Out "root" "/pandaboard_het_image",
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
