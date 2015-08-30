@@ -12,7 +12,10 @@
 -- Asynchronous IO for walking directories
 import Control.Concurrent.Async
 
-import Control.Monad.Error
+import Control.Exception.Base
+import Control.Monad
+
+import Exception
 
 import Data.Dynamic
 import Data.List
@@ -45,8 +48,8 @@ import qualified Config
 import TreeDB
 
 data HakeError = HakeError String Int
-instance Error HakeError
-type HakeMonad = ErrorT HakeError IO
+    deriving (Show, Typeable)
+instance Exception HakeError
 
 --
 -- Command line options and parsing code
@@ -182,7 +185,8 @@ listFiles' root current
 evalHakeFiles :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO (S.Set FilePath)
 evalHakeFiles makefile o srcDB hakefiles =
-    defaultErrorHandler defaultFatalMessager defaultFlushOut $
+    --defaultErrorHandler defaultFatalMessager defaultFlushOut $
+    errorHandler $
         runGhc (Just libdir) $
         driveGhc makefile o srcDB hakefiles
 
@@ -252,19 +256,81 @@ driveGhc makefile o srcDB hakefiles = do
                                 wrapHake hakepath hake_expr
 
                     -- Evaluate in GHC
-                    val <- dynCompileExpr $ hake_wrapped ++
-                                            " :: TreeDB -> HRule"
-                    let rule = fromDyn val (\_ -> Error "failed")
+                    val <- ghandle handleFailure $
+                                dynCompileExpr $ hake_wrapped ++
+                                                 " :: TreeDB -> HRule"
+                    rule <- 
+                        case fromDynamic val of
+                            Just r -> return r
+                            Nothing -> throw $
+                                HakeError (hakepath ++
+                                           " - Compilation failed") 1
 
                     -- Path resolution
                     let resolved_rule =
                             resolvePaths o (takeDirectory hakepath)
                                            (rule srcDB)
                     return resolved_rule
-                Right hake_error -> do
-                    return $ Error "failed"
+                Right hake_error -> throw hake_error
             where
                 hake_parse = parseHake hakepath hake_raw
+
+                handleFailure :: SomeException -> Ghc Dynamic
+                handleFailure e
+                    = throw $ HakeError (hakepath ++ ":\n" ++ show e) 1
+
+errorHandler :: (ExceptionMonad m, MonadIO m) => m a -> m a
+errorHandler inner =
+  ghandle (\exception -> liftIO $ do
+           hFlush stdout
+           handleIOException exception
+           handleAsyncException exception
+           handleExitException exception
+           handleHakeError exception
+           throw exception
+          ) $
+
+  -- error messages propagated as exceptions
+  ghandle
+            (\(ge :: GhcException) -> liftIO $ do
+                hFlush stdout
+                throw $ HakeError (show ge) 1
+            ) $
+  inner
+  where
+    handleIOException e =
+        case fromException e of
+            Just (ioe :: IOException) ->
+                throw $ HakeError ("IO Exception: " ++ (show ioe)) 1
+            _ -> return ()
+
+    handleAsyncException e =
+        case fromException e of
+            Just UserInterrupt ->
+                throw $ HakeError "Interrupted" 1
+            Just StackOverflow ->
+                throw $ HakeError ("Stack Overflow: use +RTS " ++
+                                   "-K<size> to increase it") 1
+            _ -> return ()
+
+    handleExitException e =
+        case fromException e of
+            Just ExitSuccess ->
+                throw $ HakeError "GHC terminated early" 1
+            Just (ExitFailure n) ->
+                throw $ HakeError "GHC terminated early" n
+            _ -> return ()
+
+    handleHakeError e =
+        case fromException e of
+            Just (HakeError s n) -> throw $ HakeError s n
+            _ -> return ()
+
+printSrcLoc :: Language.Haskell.Exts.SrcLoc -> String
+printSrcLoc sl =
+    srcFilename sl ++ ":" ++
+    (show $ srcLine sl) ++ "." ++
+    (show $ srcColumn sl)
 
 -- Parse a Hakefile, prior to wrapping it with Hake definitions
 parseHake :: FilePath -> String -> Either Exp HakeError
@@ -272,7 +338,7 @@ parseHake filename contents =
     case result of
         ParseOk e -> Left e
         ParseFailed loc str ->
-            Right $ HakeError (show loc ++ ": " ++ str) 2
+            Right $ HakeError (printSrcLoc loc ++ " - " ++ str) 1
     where
         result =
             parseExpWithMode
@@ -593,10 +659,10 @@ makeDir h dir = do
 -- The top level
 --
 
-body :: HakeMonad ()
+body :: IO ()
 body =  do
     -- Parse arguments; architectures default to config file
-    args <- liftIO $ System.Environment.getArgs
+    args <- System.Environment.getArgs
     let o1 = parse_arguments args
         al = if opt_architectures o1 == [] 
              then Config.architectures 
@@ -604,58 +670,59 @@ body =  do
         opts' = o1 { opt_architectures = al }
 
     when (opt_usage_error opts') $
-        throwError (HakeError usage 1)
+        throw (HakeError usage 1)
 
     -- Check configuration settings.
     -- This is currently known at compile time, but might not always be!
     when (isJust configErrors) $
-        throwError (HakeError ("Error in configuration: " ++
-                               (fromJust configErrors)) 2)
+        throw (HakeError ("Error in configuration: " ++
+                         (fromJust configErrors)) 2)
 
     -- Canonicalise directories
-    abs_sourcedir   <- liftIO $ canonicalizePath $ opt_sourcedir opts'
-    abs_bfsourcedir <- liftIO $ canonicalizePath $ opt_bfsourcedir opts'
-    abs_installdir  <- liftIO $ canonicalizePath $ opt_installdir opts'
+    abs_sourcedir   <- canonicalizePath $ opt_sourcedir opts'
+    abs_bfsourcedir <- canonicalizePath $ opt_bfsourcedir opts'
+    abs_installdir  <- canonicalizePath $ opt_installdir opts'
     let opts = opts' { opt_abs_sourcedir   = abs_sourcedir,
                        opt_abs_bfsourcedir = abs_bfsourcedir,
                        opt_abs_installdir  = abs_installdir }
 
-    liftIO $ putStrLn ("Source directory: " ++ opt_sourcedir opts ++
+    putStrLn ("Source directory: " ++ opt_sourcedir opts ++
                        " (" ++ opt_abs_sourcedir opts ++ ")")
-    liftIO $ putStrLn ("BF Source directory: " ++ opt_bfsourcedir opts ++
+    putStrLn ("BF Source directory: " ++ opt_bfsourcedir opts ++
                        " (" ++ opt_abs_bfsourcedir opts ++ ")")
-    liftIO $ putStrLn ("Install directory: " ++ opt_installdir opts ++
+    putStrLn ("Install directory: " ++ opt_installdir opts ++
                        " (" ++ opt_abs_installdir opts ++ ")")
 
     -- Find Hakefiles
-    liftIO $ putStrLn "Scanning directory tree..."
-    (relfiles, hakefiles) <- liftIO $ listFiles (opt_sourcedir opts)
+    putStrLn "Scanning directory tree..."
+    (relfiles, hakefiles) <- listFiles (opt_sourcedir opts)
     let srcDB = tdbBuild relfiles
 
     -- Open the Makefile and write the preamble
-    liftIO $ putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
-    makefile <- liftIO $ openFile(opt_makefilename opts) WriteMode
-    liftIO $ makefilePreamble makefile opts args
-    liftIO $ makeHakeDeps makefile opts $ map fst hakefiles
+    putStrLn $ "Creating " ++ (opt_makefilename opts) ++ "..."
+    makefile <- openFile(opt_makefilename opts) WriteMode
+    makefilePreamble makefile opts args
+    makeHakeDeps makefile opts $ map fst hakefiles
 
     -- Evaluate Hakefiles
-    liftIO $ putStrLn $ "Evaluating " ++ show (length hakefiles) ++
+    putStrLn $ "Evaluating " ++ show (length hakefiles) ++
                         " Hakefiles..."
-    dirs <- liftIO $ evalHakeFiles makefile opts srcDB hakefiles
+    dirs <- evalHakeFiles makefile opts srcDB hakefiles
 
     -- Emit directory rules
-    liftIO $ putStrLn $ "Generating build directory dependencies..."
-    liftIO $ makeDirectories makefile dirs
+    putStrLn $ "Generating build directory dependencies..."
+    makeDirectories makefile dirs
 
-    liftIO $ hFlush makefile
-    liftIO $ hClose makefile
+    hFlush makefile
+    hClose makefile
     return ()
 
 main :: IO () 
 main = do
-    r <- runErrorT $ body `catchError` handleFailure
+    r <- body `catch` handleHakeError
     exitWith ExitSuccess
     where
-        handleFailure (HakeError str n) = do
-            liftIO $ putStrLn str
-            liftIO $ exitWith (ExitFailure n)
+        handleHakeError :: HakeError -> IO ()
+        handleHakeError (HakeError str n) = do
+            putStrLn str
+            exitWith $ ExitFailure n
