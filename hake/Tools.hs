@@ -80,7 +80,7 @@ arm_netos_arm_2014q4
         toolPath = "/home/netos/tools/gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2014q4" </>
                    "bin",
-        toolPrefix = "arm-eabi-"
+        toolPrefix = "arm-none-eabi-"
       }
 
 -- ARM-GCC 2015q1 (GCC 4.9)
@@ -89,7 +89,7 @@ arm_netos_arm_2015q1
         toolPath = "/home/netos/tools/gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2015q1" </>
                    "bin",
-        toolPrefix = "arm-eabi-"
+        toolPrefix = "arm-none-eabi-"
       }
 
 -- ARM-GCC 2015q2 (GCC 4.9)
@@ -98,7 +98,7 @@ arm_netos_arm_2015q2
         toolPath = "/home/netos/tools/gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2015q2" </>
                    "bin",
-        toolPrefix = "arm-eabi-"
+        toolPrefix = "arm-none-eabi-"
       }
 
 --
