@@ -17,7 +17,13 @@ concat [ let
                                       d /= Dep InstallTree arch "/include/asmoffsets.h"]
                  }
    in
-     [ Rule (makecToAssembler opts "src" "asmoffsets.c" "asmoffsets.s"), -- asmoffsets.s here is not the output it is the stem of the presumed output for the depenedency
+     -- asmoffsets.s here is not the output it is the stem of the presumed
+     -- output for the dependency.
+     [ Rule (makecToAssembler opts { extraDependencies =
+                                        extraDependencies opts ++
+                                        [ Dep BuildTree arch
+                                              "/include/errors/errno.h" ] }
+                              "src" "asmoffsets.c" "asmoffsets.s"),
        makeDependAssembler opts "src" "asmoffsets.c",
        Rule [ Str "grep -E '^#(if|ifndef|ifdef|define|undef|endif)'",
            In BuildTree arch (assemblerFilePath opts "asmoffsets.c"),
