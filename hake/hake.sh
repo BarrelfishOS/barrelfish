@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##########################################################################
-# Copyright (c) 2009, 2011, 2013, ETH Zurich.
+# Copyright (c) 2009, 2011, 2013, 2015, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -11,10 +11,16 @@
 
 DFLTARCHS="\"x86_64\""
 RUN_HAKE="Yes"
-TOOLCHAIN="ubuntu"
 HAKEDIR=$(dirname $0)
 DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
+
+# Don't override the default toolchain unless asked to.
+ARM_TOOLSPEC=Nothing
+THUMB_TOOLSPEC=Nothing
+ARMEB_TOOLSPEC=Nothing
+X86_TOOLSPEC=Nothing
+K1OM_TOOLSPEC=Nothing
 
 usage() { 
     echo "Usage: $0 <options>"
@@ -25,8 +31,8 @@ usage() {
     echo "       $DFLTARCHS"
     echo "   -n|--no-hake: just rebuild hake itself, don't run it (only useful"
     echo "       for debugging hake)"
-    echo "   -t|--toolchain: toolchain to use when bootstrapping a new"
-    echo "       build tree (-t list for available options)."
+    echo "   -t|--toolchain <arch> <toolchain>: use <toolchain> to build for"
+    echo "       <arch>."
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
@@ -36,15 +42,6 @@ usage() {
     echo "  Known architectures may include: "
     echo "     x86_64 x86_32 armv5 xscale armv7 armv7-m k10m"
     exit 1;
-}
-
-toolchains() {
-    TOOLCHAINS=$(ls ${HAKEDIR}/Config.hs.* | sed s/.*Config\.hs\.//)
-    echo "Available toolchains:"
-    for tc in ${TOOLCHAINS}; do
-        echo "   $tc"
-    done
-    exit 1
 }
 
 #
@@ -82,15 +79,31 @@ while [ $# -ne 0 ]; do
 	    RUN_HAKE="No"
 	    ;;
     "-t"|"--toolchain")
-        TOOLCHAIN="$2"
+        TC_ARCH="$2"
         shift
-        if [ "${TOOLCHAIN}" == "list" ]; then
-            toolchains
-        fi
-        if [ ! -f ${HAKEDIR}/Config.hs.${TOOLCHAIN} ]; then
-            echo "Unknown toolchain \"${TOOLCHAIN}\""
+        TOOLSPEC="$2"
+        shift
+        case ${TC_ARCH} in
+        "arm")
+            ARM_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
+        "thumb")
+            THUMB_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
+        "armeb")
+            ARMEB_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
+        "x86")
+            X86_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
+        "k1om")
+            K1OM_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
+	    *) 
+            echo "Unknown toolchain architecture: $TC_ARCH"
             exit 1
-        fi
+            ;;
+        esac
         ;;
 	"-j"|"--jobs")
 	    JOBS="$2"
@@ -137,14 +150,19 @@ fi
 
 echo "Setting up hake build directory..."
 if [ ! -f hake/Config.hs ]; then
-    echo "Bootstrapping with toolchain \"${TOOLCHAIN}\""
-    cp $SRCDIR/hake/Config.hs.${TOOLCHAIN} hake/Config.hs
+    echo "Bootstrapping Config.hs"
+    cp $SRCDIR/hake/Config.hs.template hake/Config.hs
     cat >> hake/Config.hs <<EOF
 
 -- Automatically added by hake.sh. Do NOT copy these definitions to the defaults
 source_dir = "$SRCDIR"
 architectures = [ $ARCHS ]
 install_dir = "$INSTALLDIR"
+arm_toolspec   = $ARM_TOOLSPEC
+thumb_toolspec = $THUMB_TOOLSPEC
+armeb_toolspec = $ARMEB_TOOLSPEC
+x86_toolspec   = $X86_TOOLSPEC
+k1om_toolspec  = $K1OM_TOOLSPEC
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."
