@@ -619,7 +619,9 @@ stripSlash cs = cs
 -- Emit the rule to rebuild the Hakefile.
 makeHakeDeps :: Handle -> Opts -> [String] -> IO ()
 makeHakeDeps h o l = do
+    hPutStrLn h "ifneq ($(MAKECMDGOALS),rehake)"
     makefileRule h rule
+    hPutStrLn h "endif"
     hPutStrLn h ".DELETE_ON_ERROR:\n" -- this applies to following targets.
     where
         hake = resolveTokenPath o "" (In InstallTree "root" "/hake/hake")

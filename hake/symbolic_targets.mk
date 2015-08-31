@@ -411,7 +411,8 @@ TAGS: cscope.files
 
 # force rebuild of the Makefile
 rehake: ./hake/hake
-	./hake/hake --source-dir $(SRCDIR)
+	./hake/hake --source-dir $(SRCDIR) --install-dir . \
+	            --output-filename Makefile
 .PHONY: rehake
 
 clean::
