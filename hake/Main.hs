@@ -435,6 +435,7 @@ makefilePreamble h opts args =
              "# Hake was invoked with the following command line args:" ] ++
            [ "#        " ++ a | a <- args ] ++
            [ "# ",
+             "Q=@",
              "SRCDIR=" ++ opt_sourcedir opts,
              "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
              "include ./symbolic_targets.mk" ])
@@ -646,16 +647,9 @@ makeDirectories h dirs = do
     hPutStr h "directories: $(DIRECTORIES)"
     hPutStrLn h ""
     hPutStrLn h "%.marker:"
-    hPutStrLn h "\tmkdir -p `dirname $@`"
-    hPutStrLn h "\ttouch $@"
-
-makeDir :: Handle -> FilePath -> IO ()
-makeDir h dir = do
-    hPutStrLn h $ "hake_dirs: " ++ dir ++ "\n"
-    hPutStrLn h $ dir ++ ":"
-    hPutStrLn h $ "\tmkdir -p " ++ (takeDirectory dir)
-    hPutStrLn h $ "\ttouch " ++ dir
-    hPutStrLn h ""
+    hPutStrLn h "\t$(Q)echo \"MKDIR $@\""
+    hPutStrLn h "\t$(Q)mkdir -p `dirname $@`"
+    hPutStrLn h "\t$(Q)touch $@"
 
 --
 -- The top level

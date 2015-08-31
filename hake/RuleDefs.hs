@@ -339,7 +339,7 @@ assemblerFilePath opts src = optSuffix opts </> replaceExtension src ".s"
 --
 makeDependArchSub :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDependArchSub opts phase src objfile depfile =
-   [ Str ("@echo Generating $@"), NL ] ++
+   [ Str ("@if [ -z $Q ]; then echo Generating $@; fi"), NL ] ++
      makeDepend opts phase src objfile depfile
 
 makeDependArch :: Options -> String -> String -> String -> String -> HRule
@@ -358,7 +358,7 @@ makeDependObj opts phase src =
 -- Make depend for a C++ object file
 makeDependCxxArchSub :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDependCxxArchSub opts phase src objfile depfile =
-   [ Str ("@echo Generating $@"), NL ] ++
+   [ Str ("@if [ -z $Q ]; then echo Generating $@; fi"), NL ] ++
      makeCxxDepend opts phase src objfile depfile
 
 makeDependCxxArch :: Options -> String -> String -> String -> String -> HRule
