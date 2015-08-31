@@ -173,6 +173,7 @@ echo "Building hake..."
 ghc -O --make \
     -XDeriveDataTypeable \
     -XStandaloneDeriving \
+    -XScopedTypeVariables \
     -package ghc \
     -package ghc-mtl \
     -package ghc-paths \

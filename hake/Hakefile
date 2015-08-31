@@ -19,6 +19,7 @@ in
 [ Rule ([ Str "ghc -O --make",
           Str "-XDeriveDataTypeable",
           Str "-XStandaloneDeriving",
+          Str "-XScopedTypeVariables",
           Str "-package ghc",
           Str "-package ghc-mtl",
           Str "-package ghc-paths",
