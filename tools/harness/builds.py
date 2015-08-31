@@ -57,7 +57,12 @@ class HakeBuildBase(Build):
         default_config = {
             "source_dir": "\"%s\"" % srcdir,
             "architectures": "[" + ", ".join("\"%s\"" % a for a in archs) + "]",
-            "install_dir": "\".\""
+            "install_dir": "\".\"",
+            "arm_toolspec": "Nothing",
+            "thumb_toolspec": "Nothing",
+            "armeb_toolspec": "Nothing",
+            "x86_toolspec": "Nothing",
+            "k1om_toolspec": "Nothing"
         }
         return default_config
 
@@ -156,7 +161,7 @@ class HakeReleaseBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeReleaseBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "\"-O2 -DNDEBUG\""
+        conf["cOptFlags"] = "[\"-O2\", \"-DNDEBUG\"]"
         return conf
 
 class HakeReleaseGem5Build(HakeReleaseBuild):
@@ -175,7 +180,7 @@ class HakeReleaseTraceBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeReleaseBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "\"-O2 -DNDEBUG\""
+        conf["cOptFlags"] = "[\"-O2\", \"-DNDEBUG\"]"
         conf["trace"] = "True"
         return conf
 
@@ -194,7 +199,7 @@ class HakeDebugBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeDebugBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "\"-g -O2\""
+        conf["cOptFlags"] = "[\"-O2\"]"
         return conf
 
 class HakeDebugTraceBuild(HakeBuildBase):
@@ -203,7 +208,7 @@ class HakeDebugTraceBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeDebugTraceBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "\"-g -O2\""
+        conf["cOptFlags"] = "[\"-O2\"]"
         conf["trace"] = "True"
         return conf
 
