@@ -386,7 +386,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     platform "XScale" [ "xscale" ]
     ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
-    "Very basic XScale configuration for testing",
+    "Very basic XScale configuration for testing, not guaranteed to boot",
 
     --
     -- Rules to build assorted boot images
@@ -453,6 +453,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- gem5Modules ]),
+
+    -- XScale needs a special rule to generate "include/romfs_size.h"
+    -- XXX - this is currently a non-functional stub.  A real solution would
+    -- be to do a binary patch on the final image, if anybody still cares.
+    Rule ([ Str "echo",
+            Str ("\"size_t romfs_cpio_archive_size = 0;" ++
+                 " //should not see this\""),
+            Str ">",
+            Out "xscale" "/include/romfs_size.h" ]),
 
     --
     -- Booting: various targets for booting Barrelfish under different circumstances

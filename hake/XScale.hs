@@ -75,7 +75,7 @@ options = (ArchDefaults.options arch archFamily) {
             optCxxFlags = cxxFlags,
             optDefines = cDefines,
             optDependencies = 
-                [ PreDep InstallTree arch "/include/errors/errno.h",
+                [ PreDep BuildTree   arch "/include/errors/errno.h",
                   PreDep InstallTree arch "/include/barrelfish_kpi/capbits.h",
                   PreDep InstallTree arch "/include/asmoffsets.h", 
                   PreDep InstallTree arch "/include/romfs_size.h" ],
