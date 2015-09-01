@@ -703,18 +703,27 @@ flounderRules opts args csrcs =
 --
 -- Build a Fugu library
 --
-fuguFile :: Options -> String -> HRule
-fuguFile opts file =
+fuguCFile :: Options -> String -> HRule
+fuguCFile opts file =
     let arch = optArch opts
         cfile = file ++ ".c"
-        hfile = "/include/errors/" ++ file ++ ".h"
     in
-      Rules [ Rule [In InstallTree "tools" "/bin/fugu",
-                    In SrcTree "src" (file++".fugu"),
-                    Out arch hfile,
-                    Out arch cfile ],
+      Rules [ Rule [ In InstallTree "tools" "/bin/fugu",
+                     In SrcTree "src" (file++".fugu"),
+                     Str "-c",
+                     Out arch cfile ],
               compileGeneratedCFile opts cfile
          ]
+
+fuguHFile :: Options -> String -> HRule
+fuguHFile opts file =
+    let arch = optArch opts
+        hfile = "/include/errors/" ++ file ++ ".h"
+    in
+      Rule [ In InstallTree "tools" "/bin/fugu",
+             In SrcTree "src" (file++".fugu"),
+             Str "-h",
+             Out arch hfile ]
 
 --
 -- Build a Pleco library
