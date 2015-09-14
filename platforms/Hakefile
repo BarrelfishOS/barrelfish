@@ -40,7 +40,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     tests_x86 = [ "/sbin/" ++ f | f <- [ 
                         "tests/luatest",
-                        "tests/numatest" ] ]
+                        "tests/numatest" ] ] ++ tests_common
 
     tests_x86_64 = [ "/sbin/" ++ f | f <- [ 
                         "arrakis_hellotest",
