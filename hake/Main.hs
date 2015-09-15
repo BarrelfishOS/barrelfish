@@ -137,7 +137,7 @@ listFiles' root current
         isdir <- doesDirectoryExist current
         if isdir then do
             children <- getDirectoryContents current
-            walkchildren children
+            walkchildren $ filter isRealChild children
         else do
             hake <- maybeHake current
             return ([makeRelative root current], hake)
@@ -168,13 +168,17 @@ listFiles' root current
 
         -- Don't descend into revision-control or build directories.
         ignore :: FilePath -> Bool
-        ignore "."          = True
-        ignore ".."         = True
         ignore "CMakeFiles" = True
         ignore ".hg"        = True
         ignore ".git"       = True
         ignore "build"      = True
         ignore _            = False
+
+        -- We ignore self-links and parent-links
+        isRealChild :: FilePath -> Bool
+        isRealChild "."  = False
+        isRealChild ".." = False
+        isRealChild _    = True
 
 --
 -- Hake parsing using the GHC API
