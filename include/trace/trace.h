@@ -101,6 +101,9 @@ struct trace_buffer;
 #define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
 #if defined(__x86_64__)
+// for rdtsc()
+#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
+
 #define TRACE_TIMESTAMP() rdtsc()
 
 /*
