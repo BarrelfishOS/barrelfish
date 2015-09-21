@@ -86,14 +86,18 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 /**
  * \brief Enable fine-grained tracing of cap operations on address range
  * [start_addr, start_addr+size)
+ * \arg types enable tracing for given set of ORed ObjType_s
+ * \arg start_addr start of region to trace for
+ * \arg size size of region to trace for
  */
-errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size)
+errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t size)
 {
-    if (enable) {
-        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR"\n",
-                start_addr, start_addr+size);
+    if (types) {
+        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR
+               " for types 0x%"PRIxPTR"\n",
+               start_addr, start_addr+size, types);
     }
-    return sys_debug_cap_trace_ctrl(enable, start_addr, size);
+    return sys_debug_cap_trace_ctrl(types, start_addr, size);
 }
 
 /**
