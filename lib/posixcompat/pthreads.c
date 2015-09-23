@@ -65,10 +65,6 @@ struct pthread {
     void *retval;
 };
 
-struct pthread_attr {
-    int stacksize;
-};
-
 static pthread_key_t key_index = 0;
 static struct thread_mutex key_mutex = THREAD_MUTEX_INITIALIZER;
 static destructor_fn_t destructors[PTHREAD_KEYS_MAX];
@@ -125,10 +121,10 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
 
     // Start the thread
     (*pthread)->core = disp_get_core_id();
-    if (attr->affinity_set) {
+    if ((*attr)->affinity_set) {
         // Simple allocation policy: Pick the first core that is in the set
         for (size_t i = 0; i < MAX_COREID; i++) {
-            if (CPU_ISSET(i, &attr->affinity)) {
+            if (CPU_ISSET(i, &(*attr)->affinity)) {
                 POSIXCOMPAT_DEBUG("pthread affinity: spawn new thread on core %zu\n", i);
                 (*pthread)->core = i;
                 break;
@@ -194,8 +190,8 @@ int pthread_attr_init(pthread_attr_t *attr)
 {
     *attr = malloc(sizeof(struct pthread_attr));
     (*attr)->stacksize = THREADS_DEFAULT_STACK_BYTES;
-    CPU_ZERO(&attr->affinity);
-    attr->affinity_set = 0;
+    CPU_ZERO(&(*attr)->affinity);
+    (*attr)->affinity_set = 0;
     return 0;
 }
 
@@ -533,8 +529,8 @@ int pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
     return (result);
 }
 
-int pthread_barrier_init(pthread_barrier_t *barrier, 
-			const pthread_barrierattr_t *attr, 
+int pthread_barrier_init(pthread_barrier_t *barrier,
+			const pthread_barrierattr_t *attr,
 			unsigned max_count)
 {
 	barrier->count = 0;
@@ -569,7 +565,7 @@ int pthread_barrier_wait(pthread_barrier_t *barrier)
 		thread_sem_post(&barrier->reset);
 	}
 	thread_sem_post(&barrier->mutex);
-	
+
 	thread_sem_wait(&barrier->reset);
 	thread_sem_post(&barrier->reset);
 
@@ -798,8 +794,8 @@ int pthread_attr_setaffinity_np(pthread_attr_t *attr,
     }
 
     // TODO: Query octopus to check that the affinity mask is sane (EINVAL)!
-    memcpy(&attr->affinity, cpuset, cpusetsize);
-    attr->affinity_set = true;
+    memcpy(&(*attr)->affinity, cpuset, cpusetsize);
+    (*attr)->affinity_set = true;
     return 0;
 }
 

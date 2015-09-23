@@ -47,6 +47,7 @@
  */
 struct pthread;
 struct pthread_attr {
+    int stacksize;
     bool affinity_set;
     cpu_set_t affinity;
 };
@@ -77,7 +78,7 @@ struct pthread_spinlock;
 typedef struct	pthread			*pthread_t;
 #define	_PTHREAD_T_DECLARED
 #endif
-typedef struct	pthread_attr		pthread_attr_t;
+typedef struct	pthread_attr		*pthread_attr_t;
 typedef struct	pthread_mutex		*pthread_mutex_t;
 typedef struct	pthread_mutex_attr	*pthread_mutexattr_t;
 typedef struct	pthread_cond		*pthread_cond_t;
