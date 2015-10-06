@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//#define DEBUG 0
+//#define DEBUG 1
 #ifdef DEBUG
 #define DEBUG_COW(x...) debug_printf(x)
 #else
@@ -97,6 +97,7 @@ static errval_t cow_init(size_t bufsize, size_t granularity,
     DEBUG_COW("bits = %zu\n", rambits);
     err = ram_alloc(&frame, rambits);
     assert(err_is_ok(err));
+    DEBUG_COW("ram alloc done\n");
     // calculate #slots
     cslot_t cap_count = bufsize / granularity;
     cslot_t slots;
@@ -104,12 +105,18 @@ static errval_t cow_init(size_t bufsize, size_t granularity,
     err = cnode_create(&cncap, &cnode, cap_count, &slots);
     assert(err_is_ok(err));
     assert(slots >= cap_count);
+    DEBUG_COW("cnode create done\n");
+
     // retype RAM into Frames
     struct capref first_frame = (struct capref) { .cnode = cnode, .slot = 0 };
     err = cap_retype(first_frame, frame, ObjType_Frame, log2floor(granularity));
     assert(err_is_ok(err));
-    err = cap_destroy(frame);
-    assert(err_is_ok(err));
+    DEBUG_COW("retype done\n");
+
+    //err = cap_destroy(frame);
+    //assert(err_is_ok(err));
+    //DEBUG_COW("destroy done\n");
+
     *frame_count = slots;
     *cow_cn = cnode;
     return SYS_ERR_OK;
@@ -133,6 +140,7 @@ static errval_t vspace_map_one_frame_cow(void **buf, size_t size,
     assert(vregion);
     err = vspace_map_anon_attr(buf, memobj, vregion, size, &size, flags);
     assert(err_is_ok(err));
+
     size_t chunks = size / granularity;
     cslot_t slots;
     struct capref cncap;
@@ -140,16 +148,34 @@ static errval_t vspace_map_one_frame_cow(void **buf, size_t size,
     err = cnode_create(&cncap, &cnode, chunks, &slots);
     assert(err_is_ok(err));
     assert(slots >= chunks);
+
+    cycles_t fstart = 0;
+    cycles_t pstart = 0;
+
     struct capref fc = (struct capref) { .cnode = cnode, .slot = 0 };
     for (int i = 0; i < chunks; i++) {
         err = cap_copy(fc, frame);
         assert(err_is_ok(err));
+
+        cycles_t start = bench_tsc();
         err = (*memobj)->f.fill_foff(*memobj, i * granularity, fc, granularity, i*granularity);
-        assert(err_is_ok(err));
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "call failed.");
+        }
+        cycles_t end = bench_tsc();
+        fstart += end-start;
+
+        start = bench_tsc();
         err = (*memobj)->f.pagefault(*memobj, *vregion, i * granularity, 0);
         assert(err_is_ok(err));
         fc.slot++;
+        end = bench_tsc();
+        pstart += end-start;
     }
+
+    printf("fill_foff: %"PRIu64"\n", bench_tsc_to_ms(fstart));
+    printf("pagefault: %"PRIu64"\n", bench_tsc_to_ms(pstart));
+
     return SYS_ERR_OK;
 }
 
@@ -197,7 +223,8 @@ int cow_setup_bench(size_t buffer_size) {
     assert(err_is_ok(err));
     //  create r/o copy of region and tell exception handler bounds
 
-    // DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
+    cycles_t map = bench_tsc();
+    DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
     err = vspace_map_one_frame_cow(&cow_vbuf, retsize, frame,
             VREGION_FLAGS_READ, NULL, &cow_vregion, BASE_PAGE_SIZE);
     if (err_is_fail(err)) {
@@ -206,10 +233,11 @@ int cow_setup_bench(size_t buffer_size) {
     }
 
     cycles_t end = bench_tsc();
-    cycles_t diff = bench_time_diff(start, end);
     DEBUG_COW("cow_vbuf = %p\n", cow_vbuf);
-
-    printf("[xx] %"PRIu64" %"PRIuCYCLES" %"PRIuCYCLES"\n", buffer_size, diff, bench_tsc_to_ms(diff));
+    printf("[xx] %"PRIu64", %"PRIuCYCLES", %"PRIuCYCLES"\n",
+           buffer_size,
+           bench_tsc_to_ms(bench_time_diff(start, map)),
+           bench_tsc_to_ms(bench_time_diff(map, end)));
     return 0;
 }
 
@@ -218,7 +246,8 @@ int main(int argc, char *argv[])
     bench_init();
     DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
 
-    for (size_t buffer_bits = 15; buffer_bits < 22; buffer_bits++) {
+    printf("[xx] buffer, ms map, ms map\n");
+    for (size_t buffer_bits = 27; buffer_bits < 36; buffer_bits++) {
         uint64_t buffer_size = 1 << buffer_bits; // 32*1024ULL;
         int r = cow_setup_bench(buffer_size);
         assert (r == 0);

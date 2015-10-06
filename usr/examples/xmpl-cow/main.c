@@ -17,7 +17,7 @@
 #include <barrelfish/sys_debug.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define BUFSIZE (32UL*1024)
+#define BUFSIZE (67108864UL)
 
 #define EX_STACK_SIZE 16384
 static char ex_stack[EX_STACK_SIZE];
