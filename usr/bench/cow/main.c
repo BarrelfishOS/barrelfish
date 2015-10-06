@@ -15,18 +15,21 @@
 #include <barrelfish/except.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/sys_debug.h>
+#include <barrelfish/core_state.h>
 #include <bench/bench.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
 #include "vspace_cow.h"
+#include "pmap_cow.h"
 
 #include "debug.h"
 
 #define BUFSIZE (32UL*1024)
 
-static int cow_setup_bench(size_t buffer_size) {
+#ifdef VSPACE_COW
+static int vspace_cow_setup_bench(size_t buffer_size) {
     errval_t err;
     struct capref frame;
     size_t retsize;
@@ -86,18 +89,23 @@ static int cow_setup_bench(size_t buffer_size) {
            bench_tsc_to_ms(bench_time_diff(cow, end)));
     return 0;
 }
+#endif
 
 int main(int argc, char *argv[])
 {
     bench_init();
     DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
 
+#ifdef VSPACE_COW
     printf("[xx] buffer, ms map, ms map\n");
     for (size_t buffer_bits = 27; buffer_bits < 36; buffer_bits++) {
         uint64_t buffer_size = 1 << buffer_bits; // 32*1024ULL;
-        int r = cow_setup_bench(buffer_size);
+        int r = vspace_cow_setup_bench(buffer_size);
         assert (r == 0);
     }
+#endif
+
+    pmap_setup_cow(&(get_morecore_state()->mmu_state.vregion));
 
     return EXIT_SUCCESS;
 }
