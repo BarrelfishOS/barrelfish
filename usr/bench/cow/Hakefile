@@ -10,4 +10,8 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "cowbench", cFiles = [ "main.c" ], addLibraries = ["bench"] } ]
+[ build application { target = "cowbench",
+                      cFiles = [ "main.c", "vspace_cow.c" ],
+                      addLibraries = ["bench"]
+                    }
+]
