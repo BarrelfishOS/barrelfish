@@ -105,7 +105,35 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    pmap_setup_cow(&(get_morecore_state()->mmu_state.vregion));
+    errval_t err;
+    struct vspace_mmu_aware *heap = malloc(sizeof(*heap));
+    err = vspace_mmu_aware_init_aligned(heap, get_default_slot_allocator(),
+                                        1ULL << 30, 1ULL << 39,
+                                        VREGION_FLAGS_READ_WRITE);
+    assert(err_is_ok(err));
+    size_t size;
+    void *buf;
+    err = vspace_mmu_aware_map(heap, LARGE_PAGE_SIZE, &buf, &size);
+    assert(err_is_ok(err));
+
+    memset(buf, 0x55, LARGE_PAGE_SIZE);
+
+    // setup pmap cow framework
+    err = pmap_cow_init();
+    assert(err_is_ok(err));
+
+    // cow-enable malloc() heap
+    void *newbuf;
+    err = pmap_setup_cow(&heap->vregion, &newbuf);
+    assert(err_is_ok(err));
+
+    debug_printf("first byte (old) = %x\n", *(int *)buf);
+    debug_printf("first byte (new) = %x\n", *(int *)newbuf);
+
+    *(int *)buf = 0xAA;
+
+    debug_printf("first byte (old) = %x\n", *(int *)buf);
+    debug_printf("first byte (new) = %x\n", *(int *)newbuf);
 
     return EXIT_SUCCESS;
 }
