@@ -404,6 +404,20 @@ static inline void paging_x86_64_modify_flags(union x86_64_ptable_entry * NONNUL
 
     *entry = tmp;
 }
+static inline void paging_x86_64_pdir_modify_flags(union x86_64_pdir_entry * NONNULL entry,
+                                              uint64_t bitmap)
+{
+    union x86_64_pdir_entry tmp = *entry;
+
+    tmp.d.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.d.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.d.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.d.write_through = bitmap & X86_64_PTABLE_WRITE_THROUGH ? 1 : 0;
+    tmp.d.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
+    tmp.d.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+
+    *entry = tmp;
+}
 
 static inline void paging_unmap(union x86_64_ptable_entry * NONNULL entry)
 {

@@ -464,6 +464,9 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
 errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
                                     size_t pages, size_t mflags)
 {
+    lvaddr_t base = local_phys_to_mem(get_address(leaf_pt)) +
+        offset * sizeof(union x86_64_ptable_entry);
+
     /* Calculate page access protection flags */
     // Mask with provided access rights mask
     paging_x86_64_flags_t flags = X86_64_PTABLE_USER_SUPERVISOR;
@@ -481,7 +484,15 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    return generic_modify_flags(cte_for_cap(leaf_pt), offset, pages, flags, 0);
+    for (int i = 0; i < pages; i++) {
+        union x86_64_pdir_entry *entry =
+            (union x86_64_pdir_entry *)base + i;
+        if (entry->d.present) {
+            paging_x86_64_pdir_modify_flags(entry, flags);
+        }
+    }
+    do_full_tlb_flush();
+    return SYS_ERR_OK;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
