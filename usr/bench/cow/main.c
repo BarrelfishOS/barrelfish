@@ -118,14 +118,19 @@ int main(int argc, char *argv[])
 
     memset(buf, 0x55, LARGE_PAGE_SIZE);
 
+    cycles_t start = bench_tsc();
     // setup pmap cow framework
     err = pmap_cow_init();
     assert(err_is_ok(err));
 
-    // cow-enable malloc() heap
+    // cow-enable heap
     void *newbuf;
     err = pmap_setup_cow(&heap->vregion, &newbuf);
     assert(err_is_ok(err));
+    cycles_t end = bench_tsc();
+
+    debug_printf("pmap_init_cow+pmap_setup_cow: %"PRIu64"\n",
+            bench_tsc_to_ms(bench_time_diff(start, end)));
 
     debug_printf("first byte (old) = %hhx\n", *(char *)buf);
     debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);

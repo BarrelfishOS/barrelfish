@@ -55,14 +55,15 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     void *temp;
     struct vregion *tempvr;
     size_t size = 0;
+    //TODO: get&use Reto's clone_vnode() for
     //TODO: cow_get_ptable(pmap, faddr, &ptable);
     frame_alloc(&newframe, BASE_PAGE_SIZE, &size);
-    // TODO: frame clone
+    // TODO: clone_frame(newframe, newoffset, frame, offset, size)
     vspace_map_one_frame(&temp, BASE_PAGE_SIZE, newframe, NULL, &tempvr);
     memcpy(temp, (void *)faddr, BASE_PAGE_SIZE);
     assert(size == BASE_PAGE_SIZE);
     vregion_destroy(tempvr);
-    // overwrite mapping
+    // TODO: allow overwrite mapping + TLB flush
     vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
             PTABLE_READ_WRITE, 0, 1);
     USER_PANIC("exhandler NYI");
