@@ -123,22 +123,27 @@ int main(int argc, char *argv[])
     err = pmap_cow_init();
     assert(err_is_ok(err));
 
+    cycles_t setup = bench_tsc();
     // cow-enable heap
     void *newbuf;
     err = pmap_setup_cow(&heap->vregion, &newbuf);
     assert(err_is_ok(err));
     cycles_t end = bench_tsc();
 
-    debug_printf("pmap_init_cow+pmap_setup_cow: %"PRIu64"\n",
-            bench_tsc_to_ms(bench_time_diff(start, end)));
+    debug_printf("pmap_init_cow: %"PRIu64"us\n",
+            bench_tsc_to_us(bench_time_diff(start, setup)));
+    debug_printf("pmap_setup_cow: %"PRIu64"us\n",
+            bench_tsc_to_us(bench_time_diff(setup, end)));
 
     debug_printf("first byte (old) = %hhx\n", *(char *)buf);
     debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
 
+#if 0
     *(int *)buf = 0xAA;
 
     debug_printf("first byte (old) = %hhx\n", *(char *)buf);
     debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
+#endif
 
     return EXIT_SUCCESS;
 }

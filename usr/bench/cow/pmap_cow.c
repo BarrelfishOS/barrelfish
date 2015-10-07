@@ -121,28 +121,43 @@ errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
     err = pmap->f.determine_addr_raw(pmap, vregion_size, 0, &new_vaddr);
     assert(err_is_ok(err));
     size_t new_pml4e = X86_64_PML4_BASE(new_vaddr);
-    debug_printf("using pml4e %zu to alias pml4e %zu\n",
+    DEBUG_COW("using pml4e %zu to alias pml4e %zu\n",
             new_pml4e, pml4e);
 
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
     cow_root_pte = find_vnode(&x86->root, pml4e);
-    debug_printf("cow_root_pte:%p\n", cow_root_pte);
+    if (!cow_root_pte) {
+        USER_PANIC("cow_root_pte NULL");
+    }
+    DEBUG_COW("cow_root_pte:%p\n", cow_root_pte);
     assert(cow_root_pte);
     // TODO: better change to r/o on pml4e or pdpt?
     err = vnode_modify_flags(cow_root_pte->u.vnode.cap, 0,
             PTABLE_SIZE, PTABLE_ACCESS_READONLY);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vnode_modify_flags");
+    }
     assert(err_is_ok(err));
     // create copy of pdpt cap
     struct capref copy;
     err = slot_alloc(&copy);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot_alloc");
+    }
     assert(err_is_ok(err));
     err = cap_copy(copy, cow_root_pte->u.vnode.cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_copy");
+    }
     assert(err_is_ok(err));
 
     struct vnode *copy_vnode = NULL;
     err = alloc_vnode_noalloc(x86, &x86->root, copy,
                       new_pml4e, &copy_vnode);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "alloc_vnode_noalloc");
+    }
     assert(copy_vnode);
     // XXX: dangerous!
     copy_vnode->u.vnode.children = cow_root_pte->u.vnode.children;
