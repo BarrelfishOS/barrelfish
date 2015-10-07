@@ -10,6 +10,36 @@ static struct vnode *cow_root_pte = NULL;
 #define EX_STACK_SIZE 16384
 static char ex_stack[EX_STACK_SIZE];
 
+static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
+                     struct capref vnodecap, uint32_t entry,
+                     struct vnode **retvnode)
+{
+    errval_t err;
+
+    struct vnode *newvnode = slab_alloc(&pmap->slab);
+    if (newvnode == NULL) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    }
+    newvnode->u.vnode.cap = vnodecap;
+
+    // Map it
+    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
+                    PTABLE_ACCESS_DEFAULT, 0, 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_MAP);
+    }
+
+    // The VNode meta data
+    newvnode->is_vnode  = true;
+    newvnode->entry     = entry;
+    newvnode->next      = root->u.vnode.children;
+    root->u.vnode.children = newvnode;
+    newvnode->u.vnode.children = NULL;
+
+    *retvnode = newvnode;
+    return SYS_ERR_OK;
+}
+
 static void handler(enum exception_type type, int subtype, void *vaddr,
         arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
 {
@@ -20,7 +50,21 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     uintptr_t faddr = addr & ~BASE_PAGE_MASK;
     faddr = faddr;
     DEBUG_COW("got expected write pagefault on %p, creating copy of page\n", vaddr);
-    // TODO;
+    struct vnode *ptable = NULL;
+    struct capref newframe;
+    void *temp;
+    struct vregion *tempvr;
+    size_t size = 0;
+    //TODO: cow_get_ptable(pmap, faddr, &ptable);
+    frame_alloc(&newframe, BASE_PAGE_SIZE, &size);
+    // TODO: frame clone
+    vspace_map_one_frame(&temp, BASE_PAGE_SIZE, newframe, NULL, &tempvr);
+    memcpy(temp, (void *)faddr, BASE_PAGE_SIZE);
+    assert(size == BASE_PAGE_SIZE);
+    vregion_destroy(tempvr);
+    // overwrite mapping
+    vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
+            PTABLE_READ_WRITE, 0, 1);
     USER_PANIC("exhandler NYI");
 }
 
@@ -56,57 +100,6 @@ static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
         }
     }
     return NULL;
-}
-
-static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
-                     struct capref vnodecap, uint32_t entry,
-                     struct vnode **retvnode)
-{
-    errval_t err;
-
-    struct vnode *newvnode = slab_alloc(&pmap->slab);
-    if (newvnode == NULL) {
-        return LIB_ERR_SLAB_ALLOC_FAIL;
-    }
-    newvnode->u.vnode.cap = vnodecap;
-
-    // Map it
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0, 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_MAP);
-    }
-
-    // The VNode meta data
-    newvnode->is_vnode  = true;
-    newvnode->entry     = entry;
-    newvnode->next      = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
-    newvnode->u.vnode.children = NULL;
-
-    *retvnode = newvnode;
-    return SYS_ERR_OK;
-}
-
-__attribute__((unused))
-static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
-                     enum objtype type, uint32_t entry,
-                     struct vnode **retvnode)
-{
-    errval_t err;
-    struct capref vnodecap;
-    // The VNode capability
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &vnodecap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    err = vnode_create(vnodecap, type);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_CREATE);
-    }
-
-    return alloc_vnode_noalloc(pmap, root, vnodecap, entry, retvnode);
 }
 
 errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
@@ -146,9 +139,12 @@ errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
     err = cap_copy(copy, cow_root_pte->u.vnode.cap);
     assert(err_is_ok(err));
 
-    struct vnode *copy_vnode;
+    struct vnode *copy_vnode = NULL;
     err = alloc_vnode_noalloc(x86, &x86->root, copy,
                       new_pml4e, &copy_vnode);
+    assert(copy_vnode);
+    // XXX: dangerous!
+    copy_vnode->u.vnode.children = cow_root_pte->u.vnode.children;
 
     *retbuf = (void *)(uintptr_t)(new_pml4e << 39);
 

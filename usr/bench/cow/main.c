@@ -127,13 +127,13 @@ int main(int argc, char *argv[])
     err = pmap_setup_cow(&heap->vregion, &newbuf);
     assert(err_is_ok(err));
 
-    debug_printf("first byte (old) = %x\n", *(int *)buf);
-    debug_printf("first byte (new) = %x\n", *(int *)newbuf);
+    debug_printf("first byte (old) = %hhx\n", *(char *)buf);
+    debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
 
     *(int *)buf = 0xAA;
 
-    debug_printf("first byte (old) = %x\n", *(int *)buf);
-    debug_printf("first byte (new) = %x\n", *(int *)newbuf);
+    debug_printf("first byte (old) = %hhx\n", *(char *)buf);
+    debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
 
     return EXIT_SUCCESS;
 }
