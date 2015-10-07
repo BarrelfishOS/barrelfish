@@ -220,6 +220,15 @@ static struct sysret handle_get_state(struct capability *root,
     uint8_t level  = args[1];
     return sys_get_state(root, cptr, level);
 }
+static struct sysret handle_vnode_modify_flags(struct capability *to,
+                                               int cmd, uintptr_t *args)
+{
+    size_t entry   = args[0];
+    size_t pages   = args[1];
+    size_t flags   = args[2];
+
+    return SYSRET(ptable_modify_flags(to, entry, pages, flags));
+}
 
 static struct sysret handle_get_size(struct capability *root,
                                       int cmd, uintptr_t *args)
@@ -1173,21 +1182,25 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pdpt] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pdir] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_ptable] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,

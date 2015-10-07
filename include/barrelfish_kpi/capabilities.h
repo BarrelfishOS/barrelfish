@@ -369,6 +369,7 @@ enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
     VNodeCmd_Identify,   ///< Return the physical address of the VNode
+    VNodeCmd_ModifyFlags,
 };
 
 /**

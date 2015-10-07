@@ -130,6 +130,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping);
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags,
                                     genvaddr_t va_hint);
+errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
+                                    size_t pages, size_t mflags);
 errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags);
 void paging_dump_tables(struct dcb *dispatcher);

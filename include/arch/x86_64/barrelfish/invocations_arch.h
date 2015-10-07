@@ -241,6 +241,12 @@ static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t cor
                        core_id, entry).error;
 }
 
+static inline errval_t invoke_vnode_modify_flags(struct capref cap,
+                                          size_t entry, size_t num_pages,
+                                          size_t attr)
+{
+    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
+}
 /**
  * \brief Return the system-wide unique ID of the passed ID capability.
  *

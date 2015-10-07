@@ -131,6 +131,12 @@ static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping)
     return invoke_vnode_unmap(pgtl, mapping_addr, level);
 }
 
+static inline errval_t vnode_modify_flags(struct capref pgtl,
+        size_t entry, size_t num_pages, uint64_t attr)
+{
+    return invoke_vnode_modify_flags(pgtl, entry, num_pages, attr);
+}
+
 /**
  * \brief Copy a capability between slots in CSpace
  *

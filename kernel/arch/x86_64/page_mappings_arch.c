@@ -355,15 +355,76 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 }
 
 /**
- * \brief modify flags of mapping `mapping`.
+ * \brief modify flags of entries in `leaf_pt`.
  *
- * \arg mapping the mapping to modify
+ * \arg leaf_pt the frame whose mapping should be modified
  * \arg offset the offset from the first page table entry in entries
  * \arg pages the number of pages to modify
- * \arg mflags the new flags
+ * \arg flags the new flags
  * \arg va_hint a user-supplied virtual address for hinting selective TLB
  *              flushing
  */
+static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
+                                     size_t pages,
+                                     paging_x86_64_flags_t flags,
+                                     genvaddr_t va_hint)
+{
+    /* Calculate location of first pt entry we need to modify */
+    lvaddr_t base = local_phys_to_mem(get_address(&leaf_pt->cap)) +
+        offset * sizeof(union x86_64_ptable_entry);
+
+    size_t pagesize = BASE_PAGE_SIZE;
+    switch(leaf_pt->cap.type) {
+        case ObjType_VNode_x86_64_ptable :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                if (entry->small.present) {
+                    paging_x86_64_modify_flags(entry, flags);
+                }
+            }
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                if (entry->large.present) {
+                    paging_x86_64_modify_flags_large(entry, flags);
+                }
+            }
+            pagesize = LARGE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_ptable_entry *entry =
+                    (union x86_64_ptable_entry *)base + i;
+                if (entry->large.present) {
+                    paging_x86_64_modify_flags_huge(entry, flags);
+                }
+            }
+            pagesize = HUGE_PAGE_SIZE;
+            break;
+        default:
+            return SYS_ERR_WRONG_MAPPING;
+    }
+
+    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
+        debug(SUBSYS_PAGING,
+                "selective flush: 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
+                va_hint, va_hint + pages * pagesize);
+        // use as direct hint
+        // invlpg should work for large/huge pages
+        for (int i = 0; i < pages; i++) {
+            do_one_tlb_flush(va_hint + i * pagesize);
+        }
+    } else {
+        debug(SUBSYS_PAGING, "full flush\n");
+        /* do full TLB flush */
+        do_full_tlb_flush();
+    }
+    return SYS_ERR_OK;
+}
+
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags, genvaddr_t va_hint)
 {
@@ -389,10 +450,6 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    // address of first pte we modify
-    lvaddr_t base = local_phys_to_mem(info->pte) +
-        offset * sizeof(union x86_64_ptable_entry);
-
     // get pt cap to figure out page size
     struct cte *leaf_pt;
     errval_t err;
@@ -401,50 +458,30 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         return err;
     }
 
-    size_t pagesize = BASE_PAGE_SIZE;
-    switch(leaf_pt->cap.type) {
-        case ObjType_VNode_x86_64_ptable :
-            for (int i = 0; i < pages; i++) {
-                union x86_64_ptable_entry *entry =
-                    (union x86_64_ptable_entry *)base + i;
-                paging_x86_64_modify_flags(entry, flags);
-            }
-            break;
-        case ObjType_VNode_x86_64_pdir :
-            for (int i = 0; i < pages; i++) {
-                union x86_64_ptable_entry *entry =
-                    (union x86_64_ptable_entry *)base + i;
-                paging_x86_64_modify_flags_large(entry, flags);
-            }
-            pagesize = LARGE_PAGE_SIZE;
-            break;
-        case ObjType_VNode_x86_64_pdpt :
-            for (int i = 0; i < pages; i++) {
-                union x86_64_ptable_entry *entry =
-                    (union x86_64_ptable_entry *)base + i;
-                paging_x86_64_modify_flags_huge(entry, flags);
-            }
-            pagesize = HUGE_PAGE_SIZE;
-            break;
-        default:
-            return SYS_ERR_WRONG_MAPPING;
+    return generic_modify_flags(leaf_pt, offset, pages, flags, va_hint);
+}
+
+errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
+                                    size_t pages, size_t mflags)
+{
+    /* Calculate page access protection flags */
+    // Mask with provided access rights mask
+    paging_x86_64_flags_t flags = X86_64_PTABLE_USER_SUPERVISOR;
+    flags = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
+    // Add additional arch-specific flags
+    flags |= X86_64_PTABLE_FLAGS(mflags);
+    // Unconditionally mark the page present
+    flags |= X86_64_PTABLE_PRESENT;
+
+    // check arguments
+    if (offset >= X86_64_PTABLE_SIZE) { // Within pagetable
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+    if (offset + pages > X86_64_PTABLE_SIZE) { // mapping size ok
+        return SYS_ERR_VM_MAP_SIZE;
     }
 
-    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
-        debug(SUBSYS_PAGING,
-                "selective flush: 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
-                va_hint, va_hint + pages * pagesize);
-        // use as direct hint
-        // invlpg should work for large/huge pages
-        for (int i = 0; i < pages; i++) {
-            do_one_tlb_flush(va_hint + i * pagesize);
-        }
-    } else {
-        debug(SUBSYS_PAGING, "full flush\n");
-        /* do full TLB flush */
-        do_full_tlb_flush();
-    }
-    return SYS_ERR_OK;
+    return generic_modify_flags(cte_for_cap(leaf_pt), offset, pages, flags, 0);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
