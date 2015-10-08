@@ -32,9 +32,16 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
     // The VNode meta data
     newvnode->is_vnode  = true;
     newvnode->entry     = entry;
+#ifdef PMAP_LL
     newvnode->next      = root->u.vnode.children;
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
+#elif defined(PMAP_ARRAY)
+    memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
+    root->u.vnode.children[entry] = newvnode;
+#else
+#error Invalid pmap datastructure
+#endif
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
@@ -78,6 +85,7 @@ errval_t pmap_cow_init(void)
     return SYS_ERR_OK;
 }
 
+#if defined(PMAP_LL)
 static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
@@ -102,6 +110,22 @@ static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
     }
     return NULL;
 }
+#elif defined(PMAP_ARRAY)
+static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    assert(entry < PTABLE_SIZE);
+
+    if (root->u.vnode.children) {
+        return root->u.vnode.children[entry];
+    } else {
+        return NULL;
+    }
+}
+#else
+#error Invalid pmap datastructure
+#endif
 
 errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
 {
@@ -159,8 +183,10 @@ errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
         USER_PANIC_ERR(err, "alloc_vnode_noalloc");
     }
     assert(copy_vnode);
-    // XXX: dangerous!
-    copy_vnode->u.vnode.children = cow_root_pte->u.vnode.children;
+    // copy children metadata
+    // XXX: should copy caps to keep revoke safety
+    memcpy(copy_vnode->u.vnode.children, cow_root_pte->u.vnode.children,
+            PTABLE_SIZE * sizeof(struct vnode *));
 
     *retbuf = (void *)(uintptr_t)(new_pml4e << 39);
 
