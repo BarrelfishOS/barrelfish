@@ -31,6 +31,7 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
 
     // The VNode meta data
     newvnode->is_vnode  = true;
+    newvnode->is_cloned = false;
     newvnode->entry     = entry;
 #ifdef PMAP_LL
     newvnode->next      = root->u.vnode.children;
@@ -47,42 +48,25 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
     return SYS_ERR_OK;
 }
 
-static void handler(enum exception_type type, int subtype, void *vaddr,
-        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
-{
-    DEBUG_COW("got exception %d(%d) on %p\n", type, subtype, vaddr);
-    assert(type == EXCEPT_PAGEFAULT);
-    assert(subtype == PAGEFLT_WRITE);
-    uintptr_t addr = (uintptr_t) vaddr;
-    uintptr_t faddr = addr & ~BASE_PAGE_MASK;
-    faddr = faddr;
-    DEBUG_COW("got expected write pagefault on %p, creating copy of page\n", vaddr);
-    struct vnode *ptable = NULL;
-    struct capref newframe;
-    void *temp;
-    struct vregion *tempvr;
-    size_t size = 0;
-    //TODO: get&use Reto's clone_vnode() for
-    //TODO: cow_get_ptable(pmap, faddr, &ptable);
-    frame_alloc(&newframe, BASE_PAGE_SIZE, &size);
-    // TODO: clone_frame(newframe, newoffset, frame, offset, size)
-    vspace_map_one_frame(&temp, BASE_PAGE_SIZE, newframe, NULL, &tempvr);
-    memcpy(temp, (void *)faddr, BASE_PAGE_SIZE);
-    assert(size == BASE_PAGE_SIZE);
-    vregion_destroy(tempvr);
-    // TODO: allow overwrite mapping + TLB flush
-    vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
-            PTABLE_READ_WRITE, 0, 1);
-    USER_PANIC("exhandler NYI");
-}
-
-errval_t pmap_cow_init(void)
+static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
+                     enum objtype type, uint32_t entry,
+                     struct vnode **retvnode)
 {
     errval_t err;
-    err = thread_set_exception_handler(handler, NULL, ex_stack,
-            ex_stack+EX_STACK_SIZE, NULL, NULL);
-    assert(err_is_ok(err));
-    return SYS_ERR_OK;
+
+    struct capref vnodecap;
+    // The VNode capability
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &vnodecap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    err = vnode_create(vnodecap, type);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VNODE_CREATE);
+    }
+
+    return alloc_vnode_noalloc(pmap, root, vnodecap, entry, retvnode);
 }
 
 #if defined(PMAP_LL)
@@ -165,6 +149,105 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
 #else
 #error Invalid pmap datastructure
 #endif
+
+static errval_t cow_get_pdir(struct pmap_x86 *pmap,
+        genvaddr_t base, struct vnode **ptable)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+/**
+ * \brief Returns the vnode (potentially cloned) for `base'
+ */
+static errval_t cow_get_ptable(struct pmap_x86 *pmap,
+        genvaddr_t base, struct vnode **ptable)
+{
+    errval_t err;
+    struct vnode *pdir;
+    err = cow_get_pdir(pmap, base, &pdir);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(pdir != NULL);
+    assert(pdir->is_cloned);
+
+    // PDIR mapping
+    *ptable = find_vnode(pdir, X86_64_PDIR_BASE(base));
+    if(*ptable == NULL) {
+        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
+                            X86_64_PDIR_BASE(base), ptable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+    } else if (!(*ptable)->is_cloned) {
+        // need to clone ptable to ensure copy on write
+        struct vnode *newptable;
+        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
+                            X86_64_PDIR_BASE(base), &newptable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+        err = vnode_inherit(newptable->u.vnode.cap,
+                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
+        }
+        err = vnode_modify_flags(newptable->u.vnode.cap, 0, PTABLE_SIZE,
+                PTABLE_ACCESS_READONLY);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+static void handler(enum exception_type type, int subtype, void *vaddr,
+        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
+{
+    errval_t err;
+    DEBUG_COW("got exception %d(%d) on %p\n", type, subtype, vaddr);
+    assert(type == EXCEPT_PAGEFAULT);
+    assert(subtype == PAGEFLT_WRITE);
+    uintptr_t addr = (uintptr_t) vaddr;
+    uintptr_t faddr = addr & ~BASE_PAGE_MASK;
+    faddr = faddr;
+    DEBUG_COW("got expected write pagefault on %p, creating copy of page\n", vaddr);
+    struct vnode *ptable = NULL;
+    struct capref newframe;
+    void *temp;
+    struct vregion *tempvr;
+    size_t size = 0;
+    struct pmap_x86 *pmap = (struct pmap_x86 *)get_current_pmap();
+    err = cow_get_ptable(pmap, faddr, &ptable);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cow_get_ptable");
+    }
+    err = frame_alloc(&newframe, BASE_PAGE_SIZE, &size);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "frame_alloc");
+    }
+    // TODO: clone_frame(newframe, newoffset, frame, offset, size)
+    vspace_map_one_frame(&temp, BASE_PAGE_SIZE, newframe, NULL, &tempvr);
+    memcpy(temp, (void *)faddr, BASE_PAGE_SIZE);
+    assert(size == BASE_PAGE_SIZE);
+    vregion_destroy(tempvr);
+    // TODO: allow overwrite mapping + TLB flush
+    err = vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
+            PTABLE_READ_WRITE, 0, 1);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "frame_alloc");
+    }
+}
+
+errval_t pmap_cow_init(void)
+{
+    errval_t err;
+    err = thread_set_exception_handler(handler, NULL, ex_stack,
+            ex_stack+EX_STACK_SIZE, NULL, NULL);
+    assert(err_is_ok(err));
+    return SYS_ERR_OK;
+}
+
 
 errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
 {

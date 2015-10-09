@@ -304,6 +304,7 @@ errors libbarrelfish LIB_ERR_ {
     failure PMAP_MODIFY_FLAGS "Failure in pmap_modify_flags()",
     failure PMAP_GET_PTABLE   "Failure in get_mapping()",
     failure PMAP_ALLOC_VNODE  "Failure in alloc_vnode()",
+    failure PMAP_CLONE_VNODE  "Failure in clone_vnode()",
     failure PMAP_ADDR_NOT_FREE "The requested address range is not free",
     failure PMAP_FIND_VNODE   "vnode not found",
     failure PMAP_EXISTING_MAPPING "Cannot replace existing mapping, unmap first",
