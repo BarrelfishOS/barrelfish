@@ -150,39 +150,21 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
 #error Invalid pmap datastructure
 #endif
 
-static errval_t cow_get_pdir(struct pmap_x86 *pmap,
-        genvaddr_t base, struct vnode **ptable)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-/**
- * \brief Returns the vnode (potentially cloned) for `base'
- */
-static errval_t cow_get_ptable(struct pmap_x86 *pmap,
-        genvaddr_t base, struct vnode **ptable)
+static errval_t find_or_clone_vnode(struct pmap_x86 *pmap,
+        struct vnode *parent, enum objtype type,
+        size_t entry, struct vnode **ptable)
 {
     errval_t err;
-    struct vnode *pdir;
-    err = cow_get_pdir(pmap, base, &pdir);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    assert(pdir != NULL);
-    assert(pdir->is_cloned);
-
-    // PDIR mapping
-    *ptable = find_vnode(pdir, X86_64_PDIR_BASE(base));
+    *ptable = find_vnode(parent, entry);
     if(*ptable == NULL) {
-        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
-                            X86_64_PDIR_BASE(base), ptable);
+        err = alloc_vnode(pmap, parent, type, entry, ptable);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
     } else if (!(*ptable)->is_cloned) {
         // need to clone ptable to ensure copy on write
         struct vnode *newptable;
-        err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
-                            X86_64_PDIR_BASE(base), &newptable);
+        err = alloc_vnode(pmap, parent, type, entry, &newptable);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
@@ -196,11 +178,115 @@ static errval_t cow_get_ptable(struct pmap_x86 *pmap,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
+        memcpy(newptable->u.vnode.children, (*ptable)->u.vnode.children,
+                PTABLE_SIZE * sizeof(struct vnode *));
+        newptable->is_cloned = true;
+        *ptable = newptable;
     }
+    assert(*ptable);
 
     return SYS_ERR_OK;
 }
 
+// assume that we created a struct vnode but didn't clone the actual pte page
+// for pml4 entries
+static errval_t cow_get_pdpt(struct pmap_x86 *pmap,
+        genvaddr_t base, struct vnode **pdpt)
+{
+    DEBUG_COW("%s: %"PRIxGENVADDR"\n", __FUNCTION__, base);
+    errval_t err;
+    struct vnode *root = &pmap->root;
+    size_t entry = X86_64_PML4_BASE(base);
+    *pdpt = find_vnode(root, entry);
+    assert(*pdpt);
+    DEBUG_COW("%s: is_cloned=%d\n", __FUNCTION__, (*pdpt)->is_cloned);
+    if (!(*pdpt)->is_cloned) {
+        // need to clone ptable to ensure copy on write
+        struct vnode *newptable;
+        err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt, entry,
+                &newptable);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
+        }
+        err = vnode_inherit(newptable->u.vnode.cap,
+                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
+        }
+        err = vnode_modify_flags(newptable->u.vnode.cap, 0, PTABLE_SIZE,
+                PTABLE_ACCESS_READONLY);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
+        }
+        memcpy(newptable->u.vnode.children, (*pdpt)->u.vnode.children,
+                PTABLE_SIZE * sizeof(struct vnode *));
+        newptable->is_cloned = true;
+        *pdpt = newptable;
+    }
+    return SYS_ERR_OK;
+}
+
+static errval_t cow_get_pdir(struct pmap_x86 *pmap,
+        genvaddr_t base, struct vnode **pdir)
+{
+    DEBUG_COW("%s: %"PRIxGENVADDR"\n", __FUNCTION__, base);
+    errval_t err;
+    struct vnode *pdpt = NULL;
+    err = cow_get_pdpt(pmap, base, &pdpt);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(pdpt != NULL);
+    assert(pdpt->is_cloned);
+
+    return find_or_clone_vnode(pmap, pdpt,
+            ObjType_VNode_x86_64_pdir,
+            X86_64_PDPT_BASE(base), pdir);
+}
+/**
+ * \brief Returns the vnode (potentially cloned) for `base'
+ */
+static errval_t cow_get_ptable(struct pmap_x86 *pmap,
+        genvaddr_t base, struct vnode **ptable)
+{
+    DEBUG_COW("%s: %"PRIxGENVADDR"\n", __FUNCTION__, base);
+    errval_t err;
+    struct vnode *pdir;
+    err = cow_get_pdir(pmap, base, &pdir);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(pdir != NULL);
+    assert(pdir->is_cloned);
+
+    return find_or_clone_vnode(pmap, pdir,
+            ObjType_VNode_x86_64_ptable,
+            X86_64_PDIR_BASE(base), ptable);
+}
+
+static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
+{
+    paging_x86_64_flags_t pmap_flags =
+        PTABLE_USER_SUPERVISOR | PTABLE_EXECUTE_DISABLE;
+
+    if (!(vregion_flags & VREGION_FLAGS_GUARD)) {
+        if (vregion_flags & VREGION_FLAGS_WRITE) {
+            pmap_flags |= PTABLE_READ_WRITE;
+        }
+        if (vregion_flags & VREGION_FLAGS_EXECUTE) {
+            pmap_flags &= ~PTABLE_EXECUTE_DISABLE;
+        }
+        if (vregion_flags & VREGION_FLAGS_NOCACHE) {
+            pmap_flags |= PTABLE_CACHE_DISABLED;
+        }
+        else if (vregion_flags & VREGION_FLAGS_WRITE_COMBINING) {
+            // PA4 is configured as write-combining
+            pmap_flags |= PTABLE_ATTR_INDEX;
+        }
+    }
+
+    return pmap_flags;
+}
 static void handler(enum exception_type type, int subtype, void *vaddr,
         arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
 {
@@ -233,7 +319,7 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
     vregion_destroy(tempvr);
     // TODO: allow overwrite mapping + TLB flush
     err = vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
-            PTABLE_READ_WRITE, 0, 1);
+            vregion_to_pmap_flag(VREGION_FLAGS_READ_WRITE), 0, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_alloc");
     }

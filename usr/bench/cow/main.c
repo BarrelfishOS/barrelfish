@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     debug_printf("first byte (old) = %hhx\n", *(char *)buf);
     debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
 
-#if 0
+#if 1
     *(int *)buf = 0xAA;
 
     debug_printf("first byte (old) = %hhx\n", *(char *)buf);

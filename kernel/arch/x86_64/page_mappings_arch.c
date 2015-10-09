@@ -218,6 +218,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     // use standard paging structs even if we're mapping EPT entries
     is_ept = false;
 
+    bool need_tlb_flush = false;
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += page_size) {
         // Destination
@@ -226,9 +227,10 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         if (X86_64_IS_PRESENT(entry)) {
             // cleanup mapping info
             // TODO: cleanup already mapped pages
-            memset(mapping_cte, 0, sizeof(*mapping_cte));
-            debug(SUBSYS_PAGING, "slot in use, slot = 0x%016"PRIx64"\n", entry->raw);
-            return SYS_ERR_VNODE_SLOT_INUSE;
+            //memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            //printf("slot in use\n");
+            //return SYS_ERR_VNODE_SLOT_INUSE;
+            need_tlb_flush = true;
         }
 
         // determine if we map a large/huge page or a normal entry
@@ -260,6 +262,10 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 paging_x86_64_map_table(entry, src_lp + offset);
   //          }
         }
+    }
+    if (need_tlb_flush) {
+        //TODO: do hint-based selective flush for single page mapping
+        do_full_tlb_flush();
     }
 
     return SYS_ERR_OK;
@@ -348,20 +354,19 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
                        slot, pte_count);
 
+    bool need_tlb_flush = false;
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += X86_64_BASE_PAGE_SIZE) {
         union x86_64_ptable_entry *entry =
             (union x86_64_ptable_entry *)dest_lv + slot;
 
-        /* FIXME: Flush TLB if the page is already present
-         * in the meantime, since we don't do this, we just fail to avoid
-         * ever reusing a VA mapping */
         if (X86_64_IS_PRESENT(entry)) {
             // TODO: cleanup already mapped pages
-            memset(mapping_cte, 0, sizeof(*mapping_cte));
-            debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
-                    "this is most likely a user-space bug!\n");
-            return SYS_ERR_VNODE_SLOT_INUSE;
+            //memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            //debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
+            //      "this is most likely a user-space bug!\n");
+            //return SYS_ERR_VNODE_SLOT_INUSE;
+            need_tlb_flush = true;
         }
 
         // Carry out the page mapping
@@ -374,6 +379,10 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         }
 #endif
         paging_x86_64_map(entry, src_lp + offset, flags);
+    }
+    if (need_tlb_flush) {
+        // TODO: do hint-based selective tlb flush if single page modified
+        do_full_tlb_flush();
     }
 
     return SYS_ERR_OK;

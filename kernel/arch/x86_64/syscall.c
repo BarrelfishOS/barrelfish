@@ -314,11 +314,11 @@ static struct sysret handle_inherit(struct capability *dest,
     uint64_t  start         = args[2];
     uint64_t  end           = args[3];
 
-    if (start >= 512 || end >= 512) {
+    if (start > PTABLE_SIZE || end > PTABLE_SIZE) {
         return SYSRET(SYS_ERR_SLOTS_INVALID);
     }
 
-    if (start >= end) {
+    if (start > end) {
         return SYSRET(SYS_ERR_OK);
     }
 
@@ -335,35 +335,18 @@ static struct sysret handle_inherit(struct capability *dest,
         return SYSRET(SYS_ERR_CNODE_TYPE);
     }
 
-    lvaddr_t dst_addr, src_addr;
-    switch(dest->type) {
-        case ObjType_VNode_x86_64_ptable :
-            dst_addr = dest->u.vnode_x86_64_ptable.base;
-            src_addr = src->u.vnode_x86_64_ptable.base;
-            break;
-        case ObjType_VNode_x86_64_pdir :
-            dst_addr = dest->u.vnode_x86_64_pdir.base;
-            src_addr = src->u.vnode_x86_64_pdir.base;
-            break;
-        case ObjType_VNode_x86_64_pdpt :
-            dst_addr = dest->u.vnode_x86_64_pdpt.base;
-            src_addr = src->u.vnode_x86_64_pdpt.base;
-            break;
-        case ObjType_VNode_x86_64_pml4 :
-            dst_addr = dest->u.vnode_x86_64_pml4.base;
-            src_addr = src->u.vnode_x86_64_pml4.base;
-            break;
-        default:
-            return SYSRET(SYS_ERR_CNODE_TYPE);
-            break;
+    genpaddr_t dst_addr = get_address(dest);
+    genpaddr_t src_addr = get_address(src);
+    if (!type_is_vnode(dest->type)) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
     }
 
     uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
     uint64_t *src_entry = (uint64_t *)local_phys_to_mem(src_addr);
 
     for (uint64_t i = start; i < end; ++i) {
-        printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
-        printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
+        //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
+        //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
         dst_entry[i] = src_entry[i];
     }
 
@@ -1308,12 +1291,14 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdir] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_ptable] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
@@ -1321,6 +1306,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
