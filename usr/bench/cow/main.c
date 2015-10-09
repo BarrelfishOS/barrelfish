@@ -17,6 +17,7 @@
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/core_state.h>
 #include <bench/bench.h>
+#include <vfs/vfs.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,7 @@
 #include "debug.h"
 
 #define BUFSIZE (32UL*1024)
+#define LINE_SIZE 256
 
 #ifdef VSPACE_COW
 static int vspace_cow_setup_bench(size_t buffer_size) {
@@ -91,6 +93,13 @@ static int vspace_cow_setup_bench(size_t buffer_size) {
 }
 #endif
 
+static int rand_range(int rangeLow, int rangeHigh) {
+    double myRand = rand()/(1.0 + RAND_MAX); 
+    int range = rangeHigh - rangeLow + 1;
+    int myRand_scaled = (myRand * range) + rangeLow;
+    return myRand_scaled;
+}
+
 int main(int argc, char *argv[])
 {
     bench_init();
@@ -107,16 +116,25 @@ int main(int argc, char *argv[])
 
     errval_t err;
     struct vspace_mmu_aware *heap = malloc(sizeof(*heap));
+    // create 512 GB heap for experiments
     err = vspace_mmu_aware_init_aligned(heap, get_default_slot_allocator(),
-                                        1ULL << 30, 1ULL << 39,
+                                        511ULL << 30, 1ULL << 39,
                                         VREGION_FLAGS_READ_WRITE);
     assert(err_is_ok(err));
-    size_t size;
+    if (argc < 2) {
+        debug_printf("usage: %s <allocation size> (<update fraction>)\n",
+                __FUNCTION__);
+        return 1;
+    }
+    size_t size = strtol(argv[1], NULL, 0);
+    size_t ratio = 10;
+    if (argc >= 3) {
+        ratio = strtol(argv[2], NULL, 0);
+    }
     void *buf;
-    err = vspace_mmu_aware_map(heap, LARGE_PAGE_SIZE, &buf, &size);
+    err = vspace_mmu_aware_map(heap, size, &buf, &size);
     assert(err_is_ok(err));
-
-    memset(buf, 0x55, LARGE_PAGE_SIZE);
+    debug_printf("allocated %zu bytes\n", size);
 
     cycles_t start = bench_tsc();
     // setup pmap cow framework
@@ -135,15 +153,59 @@ int main(int argc, char *argv[])
     debug_printf("pmap_setup_cow: %"PRIu64"us\n",
             bench_tsc_to_us(bench_time_diff(setup, end)));
 
-    debug_printf("first byte (old) = %hhx\n", *(char *)buf);
-    debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
+    size_t accesses = size / ratio;
+    char *wbuf = buf;
+    cycles_t *write_latencies_s = calloc(accesses, sizeof(cycles_t));
+    cycles_t *write_latencies_e = calloc(accesses, sizeof(cycles_t));
+    size_t *write_indices = calloc(accesses, sizeof(size_t));
+    for (size_t i = 0; i < accesses; i++) {
+        size_t index = rand_range(0, size);
+        start = bench_tsc();
+        wbuf[index] = i % 256;
+        end = bench_tsc();
+        write_latencies_s[i] = start;
+        write_latencies_e[i] = end;
+        write_indices[i] = index;
+    }
 
-#if 1
-    *(int *)buf = 0xAA;
-
-    debug_printf("first byte (old) = %hhx\n", *(char *)buf);
-    debug_printf("first byte (new) = %hhx\n", *(char *)newbuf);
+#ifdef  USE_NFS
+    vfs_init();
+    vfs_handle_t data;
+    err = vfs_open("/nfs/gerbesim/cow.data", &data);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vfs_open");
+    }
+    size_t written;
 #endif
+    char line[LINE_SIZE];
+    snprintf(line, LINE_SIZE, "TSCperUS: %"PRIu64"\n", bench_tsc_per_us());
+#ifdef USE_NFS
+    err = vfs_write(data, line, LINE_SIZE, &written);
+    assert(written == k);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vfs_write");
+    }
+#else
+    printf("%s", line);
+#endif
+
+    size_t k;
+    for (size_t i = 0; i < accesses; i++) {
+        k = snprintf(line, LINE_SIZE, "%zu, %"PRIu64", %"PRIu64"\n",
+                write_indices[i], write_latencies_s[i], write_latencies_e[i]);
+#ifdef USE_NFS
+        err = vfs_write(data, line, LINE_SIZE, &written);
+        assert(written == k);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "vfs_write");
+        }
+#else
+        printf("%s", line);
+#endif
+    }
+    printf("\n\nDone!\n");
+    //printf("write latency: %"PRIu64"us\n",
+    //        bench_tsc_to_us(bench_avg(write_latencies, accesses)));
 
     return EXIT_SUCCESS;
 }

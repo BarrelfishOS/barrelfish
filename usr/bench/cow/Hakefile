@@ -12,6 +12,6 @@
 
 [ build application { target = "cowbench",
                       cFiles = [ "main.c", "vspace_cow.c", "pmap_cow.c" ],
-                      addLibraries = ["bench"]
+                      addLibraries = libDeps ["bench", "vfs"]
                     }
 ]
