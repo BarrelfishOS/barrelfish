@@ -11,6 +11,7 @@
  * ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifdef BARRELFISH
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/except.h>
 #include <barrelfish/threads.h>
@@ -19,11 +20,29 @@
 #include <bench/bench.h>
 #include <vfs/vfs.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "vspace_cow.h"
 #include "pmap_cow.h"
+#endif
+
+#ifdef __linux__
+#include <assert.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <string.h>
+#include <sys/mman.h> 
+#include <inttypes.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#include "bench_rdtsc.h"
+#define debug_printf printf
+typedef uint64_t cycles_t;
+#undef VSPACE_COW
+#undef USE_NFS
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "debug.h"
 
@@ -100,10 +119,39 @@ static int rand_range(int rangeLow, int rangeHigh) {
     return myRand_scaled;
 }
 
+#ifdef __linux__
+static void do_fork(void* buf, size_t size);
+static void do_fork(void* buf, size_t size) {
+    int pid;
+    if ((pid = fork())) {
+        if (pid < 0) {
+            printf("fork failed: %d (%s)\n", pid, strerror(pid));
+            _exit(1);
+        }
+
+
+    } else {
+        // Keep child alive to force COW
+        printf("%s:%s:%d:  waiting to exit %d\n", __FILE__, __FUNCTION__, __LINE__, getpid());
+        int parent = getppid();
+        int status;
+        int w = waitpid(pid, &status, 0); 
+        if (w == -1) {
+            perror("waitpid");
+            exit(EXIT_FAILURE);
+        }
+        printf("%s:%s:%d: child exiting\n", __FILE__, __FUNCTION__, __LINE__);
+        _exit(0);
+    }
+}
+#endif
+
 int main(int argc, char *argv[])
 {
+#ifdef BARRELFISH
     bench_init();
     DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
+#endif
 
 #ifdef VSPACE_COW
     printf("[xx] buffer, ms map, ms map\n");
@@ -114,6 +162,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
+#ifdef BARRELFISH
     errval_t err;
     struct vspace_mmu_aware *heap = malloc(sizeof(*heap));
     // create 512 GB heap for experiments
@@ -121,6 +170,8 @@ int main(int argc, char *argv[])
                                         511ULL << 30, 1ULL << 39,
                                         VREGION_FLAGS_READ_WRITE);
     assert(err_is_ok(err));
+#endif
+
     if (argc < 2) {
         debug_printf("usage: %s <allocation size> (<update fraction>)\n",
                 __FUNCTION__);
@@ -131,6 +182,7 @@ int main(int argc, char *argv[])
     if (argc >= 3) {
         ratio = strtol(argv[2], NULL, 0);
     }
+#ifdef BARRELFISH
     void *buf;
     err = vspace_mmu_aware_map(heap, size, &buf, &size);
     assert(err_is_ok(err));
@@ -152,6 +204,19 @@ int main(int argc, char *argv[])
             bench_tsc_to_us(bench_time_diff(start, setup)));
     debug_printf("pmap_setup_cow: %"PRIu64"us\n",
             bench_tsc_to_us(bench_time_diff(setup, end)));
+#else
+#define handle_error(msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+    void* buf;
+    buf = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+    if (buf == MAP_FAILED) {
+        handle_error("mmap");
+    }
+    memset(buf, 0xAB, size);
+    do_fork(buf, size);
+    cycles_t start, end;
+#endif
 
     size_t accesses = size / ratio;
     char *wbuf = buf;
@@ -161,6 +226,7 @@ int main(int argc, char *argv[])
     for (size_t i = 0; i < accesses; i++) {
         size_t index = rand_range(0, size);
         start = bench_tsc();
+        //assert ( ((uint8_t)wbuf[index]) == 0xAB );
         wbuf[index] = i % 256;
         end = bench_tsc();
         write_latencies_s[i] = start;
@@ -177,9 +243,11 @@ int main(int argc, char *argv[])
     }
     size_t written;
 #endif
-    char line[LINE_SIZE];
-    snprintf(line, LINE_SIZE, "TSCperUS: %"PRIu64"\n", bench_tsc_per_us());
+
+    char line[LINE_SIZE] = {'\0'};
 #ifdef USE_NFS
+    snprintf(line, LINE_SIZE, "TSCperUS: %"PRIu64"\n", bench_tsc_per_us());
+
     err = vfs_write(data, line, LINE_SIZE, &written);
     assert(written == k);
     if (err_is_fail(err)) {
@@ -192,7 +260,8 @@ int main(int argc, char *argv[])
     size_t k;
     for (size_t i = 0; i < accesses; i++) {
         k = snprintf(line, LINE_SIZE, "%zu, %"PRIu64", %"PRIu64"\n",
-                write_indices[i], write_latencies_s[i], write_latencies_e[i]);
+                write_indices[i], 
+                write_latencies_s[i], write_latencies_e[i]);
 #ifdef USE_NFS
         err = vfs_write(data, line, LINE_SIZE, &written);
         assert(written == k);
