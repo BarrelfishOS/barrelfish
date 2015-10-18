@@ -46,6 +46,10 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
         uintptr_t offset, uintptr_t pte_count, capaddr_t mapping_crootptr,
         capaddr_t mapping_cnptr, uint8_t mapping_cn_level, cslot_t mapping_slot);
 struct sysret
+sys_copy_remap(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+               int source_vbits, uintptr_t flags, uintptr_t offset,
+               uintptr_t pte_count);
+struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
                  capaddr_t destcn_cptr, cslot_t dest_slot, capaddr_t
                  source_croot_ptr, capaddr_t source_cptr,

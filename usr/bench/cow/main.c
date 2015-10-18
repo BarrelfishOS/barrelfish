@@ -220,8 +220,7 @@ int main(int argc, char *argv[])
 
     size_t accesses = size / ratio;
     char *wbuf = buf;
-    cycles_t *write_latencies_s = calloc(accesses, sizeof(cycles_t));
-    cycles_t *write_latencies_e = calloc(accesses, sizeof(cycles_t));
+    cycles_t *write_latencies = calloc(accesses, sizeof(cycles_t));
     size_t *write_indices = calloc(accesses, sizeof(size_t));
     for (size_t i = 0; i < accesses; i++) {
         size_t index = rand_range(0, size);
@@ -229,39 +228,49 @@ int main(int argc, char *argv[])
         //assert ( ((uint8_t)wbuf[index]) == 0xAB );
         wbuf[index] = i % 256;
         end = bench_tsc();
-        write_latencies_s[i] = start;
-        write_latencies_e[i] = end;
+        if (start <= end) {
+            write_latencies[i] = end - start;
+        } else {
+            printf("s-e: %"PRIu64"\n", start-end);
+        }
         write_indices[i] = index;
     }
 
 #ifdef  USE_NFS
     vfs_init();
-    vfs_handle_t data;
-    err = vfs_open("/nfs/gerbesim/cow.data", &data);
+    err = vfs_mkdir("/nfs");
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "vfs_open");
+        USER_PANIC_ERR(err, "vfs_mount");
     }
-    size_t written;
+    err = vfs_mount("/nfs", "nfs://10.110.4.4/mnt/local/nfs");
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vfs_mount");
+    }
+    vfs_handle_t data;
+    err = vfs_create("/nfs/gerbesim/cow.data", &data);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vfs_create");
+    }
 #endif
 
+    size_t written = 0, k = 0;
     char line[LINE_SIZE] = {'\0'};
-#ifdef USE_NFS
-    snprintf(line, LINE_SIZE, "TSCperUS: %"PRIu64"\n", bench_tsc_per_us());
+    k = snprintf(line, LINE_SIZE, "TSCperUS: %"PRIu64"\n", bench_tsc_per_us());
 
+#ifdef USE_NFS
     err = vfs_write(data, line, LINE_SIZE, &written);
     assert(written == k);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_write");
     }
 #else
-    printf("%s", line);
+    written = printf("%s", line);
+    assert(written == k);
 #endif
 
-    size_t k;
     for (size_t i = 0; i < accesses; i++) {
-        k = snprintf(line, LINE_SIZE, "%zu, %"PRIu64", %"PRIu64"\n",
-                write_indices[i], 
-                write_latencies_s[i], write_latencies_e[i]);
+        k = snprintf(line, LINE_SIZE, "%zu, %"PRIu64"\n",
+                write_indices[i], write_latencies[i]);
 #ifdef USE_NFS
         err = vfs_write(data, line, LINE_SIZE, &written);
         assert(written == k);
@@ -272,9 +281,18 @@ int main(int argc, char *argv[])
         printf("%s", line);
 #endif
     }
+    extern size_t get_ram_caps_count, cow_get_page_count,
+           cow_pt_alloc_count, cow_pd_alloc_count, cow_pdpt_alloc_count;
     printf("\n\nDone!\n");
-    //printf("write latency: %"PRIu64"us\n",
-    //        bench_tsc_to_us(bench_avg(write_latencies, accesses)));
+    printf("avg write latency: %"PRIu64"cycles\n",
+            bench_avg(write_latencies, accesses));
+    printf("max write latency: %"PRIu64"cycles\n",
+            bench_max(write_latencies, accesses));
+    printf("#get_ram_caps: %zu\n", get_ram_caps_count);
+    printf("#cow_get_page: %zu\n", cow_get_page_count);
+    printf("#pts   allocated: %zu\n", cow_pt_alloc_count);
+    printf("#pds   allocated: %zu\n", cow_pd_alloc_count);
+    printf("#pdpts allocated: %zu\n", cow_pdpt_alloc_count);
 
     return EXIT_SUCCESS;
 }

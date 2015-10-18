@@ -10,6 +10,114 @@ static struct vnode *cow_root_pte = NULL;
 #define EX_STACK_SIZE 16384
 static char ex_stack[EX_STACK_SIZE];
 
+// default alloc 1MB
+static size_t default_frame_bytes = 1ULL << 20;
+static struct capref current_ram, current_frame;
+static cslot_t current_slot_count = 0;
+size_t get_ram_caps_count = 0;
+static errval_t get_ram_caps(void)
+{
+    get_ram_caps_count ++;
+    struct capref ram;
+    size_t alloc_bits;
+    size_t alloc_bytes = default_frame_bytes;
+    errval_t err;
+ram_alloc_retry:
+    alloc_bits = log2floor(alloc_bytes);
+    err = ram_alloc(&ram, alloc_bits);
+    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+        DEBUG_COW("early ram_alloc, retry with BASE_PAGE_BITS\n");
+        // this is probably before we have a connection to init and are using
+        // ram_alloc_fixed() which can only do 4kB pages, so we don't yet
+        // touch the default allocation size
+        alloc_bytes = BASE_PAGE_SIZE;
+        err = ram_alloc(&ram, BASE_PAGE_BITS);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "early ram_alloc failed\n");
+            return err;
+        }
+    } else if (err_no(err) == MM_ERR_NOT_FOUND && alloc_bytes > BASE_PAGE_SIZE) {
+        DEBUG_COW("err: %s\n", err_getstring(err));
+        default_frame_bytes >>= 1; // halve default allocation size
+        DEBUG_COW("smaller allocation size: %zd\n", default_frame_bytes);
+        alloc_bytes = default_frame_bytes;
+        goto ram_alloc_retry;
+    } else if (err_is_fail(err)) {
+        debug_printf("error in ram_alloc: %s\n", err_getstring(err));
+        return err;
+    }
+    // make sure we have a RAM cap that is a multiple of base pages
+    assert(alloc_bytes >= BASE_PAGE_SIZE);
+    assert(alloc_bytes % BASE_PAGE_SIZE == 0);
+
+    // retype into 4k caps in new cnode
+    cslot_t slots_needed = alloc_bytes / BASE_PAGE_SIZE;
+    current_slot_count = slots_needed;
+    if (slots_needed == 1) {
+        USER_PANIC("OOM");
+    }
+    assert(slots_needed > 1);
+    cslot_t slots;
+    struct capref nextcncap;
+    struct cnoderef nextcn;
+    DEBUG_COW("%s: need CNode with %d slots\n", __FUNCTION__, slots_needed);
+    err = cnode_create(&nextcncap, &nextcn, slots_needed, &slots);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cnode_create");
+        return err;
+    }
+    if (slots < slots_needed) {
+        USER_PANIC("cnode_create 1");
+    }
+    current_ram = (struct capref) {
+        .cnode = nextcn,
+        .slot = 0,
+    };
+
+    err = cnode_create(&nextcncap, &nextcn, slots_needed, &slots);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cnode_create");
+        return err;
+    }
+    if (slots < slots_needed) {
+        USER_PANIC("cnode_create 2");
+    }
+    current_frame = (struct capref) {
+        .cnode = nextcn,
+        .slot = 0,
+    };
+
+    err = cap_retype(current_ram, ram, ObjType_RAM, BASE_PAGE_BITS);
+    if (err_is_fail(err)) {
+        debug_printf("error in cap_retype: %s\n", err_getstring(err));
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+size_t cow_get_page_count = 0;
+static errval_t cow_get_page(struct capref *f, enum objtype type)
+{
+    cow_get_page_count++;
+    errval_t err;
+    assert(f);
+    if (current_slot_count == 0 || current_ram.slot == current_slot_count) {
+        err = get_ram_caps();
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+    err = cap_retype(current_frame, current_ram, type, BASE_PAGE_BITS);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    *f = current_frame;
+    current_frame.slot++;
+    current_ram.slot++;
+    return SYS_ERR_OK;
+}
+
 static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
                      struct capref vnodecap, uint32_t entry,
                      struct vnode **retvnode)
@@ -55,13 +163,8 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     errval_t err;
 
     struct capref vnodecap;
-    // The VNode capability
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &vnodecap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    err = vnode_create(vnodecap, type);
+    // Get the VNode capability
+    err = cow_get_page(&vnodecap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
@@ -150,12 +253,28 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
 #error Invalid pmap datastructure
 #endif
 
+size_t cow_pt_alloc_count = 0, cow_pd_alloc_count = 0, cow_pdpt_alloc_count = 0;
 static errval_t find_or_clone_vnode(struct pmap_x86 *pmap,
         struct vnode *parent, enum objtype type,
         size_t entry, struct vnode **ptable)
 {
     errval_t err;
     *ptable = find_vnode(parent, entry);
+    if (*ptable == NULL || !(*ptable)->is_cloned) {
+        switch(type) {
+            case ObjType_VNode_x86_64_ptable:
+                cow_pt_alloc_count++;
+                break;
+            case ObjType_VNode_x86_64_pdir:
+                cow_pd_alloc_count++;
+                break;
+            case ObjType_VNode_x86_64_pdpt:
+                cow_pdpt_alloc_count++;
+                break;
+            default:
+                break;
+        }
+    }
     if(*ptable == NULL) {
         err = alloc_vnode(pmap, parent, type, entry, ptable);
         if (err_is_fail(err)) {
@@ -168,15 +287,10 @@ static errval_t find_or_clone_vnode(struct pmap_x86 *pmap,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
-        err = vnode_inherit(newptable->u.vnode.cap,
-                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE);
+        err = vnode_inherit_attr(newptable->u.vnode.cap,
+                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
-        }
-        err = vnode_modify_flags(newptable->u.vnode.cap, 0, PTABLE_SIZE,
-                PTABLE_ACCESS_READONLY);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
         memcpy(newptable->u.vnode.children, (*ptable)->u.vnode.children,
                 PTABLE_SIZE * sizeof(struct vnode *));
@@ -208,15 +322,10 @@ static errval_t cow_get_pdpt(struct pmap_x86 *pmap,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
-        err = vnode_inherit(newptable->u.vnode.cap,
-                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE);
+        err = vnode_inherit_attr(newptable->u.vnode.cap,
+                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
-        }
-        err = vnode_modify_flags(newptable->u.vnode.cap, 0, PTABLE_SIZE,
-                PTABLE_ACCESS_READONLY);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
         memcpy(newptable->u.vnode.children, (*pdpt)->u.vnode.children,
                 PTABLE_SIZE * sizeof(struct vnode *));
@@ -287,38 +396,37 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 
     return pmap_flags;
 }
-static void handler(enum exception_type type, int subtype, void *vaddr,
+
+static exception_handler_fn next_handler = NULL;
+static void cow_handler(enum exception_type type, int subtype, void *vaddr,
         arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
 {
     errval_t err;
     DEBUG_COW("got exception %d(%d) on %p\n", type, subtype, vaddr);
+    if (next_handler && type != EXCEPT_PAGEFAULT) {
+        next_handler(type, subtype, vaddr, regs, fpuregs);
+    }
     assert(type == EXCEPT_PAGEFAULT);
+    if (next_handler && subtype != PAGEFLT_WRITE) {
+        next_handler(type, subtype, vaddr, regs, fpuregs);
+    }
     assert(subtype == PAGEFLT_WRITE);
     uintptr_t addr = (uintptr_t) vaddr;
     uintptr_t faddr = addr & ~BASE_PAGE_MASK;
-    faddr = faddr;
-    DEBUG_COW("got expected write pagefault on %p, creating copy of page\n", vaddr);
+    // TODO: check whether fault inside a registered COW region
+    DEBUG_COW("got write pagefault on %p, creating copy of page\n", vaddr);
     struct vnode *ptable = NULL;
     struct capref newframe;
-    void *temp;
-    struct vregion *tempvr;
-    size_t size = 0;
     struct pmap_x86 *pmap = (struct pmap_x86 *)get_current_pmap();
     err = cow_get_ptable(pmap, faddr, &ptable);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cow_get_ptable");
     }
-    err = frame_alloc(&newframe, BASE_PAGE_SIZE, &size);
+    err = cow_get_page(&newframe, ObjType_Frame);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "frame_alloc");
+        USER_PANIC_ERR(err, "cow_get_page");
     }
-    // TODO: clone_frame(newframe, newoffset, frame, offset, size)
-    vspace_map_one_frame(&temp, BASE_PAGE_SIZE, newframe, NULL, &tempvr);
-    memcpy(temp, (void *)faddr, BASE_PAGE_SIZE);
-    assert(size == BASE_PAGE_SIZE);
-    vregion_destroy(tempvr);
-    // TODO: allow overwrite mapping + TLB flush
-    err = vnode_map(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
+    err = vnode_copy_remap(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
             vregion_to_pmap_flag(VREGION_FLAGS_READ_WRITE), 0, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_alloc");
@@ -328,7 +436,7 @@ static void handler(enum exception_type type, int subtype, void *vaddr,
 errval_t pmap_cow_init(void)
 {
     errval_t err;
-    err = thread_set_exception_handler(handler, NULL, ex_stack,
+    err = thread_set_exception_handler(cow_handler, &next_handler, ex_stack,
             ex_stack+EX_STACK_SIZE, NULL, NULL);
     assert(err_is_ok(err));
     return SYS_ERR_OK;
@@ -380,6 +488,13 @@ errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
         USER_PANIC_ERR(err, "vnode_clone");
     }
     assert(err_is_ok(err));
+
+    DEBUG_COW("setting up frame pool (8MB) for remapping pages\n");
+    default_frame_bytes = 8UL << 20;
+    err = get_ram_caps();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "get_frames");
+    }
 
     //XXX: fix this if we have better determine_addr()
     *retbuf = (void *)new_vaddr;

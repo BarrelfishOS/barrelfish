@@ -137,6 +137,16 @@ static inline errval_t vnode_modify_flags(struct capref pgtl,
     return invoke_vnode_modify_flags(pgtl, entry, num_pages, attr);
 }
 
+static inline errval_t
+vnode_copy_remap(struct capref dest, struct capref src, capaddr_t slot,
+                 uint64_t attr, uint64_t off, uint64_t pte_count)
+{
+    uint8_t svbits = get_cap_valid_bits(src);
+    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+
+    return invoke_vnode_copy_remap(dest, slot, saddr, svbits, attr, off, pte_count);
+}
+
 /**
  * \brief Copy a capability between slots in CSpace
  *
@@ -169,13 +179,20 @@ static inline errval_t cap_get_state(struct capref cap, distcap_state_t *state)
 /*
  * MVAS extension
  */
-static inline errval_t vnode_inherit(struct capref dest, struct capref src,
-                                     cslot_t start, cslot_t end)
+static inline errval_t vnode_inherit_attr(struct capref dest, struct capref src,
+                                          cslot_t start, cslot_t end,
+                                          paging_x86_64_flags_t newflags)
 {
     uint8_t svbits = get_cap_valid_bits(src);
     capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
 
-    return invoke_vnode_inherit(dest, saddr, svbits, start, end);
+    return invoke_vnode_inherit(dest, saddr, svbits, start, end, newflags);
+}
+
+static inline errval_t vnode_inherit(struct capref dest, struct capref src,
+                                     cslot_t start, cslot_t end)
+{
+    return vnode_inherit_attr(dest, src, start, end, 0);
 }
 
 __END_DECLS

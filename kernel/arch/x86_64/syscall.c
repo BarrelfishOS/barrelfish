@@ -301,6 +301,22 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
     };
 }
 
+static struct sysret handle_vnode_copy_remap(struct capability *ptable,
+                                             int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot          = args[0];
+    capaddr_t source_cptr   = args[1];
+    int       source_vbits  = args[2];
+    uint64_t  flags         = args[3];
+    uint64_t  offset        = args[4];
+    uint64_t  pte_count     = args[5];
+
+    struct sysret sr = sys_copy_remap(ptable, slot, source_cptr, source_vbits, flags,
+                                      offset, pte_count);
+    return sr;
+}
+
 /*
  *  MVAS Extension
  */
@@ -313,6 +329,7 @@ static struct sysret handle_inherit(struct capability *dest,
     int       source_vbits  = args[1];
     uint64_t  start         = args[2];
     uint64_t  end           = args[3];
+    uint64_t  flags         = args[4];
 
     if (start > PTABLE_SIZE || end > PTABLE_SIZE) {
         return SYSRET(SYS_ERR_SLOTS_INVALID);
@@ -350,6 +367,9 @@ static struct sysret handle_inherit(struct capability *dest,
         dst_entry[i] = src_entry[i];
     }
 
+    if (flags) {
+        return SYSRET(ptable_modify_flags(dest, start, end - start, flags));
+    }
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -1284,6 +1304,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdpt] = {
@@ -1291,6 +1312,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdir] = {
@@ -1298,6 +1320,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_ptable] = {
@@ -1306,6 +1329,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_Frame_Mapping] = {
