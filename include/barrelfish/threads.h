@@ -41,6 +41,7 @@ void thread_exit(int status);
 struct thread *thread_self(void);
 struct thread *thread_self_disabled(void);
 errval_t thread_join(struct thread *thread, int *retval);
+bool thread_exited(struct thread *thread);
 errval_t thread_detach(struct thread *thread);
 
 void thread_pause(struct thread *thread);

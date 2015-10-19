@@ -539,6 +539,11 @@ errval_t thread_join(struct thread *thread, int *retval)
     return SYS_ERR_OK;
 }
 
+bool thread_exited(struct thread *thread) {
+    return thread->state == THREAD_STATE_EXITED;
+}
+
+
 /**
  * \brief Detach a thread. Free its state when it terminates.
  *
