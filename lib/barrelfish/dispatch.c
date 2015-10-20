@@ -377,7 +377,7 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_print(str);
 
     // dump hw page tables
-    debug_dump_hw_ptables();
+    //debug_dump_hw_ptables();
 
 #if defined(__x86_64__) || defined(__i386__)
     snprintf(str, sizeof(str), "%s page fault due to %s%s, while in %s mode%s\n",
@@ -431,15 +431,19 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_disabled(disp->disabled);
 
 
-    // FIXME: Make sure that following are using assert_print to avoid
-    //  loop of disabled pagefaults
-    // arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
-    // debug_print_save_area(regs);
+    // give more info about faults that basically cannot be in text section
+    if (fault_address >= (1ULL << 39)) {
+        // FIXME: Make sure that following are using assert_print to avoid
+        //  loop of disabled pagefaults
+        arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
+        debug_print_save_area(regs);
 
     // disabled by AB, because we can get into a loop of disabled pagefaults
-    //    debug_dump(regs);
-    //    debug_return_addresses();
-    for(;;);
+        debug_dump(regs);
+        debug_return_addresses();
+    } else {
+        for(;;);
+    }
 }
 
 #include <barrelfish/barrelfish.h>

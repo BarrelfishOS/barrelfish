@@ -746,6 +746,7 @@ static void copy_cpu_frame_to_dispatcher(
  * \param cpu_save_area  Pointer to save area for registers stacked by CPU
  * \param disp_save_area Pointer to save area in dispatcher
  */
+#define WARN_UPF 1
 static __attribute__ ((used))
     void generic_handle_user_exception(int vec, uint64_t error,
                 uintptr_t * NONNULL COUNT(X86_SAVE_AREA_SIZE) cpu_save_area,
@@ -802,13 +803,15 @@ static __attribute__ ((used))
         __asm volatile("mov %%cr2, %[fault_address]"
                        : [fault_address] "=r" (fault_address));
 
-        #if 0
-        uint64_t rsp = cpu_save_area[X86_SAVE_RSP];
-        printk(LOG_WARN, "user page fault%s in '%.*s': addr %lx IP %lx SP %lx "
-                         "error 0x%lx\n",
-               disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
-               disp->name, fault_address, rip, rsp, error);
-        #endif
+#if WARN_UPF
+        if (disabled) {
+            uint64_t rsp = cpu_save_area[X86_SAVE_RSP];
+            printk(LOG_WARN, "user page fault%s in '%.*s': addr %lx IP %lx SP %lx "
+                             "error 0x%lx\n",
+                             disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
+                             disp->name, fault_address, rip, rsp, error);
+        }
+#endif
 
         /* sanity-check that the trap handler saved in the right place */
         assert((disabled && disp_save_area == dispatcher_get_trap_save_area(handle))
