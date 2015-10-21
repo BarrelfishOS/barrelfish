@@ -7,7 +7,7 @@ ifeq ($(DUNE),1)
 	CFLAGS+=-I$(DUNE) -L$(DUNE) -ldune -DDUNE
 endif
 
-ALL= gups gups_lcg gups_dune gups_lcg_dune
+ALL= gups gups_lcg #gups_dune gups_lcg_dune
 all: $(ALL)
 
 %.o: %.c $(DEPS)

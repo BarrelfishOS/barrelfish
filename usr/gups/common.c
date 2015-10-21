@@ -97,6 +97,9 @@ void HPCC_free(void *addr)
     }
 }
 #else
+
+#define MAP_HUGE_2MB    (21 << MAP_HUGE_SHIFT)
+#define MAP_HUGE_1GB    (30 << MAP_HUGE_SHIFT)
 void *HPCC_malloc(size_t bytes, size_t alignment)
 {
     void *res;
@@ -105,10 +108,10 @@ void *HPCC_malloc(size_t bytes, size_t alignment)
         case 4096UL:
             break;
         case (2UL*1024*1024):
-            flags |= MAP_HUGETLB;
+            flags |= MAP_HUGETLB | MAP_HUGE_2MB;
             break;
         case (1024UL*1024*1024):
-            flags |= MAP_HUGETLB;
+            flags |= MAP_HUGETLB | MAP_HUGE_1GB;
             break;
         default:
             printf("Invalid alignment: %" PRIu64 "\n", alignment);
@@ -116,7 +119,8 @@ void *HPCC_malloc(size_t bytes, size_t alignment)
             break;
     }
     bytes = (bytes + (alignment - 1)) & ~(alignment - 1);
-    res = mmap(NULL, bytes + alignment, PROT_READ | PROT_WRITE, flags, -1, 0);
+    void* addr = 0x7fa400000000ULL;
+    res = mmap(addr, bytes + alignment, PROT_READ | PROT_WRITE, flags, -1, 0);
         if (res==MAP_FAILED) {
             perror("mmap");
             exit(1);
