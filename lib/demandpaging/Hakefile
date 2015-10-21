@@ -24,6 +24,6 @@
     target = "tests/demandpaging",
     cFiles = [ "test/demandpaging.c" ],
     addIncludes = [ "include" ],
-    addLibraries = libDeps [ "demandpaging" ]
+    addLibraries = libDeps [ "demandpaging", "bench" ]
   }
 ]

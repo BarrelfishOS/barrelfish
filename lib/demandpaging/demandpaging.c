@@ -30,8 +30,6 @@ struct demand_paging_region *demand_paging_regions = NULL;
 static bool is_dirty(struct dp_page *dpp)
 {
     union x86_64_ptable_entry *entry = dpp->vnode_entry;
-    debug_printf("is_dirty: dpp=0x%lx %p (%lx)\n", dpp->vaddr, entry, (uint64_t)entry->base.base_addr << 12);
-
     switch(dpp->dpr->pagesize) {
         case BASE_PAGE_SIZE:
             assert(entry->base.present);
@@ -161,7 +159,7 @@ static errval_t frame_evict(struct demand_paging_region *dpr,
 {
     errval_t err;
 
-    debug_printf("%s:%u - victim = %lu\n", __FUNCTION__, __LINE__, dpr->frames_victim);
+    DP_DEBUG_SWAP("[evict] victim=%" PRIu64 "\n",  dpr->frames_victim);
 
     struct dp_frame *dpf = &dpr->frames[dpr->frames_victim];
 
