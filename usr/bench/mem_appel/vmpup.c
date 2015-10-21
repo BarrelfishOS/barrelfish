@@ -359,7 +359,12 @@ int main(int argc, char **argv)
 
     char *mem;
     #if defined(__linux__)
+#ifdef TWO_MB_PAGES
+    printf("%s:%s:%d: Use two MiB pages\n", __FILE__, __FUNCTION__, __LINE__);
+    pagesize = 2097152;
+#else
     pagesize = getpagesize();
+#endif
     if (posix_memalign((void **)&mem, pagesize, PAGES*pagesize) != 0) {
         perror("posix_memalign");
         abort();
