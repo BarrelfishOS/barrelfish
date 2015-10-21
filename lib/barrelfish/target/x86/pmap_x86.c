@@ -368,7 +368,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
 #endif
         if (n->entry >= entry && n->entry < end_entry) {
             // sanity check and skip leaf entries
-            if (!n->is_vnode) {
+            if (!n->is_vnode || n->is_pinned) {
                 continue;
             }
             // here we know that all vnodes we're interested in are

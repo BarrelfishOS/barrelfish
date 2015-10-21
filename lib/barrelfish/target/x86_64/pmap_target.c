@@ -1186,6 +1186,148 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
 #error Invalid pmap datastructure
 #endif
 
+
+/*
+ * creates pinned page table entries
+ */
+static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t bytes,
+                           vregion_flags_t flags)
+{
+    errval_t err = SYS_ERR_OK;
+    struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
+
+    size_t pagesize;
+
+    /* work out the number of vnodes we may need and grow the slabs*/
+    size_t max_slabs;
+    if ((flags & VREGION_FLAGS_LARGE)) {
+        assert(!(vaddr & (LARGE_PAGE_SIZE -1)));
+        assert(!(bytes & (LARGE_PAGE_SIZE -1)));
+        pagesize = HUGE_PAGE_SIZE;
+        max_slabs = max_slabs_for_mapping_huge(bytes);
+    } else if ((flags & VREGION_FLAGS_HUGE)) {
+        // case huge pages (1GB)
+        assert(!(vaddr & (HUGE_PAGE_SIZE -1)));
+        assert(!(bytes & (HUGE_PAGE_SIZE -1)));
+        pagesize = HUGE_PAGE_SIZE * 512UL;
+        max_slabs = (bytes / HUGE_PAGE_SIZE) + 1;
+    } else {
+        //case normal pages (4KB)
+        assert(!(vaddr & (BASE_PAGE_SIZE -1)));
+        assert(!(bytes & (BASE_PAGE_SIZE -1)));
+        pagesize = LARGE_PAGE_SIZE;
+        max_slabs = max_slabs_for_mapping_large(bytes);
+    }
+
+    // Refill slab allocator if necessary
+    size_t slabs_free = slab_freecount(&x86->slab);
+
+    max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
+    if (slabs_free < max_slabs) {
+        struct pmap *mypmap = get_current_pmap();
+        if (pmap == mypmap) {
+            err = refill_slabs(x86, max_slabs);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_SLAB_REFILL);
+            }
+        } else {
+            size_t sbytes = SLAB_STATIC_SIZE(max_slabs - slabs_free,
+                                            sizeof(struct vnode));
+            void *buf = malloc(sbytes);
+            if (!buf) {
+                return LIB_ERR_MALLOC_FAIL;
+            }
+            slab_grow(&x86->slab, buf, sbytes);
+        }
+    }
+
+    /* do the actual creation of the page tables */
+    for (size_t va = vaddr; va < (vaddr + bytes); va += pagesize) {
+        struct vnode *vnode;
+        if ((flags & VREGION_FLAGS_LARGE)) {
+            err = get_pdir(x86, va, &vnode);
+        } else if ((flags & VREGION_FLAGS_HUGE)) {
+            err = get_pdpt(x86, va, &vnode);
+        } else {
+            err = get_ptable(x86, va, &vnode);
+        }
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        /* map the page-table read only for access to status bits */
+        genvaddr_t genvaddr = x86->vregion_offset;
+        x86->vregion_offset += (genvaddr_t)4096;
+
+        assert(x86->vregion_offset < vregion_get_base_addr(&x86->vregion) +
+               vregion_get_size(&x86->vregion));
+
+        /* copy the page-table capability */
+        struct capref slot;
+        err = x86->p.slot_alloc->alloc(x86->p.slot_alloc, &slot);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+
+        err = cap_copy(slot, vnode->u.vnode.cap);
+        if (err_is_fail(err)) {
+            x86->p.slot_alloc->free(x86->p.slot_alloc, slot);
+            return err;
+        }
+
+        /* get the page table of the reserved range and map the PT */
+        struct vnode *ptable;
+        err = get_ptable(x86, genvaddr, &ptable);
+        err = vnode_map(ptable->u.vnode.cap, slot, X86_64_PTABLE_BASE(genvaddr),
+                        vregion_to_pmap_flag(VREGION_FLAGS_READ), 0, 1);
+
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
+
+        /* update the vnode structure */
+        vnode->is_pinned = 1;
+        vnode->u.vnode.virt_base = genvaddr;
+    }
+
+    return err;
+}
+
+
+/*
+ * returns the virtual address of the leaf pagetable for a mapping
+ */
+static errval_t get_leaf_pt(struct pmap *pmap, genvaddr_t vaddr, lvaddr_t *ret_va)
+{
+    assert(ret_va);
+
+    /* walk down the pt hierarchy and stop at the leaf */
+
+    struct vnode *parent = NULL, *current = NULL;
+    // find page and last-level page table (can be pdir or pdpt)
+    if ((current = find_pdpt((struct pmap_x86 *)pmap, vaddr)) == NULL) {
+        return -1;
+    }
+
+    parent = current;
+    if ((current = find_vnode(parent, X86_64_PDPT_BASE(vaddr))) == NULL) {
+        current = parent;
+        goto out;
+    }
+
+    parent = current;
+    if ((current = find_vnode(parent, X86_64_PDIR_BASE(vaddr))) == NULL) {
+        current = parent;
+        goto out;
+    }
+
+out:
+    assert(current && current->is_vnode);
+
+    *ret_va =  current->u.vnode.virt_base;
+    return SYS_ERR_OK;
+}
+
 static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
                                    size_t alignment, genvaddr_t *retvaddr)
 {
@@ -1253,6 +1395,8 @@ static struct pmap_funcs pmap_funcs = {
     .serialise = pmap_x86_serialise,
     .deserialise = pmap_x86_deserialise,
     .dump = dump,
+    .create_pts_pinned = create_pts_pinned,
+    .get_leaf_pt = get_leaf_pt,
     .measure_res = pmap_x86_measure_res,
 };
 
