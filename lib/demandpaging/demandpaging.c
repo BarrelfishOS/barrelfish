@@ -482,7 +482,8 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
 
     /* allocate the frames */
     struct capref frame;
-    err = frame_alloc(&frame, numframes * pagesize, NULL);
+    size_t allocated_size;
+    err = frame_alloc(&frame, numframes * pagesize, &allocated_size);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame alloc\n");
     }
@@ -492,7 +493,7 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
 
     struct capref cnode_cap;
     struct capref frames;
-    err = cnode_create(&cnode_cap, &frames.cnode, id.base / pagesize, NULL);
+    err = cnode_create(&cnode_cap, &frames.cnode, allocated_size / pagesize, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cnode create\n");
     }
