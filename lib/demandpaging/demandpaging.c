@@ -32,17 +32,15 @@ static bool is_dirty(struct dp_page *dpp)
     union x86_64_ptable_entry *entry = dpp->vnode_entry;
     switch(dpp->dpr->pagesize) {
         case BASE_PAGE_SIZE:
-            assert(entry->base.present);
+            assert(entry->base.present == 1);
             return entry->base.dirty;
             break;
         case LARGE_PAGE_SIZE:
-            assert(entry->large.present);
-            assert(entry->large.always1);
+            assert(entry->large.present == 1);
             return entry->large.dirty;
             break;
         case HUGE_PAGE_SIZE:
-            assert(entry->huge.present);
-            assert(entry->huge.always1);
+            assert(entry->huge.present == 1);
             return entry->huge.dirty;
             break;
         default:
