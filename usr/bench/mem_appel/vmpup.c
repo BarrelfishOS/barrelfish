@@ -365,10 +365,26 @@ int main(int argc, char **argv)
 #else
     pagesize = getpagesize();
 #endif
+#ifdef HUGETLBFS
+    printf("%s:%s:%d: Use hugetlbfs\n", __FILE__, __FUNCTION__, __LINE__);
+#define MAP_HUGE_2MB    (21 << MAP_HUGE_SHIFT)
+    int flags = MAP_ANONYMOUS | MAP_PRIVATE | MAP_POPULATE;
+    if (pagesize == 2097152) {
+        flags |= MAP_HUGETLB | MAP_HUGE_2MB;
+    }
+    
+    void* addr = 0x7fa400000000ULL;
+    mem = mmap(addr, PAGES*pagesize, PROT_READ | PROT_WRITE, flags, -1, 0);
+    if (mem==MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+#else
     if (posix_memalign((void **)&mem, pagesize, PAGES*pagesize) != 0) {
         perror("posix_memalign");
         abort();
     }
+#endif
     signal(SIGSEGV, handler);
     #elif defined(BARRELFISH)
     pagesize = BASE_PAGE_SIZE;
