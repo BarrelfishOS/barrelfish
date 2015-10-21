@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
             offset = 0;
         }
         t_elapsed = bench_time_diff(t_start, t_end);
-    } while (bench_ctl_add_run(ctl, &t_elapsed));
+    } while (!bench_ctl_add_run(ctl, &t_elapsed));
 
     bench_ctl_dump_analysis(ctl, 0, "clean reads", bench_tsc_per_us());
     bench_ctl_destroy(ctl);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
             offset = 0;
         }
         t_elapsed = bench_time_diff(t_start, t_end);
-    } while (bench_ctl_add_run(ctl, &t_elapsed));
+    } while (!bench_ctl_add_run(ctl, &t_elapsed));
 
     bench_ctl_dump_analysis(ctl, 0, "dirty reads", bench_tsc_per_us());
     bench_ctl_destroy(ctl);
@@ -122,10 +122,26 @@ int main(int argc, char *argv[])
         if ((addr + offset) != *i) {
             USER_PANIC("######## page[%lx] != %lx\n", (addr + offset), *i);
         }
-        //debug_printf("######## page[%lx] = %lx\n", (addr + offset), *i);
-
+        //debug_printf("######## page[%lx] = %lx\n", (addr + offset), *i);=
     }
 
+    debug_printf("full page writes\n");
+    char val = 0x11;
+    for (offset = 0; offset < REGION_SIZE; offset += PAGESIZE) {
+        memset((void *)(addr + offset), val++, PAGESIZE);
+    }
+
+    val = 0x11;
+    for (offset = 0; offset < REGION_SIZE; offset += PAGESIZE) {
+        char *data = (char *)addr + offset;
+        for (int i = 0; i < PAGESIZE; ++i) {
+            if (data[i] != val) {
+                USER_PANIC("data[%i]=%x != val=%x\n", i, data[i], val);
+            }
+        }
+        val++;
+
+    }
 
     debug_printf("DONE.\n");
 }

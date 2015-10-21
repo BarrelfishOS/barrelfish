@@ -19,7 +19,7 @@ struct dp_page;
 struct demand_paging_region;
 
 
-#define DP_DEBUG_ENABLE 1
+#define DP_DEBUG_ENABLE 0
 #define DP_DEBUG_PRINT_LINENUMBERS 0
 
 #define DP_DEBUG_MAP_ENABLE 1
