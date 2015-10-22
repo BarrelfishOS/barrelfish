@@ -187,6 +187,7 @@ struct dp_frame
     struct dp_page *page;
     union x86_64_ptable_entry *vnode_entry;
     struct dp_frame *next; /// to hold the free list
+    uint8_t first;
 };
 
 struct demand_paging_region
@@ -203,7 +204,7 @@ struct demand_paging_region
 
     size_t frames_count;            ///< total length of all frames
     size_t frames_victim;            ///< total length of all frames
-    struct dp_frame *frames;        ///< array of all frames
+    struct dp_frame **frames;        ///< array of all frames
     struct dp_frame *frames_free;
 
     size_t vnodes_count;

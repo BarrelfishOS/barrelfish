@@ -29,9 +29,8 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
 errval_t demand_paging_region_add_frames(struct capref *frames, size_t count,
                                          struct demand_paging_region *dpr);
 
-errval_t demand_paging_region_remove_frames(struct capref **frames, size_t count,
-                                            size_t *ret_count,
-                                            struct demand_paging_region *dpr);
+errval_t demand_paging_region_remove_frames(size_t count, struct demand_paging_region *dpr,
+                                             struct capref *ret_frames, size_t *ret_count);
 
 errval_t demand_paging_region_destory(struct demand_paging_region *dpr);
 

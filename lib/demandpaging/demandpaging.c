@@ -152,15 +152,10 @@ static inline errval_t frame_unmap(struct demand_paging_region *dpr, struct dp_p
  * ===========================================================================
  */
 
-static errval_t frame_evict(struct demand_paging_region *dpr,
-                            struct dp_frame **ret_dpf)
+static inline errval_t frame_evict(struct demand_paging_region *dpr,
+                                   struct dp_frame *dpf)
 {
     errval_t err;
-
-    DP_DEBUG_SWAP("[evict] victim=%" PRIu64 "\n",  dpr->frames_victim);
-
-    struct dp_frame *dpf = &dpr->frames[dpr->frames_victim];
-
 
     if (is_dirty(dpf->page)) {
         /* is dirty */
@@ -173,6 +168,24 @@ static errval_t frame_evict(struct demand_paging_region *dpr,
     }
     dpf->page = NULL;
     dpf->vnode_entry = NULL;
+
+    return SYS_ERR_OK;
+}
+
+
+static errval_t frame_evict_any(struct demand_paging_region *dpr,
+                                struct dp_frame **ret_dpf)
+{
+    errval_t err;
+
+    DP_DEBUG_SWAP("[evict] victim=%" PRIu64 "\n",  dpr->frames_victim);
+
+    struct dp_frame *dpf = dpr->frames[dpr->frames_victim];
+
+    err = frame_evict(dpr, dpf);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     /* set the next victim */
     dpr->frames_victim = (dpr->frames_victim + 1) % dpr->frames_count;
@@ -213,12 +226,16 @@ static errval_t handle_pagefault(lvaddr_t vaddr)
         return -1;
     }
 
+    if (dpr->frames_count == 0) {
+        USER_PANIC("there are o frames in the region\n");
+    }
+
     struct dp_frame *dpf;
     if (dpr->frames_free) {
         dpf = dpr->frames_free;
         dpr->frames_free = dpf->next;
     } else {
-        err = frame_evict(dpr, &dpf);
+        err = frame_evict_any(dpr, &dpf);
         if (err_is_fail(err)) {
             return err;
         }
@@ -505,27 +522,33 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
         USER_PANIC_ERR(err, "cap retype\n");
     }
 
-    dpr->frames = calloc(numframes, sizeof(*dpr->frames));
+    dpr->frames = calloc(numframes, sizeof(void *));
     if (dpr->frames == NULL) {
         USER_PANIC("alloc frame counter\n");
     }
 
     /* initialize the frames */
+    struct dp_frame *dpf = calloc(numframes, sizeof(*dpf));
+    if (dpf == NULL) {
+        USER_PANIC("alloc frame counter\n");
+    }
+    dpf->first = 1;
     for (size_t i = 0; i < numframes; ++i) {
-        struct dp_frame *dpf = dpr->frames + i;
         dpf->frame = frames;
         dpf->page = NULL;
-        dpf->page = NULL;
-        if (i == (numframes -1)) {
+        if (i == (numframes - 1)) {
             dpf->next = NULL;
         } else {
             dpf->next = (dpf+1);
         }
 
+        dpr->frames[i] = dpf;
+
+        dpf++;
         frames.slot++;
     }
 
-    dpr->frames_free = dpr->frames;
+    dpr->frames_free = dpr->frames[0];
     dpr->frames_count = numframes;
 
     dpr->next = demand_paging_regions;
@@ -544,15 +567,89 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
 errval_t demand_paging_region_add_frames(struct capref *frames, size_t count,
                                          struct demand_paging_region *dpr)
 {
-    USER_PANIC("NYI");
+    if (count == 0) {
+        return SYS_ERR_OK;
+    }
+
+    assert(dpr);
+
+    /* initialize the frames */
+    struct dp_frame *dpf = calloc(count, sizeof(*dpf));
+    if (dpf == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct dp_frame **dp_frames = realloc(dpr->frames,
+                                          (dpr->frames_count + count) * sizeof(void *));
+    if (dp_frames == NULL) {
+        free(dpf);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    dpf->first = 1;
+    for (size_t i = 0; i < count; ++i) {
+        dpf->frame = frames[i];
+        dpf->page = NULL;
+        if (i == (count - 1)) {
+            dpf->next = NULL;
+        } else {
+            dpf->next = (dpf+1);
+        }
+
+        dpr->frames[dpr->frames_count + i] = dpf;
+
+        dpf++;
+    }
+
+    /* add it to the free list */
+    if (dpr->frames_free) {
+        dpr->frames[dpr->frames_count + count - 1]->next = dpr->frames_free;
+    }
+    dpr->frames_free = dpr->frames[dpr->frames_count];
+
+    /* update count */
+    dpr->frames_count += count;
+    dpr->frames = dp_frames;
+
     return SYS_ERR_OK;
 }
 
-errval_t demand_paging_region_remove_frames(struct capref **frames, size_t count,
-                                            size_t *ret_count,
-                                            struct demand_paging_region *dpr)
+errval_t demand_paging_region_remove_frames(size_t count, struct demand_paging_region *dpr,
+                                             struct capref *ret_frames, size_t *ret_count)
 {
-    USER_PANIC("NYI");
+    errval_t err;
+
+    if (count == 0) {
+        goto out;
+    }
+
+    if (count > (dpr->frames_count - 1)) {
+        count = (dpr->frames_count - 1);
+    }
+
+    struct dp_frame *dpf = dpr->frames[dpr->frames_count - 1];
+    for (size_t i = 0; i < count; ++i) {
+        err = frame_evict(dpr, dpf);
+        if (err_is_fail(err)) {
+            count = i;
+            break;
+        }
+        ret_frames[i] = dpf->frame;
+        memset(dpf, 0, sizeof(*dpf));
+        if (dpf->first) {
+            free(dpf);
+        }
+        dpf--;
+    }
+
+    dpr->frames_count -= count;
+    dpr->frames = realloc(dpr->frames, dpr->frames_count * sizeof(void *));
+    assert(dpr->frames);
+
+    out:
+    if (ret_count) {
+        *ret_count = count;
+    }
     return SYS_ERR_OK;
 }
 
