@@ -122,7 +122,6 @@ errval_t caps_revoke(struct cte *cte);
 /*
  * Cap tracing
  */
-
 #ifdef TRACE_PMEM_CAPS
 STATIC_ASSERT(ObjType_Num == 27, "knowledge of all cap types");
 #define ALL_PMEM_TYPES \
@@ -143,15 +142,14 @@ STATIC_ASSERT(ObjType_Num == 27, "knowledge of all cap types");
      (1ul<<ObjType_PhysAddr) | \
      (1ul<<ObjType_KernelControlBlock))
 
-//#define TRACE_TYPES_ENABLED_INITIAL 0x0
-#define TRACE_TYPES_ENABLED_INITIAL ALL_PMEM_TYPES
+#define TRACE_TYPES_ENABLED_INITIAL 0x0
 #define TRACE_PMEM_BEGIN_INITIAL    0x0
 #define TRACE_PMEM_SIZE_INITIAL     (~(uint32_t)0)
 
-extern uint64_t trace_types_enabled;
+extern uintptr_t trace_types_enabled;
 extern genpaddr_t TRACE_PMEM_BEGIN;
 extern gensize_t TRACE_PMEM_SIZE;
-void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size);
+void caps_trace_ctrl(uintptr_t types, genpaddr_t start, gensize_t size);
 static inline bool caps_should_trace(struct capability *cap)
 {
     if (!(trace_types_enabled & (1ul<<cap->type))) {

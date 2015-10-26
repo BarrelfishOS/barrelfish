@@ -15,7 +15,7 @@
 -- the files are placed under /etc/ssh in the running system
 
 let ramdisk_files = find inDir "ramdisk" ""
-    ramdisk = "sshd_ramfs.cpio.gz"
+    ramdisk = "/sshd_ramfs.cpio.gz"
 in
   [ Rule ( [ Str "bash",
              In SrcTree "src" "mkcpio",

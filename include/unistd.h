@@ -236,6 +236,7 @@ int          gethostname(char *name, size_t len);
 pid_t        getpid(void);
 pid_t        getppid(void);
 uid_t        getuid(void);
+int          getpagesize(void);
 int          initgroups(const char *username, gid_t group);
 int          isatty(int fd);
 int          link(const char *oldpath, const char *newpath);

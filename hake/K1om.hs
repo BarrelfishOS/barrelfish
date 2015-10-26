@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_mic.
 --
@@ -15,7 +15,6 @@
 module K1om where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
@@ -28,13 +27,12 @@ import qualified ArchDefaults
 arch = "k1om"
 archFamily = "k1om"
 
-compiler = "k1om-mpss-linux-gcc"
-objcopy  = "k1om-mpss-linux-objcopy"
-objdump  = "k1om-mpss-linux-objdump"
-ar       = "k1om-mpss-linux-ar"
-ranlib   = "k1om-mpss-linux-anlib"
-cxxcompiler = "k1om-mpss-linux-g++"
-
+compiler    = Config.k1om_cc
+objcopy     = Config.k1om_objcopy
+objdump     = Config.k1om_objdump
+ar          = Config.k1om_ar
+ranlib      = Config.k1om_ranlib
+cxxcompiler = Config.k1om_cxx
 
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
@@ -168,12 +166,12 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N ",
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -185,8 +183,9 @@ linkKernel :: Options -> [String] -> [String]  -> String -> HRule
 linkKernel opts objs libs kbin = 
     let linkscript = "/kernel/linker.lds"
     in
-      Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch "/kernel/linker.lds",
+      Rules [ Rule ([ Str compiler ] ++
+                    map Str Config.cOptFlags ++
+                    [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
                       Str "-o", Out arch kbin 
                     ]
                     ++ (optLdFlags opts)

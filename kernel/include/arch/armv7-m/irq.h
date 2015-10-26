@@ -10,6 +10,8 @@
 #ifndef KERNEL_ARCH_ARM_IRQ_H
 #define KERNEL_ARCH_ARM_IRQ_H
 
+#define NDISPATCH               1
+
 struct capability;
 struct idc_recv_msg;
 //struct sysret irq_table_set(struct capability *to, struct idc_recv_msg *msg);
@@ -17,5 +19,6 @@ struct idc_recv_msg;
 errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint);
 errval_t irq_table_delete(unsigned int nidt);
 void send_user_interrupt(int irq);
+errval_t irq_table_notify_domains(struct kcb *kcb);
 
 #endif // KERNEL_ARCH_ARM_IRQ_H

@@ -16,11 +16,11 @@
                     },
  build application { target = "test_large_malloc",
                       cFiles = [ "malloc_test.c" ],
-                      architectures = [ "x86_64" ]
+                      architectures = allArchitectures
                     },
   build application { target = "test_large_mappings",
                       cFiles = [ "map_test_32.c" ],
-                      architectures = [ "x86_32" ]
+                      architectures = [ "x86_32", "armv7" ]
                     }
 
 ]

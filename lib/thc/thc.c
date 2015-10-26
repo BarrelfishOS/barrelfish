@@ -1603,7 +1603,8 @@ __asm__ ("      .text \n\t"
 	 " int3                      \n\t" /* should never be called */
 	 );
 
-#elif (defined(__arm__) && (defined(linux) || defined(BARRELFISH)))
+#elif (defined(__arm__) && (defined(linux) || defined(BARRELFISH) \
+                        && !defined(__ARM_ARCH_7M__)))
 // NOTES:
 //  - not sure about alignment (.align)
 
@@ -1679,17 +1680,18 @@ void thc_awe_execute_0(awe_t *awe) {
   assert(0 && "_thc_awe_execute_0 not implemented for this architecture");
 }
 
-int _thc_schedulecont(void *cont) {
+int _thc_schedulecont(awe_t *awe) {
   assert(0 && "_thc_schedulecont not implemented for this architecture");
   return 0;
 }
 
-void _thc_callcont(void *awe,   
-                   void *fn,         
+void _thc_callcont(awe_t *awe,   
+                   THCContFn_t fn,         
                    void *args) {            
   assert(0 && "_thc_callcont not implemented for this architecture");
 }
-void  _thc_lazy_awe_marker() {            
+
+void _thc_lazy_awe_marker(void) {            
   assert(0 && "_thc_lazy_awe_marker not implemented for this architecture");
 }
 #endif

@@ -39,9 +39,12 @@ static coreid_t my_core_id;
 #elif defined(__ARM_ARCH_7M__)
 #       define MONITOR_NAME  BF_BINARY_PREFIX "armv7-m/sbin/monitor"
 #       define MEM_SERV_NAME BF_BINARY_PREFIX "armv7-m/sbin/mem_serv"
-#elif defined(__arm__)
+#elif defined(__ARM_ARCH_5__)
 #       define MONITOR_NAME  BF_BINARY_PREFIX "armv5/sbin/monitor"
 #       define MEM_SERV_NAME BF_BINARY_PREFIX "armv5/sbin/mem_serv"
+#elif defined(__ARM_ARCH_8A__)
+#       define MONITOR_NAME  BF_BINARY_PREFIX "armv8/sbin/monitor"
+#       define MEM_SERV_NAME BF_BINARY_PREFIX "armv8/sbin/mem_serv"
 #else
 #       error Unknown architecture
 #endif

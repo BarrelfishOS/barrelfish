@@ -67,27 +67,15 @@ caps_map_l1(struct capability* dest,
     //
     const int ARM_L1_SCALE = 4;
 
-    if (slot >= 1024) {
-        printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id >= 1024");
-        return SYS_ERR_VNODE_SLOT_INVALID;
-    }
-
-    if (pte_count != 1) {
-        printf("pte_count = %zu\n",(size_t)pte_count);
-        panic("oops: pte_count");
-        return SYS_ERR_VM_MAP_SIZE;
-    }
-
     if (src->type != ObjType_VNode_ARM_l2) {
         //large page mapping goes here
-        printf("kernel large page\n");
-        //panic("oops: wrong src type");
         assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
-        // ARM L1 has 4K entries, but we treat it as if it had 1K
-        if (slot >= (256 * 4)) {
-            panic("oops: slot >= (256 * 4)");
+        // ARM L1 has 4K entries, we need to fill in individual entries for
+        // 1M sections
+        // XXX: magic constant
+        if (slot >= 4096) {
+            panic("oops: slot >= 4096");
             return SYS_ERR_VNODE_SLOT_INVALID;
         }
 
@@ -97,14 +85,17 @@ caps_map_l1(struct capability* dest,
         }
 
         // check offset within frame
-        if ((offset + BYTES_PER_SECTION > get_size(src)) ||
+        if ((offset + pte_count * BYTES_PER_SECTION > get_size(src)) ||
             ((offset % BYTES_PER_SECTION) != 0)) {
+            printf("offset = %"PRIuPTR", pte_count=%"PRIuPTR
+                   ", src->size = %"PRIuGENSIZE", src->type = %d\n",
+                    offset, pte_count, get_size(src), src->type);
             panic("oops: frame offset invalid");
             return SYS_ERR_FRAME_OFFSET_INVALID;
         }
 
         // check mapping does not overlap leaf page table
-        if (slot + pte_count > (256 * 4)) {
+        if (slot + pte_count > 4096) {
             return SYS_ERR_VM_MAP_SIZE;
         }
 
@@ -112,7 +103,7 @@ caps_map_l1(struct capability* dest,
         lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
         lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-        union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + slot;
+        union arm_l1_entry* entry = ((union arm_l1_entry*)dest_lvaddr) + slot;
         if (entry->invalid.type != L1_TYPE_INVALID_ENTRY) {
             panic("Remapping valid page.");
         }
@@ -136,7 +127,7 @@ caps_map_l1(struct capability* dest,
             entry->section.ap10 = (kpi_paging_flags & KPI_PAGING_FLAGS_READ)? 2:0;
             entry->section.ap10 |= (kpi_paging_flags & KPI_PAGING_FLAGS_WRITE)? 3:0;
             entry->section.ap2 = 0;
-            entry->section.base_address = (src_lpaddr + i * BYTES_PER_SECTION) >> 12;
+            entry->section.base_address = (src_lpaddr + i * BYTES_PER_SECTION) >> 20;
 
             entry++;
 
@@ -147,35 +138,56 @@ caps_map_l1(struct capability* dest,
         // Flush TLB if remapping.
         cp15_invalidate_tlb();
         return SYS_ERR_OK;
-        return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET) / ARM_L1_SCALE) {
+    // XXX: magic constant
+    if (slot >= 4096) {
         printf("slot = %"PRIuCSLOT"\n",slot);
-        panic("oops: slot id");
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+
+
+    // check offset within frame
+    if ((offset + pte_count * 1024 > get_size(src)) ||
+            ((offset % 1024) != 0)) {
+        printf("offset = %"PRIuPTR", pte_count=%"PRIuPTR
+                ", src->size = %"PRIuGENSIZE", src->type = %d\n",
+                offset, pte_count, get_size(src), src->type);
+        return SYS_ERR_FRAME_OFFSET_INVALID;
+    }
+
+    // check mapping does not overlap leaf page table
+    if (slot + pte_count > 4096) {
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+
+    if (slot >= ARM_L1_OFFSET(MEMORY_OFFSET)) {
+        printf("slot = %"PRIuCSLOT"\n",slot);
         return SYS_ERR_VNODE_SLOT_RESERVED;
     }
 
+    debug(SUBSYS_PAGING, "caps_map_l1: mapping %"PRIuPTR" L2 tables @%"PRIuCSLOT"\n",
+            pte_count, slot);
     // Destination
     lpaddr_t dest_lpaddr = gen_phys_to_local_phys(get_address(dest));
     lvaddr_t dest_lvaddr = local_phys_to_mem(dest_lpaddr);
 
-    union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + (slot * ARM_L1_SCALE);
+    union arm_l1_entry* entry = (union arm_l1_entry*)dest_lvaddr + slot;
 
     // Source
     genpaddr_t src_gpaddr = get_address(src);
-    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr);
+    lpaddr_t   src_lpaddr = gen_phys_to_local_phys(src_gpaddr) + offset;
 
-    assert(offset == 0);
     assert(aligned(src_lpaddr, 1u << 10));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 16384));
 
     struct cte *src_cte = cte_for_cap(src);
     src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr + (slot * ARM_L1_SCALE);
+    src_cte->mapping_info.pte = dest_lpaddr + slot;
     src_cte->mapping_info.offset = 0;
 
-    for (int i = 0; i < 4; i++, entry++)
+    for (int i = 0; i < pte_count; i++, entry++)
     {
         entry->raw = 0;
         entry->page_table.type   = L1_TYPE_PAGE_TABLE_ENTRY;
@@ -183,7 +195,7 @@ caps_map_l1(struct capability* dest,
         entry->page_table.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
         debug(SUBSYS_PAGING, "L1 mapping %"PRIuCSLOT". @%p = %08"PRIx32"\n",
-              slot * ARM_L1_SCALE + i, entry, entry->raw);
+              slot + i, entry, entry->raw);
     }
 
     cp15_invalidate_tlb();
@@ -251,10 +263,10 @@ caps_map_l2(struct capability* dest,
         paging_set_flags(entry, kpi_paging_flags);
         entry->small_page.base_address = (src_lpaddr + i * BYTES_PER_PAGE) >> 12;
 
-        entry++;
-
         debug(SUBSYS_PAGING, "L2 mapping %08"PRIxLVADDR"[%"PRIuCSLOT"] @%p = %08"PRIx32"\n",
                dest_lvaddr, slot, entry, entry->raw);
+
+        entry++;
     }
 
     // Flush TLB if remapping.
@@ -307,7 +319,8 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpaddr_t *paddr)
+static inline void read_pt_entry(struct capability *pgtable,
+        size_t slot, bool is_section, genpaddr_t *paddr)
 {
     assert(type_is_vnode(pgtable->type));
     assert(paddr);
@@ -320,8 +333,13 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
         case ObjType_VNode_ARM_l1:
         {
             union arm_l1_entry *e = (union arm_l1_entry*)lv;
-            *paddr = (genpaddr_t)(e->page_table.base_address) << 10;
-            return;
+            if (is_section) {
+                *paddr = (genpaddr_t)(e->section.base_address) << 20;
+                return;
+            } else {
+                *paddr = (genpaddr_t)(e->page_table.base_address) << 10;
+                return;
+            }
         }
         case ObjType_VNode_ARM_l2:
         {
@@ -339,10 +357,25 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     assert(type_is_vnode(pgtable->type));
     //printf("page_mappings_unmap(%zd pages, slot = %zd)\n", num_pages, slot);
 
+    bool is_section = false;
+    if (pgtable->type == ObjType_VNode_ARM_l1) {
+        // transform slot to hw slot
+        if (mapping->cap.type == ObjType_VNode_ARM_l2) {
+            // l2 table
+            debug(SUBSYS_PAGING, "unmapping l2 tables: %zu, #pages: %zu\n",
+                    slot, num_pages);
+        }
+        else {
+            // section
+            is_section = true;
+            debug(SUBSYS_PAGING, "unmapping section: %zu, #pages: %zu\n",
+                    slot, num_pages);
+        }
+    }
     // get page table entry data
     genpaddr_t paddr;
     //lpaddr_t pte;
-    read_pt_entry(pgtable, slot, &paddr);
+    read_pt_entry(pgtable, slot, is_section, &paddr);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
     // get virtual address of first page
@@ -367,7 +400,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, si
     //printf("state before unmap: num_pages    = %zd\n", num_pages);
 
     if (num_pages != mapping->mapping_info.pte_count) {
-        printf("num_pages = %zu, mapping = %zu\n", num_pages, mapping->mapping_info.pte_count);
+        debug(SUBSYS_PAGING, "num_pages = %zu, mapping = %zu\n",
+                num_pages, mapping->mapping_info.pte_count);
         // want to unmap a different amount of pages than was mapped
         return SYS_ERR_VM_MAP_SIZE;
     }
@@ -414,17 +448,24 @@ void paging_dump_tables(struct dcb *dispatcher)
         // get level2 table
         union arm_l1_entry *l1_e = (union arm_l1_entry *)l1 + l1_index;
         if (!l1_e->raw) { continue; }
-        genpaddr_t ptable_gp = (genpaddr_t)(l1_e->page_table.base_address) << 10;
-        lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
+        if (l1_e->invalid.type == 2) { // section 
+            genpaddr_t paddr = (genpaddr_t)(l1_e->section.base_address) << 20;
+            printf("%d: (section) 0x%"PRIxGENPADDR"\n", l1_index, paddr);
+        } else if (l1_e->invalid.type == 1) { // l2 table
+            genpaddr_t ptable_gp = (genpaddr_t)(l1_e->page_table.base_address) << 10;
+            lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
 
-        for (int entry = 0; entry < ARM_L2_MAX_ENTRIES; entry++) {
-            union arm_l2_entry *e =
-                (union arm_l2_entry *)ptable_lv + entry;
-            genpaddr_t paddr = (genpaddr_t)(e->small_page.base_address) << BASE_PAGE_BITS;
-            if (!paddr) {
-                continue;
+            printf("%d: (l2table) 0x%"PRIxGENPADDR"\n", l1_index, ptable_gp);
+
+            for (int entry = 0; entry < ARM_L2_MAX_ENTRIES; entry++) {
+                union arm_l2_entry *e =
+                    (union arm_l2_entry *)ptable_lv + entry;
+                genpaddr_t paddr = (genpaddr_t)(e->small_page.base_address) << BASE_PAGE_BITS;
+                if (!paddr) {
+                    continue;
+                }
+                printf("%d.%d: 0x%"PRIxGENPADDR"\n", l1_index, entry, paddr);
             }
-            printf("%d.%d: 0x%"PRIxGENPADDR"\n", l1_index, entry, paddr);
         }
     }
 }

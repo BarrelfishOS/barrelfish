@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, ETH Zurich.
+ * Copyright (c) 2014, University of Washington.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -114,8 +114,10 @@ PACK_STRUCT_END
 
 #define IP_HLEN 20
 
+#define IP_PROTO_IP      0
 #define IP_PROTO_ICMP    1
 #define IP_PROTO_IGMP    2
+#define IP_PROTO_IPENCAP 4
 #define IP_PROTO_UDP     17
 #define IP_PROTO_UDPLITE 136
 #define IP_PROTO_TCP     6

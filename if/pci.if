@@ -36,7 +36,7 @@ interface pci "The PCI Interface" {
 
     /* request the cap for a previously-initialised device */
     rpc get_cap(in uint32 idx, in uint32 cap_nr,
-                out errval err, out cap cap, out uint8 type);
+                out errval err, out cap cap, out uint8 type, out uint8 bar_nr);
 
     /* reregister interrupt for a previously-initialized device */
     rpc reregister_interrupt(in uint32 class_code,

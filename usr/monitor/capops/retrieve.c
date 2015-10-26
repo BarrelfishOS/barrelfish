@@ -51,14 +51,13 @@ capops_retrieve(struct domcapref cap,
 {
     errval_t err;
 
+    DEBUG_CAPOPS("%s ## start transfer ownership \n", __FUNCTION__);
+
     distcap_state_t state;
     err = dom_cnode_get_state(cap, &state);
     GOTO_IF_ERR(err, report_error);
     if (distcap_state_is_busy(state)) {
         err = MON_ERR_REMOTE_CAP_RETRY;
-    }
-    if (distcap_state_is_foreign(state)) {
-        err = MON_ERR_CAP_FOREIGN;
     }
     GOTO_IF_ERR(err, report_error);
 
@@ -72,6 +71,9 @@ capops_retrieve(struct domcapref cap,
     rst->cap = cap;
     rst->result_handler = result_handler;
     rst->st = st;
+
+    err = monitor_domains_cap_identify(cap.croot, cap.cptr, cap.bits, &rst->rawcap);
+    GOTO_IF_ERR(err, free_st);
 
     err = monitor_get_domcap_owner(cap, &rst->prev_owner);
     GOTO_IF_ERR(err, free_st);
@@ -98,6 +100,9 @@ report_error:
 static void
 retrieve_ownership__rx(errval_t status, struct retrieve_rpc_st *st)
 {
+    DEBUG_CAPOPS("%s ## transfer ownership done. calling %p\n", __FUNCTION__,
+                 st->result_handler);
+
     caplock_unlock(st->cap);
     st->result_handler(status, st->st);
     free(st);
@@ -133,6 +138,7 @@ retrieve_owner__send(struct intermon_binding *b,
     return;
 
 report_error:
+    DEBUG_CAPOPS("%s failed \n", __FUNCTION__);
     retrieve_ownership__rx(err, st);
 }
 
@@ -143,6 +149,8 @@ retrieve_request__rx(struct intermon_binding *b,
 {
     errval_t err, err2;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
+
+    DEBUG_CAPOPS("%s ## transfer ownership request\n", __FUNCTION__);
 
     struct retrieve_response_st *rst;
     err = calloce(1, sizeof(*rst), &rst);
@@ -229,6 +237,9 @@ retrieve_result__rx(struct intermon_binding *b, errval_t status,
     errval_t err;
     struct retrieve_rpc_st *rst = (struct retrieve_rpc_st*)(lvaddr_t)st;
 
+    DEBUG_CAPOPS("%s ## ownership transferred: %s \n", __FUNCTION__,
+                 err_getstring(status));
+
     if (err_is_fail(status)) {
         err = status;
         goto report_error;
@@ -239,10 +250,14 @@ retrieve_result__rx(struct intermon_binding *b, errval_t status,
                                           NULL);
     PANIC_IF_ERR(err, "setting rrels for retrieved cap");
 
+    DEBUG_CAPOPS("%s broadcast updates to other monitors.\n", __FUNCTION__);
+
     struct event_closure updated_cont
         = MKCONT(retrieve_ownership_update__fin, rst);
     err = capsend_update_owner(rst->cap, updated_cont);
     PANIC_IF_ERR(err, "updating retrieve ownership");
+
+    return;
 
 report_error:
     retrieve_ownership__rx(err, rst);
@@ -252,6 +267,8 @@ static void
 retrieve_ownership_update__fin(void *st)
 {
     struct retrieve_rpc_st *rst = (struct retrieve_rpc_st*)st;
+
+    DEBUG_CAPOPS("%s updated in ownership broadcasted.\n", __FUNCTION__);
 
     retrieve_ownership__rx(SYS_ERR_OK, rst);
 }

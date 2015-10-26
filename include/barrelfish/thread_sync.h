@@ -65,4 +65,21 @@ struct thread_sem {
 typedef int thread_once_t;
 #define THREAD_ONCE_INIT INT_MAX
 
+struct thread_barrier {
+	uint64_t count;
+	uint64_t max_count;
+	struct thread_sem mutex;
+	struct thread_sem barrier;
+	struct thread_sem reset;
+};
+#ifndef __cplusplus
+#		define THREAD_BARRIER_INITIALIZER \
+	{ .count = 0, .max_count 0, .mutex = NULL, \
+	  .barrier = NULL, .reset = NULL }
+#else
+#		define THREAD_BARRIER_INITIALIZER \
+	{ 0, 0, (struct thread_sem *) NULL, \
+	  (struct thread_sem *) NULL, (struct thread_sem *) NULL }	
+#endif
+
 #endif

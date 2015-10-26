@@ -86,14 +86,18 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 /**
  * \brief Enable fine-grained tracing of cap operations on address range
  * [start_addr, start_addr+size)
+ * \arg types enable tracing for given set of ORed ObjType_s
+ * \arg start_addr start of region to trace for
+ * \arg size size of region to trace for
  */
-errval_t debug_cap_trace_ctrl(bool enable, genpaddr_t start_addr, gensize_t size)
+errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t size)
 {
-    if (enable) {
-        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR"\n",
-                start_addr, start_addr+size);
+    if (types) {
+        printf("enabling pmem tracing: 0x%"PRIxGENPADDR"--0x%"PRIxGENPADDR
+               " for types 0x%"PRIxPTR"\n",
+               start_addr, start_addr+size, types);
     }
-    return sys_debug_cap_trace_ctrl(enable, start_addr, size);
+    return sys_debug_cap_trace_ctrl(types, start_addr, size);
 }
 
 /**
@@ -110,8 +114,8 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%"PRIuPTR"\033[0m: ", DISP_NAME_LEN, disp_name(),
-                   disp_get_core_id(), thread_id());
+    len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%"PRIuPTR"\033[0m: ",
+                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), thread_id());
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
@@ -410,4 +414,12 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
     if (err != 0) {
         err_print_calltrace(err);
     }
+}
+
+bool debug_notify_syscall = false;
+
+void debug_control_plane_forbidden(void);
+void debug_control_plane_forbidden(void)
+{
+    debug_notify_syscall = true;
 }

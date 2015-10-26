@@ -64,9 +64,9 @@ errval_t term_client_blocking_init(struct term_client *client,
                                    struct capref session_id)
 {
     errval_t err;
-    iref_t in_iref;
-    iref_t out_iref;
-    iref_t conf_iref;
+    iref_t in_iref= 0;
+    iref_t out_iref= 0;
+    iref_t conf_iref= 0;
 
     /* Initialize client state to default values. */
     struct_term_client_init(client);

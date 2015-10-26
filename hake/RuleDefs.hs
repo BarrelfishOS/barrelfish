@@ -13,19 +13,20 @@
 
 module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
-import Path
+import Data.Maybe (fromMaybe)
+import System.FilePath
 import qualified X86_64
 import qualified K1om
 import qualified X86_32
-import qualified SCC
 import qualified ARMv5
-import qualified ARM11MP
 import qualified XScale
 import qualified ARMv7
 import qualified ARMv7_M
+import qualified ARMv8
 import HakeTypes
 import qualified Args
 import qualified Config
+import TreeDB
 
 import Debug.Trace
 -- enable debug spew
@@ -44,32 +45,35 @@ inRule _ = True
 --
 -- Look for a set of files: this is called using the "find" combinator
 --
-withSuffix :: [String] -> String -> String -> [String]
-withSuffix af tf arg =
-    [ basename f | f <- af, f `isInSameDirAs` tf, isSuffixOf arg f ]
-withSuffices :: [String] -> String -> [String] -> [String]
-withSuffices af tf args =
-    concat [ withSuffix af tf arg | arg <- args ]
+withSuffix :: TreeDB -> String -> String -> [String]
+withSuffix srcDB hakepath extension =
+    map (\f -> "/" </> f) $
+        fromMaybe [] $ tdbByDirExt (takeDirectory hakepath) extension srcDB
+
+withSuffices :: TreeDB -> String -> [String] -> [String]
+withSuffices srcDB hakepath extensions =
+    map (\f -> "/" </> f) $
+        fromMaybe [] $ tdbByDirExts (takeDirectory hakepath) extensions srcDB
 
 --
 -- Find files with a given suffix in a given dir
 --
-inDir :: [String] -> String -> String -> String -> [String]
-inDir af tf dir suffix =
-    -- Dummy is here so that we can find files in the same dir :-/
-    let subdir = (if head dir == '/' then absdir else reldir) ./. "dummy"
-        absdir = if head tf == '/' then dir else '.':dir
-        reldir = (dirname tf) ./. dir
-        files = withSuffix af subdir suffix
-    in
-        [ dir ./. f | f <- files ]
+inDir :: TreeDB -> String -> String -> String -> [String]
+inDir srcDB hakepath dir extension =
+    map (\f -> "/" </> f) $
+        fromMaybe [] $
+            tdbByDirExt (dropTrailingPathSeparator $ normalise $
+                            takeDirectory hakepath </> dir)
+                        extension srcDB
 
-cInDir :: [String] -> String -> String -> [String]
-cInDir af tf dir = inDir af tf dir ".c"
-cxxInDir :: [String] -> String -> String -> [String]
-cxxInDir af tf dir = (inDir af tf dir ".cpp") ++ (inDir af tf dir ".cc")
-sInDir :: [String] -> String -> String -> [String]
-sInDir af tf dir = inDir af tf dir ".S"
+cInDir :: TreeDB -> String -> String -> [String]
+cInDir tdb tf dir = inDir tdb tf dir ".c"
+
+cxxInDir :: TreeDB -> String -> String -> [String]
+cxxInDir tdb tf dir = (inDir tdb tf dir ".cpp") ++ (inDir tdb tf dir ".cc")
+
+sInDir :: TreeDB -> String -> String -> [String]
+sInDir tdb tf dir = inDir tdb tf dir ".S"
 
 -------------------------------------------------------------------------
 --
@@ -81,32 +85,32 @@ options :: String -> Options
 options "x86_64" = X86_64.options
 options "k1om" = K1om.options
 options "x86_32" = X86_32.options
-options "scc" = SCC.options
 options "armv5" = ARMv5.options
-options "arm11mp" = ARM11MP.options
 options "xscale" = XScale.options
 options "armv7" = ARMv7.options
 options "armv7-m" = ARMv7_M.options
+options "armv8" = ARMv8.options
+options s = error $ "Unknown architecture " ++ s
 
 kernelCFlags "x86_64" = X86_64.kernelCFlags
 kernelCFlags "k1om" = K1om.kernelCFlags
 kernelCFlags "x86_32" = X86_32.kernelCFlags
-kernelCFlags "scc" = SCC.kernelCFlags
 kernelCFlags "armv5" = ARMv5.kernelCFlags
-kernelCFlags "arm11mp" = ARM11MP.kernelCFlags
 kernelCFlags "xscale" = XScale.kernelCFlags
 kernelCFlags "armv7" = ARMv7.kernelCFlags
 kernelCFlags "armv7-m" = ARMv7_M.kernelCFlags
+kernelCFlags "armv8" = ARMv8.kernelCFlags
+kernelCFlags s = error $ "Unknown architecture " ++ s
 
 kernelLdFlags "x86_64" = X86_64.kernelLdFlags
 kernelLdFlags "k1om" = K1om.kernelLdFlags
 kernelLdFlags "x86_32" = X86_32.kernelLdFlags
-kernelLdFlags "scc" = SCC.kernelLdFlags
 kernelLdFlags "armv5" = ARMv5.kernelLdFlags
-kernelLdFlags "arm11mp" = ARM11MP.kernelLdFlags
 kernelLdFlags "xscale" = XScale.kernelLdFlags
 kernelLdFlags "armv7" = ARMv7.kernelLdFlags
 kernelLdFlags "armv7-m" = ARMv7_M.kernelLdFlags
+kernelLdFlags "armv8" = ARMv8.kernelLdFlags
+kernelLdFlags s = error $ "Unknown architecture " ++ s
 
 archFamily :: String -> String
 archFamily arch = optArchFamily (options arch)
@@ -126,14 +130,14 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/include" ]]
                  ++
                  [ NoDep SrcTree "src" f | f <- [
-                    "/kernel/include/arch" ./. arch,
-                    "/kernel/include/arch" ./. archFamily arch,
+                    "/kernel/include/arch" </> arch,
+                    "/kernel/include/arch" </> archFamily arch,
                     "/kernel/include",
                     "/include",
-                    "/include/arch" ./. archFamily arch,
+                    "/include/arch" </> archFamily arch,
                     Config.libcInc,
                     "/include/c",
-                    "/include/target" ./. archFamily arch]]
+                    "/include/target" </> archFamily arch]]
                  ++ kernelOptIncludes arch
 
 kernelOptions arch = Options {
@@ -183,12 +187,11 @@ cCompiler opts phase src obj
     | optArch opts == "x86_64"  = X86_64.cCompiler opts phase src obj
     | optArch opts == "k1om"    = K1om.cCompiler opts phase src obj
     | optArch opts == "x86_32"  = X86_32.cCompiler opts phase src obj
-    | optArch opts == "scc"     = SCC.cCompiler opts phase src obj
     | optArch opts == "armv5"   = ARMv5.cCompiler opts phase src obj
-    | optArch opts == "arm11mp" = ARM11MP.cCompiler opts phase src obj
     | optArch opts == "xscale" = XScale.cCompiler opts phase src obj
     | optArch opts == "armv7" = ARMv7.cCompiler opts phase src obj
     | optArch opts == "armv7-m" = ARMv7_M.cCompiler opts phase src obj
+    | optArch opts == "armv8" = ARMv8.cCompiler opts phase src obj
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 cPreprocessor :: Options -> String -> String -> String -> [ RuleToken ]
@@ -216,18 +219,16 @@ makeDepend opts phase src obj depfile
         K1om.makeDepend opts phase src obj depfile
     | optArch opts == "x86_32" =
         X86_32.makeDepend opts phase src obj depfile
-    | optArch opts == "scc" =
-        SCC.makeDepend opts phase src obj depfile
     | optArch opts == "armv5" =
         ARMv5.makeDepend opts phase src obj depfile
-    | optArch opts == "arm11mp" =
-        ARM11MP.makeDepend opts phase src obj depfile
     | optArch opts == "xscale" =
         XScale.makeDepend opts phase src obj depfile
     | optArch opts == "armv7" = 
         ARMv7.makeDepend opts phase src obj depfile
     | optArch opts == "armv7-m" = 
         ARMv7_M.makeDepend opts phase src obj depfile
+    | optArch opts == "armv8" = 
+        ARMv8.makeDepend opts phase src obj depfile
     | otherwise = [ ErrorMsg ("no dependency generator for " ++ (optArch opts)) ]
 
 makeCxxDepend :: Options -> String -> String -> String -> String -> [ RuleToken ]
@@ -243,12 +244,11 @@ cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_64"  = X86_64.cToAssembler opts phase src afile objdepfile
     | optArch opts == "k1om"  = K1om.cToAssembler opts phase src afile objdepfile
     | optArch opts == "x86_32"  = X86_32.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "scc"     = SCC.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv5"   = ARMv5.cToAssembler opts phase src afile objdepfile
-    | optArch opts == "arm11mp" = ARM11MP.cToAssembler opts phase src afile objdepfile
     | optArch opts == "xscale" = XScale.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7" = ARMv7.cToAssembler opts phase src afile objdepfile
     | optArch opts == "armv7-m" = ARMv7_M.cToAssembler opts phase src afile objdepfile
+    | optArch opts == "armv8" = ARMv8.cToAssembler opts phase src afile objdepfile
     | otherwise = [ ErrorMsg ("no C compiler for " ++ (optArch opts)) ]
 
 --
@@ -259,12 +259,11 @@ assembler opts src obj
     | optArch opts == "x86_64"  = X86_64.assembler opts src obj
     | optArch opts == "k1om"  = K1om.assembler opts src obj
     | optArch opts == "x86_32"  = X86_32.assembler opts src obj
-    | optArch opts == "scc"     = SCC.assembler opts src obj
     | optArch opts == "armv5"   = ARMv5.assembler opts src obj
-    | optArch opts == "arm11mp" = ARM11MP.assembler opts src obj
     | optArch opts == "xscale" = XScale.assembler opts src obj
     | optArch opts == "armv7" = ARMv7.assembler opts src obj
     | optArch opts == "armv7-m" = ARMv7_M.assembler opts src obj
+    | optArch opts == "armv8" = ARMv8.assembler opts src obj
     | otherwise = [ ErrorMsg ("no assembler for " ++ (optArch opts)) ]
 
 archive :: Options -> [String] -> [String] -> String -> String -> [ RuleToken ]
@@ -272,12 +271,11 @@ archive opts objs libs name libname
     | optArch opts == "x86_64"  = X86_64.archive opts objs libs name libname
     | optArch opts == "k1om"  = K1om.archive opts objs libs name libname
     | optArch opts == "x86_32"  = X86_32.archive opts objs libs name libname
-    | optArch opts == "scc"     = SCC.archive opts objs libs name libname
     | optArch opts == "armv5"     = ARMv5.archive opts objs libs name libname
-    | optArch opts == "arm11mp" = ARM11MP.archive opts objs libs name libname
     | optArch opts == "xscale" = XScale.archive opts objs libs name libname
     | optArch opts == "armv7" = ARMv7.archive opts objs libs name libname
     | optArch opts == "armv7-m" = ARMv7_M.archive opts objs libs name libname
+    | optArch opts == "armv8" = ARMv8.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
 linker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -285,12 +283,11 @@ linker opts objs libs bin
     | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
     | optArch opts == "k1om" = K1om.linker opts objs libs bin
     | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
-    | optArch opts == "scc"    = SCC.linker opts objs libs bin
     | optArch opts == "armv5"  = ARMv5.linker opts objs libs bin
-    | optArch opts == "arm11mp" = ARM11MP.linker opts objs libs bin
     | optArch opts == "xscale" = XScale.linker opts objs libs bin
     | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
     | optArch opts == "armv7-m" = ARMv7_M.linker opts objs libs bin
+    | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
@@ -314,17 +311,17 @@ dependFilePath :: String -> String
 dependFilePath obj = obj ++ ".depend"
 
 objectFilePath :: Options -> String -> String
-objectFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".o")
+objectFilePath opts src = optSuffix opts </> replaceExtension src ".o"
 
 generatedObjectFilePath :: Options -> String -> String
-generatedObjectFilePath opts src = (removeSuffix src) ++ ".o"
+generatedObjectFilePath opts src = replaceExtension src ".o"
 
 preprocessedFilePath :: Options -> String -> String
-preprocessedFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".i")
+preprocessedFilePath opts src = optSuffix opts </> replaceExtension src ".i"
 
 -- Standard convention is that human generated assembler is .S, machine generated is .s
 assemblerFilePath :: Options -> String -> String
-assemblerFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".s")
+assemblerFilePath opts src = optSuffix opts </> replaceExtension src ".s"
 
 
 -------------------------------------------------------------------------
@@ -342,7 +339,7 @@ assemblerFilePath opts src = (optSuffix opts) ./. ((removeSuffix src) ++ ".s")
 --
 makeDependArchSub :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDependArchSub opts phase src objfile depfile =
-   [ Str ("@echo Generating $@"), NL ] ++
+   [ Str ("@if [ -z $Q ]; then echo Generating $@; fi"), NL ] ++
      makeDepend opts phase src objfile depfile
 
 makeDependArch :: Options -> String -> String -> String -> String -> HRule
@@ -361,7 +358,7 @@ makeDependObj opts phase src =
 -- Make depend for a C++ object file
 makeDependCxxArchSub :: Options -> String -> String -> String -> String -> [ RuleToken ]
 makeDependCxxArchSub opts phase src objfile depfile =
-   [ Str ("@echo Generating $@"), NL ] ++
+   [ Str ("@if [ -z $Q ]; then echo Generating $@; fi"), NL ] ++
      makeCxxDepend opts phase src objfile depfile
 
 makeDependCxxArch :: Options -> String -> String -> String -> String -> HRule
@@ -526,8 +523,8 @@ includeFile opts hdr =
 -- Build a Mackerel header file from a definition.
 --
 mackerelProgLoc = In InstallTree "tools" "/bin/mackerel"
-mackerelDevFileLoc d = In SrcTree "src" ("/devices" ./. (d ++ ".dev"))
-mackerelDevHdrPath d = "/include/dev/" ./. (d ++ "_dev.h")
+mackerelDevFileLoc d = In SrcTree "src" ("/devices" </> (d ++ ".dev"))
+mackerelDevHdrPath d = "/include/dev/" </> (d ++ "_dev.h")
 
 mackerel2 :: Options -> String -> HRule
 mackerel2 opts dev = mackerel_generic opts dev "shift-driver"
@@ -555,26 +552,26 @@ mackerelDependencies opts d srcs =
 --
 
 flounderProgLoc = In InstallTree "tools" "/bin/flounder"
-flounderIfFileLoc ifn = In SrcTree "src" ("/if" ./. (ifn ++ ".if"))
+flounderIfFileLoc ifn = In SrcTree "src" ("/if" </> (ifn ++ ".if"))
 
 -- new-style stubs: path for generic header
-flounderIfDefsPath ifn = "/include/if" ./. (ifn ++ "_defs.h")
+flounderIfDefsPath ifn = "/include/if" </> (ifn ++ "_defs.h")
 -- new-style stubs: path for specific backend header
-flounderIfDrvDefsPath ifn drv = "/include/if" ./. (ifn ++ "_" ++ drv ++ "_defs.h")
+flounderIfDrvDefsPath ifn drv = "/include/if" </> (ifn ++ "_" ++ drv ++ "_defs.h")
 
 -- new-style stubs: generated C code (for all default enabled backends)
 flounderBindingPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_flounder_bindings.c")
+    (optSuffix opts) </> (ifn ++ "_flounder_bindings.c")
 -- new-style stubs: generated C code (for extra backends enabled by the user)
 flounderExtraBindingPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_flounder_extra_bindings.c")
+    (optSuffix opts) </> (ifn ++ "_flounder_extra_bindings.c")
 
-flounderTHCHdrPath ifn = "/include/if" ./. (ifn ++ "_thc.h")
+flounderTHCHdrPath ifn = "/include/if" </> (ifn ++ "_thc.h")
 flounderTHCStubPath opts ifn =
-    (optSuffix opts) ./. (ifn ++ "_thc.c")
+    (optSuffix opts) </> (ifn ++ "_thc.c")
 
-applicationPath name = "/sbin" ./. name
-libraryPath libname = "/lib" ./. ("lib" ++ libname ++ ".a")
+applicationPath name = "/sbin" </> name
+libraryPath libname = "/lib" </> ("lib" ++ libname ++ ".a")
 kernelPath = "/sbin/cpu"
 
 -- construct include arguments to flounder for common types
@@ -585,8 +582,8 @@ kernelPath = "/sbin/cpu"
 flounderIncludes :: Options -> [RuleToken]
 flounderIncludes opts
     = concat [ [Str "-i", flounderIfFileLoc ifn]
-               | ifn <- [ "platform" ./. (optArch opts), -- XXX: optPlatform
-                          "arch" ./. (optArch opts),
+               | ifn <- [ "platform" </> (optArch opts), -- XXX: optPlatform
+                          "arch" </> (optArch opts),
                           "types" ] ]
 
 flounderRule :: Options -> [RuleToken] -> HRule
@@ -627,6 +624,7 @@ flounderBindingHelper opts ifn backends cfile srcs = Rules $
     [ flounderRule opts $ args ++ [flounderIfFileLoc ifn, Out arch cfile ],
         compileGeneratedCFile opts cfile,
         flounderDefsDepend opts ifn allbackends srcs]
+    ++ [extraGeneratedCDependency opts (flounderIfDefsPath ifn) cfile]
     ++ [extraGeneratedCDependency opts (flounderIfDrvDefsPath ifn d) cfile
         | d <- allbackends]
     where
@@ -705,18 +703,27 @@ flounderRules opts args csrcs =
 --
 -- Build a Fugu library
 --
-fuguFile :: Options -> String -> HRule
-fuguFile opts file =
+fuguCFile :: Options -> String -> HRule
+fuguCFile opts file =
     let arch = optArch opts
         cfile = file ++ ".c"
-        hfile = "/include/errors/" ++ file ++ ".h"
     in
-      Rules [ Rule [In InstallTree "tools" "/bin/fugu",
-                    In SrcTree "src" (file++".fugu"),
-                    Out arch hfile,
-                    Out arch cfile ],
+      Rules [ Rule [ In InstallTree "tools" "/bin/fugu",
+                     In SrcTree "src" (file++".fugu"),
+                     Str "-c",
+                     Out arch cfile ],
               compileGeneratedCFile opts cfile
          ]
+
+fuguHFile :: Options -> String -> HRule
+fuguHFile opts file =
+    let arch = optArch opts
+        hfile = "/include/errors/" ++ file ++ ".h"
+    in
+      Rule [ In InstallTree "tools" "/bin/fugu",
+             In SrcTree "src" (file++".fugu"),
+             Str "-h",
+             Out arch hfile ]
 
 --
 -- Build a Pleco library
@@ -777,15 +784,14 @@ linkCxx opts objs libs bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> HRule
 linkKernel opts name objs libs
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "scc"    = SCC.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "arm11mp" = ARM11MP.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
-    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" ./. name)
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "armv5" = ARMv5.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "xscale" = XScale.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name
     | optArch opts == "armv7-m" = ARMv7_M.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
@@ -830,7 +836,7 @@ compileHaskellWithLibs prog main deps dirs =
             Str "--make ",
             In SrcTree "src" main,
             Str "-o ",
-            Out "tools" ("/bin" ./. prog),
+            Out "tools" ("/bin" </> prog),
             Str "$(LDFLAGS)" ]
           ++ concat [[ NStr "-i", NoDep SrcTree "src" d] | d <- dirs]
           ++ [ (Dep SrcTree "src" dep) | dep <- deps ]
@@ -843,7 +849,7 @@ compileNativeC :: String -> [String] -> [String] -> [String] -> HRule
 compileNativeC prog cfiles cflags ldflags =
     Rule ([ Str nativeCCompiler,
             Str "-o",
-            Out "tools" ("/bin" ./. prog),
+            Out "tools" ("/bin" </> prog),
             Str "$(CFLAGS)",
             Str "$(LDFLAGS)" ]
           ++ [ (Str flag) | flag <- cflags ]
@@ -864,7 +870,7 @@ buildTechNoteWithDeps input output bib glo figs deps =
     in
       Rule ( [ Dep SrcTree "src" (f ++ ".pdf") | f <- figs]
              ++
-             [ Dep SrcTree "src" ("/doc/style" ./. f) | f <- style_files ]
+             [ Dep SrcTree "src" ("/doc/style" </> f) | f <- style_files ]
              ++
              [ Str "mkdir", Str "-p", working_dir, NL ]
              ++
@@ -923,12 +929,12 @@ allLibraryPaths args =
 application :: Args.Args
 application = Args.defaultArgs { Args.buildFunction = applicationBuildFn }
 
-applicationBuildFn :: [String] -> String -> Args.Args -> HRule
-applicationBuildFn af tf args
+applicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
+applicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
-applicationBuildFn af tf args =
-    Rules [ appBuildArch af tf args arch | arch <- Args.architectures args ]
+applicationBuildFn tdb tf args =
+    Rules [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -946,10 +952,11 @@ appGetOptionsForArch arch args =
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
-                         [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
+                         [Dep BuildTree arch s |
+                            s <- Args.addGeneratedDependencies args]
                    }
 
-appBuildArch af tf args arch =
+appBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = appGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -983,12 +990,12 @@ appBuildArch af tf args arch =
 arrakisapplication :: Args.Args
 arrakisapplication = Args.defaultArgs { Args.buildFunction = arrakisApplicationBuildFn }
 
-arrakisApplicationBuildFn :: [String] -> String -> Args.Args -> HRule
-arrakisApplicationBuildFn af tf args
+arrakisApplicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
+arrakisApplicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Arrakis Application ") args) False
         = undefined
-arrakisApplicationBuildFn af tf args =
-    Rules [ arrakisAppBuildArch af tf args arch | arch <- Args.architectures args ]
+arrakisApplicationBuildFn tdb tf args =
+    Rules [ arrakisAppBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 arrakisAppGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -1010,7 +1017,7 @@ arrakisAppGetOptionsForArch arch args =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
 
-arrakisAppBuildArch af tf args arch =
+arrakisAppBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = arrakisAppGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -1042,10 +1049,10 @@ arrakisAppBuildArch af tf args arch =
 library :: Args.Args
 library = Args.defaultArgs { Args.buildFunction = libraryBuildFn }
 
-libraryBuildFn :: [String] -> String -> Args.Args -> HRule
-libraryBuildFn af tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
-libraryBuildFn af tf args =
-    Rules [ libBuildArch af tf args arch | arch <- Args.architectures args ]
+libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
+libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
+libraryBuildFn tdb tf args =
+    Rules [ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
 libGetOptionsForArch arch args =
     (options arch) { extraIncludes =
@@ -1063,7 +1070,7 @@ libGetOptionsForArch arch args =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
 
-libBuildArch af tf args arch =
+libBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = libGetOptionsForArch arch args
         csrcs = Args.cFiles args
@@ -1095,7 +1102,7 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 -- defined each own dependencies locally, but that does not seem to be an
 -- easy thing to do currently
 libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
-                                  libvfs_deps_all, LibDep "term_server" ]
+                                  (libvfs_deps_all "vfs"), LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["lwip" ,"contmng" ,"net_if_raw" ,"timer" ,"hashtable"]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
@@ -1108,20 +1115,21 @@ libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
-vfsdeps :: [VFSModules] -> [LibDepTree]
-vfsdeps []                  = [LibDep "vfs"]
-vfsdeps (VFS_RamFS:xs)      = [] ++ vfsdeps xs
-vfsdeps (VFS_NFS:xs)        = [libnfs_deps] ++ vfsdeps xs
-vfsdeps (VFS_BlockdevFS:xs) = [LibDep "ahci" ] ++ vfsdeps xs
-vfsdeps (VFS_FAT:xs)        = [] ++ vfsdeps xs
+vfsdeps :: [VFSModules] -> String -> [LibDepTree]
+vfsdeps [] t                  = [LibDep t]
+vfsdeps (VFS_RamFS:xs) t      = [] ++ vfsdeps xs t
+vfsdeps (VFS_NFS:xs) t        = [libnfs_deps] ++ vfsdeps xs t
+vfsdeps (VFS_BlockdevFS:xs) t = [LibDep "ahci", LibDep "megaraid"] ++ vfsdeps xs t
+vfsdeps (VFS_FAT:xs) t        = [] ++ vfsdeps xs t
 
-libvfs_deps_all        = LibDeps $ vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
-                                            VFS_FAT]
-libvfs_deps_nonfs      = LibDeps $ vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT]
-libvfs_deps_nfs        = LibDeps $ vfsdeps [VFS_NFS]
-libvfs_deps_ramfs      = LibDeps $ vfsdeps [VFS_RamFS]
-libvfs_deps_blockdevfs = LibDeps $ vfsdeps [VFS_BlockdevFS]
-libvfs_deps_fat        = LibDeps $ vfsdeps [VFS_FAT, VFS_BlockdevFS]
+libvfs_deps_all t        = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS, VFS_BlockdevFS,
+                                               VFS_FAT] t)
+libvfs_deps_noblockdev t = LibDeps $ (vfsdeps [VFS_NFS, VFS_RamFS] t)
+libvfs_deps_nonfs t      = LibDeps $ (vfsdeps [VFS_RamFS, VFS_BlockdevFS, VFS_FAT] t)
+libvfs_deps_nfs t        = LibDeps $ (vfsdeps [VFS_NFS] t)
+libvfs_deps_ramfs t      = LibDeps $ (vfsdeps [VFS_RamFS] t)
+libvfs_deps_blockdevfs t = LibDeps $ (vfsdeps [VFS_BlockdevFS] t)
+libvfs_deps_fat t        = LibDeps $ (vfsdeps [VFS_FAT, VFS_BlockdevFS] t)
 
 -- flatten the dependency tree
 flat :: [LibDepTree] -> [LibDepTree]
@@ -1131,9 +1139,10 @@ flat ((LibDeps t):xs) = flat t ++ flat xs
 
 str2dep :: String -> LibDepTree
 str2dep  str
-    | str == "vfs"           = libvfs_deps_all
-    | str == "vfs_nonfs"     = libvfs_deps_nonfs
-    | str == "posixcompat"   = libposixcompat_deps
+    | str == "vfs"           = libvfs_deps_all str
+    | str == "vfs_ramfs"     = libvfs_deps_ramfs str
+    | str == "vfs_nonfs"     = libvfs_deps_nonfs str
+    | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
     | str == "ssh"           = libssh_deps
@@ -1152,6 +1161,7 @@ libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
                   , "term_server"
                   , "vfs"
                   , "ahci"
+		  , "megaraid"
                   , "nfs"
                   , "net_queue_manager"
                   , "bfdmuxvm"
@@ -1178,6 +1188,47 @@ cpuDriver = Args.defaultArgs { Args.buildFunction = cpuDriverBuildFn,
                                Args.target = "cpu" }
 
 -- CPU drivers are built differently
-cpuDriverBuildFn :: [String] -> String -> Args.Args -> HRule
-cpuDriverBuildFn af tf args = Rules []
+cpuDriverBuildFn :: TreeDB -> String -> Args.Args -> HRule
+cpuDriverBuildFn tdb tf args = Rules []
 
+--
+-- Build a platform
+--
+platform :: String -> [ String ] -> [ ( String, String ) ] -> String -> HRule
+platform name archs files docstr =
+  if null $ archs Data.List.\\ Config.architectures then
+    Rules [
+      Phony name False
+      ([ NStr "@echo 'Built platform <",  NStr name, NStr ">'" ] ++
+       [ Dep BuildTree arch file | (arch,file) <- files ]) ,
+      Phony "help-platforms" True 
+      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
+      ]
+  else
+    Rules []
+    
+--
+-- Boot an image.
+--   name: the boot target name
+--   archs: list of architectures required
+--   tokens: the hake tokens for the target
+--   docstr: description of the target
+--
+boot :: String -> [ String ] -> [ RuleToken ] -> String -> HRule
+boot name archs tokens docstr =
+  if null $ archs Data.List.\\ Config.architectures then
+    Rules [
+      Phony name False tokens,
+      Phony "help-boot" True 
+      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
+      ]
+  else
+    Rules []
+    
+--
+-- Copy a file from the source tree
+--
+copyFile :: TreeRef -> String -> String -> String -> String -> HRule
+copyFile stree sarch spath darch dpath =
+  Rule [ Str "cp", Str "-v", In stree sarch spath, Out darch dpath ]
+  

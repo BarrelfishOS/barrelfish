@@ -40,6 +40,7 @@ func( \
     assert(n == argc); \
     struct registers_arm_syscall_args* sa = &context->syscall_args
 
+/* XXX - not revision-independent. */
 #ifdef __ARCH_ARM_5__
 #define NYI(str) printf("armv5: %s\n", str)
 #elif __ARCH_ARM_7M__
@@ -106,6 +107,7 @@ handle_dispatcher_perfmon(
     int argc
     )
 {
+    /* XXX - implement this? */
     return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
 }
 
@@ -346,10 +348,10 @@ handle_unmap(
 
     /* Retrieve arguments */
     capaddr_t  mapping_cptr  = (capaddr_t)sa->arg2;
-    int mapping_bits         = (((int)sa->arg3) >> 20) & 0xff;
-    size_t pte_count         = (((size_t)sa->arg3) >> 10) & 0x3ff;
+    int mapping_bits         = (((int)sa->arg3) >> 24) & 0xff;
+    size_t pte_count         = (((size_t)sa->arg3) >> 12) & 0xfff;
     pte_count               += 1;
-    size_t entry             = ((size_t)sa->arg3) & 0x3ff;
+    size_t entry             = ((size_t)sa->arg3) & 0xfff;
 
     errval_t err;
     struct cte *mapping = NULL;
@@ -623,6 +625,7 @@ monitor_create_cap(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
+    /* XXX - not 64-bit clean */
     //printf("%d: %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32"\n",
     //        argc, sa->arg0, sa->arg1, sa->arg2, sa->arg3, sa->arg4, sa->arg5);
 
@@ -661,6 +664,7 @@ monitor_spawn_core(
     arch_registers_state_t* context,
     int argc)
 {
+    /* XXX - Why is this commented out? */
 	//assert(3 == argc);
 
 	struct registers_arm_syscall_args* sa = &context->syscall_args;
@@ -689,6 +693,7 @@ monitor_identify_cap(
 
 INVOCATION_HANDLER(monitor_identify_domains_cap)
 {
+    /* XXX - why is this not used consistently? */
     INVOCATION_PRELUDE(7);
     errval_t err;
 
@@ -713,6 +718,8 @@ static struct sysret handle_irq_table_set( struct capability* to,
         int argc
         )
 {
+/* XXX - not revision-independent. */
+/* XXX - this seems like a pretty serious limitation. */
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
     NYI("can not handle userspace IRQs yet");
     return SYSRET(SYS_ERR_IRQ_INVALID);
@@ -729,6 +736,8 @@ static struct sysret handle_irq_table_delete( struct capability* to,
         int argc
         )
 {
+/* XXX - not revision-independent. */
+/* XXX - this seems like a pretty serious limitation. */
 #if defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_5__)
     NYI("can not handle userspace IRQs yet");
     return SYSRET(SYS_ERR_IRQ_INVALID);
@@ -859,6 +868,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Revoke_mark_relations] = monitor_handle_revoke_mark_rels,
         [KernelCmd_Revoke_mark_target] = monitor_handle_revoke_mark_tgt,
         [KernelCmd_Set_cap_owner]     = monitor_set_cap_owner,
+        /* XXX - why is this commented out? */
         //[KernelCmd_Setup_trace]       = handle_trace_setup,
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
@@ -876,6 +886,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
 {
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
+    /* XXX - can we generate them from the same source? */
     //
     // Must match lib/barrelfish/include/arch/arm/arch/invocations.h
     //
@@ -903,6 +914,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
             assert(listener != NULL);
 
             if (listener->disp) {
+                /* XXX - not 64-bit clean */
                 uint8_t length_words = (sa->arg0 >> 28) & 0xff;
                 uint8_t send_bits = (sa->arg0 >> 8) & 0xff;
                 capaddr_t send_cptr = sa->arg2;
@@ -1007,6 +1019,12 @@ static struct sysret handle_debug_syscall(int msg)
 {
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
+#if !defined(__ARM_ARCH_7M__)
+        case DEBUG_FLUSH_CACHE:
+            cp15_invalidate_i_and_d_caches_fast();
+            break;
+#endif
+
         case DEBUG_CONTEXT_COUNTER_RESET:
             dispatch_csc_reset();
             break;
@@ -1027,7 +1045,8 @@ static struct sysret handle_debug_syscall(int msg)
             retval.value = tsc_get_hz();
             break;
 
-        #if defined(__pandaboard__)
+        /* XXX - not revision-independent. */
+#if defined(__pandaboard__) && !defined(__ARM_ARCH_7M__)
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
             retval.value = gt_read_low();
             break;
@@ -1035,7 +1054,7 @@ static struct sysret handle_debug_syscall(int msg)
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
             retval.value = gt_read_high();
             break;
-        #endif
+#endif
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
@@ -1044,11 +1063,13 @@ static struct sysret handle_debug_syscall(int msg)
     return retval;
 }
 
+/* XXX - function documentation is inconsistent. */
 /**
  * System call dispatch routine.
  *
  * @return struct sysret for all calls except yield / invoke.
  */
+/* XXX - why is this commented out? */
 //__attribute__((noreturn))
 void sys_syscall(arch_registers_state_t* context)
 {
@@ -1090,6 +1111,7 @@ void sys_syscall(arch_registers_state_t* context)
             }
             break;
             
+/* XXX - not revision-independent. */
 #ifdef  __ARM_ARCH_7M__
     //help the dispatcher resume a context that can not be restored whithout a mode change
         case SYSCALL_RESUME_CONTEXT:
@@ -1105,6 +1127,7 @@ void sys_syscall(arch_registers_state_t* context)
     }
 
     if (r.error) {
+        /* XXX - not 64-bit clean, not AArch64-compatible. */
         debug(SUBSYS_SYSCALL, "syscall failed %08"PRIx32" => %08"PRIxERRV"\n",
               sa->arg0, r.error);
     }
@@ -1115,6 +1138,7 @@ void sys_syscall(arch_registers_state_t* context)
     resume(context);
 }
 
+/* XXX - this looks like a big hack. */
 #ifdef __ARM_ARCH_7M__    //armv7-m: cortex-m3 on pandaboard
 /*
     needed because to resume an interrupted IT block, there literally is only one way:

@@ -28,13 +28,13 @@ in [
         architectures = ["x86_32", "x86_64"]
     },
     build template {
-        addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
+        addLibraries = libDeps ["vfs_noblockdev", "spawndomain", "elf", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "x86boot.c"],
         assemblyFiles = ["init_ap_x86_64.S", "init_ap_x86_32.S"],
         architectures = ["k1om"]
     },
     build template {
-        addLibraries = libDeps ["vfs", "spawndomain", "elf", "octopus", "bench"],
+        addLibraries = libDeps ["vfs_ramfs", "spawndomain", "elf", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "armboot.c"],
         architectures = ["armv7", "armv5"]
     }

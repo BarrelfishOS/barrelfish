@@ -15,6 +15,9 @@
 #ifndef VMKIT_H
 #define VMKIT_H
 
+#include "vmx_vmkit.h"
+#include "svm_vmkit.h"
+
 #define VMKIT_ERR_OK        0
 #define VMKIT_ERR_UNAVAIL   (-1)
 

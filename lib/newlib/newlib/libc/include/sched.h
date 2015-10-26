@@ -20,6 +20,8 @@
 #ifndef _SCHED_H_
 #define _SCHED_H_
 
+#include <string.h> /* memcpy */
+#include <assert.h>
 #include <sys/types.h>
 #include <sys/sched.h>
 
@@ -93,5 +95,71 @@ int sched_yield( void );
 #ifdef __cplusplus
 }
 #endif
+
+
+/* Access macros for `cpu_set'.  */
+#define CPU_BITFIELD_SIZE 10
+
+/**
+ * The constant CPU_SETSIZE (currently 1024) specifies a value
+ * one greater than the maximum CPU number that can be stored in cpu_set_t.
+ */
+#define CPU_SETSIZE (CPU_BITFIELD_SIZE*64)
+
+struct bitmap {
+    int num_cpus;
+    uint64_t field[CPU_BITFIELD_SIZE];
+};
+typedef struct bitmap cpu_set_t;
+
+static inline cpu_set_t* CPU_ALLOC(int num_cpus) {
+    assert(num_cpus < CPU_SETSIZE);
+
+    cpu_set_t* set = (cpu_set_t*) calloc(1, sizeof(cpu_set_t));
+    set->num_cpus = num_cpus;
+    return set;
+}
+
+static inline int CPU_COUNT(const cpu_set_t *set) {
+    return set->num_cpus;
+}
+#include <stdio.h>
+
+static inline void CPU_ZERO(cpu_set_t *set) {
+    // XXX: this seems to be the only sane thing in case someone does not call CPU_ALLOC..?
+    set->num_cpus = CPU_SETSIZE;
+
+    memset(set->field, 0, sizeof(set->field));
+}
+
+static inline int CPU_ISSET(int cpu, const cpu_set_t *set) {
+    assert (cpu < set->num_cpus);
+    size_t slot = cpu / 64;
+    size_t idx = cpu % 64;
+    return (set->field[slot] & (1 << idx)) > 0;
+}
+
+static inline void CPU_SET(int cpu, cpu_set_t *set) {
+    assert (cpu < set->num_cpus);
+    size_t slot = cpu / 64;
+    size_t idx = cpu % 64;
+    set->field[slot] |= (1 << idx);
+}
+
+static inline void CPU_CLR(int cpu, cpu_set_t *set) {
+    assert (cpu < set->num_cpus);
+    size_t slot = cpu / 64;
+    size_t idx = cpu % 64;
+    set->field[slot] = set->field[slot] & ~(1 << idx);
+}
+
+
+/* Set the CPU affinity for a task */
+extern int sched_setaffinity (__pid_t __pid, size_t __cpusetsize,
+                  __const cpu_set_t *__cpuset);
+
+/* Get the CPU affinity for a task */
+extern int sched_getaffinity (__pid_t __pid, size_t __cpusetsize,
+                  cpu_set_t *__cpuset);
 
 #endif /* _SCHED_H_ */

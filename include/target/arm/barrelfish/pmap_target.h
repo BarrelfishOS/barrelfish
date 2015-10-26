@@ -17,6 +17,15 @@
 
 #include <barrelfish/pmap.h>
 
+#define L2_PER_PAGE             4
+#define PTABLE_SIZE             (BASE_PAGE_SIZE / L2_PER_PAGE)
+#define L2_PAGE_IDX(idx)        ((idx) % L2_PER_PAGE)
+#define L2_PAGE_OFFSET(idx)     (L2_PAGE_IDX(idx) * PTABLE_SIZE)
+
+#define L2_IS_MAPPED(ptable, idx) \
+        ((ptable)->u.vnode.mapped & (1 << L2_PAGE_IDX(idx)))
+
+
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {
     uint16_t      entry;       ///< Page table entry of this VNode
@@ -24,15 +33,17 @@ struct vnode {
     struct vnode  *next;       ///< Next entry in list of siblings
     union {
         struct {
-            struct capref cap;         ///< Capability of this VNode
-            struct vnode  *children;   ///< Children of this VNode
+            struct capref cap[L2_PER_PAGE];     ///< Capability of this VNode
+            struct vnode  *children;            ///< Children of this VNode
+            uint8_t mapped;                     ///< which 1k tables are actually mapped
         } vnode; // for non-leaf node
         struct {
-            struct capref cap;         ///< Capability of this VNode
-            genvaddr_t    offset;      ///< Offset within mapped frame cap
-            vregion_flags_t flags;     ///< Flags for mapping
-            size_t        pte_count;   ///< number of mapped PTEs in this mapping
-        } frame; // for leaf node (maps page(s))
+            struct capref   cap;         ///< Capability of this VNode
+            genvaddr_t      offset;      ///< Offset within mapped frame cap
+            vregion_flags_t flags;       ///< Flags for mapping
+            uint16_t        pte_count;   ///< number of user page table entries consumed by this mapping
+            uint16_t        kernel_pte_count;   ///< number kernel ptes in this mapping
+        } frame; // for leaf node (maps page(s)/section(s))
     } u;
 };
 

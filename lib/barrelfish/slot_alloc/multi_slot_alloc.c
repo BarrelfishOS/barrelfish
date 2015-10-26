@@ -94,19 +94,15 @@ errval_t multi_alloc(struct slot_allocator *ca, struct capref *ret)
         if (!buf) { /* Grow slab */
             // Allocate slot out of the list
             mca->a.space--;
-            struct capref frame;
-            err = mca->head->a.a.alloc(&mca->head->a.a, &frame);
-            if (err_is_fail(err)) {
-                thread_mutex_unlock(&ca->mutex);
-                return err_push(err, LIB_ERR_SLOT_ALLOC);
-            }
+            // ensure we have the right allocator
+            vspace_mmu_aware_set_slot_alloc(&mca->mmu_state, &mca->head->a.a);
 
             thread_mutex_unlock(&ca->mutex); // following functions may call
                                              // slot_alloc
             void *slab_buf;
             size_t size;
-            err = vspace_mmu_aware_map(&mca->mmu_state, frame,
-                                       mca->slab.blocksize, &slab_buf, &size);
+            err = vspace_mmu_aware_map(&mca->mmu_state, mca->slab.blocksize,
+                                       &slab_buf, &size);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_MAP);
             }

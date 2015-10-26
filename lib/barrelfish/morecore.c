@@ -48,15 +48,8 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
     size_t mapped = 0;
     size_t step = bytes;
     while (mapped < bytes) {
-        struct capref cap;
-        err = slot_alloc(&cap);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "slot_alloc failed");
-        }
-
         void *mid_buf = NULL;
-        err = vspace_mmu_aware_map(&state->mmu_state, cap, step,
-                                   &mid_buf, &step);
+        err = vspace_mmu_aware_map(&state->mmu_state, step, &mid_buf, &step);
         if (err_is_ok(err)) {
             if (buf == NULL) {
                 buf = mid_buf;
@@ -68,7 +61,6 @@ static void *morecore_alloc(size_t bytes, size_t *retbytes)
               for a very large frame, will try asking for smaller one.
              */
             if (err_no(err) == LIB_ERR_FRAME_CREATE_MS_CONSTRAINTS) {
-                err = slot_free(cap);
                 if (err_is_fail(err)) {
                     debug_err(__FILE__, __func__, __LINE__, err,
                               "slot_free failed");
@@ -122,8 +114,8 @@ errval_t morecore_init(size_t alignment)
 #endif
     morecore_flags |= (alignment == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
 
-    err = vspace_mmu_aware_init_aligned(&state->mmu_state, HEAP_REGION,
-            alignment, morecore_flags);
+    err = vspace_mmu_aware_init_aligned(&state->mmu_state, NULL, HEAP_REGION,
+                                        alignment, morecore_flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }

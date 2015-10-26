@@ -38,6 +38,7 @@
 #include <arch/x86/apic.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
 #include <arch/x86/startup_x86.h>
+#include <dev/ia32_dev.h>
 
 #ifdef __scc__
 #       include <rck.h>
@@ -631,4 +632,25 @@ void kernel_startup(void)
     dispatch(init_dcb);
     //}
     panic("Error spawning init!");
+}
+
+/*
+ * Configure the IA32_PAT_MSR register such that PA4 is write-combining and
+ * PA5 is write-protect.
+ */
+void configure_page_attribute_table(void)
+{
+    ia32_t ia32;
+    ia32_cr_pat_t pat;
+
+    ia32_initialize(&ia32);
+
+    pat = ia32_cr_pat_rd(&ia32);
+
+    pat = ia32_cr_pat_pa4_insert(pat, ia32_wc);
+    pat = ia32_cr_pat_pa5_insert(pat, ia32_wp);
+
+    ia32_cr_pat_wr(&ia32, pat);
+
+    debug(SUBSYS_STARTUP, "Configured IA32_PAT_MSR.\n");
 }

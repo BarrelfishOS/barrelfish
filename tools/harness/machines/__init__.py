@@ -46,7 +46,11 @@ class Machine(object):
 
     def get_kernel_args(self):
         """Returns list of machine-specific arguments to add to the kernel command-line"""
-        return None
+        return []
+
+    def get_pci_args(self):
+        """Returns list of machine-specific arguments to add to the PCI command-line"""
+        return []
 
     def get_boot_timeout(self):
         """Returns a machine-specific timeout (in seconds), or None for the default"""

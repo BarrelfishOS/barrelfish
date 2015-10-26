@@ -1,5 +1,5 @@
 ##########################################################################
-Copyright (c) 2009-2013, ETH Zurich.
+Copyright (c) 2009-2014, ETH Zurich.
 All rights reserved.
 
 This file is distributed under the terms in the attached LICENSE file.
@@ -89,6 +89,8 @@ following:
      v7.4 with Parsec 3.1
    - GHC v6.12.1 has a known bug and is unable to build our tools
    - earlier versions of GHC are unsupported
+   - Packages ghc-mtl, haskell-src-exts, async & bytestring-trie are
+     also required.
 
 Our build system may not be very portable; if in doubt, try building on the
 latest Ubuntu LTS system (14.04.1), as this is what we use to run nightly
@@ -120,7 +122,6 @@ run ``make rehake`` to apply them.
 5. If everything worked, you should now be able to run Barrelfish inside QEMU ::
 
     $ make sim
-
 
 Installing and Booting
 --------------------------------
@@ -233,7 +234,7 @@ A: http://www.barrelfish.org/
    http://wiki.barrelfish.org/
 
 Q: Can I contribute?
-A: We'd certainly like to hear from you. Feel free to send pateches (or even
+A: We'd certainly like to hear from you. Feel free to send patches (or even
    git merge requests) to the Barrelfish mailing list.
 
    To keep track of contributions to Barrelfish, we use a sign-off procedure

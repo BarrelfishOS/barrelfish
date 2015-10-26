@@ -13,5 +13,5 @@
 
 [ build application { target = "angler",
                       cFiles = [ "angler.c" ],
-                      addLibraries = libDeps [ "vfs", "angler" ]
+                      addLibraries = libDeps [ "angler" ]
                     } ]

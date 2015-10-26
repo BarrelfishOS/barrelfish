@@ -133,7 +133,7 @@ size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
 {
     bool isfirst = true;
     bool isOnlyOne = false;
-    size_t total_buflen = 0;
+    size_t total_buflen = buflen;
     size_t buf_pos = 0;
     size_t retval_total = 0;
     size_t ev_dumped_total = 0;
@@ -178,13 +178,15 @@ size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
         bool first_dump, bool isOnlyOne)
 {
     if (buf == NULL) return TRACE_ERR_NO_BUFFER;
+    if (buflen == 0) return TRACE_ERR_NO_BUFFER;
 
     struct trace_buffer *master = (struct trace_buffer*)trace_buffer_master;
+    assert(master);
     //struct trace_buffer *master = trace_buf->master;
 
     char *ptr = buf;
     size_t totlen = 0;
-    size_t len;
+    ssize_t len = 0;
 
     if (number_of_events_dumped != NULL) {
         *number_of_events_dumped = 0;
@@ -192,9 +194,11 @@ size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
 
 
     if (first_dump) {
+        assert(totlen < buflen);
         len = snprintf(ptr, buflen-totlen,
               "# Start %" PRIu64 " Duration %" PRIu64 " Stop %" PRIu64 "\n",
                    master->t0, master->duration, master->stop_time);
+        assert(len >= 0);
         ptr += len; totlen += len;
 
         // Determine the minimum timestamp for which an event has been recorded.
@@ -234,9 +238,11 @@ size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
 
         } // end for: for each core
 
+        assert(totlen < buflen);
         len = snprintf(ptr, buflen-totlen,
                                        "# Min_timestamp %" PRIu64 "\n",
                                        min_timestamp);
+        assert(len >= 0);
         ptr += len; totlen += len;
     } // end if: if this is first core
 
@@ -258,25 +264,31 @@ size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
         if (num_events > 0) {
             // Ringbuffer is empty.
 
+            assert(totlen < buflen);
             len = snprintf(ptr, buflen-totlen,
                     "# Core %d LOG DUMP ==================================================\n", core);
+            assert(len >= 0);
             ptr += len; totlen += len;
 
             // Print the core time offset relative to core 0
+            assert(totlen < buflen);
             len = snprintf(ptr, buflen-totlen,
                     "# Offset %d %" PRIi64 "\n",
                     core, tbuf->t_offset);
 
+            assert(len >= 0);
             ptr += len; totlen += len;
 
             // Print all application names
             for(int app_index = 0; app_index < tbuf->num_applications; app_index++ ) {
 
+                assert(totlen < buflen);
                 len = snprintf(ptr, buflen-totlen,
                         "# DCB %d %" PRIx64 " %.*s\n",
                         core, tbuf->applications[app_index].dcb,
                         8, (char*)&tbuf->applications[app_index].name);
 
+                assert(len >= 0);
                 ptr += len; totlen += len;
             }
 
@@ -287,12 +299,13 @@ size_t trace_dump_core(char *buf, size_t buflen, size_t *usedBytes,
                     tbuf->tail_index = 0;
                 }
 
+                assert(totlen < buflen);
                 len = snprintf(ptr, buflen-totlen,
                         "%d %" PRIu64 " %" PRIx64 "\n",
                         core, tbuf->events[tbuf->tail_index].timestamp,
                         //core, tbuf->events[tbuf->tail_index].timestamp - t0,
                         tbuf->events[tbuf->tail_index].u.raw);
-
+                assert(len >= 0);
                 ptr += len; totlen += len;
 
                 if(number_of_events_dumped != NULL) {

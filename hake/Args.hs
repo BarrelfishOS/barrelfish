@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Arguments to major Hake targets
 -- 
@@ -13,9 +13,10 @@
 module Args where
 
 import HakeTypes
+import TreeDB
 
 data Args = Args { 
-      buildFunction :: [String] -> String -> Args -> HRule,
+      buildFunction :: TreeDB -> String -> Args -> HRule,
       target :: String,
       cFiles :: [String],
       generatedCFiles :: [String],
@@ -70,16 +71,17 @@ defaultArgs = Args {
       architectures = allArchitectures
 }
 
-allArchitectures = [ "x86_64", "x86_32", "armv5", "arm11mp", "scc", "xscale", "armv7", "armv7-m", "k1om" ]
-allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "scc", "k1om" ]
+allArchitectures = [ "x86_64", "x86_32", "armv5", "xscale", "armv7",
+                     "armv7-m", "armv8", "k1om" ]
+allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "k1om" ]
 -- architectures that currently support THC
-thcArchitectures = ["x86_64", "x86_32", "scc"]
+thcArchitectures = ["x86_64", "x86_32"]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends
     = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci" ]
 
-defaultBuildFn :: [String] -> String -> Args -> HRule
+defaultBuildFn :: TreeDB -> String -> Args -> HRule
 defaultBuildFn _ f _ = 
     Error ("Bad use of default Args in " ++ f)
 

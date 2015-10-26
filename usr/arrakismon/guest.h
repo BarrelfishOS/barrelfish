@@ -15,7 +15,9 @@
 #define GUEST_H
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish_kpi/vmx_encodings.h>
 #include <spawndomain/spawndomain.h>
+#include <barrelfish_kpi/vmkit.h>
 #include <dev/amd_vmcb_dev.h>
 
 struct guest {
@@ -33,9 +35,19 @@ struct guest {
     struct capref           ctrl_cap;
     struct guest_control    *ctrl;
     // IOPM data (IO port access)
+#ifdef CONFIG_SVM
     struct capref           iopm_cap;
     lpaddr_t                 iopm_pa;
     lvaddr_t                 iopm_va;
+#else
+     struct capref iobmp_a_cap;
+     lpaddr_t iobmp_a_pa;
+     lvaddr_t iobmp_a_va;
+  
+     struct capref iobmp_b_cap;
+     lpaddr_t iobmp_b_pa;
+     lvaddr_t iobmp_b_va;  
+#endif
     // MSRPM data (MSR access)
     struct capref           msrpm_cap;
     lpaddr_t                 msrpm_pa;

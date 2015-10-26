@@ -10,20 +10,20 @@
 interface intermon "The Interface between monitors" {
 
     /* XXX Aliases for base system types */
-    alias coreid_t uint8;
-    alias chanid_t uint32;
+    alias coreid uint8;
+    alias chanid uint32;
 
     /* Types which we may need to change at some point, especially
        on a heterogeneous platform, or 32-bit only platform */
-    alias con_id_t uint64;
-    alias mon_id_t uint64;
-    alias state_id_t uint64;
-    alias vci_t uint64;
+    alias con_id uint64;
+    alias mon_id uint64;
+    alias state_id uint64;
+    alias vci uint64;
 
-    alias capid_t uint32;
-    alias capaddr_t uint32;
-    alias capbits_t uint8;
-    alias capslot_t uint32;
+    alias capid uint32;
+    alias capaddr uint32;
+    alias capbits uint8;
+    alias capslot uint32;
     alias capop_st uint64;
 
     /* XXX depends on MAX_COREID and definition of coremask_t in types.h */
@@ -38,9 +38,9 @@ interface intermon "The Interface between monitors" {
     } caprep;
 
     typedef struct {
-        capaddr_t cnptr;
-        capbits_t cnbits;
-        capslot_t slot;
+        capaddr cnptr;
+        capbits cnbits;
+        capslot slot;
     } captx;
 
     message spawnd_image_request();
@@ -72,46 +72,46 @@ interface intermon "The Interface between monitors" {
      */
     message capops_ready();
     message monitor_initialized();
-    message new_monitor_notify(coreid_t core_id);
-    message bind_monitor_proxy(coreid_t dst_core_id, caprep cap);
-    call bind_monitor_request(coreid_t core_id, caprep cap);
+    message new_monitor_notify(coreid core_id);
+    message bind_monitor_proxy(coreid dst_core_id, caprep cap);
+    call bind_monitor_request(coreid core_id, caprep cap);
     response bind_monitor_reply(errval err);
 
-    message bind_monitor_request_scc(coreid_t core_id,
+    message bind_monitor_request_scc(coreid core_id,
                                      caprep cap,
-                                     chanid_t chan_id,
-                                     coreid_t from_core_id);
+                                     chanid chan_id,
+                                     coreid from_core_id);
     message bind_monitor_reply_scc(errval err,
-                                   chanid_t chan_id,
-                                   coreid_t core_id);
-    message bind_monitor_proxy_scc(coreid_t dst_core_id,
+                                   chanid chan_id,
+                                   coreid core_id);
+    message bind_monitor_proxy_scc(coreid dst_core_id,
                                    caprep cap,
-                                   chanid_t chan_id,
-                                   coreid_t core_id);
+                                   chanid chan_id,
+                                   coreid core_id);
     message bind_ump_request(iref iref,
-                             mon_id_t mon_id,
+                             mon_id mon_id,
                              uint32 channel_length_in,
                              uint32 channel_length_out,
                              genpaddr framebase,
                              uint8 framebits,
                              caprep notify);
-    message bind_ump_reply(con_id_t con_id,
-                           mon_id_t mon_id,
+    message bind_ump_reply(con_id con_id,
+                           mon_id mon_id,
                            errval err,
                            caprep notify);
 
-    message cap_send_request(con_id_t con_id,
-                             capid_t capid,
+    message cap_send_request(con_id con_id,
+                             capid capid,
                              captx cap);
 
-    message span_domain_request(state_id_t state_id,
+    message span_domain_request(state_id state_id,
                                 genpaddr vnodebase,
                                 genpaddr framebase,
                                 uint8      framebits);
-    message span_domain_reply(state_id_t state_id, errval err);
+    message span_domain_reply(state_id state_id, errval err);
 
     // Resource control
-    message rsrc_join(rsrcid id, coreid_t coreid);
+    message rsrc_join(rsrcid id, coreid coreid);
     message rsrc_join_complete(rsrcid id);
     message rsrc_phase_data(rsrcid id, uint32 phase, uint8 data[len]);
     message rsrc_timer_sync(uint64 timestamp);
@@ -136,20 +136,20 @@ interface intermon "The Interface between monitors" {
     message multihop_routing_table_grow(coreid forwarder, coreid destinations[len]);
 
     // set up a new multihop virtual circuit
-    message bind_multihop_intermon_request(iref iref, vci_t sender_vci,
+    message bind_multihop_intermon_request(iref iref, vci sender_vci,
                                            coreid core_id);
-    message bind_multihop_intermon_reply(vci_t receiver_vci, vci_t sender_vci,
+    message bind_multihop_intermon_reply(vci receiver_vci, vci sender_vci,
                                          errval err);
 
-    message multihop_message(vci_t vci, uint8 direction, uint8 flags, uint32 ack,
+    message multihop_message(vci vci, uint8 direction, uint8 flags, uint32 ack,
                              uint8 payload[size]);
-    message multihop_cap_send(vci_t vci, uint8 direction, capid_t capid, errval err,
+    message multihop_cap_send(vci vci, uint8 direction, capid capid, errval err,
                               caprep cap, bool null_cap, coreid owner);
 
     // cap operation messages
     message capops_request_copy(coreid dest, caprep cap, capop_st st);
     message capops_recv_copy(caprep cap, uint8 owner_relations, capop_st st);
-    message capops_recv_copy_result(errval status, capaddr_t cap, capbits_t bits, capslot_t slot, capop_st st);
+    message capops_recv_copy_result(errval status, capaddr cap, capbits bits, capslot slot, capop_st st);
 
     message capops_move_request(caprep cap, uint8 relations, capop_st st);
     message capops_move_result(errval status, capop_st st);
@@ -189,7 +189,7 @@ interface intermon "The Interface between monitors" {
 
     // Notify core 0 that you want to make a time measurement (Network Time
     // Protocol). The origin core is the one who initiated the trace preparation.
-    call trace_measure(coreid_t origin_core, uint64 t0);
+    call trace_measure(coreid origin_core, uint64 t0);
 
     // The response to a measurement call from a core.
     response trace_measure_ack(coreid origin_core, uint64 t0, uint64 t1, uint64 t2);

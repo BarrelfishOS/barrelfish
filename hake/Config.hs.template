@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, 2012, 2013, ETH Zurich.
+-- Copyright (c) 2007-2010, 2012, 2013, 2015 ETH Zurich.
 -- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
@@ -18,8 +18,79 @@ import HakeTypes
 import Data.Char
 import qualified Args
 import Data.List
+import Data.Maybe
+import System.FilePath
+import Tools (findTool, ToolDetails, toolPath, toolPrefix)
+import qualified Tools
 
--- path to source and install directories; these are automatically set by hake.sh at setup time 
+-- Set by hake.sh
+arm_toolspec   :: Maybe ToolDetails
+thumb_toolspec :: Maybe ToolDetails
+armeb_toolspec :: Maybe ToolDetails
+x86_toolspec   :: Maybe ToolDetails
+k1om_toolspec  :: Maybe ToolDetails
+
+-- Default toolchains
+arm_tools   = fromMaybe Tools.arm_system                     arm_toolspec
+thumb_tools = fromMaybe Tools.arm_netos_arm_2015q2         thumb_toolspec
+armeb_tools = fromMaybe Tools.arm_netos_linaro_be_2015_02  armeb_toolspec
+x86_tools   = fromMaybe Tools.x86_system                     x86_toolspec
+k1om_tools  = fromMaybe Tools.k1om_netos_mpss_3_4           k1om_toolspec
+
+-- ARM toolchain
+arm_gnu_tool = findTool (toolPath arm_tools) (toolPrefix arm_tools)
+arm_cc       = arm_gnu_tool "gcc"
+arm_objcopy  = arm_gnu_tool "objcopy"
+arm_objdump  = arm_gnu_tool "objdump"
+arm_ar       = arm_gnu_tool "ar"
+arm_ranlib   = arm_gnu_tool "ranlib"
+arm_cxx      = arm_gnu_tool "g++"
+
+-- ARM thumb (e.g. -M profile) toolchain
+thumb_gnu_tool = findTool (toolPath thumb_tools) (toolPrefix thumb_tools)
+thumb_cc       = thumb_gnu_tool "gcc"
+thumb_objcopy  = thumb_gnu_tool "objcopy"
+thumb_objdump  = thumb_gnu_tool "objdump"
+thumb_ar       = thumb_gnu_tool "ar"
+thumb_ranlib   = thumb_gnu_tool "ranlib"
+thumb_cxx      = thumb_gnu_tool "g++"
+
+-- ARM big-endian (e.g. XScale) toolchain
+armeb_gnu_tool = findTool (toolPath armeb_tools) (toolPrefix armeb_tools)
+armeb_cc       = armeb_gnu_tool "gcc"
+armeb_objcopy  = armeb_gnu_tool "objcopy"
+armeb_objdump  = armeb_gnu_tool "objdump"
+armeb_ar       = armeb_gnu_tool "ar"
+armeb_ranlib   = armeb_gnu_tool "ranlib"
+armeb_cxx      = armeb_gnu_tool "g++"
+
+-- X86 (32/64) toolchain
+x86_gnu_tool = findTool (toolPath x86_tools) (toolPrefix x86_tools)
+x86_cc       = x86_gnu_tool "gcc"
+x86_objcopy  = x86_gnu_tool "objcopy"
+x86_objdump  = x86_gnu_tool "objdump"
+x86_ar       = x86_gnu_tool "ar"
+x86_ranlib   = x86_gnu_tool "ranlib"
+x86_cxx      = x86_gnu_tool "g++"
+
+-- Xeon Phi toolchain
+k1om_gnu_tool = findTool (toolPath k1om_tools) (toolPrefix k1om_tools)
+k1om_cc      = k1om_gnu_tool "gcc"
+k1om_objcopy = k1om_gnu_tool "objcopy"
+k1om_objdump = k1om_gnu_tool "objdump"
+k1om_ar      = k1om_gnu_tool "ar"
+k1om_ranlib  = k1om_gnu_tool "ranlib"
+k1om_cxx     = k1om_gnu_tool "g++"
+
+-- Miscellaneous tools
+gem5         = "gem5.fast"
+runghc	     = "runghc"    -- run GHC interactively
+circo	     = "circo"     -- from graphviz
+dot          = "dot"       --   "    "
+inkscape     = "inkscape"
+
+-- path to source and install directories; these are automatically set by
+-- hake.sh at setup time 
 source_dir :: String
 -- source_dir = undefined -- (set by hake.sh, see end of file)
 
@@ -31,8 +102,8 @@ architectures :: [String]
 -- architectures = undefined -- (set by hake.sh, see end of file)
 
 -- Optimisation flags (-Ox -g etc.) passed to compiler
-cOptFlags :: String
-cOptFlags = "-g -O2"
+cOptFlags :: [String]
+cOptFlags = ["-g", "-O2"]
 
 -- Selects which libc to compile with, "oldc" or "newlib"
 libc :: String
@@ -199,8 +270,8 @@ memserv_percore = False
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
 lazy_thc | elem "armv7" architectures   = False
-	 | elem "armv5" architectures   = False
-	 | elem "xscale" architectures  = False
+     | elem "armv5" architectures   = False
+     | elem "xscale" architectures  = False
          | otherwise                    = True
 
 -- Enable capability tracing debug facility
@@ -266,6 +337,16 @@ nxe_paging = False
 oneshot_timer :: Bool
 oneshot_timer = False
 
+-- Enable hardware VM support for AMD's Secure Virtual Machine (SVM)
+-- If disabled, Intel's VMX hardware is supported instead
+config_svm :: Bool
+config_svm = True
+
+-- Enable the use of only Arrakis domains (with arrakismon)
+-- If disabled, use normal VM-guests (with vmkitmon)
+config_arrakismon :: Bool
+config_arrakismon = True
+
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [  
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
@@ -312,6 +393,8 @@ defines = [ Str ("-D" ++ d) | d <- [
              if nxe_paging then "CONFIG_NXE" else "",
              if libc == "oldc" then "CONFIG_OLDC" else "CONFIG_NEWLIB",
              if oneshot_timer then "CONFIG_ONESHOT_TIMER" else "",
+             if config_svm then "CONFIG_SVM" else "",
+             if config_arrakismon then "CONFIG_ARRAKISMON" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
              if heteropanda then "HETEROPANDA" else "",
              if caps_trace then "TRACE_PMEM_CAPS" else ""

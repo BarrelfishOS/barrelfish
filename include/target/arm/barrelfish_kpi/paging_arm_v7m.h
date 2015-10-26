@@ -28,7 +28,11 @@
 #define BASE_PAGE_MASK          (BASE_PAGE_SIZE - 1)
 #define BASE_PAGE_OFFSET(a)     ((a) & BASE_PAGE_MASK)
 
-#define LARGE_PAGE_MASK                 0x0000FFFF  //64KB large page
+/* 1MB large pages */
+#define LARGE_PAGE_BITS         20
+#define LARGE_PAGE_SIZE         (1u << LARGE_PAGE_BITS)
+#define LARGE_PAGE_MASK         (LARGE_PAGE_SIZE - 1)
+#define LARGE_PAGE_OFFSET(a)    ((a) & LARGE_PAGE_MASK)
 
 #define ARM_L1_OFFSET(addr)       (((uintptr_t)addr) >> 20)
 #define ARM_L2_OFFSET(addr)       ((((uintptr_t)addr) >> 12) & 0xff)

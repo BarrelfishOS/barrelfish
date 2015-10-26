@@ -24,7 +24,7 @@
     build library { target = "spawndomain",
                     cFiles = common_srcs ++ arch_srcs (archFamily arch),
                     addIncludes = [ "/lib/barrelfish/include/arch" 
-                                    ./. archFamily arch ],
+                                    </> archFamily arch ],
                     flounderDefs = [ "monitor", "octopus" ],
                     flounderExtraDefs = [ ("octopus", ["rpcclient"]) ],
                     architectures = [ arch ],

@@ -92,7 +92,9 @@ parser.add_option("--l2_assoc", type="int", default=8)
 parser.add_option("--l3_assoc", type="int", default=16)
 parser.add_option("--cacheline_size", type="int", default=64)
 parser.add_option("--loglevel", type="int", default=4)
+parser.add_option("--console-port", type="int", default=3456)
 (options, args) = parser.parse_args()
+print options
     
 #######################################################################
 #
@@ -146,7 +148,7 @@ system.boot_osflags = boot_flags
 system.realview.attachOnChipIO(system.membus, system.bridge)
 system.realview.attachIO(system.iobus)
 system.intrctrl = IntrControl()
-system.terminal = Terminal()
+system.terminal = Terminal(port=options.console_port)
 system.vncserver = VncServer()
 
 system.physmem.port = system.membus.master

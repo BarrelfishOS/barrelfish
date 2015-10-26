@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on ARMv5 ISA.
 --
@@ -16,7 +16,6 @@
 module ARMv7 where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
@@ -29,12 +28,12 @@ import qualified ArchDefaults
 arch = "armv7"
 archFamily = "arm"
 
-compiler = "arm-linux-gnueabi-gcc"
-objcopy  = "arm-linux-gnueabi-objcopy"
-objdump  = "arm-linux-gnueabi-objdump"
-ar       = "arm-linux-gnueabi-ar"
-ranlib   = "arm-linux-gnueabi-ranlib"
-cxxcompiler = "arm-linux-gnueabi-g++"
+compiler    = Config.arm_cc
+objcopy     = Config.arm_objcopy
+objdump     = Config.arm_objdump
+ar          = Config.arm_ar
+ranlib      = Config.arm_ranlib
+cxxcompiler = Config.arm_cxx
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
@@ -96,12 +95,12 @@ options = (ArchDefaults.options arch archFamily) {
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -170,8 +169,9 @@ linkKernel opts objs libs name =
         kbinary    = "/sbin/" ++ name
         kbootable  = kbinary ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch linkscript,
+        Rules [ Rule ([ Str compiler ] ++
+                    map Str Config.cOptFlags ++
+                    [ NStr "-T", In BuildTree arch linkscript,
                       Str "-o", Out arch kbinary,
                       NStr "-Wl,-Map,", Out arch kernelmap
                     ]

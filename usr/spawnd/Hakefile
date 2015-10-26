@@ -11,11 +11,30 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "spawnd",
-  		      cFiles = [ "main.c", "service.c", "ps.c" ],
-		      addLibraries = libDeps [ "spawndomain", "elf", "trace", "skb",
-                                       "dist", "vfs", "lwip" ],
-  		      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      cFiles = [ "main.c", "service.c", "ps.c" ],
+                      addLibraries = libDeps [ "spawndomain", "elf", "trace", "skb",
+                                               "dist", "vfs", "lwip" ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
-  		      flounderBindings = [ "spawn" ]
+                      flounderBindings = [ "spawn" ],
+                      architectures = [ "x86_64", "x86_32" ]
+                    },
+  build application { target = "spawnd",
+                      cFiles = [ "main.c", "service.c", "ps.c" ],
+                      addLibraries = libDeps [ "spawndomain", "elf", "trace", "skb",
+                                               "dist", "vfs_noblockdev", "lwip" ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderBindings = [ "spawn" ],
+                      architectures = [ "k1om" ]
+                    },
+  build application { target = "spawnd",
+                      cFiles = [ "main.c", "service.c", "ps.c" ],
+                      addLibraries = libDeps [ "spawndomain", "elf", "trace", "skb",
+                                       "dist", "vfs_ramfs", "lwip" ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderBindings = [ "spawn" ],
+                      architectures = [ "armv5", "armv7", "armv7-m", "armv8" ]
                     }
 ]

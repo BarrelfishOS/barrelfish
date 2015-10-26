@@ -10,4 +10,5 @@
 -- 
 --------------------------------------------------------------------------
 
-[ fuguFile (options arch) "errno" | arch <- allArchitectures ]
+[ fuguHFile (options arch) "errno" | arch <- allArchitectures ] ++
+[ fuguCFile (options arch) "errno" | arch <- allArchitectures ]

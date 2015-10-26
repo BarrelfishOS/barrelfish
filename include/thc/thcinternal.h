@@ -223,6 +223,10 @@ extern int _end_text_nx;
                          "memory")
 
 #endif
+#elif defined (__aarch64__)
+// XXX: todo sane implementations of these
+    #define KILL_CALLEE_SAVES()                                           \
+    __asm__ volatile ("" : : : "sp")
 #else
 #error "Need definition of KILL_CALLEE_SAVES" 
 #endif
@@ -248,6 +252,9 @@ extern int _end_text_nx;
 #elif defined(__arm__)
 #define FORCE_ARGS_STACK assert(0 && "THC not yet implemented on ARM")
 #define FORCE_ARGS_STACK_CALL assert(0 && "THC not yet implemented on ARM")
+#elif defined(__aarch64__)
+#define FORCE_ARGS_STACK assert(0 && "THC not yet implemented on ARM")
+#define FORCE_ARGS_STACK_CALL assert(0 && "THC not yet implemented on ARM")
 #else
 #error "Need definition of FORCE_ARGS_STACK"
 #endif
@@ -271,7 +278,7 @@ extern int _end_text_nx;
 #define RESTORE_OLD_STACK_POINTER(OLD_STACK_PTR)			\
   __asm__ volatile ("movl %0, %%esp       \n\t"				\
 		    : : "m"(OLD_STACK_PTR))
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
 #define GET_STACK_POINTER(_) assert(0 && "THC not yet implemented on ARM")
 #define RESTORE_OLD_STACK_POINTER(_) assert(0 && "THC not yet implemented on ARM")
 #else
@@ -326,7 +333,7 @@ extern int _end_text_nx;
     " addl $4, %esp              \n\t" /* clean up stack for callee  */ \
     " jmp  " JMP_ADDR "          \n\t" /* jump to continuation       */ \
     );
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
 
 // *** NOTEs for the adventurous: porting lazy THC to ARM
 //

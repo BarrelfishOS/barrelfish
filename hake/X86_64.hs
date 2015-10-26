@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_64.
 -- 
@@ -13,7 +13,6 @@
 module X86_64 where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
@@ -25,14 +24,15 @@ import qualified ArchDefaults
 
 arch = "x86_64"
 archFamily = "x86_64"
-compiler = "gcc"
-cxxcompiler = "g++"
+
+compiler    = Config.x86_cc
+cxxcompiler = Config.x86_cxx
 
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
                    Str "-fPIE",
                    Str "-fno-stack-protector", 
-		   Str "-Wno-unused-but-set-variable",
+                   Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-D__x86__" ]
 
@@ -43,7 +43,7 @@ cFlags = ArchDefaults.commonCFlags
 cxxFlags = ArchDefaults.commonCxxFlags
                  ++ ArchDefaults.commonFlags
                  ++ ourCommonFlags
-		 ++ [Str "-std=gnu++11"]
+         ++ [Str "-std=gnu++11"]
 
 cDefines = ArchDefaults.cDefines options
 
@@ -85,7 +85,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-field-initializers",
                                 "-Wredundant-decls",
                                 "-Wno-packed-bitfield-compat",
-				"-Wno-unused-but-set-variable",
+                                "-Wno-unused-but-set-variable",
                                 "-Werror",
                                 "-imacros deputy/nodeputy.h",
                                 "-mno-mmx",
@@ -94,7 +94,6 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse3",
                                 "-mno-sse4.1",
                                 "-mno-sse4.2",
---		  		"-Wno-unused-but-set-variable",
                                 "-mno-sse4",
                                 "-mno-sse4a",
                                 "-mno-3dnow" ]]
@@ -116,12 +115,12 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -133,8 +132,9 @@ linkKernel :: Options -> [String] -> [String] -> String -> HRule
 linkKernel opts objs libs kbin = 
     let linkscript = "/kernel/linker.lds"
     in
-      Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch "/kernel/linker.lds",
+      Rules [ Rule ([ Str compiler ] ++
+                    map Str Config.cOptFlags ++
+                    [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
                       Str "-o", Out arch kbin 
                     ]
                     ++ (optLdFlags opts)

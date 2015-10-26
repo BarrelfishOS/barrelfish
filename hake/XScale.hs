@@ -1,10 +1,10 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2013, ETH Zurich.
+-- Copyright (c) 2007-2015, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on ARMv5 ISA.
 --
@@ -15,7 +15,6 @@
 module XScale where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
@@ -28,14 +27,15 @@ import qualified ArchDefaults
 arch = "xscale"
 archFamily = "arm"
 
-compiler = "arm-none-linux-gnueabi-gcc"
-objcopy  = "arm-none-linux-gnueabi-objcopy"
-objdump  = "arm-none-linux-gnueabi-objdump"
-ar       = "arm-none-linux-gnueabi-ar"
-ranlib   = "arm-none-linux-gnueabi-ranlib"
-cxxcompiler = "arm-none-linux-gnueabi-g++"
+compiler    = Config.armeb_cc
+objcopy     = Config.armeb_objcopy
+objdump     = Config.armeb_objdump
+ar          = Config.armeb_ar
+ranlib      = Config.armeb_ranlib
+cxxcompiler = Config.armeb_cxx
 
 ourCommonFlags = [ Str "-Wno-packed-bitfield-compat",
+                   Str "-Wno-format",
                    Str "-fno-unwind-tables",
                    Str "-fshort-enums",
                    Str "-mcpu=xscale",
@@ -75,7 +75,7 @@ options = (ArchDefaults.options arch archFamily) {
             optCxxFlags = cxxFlags,
             optDefines = cDefines,
             optDependencies = 
-                [ PreDep InstallTree arch "/include/errors/errno.h",
+                [ PreDep BuildTree   arch "/include/errors/errno.h",
                   PreDep InstallTree arch "/include/barrelfish_kpi/capbits.h",
                   PreDep InstallTree arch "/include/asmoffsets.h", 
                   PreDep InstallTree arch "/include/romfs_size.h" ],
@@ -90,12 +90,12 @@ options = (ArchDefaults.options arch archFamily) {
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -106,11 +106,11 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-fno-unwind-tables",
-				"-fshort-enums",
+                                "-fshort-enums",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-mcpu=xscale",
-				"-mbig-endian",
+                                "-mbig-endian",
                                 "-mapcs",
                                 "-mabi=aapcs-linux",
                                 "-fPIE",
@@ -131,7 +131,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-ffreestanding",
                                 "-fomit-frame-pointer",
                                 "-mno-long-calls",
-                                "-Wmissing-noreturn",
+                                "-Wno-missing-noreturn",
+                                "-Wno-format",
                                 "-mno-apcs-stack-check",
                                 "-mno-apcs-reentrant",
                                 "-msingle-pic-base",
@@ -146,8 +147,8 @@ kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
                   Str "-nostdlib",
                   Str "-Wl,--fatal-warnings",
-		  Str "-mcpu=xscale",
-		  Str "-mbig-endian"
+          Str "-mcpu=xscale",
+          Str "-mbig-endian"
                 ]
 
 
@@ -159,10 +160,11 @@ linkKernel opts objs libs kbin =
     let linkscript = "/kernel/linker.lds"
         kbootable  = kbin ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch linkscript,
-                      Str "-o", Out arch kbin
-                    ]
+        Rules [ Rule ([ Str compiler ] ++
+                      map Str Config.cOptFlags ++
+                      [ NStr "-T", In BuildTree arch linkscript,
+                        Str "-o", Out arch kbin
+                      ]
                     ++ (optLdFlags opts)
                     ++
                     [ In BuildTree arch o | o <- objs ]

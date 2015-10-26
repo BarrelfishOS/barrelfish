@@ -12,9 +12,9 @@
 
 let
     figoutput f = "/tmp/" ++ f ++ ".pdf"
-    circo f = [ Str "circo", Str "-Tpdf",
+    circo f = [ Str Config.circo, Str "-Tpdf",
                 In SrcTree "src" (f ++ ".circo"), Str "-o", Out "tools" (figoutput f), NL ]
-    dot f = [ Str "dot", Str "-Tpdf",
+    dot f = [ Str Config.dot, Str "-Tpdf",
             In SrcTree "src" (f ++ ".dot"), Str "-o", Out "tools" (figoutput f), NL ]
 in
   [ buildTechNoteWithDeps "Spec.tex" "TN-010-Spec.pdf" True False []

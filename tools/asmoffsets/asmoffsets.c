@@ -169,6 +169,8 @@ void dummy(void)
     ASSERT(sizeof(struct dispatcher_x86_32) <= (1 << DISPATCHER_FRAME_BITS));
 #elif defined __arm__
     ASSERT(sizeof(struct dispatcher_arm) <= (1 << DISPATCHER_FRAME_BITS));
+#elif defined __aarch64__
+    ASSERT(sizeof(struct dispatcher_aarch64) <= (1 << DISPATCHER_FRAME_BITS));
 #else
 #error "Define architecture"
 #endif

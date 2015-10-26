@@ -997,7 +997,6 @@ errval_t domain_thread_create_on(coreid_t core_id, thread_func_t start_func,
 errval_t domain_thread_join(struct thread *thread, int *retval)
 {
     coreid_t core_id = thread->coreid;
-    debug_printf("%s: joining %p, coreid %d\n", __FUNCTION__, thread, core_id);
     if (disp_get_core_id() == core_id) {
         return thread_join(thread, retval);
     } else {
@@ -1049,6 +1048,7 @@ void disp_set_core_id(coreid_t core_id)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     disp->core_id = core_id;
 }
+
 
 /**
  * \brief returns the address and the size of the EH frame

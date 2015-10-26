@@ -16,6 +16,7 @@
                     addCFlags = [ "-Wpointer-arith",
                                   "-Wuninitialized",
                                   "-Wsign-compare",
+                                  "-Wformat",
                                   "-Wformat-security",
                                   "-Wno-pointer-sign",
                                   "-Wno-unused-result",

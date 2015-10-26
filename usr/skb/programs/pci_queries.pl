@@ -36,3 +36,31 @@ pci_get_implemented_BAR_addresses(Bus,Dev,Fun,Vendor,DeviceID,Class,SubClass,Pro
             % because the drivers expect them in this order. A explicit
             % number transferred over the IDC msg mybe be better.
             sort(1, =<, BARAddrListUnsorted, BARAddrList).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Retrieves the addresses of the devices present on this platform to add to
+% the VT-d identity domain
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+find_devices(DevList) :- findall(address(Type,Bus,Dev,Func),
+				 device(Type,addr(Bus,Dev,Func),_,_,_,_,_,_),
+				 DevList).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Retrieves the addresses of PCIe-to-PCIe bridges present on this platform
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+pcie_bridges(DevList) :- findall(address(Bus,Dev,Func),
+				 bridge(pcie,addr(Bus,Dev,Func),_,_,_,_,_,_),
+				 DevList).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Retrieves the addresses of devices reported in DMAR translation structures
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+dmar_devices(DevList) :- findall(address(Seg,Bus,Dev,Func),
+				 dmar_device(_,_,addr(Seg,Bus,Dev,Func),_),
+				 DevList).

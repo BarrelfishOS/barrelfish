@@ -105,6 +105,9 @@ let
                 "arch/x86_64/syscall.c",
                 "arch/x86_64/paging.c",
                 "arch/x86_64/vmkit.c" ,
+                "arch/x86_64/vmx_checks.c",
+                "arch/x86_64/vmx_vmkit.c",
+                "arch/x86_64/svm_vmkit.c",
                 "arch/x86_64/page_mappings_arch.c",
                 "arch/x86/apic.c",
                 "arch/x86/pic.c",
@@ -224,42 +227,6 @@ let
      addLibraries = [ "elf_kernel" ]
      },
   --
-  -- Intel Gauss Lake P54C core in the Rock Creek Single-Chip Cloud Computer
-  --
-  cpuDriver {
-     architectures = [ "scc" ],
-     assemblyFiles = [ "arch/scc/boot.S",
-                       "arch/x86_32/entry.S",
-                       "arch/x86_32/pic.S" ],
-     cFiles = [ "arch/scc/rck.c",
-                "arch/x86_32/debug.c",
-                "arch/x86_32/gdb_arch.c",
-                "arch/x86_32/init.c",
-                "arch/x86_32/irq.c",
-                "arch/x86_32/startup_arch.c",
-                "arch/x86_32/exec.c",
-                "arch/x86_32/syscall.c",
-                "arch/x86_32/paging.c",
-                "arch/x86_32/page_mappings_arch.c",
-                "arch/x86/apic.c",
-                "arch/x86/misc.c",
-                "arch/x86/serial.c",
-                "arch/x86/multiboot.c",
-                "arch/x86/syscall.c",
-                "arch/x86/debugregs.c",
-                "arch/x86/timing.c",
-                "arch/x86/startup_x86.c"
-              ],
-     mackerelDevices = [ "pc16550d",
-                         "ia32",
-                         "xapic",
-                         "rck",
-                         "eMAC",
-                         "cpuid",
-                         "lpc_rtc" ],
-     addLibraries = [ "elf_kernel" ]
-     },
-  --
   -- Generic ARMv5 core, unused?
   --
   cpuDriver {
@@ -277,33 +244,6 @@ let
                 "arch/armv5/kputchar.c", 
                 "arch/armv5/pl011_uart.c", 
                 "arch/armv5/cp15.c",
-                "arch/armv5/paging.c", 
-                "arch/armv5/startup_arch.c" ], 
-     mackerelDevices = [ "arm", 
-                         "arm_icp_pit", 
-                         "arm_icp_pic0", 
-                         "pl011_uart" ],
-     addLibraries = [ "elf", "cpio" ]
-     },
-  --
-  -- ARM11MP ARMv6 core, currently unsupported.
-  -- XXX: reorganize sources for ARMv6
-  --
-  cpuDriver {
-     architectures = [ "arm11mp" ],
-     assemblyFiles = [ "arch/armv5/boot.S",
-                       "arch/armv5/exceptions.S",
-                       "arch/paging_cp.S" ],
-     cFiles = [ "arch/arm/exn.c", 
-                "arch/arm/exec.c", 
-                "arch/arm/misc.c", 
-                "arch/arm/phys_mmap.c", 
-                "arch/arm/syscall.c",
-                "arch/armv5/init.c", 
-                "arch/armv5/integrator.c", 
-                "arch/armv5/kludges.c", 
-                "arch/armv5/kputchar.c", 
-                "arch/armv5/pl011_uart.c", 
                 "arch/armv5/paging.c", 
                 "arch/armv5/startup_arch.c" ], 
      mackerelDevices = [ "arm", 
@@ -466,6 +406,31 @@ let
                          "omap/omap44xx_gpio",
                          "omap/omap44xx_mmu",
                          "omap/omap44xx_spinlock"],
+     addLibraries = [ "elf", "cpio" ]
+     },
+  --
+  -- Applied Micro APM88xxxx series SoC,
+  -- used to run a heterogenous system on the pandaboard
+  --
+
+  cpuDriver {
+     target = "apm88xxxx",
+     architectures = [ "armv8" ],
+     assemblyFiles = [ "arch/apm88xxxx/boot.S",
+                       "arch/armv8/exceptions.S"
+                     ],
+     cFiles = [ "arch/armv8/exec.c",
+                "arch/armv8/exn.c",
+                "arch/armv8/irq.c",
+                "arch/armv8/kludges.c",
+                "arch/armv8/kputchar.c",
+                "arch/armv8/misc.c",
+                "arch/apm88xxxx/init.c",
+                "arch/apm88xxxx/paging.c",
+                "arch/apm88xxxx/uart.c" ],
+     mackerelDevices = [ "arm",
+                         "apm88xxxx/apm88xxxx_pc16550"
+                       ],
      addLibraries = [ "elf", "cpio" ]
      }
   ]

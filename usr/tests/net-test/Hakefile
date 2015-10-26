@@ -17,7 +17,7 @@
 [ build application { target = "net-test",
                       cFiles = [ "net-test.c" ],
                       addLibraries = libDeps [ "vfs", "posixcompat", "lwip" ],
-                      architectures = [ "x86_64", "scc" ]
+                      architectures = [ "x86_64" ]
                    -- omitCFlags = [ "-Wredundant-decls" ]
                     }
 ]

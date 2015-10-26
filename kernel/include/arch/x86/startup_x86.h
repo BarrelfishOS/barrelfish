@@ -69,4 +69,6 @@ static inline void start_ap_signal(void)
     *ap_wait = AP_STARTED;
 }
 
+void configure_page_attribute_table(void);
+
 #endif // __STARTUP_X86_H

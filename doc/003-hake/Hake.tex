@@ -27,6 +27,7 @@
 \begin{versionhistory}
 \vhEntry{1.0}{3.06.2010}{TR}{Initial version}
 \vhEntry{1.1}{11.04.2010}{TR}{Support for out-of-tree builds}
+\vhEntry{1.2}{03.07.2015}{TR}{Added platform and boot constructs}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -55,11 +56,17 @@ directory, and run the Hake bootstrap script, and then Make:
 $ cd /home/barrelfish/src
 $ mkdir ../build
 $ cd ../build
-$ ../src/hake/hake.sh -s ../src
-...
-$ make -j 32
+$ ../src/hake/hake.sh -s ../src -a x86_64
 ...
 \end{verbatim}
+
+Type \texttt{make help-platforms} for a list of platforms you can now
+build for, and \texttt{make help-boot} for a list of options for
+booting Barrelfish under simulation if you don't want to use real
+hardware. 
+
+You can supply multiple \texttt{-a} options to build for multiple
+architectures at the same time. 
 
 Edit the file \texttt{symbolic\_targets.mk} in your build directory to
 add extra make targets. 
@@ -70,6 +77,9 @@ rebuild Hake to reconfigure your build tree.
 That's about it. 
 
 \section{How to think about hake}
+
+Hake builds a single, very large \texttt{Makefile} which
+\texttt{make} can then use to build any part of Barrelfish. 
 
 Hake is essentially a Haskell embedded domain-specific language,
 except that it is also evaluated dyanically (using the
@@ -117,6 +127,9 @@ When you run Hake in a Barrelfish source tree, it does the following things:
 This single Makefile is large, but is also quite simple: it contains
 no use of Make variables or generic Make rules, instead it simply
 includes explicit rules to build every file required for Barrelfish. 
+
+The Makefile also includes comments to help you locate the make rules
+generated from any particular Hakefile. 
 
 \section{Motivation and Design Principles}
 
@@ -218,6 +231,29 @@ library:
      }
 ]
 \end{verbatim}
+
+Finally, there are two other kinds of high-level construct that Hake
+provides.  One is a \texttt{platform} -- a collection of related files
+to build to support a given hardware configuration.  Here is the
+(pretty minimal) specification for the ARMv5 test platform - just the
+CPU driver and its bootable image:
+\begin{verbatim}
+[ platform "ARMv5" [ "armv5" ]
+    ([ ("armv5", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
+    "Very basic ARMv5 configuration for testing",
+]
+\end{verbatim}
+The first argument is the name of the platform (``\texttt{ARMv5}''),
+the second is a set of architectures which must be built (and
+configured) for this platform.  The third argument is a list of
+pathnames in the build tree of files which must be built, and the
+final argument is a description to be printed by \texttt{make
+  help-platforms}. 
+
+The final high-level construct is a ``\texttt{boot}'' - a make target
+that boots Barrelfish in some kind of emulator.  Examples can be found
+in \texttt{/platforms/Hakefile}. 
+
 This should be all you need to know to write simple Hakefile{s} for
 the Barrelfish, and indeed to understand most of the Hakefile{s} in
 the Barrelfish tree.
@@ -333,6 +369,7 @@ Each Hakefile is an expression that must evaluate to a list of
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
            | Error String
+           | Phony String Bool [ RuleToken ]
            | Rules [ HRule ]
              deriving (Show,Typeable)
 \end{verbatim}
@@ -350,6 +387,11 @@ Hake.
 
 The \texttt{Error} constructor is used to signal errors, but in
 practice is rarely used. 
+
+The \texttt{Phony} constructor is used to create rules whose target is
+not actually a file.  This should hardly ever be used in practice:
+right now, it is only used for defining ``platforms'' and ``boots''
+(see below).
 
 An actual basic Makefile rule is constructed by \texttt{Rule} as a
 list of \texttt{RuleToken}s.  The declaration of \texttt{RuleToken}

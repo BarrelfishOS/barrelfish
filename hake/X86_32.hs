@@ -1,10 +1,10 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2007-2015, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on x86_32.
 -- 
@@ -13,7 +13,6 @@
 module X86_32 where
 
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
 
@@ -25,14 +24,15 @@ import qualified ArchDefaults
 
 arch = "x86_32"
 archFamily = "x86_32"
-compiler = "gcc"
-cxxcompiler = "g++"
+
+compiler    = Config.x86_cc
+cxxcompiler = Config.x86_cxx
 
 ourCommonFlags = [ Str "-m32",
                    Str "-mno-red-zone",
                    Str "-fPIE",
                    Str "-fno-stack-protector", 
-		   Str "-Wno-unused-but-set-variable", 
+                   Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-D__x86__" ]
 
@@ -47,7 +47,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-section-start,.text=0x300000",
-               Str "-Wl,-section-start,.data.rel.ro=0x640000",
+               Str "-Wl,-section-start,.data.rel.ro=0x800000",
                Str "-Wl,-z,max-page-size=0x1000",
                Str "-Wl,--build-id=none",
                Str "-m32"]
@@ -87,7 +87,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-field-initializers",
                                 "-Wredundant-decls",
                                 "-Wno-packed-bitfield-compat",
-				"-Wno-unused-but-set-variable",
+                                "-Wno-unused-but-set-variable",
                                 "-Werror",
                                 "-imacros deputy/nodeputy.h",
                                 "-mno-mmx",
@@ -110,12 +110,12 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+cCompiler = ArchDefaults.cCompiler arch compiler Config.cOptFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler Config.cOptFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler Config.cOptFlags
+assembler = ArchDefaults.assembler arch compiler Config.cOptFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -125,8 +125,9 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 -- 
 linkKernel :: Options -> [String] -> [String] -> String -> HRule
 linkKernel opts objs libs kbin = 
-    Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                    NStr "-T", In BuildTree arch "/kernel/linker.lds",
+    Rules [ Rule ([ Str compiler ] ++
+                    map Str Config.cOptFlags ++
+                  [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
                     Str "-o", Out arch kbin 
                   ]
                   ++ (optLdFlags opts)

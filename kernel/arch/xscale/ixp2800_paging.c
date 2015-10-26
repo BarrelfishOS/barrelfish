@@ -363,7 +363,7 @@ caps_map_l1(struct capability* dest,
         entry->coarse.domain = 0;
         entry->coarse.base_address =
             (src_lpaddr + i * BASE_PAGE_SIZE / ARM_L1_SCALE) >> 10;
-        debug(SUBSYS_PAGING, "L1 mapping %ld. @%p = %08"PRIu32"\n",
+        debug(SUBSYS_PAGING, "L1 mapping %"PRIuCADDR". @%p = %08"PRIu32"\n",
               slot * ARM_L1_SCALE + i, entry, entry->raw);
     }
 

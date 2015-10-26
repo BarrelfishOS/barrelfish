@@ -10,6 +10,7 @@
 #ifndef Queue_Manager_benchmark_H_
 #define Queue_Manager_benchmark_H_
 #include <barrelfish/barrelfish.h>
+#include <if/net_queue_manager_defs.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <contmng/netbench.h>
 #include <stdio.h>

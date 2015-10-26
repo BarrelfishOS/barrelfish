@@ -192,7 +192,8 @@ errval_t bomp_thread_init(coreid_t core,
     }
 
     BOMP_DEBUG_THREAD("creating thread on core %" PRIuCOREID "\n", core);
-    err = domain_thread_create_on(core, bomp_thread_msg_handler, thread->msgbuf);
+    err = domain_thread_create_on(core, bomp_thread_msg_handler,
+                                  thread->msgbuf, NULL);
     if (err_is_fail(err)) {
         // XXX> error handling
         return err;

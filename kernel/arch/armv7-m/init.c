@@ -31,6 +31,7 @@
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
+#include <irq.h>
 
 #include <omap44xx_map.h>
 #include <dev/omap/omap44xx_id_dev.h>
@@ -127,7 +128,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
     //printf("kernel_startup_early done!\n");
 
     //initialize console
-    serial_init(serial_console_port);
+    serial_init(serial_console_port, 1);
     spinlock_init();
 
     printf("Barrelfish CPU driver starting on ARMv7-M OMAP44xx"
@@ -340,4 +341,10 @@ void arch_init(void *pointer)
 
     //we already are in a virtual address space, so we do not have to do MMU stuff already
     text_init();
+}
+
+struct kcb;
+errval_t irq_table_notify_domains(struct kcb *kcb)
+{
+    return SYS_ERR_OK;
 }

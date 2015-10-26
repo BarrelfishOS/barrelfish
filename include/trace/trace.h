@@ -101,6 +101,9 @@ struct trace_buffer;
 #define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
 #if defined(__x86_64__)
+// for rdtsc()
+#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
+
 #define TRACE_TIMESTAMP() rdtsc()
 
 /*
@@ -123,20 +126,7 @@ static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
 }
 
 
-#elif defined(__i386__)
-
-
-static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
-                             uintptr_t nw)
-{
-    return false;
-}
-
-#define TRACE_TIMESTAMP() rdtsc()
-
-
-#elif defined(__arm__)
-
+#elif defined(__i386__) || defined(__arm__) || defined(__aarch64__)
 
 static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
                              uintptr_t nw)
@@ -145,7 +135,6 @@ static inline bool trace_cas(volatile uintptr_t *address, uintptr_t old,
 }
 
 #define TRACE_TIMESTAMP() 0
-
 
 #else
 

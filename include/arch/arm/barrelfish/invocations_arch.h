@@ -378,14 +378,14 @@ invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits,
 
     pte_count -= 1;
 
-    assert(entry < 1024);
-    assert(pte_count < 1024);
+    assert(entry < 4096);
+    assert(pte_count < 4096);
     assert(mapping_bits <= 0xff);
 
     return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
                     invoke_cptr, mapping_cptr,
-                    ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) |
-                     (entry & 0x3ff)).error;
+                    ((mapping_bits & 0xff)<<24) | ((pte_count & 0xfff)<<12) |
+                     (entry & 0xfff)).error;
 }
 
 /**

@@ -40,6 +40,9 @@ size_t mem_total = 0, mem_avail = 0;
 #elif defined(__arm__)
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31
+#elif defined(__aarch64__)
+/* XXX what's the right value here? */
+#       define MAXSIZEBITS     48
 #else
 #       error Unknown architecture
 #endif

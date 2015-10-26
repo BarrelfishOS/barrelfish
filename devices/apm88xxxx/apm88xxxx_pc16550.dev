@@ -1,0 +1,68 @@
+/*
+ * Copyright (c) 2015, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * apm88xxxx/apm88xxxx_pc16550.dev
+ *
+ * DESCRIPTION: APM88xxxx PC16550 UART
+ *
+ * This is derived from:
+ *
+ * APM88xx0x Processor Family Register Reference -- Volume 1
+ * Document Issue 0.98 (APM 2012-0052-1)
+ *
+ * This file only incorporates the parts relevant for UART operation.
+ * Registers relevant for IrDA, CIR, and other modes are not yet
+ * described. 
+ */
+device apm88xxxx_pc16550 msbfirst (addr base) "APM88xxxx UART" {
+
+    constants data_len "Data Length" {
+        bits5   = 0b00   "5 Bits";
+        bits6   = 0b01   "6 Bits";
+        bits7   = 0b10   "7 Bits";
+        bits8   = 0b11   "8 Bits";
+    };
+
+    register RBR ro addr (base, 0x0) "Receive Buffer" {
+        _       24;
+        rbr     8 ro        "Receive buffer register";
+    };
+
+    register THR wo also addr (base, 0x0) "Transmit Register" {
+        _       24;
+        thr     8 wo        "Transmit register";
+    };
+
+    register IIR ro addr (base, 0x8) "Interrupt Identity" type(uint32);
+
+    register lcr rw addr (base, 0xc) "Line control" {
+        _       24;
+        dlab    1           "Divisor latch access bit";
+        bc      1           "Break control bit";
+        sp      1 rsvd      "Stick parity";
+        eps     1           "Even parity select";
+        pen     1           "Parity enable";
+        stop    1           "stop bit";
+        dls     2 type(data_len) "Data length select";
+    };
+
+    register LSR ro addr (base, 0x14) "Line Status" {
+        _       24;
+        rfe      1          "Receive FIFO error";
+        temt     1          "Transmitter empty";
+        thre     1          "Transmit holding register empty";
+        bi       1          "Break interrupt";
+        fe       1          "Framing error";
+        pe       1          "Parity error";
+        oe       1          "Overrun error";
+        dr       1          "Data ready";
+    };
+
+
+};

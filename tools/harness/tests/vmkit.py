@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009, 2010, 2011, ETH Zurich.
+# Copyright (c) 2009, 2010, 2011, 2014, ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -22,7 +22,7 @@ class VMKitTest(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(VMKitTest, self).get_modules(build, machine)
-        modules.add_module("serial")
+        modules.add_module("serial", ["portbase=0x2f8", "irq=3"])
         modules.add_module("lpc_timer")
         modules.add_module("e1000n", ["core=%d" % machine.get_coreids()[3]])
         modules.add_module("NGD_mng", ["core=%d" % machine.get_coreids()[2],

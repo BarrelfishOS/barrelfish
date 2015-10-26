@@ -54,4 +54,4 @@ data RuleToken = In     TreeRef String String -- Input to the computation
 -----------
 Later: 
 
-data Arch = ARM | ARM11MP | Beehive | SCC | X86_32 | X86_64 
+data Arch = ARM | Beehive | SCC | X86_32 | X86_64 

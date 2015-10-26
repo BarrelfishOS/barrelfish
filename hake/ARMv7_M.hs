@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Architectural definitions for Barrelfish on ARMv7-M ISA.
 --
@@ -14,9 +14,9 @@
 module ARMv7_M where
 --module names can not contain "-", so I went for an underscore instead
 import HakeTypes
-import Path
 import qualified Config
 import qualified ArchDefaults
+import Data.List
 
 -------------------------------------------------------------------------
 --
@@ -27,12 +27,12 @@ import qualified ArchDefaults
 arch = "armv7-m"
 archFamily = "arm"
 
-compiler = "arm-linux-gnueabi-gcc"
-objcopy  = "arm-linux-gnueabi-objcopy"
-objdump  = "arm-linux-gnueabi-objdump"
-ar       = "arm-linux-gnueabi-ar"
-ranlib   = "arm-linux-gnueabi-ranlib"
-cxxcompiler = "arm-linux-gnueabi-g++"
+compiler    = Config.thumb_cc
+objcopy     = Config.thumb_objcopy
+objdump     = Config.thumb_objdump
+ar          = Config.thumb_ar
+ranlib      = Config.thumb_ranlib
+cxxcompiler = Config.thumb_cxx
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
@@ -97,12 +97,16 @@ options = (ArchDefaults.options arch archFamily) {
 --
 -- Compilers
 --
-cCompiler = ArchDefaults.cCompiler arch compiler
-cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler
+
+-- Heavy optimisation causes GCC to fail with unresolvable register spill.
+v7m_optFlags = (Config.cOptFlags \\ ["-O2", "-O3"]) ++ ["-Os"]
+
+cCompiler = ArchDefaults.cCompiler arch compiler v7m_optFlags
+cxxCompiler = ArchDefaults.cxxCompiler arch cxxcompiler v7m_optFlags
 makeDepend = ArchDefaults.makeDepend arch compiler
 makeCxxDepend  = ArchDefaults.makeCxxDepend arch cxxcompiler
-cToAssembler = ArchDefaults.cToAssembler arch compiler
-assembler = ArchDefaults.assembler arch compiler
+cToAssembler = ArchDefaults.cToAssembler arch compiler v7m_optFlags
+assembler = ArchDefaults.assembler arch compiler v7m_optFlags
 archive = ArchDefaults.archive arch
 linker = ArchDefaults.linker arch compiler
 cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
@@ -172,8 +176,9 @@ linkKernel opts objs libs name =
         kbinary    = "/sbin/" ++ name
         kbootable  = kbinary ++ ".bin"
     in
-        Rules [ Rule ([ Str compiler, Str Config.cOptFlags,
-                      NStr "-T", In BuildTree arch linkscript,
+        Rules [ Rule ([ Str compiler ] ++
+                      map Str Config.cOptFlags ++
+                    [ NStr "-T", In BuildTree arch linkscript,
                       Str "-o", Out arch kbinary,
                       NStr "-Wl,-Map,", Out arch kernelmap
                     ]

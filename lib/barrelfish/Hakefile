@@ -12,7 +12,7 @@
 --
 --------------------------------------------------------------------------
 
-[(let arch_dir = "arch" ./. archFamily arch
+[(let arch_dir = "arch" </> archFamily arch
       common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                       "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
                       "waitset.c", "event_queue.c", "event_mutex.c",
@@ -82,7 +82,6 @@
       archfam_srcs _         = []
 
       -- sources specific to the architecture
-      arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
@@ -115,11 +114,11 @@
                                               ("spawn", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
-                    addIncludes = [ "include", "include" ./. arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }
  ) | arch <- allArchitectures ] ++
-[(let arch_dir = "arch" ./. archFamily arch
+[(let arch_dir = "arch" </> archFamily arch
       common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                       "thread_sync.c", "slab.c", "domain.c", "idc.c",
                       "waitset.c", "event_queue.c", "event_mutex.c",
@@ -181,7 +180,6 @@
       archfam_srcs _         = []
 
       -- sources specific to the architecture
-      arch_srcs "scc" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
       arch_srcs _     = []
@@ -211,7 +209,7 @@
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
-                    addIncludes = [ "include", "include" ./. arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]
                   }
  ) | arch <- allArchitectures ]

@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright (c) 2009, 2013, ETH Zurich.
+# Copyright (c) 2013, University of Washington.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -14,7 +14,7 @@ LOADGEN_HOSTS = []
 
 class UW(siteconfig.BaseSite):
     # site-specific configuration variables for UW
-    WEBSERVER_NFS_HOST = 'triangle'
+    WEBSERVER_NFS_HOST = 'swingout6'
     # NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
     WEBSERVER_NFS_PATH = '/home/netos/notexist'
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH

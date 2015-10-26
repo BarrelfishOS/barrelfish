@@ -1,0 +1,545 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2015, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitätstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /platforms/x86
+-- 
+--------------------------------------------------------------------------
+
+let bin_rcce_lu = [ "/sbin/" ++ f | f <- [ 
+                        "rcce_lu_A1",
+                        "rcce_lu_A2",
+                        "rcce_lu_A4",
+                        "rcce_lu_A8",
+                        "rcce_lu_A16",
+                        "rcce_lu_A32",
+                        "rcce_lu_A64" ]]
+
+    bin_rcce_bt = [ "/sbin/" ++ f | f <- [ 
+                        "rcce_bt_A1",
+                        "rcce_bt_A4",
+                        "rcce_bt_A9",
+                        "rcce_bt_A16",
+                        "rcce_bt_A25",
+                        "rcce_bt_A36" ]]
+
+    tests_common = [ "/sbin/" ++ f | f <- [
+                        "fputest",
+                        "fread_test",
+                        "fscanf_test",
+                        "hellotest",
+                        "idctest",
+                        "memtest",
+                        "schedtest",
+                        "testerror",
+                        "yield_test" ] ]
+
+    tests_x86 = [ "/sbin/" ++ f | f <- [ 
+                        "tests/luatest",
+                        "tests/numatest" ] ] ++ tests_common
+
+    tests_x86_64 = [ "/sbin/" ++ f | f <- [ 
+                        "arrakis_hellotest",
+                        "ata_rw28_test",
+                        "bomp_cpu_bound",
+                        "bomp_cpu_bound_progress",
+                        "bomp_sync",
+                        "bomp_sync_progress",
+                        "bomp_test",
+                        "bulk_shm",
+                        "cryptotest",
+                        "mdbtest_addr_zero",
+                        "mdbtest_range_query",
+                        "mem_affinity",
+                        "multihoptest",
+                        "net-test",
+                        "net_openport_test",
+                        "perfmontest",
+                        "phoenix_kmeans",
+                        "socketpipetest",
+                        "spantest",
+                        "spin",
+                        "testconcurrent",
+                        "testdesc",
+                        "testdesc-child",
+                        "tests/cxxtest",
+                        "tests/dma_test",
+                        "tests/xphi_nameservice_test",
+                        "thcidctest",
+                        "thcminitest",
+                        "thctest",
+                        "timer_test",
+                        "tlstest",
+                        "tweedtest",
+                        "xcorecap",
+                        "xcorecapserv" ] ] ++ tests_x86
+
+    tests_x86_32 = tests_x86
+
+    tests_k1om = [ "/sbin/" ++ f | f <- [
+                        "tests/dma_test",
+                        "tests/xeon_phi_inter",
+                        "tests/xeon_phi_test",
+                        "tests/xphi_nameservice_test" ] ] ++ tests_x86
+
+    bench_common = [ "/sbin/" ++ f | f <- [ 
+                        "channel_cost_bench",
+                        "flounder_stubs_buffer_bench",
+                        "flounder_stubs_empty_bench",
+                        "flounder_stubs_payload_bench",
+                        "xcorecapbench" ]]
+
+    bench_x86 =  [ "/sbin/" ++ f | f <- [ 
+                      "multihop_latency_bench",
+                      "net_openport_test",
+                      "perfmontest",
+                      "thc_v_flounder_empty",
+                      "timer_test",
+                      "udp_throughput",
+                      "ump_exchange",
+                      "ump_latency",
+                      "ump_latency_cache",
+                      "ump_receive",
+                      "ump_send",
+                      "ump_throughput" ]]
+
+    bench_x86_64 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu ++ 
+                   [ "/sbin/" ++ f | f <- [ 
+                        "ahci_bench",
+                        "apicdrift_bench",
+                        "benchmarks/bomp_mm",
+                        "benchmarks/dma_bench",
+                        "benchmarks/xomp_share",
+                        "benchmarks/xomp_spawn",
+                        "benchmarks/xomp_work",
+                        "benchmarks/xphi_ump_bench",
+                        "bomp_benchmark_cg",
+                        "bomp_benchmark_ft",
+                        "bomp_benchmark_is",
+                        "bulk_transfer_passthrough",
+                        "bulkbench",
+                        "bulkbench_micro_echo",
+                        "bulkbench_micro_rtt",
+                        "bulkbench_micro_throughput",
+                        "elb_app",
+                        "elb_app_tcp",
+                        "lrpc_bench",
+                        "mdb_bench",
+                        "mdb_bench_old",
+                        "netthroughput",
+                        "phases_bench",
+                        "phases_scale_bench",
+                        "placement_bench",
+                        "rcce_pingpong",
+                        "shared_mem_clock_bench",
+                        "tsc_bench" ]]
+
+    bench_x86_32 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu
+
+    bench_k1om = [ "/sbin/" ++ f | f <- [ 
+                        "benchmarks/bomp_mm",
+                        "benchmarks/dma_bench",
+                        "benchmarks/xomp_share",
+                        "benchmarks/xomp_spawn",
+                        "benchmarks/xomp_work",
+                        "benchmarks/xphi_ump_bench",
+                        "benchmarks/xphi_xump_bench" ] ] ++ bench_x86
+
+    -- Default list of modules to build/install for all enabled architectures
+    modules_common = [ "/sbin/" ++ f | f <- [ 
+                          "init",
+                          "chips",
+                          "skb",
+                          "spawnd",
+                          "startd",
+                          "mem_serv",
+                          "monitor",
+                          "ramfsd" ]]
+
+    -- List of modules that are arch-independent and always built
+    modules_generic = [ "/skb_ramfs.cpio.gz", "/sshd_ramfs.cpio.gz" ]
+
+    -- x86_64-specific modules to build by default
+    -- this should shrink as targets are ported and move into the generic list above 
+    modules_x86_64  = [ "/sbin/" ++ f | f <- [ 
+                           "elver",
+                           "cpu",
+                           "acpi",
+                           "ahcid",
+                           "angler",
+                           "arrakismon",
+                           "bcached",
+                           "bench",
+                           "bfscope",
+                           "block_server",
+                           "block_server_client",
+                           "boot_perfmon",
+                           "bs_user",
+                           "bulk_shm",
+                           "corectrl",
+                           "datagatherer",
+                           "dma_mgr",
+                           "e1000n",
+                           "e10k",
+                           "e10k_queue",
+                           "echoserver",
+                           "fbdemo",
+                           "fish",
+                           "hpet",
+                           "ioat_dma",
+                           "kaluga",
+                           "lo_queue",
+                           "lpc_kbd",
+                           "lpc_timer",
+                           "lshw",
+                           "mem_serv_dist",
+                           "netd",
+                           "NGD_mng",
+                           "pci",
+                           "routing_setup",
+                           "rtl8029",
+                           "serial",
+                           "sfxge",
+                           "sif",
+                           "slideshow",
+                           "sshd",
+                           "vbe",
+                           "virtio_blk",
+                           "virtio_blk_host",
+                           "vmkitmon",
+                           "vnode_map_test",
+                           "webserver",
+                           "xeon_phi",
+                           "xeon_phi_mgr"
+                           ]] ++ modules_common
+    
+    -- the following are broken in the newidc system
+    modules_x86_64_broken  = [ "/sbin/" ++ f | f <- [ 
+                                  "barriers",
+                                  "ipi_bench",
+                                  "ring_barriers",
+                                  "ssf_bcast",
+                                  "lamport_bcast" ]]
+                             
+    -- x86-32-specific module to build by default
+    modules_x86_32  = [ "/sbin/" ++ f | f <- [ 
+                           "cpu",
+                           "lpc_kbd",
+                           "serial",
+                           "rcce_pingpong",
+                           "bench",
+                           "fbdemo",
+                           "fish",
+                           "fputest",
+                           "pci",
+                           "acpi",
+                           "kaluga",
+                           "slideshow",
+                           "thc_v_flounder_empty",
+                           "thcidctest",
+                           "thcminitest",
+                           "thctest",
+                           "vbe",
+                           "mem_serv_dist",
+                           "routing_setup",
+                           "multihoptest",
+                           "multihop_latency_bench",
+                           "angler",
+                           "sshd",
+                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu
+
+    modules_k1om = [ "/sbin/" ++ f | f <- [
+                        "weever",
+                        "cpu",
+                        "xeon_phi",
+                        "corectrl" ] ]
+
+    -- ARMv7-a Pandaboard modules
+    pandaModules = [ "/sbin/" ++ f | f <- [
+                        "cpu_omap44xx",
+                        "init",
+                        "mem_serv",
+                        "monitor",
+                        "ramfsd",
+                        "spawnd",
+                        "startd",
+                        "skb",
+                        "memtest",
+                        "kaluga",
+                        "fish",
+                        "sdma",
+                        "sdmatest",
+                        "sdma_bench",
+                        "bulk_sdma",
+                        "usb_manager",
+                        "usb_keyboard",
+                        "serial",
+                        "angler",
+                        "corectrl"
+                        ] ]
+
+    -- ARMv7-m Pandaboard modules
+    pandaM3Modules = [ "/sbin/" ++ f | f <- [
+                          "cpu_omap44xx",
+                          "init",
+                          "mem_serv",
+                          "monitor",
+                          "ramfsd",
+                          "spawnd",
+                          "startd",
+                          "skb",
+                          "memtest"
+                          ] ]
+
+    -- ARMv7-a modules for running under GEM5
+    gem5Modules = [ "/sbin/" ++ f | f <- [
+                       "cpu_arm_gem5",
+                       "init",
+                       "mem_serv",
+                       "monitor",
+                       "ramfsd",
+                       "spawnd",
+                       "startd",
+                       "corectrl",
+                       "skb",
+                       "memtest"
+                       ] ]
+  in
+ [
+   --
+   -- Rules to build assorted platforms
+   --
+   
+    platform "X86_64_Basic" [ "x86_64" ]
+      ([ ("x86_64", f) | f <- modules_x86_64 ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic 64-bit x86 PC build",
+
+    platform "X86_64_Benchmarks" [ "x86_64" ]
+      ([ ("x86_64", f) | f <- modules_x86_64 ++ bench_x86_64]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "64-bit x86 PC build with benchmarks",
+
+    platform "X86_64_Full" [ "x86_64" ]
+      ([ ("x86_64", f) | f <- modules_x86_64 ++ bench_x86_64 ++ tests_x86_64 ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "64-bit x86 PC build with benchmarks and test suites",
+
+    platform "X86_32_Basic" [ "x86_32" ]
+      ([ ("x86_32", f) | f <- modules_x86_32 ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic 32-bit x86 PC build",
+
+    platform "X86_32_Benchmarks" [ "x86_32" ]
+      ([ ("x86_32", f) | f <- modules_x86_32 ++ bench_x86_32]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "32-bit x86 PC build with benchmarks",
+
+    platform "X86_32_Full" [ "x86_32" ]
+      ([ ("x86_32", f) | f <- modules_x86_32 ++ bench_x86_32 ++ tests_x86_32 ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "32-bit x86 PC build with benchmarks and test suites",
+
+    platform "K1OM_Basic" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Basic Xeon Phi build",
+
+    platform "K1OM_Benchmarks" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ++ bench_k1om]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Xeon Phi build with benchmarks",
+
+    platform "K1OM_Full" [ "k1om" ]
+      ([ ("k1om", f) | f <- modules_k1om ++ bench_k1om ++ tests_k1om ]
+       ++
+       [ ("",       f) | f <- modules_generic])
+      "Xeon Phi build with benchmarks and test suites",
+
+    platform "PandaboardES" [ "armv7" ]
+    ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
+    "Standard Pandaboard ES build image and modules",
+    
+    platform "PandaboardES-Heterogeneous" [ "armv7", "armv7-m" ]
+    ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_het_image") ])
+    "Pandaboard ES with experimental heterogeneous (Cortex-M3) support",
+
+    platform "ARMv7-GEM5" [ "armv7" ]
+    ([ ("armv7", f) | f <- gem5Modules ] ++ [ ("root", "/arm_gem5_image") ])
+    "GEM5 emulator for ARM Cortex-A series multicore processors",
+
+    platform "ARMv5" [ "armv5" ]
+    ([ ("armv5", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
+    "Very basic ARMv5 configuration for testing",
+
+    platform "XScale" [ "xscale" ]
+    ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
+    "Very basic XScale configuration for testing, not guaranteed to boot",
+
+    --
+    -- Rules to build assorted boot images
+    --
+    
+    -- Build the default PandaBoard boot image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.pandaboard",
+            Str "--baseaddr", Str "0x82001000",
+            Str "--image",    Out "root" "/pandaboard_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
+
+    -- Build the (old) PandaBoard Cortex-M3 image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.armv7-m",
+            Str "--baseaddr", Str "0x00",
+            Str "--cflags",   Str "\"-march=armv7-m -mcpu=cortex-m3 -mthumb\"",
+            Str "--image",    Out "root" "/pandaboard_m3image_intermediate",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7-m" m) | m <- pandaM3Modules ]),
+
+    -- Convert slave image into a form we can insert in our image
+    Rule ([ Str "arm-linux-gnueabi-objcopy",
+            Str "-I", Str "binary",
+            Str "-O", Str "elf32-littlearm",
+            Str "-B", Str "arm",
+            Str "--rename-section", Str (".data=.rodata_thumb,alloc,load" ++
+                                         ",readonly,data,contents"),
+            In BuildTree "root" "/pandaboard_m3image_intermediate",
+            Out "root" "/pandaboard_m3image" ]),
+    
+    -- Build the PandaBoard Cortex-A9 image that includes the M3 image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "-D",         Str "HETEROPANDA",
+            Str "--menu",     In SrcTree "tools"
+                                         "/hake/menu.lst.heteropanda_master",
+            Str "--baseaddr", Str "0x82001000",
+            Str "--extra",    In BuildTree "root" "/pandaboard_m3image",
+            Str "--image",    Out "root" "/pandaboard_het_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
+
+    -- Build the ARM GEM5 simulation image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5_mc",
+            Str "--baseaddr", Str "0x00100000",
+            Str "--image",    Out "root" "/arm_gem5_image",
+            Str "--gcc",      Str Config.arm_cc,
+            Str "--objcopy",  Str Config.arm_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv7" m) | m <- gem5Modules ]),
+
+    -- XScale needs a special rule to generate "include/romfs_size.h"
+    -- XXX - this is currently a non-functional stub.  A real solution would
+    -- be to do a binary patch on the final image, if anybody still cares.
+    Rule ([ Str "echo",
+            Str ("\"size_t romfs_cpio_archive_size = 0;" ++
+                 " //should not see this\""),
+            Str ">",
+            Out "xscale" "/include/romfs_size.h" ]),
+
+    --
+    -- Booting: various targets for booting Barrelfish under different circumstances
+    --
+
+    -- Copy menu.list files across
+    Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
+                     "root" ("/platforms/arm/menu.lst." ++ p)
+            | p <- [ "arm_gem5",
+                     "arm_gem5_mc",
+                     "arm_gem5_panda",
+                     "armv5",
+                     "armv7-m",
+                     "heteropanda_master",
+                     "pandaboard",
+                     "xscale" ]],
+    Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
+                     "root" ("/platforms/x86/menu.lst." ++ p)
+            | p <- [ "x86_32", "x86_64", "k1om" ] ],
+    
+    -- Convenient functions for running GEM5
+    boot "gem5_armv7" [ "armv7" ] [
+      Str Config.gem5,
+      In SrcTree "tools" "/tools/arm_gem5/gem5script.py",
+      Str "--caches",
+      Str "--l2cache",
+      Str "--n=2",
+      NStr "--kernel=", In BuildTree "root" "/arm_gem5_image" ]
+    "Boot an ARMv7a multicore image in GEM5",
+
+    boot "gem5_armv7_detailed" [ "armv7" ] [
+      Str Config.gem5,
+      In SrcTree "tools" "/tools/arm_gem5/gem5script.py",
+      Str "--caches",
+      Str "--l2cache",
+      Str "--n=2",
+      Str "--cpu-type=arm_detailed",
+      NStr "--kernel=", In BuildTree "root" "/arm_gem5_image" ]
+    "Boot an ARMv7a multicore image in GEM5 using a detailed CPU model",
+
+    boot "qemu_x86_64" [ "x86_64" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
+      Str "--arch", Str "x86_64" ]
+    "Boot QEMU in 64-bit x86 mode emulating a PC",
+    
+    boot "qemu_x86_32" [ "x86_32" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
+      Str "--arch", Str "x86_32" ]
+    "Boot QEMU in 32-bit x86 mode emulating a PC",
+
+    boot "qemu_x86_64_debug" [ "x86_64" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_64",
+      Str "--arch", Str "x86_64",
+      Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
+    "Boot QEMU under GDB in 64-bit x86 mode emulating a PC",
+    
+    boot "qemu_x86_32_debug" [ "x86_32" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--menu", In BuildTree "root" "/platforms/x86/menu.lst.x86_32",
+      Str "--arch", Str "x86_32",
+      Str "--debug", In SrcTree "tools" "/tools/debug.gdb" ]
+    "Boot QEMU under GDB in 32-bit x86 mode emulating a PC",
+
+    boot "qemu_armv5" [ "armv5" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--kernel", In BuildTree "armv5" "/sbin/cpu.bin",
+      Str "--initrd", In BuildTree "armv5" "/romfs.cpio",
+      Str "--arch", Str "armv5" ]
+    "Boot QEMU as an ARMv5-based Integrator/CP board",
+
+    boot "qemu_armv5_debug" [ "armv5" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--kernel", In BuildTree "armv5" "/sbin/cpu.bin",
+      Str "--initrd", In BuildTree "armv5" "/romfs.cpio",
+      Str "--arch", Str "armv5",
+      Str "--debug", In SrcTree "tools" "/tools/debug.arm.gdb" ]
+    "Boot QEMU under GDB as an ARMv5-based Integrator/CP board"
+ ]

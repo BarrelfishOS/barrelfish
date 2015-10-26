@@ -13,6 +13,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/caddr.h>
 #include <barrelfish/nameservice_client.h>
 
 #include <if/acpi_defs.h>
@@ -56,6 +57,45 @@ errval_t acpi_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
     return err_is_fail(err) ? err : msgerr;
 }
 
+errval_t vtd_create_domain(struct capref pml4)
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.create_domain(rpc_client, pml4, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t vtd_delete_domain(struct capref pml4)
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.delete_domain(rpc_client, pml4, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capref pml4) 
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.vtd_add_device(rpc_client, seg, bus, dev, func, pml4, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct capref pml4) 
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.vtd_remove_device(rpc_client, seg, bus, dev, func, pml4, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t vtd_add_devices(void)
+{
+    assert(rpc_client != NULL);
+    errval_t err, msgerr;
+    err = rpc_client->vtbl.vtd_id_dom_add_devices(rpc_client, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
 
 struct acpi_rpc_client* get_acpi_rpc_client(void)
 {

@@ -60,6 +60,16 @@ arm = Arch {
     lrpc_words = 0
 }
 
+aarch64 = Arch {
+    archname = "aarch64",
+    wordsize = 64,
+    ptrsize = 64,
+    sizesize = 64,
+    enum_type = Int32,
+    lmp_words = 10, -- XXX: TODO: check this
+    lrpc_words = 0
+}
+
 -- settings for the xeon phi. TODO: Verify.
 k1om = Arch {
     archname = "k1om",
@@ -71,7 +81,7 @@ k1om = Arch {
     lrpc_words = 4
 }
 
-all_archs = [x86_64, x86_32, arm, k1om]
+all_archs = [x86_64, x86_32, arm, aarch64, k1om]
 
 -- for option parsing: find the matching arch info
 parse_arch :: String -> Maybe Arch

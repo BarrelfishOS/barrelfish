@@ -296,6 +296,8 @@ static errval_t download_bootloader_generic(struct xeon_phi *phi, char *bootload
     buf[517] = 0x53;
     buf[0x1f1] = SETUP_SECTORS-1;
 
+    XBOOT_DEBUG("loading %s @ 0x%lx\n", bootloader, loadoffset);
+
     err = loadfn(bootloader, buf + HEADER_SIZE, args, &imgsize);
     if (err_is_fail(err)) {
         return err;

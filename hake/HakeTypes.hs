@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Basic Hake rule combinators
 -- 
@@ -15,7 +15,7 @@ module HakeTypes where
 import Data.Typeable
 
 data TreeRef = SrcTree | BuildTree | InstallTree
-             deriving (Show,Eq)
+             deriving (Show,Eq,Ord)
 
 data RuleToken = In     TreeRef String String -- Input to the computation
                | Dep    TreeRef String String -- Extra (implicit) dependency
@@ -28,11 +28,12 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | ContStr Bool String String   -- Conditional string 
                | ErrorMsg String              -- Error message: $(error x)
                | NL                           -- New line
-                 deriving (Show,Eq)
+                 deriving (Show,Eq,Ord)
 
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
            | Error String
+           | Phony String Bool [ RuleToken ]
            | Rules [ HRule ]
              deriving (Show,Typeable)
 
@@ -64,10 +65,23 @@ frTree t = BuildTree
 isFileRef :: RuleToken -> Bool
 isFileRef (Str _ ) = False
 isFileRef (NStr _ ) = False
-isFileRef (ContStr _ _ _) = False
 isFileRef (ErrorMsg _) = False
 isFileRef NL = False
 isFileRef _ = True
+
+isDependency :: RuleToken -> Bool
+isDependency (In _ _ _) = True
+isDependency (Dep _ _ _) = True
+isDependency _ = False
+
+isPredependency :: RuleToken -> Bool
+isPredependency (PreDep _ _ _) = True
+isPredependency _ = False
+
+isOutput :: RuleToken -> Bool
+isOutput (Out _ _) = True
+isOutput (Target _ _) = True
+isOutput _ = False
 
 formatToken :: RuleToken -> String
 formatToken (In _ a f) = f ++ " "
@@ -78,11 +92,8 @@ formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "
 formatToken (Str s) = s ++ " "
 formatToken (NStr s) = s 
-formatToken (ContStr True s _) = s ++ " "
-formatToken (ContStr False _ s) = s ++ " "
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
-
 
 -------------------------------------------------------------------------
 --

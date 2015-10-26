@@ -141,10 +141,10 @@ reply:
 static void get_cap_response_resend(void *arg);
 
 static void get_cap_response_cont(struct pci_binding *b, errval_t err,
-                                  struct capref cap, uint8_t type)
+                                  struct capref cap, uint8_t type, uint8_t bar_nr)
 {
     errval_t e;
-    e = b->tx_vtbl.get_cap_response(b, NOP_CONT, err, cap, type);
+    e = b->tx_vtbl.get_cap_response(b, NOP_CONT, err, cap, type, bar_nr);
     if(err_is_fail(e)) {
         if(err_no(e) == FLOUNDER_ERR_TX_BUSY) {
             struct client_state *st = b->st;
@@ -153,6 +153,7 @@ static void get_cap_response_cont(struct pci_binding *b, errval_t err,
             me->err = err;
             me->cap = cap;
             me->type = type;
+            me->bar_nr = bar_nr;
             st->cont_st = me;
 
             e = b->register_send(b, get_default_waitset(),
@@ -169,7 +170,7 @@ static void get_cap_response_resend(void *arg)
     struct pci_binding *b = arg;
     struct client_state *st = b->st;
     struct pci_get_cap_response__args *a = st->cont_st;
-    get_cap_response_cont(b, a->err, a->cap, a->type);
+    get_cap_response_cont(b, a->err, a->cap, a->type, a->bar_nr);
     free(a);
 }
 
@@ -182,12 +183,14 @@ static void get_cap_handler(struct pci_binding *b, uint32_t idx,
 
     if (idx >= st->nr_allocated_bars) {
         e = b->tx_vtbl.get_cap_response(b, NOP_CONT, PCI_ERR_WRONG_INDEX,
-                                        NULL_CAP, 0);
+                                        NULL_CAP, 0, 0);
         assert(err_is_ok(e));
     } else {
         struct capref cap = pci_get_cap_for_device(st->bus, st->dev,
                                                    st->fun, idx, cap_nr);
         uint8_t type = pci_get_cap_type_for_device(st->bus, st->dev,
+                                                   st->fun, idx);
+        uint8_t bar_nr = pci_get_bar_nr_for_index(st->bus, st->dev,
                                                    st->fun, idx);
 /*
 XXX: I/O-Cap??
@@ -201,23 +204,8 @@ XXX: I/O-Cap??
         }
 */
 
-        get_cap_response_cont(b, SYS_ERR_OK, cap, type);
+        get_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }
-}
-
-static void reregister_interrupt_handler(struct pci_binding *b,
-                                    uint32_t class_code, uint32_t sub_class,
-                                    uint32_t prog_if, uint32_t vendor_id,
-                                    uint32_t device_id,
-                                    uint32_t bus, uint32_t dev, uint32_t fun,
-                                    coreid_t coreid, uint32_t vector)
-{
-    errval_t err;
-    err = device_reregister_interrupt(coreid, vector,
-                      class_code, sub_class, prog_if, vendor_id, device_id,
-                      &bus, &dev, &fun);
-    err = b->tx_vtbl.reregister_interrupt_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
 }
 /*
 static void get_vbe_bios_cap(struct pci_binding *b)
@@ -242,6 +230,21 @@ static void read_conf_header_handler(struct pci_binding *b, uint32_t dword)
 
     errval_t err;
     err = b->tx_vtbl.read_conf_header_response(b, NOP_CONT, SYS_ERR_OK, val);
+    assert(err_is_ok(err));
+}
+
+static void reregister_interrupt_handler(struct pci_binding *b,
+                                    uint32_t class_code, uint32_t sub_class,
+                                    uint32_t prog_if, uint32_t vendor_id,
+                                    uint32_t device_id,
+                                    uint32_t bus, uint32_t dev, uint32_t fun,
+                                    coreid_t coreid, uint32_t vector)
+{
+    errval_t err;
+    err = device_reregister_interrupt(coreid, vector,
+                      class_code, sub_class, prog_if, vendor_id, device_id,
+                      &bus, &dev, &fun);
+    err = b->tx_vtbl.reregister_interrupt_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
 

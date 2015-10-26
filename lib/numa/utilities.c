@@ -46,7 +46,7 @@ void numa_dump_topology(struct numa_topology *topology)
         struct numa_node *node = &topology->nodes[nodeid];
         printf(" # Node %" PRIuNODEID ":  [0x%016" PRIxLPADDR ", 0x%016" PRIxLPADDR
                "] of %" PRIu64 " MB\n", nodeid, node->mem_base, node->mem_limit,
-               (node->mem_limit - node->mem_base) >> 20);
+               (uint64_t)(node->mem_limit - node->mem_base) >> 20);
         for (coreid_t coreid = 0; coreid < node->num_cores; ++coreid) {
             struct numa_core *core = &node->cores[coreid];
             printf("  + Core %-3" PRIuCOREID ": [apic=%-3" PRIu16 ", node=%-3"
