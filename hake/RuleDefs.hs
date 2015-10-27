@@ -701,6 +701,32 @@ flounderRules opts args csrcs =
 
 
 --
+-- Build a Sockeye library
+--
+
+sockeyeCompileFile :: String -> String -> String -> String -> HRule
+sockeyeCompileFile arch opt in_file out_file =
+    Rule [
+        In InstallTree "tools" "/bin/sockeye",
+        Str opt,
+        In SrcTree "src" (in_file++".sockeye"),
+        Out arch out_file
+    ]
+
+sockeyeFile :: Options -> String -> HRule
+sockeyeFile opts file =
+    let arch = optArch opts
+        cfile = file ++ ".c"
+        hfile = "/include/schema/" ++ file ++ ".h"
+        opts' = opts { extraDependencies = [ Dep BuildTree arch hfile ] }
+    in
+        Rules [
+            sockeyeCompileFile arch "-H" file hfile,
+            sockeyeCompileFile arch "-C" file cfile,
+            compileGeneratedCFile opts' cfile
+         ]
+
+--
 -- Build a Fugu library
 --
 fuguCFile :: Options -> String -> HRule
