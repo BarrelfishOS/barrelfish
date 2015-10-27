@@ -139,17 +139,17 @@ fact_attributes sname f = C.UnitList [
 
 attr_fmt_type_wr :: String -> FactAttribute -> String
 attr_fmt_type_wr sn (FAttrib t (Name n) d) = case t of
-    Builtin builtin ->  "%\" " ++ builtin_fmt_wr builtin ++ " \""
-    TypeVar name -> "typevar"
+    Builtin builtin ->  "\"%\" " ++ builtin_fmt_wr builtin
+    TypeVar name -> "\"typevar\""
     FactType name -> type_c_define sn name "FMT_WRITE"
-    TypeAlias alias builtin -> "alias_type"
+    TypeAlias alias builtin -> "\"alias_type\""
 
 attr_fmt_type_rd :: String -> FactAttribute -> String
 attr_fmt_type_rd sn (FAttrib t (Name n) d) = case t of
-    Builtin builtin ->  "%\" " ++ builtin_fmt_rd builtin ++ " \""
-    TypeVar name -> "typevar"
+    Builtin builtin ->  "\"%\" " ++ builtin_fmt_rd builtin
+    TypeVar name -> "\"typevar\""
     FactType name -> type_c_define sn name "FMT_READ"
-    TypeAlias alias builtin -> "alias_type"
+    TypeAlias alias builtin -> "\"alias_type\""
 
 attr_access_rd :: String -> String -> FactAttribute -> String
 attr_access_rd arg sn (FAttrib t (Name n) d) = case t of
@@ -169,13 +169,13 @@ fact_fmt_str sname f=  C.UnitList [
   where 
     name = fact_attrib_type sname f
     desc = fact_desc f 
-    params_wr = "\"" ++ name ++ "(" ++ (intercalate ", " write) ++ ")\""
+    params_wr = "\"" ++ name ++ "(\"" ++ (intercalate "\", \"" write) ++ "\")\""
     write = case f of
         Fact _ _ args -> [ (attr_fmt_type_wr sname a) | a <- args ]
-    params_rd = "\"" ++ name ++ "(" ++ (intercalate ", " read) ++ ")\""
+    params_rd = "\"" ++ name ++ "(\"" ++ (intercalate "\", \"" read) ++ "\")\""
     read = case f of
-        Fact _ _ args -> [ (attr_fmt_type_rd sname a) | a <- args ]   
-    field_access = "(" ++ (intercalate ", " fields) ++ ")"
+        Fact _ _ args -> [ (attr_fmt_type_rd sname a) | a <- args ]
+    field_access = (intercalate ", " fields)
     fields = case f of
         Fact _ _ args -> [ attr_access_rd "_arg" sname a | a <- args ]  
 

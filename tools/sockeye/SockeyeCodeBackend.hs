@@ -53,7 +53,7 @@ sockeye_code_file infile (Schema name descr decls) =
 
       C.Include C.Standard "barrelfish/barrelfish.h",
       C.Include C.Standard "flounder/flounder_support.h",
-      C.Include C.Standard ("facts/" ++ name ++ "_schema.h"),
+      C.Include C.Standard ("schema/" ++ name ++ ".h"),
       C.Blank,
 
       C.MultiComment [ "Fact type signatures" ],
@@ -84,7 +84,7 @@ fact_fn sname f = C.UnitList [
       C.If (C.Call "err_is_fail" [errvar]) 
         [C.Return $ errvar] [],
       C.SBlank,
-      C.Ex $ C.Assignment errvar (C.Call "skb_add_fact" [C.Variable add_fact_string, (C.Call add_fact_args [C.Variable "args"])]),
+      C.Ex $ C.Assignment errvar (C.Call "skb_add_fact" [C.Variable add_fact_string, (C.Call add_fact_args [C.Variable "arg"])]),
       C.Return $ errvar
     ],
     C.Blank
