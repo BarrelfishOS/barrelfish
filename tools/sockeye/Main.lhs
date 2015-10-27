@@ -33,7 +33,7 @@
 
 > data Target = Header
 >             | Code
->			  | Documentation
+>             | Documentation
 >             deriving (Show)
 
 > data Options = Options {
@@ -62,7 +62,7 @@
 >             Option ['H'] ["generic-header"] (NoArg $ addTarget Header) "Create a header file",
 >             Option ['C'] ["generic-stub"] (NoArg $ addTarget Code) "Create code",
 >             Option ['i'] ["import"] (ReqArg addInclude "FILE")      "Include a given file before processing", 
->			  Option ['D'] ["documentation"] (NoArg $ addTarget Documentation)      "add documentation target"
+>             Option ['D'] ["documentation"] (NoArg $ addTarget Documentation)      "add documentation target"
 >            ]
 
 

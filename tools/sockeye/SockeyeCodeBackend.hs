@@ -382,9 +382,9 @@ connect_fn_def n =
 bind_cont_def :: String -> String -> [BindBackend] -> C.Unit
 bind_cont_def ifn fn_name backends =
     C.FunctionDef C.Static C.Void fn_name params [
-	C.SComment "This bind cont function uses the different backends in the following order:",
-	C.SComment $ unwords $ map flounder_backend backends,
-	C.SBlank,
+        C.SComment "This bind cont function uses the different backends in the following order:",
+        C.SComment $ unwords $ map flounder_backend backends,
+        C.SBlank,
 
         localvar (C.Ptr $ C.Struct "flounder_generic_bind_attempt") "b"
             (Just $ C.Variable "st"),
