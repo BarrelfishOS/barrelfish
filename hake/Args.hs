@@ -40,7 +40,8 @@ data Args = Args {
       addLinkFlags :: [String],
       addLibraries :: [String],
       addGeneratedDependencies :: [String],
-      architectures :: [String]
+      architectures :: [String],
+      sockeyeSchema :: [String]
 } 
 
 defaultArgs = Args { 
@@ -68,7 +69,8 @@ defaultArgs = Args {
       addLinkFlags = [],
       addLibraries = [],
       addGeneratedDependencies = [],
-      architectures = allArchitectures
+      architectures = allArchitectures,
+      sockeyeSchema = []
 }
 
 allArchitectures = [ "x86_64", "x86_32", "armv5", "xscale", "armv7",
@@ -110,4 +112,5 @@ showArgs prefix a =
     ++ "\n  addLibraries:          " ++ (show $ addLibraries a)
     ++ "\n  addDeps:               " ++ (show $ addGeneratedDependencies a)
     ++ "\n  architectures:         " ++ (show $ architectures a)
+    ++ "\n  sockeyeSchema:         " ++ (show $ sockeyeSchema a)
     ++ "\n"

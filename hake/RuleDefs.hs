@@ -704,19 +704,24 @@ flounderRules opts args csrcs =
 -- Build a Sockeye library
 --
 
+sockeyeSchemaCPath :: Args.Args -> String -> String
+sockeyeSchemaCPath args schema =
+    (Args.target args) </> (schema ++ ".c")
+
 sockeyeCompileFile :: String -> String -> String -> String -> HRule
 sockeyeCompileFile arch opt in_file out_file =
     Rule [
         In InstallTree "tools" "/bin/sockeye",
         Str opt,
-        In SrcTree "src" (in_file++".sockeye"),
+        In SrcTree "src" (in_file ++ ".sockeye"),
         Out arch out_file
     ]
 
-sockeyeFile :: Options -> String -> HRule
-sockeyeFile opts file =
+
+sockeyeCompileSchema :: Options -> Args.Args -> String -> HRule
+sockeyeCompileSchema opts args file =
     let arch = optArch opts
-        cfile = file ++ ".c"
+        cfile = sockeyeSchemaCPath args file
         hfile = "/include/schema/" ++ file ++ ".h"
         opts' = opts { extraDependencies = [ Dep BuildTree arch hfile ] }
     in
@@ -934,6 +939,9 @@ allObjectPaths opts args =
                 [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
                 ++
+                [ sockeyeSchemaCPath args f
+                      | f <- (Args.sockeyeSchema args)]
+                ++
                 (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
     ]
 
@@ -1105,6 +1113,8 @@ libBuildArch tdb tf args arch =
         gencxxsrc = Args.generatedCxxFiles args
     in
       Rules ( flounderRules opts args csrcs
+              ++
+              [ sockeyeCompileSchema opts args schema | schema <- Args.sockeyeSchema args ]
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
