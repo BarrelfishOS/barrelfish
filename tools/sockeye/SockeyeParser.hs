@@ -28,12 +28,11 @@ import Numeric
 import Data.List
 import Text.Printf
 
-parse_intf predefDecls filename = parseFromFile (intffile predefDecls) filename
+parse_intf predefDecls name filename = parseFromFile (intffile predefDecls name) filename
 parse_include predefDecls filename = parseFromFile (includefile predefDecls) filename
 
 lexer = P.makeTokenParser (javaStyle
-                           { P.reservedNames = [ "schema", 
-                                                 "fact",
+                           { P.reservedNames = [                                                 "fact",
                                                  "query",
                                                  "key",
                                                  "unique"
@@ -68,19 +67,19 @@ identifyBuiltin typeDcls typeName =
           case typeName `lookup` typeDcls of
             Just (Typedef (TAliasT new orig)) -> return $ TypeAlias new orig
             Just _ -> return $ TypeVar typeName 
-            Nothing -> 
-                do {
-                ; pos <- getPosition
-                -- This is ugly, I agree:
-                ; return $ error ("Use of undeclared type '" ++ typeName ++ "' in "
-                                  ++ show (sourceName pos) ++ " at l. "
-                                  ++ show (sourceLine pos) ++ " col. "
-                                  ++ show (sourceColumn pos))
-                }
+            Nothing -> return $ FactType typeName
+--                do {
+--                ; pos <- getPosition
+--                -- This is ugly, I agree:
+--                ; return $ error ("Use of undeclared type '" ++ typeName ++ "' in "
+--                                  ++ show (sourceName pos) ++ " at l. "
+--                                  ++ show (sourceLine pos) ++ " col. "
+--                                  ++ show (sourceColumn pos))
+--                }
     }
 
-intffile predefDecls = do { whiteSpace
-             ; i <- pSchema predefDecls
+intffile predefDecls name = do { whiteSpace
+             ; i <- pSchema predefDecls name
              ; return i
               }
 
@@ -89,7 +88,7 @@ includefile predefDecls = do { whiteSpace
              ; return typeDecls
               }
 
-pSchema predefDecls = do { reserved "schema"
+pSchema predefDecls _ = do { reserved "schema"
            ; name <- identifier 
            ; descr <- option name stringLit
            ; decls <- braces $ do {
@@ -154,8 +153,8 @@ factAttribs typeDecls = do { b <-factAttribType typeDecls
                            }
  
 --- XXX: verify that the fact is already defined
-factAttribTypeRef typeDecls = do {  reserved "fact"
-                                 ; t <- identifier 
+factAttribTypeRef typeDecls = do {
+                                 t <- identifier 
                                --  ; b <- identifyBuiltin typeDecls t
                                  ; return $ FactType t
                               --   ; return b
@@ -167,8 +166,8 @@ factAttribTypeBultIn typeDecls = do { t <- identifier
                                     }
 
 
-factAttribType typeDcls = try (factAttribTypeRef typeDcls)
-                        <|> (factAttribTypeBultIn typeDcls)
+factAttribType typeDcls = try (factAttribTypeBultIn typeDcls)
+                        <|> (factAttribTypeRef typeDcls)
 
 
 

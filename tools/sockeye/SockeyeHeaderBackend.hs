@@ -38,7 +38,7 @@ compile infile outfile schema =
 
 header_file :: String -> Schema -> [C.Unit] -> C.Unit
 header_file infile schema@(Schema name _ _) body = 
-    let sym = "__" ++ name ++ "_SCHEMA_H"
+    let sym = "__SCHEMA_" ++ map toUpper name ++ "_H"
     in
       C.IfNDef sym ([ C.Define sym [] "1"] ++ body) []
 

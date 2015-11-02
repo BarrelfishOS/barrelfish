@@ -96,7 +96,7 @@
 >          (optf, [ inFile, outFile ], []) -> do
 >              opts <- foldM (flip id) defaultOptions optf
 >              includeDecls <- parseIncludes opts
->              ast <- parseFile (SockeyeParser.parse_intf includeDecls) inFile
+>              ast <- parseFile (SockeyeParser.parse_intf includeDecls (takeBaseName inFile)) inFile
 >              outFileD <- openFile outFile WriteMode
 >              checkFilename ast inFile
 >              sequence_ $ map (\target
