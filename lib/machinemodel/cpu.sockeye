@@ -1,16 +1,14 @@
 schema cpu {
 
-//    typedef uint8 core_id;
+    typedef uint8 core_id;
 
     fact vendor {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         string vendor;
     };
 
     fact family {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         string Vendor_String;
         uint64 Family;
         uint64 Model;
@@ -18,16 +16,14 @@ schema cpu {
     };
 
     fact thread {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         uint64 Package;
         uint64 Core;
         uint64 HyperThread;
     };
 
     fact cache {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         string Name;
         uint8 Level;
         //data|instr|unified;
@@ -39,8 +35,7 @@ schema cpu {
     };
 
     fact tlb {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         //data|instr|unified;
         uint8 level;
         uint64 PageSize;
@@ -49,8 +44,7 @@ schema cpu {
     };
 
     fact addrspace {
-//        core_id Core_ID;
-        uint8 Core_ID;
+        core_id Core_ID;
         uint8 BitsPhys;
         uint8 BitsVirt;
         uint8 BitsGuest;
