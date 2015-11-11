@@ -1,10 +1,10 @@
 {- 
  
-   Parser.hs: Parser for the Flounder interface definition language
+   Parser.hs: Parser for the Sockeye schema definition language
                       
-   Part of Flounder: a strawman device definition DSL for Barrelfish
+   Part of Sockeye: a strawman device definition DSL for Barrelfish
    
-  Copyright (c) 2009, ETH Zurich.
+  Copyright (c) 2015, ETH Zurich.
 
   All rights reserved.
   
@@ -12,7 +12,7 @@
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 -}
-  
+
 module SockeyeParser where
 
 import SockeyeSyntax
@@ -32,7 +32,7 @@ parse_intf predefDecls name filename = parseFromFile (intffile predefDecls name)
 parse_include predefDecls filename = parseFromFile (includefile predefDecls) filename
 
 lexer = P.makeTokenParser (javaStyle
-                           { P.reservedNames = [                                                 "fact",
+                           { P.reservedNames = [ "fact",
                                                  "query",
                                                  "key",
                                                  "unique"
@@ -66,8 +66,10 @@ identifyBuiltin typeDcls typeName =
       else 
           case typeName `lookup` typeDcls of
             Just (Typedef (TAliasT new orig)) -> return $ TypeAlias new orig
-            Just _ -> return $ TypeVar typeName 
-            Nothing -> return $ FactType typeName
+            Just (Typedef (TAlias new orig)) -> return $ orig
+--            Just x -> trace (show x) return $ TypeVar typeName
+            Nothing -> return $ UnknownType typeName
+-- This needs to go to SockeyeTools:
 --                do {
 --                ; pos <- getPosition
 --                -- This is ugly, I agree:
@@ -115,7 +117,7 @@ typeDeclaration typeDcls = do {
                            ; case decl of 
                                Nothing -> return typeDcls
                                Just x -> typeDeclaration (x : typeDcls)
-                           }       
+                           }
 
 pFact typeDcls = do { def <- pFct typeDcls
                     ; return $ Factdef def
@@ -123,7 +125,7 @@ pFact typeDcls = do { def <- pFct typeDcls
 
 pQuery typeDcls = do {def <- pQry typeDcls
                    ; return $ Querydef def
-                   }                   
+                   }
 
 pQry typeDcls = do { reserved "query"
                    ; i <- identifier

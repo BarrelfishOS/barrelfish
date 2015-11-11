@@ -54,6 +54,7 @@ we define these terms in turn.
 > data Declaration = Typedef TypeDef
 >                  | Factdef FactDef
 >                  | Querydef QueryDef
+>   deriving (Show)
 
 % =============================================================================
 % Types
@@ -72,6 +73,7 @@ constructs:
 > data TypeDef = TEnum String [String] 
 >              | TAlias String TypeRef
 >              | TAliasT String TypeBuiltin
+>   deriving (Show)
 
 In this definition, we notice the presence of @TypeRef@: indeed, when
 we construct a new type, it can use either built-in types, such as
@@ -81,6 +83,7 @@ we construct a new type, it can use either built-in types, such as
 >              | TypeVar String
 >              | FactType String
 >              | TypeAlias String TypeBuiltin
+>              | UnknownType String
 >     deriving (Show)
 
 The builtin types being:
@@ -271,7 +274,8 @@ A @fact@ is identified by a @name@ and has a @description@ and a set of
 @attributes@ which are described by a list of @FactAttribute@
 
 
-> data FactDef = Fact String String [ FactAttribute ] 
+> data FactDef = Fact String String [ FactAttribute ]
+>   deriving (Show)
 
 > fact :: String -> String -> [ FactAttribute ] -> Declaration
 > fact name desc args = Factdef $ Fact name desc args
@@ -292,7 +296,8 @@ A @fact@ is identified by a @name@ and has a @description@ and a set of
 A @fact@ is identified by a @name@ and has a description and a set of 
 @attributes@ which are described by a list of @FactArgument@
 
-> data QueryDef = Query String String [ QueryParam ] 
+> data QueryDef = Query String String [ QueryParam ]
+>   deriving (Show)
 
 > query :: String -> String -> [ QueryParam ] -> Declaration
 > query name desc args = Querydef $ Query name desc args 

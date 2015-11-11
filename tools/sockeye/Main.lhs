@@ -29,6 +29,7 @@
 > import qualified SockeyeCodeBackend
 > import qualified SockeyeHeaderBackend
 > import qualified SockeyeDocBackend
+> import qualified SockeyeTools
 
 
 > data Target = Header
@@ -41,6 +42,7 @@
 >     optIncludes :: [String]
 > }
 
+> defaultOptions :: Options
 > defaultOptions = Options { optTargets = [],  optIncludes = [] }
 
 > generator :: Options -> Target -> String -> String -> SockeyeSyntax.Schema -> String
@@ -69,7 +71,9 @@
 
 > compile :: Options -> Target -> SockeyeSyntax.Schema -> String -> String -> Handle -> IO ()
 > compile opts fl ast infile outfile outfiled =
->     hPutStr outfiled $ (generator opts fl) infile outfile ast
+>     hPutStr outfiled $ (generator opts fl) infile outfile ast'
+>   where
+>       ast' = SockeyeTools.rewireTypes ast (SockeyeTools.collectTypes ast)
 
 > parseFile :: (String -> IO (Either Parsec.ParseError a)) -> String -> IO a
 > parseFile parsefn fname = do
