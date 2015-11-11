@@ -29,7 +29,7 @@
 #include "sleep.h"
 #include "helper.h"
 
-//#define VTON_DCBOFF
+#define VTON_DCBOFF
 //#define DCA_ENABLED
 
 //#define DEBUG(x...) printf("e10k: " x)
@@ -56,7 +56,6 @@ struct queue_state {
 
     uint64_t rx_head;
     uint64_t tx_head;
-
     lvaddr_t tx_va;
     lvaddr_t rx_va;
     lvaddr_t txhwb_va;
@@ -113,6 +112,9 @@ static union macentry mactable[128] = {
     // Last MAC (127) never set (loaded from card EEPROM ... at least, it's already there)
 };
 
+static uint16_t credit_refill[128];
+static uint32_t tx_rate[128];
+
 // Hack for monolithic driver
 void qd_main(void) __attribute__((weak));
 void qd_argument(const char *arg) __attribute__((weak));
@@ -125,19 +127,19 @@ void qd_write_queue_tails(struct e10k_binding *b) __attribute__((weak));
 
 void cd_request_device_info(struct e10k_binding *b);
 void cd_register_queue_memory(struct e10k_binding *b,
-                              uint8_t queue,
-                              struct capref tx,
-                              struct capref txhwb,
-                              struct capref rx,
+                              uint8_t n,
+                              struct capref tx_frame,
+                              struct capref txhwb_frame,
+                              struct capref rx_frame,
                               uint32_t rxbufsz,
                               uint32_t rxhdrsz,
                               int16_t msix_intvec,
                               uint8_t msix_intdest,
-                              bool use_interrupts,
+                              bool use_irq,
                               bool use_rsc,
-                              uint64_t tx_va,
-                              uint64_t rx_va,
-                              uint64_t txhwb_va);
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va);
 void cd_set_interrupt_rate(struct e10k_binding *b,
                            uint8_t queue,
                            uint16_t rate);
@@ -715,11 +717,22 @@ static void device_init(void)
     /* Causes ECC error (could be same problem as with l34timir (see e10k.dev) */
     for (i = 0; i < 128; i++) {
         e10k_rttdqsel_txdq_idx_wrf(d, i);
-        e10k_rttdt1c_wr(d, 0);
-    }
+	e10k_rttdt1c_wr(d, credit_refill[i]);   // Credit refill x 64 bytes
+        e10k_rttbcnrc_wr(d, 0);
+        if(tx_rate[i] != 0) {
+            // Turn on rate scheduler for this queue and set rate factor
+            e10k_rttbcnrc_t rttbcnrc = 0;
+            // XXX: Assuming 10Gb/s link speed. Change if that's not correct.
+            uint32_t tx_factor = (10000 << 14) / tx_rate[i];
 
-    e10k_rttdqsel_txdq_idx_wrf(d, 0);
-    e10k_rttbcnrc_wr(d, 0);
+            rttbcnrc = e10k_rttbcnrc_rf_dec_insert(rttbcnrc, tx_factor & 0x3fff);
+            rttbcnrc = e10k_rttbcnrc_rf_int_insert(rttbcnrc, tx_factor >> 14);
+            rttbcnrc = e10k_rttbcnrc_rs_ena_insert(rttbcnrc, 1);
+            e10k_rttbcnrc_wr(d, rttbcnrc);
+
+            printf("Setting rate for queue %d to %u\n", i, tx_rate[i]);
+        }
+    }
 
     for (i = 0; i < 8; i++) {
         e10k_rttdt2c_wr(d, i, 0);
@@ -729,12 +742,7 @@ static void device_init(void)
 
 #ifdef VTON_DCBOFF
     e10k_rttdcs_tdpac_wrf(d, 0);
-
-    // XXX: Should be on, but transmit only works when it's off...
-    // Linux driver doesn't seem to set it either
-    /* e10k_rttdcs_vmpac_wrf(d, 1); */
-    e10k_rttdcs_vmpac_wrf(d, 0);
-
+    e10k_rttdcs_vmpac_wrf(d, 1);        // Remember to set RTTDT1C >= MTU when this is 1
     e10k_rttdcs_tdrm_wrf(d, 0);
     e10k_rttdcs_bdpm_wrf(d, 1);
     e10k_rttdcs_bpbfsm_wrf(d, 0);
@@ -842,7 +850,6 @@ static void queue_hw_init(uint8_t n)
     rx_phys = frameid.base;
     rx_size = 1 << frameid.bits;
 
-
     DEBUG("tx.phys=%"PRIx64" tx.size=%"PRIu64"\n", tx_phys, tx_size);
     DEBUG("rx.phys=%"PRIx64" rx.size=%"PRIu64"\n", rx_phys, rx_size);
 
@@ -869,9 +876,18 @@ static void queue_hw_init(uint8_t n)
     // Enable header split if desired
     if (queues[n].rxhdrsz != 0) {
         e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_hdrsp);
+        // Split packets after TCP, UDP, IP4, IP6 and L2 headers if we enable
+        // header split
+        e10k_psrtype_split_tcp_wrf(d, n, 1);
+        e10k_psrtype_split_udp_wrf(d, n, 1);
+        e10k_psrtype_split_ip4_wrf(d, n, 1);
+        e10k_psrtype_split_ip6_wrf(d, n, 1);
+        e10k_psrtype_split_l2_wrf(d, n, 1);
     } else {
         e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
     }
+    e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
+                                               //       all cases?
     e10k_srrctl_1_drop_en_wrf(d, n, 1);
 
     // Set RSC status
@@ -880,15 +896,11 @@ static void queue_hw_init(uint8_t n)
         e10k_rscctl_1_maxdesc_wrf(d, n, 3);
         e10k_rscctl_1_rsc_en_wrf(d, n, 1);
         // TODO: (how) does this work for queues >=64?
+        e10k_psrtype_split_tcp_wrf(d, n, 1); // needed for RSC
     } else {
         e10k_rscctl_1_maxdesc_wrf(d, n, 0);
         e10k_rscctl_1_rsc_en_wrf(d, n, 0);
     }
-    e10k_psrtype_split_tcp_wrf(d, n, 1); // required for RSC
-    e10k_psrtype_split_udp_wrf(d, n, 1);
-    e10k_psrtype_split_ip4_wrf(d, n, 1);
-    e10k_psrtype_split_ip6_wrf(d, n, 1);
-    e10k_psrtype_split_l2_wrf(d, n, 1);
 
     // Initialize queue pointers (empty)
     e10k_rdt_1_wr(d, n, queues[n].rx_head);
@@ -1259,9 +1271,9 @@ void cd_register_queue_memory(struct e10k_binding *b,
                               uint8_t msix_intdest,
                               bool use_irq,
                               bool use_rsc,
-                              uint64_t tx_va,
-                              uint64_t rx_va,
-                              uint64_t txhwb_va)
+			      lvaddr_t tx_va,
+			      lvaddr_t rx_va,
+			      lvaddr_t txhwb_va)
 {
     DEBUG("register_queue_memory(%"PRIu8")\n", n);
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -1455,12 +1467,12 @@ static struct e10k_vf_rx_vtbl vf_rx_vtbl = {
 static void vf_export_cb(void *st, errval_t err, iref_t iref)
 {
     const char *suffix = "_vf";
-    char name[strlen(service_name) + strlen(suffix) + 1];
+    char name[strlen(service_name) + strlen(suffix) + 100];
 
     assert(err_is_ok(err));
 
     // Build label for interal management service
-    sprintf(name, "%s%s", service_name, suffix);
+    sprintf(name, "%s%s%u", service_name, suffix, pci_function);
 
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
@@ -1613,6 +1625,24 @@ static void parse_cmdline(int argc, char **argv)
             msix = !!atol(argv[i] + strlen("msix="));
             // also pass this to queue driver
             qd_argument(argv[i]);
+	} else if (strncmp(argv[i], "credit_refill[", strlen("credit_refill[") - 1) == 0) {
+            // Controls the WRR (weighted round-robin) scheduler's credit refill rate
+            // This seems to be per VM pool
+            unsigned int entry, val;
+            int r = sscanf(argv[i], "credit_refill[%u]=%u", &entry, &val);
+            assert(r == 2);
+            assert(entry < 128);
+            assert(val < 0x3fff);
+            credit_refill[entry] = val;
+	} else if (strncmp(argv[i], "tx_rate[", strlen("tx_rate[") - 1) == 0) {
+            // This is specified in Mbits/s and must be >= 10 and <= link speed (typically 10,000)
+            // This seems to be per Tx queue
+            unsigned int entry, val;
+            int r = sscanf(argv[i], "tx_rate[%u]=%u", &entry, &val);
+            assert(r == 2);
+            assert(entry < 128);
+            assert(val >= 10 && val <= 10000);
+            tx_rate[entry] = val;
         } else {
             qd_argument(argv[i]);
         }
@@ -1648,6 +1678,14 @@ int e1000n_driver_init(int argc, char *argv[])
 #endif
 {
     DEBUG("PF driver started\n");
+    // credit_refill value must be >= 1 for a queue to be able to send.
+    // Set them all to 1 here. May be overridden via commandline.
+    for(int i = 0; i < 128; i++) {
+        credit_refill[i] = 1;
+    }
+
+    memset(tx_rate, 0, sizeof(tx_rate));
+
     parse_cmdline(argc, argv);
     pci_register();
 
@@ -1657,4 +1695,3 @@ int e1000n_driver_init(int argc, char *argv[])
     qd_main();
     return 1;
 }
-

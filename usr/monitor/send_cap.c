@@ -90,38 +90,3 @@ captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
 
     recv_cont(err, state, cap, st);
 }
-
-static void
-captx_abort_delete_cont(errval_t status, void *st_)
-{
-    struct captx_abort_state *st = (struct captx_abort_state*)st_;
-
-    st->abort_cont(status, st, st->st);
-}
-
-void
-captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
-                 captx_abort_cont abort_cont, void *st)
-{
-    assert(state);
-    assert(abort_cont);
-    errval_t err;
-
-    state->abort_cont = abort_cont;
-    state->st = st;
-
-    if (!captx->cnptr && !captx->cnbits) {
-        assert(!captx->slot);
-
-        state->abort_cont(SYS_ERR_OK, state, state->st);
-    }
-    else {
-        struct capref cap;
-        err = captx_get_capref(captx->cnptr, captx->cnbits, captx->slot, &cap);
-        if (err_is_fail(err)) {
-            state->abort_cont(err, state, state->st);
-        }
-
-        capops_delete(get_cap_domref(cap), captx_abort_delete_cont, state);
-    }
-}

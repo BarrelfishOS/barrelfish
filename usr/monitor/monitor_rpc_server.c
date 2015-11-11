@@ -145,25 +145,67 @@ out:
     }
 }
 
+struct cap_identify_del_st {
+    struct monitor_blocking_binding *b;
+    struct capref cap;
+    union capability_caprep_u u;
+    errval_t reterr;
+};
+
+static void cap_identify_delete_result_handler(errval_t status, void *st)
+{
+    errval_t err;
+    char *msg = NULL;
+    if (err_is_fail(status) && err_no(status) != SYS_ERR_CAP_NOT_FOUND) {
+        msg = "caps_delete failed";
+        err = status;
+        goto cleanup;
+    }
+
+    struct cap_identify_del_st *idst = st;
+
+    // free slot
+    err = slot_free(idst->cap);
+    if (err_is_fail(err)) {
+        msg = "slot_free failed";
+        goto cleanup;
+    }
+
+    // send cap_identify reply
+    err = idst->b->tx_vtbl.cap_identify_response(idst->b, NOP_CONT, idst->reterr,
+            idst->u.caprepb);
+    msg = "reply failed";
+
+cleanup:
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, msg ? msg : "unknown reason?!");
+    }
+    free(st);
+}
+
 static void cap_identify(struct monitor_blocking_binding *b,
                          struct capref cap)
 {
-    errval_t err, reterr;
-
-    union capability_caprep_u u;
-    reterr = monitor_cap_identify(cap, &u.cap);
-
-    /* XXX: shouldn't we skip this if we're being called from the monitor?
-     * apparently not: we make a copy of the cap on LMP to self?!?! */
-    err = cap_destroy(cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cap_destroy failed");
+    // allocate delete state
+    struct cap_identify_del_st *st = malloc(sizeof(*st));
+    if (!st) {
+        USER_PANIC("malloc in cap_identify");
     }
+    st->b = b;
+    st->cap = cap;
+    st->reterr = monitor_cap_identify(cap, &st->u.cap);
 
-    err = b->tx_vtbl.cap_identify_response(b, NOP_CONT, reterr, u.caprepb);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "reply failed");
-    }
+    /* We always need to do the delete properly here as the cap might be
+     * locked or in a delete already, furthermore if the function is called
+     * from the monitor through it's self-client binding we still create a
+     * copy of the capability, and need to cleanup our copy */
+    uint8_t vbits = get_cap_valid_bits(cap);
+    capaddr_t src = get_cap_addr(cap) >> (CPTR_BITS - vbits);
+    struct domcapref dcap = { .croot = cap_root,
+                              .cptr = src,
+                              .bits = vbits };
+
+    capops_delete(dcap, cap_identify_delete_result_handler, st);
 }
 
 #define ARM_IRQ_MAX 256

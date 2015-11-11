@@ -33,13 +33,4 @@ void captx_handle_recv(intermon_captx_t *captx, struct captx_recv_state *state,
                        captx_recv_cont recv_cont, void *st);
 
 
-struct captx_abort_state;
-typedef void (*captx_abort_cont)(errval_t, struct captx_abort_state*, void*);
-struct captx_abort_state {
-    captx_abort_cont abort_cont;
-    void *st;
-};
-void captx_abort_recv(intermon_captx_t *captx, struct captx_abort_state *state,
-                      captx_abort_cont abort_cont, void *st);
-
 #endif
