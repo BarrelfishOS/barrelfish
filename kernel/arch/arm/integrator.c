@@ -296,5 +296,5 @@ void write_sysflags_reg(uint32_t regval)
     lvaddr_t sysflags = sysflagset_base + SYSFLAGSET_OFFSET;
     printf(".. using address 0x%p\n", sysflags);
 
-    writel(regval, (char *) sysflags);
+    *((uint32_t *)sysflags)= regval;
 }

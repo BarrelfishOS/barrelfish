@@ -21,7 +21,7 @@
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
 //     to 16K after relocation
-static union arm_l1_entry kernel_l1_table[2*PTABLE_NUM_ENTRIES]
+static union arm_l1_entry kernel_l1_table[2*ARM_L1_MAX_ENTRIES]
 __attribute__((aligned(ARM_L1_ALIGN)));
 static union arm_l1_entry *aligned_kernel_l1_table;
 /**
@@ -29,7 +29,7 @@ static union arm_l1_entry *aligned_kernel_l1_table;
  */
 //XXX: We reserve double the space needed to be able to align the pagetable
 //     to 1K after relocation
-static union arm_l2_entry low_l2_table[2*PTABLE_NUM_ENTRIES]
+static union arm_l2_entry low_l2_table[2*ARM_L2_MAX_ENTRIES]
 __attribute__((aligned(ARM_L2_ALIGN)));
 static union arm_l2_entry *aligned_low_l2_table;
 
