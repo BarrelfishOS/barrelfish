@@ -22,6 +22,8 @@
 
 #define STARTUP_TIMEOUT         0xffffff
 
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
+
 /**
  * \brief Boot an arm app core
  *

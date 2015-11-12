@@ -136,8 +136,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-D__ARM_ARCH_8A__",
 								"-DPREFER_SIZE_OVER_SPEED",
                                 "-Wno-unused-but-set-variable",
-                                "-Wno-format",
-                                "-Wno-suggest-attribute=noreturn"
+                                "-Wno-format"
                               ]]
 
 kernelLdFlags = [ Str "-Wl,-N",
