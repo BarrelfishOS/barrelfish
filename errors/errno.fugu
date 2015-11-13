@@ -815,6 +815,7 @@ errors skb SKB_ERR_ {
     failure RUN                 "Failure in running rpc: run",
     failure GOAL_FAILURE        "Posted goal could not be satisfied.",
     failure UNEXPECTED_OUTPUT   "Query produced output but none was expected.",
+    failure CPUID               "Failed to collect CPUID information",
     success IO_OUTPUT           "Read I/O Output from SKB.",
 };
 
