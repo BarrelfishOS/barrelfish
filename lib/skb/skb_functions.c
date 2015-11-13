@@ -84,7 +84,7 @@ errval_t skb_add_fact(char *fmt, ...)
     return err;
 }
 
-int skb_execute_query(char *fmt, ...)
+errval_t skb_execute_query(char *fmt, ...)
 {
     va_list va_l;
     va_start(va_l, fmt);

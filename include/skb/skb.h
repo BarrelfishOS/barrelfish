@@ -36,7 +36,7 @@ int skb_read_error_code(void);
 char *skb_get_output(void);
 char *skb_get_error_output(void);
 errval_t skb_execute(char *goal);
-int skb_execute_query(char *fmt, ...) __attribute__((format(printf, 1, 2)));
+errval_t skb_execute_query(char *fmt, ...) __attribute__((format(printf, 1, 2)));
 errval_t skb_read_output_at(char *output, char *fmt, ...) __attribute__((format(scanf, 2, 3)));
 errval_t skb_vread_output_at(char *output, char *fmt, va_list va_l);
 errval_t skb_read_output(char *fmt, ...) __attribute__((format(scanf, 1, 2)));
