@@ -69,7 +69,7 @@ errval_t skb_add_fact(char *fmt, ...)
     va_start(va_l, fmt);
     vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
     buffer[BUFFER_SIZE - 1] = 0;
-    int len = strlen(buffer);
+    int len = strlen(buffer) + 1;
 
     char *dot = strrchr(buffer, '.');
     if (dot != 0) {
