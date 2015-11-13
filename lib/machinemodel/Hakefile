@@ -13,6 +13,6 @@
 [
     build library {
         target = "machinemodel",
-        sockeyeSchema = [ "pci", "cpu" ]
+        sockeyeSchema = [ "pci", "cpuid" ]
     }
 ]
