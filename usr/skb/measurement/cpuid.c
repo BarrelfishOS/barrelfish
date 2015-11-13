@@ -24,12 +24,10 @@
 /******************************************************************************/
 //main function to be called
 /******************************************************************************/
-void gather_cpuid_data(coreid_t core_id)
+errval_t gather_cpuid_data(coreid_t core_id)
 {
-
-    cpuid_init();
-
-    cpuid_vendor();
+    errval_t err;
+    err = cpuid_init();
 
     char buf[CPUID_PROC_NAME_LENGTH+1];
     cpuid_proc_name(buf, CPUID_PROC_NAME_LENGTH + 1);
@@ -84,4 +82,5 @@ void gather_cpuid_data(coreid_t core_id)
                     core_id, ai.physical, ai.virtual, ai.guest_physical);
 
 
+    return err;
 }

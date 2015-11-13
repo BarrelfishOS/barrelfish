@@ -65,7 +65,10 @@ int main(int argc, char **argv)
     //gather different types of data
 
     //run cpuid
-    gather_cpuid_data(core_id);
+    err = gather_cpuid_data(core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "gather_cpuid_data failed");
+    }
 
     //adding the number of cores is the last operation performed by the datagatherer.
     //therefore the domain can exit after this. process events as long as the number

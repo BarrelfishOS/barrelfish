@@ -15,7 +15,7 @@
 #ifndef DATAGATHERER_H_
 #define DATAGATHERER_H_
 
-void gather_cpuid_data(coreid_t core_id);
+errval_t gather_cpuid_data(coreid_t core_id);
 void gather_rtt_data(struct monitor_binding *st);
 
 #endif // DATAGATHERER_H_
