@@ -56,7 +56,7 @@ errval_t sys_reboot(void);
 errval_t sys_print(const char *string, size_t length);
 
 /**
- * \brief get time elapsed since system boot.
+ * \brief get time elapsed (in milliseconds) since system boot.
  */
 uint64_t sys_get_absolute_time(void);
 __END_DECLS
