@@ -27,13 +27,16 @@ import Data.Char (toUpper, isAlpha)
 
 -- Scope a list of strings
 ifscope :: String -> String -> String
-ifscope sn s = sn ++ "_" ++ s
+ifscope sn s = sn ++ "__" ++ s
 
 idscope :: String -> String -> String -> String
 idscope sn s suffix  = ifscope sn (s ++ "__" ++ suffix)
 
 drvscope :: String -> String -> String -> String
 drvscope drv sn s = ifscope sn (drv ++ "_" ++ s)
+
+plscope :: String -> String -> String
+plscope sn s = sn ++ "_" ++ s
 
 fact_add_fn :: String -> String
 fact_add_fn sn = sn ++ "add"
@@ -51,6 +54,9 @@ fact_sig_type sn fn f@(Fact _ _ _) = (idscope sn (fact_name f)) fn
 -- Name of the fact attributes struct
 fact_attrib_type :: String -> FactDef -> String
 fact_attrib_type sn f@(Fact _ _ _) = ifscope sn (fact_name f)
+
+plfact_attrib_type :: String -> FactDef -> String
+plfact_attrib_type sn f@(Fact _ _ _) = plscope sn (fact_name f)
 
 fact_param_desc :: FactAttribute -> String
 fact_param_desc fa = "@param  " ++ pname ++ "   " ++ pdesc 

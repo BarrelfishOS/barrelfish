@@ -24,7 +24,7 @@ import qualified Backend
 import BackendCommon
 
 
-add_fn_name n = ifscope n "add" 
+add_fn_name n = ifscope n "add"
 
 
 ------------------------------------------------------------------------
@@ -91,26 +91,26 @@ schema_header_body infile schema@(Schema name descr decls) =
 
 
 fact_signature :: String -> FactDef -> C.Unit
-fact_signature sname f = C.UnitList [ 
+fact_signature sname f = C.UnitList [
     C.MultiDoxy (["@brief  " ++ desc,
                   ""] ++ param_desc),
     C.FunctionDecl C.NoScope (C.TypeName "errval_t") name params,
     C.Blank
   ]
-  where 
-    name = fact_sig_type sname "add" f 
-    desc = fact_desc f 
+  where
+    name = fact_sig_type sname "add" f
+    desc = fact_desc f
     params = [C.Param (C.Ptr $ C.Struct $ (fact_attrib_type sname f)) "arg"]
-    param_desc = [ fact_param_desc a | a <- fact_args f ]  
+    param_desc = [ fact_param_desc a | a <- fact_args f ]
     payload = case f of
         Fact _ _ args -> [ fact_argdecl sname a | a <- args ]
 
 
 
 query_signature :: String -> QueryDef -> C.Unit
-query_signature sname q = 
-  C.FunctionDecl C.NoScope (C.TypeName "errval_t") name params 
-  where 
+query_signature sname q =
+  C.FunctionDecl C.NoScope (C.TypeName "errval_t") name params
+  where
     name = query_sig_type sname q
     params = concat payload
     payload = case q of
@@ -118,8 +118,8 @@ query_signature sname q =
 
 
 fact_attributes :: String -> FactDef -> C.Unit
-fact_attributes sname f = C.UnitList [ 
-    C.MultiDoxy (["Fact: " ++ name, 
+fact_attributes sname f = C.UnitList [
+    C.MultiDoxy (["Fact: " ++ name,
                   "@brief  " ++ desc]),
     C.StructDecl name params,
     C.Blank,
@@ -131,7 +131,7 @@ fact_attributes sname f = C.UnitList [
   ]
   where 
     name = fact_attrib_type sname f
-    desc = fact_desc f 
+    desc = fact_desc f
     params = concat payload
     payload = case f of
         Fact _ _ args -> [ fact_attrib_decl sname a | a <- args ]
@@ -158,17 +158,17 @@ attr_access_rd arg sn (FAttrib t (Name n) d) = case t of
 
 fact_fmt_str :: String -> FactDef -> C.Unit
 fact_fmt_str sname f=  C.UnitList [
-    C.DoxyComment ("define for printing the " ++ name ++ "fact"),
+    C.DoxyComment ("define for printing the " ++ name ++ " fact"),
     (C.Define (type_c_define sname (fact_name f) "FMT_WRITE") [] params_wr),
-    C.DoxyComment ("define for reading the " ++ name ++ "fact"),
+    C.DoxyComment ("define for reading the " ++ name ++ " fact"),
     (C.Define (type_c_define sname (fact_name f) "FMT_READ") [] params_rd),
     C.DoxyComment ("define for accessing the  " ++ name ++ "fact attributes"),
     (C.Define (type_c_define sname (fact_name f) "FIELDS") [ "_arg" ] field_access),
     C.Blank
   ]
-  where 
-    name = fact_attrib_type sname f
-    desc = fact_desc f 
+  where
+    name = plfact_attrib_type sname f
+    desc = fact_desc f
     params_wr = "\"" ++ name ++ "(\"" ++ (intercalate "\", \"" write) ++ "\")\""
     write = case f of
         Fact _ _ args -> [ (attr_fmt_type_wr sname a) | a <- args ]
@@ -271,7 +271,7 @@ typedef uint32_t ifname_alias_type_t;
 \end{verbatim}
 -}
 
-define_type sname (TAlias newType originType) = 
+define_type sname (TAlias newType originType) =
     C.TypeDef (type_c_type sname originType) (type_c_name1 sname newType)
 
 
