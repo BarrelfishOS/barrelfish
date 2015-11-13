@@ -1,10 +1,10 @@
-schema cpu {
+schema cpuid "Documentation for the CPUID schema." {
 
     typedef uint8 core_id;
 
-    fact vendor {
-        core_id Core_ID;
-        string vendor;
+    fact vendor "Vendor of a CPU" {
+        core_id Core_ID "CPU ID";
+        string vendor "Vendor string";
     };
 
     fact family {
@@ -26,7 +26,7 @@ schema cpu {
         core_id Core_ID;
         string Name;
         uint8 Level;
-        //data|instr|unified;
+        string type; //data|instr|unified;
         uint64 Size;
         uint8 Associativity;
         uint8 LineSize;
@@ -36,7 +36,7 @@ schema cpu {
 
     fact tlb {
         core_id Core_ID;
-        //data|instr|unified;
+        string type; //data|instr|unified;
         uint8 level;
         uint64 PageSize;
         uint64 Entries;
