@@ -7,12 +7,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdlib.h>
@@ -211,6 +212,20 @@ int main(int argc, char** argv)
         err = mi->start_function(0, mi, "hw.arm.omap44xx.usb {}");
         assert(err_is_ok(err));
     }
+#elif __gem5__
+    printf("Kaluga running on GEM5 armv8.\n");
+
+    err = init_cap_manager();
+    assert(err_is_ok(err));
+
+    err = oct_set("all_spawnds_up { iref: 0 }");
+    assert(err_is_ok(err));
+
+    struct module_info* mi = find_module("serial");
+    if (mi != NULL) {
+        err = mi->start_function(0, mi, "hw.arm.gem5.uart {}");
+        assert(err_is_ok(err));
+    }	
 #endif
 
     THCFinish();

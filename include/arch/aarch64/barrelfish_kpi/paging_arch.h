@@ -15,10 +15,6 @@
 #ifndef ARCH_AARCH64_BARRELFISH_KPI_PAGING_H
 #define ARCH_AARCH64_BARRELFISH_KPI_PAGING_H
 
-#if defined(__ARM_ARCH_8A__)
 #include <target/aarch64/barrelfish_kpi/paging_arm_v8.h>
-#else
-#error "Missing ARM Paging header file"
-#endif
 
 #endif // ARCH_ARM_BARRELFISH_KPI_PAGING_H

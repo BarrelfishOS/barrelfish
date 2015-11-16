@@ -1,5 +1,5 @@
-if Config.libc == "newlib" then
-[ build library {
+if Config.libc == "newlib" then [
+ build library {
   target = "newc",
   addCFlags  = Config.newlibAddCFlags,
   omitCFlags = [ "-Wmissing-prototypes",

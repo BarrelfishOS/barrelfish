@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007-2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <string.h>
@@ -207,6 +208,10 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         err = vnode_create(si->vtree, ObjType_VNode_ARM_l1);
         break;
 
+    case CPU_ARM8:
+        err = vnode_create(si->vtree, ObjType_VNode_AARCH64_l1);
+        break;
+
     default:
         assert(!"Other architecture");
         return err_push(err, SPAWN_ERR_UNKNOWN_TARGET_ARCH);
@@ -271,6 +276,10 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
 
     case EM_ARM:
         si->cpu_type = CPU_ARM7;
+        break;
+
+    case EM_AARCH64:
+        si->cpu_type = CPU_ARM8;
         break;
 
     default:

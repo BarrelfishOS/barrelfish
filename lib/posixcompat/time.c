@@ -99,7 +99,7 @@
 time_t
 time(time_t *timer)
 {
-#if defined(__arm__)
+#if defined(__arm__) || defined(__aarch64__)
     assert(!"nyi");
     return 0;
 #else

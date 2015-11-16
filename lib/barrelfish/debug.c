@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2008-2011, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -168,6 +169,18 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_ARM_l2:
         return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_AARCH64_l1:
+        return snprintf(buf, len, "AARCH64 L1 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l1.base);
+
+    case ObjType_VNode_AARCH64_l2:
+        return snprintf(buf, len, "AARCH64 L2 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l2.base);
+
+    case ObjType_VNode_AARCH64_l3:
+        return snprintf(buf, len, "AARCH64 L3 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l3.base);
 
     case ObjType_VNode_x86_32_ptable:
         return snprintf(buf, len, "x86_32 Page table at 0x%" PRIxGENPADDR,

@@ -10,6 +10,9 @@
 #include <if/monitor_blocking_rpcclient_defs.h>
 #endif
 
+#ifdef __aarch64__
+#include <if/monitor_blocking_rpcclient_defs.h>
+#endif
 
 #include "kaluga.h"
 

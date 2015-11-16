@@ -4,7 +4,8 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007-2010, 2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -25,6 +26,7 @@ enum cpu_type {
     CPU_SCC,
     CPU_ARM7,
     CPU_ARM5,
+    CPU_ARM8,
     CPU_TYPE_NUM // must be last
 };
 
@@ -33,7 +35,7 @@ enum cpu_type {
 
 static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 7, "knowledge of all CPU types here");
     switch(cpu_type) {
     case CPU_K1OM:      return "k1om";
     case CPU_X86_64:    return "x86_64";
@@ -41,13 +43,14 @@ static inline const char *cpu_type_to_archstr(enum cpu_type cpu_type)
     case CPU_SCC:       return "scc";
     case CPU_ARM7:      return "armv7";
     case CPU_ARM5:      return "armv5";
+    case CPU_ARM8:      return "armv8";
     default:            return "(unknown)";
     }
 }
 
 static inline const enum cpu_type archstr_to_cputype(char* archstr)
 {
-    STATIC_ASSERT(CPU_TYPE_NUM == 6, "knowledge of all CPU types here");
+    STATIC_ASSERT(CPU_TYPE_NUM == 7, "knowledge of all CPU types here");
     
     if(strcmp("k1om", archstr) == 0) return CPU_K1OM;
     if(strcmp("x86_64", archstr) == 0) return CPU_X86_64;
@@ -55,6 +58,7 @@ static inline const enum cpu_type archstr_to_cputype(char* archstr)
     if(strcmp("scc", archstr) == 0) return CPU_SCC;
     if(strcmp("armv7", archstr) == 0) return CPU_ARM7;
     if(strcmp("armv5", archstr) == 0) return CPU_ARM5;
+    if(strcmp("armv8", archstr) == 0) return CPU_ARM8;
     return CPU_TYPE_NUM;
 }
 

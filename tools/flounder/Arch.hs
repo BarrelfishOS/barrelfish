@@ -4,6 +4,7 @@
   Part of Flounder: a message passing IDL for Barrelfish
 
   Copyright (c) 2007-2010, ETH Zurich.
+  Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
   All rights reserved.
 
   This file is distributed under the terms in the attached LICENSE file.
@@ -67,7 +68,7 @@ aarch64 = Arch {
     sizesize = 64,
     enum_type = Int32,
     lmp_words = 10, -- XXX: TODO: check this
-    lrpc_words = 0
+    lrpc_words = 4
 }
 
 -- settings for the xeon phi. TODO: Verify.

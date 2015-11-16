@@ -41,8 +41,7 @@ size_t mem_total = 0, mem_avail = 0;
 /* XXX This is better if < 32! - but there were no compile time warnings! */
 #       define MAXSIZEBITS     31
 #elif defined(__aarch64__)
-/* XXX what's the right value here? */
-#       define MAXSIZEBITS     48
+#       define MAXSIZEBITS     31
 #else
 #       error Unknown architecture
 #endif
@@ -351,7 +350,7 @@ static genpaddr_t find_smallest_address(void)
 static genpaddr_t guess_physical_addr_start(void)
 {
     genpaddr_t start_physical = find_smallest_address();
-#if defined(__arm__)
+#if defined(__arm__) || defined(__aarch64__)
     if (start_physical > 0x80000000) {
         // This is most probably a pandaboard!
         start_physical = 0x80000000;

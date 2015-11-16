@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief Pmap definition common for the aarch64 archs
+ * \brief Pmap definition common for the AARCH64 archs
  */
 
 /*

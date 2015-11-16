@@ -108,9 +108,15 @@ errval_t init_cap_manager(void)
         return err_push(err, MM_ERR_MM_INIT);
     }
 
+	#ifdef __gem5__
+    // TODO(gz): fix hardcoded values
+    err = mm_add(&register_manager, requested_cap,
+                 28, 0x10000000);
+	#else
     // TODO(gz): fix hardcoded values
     err = mm_add(&register_manager, requested_cap,
                  30, 0x40000000);
+	#endif
     assert(err_is_ok(err));
  
     KALUGA_DEBUG("init_cap_manager DONE\n");

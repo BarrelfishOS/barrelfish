@@ -130,11 +130,13 @@ void paging_map_device_page(uintptr_t l1_table,
  * @param new_table_addr  address of newly constructed page table.
  * @param new_table_bytes size of newly constructed page table.
  */
-void paging_make_good(lvaddr_t new_table_addr, size_t new_table_bytes);
+void paging_make_good(lpaddr_t base);
 
 void paging_map_user_pages_l1(lvaddr_t table_addr, lvaddr_t vaddr, lpaddr_t paddr);
 
 void paging_set_l2_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
+
+void paging_set_l3_entry(uintptr_t* l2entry, lpaddr_t paddr, uintptr_t flags);
 
 void paging_context_switch(lpaddr_t table_addr);
 
@@ -145,15 +147,16 @@ void paging_arm_reset(lpaddr_t paddr, size_t bytes);
 // these were deprecated in churn, enabling now to get system running again.
 
 void paging_map_kernel_section(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
+void paging_map_kernel_l1_block(uintptr_t ttbase,lvaddr_t vbase, lpaddr_t pbase);
+
 void paging_map_memory(uintptr_t ttbase, lpaddr_t paddr, size_t bytes);
 
 static inline bool is_root_pt(enum objtype type) {
-    return type == ObjType_VNode_ARM_l1;
+    return type == ObjType_VNode_AARCH64_l1;
 }
 
 static inline size_t get_pte_size(void) {
-    // both l1_entry and l2_entry are 4 bytes
-    return 4;
+    return PTABLE_ENTRY_SIZE;
 }
 
 static inline void do_one_tlb_flush(genvaddr_t vaddr)

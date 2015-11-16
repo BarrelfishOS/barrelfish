@@ -6,6 +6,7 @@
 /*
  * Copyright (c) 2012, ETH Zurich.
  * Copyright (c) 2014, HP Labs.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -91,6 +92,13 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
         case ObjType_VNode_ARM_l2:
             shift += vnode_objbits(ObjType_VNode_ARM_l1);
         case ObjType_VNode_ARM_l1:
+            break;
+
+        case ObjType_VNode_AARCH64_l3:
+            shift += vnode_objbits(ObjType_VNode_AARCH64_l2);
+        case ObjType_VNode_AARCH64_l2:
+            shift += vnode_objbits(ObjType_VNode_AARCH64_l1);
+        case ObjType_VNode_AARCH64_l1:
             break;
 
         default:

@@ -23,7 +23,6 @@ void arch_init(void *pointer)
 //               lvaddr_t phys_alloc_top)
     __attribute__((noreturn));
 
-//struct phys_mmap;
 void arm_kernel_startup(void)
     __attribute__((noreturn));
 

@@ -42,6 +42,8 @@ struct multiboot_modinfo *multiboot_find_module(const char *pathname)
     struct multiboot_modinfo *mod = (struct multiboot_modinfo *)
         local_phys_to_mem(glbl_core_data->mods_addr);
 
+    printf("%p %p\n", &glbl_core_data, glbl_core_data);
+
     for(size_t i = 0; i < glbl_core_data->mods_count; i++) {
         const char *modname = MBADDR_ASSTRING(mod[i].string), *endstr;
 

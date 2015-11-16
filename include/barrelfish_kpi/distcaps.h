@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef BARRELFISH_DISTCAPS_H
@@ -39,7 +40,7 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 30, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
@@ -61,6 +62,9 @@ distcap_needs_locality(enum objtype type)
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l1:
+    case ObjType_VNode_AARCH64_l2:
+    case ObjType_VNode_AARCH64_l3:
     // XXX: KCB should need locality?
     //case ObjType_KernelControlBlock:
         return true;
@@ -69,7 +73,7 @@ distcap_needs_locality(enum objtype type)
     }
 }
 
-STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 30, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

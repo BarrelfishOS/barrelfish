@@ -30,6 +30,16 @@
                       mackerelDevices = [ "omap/omap44xx_uart3" ],
                       addLibraries = [ "term_server", "driverkit" ],
                       architectures = [ "armv7" ]
+                    },
+  build application { target = "serial",
+                      cFiles = [ "main.c", "basic_service.c",
+                                 "terminal_service.c", "serial_gem5.c" ],
+                      flounderBindings = [ "serial" ],
+                      flounderDefs = [ "terminal" , "terminal_config",
+                                       "terminal_session" ],
+                      mackerelDevices = [ "pl011_uart" ],
+                      addLibraries = [ "term_server", "driverkit" ],
+                      architectures = [ "armv8" ]
                     }
 
 ]

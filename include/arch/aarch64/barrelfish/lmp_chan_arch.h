@@ -17,7 +17,6 @@
 
 #include <barrelfish/syscall_arch.h>
 #include <barrelfish/caddr.h>
-#include <barrelfish/debug.h> // for USER_PANIC()
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/syscalls.h>
 
@@ -50,7 +49,6 @@ lmp_ep_send(
     uintptr_t arg9
     )
 {
-    USER_PANIC("NYI!");
     uint8_t invoke_bits = get_cap_valid_bits(ep);
     capaddr_t invoke_cptr = get_cap_addr(ep) >> (CPTR_BITS - invoke_bits);
 
@@ -69,7 +67,7 @@ lmp_ep_send(
 
 #define lmp_ep_send9(ep, flags, send_cap, a, b, c, d, e, f, g, h, i)   \
     lmp_ep_send((ep),(flags),(send_cap),9,(a),(b),(c),(d),(e),(f),(g),(h),(i))
-#define lmp_ep_send8(ep, flags, send_cap, a, b, c, d, e, f, g, h, i)    \
+#define lmp_ep_send8(ep, flags, send_cap, a, b, c, d, e, f, g, h)    \
     lmp_ep_send((ep),(flags),(send_cap),8,(a),(b),(c),(d),(e),(f),(g),(h),0)
 #define lmp_ep_send7(ep, flags, send_cap, a, b, c, d, e, f, g)          \
     lmp_ep_send((ep),(flags),(send_cap),7,(a),(b),(c),(d),(e),(f),(g),0,0)

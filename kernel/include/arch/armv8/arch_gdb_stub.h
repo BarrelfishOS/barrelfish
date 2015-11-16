@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <aarch64.h>
+#include <arch/arm/arm.h>
 
 extern uintptr_t *gdb_arch_registers;
 

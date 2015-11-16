@@ -1,30 +1,17 @@
 /**
  * \file
- * \brief AArch64 address space sizes and offsets
+ * \brief ARMv8 address-space sizes and offsets
  *
- * The layout of the ARM virtual address space can be summarized as
- * follows:
- *
- *
- * User-space maps user-space programs. Physical memory maps all
- * available physical memory (up to PADDR_SPACE_LIMIT). Kernel-space
- * maps only the kernel text and data.
- *
- * This partition is static and can only be changed at compile-time.
- *
- */
-
-/* [2009-07-30 ohodson]TODO: This is a first-cut, layout likely
- * does not make sense.
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2012, ETH Zurich.
+ * Copyright (c) 2007,2008,2009,2012,2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef OFFSETS_H
@@ -51,33 +38,21 @@
  * the linker also. This address is chosen to be the same as Linux on ARM
  * for GEM5 and/or bootloader compatibility.
  *
- * Entry point is 0x11000.
- *
  * TODO: do we need this?
  */
-//#define START_KERNEL_PHYS       (0x10000 + 0x1000)
-#define START_KERNEL_PHYS		0x100000
+#define START_KERNEL_PHYS       0x100000
 
 /**
- * Physical address of the kernel stack at boot time.
+ * Kernel offset - virtual base of the kernel's address space: the region
+ * mapped by TTBR1.
  */
-#define BOOT_STACK_PHYS         0x10000
-
-/**
- * Kernel offset - virtual base of kernel.
- */
-#define KERNEL_OFFSET           0xc0000000
+#define KERNEL_OFFSET           0xffffffff00000000
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
  * for a bigger physical address space.  
  */
-#define PADDR_SPACE_LIMIT       0xFFFFFFFF
-
-/**
- * Kernel address space limit is 1 MB currently.
- */
-#define KERNEL_SPACE_LIMIT      (1L << 20)
+#define PADDR_SPACE_LIMIT       (GEN_ADDR(31) - 1) // 2GB
 
 /**
  * Static address space limit for the init user-space domain. The
@@ -91,9 +66,6 @@
  * unneccessarily. init's lowest segment should also be based at these
  * multiples or it restricts itself.
  *
- *
- * NB 32MB is size of the fast context switch extension
- * per-process address space.
  */
 #define INIT_SPACE_LIMIT        (32 * 1024 * 1024)
 
@@ -107,32 +79,23 @@
 #define INIT_VBASE              (2 * 1024 * 1024)
 
 /**
- * Initial amount of physical memory to map during bootup. The low
- * 1MByte of memory is always expected to be there and has to be
- * specified here at minimum. If you need more during bootup, increase
- * this value. This value is also the amount of memory you _expect_ to
- * be in the system during bootup, or the kernel will crash!
- */
-#define KERNEL_INIT_MEMORY      (1 * 1024 * 1024)
-
-/**
- * Absolute offset of mapped physical memory within virtual address
- * space.  
+ * The absolute base address of mapped physical memory, within the kernel's
+ * virtual address space.  
  *
  * 2GB.
  */
-#define MEMORY_OFFSET           GEN_ADDR(31)
-// 2G (2 ** 31)
+#define MEMORY_OFFSET           (KERNEL_OFFSET + GEN_ADDR(31))
 
 /**
- * Absolute start of RAM in physical memory.
+ * Absolute start of RAM in physical memory.  XXX - this isn't statically
+ * known.
  */
 #define PHYS_MEMORY_START       0x0
 
 /*
- * Device offset to map devices in high memory.
+ * The top of the region, within kernel memory, in which devices are mapped.
  */
-#define DEVICE_OFFSET			0xff000000
+#define DEVICE_OFFSET           (KERNEL_OFFSET + GEN_ADDR(30))
 
 /**
  * Kernel stack size -- 16KB
@@ -142,33 +105,30 @@
 /**
  * The size of the whole kernel image.
  */
-#define KERNEL_IMAGE_SIZE       (size_t)(&kernel_final_byte - &kernel_first_byte)
+#define KERNEL_IMAGE_SIZE       (size_t)(&kernel_final_byte - \
+                                         &kernel_first_byte)
 
 /*
  * Bytes per kernel copy for each core (1 Section)
  */
-#define KERNEL_SECTION_SIZE		0x100000
-// 1MB, (2 ** 20)
+#define KERNEL_SECTION_SIZE     0x100000
 
-#define KERNEL_STACK_ADDR		(lpaddr_t)kernel_stack
+#define KERNEL_STACK_ADDR       (lpaddr_t)kernel_stack
 
 #ifndef __ASSEMBLER__
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {
-    // On the PandaBoard, this is a nop, because the physical memory is mapped
-    // at the same address in virtual memory
-    // i.e., MEMORY_OFFSET == PHYS_MEMORY_START
-    if(PADDR_SPACE_LIMIT - PHYS_MEMORY_START > 0) {
-        assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
-    }
-    return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET - (lpaddr_t)PHYS_MEMORY_START));
+    assert(addr < PHYS_MEMORY_START + PADDR_SPACE_LIMIT);
+    return (lvaddr_t)(addr + ((lpaddr_t)MEMORY_OFFSET -
+                              (lpaddr_t)PHYS_MEMORY_START));
 }
 
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {
     assert(addr >= MEMORY_OFFSET);
-    return (lpaddr_t)(addr - ((lvaddr_t)MEMORY_OFFSET - (lvaddr_t)PHYS_MEMORY_START));
+    return (lpaddr_t)(addr - ((lvaddr_t)MEMORY_OFFSET -
+                              (lvaddr_t)PHYS_MEMORY_START));
 }
 
 static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)
@@ -177,6 +137,7 @@ static inline lpaddr_t gen_phys_to_local_phys(genpaddr_t addr)
     return (lpaddr_t)addr;
 }
 
+/* XXX - what is this? */
 static inline genpaddr_t local_phys_to_gen_phys(lpaddr_t addr)
 {
     return (genpaddr_t)addr;
@@ -210,13 +171,5 @@ extern uint8_t kernel_elf_header;
 extern uintptr_t kernel_stack[KERNEL_STACK_SIZE/sizeof(uintptr_t)];
 
 #endif  // __ASSEMBLER__
-
-/**
- * Kernel interrupt jump table
- */
-#define INT_HANDLER_TABLE	0xFFFF0100
-
-
-
 
 #endif  // OFFSETS_H

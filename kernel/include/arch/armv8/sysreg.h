@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2015 ETH Zurich.
+ * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,176 +11,138 @@
 #ifndef __SYSREG_H__
 #define __SYSREG_H__
 
-/**
- * \brief Read domain access control register
- */
-static inline uint32_t sysreg_read_dacr(void)
-{
-    panic("NYI");
-}
+#include <bitmacros.h>
+
+void sysreg_invalidate_i_and_d_caches_fast(void);
+void sysreg_invalidate_i_and_d_caches(void);
+void sysreg_invalidate_tlb_fn(void);
+void sysreg_enable_mmu(void);
 
 /**
  * \brief Read instruction fault status register.
  */
-static inline uint32_t sysreg_read_ifsr(void)
-{
-    panic("NYI");
+static inline uint64_t
+sysreg_read_ifsr(void) {
+    uint64_t ifsr;
+    __asm volatile("mrs %[ifsr], esr_el1" : [ifsr] "=r" (ifsr));
+    return ifsr;
 }
 
 /**
  * \brief Read data fault status register.
  */
-static inline uint32_t sysreg_read_dfsr(void)
-{
-    panic("NYI");
+static inline uint64_t
+sysreg_read_dfsr(void) {
+    uint64_t dfsr;
+    __asm volatile("mrs %[dfsr], esr_el1" : [dfsr] "=r" (dfsr));
+    return dfsr;
 }
 
 /**
  * \brief Read fault address register.
  */
-static inline uint32_t sysreg_read_far(void)
-{
-    panic("NYI");
+static inline uint64_t
+sysreg_read_far(void) {
+    uint64_t addr;
+    __asm volatile("mrs %[addr], far_el1" : [addr] "=r" (addr));
+    return addr;
 }
 
-static inline uintptr_t get_current_el(void)
-{
+static inline uintptr_t
+get_current_el(void) {
     uintptr_t currentel;
-    __asm volatile ("mrs %[curel], currentel" : [curel] "=r" (currentel));
-    return (currentel >> 2) & 0x3;
+    __asm volatile("mrs %[curel], currentel" : [curel] "=r" (currentel));
+    return (currentel >> 2) & 0x3; /* bits [3:2] */
 }
 
-static inline lpaddr_t sysreg_read_ttbr0_el1(void)
-{
+static inline lpaddr_t
+sysreg_read_ttbr0_el1(void) {
     lpaddr_t ttbr0;
-    __asm volatile ("mrs %[ttbr], ttbr0_el1" : [ttbr] "=r" (ttbr0));
+    __asm volatile("mrs %[ttbr], ttbr0_el1" : [ttbr] "=r" (ttbr0));
     return ttbr0;
 }
 
-static inline lpaddr_t sysreg_read_ttbr0_el2(void)
-{
+static inline lpaddr_t
+sysreg_read_ttbr0_el2(void) {
     lpaddr_t ttbr0;
-    __asm volatile ("mrs %[ttbr], ttbr0_el2" : [ttbr] "=r" (ttbr0));
+    __asm volatile("mrs %[ttbr], ttbr0_el2" : [ttbr] "=r" (ttbr0));
     return ttbr0;
 }
 
-static inline lpaddr_t sysreg_read_ttbr0(void)
-{
-    uintptr_t currentel = get_current_el();
-    if (currentel == 1) {
-        return sysreg_read_ttbr0_el1();
-    } else if (currentel == 2) {
-        return sysreg_read_ttbr0_el2();
-    }
-    panic("%s: Unsupported EL: %d\n", __FUNCTION__, currentel);
+static inline void
+sysreg_write_ttbr0_el1(lpaddr_t ttbr) {
+    __asm volatile ("msr ttbr0_el1, %[ttbr]" : : [ttbr] "r" (ttbr));
 }
 
-static inline void sysreg_write_ttbr0_el1(lpaddr_t ttbr)
-{
-    __asm volatile ("msr ttbr0_el1, %[ttbr]" : [ttbr] "=r" (ttbr));
+static inline void
+sysreg_write_ttbr0_el2(lpaddr_t ttbr) {
+    __asm volatile ("msr ttbr0_el2, %[ttbr]" : : [ttbr] "r" (ttbr));
 }
 
-static inline void sysreg_write_ttbr0_el2(lpaddr_t ttbr)
-{
-    __asm volatile ("msr ttbr0_el2, %[ttbr]" : [ttbr] "=r" (ttbr));
-}
-
-static inline void sysreg_write_ttbr0(lpaddr_t ttbr)
-{
-    uintptr_t currentel = get_current_el();
-    if (currentel == 1) {
-        sysreg_write_ttbr0_el1(ttbr);
-    } else if (currentel == 2) {
-        sysreg_write_ttbr0_el2(ttbr);
-    }
-    panic("%s: Unsupported EL: %d\n", __FUNCTION__, currentel);
-}
-
-static inline lpaddr_t sysreg_read_ttbr1_el1(void)
-{
+static inline lpaddr_t
+sysreg_read_ttbr1_el1(void) {
     lpaddr_t ttbr1;
     __asm volatile ("mrs %[ttbr], ttbr1_el1" : [ttbr] "=r" (ttbr1));
     return ttbr1;
 }
 
-static inline lpaddr_t sysreg_read_ttbr1_el2(void)
-{
+static inline lpaddr_t
+sysreg_read_ttbr1_el2(void) {
     lpaddr_t ttbr1;
     __asm volatile ("mrs %[ttbr], ttbr1_el2" : [ttbr] "=r" (ttbr1));
     return ttbr1;
 }
 
-static inline lpaddr_t sysreg_read_ttbr1(void)
-{
-    uintptr_t currentel = get_current_el();
-    if (currentel == 1) {
-        return sysreg_read_ttbr1_el1();
-    } else if (currentel == 2) {
-        return sysreg_read_ttbr1_el2();
-    }
-    panic("%s: Unsupported EL: %d\n", __FUNCTION__, currentel);
+static inline void
+sysreg_write_ttbr1_el1(lpaddr_t ttbr) {
+    __asm volatile ("msr ttbr1_el1, %[ttbr]" : : [ttbr] "r" (ttbr));
 }
 
-static inline void sysreg_write_ttbr1_el1(lpaddr_t ttbr)
-{
-    __asm volatile ("msr ttbr1_el1, %[ttbr]" : [ttbr] "=r" (ttbr));
+static inline void
+sysreg_write_ttbr1_el2(lpaddr_t ttbr) {
+    __asm volatile ("msr ttbr1_el2, %[ttbr]" : : [ttbr] "r" (ttbr));
 }
 
-static inline void sysreg_write_ttbr1_el2(lpaddr_t ttbr)
-{
-    __asm volatile ("msr ttbr1_el2, %[ttbr]" : [ttbr] "=r" (ttbr));
+static inline uint64_t
+sysreg_read_ttbcr(void) {
+    uint64_t ttbcr;
+    __asm volatile(" mrs %[ttbcr], tcr_el1" : [ttbcr] "=r" (ttbcr));
+    return ttbcr;
 }
 
-static inline lpaddr_t sysreg_write_ttbr1(lpaddr_t ttbr)
-{
-    uintptr_t currentel = get_current_el();
-    if (currentel == 1) {
-        sysreg_write_ttbr1_el1(ttbr);
-    } else if (currentel == 2) {
-        sysreg_write_ttbr1_el2(ttbr);
-    }
-    panic("%s: Unsupported EL: %d\n", __FUNCTION__, currentel);
+static inline void
+sysreg_write_ttbcr(uint32_t ttbcr) {
+    __asm volatile("msr tcr_el1, %[ttbcr]" : : [ttbcr] "r" (ttbcr));
 }
 
-static inline uint32_t sysreg_read_ttbcr(void)
-{
-    panic("NYI");
+static inline uint64_t
+sysreg_read_cache_status(void) {
+    uint64_t cache;
+    __asm volatile(" mrs %[cache], sctlr_el1" : [cache] "=r" (cache));
+    return cache;
 }
 
-static inline void sysreg_write_ttbcr(uint32_t ttbcr)
-{
-    panic("NYI");
+static inline void
+sysreg_invalidate_tlb(void) {
+    __asm volatile("tlbi vmalle1");
 }
 
-static inline uint32_t sysreg_read_cache_status(void){
-    panic("NYI");
-}
-
-
-static inline void sysreg_disable_cache(void){
-
-    panic("NYI");
-
-    printf("WARNING! Caching has been disabled, configuration is: %"PRIx32"\n", sysreg_read_cache_status());
-
-}
-
-static inline void sysreg_invalidate_tlb(void)
-{
-    panic("NYI");
-}
-
-static inline uint8_t sysreg_get_cpu_id(void) {
-    panic("NYI");
+static inline uint8_t
+sysreg_get_cpu_id(void) {
+    uint8_t mpidr;
+    __asm volatile("mrs %[mpidr], mpidr_el1" : [mpidr] "=r" (mpidr));
+    return mpidr & 0x3;
 }
 
 /*
- * Get the configuration base address
- * This is described in the Cortex A9 TRM, 4.2.32
+ * Get the address of the GIC CPU interface registers.
+ * See Cortex-A57 TRM, S4.3.70.
  */
-static inline uint32_t sysreg_read_cbar(void)
-{
-    panic("NYI");
+static inline uint64_t
+sysreg_read_cbar(void) {
+    uint64_t cbar;
+    __asm volatile("mrs %[cbar], s3_1_c15_c3_0" : [cbar] "=r" (cbar));
+    return FIELD(18,26,cbar); /* Bits outside [43:18] may not be zero. */
 }
 
 #endif // __SYSREG_H__

@@ -36,6 +36,6 @@ in [
     build template {
         addLibraries = libDeps ["vfs_ramfs", "spawndomain", "elf", "octopus", "bench"],
         cFiles = ["common.c", "main.c", "armboot.c"],
-        architectures = ["armv7", "armv5"]
+        architectures = ["armv7", "armv5","armv8"]
     }
 ]

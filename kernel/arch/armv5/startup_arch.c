@@ -22,7 +22,7 @@
 #include <cp15.h>
 #include <cpiobin.h>
 #include <init.h>
-#include <phys_mmap.h>
+#include <arch/armv5/phys_mmap.h>
 #include <barrelfish_kpi/paging_arm_v5.h>
 #include <startup.h>
 #include <kcb.h>

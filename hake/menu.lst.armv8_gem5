@@ -1,0 +1,44 @@
+# Copyright (c) 2015, ETH Zurich.
+# Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+# All rights reserved.
+#
+# This file is distributed under the terms in the attached LICENSE file.
+# If you do not find this file, copies can be found by writing to:
+# ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+
+timeout 0
+
+#
+# This script is used to describe the commands to start at
+# boot-time and the arguments they should receive.
+#
+# Kernel arguments are not read from this script. On QEMU they can be
+# set using 'qemu-system-arm -append ...'.
+
+title	Barrelfish
+#root	(nd)
+kernel	/armv8/sbin/cpu_gem5 loglevel=4
+module	/armv8/sbin/cpu_gem5
+module	/armv8/sbin/init
+
+# Domains spawned by init
+module  /armv8/sbin/mem_serv
+module	/armv8/sbin/monitor
+
+# Special boot time domains spawned by monitor
+module /armv8/sbin/ramfsd boot
+module /armv8/sbin/skb boot
+module /armv8/sbin/spawnd boot
+module /armv8/sbin/startd boot
+
+# General user domains
+module	/armv8/sbin/serial auto
+module	/armv8/sbin/fish nospawn
+module  /armv8/sbin/angler serial0.terminal xterm
+
+#module /armv8/sbin/memtest core=0
+
+# GEM5 simulates 256MB of RAM starting at 0x0
+#        start      size       id
+mmap map 0x00000000 0x10000000 1
+

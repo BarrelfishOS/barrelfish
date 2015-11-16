@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007-2012,2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <stdio.h>
@@ -30,9 +31,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <wakeup.h>
-
-/// Sets the specified number of low-order bits to 1
-#define MASK(bits)      ((1UL << bits) - 1)
+#include <bitmacros.h>
 
 #ifdef TRACE_PMEM_CAPS
 uintptr_t   trace_types_enabled = TRACE_TYPES_ENABLED_INITIAL;
@@ -94,6 +93,18 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_ARM_l2:
         return snprintf(buf, len, "ARM L2 table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_arm_l2.base);
+
+    case ObjType_VNode_AARCH64_l1:
+        return snprintf(buf, len, "AARCH64 L1 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l1.base);
+
+    case ObjType_VNode_AARCH64_l2:
+        return snprintf(buf, len, "AARCH64 L2 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l2.base);
+
+    case ObjType_VNode_AARCH64_l3:
+        return snprintf(buf, len, "AARCH64 L3 table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_aarch64_l3.base);
 
     case ObjType_VNode_x86_32_ptable:
         return snprintf(buf, len, "x86_32 Page table at 0x%" PRIxGENPADDR,
@@ -219,7 +230,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(27 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(30 == ObjType_Num, "Knowledge of all cap types");
 
 static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
 {
@@ -250,6 +261,9 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l1:
+    case ObjType_VNode_AARCH64_l2:
+    case ObjType_VNode_AARCH64_l3:
     {
         size_t objbits_vnode = vnode_objbits(type);
         if (bits < objbits_vnode) {
@@ -295,7 +309,7 @@ static size_t caps_numobjs(enum objtype type, uint8_t bits, uint8_t objbits)
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(ObjType_Num == 27, "Knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 30, "Knowledge of all cap types");
 
 static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
                                   bits, uint8_t objbits, size_t numobjs)
@@ -328,6 +342,9 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
     case ObjType_CNode:
     case ObjType_VNode_ARM_l1:
     case ObjType_VNode_ARM_l2:
+    case ObjType_VNode_AARCH64_l1:
+    case ObjType_VNode_AARCH64_l2:
+    case ObjType_VNode_AARCH64_l3:
     case ObjType_VNode_x86_32_ptable:
     case ObjType_VNode_x86_32_pdir:
     case ObjType_VNode_x86_32_pdpt:
@@ -372,7 +389,7 @@ static errval_t caps_init_objects(enum objtype type, lpaddr_t lpaddr, uint8_t
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(27 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(30 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
                             uint8_t objbits, size_t numobjs, coreid_t owner,
@@ -547,6 +564,80 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.vnode_arm_l2.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &src_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l1:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+
+        for(dest_i = 0; dest_i < numobjs; dest_i++) {
+            // Initialize type specific fields
+            src_cap.u.vnode_aarch64_l1.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+#ifdef __aarch64__
+            // Insert kernel/mem mappings into new table.
+            lpaddr_t var = gen_phys_to_local_phys(src_cap.u.vnode_aarch64_l1.base);
+            paging_make_good(var);
+#endif
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &src_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l2:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+
+        for(dest_i = 0; dest_i < numobjs; dest_i++) {
+            // Initialize type specific fields
+            src_cap.u.vnode_aarch64_l2.base =
+                genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &src_cap);
+
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    }
+
+    case ObjType_VNode_AARCH64_l3:
+    {
+        size_t objbits_vnode = vnode_objbits(type);
+
+        TRACE(KERNEL, BZERO, 1);
+        memset((void*)lvaddr, 0, 1UL << bits);
+        TRACE(KERNEL, BZERO, 0);
+
+        for(dest_i = 0; dest_i < numobjs; dest_i++) {
+            // Initialize type specific fields
+            src_cap.u.vnode_aarch64_l3.base =
                 genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
 
             // Insert the capability

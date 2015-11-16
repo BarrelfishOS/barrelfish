@@ -1,15 +1,13 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2010, ETH Zurich.
+-- Copyright (c) 2015, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
+-- Attn: Systems Group.
 --
--- Architectural definitions for Barrelfish on ARMv5 ISA.
---
--- The build target is the integratorcp board on QEMU with the default
--- ARM926EJ-S cpu.
+-- Architectural definitions for Barrelfish on ARMv8.
 --
 --------------------------------------------------------------------------
 
@@ -28,14 +26,12 @@ import qualified ArchDefaults
 arch = "armv8"
 archFamily = "aarch64"
 
-toolprefix = "aarch64-none-elf-"
-
-compiler = toolprefix ++ "gcc"
-objcopy  = toolprefix ++ "objcopy"
-objdump  = toolprefix ++ "objdump"
-ar       = toolprefix ++ "ar"
-ranlib   = toolprefix ++ "ranlib"
-cxxcompiler = toolprefix ++ "g++"
+compiler    = Config.aarch64_cc
+objcopy     = Config.aarch64_objcopy
+objdump     = Config.aarch64_objdump
+ar          = Config.aarch64_ar
+ranlib      = Config.aarch64_ranlib
+cxxcompiler = Config.aarch64_cxx
 
 ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-packed-bitfield-compat",
@@ -43,12 +39,14 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-mcpu=cortex-a57",
                    Str "-march=armv8-a",
                    Str "-mabi=lp64",
+				   Str "-mstrict-align",
                    Str "-DPIC_REGISTER=X10",
                    Str "-fPIE",
-                   Str "-ffixed-r9",
-                   Str "-DTHREAD_REGISTER=X9",
+                   Str "-ffixed-x18",
+                   Str "-DTHREAD_REGISTER=X18",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_8A__",
+				   Str "-DPREFER_SIZE_OVER_SPEED",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-format"
  ]
@@ -114,6 +112,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mcpu=cortex-a57",
                                 "-march=armv8-a",
                                 "-mabi=lp64",
+								"-mstrict-align",
                                 "-fPIE",
                                 "-U__linux__",
                                 "-Wall",
@@ -130,12 +129,15 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-ffreestanding",
                                 "-fomit-frame-pointer",
                                 "-Wmissing-noreturn",
-                                "-ffixed-r9",
-                                "-DTHREAD_REGISTER=X9",
+                                "-DPIC_REGISTER=X10",
+                                "-ffixed-x18",
+                                "-DTHREAD_REGISTER=X18",
                                 "-D__ARM_CORTEX__",
                                 "-D__ARM_ARCH_8A__",
+								"-DPREFER_SIZE_OVER_SPEED",
                                 "-Wno-unused-but-set-variable",
-                                "-Wno-format"
+                                "-Wno-format",
+                                "-Wno-suggest-attribute=noreturn"
                               ]]
 
 kernelLdFlags = [ Str "-Wl,-N",

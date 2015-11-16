@@ -14,7 +14,6 @@
 #include <exec.h>
 #include <offsets.h>
 #include <paging_kernel_arch.h>
-#include <phys_mmap.h>
 #include <serial.h>
 #include <stdio.h>
 #include <arm_hal.h>

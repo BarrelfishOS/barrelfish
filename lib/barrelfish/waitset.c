@@ -9,12 +9,13 @@
  */
 
 /*
- * Copyright (c) 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2009-2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -50,6 +51,8 @@ static inline cycles_t cyclecount(void)
  * cycle counts. POLL_COUNT is deliberately set to 42, guess why! ;)
  */
 #define POLL_COUNT	42
+#elif defined(__aarch64__) && defined(__gem5__)
+#define POLL_COUNT  42
 #elif defined(__arm__)
 #include <arch/arm/barrelfish_kpi/asm_inlines_arch.h>
 static inline cycles_t cyclecount(void)
@@ -227,6 +230,8 @@ cycles_t pollcycles_reset(void)
     pollcycles = waitset_poll_cycles;
 #elif defined(__arm__) && defined(__gem5__)
     pollcycles = 0;
+#elif defined(__aarch64__) && defined(__gem5__)
+    pollcycles = 0;
 #else
     pollcycles = cyclecount() + waitset_poll_cycles;
 #endif
@@ -244,6 +249,8 @@ cycles_t pollcycles_update(cycles_t pollcycles)
     cycles_t ret = pollcycles;
     #if defined(__arm__) && defined(__gem5__)
     ret++;
+	#elif defined(__aarch64__) && defined(__gem5__)
+	ret++;
     #endif
     return ret;
 }
@@ -260,6 +267,8 @@ bool pollcycles_expired(cycles_t pollcycles)
     #if defined(__arm__) && !defined(__gem5__)
     ret = (cyclecount() > pollcycles || is_cycle_counter_overflow());
     #elif defined(__arm__) && defined(__gem5__)
+    ret = pollcycles >= POLL_COUNT;
+    #elif defined(__aarch64__) && defined(__gem5__)
     ret = pollcycles >= POLL_COUNT;
     #else
     ret = cyclecount() > pollcycles;

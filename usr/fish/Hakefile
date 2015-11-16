@@ -31,6 +31,6 @@
                       flounderExtraBindings = [("octopus", ["rpcclient"])],
                       addLibraries = libDeps ["trace", "skb", "vfs_ramfs", "lwip", "octopus" ],
                       flounderBindings = [ "pixels" ],
-                      architectures = [  "armv7" ]
+                      architectures = [  "armv7", "armv8" ]
                     }
 ]

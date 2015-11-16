@@ -1,6 +1,3 @@
-/*      $NetBSD: float.h,v 1.6 2005/12/11 12:16:47 christos Exp $       */
-/*      $NetBSD: float_ieee754.h,v 1.8 2005/12/11 12:25:20 christos Exp $       */
-
 /*
  * Copyright (c) 1992, 1993
  *      The Regents of the University of California.  All rights reserved.

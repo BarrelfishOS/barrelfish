@@ -18,6 +18,7 @@
      arch_srcs "x86_64"  = [ "arch/x86/spawn_arch.c" ]
      arch_srcs "k1om"    = [ "arch/x86/spawn_arch.c" ]
      arch_srcs "arm"     = [ "arch/arm/spawn_arch.c" ]
+     arch_srcs "aarch64" = [ "arch/aarch64/spawn_arch.c" ]
      arch_srcs _         = []
 
   in

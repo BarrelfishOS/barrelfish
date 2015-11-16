@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, 2013, ETH Zurich.
+ * Copyright (c) 2007-2010, 2012, 2013, 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef INCLUDEBARRELFISH_INVOCATIONS_ARCH_H
@@ -21,7 +22,6 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
-#include <barrelfish/debug.h> // for USER_PANIC()
 
 /**
  * capability invocation syscall wrapper, copied from x86_32 version
@@ -33,8 +33,6 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
                                        uintptr_t arg8, uintptr_t arg9,
                                        uintptr_t arg10, uintptr_t arg11)
 {
-    // XXX: TODO
-    USER_PANIC("NYI");
     uint8_t invoke_bits = get_cap_valid_bits(to);
     capaddr_t invoke_cptr = get_cap_addr(to) >> (CPTR_BITS - invoke_bits);
 
@@ -587,6 +585,15 @@ static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
     capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
 
     return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpPTables << 8) |
+            SYSCALL_INVOKE, invoke_cptr).error;
+}
+
+static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)
+{
+    uint8_t invoke_bits = get_cap_valid_bits(dispcap);
+    capaddr_t invoke_cptr = get_cap_addr(dispcap) >> (CPTR_BITS - invoke_bits);
+
+    return syscall2((invoke_bits << 16) | (DispatcherCmd_DumpCapabilities << 8) |
             SYSCALL_INVOKE, invoke_cptr).error;
 }
 

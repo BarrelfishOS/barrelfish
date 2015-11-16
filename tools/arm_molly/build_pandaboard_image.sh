@@ -20,18 +20,20 @@ MENU_LST=""
 DEFINES=""
 EXTRAS=""
 BASE_ADDR=""
+ARCH=armv7-a
 IMAGE="pandaboard_image"
-CFLAGS="-march=armv7-a"
+EXTRACFLAGS=""
 
 usage () { 
     echo "Usage: $0 --srcdir <dir> --builddir <dir> --menu <menu.lst> [option].."
     echo " where options are:"
-    echo "   --gcc <gcc binary>"
-    echo "   --objcopy <objcopy binary>"
+    echo "   --arch <ARM architecture>       (default: $ARCH)"
+    echo "   --gcc <gcc binary>              (default: $ARM_GCC)"
+    echo "   --objcopy <objcopy binary>      (default: $ARM_OBJCOPY)"
     echo "   -D <define>"
     echo "   --extra <additional file>"
-    echo "   --image <output image file>   (default: $IMAGE)"
-    echo "   --cflags <flags to pass to cc>   (default: $CFLAGS)"
+    echo "   --image <output image file>     (default: $IMAGE)"
+    echo "   --cflags <flags to pass to cc>  (default: -march=$ARCH $EXTRACFLAGS)"
     exit 0
 }
 
@@ -52,6 +54,9 @@ while [ $# != 0 ]; do
 	"--baseaddr")
 	    shift; BASE_ADDR="$1"
 	    ;;
+	"--arch")
+	    shift; ARCH="$1"
+	    ;;
 	"--gcc")
 	    shift; ARM_GCC="$1"
 	    ;;
@@ -71,7 +76,7 @@ while [ $# != 0 ]; do
 	    shift; IMAGE="$1"
 	    ;;
 	"--cflags")
-	    shift; CFLAGS="$1"
+	    shift; EXTRACFLAGS="$1"
 	    ;;
 	*)
 	    echo "Unknown option $1 (try: --help)" >&2
@@ -80,6 +85,21 @@ while [ $# != 0 ]; do
     esac
     shift
 done
+
+CFLAGS="-march=$ARCH $EXTRACFLAGS"
+BASEARCH=$(echo $ARCH | sed s/-.*//)
+if [ "$BASEARCH" == "armv8" ]
+then
+    BFDNAME="elf64-littleaarch64"
+    BFDARCH="aarch64"
+    BW=64
+    KARCH="aarch64"
+else
+    BFDNAME="elf32-littlearm"
+    BFDARCH="arm"
+    BW=32
+    KARCH="arm"
+fi
 
 if [ -z "$SRC_DIR" ] ; then
     echo "No source directory defined." >&2; exit 1
@@ -94,7 +114,6 @@ elif [ -z "$MENU_LST" ]; then
 elif [ -z "$BASE_ADDR" ]; then
     echo "No kernel base address defined." >&2; exit 1
 fi
-
 
 TMP_DIR="$BUILD_DIR/molly_tmp_"`basename $IMAGE`
 
@@ -118,21 +137,22 @@ echo "Cleaning temporary directory $TMP_DIR"
 rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
-
-echo "Generating list of of binaries to translate"
+echo "Generating the list of of binaries to translate"
 BINS=$(awk '/^kernel/ || /^module/ {print $2}' $MENU_LST)
 # For each binary generate an object file in the output directory.
 # The flags to objcopy cause it to place the binary image of the input
 # file into an .rodataIDX section in the generated object file where
 # IDX is a counter incremented for each binary.  
+echo "Translating data files ($BFDNAME,$BFDARCH)"
 IDX=1
-echo "Translating data files"
 for BIN in $BINS; do
   UNDERSCORED=${BIN//-/_}
   SLASH=${UNDERSCORED////_}
   BIN_OUT="$TMP_DIR/${TMP_PREFIX}_$SLASH"
   echo ' ' $BIN '->' $BIN_OUT
-  $ARM_OBJCOPY -I binary -O elf32-littlearm -B arm --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents .$BIN $BIN_OUT
+  $ARM_OBJCOPY -I binary -O $BFDNAME -B $BFDARCH \
+    --rename-section .data=.rodata$IDX,alloc,load,readonly,data,contents \
+    .$BIN $BIN_OUT
   IDX=$(($IDX+1))
   if [ $IDX = 20 ]; then
       echo Error: linker script cannot handle $IDX modules
@@ -141,28 +161,31 @@ for BIN in $BINS; do
 done
 
 echo "Creating appropriate linker script"
-cpp -P -DBASE_ADDR=$BASE_ADDR "$SRC_DIR/tools/arm_molly/molly_ld_script.in" "$TMP_LDSCRIPT"
+cpp -P -DBASE_ADDR=$BASE_ADDR \
+       "$SRC_DIR/tools/arm_molly/molly_ld_script${BW}.in" \
+       "$TMP_LDSCRIPT"
 
 echo "Building a C file to link into a single image for the 2nd-stage bootloader"
-"$BUILD_DIR/tools/bin/arm_molly" "$MENU_LST" "$TMP_MBIC"
+"$BUILD_DIR/tools/bin/arm_molly" "$MENU_LST" "$TMP_MBIC" "-$BW"
 
 echo "Compiling the complete boot image into a single executable"
 $ARM_GCC -std=c99 -g -fPIC -pie -Wl,-N -fno-builtin \
-	-nostdlib $CFLAGS -mapcs -fno-unwind-tables \
+	-nostdlib $CFLAGS -fno-unwind-tables \
 	-T$TMP_LDSCRIPT \
 	-I$SRC_DIR/include \
-	-I$SRC_DIR/include/arch/arm \
-	-I./armv7/include \
+	-I$SRC_DIR/include/arch/$KARCH \
+	-I./$BASEARCH/include \
 	-I$SRC_DIR/include/oldc \
 	-I$SRC_DIR/include/c \
-	$SRC_DIR/tools/arm_molly/molly_boot.S \
-	$SRC_DIR/tools/arm_molly/molly_init.c \
+	$SRC_DIR/tools/arm_molly/molly_boot${BW}.S \
+	$SRC_DIR/tools/arm_molly/molly_init${BW}.c \
 	$SRC_DIR/tools/arm_molly/lib.c \
 	$TMP_MBIC \
-	$SRC_DIR/lib/elf/elf32.c \
+	$SRC_DIR/lib/elf/elf${BW}.c \
 	$TMP_DIR/${TMP_PREFIX}* \
-        $EXTRAS \
+    $EXTRAS \
 	-o $IMAGE
+
 echo "OK - pandaboard boot image $IMAGE is built."
 echo "If your boot environment is correctly set up, you can now:"
 echo "usbboot $IMAGE"

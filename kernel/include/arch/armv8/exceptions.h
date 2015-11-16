@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2007,2008,2009,2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -10,21 +11,67 @@
 #ifndef KERNEL_ARMV8_EXCEPTIONS_H
 #define KERNEL_ARMV8_EXCEPTIONS_H
 
-#include <barrelfish_kpi/types.h>
+#define AARCH64_EVECTOR_RESET 0x00
+#define AARCH64_EVECTOR_UNDEF 0x04
+#define AARCH64_EVECTOR_SWI   0x08
+#define AARCH64_EVECTOR_PABT  0x0c
+#define AARCH64_EVECTOR_DABT  0x10
+#define AARCH64_EVECTOR_IRQ   0x18
+#define AARCH64_EVECTOR_FIQ   0x1c
 
-#ifndef __ASSEMBLER__
+#define CACHE_LINE_BYTES 32
+#define ETABLE_ADDR     		0xffffffffffff0000
+#define ETABLE_SECTION_OFFSET	0xf000
+#define JUMP_TABLE_OFFSET		0x100
+#define ETABLE_PHYS_BASE		0x800f0000
 
-void handle_irq(void);
-void page_fault(void *exn_frame);
-void handle_sync_abort(uint64_t esr);
+#if !defined(__ASSEMBLER__)
 
-#else
+/**
+ * Install and enable high-memory exception vectors.
+ *
+ * This routine switches the processor to use the high memory
+ * exception table (starts at offset 0xffff0000). It then
+ * installs the kernel exception handlers.
+ */
+void exceptions_init(void);
 
-.extern handle_irq, page_fault, handle_sync_abort
-.type handle_irq @function
-.type page_fault @function
-.type handle_sync_abort @function
+/**
+ * Handle page fault in user-mode process.
+ *
+ * This function should be called in SVC mode with interrupts disabled.
+ */
+void handle_user_page_fault(lvaddr_t                fault_address,
+                            arch_registers_state_t* saved_context)
+    __attribute__((noreturn));
 
-#endif // __ASSEMBLER__
+/**
+ * Handle undefined instruction fault in user-mode process.
+ *
+ * This function should be called in SVC mode with interrupts disabled.
+ */
+void handle_user_undef(lvaddr_t                fault_address,
+                       arch_registers_state_t* saved_context)
+    __attribute__((noreturn));
 
-#endif // KERNEL_ARMV8_EXCEPTIONS_H
+/**
+ * Handle faults in occuring in a priviledged mode.
+ *
+ * This function should be called in SVC mode with interrupts disabled.
+ */
+void fatal_kernel_fault(uint32_t   evector,
+                        lvaddr_t   fault_address,
+                        arch_registers_state_t* saved_context)
+    __attribute__((noreturn));
+
+/**
+ * Handle IRQs in occuring in USR or SYS mode.
+ *
+ * This function should be called in SVC mode with interrupts disabled.
+ */
+void handle_irq(arch_registers_state_t* saved_context, uintptr_t fault_pc)
+    __attribute__((noreturn));
+
+#endif // !defined(__ASSEMBLER__)
+
+#endif // __KERNEL_ARMV8_EXCEPTIONS_H__

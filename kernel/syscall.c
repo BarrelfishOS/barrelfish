@@ -4,7 +4,8 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007-2010,2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -98,6 +99,16 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, int depth,
         case ObjType_VNode_ARM_l1:
             dcb->vspace =
                 (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_arm_l1.base);
+            break;
+
+        case ObjType_VNode_AARCH64_l1:
+            dcb->vspace =
+                (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_aarch64_l1.base);
+            break;
+
+        case ObjType_VNode_AARCH64_l2:
+            dcb->vspace =
+                 (lvaddr_t)gen_phys_to_local_phys(vroot->u.vnode_aarch64_l2.base);
             break;
 
         default:

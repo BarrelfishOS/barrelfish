@@ -4,25 +4,26 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef ARCH_AARCH64_BARRELFISH_SYSCALL_H
 #define ARCH_AARCH64_BARRELFISH_SYSCALL_H
-
 //
 // This is the actual system call function. Because the return
-// value is a structure, r0 is setup point to the return
-// structure.  The first system call argument supplied at end of
+// value is a structure with two memebers, x0 is setup point 1st 
+// member and x1 is setup to point to 2nd member of the structure.
+// The first system call argument supplied at end of
 // argument list and moved to r0 before use in syscall. This
-// simplifies the amount of swizzling involved therein as r1 =
-// arg1, r2 = arg2, r3 = arg3, and the remaining args including
-// arg0 are on the stack.
+// simplifies the amount of swizzling involved therein as x1 =
+// arg1, x2 = arg2, x3 = arg3...x7 = arg7 remaining arguments are on 
+// the stack
 //
 extern struct sysret
 syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
@@ -30,7 +31,7 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
         uintptr_t j, uintptr_t k, uintptr_t l, uintptr_t a);
 
 #define syscallx(a,b,c,d,e,f,g,h,i,j,k,l)                               \
-    syscall(b,c,d,e,f,g,h,i,j,k,l,a)
+    syscall(a,b,c,d,e,f,g,h,i,j,k,l)
 
 //
 // System call argument 0 is encoded thus:
@@ -80,6 +81,5 @@ syscall(uintptr_t b, uintptr_t c, uintptr_t d, uintptr_t e,
 
 #define syscall1(a)                                                     \
     syscallx(sysord(a,1),0,0,0,0,0,0,0,0,0,0,0)
-
 
 #endif

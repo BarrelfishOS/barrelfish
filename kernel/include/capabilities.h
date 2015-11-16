@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
+ * Copyright (c) 2007-2009,2011, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef CAPABILITIES_H
@@ -123,7 +124,7 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(ObjType_Num == 27, "knowledge of all cap types");
+STATIC_ASSERT(ObjType_Num == 30, "knowledge of all cap types");
 #define ALL_PMEM_TYPES \
     ((1ul<<ObjType_RAM) | \
      (1ul<<ObjType_Frame) | \
@@ -139,6 +140,9 @@ STATIC_ASSERT(ObjType_Num == 27, "knowledge of all cap types");
      (1ul<<ObjType_VNode_x86_32_ptable) | \
      (1ul<<ObjType_VNode_ARM_l1) | \
      (1ul<<ObjType_VNode_ARM_l2) | \
+     (1ul<<ObjType_VNode_AARCH64_l1) | \
+     (1ul<<ObjType_VNode_AARCH64_l2) | \
+     (1ul<<ObjType_VNode_AARCH64_l3) | \
      (1ul<<ObjType_PhysAddr) | \
      (1ul<<ObjType_KernelControlBlock))
 

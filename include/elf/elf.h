@@ -3,12 +3,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, ETH Zurich.
+ * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /*-
@@ -167,7 +168,8 @@ __BEGIN_DECLS
 #define EM_TINYJ        61      /* Advanced Logic Corp. TinyJ processor. */
 #define EM_X86_64       62      /* Advanced Micro Devices x86-64 */
 #define EM_AMD64        EM_X86_64       /* Advanced Micro Devices x86-64 (compat) */
-#define EM_K1OM         181	/* Intel K1OM (Xeon Phi) */
+#define EM_K1OM         181     /* Intel K1OM (Xeon Phi) */
+#define EM_AARCH64      183     /* ARM 64 bit */
 
 /* Non-standard or deprecated. */
 #define EM_486          6       /* Intel i486. */
@@ -542,6 +544,11 @@ __BEGIN_DECLS
 #define R_ARM_NONE				0
 #define R_ARM_ABS32				2
 #define R_ARM_RELATIVE			23
+
+/* AARCH64 relocations. A LOT MISSING! */
+#define R_AARCH64_NONE          0
+#define R_AARCH64_ABS64         257
+#define R_AARCH64_RELATIVE      1027
 
 /**
  * \brief ELF64 file header.

@@ -6,7 +6,7 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Universitätstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /platforms/x86
+-- Hakefile for /platforms/
 -- 
 --------------------------------------------------------------------------
 
@@ -308,6 +308,23 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "skb",
                        "memtest"
                        ] ]
+
+    -- ARMv8 modules for running under GEM5
+    armv8_gem5Modules = [ "/sbin/" ++ f | f <- [
+                       "cpu_gem5",
+                       "init",
+                       "mem_serv",
+                       "monitor",
+                       "ramfsd",
+                       "spawnd",
+                       "startd",
+                       "corectrl",
+                       "skb",
+                       "memtest",
+                       "serial",
+                       "fish",
+                       "angler"
+                       ] ]
   in
  [
    --
@@ -376,6 +393,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_het_image") ])
     "Pandaboard ES with experimental heterogeneous (Cortex-M3) support",
 
+    platform "ARMv8-GEM5" [ "armv8" ]
+    ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
+    "GEM5 emulator for ARM Cortex-A series multicore processors",
+
     platform "ARMv7-GEM5" [ "armv7" ]
     ([ ("armv7", f) | f <- gem5Modules ] ++ [ ("root", "/arm_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
@@ -388,6 +409,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("xscale", "/sbin/" ++ f) | f <- [ "cpu_ixp2800", "cpu_ixp2800.bin" ]])
     "Very basic XScale configuration for testing, not guaranteed to boot",
 
+    platform "Mustang" [ "armv8" ]
+    ([ ("armv8", "/sbin/cpu_apm88xxxx") ])
+    "The APM XGene development board (Mustang)",
+
     --
     -- Rules to build assorted boot images
     --
@@ -396,6 +421,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--arch armv7-a",
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.pandaboard",
             Str "--baseaddr", Str "0x82001000",
             Str "--image",    Out "root" "/pandaboard_image",
@@ -408,12 +434,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--arch armv7-m",
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.armv7-m",
-            Str "--baseaddr", Str "0x00",
-            Str "--cflags",   Str "\"-march=armv7-m -mcpu=cortex-m3 -mthumb\"",
+            Str "--baseaddr", Str "0x0",
+            Str "--cflags",   Str "\"-mcpu=cortex-m3 -mthumb\"",
             Str "--image",    Out "root" "/pandaboard_m3image_intermediate",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
+            Str "--gcc",      Str Config.thumb_cc,
+            Str "--objcopy",  Str Config.thumb_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7-m" m) | m <- pandaM3Modules ]),
 
@@ -431,6 +458,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.",
+            Str "--arch armv7-a",
             Str "-D",         Str "HETEROPANDA",
             Str "--menu",     In SrcTree "tools"
                                          "/hake/menu.lst.heteropanda_master",
@@ -442,17 +470,31 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
-    -- Build the ARM GEM5 simulation image
+    -- Build the ARMv7 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
             Str "--srcdir",   NoDep SrcTree "root" "/.", 
             Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--arch armv7-a",
             Str "--menu",     In SrcTree "tools" "/hake/menu.lst.arm_gem5_mc",
-            Str "--baseaddr", Str "0x00100000",
+            Str "--baseaddr", Str "0x100000",
             Str "--image",    Out "root" "/arm_gem5_image",
             Str "--gcc",      Str Config.arm_cc,
             Str "--objcopy",  Str Config.arm_objcopy,
             Dep BuildTree "tools" "/bin/arm_molly"
           ] ++ [ (Dep BuildTree "armv7" m) | m <- gem5Modules ]),
+
+    -- Build the ARMv8 GEM5 simulation image
+    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
+            Str "--srcdir",   NoDep SrcTree "root" "/.", 
+            Str "--builddir", NoDep BuildTree "root" "/.", 
+            Str "--arch armv8-a",
+            Str "--menu",     In SrcTree "tools" "/hake/menu.lst.armv8_gem5",
+            Str "--baseaddr", Str "0x100000",
+            Str "--image",    Out "root" "/armv8_gem5_image",
+            Str "--gcc",      Str Config.aarch64_cc,
+            Str "--objcopy",  Str Config.aarch64_objcopy,
+            Dep BuildTree "tools" "/bin/arm_molly"
+          ] ++ [ (Dep BuildTree "armv8" m) | m <- armv8_gem5Modules ]),
 
     -- XScale needs a special rule to generate "include/romfs_size.h"
     -- XXX - this is currently a non-functional stub.  A real solution would
@@ -470,7 +512,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Copy menu.list files across
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
-            | p <- [ "arm_gem5",
+            | p <- [ "armv8_gem5",
+                     "arm_gem5",
                      "arm_gem5_mc",
                      "arm_gem5_panda",
                      "armv5",
@@ -483,6 +526,25 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
             | p <- [ "x86_32", "x86_64", "k1om" ] ],
     
     -- Convenient functions for running GEM5
+    boot "gem5_armv8" [ "armv8" ] [
+      Str Config.gem5,
+      In SrcTree "tools" "/tools/aarch64_gem5/gem5script.py",
+      Str "--caches",
+      Str "--l2cache",
+      Str "--n=1",
+      NStr "--kernel=", In BuildTree "root" "/armv8_gem5_image" ]
+    "Boot an ARMv8 single core image in GEM5",
+
+    boot "gem5_armv8_detailed" [ "armv8" ] [
+      Str Config.gem5,
+      In SrcTree "tools" "/tools/aarch64_gem5/gem5script.py",
+      Str "--caches",
+      Str "--l2cache",
+      Str "--n=1",
+      Str "--cpu-type=arm_detailed",
+      NStr "--kernel=", In BuildTree "root" "/armv8_gem5_image" ]
+    "Boot an ARMv8 single core image in GEM5 using a detailed CPU model",
+
     boot "gem5_armv7" [ "armv7" ] [
       Str Config.gem5,
       In SrcTree "tools" "/tools/arm_gem5/gem5script.py",

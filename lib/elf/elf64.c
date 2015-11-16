@@ -8,13 +8,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2007-2010,2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
- * Attn: Systems Group.
+ * This file is distributed under the terms in the attached LICENSE file.  If
+ * you do not find this file, copies can be found by writing to: ETH Zurich
+ * D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich, Attn: Systems Group.
  */
 
 /* Restricted includes, because this file is used in three environments:
@@ -406,7 +406,8 @@ void elf64_relocate(genvaddr_t dst, genvaddr_t src,
                     struct Elf64_Sym * symtab, size_t symsize,
                     genvaddr_t start, void *vbase)
 {
-    genvaddr_t base = dst - src, abase = dst - start;
+    //genvaddr_t base = dst - src, abase = dst - start;
+    genvaddr_t abase = dst - start;
 
     for(int i = 0; i < size / sizeof(struct Elf64_Rela); i++) {
         struct Elf64_Rela *r = &rela[i];
@@ -418,7 +419,8 @@ void elf64_relocate(genvaddr_t dst, genvaddr_t src,
             // Do nothing
             break;
 
-        case R_X86_64_64:{
+        case R_X86_64_64:
+        case R_AARCH64_ABS64:{
             uint32_t sym = ELF64_R_SYM(r->r_info);
             assert(sym < symsize / sizeof(struct Elf64_Sym));
 #if 0 // XXX: symbols should be 0 but this fires sometimes
@@ -428,14 +430,15 @@ void elf64_relocate(genvaddr_t dst, genvaddr_t src,
             break;}
 
         case R_X86_64_RELATIVE:
+        case R_AARCH64_RELATIVE:
             // FIXME: why doesn't the following work? -AB
             // I don't think this makes sense. It is a relative
             // relocation from the old position. Thus, base and not
             // abase should be used. Further, since r->r_addend is not
             // updated between relocations, this will fail as soon as
             // a binary is relocated more than once. -SP
-            //*addr = abase + r->r_addend;
-            *addr += base;
+            *addr = abase + r->r_addend;
+            //*addr += base;
             break;
 
         default:

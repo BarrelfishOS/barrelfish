@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2007, 2008, ETH Zurich.
  * All rights reserved.
@@ -14,23 +15,12 @@ OUTPUT_ARCH("aarch64")
 
 ENTRY(start)
 
-/*
-PHDRS {
-		headers PT_PHDR PHDRS;
-		text PT_LOAD FILEHDR PHDRS;
-		data PT_LOAD;
-		dynamic PT_DYNAMIC;
-}
-*/
-
 SECTIONS {
         . = START_KERNEL_PHYS;
-
+        
         /*kernel_elf_header = .;*/
         kernel_first_byte = .;
-
-        /*. += SIZEOF_HEADERS; */
-
+        
         .text : { *(.text); }
         kernel_text_final_byte = .;
 
@@ -40,21 +30,19 @@ SECTIONS {
                 *(.rodata);
         }
 
-        /*
         .got . :
         {
                 got_base = .;
                 *(.got);
         }
-        */
-
+        
         /*.rel.got . : { *(.rel.got); } */
 
         .bss . :
         {
                 *(.bss);
         }
-
+        
 
         kernel_final_byte = .;
 

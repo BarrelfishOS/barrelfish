@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /**
@@ -18,7 +19,8 @@
 
 /** We can define some constants using the "define" construct **/
 
-/* XXX: these must match the corresponding OBJBITS definitions in barrelfish_kpi/capabilities.h */
+/* XXX: these must match the corresponding OBJBITS definitions in
+ * barrelfish_kpi/capabilities.h */
 
 /* Size of CNode entry: */
 define cte_size 7;
@@ -238,6 +240,27 @@ cap VNode_ARM_l2 from RAM {
     address genpaddr base;  /* Base address of VNode */
     size_bits { vnode_size };
 };
+
+/* ARM AArch64-specific capabilities: */
+
+cap VNode_AARCH64_l1 from RAM {
+    /* L1 Page Table */
+    address genpaddr base;  /* Base address of VNode */
+    size_bits { vnode_size };
+};
+
+cap VNode_AARCH64_l2 from RAM {
+    /* L2 Page Table */
+    address genpaddr base;  /* Base address of VNode */
+    size_bits { vnode_size };
+};
+
+cap VNode_AARCH64_l3 from RAM {
+    /* L3 Page Table */
+    address genpaddr base;  /* Base address of VNode */
+    size_bits { vnode_size };
+};
+
 
 /** IRQTable and IO are slightly different **/
 

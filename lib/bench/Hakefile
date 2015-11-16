@@ -17,6 +17,7 @@
      arch_srcs "x86_64"  	= [ "arch/x86/bench_arch.c" ]
      arch_srcs "k1om"    	= [ "arch/x86/bench_arch.c" ]
      arch_srcs "arm"     	= [ "arch/arm/bench_arch.c" ]
+     arch_srcs "aarch64"    = [ "arch/arm/bench_arch.c" ]
      arch_srcs _         	= []
   in
     build library { target = "bench",

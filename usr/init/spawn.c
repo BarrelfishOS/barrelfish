@@ -146,7 +146,7 @@ errval_t initialize_monitor(struct spawninfo *si)
     }
 #endif
 
-#if __arm__
+#if __arm__ || __aarch64__
     /* Give monitor IO */
        dest.cnode = si->taskcn;
        dest.slot  = TASKCN_SLOT_IO;

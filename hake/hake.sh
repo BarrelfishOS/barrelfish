@@ -16,7 +16,9 @@ DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
 
 # Don't override the default toolchain unless asked to.
+TOOLROOT=Nothing
 ARM_TOOLSPEC=Nothing
+AARCH64_TOOLSPEC=Nothing
 THUMB_TOOLSPEC=Nothing
 ARMEB_TOOLSPEC=Nothing
 X86_TOOLSPEC=Nothing
@@ -33,6 +35,8 @@ usage() {
     echo "       for debugging hake)"
     echo "   -t|--toolchain <arch> <toolchain>: use <toolchain> to build for"
     echo "       <arch>."
+    echo "   -r|--toolroot <path>: where should I look for toolchains (instead"
+    echo "       of (/home/netos/tools)"
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
     echo ""
     echo "  The way you use this script is to create a new directory for your"
@@ -87,6 +91,9 @@ while [ $# -ne 0 ]; do
         "arm")
             ARM_TOOLSPEC="Just Tools.$TOOLSPEC"
             ;;
+        "aarch64")
+            AARCH64_TOOLSPEC="Just Tools.$TOOLSPEC"
+            ;;
         "thumb")
             THUMB_TOOLSPEC="Just Tools.$TOOLSPEC"
             ;;
@@ -104,6 +111,10 @@ while [ $# -ne 0 ]; do
             exit 1
             ;;
         esac
+        ;;
+    "-r"|"--toolroot")
+        TOOLROOT="Just \"$2\""
+        shift
         ;;
 	"-j"|"--jobs")
 	    JOBS="$2"
@@ -155,14 +166,16 @@ if [ ! -f hake/Config.hs ]; then
     cat >> hake/Config.hs <<EOF
 
 -- Automatically added by hake.sh. Do NOT copy these definitions to the defaults
-source_dir = "$SRCDIR"
-architectures = [ $ARCHS ]
-install_dir = "$INSTALLDIR"
-arm_toolspec   = $ARM_TOOLSPEC
-thumb_toolspec = $THUMB_TOOLSPEC
-armeb_toolspec = $ARMEB_TOOLSPEC
-x86_toolspec   = $X86_TOOLSPEC
-k1om_toolspec  = $K1OM_TOOLSPEC
+source_dir       = "$SRCDIR"
+architectures    = [ $ARCHS ]
+install_dir      = "$INSTALLDIR"
+toolroot         = $TOOLROOT
+arm_toolspec     = $ARM_TOOLSPEC
+aarch64_toolspec = $AARCH64_TOOLSPEC
+thumb_toolspec   = $THUMB_TOOLSPEC
+armeb_toolspec   = $ARMEB_TOOLSPEC
+x86_toolspec     = $X86_TOOLSPEC
+k1om_toolspec    = $K1OM_TOOLSPEC
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."

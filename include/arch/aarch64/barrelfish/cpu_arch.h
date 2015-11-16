@@ -16,7 +16,7 @@
 #define AARCH64_BARRELFISH_CPU_H
 
 #if __ARM_ARCH_8A__
-#define CURRENT_CPU_TYPE CPU_AARCH648
+#define CURRENT_CPU_TYPE CPU_ARM8
 #else
 #error "must define CURRENT_CPU_TYPE"
 #endif

@@ -5,6 +5,7 @@
 
 /*
  * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -23,7 +24,7 @@ curgotbase(void)
 {
     uint32_t ret;
     __asm (
-        "mov %[ret], r10" : [ret] "=r" (ret)
+        "mov %[ret], x10" : [ret] "=r" (ret)
           );
     return ret;
 
@@ -34,14 +35,14 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
                       lvaddr_t entry, lvaddr_t stack, uint32_t arg1,
                       uint32_t arg2, uint32_t arg3, uint32_t arg4)
 {
-    regs->named.cpsr = ARM_MODE_USR | CPSR_F_MASK;
-    regs->named.r0 = arg1;
-    regs->named.r1 = arg2;
-    regs->named.r2 = arg3;
-    regs->named.r3 = arg4;
+    regs->named.x0 = arg1;
+    regs->named.x1 = arg2;
+    regs->named.x2 = arg3;
+    regs->named.x3 = arg4;
+    regs->named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
     regs->named.stack = stack;
     regs->named.rtls = (uintptr_t)curdispatcher(); // XXX API bug means this must be run same-core
-    regs->named.r10 = (uintptr_t)curgotbase();
+    regs->named.x10 = (uintptr_t)curgotbase();
     regs->named.pc = entry;
 }
 

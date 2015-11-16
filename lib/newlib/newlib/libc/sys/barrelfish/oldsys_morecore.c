@@ -67,7 +67,7 @@ Header *morecore(unsigned nu)
  */
 void lesscore(void)
 {
-#if defined(__arm__)
+#if defined(__arm__) || defined(__aarch64__)
     // Not implemented
 
 #else

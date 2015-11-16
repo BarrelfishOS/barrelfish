@@ -21,7 +21,7 @@
 #include "monitor.h"
 #include <if/mem_rpcclient_defs.h>
 
-#ifndef __arm__
+#if !defined(__arm__) && !defined(__aarch64__)
 static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
 {
     /* XXX: mem client is only defined for the bsp core.
@@ -95,7 +95,7 @@ static void handle_notification(void *arg)
                                  domid);
                 }
             } else if(msg.buf.msglen == sizeof(struct RAM) / sizeof(uintptr_t) + 1) {
-#ifndef __arm__
+#if !defined(__arm__) && !defined(__aarch64__)
                 //defined(__x86_64__) || defined(__i386__)
                 union rammsg {
                     uintptr_t msgwords[LMP_MSG_LENGTH];

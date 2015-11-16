@@ -8,11 +8,12 @@
 
 /*
  * Copyright (c) 2010, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -162,7 +163,7 @@ errval_t single_slot_alloc_init_raw(struct single_slot_allocator *ret,
         // check for callers that do not provide enough buffer space
         #if !defined(NDEBUG)
         //on arm, __builtin_return_address does not take arguments !=0
-        #if !defined(__arm__)
+        #if !defined(__arm__) && !defined(__aarch64__) 
         size_t buflen_proper = SINGLE_SLOT_ALLOC_BUFLEN(nslots);
         if (buflen != buflen_proper) {
             debug_printf("******* FIXME: %s buflen=%zu != buflen_proper=%zu"

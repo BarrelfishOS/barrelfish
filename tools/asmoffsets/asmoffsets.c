@@ -1,10 +1,11 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, ETH Zurich.
+ * Copyright (c) 2007-2011, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 /*
@@ -134,6 +135,15 @@ void dummy(void)
     DECL(DISP_TRAP_AREA, struct dispatcher_shared_arm, trap_save_area);
     DECL(DISP_GENERIC, struct dispatcher_arm, generic);
 #endif // __arm__
+
+#if defined(__aarch64__)
+    DECL(DISP_CRIT_PC_LOW, struct dispatcher_shared_aarch64, crit_pc_low);
+    DECL(DISP_CRIT_PC_HIGH, struct dispatcher_shared_aarch64, crit_pc_high);
+    DECL(DISP_ENABLED_AREA, struct dispatcher_shared_aarch64, enabled_save_area);
+    DECL(DISP_DISABLED_AREA, struct dispatcher_shared_aarch64, disabled_save_area);
+    DECL(DISP_TRAP_AREA, struct dispatcher_shared_aarch64, trap_save_area);
+    DECL(DISP_GENERIC, struct dispatcher_aarch64, generic);
+#endif // __aarch64__
 
     DECL(LMP_ENDPOINT_DELIVERED, struct lmp_endpoint_kern, delivered);
     DECL(LMP_ENDPOINT_CONSUMED, struct lmp_endpoint_kern, consumed);

@@ -1,10 +1,11 @@
 /**
  * \file
- * \brief architecture-specific registers code
+ * \brief Architecture-specific registers code
  */
 
 /*
  * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,18 +16,16 @@
 #ifndef ARCH_AARCH64_BARRELFISH_KPI_REGISTERS_H
 #define ARCH_AARCH64_BARRELFISH_KPI_REGISTERS_H
 
-// TODO: update for aarch64
-
 #ifndef __ASSEMBLER__
-#include<stddef.h> // for offsetof
-//#include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
+#include <stddef.h> // for offsetof
+#include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
 #include <barrelfish_kpi/types.h> // for lvaddr_t
 #endif
 
 //
 // Offsets of saved registers in save area.
 //
-#define CPSR_REG  0
+#define SPSR_REG  0
 #define X0_REG    1
 #define X1_REG    2
 #define X2_REG    3
@@ -56,9 +55,9 @@
 #define X26_REG  27
 #define X27_REG  28
 #define X28_REG  29
-#define X29_REG  30
-#define SP_REG   31
-#define LR_REG   32
+#define FP_REG   30
+#define LR_REG   31
+#define SP_REG   32
 #define PC_REG   33
 
 #define NUM_REGS 34            /* cpsr, x0-x30, sp, pc */
@@ -83,34 +82,33 @@
 
 union registers_aarch64 {
     struct registers_aarch64_named {
-        uint64_t cpsr;
-        uint64_t r0, r1, r2, r3;
-        uint64_t r4, r5, r6, r7, r8;
-        uint64_t rtls;  // r9 is thread local storage
-        uint64_t r10;   // r10 is for global offset table base.
-        uint64_t r11, r12, r13, r14;
-        uint64_t r15, r16, r17, r18;
-        uint64_t r19, r20, r21, r22;
-        uint64_t r23, r24, r25, r26;
-        uint64_t r27, r28, r29;
-        uint64_t stack; // sp
-        uint64_t link;  // x30
-        uint64_t pc;    // pc
+        uint64_t spsr;
+        uint64_t x0, x1, x2, x3, x4, x5, x6, x7;
+        uint64_t x8;
+        uint64_t x9;
+        uint64_t x10;  // x10 is for global offset table base.
+        uint64_t x11, x12, x13, x14, x15;
+        uint64_t x16, x17;
+        uint64_t rtls; // x18 is thread local storage
+        uint64_t x19, x20, x21, x22, x23, x24, x25, x26, x27, x28;
+        uint64_t fp;
+        uint64_t link;
+        uint64_t stack;
+        uint64_t pc;
     } named;
     struct registers_aarch64_syscall_args {
-        uint64_t cpsr;
-        uint64_t arg0, arg1, arg2, arg3;
-        uint64_t arg4, arg5, arg6, arg7, arg8;
+        uint64_t spsr;
+        uint64_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
+        uint64_t arg8;
         uint64_t arg9;
         uint64_t arg10;
+        uint64_t arg11, arg12, arg13, arg14, arg15;
+        uint64_t arg16, arg17;
+        uint64_t arg18;
+        uint64_t arg19, arg20, arg21, arg22, arg23, arg24, arg25, arg26, arg28;
         uint64_t fp;
-        uint64_t arg11, arg12, arg13, arg14;
-        uint64_t arg15, arg16, arg17, arg18;
-        uint64_t arg19, arg20, arg21, arg22;
-        uint64_t arg23, arg24, arg25, arg26;
-        uint64_t arg27, arg28;
-        uint64_t stack;
         uint64_t link;
+        uint64_t stack;
         uint64_t pc;
     } syscall_args;
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
@@ -136,13 +134,13 @@ registers_set_entry(arch_registers_state_t *regs, lvaddr_t entry)
 static inline void
 registers_set_param(arch_registers_state_t *regs, uint64_t param)
 {
-    regs->named.r0 = param;
+    regs->named.x0 = param;
 }
 
 static inline void
 registers_get_param(arch_registers_state_t *regs, uint64_t *param)
 {
-    *param = regs->named.r0;
+    *param = regs->named.x0;
 }
 
 static inline uint64_t

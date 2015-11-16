@@ -24,18 +24,33 @@ import Tools (findTool, ToolDetails, toolPath, toolPrefix)
 import qualified Tools
 
 -- Set by hake.sh
-arm_toolspec   :: Maybe ToolDetails
-thumb_toolspec :: Maybe ToolDetails
-armeb_toolspec :: Maybe ToolDetails
-x86_toolspec   :: Maybe ToolDetails
-k1om_toolspec  :: Maybe ToolDetails
+toolroot         :: Maybe FilePath
+arm_toolspec     :: Maybe (Maybe FilePath -> ToolDetails)
+aarch64_toolspec :: Maybe (Maybe FilePath -> ToolDetails)
+thumb_toolspec   :: Maybe (Maybe FilePath -> ToolDetails)
+armeb_toolspec   :: Maybe (Maybe FilePath -> ToolDetails)
+x86_toolspec     :: Maybe (Maybe FilePath -> ToolDetails)
+k1om_toolspec    :: Maybe (Maybe FilePath -> ToolDetails)
 
 -- Default toolchains
-arm_tools   = fromMaybe Tools.arm_system                     arm_toolspec
-thumb_tools = fromMaybe Tools.arm_netos_arm_2015q2         thumb_toolspec
-armeb_tools = fromMaybe Tools.arm_netos_linaro_be_2015_02  armeb_toolspec
-x86_tools   = fromMaybe Tools.x86_system                     x86_toolspec
-k1om_tools  = fromMaybe Tools.k1om_netos_mpss_3_4           k1om_toolspec
+arm_tools     = fromMaybe Tools.arm_system
+                          arm_toolspec
+                toolroot
+aarch64_tools = fromMaybe Tools.arm_netos_linaro_aarch64_2014_11
+                          aarch64_toolspec
+                toolroot
+thumb_tools   = fromMaybe Tools.arm_netos_arm_2015q2
+                          thumb_toolspec
+                toolroot
+armeb_tools   = fromMaybe Tools.arm_netos_linaro_be_2015_02
+                          armeb_toolspec
+                toolroot
+x86_tools     = fromMaybe Tools.x86_system
+                          x86_toolspec
+                toolroot
+k1om_tools    = fromMaybe Tools.k1om_netos_mpss_3_4
+                          k1om_toolspec
+                toolroot
 
 -- ARM toolchain
 arm_gnu_tool = findTool (toolPath arm_tools) (toolPrefix arm_tools)
@@ -45,6 +60,15 @@ arm_objdump  = arm_gnu_tool "objdump"
 arm_ar       = arm_gnu_tool "ar"
 arm_ranlib   = arm_gnu_tool "ranlib"
 arm_cxx      = arm_gnu_tool "g++"
+
+-- ARM AArch64
+aarch64_gnu_tool = findTool (toolPath aarch64_tools) (toolPrefix aarch64_tools)
+aarch64_cc       = aarch64_gnu_tool "gcc"
+aarch64_objcopy  = aarch64_gnu_tool "objcopy"
+aarch64_objdump  = aarch64_gnu_tool "objdump"
+aarch64_ar       = aarch64_gnu_tool "ar"
+aarch64_ranlib   = aarch64_gnu_tool "ranlib"
+aarch64_cxx      = aarch64_gnu_tool "g++"
 
 -- ARM thumb (e.g. -M profile) toolchain
 thumb_gnu_tool = findTool (toolPath thumb_tools) (toolPrefix thumb_tools)
@@ -269,10 +293,12 @@ memserv_percore = False
 
 -- Lazy THC implementation (requires use_fp = True)
 lazy_thc :: Bool
-lazy_thc | elem "armv7" architectures   = False
-     | elem "armv5" architectures   = False
-     | elem "xscale" architectures  = False
-         | otherwise                    = True
+lazy_thc
+    | elem "armv7" architectures   = False
+    | elem "armv5" architectures   = False
+    | elem "armv8" architectures   = False
+    | elem "xscale" architectures  = False
+    | otherwise                    = True
 
 -- Enable capability tracing debug facility
 caps_trace :: Bool

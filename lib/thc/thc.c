@@ -1,3 +1,13 @@
+/*
+ * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 // THC runtime system
 //
 // Naming conventions:
@@ -1674,6 +1684,91 @@ __asm__ (" .text                          \n\t"
          " mov r0, #0xffffffff \n\t"
          " ldr r0, [r0] \n\t"
 );
+#elif (defined(__aarch64__) && (defined(linux) || defined(BARRELFISH)))
+// NOTES:
+//  - not sure about alignment (.align)
+
+/*
+            static void thc_awe_execute_0(awe_t *awe)    // r0
+*/
+
+__asm__ (" .text              \n\t"
+         " .align  6          \n\t"
+         "thc_awe_execute_0:  \n\t"
+		 " ldr x29, [x0, #16]  \n\t"
+         " mov sp,  x29        \n\t" // sp = awe->esp (stack pointer)
+         " ldr x29, [x0, #8]   \n\t" // fp = awe->ebp (frame pointer)
+         " ldr x30, [x0, #0]  \n\t" // pc = awe->eip (jump / pc)
+		 " ret			  \n\t"
+);
+
+/*
+           int _thc_schedulecont(awe_t *awe)   // r0
+*/
+
+__asm__ (" .text                    \n\t"
+         " .align  6                \n\t"
+         " .globl _thc_schedulecont \n\t"
+         " .type _thc_schedulecont, %function \n\t"
+         "_thc_schedulecont:  \n\t"
+         // save fp, sp, lr in stack (similarly to what gcc does)
+         // from ARM Architecutre Reference Manual ARMv7-A and ARMv7-R
+         // PUSH (A8-248):
+         // "The SP and PC can be in the list in ARM code, but not in Thumb
+         //  code. However, ARM instructions that include the SP or the PC in
+         //  the list are deprecated, and if the SP is in the list, the value
+         //  the instruction stores for the SP is UNKNOWN."
+         " mov  x28, sp       \n\t"
+		 " sub  sp, sp, #24		  \n\t"
+		 " str  x29, [sp, #0] \n\t"
+		 " str  x30, [sp, #8]   \n\t" // awe->esp = sp (stack pointer)
+		 " str  x28, [sp, #16] \n\t"
+
+         // set awe
+         " str x30, [x0, #0]   \n\t" // awe->eip = lr (return address)
+         " str x29, [x0, #8]   \n\t" // awe->ebp = fp (frame pointer)
+		 " mov x28, sp		  \n\t"
+         " str x28, [x0, #16]   \n\t" // awe->esp = sp (stack pointer)
+         // Call C function void _thc_schedulecont_c(awe_t *awe)
+         // awe still in r0
+         " bl _thc_schedulecont_c \n\t"
+         // return 0
+         " mov x0, #0 \n\t"
+         // restore saved state. We return by restoring lr in the pc
+		 " ldr x29, [sp], #8	\n\t"
+		 " ldr x30, [sp], #8    \n\t"
+		 " ldr x28, [sp], #8    \n\t"
+		 " mov sp, x28			\n\t"
+		 " ret          \n\t"
+);
+
+/*
+           __attribute__((returns_twice)) void
+           void _thc_callcont(awe_t *awe,   // r0
+                   THCContFn_t fn,          // r1
+                   void *args) {            // r2
+*/
+
+__asm__ (" .text                          \n\t"
+         " .align  6                      \n\t"
+         " .globl _thc_callcont           \n\t"
+         " .type _thc_callcont, %function \n\t"
+         "_thc_callcont:                  \n\t"
+
+		 // set  awe
+         " mov  x28, sp        \n\t"
+         " str  x30, [x0, #0]  \n\t" // awe->eip = lr (return address)
+         " str  x29, [x0, #8]  \n\t" // awe->ebp = fp (frame pointer)
+         " str  x28, [x0, #16] \n\t" // awe->esp = sp (stack pointer)
+         
+		 // AWE now initialized.  Call into C for the rest.
+         // r0 : AWE , r1 : fn , r2 : args
+         " bl _thc_callcont_c\n\t"
+         // hopefully a fault (x86 does int3)
+         " mov x0, #0xffffffff \n\t"
+         " ldr x0, [x0] \n\t"
+);
+
 
 #else
 void thc_awe_execute_0(awe_t *awe) {

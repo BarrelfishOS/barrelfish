@@ -14,6 +14,7 @@
 module Tools where
 
 import System.FilePath
+import Data.Maybe(fromMaybe)
 
 findTool path prefix tool = path </> (prefix ++ tool)
 
@@ -23,51 +24,77 @@ data ToolDetails =
         toolPrefix :: String
     }
 
+-- This is the default root under which toolchains are installed at ETH.
+-- It can be overridden when running Hake.
+mkRoot root = fromMaybe "/home/netos/tools" root
+
 --
 -- ARM Cortex-A little-endian toolchains (armv7,armv5)
 --
 
 -- System (Ubuntu) ARM toolchain
-arm_system
+arm_system _
     = ToolDetails {
         toolPath = "",
         toolPrefix = "arm-linux-gnueabi-"
       }
 
 -- Linaro 2015.06 (GCC 4.8)
-arm_netos_linaro_2015_06
+arm_netos_linaro_2015_06 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/linaro" </>
+        toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-4.8-2015.06-x86_64_arm-eabi" </>
                    "bin",
         toolPrefix = "arm-eabi-"
       }
 
 -- Linaro 2015.05 (GCC 4.9)
-arm_netos_linaro_2015_05
+arm_netos_linaro_2015_05 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/linaro" </>
+        toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-4.9-2015.05-x86_64_arm-eabi" </>
                    "bin",
         toolPrefix = "arm-eabi-"
       }
 
 -- Linaro 2015.02 (GCC 4.9)
-arm_netos_linaro_2015_02
+arm_netos_linaro_2015_02 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/linaro" </>
+        toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-4.9-2015.02-3-x86_64_arm-eabi" </>
                    "bin",
         toolPrefix = "arm-eabi-"
       }
 
 -- Linaro 2014.11 (GCC 4.9)
-arm_netos_linaro_2014_11
+arm_netos_linaro_2014_11 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/linaro" </>
+        toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-4.9-2014.11-x86_64_arm-eabi" </>
                    "bin",
         toolPrefix = "arm-eabi-"
+      }
+
+--
+-- ARM AArch64 toolchains
+--
+
+-- Linaro 2014.11 (GCC 4.9)
+arm_netos_linaro_aarch64_2014_11 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-4.9-2014.11-x86_64_aarch64-elf" </>
+                   "bin",
+        toolPrefix = "aarch64-none-elf-"
+      }
+
+-- Linaro 2015.02 (GCC 4.9)
+arm_netos_linaro_aarch64_2015_02 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-4.9-2015.02-3-x86_64_aarch64-elf" </>
+                   "bin",
+        toolPrefix = "aarch64-elf-"
       }
 
 --
@@ -75,27 +102,27 @@ arm_netos_linaro_2014_11
 --
 
 -- ARM-GCC 2014q4 (GCC 4.9)
-arm_netos_arm_2014q4
+arm_netos_arm_2014q4 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/gcc-arm-embedded" </>
+        toolPath = mkRoot root </> "gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2014q4" </>
                    "bin",
         toolPrefix = "arm-none-eabi-"
       }
 
 -- ARM-GCC 2015q1 (GCC 4.9)
-arm_netos_arm_2015q1
+arm_netos_arm_2015q1 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/gcc-arm-embedded" </>
+        toolPath = mkRoot root </> "gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2015q1" </>
                    "bin",
         toolPrefix = "arm-none-eabi-"
       }
 
 -- ARM-GCC 2015q2 (GCC 4.9)
-arm_netos_arm_2015q2
+arm_netos_arm_2015q2 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/gcc-arm-embedded" </>
+        toolPath = mkRoot root </> "gcc-arm-embedded" </>
                    "gcc-arm-none-eabi-4_9-2015q2" </>
                    "bin",
         toolPrefix = "arm-none-eabi-"
@@ -106,9 +133,9 @@ arm_netos_arm_2015q2
 --
 
 -- Linaro 2015.02 (GCC 4.9)
-arm_netos_linaro_be_2015_02
+arm_netos_linaro_be_2015_02 root
     = ToolDetails {
-        toolPath = "/home/netos/tools/linaro" </>
+        toolPath = mkRoot root </> "linaro" </>
                    "gcc-linaro-4.9-2015.02-3-x86_64_armeb-eabi" </>
                    "bin",
         toolPrefix = "armeb-eabi-"
@@ -119,7 +146,7 @@ arm_netos_linaro_be_2015_02
 --
 
 -- System (Ubuntu) ARM toolchain
-x86_system
+x86_system _
     = ToolDetails {
         toolPath = "",
         toolPrefix = "x86_64-linux-gnu-"
@@ -130,9 +157,9 @@ x86_system
 --
 
 -- Intel MPSS 3.4 (GCC 4.7)
-k1om_netos_mpss_3_4
+k1om_netos_mpss_3_4 root
     = ToolDetails {
-        toolPath = "/home/netos/tools" </>
+        toolPath = mkRoot root </>
                    "mpss-3.4/x86_64-mpsssdk-linux" </> 
                    "usr/bin/k1om-mpss-linux",
         toolPrefix = "k1om-mpss-linux-"

@@ -46,11 +46,15 @@ int main(int argc, char *argv[])
 {
     int n_modules = 0;
     int n_mmaps = 0;
+    bool aarch64 = false;
 
-    if(argc < 3) {
-        printf("Usage: %s <menu.lst> <output.c>\n", argv[0]);
+    if(argc < 3 || (argc == 4 && strcmp("-64", argv[3])
+                              && strcmp("-32", argv[3]))) {
+        printf("Usage: %s <menu.lst> <output.c> [-64|-32]\n", argv[0]);
         return 0;
     }
+
+    if(argc >= 4 && !strcmp("-64", argv[3])) aarch64 = true;
 
     FILE *f = fopen(argv[1], "r");
     assert((f != NULL) && "Could not open input file");
@@ -98,14 +102,28 @@ int main(int argc, char *argv[])
             fprintf(o, "extern char %s_end;\n", module_symbol_prefix[n_modules]);
             n_modules ++;
         } else if(!strcmp(cmd, "mmap")) {
-            uint32_t base, len;
-            int type;
-            sscanf(args, "%" SCNi32 " %" SCNi32 " %i",
-                    &base, &len, &type);
-            printf("Inserting MMAP %d: [0x%" PRIx32 ", 0x%" PRIx32 "], type %d\n",
-                    n_mmaps, base, len, type);
-            fprintf(o, "static uint32_t mbi_mmap%d[] = {0x%" PRIx32 ", 0x%" PRIx32 ", %d};\n",
-                    n_mmaps, base, len, type);
+            if(aarch64) {
+                uint64_t base, len;
+                int type;
+                sscanf(args, "%" SCNi64 " %" SCNi64 " %i",
+                        &base, &len, &type);
+                printf("Inserting MMAP %d: [0x%" PRIx64 ", 0x%" PRIx64 "], type %d\n",
+                        n_mmaps, base, len, type);
+                fprintf(o, "static uint64_t mbi_mmap%d[] = {0x%" PRIx64
+                           ", 0x%" PRIx64 ", %d};\n",
+                        n_mmaps, base, len, type);
+            }
+            else {
+                uint32_t base, len;
+                int type;
+                sscanf(args, "%" SCNi32 " %" SCNi32 " %i",
+                        &base, &len, &type);
+                printf("Inserting MMAP %d: [0x%" PRIx32 ", 0x%" PRIx32 "], type %d\n",
+                        n_mmaps, base, len, type);
+                fprintf(o, "static uint32_t mbi_mmap%d[] = {0x%" PRIx32
+                           ", 0x%" PRIx32 ", %d};\n",
+                        n_mmaps, base, len, type);
+            }
             n_mmaps ++;
         } else {
             bool iscmd = false;
@@ -142,30 +160,55 @@ int main(int argc, char *argv[])
     fprintf(o, "  mbi.flags |= MULTIBOOT_INFO_FLAG_HAS_MMAP;\n");
 
     // Kernel command line:
-    fprintf(o, "  mbi.cmdline = (uint32_t) \"%s\";\n", kernel_cmd_line);
+    if(aarch64)
+        fprintf(o, "  mbi.cmdline = (uint64_t) \"%s\";\n", kernel_cmd_line);
+    else
+        fprintf(o, "  mbi.cmdline = (uint32_t) \"%s\";\n", kernel_cmd_line);
 
     // Modules:
     fprintf(o, "  mbi.mods_count = %d;\n", n_modules + 1);
-    fprintf(o, "  mbi.mods_addr = (uint32_t) mbi_mods;\n");
-    fprintf(o, "  mbi_mods[0].mod_start = (uint32_t) &%s_start;\n",
-            kernel_symbol_prefix);
-    fprintf(o, "  mbi_mods[0].mod_end = (uint32_t) &%s_end;\n",
-            kernel_symbol_prefix);
-    fprintf(o, "  mbi_mods[0].string = (uint32_t)\"%s\";\n",
-            kernel_cmd_line);
+    if(aarch64) {
+        fprintf(o, "  mbi.mods_addr = (uint64_t) mbi_mods;\n");
+        fprintf(o, "  mbi_mods[0].mod_start = (uint64_t) &%s_start;\n",
+                kernel_symbol_prefix);
+        fprintf(o, "  mbi_mods[0].mod_end = (uint64_t) &%s_end;\n",
+                kernel_symbol_prefix);
+        fprintf(o, "  mbi_mods[0].string = (uint64_t)\"%s\";\n",
+                kernel_cmd_line);
 
-    for (int i = 0; i < n_modules; i ++) {
-        fprintf(o, "  mbi_mods[%d].mod_start = (uint32_t) &%s_start;\n",
-                i+1, module_symbol_prefix[i]);
-        fprintf(o, "  mbi_mods[%d].mod_end = (uint32_t) &%s_end;\n",
-                i+1, module_symbol_prefix[i]);
-        fprintf(o, "  mbi_mods[%d].string = (uint32_t) \"%s\";\n",
-                i+1, module_cmd_line[i]);
+        for (int i = 0; i < n_modules; i ++) {
+            fprintf(o, "  mbi_mods[%d].mod_start = (uint64_t) &%s_start;\n",
+                    i+1, module_symbol_prefix[i]);
+            fprintf(o, "  mbi_mods[%d].mod_end = (uint64_t) &%s_end;\n",
+                    i+1, module_symbol_prefix[i]);
+            fprintf(o, "  mbi_mods[%d].string = (uint64_t) \"%s\";\n",
+                    i+1, module_cmd_line[i]);
+        }
+    } else {
+        fprintf(o, "  mbi.mods_addr = (uint32_t) mbi_mods;\n");
+        fprintf(o, "  mbi_mods[0].mod_start = (uint32_t) &%s_start;\n",
+                kernel_symbol_prefix);
+        fprintf(o, "  mbi_mods[0].mod_end = (uint32_t) &%s_end;\n",
+                kernel_symbol_prefix);
+        fprintf(o, "  mbi_mods[0].string = (uint32_t)\"%s\";\n",
+                kernel_cmd_line);
+
+        for (int i = 0; i < n_modules; i ++) {
+            fprintf(o, "  mbi_mods[%d].mod_start = (uint32_t) &%s_start;\n",
+                    i+1, module_symbol_prefix[i]);
+            fprintf(o, "  mbi_mods[%d].mod_end = (uint32_t) &%s_end;\n",
+                    i+1, module_symbol_prefix[i]);
+            fprintf(o, "  mbi_mods[%d].string = (uint32_t) \"%s\";\n",
+                    i+1, module_cmd_line[i]);
+        }
     }
 
     // MMAPS:
     fprintf(o, "  mbi.mmap_length = sizeof(mbi_mmaps);\n");
-    fprintf(o, "  mbi.mmap_addr = (uint32_t) mbi_mmaps;\n");
+    if(aarch64)
+        fprintf(o, "  mbi.mmap_addr = (uint64_t) mbi_mmaps;\n");
+    else
+        fprintf(o, "  mbi.mmap_addr = (uint32_t) mbi_mmaps;\n");
     for (int i = 0; i < n_mmaps; i ++) {
         fprintf(o, "  mbi_mmaps[%d].size = sizeof(struct multiboot_mmap);\n", i);
         fprintf(o, "  mbi_mmaps[%d].base_addr = mbi_mmap%d[0];\n", i, i);

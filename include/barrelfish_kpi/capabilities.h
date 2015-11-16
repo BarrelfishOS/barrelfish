@@ -4,12 +4,13 @@
  */
 
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2007-2012, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #ifndef BARRELFISH_CAPABILITIES_H
@@ -54,7 +55,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -63,6 +64,9 @@ static inline bool type_is_vnode(enum objtype type)
             type == ObjType_VNode_x86_32_pdpt ||
             type == ObjType_VNode_x86_32_pdir ||
             type == ObjType_VNode_x86_32_ptable ||
+            type == ObjType_VNode_AARCH64_l3 ||
+            type == ObjType_VNode_AARCH64_l2 ||
+            type == ObjType_VNode_AARCH64_l1 ||
             type == ObjType_VNode_ARM_l2 ||
             type == ObjType_VNode_ARM_l1
            );
@@ -78,7 +82,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -89,6 +93,12 @@ static inline size_t vnode_objbits(enum objtype type)
         type == ObjType_VNode_x86_32_ptable)
     {
         return 12;      // BASE_PAGE_BITS
+    }
+    else if (type == ObjType_VNode_AARCH64_l1 ||
+             type == ObjType_VNode_AARCH64_l2 ||
+             type == ObjType_VNode_AARCH64_l3)
+    {
+        return 12;
     }
     else if (type == ObjType_VNode_ARM_l1)
     {
@@ -110,7 +120,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(27 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -136,6 +146,18 @@ static inline size_t vnode_entry_bits(enum objtype type) {
         return 10;      // log2(X86_32_PTABLE_SIZE) == log2(X86_32_PDIR_SIZE)
     }
 #endif
+
+    if (type == ObjType_VNode_AARCH64_l1)
+    {
+	    return 2;
+    }
+
+    if (type == ObjType_VNode_AARCH64_l2 ||
+        type == ObjType_VNode_AARCH64_l3)
+    {
+        return 9;       // log2(ARM_MAX_ENTRIES)
+    }
+
     if (type == ObjType_VNode_ARM_l2)
     {
         return 9;       // log2(ARM_L2_MAX_ENTRIES)

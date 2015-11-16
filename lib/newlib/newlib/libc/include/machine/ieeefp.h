@@ -49,6 +49,13 @@
         not promoted to double.
 	
 */
+#if defined (__aarch64__)
+#if defined (__AARCH64EL__)
+#define __IEEE_LITTLE_ENDIAN
+#else
+#define __IEEE_BIG_ENDIAN
+#endif
+#endif
 
 #if (defined(__arm__) || defined(__thumb__)) && !defined(__MAVERICK__)
 /* ARM traditionally used big-endian words; and within those words the

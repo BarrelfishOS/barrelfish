@@ -1,5 +1,15 @@
 /* Barrelfish THC language extensions */
 
+/*
+ * Copyright (c) 2015, ETH Zurich.
+ * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 #ifndef _THC_INTERNAL_H_
 #define _THC_INTERNAL_H_
 
@@ -223,10 +233,14 @@ extern int _end_text_nx;
                          "memory")
 
 #endif
-#elif defined (__aarch64__)
-// XXX: todo sane implementations of these
+#elif defined(__aarch64__)
     #define KILL_CALLEE_SAVES()                                           \
-    __asm__ volatile ("" : : : "sp")
+    __asm__ volatile ("" : : :                                      \
+                         "x19", "x20", "x21", "x22", "x23", "x24", "x25",        \
+                         "x26", "x27", "x28", \
+                         "31",                                     \
+                         "memory")
+
 #else
 #error "Need definition of KILL_CALLEE_SAVES" 
 #endif
@@ -249,7 +263,7 @@ extern int _end_text_nx;
 #elif defined(__i386__)                             
 #define FORCE_ARGS_STACK      
 #define FORCE_ARGS_STACK_CALL 
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
 #define FORCE_ARGS_STACK assert(0 && "THC not yet implemented on ARM")
 #define FORCE_ARGS_STACK_CALL assert(0 && "THC not yet implemented on ARM")
 #elif defined(__aarch64__)
@@ -354,9 +368,9 @@ extern int _end_text_nx;
 //
 // check_for_lazy_awe() and init_lazy_awe() also need to change.
 
-#define INIT_LAZY_AWE(_) assert(0 && "THC not yet implemented on ARM")
-#define RETURN_CONT(_) assert(0 && "THC not yet implemented on ARM")
-#define GET_LAZY_AWE(_) assert(0 && "THC not yet implemented on ARM")
+#define INIT_LAZY_AWE(_) assert(0 && "THC not yet implemented on AARCH64")
+#define RETURN_CONT(_) assert(0 && "THC not yet implemented on AARCH64")
+#define GET_LAZY_AWE(_) assert(0 && "THC not yet implemented on AARCH64")
 #else
 #error "Need definition of INIT_LAZY_AWE & GET_LAZY_AWE"
 #endif
@@ -455,6 +469,11 @@ extern int _end_text_nx;
                      : "m" (_NS)                                              \
                      : "memory", "r0", "r1");                                 \
     }
+#elif defined(__aarch64__) && (defined(linux) || defined(BARRELFISH))
+
+// - NYI
+#define SWIZZLE_DEF(_NAME, _NS, _FN) assert(0 && "THC not yet implemented on AARCH64")
+	
 #else
 #error "No definition of SWIZZLE_DEF for THC"
 #endif
