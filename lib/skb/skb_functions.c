@@ -67,20 +67,26 @@ errval_t skb_add_fact(char *fmt, ...)
 {
     va_list va_l;
     va_start(va_l, fmt);
-    vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
-    buffer[BUFFER_SIZE - 1] = 0;
-    int len = strlen(buffer) + 1;
+    int len = vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
+    va_end(va_l);
 
-    char *dot = strrchr(buffer, '.');
-    if (dot != 0) {
-        *dot = 0;
+    if (len >= BUFFER_SIZE) {
+        return SKB_ERR_OVERFLOW;
+    }
+
+    if (len > 0 && buffer[len - 1] == '.') {
+        len--;
     }
 
     SKB_DEBUG("skb_add_fact(): %s\n", buffer);
-    snprintf(buffer + len, BUFFER_SIZE - len,
-             "assert(%s).", buffer);
+    int assert_len = snprintf(buffer + len, BUFFER_SIZE - len,
+            "assert(%.*s).", len, buffer);
+
+    if (assert_len >= BUFFER_SIZE - len) {
+        return SKB_ERR_OVERFLOW;
+    }
+
     errval_t err = skb_execute(buffer + len);
-    va_end(va_l);
     return err;
 }
 
@@ -88,13 +94,15 @@ errval_t skb_execute_query(char *fmt, ...)
 {
     va_list va_l;
     va_start(va_l, fmt);
-    vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
+    int len = vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
     va_end(va_l);
-    buffer[BUFFER_SIZE - 1] = 0;
 
-    char *dot = strrchr(buffer, '.');
-    if (dot != 0) {
-        *dot = 0;
+    if (len >= BUFFER_SIZE) {
+        return SKB_ERR_OVERFLOW;
+    }
+
+    if (len > 0 && buffer[len - 1] == '.') {
+        buffer[len - 1] = '\0';
     }
 
     return skb_execute(buffer);
