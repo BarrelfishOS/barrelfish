@@ -36,7 +36,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid_proc_name(buf, CPUID_PROC_NAME_LENGTH + 1);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cpuid_proc_name");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     struct cpuid_proc_family family;
@@ -44,7 +44,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid_proc_family(&family);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     char *vendor_string = cpuid_vendor_string();
@@ -56,7 +56,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid__vendor__add(&vendor);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cpuid__vendor__add: %s", skb_get_error_output());
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     cpuid__family_t f_family;
@@ -69,14 +69,14 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid__family__add(&f_family);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     struct cpuid_threadinfo ti;
     err = cpuid_thread_info(&ti);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     cpuid__thread_t thread;
@@ -88,7 +88,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid__thread__add(&thread);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     uint8_t i = 0;
@@ -109,14 +109,14 @@ errval_t gather_cpuid_data(coreid_t core_id)
         err = cpuid__cache__add(&cache);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "");
-            return err_push(err, SKB_ERR_CPUID);
+            return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
         }
 
         i++;
     }
     if (err_is_fail(err) && err != CPUID_ERR_INVALID_INDEX) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
 
@@ -130,7 +130,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     }
     if (err_is_fail(err) && err != CPUID_ERR_INVALID_INDEX) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     i = 0;
@@ -148,7 +148,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
         err = cpuid__tlb__add(&tlb);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "");
-            return err_push(err, SKB_ERR_CPUID);
+            return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
         }
 
         i++;
@@ -161,7 +161,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
             break;
         default:
             DEBUG_ERR(err, "");
-            return err_push(err, SKB_ERR_CPUID);
+            return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
         }
     }
 
@@ -169,7 +169,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid_address_space_info(&ai);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     cpuid__addrspace_t addrspace;
@@ -181,7 +181,7 @@ errval_t gather_cpuid_data(coreid_t core_id)
     err = cpuid__addrspace__add(&addrspace);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
-        return err_push(err, SKB_ERR_CPUID);
+        return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
     return err;
