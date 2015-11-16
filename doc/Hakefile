@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstr. 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /platforms/x86
 -- 
@@ -30,6 +30,7 @@
          "TN-016-Serial.pdf",
          "TN-017-ARM.pdf",
          "TN-018-PracticalGuide.pdf",
-         "TN-019-DeviceDriver.pdf" ]]
+         "TN-019-DeviceDriver.pdf",
+         "TN-020-Sockeye.pdf" ]]
     "Documentation for Barrelfish"
 ]
