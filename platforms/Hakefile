@@ -34,7 +34,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "hellotest",
                         "idctest",
                         "memtest",
+                        "nkmtest",
                         "schedtest",
+                        "test_modify_flags",
                         "testerror",
                         "yield_test" ] ]
 
@@ -63,6 +65,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "socketpipetest",
                         "spantest",
                         "spin",
+                        "test_invalid_mappings",
                         "testconcurrent",
                         "testdesc",
                         "testdesc-child",
