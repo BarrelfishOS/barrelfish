@@ -124,7 +124,23 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(ObjType_Num == 30, "knowledge of all cap types");
+STATIC_ASSERT(44 == ObjType_Num, "knowledge of all cap types");
+#define MAPPING_TYPES \
+    ((1ul<<ObjType_VNode_x86_64_pml4_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_pdpt_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_pdir_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ptable_Mapping) | \
+     (1ul<<ObjType_VNode_x86_32_pdpt_Mapping) | \
+     (1ul<<ObjType_VNode_x86_32_pdir_Mapping) | \
+     (1ul<<ObjType_VNode_x86_32_ptable_Mapping) | \
+     (1ul<<ObjType_VNode_ARM_l1_Mapping) | \
+     (1ul<<ObjType_VNode_ARM_l2_Mapping) | \
+     (1ul<<ObjType_VNode_AARCH64_l1_Mapping) | \
+     (1ul<<ObjType_VNode_AARCH64_l2_Mapping) | \
+     (1ul<<ObjType_VNode_AARCH64_l3_Mapping) | \
+     (1ul<<ObjType_Frame_Mapping) | \
+     (1ul<<ObjType_DevFrame_Mapping))
+
 #define ALL_PMEM_TYPES \
     ((1ul<<ObjType_RAM) | \
      (1ul<<ObjType_Frame) | \
@@ -144,7 +160,8 @@ STATIC_ASSERT(ObjType_Num == 30, "knowledge of all cap types");
      (1ul<<ObjType_VNode_AARCH64_l2) | \
      (1ul<<ObjType_VNode_AARCH64_l3) | \
      (1ul<<ObjType_PhysAddr) | \
-     (1ul<<ObjType_KernelControlBlock))
+     (1ul<<ObjType_KernelControlBlock) | \
+     MAPPING_TYPES)
 
 #define TRACE_TYPES_ENABLED_INITIAL 0x0
 #define TRACE_PMEM_BEGIN_INITIAL    0x0

@@ -58,6 +58,7 @@ errors kernel SYS_ERR_ {
     failure ROOT_CAP_LOOKUP     "Error looking up root capability",
     failure DEST_TYPE_INVALID   "Destination capability is of invalid type",
     failure INVALID_RETYPE      "Invalid source/destination type pair for retyping",
+    failure RETYPE_MAPPING_EXPLICIT "Invalid explicit retype to mapping type",
     failure REVOKE_FIRST        "Capability already has descendants or siblings",
     failure INVALID_SIZE_BITS   "Invalid size for new objects",
     failure SLOTS_INVALID       "Destination capability slots exceed capacity of CNode",
