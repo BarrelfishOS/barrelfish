@@ -27,9 +27,6 @@ static coreid_t my_core_id;
 #elif defined(__x86_64__)
 #       define MONITOR_NAME  BF_BINARY_PREFIX "x86_64/sbin/monitor"
 #       define MEM_SERV_NAME BF_BINARY_PREFIX "x86_64/sbin/mem_serv"
-#elif defined(__scc__)
-#       define MONITOR_NAME  BF_BINARY_PREFIX "scc/sbin/monitor"
-#       define MEM_SERV_NAME BF_BINARY_PREFIX "scc/sbin/mem_serv"
 #elif defined(__i386__)
 #       define MONITOR_NAME  BF_BINARY_PREFIX "x86_32/sbin/monitor"
 #       define MEM_SERV_NAME BF_BINARY_PREFIX "x86_32/sbin/mem_serv"
@@ -160,15 +157,6 @@ static errval_t bootstrap(int argc, char *argv[])
     /* Load monitor */
     printf("Spawning monitor (%s)...\n", MONITOR_NAME);
     struct spawninfo monitor_si;
-#ifdef __scc__
-    if(argc > 2) {
-        assert(argc == 5);
-        char appargs[1024];
-        snprintf(appargs, 1024, "%s %s %s", argv[2], argv[3], argv[4]);
-        monitor_si.codeword = 0xcafebabe;
-        monitor_si.append_args = appargs;
-    }
-#endif
     err = spawn_load_with_bootinfo(&monitor_si, bi, MONITOR_NAME, my_core_id);
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_SPAWN_MONITOR);

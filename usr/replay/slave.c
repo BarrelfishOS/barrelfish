@@ -137,11 +137,7 @@ static void handle_init(struct replay_binding *b, struct capref shared_mem, uint
     errval_t err;
     vregion_flags_t vspace_fl;
 
-    #ifdef __scc__
-    vspace_fl = VREGION_FLAGS_READ_WRITE_MPB;
-    #else
     vspace_fl = VREGION_FLAGS_READ_WRITE;
-    #endif
 
     // Map the frame in local memory
     void *pool;

@@ -23,10 +23,6 @@
 #define DISPATCHER_BASE         (ARGS_BASE + ARGS_SIZE)
 #define MON_URPC_BASE           (DISPATCHER_BASE + DISPATCHER_SIZE)
 
-#ifdef __scc__
-extern int kernel_scckernel;
-#endif
-
 errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
                           uint32_t flags);
 errval_t startup_alloc_init(void *state, genvaddr_t gvbase, size_t size,
@@ -57,11 +53,9 @@ static inline void start_ap_signal(void)
         local_phys_to_mem((lpaddr_t)&x86_64_init_ap_wait - ((lpaddr_t)&x86_64_start_ap) +
                           X86_64_REAL_MODE_LINEAR_OFFSET);
 #elif defined (__i386__)
-#       if !defined(__scc__)
     volatile uint32_t *ap_wait = (volatile uint32_t *)
         local_phys_to_mem((lpaddr_t)&x86_32_init_ap_wait - ((lpaddr_t)&x86_32_start_ap) +
                           X86_32_REAL_MODE_LINEAR_OFFSET);
-#       endif
 #else
 #error "Architecture not supported"
 #endif

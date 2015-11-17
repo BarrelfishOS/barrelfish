@@ -35,12 +35,8 @@
 #include <fpu.h>
 #include <mdb/mdb_tree.h>
 #include <useraccess.h>
-#ifdef __scc__
-#       include <rck.h>
-#else
-#       include <arch/x86/perfmon_amd.h>
-#       include <arch/x86/ipi_notify.h>
-#endif
+#include <arch/x86/perfmon_amd.h>
+#include <arch/x86/ipi_notify.h>
 
 /* FIXME: lots of missing argument checks in this function */
 static struct sysret handle_dispatcher_setup(struct capability *to,
@@ -358,25 +354,6 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
     return sys_monitor_register(ep_caddr);
 }
 
-#ifdef __scc__
-static struct sysret monitor_spawn_scc_core(struct capability *kernel_cap,
-                                            int cmd, uintptr_t *args)
-{
-    uint8_t id                  = args[1] >> 24;
-    genpaddr_t urpcframe_base   = args[0];
-    uint8_t urpcframe_bits      = (args[1] >> 16) & 0xff;
-    int chanid                  = args[1] & 0xffff;
-
-    int r = rck_start_core(id, urpcframe_base, urpcframe_bits, chanid);
-
-    if (r != 0) {
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-#endif
-
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
@@ -555,32 +532,6 @@ static struct sysret handle_frame_modify_flags(struct capability *to,
     };
 }
 
-#ifdef __scc__
-static struct sysret handle_frame_scc_identify(struct capability *to,
-                                               int cmd, uintptr_t *args)
-{
-    // Return with physical base address of frame
-    // XXX: pack size into bottom bits of base address
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
-    assert(to->u.frame.bits < BASE_PAGE_SIZE);
-
-    uint8_t route, subdest;
-    uint16_t addrbits;
-
-    errval_t err = rck_get_route(to->u.frame.base, 1 << to->u.frame.bits,
-                                 &route, &subdest, &addrbits);
-    if(err_is_fail(err)) {
-        return SYSRET(err);
-    }
-
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = (addrbits << 16) | (subdest << 8) | route,
-    };
-}
-#endif
-
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
     uint32_t    port = args[0];
@@ -740,32 +691,6 @@ static struct sysret kernel_get_global_phys(struct capability *cap,
     return sysret;
 }
 
-#ifdef __scc__
-static struct sysret kernel_rck_register(struct capability *cap,
-                                         int cmd, uintptr_t *args)
-{
-    capaddr_t ep = args[0];
-    int chanid = args[1];
-    return SYSRET(rck_register_notification(ep, chanid));
-}
-
-static struct sysret kernel_rck_delete(struct capability *cap,
-                                       int cmd, uintptr_t *args)
-{
-    int chanid = args[0];
-    return SYSRET(rck_delete_notification(chanid));
-}
-
-static struct sysret handle_rck_notify_send(struct capability *cap,
-                                            int cmd, uintptr_t *args)
-{
-    assert(cap->type == ObjType_Notify_RCK);
-    rck_send_notification(cap->u.notify_rck.coreid, cap->u.notify_rck.chanid);
-    return SYSRET(SYS_ERR_OK);
-}
-
-#else
-
 static struct sysret kernel_ipi_register(struct capability *cap,
                                          int cmd, uintptr_t *args)
 {
@@ -789,7 +714,6 @@ static struct sysret handle_ipi_notify_send(struct capability *cap,
     assert(cap->type == ObjType_Notify_IPI);
     return ipi_raise_notify(cap->u.notify_ipi.coreid, cap->u.notify_ipi.chanid);
 }
-#endif
 
 static struct sysret dispatcher_dump_ptables(struct capability *cap,
                                              int cmd, uintptr_t *args)
@@ -864,16 +788,10 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
         [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
-#ifdef __scc__
-        [FrameCmd_SCC_Identify] = handle_frame_scc_identify
-#endif
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
         [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
-#ifdef __scc__
-        [FrameCmd_SCC_Identify] = handle_frame_scc_identify
-#endif
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -922,14 +840,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Delete_step] = monitor_handle_delete_step,
         [KernelCmd_Clear_step] = monitor_handle_clear_step,
         [KernelCmd_Sync_timer]   = monitor_handle_sync_timer,
-#ifdef __scc__
-        [KernelCmd_Spawn_SCC_Core]   = monitor_spawn_scc_core,
-        [KernelCmd_IPI_Register] = kernel_rck_register,
-        [KernelCmd_IPI_Delete]   = kernel_rck_delete,
-#else
         [KernelCmd_IPI_Register] = kernel_ipi_register,
         [KernelCmd_IPI_Delete]   = kernel_ipi_delete,
-#endif
         [KernelCmd_GetGlobalPhys] = kernel_get_global_phys,
         [KernelCmd_Add_kcb]      = kernel_add_kcb,
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
@@ -955,15 +867,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify
     },
-#ifdef __scc__
-    [ObjType_Notify_RCK] = {
-        [NotifyCmd_Send] = handle_rck_notify_send
-    }
-#else
     [ObjType_Notify_IPI] = {
         [NotifyCmd_Send] = handle_ipi_notify_send
     }
-#endif
 };
 
 /* syscall C entry point; called only from entry.S so no prototype in header */

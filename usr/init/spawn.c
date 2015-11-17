@@ -167,19 +167,5 @@ errval_t initialize_monitor(struct spawninfo *si)
        }
 #endif
 
-#ifdef CONFIG_INTERCONNECT_DRIVER_UMP
-#if 0   // XXX: Disabled until SCC has a decent memory allocator
-    /* Give monitor the foreign frame capability */
-    dest.cnode = si->taskcn;
-    dest.slot  = TASKCN_SLOT_MON_URPC;
-    src.cnode = cnode_task;
-    src.slot  = TASKCN_SLOT_MON_URPC;
-    err = cap_copy(dest, src);
-    if (err_is_fail(err)) {
-	return err_push(err, INIT_ERR_COPY_UMP_CAP);
-    }
-#endif
-#endif // CONFIG_INTERCONNECT_DRIVER_UMP
-
     return SYS_ERR_OK;
 }

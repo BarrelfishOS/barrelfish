@@ -195,7 +195,6 @@ static errval_t spawn_setup_vspace(struct spawninfo *si)
         break;
 
     case CPU_X86_32:
-    case CPU_SCC:
 #ifdef CONFIG_PAE
         err = vnode_create(si->vtree, ObjType_VNode_x86_32_pdpt);
 #else
@@ -939,17 +938,6 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
 
     strcat(args, vaddr_char);
     strcat(args, " ");
-
-#ifdef __scc__
-    if(si->codeword == 0xcafebabe) {
-        strcat(args, si->append_args);
-        strcat(args, " ");
-    }
-
-    if(!strcmp(name, "scc/sbin/monitor")) {
-        printf("starting monitor as '%s'\n", args);
-    }
-#endif
 
     // Multiboot args
     char *multiboot_args;

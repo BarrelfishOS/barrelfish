@@ -464,7 +464,6 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
     /* FIXME: hardcoding the NIC card right now, will do smarter detection
        in future. */
 
-#ifndef __scc__
 #ifdef CONFIG_QEMU_NETWORK
     card_name = "rtl8029";
 #else
@@ -474,12 +473,6 @@ bool lwip_init_auto_ex(struct waitset * opt_waitset,
     //card_name = "e10k";
     //card_name = "vmkitmon_eth";
 #endif // CONFIG_QEMU_NETWORK
-#else
-    static char cid[100];
-
-    snprintf(cid, sizeof(cid), "eMAC2_%u", disp_get_core_id());
-    card_name = cid;
-#endif // __scc__
 
     return lwip_init_ex(card_name, default_queueid, opt_waitset, opt_mutex);
 }                               // end function: lwip_init_auto_ex

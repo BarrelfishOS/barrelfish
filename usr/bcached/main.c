@@ -14,16 +14,9 @@
 
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
-#ifdef __scc__
-#       define ENABLE_FEIGN_FRAME_CAP
-#       include <barrelfish/sys_debug.h>
-#endif
 #include <barrelfish/waitset.h>
 #define WITH_BUFFER_CACHE
 #include <vfs/vfs.h>
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-#endif
 
 #include "bcached.h"
 #include <hashtable/hashtable.h>
@@ -255,26 +248,14 @@ void cache_update(uintptr_t idx, uintptr_t length)
 static errval_t create_cache_mem(size_t size)
 {
     // Create a Frame Capability
-#ifndef __scc__
     errval_t r = frame_alloc(&cache_memory, size, &cache_size);
-#else
-    errval_t r = slot_alloc(&cache_memory);
-    assert(err_is_ok(r));
-    r = sys_debug_feign_frame_cap(cache_memory, EXTRA_SHARED_MEM_MIN, 28);
-    cache_size = size;
-#endif
     if (err_is_fail(r)) {
         return err_push(r, LIB_ERR_FRAME_ALLOC);
     }
     assert(cache_size >= size);
 
     // Map the frame in local memory
-#ifdef __scc__
-    r = vspace_map_one_frame_attr(&cache_pool, cache_size, cache_memory,
-                                  VREGION_FLAGS_READ_WRITE_MPB, NULL, NULL);
-#else
     r = vspace_map_one_frame(&cache_pool, cache_size, cache_memory, NULL, NULL);
-#endif
     if (err_is_fail(r)) {
         cap_destroy(cache_memory);
         return err_push(r, LIB_ERR_VSPACE_MAP);

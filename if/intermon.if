@@ -77,17 +77,6 @@ interface intermon "The Interface between monitors" {
     call bind_monitor_request(coreid core_id, caprep cap);
     response bind_monitor_reply(errval err);
 
-    message bind_monitor_request_scc(coreid core_id,
-                                     caprep cap,
-                                     chanid chan_id,
-                                     coreid from_core_id);
-    message bind_monitor_reply_scc(errval err,
-                                   chanid chan_id,
-                                   coreid core_id);
-    message bind_monitor_proxy_scc(coreid dst_core_id,
-                                   caprep cap,
-                                   chanid chan_id,
-                                   coreid core_id);
     message bind_ump_request(iref iref,
                              mon_id mon_id,
                              uint32 channel_length_in,

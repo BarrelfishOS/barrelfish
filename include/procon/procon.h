@@ -18,11 +18,7 @@
 #ifndef PROCON_H_
 #define PROCON_H_
 
-#ifdef __scc__
-#define CACHESIZE   32
-#else
 #define CACHESIZE    64
-#endif
 
 #define SLOT_PADDING ((CACHESIZE) - ((sizeof(struct slot_data))%(CACHESIZE)))
 

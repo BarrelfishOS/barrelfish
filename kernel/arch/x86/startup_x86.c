@@ -40,10 +40,6 @@
 #include <arch/x86/startup_x86.h>
 #include <dev/ia32_dev.h>
 
-#ifdef __scc__
-#       include <rck.h>
-#endif
-
 /// Optional core ID to use for the BSP core (command-line argument)
 static int bsp_coreid;
 
@@ -493,9 +489,7 @@ static struct cmdarg cmdargs[] = {
     {"logmask", ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     {"ticks", ArgType_Bool, { .boolean = &kernel_ticks_enabled }},
     {"timeslice", ArgType_Int, { .integer = &kernel_timeslice }},
-#ifndef __scc__ // FIXME: why not?
     {"serial", ArgType_Int, { .integer = &serial_portbase }},
-#endif
     {"bsp_coreid", ArgType_Int, { .integer = &bsp_coreid }},
     {NULL, 0, {NULL}}
 };
@@ -507,8 +501,6 @@ static struct cmdarg cmdargs[] = {
 #       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "k1om/sbin/init"
 #elif defined(__x86_64__)
 #       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "x86_64/sbin/init"
-#elif defined(__scc__)
-#       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "scc/sbin/init"
 #elif defined(__i386__)
 #       define BSP_INIT_MODULE_PATH     BF_BINARY_PREFIX "x86_32/sbin/init"
 #else

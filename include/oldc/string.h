@@ -80,21 +80,10 @@
 #ifndef	_STRING_H_
 #define	_STRING_H_
 
-#if defined(__scc__)
- // Enable optimized memcpy for scc
-//#define SCC_MEMCPY  1
-#endif // defined(__scc__)
-
 #include <stddef.h>
 
 /* 7.21.2 Copying functions */
 void *memcpy(void *s1, const void *s2, size_t n);
-#if defined(__scc__) && defined(SCC_MEMCPY)
-// memcpy implementations optimized for SCC
-void *memcpy_scc1(void *dest, const void *src, size_t count);
-void *memcpy_scc2(void *dest, const void *src, size_t count);
-#endif // defined(__scc__) && defined(SCC_MEMCPY)
-
 void *memmove(void *s1, const void *s2, size_t n);
 char *strcpy(char *s1, const char *s2);
 char *strncpy(char *s1, const char *s2, size_t n);

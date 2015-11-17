@@ -42,9 +42,9 @@ static void sp_atomic_set_reg(union vreg *reg, uint64_t value)
     mfence();
 #endif
 /*
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(reg, CACHESIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 */
 }
 // 3 mfence
@@ -284,11 +284,7 @@ struct shared_pool_private *sp_create_shared_pool(uint64_t slot_no,
     // been modified to suit the shared buffer allocation
     // FIXME: code repetation with mem_barrelfish_alloc_and_register
     struct bulk_transfer bt_sp;
-#ifdef __scc__
-    err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, true);
-#else
-    err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp, false);
-#endif
+    err = bulk_create(mem_size, sizeof(union slot), &(spp->cap), &bt_sp);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "bulk_create failed.");
         return NULL;
@@ -415,9 +411,9 @@ void copy_data_into_slot(struct shared_pool_private *spp, uint64_t buf_id,
 #endif
     // copy the s into shared_pool
 #if 0
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
     cache_flush_range(&spp->sp->slot_list[id], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 #endif // 0
 }
 
@@ -663,9 +659,9 @@ bool sp_produce_slot(struct shared_pool_private *spp, struct slot_data *d)
     sp_copy_slot_data(&spp->sp->slot_list[wi].d, d);
 
 #if 0
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[wi], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 #endif // 0
 
     // Incrementing write pointer
@@ -702,9 +698,9 @@ bool sp_ghost_produce_slot(struct shared_pool_private *spp,
 
     sp_copy_slot_data(&spp->sp->slot_list[idx].d, d);
 #if 0
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[idx], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 #endif // 0
     // Incrementing write pointer
     spp->ghost_write_id = (idx + 1) % spp->c_size;
@@ -741,9 +737,9 @@ bool sp_ghost_read_slot(struct shared_pool_private *spp, struct slot_data *dst)
 
     //  Copying the slot data contents into provided slot
 /*
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[spp->ghost_read_id], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 */
     sp_copy_slot_data(dst, &spp->sp->slot_list[spp->ghost_read_id].d);
 /*    printf("After copying data from id %"PRIu64"\n", spp->ghost_read_id);
@@ -783,17 +779,17 @@ bool sp_replace_slot(struct shared_pool_private *spp, struct slot_data *new_slot
     // swapping the slot_data contents between ri and new_slot
     struct slot_data tmp;
 #if 0
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 #endif // 0
     sp_copy_slot_data(&tmp, &spp->sp->slot_list[ri].d);
     sp_copy_slot_data(&spp->sp->slot_list[ri].d, new_slot);
     sp_copy_slot_data(new_slot, &tmp);
 #if 0
-#if !defined(__scc__) && !defined(__i386__)
+#if !defined(__i386__)
         cache_flush_range(&spp->sp->slot_list[ri], SLOT_SIZE);
-#endif // !defined(__scc__) && !defined(__i386__)
+#endif // !defined(__i386__)
 #endif // 0
     // Incrementing read index
     if(!sp_set_read_index(spp, ((ri + 1) % spp->c_size))) {

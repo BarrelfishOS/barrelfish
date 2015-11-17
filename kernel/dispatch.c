@@ -171,10 +171,6 @@ static inline void context_switch(struct dcb *dcb)
     }
 }
 
-#ifdef __scc__
-struct dcb *run_next = NULL;
-#endif
-
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
@@ -204,14 +200,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 #endif
         wait_for_interrupt();
     }
-
-    // XXX: run_next scheduling hack
-#ifdef __scc__
-    if(run_next != NULL) {
-        dcb = run_next;
-        run_next = NULL;
-    }
-#endif
 
     // Don't context switch if we are current already
     if (dcb_current != dcb) {

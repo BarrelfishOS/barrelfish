@@ -63,12 +63,7 @@
  * for a bigger device address space.  We set this to one page, so the APIC
  * driver can do its job.
  */
-#ifdef __scc__
-//#       define X86_32_DEVICE_SPACE_LIMIT      (148 * X86_32_MEM_PAGE_SIZE)
-#       define X86_32_DEVICE_SPACE_LIMIT      (196 * X86_32_MEM_PAGE_SIZE)
-#else
-#       define X86_32_DEVICE_SPACE_LIMIT      (1 * X86_32_MEM_PAGE_SIZE)
-#endif
+#define X86_32_DEVICE_SPACE_LIMIT      (1 * X86_32_MEM_PAGE_SIZE)
 
 /**
  * Static virtual address space limit for the init user-space

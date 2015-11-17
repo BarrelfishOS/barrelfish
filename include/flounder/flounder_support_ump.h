@@ -101,7 +101,7 @@ static inline int flounder_stub_ump_control_process(struct flounder_ump_state *s
 /// Emit memory barrier needed between writing UMP payload and header
 static inline void flounder_stub_ump_barrier(void)
 {
-#if defined(__i386__) || defined(__x86_64__) || defined(__scc__)
+#if defined(__i386__) || defined(__x86_64__)
     /* the x86 memory model ensures ordering of stores, so all we need to do
      * is prevent the compiler from reordering the instructions */
     __asm volatile ("" : : : "memory");

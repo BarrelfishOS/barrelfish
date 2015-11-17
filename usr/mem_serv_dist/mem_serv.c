@@ -34,10 +34,6 @@
 #include <if/monitor_defs.h>
 #include <if/spawn_rpcclient_defs.h>
 
-#ifdef __scc__
-#include <barrelfish_kpi/shared_mem_arch.h>
-#endif
-
 #include "skb.h"
 #include "args.h"
 
@@ -74,11 +70,7 @@ static char local_nodebuf[SLAB_STATIC_SIZE(MINSPARENODES,
 /// simple slot allocator used by MM
 static struct slot_prealloc percore_slot_alloc;
 
-#ifndef __scc__
 static struct mm *mm_slots = &mm_percore;
-#else
-static struct mm *mm_slots = &mm_local;
-#endif
 
 #if 0
 static void dump_ram_region(int index, struct mem_region* m)
@@ -195,38 +187,10 @@ static errval_t percore_free(struct capref ramcap)
                    info.u.ram.bits, &mem_avail);
 }
 
-#ifdef __scc__
-static errval_t local_free(struct capref ramcap) 
-{
-    struct capability info;
-    errval_t ret;
-
-    ret = debug_cap_identify(ramcap, &info);
-    if (err_is_fail(ret)) {
-        return err_push(ret, MON_ERR_CAP_IDENTIFY);
-    }
-
-    if (info.type != ObjType_RAM) {
-        return SYS_ERR_INVALID_SOURCE_TYPE;
-    }
-
-    return do_free(&mm_local, ramcap, info.u.ram.base,
-                   info.u.ram.bits, &mem_local);
-}
-#endif
-
 errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
                                      uint8_t bits)
 {
-#ifndef __scc__
     return do_free(&mm_percore, ramcap, base, bits, &mem_avail);
-#else
-    if (base < SHARED_MEM_MIN) {
-        return do_free(&mm_local, ramcap, base, bits, &mem_local);
-    } else {
-        return do_free(&mm_percore, ramcap, base, bits, &mem_avail);
-    }
-#endif
 }
 
 memsize_t mem_available_handler_common(void) 
@@ -273,15 +237,6 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
 {
     errval_t err;
 
-#ifdef __scc__
-    // first try local memory
-    err = do_alloc(&mm_local, ret, bits, minbase, maxlimit, &mem_local);
-  
-    // then try the general percore memory
-    if (err_is_fail(err)) {
-        err = percore_alloc(ret, bits, minbase, maxlimit);
-    }
-#else
     // first try the general percore memory
     err = percore_alloc(ret, bits, minbase, maxlimit);
 
@@ -289,7 +244,6 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
     if (err_is_fail(err)) {
         err = do_alloc(&mm_local, ret, bits, minbase, maxlimit, &mem_local);
     }
-#endif
 
     return err;
 }
@@ -310,11 +264,7 @@ static errval_t get_more_ram(uint8_t bits, genpaddr_t minbase,
         }
     }
     // make the cap available for a subsequent alloc
-#ifndef __scc__
     percore_free(cap);
-#else
-    local_free(cap);
-#endif
 
     return SYS_ERR_OK;    
 }
@@ -369,11 +319,7 @@ errval_t percore_allocate_handler_common(uint8_t bits,
     }
 
     // do the actual allocation
-#ifndef __scc__
     ret = percore_alloc(&cap, bits, minbase, maxlimit);
-#else
-    ret = local_alloc(&cap, bits, minbase, maxlimit);
-#endif
 
     if (err_is_fail(ret)) {
         // debug_printf("percore_alloc(%d (%lu)) failed\n", bits, 1UL << bits);
@@ -629,46 +575,24 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
         return err_push(err, MM_ERR_SLOT_ALLOC_INIT);
     }
 
-#ifdef __scc__
-    ram_set_affinity(0, EXTRA_SHARED_MEM_MIN);
-    err = init_mm(&mm_local, local_nodebuf, sizeof(local_nodebuf),
-                  &percore_slot_alloc, &mem_local, &mem_total);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-#endif
     err = init_mm(&mm_percore, percore_nodebuf, sizeof(percore_nodebuf),
                   &percore_slot_alloc, &mem_avail, &mem_total);
     if (err_is_fail(err)) {
         return err;
     }
-#ifndef __scc__
     err = init_mm(&mm_local, local_nodebuf, sizeof(local_nodebuf),
                   &percore_slot_alloc, &mem_local, &mem_total);
     if (err_is_fail(err)) {
         return err;
     }
-#endif
 
 #ifdef MEMSERV_AFFINITY
     set_affinity(core);
 #endif
 
-#ifdef __scc__
-    // Suck up private RAM
-    ram_set_affinity(0, EXTRA_SHARED_MEM_MIN);
-#endif
-
     // determine how much memory we need to get to fill up the percore mm
     percore_mem -= mem_total; // memory we've already taken
     percore_mem -= LOCAL_MEM; // memory we'll take for mm_local
-
-#ifdef __scc__
-    // Take all of private RAM we can get
-    percore_mem = PERCORE_MEM_SIZE;
-#endif
 
     uint8_t percore_bits = log2floor(percore_mem);
     if (percore_bits > MAXSIZEBITS) {
@@ -677,11 +601,6 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     // debug_printf("memory to use: %"PRIuMEMSIZE"\n", percore_mem);
 
     mem_local += fill_mm(&mm_local, LOCAL_MEM, LOCAL_MEMBITS, &mem_total);
-
-#ifdef __scc__
-    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-#endif
 
     mem_avail += fill_mm(&mm_percore, percore_mem, percore_bits, &mem_total);
 

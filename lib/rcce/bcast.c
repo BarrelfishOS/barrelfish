@@ -17,9 +17,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-#endif
 
 #include "internal.h"
 
@@ -55,15 +52,8 @@ static void client_connected(void *st, errval_t err, struct rcce_binding *b)
     // Create a Frame Capability 
     size_t allocated_size;
     struct capref shared_mem;
-#ifdef __scc__
-    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-#endif
     errval_t r = frame_alloc(&shared_mem, BULK_SIZE * 2, &allocated_size);
     assert(err_is_ok(r));
-#ifdef __scc__
-    ram_set_affinity(0, 0);
-#endif
 
     // Map the frame in local memory
     void *pool;

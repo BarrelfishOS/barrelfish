@@ -63,12 +63,7 @@ static inline void fpu_save(struct registers_fpu_x86_32 *fpustate)
     uint8_t *regs = fpustate->registers;
     regs += 16 - ((uintptr_t)regs % 16);
 
-    // XXX: Should really be detected at run-time (and it's not SCC-specific)
-#ifdef __scc__
-    __asm volatile("fnsave %0; fwait" : "=m" (*regs));
-#else
     __asm volatile("fxsave %0" : "=m" (*regs));
-#endif
 }
 
 static inline void fpu_restore(struct registers_fpu_x86_32 *fpustate)
@@ -76,12 +71,7 @@ static inline void fpu_restore(struct registers_fpu_x86_32 *fpustate)
     uint8_t *regs = fpustate->registers;
     regs += 16 - ((uintptr_t)regs % 16);
 
-    // XXX: Should really be detected at run-time (and it's not SCC-specific)
-#ifdef __scc__
-    __asm volatile ("frstor %0" :: "m" (*regs));
-#else
     __asm volatile ("fxrstor %0" :: "m" (*regs));
-#endif
 }
 
 #endif // __ASSEMBLER__

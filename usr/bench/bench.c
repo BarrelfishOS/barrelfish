@@ -112,15 +112,6 @@ static void rdtsc_benchmark(void)
     }
 }
 
-#ifdef __scc__
-static void cl1flushmb_benchmark(void)
-{
-    for(int i = 0; i < MICROBENCH_ITERATIONS; i++) {
-        cl1flushmb();
-    }
-}
-#endif
-
 static void xchg_benchmark(void)
 {
     uint32_t mem = 1, reg = 7;
@@ -214,59 +205,6 @@ static void clr_benchmark(void)
     }
 }
 
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-
-#       define LUT_SIZE                 0x1000000
-
-static void clr_shared_benchmark(void)
-{
-    uintptr_t *mem;
-    uint64_t start, end;
-
-    for(int mc = 0; mc < 4; mc++) {
-        struct capref frame;
-        size_t framesize = BASE_PAGE_SIZE;
-    ram_set_affinity(SHARED_MEM_MIN + mc * LUT_SIZE,
-                     SHARED_MEM_MIN + (mc + 1) * LUT_SIZE);
-    errval_t err = frame_alloc(&frame, framesize, &framesize);
-    assert(err_is_ok(err));
-    ram_set_affinity(0, 0);
-
-    // map it in
-    void *buf;
-    /* err = vspace_map_one_frame_attr(&buf, framesize, frame, */
-    /*                                 VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL); */
-    err = vspace_map_one_frame_attr(&buf, framesize, frame,
-                                    VREGION_FLAGS_READ_WRITE_MPB, NULL, NULL);
-    assert(err_is_ok(err));
-
-    mem = buf;
-
-    printf("clear shared memory MC %d:\n", mc);
-
-    start = rdtsc();
-    for(int i = 0; i < MICROBENCH_ITERATIONS; i++) {
-        __asm__ __volatile__ (
-                              "movl $0,%0\n\t"
-                              "movl $0,4%0\n\t"
-                              "movl $0,8%0\n\t"
-                              "movl $0,12%0\n\t"
-                              "movl $0,16%0\n\t"
-                              "movl $0,20%0\n\t"
-                              "movl $0,24%0\n\t"
-                              "movl $0,28%0\n\t"
-                              : /* no output */
-                              : "m" (*mem)
-                              : "%rax");
-    }
-
-    end = rdtsc();
-    print_result(end - start);
-    }
-}
-#endif
-
 #ifndef BENCH_POSIX
 
 #if 0
@@ -352,13 +290,6 @@ int main(int argc, char *argv[])
 
     printf("NOP system call: ");
     print_result(benchmark(syscall_benchmark));
-
-#ifdef __scc__
-    printf("CL1FLUSHMB instruction: ");
-    print_result(benchmark(cl1flushmb_benchmark));
-
-    clr_shared_benchmark();
-#endif
 
     printf("RDTSC instruction: ");
     print_result(benchmark(rdtsc_benchmark));

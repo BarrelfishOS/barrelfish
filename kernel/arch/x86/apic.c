@@ -101,14 +101,9 @@ void apic_timer_set_divide(xapic_divide_t divide)
 */
 void apic_init(void)
 {
-#if !defined(__scc__)
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
     lpaddr_t apic_phys = ((lpaddr_t)apic_base_msr) & APIC_BASE_ADDRESS_MASK;
     lvaddr_t apic_base = paging_map_device(apic_phys, APIC_PAGE_SIZE);
-#else
-    lpaddr_t apic_phys = (lpaddr_t)0xfee00000;
-    lvaddr_t apic_base = paging_map_device((lpaddr_t)0xfee00000, APIC_PAGE_SIZE);
-#endif
 
     if(apic_base == 0) {
         panic("apic_init(): could not map APIC registers");
@@ -119,7 +114,6 @@ void apic_init(void)
     xapic_initialize(&apic, (void *)apic_base);
 
 
-#if !defined(__scc__)
     apic_id = apic_get_id();
     debug(SUBSYS_APIC, "APIC ID=%hhu\n", apic_id);
     if (ia32_apic_base_bsp_extract(apic_base_msr)) {
@@ -129,7 +123,6 @@ void apic_init(void)
         debug(SUBSYS_APIC, "APIC: application processor\n");
         apic_bsp = false;
     }
-#endif
 
     // initialize spurious interrupt register
     // no focus, software enabled
@@ -169,27 +162,6 @@ void apic_init(void)
     /*
      * TODO: How are the local intercore interrups handled using the APIC?
      */
-#if defined(__scc__) // || defined(__k1om__)
-    //LINT0: inter-core interrupt
-    //generate fixed int
-    {
-	xapic_lvt_lint_t t = xapic_lvt_lint0_initial;
-	t = xapic_lvt_lint_vector_insert(   t, APIC_INTER_CORE_VECTOR);
-	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
-	xapic_lvt_lint0_wr(&apic, t);
-
-	//LINT1: usually used to generate an NMI
-	//generate device interrupt
-	t = xapic_lvt_lint1_initial;
-	t = xapic_lvt_lint_vector_insert(   t, 32);
-	t = xapic_lvt_lint_dlv_mode_insert( t, xapic_fixed);
-	t = xapic_lvt_lint_trig_mode_insert(t, xapic_edge);
-	t = xapic_lvt_lint_mask_insert(     t, xapic_not_masked);
-	xapic_lvt_lint1_wr(&apic, t);
-    }
-#else
     //LINT0: external interrupts, delivered by the 8259 PIC
     //generate extInt as if INTR pin were activated
     //disabled (we use IOAPICs exclusively)
@@ -211,7 +183,6 @@ void apic_init(void)
 	t = xapic_lvt_lint_mask_insert(     t, xapic_masked);
 	xapic_lvt_lint1_wr(&apic, t);
     }
-#endif
 
     //error interrupt register
     {
@@ -232,13 +203,11 @@ void apic_init(void)
     }
 #endif
 
-#if !defined(__scc__)
     // enable the thing, if it wasn't already!
     if (!(ia32_apic_base_global_extract(apic_base_msr))) {
         apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
-#endif
 }
 
 /** \brief This function sends an IPI

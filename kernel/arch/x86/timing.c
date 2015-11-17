@@ -15,10 +15,8 @@
 #include <string.h>
 #include <kernel.h>
 #include <arch/x86/apic.h>
-#ifndef __scc__
-#       include <arch/x86/rtc.h>
-#       include <arch/x86/pit.h>
-#endif
+#include <arch/x86/rtc.h>
+#include <arch/x86/pit.h>
 #include <arch/x86/global.h>
 #include <arch/x86/timing.h>
 
@@ -29,7 +27,7 @@
 static uint32_t tickspersec = 0;
 static uint64_t tscperms = 0;
 
-#if !defined(__scc__) && !defined(__k1om__)
+#if !defined(__k1om__)
 /**
  * \brief Calibrates local APIC timer against RTC.
  * \return Local APIC timer ticks per RTC second.
@@ -91,7 +89,7 @@ static uint32_t calibrate_apic_timer_k1om(void)
     // Wait until start of new second
 
     /*
-     * The Intel® Xeon PhiTM coprocessor has a SBox MMIO register that provides
+     * The Intel Xeon PhiTM coprocessor has a SBox MMIO register that provides
      * the current CPU frequency, which can be used to calibrate the LAPIC timer.
      * The TOD clock has to be emulated in software to query the host OS for the
      * time at bootup and then using the LAPIC timer interrupt to update it.
@@ -190,7 +188,6 @@ static uint32_t calibrate_apic_timer_pit(void)
 }
 #endif
 
-#ifndef __scc__
 /// Number of measurement iterations
 #define MAX_ITERATIONS  100
 
@@ -268,7 +265,6 @@ static uint64_t calibrate_tsc_apic_timer(void)
            tpms, MAX_ITERATIONS - 1, avgdistance);
     return tpms;
 }
-#endif
 
 void timing_apic_timer_set_ms(unsigned int ms)
 {
@@ -310,7 +306,6 @@ void timing_calibrate(void)
         tickspersec = 31250000;
         tscperms = tickspersec/1000;
     } else {
-#ifndef __scc__
         if(apic_is_bsp()) {
 #ifdef __k1om__
             tickspersec = calibrate_apic_timer_k1om();
@@ -325,11 +320,5 @@ void timing_calibrate(void)
             tickspersec = global->tickspersec;
             tscperms = global->tscperms;
         }
-
-#else
-        // SCC timer rate (we just know it)
-        tickspersec = 400000000;     // XXX: APIC timer ticks faster than fits in a 32bit value
-        tscperms = 533000;
-#endif
     }
 }

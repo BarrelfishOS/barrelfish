@@ -411,17 +411,6 @@ static errval_t chunk_node(struct mm *mm, uint8_t sizebits,
     DEBUG("-> picked %" PRIuCSLOT " (%" PRIxGENPADDR "-%" PRIxGENPADDR ")\n", nchild,
           *nodebase, *nodebase + UNBITS_GENPA(*nodesizebits));
 
-#ifdef __scc__
-    // XXX: Debug in case memory allocation blows up on SCC
-    if(minbase + UNBITS_GENPA(sizebits) > *nodebase + UNBITS_GENPA(*nodesizebits)) {
-        printf("minbase = 0x%" PRIxGENPADDR ", size = %" PRIuGENPADDR
-               ", nodebase = 0x%" PRIxGENPADDR ", nodesize = %" PRIuGENPADDR
-               ", left sum = 0x%" PRIxGENPADDR ", right sum = %" PRIxGENPADDR "\n",
-               minbase, UNBITS_GENPA(sizebits), *nodebase, UNBITS_GENPA(*nodesizebits),
-               minbase + UNBITS_GENPA(sizebits), *nodebase + UNBITS_GENPA(*nodesizebits));
-    }
-#endif
-
     assert(minbase + UNBITS_GENPA(sizebits) <= *nodebase + UNBITS_GENPA(*nodesizebits));
     assert(maxlimit - UNBITS_GENPA(sizebits) >= *nodebase);
     assert(retnode != NULL);

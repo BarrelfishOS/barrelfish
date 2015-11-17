@@ -131,14 +131,12 @@ static errval_t boot_app_core(int argc, char *argv[])
     struct intermon_binding *intermon_binding;
     errval_t err;
 
-#ifndef __scc__
     /* Create the self endpoint as the kernel doesn't do it */
     err = cap_retype(cap_selfep, cap_dispatcher, ObjType_EndPoint, 0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Retyping dispatcher to self ep failed");
         return err;
     }
-#endif
 
     err = boot_arch_app_core(argc, argv, &parent_core_id, &intermon_binding);
     if(err_is_fail(err)) {
@@ -149,10 +147,8 @@ static errval_t boot_app_core(int argc, char *argv[])
     intermon_init(intermon_binding, parent_core_id);
 
     /* Request memserv and nameserv iref */
-#ifndef __scc__
     err = request_mem_serv_iref(intermon_binding);
     assert(err_is_ok(err));
-#endif
     err = request_name_serv_iref(intermon_binding);
     assert(err_is_ok(err));
 
@@ -166,13 +162,11 @@ static errval_t boot_app_core(int argc, char *argv[])
     assert(err_is_ok(err));
 #endif // BARRELFISH_MULTIHOP_CHAN_H
 
-#ifndef __scc__
     /* initialize self ram alloc */
     err = mon_ram_alloc_init(parent_core_id, intermon_binding);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC_SET);
     }
-#endif
 
     /* with memory alloc running, take part in cap ops */
     DEBUG_CAPOPS("sending capops_ready to %"PRIuCOREID"\n", parent_core_id);
@@ -195,11 +189,7 @@ static errval_t boot_app_core(int argc, char *argv[])
 #endif
 
     // Spawn local spawnd
-#ifdef __scc__
-    err = spawn_domain("spawnd");
-#else
     err = spawn_spawnd(intermon_binding);
-#endif
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning spawnd");
     }

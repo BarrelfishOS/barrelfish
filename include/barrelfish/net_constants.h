@@ -51,7 +51,6 @@ enum buffer_memory_types {
 
 #ifdef CONFIG_QEMU_NETWORK
 
-#if !defined(__scc__)
 /// Size of (static) heap memory
 #ifndef MEM_SIZE
 #define MEM_SIZE            (60*1024*1024)
@@ -81,43 +80,6 @@ enum buffer_memory_types {
 #ifndef MEM_CONF_LOC
 #define MEM_CONF_LOC     "for_qemu"
 #endif // MEM_CONF_LOC
-
-#else // !defined(__scc__)
-
-/************** SCC machine ******************/
-/// Size of (static) heap memory
-#ifndef MEM_SIZE
-#define MEM_SIZE            (60*1024)
-#endif // MEM_SIZE
-
-/// Number of PBUF structs available
-#ifndef MEMP_NUM_PBUF
-#define MEMP_NUM_PBUF           4024
-#endif // MEMP_NUM_PBUF
-
-/// Number of PBUF buffers available
-#ifndef PBUF_POOL_SIZE
-#define PBUF_POOL_SIZE          4024
-#endif // PBUF_POOL_SIZE
-
-/* Used in the ethersrv.c and the driver. */
-#define RECEIVE_BUFFERS 2024
-#define TRANSMIT_BUFFERS 1024 //< Number of transmit descriptors
-                              //< (must be multiple of 8)
-
-/// the size of the pool
-#ifndef PBUF_POOL_BUFSIZE
-#define PBUF_POOL_BUFSIZE       (2048)
-#endif // PBUF_POOL_BUFSIZE
-
-/* from where the memory conf is coming? */
-#ifndef MEM_CONF_LOC
-#define MEM_CONF_LOC     "for_scc"
-#endif // MEM_CONF_LOC
-
-
-#endif // !defined(__scc__)
-
 
 #else // CONFIG_QEMU_NETWORK
 

@@ -24,8 +24,4 @@ void conio_cls(void);
 void conio_putchar(char c);
 void conio_relocate_vidmem(lvaddr_t newaddr);
 
-#ifdef __scc__
-void klog_init(void);
-#endif
-
 #endif

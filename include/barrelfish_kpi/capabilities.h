@@ -223,7 +223,6 @@ enum kernel_cmd {
     KernelCmd_Retype,
     KernelCmd_Has_descendants,
     KernelCmd_Sync_timer,
-    KernelCmd_Spawn_SCC_Core,
     KernelCmd_IPI_Register,
     KernelCmd_IPI_Delete,
     KernelCmd_GetGlobalPhys,
@@ -254,7 +253,6 @@ enum dispatcher_cmd {
  */
 enum frame_cmd {
     FrameCmd_Identify,      ///< Return physical address of frame
-    FrameCmd_SCC_Identify,  ///< Return MC route to frame
     FrameCmd_ModifyFlags,   ///< Modify flags for (part of) the mapped region of frame
 };
 
@@ -333,13 +331,6 @@ struct vnode_identity {
     genpaddr_t base;   ///< Physical base address of the VNode
     uint8_t type;      ///< Type of VNode
 };
-
-#ifdef __scc__
-struct scc_frame_identity {
-    uint8_t route, subdest;
-    uint16_t addrbits;
-};
-#endif
 
 #endif // __ASSEMBLER__
 

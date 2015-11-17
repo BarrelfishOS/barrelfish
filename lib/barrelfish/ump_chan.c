@@ -18,14 +18,7 @@
 #include <barrelfish/idc_export.h>
 #include <if/monitor_defs.h>
 
-/* UMP channels need to be mapped non-cacheable on SCC */
-#ifdef __scc__
-#  include <barrelfish_kpi/shared_mem_arch.h>
-/* #  define UMP_MAP_ATTR VREGION_FLAGS_READ_WRITE_NOCACHE */
-#  define UMP_MAP_ATTR VREGION_FLAGS_READ_WRITE_MPB
-#else
-#  define UMP_MAP_ATTR VREGION_FLAGS_READ_WRITE
-#endif
+#define UMP_MAP_ATTR VREGION_FLAGS_READ_WRITE
 
 #ifndef CONFIG_INTERCONNECT_DRIVER_UMP
 #error "This file shouldn't be compiled without CONFIG_INTERCONNECT_DRIVER_UMP"
@@ -240,17 +233,10 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
 
     // compute size of frame needed and allocate it
     size_t framesize = inchanlen + outchanlen;
-#ifdef __scc__
-    ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-#endif
     err = frame_alloc(&uc->frame, framesize, &framesize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }
-#ifdef __scc__
-    ram_set_affinity(0, 0);
-#endif
 
     // map it in
     void *buf;

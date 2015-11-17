@@ -23,9 +23,7 @@
 #define NAME_LEN 20
 
 #define MEMSERV_PERCORE_DYNAMIC
-#ifndef __scc__
-#       define MEMSERV_AFFINITY
-#endif
+#define MEMSERV_AFFINITY
 
 // appropriate size type for available RAM
 typedef genpaddr_t memsize_t;
@@ -54,14 +52,9 @@ typedef genpaddr_t memsize_t;
 #define MINSIZEBITS     OBJBITS_DISPATCHER ///< Min size of each allocation
 #define MAXCHILDBITS    4               ///< Max branching of BTree nodes
 
-#ifndef __scc__
-#       define LOCAL_MEMBITS     18     // amount of memory that we keep for 
-#       define LOCAL_MEM ((genpaddr_t)1 << LOCAL_MEMBITS)
+#define LOCAL_MEMBITS     18     // amount of memory that we keep for
+#define LOCAL_MEM ((genpaddr_t)1 << LOCAL_MEMBITS)
 				   // internal use in each local server
-#else
-#       define LOCAL_MEMBITS     29
-#       define LOCAL_MEM         EXTRA_SHARED_MEM_MIN
-#endif
 
 
 

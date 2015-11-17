@@ -30,11 +30,7 @@ __BEGIN_DECLS
 // XXX Should be from SKB or whatever.  On Arm this is variable and you need
 // to read the coproc to see what size it is.
 #if defined(__x86_64__) || defined(__i386__)
-# if defined(__scc__)
-#  define CACHELINE_BYTES 32
-# else
 #  define CACHELINE_BYTES 64
-# endif
 #elif defined(__arm__)
 #  define CACHELINE_BYTES 32
 #elif defined(__aarch64__)

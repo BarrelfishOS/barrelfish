@@ -14,9 +14,6 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/bulk_transfer.h>
 #include <vfs/vfs_path.h>
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-#endif
 
 #include "vfs_backends.h"
 #include "vfs_blockdevfs.h"

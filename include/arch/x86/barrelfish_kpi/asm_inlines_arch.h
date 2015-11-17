@@ -74,11 +74,7 @@ static inline void clflush(void *line)
     __asm volatile("clflush %0" :: "m" (line));
 }
 
-#ifndef __scc__
-#       define CACHE_LINE_SIZE 64 /* bytes */
-#else
-#       define CACHE_LINE_SIZE 32 /* bytes */
-#endif
+#define CACHE_LINE_SIZE 64 /* bytes */
 
 #ifndef __cplusplus
 /* flush a range of memory from the cache */
@@ -91,13 +87,6 @@ static inline void cache_flush_range(void *base, size_t len)
         clflush(line);
         line += CACHE_LINE_SIZE;
     } while (line < (uint8_t *)base + len);
-}
-#endif
-
-#ifdef __scc__
-static inline void cl1flushmb(void)
-{
-    __asm volatile ( ".byte 0x0f; .byte 0x0a;\n" ); // CL1FLUSHMB
 }
 #endif
 

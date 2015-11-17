@@ -416,13 +416,6 @@ static errval_t allocate_kernel_memory(lvaddr_t cpu_binary, genpaddr_t page_size
                                        struct frame_identity* id)
 {
     errval_t err;
-#ifdef __scc__
-    *cpu_memory = X86_32_BASE_PAGE_SIZE;
-    err = frame_alloc_identify(cpu_memory_cap, *cpu_memory, cpu_memory, id);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-#else
     *cpu_memory = elf_virtual_size(cpu_binary) + page_size;
 
     uint64_t old_minbase;
@@ -446,7 +439,6 @@ static errval_t allocate_kernel_memory(lvaddr_t cpu_binary, genpaddr_t page_size
 
 done:
     ram_set_affinity(old_minbase, old_maxlimit);
-#endif
 
     return SYS_ERR_OK;
 }

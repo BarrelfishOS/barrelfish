@@ -20,10 +20,6 @@
 #include <elf/elf.h>
 #include <kernel_multiboot.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
-#ifdef __scc__
-#       include <rck.h>
-#       include <init.h>
-#endif
 
 struct x86_core_data *glbl_core_data = NULL;
 

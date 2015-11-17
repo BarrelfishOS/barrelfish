@@ -17,9 +17,6 @@
 #include <if/trivfs_defs.h>
 #include <if/trivfs_rpcclient_defs.h>
 #include <if/monitor_defs.h>
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-#endif
 
 #include "vfs_backends.h"
 
@@ -859,7 +856,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         // Init bulk data lib
         struct capref shared_frame;
         err = bulk_create(BULK_MEM_SIZE, BULK_BLOCK_SIZE, &shared_frame,
-                          &client->bulk, false);
+                          &client->bulk);
         if(err_is_fail(err)) {
             USER_PANIC_ERR(err, "bulk_create");
         }

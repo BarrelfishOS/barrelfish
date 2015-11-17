@@ -15,10 +15,6 @@
 #ifndef X86_32_BARRELFISH_CPU_H
 #define X86_32_BARRELFISH_CPU_H
 
-#ifndef __scc__
-#       define CURRENT_CPU_TYPE CPU_X86_32
-#else
-#       define CURRENT_CPU_TYPE CPU_SCC
-#endif
+#define CURRENT_CPU_TYPE CPU_X86_32
 
 #endif

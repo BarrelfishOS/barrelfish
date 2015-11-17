@@ -263,7 +263,6 @@ MODULES_x86_64= \
 	sbin/angler \
 	sbin/sshd \
 	sbin/lshw \
-	sbin/sif \
 	sbin/slideshow \
 	sbin/vbe \
 	sbin/vmkitmon \

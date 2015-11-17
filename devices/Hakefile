@@ -124,8 +124,6 @@
            "arm_icp_pic0",
            "arm_icp_pit",
            "cpuid",
-           "crb_sif",
-           "eMAC",
            "ht_config",
            "lpc_ioapic",
            "lpc_timer",
@@ -133,7 +131,6 @@
            "pci_hdr0",
            "pci_hdr0_mem",
            "pci_hdr1",
-           "pl011_uart",
-           "rck"
+           "pl011_uart"
          ], arch <- allArchitectures
 ]

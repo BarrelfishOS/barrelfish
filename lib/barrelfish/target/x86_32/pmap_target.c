@@ -61,12 +61,6 @@ static paging_x86_32_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
             // PA4 is configured as write-combining
             pmap_flags |= PTABLE_ATTR_INDEX;
         }
-#ifdef __scc__
-        if (vregion_flags & VREGION_FLAGS_MPB) {
-            pmap_flags |= SCC_PTABLE_MESSAGE_BUFFER;
-            pmap_flags |= X86_32_PTABLE_WRITE_THROUGH;
-        }
-#endif
     }
 
     return pmap_flags;

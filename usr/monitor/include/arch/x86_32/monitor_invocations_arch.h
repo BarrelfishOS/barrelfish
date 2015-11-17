@@ -220,21 +220,6 @@ invoke_monitor_suspend_kcb_scheduler(bool suspend)
                     suspend).error;
 }
 
-#ifdef __scc__
-static inline errval_t invoke_monitor_spawn_scc_core(uint8_t id,
-                                                     genpaddr_t urpcframe_base,
-                                                     uint8_t urpcframe_bits,
-                                                     int chanid)
-{
-    uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
-    capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
-
-    return syscall4((invoke_bits << 16) | (KernelCmd_Spawn_SCC_Core << 8)
-                    | SYSCALL_INVOKE, invoke_cptr, urpcframe_base,
-                    (id << 24) | (urpcframe_bits << 16) | (chanid & 0xffff)).error;
-}
-#endif
-
 static inline errval_t
 invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
                                  capaddr_t src, enum objtype newtype,

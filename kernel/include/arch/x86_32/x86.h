@@ -44,9 +44,7 @@ enum x86_32_cpu_save_registers {
 static inline void enable_fpu(void)
 {
     uint32_t cr0;
-#ifndef __scc__
     uint32_t cr4;
-#endif
     __asm__ __volatile__("mov %%cr0, %%eax" : "=a" (cr0) : );
     //clear EM
     cr0 &= ~(1 << 2);
@@ -62,12 +60,10 @@ static inline void enable_fpu(void)
     cr0 &= ~(1 << 3);
 #endif
     __asm__ __volatile__("mov %%eax,%%cr0" : : "a" (cr0));
-#ifndef __scc__
     //set OSFXSR
     __asm__ __volatile__("mov %%cr4, %%eax" : "=a" (cr4) : );
     cr4 |= (1 << 9);
     __asm__ __volatile__("mov %%eax,%%cr4" : : "a" (cr4));
-#endif
 
 #ifndef FPU_LAZY_CONTEXT_SWITCH
     __asm volatile ("finit");

@@ -75,14 +75,6 @@ struct x86_core_data {
     struct xeon_phi_boot_params *bp;
     uint8_t  xeon_phi_id;
 #endif
-
-#ifdef __scc__
-    struct x86_coredata_modinfo    modinfo[10];
-    struct x86_coredata_mmap       mmap[20];
-
-    char        sh[2048];
-    char        strings[1024];
-#endif
 } __attribute__ ((packed));
 
 #define X86_CORE_DATA_PAGES 1100

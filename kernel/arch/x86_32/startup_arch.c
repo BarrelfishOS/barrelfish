@@ -31,9 +31,6 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <target/x86/barrelfish_kpi/coredata_target.h>
-#ifdef __scc__
-#       include <rck.h>
-#endif
 #include <arch/x86/startup_x86.h>
 
 /// Quick way to find the base address of a cnode capability
@@ -153,12 +150,10 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
 {
     errval_t err;
 
-#ifndef __scc__
     // map first meg of RAM, which contains lots of crazy BIOS tables
     err = create_caps_to_cnode(0, X86_32_START_KERNEL_PHYS,
                                RegionType_PlatformData, &spawn_state, bootinfo);
     assert(err_is_ok(err));
-#endif
 
     /* Walk multiboot MMAP structure, and create appropriate caps for memory */
     char *mmap_addr = MBADDR_ASSTRING(glbl_core_data->mmap_addr);
@@ -235,7 +230,6 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                 }
 #endif
 
-#ifndef __scc__
                 // XXX: Do not create ram caps for memory the kernel cannot
                 // address to prevent kernel objects from being created there
                 if(base_addr >= PADDR_SPACE_LIMIT) {
@@ -246,7 +240,6 @@ static void create_phys_caps(lpaddr_t init_alloc_addr)
                 if (end_addr > PADDR_SPACE_LIMIT) {
                     end_addr = PADDR_SPACE_LIMIT;
                 }
-#endif
 
                 debug(SUBSYS_STARTUP, "RAM %llx--%llx\n", base_addr, end_addr);
 
@@ -486,25 +479,6 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     const char *argv[6] = { "init", bootinfochar };
     int argc = 2;
 
-#ifdef __scc__
-    if(glbl_core_data->urpc_frame_base != 0) {
-        char coreidchar[10];
-        snprintf(coreidchar, sizeof(coreidchar), "%d",
-                 glbl_core_data->src_core_id);
-        argv[argc++] = coreidchar;
-
-        char chan_id_char[30];
-        snprintf(chan_id_char, sizeof(chan_id_char), "chanid=%"PRIu32,
-                 glbl_core_data->chan_id);
-        argv[argc++] = chan_id_char;
-
-        char urpc_frame_base_char[30];
-        snprintf(urpc_frame_base_char, sizeof(urpc_frame_base_char),
-                 "frame=%" PRIuGENPADDR, glbl_core_data->urpc_frame_base);
-        argv[argc++] = urpc_frame_base_char;
-    }
-#endif
-
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name, argc, argv,
                                              bootinfo_phys, alloc_phys);
 
@@ -559,18 +533,6 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     /*            bootinfo->regions[i].mr_bits); */
     /* } */
 
-#if 0
-    // If app core, map (static) URPC channel
-    if(kernel_scckernel != 0) {
-        printf("SCC app kernel, frame at: 0x%x\n", kernel_scckernel);
-#define TASKCN_SLOT_MON_URPC    (TASKCN_SLOTS_USER+6)   ///< Frame cap for urpc comm.
-
-        err = caps_create_new(ObjType_Frame, kernel_scckernel, 13, 13,
-                              caps_locate_slot(CNODE(taskcn), TASKCN_SLOT_MON_URPC));
-        assert(err_is_ok(err));
-    }
-#endif
-
     return init_dcb;
 }
 
@@ -595,13 +557,6 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
     int argc = 4;
-
-#ifdef __scc__
-    char urpc_frame_base_char[30];
-    snprintf(urpc_frame_base_char, sizeof(urpc_frame_base_char),
-             "frame=%" PRIuGENPADDR, core_data->urpc_frame_base);
-    argv[argc++] = urpc_frame_base_char;
-#endif
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name, argc, argv,
                                              0, alloc_phys);

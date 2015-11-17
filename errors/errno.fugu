@@ -135,9 +135,6 @@ errors kernel SYS_ERR_ {
     // Time synchronization errors
     failure SYNC_MISS            "Missed synchronization phase",
 
-    // SCC driver errors
-    failure CROSS_MC            "Frame crosses memory controllers",
-
     // ID capability
     failure ID_SPACE_EXHAUSTED  "ID space exhausted",
 

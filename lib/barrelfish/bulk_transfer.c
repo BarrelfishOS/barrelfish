@@ -14,9 +14,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/bulk_transfer.h>
-#ifdef __scc__
-#       include <barrelfish_kpi/shared_mem_arch.h>
-#endif
 
 /**
  * \brief Destroy bulk data transport on shared memory region
@@ -96,36 +93,17 @@ errval_t bulk_init(void *mem, size_t size, size_t block_size,
  * \param block_size    Size in bytes of a buffer block
  * \param shared_mem    Return parameter to allocated shared memory capability
  * \param bt    Pointer to bulk transfer state to be filled
- * \param LMP_only      States that this bulk transfer will be used on in LMP (
- *                      Only applicable to SCC )
  *
  * \return Error value.
  */
 
 errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
-                     struct bulk_transfer *bt, bool LMP_only)
+                     struct bulk_transfer *bt)
 {
     // Create a Frame Capability 
     size_t allocated_size;
-#ifdef __scc__
-    if (LMP_only) {
-        ram_set_affinity(0x0, PRIVATE_MEM_MAX);
-    } else {
-
-        ram_set_affinity(SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-                     SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-/*        printf("^^^^ bulk transfer affinities %"PRIx32", %"PRIx32" \n",
-            SHARED_MEM_MIN + (PERCORE_MEM_SIZE * disp_get_core_id()),
-            SHARED_MEM_MIN + (PERCORE_MEM_SIZE * (disp_get_core_id() + 1)));
-*/
-    }
-
-#endif
 
     errval_t r = frame_alloc(shared_mem, size, &allocated_size);
-#ifdef __scc__
-    ram_set_affinity(0, 0);
-#endif
     if (err_is_fail(r)) {
         return err_push(r, LIB_ERR_FRAME_ALLOC);
     }
@@ -133,12 +111,7 @@ errval_t bulk_create(size_t size, size_t block_size, struct capref *shared_mem,
 
     // Map the frame in local memory
     void *pool;
-#ifdef __scc__
-    r = vspace_map_one_frame_attr(&pool, allocated_size, *shared_mem,
-                                  VREGION_FLAGS_READ_WRITE_MPB, NULL, NULL);
-#else
     r = vspace_map_one_frame(&pool, allocated_size, *shared_mem, NULL, NULL);
-#endif
     if (err_is_fail(r)) {
         cap_destroy(*shared_mem);
         return err_push(r, LIB_ERR_VSPACE_MAP);

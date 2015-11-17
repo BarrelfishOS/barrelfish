@@ -16,10 +16,6 @@
 #define MAXROUND 100000
 #define ROUNDS_PER_SLICE 5
 
-#ifdef __scc__
-extern uint32_t yield_timeslices;
-#endif
-
 int RCCE_APP(int argc, char **argv){
   int YOU, ME, round;
 #ifndef NO_FLOAT
@@ -83,14 +79,6 @@ int RCCE_APP(int argc, char **argv){
       RCCE_send(buffer, BUFSIZE, YOU);
 
       sum += rdtsc() - timer;
-
-#if defined(ROUNDS_PER_SLICE) && defined(__scc__)
-        if(round % ROUNDS_PER_SLICE == 0) {
-            yield_timeslices = 1;
-            thread_yield();
-            yield_timeslices = 0;
-        }
-#endif
     }
   }
 #ifndef NO_FLOAT

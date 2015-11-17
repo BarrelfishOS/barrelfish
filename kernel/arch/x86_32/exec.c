@@ -155,11 +155,6 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
     halt();
 }
 
-#if defined(__scc__) && defined(NO_INTERRUPT)
-#       include <rck.h>
-#       include <dispatch.h>
-#endif
-
 /**
  * \brief Halt processor until an interrupt arrives
  *
@@ -167,19 +162,6 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
  */
 void __attribute__ ((noreturn)) wait_for_interrupt(void)
 {
-#if defined(__scc__) && defined(NO_INTERRUPT)
-#       error Revisit for new scheduling
-    for(;;) {
-        rck_handle_notification();
-
-        struct dcb *next = schedule();
-        if(next) {
-            dispatch(next);
-        }
-    }
-
-#else
-
     __asm volatile("mov %[x86_32_kernel_stack], %%esp\n\t"
                    "addl %[stack_size], %%esp\n\t"
                    "sti                 \n\t"
@@ -192,7 +174,6 @@ void __attribute__ ((noreturn)) wait_for_interrupt(void)
                    [x86_32_kernel_stack] "r" (&x86_32_kernel_stack),
                    [stack_size] "i" (X86_32_KERNEL_STACK_SIZE)
                    : "esp" );
-#endif
     panic("hlt should not return");
 }
 

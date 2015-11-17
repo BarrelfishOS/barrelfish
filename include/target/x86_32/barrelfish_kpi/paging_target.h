@@ -51,14 +51,8 @@ typedef uint32_t paging_x86_32_flags_t;
 #else
 #       define X86_32_PTABLE_EXECUTE_DISABLE  ((paging_x86_32_flags_t)0)
 #endif
-#ifndef __scc__
-#       define X86_32_PTABLE_GLOBAL_PAGE      (((paging_x86_32_flags_t)1) << 8)
-#       define X86_32_PTABLE_ATTR_INDEX       (((paging_x86_32_flags_t)1) << 7)
-#else
-#       define X86_32_PTABLE_GLOBAL_PAGE      ((paging_x86_32_flags_t)0)
-#       define SCC_PTABLE_MESSAGE_BUFFER      (((paging_x86_32_flags_t)1) << 7)
-#       define X86_32_PTABLE_ATTR_INDEX       (((paging_x86_32_flags_t)1) << 7)
-#endif
+#define X86_32_PTABLE_GLOBAL_PAGE      (((paging_x86_32_flags_t)1) << 8)
+#define X86_32_PTABLE_ATTR_INDEX       (((paging_x86_32_flags_t)1) << 7)
 #define X86_32_PTABLE_DIRTY            (((paging_x86_32_flags_t)1) << 6)
 #define X86_32_PTABLE_ACCESSED         (((paging_x86_32_flags_t)1) << 5)
 #define X86_32_PTABLE_CACHE_DISABLED   (((paging_x86_32_flags_t)1) << 4)

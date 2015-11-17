@@ -59,11 +59,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <exec.h>
-#ifdef __scc__
-#       include <rck.h>
-#else
-#       include <arch/x86/ipi_notify.h>
-#endif
+#include <arch/x86/ipi_notify.h>
 #include <arch/x86/timing.h>
 #include <arch/x86/syscall.h>
 #include <barrelfish_kpi/cpu_arch.h>
@@ -837,11 +833,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         apic_eoi();
     } else if (vector == APIC_INTER_CORE_VECTOR) {
         apic_eoi();
-#ifdef __scc__
-        rck_handle_notification();
-#else
         ipi_handle_notify();
-#endif
     }
 #if 0
  else if (irq >= 0 && irq <= 15) { // classic PIC device interrupt
@@ -871,10 +863,6 @@ static __attribute__ ((used)) void handle_irq(int vector)
     else { // APIC device interrupt (or IPI)
         //printk(LOG_NOTE, "interrupt %d vector %d!\n", irq, vector);
         apic_eoi();
-#ifdef __scc__
-        // Gotta reset the line
-        rck_reset_lint1();
-#endif
         send_user_interrupt(irq);
     }
 

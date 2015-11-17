@@ -15,11 +15,7 @@
 #include "monitor.h"
 #include <notify_ipi.h>
 
-#ifdef __scc__
-static int glbl_chanid = 0;
-#else
 static int glbl_chanid = 1;
-#endif
 
 errval_t notification_set(int chanid, struct capref ep)
 {
@@ -48,17 +44,9 @@ errval_t notification_create_cap(int chanid, coreid_t coreid,
 
     /* Construct the notification capability */
     struct capability notify_cap = {
-#ifdef __scc__
-        .type = ObjType_Notify_RCK,
-#else
         .type = ObjType_Notify_IPI,
-#endif
         .rights = CAPRIGHTS_READ_WRITE, // XXX
-#ifdef __scc__
-        .u.notify_rck = {
-#else
         .u.notify_ipi = {
-#endif
             .coreid = coreid,
             .chanid = chanid
         }

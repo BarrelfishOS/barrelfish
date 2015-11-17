@@ -192,11 +192,7 @@ clflush(void *line)
     __asm volatile("clflush %0" :: "m" (line));
 }
 
-#ifndef __scc__
-#       define CACHE_LINE_SIZE 64 /* bytes */
-#else
-#       define CACHE_LINE_SIZE 32 /* bytes */
-#endif
+#define CACHE_LINE_SIZE 64 /* bytes */
 
 #ifndef __cplusplus
 /* flush a range of memory from the cache */

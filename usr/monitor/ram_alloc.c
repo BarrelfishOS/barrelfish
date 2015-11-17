@@ -230,10 +230,6 @@ static void bind_cont(void *st, errval_t err, struct monitor_mem_binding *b)
 
 errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b)
 {
-#ifdef __scc__
-    assert(!"Should not be calling this on SCC platform");
-#endif
-
     errval_t err;
 
     /* Set memcore_id */

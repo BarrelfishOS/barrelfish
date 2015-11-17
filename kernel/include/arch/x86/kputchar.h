@@ -34,14 +34,12 @@ static void delay(uint64_t ticks)
 static inline int
 kputchar(int c)
 {
-#ifndef __scc__
     if (c == '\n') {
         serial_console_putchar('\r');
         //delay(200000000);
     }
 
     conio_putchar(c);
-#endif
     serial_console_putchar(c);
     return c;
 }

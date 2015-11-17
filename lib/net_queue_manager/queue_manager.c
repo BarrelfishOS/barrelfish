@@ -300,13 +300,8 @@ static errval_t populate_buffer(struct buffer_descriptor *buffer,
     buffer->pa = pa.base;
     buffer->bits = pa.bits;
 
-#ifdef __scc__
-    err = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
-                                  VREGION_FLAGS_READ_WRITE_MPB, NULL, NULL);
-#else
     err = vspace_map_one_frame(&buffer->va, (1L << buffer->bits), cap,
             NULL, NULL);
-#endif
 
 /*
     err = vspace_map_one_frame_attr(&buffer->va, (1L << buffer->bits), cap,
@@ -1097,11 +1092,6 @@ bool waiting_for_netd(void)
 void *
 memcpy_fast(void *dst0, const void *src0, size_t length)
 {
-//    return memcpy(dst0, src0, length);
-#if defined(__scc__) && defined(SCC_MEMCPY)
-    return memcpy_scc2(dst0, src0, length);
-#else // defined(__scc__) && defined(SCC_MEMCPY)
     return memcpy(dst0, src0, length);
-#endif // defined(__scc__) && defined(SCC_MEMCPY)
 }
 
