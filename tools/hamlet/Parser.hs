@@ -208,6 +208,7 @@ capTypeField = do
 
 -- parse address expression
 addressExprP = (reserved "mem_to_phys" >> parens exprP >>= (return . MemToPhysOp))
+               <|> (reserved "get_address" >> parens exprP >>= (return . GetAddrOp))
                <|> (exprP >>= (return . AddressExpr))
 -- parse size expression
 sizeExprP = exprP >>= (return . SizeExpr)

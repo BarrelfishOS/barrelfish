@@ -135,11 +135,12 @@
 >         | s == "coreid" = [(CoreId, "")]
 >         | otherwise = [(Pointer s, "")]
 
-> data AddressExpr = AddressExpr Expr | MemToPhysOp Expr
+> data AddressExpr = AddressExpr Expr | MemToPhysOp Expr | GetAddrOp Expr
 >                  deriving Show
 > instance Pretty AddressExpr where
 >     pretty (AddressExpr e) = pretty e
 >     pretty (MemToPhysOp e) = text "mem_to_phys(" <> pretty e <> text ")"
+>     pretty (GetAddrOp e)   = text "get_address(" <> pretty e <> text ")"
 
 > data SizeExpr = ZeroSize | SizeExpr Expr | SizeBitsExpr Expr
 >               deriving Show

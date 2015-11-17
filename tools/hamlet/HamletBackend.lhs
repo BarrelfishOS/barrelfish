@@ -44,6 +44,7 @@
 
 > import Libbarrelfish.HasDescendants
 > import Libbarrelfish.MemToPhys
+> import qualified Libbarrelfish.GetAddress as H (get_address)
 
 > import HamletAst
 
@@ -184,6 +185,10 @@ Generate code to calculate the "address" property of a cap.
 >     do
 >       lval <- exprCode defs cap capType expr
 >       mem_to_phys $ cast lvaddrT lval
+> addressExprCode defs cap capType (GetAddrOp expr) =
+>     do
+>       lval <- exprCode defs cap capType expr
+>       H.get_address $ lval
 > addressExprCode defs cap capType (AddressExpr expr) =
 >       exprCode defs cap capType expr
 
