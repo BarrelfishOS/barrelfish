@@ -704,9 +704,9 @@ flounderRules opts args csrcs =
 -- Build a Sockeye library
 --
 
-sockeyeSchemaCPath :: Args.Args -> String -> String
-sockeyeSchemaCPath args schema =
-    (Args.target args) </> (schema ++ ".c")
+sockeyeSchemaCPath :: Options -> String -> String
+sockeyeSchemaCPath opts schema =
+    ((optSuffix opts)) </> (schema ++ ".c")
 
 sockeyeCompileFile :: String -> String -> String -> String -> HRule
 sockeyeCompileFile arch opt in_file out_file =
@@ -721,8 +721,8 @@ sockeyeCompileFile arch opt in_file out_file =
 sockeyeCompileSchema :: Options -> Args.Args -> String -> HRule
 sockeyeCompileSchema opts args file =
     let arch = optArch opts
-        cfile = sockeyeSchemaCPath args file
-        hfile = "/include/schema/" ++ file ++ ".h"
+        cfile = sockeyeSchemaCPath opts file
+        hfile = "/include/schema" </> file ++ ".h"
         opts' = opts { extraDependencies = [ Dep BuildTree arch hfile ] }
     in
         Rules [
@@ -939,7 +939,7 @@ allObjectPaths opts args =
                 [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
                 ++
-                [ sockeyeSchemaCPath args f
+                [ sockeyeSchemaCPath opts f
                       | f <- (Args.sockeyeSchema args)]
                 ++
                 (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
