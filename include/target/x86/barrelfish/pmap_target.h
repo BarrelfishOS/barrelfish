@@ -22,6 +22,7 @@ struct vnode { // NB: misnomer :)
     uint16_t      entry;       ///< Page table entry of this VNode
     bool          is_vnode;    ///< Is this a vnode, or a (leaf) page mapping
     struct vnode  *next;       ///< Next entry in list of siblings
+    struct capref mapping;     ///< mapping cap associated with this node
     union {
         struct {
             struct capref cap;         ///< VNode cap

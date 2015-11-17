@@ -214,9 +214,12 @@ static inline errval_t invoke_cnode_get_state(struct capref root, capaddr_t cap,
 
 static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
                                         capaddr_t src, int frombits, size_t flags,
-                                        size_t offset, size_t pte_count)
+                                        size_t offset, size_t pte_count,
+                                        capaddr_t mcnaddr, int mcnbits,
+                                        cslot_t mapping_slot)
 {
-    return cap_invoke7(ptable, VNodeCmd_Map, slot, src, frombits, flags, offset, pte_count).error;
+    return cap_invoke10(ptable, VNodeCmd_Map, slot, src, frombits, flags,
+                        offset, pte_count, mcnaddr, mcnbits, mapping_slot).error;
 }
 
 static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_addr,

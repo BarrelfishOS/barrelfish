@@ -274,9 +274,14 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     // do map
     err = vnode_map(ptable->u.vnode.cap, frame, table_base,
-                    pmap_flags, offset, pte_count);
+                    pmap_flags, offset, pte_count, page->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -697,6 +702,11 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
                 printf("delete_cap\n");
                 return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
             }
+        }
+        // TODO: delete mapping cap?
+        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_FREE);
         }
         remove_vnode(pt, page);
         slab_free(&pmap->slab, page);

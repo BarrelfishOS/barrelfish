@@ -70,6 +70,14 @@ int main(int argc, char *argv[])
 
     errval_t err;
     struct capref caps[7];
+    struct capref mapping;
+
+    // allocate slot for mapping cap: can reuse`
+    err = slot_alloc(&mapping);
+    if (err_is_fail(err)) {
+        printf("slot_alloc: %s (%ld)\n", err_getstring(err), err);
+        return 1;
+    }
 
     // allocate caps
     for (int i = 0; i < 5; i++) {
@@ -129,7 +137,8 @@ int main(int argc, char *argv[])
                 attr = PTABLE_ACCESS_DEFAULT;
             }
             // try mapping
-            err = vnode_map(caps[i], caps[j], /*slot*/0, attr, /*off*/0, /*count*/1);
+            err = vnode_map(caps[i], caps[j], /*slot*/0, attr, /*off*/0,
+                            /*count*/1, mapping);
             check_result(err, i, j);
             // unmap if mapping succeeded
             if (err_is_ok(err)) {

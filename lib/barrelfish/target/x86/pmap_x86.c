@@ -176,9 +176,14 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &newvnode->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     // Map it
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0, 1);
+                    PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -227,7 +232,13 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             }
             err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->u.vnode.cap);
             if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: slot_free: %s\n",
+                debug_printf("remove_empty_vnodes: slot_free (vnode): %s\n",
+                        err_getstring(err));
+            }
+            // TODO: cap_delete on mapping?
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
                         err_getstring(err));
             }
 
