@@ -257,6 +257,14 @@ enum vnode_cmd {
 };
 
 /**
+ * Mapping commands
+ */
+enum mapping_cmd {
+    MappingCmd_Modify,
+    MappingCmd_Destroy,
+};
+
+/**
  * Kernel capabilities commands.
  * Monitor's invocations of capability operations
  * which the kernel will not subject to cross core checks

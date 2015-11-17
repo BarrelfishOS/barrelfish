@@ -229,6 +229,20 @@ static struct sysret handle_unmap(struct capability *pgtable,
     return SYSRET(err);
 }
 
+static struct sysret handle_mapping_destroy(struct capability *mapping,
+                                            int cmd, uintptr_t *args)
+{
+    panic("NYI!");
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret handle_mapping_modify(struct capability *mapping,
+                                           int cmd, uintptr_t *args)
+{
+    panic("NYI!");
+    return SYSRET(SYS_ERR_OK);
+}
+
 /// Different handler for cap operations performed by the monitor
 static struct sysret monitor_handle_retype(struct capability *kernel_cap,
                                            int cmd, uintptr_t *args)
@@ -1083,6 +1097,30 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_Frame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pml4_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pdpt_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pdir_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_ptable_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
