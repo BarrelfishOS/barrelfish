@@ -220,9 +220,14 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             }
 
             // delete capability
-            err = cap_destroy(n->u.vnode.cap);
+            err = cap_delete(n->u.vnode.cap);
             if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: cap_destroy: %s\n",
+                debug_printf("remove_empty_vnodes: cap_delete: %s\n",
+                        err_getstring(err));
+            }
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->u.vnode.cap);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free: %s\n",
                         err_getstring(err));
             }
 
