@@ -376,6 +376,7 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
     if (mapping_cnode_cte->cap.type != ObjType_CNode) {
         return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
     }
+
     struct cte *mapping_cte = caps_locate_slot(get_address(&mapping_cnode_cte->cap),
                                                mapping_slot);
     if (mapping_cte->cap.type != ObjType_Null) {

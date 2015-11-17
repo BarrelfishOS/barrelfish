@@ -429,7 +429,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 {
     /* XXX: Get the raw metadata of the capability to create */
     struct capability *src = (struct capability *)args;
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
     /* Cannot create null caps */
     if (src->type == ObjType_Null) {
@@ -450,6 +450,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     capaddr_t cnode_cptr = args[pos];
     int cnode_vbits      = args[pos + 1];
     size_t slot          = args[pos + 2];
+    assert(cnode_vbits < CPTR_BITS);
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
@@ -461,7 +462,7 @@ static struct sysret monitor_copy_existing(struct capability *kernel_cap,
 {
     /* XXX: Get the raw metadata of the capability to create */
     struct capability *src = (struct capability *)args;
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
     capaddr_t cnode_cptr = args[pos];
     int cnode_vbits    = args[pos + 1];

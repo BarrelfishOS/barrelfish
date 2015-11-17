@@ -75,7 +75,7 @@ syscall_entry:
 	add	%rsi, %rcx
 
 	/* Check that it's an endpoint */
-	cmpl	$OBJTYPE_ENDPOINT, OFFSETOF_CAP_TYPE(%rcx)
+	cmpb	$OBJTYPE_ENDPOINT, OFFSETOF_CAP_TYPE(%rcx)
 	jne	err_endpoint
 
 	/* TODO: Check rights on the endpoint */

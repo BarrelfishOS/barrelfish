@@ -65,7 +65,7 @@
 #define DEFAULT_CNODE_SLOTS      (1UL << DEFAULT_CNODE_BITS)
 
 /// Number of entries in page cnode (in bits)
-#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 3)
+#define PAGE_CNODE_BITS         (DEFAULT_CNODE_BITS + 2)
 
 /// Number of entries in page cnode
 #define PAGE_CNODE_SLOTS        (1UL << PAGE_CNODE_BITS)

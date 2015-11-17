@@ -23,7 +23,7 @@
  * barrelfish_kpi/capabilities.h */
 
 /* Size of CNode entry: */
-define cte_size 7;
+define cte_size 6;
 /* Size of DCB: */
 define dispatcher_size 10;
 /* Size of (x86_64) VNode: */

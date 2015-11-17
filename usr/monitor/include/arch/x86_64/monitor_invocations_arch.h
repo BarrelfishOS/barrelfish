@@ -73,10 +73,9 @@ invoke_monitor_nullify_cap(capaddr_t cap, int bits)
 static inline errval_t
 invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits, capaddr_t slot, coreid_t owner)
 {
-    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
-    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
-    return cap_invoke9(cap_kernel, KernelCmd_Create_cap,
-                       raw[0], raw[1], raw[2], raw[3],
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
+    return cap_invoke8(cap_kernel, KernelCmd_Create_cap,
+                       raw[0], raw[1], raw[2],
                        caddr, bits, slot, owner).error;
 }
 
@@ -99,9 +98,9 @@ invoke_monitor_remote_cap_retype(capaddr_t rootcap_addr, uint8_t rootcap_vbits,
 static inline errval_t
 invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
 {
-    assert(sizeof(struct capability) == 4*sizeof(uint64_t));
-    return cap_invoke8(cap_kernel, KernelCmd_Copy_existing,
-                       raw[0], raw[1], raw[2], raw[3],
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
+    return cap_invoke7(cap_kernel, KernelCmd_Copy_existing,
+                       raw[0], raw[1], raw[2],
                        cn_addr, cn_bits, slot).error;
 }
 
@@ -207,11 +206,9 @@ invoke_monitor_revoke_mark_target(capaddr_t root, int rbits,
 static inline errval_t
 invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
 {
-    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
-    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
-    return cap_invoke5(cap_kernel, KernelCmd_Revoke_mark_relations,
-                       raw_base[0], raw_base[1],
-                       raw_base[2], raw_base[3]).error;
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
+    return cap_invoke4(cap_kernel, KernelCmd_Revoke_mark_relations,
+                       raw_base[0], raw_base[1], raw_base[2]).error;
 }
 
 static inline errval_t
@@ -231,11 +228,10 @@ invoke_monitor_clear_step(capaddr_t retcn, int retcnbits, cslot_t retslot)
 static inline errval_t
 invoke_monitor_has_descendants(uint64_t *raw, bool *res)
 {
-    assert(sizeof(struct capability) % sizeof(uint64_t) == 0);
-    assert(sizeof(struct capability) / sizeof(uint64_t) == 4);
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
     struct sysret sysret;
-    sysret = cap_invoke5(cap_kernel, KernelCmd_Has_descendants,
-                         raw[0], raw[1], raw[2], raw[3]);
+    sysret = cap_invoke4(cap_kernel, KernelCmd_Has_descendants,
+                         raw[0], raw[1], raw[2]);
     if (err_is_ok(sysret.error)) {
         *res = sysret.value;
     }

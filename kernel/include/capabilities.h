@@ -31,10 +31,17 @@ struct delete_list {
     char padding[DELETE_LIST_SIZE - sizeof(struct cte*)];
 };
 
-STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
-               + sizeof(struct delete_list) + sizeof(struct mapping_info))
+#ifndef ROUND_UP
+#define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
+#endif
+
+STATIC_ASSERT((ROUND_UP(sizeof(struct capability), 8)
+               + ROUND_UP(sizeof(struct mdbnode), 8)
+               + sizeof(struct delete_list))
                <= (1UL << OBJBITS_CTE),
               "cap+mdbnode fit in cte");
+
+STATIC_ASSERT(sizeof(enum objtype) == 1, "short enums work");
 
 /**
  * \brief A CTE (Capability Table Entry).
@@ -45,16 +52,16 @@ STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
  */
 struct cte {
     struct capability   cap;            ///< The capability
+    char padding0[ROUND_UP(sizeof(struct capability), 8)- sizeof(struct capability)];
     struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
+    char padding1[ROUND_UP(sizeof(struct mdbnode), 8) - sizeof(struct mdbnode)];
     struct delete_list  delete_node;    ///< State for in-progress delete cascades
-#if 0
-    struct mapping_info mapping_info;   ///< Mapping info for mapped pmem capabilities
-#endif
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
-                 - sizeof(struct capability) - sizeof(struct mdbnode)
-                 - sizeof(struct delete_list)];
+                 - sizeof(struct delete_list)
+                 - ROUND_UP(sizeof(struct capability), 8)
+                 - ROUND_UP(sizeof(struct mdbnode), 8)];
 };
 
 STATIC_ASSERT_SIZEOF(struct cte, (1UL << OBJBITS_CTE));

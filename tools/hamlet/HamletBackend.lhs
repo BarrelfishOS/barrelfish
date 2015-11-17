@@ -113,9 +113,9 @@
 
 > mkCapsStruct :: Capabilities -> TFieldList
 > mkCapsStruct caps = strict
->     [("type", objtypeT),
->      ("rights", capRightsT),
->      ("u", capUnionT)]
+>     [("u", capUnionT),
+>      ("type", objtypeT),
+>      ("rights", capRightsT)]
 >     where capUnionT = unionST "capability_u" ((map (\cap -> (lower $ capNameOf cap, mkCapStructT cap))
 >                                                  (capabilities caps)) )
 >                      -- XXX: Why do I need to define types here when they are already
@@ -590,7 +590,7 @@ count).
 
 > backend :: Capabilities -> FoFCode PureExpr
 > backend caps =
->     do dummy <- newEnum "objtype" enums "ObjType_Num"
+>     do dummy <- newEnum "__attribute__((__packed__)) objtype" enums "ObjType_Num"
 >        getAddress <- get_address caps
 >        getSize <- get_size caps
 >        getTypeRoot <- get_type_root caps
