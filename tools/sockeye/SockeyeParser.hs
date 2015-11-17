@@ -65,8 +65,7 @@ identifyBuiltin typeDcls typeName =
           return $ Builtin $ (read typeName::TypeBuiltin)
       else 
           case typeName `lookup` typeDcls of
-            Just (Typedef (TAliasT new orig)) -> return $ TypeAlias new orig
-            Just (Typedef (TAlias new orig)) -> return $ orig
+            Just (Typedef (TAlias new orig)) -> return $ TypeAlias new orig
 --            Just x -> trace (show x) return $ TypeVar typeName
             Nothing -> return $ UnknownType typeName
 -- This needs to go to SockeyeTools:
@@ -106,10 +105,6 @@ pSchema predefDecls _ = do { reserved "schema"
 
 typeDeclaration typeDcls = do {
                            ; decl <- try (do {
-                                           ; x <- transparentAlias 
-                                           ; return $ Just x
-                                           })
-                                     <|> try (do {
                                                ; x <- typedefinition typeDcls
                                                ; return $ Just x
                                                })
@@ -180,16 +175,6 @@ queryParams typeDecls = do { i <- identifier
                            ; symbol ";"
                            ; return $ QParam (Name i) i 
                            }
-
-
-transparentAlias = do { whiteSpace 
-                      ; reserved "alias"
-                      ; newType <- identifier
-                      ; originType <- identifier
-                      ; symbol ";"
-                      ; return (newType, Typedef $ TAliasT newType 
-                                                           (read originType::TypeBuiltin))
-                      }
 
 typedefinition typeDcls = do { whiteSpace
                              ; reserved "typedef"

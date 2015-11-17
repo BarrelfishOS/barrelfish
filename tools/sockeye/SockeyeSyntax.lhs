@@ -33,7 +33,8 @@ First, we define the abstract syntax of our embedded language. At the
 top-level is the \emph{schema} definition. It consists of a @name@
 and a @description@. It contains a list of\emph{facts} or \emph{queries}.
 
-> data Schema = Schema String String [ Declaration ] 
+> data Schema = Schema String String [ Declaration ]
+>   deriving (Show)
 >
 > schema :: String -> String -> [ Declaration ] -> Schema
 > schema name description declarations = 
@@ -82,7 +83,7 @@ we construct a new type, it can use either built-in types, such as
 > data TypeRef = Builtin TypeBuiltin
 >              | TypeVar String
 >              | FactType String
->              | TypeAlias String TypeBuiltin
+>              | TypeAlias String TypeRef
 >              | UnknownType String
 >     deriving (Show)
 
@@ -210,7 +211,7 @@ And the usual combinators:
 > var typeRef = TypeVar typeRef
 
 > als :: String -> TypeBuiltin -> TypeRef
-> als typeRef origin = TypeAlias typeRef origin
+> als typeRef origin = TypeAlias typeRef (Builtin origin)
 
 Then, we can build a type definition out of these special cases with:
 
@@ -221,30 +222,6 @@ Then, we can build a type definition out of these special cases with:
 Here's a utility function to resolve a named type (which may be an alias) to
 its canonical definition:
 
-> lookup_type_name :: [TypeDef] -> String -> TypeDef
-> lookup_type_name types name = case def of
->         (TAlias _ (Builtin b)) -> TAliasT name b
->         (TAlias _ (TypeVar v)) -> lookup_type_name types v
->         (TAlias _ (TypeAlias _ b)) -> TAliasT name b
->         d -> d
->     where
->         def
->             | null defs = error $ "lookup_type_name: " ++ name ++ " not defined"
->             | null $ tail defs = head defs
->             | otherwise = error $ "lookup_type_name: " ++ name ++ " multiply defined"
->         defs = [t | t <- types, typedef_name t == name]
-> 
->         typedef_name :: TypeDef -> String
->         typedef_name (TEnum n _) = n
->         typedef_name (TAlias n _) = n
->         typedef_name (TAliasT n _) = n
-
-As above, but for a TypeRef:
-
-> lookup_typeref :: [TypeDef] -> TypeRef -> TypeDef
-> lookup_typeref _ (Builtin b) = TAliasT (show b) b
-> lookup_typeref _ (TypeAlias n b) = TAliasT n b
-> lookup_typeref types (TypeVar v) = lookup_type_name types v
 
 
 \paragraph{Enumeration}

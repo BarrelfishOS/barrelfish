@@ -29,7 +29,6 @@ collectTypes_Declaration (Querydef queryDef) = collectTypes_QueryDef queryDef
 collectTypes_TypeDef :: TypeDef -> Map.Map String TypeRef
 collectTypes_TypeDef (TEnum _ _) = Map.empty
 collectTypes_TypeDef (TAlias name ref) = Map.singleton name ref
-collectTypes_TypeDef (TAliasT name builtin) = Map.singleton name (Builtin builtin)
 
 collectTypes_FactDef :: FactDef -> Map.Map String TypeRef
 collectTypes_FactDef (Fact name _ _) = Map.singleton name (FactType name)

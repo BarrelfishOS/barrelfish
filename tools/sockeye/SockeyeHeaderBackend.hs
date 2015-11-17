@@ -142,14 +142,14 @@ attr_fmt_type_wr sn (FAttrib t (Name n) d) = case t of
     Builtin builtin ->  "\"%\" " ++ builtin_fmt_wr builtin
     TypeVar name -> "\"typevar\""
     FactType name -> type_c_define sn name "FMT_WRITE"
-    TypeAlias alias builtin -> "\"alias_type\""
+    TypeAlias alias (Builtin builtin) -> "\"%\" " ++ builtin_fmt_rd builtin
 
 attr_fmt_type_rd :: String -> FactAttribute -> String
 attr_fmt_type_rd sn (FAttrib t (Name n) d) = case t of
     Builtin builtin ->  "\"%\" " ++ builtin_fmt_rd builtin
     TypeVar name -> "\"typevar\""
     FactType name -> type_c_define sn name "FMT_READ"
-    TypeAlias alias builtin -> "\"alias_type\""
+    TypeAlias alias (Builtin builtin) -> "\"%\" " ++ builtin_fmt_rd builtin
 
 attr_access_rd :: String -> String -> FactAttribute -> String
 attr_access_rd arg sn (FAttrib t (Name n) d) = case t of
