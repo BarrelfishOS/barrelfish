@@ -224,21 +224,27 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                         err_getstring(err));
             }
 
+            // delete mapping cap first: underlying cap needs to exist for
+            // this to work properly!
+            err = cap_delete(n->mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: cap_delete (mapping): %s\n",
+                        err_getstring(err));
+            }
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
+                        err_getstring(err));
+            }
             // delete capability
             err = cap_delete(n->u.vnode.cap);
             if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: cap_delete: %s\n",
+                debug_printf("remove_empty_vnodes: cap_delete (vnode): %s\n",
                         err_getstring(err));
             }
             err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->u.vnode.cap);
             if (err_is_fail(err)) {
                 debug_printf("remove_empty_vnodes: slot_free (vnode): %s\n",
-                        err_getstring(err));
-            }
-            // TODO: cap_delete on mapping?
-            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->mapping);
-            if (err_is_fail(err)) {
-                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
                         err_getstring(err));
             }
 

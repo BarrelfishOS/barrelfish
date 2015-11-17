@@ -379,7 +379,7 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
     struct cte *mapping_cte = caps_locate_slot(get_address(&mapping_cnode_cte->cap),
                                                mapping_slot);
     if (mapping_cte->cap.type != ObjType_Null) {
-        return SYSRET(SYS_ERR_SLOTS_IN_USE);
+        return SYSRET(SYS_ERR_SLOT_IN_USE);
     }
 
     /* Perform map */

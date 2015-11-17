@@ -695,6 +695,16 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
             return err_push(err, LIB_ERR_VNODE_UNMAP);
         }
 
+        // delete mapping cap: need to do this before we clean up cap copy, as
+        // mdb operations on mapping cap reference frame (in address calc.)
+        err = cap_delete(page->mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CAP_DELETE);
+        }
+        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_FREE);
+        }
         // Free up the resources
         if (delete_cap) {
             err = cap_destroy(page->u.frame.cap);
@@ -702,11 +712,6 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
                 printf("delete_cap\n");
                 return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
             }
-        }
-        // TODO: delete mapping cap?
-        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_FREE);
         }
         remove_vnode(pt, page);
         slab_free(&pmap->slab, page);

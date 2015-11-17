@@ -31,10 +31,32 @@
 #define MEMORY_OFFSET X86_64_MEMORY_OFFSET
 #endif
 
+/// Create mapping cap
+static void create_mapping_cap(struct cte *mapping_cte,
+                               struct capability *frame,
+                               lvaddr_t pte,
+                               size_t pte_count)
+{
+    assert(mapping_cte->cap.type == ObjType_Null);
+
+    mapping_cte->cap.type = get_mapping_type(frame->type);
+    mapping_cte->cap.u.frame_mapping.frame = frame;
+    mapping_cte->cap.u.frame_mapping.pte = pte;
+    mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
+#if 0
+    printk(LOG_NOTE, "mapping cap: type=%d, frame=%p, pte=0x%"PRIxLVADDR", pte_count=%hu\n",
+            mapping_cte->cap.type,
+            mapping_cte->cap.u.frame_mapping.frame,
+            mapping_cte->cap.u.frame_mapping.pte,
+            mapping_cte->cap.u.frame_mapping.pte_count);
+#endif
+}
+
 /// Map within a x86_64 non leaf ptable
 static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                                   struct capability *src, uintptr_t flags,
-                                  uintptr_t offset, size_t pte_count)
+                                  uintptr_t offset, size_t pte_count,
+                                  struct cte *mapping_cte)
 {
     //printf("page_mappings_arch:x86_64_non_ptable\n");
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
@@ -126,6 +148,9 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
     src_cte->mapping_info.pte_count = pte_count;
     src_cte->mapping_info.offset = offset;
+    create_mapping_cap(mapping_cte, src,
+                       dest_lp + slot * sizeof(union x86_64_ptable_entry),
+                       pte_count);
 
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += page_size) {
@@ -136,6 +161,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // cleanup mapping info
             // TODO: cleanup already mapped pages
             memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            memset(mapping_cte, 0, sizeof(*mapping_cte));
             printf("slot in use\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
@@ -160,7 +186,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
 /// Map within a x86_64 ptable
 static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
                               struct capability *src, uintptr_t mflags,
-                              uintptr_t offset, size_t pte_count)
+                              uintptr_t offset, size_t pte_count,
+                              struct cte *mapping_cte)
 {
     //printf("page_mappings_arch:x86_64_ptable\n");
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
@@ -210,6 +237,9 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
     src_cte->mapping_info.pte_count = pte_count;
     src_cte->mapping_info.offset = offset;
+    create_mapping_cap(mapping_cte, src,
+                       dest_lp + slot * sizeof(union x86_64_ptable_entry),
+                       pte_count);
 
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += X86_64_BASE_PAGE_SIZE) {
@@ -222,6 +252,7 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         if (X86_64_IS_PRESENT(entry)) {
             // TODO: cleanup already mapped pages
             memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            memset(mapping_cte, 0, sizeof(*mapping_cte));
             debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
                   "this is most likely a user-space bug!\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
@@ -238,7 +269,8 @@ typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
                                       cslot_t dest_slot,
                                       struct capability *src_cap,
                                       uintptr_t flags, uintptr_t offset,
-                                      size_t pte_count);
+                                      size_t pte_count,
+                                      struct cte *mapping_cte);
 
 /// Dispatcher table for the type of mapping to create
 static mapping_handler_t handler[ObjType_Num] = {
@@ -295,9 +327,12 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 #endif
     }
 
-    errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
+    errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset,
+                              pte_count, mapping_cte);
     if (err_is_fail(r)) {
+        assert(mapping_cte->cap.type == ObjType_Null);
         printf("caps_copy_to_vnode: handler func returned %ld\n", r);
+        return r;
     }
 #if 0
     else {
@@ -306,7 +341,16 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         printf("mapping_info.pte_count = %zu\n", src_cte->mapping_info.pte_count);
     }
 #endif
-    return r;
+
+    /* insert mapping cap into mdb */
+    errval_t err = mdb_insert(mapping_cte);
+    if (err_is_fail(err)) {
+        printk(LOG_ERR, "%s: mdb_insert: %"PRIuERRV"\n", __FUNCTION__, err);
+    }
+
+    TRACE_CAP_MSG("created", mapping_cte);
+
+    return err;
 }
 
 static inline void read_pt_entry(struct capability *pgtable, size_t slot,
