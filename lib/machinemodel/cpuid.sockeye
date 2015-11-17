@@ -1,0 +1,53 @@
+schema cpuid "Documentation for the CPUID schema." {
+
+    typedef uint8 core_id;
+
+    fact vendor "Vendor of a CPU" {
+        core_id Core_ID "CPU ID";
+        string vendor "Vendor string";
+    };
+
+    fact family {
+        core_id Core_ID;
+        string Vendor_String;
+        uint64 Family;
+        uint64 Model;
+        uint64 Stepping;
+    };
+
+    fact thread {
+        core_id Core_ID;
+        uint64 Package;
+        uint64 Core;
+        uint64 HyperThread;
+    };
+
+    fact cache {
+        core_id Core_ID;
+        string Name;
+        uint8 Level;
+        string type; //data|instr|unified;
+        uint64 Size;
+        uint8 Associativity;
+        uint8 LineSize;
+        uint8 Shared;
+        uint64 Inclusive;
+    };
+
+    fact tlb {
+        core_id Core_ID;
+        string type; //data|instr|unified;
+        uint8 level;
+        uint64 PageSize;
+        uint64 Entries;
+        uint64 Associativity;
+    };
+
+    fact addrspace {
+        core_id Core_ID;
+        uint8 BitsPhys;
+        uint8 BitsVirt;
+        uint8 BitsGuest;
+    };
+
+};

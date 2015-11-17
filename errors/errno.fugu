@@ -815,7 +815,12 @@ errors skb SKB_ERR_ {
     failure RUN                 "Failure in running rpc: run",
     failure GOAL_FAILURE        "Posted goal could not be satisfied.",
     failure UNEXPECTED_OUTPUT   "Query produced output but none was expected.",
+    failure OVERFLOW            "Parameter exceeds internal buffer length.",
     success IO_OUTPUT           "Read I/O Output from SKB.",
+};
+
+errors skb_datagatherer SKB_DATAGATHERER_ERR_ {
+    failure CPUID               "Failed to collect CPUID information",
 };
 
 // errors in a file system implementation

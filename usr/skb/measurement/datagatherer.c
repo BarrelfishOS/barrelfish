@@ -41,6 +41,7 @@ static coreid_t nr_of_running_cores = 0;
 
 int main(int argc, char **argv)
 {
+    errval_t err;
  //this is the bootstrap copy of the domain
      if (strcmp(argv[argc - 1], "SpAwNeD") != 0) {
         bsp_datagatherer = true;
@@ -49,7 +50,11 @@ int main(int argc, char **argv)
     }
 
     core_id = disp_get_core_id();
-    skb_client_connect();
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "skb_client_connect failed");
+        return 1;
+    }
 
 #ifdef SPAWN_YOUR_SELF
     if (bsp_datagatherer) {
@@ -57,16 +62,22 @@ int main(int argc, char **argv)
     }
 #endif
 
-//gather different types of data
+    //gather different types of data
 
     //run cpuid
-    gather_cpuid_data(core_id);
+    err = gather_cpuid_data(core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "gather_cpuid_data failed");
+    }
 
-    //adding the numer of cores is the last operation performed by the datagatherer.
+    //adding the number of cores is the last operation performed by the datagatherer.
     //therefore the domain can exit after this. process events as long as the number
     //of cores has not yet been added to the SKB.
 
-    skb_add_fact("datagatherer_done.");
+    err = skb_add_fact("datagatherer_done.");
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "skb_add_fact failed");
+    }
 
     if (bsp_datagatherer) {
         int length = nr_of_running_cores + 1;
@@ -77,7 +88,7 @@ int main(int argc, char **argv)
         }
 
 
-        errval_t err = nameservice_register("datagatherer_done", 0);
+        err = nameservice_register("datagatherer_done", 0);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "nameservice_register failed");
         }

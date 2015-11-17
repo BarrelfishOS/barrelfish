@@ -1,0 +1,229 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2015, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{todonotes}
+
+\title{Sockeye in Barrelfish}
+\author{Barrelfish project}
+% \date{\today}		% Uncomment (if needed) - date is automatic
+\tnnumber{20}
+\tnkey{Sockeye}
+
+\lstdefinelanguage{sockeye}{
+    morekeywords={schema,typedef,fact,enum},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\presetkeys{todonotes}{inline}{}
+
+\begin{document}
+\maketitle			% Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{16.11.2015}{MH}{Initial Version}
+\end{versionhistory}
+
+% \intro{Abstract}		% Insert abstract here
+% \intro{Acknowledgements}	% Uncomment (if needed) for acknowledgements
+\tableofcontents		% Uncomment (if needed) for final draft
+% \listoffigures		% Uncomment (if needed) for final draft
+% \listoftables			% Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\sockeye}{\lstinline[language=sockeye]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b
+}
+
+\chapter{Introduction}
+\label{chap:introduction}
+
+This document describes Sockeye, a tool to define schemata for the SKB. It
+explains functionality, syntax and code generation plus the API concepts of
+generated code. The documentation uses a practical example from Barrelfish to
+demonstrate Sockeye.
+
+\chapter{High-level overview: Sockeye schema for the SKB}
+\label{chap:overview}
+
+In Barrelfish, the SKB\cite{btn019-devicedrivers} stores configuration and
+system data which can be queried by programs using Prolog. It serves device
+configuration and PCI bridge programming, interrupt routing and constructing
+routing trees for IPC. Applications can use information to determine hardware
+characteristics such as cores, nodes, caches and memory as well as their
+affinity.
+
+Sockeye complements the SKB by defining a \emph{schema} of the data stored in
+the SKB. A schema defines facts and their structure, which is similar to Prolog
+facts and their arity. A code-generation tool generates a C-API to populate the
+SKB according to a specific schema instance.
+
+Throughout this document a example describing certain CPU characteristics is
+being used. It is an abstraction of the CPUID information found on Intel and AMD
+CPUs. The source code for the Sockeye tool can be found in
+\pathname{tools/sockeye}.
+
+\section{Schema language}
+
+The schema language is a C-like language defining facts and their attributes. An
+attribute is typed and can be one of a basic type, a fact or an enumeration
+type. Basic types include signed and unsigned integers as well as memory
+addresses with a machine-specific word size and strings. As facts can be
+attributes of other facts we can achieve a simple nesting of facts.
+
+In Listing \ref{lst:sample_schema} an excerpt of the CPUID schema is shown. In
+Barrelfish, a CPU core is identified using an eight bit unsigned number, hence
+we use a \sockeye{typedef} to declare a \varname{core\_id} type.
+
+\begin{lstlisting}[caption={Sample Sockeye schema definition},
+label={lst:sample_schema},language=sockeye]
+
+schema cpuid "CPUID abstractions" {
+    typedef uint8 core_ID;
+    fact vendor "Literal vendor" {
+        core_id Core_id "Core";
+        string vendor "Core vendor";
+    };
+};
+\end{lstlisting}
+
+Each schema starts with the keyword \sockeye{schema}. It is followed by an
+identifier and a documentation string for that schema. The identifier also needs
+to be equal to the file name, i.e.~the schema \varname{cpuid} needs to reside in
+\varname{cpuid.sockeye}. After the schema declaration we find a list of facts,
+typdefs and enums enclosed in curly braces (\{\}).
+
+Each fact has an identifying name and a documentation string. Its attributes
+follow the documentation string and are enclosed in curly braces. The attributes
+are a tuple consisting of a type, a name and an optional documentation. The type
+can be a basic type, a fact or an enumeration type. Note that types need to have
+unique names, there is no mechanism to derive new types from existing types.
+
+Typedefs allow to use a different identifier for a built-in type. This is useful
+for abstracting common built-in types.
+
+\todo{Explain enumerations}
+
+\section{Code generation}
+
+Sockeye can translate schema definitions into documentation and C code (header
+and implementation). Here, we explain the mechanisms that are used to generate a
+C implementation of the schema.
+
+The example presented in Listing \ref{lst:sample_schema} translates into C
+structures and type definitions for both \varname{core\_id} and
+\varname{vendor}. Functions are provided to populate the SKB with instanced of
+facts.
+
+\section{Translating facts}
+
+Each fact corresponds to a structure in C. Sockeye generates both a structure
+and a type definition for each fact. Using the example, it creates the
+structure shown in Listing \ref{lst:c_vendor}.
+
+\begin{lstlisting}[caption={C header for fact
+\varname{vendor}},label={lst:c_vendor},language=C]
+struct cpuid__vendor {
+    /* CPU ID */
+    cpuid__core_id_t Core_ID;
+    /* Vendor string */
+    char *vendor;
+};
+typedef struct cpuid__vendor cpuid__vendor_t;
+\end{lstlisting}
+
+Each fact attribute is represented by a \ccode!struct!~field. Nested structures are
+allowed, but there cannot be a recursive dependency.
+
+On top of this, it generates a function
+\ccode!cpuid__vendor__add(struct cpuid__vendor *)!.
+This function can be used to add facts of the specified type to the SKB. For
+example, the code presented in Listing \ref{lst:c_add_vendor} adds an Intel core
+to the SKB.
+
+\begin{lstlisting}[caption={C example to add a vendor fact.},
+label={lst:c_add_vendor}, language=C]
+cpuid__vendor_t vendor;
+vendor.Core_ID = core_id;
+vendor.vendor = vendor_string;
+
+errval_t err = cpuid__vendor__add(&vendor);
+\end{lstlisting}
+
+\section{Mapping facts to Prolog facts}
+
+Each fact added to the SKB using Sockeye is represented by a single Prolog
+functor.  The functor name in Prolog consist of the schema and fact name.  The
+fact defined in Listing \ref{lst:sample_schema} is represented by the functor
+\lstinline!cpuid_vendor!~and has an arity of three.
+
+\section{Integration with the build process}
+
+Sockeye is a tool that is integrated with Hake. Add the attribute
+\lstinline!sockeyeSchema!~to a Hakefile to invoke Sockeye as shown in Listing
+\ref{lst:sockeye_hake}.
+
+\begin{lstlisting}[caption={Including Sockeye schemata in Hake},
+label={lst:sockeye_hake}, language=Haskell]
+[ build application {
+    sockeyeSchema = [ "cpu" ]
+    ... 
+} ]
+\end{lstlisting}
+
+Adding an entry for \varname{sockeyeSchema} to a Hakefile will generate both
+header and implementation and adds it to the list of compiled resources. A
+Sockeye schema is referred to by its name and Sockeye will look for a file
+ending with \varname{.sockeye} containing the schema definition.
+
+The header file is placed in \pathname{include/schema} in the build tree, the C
+implementation is stored in the Hakefile application or library directory.
+
+\chapter{Limitations \& Work in Progress}
+
+Sockeye is not yet in a feature-complete state. It does not allow querying facts
+or specifying more advanced rules for types besides the ones being enforced by C
+on \ccode!struct!s. Although features are missing users can start writing
+schemata as the syntax is not going to change significantly at the moment.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{barrelfish}
+
+\end{document}

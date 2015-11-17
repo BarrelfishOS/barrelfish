@@ -4,7 +4,7 @@
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Arguments to major Hake targets
 -- 
@@ -40,7 +40,8 @@ data Args = Args {
       addLinkFlags :: [String],
       addLibraries :: [String],
       addGeneratedDependencies :: [String],
-      architectures :: [String]
+      architectures :: [String],
+      sockeyeSchema :: [String]
 } 
 
 defaultArgs = Args { 
@@ -68,7 +69,8 @@ defaultArgs = Args {
       addLinkFlags = [],
       addLibraries = [],
       addGeneratedDependencies = [],
-      architectures = allArchitectures
+      architectures = allArchitectures,
+      sockeyeSchema = []
 }
 
 allArchitectures = [ "x86_64", "x86_32", "armv5", "xscale", "armv7",
@@ -110,4 +112,5 @@ showArgs prefix a =
     ++ "\n  addLibraries:          " ++ (show $ addLibraries a)
     ++ "\n  addDeps:               " ++ (show $ addGeneratedDependencies a)
     ++ "\n  architectures:         " ++ (show $ architectures a)
+    ++ "\n  sockeyeSchema:         " ++ (show $ sockeyeSchema a)
     ++ "\n"
