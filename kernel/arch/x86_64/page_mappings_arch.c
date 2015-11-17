@@ -144,10 +144,6 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
 
     // set metadata
-    struct cte *src_cte = cte_for_cap(src);
-    src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.offset = offset;
     create_mapping_cap(mapping_cte, src,
                        dest_lp + slot * sizeof(union x86_64_ptable_entry),
                        pte_count);
@@ -160,7 +156,6 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         if (X86_64_IS_PRESENT(entry)) {
             // cleanup mapping info
             // TODO: cleanup already mapped pages
-            memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
             memset(mapping_cte, 0, sizeof(*mapping_cte));
             printf("slot in use\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
@@ -233,10 +228,6 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     genpaddr_t src_gp   = get_address(src);
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
     // Set metadata
-    struct cte *src_cte = cte_for_cap(src);
-    src_cte->mapping_info.pte = dest_lp + slot * sizeof(union x86_64_ptable_entry);
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.offset = offset;
     create_mapping_cap(mapping_cte, src,
                        dest_lp + slot * sizeof(union x86_64_ptable_entry),
                        pte_count);
@@ -251,7 +242,6 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
          * ever reusing a VA mapping */
         if (X86_64_IS_PRESENT(entry)) {
             // TODO: cleanup already mapped pages
-            memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
             memset(mapping_cte, 0, sizeof(*mapping_cte));
             debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
                   "this is most likely a user-space bug!\n");
@@ -281,9 +271,6 @@ static mapping_handler_t handler[ObjType_Num] = {
 };
 
 
-#define DIAGNOSTIC_ON_ERROR 1
-#define RETURN_ON_ERROR 1
-
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
@@ -305,16 +292,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     printf("mapping 0x%"PRIxGENPADDR" to 0x%"PRIxGENVADDR"\n", paddr, vaddr);
 #endif
 
-    if (src_cte->mapping_info.pte) {
-        // this cap is already mapped
-#if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: this copy is already mapped @pte 0x%lx (paddr = 0x%"PRIxGENPADDR")\n", src_cte->mapping_info.pte, get_address(src_cap));
-#endif
-#if RETURN_ON_ERROR
-        return SYS_ERR_VM_ALREADY_MAPPED;
-#endif
-    }
-
     cslot_t last_slot = dest_slot + pte_count;
 
     if (last_slot > X86_64_PTABLE_SIZE) {
@@ -334,13 +311,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         printf("caps_copy_to_vnode: handler func returned %ld\n", r);
         return r;
     }
-#if 0
-    else {
-        printf("mapping_info.pte       = 0x%lx\n", src_cte->mapping_info.pte);
-        printf("mapping_info.offset    = 0x%lx\n", src_cte->mapping_info.offset);
-        printf("mapping_info.pte_count = %zu\n", src_cte->mapping_info.pte_count);
-    }
-#endif
 
     /* insert mapping cap into mdb */
     errval_t err = mdb_insert(mapping_cte);
@@ -438,7 +408,7 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *frame,
                              size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
@@ -451,6 +421,21 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
     read_pt_entry(pgtable, slot, &paddr, NULL, NULL);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
+    genpaddr_t faddr = get_address(&frame->cap);
+    struct cte *mapping = frame;
+    while ((mapping = mdb_successor(mapping)) && get_address(&mapping->cap) == faddr)
+    {
+        if (mapping->cap.type == get_mapping_type(frame->cap.type) &&
+            mapping->cap.u.frame_mapping.frame == &frame->cap &&
+            mapping->cap.u.frame_mapping.pte == pt + slot*get_pte_size())
+        {
+            if (num_pages != mapping->cap.u.frame_mapping.pte_count) {
+                return SYS_ERR_VM_MAP_SIZE;
+            }
+            break;
+        }
+    }
+
     // get virtual address of first page
     // TODO: error checking
     genvaddr_t vaddr;
@@ -458,20 +443,14 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
     struct cte *leaf_pt = cte_for_cap(pgtable);
     err = compile_vaddr(leaf_pt, slot, &vaddr);
     if (err_is_fail(err)) {
-        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED) {
-            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
-        } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID
-                   && leaf_pt->mapping_info.pte == 0) {
+        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED && vaddr == 0) {
             debug(SUBSYS_PAGING, "unmapping in floating page table; not flushing TLB\n");
             tlb_flush_necessary = false;
+        } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID) {
+            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
         } else {
             return err;
         }
-    }
-
-    if (num_pages != mapping->mapping_info.pte_count) {
-        // want to unmap a different amount of pages than was mapped
-        return SYS_ERR_VM_MAP_SIZE;
     }
 
     do_unmap(pt, slot, num_pages);
@@ -486,9 +465,6 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
             do_one_tlb_flush(vaddr);
         }
     }
-
-    // update mapping info
-    memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
 
     return SYS_ERR_OK;
 }
@@ -506,8 +482,25 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
 errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
                                     size_t pages, size_t mflags, genvaddr_t va_hint)
 {
+    panic("NYI!");
+
+#if 0
     struct cte *mapping = cte_for_cap(frame);
-    struct mapping_info *info = &mapping->mapping_info;
+
+    struct cte *info_cte = mapping;
+    genpaddr_t faddr = get_address(frame);
+    while ((info_cte = mdb_successor(info_cte)) && get_address(&info_cte->cap) == faddr)
+    {
+        if (info_cte->cap.type == get_mapping_type(mapping->cap.type) &&
+            info_cte->cap.u.frame_mapping.frame == &mapping->cap &&
+            info_cte->cap.u.frame_mapping.pte == pt + slot*get_pte_size())
+        {
+            break;
+        }
+    }
+    assert(type_is_mapping(info_cte->cap.type));
+    struct Frame_Mapping *info = &info_cte->cap.u.frame_mapping;
+
     struct cte *leaf_pt;
     errval_t err;
     err = mdb_find_cap_for_address(info->pte, &leaf_pt);
@@ -578,6 +571,7 @@ errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
         do_full_tlb_flush();
     }
     return SYS_ERR_OK;
+#endif
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

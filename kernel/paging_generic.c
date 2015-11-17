@@ -23,35 +23,49 @@
 #include <mdb/mdb_tree.h>
 #include <stdio.h>
 
-static inline errval_t find_next_ptable(struct cte *old, struct cte **next)
+static inline errval_t find_mapping_for_cap(struct cte *cap, struct cte **mapping)
 {
-    errval_t err;
-    if (old->mapping_info.pte) {
-        err = mdb_find_cap_for_address(local_phys_to_gen_phys((lpaddr_t)old->mapping_info.pte), next);
-        if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
-            debug(SUBSYS_PAGING, "could not find cap associated "
-                    "with 0x%"PRIxLPADDR"\n", old->mapping_info.pte);
-            return SYS_ERR_VNODE_NOT_INSTALLED;
+    genpaddr_t faddr = get_address(&cap->cap);
+    struct cte *next = cap;
+    while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr)
+    {
+        if (next->cap.type == get_mapping_type(cap->cap.type) &&
+            next->cap.u.frame_mapping.frame == &cap->cap)
+        {
+            *mapping = next;
+            return SYS_ERR_OK;
         }
-        if (err_is_fail(err)) {
-            debug(SUBSYS_PAGING, "error in compile_vaddr:"
-                   " mdb_find_range: 0x%"PRIxERRV"\n", err);
-            return err;
-        }
-        if (!type_is_vnode((*next)->cap.type)) {
-                return SYS_ERR_VNODE_LOOKUP_NEXT;
-        }
-        return SYS_ERR_OK;
     }
-    else {
-        *next = NULL;
-        return SYS_ERR_VNODE_SLOT_INVALID;
-    }
+    return SYS_ERR_CAP_NOT_FOUND;
 }
 
-static inline size_t get_offset(struct cte *old, struct cte *next)
+// TODO: XXX: multiple mappings?
+static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **next)
 {
-    return (old->mapping_info.pte - get_address(&next->cap)) / get_pte_size();
+    errval_t err;
+    assert(mapping_cte);
+    struct Frame_Mapping *mapping = &mapping_cte->cap.u.frame_mapping;
+    err = mdb_find_cap_for_address(
+            local_phys_to_gen_phys(mapping->pte), next);
+    if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
+        debug(SUBSYS_PAGING, "could not find cap associated "
+                "with 0x%"PRIxLPADDR"\n", mapping->pte);
+        return SYS_ERR_VNODE_NOT_INSTALLED;
+    }
+    if (err_is_fail(err)) {
+        debug(SUBSYS_PAGING, "error in compile_vaddr:"
+                " mdb_find_range: 0x%"PRIxERRV"\n", err);
+        return err;
+    }
+    if (!type_is_vnode((*next)->cap.type)) {
+        return SYS_ERR_VNODE_LOOKUP_NEXT;
+    }
+    return SYS_ERR_OK;
+}
+
+static inline size_t get_offset(struct cte *mapping, struct cte *next)
+{
+    return (mapping->cap.u.frame_mapping.pte - get_address(&next->cap)) / get_pte_size();
 }
 
 /*
@@ -110,11 +124,17 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
 
     // add next piece of virtual address until we are at root page table
     struct cte *old = ptable;
-    struct cte *next;
+    struct cte *next, *mapping = NULL;
     errval_t err;
     while (!is_root_pt(old->cap.type))
     {
-        err = find_next_ptable(old, &next);
+        err = find_mapping_for_cap(old, &mapping);
+        if (err_is_fail(err)) {
+            // no mapping found, cannot reconstruct vaddr
+            *retvaddr = 0;
+            return err;
+        }
+        err = find_next_ptable(mapping, &next);
         if (err == SYS_ERR_VNODE_NOT_INSTALLED) { // no next page table
             *retvaddr = 0;
             return err;
@@ -123,7 +143,7 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
             return err;
         }
         // calculate offset into next level ptable
-        size_t offset = get_offset(old, next);
+        size_t offset = get_offset(mapping, next);
         // shift new part of vaddr by old shiftwidth + #entries of old ptable
         shift += vnode_entry_bits(old->cap.type);
 
@@ -138,114 +158,89 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
 
 errval_t unmap_capability(struct cte *mem)
 {
-    if (!mem->mapping_info.pte) {
-        // mem is not mapped, so just return
-        return SYS_ERR_OK;
-    }
-
     errval_t err;
 
-    // get leaf pt cap
-    struct cte *pgtable;
-    err = mdb_find_cap_for_address(mem->mapping_info.pte, &pgtable);
-    if (err_is_fail(err)) {
-        // no page table, should be ok.
+    genpaddr_t faddr = get_address(&mem->cap);
+    struct cte *next = NULL;
+    next = mdb_successor(mem);
+    if (!next) {
+        // corner case frame is last element of tree -> no mappings found
         return SYS_ERR_OK;
     }
-    lpaddr_t ptable_lp = gen_phys_to_local_phys(get_address(&pgtable->cap));
-    lvaddr_t ptable_lv = local_phys_to_mem(ptable_lp);
-    cslot_t slot = (mem->mapping_info.pte - ptable_lp) / PTABLE_ENTRY_SIZE;
-    genvaddr_t vaddr;
-    err = compile_vaddr(pgtable, slot, &vaddr);
-    if (err_is_ok(err)) {
-        // only perform unmap when we successfully reconstructed the virtual address
-        do_unmap(ptable_lv, slot, mem->mapping_info.pte_count);
-        if (mem->mapping_info.pte_count > 1) {
-            do_full_tlb_flush();
-        } else {
-            do_one_tlb_flush(vaddr);
+
+    genvaddr_t vaddr = 0;
+    bool single_page_flush = false;
+    int mapping_count = 0;
+    // iterate over all mappings associated with 'mem' and unmap them
+    do {
+        mapping_count ++;
+        if (next->cap.type == get_mapping_type(mem->cap.type) &&
+            next->cap.u.frame_mapping.frame == &mem->cap)
+        {
+            // delete mapping cap
+            err = caps_delete(next);
+            if (err_is_fail(err)) {
+                printk(LOG_NOTE, "%s: caps_delete(mapping): %ld\n", __FUNCTION__, err);
+            }
+
+            // do unmap
+            struct Frame_Mapping *mapping = &next->cap.u.frame_mapping;
+            if (!mapping->pte) {
+                // mem is not mapped, so just return
+                return SYS_ERR_OK;
+            }
+
+            // get leaf pt cap
+            struct cte *pgtable;
+            err = mdb_find_cap_for_address(mapping->pte, &pgtable);
+            if (err_is_fail(err)) {
+                // no page table found, should be ok.
+                return SYS_ERR_OK;
+            }
+
+            lpaddr_t ptable_lp = gen_phys_to_local_phys(get_address(&pgtable->cap));
+            lvaddr_t ptable_lv = local_phys_to_mem(ptable_lp);
+            cslot_t slot = (mapping->pte - ptable_lp) / PTABLE_ENTRY_SIZE;
+
+            // unmap
+            do_unmap(ptable_lv, slot, mapping->pte_count);
+
+            // TLB flush?
+            if (mapping_count == 1) {
+                err = compile_vaddr(pgtable, slot, &vaddr);
+                if (err_is_ok(err) && mapping->pte_count == 1) {
+                    single_page_flush = true;
+                }
+            }
         }
+    } while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr);
+
+    // do TLB flush
+    if (single_page_flush) {
+        do_one_tlb_flush(vaddr);
+    } else {
+        do_full_tlb_flush();
     }
 
     return SYS_ERR_OK;
 }
 
-errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **retcte)
-{
-    // lookup matching cap
-    struct cte *mem, *last, *orig;
-    // find a cap for paddr
-#if 0
-    printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
-#endif
-    errval_t err = mdb_find_cap_for_address(paddr, &mem);
-    if (err_is_fail(err)) {
-        printf("could not find a cap for 0x%"PRIxGENPADDR" (%"PRIuERRV")\n", paddr, err);
-        return err;
-    }
-#if 0
-    printf("lookup request = 0x%"PRIxGENPADDR"\n", paddr);
-    printf("has_copies(mem) = %d\n", has_copies(mem));
-    printf("pte = 0x%lx\n", pte);
-    printf("0x%lx, %zd\n", get_address(&mem->cap), get_size(&mem->cap));
-    printf("mem->mapping_info.pte          = 0x%lx\n", mem->mapping_info.pte);
-    printf("mem->mapping_info.offset       = %zd\n", mem->mapping_info.offset);
-    printf("mem->mapping_info.pte_count    = %zd\n", mem->mapping_info.pte_count);
-    printf("mem = %p\n", mem);
-#endif
-
-    // look at all copies of mem
-    last = mem;
-    orig = mem;
-    // search backwards in tree
-    while (is_copy(&mem->cap, &last->cap)) {
-        struct capability *cap = &mem->cap;
-        struct mapping_info *map = &mem->mapping_info;
-        genpaddr_t base = get_address(cap);
-        // only match mappings that start where we want to unmap
-        if (base + map->offset == paddr && map->pte == pte)
-        {
-            // found matching cap
-            *retcte = mem;
-            return SYS_ERR_OK;
-        }
-        last = mem;
-        mem = mdb_predecessor(mem);
-    }
-    last = orig;
-    // search forward in tree
-    mem = mdb_successor(orig);
-    while (is_copy(&mem->cap, &last->cap)) {
-        struct capability *cap = &mem->cap;
-        struct mapping_info *map = &mem->mapping_info;
-        genpaddr_t base = get_address(cap);
-        // only match mappings that start where we want to unmap
-        if (base + map->offset == paddr && map->pte == pte)
-        {
-            // found matching cap
-            *retcte = mem;
-            return SYS_ERR_OK;
-        }
-        last = mem;
-        mem = mdb_successor(mem);
-    }
-
-    // if we get here, we have not found a matching cap
-    return SYS_ERR_CAP_NOT_FOUND;
-}
-
 // TODO: cleanup arch compatibility mess for page size selection
-errval_t paging_tlb_flush_range(struct cte *frame, size_t offset, size_t pages)
+errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t pages)
 {
+    assert(type_is_mapping(mapping_cte->cap.type));
+
+    struct Frame_Mapping *mapping = &mapping_cte->cap.u.frame_mapping;
+
     // reconstruct first virtual address for TLB flushing
     struct cte *leaf_pt;
     errval_t err;
-    err = mdb_find_cap_for_address(frame->mapping_info.pte, &leaf_pt);
+    err = mdb_find_cap_for_address(mapping->pte, &leaf_pt);
     if (err_is_fail(err)) {
         return err;
     }
     genvaddr_t vaddr;
-    size_t entry = (frame->mapping_info.pte - get_address(&leaf_pt->cap)) /
+    size_t entry = (mapping->pte - get_address(&leaf_pt->cap)) /
         PTABLE_ENTRY_SIZE;
     entry += offset;
     err = compile_vaddr(leaf_pt, entry, &vaddr);

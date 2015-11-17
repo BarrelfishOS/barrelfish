@@ -47,12 +47,14 @@ struct cte {
     struct capability   cap;            ///< The capability
     struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
     struct delete_list  delete_node;    ///< State for in-progress delete cascades
+#if 0
     struct mapping_info mapping_info;   ///< Mapping info for mapped pmem capabilities
+#endif
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
                  - sizeof(struct capability) - sizeof(struct mdbnode)
-                 - sizeof(struct delete_list) - sizeof(struct mapping_info)];
+                 - sizeof(struct delete_list)];
 };
 
 STATIC_ASSERT_SIZEOF(struct cte, (1UL << OBJBITS_CTE));
