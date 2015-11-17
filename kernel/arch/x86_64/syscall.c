@@ -153,16 +153,20 @@ static struct sysret handle_map(struct capability *ptable,
                                 int cmd, uintptr_t *args)
 {
     /* Retrieve arguments */
-    uint64_t  slot          = args[0];
-    capaddr_t source_cptr   = args[1];
-    int       source_vbits  = args[2];
-    uint64_t  flags         = args[3];
-    uint64_t  offset        = args[4];
-    uint64_t  pte_count     = args[5];
+    uint64_t  slot            = args[0];
+    capaddr_t source_cptr     = args[1];
+    int       source_vbits    = args[2];
+    uint64_t  flags           = args[3];
+    uint64_t  offset          = args[4];
+    uint64_t  pte_count       = args[5];
+    capaddr_t mapping_cnptr   = args[6];
+    int       mapping_cnvbits = args[7];
+    cslot_t   mapping_slot    = args[8];
 
     TRACE(KERNEL, SC_MAP, 0);
-    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
-                   	           pte_count);
+    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags,
+                               offset, pte_count, mapping_cnptr, mapping_cnvbits,
+                               mapping_slot);
     TRACE(KERNEL, SC_MAP, 1);
     return sr;
 }

@@ -255,7 +255,8 @@ static mapping_handler_t handler[ObjType_Num] = {
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
-                            uintptr_t offset, uintptr_t pte_count)
+                            uintptr_t offset, uintptr_t pte_count,
+                            struct cte *mapping_cte)
 {
     assert(type_is_vnode(dest_vnode_cte->cap.type));
 
