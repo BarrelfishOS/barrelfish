@@ -131,7 +131,7 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
         err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
                             X86_64_PDPT_BASE(base), pdir);
         if (err_is_fail(err)) {
-            printf("failure mapping pdpt\n");
+            DEBUG_ERR(err, "alloc_vnode for pdpt");
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
     }

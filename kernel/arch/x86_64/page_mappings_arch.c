@@ -296,12 +296,9 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     if (last_slot > X86_64_PTABLE_SIZE) {
         // requested map overlaps leaf page table
-#if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
-#endif
-#if RETURN_ON_ERROR
+        debug(SUBSYS_CAPS,
+                "caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
         return SYS_ERR_VM_RETRY_SINGLE;
-#endif
     }
 
     errval_t r = handler_func(dest_cap, dest_slot, src_cap, flags, offset,
