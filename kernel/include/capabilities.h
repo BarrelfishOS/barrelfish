@@ -194,6 +194,14 @@ static inline bool caps_should_trace(struct capability *cap)
     return (begin < TRACE_PMEM_BEGIN && end > TRACE_PMEM_BEGIN)
         || (begin >= TRACE_PMEM_BEGIN && begin < (TRACE_PMEM_BEGIN+TRACE_PMEM_SIZE));
 }
+#define TRACE_CAP_MSGF(trace_cte, msgfmt, ...) do { \
+    struct cte *__tmp_cte = (trace_cte); \
+    if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
+        char __tmp_msg_buf[256]; \
+        snprintf(__tmp_msg_buf, 256, msgfmt, __VA_ARGS__); \
+        caps_trace(__func__, __LINE__, __tmp_cte, (__tmp_msg_buf)); \
+    } \
+} while (0)
 #define TRACE_CAP_MSG(msg, trace_cte) do { \
     struct cte *__tmp_cte = (trace_cte); \
     if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
@@ -202,6 +210,7 @@ static inline bool caps_should_trace(struct capability *cap)
 } while (0)
 #define TRACE_CAP(trace_cte) TRACE_CAP_MSG(NULL, trace_cte)
 #else
+#define TRACE_CAP_MSGF(trace_cte, msgfmt, ...) ((void)0)
 #define TRACE_CAP_MSG(msg, trace_cte) ((void)0)
 #define TRACE_CAP(trace_cte) ((void)0)
 #endif

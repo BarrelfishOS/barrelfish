@@ -160,42 +160,40 @@ errval_t unmap_capability(struct cte *mem)
 {
     errval_t err;
 
-    genpaddr_t faddr = get_address(&mem->cap);
-    struct cte *next = NULL;
-    next = mdb_successor(mem);
-    if (!next) {
-        // corner case frame is last element of tree -> no mappings found
-        return SYS_ERR_OK;
-    }
+    TRACE_CAP_MSG("unmapping", mem);
 
     genvaddr_t vaddr = 0;
     bool single_page_flush = false;
-    int mapping_count = 0;
+    int mapping_count = 0, unmap_count = 0;
+    genpaddr_t faddr = get_address(&mem->cap);
+
     // iterate over all mappings associated with 'mem' and unmap them
-    do {
-        mapping_count ++;
+    struct cte *next = mem;
+    struct cte *to_delete = NULL;
+
+    while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr) {
+        TRACE_CAP_MSG("looking at", next);
         if (next->cap.type == get_mapping_type(mem->cap.type) &&
             next->cap.u.frame_mapping.frame == &mem->cap)
         {
-            // delete mapping cap
-            err = caps_delete(next);
-            if (err_is_fail(err)) {
-                printk(LOG_NOTE, "%s: caps_delete(mapping): %ld\n", __FUNCTION__, err);
-            }
+            TRACE_CAP_MSG("cleaning up mapping", next);
+            mapping_count ++;
 
             // do unmap
             struct Frame_Mapping *mapping = &next->cap.u.frame_mapping;
             if (!mapping->pte) {
+                debug(SUBSYS_PAGING, "mapping->pte == 0: just deleting mapping\n");
                 // mem is not mapped, so just return
-                return SYS_ERR_OK;
+                goto delete_mapping;
             }
 
             // get leaf pt cap
             struct cte *pgtable;
             err = mdb_find_cap_for_address(mapping->pte, &pgtable);
             if (err_is_fail(err)) {
+                debug(SUBSYS_PAGING, "page table not found: just deleting mapping\n");
                 // no page table found, should be ok.
-                return SYS_ERR_OK;
+                goto delete_mapping;
             }
 
             lpaddr_t ptable_lp = gen_phys_to_local_phys(get_address(&pgtable->cap));
@@ -205,15 +203,36 @@ errval_t unmap_capability(struct cte *mem)
             // unmap
             do_unmap(ptable_lv, slot, mapping->pte_count);
 
+            unmap_count ++;
+
             // TLB flush?
-            if (mapping_count == 1) {
+            if (unmap_count == 1) {
                 err = compile_vaddr(pgtable, slot, &vaddr);
                 if (err_is_ok(err) && mapping->pte_count == 1) {
                     single_page_flush = true;
                 }
             }
+
+delete_mapping:
+            assert(!next->delete_node.next);
+            // mark mapping cap for delete: cannot do delete here as it messes
+            // up mdb_successor()
+            next->delete_node.next = to_delete;
+            to_delete = next;
         }
-    } while ((next = mdb_successor(next)) && get_address(&next->cap) == faddr);
+    }
+
+    // delete mapping caps
+    while (to_delete) {
+        next = to_delete->delete_node.next;
+        err = caps_delete(to_delete);
+        if (err_is_fail(err)) {
+            printk(LOG_NOTE, "caps_delete: %ld", err);
+        }
+        to_delete = next;
+    }
+
+    TRACE_CAP_MSGF(mem, "unmapped %d/%d instances", unmap_count, mapping_count);
 
     // do TLB flush
     if (single_page_flush) {
