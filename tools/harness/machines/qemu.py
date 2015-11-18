@@ -16,7 +16,7 @@ QEMU_CMD_X64 = 'qemu-system-x86_64'
 QEMU_CMD_X32 = 'qemu-system-i386'
 QEMU_CMD_ARM = 'qemu-system-arm'
 QEMU_ARGS_GENERIC = '-nographic -no-reboot'.split()
-QEMU_ARGS_X64 = '-net nic,model=ne2k_pci -net user -m 512'.split()
+QEMU_ARGS_X64 = '-net nic,model=ne2k_pci -net user -m 3084'.split()
 QEMU_ARGS_X32 = '-net nic,model=ne2k_pci -net user -m 512'.split()
 QEMU_ARGS_ARM = '-m 256'.split()
 

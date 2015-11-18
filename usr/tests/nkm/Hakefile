@@ -1,26 +1,35 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2007-2009, 2011, ETH Zurich.
+-- Copyright (c) 2007-2009, 2011, 2015, ETH Zurich.
 -- Copyright (c) 2014, HP Labs.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/tests/memtest
+-- Hakefile for /usr/tests/nkm
 --
 -- Diverse memory tests.
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "nkmtest",
+[ build application { target = "nkmtest_map_unmap",
                       cFiles = [ "nkmtest.c", "vspace_dump.c" ],
+                      addCFlags = [ "-DSTANDALONE" ],
                       addLibraries = [ "cap_predicates" ]
                     },
-  build application { target = "test_modify_flags",
+  build application { target = "nkmtest_modify_flags",
+                      addCFlags = [ "-DSTANDALONE" ],
                       cFiles = [ "modify_flags.c" ]
                     },
-  build application { target = "test_invalid_mappings",
+  build application { target = "nkmtest_invalid_mappings",
+                      addCFlags = [ "-DSTANDALONE" ],
                       cFiles = [ "invalid_mappings.c" ]
+                    },
+  build application { target = "nkmtest_all",
+                      cFiles = [ "invalid_mappings.c", "main.c",
+                                 "modify_flags.c", "nkmtest.c",
+                                 "vspace_dump.c" ],
+                      addLibraries = [ "cap_predicates" ]
                     }
 ]
