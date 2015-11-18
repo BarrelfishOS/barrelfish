@@ -64,12 +64,12 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     }
 
     if (type_is_vnode(src->type) && pte_count != 1) { // only allow single ptable mappings
-        printf("src type and count mismatch\n");
+        debug(SUBSYS_PAGING, "src type and count mismatch\n");
         return SYS_ERR_VM_MAP_SIZE;
     }
 
     if (slot + pte_count > X86_64_PTABLE_SIZE) { // mapping size ok
-        printf("mapping size invalid (%zd)\n", pte_count);
+        debug(SUBSYS_PAGING, "mapping size invalid (%zd)\n", pte_count);
         return SYS_ERR_VM_MAP_SIZE;
     }
 
@@ -78,7 +78,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     switch (dest->type) {
         case ObjType_VNode_x86_64_pml4:
             if (src->type != ObjType_VNode_x86_64_pdpt) { // Right mapping
-                printf("src type invalid\n");
+                debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
                 return SYS_ERR_WRONG_MAPPING;
             }
             if(slot >= X86_64_PML4_BASE(MEMORY_OFFSET)) { // Kernel mapped here
@@ -88,6 +88,20 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         case ObjType_VNode_x86_64_pdpt:
             // huge page support
             if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
+                if (src->type != ObjType_Frame &&
+                    src->type != ObjType_DevFrame) { // Right mapping
+                    debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
+                    return SYS_ERR_WRONG_MAPPING;
+                }
+
+                if (get_size(src) < HUGE_PAGE_SIZE) {
+                    return SYS_ERR_VM_FRAME_TOO_SMALL;
+                }
+
+                if ((get_address(src)+offset) & HUGE_PAGE_MASK) {
+                    return SYS_ERR_VM_FRAME_UNALIGNED;
+                }
+
                 // TODO: check if the system allows 1GB mappings
                 page_size = X86_64_HUGE_PAGE_SIZE;
                 // check offset within frame
@@ -110,6 +124,20 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         case ObjType_VNode_x86_64_pdir:
             // superpage support
             if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
+                if (src->type != ObjType_Frame &&
+                    src->type != ObjType_DevFrame) { // Right mapping
+                    debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
+                    return SYS_ERR_WRONG_MAPPING;
+                }
+
+                if (get_size(src) < LARGE_PAGE_SIZE) {
+                    return SYS_ERR_VM_FRAME_TOO_SMALL;
+                }
+
+                if ((get_address(src)+offset) & LARGE_PAGE_MASK) {
+                    return SYS_ERR_VM_FRAME_UNALIGNED;
+                }
+
                 page_size = X86_64_LARGE_PAGE_SIZE;
 
                 // check offset within frame
@@ -131,7 +159,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             }
             break;
         default:
-            printf("dest type invalid\n");
+            debug(SUBSYS_PAGING, "dest type invalid\n");
             return SYS_ERR_DEST_TYPE_INVALID;
     }
 
@@ -157,7 +185,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // cleanup mapping info
             // TODO: cleanup already mapped pages
             memset(mapping_cte, 0, sizeof(*mapping_cte));
-            printf("slot in use\n");
+            debug(SUBSYS_PAGING, "slot in use\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
 
@@ -186,25 +214,25 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
 {
     //printf("page_mappings_arch:x86_64_ptable\n");
     if (slot >= X86_64_PTABLE_SIZE) { // Within pagetable
-        printf("    vnode_invalid\n");
+        debug(SUBSYS_PAGING, "    vnode_invalid\n");
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
     if (slot + pte_count > X86_64_PTABLE_SIZE) { // mapping size ok
-        printf("mapping size invalid (%zd)\n", pte_count);
+        debug(SUBSYS_PAGING, "mapping size invalid (%zd)\n", pte_count);
         return SYS_ERR_VM_MAP_SIZE;
     }
 
     if (src->type != ObjType_Frame &&
         src->type != ObjType_DevFrame) { // Right mapping
-        printf("src type invalid\n");
+        debug(SUBSYS_PAGING, "src type invalid\n");
         return SYS_ERR_WRONG_MAPPING;
     }
 
     // check offset within frame
     genpaddr_t off = offset;
     if (off + pte_count * X86_64_BASE_PAGE_SIZE > get_size(src)) {
-        printf("frame offset invalid\n");
+        debug(SUBSYS_PAGING, "frame offset invalid\n");
         return SYS_ERR_FRAME_OFFSET_INVALID;
     }
 
@@ -305,7 +333,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                               pte_count, mapping_cte);
     if (err_is_fail(r)) {
         assert(mapping_cte->cap.type == ObjType_Null);
-        printf("caps_copy_to_vnode: handler func returned %ld\n", r);
+        debug(SUBSYS_PAGING, "caps_copy_to_vnode: handler func returned %ld\n", r);
         return r;
     }
 
@@ -623,7 +651,8 @@ void paging_dump_tables(struct dcb *dispatcher)
                     if (!paddr) {
                         continue;
                     }
-                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, ptable_index, entry, paddr);
+                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" (raw=0x%016"PRIx64")\n",
+                            pdpt_index, pdir_index, ptable_index, entry, paddr, e->raw);
                 }
             }
         }

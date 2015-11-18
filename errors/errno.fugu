@@ -87,6 +87,8 @@ errors kernel SYS_ERR_ {
     failure VM_MAP_SIZE             "Mapping size too large",
     failure VM_MAP_OFFSET           "Mapping offset too large",
     failure VM_RETRY_SINGLE         "Mapping overlaps multiple leaf page tables, retry",
+    failure VM_FRAME_UNALIGNED      "Frame(+offset) for superpage mapping not aligned",
+    failure VM_FRAME_TOO_SMALL      "Frame too small for superpage mapping",
 
     // errors related to IRQ table
     failure IRQ_LOOKUP          "Specified capability was not found while inserting in IRQ table",
