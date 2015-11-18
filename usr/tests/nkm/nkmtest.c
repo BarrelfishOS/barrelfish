@@ -96,6 +96,7 @@ int map_unmap(void)
     }
 
 #ifdef NKMTEST_DEBUG_MAP_UNMAP
+    // no mapping should remain here
     dump_page_tables();
     err = debug_dump_hw_ptables();
     if (err_is_fail(err)) {
@@ -103,15 +104,6 @@ int map_unmap(void)
         return 1;
     }
 #endif
-
-    DEBUG_MAP_UNMAP("write 2\n");
-    for (i = 0; i < BASE_PAGE_SIZE; i++) {
-        memory[i] = i % INT8_MAX;
-    }
-    DEBUG_MAP_UNMAP("verify 2\n");
-    for (i = 0; i < BASE_PAGE_SIZE; i++) {
-        assert(memory[i] == i % INT8_MAX);
-    }
 
     printf("%s: done\n", __FUNCTION__);
     return 0;
