@@ -304,15 +304,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Create dispatcher frame (in taskcn) */
     si->dispframe.cnode = si->taskcn;
     si->dispframe.slot  = TASKCN_SLOT_DISPFRAME;
-    struct capref spawn_dispframe = {
-        .cnode = si->taskcn,
-        .slot  = TASKCN_SLOT_DISPFRAME2,
-    };
     err = frame_create(si->dispframe, (1 << DISPATCHER_FRAME_BITS), NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
-    }
-    err = cap_copy(spawn_dispframe, si->dispframe);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
@@ -325,7 +317,7 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_SELF);
     }
     genvaddr_t spawn_dispatcher_base;
-    err = spawn_vspace_map_one_frame(si, &spawn_dispatcher_base, spawn_dispframe,
+    err = spawn_vspace_map_one_frame(si, &spawn_dispatcher_base, si->dispframe,
                                      1UL << DISPATCHER_FRAME_BITS);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
@@ -483,22 +475,14 @@ static errval_t spawn_setup_env(struct spawninfo *si,
     // Create frame (actually multiple pages) for arguments
     si->argspg.cnode = si->taskcn;
     si->argspg.slot  = TASKCN_SLOT_ARGSPAGE;
-    struct capref spawn_argspg = {
-        .cnode = si->taskcn,
-        .slot  = TASKCN_SLOT_ARGSPAGE2,
-    };
     err = frame_create(si->argspg, ARGS_SIZE, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
-    }
-    err = cap_copy(spawn_argspg, si->argspg);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_ARGSPG);
     }
 
     /* Map in args frame */
     genvaddr_t spawn_args_base;
-    err = spawn_vspace_map_one_frame(si, &spawn_args_base, spawn_argspg, ARGS_SIZE);
+    err = spawn_vspace_map_one_frame(si, &spawn_args_base, si->argspg, ARGS_SIZE);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_ARGSPG_TO_NEW);
     }
