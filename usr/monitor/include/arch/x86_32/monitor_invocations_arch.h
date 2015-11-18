@@ -88,6 +88,8 @@ static inline errval_t
 invoke_monitor_create_cap(uint64_t *raw, capaddr_t caddr, int bits,
                           capaddr_t slot, coreid_t owner)
 {
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
+
     uint8_t invoke_bits = get_cap_valid_bits(cap_kernel);
     capaddr_t invoke_cptr = get_cap_addr(cap_kernel) >> (CPTR_BITS - invoke_bits);
 
@@ -265,7 +267,7 @@ static inline errval_t
 invoke_monitor_copy_existing(uint64_t *raw, capaddr_t cn_addr, int cn_bits, cslot_t slot)
 {
     // XXX: this is assumed in client code of this function!
-    assert(sizeof(struct capability) <= 4*sizeof(uint64_t));
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
 
     return cap_invoke5(cap_kernel, KernelCmd_Copy_existing,
                        cn_addr, cn_bits, slot, (uintptr_t)raw).error;
@@ -330,7 +332,7 @@ static inline errval_t
 invoke_monitor_revoke_mark_relations(uint64_t *raw_base)
 {
     // XXX: this is assumed in client code of this function!
-    assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
     return cap_invoke2(cap_kernel, KernelCmd_Revoke_mark_relations,
                        (uintptr_t)raw_base).error;
 }
@@ -353,7 +355,7 @@ static inline errval_t
 invoke_monitor_has_descendants(uint64_t *raw, bool *res)
 {
     // XXX: this is assumed in client code of this function!
-    assert(sizeof(struct capability) / sizeof(uint64_t) <= 4);
+    assert(sizeof(struct capability) <= 3*sizeof(uint64_t));
 
     struct sysret sysret;
     sysret = cap_invoke2(cap_kernel, KernelCmd_Has_descendants,

@@ -30,6 +30,14 @@
                       cFiles = [ "invalid_mappings.c", "main.c",
                                  "modify_flags.c", "nkmtest.c",
                                  "vspace_dump.c" ],
-                      addLibraries = [ "cap_predicates" ]
+                      addLibraries = [ "cap_predicates" ],
+                      architectures = [ "x86_64" ]
+                    },
+  build application { target = "nkmtest_all",
+                      cFiles = [ "main.c",
+                                 "modify_flags.c", "nkmtest.c",
+                                 "vspace_dump.c" ],
+                      addLibraries = [ "cap_predicates" ],
+                      architectures = [ "x86_32", "armv5", "armv7", "armv8" ]
                     }
 ]

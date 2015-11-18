@@ -39,7 +39,7 @@ static void handler(enum exception_type type, int subtype, void *addr,
     assert(addr >= vbase && addr < vend);
     DEBUG_MODIFY_FLAGS("got expected write pagefault on %p\n", addr);
     // unprotect 4k page
-    genvaddr_t offset = (genvaddr_t)addr - (genvaddr_t)vbase;
+    genvaddr_t offset = (genvaddr_t)(lvaddr_t)addr - (genvaddr_t)(lvaddr_t)vbase;
     err = memobj->f.protect(memobj, vregion, offset,
             BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE);
     assert(err_is_ok(err));

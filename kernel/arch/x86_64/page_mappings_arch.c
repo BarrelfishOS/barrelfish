@@ -22,6 +22,7 @@
 #include <string.h>
 #include <barrelfish_kpi/init.h>
 #include <cap_predicates.h>
+#include <paging_generic.h>
 
 #ifdef __k1om__
 #include <target/k1om/offsets_target.h>
@@ -30,27 +31,6 @@
 #include <target/x86_64/offsets_target.h>
 #define MEMORY_OFFSET X86_64_MEMORY_OFFSET
 #endif
-
-/// Create mapping cap
-static void create_mapping_cap(struct cte *mapping_cte,
-                               struct capability *frame,
-                               lvaddr_t pte,
-                               size_t pte_count)
-{
-    assert(mapping_cte->cap.type == ObjType_Null);
-
-    mapping_cte->cap.type = get_mapping_type(frame->type);
-    mapping_cte->cap.u.frame_mapping.frame = frame;
-    mapping_cte->cap.u.frame_mapping.pte = pte;
-    mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
-#if 0
-    printk(LOG_NOTE, "mapping cap: type=%d, frame=%p, pte=0x%"PRIxLVADDR", pte_count=%hu\n",
-            mapping_cte->cap.type,
-            mapping_cte->cap.u.frame_mapping.frame,
-            mapping_cte->cap.u.frame_mapping.pte,
-            mapping_cte->cap.u.frame_mapping.pte_count);
-#endif
-}
 
 /// Map within a x86_64 non leaf ptable
 static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
@@ -348,79 +328,6 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     return err;
 }
 
-static inline void read_pt_entry(struct capability *pgtable, size_t slot,
-                                 genpaddr_t *mapped_addr, lpaddr_t *pte,
-                                 void **entry)
-{
-    assert(type_is_vnode(pgtable->type));
-
-    genpaddr_t paddr;
-    lpaddr_t pte_;
-    void *entry_;
-
-    genpaddr_t gp = get_address(pgtable);
-    lpaddr_t lp = gen_phys_to_local_phys(gp);
-    lvaddr_t lv = local_phys_to_mem(lp);
-
-    // get paddr
-    switch (pgtable->type) {
-    case ObjType_VNode_x86_64_pml4:
-    case ObjType_VNode_x86_64_pdpt:
-    case ObjType_VNode_x86_64_pdir: {
-        union x86_64_pdir_entry *e =
-            (union x86_64_pdir_entry *)lv + slot;
-        paddr = (lpaddr_t)e->d.base_addr << BASE_PAGE_BITS;
-        entry_ = e;
-        pte_ = lp + slot * sizeof(union x86_64_pdir_entry);
-        break;
-    }
-    case ObjType_VNode_x86_64_ptable: {
-        union x86_64_ptable_entry *e =
-            (union x86_64_ptable_entry *)lv + slot;
-        paddr = (lpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
-        entry_ = e;
-        pte_ = lp + slot * sizeof(union x86_64_ptable_entry);
-        break;
-    }
-    default:
-        assert(!"Should not get here");
-    }
-
-    if (mapped_addr) {
-        *mapped_addr = paddr;
-    }
-    if (pte) {
-        *pte = pte_;
-    }
-    if (entry) {
-        *entry = entry_;
-    }
-}
-
-__attribute__((unused))
-static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
-{
-    lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
-
-    // get pdpt
-    union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + X86_64_PML4_BASE(vaddr);
-    if (!pdpt->raw) { return 0; }
-    genpaddr_t pdpt_gp = pdpt->d.base_addr << BASE_PAGE_BITS;
-    lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
-    // get pdir
-    union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + X86_64_PDPT_BASE(vaddr);
-    if (!pdir->raw) { return 0; }
-    genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
-    lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
-    // get ptable
-    union x86_64_ptable_entry *ptable = (union x86_64_ptable_entry *)pdir_lv + X86_64_PDIR_BASE(vaddr);
-    if (!ptable->raw) { return 0; }
-    genpaddr_t ptable_gp = ptable->base.base_addr << BASE_PAGE_BITS;
-    lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
-
-    return ptable_lv;
-}
-
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
 {
     // iterate over affected leaf ptables
@@ -431,50 +338,6 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
         unmapped_pages++;
     }
     return unmapped_pages;
-}
-
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
-{
-    assert(type_is_vnode(pgtable->type));
-    assert(type_is_mapping(mapping->cap.type));
-    struct Frame_Mapping *info = &mapping->cap.u.frame_mapping;
-    errval_t err;
-    debug(SUBSYS_PAGING, "page_mappings_unmap(%hu pages)\n", info->pte_count);
-
-    // calculate page table address
-    lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
-
-    cslot_t slot = (local_phys_to_mem(info->pte) - pt) / get_pte_size();
-    // get virtual address of first page
-    genvaddr_t vaddr;
-    bool tlb_flush_necessary = true;
-    struct cte *leaf_pt = cte_for_cap(pgtable);
-    err = compile_vaddr(leaf_pt, slot, &vaddr);
-    if (err_is_fail(err)) {
-        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED && vaddr == 0) {
-            debug(SUBSYS_PAGING, "unmapping in floating page table; not flushing TLB\n");
-            tlb_flush_necessary = false;
-        } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID) {
-            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
-        } else {
-            return err;
-        }
-    }
-
-    do_unmap(pt, slot, info->pte_count);
-
-    // flush TLB for unmapped pages if we got a valid virtual address
-    // TODO: heuristic that decides if selective or full flush is more
-    //       efficient?
-    if (tlb_flush_necessary) {
-        if (info->pte_count > 1 || err_is_fail(err)) {
-            do_full_tlb_flush();
-        } else {
-            do_one_tlb_flush(vaddr);
-        }
-    }
-
-    return SYS_ERR_OK;
 }
 
 /**

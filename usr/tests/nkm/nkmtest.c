@@ -27,7 +27,7 @@ int map_unmap(void)
     DEBUG_MAP_UNMAP("ram_alloc\n");
     err = ram_alloc(&mem, BASE_PAGE_BITS);
     if (err_is_fail(err)) {
-        printf("ram_alloc: %s (%ld)\n", err_getstring(err), err);
+        printf("ram_alloc: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
 
@@ -35,32 +35,32 @@ int map_unmap(void)
     DEBUG_MAP_UNMAP("retype\n");
     err = slot_alloc(&frame);
     if (err_is_fail(err)) {
-        printf("slot_alloc: %s (%ld)\n", err_getstring(err), err);
+        printf("slot_alloc: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
     err = cap_retype(frame, mem, ObjType_Frame, BASE_PAGE_BITS);
     if (err_is_fail(err)) {
-        printf("cap_retype: %s (%ld)\n", err_getstring(err), err);
+        printf("cap_retype: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
 
     DEBUG_MAP_UNMAP("delete ram cap\n");
     err = cap_destroy(mem);
     if (err_is_fail(err)) {
-        printf("cap_delete(mem): %s (%ld)\n", err_getstring(err), err);
+        printf("cap_delete(mem): %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
 
     struct frame_identity fi;
     err = invoke_frame_identify(frame, &fi);
     if (err_is_fail(err)) {
-        printf("frame_identify: %s (%ld)\n", err_getstring(err), err);
+        printf("frame_identify: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
     DEBUG_MAP_UNMAP("frame: base = 0x%"PRIxGENPADDR", bits = %d\n", fi.base, fi.bits);
 
 #ifdef NKMTEST_DEBUG_MAP_UNMAP
-    dump_page_tables();
+    dump_pmap(get_current_pmap());
 #endif
 
     struct vregion *vr;
@@ -69,13 +69,13 @@ int map_unmap(void)
     DEBUG_MAP_UNMAP("map\n");
     err = vspace_map_one_frame(&vaddr, BASE_PAGE_SIZE, frame, &memobj, &vr);
     if (err_is_fail(err)) {
-        printf("vspace_map_one_frame: %s (%ld)\n", err_getstring(err), err);
+        printf("vspace_map_one_frame: %s (%"PRIuERRV")\n", err_getstring(err), err);
     }
     char *memory = vaddr;
     DEBUG_MAP_UNMAP("vaddr = %p\n", vaddr);
 
 #ifdef NKMTEST_DEBUG_MAP_UNMAP
-    dump_page_tables();
+    dump_pmap(get_current_pmap());
 #endif
 
     DEBUG_MAP_UNMAP("write 1\n");
@@ -91,16 +91,16 @@ int map_unmap(void)
     DEBUG_MAP_UNMAP("delete frame cap\n");
     err = cap_destroy(frame);
     if (err_is_fail(err)) {
-        printf("cap_delete(frame): %s (%ld)\n", err_getstring(err), err);
+        printf("cap_delete(frame): %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
 
 #ifdef NKMTEST_DEBUG_MAP_UNMAP
     // no mapping should remain here
-    dump_page_tables();
+    dump_pmap(get_current_pmap());
     err = debug_dump_hw_ptables();
     if (err_is_fail(err)) {
-        printf("kernel dump ptables: %s (%ld)\n", err_getstring(err), err);
+        printf("kernel dump ptables: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;
     }
 #endif

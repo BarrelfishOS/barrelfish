@@ -69,6 +69,20 @@ static inline size_t get_offset(struct cte *mapping, struct cte *next)
 }
 
 /*
+ * 'set_cap()' for mapping caps
+ */
+void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
+                        lvaddr_t pte, size_t pte_count)
+{
+    assert(mapping_cte->cap.type == ObjType_Null);
+
+    mapping_cte->cap.type = get_mapping_type(frame->type);
+    mapping_cte->cap.u.frame_mapping.frame = frame;
+    mapping_cte->cap.u.frame_mapping.pte = pte;
+    mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
+}
+
+/*
  * compile_vaddr returns the lowest address that is addressed by entry 'entry'
  * in page table 'ptable'
  */
@@ -227,7 +241,7 @@ delete_mapping:
         next = to_delete->delete_node.next;
         err = caps_delete(to_delete);
         if (err_is_fail(err)) {
-            printk(LOG_NOTE, "caps_delete: %ld", err);
+            printk(LOG_NOTE, "caps_delete: %"PRIuERRV"\n", err);
         }
         to_delete = next;
     }
@@ -239,6 +253,50 @@ delete_mapping:
         do_one_tlb_flush(vaddr);
     } else {
         do_full_tlb_flush();
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
+{
+    assert(type_is_vnode(pgtable->type));
+    assert(type_is_mapping(mapping->cap.type));
+    struct Frame_Mapping *info = &mapping->cap.u.frame_mapping;
+    errval_t err;
+    debug(SUBSYS_PAGING, "page_mappings_unmap(%hu pages)\n", info->pte_count);
+
+    // calculate page table address
+    lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
+
+    cslot_t slot = (local_phys_to_mem(info->pte) - pt) / get_pte_size();
+    // get virtual address of first page
+    genvaddr_t vaddr;
+    bool tlb_flush_necessary = true;
+    struct cte *leaf_pt = cte_for_cap(pgtable);
+    err = compile_vaddr(leaf_pt, slot, &vaddr);
+    if (err_is_fail(err)) {
+        if (err_no(err) == SYS_ERR_VNODE_NOT_INSTALLED && vaddr == 0) {
+            debug(SUBSYS_PAGING, "unmapping in floating page table; not flushing TLB\n");
+            tlb_flush_necessary = false;
+        } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID) {
+            debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
+        } else {
+            return err;
+        }
+    }
+
+    do_unmap(pt, slot, info->pte_count);
+
+    // flush TLB for unmapped pages if we got a valid virtual address
+    // TODO: heuristic that decides if selective or full flush is more
+    //       efficient?
+    if (tlb_flush_necessary) {
+        if (info->pte_count > 1 || err_is_fail(err)) {
+            do_full_tlb_flush();
+        } else {
+            do_one_tlb_flush(vaddr);
+        }
     }
 
     return SYS_ERR_OK;

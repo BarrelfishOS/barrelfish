@@ -28,10 +28,12 @@ int main(void)
         return 2;
     }
 
+#ifdef __x86_64__
     if((r = invalid_mappings())) {
         printf("invalid_mappings returned %d\n", r); 
         return 3;
     }
+#endif
 
     printf("nkmtest_all: all tests passed\n");
 
