@@ -271,9 +271,9 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
 }
 
 /**
- * \brief Modify mapping flags on parts of a mapped frame
+ * \brief Modify mapping flags on parts of a mapping
  *
- * \param frame    CSpace address of frame capability
+ * \param mapping  CSpace address of mapping capability
  * \param off      Offset (in #pages) of the first page to get new set of flags
  *                 from the first page in the mapping identified by `frame`
  * \param pages    Number of pages that should get new set of flags
@@ -282,13 +282,13 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
  *
  * \return Error code
  */
-static inline errval_t invoke_frame_modify_flags(struct capref frame,
-                                                 size_t offset,
-                                                 size_t pages,
-                                                 size_t flags,
-                                                 genvaddr_t va_hint)
+static inline errval_t invoke_mapping_modify_flags(struct capref mapping,
+                                                   size_t offset,
+                                                   size_t pages,
+                                                   size_t flags,
+                                                   genvaddr_t va_hint)
 {
-    return cap_invoke5(frame, FrameCmd_ModifyFlags, offset,
+    return cap_invoke5(mapping, MappingCmd_Modify, offset,
                        pages, flags, va_hint).error;
 }
 

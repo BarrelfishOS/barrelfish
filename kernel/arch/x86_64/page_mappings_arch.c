@@ -519,9 +519,17 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    /* Calculate location of first pt entry we need to modify */
+    // address of first pte we modify
     lvaddr_t base = local_phys_to_mem(info->pte) +
         offset * sizeof(union x86_64_ptable_entry);
+
+    // get pt cap to figure out page size
+    struct cte *leaf_pt;
+    errval_t err;
+    err = mdb_find_cap_for_address(info->pte, &leaf_pt);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     size_t pagesize = BASE_PAGE_SIZE;
     switch(leaf_pt->cap.type) {
@@ -553,17 +561,20 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
     }
 
     if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
+        debug(SUBSYS_PAGING,
+                "selective flush: 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
+                va_hint, va_hint + pages * pagesize);
         // use as direct hint
         // invlpg should work for large/huge pages
         for (int i = 0; i < pages; i++) {
             do_one_tlb_flush(va_hint + i * pagesize);
         }
     } else {
+        debug(SUBSYS_PAGING, "full flush\n");
         /* do full TLB flush */
         do_full_tlb_flush();
     }
     return SYS_ERR_OK;
-#endif
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

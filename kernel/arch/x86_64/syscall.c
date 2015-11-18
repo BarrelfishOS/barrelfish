@@ -239,8 +239,22 @@ static struct sysret handle_mapping_destroy(struct capability *mapping,
 static struct sysret handle_mapping_modify(struct capability *mapping,
                                            int cmd, uintptr_t *args)
 {
-    panic("NYI!");
-    return SYSRET(SYS_ERR_OK);
+    // Modify flags of (part of) mapped region of frame
+    assert(type_is_mapping(mapping->type));
+
+    // unpack arguments
+    size_t offset = args[0]; // in pages; of first page to modify from first
+                             // page in mapped region
+    size_t pages  = args[1]; // #pages to modify
+    size_t flags  = args[2]; // new flags
+    genvaddr_t va = args[3]; // virtual addr hint
+
+    errval_t err = page_mappings_modify_flags(mapping, offset, pages, flags, va);
+
+    return (struct sysret) {
+        .error = err,
+        .value = 0,
+    };
 }
 
 /// Different handler for cap operations performed by the monitor
@@ -532,27 +546,6 @@ static struct sysret handle_vnode_identify(struct capability *to,
     return (struct sysret) {
         .error = SYS_ERR_OK,
         .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
-    };
-}
-
-static struct sysret handle_frame_modify_flags(struct capability *to,
-                                               int cmd, uintptr_t *args)
-{
-    // Modify flags of (part of) mapped region of frame
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-
-    // unpack arguments
-    size_t offset = args[0]; // in pages; of first page to modify from first
-                             // page in mapped region
-    size_t pages  = args[1]; // #pages to modify
-    size_t flags  = args[2]; // new flags
-    genvaddr_t va = args[3]; // virtual addr hint
-
-    errval_t err = page_mappings_modify_flags(to, offset, pages, flags, va);
-
-    return (struct sysret) {
-        .error = err,
-        .value = 0,
     };
 }
 
@@ -1064,11 +1057,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,

@@ -132,12 +132,12 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
         if (err_is_fail(err)) {
             // no mapping found, cannot reconstruct vaddr
             *retvaddr = 0;
-            return err;
+            return SYS_ERR_VNODE_NOT_INSTALLED;
         }
         err = find_next_ptable(mapping, &next);
         if (err == SYS_ERR_VNODE_NOT_INSTALLED) { // no next page table
             *retvaddr = 0;
-            return err;
+            return SYS_ERR_VNODE_NOT_INSTALLED;
         }
         if (err_is_fail(err)) {
             return err;

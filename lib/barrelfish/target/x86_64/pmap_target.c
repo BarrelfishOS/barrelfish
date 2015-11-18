@@ -872,8 +872,8 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
             // do assisted selective flush for single page
             va_hint = vaddr & ~X86_64_BASE_PAGE_MASK;
         }
-        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages,
-                                        pmap_flags, va_hint);
+        err = invoke_mapping_modify_flags(page->mapping, off, pages,
+                                          pmap_flags, va_hint);
         return err;
     } else {
         // overlaps some region border

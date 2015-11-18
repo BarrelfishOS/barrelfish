@@ -328,7 +328,6 @@ enum dispatcher_cmd {
 enum frame_cmd {
     FrameCmd_Identify,      ///< Return physical address of frame
     FrameCmd_SCC_Identify,  ///< Return MC route to frame
-    FrameCmd_ModifyFlags,   ///< Modify flags for (part of) the mapped region of frame
 };
 
 /**
