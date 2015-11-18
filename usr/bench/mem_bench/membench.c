@@ -72,7 +72,9 @@ int main(int argc, char *argv[])
             runs[i] = BENCH_IGNORE_WATERMARK;
         }
 #endif
-        err = vnode_unmap(pagetable,frame,(cslot_t)(i%512),1);
+        err = vnode_unmap(pagetable,mapping,(cslot_t)(i%512),1);
+        assert(err_is_ok(err));
+        err = cap_delete(mapping);
         assert(err_is_ok(err));
     }
 

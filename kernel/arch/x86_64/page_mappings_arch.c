@@ -433,10 +433,11 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *frame,
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
                              size_t slot, size_t num_pages)
 {
     assert(type_is_vnode(pgtable->type));
+    assert(type_is_mapping(mapping->cap.type));
     errval_t err;
     debug(SUBSYS_PAGING, "page_mappings_unmap(%zd pages)\n", num_pages);
 
@@ -446,19 +447,8 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *frame,
     read_pt_entry(pgtable, slot, &paddr, NULL, NULL);
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
-    genpaddr_t faddr = get_address(&frame->cap);
-    struct cte *mapping = frame;
-    while ((mapping = mdb_successor(mapping)) && get_address(&mapping->cap) == faddr)
-    {
-        if (mapping->cap.type == get_mapping_type(frame->cap.type) &&
-            mapping->cap.u.frame_mapping.frame == &frame->cap &&
-            mapping->cap.u.frame_mapping.pte == pt + slot*get_pte_size())
-        {
-            if (num_pages != mapping->cap.u.frame_mapping.pte_count) {
-                return SYS_ERR_VM_MAP_SIZE;
-            }
-            break;
-        }
+    if (num_pages != mapping->cap.u.frame_mapping.pte_count) {
+        return SYS_ERR_VM_MAP_SIZE;
     }
 
     // get virtual address of first page
@@ -495,48 +485,25 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *frame,
 }
 
 /**
- * \brief modify flags of mapping for `frame`.
+ * \brief modify flags of mapping `mapping`.
  *
- * \arg frame the frame whose mapping should be modified
+ * \arg mapping the mapping to modify
  * \arg offset the offset from the first page table entry in entries
  * \arg pages the number of pages to modify
  * \arg mflags the new flags
  * \arg va_hint a user-supplied virtual address for hinting selective TLB
  *              flushing
  */
-errval_t page_mappings_modify_flags(struct capability *frame, size_t offset,
+errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags, genvaddr_t va_hint)
 {
-    panic("NYI!");
-
-#if 0
-    struct cte *mapping = cte_for_cap(frame);
-
-    struct cte *info_cte = mapping;
-    genpaddr_t faddr = get_address(frame);
-    while ((info_cte = mdb_successor(info_cte)) && get_address(&info_cte->cap) == faddr)
-    {
-        if (info_cte->cap.type == get_mapping_type(mapping->cap.type) &&
-            info_cte->cap.u.frame_mapping.frame == &mapping->cap &&
-            info_cte->cap.u.frame_mapping.pte == pt + slot*get_pte_size())
-        {
-            break;
-        }
-    }
-    assert(type_is_mapping(info_cte->cap.type));
-    struct Frame_Mapping *info = &info_cte->cap.u.frame_mapping;
-
-    struct cte *leaf_pt;
-    errval_t err;
-    err = mdb_find_cap_for_address(info->pte, &leaf_pt);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    assert(type_is_mapping(mapping->type));
+    struct Frame_Mapping *info = &mapping->u.frame_mapping;
 
     /* Calculate page access protection flags */
     // Get frame cap rights
     paging_x86_64_flags_t flags =
-        paging_x86_64_cap_to_page_flags(frame->rights);
+        paging_x86_64_cap_to_page_flags(info->frame->rights);
     // Mask with provided access rights mask
     flags = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags
