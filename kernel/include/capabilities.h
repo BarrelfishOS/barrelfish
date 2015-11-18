@@ -94,8 +94,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             uintptr_t offset, uintptr_t pte_count,
                             struct cte *mapping_cte);
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages);
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
-                             size_t entry, size_t num_pages);
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping);
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags,
                                     genvaddr_t va_hint);

@@ -147,7 +147,7 @@ int invalid_mappings(void)
             check_result(err, i, j);
             // unmap if mapping succeeded
             if (err_is_ok(err)) {
-                err = vnode_unmap(caps[i], mapping, /*entry*/0, /*count*/1);
+                err = vnode_unmap(caps[i], mapping);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "vnode_unmap");
                 }

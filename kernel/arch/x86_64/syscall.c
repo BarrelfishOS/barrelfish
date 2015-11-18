@@ -212,8 +212,6 @@ static struct sysret handle_unmap(struct capability *pgtable,
 {
     capaddr_t cptr = args[0];
     int bits       = args[1];
-    size_t entry   = args[2];
-    size_t pages   = args[3];
 
     errval_t err;
     struct cte *mapping;
@@ -224,7 +222,7 @@ static struct sysret handle_unmap(struct capability *pgtable,
     }
 
     TRACE(KERNEL, SC_UNMAP, 0);
-    err = page_mappings_unmap(pgtable, mapping, entry, pages);
+    err = page_mappings_unmap(pgtable, mapping);
     TRACE(KERNEL, SC_UNMAP, 1);
     return SYSRET(err);
 }

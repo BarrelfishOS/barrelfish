@@ -222,10 +222,10 @@ static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
                         offset, pte_count, mcnaddr, mcnbits, mapping_slot).error;
 }
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_addr,
-                                          int bits, size_t entry, size_t num_pages)
+static inline errval_t invoke_vnode_unmap(struct capref cap,
+                                          capaddr_t mapping_addr, int bits)
 {
-    return cap_invoke5(cap, VNodeCmd_Unmap, mapping_addr, bits, entry, num_pages).error;
+    return cap_invoke3(cap, VNodeCmd_Unmap, mapping_addr, bits).error;
 }
 
 /**

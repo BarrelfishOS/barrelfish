@@ -433,26 +433,19 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
-                             size_t slot, size_t num_pages)
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
 {
     assert(type_is_vnode(pgtable->type));
     assert(type_is_mapping(mapping->cap.type));
+    struct Frame_Mapping *info = &mapping->cap.u.frame_mapping;
     errval_t err;
-    debug(SUBSYS_PAGING, "page_mappings_unmap(%zd pages)\n", num_pages);
+    debug(SUBSYS_PAGING, "page_mappings_unmap(%hu pages)\n", info->pte_count);
 
-    // get page table entry data
-    genpaddr_t paddr;
-
-    read_pt_entry(pgtable, slot, &paddr, NULL, NULL);
+    // calculate page table address
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
-    if (num_pages != mapping->cap.u.frame_mapping.pte_count) {
-        return SYS_ERR_VM_MAP_SIZE;
-    }
-
+    cslot_t slot = (local_phys_to_mem(info->pte) - pt) / get_pte_size();
     // get virtual address of first page
-    // TODO: error checking
     genvaddr_t vaddr;
     bool tlb_flush_necessary = true;
     struct cte *leaf_pt = cte_for_cap(pgtable);
@@ -468,13 +461,13 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
         }
     }
 
-    do_unmap(pt, slot, num_pages);
+    do_unmap(pt, slot, info->pte_count);
 
     // flush TLB for unmapped pages if we got a valid virtual address
     // TODO: heuristic that decides if selective or full flush is more
     //       efficient?
     if (tlb_flush_necessary) {
-        if (num_pages > 1 || err_is_fail(err)) {
+        if (info->pte_count > 1 || err_is_fail(err)) {
             do_full_tlb_flush();
         } else {
             do_one_tlb_flush(vaddr);

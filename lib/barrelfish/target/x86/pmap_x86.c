@@ -218,7 +218,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             }
 
             // unmap
-            err = vnode_unmap(root->u.vnode.cap, n->mapping, n->entry, 1);
+            err = vnode_unmap(root->u.vnode.cap, n->mapping);
             if (err_is_fail(err)) {
                 debug_printf("remove_empty_vnodes: vnode_unmap: %s\n",
                         err_getstring(err));
