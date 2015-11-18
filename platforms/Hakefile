@@ -254,7 +254,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "multihop_latency_bench",
                            "angler",
                            "sshd",
-                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu
+                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu ++ modules_common
 
     modules_k1om = [ "/sbin/" ++ f | f <- [
                         "weever",
