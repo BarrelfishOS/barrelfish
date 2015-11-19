@@ -60,7 +60,7 @@
 #define SP_REG   32
 #define PC_REG   33
 
-#define NUM_REGS 34            /* cpsr, x0-x30, sp, pc */
+#define NUM_REGS 34     /* cpsr, x0-x30, sp, pc */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
 
@@ -82,7 +82,6 @@
 
 union registers_aarch64 {
     struct registers_aarch64_named {
-        uint64_t spsr;
         uint64_t x0, x1, x2, x3, x4, x5, x6, x7;
         uint64_t x8;
         uint64_t x9;
@@ -95,9 +94,9 @@ union registers_aarch64 {
         uint64_t link;
         uint64_t stack;
         uint64_t pc;
+        uint64_t spsr;
     } named;
     struct registers_aarch64_syscall_args {
-        uint64_t spsr;
         uint64_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
         uint64_t arg8;
         uint64_t arg9;
@@ -110,14 +109,16 @@ union registers_aarch64 {
         uint64_t link;
         uint64_t stack;
         uint64_t pc;
+        uint64_t spsr;
     } syscall_args;
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
 };
 
 STATIC_ASSERT_SIZEOF(union registers_aarch64, NUM_REGS * sizeof(uint64_t));
 
-STATIC_ASSERT((REG_OFFSET(THREAD_REGISTER) * sizeof(uint64_t)) == offsetof(struct registers_aarch64_named, rtls), "Thread register conflict");
-
+STATIC_ASSERT((REG_OFFSET(THREAD_REGISTER) * sizeof(uint64_t)) ==
+              offsetof(struct registers_aarch64_named, rtls),
+              "Thread register conflict");
 
 ///< Opaque handle for the register state
 typedef union registers_aarch64 arch_registers_state_t;

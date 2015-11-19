@@ -25,50 +25,12 @@
 
 static arch_registers_state_t upcall_state;
 
+STATIC_ASSERT(X0_REG   ==  0, "");
+STATIC_ASSERT(PC_REG   == 32, "");
+STATIC_ASSERT(SPSR_REG == 33, "");
+
 extern uint32_t ctr;
 static inline __attribute__((noreturn))
-void do_resume(uint64_t *regs)
-{
-    STATIC_ASSERT(SPSR_REG ==  0, "");
-    STATIC_ASSERT(X0_REG   ==  1, "");
-    STATIC_ASSERT(PC_REG   == 33, "");
-
-    // Flush cashes and tlb
-    sysreg_invalidate_tlb();
-    sysreg_invalidate_i_and_d_caches();
-
-    __asm volatile(
-        "clrex\n\t"
-       /* Restore cpsr condition bits  */
-	    "    mov     x30, %[regs]							             \n\t"
-        "    ldr     x2, [x30, #(" XTR(SP_REG) "  * 8)]                  \n\t"
-        "    mov     sp, x2                                              \n\t"
-        "    ldr     x2, [x30, # (" XTR(PC_REG) "  * 8)]                 \n\t"
-        "    msr     elr_el1, x2                                         \n\t"
-        "    ldr     x2, [x30], #8                                       \n\t"
-        /*"    msr     spsr_el1, x2                                        \n\t"*/
-        /* Restore registers */
-        "    ldp     x0, x1, [x30], #16                                  \n\t"
-        "    ldp     x2, x3, [x30], #16                                  \n\t"
-        "    ldp     x4, x5, [x30], #16                                  \n\t"
-        "    ldp     x6, x7, [x30], #16                                  \n\t"
-        "    ldp     x8, x9, [x30], #16                                  \n\t"
-        "    ldp     x10, x11, [x30], #16                                \n\t"
-        "    ldp     x12, x13, [x30], #16                                \n\t"
-        "    ldp     x14, x15, [x30], #16                                \n\t"
-        "    ldp     x16, x17, [x30], #16                                \n\t"
-        "    ldp     x18, x19, [x30], #16                                \n\t"
-        "    ldp     x20, x21, [x30], #16                                \n\t"
-        "    ldp     x22, x23, [x30], #16                                \n\t"
-        "    ldp     x24, x25, [x30], #16                                \n\t"
-        "    ldp     x26, x27, [x30], #16                                \n\t"
-        "    ldp     x28, x29, [x30], #16                                \n\t"
-        "    ldr     x30, [x30], #8                                      \n\t"
-		"    eret														\n\t"
-        :: [regs] "r" (regs) : "x30");
-
-    panic("do_resume returned.");
-}
 
 /// Ensure context is for user-mode with interrupts enabled.
 static inline void

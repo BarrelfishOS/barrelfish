@@ -7,253 +7,371 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef __ASSEMBLER__
-#define __ASSEMBLER__
-#endif // __ASSEMBLER__
+/**********************************/
+/*** Start of exception vectors ***/
+/**********************************/
 
-#include <asmoffsets.h> // OFFSETOF etc.
-#include <barrelfish_kpi/registers_arch.h> // CPSR_REG etc.
-#include <barrelfish_kpi/flags_arch.h> // CPSR_IF_MASK etc.
-#include <exceptions.h>
+/* The AArch64 exception vectors occupy 2kiB */
+.align 11
+vectors:
 
-// macro for creating table entries that are nicely aligned
-.macro vector_entry label
-// every entry is at 128 byte boundary
-.align 7
-    b   \label
-.endm
+/* Offset 0x000 */
+/* Exceptions from the current EL, on the EL0 stack.  We never do this. */
+/* Each table entry occupies 128B, which lets us put up to 32 instructions
+ * here before we branch. */
+.align 7 /* 0x000 */
+el1_sp_el0_sync:
+    b invalid_exception
+.align 7 /* 0x080 */
+el1_sp_el0_irq:
+    b invalid_exception
+.align 7 /* 0x100 */
+el1_sp_el0_fiq:
+    b invalid_exception
+.align 7 /* 0x180 */
+el1_sp_el0_serror:
+    b invalid_exception
 
-// macro for getting current exception level (result in arg)
-.macro get_cur_el reg
-    mrs     \reg, currentel
-    ubfm    \reg, \reg, #2, #3 // extract currentel[3:2]
-.endm
+/* Offset 0x200 */
+/* Exceptions from the kernel itself, at EL1. */
+.align 7 /* 0x200 */
+el1_sync:
+    b invalid_exception
+.align 7 /* 0x280 */
+el1_irq:
+    b invalid_exception
+.align 7 /* 0x300 */
+el1_fiq:
+    b invalid_exception
+.align 7 /* 0x380 */
+el1_serror:
+    b invalid_exception
 
-/* XXX - add a cross-reference. */
-// macro for saving exception frame: needs to match with struct layout in C
-// code
-.macro push_state_to_exn_frame
-    // make room for struct on stack
-    sub     sp, sp, #48 // XXX: figure out how much room we need beyond x0-x29/use BF Macros
-    stp     x28, x29, [sp, #-16]!
-    stp     x26, x27, [sp, #-16]!
-    stp     x24, x25, [sp, #-16]!
-    stp     x22, x23, [sp, #-16]!
-    stp     x20, x21, [sp, #-16]!
-    stp     x18, x19, [sp, #-16]!
-    stp     x10, x17, [sp, #-16]!
-    stp     x10, x15, [sp, #-16]!
-    stp     x10, x13, [sp, #-16]!
-    stp     x10, x11, [sp, #-16]!
-    stp      x8,  x9, [sp, #-16]!
-    stp      x6,  x7, [sp, #-16]!
-    stp      x4,  x5, [sp, #-16]!
-    stp      x2,  x3, [sp, #-16]!
-    stp      x0,  x1, [sp, #-16]!
-    // save old SP: 48 + 32 * 8
-    add     x1, sp, #288
-    get_cur_el x0
-    cmp     x0, #1
-    b.ne    push_get_el2_state_\@
-    // save ELR_EL1
-    mrs     x2, elr_el1
-    // save SPSR_EL1
-    mrs     x3, spsr_el1
-    b       push_el_state_cont_\@
-push_get_el2_state_\@:
-    // save ELR_EL1
-    mrs     x2, elr_el2
-    // save SPSR_EL1
-    mrs     x3, spsr_el2
-push_el_state_cont_\@:
-    // store pair of lr and sp just after x29
-    stp     x30, x1, [sp, #240]
-    // store pair of elr_el1, and spsr_el1 just after sp
-    stp     x2, x3, [sp, #256]
-.endm
+/* Offset 0x400 */
+/* Exceptions from user level, EL0, executing AArch64.  For any of these four
+ * exceptions, the stack pointer is SP_EL1, which is left at the top of
+ * 'kernel_stack'. */
+ .align 7 /* 0x400 */
+/* Synchronous exceptions from a lower execution level using AArch64: SVC
+ * (syscall), data abort, prefetch abort and undefined instruction. */
+el0_aarch64_sync:
+    /* Reenable breakpoints and aborts.  Interrupts remain disabled. */
+    msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
 
-// macro for restoring from exception frame: needs to match with struct layout
-// in C code
-.macro pop_state_from_exn_frame
-    // load elr, spsr
-    ldp     x21, x22, [sp, #256]
-    ldp     x0, x1, [sp], #16
-    ldp     x2, x3, [sp], #16
-    ldp     x4, x5, [sp], #16
-    ldp     x6, x7, [sp], #16
-    ldp     x8, x9, [sp], #16
-    get_cur_el x10
-    cmp     x10, #1
-    b.ne    pop_restore_el2_state_\@
-    // set elr and spsr
-    msr     elr_el1, x21
-    msr     spsr_el1, x22
-    b       pop_state_cont_\@
-pop_restore_el2_state_\@:
-    cmp     x10, #2
-    b.ne    halt
-    // set elr and spsr
-    msr     elr_el2, x21
-    msr     spsr_el2, x22
-pop_state_cont_\@:
-    ldp      x10, x11, [sp], #16
-    ldp      x12, x13, [sp], #16
-    ldp      x14, x15, [sp], #16
-    ldp      x16, x17, [sp], #16
-    ldp      x18, x19, [sp], #16
-    ldp      x20, x21, [sp], #16
-    ldp      x22, x23, [sp], #16
-    ldp      x24, x25, [sp], #16
-    ldp      x26, x27, [sp], #16
-    ldp      x28, x29, [sp], #16
-    // restore link register
-    ldr     x30, [sp], #48
-.endm
+    /* Spill a few working registers.  We use x9-, as these won't need to be
+     * restored if we're doing a syscall; they're caller-saved. */
+    stp x11, x12, [sp, #-16]!
+    stp x9,  x10, [sp, #-16]!
 
-.global exception_vectors
-// XXX - why?
-.type exception_vectors @function
-// page-align exception vector table, cf. ARM reference manual, p.D7-2138
-.align 12
-exception_vectors:
-    // current EL with SP_EL0: NYI/unused
-    vector_entry invalid_handler    // sync
-    vector_entry invalid_handler    // IRQ/vIRQ
-    vector_entry invalid_handler    // FIQ/vFIQ
-    vector_entry invalid_handler    // SError/vSError
+    /* The EL1 thread ID register holds the address of the currently-running
+     * dispatcher's shared control block. */
+    msr x10, tpidr_el1
 
-    // current EL with SP_ELcur
-    vector_entry sync_handler       // sync
-    vector_entry irq_handler        // IRQ/vIRQ
-    vector_entry fiq_handler        // FIQ/vFIQ
-    vector_entry serror_handler     // SError/vSError
+    /* x10 = dispatcher_shared_aarch64 */
 
-    // lower EL running AArch64: NYI
-    vector_entry invalid_handler    // sync
-    vector_entry invalid_handler    // IRQ/vIRQ
-    vector_entry invalid_handler    // FIQ/vFIQ
-    vector_entry invalid_handler    // SError/vSError
+    /* Exception PC */
+    msr x9, elr_el1
 
-    // lower EL running AArch32: unsupported
-    vector_entry invalid_handler    // sync
-    vector_entry invalid_handler    // IRQ/vIRQ
-    vector_entry invalid_handler    // FIQ/vFIQ
-    vector_entry invalid_handler    // SError/vSError
+    /* x9 = EPC, x10 = dispatcher_shared_aarch64 */
 
+    /* Check whether the current dispatcher is disabled. */
+    /* disp->crit_pc_low, disp->crit_pc_high */
+    ldp x11, x12, [x10, #OFFSETOF_DISP_CRIT_PC_LOW]
+    cmp x11, x9
+    /* LS -> low <= PC, HI -> PC < low */
+    sub x12, x12, #8
+    ccmp x12, x9, #0, ls
+    /* LS -> PC < low || PC >= high, HI -> low <= PC && PC < high */
+    ldr w11, [x10, #OFFSETOF_DISP_DISABLED]
+    mov x12, #0
+    ccmp x11, x12, #0, ls
+    /* LS -> (PC < low || PC >= high) && disabled = 0,
+       HI -> (low <= PC && PC < high) || disabled != 0 */
 
-// we are using unsigned bitfield moves (ubfm, C6-789) to extract fields from
-// registers.
-//
-// Exception Class (EC) in exception syndrome register (ESR): bits 26-31, cf.
-// ARMv8 reference manual, p.D7-1944
-#define ESR_EC_H 31
-#define ESR_EC_L 26
-// Instruction Specific Syndrome (ISS) in ESR: bits 24-0, cf. D7-1949
-#define ESR_ISS_H 24
-#define ESR_ISS_L 0
-// ESR ISS fields for Data/Instr aborts: bits 5-0 encode data fault status
-// code (DFSC), format: FFFFLL, where F bits indicate fault type, and L bits
-// indicate fault level
-#define ESR_DFSC_H 5
-#define ESR_DFSC_L 0
-// Data Abort value of EC in ESR: 0x24 when caused in lower EL, 0x25 when
-// caused in same EL
-#define ESR_EC_DATA_ABORT_LEL 0x24
-#define ESR_EC_DATA_ABORT_SEL 0x25
-// Instruction Abort value of EC in ESR: 0x20 when caused in lower EL, 0x21
-// when caused in same EL
-#define ESR_EC_INST_ABORT_LEL 0x20
-#define ESR_EC_INST_ABORT_SEL 0x21
+    /* Figure out what sort of exception we've got.  All paths need this. */
+    mrs x11, esr_el1  /* Exception Syndrome Register */
+    lsr x11, x11, #26 /* Exception Class field is bits [31:26] */
 
-        //
-        // void invalid_handler(void)
-        //
-        // handler for NYI/unused exceptions
-        //
-.global invalid_handler
-.type invalid_handler @function
-invalid_handler:
-    mrs     x20, elr_el1    // store exception link register to x20
-    mrs     x21, spsr_el1   // store saved pstate to x21
-    mrs     x22, esr_el1    // store exception syndrome register to x22
+    /* x9 = EPC, x11 = EC, x10 = dispatcher_shared_aarch64 */
 
-    ubfm    x23, x22, #ESR_EC_L, #ESR_EC_H
-    ubfm    x24, x22, #ESR_ISS_L, #ESR_ISS_H
+    /* Faults while disabled should be rare, if the critical section is short,
+     * and will always be within the dispatcher code.  Therefore we branch out
+     * to the slowpath here. */
+    b.hi el0_sync_disabled
 
-    b       halt
+    /* 15 instructions to here. */
 
+    /* All exceptions use the 'enabled' area if the dispatcher is enabled. */
+    add x10, x10, #OFFSETOF_DISP_ENABLED_AREA
 
-        //
-        // void sync_handler(void)
-        //
-        // handle synchronous exceptions (e.g. Data/Instr aborts)
-        //
-.global sync_handler
-.type sync_handler @function
-sync_handler:
-    push_state_to_exn_frame
+    /* x9 = EPC, x10 = base of save area, x11 = EC */
 
-    // get current EL
-    get_cur_el x0
-    cmp     x0, #1
-    // != -> check for EL2
-    b.ne    sync_handler_check_el2
-    // == -> extract from  esr_el
-    // extract exception details from ESR_EL1
-    mrs     x1, esr_el1
-    b       sync_handler_common
-sync_handler_check_el2:
-    cmp     x0, #2
-    b.ne    halt
-    // == -> use el2 registers
-    // extract exception details from ESR_EL1
-    mrs     x1, esr_el2
+save_syscall_context:
+    /* We need to save r19+ no matter what, so get on with it. */
+    /* Callee-saved registers */
+    stp x19, x20, [x10]
+    stp x21, x22, [x10, #16]
+    stp x23, x24, [x10, #32]
+    stp x25, x26, [x10, #48]
+    stp x27, x28, [x10, #64]
+    stp x29, x30, [x10, #80] /* FP & LR */
 
-sync_handler_common:
-    // Exception Class to x2
-    ubfm    x2, x1, #ESR_EC_L, #ESR_EC_H
-    // Fault to x3
-    ubfm    x3, x1, #ESR_DFSC_L, #ESR_DFSC_H
-    // goto C if data abort (can only be from same EL right now)
-    cmp     x2, #ESR_EC_DATA_ABORT_SEL
-    b.eq    handle_pf_abort
-    // goto C if instruction abort (can only be from same EL right now)
-    cmp     x2, #ESR_EC_INST_ABORT_SEL
-    b.eq    handle_pf_abort
-    // otherwise, goto unknown_handler(esr)
-    b.ne    handle_sync_abort
-    b       sync_handler_epi
-handle_pf_abort:
-    // goto invalid_handler if fault == 0
-    cbz     x3, invalid_handler
-    // goto invalid_handler if fault > 3
-    cmp     x3, #3
-    b.hi    invalid_handler
+    /* High registers are now available. */
 
-    // save exn frame (top of stack) to x0
-    mov     x0, sp
-    bl      page_fault
+    /* SPSR */
+    mrs x19, spsr_el1
+    str x19, [x10, #96]
 
-sync_handler_epi:
-    pop_state_from_exn_frame
+    /* User PC and SP */
+    mrs x20, sp_el0
+    stp x20, x9, [x10, #104]
+
+    /* Is this a syscall? */
+    cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
+    b.ne el0_abort_enabled
+
+    /* 28 instructions to here. */
+
+    /* If we're here, this is a syscall and we don't need to restore the
+     * scratch registers. Just throw the stack frame away. */
+    add sp, sp, #(16 + 16)
+
+    /* Jump to the common (C) syscall handler. */
+    b sys_syscall
+
+    /* 30 instructions to here */
+
+.align 7 /* 0x480 */
+/* An interrupt at user level */
+el0_aarch64_irq:
+    /* Reenable breakpoints and aborts.  Interrupts remain disabled. */
+    msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
+
+    /* Free scratch registers. */
+    stp x2, x3, [sp, #-16]!
+    stp x0, x1, [sp, #-16]!
+
+    /* Find the dispatcher. */
+    msr x3, tpidr_el1
+
+    /* Get the exception address (EPC) */
+    msr x1, elr_el1
+
+    /* x0 = crit_pc_low, x1 = EPC,
+       x2 = crit_pc_high, x3 = dispatcher_shared_aarch64 */
+
+    /* Dispatcher disabled? */
+    ldp x0, x2, [x3, #OFFSETOF_DISP_CRIT_PC_LOW]
+    cmp x0, x1
+    /* LS -> low <= PC, HI -> PC < low */
+    sub x2, x2, #8
+    ccmp x2, x1, #0, ls
+    /* LS -> PC < low || PC >= high, HI -> low <= PC && PC < high */
+    ldr w0, [x3, #OFFSETOF_DISP_DISABLED]
+    mov x1, #0
+    ccmp x0, x1, #0, ls
+    /* LS -> (PC < low || PC >= high) && disabled = 0,
+       HI -> (low <= PC && PC < high) || disabled != 0 */
+
+    /* x1 = EPC, x3 = dispatcher_shared_aarch64 */
+
+    /* Choose the right save area. */
+    add x0, x3, #OFFSETOF_DISP_ENABLED_AREA
+    add x2, x3, #OFFSETOF_DISP_DISABLED_AREA
+    csel x0, x0, x2, hi
+
+    /* x0 = save area, x1 = EPC */
+
+    /* 15 instructions. */
+
+    /* Save the register context, starting from x4.  x0-x3, the scratch
+     * registers, can be copied to the trap frame from within the C handler,
+     * as can the user stack pointer and SPSR, which are sitting in their own
+     * system registers. */
+    stp  x4,  x5, [x0, #32]
+    stp  x6,  x7, [x0, #48]
+    stp  x8,  x9, [x0, #64]
+    stp x10, x11, [x0, #80]
+    stp x12, x13, [x0, #96]
+    stp x14, x15, [x0, #102]
+    stp x16, x17, [x0, #128]
+    stp x18, x19, [x0, #144]
+    stp x20, x21, [x0, #160]
+    stp x22, x23, [x0, #176]
+    stp x24, x25, [x0, #192]
+    stp x26, x27, [x0, #208]
+    stp x28, x29, [x0, #224]
+    str x30,      [x0, #240]
+
+    /* 29 instructions. */
+
+    /* Load the saved scratch registers, and pass them as arguments to the
+     * handler.  We can't save them ourselves as we've run out of
+     * instructions.  We need to do at least this, to clear our stack frame.
+     * */
+    ldp x2, x3, [sp], #16 /* x0, x1 */
+    ldp x4, x5, [sp], #16 /* x2, x3 */
+
+    /* x0 = save area, x1 = EPC,
+     * x2 = user x0, x3 = user x1,
+     * x4 = user x2, x5 = user x3 */
+    b handle_irq
+
+    /* 32 instructions. */
+
+.align 7 /* 0x500 */
+/* We don't implement fast IRQs */
+el0_aarch64_fiq:
+    b invalid_exception
+
+.align 7 /* 0x580 */
+/* A delayed abort.  We don't handle this. */
+el0_aarch64_serror:
+    b invalid_exception
+
+/* Offset 0x600 */
+/* Exceptions from user level, EL0, executing AArch32.  This is currently
+ * unimplemented. */
+.align 7 /* 0x600 */
+el0_aarch32_sync:
+    b invalid_exception
+.align 7 /* 0x680 */
+el0_aarch32_irq:
+    b invalid_exception
+.align 7 /* 0x700 */
+el0_aarch32_fiq:
+    b invalid_exception
+.align 7 /* 0x780 */
+el0_aarch32_serror:
+    b invalid_exception
+
+/********************************/
+/*** End of exception vectors ***/
+/********************************/
+
+/* The tail of the user abort handler doesn't fit in the table. */
+el0_abort_enabled:
+    /* x10 = base of save area, x11 = EC */
+
+    /* Spill the argument registers and x8. */
+    stp x0,  x1,  [x10, #120]
+    stp x2,  x3,  [x10, #136]
+    stp x4,  x5,  [x10, #152]
+    stp x6,  x7,  [x10, #168]
+    str x8,       [x10, #184]
+
+    /* We saved x9-x12 in our stack frame. Copy them. */
+    ldp x0,  x1,  [sp], #16 /* x9,  x10 */
+    ldp x2,  x3,  [sp], #16 /* x11, x12 */
+    stp x0,  x1,  [x10, #192]
+    stp x2,  x3,  [x10, #208]
+
+    /* Now spill the rest of the caller-saved registers. */
+    stp x13, x14, [x10, #224]
+    stp x15, x16, [x10, #240]
+    stp x17, x18, [x10, #256]
+
+    /* x19-x30, SP, SPSR and ELR were saved in the common path. */
+
+    /* x11 = EC */
+
+    /* All registers are now available. */
+
+    /* Now we can jump to the appropriate handler. */
+    cmp x11, #0x24 /* Data Abort */
+    b handle_user_page_fault
+    cmp x11, #0x20 /* Prefetch Abort */
+    b handle_user_page_fault
+    /* Unknown Trap/Undefined Instruction */
+    b handle_user_undef
+
+/* A synchronous exception while the dispatcher is disabled.  This is the
+ * slowpath.  In fact, libbarrelfish currently (2015) just refuses to continue
+ * if this ever happens. */
+el0_sync_disabled:
+    /* x9 = EPC, x11 = EC, x10 = dispatcher_shared_aarch64 */
+
+    /* Filter out aborts. */
+    cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
+    b.ne el0_abort_disabled
+
+    /* Use the 'disabled' area. */
+    add x10, x10, #OFFSETOF_DISP_DISABLED_AREA
+
+    /* Jump back into the syscall path. */
+    b save_syscall_context
+
+/* This is the *really* unexpected path: a page fault in the dispatcher
+ * critical section.  It's (relatively) slow, and libbarrelfish doesn't
+ * actually handle it at present (2015). */
+el0_abort_disabled:
+    /* x11 = EC,
+       x13 = dispatcher_shared_aarch64 */
+
+    /* Use the 'trap' area. */
+    add x10, x10, #OFFSET_OF_DISP_TRAP_AREA
+
+    /* Save the reduced context. */
+    /* Callee-saved registers */
+    stp x19, x20, [x10]
+    stp x21, x22, [x10, #16]
+    stp x23, x24, [x10, #32]
+    stp x25, x26, [x10, #48]
+    stp x27, x28, [x10, #64]
+    stp x29, x30, [x10, #80] /* FP & LR */
+
+    /* SPSR */
+    mrs x19, spsr_el1
+    str x19, [x10, #96]
+
+    /* User PC and SP */
+    mrs x20, sp_el0
+    stp x20, x9, [x10, #104]
+
+    /* Now reuse the 'enabled' abort handler. */
+    b el0_abort_enabled
+
+fatal_kernel_fault:
+    /* XXX - write me */
+    b fatal_kernel_fault
+
+/* Restore the dispatcher's execution context.  x0 holds the base of the
+ * appropriate save area. */
+do_resume:
+    /* Skip to the end... */
+    add x0, x0, #((NUM_REGS-1) * 8)
+
+    /* Flush the TLB - XXX kill this with fire. */
+    dsb sy
+    tlbi alle1
+    dsb sy
+    isb
+
+    /* Restore SPSR, PC (ELR) and SP, which need temporary registers, before
+     * we restore those. */
+    ldr x3,     [x0], #-8  /* spsr */
+    ldr x1, x2, [x0], #-16 /* pc, stack */
+    msr spsr_el1, x3
+    msr elr_el1,  x2
+    mov sp,       x1
+
+    /* Restore the general-purpose registers. */
+    ldp x29, x30, [x0], #-16
+    ldp x27, x28, [x0], #-16
+    ldp x25, x26, [x0], #-16
+    ldp x23, x24, [x0], #-16
+    ldp x21, x22, [x0], #-16
+    ldp x19, x20, [x0], #-16
+    ldp x17, x18, [x0], #-16
+    ldp x15, x16, [x0], #-16
+    ldp x13, x14, [x0], #-16
+    ldp x11, x12, [x0], #-16
+    ldp x9,  x10, [x0], #-16
+    ldp x7,  x8,  [x0], #-16
+    ldp x5,  x6,  [x0], #-16
+    ldp x3,  x4,  [x0], #-16
+    ldp x1,  x2,  [x0], #-16
+    ldr x0,       [x0]
+
+    /* Return from exception.  This clears the load exclusive monitor. */
     eret
-
-        //
-        // void irq_handler(void)
-        //
-.global irq_handler
-.type irq_handler @function
-irq_handler:
-    push_state_to_exn_frame
-    b   handle_irq
-    pop_state_from_exn_frame
-    eret
-
-// FIQ/SError NYI
-.global fiq_handler
-.type fiq_handler @function
-fiq_handler:
-.global serror_handler
-.type serror_handler @function
-serror_handler:
-    b   invalid_handler

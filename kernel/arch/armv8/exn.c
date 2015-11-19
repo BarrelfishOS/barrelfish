@@ -143,8 +143,8 @@ static int32_t bkpt_decode(lvaddr_t fault_address)
     return bkpt_id;
 }
 
-void fatal_kernel_fault(uint32_t evector, lvaddr_t address, arch_registers_state_t* save_area
-    )
+void fatal_kernel_fault(uint64_t evector, lvaddr_t address,
+                        arch_registers_state_t* save_area)
 {
     int i;
     printk(LOG_PANIC, "Kernel fault at %"PRIxLVADDR
