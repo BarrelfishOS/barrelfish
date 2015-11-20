@@ -23,7 +23,7 @@
 #define L2_PAGE_OFFSET(idx)     (L2_PAGE_IDX(idx) * PTABLE_SIZE)
 
 #define L2_IS_MAPPED(ptable, idx) \
-        ((ptable)->u.vnode.mapped & (1 << L2_PAGE_IDX(idx)))
+        (!capref_is_null((ptable)->u.vnode.mapped[idx]))
 
 
 /// Node in the meta-data, corresponds to an actual VNode object
@@ -33,12 +33,13 @@ struct vnode {
     struct vnode  *next;       ///< Next entry in list of siblings
     union {
         struct {
-            struct capref cap[L2_PER_PAGE];     ///< Capability of this VNode
-            struct vnode  *children;            ///< Children of this VNode
-            uint8_t mapped;                     ///< which 1k tables are actually mapped
+            struct capref cap;           ///< Capability of this VNode
+            struct vnode  *children;     ///< Children of this VNode
+            struct capref mapped[L2_PER_PAGE]; // < mapping caps for mapped 1k tables
         } vnode; // for non-leaf node
         struct {
             struct capref   cap;         ///< Capability of this VNode
+            struct capref   mapping;     ///< Mapping cap for this vnode
             genvaddr_t      offset;      ///< Offset within mapped frame cap
             vregion_flags_t flags;       ///< Flags for mapping
             uint16_t        pte_count;   ///< number of user page table entries consumed by this mapping

@@ -47,7 +47,9 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
     struct Frame_Mapping *mapping = &mapping_cte->cap.u.frame_mapping;
     err = mdb_find_cap_for_address(
             local_phys_to_gen_phys(mapping->pte), next);
-    if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND) {
+    if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND ||
+        err_no(err) == SYS_ERR_CAP_NOT_FOUND)
+    {
         debug(SUBSYS_PAGING, "could not find cap associated "
                 "with 0x%"PRIxLPADDR"\n", mapping->pte);
         return SYS_ERR_VNODE_NOT_INSTALLED;

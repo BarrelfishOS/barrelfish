@@ -577,6 +577,7 @@ errors spawn SPAWN_ERR_ {
     failure MAP_BOOTINFO        "Failure mapping bootinfo to new domain",
     failure FIND_MODULE         "Didn't find module to be spawned",
     failure MAP_MODULE          "Failed mapping in module",
+    failure UNMAP_MODULE        "Failed unmapping module",
     failure CREATE_SEGCN        "Failed to create segment CNode",
     failure CREATE_SMALLCN      "Failed to create small RAM caps CNode",
 

@@ -960,7 +960,10 @@ errval_t spawn_load_with_bootinfo(struct spawninfo *si, struct bootinfo *bi,
     free(multiboot_args);
 
     // unmap bootinfo module pages
-    spawn_unmap_module(binary);
+    err = spawn_unmap_module(binary);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_UNMAP_MODULE);
+    }
 
     return SYS_ERR_OK;
 }
