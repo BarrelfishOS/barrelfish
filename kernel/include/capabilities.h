@@ -134,58 +134,59 @@ errval_t caps_revoke(struct cte *cte);
  */
 #ifdef TRACE_PMEM_CAPS
 STATIC_ASSERT(44 == ObjType_Num, "knowledge of all cap types");
+STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
 #define MAPPING_TYPES \
-    ((1ul<<ObjType_VNode_x86_64_pml4_Mapping) | \
-     (1ul<<ObjType_VNode_x86_64_pdpt_Mapping) | \
-     (1ul<<ObjType_VNode_x86_64_pdir_Mapping) | \
-     (1ul<<ObjType_VNode_x86_64_ptable_Mapping) | \
-     (1ul<<ObjType_VNode_x86_32_pdpt_Mapping) | \
-     (1ul<<ObjType_VNode_x86_32_pdir_Mapping) | \
-     (1ul<<ObjType_VNode_x86_32_ptable_Mapping) | \
-     (1ul<<ObjType_VNode_ARM_l1_Mapping) | \
-     (1ul<<ObjType_VNode_ARM_l2_Mapping) | \
-     (1ul<<ObjType_VNode_AARCH64_l1_Mapping) | \
-     (1ul<<ObjType_VNode_AARCH64_l2_Mapping) | \
-     (1ul<<ObjType_VNode_AARCH64_l3_Mapping) | \
-     (1ul<<ObjType_Frame_Mapping) | \
-     (1ul<<ObjType_DevFrame_Mapping))
+    ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_pdpt_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_pdir_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_ptable_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_pdpt_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_pdir_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_ptable_Mapping) | \
+     (1ull<<ObjType_VNode_ARM_l1_Mapping) | \
+     (1ull<<ObjType_VNode_ARM_l2_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l1_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l2_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l3_Mapping) | \
+     (1ull<<ObjType_Frame_Mapping) | \
+     (1ull<<ObjType_DevFrame_Mapping))
 
 #define ALL_PMEM_TYPES \
-    ((1ul<<ObjType_RAM) | \
-     (1ul<<ObjType_Frame) | \
-     (1ul<<ObjType_DevFrame) | \
-     (1ul<<ObjType_CNode) | \
-     (1ul<<ObjType_FCNode) | \
-     (1ul<<ObjType_VNode_x86_64_pml4) | \
-     (1ul<<ObjType_VNode_x86_64_pdpt) | \
-     (1ul<<ObjType_VNode_x86_64_pdir) | \
-     (1ul<<ObjType_VNode_x86_64_ptable) | \
-     (1ul<<ObjType_VNode_x86_32_pdpt) | \
-     (1ul<<ObjType_VNode_x86_32_pdir) | \
-     (1ul<<ObjType_VNode_x86_32_ptable) | \
-     (1ul<<ObjType_VNode_ARM_l1) | \
-     (1ul<<ObjType_VNode_ARM_l2) | \
-     (1ul<<ObjType_VNode_AARCH64_l1) | \
-     (1ul<<ObjType_VNode_AARCH64_l2) | \
-     (1ul<<ObjType_VNode_AARCH64_l3) | \
-     (1ul<<ObjType_PhysAddr) | \
-     (1ul<<ObjType_KernelControlBlock) | \
+    ((1ull<<ObjType_RAM) | \
+     (1ull<<ObjType_Frame) | \
+     (1ull<<ObjType_DevFrame) | \
+     (1ull<<ObjType_CNode) | \
+     (1ull<<ObjType_FCNode) | \
+     (1ull<<ObjType_VNode_x86_64_pml4) | \
+     (1ull<<ObjType_VNode_x86_64_pdpt) | \
+     (1ull<<ObjType_VNode_x86_64_pdir) | \
+     (1ull<<ObjType_VNode_x86_64_ptable) | \
+     (1ull<<ObjType_VNode_x86_32_pdpt) | \
+     (1ull<<ObjType_VNode_x86_32_pdir) | \
+     (1ull<<ObjType_VNode_x86_32_ptable) | \
+     (1ull<<ObjType_VNode_ARM_l1) | \
+     (1ull<<ObjType_VNode_ARM_l2) | \
+     (1ull<<ObjType_VNode_AARCH64_l1) | \
+     (1ull<<ObjType_VNode_AARCH64_l2) | \
+     (1ull<<ObjType_VNode_AARCH64_l3) | \
+     (1ull<<ObjType_PhysAddr) | \
+     (1ull<<ObjType_KernelControlBlock) | \
      MAPPING_TYPES)
 
 #define TRACE_TYPES_ENABLED_INITIAL 0x0
 #define TRACE_PMEM_BEGIN_INITIAL    0x0
 #define TRACE_PMEM_SIZE_INITIAL     (~(uint32_t)0)
 
-extern uintptr_t trace_types_enabled;
+extern uint64_t trace_types_enabled;
 extern genpaddr_t TRACE_PMEM_BEGIN;
 extern gensize_t TRACE_PMEM_SIZE;
-void caps_trace_ctrl(uintptr_t types, genpaddr_t start, gensize_t size);
+void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size);
 static inline bool caps_should_trace(struct capability *cap)
 {
-    if (!(trace_types_enabled & (1ul<<cap->type))) {
+    if (!(trace_types_enabled & (1ull<<cap->type))) {
         return false;
     }
-    if (!(ALL_PMEM_TYPES & (1ul<<cap->type))) {
+    if (!(ALL_PMEM_TYPES & (1ull<<cap->type))) {
         return true;
     }
     genpaddr_t begin = get_address(cap);
