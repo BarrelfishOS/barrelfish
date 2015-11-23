@@ -286,6 +286,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *mapping_cte)
 {
     assert(type_is_vnode(dest_vnode_cte->cap.type));
+    assert(mapping_cte->cap.type == ObjType_Null);
 
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
