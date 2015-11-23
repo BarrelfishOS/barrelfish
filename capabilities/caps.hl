@@ -75,10 +75,10 @@ cap CNode from RAM {
     /* CNode table, stores further capabilities */
 
     lpaddr cnode;           /* Base address of CNode */
+    caddr guard;            /* Bitmask already resolved when reaching this CNode */
     uint8 bits;             /* Number of bits this CNode resolves */
     caprights rightsmask;
     uint8 guard_size;       /* Number of bits in guard */
-    caddr guard;            /* Bitmask already resolved when reaching this CNode */
 
     /**
       Address and size may also be specified with some very limited
