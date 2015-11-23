@@ -161,13 +161,13 @@ static inline size_t get_pte_size(void) {
 
 static inline void do_one_tlb_flush(genvaddr_t vaddr)
 {
-    // TODO: figure out selective flushing for ARM
+    // TODO: figure out selective flushing for ARMv8
     sysreg_invalidate_tlb();
 }
 
 static inline void do_selective_tlb_flush(genvaddr_t vaddr, genvaddr_t vend)
 {
-    // TODO: figure out selective flushing for ARM
+    // TODO: figure out selective flushing for ARMv8
     sysreg_invalidate_tlb();
 }
 

@@ -17,6 +17,7 @@
 #include <arm_hal.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
+#include <mdb/mdb_tree.h>
 
 inline static uintptr_t paging_round_down(uintptr_t address, uintptr_t size)
 {
@@ -55,7 +56,8 @@ caps_map_l1(struct capability* dest,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
             uintptr_t          offset,
-            uintptr_t          pte_count)
+            uintptr_t          pte_count,
+            struct cte*        mapping_cte)
 {
     //
     // Note:
@@ -108,10 +110,9 @@ caps_map_l1(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 12));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 32));
 
-    struct cte *src_cte = cte_for_cap(src);
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr + slot;
-    src_cte->mapping_info.offset = 0;
+    create_mapping_cap(mapping_cte, src,
+                       dest_lpaddr + slot * get_pte_size(),
+                       pte_count);
 
     entry->raw = 0;
     entry->page_table.type   = ARMv8_Ln_TABLE;
@@ -131,7 +132,8 @@ caps_map_l2(struct capability* dest,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
             uintptr_t          offset,
-            uintptr_t          pte_count)
+            uintptr_t          pte_count,
+            struct cte*        mapping_cte)
 {
     //
     // Note:
@@ -180,10 +182,9 @@ caps_map_l2(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 12));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 4096));
 
-    struct cte *src_cte = cte_for_cap(src);
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr + slot;
-    src_cte->mapping_info.offset = 0;
+    create_mapping_cap(mapping_cte, src,
+                       dest_lpaddr + slot * get_pte_size(),
+                       pte_count);
 
     entry->raw = 0;
     entry->page_table.type   = ARMv8_Ln_TABLE;
@@ -204,7 +205,8 @@ caps_map_l3(struct capability* dest,
             struct capability* src,
             uintptr_t          kpi_paging_flags,
             uintptr_t          offset,
-            uintptr_t          pte_count)
+            uintptr_t          pte_count,
+            struct cte*        mapping_cte)
 {
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
@@ -246,10 +248,9 @@ caps_map_l3(struct capability* dest,
         panic("Invalid target");
     }
 
-    struct cte *src_cte = cte_for_cap(src);
-    src_cte->mapping_info.pte_count = pte_count;
-    src_cte->mapping_info.pte = dest_lpaddr;
-    src_cte->mapping_info.offset = offset;
+    create_mapping_cap(mapping_cte, src,
+                       dest_lpaddr + slot * get_pte_size(),
+                       pte_count);
 
     for (int i = 0; i < pte_count; i++) {
         entry->raw = 0;
@@ -273,39 +274,59 @@ caps_map_l3(struct capability* dest,
 /// Create page mappings
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
-                            uintptr_t offset, uintptr_t pte_count)
+                            uintptr_t offset, uintptr_t pte_count,
+                            struct cte *mapping_cte)
 {
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
+    assert(mapping_cte->cap.type == ObjType_Null);
 
-    if (src_cte->mapping_info.pte) {
-        return SYS_ERR_VM_ALREADY_MAPPED;
-    }
+    errval_t err;
 
     if (ObjType_VNode_AARCH64_l1 == dest_cap->type) {
-        return caps_map_l1(dest_cap, dest_slot, src_cap,
+        err = caps_map_l1(dest_cap, dest_slot, src_cap,
                            flags,
                            offset,
-                           pte_count
+                           pte_count,
+                           mapping_cte
                           );
     }
     else if (ObjType_VNode_AARCH64_l2 == dest_cap->type) {
-        return caps_map_l2(dest_cap, dest_slot, src_cap,
+        err = caps_map_l2(dest_cap, dest_slot, src_cap,
                            flags,
                            offset,
-                           pte_count
+                           pte_count,
+                           mapping_cte
                           );
     }
     else if (ObjType_VNode_AARCH64_l3 == dest_cap->type) {
-        return caps_map_l3(dest_cap, dest_slot, src_cap,
+        err = caps_map_l3(dest_cap, dest_slot, src_cap,
                            flags,
                            offset,
-                           pte_count
+                           pte_count,
+                           mapping_cte
                           );
     }
     else {
         panic("ObjType not VNode");
     }
+
+    if (err_is_fail(err)) {
+        assert(mapping_cte->cap.type == ObjType_Null);
+        debug(SUBSYS_PAGING,
+                "caps_copy_to_vnode: handler func returned %ld\n", err);
+        return err;
+    }
+
+    /* insert mapping cap into mdb */
+    err = mdb_insert(mapping_cte);
+    if (err_is_fail(err)) {
+        printk(LOG_ERR, "%s: mdb_insert: %"PRIuERRV"\n", __FUNCTION__, err);
+    }
+
+    TRACE_CAP_MSG("created", mapping_cte);
+
+    return err;
 }
 
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
@@ -352,67 +373,18 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot, genpad
     }
 }
 
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping, size_t slot, size_t num_pages)
-{
-    assert(type_is_vnode(pgtable->type));
-    //printf("page_mappings_unmap(%zd pages, slot = %zd)\n", num_pages, slot);
-
-    // get page table entry data
-    genpaddr_t paddr;
-    //lpaddr_t pte;
-    read_pt_entry(pgtable, slot, &paddr);
-    lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
-
-    // get virtual address of first page
-    // TODO: error checking
-    genvaddr_t vaddr;
-    struct cte *leaf_pt = cte_for_cap(pgtable);
-    compile_vaddr(leaf_pt, slot, &vaddr);
-    //genvaddr_t vend = vaddr + num_pages * BASE_PAGE_SIZE;
-    // printf("vaddr = 0x%"PRIxGENVADDR"\n", vaddr);
-    // printf("num_pages = %zu\n", num_pages);
-
-    // get cap for mapping
-    /*
-    struct cte *mem;
-    errval_t err = lookup_cap_for_mapping(paddr, pte, &mem);
-    if (err_is_fail(err)) {
-        printf("page_mappings_unmap: %ld\n", err);
-        return err;
-    }
-    */
-    //printf("state before unmap: mapped_pages = %zd\n", mem->mapping_info.mapped_pages);
-    //printf("state before unmap: num_pages    = %zd\n", num_pages);
-
-    if (num_pages != mapping->mapping_info.pte_count) {
-        printf("num_pages = %zu, mapping = %zu\n", num_pages, mapping->mapping_info.pte_count);
-        // want to unmap a different amount of pages than was mapped
-        return SYS_ERR_VM_MAP_SIZE;
-    }
-
-    do_unmap(pt, slot, num_pages);
-
-    // flush TLB for unmapped pages
-    // TODO: selective TLB flush
-    sysreg_invalidate_tlb();
-
-    // update mapping info
-    memset(&mapping->mapping_info, 0, sizeof(struct mapping_info));
-
-    return SYS_ERR_OK;
-}
-
-errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
+errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags)
 {
+    assert(type_is_mapping(mapping->type));
+    struct Frame_Mapping *info = &mapping->u.frame_mapping;
+
     // check flags
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
-    struct cte *mapping = cte_for_cap(frame);
-    struct mapping_info *info = &mapping->mapping_info;
-
     /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = local_phys_to_mem(info->pte) + offset;
+    lvaddr_t base = local_phys_to_mem(info->pte) +
+        offset * sizeof(union armv8_l3_entry *);
 
     for (int i = 0; i < pages; i++) {
         union armv8_l3_entry *entry =
@@ -420,7 +392,7 @@ errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
         paging_set_flags(entry, kpi_paging_flags);
     }
 
-    return paging_tlb_flush_range(mapping, 0, pages);
+    return paging_tlb_flush_range(cte_for_cap(mapping), 0, pages);
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
