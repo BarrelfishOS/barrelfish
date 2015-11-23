@@ -44,7 +44,10 @@ func( \
 #define NYI(str) printf("armv8: %s\n", str)
 
 __attribute__((noreturn)) void sys_syscall_kernel(void);
-__attribute__((noreturn)) void sys_syscall(arch_registers_state_t* context);
+__attribute__((noreturn))
+void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                 uint64_t a4, uint64_t a5, uint64_t a6, 
+                 arch_registers_state_t *context);
 
 __attribute__((noreturn))
 void sys_syscall_kernel(void)
@@ -858,7 +861,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
 };
 
 static struct sysret
-handle_invoke(arch_registers_state_t *context, int argc)
+handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
+              uint64_t a4, uint64_t a5, uint64_t a6,
+              arch_registers_state_t *context)
 {
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
@@ -866,9 +871,9 @@ handle_invoke(arch_registers_state_t *context, int argc)
     //
     // Must match lib/barrelfish/include/arch/aarch64/arch/invocations.h
     //
-    uint8_t  flags       = (sa->arg0 >> 24) & 0xf;
-    uint8_t  invoke_bits = (sa->arg0 >> 16) & 0xff;
-    capaddr_t  invoke_cptr = sa->arg1;
+    uint8_t   flags       = FIELD(24,4,a0);
+    uint8_t   invoke_bits = FIELD(16,8,a0);
+    capaddr_t invoke_cptr = a1;
 
     debug(SUBSYS_SYSCALL, "sys_invoke(0x%"PRIxCADDR"(%d))\n",
                 invoke_cptr, invoke_bits);
@@ -890,9 +895,8 @@ handle_invoke(arch_registers_state_t *context, int argc)
             assert(listener != NULL);
 
             if (listener->disp) {
-                /* XXX - not 64-bit clean */
-                uint8_t length_words = (sa->arg0 >> 28) & 0xff;
-                uint8_t send_bits = (sa->arg0 >> 8) & 0xff;
+                uint8_t length_words = FIELD(28,8,a0);
+                uint8_t send_bits    = FIELD(8,8,a0);
                 capaddr_t send_cptr = sa->arg2;
                 /* limit length of message from buggy/malicious sender */
                 length_words = min(length_words, LMP_MSG_LENGTH);
@@ -914,12 +918,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
                 msg_words[1] = sa->arg4;
                 msg_words[2] = sa->arg5;
                 msg_words[3] = sa->arg6;
-                msg_words[4] = sa->arg7;
-                msg_words[5] = sa->arg8;
-                msg_words[6] = sa->arg9;
-                msg_words[7] = sa->arg10;
-                msg_words[8] = sa->arg11;
-                STATIC_ASSERT(LMP_MSG_LENGTH == 9, "Oops");
+                STATIC_ASSERT(LMP_MSG_LENGTH == 4, "Oops");
 
                 // try to deliver message
                 r.error = lmp_deliver(to, dcb_current, msg_words,
@@ -971,12 +970,24 @@ handle_invoke(arch_registers_state_t *context, int argc)
         }
         else
         {
-            uint8_t cmd = (sa->arg0 >> 8)  & 0xff;
+            uint8_t cmd = FIELD(8,8,a0);
+            int argc    = FIELD(4,4,a0);
             if (cmd < CAP_MAX_CMD)
             {
                 invocation_t invocation = invocations[to->type][cmd];
                 if (invocation)
                 {
+                    /* XXX - Until we improve the syscall path, we're stacking
+                     * all of the argument registers here.  Yuck. */
+
+                    sa->arg0 = a0;
+                    sa->arg1 = a1;
+                    sa->arg2 = a2;
+                    sa->arg3 = a3;
+                    sa->arg4 = a4;
+                    sa->arg5 = a5;
+                    sa->arg6 = a6;
+
                     r = invocation(to, context, argc);
                     if (!dcb_current)
                     {
@@ -1035,30 +1046,31 @@ static struct sysret handle_debug_syscall(int msg)
  * System call dispatch routine.
  *
  * @return struct sysret for all calls except yield / invoke.
+ *
+ * The first 8 syscall arguments are passed in registers, preserved by the
+ * assembly stub.
+ *
  */
-/* XXX - why is this commented out? */
-//__attribute__((noreturn))
-void sys_syscall(arch_registers_state_t* context)
+void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
+                 uint64_t a4, uint64_t a5, uint64_t a6, 
+                 arch_registers_state_t *context)
 {
     STATIC_ASSERT_OFFSETOF(struct sysret, error, 0);
 
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    uintptr_t   syscall = sa->arg0 & 0xf;
-    uintptr_t   argc    = (sa->arg0 >> 4) & 0xf;
+    int syscall = FIELD(0,4,a0);
+    int argc    = FIELD(4,4,a0);
 
     struct sysret r = { .error = SYS_ERR_INVARGS_SYSCALL, .value = 0 };
 
     switch (syscall)
     {
         case SYSCALL_INVOKE:
-            r = handle_invoke(context, argc);
+            r = handle_invoke(a0, a1, a2, a3, a4, a5, a6, context);
             break;
 
         case SYSCALL_YIELD:
-            if (argc == 2)
-            {
-                r = sys_yield((capaddr_t)sa->arg1);
+            if (argc == 2) {
+                r = sys_yield((capaddr_t)a1);
             }
             break;
 
@@ -1066,30 +1078,32 @@ void sys_syscall(arch_registers_state_t* context)
             break;
 
         case SYSCALL_PRINT:
-            if (argc == 3)
-            {
-                r.error = sys_print((const char*)sa->arg1, (size_t)sa->arg2);
+            if (argc == 3) {
+                /* XXX - The user can pass arbitrary bad pointers and lengths
+                 * here! */
+                r.error = sys_print((const char*)a1, (size_t)a2);
             }
             break;
 
         case SYSCALL_DEBUG:
             if (argc == 2) {
-                r = handle_debug_syscall(sa->arg1);
+                r = handle_debug_syscall(a1);
             }
             break;
 
         default:
+            /* XXX - the kernel shouldn't panic on user input. */
             panic("Illegal syscall");
             r.error = SYS_ERR_ILLEGAL_SYSCALL;
             break;
     }
 
     if (r.error) {
-        /* XXX - not 64-bit clean, not AArch64-compatible. */
-        debug(SUBSYS_SYSCALL, "syscall failed %08"PRIx32" => %08"PRIxERRV"\n",
-              sa->arg0, r.error);
+        debug(SUBSYS_SYSCALL, "syscall failed %016"PRIx64
+                              " => %016"PRIxERRV"\n", a0, r.error);
     }
 
+    /* XXX - shouldn't stack & unstack these. */
     context->named.x0 = r.error;
     context->named.x1 = r.value;
 

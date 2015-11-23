@@ -7,6 +7,53 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <asmoffsets.h>
+
+.global do_resume
+.global vectors
+
+.macro invalid_exception
+    /* Just stick the trap frame on the kernel stack - we're about to panic
+     * anyway.  */
+
+    /* Leave space for SPSR, SP and EPC, for which we need scratch space. */
+    add sp, sp, #-(3 * 8)
+
+    /* Spill the GPRs */
+    stp x29, x30, [sp, #-(2 * 8)]!
+    stp x27, x28, [sp, #-(2 * 8)]!
+    stp x25, x26, [sp, #-(2 * 8)]!
+    stp x23, x24, [sp, #-(2 * 8)]!
+    stp x21, x22, [sp, #-(2 * 8)]!
+    stp x19, x20, [sp, #-(2 * 8)]!
+    stp x17, x18, [sp, #-(2 * 8)]!
+    stp x15, x16, [sp, #-(2 * 8)]!
+    stp x13, x14, [sp, #-(2 * 8)]!
+    stp x11, x12, [sp, #-(2 * 8)]!
+    stp x9,  x10, [sp, #-(2 * 8)]!
+    stp x7,  x8,  [sp, #-(2 * 8)]!
+    stp x5,  x6,  [sp, #-(2 * 8)]!
+    stp x3,  x4,  [sp, #-(2 * 8)]!
+    stp x1,  x2,  [sp, #-(2 * 8)]!
+    str x0,       [sp, #-8]!
+
+    mrs x0, sp_el0
+    str x0, [sp, #(31 * 8)]
+
+    mrs x0, elr_el1
+    mrs x1, spsr_el1
+    stp x0, x1, [sp, #(32 * 8)]
+
+    /* Exception Syndrome Register */
+    mrs x2, esr_el1
+
+    /* Base of the register save area. */
+    mov x3, sp
+
+    /* Arguments: x0 = EPC, x1 = SPSR, x2 = ESR, x3 = save area. */
+    b fatal_kernel_fault
+.endm
+
 /**********************************/
 /*** Start of exception vectors ***/
 /**********************************/
@@ -21,31 +68,31 @@ vectors:
  * here before we branch. */
 .align 7 /* 0x000 */
 el1_sp_el0_sync:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x080 */
 el1_sp_el0_irq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x100 */
 el1_sp_el0_fiq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x180 */
 el1_sp_el0_serror:
-    b invalid_exception
+    invalid_exception
 
 /* Offset 0x200 */
 /* Exceptions from the kernel itself, at EL1. */
 .align 7 /* 0x200 */
 el1_sync:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x280 */
 el1_irq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x300 */
 el1_fiq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x380 */
 el1_serror:
-    b invalid_exception
+    invalid_exception
 
 /* Offset 0x400 */
 /* Exceptions from user level, EL0, executing AArch64.  For any of these four
@@ -59,18 +106,20 @@ el0_aarch64_sync:
     msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
 
     /* Spill a few working registers.  We use x9-, as these won't need to be
-     * restored if we're doing a syscall; they're caller-saved. */
-    stp x11, x12, [sp, #-16]!
-    stp x9,  x10, [sp, #-16]!
+     * restored if we're doing a syscall; they're caller-saved.  We preserve
+     * x0-x7 in registers unless we branch to the abort path, so that they're
+     * immediately available to the syscall handler, sys_syscall. */
+    stp x11, x12, [sp, #-(2 * 8)]!
+    stp x9,  x10, [sp, #-(2 * 8)]!
 
     /* The EL1 thread ID register holds the address of the currently-running
      * dispatcher's shared control block. */
-    msr x10, tpidr_el1
+    mrs x10, tpidrro_el0
 
     /* x10 = dispatcher_shared_aarch64 */
 
     /* Exception PC */
-    msr x9, elr_el1
+    mrs x9, elr_el1
 
     /* x9 = EPC, x10 = dispatcher_shared_aarch64 */
 
@@ -107,39 +156,47 @@ el0_aarch64_sync:
     /* x9 = EPC, x10 = base of save area, x11 = EC */
 
 save_syscall_context:
-    /* We need to save r19+ no matter what, so get on with it. */
+    /* We need to save r7 & r19+ no matter what, so get on with it. */
+    /* We need to pass the address of the trap frame to the handler without
+     * spilling to the stace, which means a7 needs to go into the trap frame.
+     * */
+    str x7,       [x10, #(7 * 8)]
+
     /* Callee-saved registers */
-    stp x19, x20, [x10]
-    stp x21, x22, [x10, #16]
-    stp x23, x24, [x10, #32]
-    stp x25, x26, [x10, #48]
-    stp x27, x28, [x10, #64]
-    stp x29, x30, [x10, #80] /* FP & LR */
+    stp x19, x20, [x10, #(19 * 8)]
+    stp x21, x22, [x10, #(21 * 8)]
+    stp x23, x24, [x10, #(23 * 8)]
+    stp x25, x26, [x10, #(25 * 8)]
+    stp x27, x28, [x10, #(27 * 8)]
+    stp x29, x30, [x10, #(29 * 8)] /* FP & LR */
 
     /* High registers are now available. */
 
     /* SPSR */
     mrs x19, spsr_el1
-    str x19, [x10, #96]
+    str x19, [x10, #(31 * 8)]
 
-    /* User PC and SP */
+    /* User SP and PC */
     mrs x20, sp_el0
-    stp x20, x9, [x10, #104]
+    stp x20, x9, [x10, #(32 * 8)]
 
     /* Is this a syscall? */
     cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
     b.ne el0_abort_enabled
 
-    /* 28 instructions to here. */
+    /* 29 instructions to here. */
 
     /* If we're here, this is a syscall and we don't need to restore the
      * scratch registers. Just throw the stack frame away. */
-    add sp, sp, #(16 + 16)
+    add sp, sp, #(4 * 8)
+
+    /* Pass the address of the trap frame as argument 8. */
+    mov x7, x10
 
     /* Jump to the common (C) syscall handler. */
     b sys_syscall
 
-    /* 30 instructions to here */
+    /* 32 instructions to here */
 
 .align 7 /* 0x480 */
 /* An interrupt at user level */
@@ -148,14 +205,14 @@ el0_aarch64_irq:
     msr daifset, #3 /* IRQ and FIQ masked, Debug and Abort enabled. */
 
     /* Free scratch registers. */
-    stp x2, x3, [sp, #-16]!
-    stp x0, x1, [sp, #-16]!
+    stp x2, x3, [sp, #-(2 * 8)]!
+    stp x0, x1, [sp, #-(2 * 8)]!
 
     /* Find the dispatcher. */
-    msr x3, tpidr_el1
+    mrs x3, tpidrro_el0
 
     /* Get the exception address (EPC) */
-    msr x1, elr_el1
+    mrs x1, elr_el1
 
     /* x0 = crit_pc_low, x1 = EPC,
        x2 = crit_pc_high, x3 = dispatcher_shared_aarch64 */
@@ -188,20 +245,20 @@ el0_aarch64_irq:
      * registers, can be copied to the trap frame from within the C handler,
      * as can the user stack pointer and SPSR, which are sitting in their own
      * system registers. */
-    stp  x4,  x5, [x0, #32]
-    stp  x6,  x7, [x0, #48]
-    stp  x8,  x9, [x0, #64]
-    stp x10, x11, [x0, #80]
-    stp x12, x13, [x0, #96]
-    stp x14, x15, [x0, #102]
-    stp x16, x17, [x0, #128]
-    stp x18, x19, [x0, #144]
-    stp x20, x21, [x0, #160]
-    stp x22, x23, [x0, #176]
-    stp x24, x25, [x0, #192]
-    stp x26, x27, [x0, #208]
-    stp x28, x29, [x0, #224]
-    str x30,      [x0, #240]
+    stp  x4,  x5, [x0, #( 4 * 8)]
+    stp  x6,  x7, [x0, #( 6 * 8)]
+    stp  x8,  x9, [x0, #( 8 * 8)]
+    stp x10, x11, [x0, #(10 * 8)]
+    stp x12, x13, [x0, #(12 * 8)]
+    stp x14, x15, [x0, #(14 * 8)]
+    stp x16, x17, [x0, #(16 * 8)]
+    stp x18, x19, [x0, #(18 * 8)]
+    stp x20, x21, [x0, #(20 * 8)]
+    stp x22, x23, [x0, #(22 * 8)]
+    stp x24, x25, [x0, #(24 * 8)]
+    stp x26, x27, [x0, #(26 * 8)]
+    stp x28, x29, [x0, #(28 * 8)]
+    str x30,      [x0, #(30 * 8)]
 
     /* 29 instructions. */
 
@@ -222,28 +279,28 @@ el0_aarch64_irq:
 .align 7 /* 0x500 */
 /* We don't implement fast IRQs */
 el0_aarch64_fiq:
-    b invalid_exception
+    invalid_exception
 
 .align 7 /* 0x580 */
 /* A delayed abort.  We don't handle this. */
 el0_aarch64_serror:
-    b invalid_exception
+    invalid_exception
 
 /* Offset 0x600 */
 /* Exceptions from user level, EL0, executing AArch32.  This is currently
  * unimplemented. */
 .align 7 /* 0x600 */
 el0_aarch32_sync:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x680 */
 el0_aarch32_irq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x700 */
 el0_aarch32_fiq:
-    b invalid_exception
+    invalid_exception
 .align 7 /* 0x780 */
 el0_aarch32_serror:
-    b invalid_exception
+    invalid_exception
 
 /********************************/
 /*** End of exception vectors ***/
@@ -251,32 +308,39 @@ el0_aarch32_serror:
 
 /* The tail of the user abort handler doesn't fit in the table. */
 el0_abort_enabled:
-    /* x10 = base of save area, x11 = EC */
+    /* x9 = EPC, x10 = base of save area, x11 = EC */
 
-    /* Spill the argument registers and x8. */
-    stp x0,  x1,  [x10, #120]
-    stp x2,  x3,  [x10, #136]
-    stp x4,  x5,  [x10, #152]
-    stp x6,  x7,  [x10, #168]
-    str x8,       [x10, #184]
+    /* Spill the argument registers and x8. x7 has already been saved. */
+    stp x0,  x1,  [x10]
+    stp x2,  x3,  [x10, #( 2 * 8)]
+    stp x4,  x5,  [x10, #( 4 * 8)]
+    str x6,       [x10, #( 6 * 8)]
+    str x8,       [x10, #( 8 * 8)]
 
     /* We saved x9-x12 in our stack frame. Copy them. */
     ldp x0,  x1,  [sp], #16 /* x9,  x10 */
     ldp x2,  x3,  [sp], #16 /* x11, x12 */
-    stp x0,  x1,  [x10, #192]
-    stp x2,  x3,  [x10, #208]
+    stp x0,  x1,  [x10, #( 9 * 8)]
+    stp x2,  x3,  [x10, #(11 * 8)]
 
     /* Now spill the rest of the caller-saved registers. */
-    stp x13, x14, [x10, #224]
-    stp x15, x16, [x10, #240]
-    stp x17, x18, [x10, #256]
+    stp x13, x14, [x10, #(13 * 8)]
+    stp x15, x16, [x10, #(15 * 8)]
+    stp x17, x18, [x10, #(17 * 8)]
 
     /* x19-x30, SP, SPSR and ELR were saved in the common path. */
 
-    /* x11 = EC */
+    /* x9 = EPC, x10 = base of save area, x11 = EC */
 
     /* All registers are now available. */
 
+    /* Pass the EPC and the save area address to the handler. */
+    mov x0, x9
+    mov x1, x10
+
+    /* XXX - this should be handled differently on AArch64 - the C code can
+     * switch on the Exception Context itself, or just pass it through to the
+     * handler. */
     /* Now we can jump to the appropriate handler. */
     cmp x11, #0x24 /* Data Abort */
     b handle_user_page_fault
@@ -309,37 +373,33 @@ el0_abort_disabled:
        x13 = dispatcher_shared_aarch64 */
 
     /* Use the 'trap' area. */
-    add x10, x10, #OFFSET_OF_DISP_TRAP_AREA
+    add x10, x10, #OFFSETOF_DISP_TRAP_AREA
 
     /* Save the reduced context. */
     /* Callee-saved registers */
-    stp x19, x20, [x10]
-    stp x21, x22, [x10, #16]
-    stp x23, x24, [x10, #32]
-    stp x25, x26, [x10, #48]
-    stp x27, x28, [x10, #64]
-    stp x29, x30, [x10, #80] /* FP & LR */
+    stp x19, x20, [x10, #(19 * 8)]
+    stp x21, x22, [x10, #(21 * 8)]
+    stp x23, x24, [x10, #(23 * 8)]
+    stp x25, x26, [x10, #(25 * 8)]
+    stp x27, x28, [x10, #(27 * 8)]
+    stp x29, x30, [x10, #(29 * 8)] /* FP & LR */
 
     /* SPSR */
     mrs x19, spsr_el1
-    str x19, [x10, #96]
+    str x19, [x10, #(31 * 8)]
 
     /* User PC and SP */
     mrs x20, sp_el0
-    stp x20, x9, [x10, #104]
+    stp x20, x9, [x10, #(32 * 8)]
 
     /* Now reuse the 'enabled' abort handler. */
     b el0_abort_enabled
-
-fatal_kernel_fault:
-    /* XXX - write me */
-    b fatal_kernel_fault
 
 /* Restore the dispatcher's execution context.  x0 holds the base of the
  * appropriate save area. */
 do_resume:
     /* Skip to the end... */
-    add x0, x0, #((NUM_REGS-1) * 8)
+    add x0, x0, #(33 * 8)
 
     /* Flush the TLB - XXX kill this with fire. */
     dsb sy
@@ -350,7 +410,7 @@ do_resume:
     /* Restore SPSR, PC (ELR) and SP, which need temporary registers, before
      * we restore those. */
     ldr x3,     [x0], #-8  /* spsr */
-    ldr x1, x2, [x0], #-16 /* pc, stack */
+    ldp x1, x2, [x0], #-16 /* stack, pc */
     msr spsr_el1, x3
     msr elr_el1,  x2
     mov sp,       x1

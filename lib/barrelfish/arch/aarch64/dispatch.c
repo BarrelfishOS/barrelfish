@@ -42,9 +42,11 @@ void __attribute__ ((visibility ("hidden"))) disp_save_rm_kcb_epilog(void);
 // Low level "C" context switch related code
 //
 
-STATIC_ASSERT(SPSR_REG == 0,  "broken context assumption");
+STATIC_ASSERT(PC_REG   == 32, "broken context assumption");
+STATIC_ASSERT(SPSR_REG == 33, "broken context assumption");
 STATIC_ASSERT(NUM_REGS == 34, "broken context assumption");
-STATIC_ASSERT(PC_REG   == 33, "broken context assumption");
+
+#define NZCV_MASK (MASK(4) << 28)
 
 /*
  * XXX: there is no guarantee that the context has been set up by
@@ -56,79 +58,45 @@ STATIC_ASSERT(PC_REG   == 33, "broken context assumption");
 static void __attribute__((noinline, optimize(2)))
 disp_resume_context(struct dispatcher_shared_generic *disp, uint64_t *regs)
 {
-    __asm volatile(
-        /* Re-enable dispatcher */
-        "    mov     w30, #0                                             \n\t"
-        "    str     w30, [%[disp], # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
-		/* Restore SP*/
-		"    ldr     x30,  [%[regs], #(" XTR(SP_REG) " * 8)]                  \n\t"
-		"    mov     sp, x30                                             \n\t"
-		/* Restore SP*/
-		"    ldr     x30,  [%[regs], #(" XTR(PC_REG) " * 8)]                  \n\t"
-		/*"    msr     elr_el1, x2                                        \n\t"*/
-        /* Restore cpsr condition bits  */
-        "    ldr     x30, [%[regs]], #8                                       \n\t"
-        /*"    msr     spsr_el1, x30                                       \n\t"*/
-		"    mov     x30,%[regs]                                            \n\t"
-        /* Restore registers */
-		"    ldp     x0, x1, [x30], #16                                 \n\t"
-		"    ldp     x2, x3, [x30], #16                                 \n\t"
-		"    ldp     x4, x5, [x30], #16                                 \n\t"
-		"    ldp     x6, x7, [x30], #16                                 \n\t"
-		"    ldp     x8, x9, [x30], #16                                 \n\t"
-		"    ldp     x10, x11, [x30], #16                               \n\t"
-		"    ldp     x12, x13, [x30], #16                               \n\t"
-		"    ldp     x14, x15, [x30], #16                               \n\t"
-		"    ldp     x16, x17, [x30], #16                               \n\t"
-		"    ldp     x18, x19, [x30], #16                               \n\t"
-		"    ldp     x20, x21, [x30], #16                               \n\t"
-		"    ldp     x22, x23, [x30], #16                               \n\t"
-		"    ldp     x24, x25, [x30], #16                               \n\t"
-		"    ldp     x26, x27, [x30], #16                               \n\t"
-		"    ldp     x28, x29, [x30], #32                               \n\t"
-		"    ldr     x30, [x30]		                                    \n\t"
-		"    br      x30 		                                        \n\t"
-        "disp_resume_context_epilog:                                    \n\t"
-        "    mov     x0, x0          ; nop                              \n\t"
-        :: [disp] "r" (disp), [regs] "r" (regs));
-}
+    /* Re-enable dispatcher once we pass the end of the critical section. */
+    disp->disabled = 0;
 
-
-/* This function assumes that the register state is pristine, including the
- * stack pointer.  This assumption is violated if, for example, its argument
- * is spilled onto the stack.  XXX - We are relying on the optimiser to
- * eliminate any such register spills, and give us what is essentially a naked
- * function (which don't exist in AArch64 GCC). */
-static void __attribute__((noinline, optimize(2)))
-disp_save_context(uint64_t *regs)
-{
     __asm volatile(
-		"    mov     x19, %[regs]                                        \n\t"
-		"	 str	 x1, [x19], #8										 \n\t"
-		"    stp     x0, x1, [x19], #16                                  \n\t"
-		"    stp     x2, x3, [x19], #16                                  \n\t"
-		"    stp     x4, x5, [x19], #16                                  \n\t"
-		"    stp     x6, x7, [x19], #16                                  \n\t"
-		"    stp     x8, x9, [x19], #16                                  \n\t"
-		"    stp     x10, x11, [x19], #16                                \n\t"
-		"    stp     x12, x13, [x19], #16                                \n\t"
-		"    stp     x14, x15, [x19], #16                                \n\t"
-		"    stp     x16, x17, [x19], #16                                \n\t"
-		"    stp     x18, x19, [x19], #16                                \n\t"
-		"    stp     x20, x21, [x19], #16                                \n\t"
-		"    stp     x22, x23, [x19], #16                                \n\t"
-		"    stp     x24, x25, [x19], #16                                \n\t"
-		"    stp     x26, x27, [x19], #16                                \n\t"
-		"    stp     x28, x29, [x19], #16                                \n\t"
-		"    str     x30, [x19], #8                                      \n\t"
-		"	 mov	 x2, sp												 \n\t"
-		"    str     x2, [x19], #8                                       \n\t"
-		"    adr     x2, disp_save_context_resume                        \n\t"
-        "    str     x2, [x19]  							             \n\t"
-        "disp_save_context_resume:                                       \n\t"
-        "    br       x30                                                \n\t"
+        /* Skip to the end... */
+        "add x0, %[regs], #("XTR((NUM_REGS)-2)" * 8)\n"
+        /* Restore the LR - we'll jump back to this - and the SP. */
+        "ldp x29, x30, [x0], #-(2 * 8)\n"
+        "mov sp, x29\n"
+        /* Restore the PSTATE condition bits (NZCV). */
+        "ldr x29, [x0], #-8\n"
+        "and x29, x29, #0xf0000000\n"
+        "msr nzcv, x29\n"
+        /* Restore everything else. */
+        "ldp x28, x29, [x0], #-(2 * 8)\n"
+        "ldp x26, x27, [x0], #-(2 * 8)\n"
+        "ldp x24, x25, [x0], #-(2 * 8)\n"
+        "ldp x22, x23, [x0], #-(2 * 8)\n"
+        "ldp x20, x21, [x0], #-(2 * 8)\n"
+        "ldp x18, x19, [x0], #-(2 * 8)\n"
+        "ldp x16, x17, [x0], #-(2 * 8)\n"
+        "ldp x14, x15, [x0], #-(2 * 8)\n"
+        "ldp x12, x13, [x0], #-(2 * 8)\n"
+        "ldp x10, x11, [x0], #-(2 * 8)\n"
+        "ldp  x8,  x9, [x0], #-(2 * 8)\n"
+        "ldp  x6,  x7, [x0], #-(2 * 8)\n"
+        "ldp  x4,  x5, [x0], #-(2 * 8)\n"
+        "ldp  x2,  x3, [x0], #-(2 * 8)\n"
+        "ldp  x0,  x1, [x0]\n" /* Don't post-index x0! */
+        /* Return to the thread. */
+        "br x30\n"
+        /* This is the end of the critical section. */
+        "disp_resume_context_epilog:\n"
+        "nop\n"
         :: [regs] "r" (regs));
 }
+
+/* See context.S */
+void disp_save_context(uint64_t *regs);
 
 ///////////////////////////////////////////////////////////////////////////////
 

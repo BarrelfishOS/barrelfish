@@ -145,4 +145,16 @@ sysreg_read_cbar(void) {
     return FIELD(18,26,cbar); /* Bits outside [43:18] may not be zero. */
 }
 
+static inline uint64_t
+sysreg_read_sp_el0(void) {
+    uint64_t sp_el0;
+    __asm volatile("mrs %[sp_el0], sp_el0" : [sp_el0] "=r" (sp_el0));
+    return sp_el0;
+}
+
+static inline void
+sysreg_write_vbar_el1(uint64_t vbar_el1) {
+    __asm volatile("msr vbar_el1, %[vbar_el1]" : : [vbar_el1] "r" (vbar_el1));
+}
+
 #endif // __SYSREG_H__

@@ -172,7 +172,7 @@ static void  __attribute__ ((noinline,noreturn)) text_init(void)
         paging_arm_reset(PHYS_MEMORY_START, GEM5_RAM_SIZE);
     }
 
-    exceptions_init();
+    sysreg_write_vbar_el1((uint64_t)vectors);
 
     //kernel_startup_early();
 

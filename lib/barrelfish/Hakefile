@@ -81,6 +81,7 @@
                                  "vspace/arch/arm/layout.c",
                                  "arch/arm/sys_debug.c"]
       archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
+                                   "arch/aarch64/context.S",
                                    "arch/aarch64/pmap_arch.c", "arch/aarch64/sys_debug.c",
                                    "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
                                    "vspace/pinned.c", "vspace/memobj_anon.c",

@@ -21,7 +21,7 @@
  * Determined by number of registers available to transfer messages.
  * XXX: TODO: figure out numbers here
  */
-#define LMP_MSG_LENGTH          9
+#define LMP_MSG_LENGTH          4
 #define LRPC_MSG_LENGTH         0
 
 #endif // ARCH_AARCH64_BARRELFISH_KPI_LMP_H

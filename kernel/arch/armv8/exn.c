@@ -68,6 +68,8 @@ void handle_user_page_fault(lvaddr_t                fault_address,
         struct dispatcher_shared_generic *disp_gen =
             get_dispatcher_shared_generic(dcb_current->disp);
 
+        /* XXX - This code leaks the contents of the kernel stack to the
+         * user-level fault handler. */
         union registers_aarch64 resume_area;
 
         resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
@@ -83,7 +85,8 @@ void handle_user_page_fault(lvaddr_t                fault_address,
 
         // Upcall user to save area
         disp->d.disabled = true;
-		printk(LOG_WARN,"page fault at %p calling handler %p\n",fault_address,handler);
+		printk(LOG_WARN, "page fault at %p calling handler %p\n",
+               fault_address, handler);
         resume(&resume_area);
     }
 }
@@ -96,7 +99,8 @@ void handle_user_undef(lvaddr_t fault_address,
     struct dispatcher_shared_aarch64 *disp =
         get_dispatcher_shared_aarch64(dcb_current->disp);
 
-    bool disabled = dispatcher_is_disabled_ip(dcb_current->disp, save_area->named.pc);
+    bool disabled =
+        dispatcher_is_disabled_ip(dcb_current->disp, save_area->named.pc);
     disp->d.disabled = disabled;
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
@@ -128,131 +132,26 @@ void handle_user_undef(lvaddr_t fault_address,
     resume(&resume_area);
 }
 
-static int32_t bkpt_decode(lvaddr_t fault_address)
-{
-    int32_t bkpt_id = -1;
-    if ((fault_address & 3) == 0 && fault_address >= KERNEL_OFFSET) {
-        const uint32_t bkpt_mask = 0xfff000f0;
-        const uint32_t bkpt_isn  = 0xe1200070;
-
-        uintptr_t isn = *((uintptr_t*)fault_address);
-        if ((isn & bkpt_mask) == bkpt_isn) {
-            bkpt_id = (int32_t)((isn & 0xf) | ((isn & 0xfff00) >> 4));
-        }
-    }
-    return bkpt_id;
-}
-
-void fatal_kernel_fault(uint64_t evector, lvaddr_t address,
-                        arch_registers_state_t* save_area)
-{
-    int i;
-    printk(LOG_PANIC, "Kernel fault at %"PRIxLVADDR
-                      " vector %"PRIx64"\n\n", address, evector);
-    printk(LOG_PANIC, "Processor save_area at: %p\n", save_area);
-
-    for (i = 0; i < 16; i++) {
-        const char *extrainfo = "";
-
-        switch(i) {
-        case 13:
-            extrainfo = "\t(sp)";
-            break;
-
-        case 14:
-            extrainfo = "\t(lr)";
-            break;
-
-        case 15:
-            {
-                char str[128];
-                snprintf(str, 128, "\t(pc)\t%08lx",
-                         save_area->regs[X0_REG + i] -
-                         (uint64_t)&kernel_first_byte +
-                         0x100000);
-                extrainfo = str;
-            }
-            break;
-        }
-
-        printk(LOG_PANIC, "x%d\t%"PRIx64"%s\n", i, save_area->regs[X0_REG + i], extrainfo);
-    }
-    printk(LOG_PANIC, "cpsr\t%"PRIx64"\n", save_area->regs[SPSR_REG]);
-    printk(LOG_PANIC, "called from: %#lx\n",
-            (lvaddr_t)__builtin_return_address(0) -
-            (lvaddr_t)&kernel_first_byte + 0x100000);
-
-    switch (evector) {
-        case AARCH64_EVECTOR_UNDEF:
-            panic("Undefined instruction.\n");
-            break;
-
-      case AARCH64_EVECTOR_PABT: {
-            int ifsr = sysreg_read_ifsr();
-            if (ifsr == 0) {
-                int bkpt = bkpt_decode(address);
-                if (bkpt >= 0) {
-                    panic("Breakpoint: %4x\n", bkpt);
-                }
-            }
-            panic("Prefetch abort: ifsr %08x\n", ifsr);
-      }
-      break;
-
-      case AARCH64_EVECTOR_DABT:
-          {
-              uint32_t dfsr = sysreg_read_dfsr();
-
-              printf("\n");
-
-              if((dfsr >> 11) & 1) {
-                  printf("On write access\n");
-              } else {
-                  printf("On read access\n");
-              }
-
-              switch((dfsr & 0xf) | (dfsr & 0x400)) {
-              case 1:
-                  printf("Alignment fault\n");
-                  break;
-
-              case 4:
-                  printf("Instruction cache-maintenance fault\n");
-                  break;
-
-              case 5:
-                  printf("Translation fault on section\n");
-                  break;
-
-              case 6:
-                  printf("Translation fault on page\n");
-                  break;
-
-              case 8:
-                  printf("Synchronous external abort\n");
-                  break;
-
-              default:
-                  printf("Unknown fault\n");
-                  break;
-              }
-
-              panic("Data abort: dfsr %08"PRIx32"\n", dfsr);
-          }
-
-      default:
-        panic("Caused by evector: %02"PRIx32, evector);
-        break;
-    }
-}
-
-void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
+void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
+                uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
     uint32_t irq = 0;
+
+    /* The assembly stub leaves the first 4 registers, the stack pointer, and
+     * the exception PC for us to save, as it's run out of room for the
+     * necessary instructions. */
+    save_area->named.x0    = x0;
+    save_area->named.x1    = x1;
+    save_area->named.x2    = x2;
+    save_area->named.x3    = x3;
+    save_area->named.stack = sysreg_read_sp_el0();
+    save_area->named.pc    = fault_pc;
+
     irq = gic_get_active_irq();
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
-          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+          dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
+                        "in kernel");
 
     if (dcb_current != NULL) {
         dispatcher_handle_t handle = dcb_current->disp;
@@ -278,8 +177,8 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
         wakeup_check(kernel_now);
         dispatch(schedule());
     }
-    // this is the (still) unacknowledged startup interrupt sent by the BSP
-    // we just acknowledge it here
+    /* This is the (still) unacknowledged startup interrupt sent by the BSP.
+     * We just acknowledge it here. */
     else if(irq == 1)
     {
     	gic_ack_irq(irq);
@@ -291,4 +190,119 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc)
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
 
+}
+
+/* For unhandled faults, we print a register dump and panic. */
+void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
+                        arch_registers_state_t* save_area)
+{
+    size_t i;
+    enum aarch64_exception_class exception_class = FIELD(26,6,esr);
+    /* int instruction_length = FIELD(25,1,esr); */
+    int iss                = FIELD(0,25,esr);
+
+    printk(LOG_PANIC, "Fatal (unexpected) fault at %"PRIxLVADDR "\n\n", epc);
+    printk(LOG_PANIC, "Register context at: %p\n", save_area);
+
+    for (i = 0; i < 31; i++) {
+        printk(LOG_PANIC, "x%d\t%"PRIx64"\n", i, save_area->regs[i]);
+    }
+
+    printk(LOG_PANIC, "sp\t%"PRIx64"\n", save_area->regs[SP_REG]);
+    printk(LOG_PANIC, "pc\t%"PRIx64"\n", epc);
+    printk(LOG_PANIC, "cpsr\t%"PRIx64"\n", spsr);
+    printk(LOG_PANIC, "general syndrome\t%x\n", exception_class);
+    printk(LOG_PANIC, "instruction-specific syndrome\t%x\n", iss);
+
+    switch(exception_class) {
+        case aarch64_ec_unknown:
+            panic("Unknown instruction.\n");
+
+        case aarch64_ec_wfi:
+            panic("Trapped WFI/WFI.\n");
+
+        case aarch64_ec_mcr_cp15:
+        case aarch64_ec_mcrr_cp15:
+            panic("CP15 abort.\n");
+
+        case aarch64_ec_mcr_cp14:
+        case aarch64_ec_ldc_cp14:
+        case aarch64_ec_mcrr_cp14:
+            panic("CP14 abort.\n");
+
+        case aarch64_ec_fpen:
+        case aarch64_ec_fpu_aa32:
+        case aarch64_ec_fpu_aa64:
+            panic("FPU abort.\n");
+
+        case aarch64_ec_mcr_cp10:
+            panic("CP10 abort.\n");
+
+        case aarch64_ec_il:
+            panic("PSTATE.IL == 1.\n");
+
+        case aarch64_ec_svc_aa32:
+        case aarch64_ec_hvc_aa32:
+        case aarch64_ec_svc_aa64:
+        case aarch64_ec_hvc_aa64:
+        case aarch64_ec_smc_aa64:
+            panic("Unhandled system/hypervisor/monitor call.\n");
+
+        case aarch64_ec_mrs:
+            panic("Exception caused by MSR/MRS.\n");
+
+        case aarch64_ec_impl:
+            panic("Implementation-specific exception.\n");
+
+        case aarch64_ec_iabt_low:
+            panic("Instruction abort at user level.\n");
+
+        case aarch64_ec_iabt_high:
+            panic("Instruction abort in the kernel.\n");
+
+        case aarch64_ec_pc_align:
+            panic("Misaligned PC.\n");
+
+        case aarch64_ec_dabt_low:
+            panic("Data abort at user level.\n");
+
+        case aarch64_ec_dabt_high:
+            panic("Data abort in the kernel.\n");
+
+        case aarch64_ec_sp_align:
+            panic("Misaligned SP.\n");
+
+        case aarch64_ec_serror:
+            panic("Delayed memory abort.\n");
+
+        case aarch64_ec_bkpt_low:
+            panic("HW Breakpoint in user code.\n");
+
+        case aarch64_ec_bkpt_high:
+            panic("HW Breakpoint in the kernel.\n");
+
+        case aarch64_ec_step_low:
+            panic("Single step in user code.\n");
+
+        case aarch64_ec_step_high:
+            panic("Single step in the kernel.\n");
+
+        case aarch64_ec_wpt_low:
+            panic("HW Watchpoint in user code.\n");
+
+        case aarch64_ec_wpt_high:
+            panic("HW Watchpoint in the kernel.\n");
+
+        case aarch64_ec_bkpt_soft:
+            panic("AArch32 soft breakpoint.\n");
+
+        case aarch64_ec_bkpt_el2:
+            panic("AArch32 Breakpoint trapped to EL2.\n");
+
+        case aarch64_ec_brk:
+            panic("AArch64 soft breakpoint.\n");
+
+        default:
+            panic("Unrecognised exception.\n");
+    }
 }

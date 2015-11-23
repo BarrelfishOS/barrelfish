@@ -27,7 +27,7 @@ module	/armv8/sbin/monitor
 
 # Special boot time domains spawned by monitor
 module /armv8/sbin/ramfsd boot
-module /armv8/sbin/skb boot
+#module /armv8/sbin/skb boot
 module /armv8/sbin/spawnd boot
 module /armv8/sbin/startd boot
 

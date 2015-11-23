@@ -67,7 +67,7 @@ aarch64 = Arch {
     ptrsize = 64,
     sizesize = 64,
     enum_type = Int32,
-    lmp_words = 10, -- XXX: TODO: check this
+    lmp_words = 4, -- XXX: Should be more
     lrpc_words = 4
 }
 

@@ -30,7 +30,8 @@ STATIC_ASSERT(PC_REG   == 32, "");
 STATIC_ASSERT(SPSR_REG == 33, "");
 
 extern uint32_t ctr;
-static inline __attribute__((noreturn))
+
+void __attribute__((noreturn)) do_resume(uint64_t *regs);
 
 /// Ensure context is for user-mode with interrupts enabled.
 static inline void
@@ -85,7 +86,6 @@ uint32_t ctr=0;
 void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
 {
     ctr++;
-    state->named.rtls = arch_get_thread_register();
     ensure_user_mode_policy(state);
 
 	//printf("thread reg..%p\n",state->named.rtls);
