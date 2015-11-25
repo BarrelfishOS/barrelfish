@@ -19,48 +19,42 @@
 #include <barrelfish_kpi/flags_arch.h> // ARM_MODE_MASK
 #include <offsets.h> // BOOT_STACK_PHYS
         
-        .text
+.text
 
-        .globl start, halt, got_base
-        .extern kernel_stack, glbl_core_data
+.globl start, halt, got_base
+.extern kernel_stack, glbl_core_data
 
-        // Used to track phys memory allocator limit globally.
-        alloc_top .req x11
+// Used to track phys memory allocator limit globally.
+alloc_top .req x11
 
 start:
-        // On entry:
-        //
-        // MMU disabled
-        // Caches disabled
-        // CPU is in EL1.
-        //
-        mov     x2, x0
-        mov     x0, #3 << 20
-        msr     cpacr_el1, x0 // FP and ASIMD instructions does not 
-                              // cause any instruction to be trapped.
+    // On entry:
+    //
+    // MMU disabled
+    // Caches disabled
+    // CPU is in EL1.
+    //
+    mov     x2, x0
+    mov     x0, #3 << 20
+    msr     cpacr_el1, x0 // FP and ASIMD instructions do not 
+                          // cause any instruction to be trapped.
 
-        //init stack
-        ldr     x0, =kernel_stack
-        add     x0, x0, #KERNEL_STACK_SIZE
-        mov     sp, x0
+    // init stack
+    ldr     x0, =kernel_stack
+    add     sp, x0, #KERNEL_STACK_SIZE
 
-        ldr PIC_REGISTER, =got_base
-
-        //prepare argument
-        mov     x0, x2
-        b       arch_init
-        b       halt
-
+    // prepare argument
+    mov     x0, x2
+    b       arch_init
+    b       halt
 
 /**
  * extern "C" void halt(void) __attribute__((noreturn))
  */
-halt:
-        b       .
+halt: b .
 
 .ltorg
 
 got_base:
-        .word                                   // Initialized by linker
-
-        .end
+    .word // Initialized by linker
+    .end

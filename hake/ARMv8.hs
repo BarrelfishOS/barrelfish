@@ -39,14 +39,15 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-mcpu=cortex-a57",
                    Str "-march=armv8-a",
                    Str "-mabi=lp64",
-				   Str "-mstrict-align",
-                   Str "-DPIC_REGISTER=X10",
+                   Str "-mstrict-align",
                    Str "-fPIE",
+                   -- The dispatcher needs a scratch register on ARMv8.
+                   -- We use r18, which is reserved as the 'platform register'
+                   -- by the ARM-64 ABI.
                    Str "-ffixed-x18",
-                   Str "-DTHREAD_REGISTER=X18",
                    Str "-D__ARM_CORTEX__",
                    Str "-D__ARM_ARCH_8A__",
-				   Str "-DPREFER_SIZE_OVER_SPEED",
+                   Str "-DPREFER_SIZE_OVER_SPEED",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-format"
  ]
@@ -102,7 +103,7 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 
 --
--- The kernel is "different"
+-- The kernel needs different flags
 --
 
 kernelCFlags = [ Str s | s <- [ "-fno-builtin",
@@ -112,7 +113,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mcpu=cortex-a57",
                                 "-march=armv8-a",
                                 "-mabi=lp64",
-								"-mstrict-align",
+                                "-mstrict-align",
                                 "-fPIE",
                                 "-U__linux__",
                                 "-Wall",
@@ -129,12 +130,9 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-ffreestanding",
                                 "-fomit-frame-pointer",
                                 "-Wmissing-noreturn",
-                                "-DPIC_REGISTER=X10",
-                                "-ffixed-x18",
-                                "-DTHREAD_REGISTER=X18",
                                 "-D__ARM_CORTEX__",
                                 "-D__ARM_ARCH_8A__",
-								"-DPREFER_SIZE_OVER_SPEED",
+                                "-DPREFER_SIZE_OVER_SPEED",
                                 "-Wno-unused-but-set-variable",
                                 "-Wno-format"
                               ]]

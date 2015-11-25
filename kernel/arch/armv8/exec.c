@@ -64,12 +64,13 @@ execute(lvaddr_t entry)
     arch_registers_state_t *state = &upcall_state;
     assert(0 != disp_aarch64->got_base);
 
+    /* XXX - why is this here? */
     state->named.x10 = disp_aarch64->got_base;
 
     struct dispatcher_shared_generic *disp_gen
         = get_dispatcher_shared_generic(handle);
 
-    state->named.rtls = disp_gen->udisp;
+    state->named.x0 = disp_gen->udisp;
 
     state->named.pc = entry;
     ensure_user_mode_policy(state);

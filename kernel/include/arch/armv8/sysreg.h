@@ -157,4 +157,19 @@ sysreg_write_vbar_el1(uint64_t vbar_el1) {
     __asm volatile("msr vbar_el1, %[vbar_el1]" : : [vbar_el1] "r" (vbar_el1));
 }
 
+static inline void
+sysreg_write_sp_el1(uint64_t sp_el1) {
+    __asm volatile("msr sp_el1, %[sp_el1]" : : [sp_el1] "r" (sp_el1));
+}
+
+static inline void
+sysreg_write_tpidrro_el0(uint64_t x) {
+    __asm volatile("msr tpidrro_el0, %[x]" : : [x] "r" (x));
+}
+
+static inline void
+sysreg_write_tpidr_el1(uint64_t x) {
+    __asm volatile("msr tpidr_el1, %[x]" : : [x] "r" (x));
+}
+
 #endif // __SYSREG_H__

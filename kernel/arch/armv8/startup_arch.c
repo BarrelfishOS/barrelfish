@@ -608,14 +608,13 @@ static struct dcb *spawn_init_common(const char *name,
     disp->disabled = true;
     strncpy(disp->name, argv[0], DISP_NAME_LEN);
 
-    /* tell init the vspace addr of its dispatcher */
+    /* Tell init the vspace addr of its dispatcher. */
     disp->udisp = INIT_DISPATCHER_VBASE;
+    /* Set the thread ID register to point to the shared structure. */
+    sysreg_write_tpidrro_el0((uint64_t)disp->udisp);
 
     disp_aarch64->enabled_save_area.named.x0   = paramaddr;
     disp_aarch64->enabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
-    disp_aarch64->enabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-    disp_aarch64->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
-
 
     return init_dcb;
 }
@@ -647,11 +646,14 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
 
     struct dispatcher_shared_aarch64 *disp_aarch64
         = get_dispatcher_shared_aarch64(init_dcb->disp);
+    printf("save area: %p\n", &disp_aarch64->enabled_save_area);
+    /* XXX - Why does the kernel do this? -DC */
     disp_aarch64->enabled_save_area.named.x10  = got_base;
     disp_aarch64->got_base = got_base;
 
     disp_aarch64->disabled_save_area.named.pc   = init_ep;
     disp_aarch64->disabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
+    /* XXX - Why does the kernel do this? -DC */
     disp_aarch64->disabled_save_area.named.x10  = got_base;
 
     /* Create caps for init to use */
@@ -666,7 +668,6 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys)
     spawn_init_map(init_l3, INIT_VBASE, INIT_DISPATCHER_VBASE,
                    mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
                    INIT_PERM_RW);
-    disp_aarch64->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
 	*/
     return init_dcb;
 }
@@ -739,7 +740,6 @@ struct dcb *spawn_app_init(struct arm_core_data *core_data,
     disp_aarch64->disabled_save_area.named.pc   = entry_point;
     disp_aarch64->disabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
     disp_aarch64->disabled_save_area.named.x10  = got_base;
-    //disp_aarch64->disabled_save_area.named.rtls = INIT_DISPATCHER_VBASE;
 
     return init_dcb;
 }
@@ -795,7 +795,7 @@ void arm_kernel_startup(void)
 
     // enable interrupt forwarding to cpu
     gic_cpu_interface_enable();
-	
+
     // Should not return
     dispatch(init_dcb);
 

@@ -62,34 +62,34 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint64_t *regs)
     disp->disabled = 0;
 
     __asm volatile(
-        /* Skip to the end... */
-        "add x0, %[regs], #("XTR((NUM_REGS)-2)" * 8)\n"
-        /* Restore the LR - we'll jump back to this - and the SP. */
-        "ldp x29, x30, [x0], #-(2 * 8)\n"
-        "mov sp, x29\n"
-        /* Restore the PSTATE condition bits (NZCV). */
-        "ldr x29, [x0], #-8\n"
-        "and x29, x29, #0xf0000000\n"
-        "msr nzcv, x29\n"
+        /* Restore the PSTATE condition bits (NZCV), and load the resume
+         * address into x18, our platform scratch register. */
+        "ldp x18, x2, [%[regs], #("XTR(PC_REG)" * 8)]\n"
+        "and x2, x2, #0xf0000000\n" /* Set only the top four bits: NZCV. */
+        "msr nzcv, x2\n"
+        /* Restore the stack pointer, and x30 while we're at it. */
+        "ldp x30, x2, [%[regs], #(30 * 8)]\n"
+        "mov sp, x2\n"
         /* Restore everything else. */
-        "ldp x28, x29, [x0], #-(2 * 8)\n"
-        "ldp x26, x27, [x0], #-(2 * 8)\n"
-        "ldp x24, x25, [x0], #-(2 * 8)\n"
-        "ldp x22, x23, [x0], #-(2 * 8)\n"
-        "ldp x20, x21, [x0], #-(2 * 8)\n"
-        "ldp x18, x19, [x0], #-(2 * 8)\n"
-        "ldp x16, x17, [x0], #-(2 * 8)\n"
-        "ldp x14, x15, [x0], #-(2 * 8)\n"
-        "ldp x12, x13, [x0], #-(2 * 8)\n"
-        "ldp x10, x11, [x0], #-(2 * 8)\n"
-        "ldp  x8,  x9, [x0], #-(2 * 8)\n"
-        "ldp  x6,  x7, [x0], #-(2 * 8)\n"
-        "ldp  x4,  x5, [x0], #-(2 * 8)\n"
-        "ldp  x2,  x3, [x0], #-(2 * 8)\n"
-        "ldp  x0,  x1, [x0]\n" /* Don't post-index x0! */
+        "ldp x28, x29, [%[regs], #(28 * 8)]\n"
+        "ldp x26, x27, [%[regs], #(26 * 8)]\n"
+        "ldp x24, x25, [%[regs], #(24 * 8)]\n"
+        "ldp x22, x23, [%[regs], #(22 * 8)]\n"
+        "ldp x20, x21, [%[regs], #(20 * 8)]\n"
+        "ldr      x19, [%[regs], #(19 * 8)]\n" /* n.b. don't reload x18 */
+        "ldp x16, x17, [%[regs], #(16 * 8)]\n"
+        "ldp x14, x15, [%[regs], #(14 * 8)]\n"
+        "ldp x12, x13, [%[regs], #(12 * 8)]\n"
+        "ldp x10, x11, [%[regs], #(10 * 8)]\n"
+        "ldp  x8,  x9, [%[regs], #( 8 * 8)]\n"
+        "ldp  x6,  x7, [%[regs], #( 6 * 8)]\n"
+        "ldp  x4,  x5, [%[regs], #( 4 * 8)]\n"
+        "ldp  x2,  x3, [%[regs], #( 2 * 8)]\n"
+        "ldp  x0,  x1, [%[regs], #( 0 * 8)]\n" /* n.b. this clobbers x0&x1 */
         /* Return to the thread. */
-        "br x30\n"
-        /* This is the end of the critical section. */
+        "br x18\n"
+        /* This is the end of the critical section. This code isn't executed,
+         * but we need to make sure it's a valid address. */
         "disp_resume_context_epilog:\n"
         "nop\n"
         :: [regs] "r" (regs));
@@ -117,6 +117,7 @@ disp_resume(dispatcher_handle_t handle,
     struct dispatcher_shared_aarch64 *disp =
         get_dispatcher_shared_aarch64(handle);
 
+    // XXX - the work flakey shouldn't appear in this code -DC
     // The definition of disp_resume_end is a totally flakey. The system
     // uses the location of the PC to determine where to spill the thread
     // context for exceptions and interrupts. There are two safe ways of doing

@@ -55,27 +55,9 @@ struct dcb *dcb_current = NULL;
 /// Remembered FPU-using DCB (NULL if none)
 struct dcb *fpu_dcb = NULL;
 
-/**
- * \brief Switch context to 'dcb'.
- *
- * This is a wrapper function to call the real, hardware-dependent
- * context-switch function to switch to the dispatcher, pointed to by
- * 'dcb'. It also sets 'dcb_current'.
- *
- * \param dcb        Pointer to dispatcher to which to switch context.
- */
-static inline void context_switch(struct dcb *dcb)
-{
-//    printf("Executing the context switch\n");
-    assert(dcb != NULL);
-    assert(dcb->vspace != 0);
-
-    // VM guests do not have a user space dispatcher
-    if (!dcb->is_vm_guest) {
-        assert(dcb->disp != 0);
-    }
-
 #ifdef FPU_LAZY_CONTEXT_SWITCH
+void
+fpu_lazy_top(struct dcb *dcb) {
     // XXX: It should be possible to merge this code fragment with the
     // other FPU restore fragment below
     if(fpu_dcb != NULL && !dcb->is_vm_guest) {
@@ -95,81 +77,51 @@ static inline void context_switch(struct dcb *dcb)
             fpu_trap_off();
         }
     }
-#endif
+}
 
-    paging_context_switch(dcb->vspace);
-    context_switch_counter++;
+void
+fpu_lazy_bottom(struct dcb *dcb) {
+    struct dispatcher_shared_generic *disp =
+        get_dispatcher_shared_generic(dcb->disp);
 
-    if (!dcb->is_vm_guest) {
-        assert(dcb->disp_cte.cap.type == ObjType_Frame);
+    // Eagerly restore FPU if it was used disabled and set FPU trap accordingly
+    if(disp->fpu_used && dcb->disabled) {
+        // Context switch if FPU state is stale
+        if(fpu_dcb != dcb) {
+            // XXX: Need to reset fpu_dcb when that DCB is deleted
+            struct dispatcher_shared_generic *dst =
+                get_dispatcher_shared_generic(fpu_dcb->disp);
 
-        /* FIXME: incomplete clean-up of "thread_register" in progress here.
-         * Complain vigorously to AB if he checks this mess in
-         */
-#if defined(__x86_64__) || defined(__k1om__)  /* Setup new LDT */
-        maybe_reload_ldt(dcb, false);
-#else
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
+            fpu_trap_off();
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-        // Eagerly restore FPU if it was used disabled and set FPU trap accordingly
-        if(disp->fpu_used && dcb->disabled) {
-            // Context switch if FPU state is stale
-            if(fpu_dcb != dcb) {
-                // XXX: Need to reset fpu_dcb when that DCB is deleted
-                struct dispatcher_shared_generic *dst =
-                    get_dispatcher_shared_generic(fpu_dcb->disp);
-
-                fpu_trap_off();
-
-                // Store old FPU state if it was used
-                if(fpu_dcb->disabled) {
-                    fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-		    dst->fpu_used = 1;
-                } else {
-                    assert(!fpu_dcb->disabled);
-                    fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
-		    dst->fpu_used = 2;
-                }
-
-		if(disp->fpu_used == 1) {
-		  fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
-		} else {
-		  assert(disp->fpu_used == 2);
-		  fpu_restore(dispatcher_get_enabled_fpu_save_area(dcb->disp));
-		}
-
-                // Restore trap state once more, since we modified it
-                if(disp->fpu_trap) {
-                    fpu_trap_on();
-                } else {
-                    fpu_trap_off();
-                }
+            // Store old FPU state if it was used
+            if(fpu_dcb->disabled) {
+                fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
+                dst->fpu_used = 1;
+            } else {
+                assert(!fpu_dcb->disabled);
+                fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
+                dst->fpu_used = 2;
             }
-            fpu_dcb = dcb;
-        }
-#endif /* FPU_LAZY_CONTEXT_SWITCH */
 
-	/*
-	 * The name of the function is somewhat misleading. we need an unused
-	 * user register that always stores the pointer to the current
-	 * dispatcher. most ABIs define a register for thread-local storage,
-	 * and we have been abusing that on x64 for the dispatcher pointer
-	 * --arch_set_thread_ register sets this pointer.  Obviously this
-	 * needs to change to support thread-local storage using a standard
-	 * ABI, so we will have to figure out how to get to the dispatcher
-	 * from something like a thread-local variable.  The reason that this
-	 * is in the switch path and not in resume/execute is that on x86_64
-	 * loading the thread register (fs) is stupidly expensive, so we avoid
-	 * doing it unless we switch contexts -- presumably that could be a
-	 * local optimisation in the x86_64 dispatch paths rather than the
-	 * generic context_switch path/
-	 */
-        arch_set_thread_register(disp->udisp);
-#endif
+            if(disp->fpu_used == 1) {
+              fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
+            } else {
+              assert(disp->fpu_used == 2);
+              fpu_restore(dispatcher_get_enabled_fpu_save_area(dcb->disp));
+            }
+
+            // Restore trap state once more, since we modified it
+            if(disp->fpu_trap) {
+                fpu_trap_on();
+            } else {
+                fpu_trap_off();
+            }
+        }
+        fpu_dcb = dcb;
     }
 }
+#endif
 
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 #define TRACE_N_BM 1

@@ -16,7 +16,6 @@
 #ifndef ARCH_AARCH64_BARRELFISH_REGISTERS_H
 #define ARCH_AARCH64_BARRELFISH_REGISTERS_H
 
-#include <barrelfish/curdispatcher_arch.h> // XXX For curdispatcher()
 #include "threads_priv.h"
 
 static inline uint64_t
@@ -39,11 +38,10 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
     regs->named.x1 = arg2;
     regs->named.x2 = arg3;
     regs->named.x3 = arg4;
-    regs->named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
-    regs->named.stack = stack;
-    regs->named.rtls = (uintptr_t)curdispatcher(); // XXX API bug means this must be run same-core
     regs->named.x10 = (uintptr_t)curgotbase();
+    regs->named.stack = stack;
     regs->named.pc = entry;
+    regs->named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
 }
 
 #endif // ARCH_AARCH64_BARRELFISH_REGISTERS_H

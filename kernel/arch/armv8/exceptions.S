@@ -16,29 +16,28 @@
     /* Just stick the trap frame on the kernel stack - we're about to panic
      * anyway.  */
 
-    /* Leave space for SPSR, SP and EPC, for which we need scratch space. */
-    add sp, sp, #-(3 * 8)
+    add sp, sp, #-(34 * 8)
 
     /* Spill the GPRs */
-    stp x29, x30, [sp, #-(2 * 8)]!
-    stp x27, x28, [sp, #-(2 * 8)]!
-    stp x25, x26, [sp, #-(2 * 8)]!
-    stp x23, x24, [sp, #-(2 * 8)]!
-    stp x21, x22, [sp, #-(2 * 8)]!
-    stp x19, x20, [sp, #-(2 * 8)]!
-    stp x17, x18, [sp, #-(2 * 8)]!
-    stp x15, x16, [sp, #-(2 * 8)]!
-    stp x13, x14, [sp, #-(2 * 8)]!
-    stp x11, x12, [sp, #-(2 * 8)]!
-    stp x9,  x10, [sp, #-(2 * 8)]!
-    stp x7,  x8,  [sp, #-(2 * 8)]!
-    stp x5,  x6,  [sp, #-(2 * 8)]!
-    stp x3,  x4,  [sp, #-(2 * 8)]!
-    stp x1,  x2,  [sp, #-(2 * 8)]!
-    str x0,       [sp, #-8]!
+    stp  x0,  x1, [sp]
+    stp  x2,  x3, [sp, #( 2 * 8)]
+    stp  x4,  x5, [sp, #( 4 * 8)]
+    stp  x6,  x7, [sp, #( 6 * 8)]
+    stp  x8,  x9, [sp, #( 8 * 8)]
+    stp x10, x11, [sp, #(10 * 8)]
+    stp x12, x13, [sp, #(12 * 8)]
+    stp x14, x15, [sp, #(14 * 8)]
+    stp x16, x17, [sp, #(16 * 8)]
+    stp x18, x19, [sp, #(18 * 8)]
+    stp x20, x21, [sp, #(20 * 8)]
+    stp x22, x23, [sp, #(22 * 8)]
+    stp x24, x25, [sp, #(24 * 8)]
+    stp x26, x27, [sp, #(26 * 8)]
+    stp x28, x29, [sp, #(28 * 8)]
 
+    /* Stack pointer */
     mrs x0, sp_el0
-    str x0, [sp, #(31 * 8)]
+    stp x30, x0, [sp, #(30 * 8)]
 
     mrs x0, elr_el1
     mrs x1, spsr_el1
@@ -114,7 +113,7 @@ el0_aarch64_sync:
 
     /* The EL1 thread ID register holds the address of the currently-running
      * dispatcher's shared control block. */
-    mrs x10, tpidrro_el0
+    mrs x10, tpidr_el1
 
     /* x10 = dispatcher_shared_aarch64 */
 
@@ -172,13 +171,13 @@ save_syscall_context:
 
     /* High registers are now available. */
 
-    /* SPSR */
-    mrs x19, spsr_el1
-    str x19, [x10, #(31 * 8)]
-
     /* User SP and PC */
     mrs x20, sp_el0
-    stp x20, x9, [x10, #(32 * 8)]
+    stp x20, x9, [x10, #(31 * 8)]
+
+    /* SPSR */
+    mrs x19, spsr_el1
+    str x19, [x10, #(33 * 8)]
 
     /* Is this a syscall? */
     cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
@@ -209,7 +208,7 @@ el0_aarch64_irq:
     stp x0, x1, [sp, #-(2 * 8)]!
 
     /* Find the dispatcher. */
-    mrs x3, tpidrro_el0
+    mrs x3, tpidr_el1
 
     /* Get the exception address (EPC) */
     mrs x1, elr_el1
@@ -302,6 +301,7 @@ el0_aarch32_fiq:
 el0_aarch32_serror:
     invalid_exception
 
+.align 11
 /********************************/
 /*** End of exception vectors ***/
 /********************************/
@@ -343,9 +343,9 @@ el0_abort_enabled:
      * handler. */
     /* Now we can jump to the appropriate handler. */
     cmp x11, #0x24 /* Data Abort */
-    b handle_user_page_fault
+    b.eq handle_user_page_fault
     cmp x11, #0x20 /* Prefetch Abort */
-    b handle_user_page_fault
+    b.eq handle_user_page_fault
     /* Unknown Trap/Undefined Instruction */
     b handle_user_undef
 
@@ -403,34 +403,34 @@ do_resume:
 
     /* Flush the TLB - XXX kill this with fire. */
     dsb sy
-    tlbi alle1
+    tlbi vmalle1
     dsb sy
     isb
 
     /* Restore SPSR, PC (ELR) and SP, which need temporary registers, before
      * we restore those. */
-    ldr x3,     [x0], #-8  /* spsr */
+    ldr x3,     [x0], #-16 /* spsr */
     ldp x1, x2, [x0], #-16 /* stack, pc */
     msr spsr_el1, x3
     msr elr_el1,  x2
-    mov sp,       x1
+    msr sp_el0,   x1
 
     /* Restore the general-purpose registers. */
-    ldp x29, x30, [x0], #-16
-    ldp x27, x28, [x0], #-16
-    ldp x25, x26, [x0], #-16
-    ldp x23, x24, [x0], #-16
-    ldp x21, x22, [x0], #-16
-    ldp x19, x20, [x0], #-16
-    ldp x17, x18, [x0], #-16
-    ldp x15, x16, [x0], #-16
-    ldp x13, x14, [x0], #-16
-    ldp x11, x12, [x0], #-16
-    ldp x9,  x10, [x0], #-16
-    ldp x7,  x8,  [x0], #-16
-    ldp x5,  x6,  [x0], #-16
-    ldp x3,  x4,  [x0], #-16
-    ldp x1,  x2,  [x0], #-16
+    ldp x29, x30, [x0], #-(2 * 8)
+    ldp x27, x28, [x0], #-(2 * 8)
+    ldp x25, x26, [x0], #-(2 * 8)
+    ldp x23, x24, [x0], #-(2 * 8)
+    ldp x21, x22, [x0], #-(2 * 8)
+    ldp x19, x20, [x0], #-(2 * 8)
+    ldp x17, x18, [x0], #-(2 * 8)
+    ldp x15, x16, [x0], #-(2 * 8)
+    ldp x13, x14, [x0], #-(2 * 8)
+    ldp x11, x12, [x0], #-(2 * 8)
+    ldp x9,  x10, [x0], #-(2 * 8)
+    ldp x7,  x8,  [x0], #-(2 * 8)
+    ldp x5,  x6,  [x0], #-(2 * 8)
+    ldp x3,  x4,  [x0], #-(2 * 8)
+    ldp x1,  x2,  [x0], #-(1 * 8)
     ldr x0,       [x0]
 
     /* Return from exception.  This clears the load exclusive monitor. */

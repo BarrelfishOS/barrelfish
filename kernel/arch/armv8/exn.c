@@ -72,14 +72,14 @@ void handle_user_page_fault(lvaddr_t                fault_address,
          * user-level fault handler. */
         union registers_aarch64 resume_area;
 
-        resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
-        resume_area.named.pc   = handler;
         resume_area.named.x0   = disp_gen->udisp;
         resume_area.named.x1   = fault_address;
         resume_area.named.x2   = 0;
         resume_area.named.x3   = saved_pc;
-        resume_area.named.rtls = disp_gen->udisp;
+        /* Why does the kernel do this? */
         resume_area.named.x10  = disp->got_base;
+        resume_area.named.pc   = handler;
+        resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
 
         // SP is set by handler routine.
 
@@ -118,14 +118,14 @@ void handle_user_undef(lvaddr_t fault_address,
     struct dispatcher_shared_generic *disp_gen =
         get_dispatcher_shared_generic(dcb_current->disp);
 
-    resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
-    resume_area.named.pc   = disp->d.dispatcher_trap;
     resume_area.named.x0   = disp_gen->udisp;
     resume_area.named.x1   = AARCH64_EVECTOR_UNDEF;
     resume_area.named.x2   = 0;
     resume_area.named.x3   = fault_address;
-    resume_area.named.rtls = disp_gen->udisp;
+    /* Why does the kernel do this? */
     resume_area.named.x10  = disp->got_base;
+    resume_area.named.pc   = disp->d.dispatcher_trap;
+    resume_area.named.spsr = CPSR_F_MASK | AARCH64_MODE_USR;
 
     // Upcall user to save area
     disp->d.disabled = true;
@@ -192,6 +192,8 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
 }
 
+#define STACK_DUMP_LIMIT 32
+
 /* For unhandled faults, we print a register dump and panic. */
 void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
                         arch_registers_state_t* save_area)
@@ -201,8 +203,8 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
     /* int instruction_length = FIELD(25,1,esr); */
     int iss                = FIELD(0,25,esr);
 
-    printk(LOG_PANIC, "Fatal (unexpected) fault at %"PRIxLVADDR "\n\n", epc);
-    printk(LOG_PANIC, "Register context at: %p\n", save_area);
+    printk(LOG_PANIC, "Fatal (unexpected) fault at 0x%"PRIx64 "\n\n", epc);
+    printk(LOG_PANIC, "Register context saved at: %p\n", save_area);
 
     for (i = 0; i < 31; i++) {
         printk(LOG_PANIC, "x%d\t%"PRIx64"\n", i, save_area->regs[i]);
@@ -211,8 +213,40 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
     printk(LOG_PANIC, "sp\t%"PRIx64"\n", save_area->regs[SP_REG]);
     printk(LOG_PANIC, "pc\t%"PRIx64"\n", epc);
     printk(LOG_PANIC, "cpsr\t%"PRIx64"\n", spsr);
-    printk(LOG_PANIC, "general syndrome\t%x\n", exception_class);
     printk(LOG_PANIC, "instruction-specific syndrome\t%x\n", iss);
+
+    /* Skip the trap frame to dump the prior stack. */
+    uint64_t *kstack_base= (void *)save_area + (NUM_REGS * 8);
+
+    if((((uintptr_t)kstack_base) & MASK(3)) != 0) {
+        kstack_base= (uint64_t *)((uint64_t)kstack_base & ~MASK(3));
+        printk(LOG_PANIC,
+               "Kernel stack is misaligned, dumping from %p\n",
+               kstack_base);
+    }
+
+    uint64_t kstack_len =
+        (((uint64_t)kernel_stack + KERNEL_STACK_SIZE) -
+         (uint64_t)kstack_base) /
+        sizeof(uint64_t);
+
+    printk(LOG_PANIC,
+           "Kernel stack (0x%p - 0x%p):\n",
+           kstack_base,
+           (void *)kernel_stack + KERNEL_STACK_SIZE);
+
+    for(i= 0; i < kstack_len-2; i+=2) {
+        if(i > STACK_DUMP_LIMIT) {
+            printk(LOG_PANIC, "...\n");
+            break;
+        }
+
+        printk(LOG_PANIC,
+               "%016x  %016x  %016x\n",
+               (uint64_t)(kstack_base + i),
+               kstack_base[i],
+               kstack_base[i+1]);
+    }
 
     switch(exception_class) {
         case aarch64_ec_unknown:
@@ -261,13 +295,114 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
             panic("Instruction abort in the kernel.\n");
 
         case aarch64_ec_pc_align:
-            panic("Misaligned PC.\n");
+            panic("Misaligned PC @0x%"PRIx64".\n",
+                  sysreg_read_far());
 
         case aarch64_ec_dabt_low:
-            panic("Data abort at user level.\n");
+            panic("Data abort at user level @0x%"PRIx64".\n",
+                  sysreg_read_far());
 
         case aarch64_ec_dabt_high:
-            panic("Data abort in the kernel.\n");
+            printk(LOG_PANIC,
+                   "Data abort in the kernel @0x%"PRIx64".\n",
+                   sysreg_read_far());
+            printk(LOG_PANIC, "Abort type: ");
+            switch(iss) {
+                case aarch64_dsfc_size_l0:
+                    printk(LOG_PANIC, "address size fault, L0/TTBR\n");
+                    break;
+                case aarch64_dsfc_size_l1:
+                    printk(LOG_PANIC, "address size fault, L1\n");
+                    break;
+                case aarch64_dsfc_size_l2:
+                    printk(LOG_PANIC, "address size fault, L2\n");
+                    break;
+                case aarch64_dsfc_size_l3:
+                    printk(LOG_PANIC, "address size fault, L3\n");
+                    break;
+                case aarch64_dsfc_trans_l0:
+                    printk(LOG_PANIC, "translation fault, L0/TTBR\n");
+                    break;
+                case aarch64_dsfc_trans_l1:
+                    printk(LOG_PANIC, "translation fault, L1\n");
+                    break;
+                case aarch64_dsfc_trans_l2:
+                    printk(LOG_PANIC, "translation fault, L2\n");
+                    break;
+                case aarch64_dsfc_trans_l3:
+                    printk(LOG_PANIC, "translation fault, L3\n");
+                    break;
+                case aarch64_dsfc_flag_l1:
+                    printk(LOG_PANIC, "access flag fault, L1\n");
+                    break;
+                case aarch64_dsfc_flag_l2:
+                    printk(LOG_PANIC, "access flag fault, L2\n");
+                    break;
+                case aarch64_dsfc_flag_l3:
+                    printk(LOG_PANIC, "access flag fault, L3\n");
+                    break;
+                case aarch64_dsfc_perm_l1:
+                    printk(LOG_PANIC, "permission fault, L1\n");
+                    break;
+                case aarch64_dsfc_perm_l2:
+                    printk(LOG_PANIC, "permission fault, L2\n");
+                    break;
+                case aarch64_dsfc_perm_l3:
+                    printk(LOG_PANIC, "permission fault, L3\n");
+                    break;
+                case aarch64_dsfc_external:
+                    printk(LOG_PANIC, "external abort\n");
+                    break;
+                case aarch64_dsfc_external_l0:
+                    printk(LOG_PANIC, "external abort on walk, L0/TTBR\n");
+                    break;
+                case aarch64_dsfc_external_l1:
+                    printk(LOG_PANIC, "external abort on walk, L1\n");
+                    break;
+                case aarch64_dsfc_external_l2:
+                    printk(LOG_PANIC, "external abort on walk, L2\n");
+                    break;
+                case aarch64_dsfc_external_l3:
+                    printk(LOG_PANIC, "external abort on walk, L3\n");
+                    break;
+                case aarch64_dsfc_parity:
+                    printk(LOG_PANIC, "parity error\n");
+                    break;
+                case aarch64_dsfc_parity_l0:
+                    printk(LOG_PANIC, "parity error on walk, L0/TTBR\n");
+                    break;
+                case aarch64_dsfc_parity_l1:
+                    printk(LOG_PANIC, "parity error on walk, L1\n");
+                    break;
+                case aarch64_dsfc_parity_l2:
+                    printk(LOG_PANIC, "parity error on walk, L2\n");
+                    break;
+                case aarch64_dsfc_parity_l3:
+                    printk(LOG_PANIC, "parity error on walk, L3\n");
+                    break;
+                case aarch64_dsfc_alighment:
+                    printk(LOG_PANIC, "alignment fault\n");
+                    break;
+                case aarch64_dsfc_tlb_confl:
+                    printk(LOG_PANIC, "TLB conflict\n");
+                    break;
+                case aarch64_dsfc_impl1:
+                    printk(LOG_PANIC, "implementation-defined fault 1\n");
+                    break;
+                case aarch64_dsfc_impl2:
+                    printk(LOG_PANIC, "implementation-defined fault 2\n");
+                    break;
+                case aarch64_dsfc_sect_dom:
+                    printk(LOG_PANIC, "domain fault on section\n");
+                    break;
+                case aarch64_dsfc_page_dom:
+                    printk(LOG_PANIC, "domain fault on page\n");
+                    break;
+                default:
+                    printk(LOG_PANIC, "unknown\n");
+                    break;
+            }
+            panic("halting.\n");
 
         case aarch64_ec_sp_align:
             panic("Misaligned SP.\n");
@@ -288,10 +423,12 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
             panic("Single step in the kernel.\n");
 
         case aarch64_ec_wpt_low:
-            panic("HW Watchpoint in user code.\n");
+            panic("HW Watchpoint in user code @0x%"PRIx64".\n",
+                  sysreg_read_far());
 
         case aarch64_ec_wpt_high:
-            panic("HW Watchpoint in the kernel.\n");
+            panic("HW Watchpoint in the kernel @0x%"PRIx64".\n",
+                  sysreg_read_far());
 
         case aarch64_ec_bkpt_soft:
             panic("AArch32 soft breakpoint.\n");

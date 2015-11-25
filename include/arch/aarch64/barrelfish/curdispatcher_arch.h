@@ -26,13 +26,11 @@
 /**
  * \brief Returns pointer to current dispatcher, using thread register
  */
-static inline dispatcher_handle_t curdispatcher(void)
-{
-    // TODO: XXX: check this!
+static inline dispatcher_handle_t curdispatcher(void) {
     dispatcher_handle_t ret = 0;
-    __asm (
-        "mov %[ret]," XTR(THREAD_REGISTER) :  [ret] "=r" (ret)
-          );
+    /* The CPU driver maintains the user-space pointer to the shared
+     * dispatcher structure in the read-only thread ID register. */
+    __asm("mrs %[ret], tpidrro_el0" : [ret] "=r" (ret));
     return ret;
 }
 

@@ -14,33 +14,33 @@
  */
 
 #include <asmoffsets.h>
-	.text
-	.globl  _start, _start_init
+.text
+.globl  _start, _start_init
 
 _start:
-        // Entry for processes other than init
-        // Prepare arg1 init_dom_arg (false)
-        mov     x0, x18
-        mov     x1, #0
+    // Entry for processes other than init
+    // Prepare arg1 init_dom_arg (false)
+    mov x1, #0
 
 _start_generic:
-        ldr     x2, =crt0_temp_stack
-		mov     sp, x2
-	    // Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
-	    b	barrelfish_init_disabled
+    // Get the dispatcher handler from the thread ID register.
+    mrs x0, tpidrro_el0
+    ldr x9, =crt0_temp_stack
+    mov sp, x9
+    // Call barrelfish_init_disabled(struct dispatcher* d, bool init_dom_arg)
+    b barrelfish_init_disabled
 
 _start_init:
-        // Entry for the init process
-        // Prepare arg1 init_dom_arg (true)
-        mov     x0, x18
-        mov     x1, #1
-        b       _start_generic
+    // Entry for the init process
+    // Prepare arg1 init_dom_arg (true)
+    mov     x1, #1
+    b       _start_generic
 
-        // TODO: Remove. These are temporary kludges. It looks as though
-        // We need to build own libgcc to avoid these.
-        .globl __aeabi_unwind_cpp_pr0
-        .globl __aeabi_unwind_cpp_pr1
-        .globl raise
+// TODO: Remove. These are temporary kludges. It looks as though
+// We need to build own libgcc to avoid these.
+.globl __aeabi_unwind_cpp_pr0
+.globl __aeabi_unwind_cpp_pr1
+.globl raise
 
 raise:
 __aeabi_unwind_cpp_pr0:

@@ -20,49 +20,41 @@
 #include <barrelfish/dispatch.h>
 #include <asmoffsets.h>
 
-	.text
-	.extern disp_run, disp_pagefault, disp_pagefault_disabled, disp_trap
-	.globl run_entry, pagefault_entry, disabled_pagefault_entry, trap_entry
+.text
+.extern disp_run, disp_pagefault, disp_pagefault_disabled, disp_trap
+.globl run_entry, pagefault_entry, disabled_pagefault_entry, trap_entry
 
 .macro init_sp offset
-        ldr     x28, =(OFFSETOF_DISP_GENERIC +\offset)
-        add     sp, THREAD_REGISTER, x28
+    /* Offset to the top of the required stack. */
+    ldr x10, =(OFFSETOF_DISP_GENERIC + \offset)
+    add sp, x0, x10
 .endm
 
-.macro branch target
-        b   \target
-.endm
-        
-        
-//
-// void run_entry(struct disp_priv* p)
-//        
+/* void run_entry(struct disp_priv* p) */
 run_entry:
-        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
-        mov          x0, x18
-        branch       disp_run
+    init_sp OFFSETOF_DISP_PRIV_STACK_LIMIT
+    b disp_run
 
-
-//
-// void pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
-//
+/* 
+ * void pagefault_entry(struct disp_priv *p, vaddr_t fault_addr,
+ *                      uintptr_t error, vaddr_t pc)
+ */
 pagefault_entry:
-        init_sp      OFFSETOF_DISP_PRIV_STACK_LIMIT
-        branch       disp_pagefault
+    init_sp OFFSETOF_DISP_PRIV_STACK_LIMIT
+    b disp_pagefault
 
-
-//
-// void disabled_pagefault_entry(disp ptr, vaddr_t fault_addr, uintptr_t error, vaddr_t pc)
-//
+/*
+ * void disabled_pagefault_entry(struct disp_priv *p, vaddr_t fault_addr,
+ *                               uintptr_t error, vaddr_t pc)
+ */
 disabled_pagefault_entry:
-        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
-        branch       disp_pagefault_disabled
+    init_sp OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+    b disp_pagefault_disabled
 
-
-//
-// void trap_entry(disp ptr, uintptr_t irq, uintptr_t error, vaddr_t pc)
-//
+/*
+ * void trap_entry(struct disp_priv *p, uintptr_t irq,
+ *                 uintptr_t error, vaddr_t pc)
+ */
 trap_entry:
-        init_sp      OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
-        branch       disp_trap
-
+    init_sp OFFSETOF_DISP_PRIV_TRAP_STACK_LIMIT
+    b disp_trap

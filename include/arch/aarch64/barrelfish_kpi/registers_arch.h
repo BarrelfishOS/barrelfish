@@ -60,12 +60,11 @@
 #define PC_REG   32
 #define SPSR_REG 33
 
+#define PIC_REGISTER X10
+
 #define NUM_REGS 34     /* cpsr, x0-x30, sp, pc */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
-
-#define RIP_REG  PC_REG        /* pc == rip.x86_64 */
-#define RSP_REG  SP_REG        /* sp == rsp.x86_64 */
 
 /// Register used in system calls to encode function and arg count
 #define SYSCALL_REG       0
@@ -82,43 +81,23 @@
 
 union registers_aarch64 {
     struct registers_aarch64_named {
-        uint64_t x0, x1, x2, x3, x4, x5, x6, x7;
-        uint64_t x8;
-        uint64_t x9;
-        uint64_t x10;  // x10 is for global offset table base.
-        uint64_t x11, x12, x13, x14, x15;
-        uint64_t x16, x17;
-        uint64_t rtls; // x18 is thread local storage
-        uint64_t x19, x20, x21, x22, x23, x24, x25, x26, x27, x28;
-        uint64_t fp;
-        uint64_t link;
-        uint64_t stack;
-        uint64_t pc;
-        uint64_t spsr;
+        uint64_t x0,  x1,  x2,  x3,  x4,  x5,  x6,  x7;
+        uint64_t x8,  x9,  x10, x11, x12, x13, x14, x15;
+        uint64_t x16, x17, x18, x19, x20, x21, x22, x23;
+        uint64_t x24, x25, x26, x27, x28, x29, x30;
+        uint64_t stack, pc, spsr;
     } named;
     struct registers_aarch64_syscall_args {
         uint64_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
-        uint64_t arg8;
-        uint64_t arg9;
-        uint64_t arg10;
-        uint64_t arg11, arg12, arg13, arg14, arg15;
-        uint64_t arg16, arg17;
-        uint64_t arg18;
-        uint64_t arg19, arg20, arg21, arg22, arg23, arg24, arg25, arg26, arg28;
-        uint64_t fp;
-        uint64_t link;
-        uint64_t stack;
-        uint64_t pc;
-        uint64_t spsr;
+        uint64_t x8,   x9,   x10,  x11,  x12,  x13,  x14,  x15;
+        uint64_t x16,  x17,  x18,  x19,  x20,  x21,  x22,  x23;
+        uint64_t x24,  x25,  x26,  x27,  x28,  x29,  x30;
+        uint64_t stack, pc, spsr;
     } syscall_args;
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
 };
 
 STATIC_ASSERT_SIZEOF(union registers_aarch64, NUM_REGS * sizeof(uint64_t));
-
-STATIC_ASSERT((REG_OFFSET(THREAD_REGISTER) * sizeof(uint64_t)) ==
-              offsetof(struct registers_aarch64_named, rtls),
-              "Thread register conflict");
 
 ///< Opaque handle for the register state
 typedef union registers_aarch64 arch_registers_state_t;
