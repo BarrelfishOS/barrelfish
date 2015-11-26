@@ -242,7 +242,7 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
         }
 
         printk(LOG_PANIC,
-               "%016x  %016x  %016x\n",
+               "%016"PRIx64"  %016"PRIx64"  %016"PRIx64"\n",
                (uint64_t)(kstack_base + i),
                kstack_base[i],
                kstack_base[i+1]);

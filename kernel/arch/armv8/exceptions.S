@@ -8,6 +8,7 @@
  */
 
 #include <asmoffsets.h>
+#include <offsets.h>
 
 .global do_resume
 .global vectors
@@ -400,6 +401,10 @@ el0_abort_disabled:
 do_resume:
     /* Skip to the end... */
     add x0, x0, #(33 * 8)
+
+    /* Reset the kernel stack pointer. */
+    adrp x1, kernel_stack
+    add sp, x1, #KERNEL_STACK_SIZE
 
     /* Flush the TLB - XXX kill this with fire. */
     dsb sy

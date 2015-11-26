@@ -897,7 +897,7 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             if (listener->disp) {
                 uint8_t length_words = FIELD(28,8,a0);
                 uint8_t send_bits    = FIELD(8,8,a0);
-                capaddr_t send_cptr = sa->arg2;
+                capaddr_t send_cptr = a2;
                 /* limit length of message from buggy/malicious sender */
                 length_words = min(length_words, LMP_MSG_LENGTH);
 
@@ -914,10 +914,10 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
                 // to temporary container. This is fixable, but
                 // not in this pass.
                 uintptr_t msg_words[LMP_MSG_LENGTH];
-                msg_words[0] = sa->arg3;
-                msg_words[1] = sa->arg4;
-                msg_words[2] = sa->arg5;
-                msg_words[3] = sa->arg6;
+                msg_words[0] = a3;
+                msg_words[1] = a4;
+                msg_words[2] = a5;
+                msg_words[3] = a6;
                 STATIC_ASSERT(LMP_MSG_LENGTH == 4, "Oops");
 
                 // try to deliver message
