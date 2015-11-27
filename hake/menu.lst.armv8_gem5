@@ -36,7 +36,7 @@ module	/armv8/sbin/serial auto
 module	/armv8/sbin/fish nospawn
 module  /armv8/sbin/angler serial0.terminal xterm
 
-#module /armv8/sbin/memtest core=0
+module /armv8/sbin/memtest core=0
 
 # GEM5 simulates 256MB of RAM starting at 0x0
 #        start      size       id

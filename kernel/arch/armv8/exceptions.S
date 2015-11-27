@@ -123,19 +123,14 @@ el0_aarch64_sync:
 
     /* x9 = EPC, x10 = dispatcher_shared_aarch64 */
 
-    /* Check whether the current dispatcher is disabled. */
-    /* disp->crit_pc_low, disp->crit_pc_high */
+    /* Check whether the current dispatcher is disabled.  See el0_aarch64_irq
+     * for a description of this test. */
     ldp x11, x12, [x10, #OFFSETOF_DISP_CRIT_PC_LOW]
     cmp x11, x9
-    /* LS -> low <= PC, HI -> PC < low */
-    sub x12, x12, #8
     ccmp x12, x9, #0, ls
-    /* LS -> PC < low || PC >= high, HI -> low <= PC && PC < high */
     ldr w11, [x10, #OFFSETOF_DISP_DISABLED]
-    mov x12, #0
-    ccmp x11, x12, #0, ls
-    /* LS -> (PC < low || PC >= high) && disabled = 0,
-       HI -> (low <= PC && PC < high) || disabled != 0 */
+    ccmp x11, xzr, #0, ls
+    /* NE <-> (low <= PC && PC < high) || disabled != 0 */
 
     /* Figure out what sort of exception we've got.  All paths need this. */
     mrs x11, esr_el1  /* Exception Syndrome Register */
@@ -146,9 +141,9 @@ el0_aarch64_sync:
     /* Faults while disabled should be rare, if the critical section is short,
      * and will always be within the dispatcher code.  Therefore we branch out
      * to the slowpath here. */
-    b.hi el0_sync_disabled
+    b.ne el0_sync_disabled
 
-    /* 15 instructions to here. */
+    /* 13 instructions to here. */
 
     /* All exceptions use the 'enabled' area if the dispatcher is enabled. */
     add x10, x10, #OFFSETOF_DISP_ENABLED_AREA
@@ -184,7 +179,7 @@ save_syscall_context:
     cmp x11, #0x15 /* SVC or HVC from AArch64 EL0 */
     b.ne el0_abort_enabled
 
-    /* 29 instructions to here. */
+    /* 27 instructions to here. */
 
     /* If we're here, this is a syscall and we don't need to restore the
      * scratch registers. Just throw the stack frame away. */
@@ -196,7 +191,7 @@ save_syscall_context:
     /* Jump to the common (C) syscall handler. */
     b sys_syscall
 
-    /* 32 instructions to here */
+    /* 30 instructions to here */
 
 .align 7 /* 0x480 */
 /* An interrupt at user level */
@@ -219,27 +214,38 @@ el0_aarch64_irq:
 
     /* Dispatcher disabled? */
     ldp x0, x2, [x3, #OFFSETOF_DISP_CRIT_PC_LOW]
+
+    /* Condition LS holds iff low <= PC. */
     cmp x0, x1
-    /* LS -> low <= PC, HI -> PC < low */
-    sub x2, x2, #8
+    /* Short-circuit computation of P /\ Q: If the success condition for P
+     * (low <= PC) holds, here LS (Less or Same), then test Q (PC < high),
+     * giving either HI (true) or LS (false).  Otherwise, set the condition
+     * flags to a failing state for Q (LS), as the conjunction cannot hold if
+     * the P does not. */
     ccmp x2, x1, #0, ls
-    /* LS -> PC < low || PC >= high, HI -> low <= PC && PC < high */
+    /* If HI (C=1, Z=0) holds, then the test executed and passed, which means
+     * that P held previously (low <= PC), and Q holds now (PC < high).
+     * Otherwise LS holds, and thus either HI held before this test, and thus
+     * PC < low, or the test executed and failed, in which case high <= PC.
+     * Thus condition HI holds iff low <= PC /\ PC < high. */
     ldr w0, [x3, #OFFSETOF_DISP_DISABLED]
-    mov x1, #0
-    ccmp x0, x1, #0, ls
-    /* LS -> (PC < low || PC >= high) && disabled = 0,
-       HI -> (low <= PC && PC < high) || disabled != 0 */
+    /* We do the same to calculate (P /\ Q) \/ R: If P /\ Q doesn't hold, we
+     * need to test R (is the disabled flag 0), giving either EQ or NE.  If
+     * P /\ Q holds, we skip the test, as it doesn't affect the result, and
+     * instead set the condition code directly NE, i.e. disabled=1. */
+    ccmp x0, xzr, #0, ls
+    /* NE <-> (low <= PC && PC < high) || disabled != 0 */
 
     /* x1 = EPC, x3 = dispatcher_shared_aarch64 */
 
-    /* Choose the right save area. */
+    /* Choose the right save area, using the condition flags. */
     add x0, x3, #OFFSETOF_DISP_ENABLED_AREA
     add x2, x3, #OFFSETOF_DISP_DISABLED_AREA
-    csel x0, x0, x2, hi
+    csel x0, x2, x0, ne
 
     /* x0 = save area, x1 = EPC */
 
-    /* 15 instructions. */
+    /* 13 instructions. */
 
     /* Save the register context, starting from x4.  x0-x3, the scratch
      * registers, can be copied to the trap frame from within the C handler,
@@ -260,7 +266,7 @@ el0_aarch64_irq:
     stp x28, x29, [x0, #(28 * 8)]
     str x30,      [x0, #(30 * 8)]
 
-    /* 29 instructions. */
+    /* 27 instructions. */
 
     /* Load the saved scratch registers, and pass them as arguments to the
      * handler.  We can't save them ourselves as we've run out of
@@ -274,7 +280,7 @@ el0_aarch64_irq:
      * x4 = user x2, x5 = user x3 */
     b handle_irq
 
-    /* 32 instructions. */
+    /* 30 instructions. */
 
 .align 7 /* 0x500 */
 /* We don't implement fast IRQs */

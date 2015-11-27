@@ -18,7 +18,7 @@
 #include <dev/pl011_uart_dev.h>
 #include <arch/arm/pl011_uart.h>
 
-#define INTERRUPTS_MASK		0x0070
+#define INTERRUPTS_MASK		0
 
 void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base)
 {
@@ -30,8 +30,6 @@ void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base)
     pl011_uart_initialize(uart, (mackerel_addr_t) base);
 
     // Mask all interrupts
-    // gem5 implementation of pl011 only supports
-    // RXIM, TXIM, RTIM interrupts, so we only mask them
     pl011_uart_IMSC_wr_raw(uart, INTERRUPTS_MASK);
 
     // Configure port to 38400 baud, 8 data, no parity, 1 stop (8-N-1)

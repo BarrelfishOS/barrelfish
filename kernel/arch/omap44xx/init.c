@@ -976,7 +976,8 @@ void arch_init(void *pointer)
 
 
     /*
-     * pandaboard related USB setup
+     * Pandaboard-related USB setup
+     * XXX - this really shouldn't be in the kernel
      */
     if (hal_cpu_is_bsp()) {
         printf("-------------------------\nUSB Host initialization\n");

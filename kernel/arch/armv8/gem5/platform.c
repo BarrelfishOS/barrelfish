@@ -41,8 +41,10 @@ bool hal_cpu_is_bsp(void)
     return sysreg_get_cpu_id() == 0;
 }
 
-// clock rate hardcoded to 1GHz
+// CPU clock rate hardcoded to 1GHz
 static uint32_t tsc_hz = 1000000000;
+// PIT runs at 1MHz
+static uint32_t pit_hz = 1000000;
 
 //
 // Kernel timer and TSC
@@ -83,8 +85,8 @@ static void pit_config(uint32_t timeslice, uint8_t pit_id)
 		panic("Unsupported PIT ID: %"PRIu32, pit_id);
 
 	// PIT timer
-	uint32_t load1 = timeslice * tsc_hz / 1000;
-	uint32_t load2 = timeslice * tsc_hz / 1000;
+	uint32_t load1 = timeslice * pit_hz / 1000;
+	uint32_t load2 = timeslice * pit_hz / 1000;
 
 	sp804_pit_Timer1Load_wr(pit, load1);
 	sp804_pit_Timer2Load_wr(pit, load2);
@@ -131,7 +133,6 @@ void pit_init(uint32_t timeslice, uint8_t pit_id)
 	{
 		pit_config(timeslice, pit_id);
 	}
-    //gic_set_irq_enabled(PIT_IRQ, 1);
 }
 
 void pit_start(uint8_t pit_id)
