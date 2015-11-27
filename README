@@ -89,8 +89,10 @@ following:
      v7.4 with Parsec 3.1
    - GHC v6.12.1 has a known bug and is unable to build our tools
    - earlier versions of GHC are unsupported
-   - Packages ghc-mtl, haskell-src-exts, async & bytestring-trie are
-     also required.
+   - Install GHC packages libghc-mtl-dev libghc-ghc-mtl-dev cabal-install 
+     haskell-src-exts libghc-async-dev  
+   - Run cabal-install bytestring-trie
+
 
 Our build system may not be very portable; if in doubt, try building on the
 latest Ubuntu LTS system (14.04.1), as this is what we use to run nightly

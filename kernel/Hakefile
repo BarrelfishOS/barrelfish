@@ -362,7 +362,7 @@ let
      addLibraries = [ "elf", "cpio" ]
      },
   --
-  -- Broadcom OMAP44xx-series dual-core Cortex-A9 SoC
+  -- TI OMAP44xx-series dual-core Cortex-A9 SoC
   --
   cpuDriver {
      target = "omap44xx",
@@ -386,7 +386,6 @@ let
                 "arch/omap44xx/omap_uart.c",
                 "arch/omap44xx/start_aps.c",
                 "arch/omap44xx/spinlock.c",
-                "arch/omap44xx/cortexm3_heteropanda.c", --will be empty if heteropanda = False
                 "arch/arm/multiboot.c",
                 "arch/arm/kputchar.c"],
      mackerelDevices = [ "arm",
@@ -415,8 +414,8 @@ let
      addLibraries = [ "elf", "cpio" ]
      },
   --
-  -- Broadcom OMAP44xx-series dual-core Cortex-M3 Coprocessor,
-  -- used to run a heterogenous system on the pandaboard
+  -- TI OMAP44xx-series dual-core Cortex-M3 Coprocessor,
+  -- Was used to run a heterogenous system on the pandaboard; no longer supported
   --
 
   cpuDriver {
@@ -451,11 +450,10 @@ let
                          "omap/omap44xx_spinlock"],
      addLibraries = [ "elf", "cpio" ]
      },
+
   --
   -- Applied Micro APM88xxxx series SoC,
-  -- used to run a heterogenous system on the pandaboard
   --
-
   cpuDriver {
      target = "apm88xxxx",
      architectures = [ "armv8" ],

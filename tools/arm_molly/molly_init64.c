@@ -108,17 +108,7 @@ void aarch64_init(void)
     mbi->syms.elf.addr = (uint64_t)kernel+ cpu_head->e_shoff;
     mbi->syms.elf.shndx = cpu_head->e_shstrndx;
 
-#if defined(HETEROPANDA) && defined(__ARM_ARCH_7A__)
-//this is code for a cortex-A9 image that will boot up a cortex-m3 core
-
-//XXX: HACK: put the address of the slave image into mbi->mem_lower (which is otherwise unused)
-//so the kernel will know where to find it
-    mbi->mem_lower= (uint32_t) &_start_slave;
-#endif  
-
-    aarch64_to_kernel_transition((uintptr_t)kernel_entry,
-                               mbi
-                               );
-
+    aarch64_to_kernel_transition((uintptr_t)kernel_entry, mbi );
+    
 
 }

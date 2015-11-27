@@ -32,7 +32,6 @@
 #include <kernel_multiboot.h>
 #include <global.h>
 #include <arch/armv7/start_aps.h> // AP_WAIT_*, AUX_CORE_BOOT_*  and friends
-#include <cortexm3_heteropanda.h>
 #include <coreboot.h>
 #include <kcb.h>
 
@@ -941,18 +940,6 @@ void arch_init(void *pointer)
         glbl_core_data->multiboot_flags = mb->flags;
 
         memset(&global->locks, 0, sizeof(global->locks));
-#ifdef HETEROPANDA
-        //boot up a cortex-m3 core
-        
-        cortex_m3_early_init();
-        //set up and run heteropanda_slave image on cortex-m3
-        //XXX: HACK: to find out where the heteropanda_slave image starts, molly will
-        //just write the address into multiboot_info->mem_lower (which is otherwise unused)
-        void* start_slave = (void*) (mb->mem_lower);
-        prepare_and_start_m3(start_slave);    
-        //printf("entering endless loop so the M3 can work unhindered.\n");
-        //while(1){}
-#endif  //HETEROPANDA
 
     } else {
         global = (struct global *)GLOBAL_VBASE;

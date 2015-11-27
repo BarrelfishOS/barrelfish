@@ -281,7 +281,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "corectrl"
                         ] ]
 
-    -- ARMv7-m Pandaboard modules
+    -- ARMv7-m Pandaboard modules, this is unsupported.
     pandaM3Modules = [ "/sbin/" ++ f | f <- [
                           "cpu_omap44xx",
                           "init",
@@ -388,10 +388,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
     "Standard Pandaboard ES build image and modules",
     
-    platform "PandaboardES-Heterogeneous" [ "armv7", "armv7-m" ]
-    ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_het_image") ])
-    "Pandaboard ES with experimental heterogeneous (Cortex-M3) support",
-
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
     "GEM5 emulator for ARM Cortex-A series multicore processors",
@@ -452,22 +448,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                          ",readonly,data,contents"),
             In BuildTree "root" "/pandaboard_m3image_intermediate",
             Out "root" "/pandaboard_m3image" ]),
-    
-    -- Build the PandaBoard Cortex-A9 image that includes the M3 image
-    Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
-            Str "--srcdir",   NoDep SrcTree "root" "/.", 
-            Str "--builddir", NoDep BuildTree "root" "/.",
-            Str "--arch armv7-a",
-            Str "-D",         Str "HETEROPANDA",
-            Str "--menu",     In SrcTree "tools"
-                                         "/hake/menu.lst.heteropanda_master",
-            Str "--baseaddr", Str "0x82001000",
-            Str "--extra",    In BuildTree "root" "/pandaboard_m3image",
-            Str "--image",    Out "root" "/pandaboard_het_image",
-            Str "--gcc",      Str Config.arm_cc,
-            Str "--objcopy",  Str Config.arm_objcopy,
-            Dep BuildTree "tools" "/bin/arm_molly"
-          ] ++ [ (Dep BuildTree "armv7" m) | m <- pandaModules ]),
 
     -- Build the ARMv7 GEM5 simulation image
     Rule ([ In SrcTree "tools" "/tools/arm_molly/build_pandaboard_image.sh",
@@ -517,7 +497,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "arm_gem5_panda",
                      "armv5",
                      "armv7-m",
-                     "heteropanda_master",
                      "pandaboard",
                      "xscale" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
