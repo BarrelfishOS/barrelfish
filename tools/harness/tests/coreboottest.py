@@ -11,6 +11,7 @@
 
 import tests, debug, pexpect
 from common import InteractiveTest
+from results import PassFailResult
 
 START_CPU_DRIVER = "Barrelfish CPU driver starting"
 
@@ -57,6 +58,13 @@ class StopCoreTest(CoreCtrlTest):
         if i == 0:
             raise Exception("periodicprint still running, did we not shut-down the core?")
 
+    def process_data(self, testdir, rawiter):
+        for line in rawiter:
+            if ("Core %s stopped." % self.core) in line:
+                return PassFailResult(True)
+
+        return PassFailResult(False)
+
 
 @tests.add_test
 class UpdateKernelTest(CoreCtrlTest):
@@ -82,6 +90,14 @@ class UpdateKernelTest(CoreCtrlTest):
 
         # Make sure app is still running
         self.console.expect("On core %s" % self.core)
+
+    def process_data(self, testdir, rawiter):
+        output_count = 0
+        for line in rawiter:
+            if ("On core %s" % self.core) in line:
+                output_count = output_count + 1
+
+        return PassFailResult(output_count > 1)
 
 
 @tests.add_test
@@ -110,6 +126,12 @@ class ParkOSNodeTest(CoreCtrlTest):
 
         self.console.expect("On core %s" % self.target_core)
 
+    def process_data(self, testdir, rawiter):
+        for line in rawiter:
+            if ("On core %s" % self.target_core) in line:
+                return PassFailResult(True)
+        return PassFailResult(False)
+
 
 @tests.add_test
 class ListKCBTest(CoreCtrlTest):
@@ -125,6 +147,16 @@ class ListKCBTest(CoreCtrlTest):
         self.console.sendline("corectrl lscpu")
         self.console.expect("CPU 0:")
         self.wait_for_prompt()
+
+    def process_data(self, testdir, rawiter):
+        found_kcb_output = False
+        found_cpu_output = False
+        for line in rawiter:
+            if "KCB 1:" in line:
+                found_kcb_output = True
+            if "CPU 0:" in line:
+                found_cpu_output = True
+        return PassFailResult(found_kcb_output and found_cpu_output)
 
 
 @tests.add_test
@@ -164,3 +196,15 @@ class ParkRebootTest(CoreCtrlTest):
         # Reboot home core with kcb
         self.console.expect("On core %s" % self.core)
         self.console.expect("On core %s" % self.core)
+
+    def process_data(self, testdir, rawiter):
+        output_count = 0
+        parked_count = 0
+
+        for line in rawiter:
+            if ("On core %s" % self.parking_core) in line:
+                parked_count = parked_count + 1
+            if ("On core %s" % self.core) in line:
+                output_count = output_count + 1
+
+        return PassFailResult(parked_count >= 2 and output_count >= 4)

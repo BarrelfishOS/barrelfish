@@ -271,17 +271,9 @@ class InteractiveTest(TestCommon):
         return self.collect_data(machine)
 
     def process_data(self, testdir, rawiter):
-        passed = True
-        for line in rawiter:
-            if "user page fault in" in line:
-                passed = False
-                break
-            if "user trap #" in line:
-                passed = False
-                break
-            if "PANIC! kernel assertion" in line:
-                passed = False
-        return PassFailResult(passed)
+        """Implement in subclasses to check whether test passed"""
+        raise Exception("Implement process_data in Test %s" % self.name)
+        pass
 
 
 # utility function used by other tests
