@@ -39,18 +39,24 @@
 #include <dev/omap/omap44xx_id_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_gpio_dev.h>
-#include <dev/omap/omap44xx_hsusbhost_dev.h>
-#include <dev/omap/omap44xx_usbtllhs_config_dev.h>
-#include <dev/omap/omap44xx_scrm_dev.h>
-#include <dev/omap/omap44xx_sysctrl_padconf_wkup_dev.h>
-#include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
-#include <dev/omap/omap44xx_ehci_dev.h>
-#include <dev/omap/omap44xx_ckgen_prm_dev.h>
-#include <dev/omap/omap44xx_l4per_cm2_dev.h>
-#include <dev/omap/omap44xx_l3init_cm2_dev.h>
 
-/// Round up n to the next multiple of size
-#define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
+/*
+ * Forward declarations
+ */
+static void __attribute__ ((noinline,noreturn)) arch_init_2(void);
+static void enable_cycle_counter_user_access(void);
+static void paging_init(void);
+static void print_system_identification(void);
+static size_t bank_size(int bank, lpaddr_t base);
+static void size_ram(void);
+static void set_leds(void);
+static void bsp_init( void *pointer );
+static void nonbsp_init( void *pointer );
+
+#define MSG(format, ...) printf( "OMAP44xx: "format, ##__VA_ARGS__)
+
+// XXX Should move to user space
+static void usb_host_init(void);
 
 /**
  * Used to store the address of global struct passed during boot across kernel
@@ -63,10 +69,6 @@
  * This is the one and only kernel stack for a kernel instance.
  */
 uintptr_t kernel_stack[KERNEL_STACK_SIZE / sizeof(uintptr_t)] __attribute__ ((aligned(8)));
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#define CONSTRAIN(x, a, b) MIN(MAX(x, a), b)
 
 //
 // Kernel command line variables and binding options
@@ -119,23 +121,37 @@ static struct cmdarg cmdargs[] = {
     }
 };
 
-static inline void __attribute__ ((always_inline))
-relocate_stack(lvaddr_t offset)
+
+/**
+ * Entry point called from boot.S for the kernel. 
+ * If this is the bootstrap processor, 'pointer' points to
+ * multiboot_info.
+ * Otherwise 'pointer' points to a global structure. 
+ */
+void arch_init(void *pointer)
 {
-    __asm volatile (
-            "add	sp, sp, %[offset]\n\t" ::[offset] "r" (offset)
-    );
+    // Do early initialization of the serial port given by a
+    // command-line option. 
+    serial_early_init(serial_console_port);
+
+    // Initialize the spinlocks.  We use one of these to protect the
+    // serial port, hence from here on we can safely use printf even
+    // on a second core. 
+    spinlock_early_init();
+
+    if ( hal_cpu_is_bsp() ) {
+	bsp_init( pointer );
+    } else {
+	nonbsp_init( pointer );
+    }
+    paging_init();
+    cp15_enable_mmu();
+    cp15_enable_alignment();
+    MSG("MMU enabled\n");
+    arch_init_2();
 }
 
-static inline void __attribute__ ((always_inline))
-relocate_got_base(lvaddr_t offset)
-{
-    __asm volatile (
-            "add	r10, r10, %[offset]\n\t" ::[offset] "r" (offset)
-    );
-}
 
-#ifndef __gem5__
 static void enable_cycle_counter_user_access(void)
 {
     /* enable user-mode access to the performance counter*/
@@ -144,7 +160,6 @@ static void enable_cycle_counter_user_access(void)
     /* disable counter overflow interrupts (just in case)*/
     __asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
 }
-#endif
 
 extern void paging_map_device_section(uintptr_t ttbase, lvaddr_t va,
         lpaddr_t pa);
@@ -214,14 +229,312 @@ static void paging_init(void)
     cp15_write_ttbr0(l1_low_aligned);
 }
 
+/**
+ * \brief Continue kernel initialization in kernel address space.
+ *
+ * This function resets paging to map out low memory and map in physical
+ * address space, relocating all remaining data structures. It sets up exception handling,
+ * initializes devices and enables interrupts. After that it
+ * calls arm_kernel_startup(), which should not return (if it does, this function
+ * halts the kernel).
+ */
+static void __attribute__ ((noinline,noreturn)) arch_init_2(void)
+{
+    errval_t errval;
+
+    if ((glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)) {
+        // BSP core: set final page tables
+        struct arm_coredata_mmap *mmap = 
+	    (struct arm_coredata_mmap *)local_phys_to_mem(glbl_core_data->mmap_addr);
+        paging_arm_reset(mmap->base_addr, mmap->length);
+    } else {
+        // AP core
+        //  FIXME: Not sure what to do, so map the whole memory for now
+        paging_arm_reset(PHYS_MEMORY_START, 0x40000000);
+    }
+
+    // Initialize exception vectors
+    exceptions_init();
+
+    // Invalidate caches and TLBs
+    cp15_invalidate_i_and_d_caches_fast();
+    cp15_invalidate_tlb();
+
+    // Relocate the KCB into our new address space
+    kcb_current = (struct kcb *)local_phys_to_mem((lpaddr_t) kcb_current);
+
+    // Early startup
+    kernel_startup_early();
+
+    //initialize console
+    serial_init(serial_console_port, true);
+    spinlock_init();
+
+    MSG("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
+	" Board id 0x%08"PRIx32"\n", hal_get_board_id());
+    MSG("The address of paging_map_kernel_section is %p\n",
+            paging_map_kernel_section);
+
+    errval = serial_debug_init();
+    if (err_is_fail(errval)) {
+        MSG("Failed to initialize debug port: %d", serial_debug_port);
+    }
+
+    if (my_core_id != hal_get_cpu_id()) {
+        MSG("** setting my_core_id (="PRIuCOREID") to match hal_get_cpu_id() (=%u)\n");
+        my_core_id = hal_get_cpu_id();
+    }
+
+    // Test MMU by remapping the device identifier and reading it using a
+    // virtual address
+    lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE
+            & ~ARM_L1_SECTION_MASK;
+    lvaddr_t id_code_remapped = paging_map_device(id_code_section,
+            ARM_L1_SECTION_BYTES);
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id,
+            (mackerel_addr_t) (id_code_remapped
+                    + (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE
+                            & ARM_L1_SECTION_MASK)));
+
+    char buf[200];
+    omap44xx_id_code_pr(buf, 200, &id);
+    MSG("Using MMU, %s", buf);
+
+    gic_init();
+    MSG("gic_init done\n");
+
+    if (hal_cpu_is_bsp()) {
+
+        scu_initialize();
+        uint32_t omap_num_cores = scu_get_core_count();
+        MSG("%"PRIu32" cores in system\n", omap_num_cores);
+
+        // ARM Cortex A9 TRM section 2.1
+        if (omap_num_cores > 4)
+            panic("ARM SCU doesn't support more than 4 cores!");
+
+        // init SCU if more than one core present
+        if (omap_num_cores > 1) {
+            scu_enable();
+        }
+    }
+
+    gt_init();
+    tsc_init();
+    MSG("tsc_init done --\n");
+
+    enable_cycle_counter_user_access();
+    reset_cycle_counter();
+
+    coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
+
+    arm_kernel_startup();
+}
+
 void kernel_startup_early(void)
 {
     const char *cmdline;
     assert(glbl_core_data != NULL);
     cmdline = MBADDR_ASSTRING(glbl_core_data->cmdline);
     parse_commandline(cmdline, cmdargs);
-    timeslice = CONSTRAIN(timeslice, 1, 20);
+    timeslice = min(max(timeslice, 20), 1);
 }
+ 
+/**
+ * Use Mackerel to print the identification from the system
+ * configuration block.  Documentation in the OMAP4460 TRM p. 18.6.2 
+ */
+static void print_system_identification(void)
+{
+    char buf[800];
+    omap44xx_id_t id;
+    omap44xx_id_initialize(&id,
+            (mackerel_addr_t) OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE);
+    omap44xx_id_pr(buf, 799, &id);
+    MSG("ID register:\n%s", buf);
+    omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));
+    MSG("Device is a %s\n", buf);
+}
+
+/**
+ * Read the details of a memory bank (0 or 1)
+ */
+static size_t bank_size(int bank, lpaddr_t base)
+{
+    int rowbits;
+    int colbits;
+    int rowsize;
+    omap44xx_emif_t emif;
+    omap44xx_emif_initialize(&emif, (mackerel_addr_t)base);
+
+    assert( bank == 1 || bank == 2 );
+
+    if (!omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
+        MSG(" EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
+        return 0;
+    }
+
+    rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
+    colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
+    rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
+
+    MSG(" EMIF%d ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n",
+            bank, rowbits, colbits, 1<<rowsize);
+
+    return (1 << (rowbits + colbits + rowsize));
+}
+
+/**
+ * Calculate the size of available RAM by reading each bank
+ */
+static void size_ram(void)
+{
+    size_t sz = 0;
+    sz = bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
+    MSG("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n",
+	sz, sz == 0x40000000 ? "about right" : "unexpected" );
+}
+
+/*
+ * Say hello by flashing both LEDs.
+ */
+static void set_leds(void)
+{
+    uint32_t r, nr;
+    omap44xx_gpio_t g;
+    //char buf[8001];
+
+    MSG("flashing LEDs\n");
+
+    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
+    // Output enable
+    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 8));
+    omap44xx_gpio_oe_wr(&g, r);
+    // Write data out
+    r = omap44xx_gpio_dataout_rd(&g) & (~(1 << 8));
+    nr = r | (1 << 8);
+    for (int i = 0; i < 5; i++) {
+        omap44xx_gpio_dataout_wr(&g, r);
+        for (int j = 0; j < 2000; j++) {
+            printf("%c", 0xE);
+        }
+        omap44xx_gpio_dataout_wr(&g, nr);
+        for (int j = 0; j < 2000; j++) {
+            printf("%c", 0xE);
+        }
+    }
+
+    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO4);
+
+    /*
+     * TODO: write as mackerel
+     */
+    volatile uint32_t *pad_mux = (uint32_t *) 0x4A1000F4;
+    *pad_mux = ((*pad_mux) & ~(0x7 << 16)) | (0x3 << 16);
+
+    // Output enable
+    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 14));
+    omap44xx_gpio_oe_wr(&g, r);
+    // Write data out
+    r = omap44xx_gpio_dataout_rd(&g);
+    nr = r | (1 << 14);
+    for (int i = 0; i < 5; i++) {
+        omap44xx_gpio_dataout_wr(&g, r);
+        for (int j = 0; j < 2000; j++) {
+            printf("%c", 0xE);
+        }
+        omap44xx_gpio_dataout_wr(&g, nr);
+        for (int j = 0; j < 2000; j++) {
+            printf("%c", 0xE);
+        }
+    }
+}
+
+/**
+ * Initialization for the BSP (the first core to be booted). 
+ * 'pointer' points to the multiboot_info.
+ */
+static void bsp_init( void *pointer ) 
+{
+    struct multiboot_info *mb = pointer;
+
+    memset(glbl_core_data, 0, sizeof(struct arm_core_data));
+
+    size_t max_addr = max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte);
+    glbl_core_data->start_free_ram = ROUND_UP(max_addr, BASE_PAGE_SIZE);
+    glbl_core_data->mods_addr = mb->mods_addr;
+    glbl_core_data->mods_count = mb->mods_count;
+    glbl_core_data->cmdline = mb->cmdline;
+    glbl_core_data->mmap_length = mb->mmap_length;
+    glbl_core_data->mmap_addr = mb->mmap_addr;
+    glbl_core_data->multiboot_flags = mb->flags;
+    
+    memset(&global->locks, 0, sizeof(global->locks));
+
+    print_system_identification();
+    size_ram();
+
+    usb_host_init();
+    set_leds();
+    
+}
+
+/** Initialization for a non-BSP (a second core)
+ * 'pointer' points to the global structure set up by bsp_init on the
+ * first core.
+ */
+static void nonbsp_init( void *pointer )
+{
+    global = (struct global *)GLOBAL_VBASE;
+
+    // Our core data (struct arm_core_data) is placed one page before the
+    // first byte of the kernel image
+    glbl_core_data = (struct arm_core_data *)
+	((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
+    glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
+    kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
+    my_core_id = glbl_core_data->dst_core_id;
+
+    // Tell the BSP that we are started up
+    // See Section 27.4.4 in the OMAP44xx manual for how this should work.
+    // We do this early, to avoid having to map the registers
+    lpaddr_t aux_core_boot_0 = AUX_CORE_BOOT_0;
+    lpaddr_t ap_wait = AP_WAIT_PHYS;
+    
+    *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
+    //__sync_synchronize();
+    *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
+
+    // Print kernel address for debugging with gdb
+    MSG("Barrelfish non-BSP CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
+	   local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
+}
+
+/*************************************************************************
+ * 
+ * USB host intialization.  This will move out of the CPU driver into
+ * user space in due course.
+ *
+ */
+
+#include <dev/omap/omap44xx_hsusbhost_dev.h>
+#include <dev/omap/omap44xx_usbtllhs_config_dev.h>
+#include <dev/omap/omap44xx_scrm_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_wkup_dev.h>
+#include <dev/omap/omap44xx_sysctrl_padconf_core_dev.h>
+#include <dev/omap/omap44xx_ehci_dev.h>
+#include <dev/omap/omap44xx_ckgen_prm_dev.h>
+#include <dev/omap/omap44xx_l4per_cm2_dev.h>
+#include <dev/omap/omap44xx_l3init_cm2_dev.h>
+
+/* 
+ * Forward declarations
+ */
+static void hsusb_init(void);
+static void usb_power_on(void);
+static void prcm_init(void);
+static void set_muxconf_regs(void);
 
 #define KERNEL_DEBUG_USB 0
 
@@ -248,6 +561,44 @@ static omap44xx_ehci_t ehci_base;
 static omap44xx_ckgen_prm_t ckgen_base;
 static omap44xx_l4per_cm2_t l4per_base;
 static omap44xx_l3init_cm2_t l3init_base;
+
+// GPIO numbers for enabling the USB hub on the pandaboard
+#define HSUSB_HUB_POWER 1
+#define HSUSB_HUB_RESET 30
+
+
+/*
+ * pandaboard related USB setup
+ */
+static void usb_host_init(void)
+{
+    printf("-------------------------\nUSB Host initialization\n");
+    omap44xx_hsusbhost_initialize(&hsusbhost_base,
+				  (mackerel_addr_t) OMAP44XX_HSUSBHOST);
+    omap44xx_usbtllhs_config_initialize(&usbtllhs_config_base,
+					(mackerel_addr_t) OMAP44XX_USBTLLHS_CONFIG);
+    omap44xx_scrm_initialize(&srcm_base, (mackerel_addr_t) OMAP44XX_SCRM);
+    omap44xx_sysctrl_padconf_wkup_initialize(&sysctrl_padconf_wkup_base,
+					     (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
+    omap44xx_sysctrl_padconf_core_initialize(&sysctrl_padconf_core_base,
+					     (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_CORE);
+    omap44xx_gpio_initialize(&gpio_1_base,
+			     (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
+    omap44xx_gpio_initialize(&gpio_2_base,
+			     (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
+    omap44xx_ehci_initialize(&ehci_base, (mackerel_addr_t) OMAP44XX_EHCI);
+    
+    omap44xx_ckgen_prm_initialize(&ckgen_base,
+				  (mackerel_addr_t) OMAP44XX_CKGEN_PRM);
+    omap44xx_l4per_cm2_initialize(&l4per_base,
+				  (mackerel_addr_t) OMAP44XX_L4PER_CM2);
+    omap44xx_l3init_cm2_initialize(&l3init_base,
+				   (mackerel_addr_t) OMAP44XX_L3INIT_CM2);
+    prcm_init();
+    set_muxconf_regs();
+    usb_power_on();
+    printf("-------------------------\n");
+}
 
 /*
  * initialize the USB functionality of the pandaboard
@@ -365,11 +716,6 @@ static void hsusb_init(void)
 
     printf("  > done.\n");
 }
-
-// GPIO numbers for enabling the USB hub on the pandaboard
-#define HSUSB_HUB_POWER 1
-#define HSUSB_HUB_RESET 30
-
 
 /*
  * Initialize the high speed usb hub on the pandaboard
@@ -704,318 +1050,4 @@ static void set_muxconf_regs(void)
             &sysctrl_padconf_core_base, usb_dat7);
 
     printf("done\n");
-}
-
-/**
- * \brief Continue kernel initialization in kernel address space.
- *
- * This function resets paging to map out low memory and map in physical
- * address space, relocating all remaining data structures. It sets up exception handling,
- * initializes devices and enables interrupts. After that it
- * calls arm_kernel_startup(), which should not return (if it does, this function
- * halts the kernel).
- */
-static void __attribute__ ((noinline,noreturn)) text_init(void)
-{
-    errval_t errval;
-
-    if ((glbl_core_data->multiboot_flags & MULTIBOOT_INFO_FLAG_HAS_MMAP)) {
-        // BSP core: set final page tables
-        struct arm_coredata_mmap *mmap = (struct arm_coredata_mmap *)
-            local_phys_to_mem(glbl_core_data->mmap_addr);
-        paging_arm_reset(mmap->base_addr, mmap->length);
-        //printf("paging_arm_reset: base: 0x%"PRIx64", length: 0x%"PRIx64".\n", mmap->base_addr, mmap->length);
-    } else {
-        // AP core
-        //  FIXME: Not sure what to do, so map the whole memory for now
-        paging_arm_reset(PHYS_MEMORY_START, 0x40000000);
-    }
-
-    exceptions_init();
-
-    //printf("invalidate cache\n");
-    cp15_invalidate_i_and_d_caches_fast();
-    //printf("invalidate TLB\n");
-    cp15_invalidate_tlb();
-
-    kcb_current = (struct kcb *)
-        local_phys_to_mem((lpaddr_t) kcb_current);
-
-    //printf("startup_early\n");
-    kernel_startup_early();
-    //printf("kernel_startup_early done!\n");
-
-    //initialize console
-    serial_init(serial_console_port, true);
-    spinlock_init();
-
-    printf("Barrelfish CPU driver starting on ARMv7 OMAP44xx"
-            " Board id 0x%08"PRIx32"\n", hal_get_board_id());
-    printf("The address of paging_map_kernel_section is %p\n",
-            paging_map_kernel_section);
-
-    errval = serial_debug_init();
-    if (err_is_fail(errval)) {
-        printf("Failed to initialize debug port: %d", serial_debug_port);
-    }
-
-    if (my_core_id != hal_get_cpu_id()) {
-        printf("** setting my_core_id (="PRIuCOREID") to match hal_get_cpu_id() (=%u)\n");
-        my_core_id = hal_get_cpu_id();
-    }
-
-    // Test MMU by remapping the device identifier and reading it using a
-    // virtual address
-    lpaddr_t id_code_section = OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE
-            & ~ARM_L1_SECTION_MASK;
-    lvaddr_t id_code_remapped = paging_map_device(id_code_section,
-            ARM_L1_SECTION_BYTES);
-    omap44xx_id_t id;
-    omap44xx_id_initialize(&id,
-            (mackerel_addr_t) (id_code_remapped
-                    + (OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE
-                            & ARM_L1_SECTION_MASK)));
-
-    char buf[200];
-    omap44xx_id_code_pr(buf, 200, &id);
-    printf("Using MMU, %s", buf);
-
-    gic_init();
-    printf("gic_init done\n");
-
-    if (hal_cpu_is_bsp()) {
-
-        scu_initialize();
-        uint32_t omap_num_cores = scu_get_core_count();
-        printf("Number of cores in system: %"PRIu32"\n", omap_num_cores);
-
-        // ARM Cortex A9 TRM section 2.1
-        if (omap_num_cores > 4)
-            panic("ARM SCU doesn't support more than 4 cores!");
-
-        // init SCU if more than one core present
-        if (omap_num_cores > 1) {
-            scu_enable();
-        }
-    }
-
-    gt_init();
-    tsc_init();
-    printf("tsc_init done --\n");
-#ifndef __gem5__
-    enable_cycle_counter_user_access();
-    reset_cycle_counter();
-#endif
-
-    coreboot_set_spawn_handler(CPU_ARM7, start_aps_arm_start);
-
-    arm_kernel_startup();
-}
-
-/**
- * Use Mackerel to print the identification from the system
- * configuration block.
- */
-static void print_system_identification(void)
-{
-    char buf[800];
-    omap44xx_id_t id;
-    omap44xx_id_initialize(&id,
-            (mackerel_addr_t) OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE);
-    omap44xx_id_pr(buf, 799, &id);
-    printf("%s", buf);
-    omap44xx_id_codevals_prtval(buf, 799, omap44xx_id_code_rawrd(&id));
-    printf("Device is a %s\n", buf);
-}
-
-static size_t bank_size(int bank, lpaddr_t base)
-{
-    int rowbits;
-    int colbits;
-    int rowsize;
-    omap44xx_emif_t emif;
-    omap44xx_emif_initialize(&emif, (mackerel_addr_t)base);
-
-    if (!omap44xx_emif_status_phy_dll_ready_rdf(&emif)) {
-        printf("EMIF%d doesn't seem to have any DDRAM attached.\n", bank);
-        return 0;
-    }
-
-    rowbits = omap44xx_emif_sdram_config_rowsize_rdf(&emif) + 9;
-    colbits = omap44xx_emif_sdram_config_pagesize_rdf(&emif) + 9;
-    rowsize = omap44xx_emif_sdram_config2_rdbsize_rdf(&emif) + 5;
-
-    printf("EMIF%d: ready, %d-bit rows, %d-bit cols, %d-byte row buffer\n",
-            bank, rowbits, colbits, 1<<rowsize);
-
-    return (1 << (rowbits + colbits + rowsize));
-}
-
-static void size_ram(void)
-{
-    size_t sz = 0;
-    sz = bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
-    printf("We seem to have 0x%08lx bytes of DDRAM: that's %s.\n",
-            sz, sz == 0x40000000 ? "about right" : "unexpected" );
-}
-
-/*
- * Does work for both LEDs now.
- */
-static void set_leds(void)
-{
-    uint32_t r, nr;
-    omap44xx_gpio_t g;
-    //char buf[8001];
-
-    printf("Flashing LEDs\n");
-
-    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
-    // Output enable
-    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 8));
-    omap44xx_gpio_oe_wr(&g, r);
-    // Write data out
-    r = omap44xx_gpio_dataout_rd(&g) & (~(1 << 8));
-    nr = r | (1 << 8);
-    for (int i = 0; i < 5; i++) {
-        omap44xx_gpio_dataout_wr(&g, r);
-        for (int j = 0; j < 2000; j++) {
-            printf("%c", 0xE);
-        }
-        omap44xx_gpio_dataout_wr(&g, nr);
-        for (int j = 0; j < 2000; j++) {
-            printf("%c", 0xE);
-        }
-    }
-
-    omap44xx_gpio_initialize(&g, (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO4);
-
-    /*
-     * TODO: write as mackerel
-     */
-    volatile uint32_t *pad_mux = (uint32_t *) 0x4A1000F4;
-    *pad_mux = ((*pad_mux) & ~(0x7 << 16)) | (0x3 << 16);
-
-    // Output enable
-    r = omap44xx_gpio_oe_rd(&g) & (~(1 << 14));
-    omap44xx_gpio_oe_wr(&g, r);
-    // Write data out
-    r = omap44xx_gpio_dataout_rd(&g);
-    nr = r | (1 << 14);
-    for (int i = 0; i < 5; i++) {
-        omap44xx_gpio_dataout_wr(&g, r);
-        for (int j = 0; j < 2000; j++) {
-            printf("%c", 0xE);
-        }
-        omap44xx_gpio_dataout_wr(&g, nr);
-        for (int j = 0; j < 2000; j++) {
-            printf("%c", 0xE);
-        }
-    }
-}
-
-/**
- * Entry point called from boot.S for bootstrap processor.
- * if is_bsp == true, then pointer points to multiboot_info
- * else pointer points to a global struct
- */
-void arch_init(void *pointer)
-{
-
-    serial_early_init(serial_console_port);
-    spinlock_early_init();//from here on we can safely use printf
-
-    if (hal_cpu_is_bsp()) {
-        struct multiboot_info *mb = pointer;
-
-        memset(glbl_core_data, 0, sizeof(struct arm_core_data));
-
-        size_t max_addr = max(multiboot_end_addr(mb), (uintptr_t)&kernel_final_byte);
-        glbl_core_data->start_free_ram = ROUND_UP(max_addr, BASE_PAGE_SIZE);
-        glbl_core_data->mods_addr = mb->mods_addr;
-        glbl_core_data->mods_count = mb->mods_count;
-        glbl_core_data->cmdline = mb->cmdline;
-        glbl_core_data->mmap_length = mb->mmap_length;
-        glbl_core_data->mmap_addr = mb->mmap_addr;
-        glbl_core_data->multiboot_flags = mb->flags;
-
-        memset(&global->locks, 0, sizeof(global->locks));
-
-    } else {
-        global = (struct global *)GLOBAL_VBASE;
-        // zeroing locks for the app core seems bogus to me --AKK
-        //memset(&global->locks, 0, sizeof(global->locks));
-
-        // our core data (struct arm_core_data) is placed one page before the
-        // first byte of the kernel image
-        glbl_core_data = (struct arm_core_data *)
-                            ((lpaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
-        glbl_core_data->cmdline = (lpaddr_t)&glbl_core_data->kernel_cmdline;
-        kcb_current = (struct kcb*) (lpaddr_t)glbl_core_data->kcb;
-        my_core_id = glbl_core_data->dst_core_id;
-
-        // tell BSP that we are started up
-        // See Section 27.4.4 in the OMAP44xx manual for how this should work.
-        // we do this early, to avoid having to map the registers
-        lpaddr_t aux_core_boot_0 = AUX_CORE_BOOT_0;
-        lpaddr_t ap_wait = AP_WAIT_PHYS;
-
-        *((volatile lvaddr_t *)aux_core_boot_0) = 2<<2;
-        //__sync_synchronize();
-        *((volatile lvaddr_t *)ap_wait) = AP_STARTED;
-    }
-
-    // XXX: print kernel address for debugging with gdb
-    printf("Barrelfish OMAP44xx CPU driver starting at addr 0x%"PRIxLVADDR" on core %"PRIuCOREID"\n",
-            local_phys_to_mem((lpaddr_t)&kernel_first_byte), my_core_id);
-
-    if (hal_cpu_is_bsp()) {
-        print_system_identification();
-        size_ram();
-    }
-
-
-    /*
-     * Pandaboard-related USB setup
-     * XXX - this really shouldn't be in the kernel
-     */
-    if (hal_cpu_is_bsp()) {
-        printf("-------------------------\nUSB Host initialization\n");
-        omap44xx_hsusbhost_initialize(&hsusbhost_base,
-                (mackerel_addr_t) OMAP44XX_HSUSBHOST);
-        omap44xx_usbtllhs_config_initialize(&usbtllhs_config_base,
-                (mackerel_addr_t) OMAP44XX_USBTLLHS_CONFIG);
-        omap44xx_scrm_initialize(&srcm_base, (mackerel_addr_t) OMAP44XX_SCRM);
-        omap44xx_sysctrl_padconf_wkup_initialize(&sysctrl_padconf_wkup_base,
-                (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_WKUP);
-        omap44xx_sysctrl_padconf_core_initialize(&sysctrl_padconf_core_base,
-                (mackerel_addr_t) OMAP44XX_SYSCTRL_PADCONF_CORE);
-        omap44xx_gpio_initialize(&gpio_1_base,
-                (mackerel_addr_t) OMAP44XX_MAP_L4_WKUP_GPIO1);
-        omap44xx_gpio_initialize(&gpio_2_base,
-                (mackerel_addr_t) OMAP44XX_MAP_L4_PER_GPIO2);
-        omap44xx_ehci_initialize(&ehci_base, (mackerel_addr_t) OMAP44XX_EHCI);
-
-        omap44xx_ckgen_prm_initialize(&ckgen_base,
-                (mackerel_addr_t) OMAP44XX_CKGEN_PRM);
-        omap44xx_l4per_cm2_initialize(&l4per_base,
-                (mackerel_addr_t) OMAP44XX_L4PER_CM2);
-        omap44xx_l3init_cm2_initialize(&l3init_base,
-                (mackerel_addr_t) OMAP44XX_L3INIT_CM2);
-        prcm_init();
-        set_muxconf_regs();
-        usb_power_on();
-        printf("-------------------------\n");
-    }
-
-    if (0) {
-        set_leds();
-    }
-
-    paging_init();
-    cp15_enable_mmu();
-    cp15_enable_alignment();
-    printf("MMU enabled\n");
-
-    text_init();
 }

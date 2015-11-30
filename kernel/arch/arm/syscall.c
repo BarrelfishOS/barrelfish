@@ -1046,7 +1046,6 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         /* XXX - not revision-independent. */
-#if defined(__pandaboard__) && !defined(__ARM_ARCH_7M__)
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
             retval.value = gt_read_low();
             break;
@@ -1054,7 +1053,6 @@ static struct sysret handle_debug_syscall(int msg)
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
             retval.value = gt_read_high();
             break;
-#endif
 
         default:
             printk(LOG_ERR, "invalid sys_debug msg type %d\n", msg);
@@ -1110,15 +1108,6 @@ void sys_syscall(arch_registers_state_t* context)
                 r = handle_debug_syscall(sa->arg1);
             }
             break;
-            
-/* XXX - not revision-independent. */
-#ifdef  __ARM_ARCH_7M__
-    //help the dispatcher resume a context that can not be restored whithout a mode change
-        case SYSCALL_RESUME_CONTEXT:
-            if (argc == 2)
-                r.error = sys_resume_context((arch_registers_state_t*) sa->arg1);
-            break;
-#endif  //__ARM_ARCH_7M__
 
         default:
             panic("Illegal syscall");
@@ -1137,37 +1126,4 @@ void sys_syscall(arch_registers_state_t* context)
 
     resume(context);
 }
-
-/* XXX - this looks like a big hack. */
-#ifdef __ARM_ARCH_7M__    //armv7-m: cortex-m3 on pandaboard
-/*
-    needed because to resume an interrupted IT block, there literally is only one way:
-    exiting handler mode, restoring the context
-    if the dispatcher has to restore a context with IT-bits set, it can only do so with help
-    from the kernel. 
-*/
-errval_t __attribute__ ((noreturn)) sys_resume_context(arch_registers_state_t* registers){
-    debug(SUBSYS_SYSCALL, "restoring context for dispatcher\n");
-    //because we come from a syscall, r9 does not yet point to current dispatcher.
-    //the context we restore probably has the right one, exept if it is in systemcall
-    //related code (e.g. restoring registers after a syscall)
-    
-    //we want the correct dispatcher, because we want to set disabled = 0
-    //we can not do that in the calling code, because then the act of calling us
-    //would set the enabled area (i.e. it could be restored which we don't want)
-    struct dispatcher_shared_generic *disp_gen
-        = get_dispatcher_shared_generic(dcb_current->disp);//find the correct current dispatcher
-    
-    
-    //resume looks at our value of the rtls register, so we need to set it
-    arch_set_thread_register(disp_gen->udisp);
-    
-    //set dispatcher->disabled = 0, because the resume code would also do that
-    disp_gen->disabled = 0;
-    
-    //((struct dispatcher_shared_generic*) registers->named.rtls)->disabled = 0;
-
-    resume(registers);
-}
-#endif //__ARM_ARCH_7M__
 

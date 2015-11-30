@@ -74,12 +74,10 @@ uint32_t tsc_get_hz(void);
  * XXX: In our code, these are only defined for the pandaboard. Not sure what
  * is the case for other platforms.
  */
-#if defined(__pandaboard__)
 void     gt_init(void);
 uint64_t gt_read(void);
 uint32_t gt_read_low(void);
 uint32_t gt_read_high(void);
-#endif
 
 /*
  * system control unit
@@ -90,7 +88,5 @@ void scu_enable(void);
 int  scu_get_core_count(void);
 
 void write_sysflags_reg(uint32_t regval);
-
-/* [2009-11-17 orion] TODO: device enumeration */
 
 #endif // __ARM_HAL_H__

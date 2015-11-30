@@ -64,7 +64,10 @@ errval_t spinlock_init(void)
     return SYS_ERR_OK;
 }
 
-//directly use physical address
+//
+// Early initialization of the spinlocks.  Here, we directly use the
+// physical address since the MMU is not yet enabled.
+//
 errval_t spinlock_early_init(void)
 {
     assert(locks_initialized == 0);
@@ -72,9 +75,9 @@ errval_t spinlock_early_init(void)
     return SYS_ERR_OK;
 }
 
-//chose this name instead of "aquire_spinlock", because the usage is different
+//chose this name instead of "acquire_spinlock", because the usage is different
 //(this takes the number of the spinlock instead of an address in memory)
-inline void spinlock_aquire(int locknumber){
+inline void spinlock_acquire(int locknumber){
     assert(locknumber < NUM_LOCKS);//we only have 32 hardware spinlocks
     //reading "0" means we have the lock, "1" means we have to try again
     while(omap44xx_spinlock_lock_reg_i_taken_rdf(&spinlock, locknumber)){}

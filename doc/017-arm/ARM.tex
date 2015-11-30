@@ -80,25 +80,30 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Introduction}
 
-This document describes the state of support for ARM processors
+This document describes the state of support for ARMv7 processors
 in Barrelfish.
 
 ARM hardware is highly diverse, and has evolved over time.  As a
 research OS, Barrelfish focusses ARM support on a small number of
 platforms based on wide availability, ease of maintenance, and
-research interest.  
+research interest.   However, since management of hardware complexity
+and diversity is also a research goal of the Barrelfish project, we
+aim to make it easy to add new ARM-based platforms with a mixture of
+traditional and non-traditional engineering techniques. 
 
-The principal processors with ARM support in Barrelfish at present are
-as follows: 
+The principal processors with 32-bit ARM support in Barrelfish at present are
+ARMv7-A (Cortex A-series), in particular the Cortex A9. 
 
+Past support for older ARM 32-bit architectures in Barrelfish included:
 \begin{itemize}
-\item ARMv7a (Cortex A-series), in particular the Cortex A9. 
 \item ARMv7m (Cortex M-series), in particular the Cortex M3. 
 \item ARMv5 processors, in particular the Intel iXP2800 network
   processor (which uses an XScale core). 
+\item ARMv6 (ARM11MP) processors running under simulation in
+  \texttt{qemu}. 
 \end{itemize}
 
-The main systems we target at present are:
+The main 32-bit ARM-based systems we target at present are:
 \begin{itemize}
 \item The Texas Instruments OMAP4460 SoC used in the Pandaboard ES
   platform. 
@@ -106,37 +111,146 @@ The main systems we target at present are:
   simulator. 
 \end{itemize}
 
-In addition there is limited (and not tested) support in the
-Barrelfish tree for:
-\begin{itemize}
-\item The Netronome i8000 card, incorporating a single Intel iXP2800
-  processor. 
-\end{itemize}
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{General ARM compilation}
+\chapter{Compilation}
 \label{sec:armcompile}
 
-We now describe the OMAP4460 and GEM5 Barrelfish implementation issues
-and build steps. 
-
-This section assumes a properly set up toolchain for Barrelfish as
-described in the latest README file.
+Building Barrelfish with ARMv7 is straightforward; detailed
+requirements for packages are described in the latest README file.
 
 Compiling ARM support in Barrelfish requires a cross-compilation
-toolchain on the programmers \texttt{PATH}.  For ARMv7 support we use
-the MentorGraphics codesourcery toolchain, at time of writing the
-release version of 2012.03.  To check that the toolchain is set up
-correctly: 
+toolchain on the programmers \texttt{PATH}.  For ARMv7 support we
+track the GNU toolchain shipped with Ubuntu LTS  (14.04.3 at time of
+writing). 
+
+Once you have the right tools, run hake with the correct options,
+e.g.:
 \begin{lstlisting}
-@\shell@ arm-linux-gnueabi-gcc --version
-arm-linux-gnueabi-gcc (Sourcery CodeBench Lite 2012.03-57) 4.6.3
-Copyright (C) 2011 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions. There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+$ cd /build/barrelfish
+$ /git/barrelfish/hake/hake.sh -a armv7 -s /git/barrelfish 
+...
+$
 \end{lstlisting}
 
+After running \texttt{hake} with appropriate architecture support
+(i.e. use \texttt{-a armv7}), you can ask the Makefile what platforms it
+supports:
+
+\begin{lstlisting}
+$ make help-platforms
+------------------------------------------------------------------
+Platforms supported by this Makefile.  Use 'make <platform name>':
+ (these are the platforms available with your architecture choices)
+
+ Documentation:
+	 Documentation for Barrelfish
+ PandaboardES:
+	 Standard Pandaboard ES build image and modules
+ ARMv7-GEM5:
+	 GEM5 emulator for ARM Cortex-A series multicore processors
+------------------------------------------------------------------
+$ 
+\end{lstlisting}
+
+Then build:
+
+\begin{lstlisting}
+$ make -j 8 PandaboardES
+\end{lstlisting}
+
+\section{Building for GEM5}
+
+To boot Barrelfish in GEM5, in addition to the previous steps you
+will need a supported version of GEM5.  The GEM5 website
+(\url{gem5.org}) has comprehensive information. 
+
+Unfortunately, different
+versions of GEM5 manifest different subtle bugs when emulating ARM
+systems.  We recommend revision 0fea324c832c of GEM5 at present;
+please let us know if you find a more recent version that works well. 
+
+To fetch and build GEM5 on Ubuntu LTS:
+
+\begin{lstlisting}
+$ sudo apt-get install scons swig python-dev libgoogle-perftools-dev m4
+$ hg clone http://repo.gem5.org/gem5 -r 0fea324c832c gem5
+adding changesets
+adding manifests
+adding file changes
+added 9356 changesets with 53499 changes to 6576 files
+updating to branch default
+3269 files updated, 0 files merged, 0 files removed, 0 files unresolved
+$ cd ./gem5 
+$ scons build/ARM/gem5.fast
+...
+
+$
+\end{lstlisting}
+
+GEM5 is a large system and may take some time to build.  In addition,
+you may have to install minor fixes to ensure compilation (I had to
+add some initializers to \texttt{mem/ruby/network/orion/Wire.cc}, for
+example). 
+
+After the compilation of GEM5 is finished, add the binary to your PATH.
+
+Now, build Barrelfish like this:
+\begin{lstlisting}
+$ make -j 8 ARMv7-GEM5
+\end{lstlisting}
+
+It's a good idea to set \code{armv7_platform} in
+\file{<build_dir>/hake/Config.hs} to \texttt{gem5} in order to enable
+the cache quirk workarounds for GEM5 and proper offsets for the
+platform simulated by GEM5.
+
+You can also build Barrelfish and boot inside GEM5 in a single step:
+
+\begin{lstlisting}
+$ make help-boot
+------------------------------------------------------------------
+Boot instructions supported by this Makefile.  Use 'make <boot name>':
+ (these are the targets available with your architecture choices)
+
+ gem5_armv7:
+	 Boot an ARMv7a multicore image in GEM5
+ gem5_armv7_detailed:
+	 Boot an ARMv7a multicore image in GEM5 using a detailed CPU model
+$ make gem5_armv7
+...
+\end{lstlisting}
+
+To get the output of Barrelfish you should:
+\begin{lstlisting}
+$ telnet localhost 3456
+\end{lstlisting}
+
+GEM5 is a highly configurable simulator.  You can print the supported
+options of the GEM5 script as follows:
+
+\begin{lstlisting}
+$ gem5.fast gem5/gem5script.py -h
+\end{lstlisting}
+
+Note that if you boot using \code{make arm_gem5_detailed} rather than
+\code{make arm_gem5}, the simulation takes a long time (depending on
+your machine up to an hour just to boot Barrelfish). 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Code organization}
+
+The variety of ARM platforms make organizing source trees to maximise
+code reuse across different platforms a challenge. 
+
+Barrelfish distinguishes between \emph{Architectures}, which are
+typically processor architectures like ``ARMv7-A'', and \emph{Platforms},
+which are complete system targets, like ``PandaBoard-ES''. 
+
+Code and headers specific to a particular architecture are found in
+the source tree is various subdirectories of the form
+\texttt{../arch/armv7/}.  
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %--------------------------------------------------
 \chapter{OMAP4460 specifics}
 
@@ -302,46 +416,6 @@ snapshots as well as all the command line processing.
 We use a VExpress\_EMM based system to run Barrelfish. The number of
 cores can be passed as an argument to the GEM5 script. Cores are
 clocked at 1 GHz and main memory is 64 MB starting at 2 GB.
-
-\section{Compilation}
-
-In addition to the steps described in Section~\ref{sec:armcompile} you
-will need a supported version of GEM5.  Unfortunately, different
-versions of GEM5 manifest different subtle bugs when emulating ARM
-systems.  We recommend the following revision of GEM5 at present:
-
-\begin{lstlisting}
-hg clone http://repo.gem5.org/gem5 -r 0fea324c832c gem5
-scons build/ARM/gem5.fast
-\end{lstlisting}
-After the compilation of GEM5 is finished, add the binary to your PATH.
-
-Now, build Barrelfish like this:
-\begin{lstlisting}
-cd @\shell@SRC
-mkdir build
-cd build
-../hake/hake.sh -a armv7 -s ../
-\end{lstlisting}
-
-Be sure to set \code{armv7_platform} in
-\file{<build_dir>/hake/Config.hs} to \texttt{gem5} in order to enable
-the cache quirk workarounds for GEM5 and proper offsets for the
-platform simulated by GEM5.
-
-\begin{lstlisting}
-make arm_gem5
-\end{lstlisting}
-
-To get the output of Barrelfish you can use \code{telnet localhost
-  3456}
-
-NOTE 1: You can print the supported options of the GEM5 script with
-\code{gem5.fast ../tools/gem5/gem5script.py -h}
-
-NOTE 2: If you use \code{--cpu-type=arm_detailed} (use \code{make
-arm_gem5_detailed}), the simulation takes a long time (depending on
-your machine up to an hour just to boot Barrelfish)
 
 \section{Boot process: first (bootstrap) core}
 

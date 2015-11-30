@@ -27,11 +27,11 @@ extern errval_t spinlock_init(void);
 extern errval_t spinlock_early_init(void);
 
 /*
- * aquire and release specific locks
- * chosen the names as a contrast to "aquire_spinlock", because the arguments differ
+ * acquire and release specific locks
+ * chosen the names as a contrast to "acquire_spinlock", because the arguments differ
  * (here we want the index of the lock in the module, instead of a generic address)
  */
-void spinlock_aquire(int locknumber);
+void spinlock_acquire(int locknumber);
 void spinlock_release(int locknumber);
 
 

@@ -20,6 +20,7 @@
 #include <cpiobin.h>
 #include <getopt/getopt.h>
 #include <cp15.h>
+#include <spinlock.h>
 #include <elf/elf.h>
 #include <barrelfish_kpi/arm_core_data.h>
 
@@ -31,6 +32,14 @@
 #include <coreboot.h>
 
 #define GEM5_RAM_SIZE               (256UL*1024*1024)
+
+//
+// XXX Missing ARM HAL functionality - to be moved elsewhere
+//
+void spinlock_acquire(int locknumber) { return; }
+void spinlock_release(int locknumber) { return; }
+uint32_t gt_read_low(void) { return 0; }
+uint32_t gt_read_high(void) { return 0; }
 
 /// Round up n to the next multiple of size
 #define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
