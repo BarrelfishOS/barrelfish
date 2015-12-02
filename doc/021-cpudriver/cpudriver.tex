@@ -126,7 +126,7 @@ architecture.
 
 \section{Boot process}
 
-We first describe the boot process for the initial BSP core, and followed by
+We first describe the boot process for the initial BSP core, followed by
 the boot process of an APP core.
 
 \subsubsection{BSP Core}
@@ -140,8 +140,8 @@ binary called elver in \pathname{tools/elver/}) for a magic byte sequence
 (defined by multiboot) and begin execution just after that sequence appeared
 (see \pathname{tools/elver/boot.S}).
 
-\pathname{boot.S} in elver will set-up an preliminary GDT, an IA32-e page-
-table, and stack for execution. \pathname{elver.c} will then search for a
+\pathname{boot.S} in elver will set-up an preliminary GDT, an IA32-e page-table, 
+and stack for execution. \pathname{elver.c} will then search for a
 binary called \keywname{kernel} or \keywname{cpu} in all the multiboot
 modules, relocate that module and then jump to the relocated kernel module. At
 this point, we have set-up a 1 GiB identity mapping of the physical address
@@ -170,7 +170,7 @@ APP core. One complication for this code is that it has to resides below 1 MiB
 in physical memory since the new APP core starts in protected mode and
 therefore can not address anything above that limit in the beginning. Once the
 mapping is initiated, the entry point address for the new APP kernel will be
-written into this memory region. Finally, a series of system calls is invoked
+written into this memory region. Finally, a set of system calls are invoked
 in order to send the necessary IPIs to bootstrap the new processor.
 
 \section{Hardware state}
@@ -183,23 +183,135 @@ user-space program.
 
 \subsubsection{Global Descriptor Table (GDT)}
 
+The GDT table is loaded by the \fnname{gdt\_reset} function during start-up and statically defined.
+
+The table contains the following entries:
+
+\begin{tabular}{M|l}
+    Index & Description \\ \hline
+    0 & NULL segment  \\
+    1 & Kernel code segment  \\
+    2 & Kernel stack segment  \\
+    3 & User stack segment  \\
+    4 & User code segment  \\
+    5 & Task state segment  \\
+    6 & Task state segment (cont.)  \\
+    7 & Local descriptor table \\
+    8 & Local descriptor table (cont.) \\
+\end{tabular}
 
 \subsubsection{Interrupt Descriptor Table (IDT)}
 
+The initial IDT is set-up by \fnname{setup\_default\_idt} in
+\pathname{irq.c}. The number of entries in the IDT is set to 256 entries which
+are initialized in the following way:
+
+\begin{tabular}{M|l}
+    Index & Description \\ \hline
+    0  &  Divide Error \\
+    1  &  Debug \\
+    2  &  Nonmaskable External Interrupt \\
+    3  &  Breakpoint \\
+    4  &  Overflow \\
+    5  &  Bound Range Exceeded \\
+    6  &  Undefined/Invalid Opcode \\
+    7  &  No Math Coprocessor \\
+    8  &  Double Fault \\
+    9  &  Coprocessor Segment Overrun \\
+    10 &  Invalid TSS \\
+    11 &  Segment Not Present \\
+    12 &  Stack Segment Fault \\
+    13 &  General Protection Fault \\
+    14 &  Page Fault \\
+    15 &  Unused \\
+    16 &  FPU Floating-Point Error \\
+    17 &  Alignment Check \\
+    18 &  Machine Check \\
+    19 &  SIMD Floating-Point Exception \\
+    \hline
+    32 & \multirow{3}{*}{PIC Interrupts} \\
+    \vdots{} & \\
+    47 & \\
+    \hline
+    48 & \multirow{3}{*}{Generic Interrupts} \\
+    \vdots{} & \\
+    61 & \\
+    \hline
+    62 & Tracing IPI \\
+    63 & Tracing IPI \\
+    \hline
+    64 & \multirow{3}{*}{Unused} \\
+    \vdots{} & \\
+    247 & \\
+    \hline
+    248 & Halt IPI (Stopping a core) \\
+    249 & Inter core vector (IPI notifications) \\
+    250 & APIC Timer \\
+    251 & APIC Thermal \\
+    252 & APIC Performance monitoring interrupt \\
+    253 & APIC Error \\
+    254 & APIC Spurious interrupt \\
+    255 & Unused \\
+\end{tabular}
+
+Unused entries will be initialized by a special handler function. The slots
+reserved for generic interrupts can be allocated by user-space applications.
 
 \subsubsection{Local Descriptor Table (LDT)}
 
+The local descriptor table segment in the GDT will
+initially point to NULL as no LDT is installed.
+
+User-space applications can install their own LDT table
+which is loaded on context-switching using the
+\fnname{maybe\_reload\_ldt} function.
 
 \subsection{Registers}
-Segment, general purpose, floating point, SIMD
 
-\subsection{MSR}
-All MSRs/ read written.
+\subsubsection{Segment registers}
+
+Segment registers are initialized by the \fnname{gdt\_reset} function during start-up and each of them points to a GDT entry (index of the GDT table slot for each segment is given in brackets).
+
+\begin{itemize}
+\item[cs] Kernel code segment (1)
+\item[ds] NULL segment (0)
+\item[es] NULL segment (0)
+\item[fs] NULL segment (0)
+\item[gs] NULL segment (0)
+\item[ss] Kernel stack segment (2)
+\end{itemize}
+
+We also note that the \keywname{fs} and \keywname{gs} segment registers are
+preserved and restored across context switches.
+
+\subsubsection{General purpose}
+
+\subsubsection{Floating point / SIMD}
+
+\subsubsection{Machine specific registers (MSR)}
 
 \subsection{Address space layout}
 
 \subsection{Serial port}
-Initialized to get any output.
+On x86, the serial device (a PC16550 compatible controller) is initialized for the first time by the BSP core on boot-up.
+
+By default serial port \varname{0x3f8} will be used, but the port can be changed by
+using a command line argument supplied to the kernel.
+
+Notable settings for the serial driver are:
+\begin{itemize}
+    \item Interrupts are disabled.
+    \item FIFOs are enabled.
+    \item No stop bit.
+    \item 8 data bits.
+    \item No parity bit.
+    \item BAUD rate is 115200.
+\end{itemize}
+
+The serial device is later re-initialized into a different state once the
+serial driver takes over the device. For example, interrupts will be enabled
+hand handled by the driver.
+
 
 \subsection{Interrupt controllers}
 
