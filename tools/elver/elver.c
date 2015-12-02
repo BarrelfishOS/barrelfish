@@ -40,6 +40,8 @@
 #define PTABLE_PRESENT          (1L << 0)
 
 #define BASE_PAGE_SIZE                  0x1000
+#define LARGE_PAGE_SIZE                 0x200000
+#define ONE_GIB                         (1<<30)
 
 #define PTABLE_SIZE             512     /**< Page directory/table size */
 #define PTABLE_MASK             0x1ff   /**< Page dir/table address mask */
@@ -294,7 +296,7 @@ int startup(uint32_t magic, struct multiboot_info *mb)
     // Identity map the first 1 GByte of physical memory in long mode
     paging_map_table(&boot_pml4[PML4_BASE(0)], (uint64_t)(uint32_t)pdpt);
     paging_map_table(&pdpt[PDPT_BASE(0)], (uint64_t)(uint32_t)pdir);
-    for(uint32_t i = 0; i < 0xf000000; i += 0x200000) {
+    for(uint32_t i = 0; i < ONE_GIB; i += LARGE_PAGE_SIZE) {
         paging_map_large(&pdir[PDIR_BASE(i)], i, PTABLE_PRESENT
                          | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR);
     }
