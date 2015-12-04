@@ -255,7 +255,7 @@ errval_t numa_get_topology_from_skb(struct numa_topology *topology)
     skb_read_list_init_offset(&parser, output, 0);
     parsed = 0;
 
-    uint32_t from, to;
+    uint8_t from, to;
     uint32_t distance;
     NUMA_DEBUG_INIT("parsing locality information...\n");
     while (skb_read_list(&parser, "node_distance(%" PRIuNODEID ", %" PRIuNODEID ", %" PRIu32 ")",
