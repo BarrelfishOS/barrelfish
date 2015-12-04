@@ -1,7 +1,7 @@
 /* ntdll.h.  Contains ntdll specific stuff not defined elsewhere.
 
    Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012, 2013, 2014 Red Hat, Inc.
+   2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
    This file is part of Cygwin.
 
@@ -532,7 +532,8 @@ typedef enum _PROCESSINFOCLASS
   ProcessTimes = 4,
   ProcessSessionInformation = 24,
   ProcessWow64Information = 26,
-  ProcessImageFileName = 27
+  ProcessImageFileName = 27,
+  ProcessDebugFlags = 31
 } PROCESSINFOCLASS;
 
 /* Checked on 64 bit. */
@@ -1161,7 +1162,8 @@ typedef enum _THREADINFOCLASS
 {
   ThreadBasicInformation = 0,
   ThreadTimes = 1,
-  ThreadImpersonationToken = 5
+  ThreadImpersonationToken = 5,
+  ThreadQuerySetWin32StartAddress = 9
 } THREADINFOCLASS, *PTHREADINFOCLASS;
 
 /* Checked on 64 bit. */
@@ -1258,6 +1260,7 @@ extern "C"
   NTSTATUS NTAPI NtCancelTimer (HANDLE, PBOOLEAN);
   NTSTATUS NTAPI NtClose (HANDLE);
   NTSTATUS NTAPI NtCommitTransaction (HANDLE, BOOLEAN);
+  NTSTATUS NTAPI NtContinue (PCONTEXT, BOOLEAN);
   NTSTATUS NTAPI NtCreateDirectoryObject (PHANDLE, ACCESS_MASK,
 					  POBJECT_ATTRIBUTES);
   NTSTATUS NTAPI NtCreateKey (PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES, ULONG,

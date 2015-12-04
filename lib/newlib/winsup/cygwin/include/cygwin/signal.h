@@ -311,6 +311,10 @@ enum
 					   perform notification */
 };
 
+#define SIGEV_SIGNAL SIGEV_SIGNAL
+#define SIGEV_NONE   SIGEV_NONE
+#define SIGEV_THREAD SIGEV_THREAD
+
 #if __WORDSIZE == 64
 typedef __uint64_t sigset_t;
 #else
@@ -338,6 +342,9 @@ struct sigaction
 					   with three arguments instead of one
 					 */
 #define SA_RESTART   0x10000000 	/* Restart syscall on signal return */
+#define SA_ONSTACK   0x20000000		/* Call signal handler on alternate
+					   signal stack provided by
+					   sigaltstack(2). */
 #define SA_NODEFER   0x40000000		/* Don't automatically block the signal
 					   when its handler is being executed  */
 #define SA_RESETHAND 0x80000000		/* Reset to SIG_DFL on entry to handler */
@@ -347,6 +354,11 @@ struct sigaction
 /* Used internally by cygwin.  Included here to group everything in one place.
    Do not use.  */
 #define _SA_INTERNAL_MASK 0xf000	/* bits in this range are internal */
+
+#undef	MINSIGSTKSZ
+#define	MINSIGSTKSZ	 8192
+#undef	SIGSTKSZ
+#define	SIGSTKSZ	32768
 
 #define	SIGHUP	1	/* hangup */
 #define	SIGINT	2	/* interrupt */

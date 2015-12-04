@@ -463,7 +463,7 @@ fhandler_base::open_with_arch (int flags, mode_t mode)
 {
   int res;
   if (!(res = (archetype && archetype->io_handle)
-	|| open (flags, mode & 07777)))
+	|| open (flags, (mode & 07777) & ~cygheap->umask)))
     {
       if (archetype)
 	delete archetype;
@@ -662,10 +662,9 @@ fhandler_base::open (int flags, mode_t mode)
 					     + p->EaNameLength + 1);
 	      memset (nfs_attr, 0, sizeof (fattr3));
 	      nfs_attr->type = NF3REG;
-	      nfs_attr->mode = (mode & 07777) & ~cygheap->umask;
+	      nfs_attr->mode = mode;
 	    }
-	  else if (!has_acls ()
-		   && !(mode & ~cygheap->umask & (S_IWUSR | S_IWGRP | S_IWOTH)))
+	  else if (!has_acls () && !(mode & (S_IWUSR | S_IWGRP | S_IWOTH)))
 	    /* If mode has no write bits set, and ACLs are not used, we set
 	       the DOS R/O attribute. */
 	    file_attributes |= FILE_ATTRIBUTE_READONLY;
@@ -717,7 +716,7 @@ fhandler_base::open (int flags, mode_t mode)
      This is the result of a discussion on the samba-technical list, starting at
      http://lists.samba.org/archive/samba-technical/2008-July/060247.html */
   if (io.Information == FILE_CREATED && has_acls ())
-    set_created_file_access (fh, pc, mode);
+    set_file_attribute (fh, pc, ILLEGAL_UID, ILLEGAL_GID, S_JUSTCREATED | mode);
 
   /* If you O_TRUNC a file on Linux, the data is truncated, but the EAs are
      preserved.  If you open a file on Windows with FILE_OVERWRITE{_IF} or
@@ -2093,6 +2092,46 @@ fhandler_base_overlapped::raw_write (const void *ptr, size_t len)
 	chunk = len = max_atomic_write;
       else
 	chunk = max_atomic_write;
+
+      /* MSDN "WriteFile" contains the following note: "Accessing the output
+         buffer while a write operation is using the buffer may lead to
+	 corruption of the data written from that buffer.  [...]  This can
+	 be particularly problematic when using an asynchronous file handle.
+	 (https://msdn.microsoft.com/en-us/library/windows/desktop/aa365747)
+
+	 MSDN "Synchronous and Asynchronous I/O" contains the following note:
+	 "Do not deallocate or modify [...] the data buffer until all
+	 asynchronous I/O operations to the file object have been completed."
+	 (https://msdn.microsoft.com/en-us/library/windows/desktop/aa365683)
+
+	 This problem is a non-issue for blocking I/O, but it can lead to
+	 problems when using nonblocking I/O.  Consider:
+	 - The application uses a static buffer in repeated calls to
+	   non-blocking write.
+	 - The previous write returned with success, but the overlapped I/O
+	   operation is ongoing.
+	 - The application copies the next set of data to the static buffer,
+	   thus overwriting data still accessed by the previous write call.
+	 --> potential data corruption.
+
+	 What we do here is to allocate a per-fhandler buffer big enough
+	 to perform the maximum atomic operation from, copy the user space
+	 data over to this buffer and then call NtWriteFile on this buffer.
+	 This decouples the write operation from the user buffer and the
+	 user buffer can be reused without data corruption issues.
+
+	 Since no further write can occur while we're still having ongoing
+	 I/O, this should be reasanably safe.
+
+	 Note: We only have proof that this problem actually occurs on Wine
+	 yet.  However, the MSDN language indicates that this may be a real
+	 problem on real Windows as well. */
+      if (is_nonblocking ())
+	{
+	  if (!atomic_write_buf)
+	    atomic_write_buf = cmalloc_abort (HEAP_BUF, max_atomic_write);
+	  ptr = memcpy (atomic_write_buf, ptr, chunk);
+	}
 
       nbytes = 0;
       DWORD nbytes_now = 0;

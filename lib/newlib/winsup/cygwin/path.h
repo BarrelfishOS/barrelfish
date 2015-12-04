@@ -169,6 +169,7 @@ class path_conv
   int has_buggy_reopen () const {return fs.has_buggy_reopen ();}
   int has_buggy_fileid_dirinfo () const {return fs.has_buggy_fileid_dirinfo ();}
   int has_buggy_basic_info () const {return fs.has_buggy_basic_info ();}
+  int has_broken_fnoi () const {return fs.has_broken_fnoi ();}
   int binmode () const
   {
     if (path_flags & PATH_BINARY)
@@ -375,6 +376,7 @@ class path_conv
   bool fs_is_nwfs () const {return fs.is_nwfs ();}
   bool fs_is_ncfsd () const {return fs.is_ncfsd ();}
   bool fs_is_afs () const {return fs.is_afs ();}
+  bool fs_is_prlfs () const {return fs.is_prlfs ();}
   fs_info_type fs_type () const {return fs.what_fs ();}
   ULONG fs_serial_number () const {return fs.serial_number ();}
   inline const char *set_path (const char *p)

@@ -560,6 +560,7 @@ struct pthread_wrapper_arg
   PBYTE stackaddr;
   PBYTE stackbase;
   PBYTE stacklimit;
+  ULONG guardsize;
 };
 
 DWORD WINAPI
@@ -592,7 +593,14 @@ pthread_wrapper (PVOID arg)
      The below assembler code will release the OS stack after switching to our
      new stack. */
   wrapper_arg.stackaddr = dealloc_addr;
-
+  /* On post-XP systems, set thread stack guarantee matching the guardsize.
+     Note that the guardsize is one page bigger than the guarantee. */
+  if (wincap.has_set_thread_stack_guarantee ()
+      && wrapper_arg.guardsize > wincap.def_guard_page_size ())
+    {
+      wrapper_arg.guardsize -= wincap.page_size ();
+      SetThreadStackGuarantee (&wrapper_arg.guardsize);
+    }
   /* Initialize new _cygtls. */
   _my_tls.init_thread (wrapper_arg.stackbase - CYGTLS_PADSIZE,
 		       (DWORD (*)(void*, void*)) wrapper_arg.func);
@@ -632,7 +640,7 @@ pthread_wrapper (PVOID arg)
 #endif
 #ifdef __x86_64__
   __asm__ ("\n\
-	   movq  %[WRAPPER_ARG], %%rbx	# Load &wrapper_arg into rbx	\n\
+	   leaq  %[WRAPPER_ARG], %%rbx	# Load &wrapper_arg into rbx	\n\
 	   movq  (%%rbx), %%r12		# Load thread func into r12	\n\
 	   movq  8(%%rbx), %%r13	# Load thread arg into r13	\n\
 	   movq  16(%%rbx), %%rcx	# Load stackaddr into rcx	\n\
@@ -652,11 +660,11 @@ pthread_wrapper (PVOID arg)
 	   # register r13 and then just call the function.		\n\
 	   movq  %%r13, %%rcx		# Move thread arg to 1st arg reg\n\
 	   call  *%%r12			# Call thread func		\n"
-	   : : [WRAPPER_ARG] "r" (&wrapper_arg),
+	   : : [WRAPPER_ARG] "o" (wrapper_arg),
 	       [CYGTLS] "i" (CYGTLS_PADSIZE));
 #else
   __asm__ ("\n\
-	   movl  %[WRAPPER_ARG], %%ebx	# Load &wrapper_arg into ebx	\n\
+	   leal  %[WRAPPER_ARG], %%ebx	# Load &wrapper_arg into ebx	\n\
 	   movl  (%%ebx), %%eax		# Load thread func into eax	\n\
 	   movl  4(%%ebx), %%ecx	# Load thread arg into ecx	\n\
 	   movl  8(%%ebx), %%edx	# Load stackaddr into edx	\n\
@@ -683,7 +691,7 @@ pthread_wrapper (PVOID arg)
 	   # stack in the expected spot.				\n\
 	   popl  %%eax			# Pop thread_func address	\n\
 	   call  *%%eax			# Call thread func		\n"
-	   : : [WRAPPER_ARG] "r" (&wrapper_arg),
+	   : : [WRAPPER_ARG] "o" (wrapper_arg),
 	       [CYGTLS] "i" (CYGTLS_PADSIZE));
 #endif
   /* pthread::thread_init_wrapper calls pthread::exit, which
@@ -777,7 +785,8 @@ CygwinCreateThread (LPTHREAD_START_ROUTINE thread_func, PVOID thread_arg,
 
   if (stackaddr)
     {
-      /* If the application provided the stack, just use it. */
+      /* If the application provided the stack, just use it.  There won't
+	 be any stack overflow handling! */
       wrapper_arg->stackaddr = (PBYTE) stackaddr;
       wrapper_arg->stackbase = (PBYTE) stackaddr + stacksize;
     }
@@ -790,10 +799,8 @@ CygwinCreateThread (LPTHREAD_START_ROUTINE thread_func, PVOID thread_arg,
       real_guardsize = roundup2 (guardsize, wincap.page_size ());
       /* Add the guardsize to the stacksize */
       real_stacksize += real_guardsize;
-      /* If we use the default Windows guardpage method, we have to take
-	 the 2 pages dead zone into account. */
-      if (real_guardsize == wincap.page_size ())
-	  real_stacksize += 2 * wincap.page_size ();
+      /* Take dead zone page into account, which always stays uncommited. */
+      real_stacksize += wincap.page_size ();
       /* Now roundup the result to the next allocation boundary. */
       real_stacksize = roundup2 (real_stacksize,
 				 wincap.allocation_granularity ());
@@ -811,46 +818,63 @@ CygwinCreateThread (LPTHREAD_START_ROUTINE thread_func, PVOID thread_arg,
 #endif
       if (!real_stackaddr)
 	return NULL;
-      /* Set up committed region.  Two cases: */
-      if (real_guardsize != wincap.page_size ())
+      /* Set up committed region.  We have two cases: */
+      if (!wincap.has_set_thread_stack_guarantee ()
+	  && real_guardsize != wincap.def_guard_page_size ())
 	{
-	  /* If guardsize is set to something other than the page size, we
-	     commit the entire stack and, if guardsize is > 0, we set up a
-	     POSIX guardpage.  We don't set up a Windows guardpage. */
-	  if (!VirtualAlloc (real_stackaddr, real_guardsize, MEM_COMMIT,
-			     PAGE_NOACCESS))
+	  /* If guardsize is set to something other than the default guard page
+	     size, and if we're running on Windows XP 32 bit, we commit the
+	     entire stack, and, if guardsize is > 0, set up a guard page. */
+	  real_stacklimit = (PBYTE) real_stackaddr + wincap.page_size ();
+	  if (real_guardsize
+	      && !VirtualAlloc (real_stacklimit, real_guardsize, MEM_COMMIT,
+				PAGE_READWRITE | PAGE_GUARD))
 	    goto err;
-	  real_stacklimit = (PBYTE) real_stackaddr + real_guardsize;
-	  if (!VirtualAlloc (real_stacklimit, real_stacksize - real_guardsize,
+	  real_stacklimit += real_guardsize;
+	  if (!VirtualAlloc (real_stacklimit, real_stacksize - real_guardsize
+					      - wincap.page_size (),
 			     MEM_COMMIT, PAGE_READWRITE))
 	    goto err;
 	}
       else
 	{
-	  /* If guardsize is exactly the page_size, we can assume that the
-	     application will behave Windows conformant in terms of stack usage.
-	     We can especially assume that it never allocates more than one
-	     page at a time (alloca/_chkstk).  Therefore, this is the default
-	     case which allows a Windows compatible stack setup with a
-	     reserved region, a guard page, and a commited region.  We don't
-	     need to set up a POSIX guardpage since Windows already handles
-	     stack overflow: Trying to extend the stack into the last three
-	     pages of the stack results in a SEGV.
-	     We always commit 64K here, starting with the guardpage. */
+	  /* Otherwise we set up the stack like the OS does, with a reserved
+	     region, the guard pages, and a commited region.  We commit the
+	     stack commit size from the executable header, but at least
+	     PTHREAD_STACK_MIN (64K). */
+	  static ULONG exe_commitsize;
+
+	  if (!exe_commitsize)
+	    {
+	      PIMAGE_DOS_HEADER dosheader;
+	      PIMAGE_NT_HEADERS ntheader;
+
+	      dosheader = (PIMAGE_DOS_HEADER) GetModuleHandle (NULL);
+	      ntheader = (PIMAGE_NT_HEADERS)
+			 ((PBYTE) dosheader + dosheader->e_lfanew);
+	      exe_commitsize = ntheader->OptionalHeader.SizeOfStackCommit;
+	      exe_commitsize = roundup2 (exe_commitsize, wincap.page_size ());
+	    }
+	  ULONG commitsize = exe_commitsize;
+	  if (commitsize > real_stacksize - real_guardsize
+			   - wincap.page_size ())
+	    commitsize = real_stacksize - real_guardsize - wincap.page_size ();
+	  else if (commitsize < PTHREAD_STACK_MIN)
+	    commitsize = PTHREAD_STACK_MIN;
 	  real_stacklimit = (PBYTE) real_stackaddr + real_stacksize
-				- wincap.allocation_granularity ();
-	  if (!VirtualAlloc (real_stacklimit, wincap.page_size (), MEM_COMMIT,
-			     PAGE_READWRITE | PAGE_GUARD))
+			    - commitsize - real_guardsize;
+	  if (!VirtualAlloc (real_stacklimit, real_guardsize,
+			     MEM_COMMIT, PAGE_READWRITE | PAGE_GUARD))
 	    goto err;
-	  real_stacklimit += wincap.page_size ();
-	  if (!VirtualAlloc (real_stacklimit, wincap.allocation_granularity ()
-					 - wincap.page_size (), MEM_COMMIT,
+	  real_stacklimit += real_guardsize;
+	  if (!VirtualAlloc (real_stacklimit, commitsize, MEM_COMMIT,
 			     PAGE_READWRITE))
 	    goto err;
       	}
       wrapper_arg->stackaddr = (PBYTE) real_stackaddr;
       wrapper_arg->stackbase = (PBYTE) real_stackaddr + real_stacksize;
       wrapper_arg->stacklimit = real_stacklimit;
+      wrapper_arg->guardsize = real_guardsize;
     }
   /* Use the STACK_SIZE_PARAM_IS_A_RESERVATION parameter so only the
      minimum size for a thread stack is reserved by the OS.  Note that we
@@ -874,23 +898,178 @@ err:
 }
 
 #ifdef __x86_64__
-// TODO: The equivalent newlib functions only work for SYSV ABI so far.
-#undef RtlFillMemory
-#undef RtlCopyMemory
-extern "C" void NTAPI RtlFillMemory (PVOID, SIZE_T, BYTE);
-extern "C" void NTAPI RtlCopyMemory (PVOID, const VOID *, SIZE_T);
+/* These functions are almost verbatim FreeBSD code (even if ther header of
+   one file mentioneds NetBSD), just wrapped in the minimum required code to
+   make them work with the MS AMD64 ABI.
+   See FreeBSD src/lib/libc/amd64/string/memset.S
+   and FreeBSD src/lib/libc/amd64/string/bcopy.S */
 
-extern "C" void *
-memset (void *s, int c, size_t n)
-{
-  RtlFillMemory (s, n, c);
-  return s;
-}
+asm volatile ("								\n\
+/*									\n\
+ * Written by J.T. Conklin <jtc@NetBSD.org>.				\n\
+ * Public domain.							\n\
+ * Adapted for NetBSD/x86_64 by						\n\
+ * Frank van der Linden <fvdl@wasabisystems.com>			\n\
+ */									\n\
+									\n\
+	.globl	memset							\n\
+	.seh_proc memset						\n\
+memset:									\n\
+	movq	%rsi,8(%rsp)						\n\
+	movq	%rdi,16(%rsp)						\n\
+	.seh_endprologue						\n\
+	movq	%rcx,%rdi						\n\
+	movq	%rdx,%rsi						\n\
+	movq	%r8,%rdx						\n\
+									\n\
+	movq    %rsi,%rax						\n\
+	andq    $0xff,%rax						\n\
+	movq    %rdx,%rcx						\n\
+	movq    %rdi,%r11						\n\
+									\n\
+	cld			/* set fill direction forward */	\n\
+									\n\
+	/* if the string is too short, it's really not worth the	\n\
+	 * overhead of aligning to word boundries, etc.  So we jump to	\n\
+	 * a plain unaligned set. */					\n\
+	cmpq    $0x0f,%rcx						\n\
+	jle     L1							\n\
+									\n\
+	movb    %al,%ah		/* copy char to all bytes in word */\n\
+	movl    %eax,%edx						\n\
+	sall    $16,%eax						\n\
+	orl     %edx,%eax						\n\
+									\n\
+	movl    %eax,%edx						\n\
+	salq    $32,%rax						\n\
+	orq     %rdx,%rax						\n\
+									\n\
+	movq    %rdi,%rdx	/* compute misalignment */		\n\
+	negq    %rdx							\n\
+	andq    $7,%rdx							\n\
+	movq    %rcx,%r8						\n\
+	subq    %rdx,%r8						\n\
+									\n\
+	movq    %rdx,%rcx	/* set until word aligned */		\n\
+	rep								\n\
+	stosb								\n\
+									\n\
+	movq    %r8,%rcx						\n\
+	shrq    $3,%rcx		/* set by words */			\n\
+	rep								\n\
+	stosq								\n\
+									\n\
+	movq    %r8,%rcx	/* set remainder by bytes */		\n\
+	andq    $7,%rcx							\n\
+L1:     rep								\n\
+	stosb								\n\
+	movq    %r11,%rax						\n\
+									\n\
+	movq	8(%rsp),%rsi						\n\
+	movq	16(%rsp),%rdi						\n\
+	ret								\n\
+	.seh_endproc							\n\
+");
 
-extern "C" void *
-memcpy(void *__restrict dest, const void *__restrict src, size_t n)
-{
-  RtlCopyMemory (dest, src, n);
-  return dest;
-}
+asm volatile ("								\n\
+/*-									\n\
+ * Copyright (c) 1990 The Regents of the University of California.	\n\
+ * All rights reserved.							\n\
+ *									\n\
+ * This code is derived from locore.s.					\n\
+ *									\n\
+ * Redistribution and use in source and binary forms, with or without	\n\
+ * modification, are permitted provided that the following conditions	\n\
+ * are met:								\n\
+ * 1. Redistributions of source code must retain the above copyright	\n\
+ *    notice, this list of conditions and the following disclaimer.	\n\
+ * 2. Redistributions in binary form must reproduce the above copyright	\n\
+ *    notice, this list of conditions and the following disclaimer in	\n\
+ *    the documentation and/or other materials provided with the	\n\
+ *    distribution.							\n\
+ * 3. Neither the name of the University nor the names of its		\n\
+ *    contributors may be used to endorse or promote products derived	\n\
+ *    from this software without specific prior written permission.	\n\
+ *									\n\
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS''	\n\
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,\n\
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A		\n\
+ * PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR	\n\
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,\n\
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,	\n\
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR	\n\
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY	\n\
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT		\n\
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE	\n\
+ * USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH	\n\
+ * DAMAGE.								\n\
+ */									\n\
+									\n\
+	.globl  memmove							\n\
+	.seh_proc memmove						\n\
+memmove:								\n\
+	.seh_endprologue						\n\
+	nop			/* FALLTHRU */				\n\
+	.seh_endproc							\n\
+									\n\
+	.globl  memcpy							\n\
+	.seh_proc memcpy						\n\
+memcpy:									\n\
+	movq	%rsi,8(%rsp)						\n\
+	movq	%rdi,16(%rsp)						\n\
+	.seh_endprologue						\n\
+	movq	%rcx,%rdi						\n\
+	movq	%rdx,%rsi						\n\
+	movq	%r8,%rdx						\n\
+									\n\
+	movq	%rdi,%rax	/* return dst */			\n\
+	movq    %rdx,%rcx						\n\
+	movq    %rdi,%r8						\n\
+	subq    %rsi,%r8						\n\
+	cmpq    %rcx,%r8	/* overlapping? */			\n\
+	jb      1f							\n\
+	cld                     /* nope, copy forwards. */		\n\
+	shrq    $3,%rcx		/* copy by words */			\n\
+	rep movsq							\n\
+	movq    %rdx,%rcx						\n\
+	andq    $7,%rcx		/* any bytes left? */			\n\
+	rep movsb							\n\
+	jmp	2f							\n\
+1:									\n\
+	addq    %rcx,%rdi	/* copy backwards. */			\n\
+	addq    %rcx,%rsi						\n\
+	std								\n\
+	andq    $7,%rcx		/* any fractional bytes? */		\n\
+	decq    %rdi							\n\
+	decq    %rsi							\n\
+	rep movsb							\n\
+	movq    %rdx,%rcx	/* copy remainder by words */		\n\
+	shrq    $3,%rcx							\n\
+	subq    $7,%rsi							\n\
+	subq    $7,%rdi							\n\
+	rep movsq							\n\
+	cld								\n\
+2:									\n\
+	movq	8(%rsp),%rsi						\n\
+	movq	16(%rsp),%rdi						\n\
+	ret								\n\
+	.seh_endproc							\n\
+");
+
+asm volatile ("								\n\
+	.globl  wmemmove						\n\
+	.seh_proc wmemmove						\n\
+wmemmove:								\n\
+	.seh_endprologue						\n\
+	nop			/* FALLTHRU */				\n\
+	.seh_endproc							\n\
+									\n\
+	.globl  wmemcpy							\n\
+	.seh_proc wmemcpy						\n\
+wmemcpy:								\n\
+	.seh_endprologue						\n\
+	shlq	$1,%r8		/* cnt * sizeof (wchar_t) */		\n\
+	jmp	memcpy							\n\
+	.seh_endproc							\n\
+");
 #endif

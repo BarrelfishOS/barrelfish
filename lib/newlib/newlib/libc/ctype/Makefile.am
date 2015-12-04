@@ -67,6 +67,7 @@ CHEWOUT_FILES= \
 	isalnum.def	\
 	isalpha.def	\
 	isascii.def	\
+	isblank.def	\
 	iscntrl.def	\
 	isdigit.def	\
 	islower.def	\
@@ -97,19 +98,6 @@ CHEWOUT_FILES= \
 	wctrans.def	\
 	wctype.def	
 
-SUFFIXES = .def
-
-CHEW = ../../doc/makedoc -f $(srcdir)/../../doc/doc.str
-
-.c.def:
-	$(CHEW) < $< > $*.def 2> $*.ref
-	touch stmp-def
-
-TARGETDOC = ../tmp.texi
-
-doc: $(CHEWOUT_FILES)
-	cat $(srcdir)/ctype.tex >> $(TARGETDOC)
-
-CLEANFILES = $(CHEWOUT_FILES) *.ref
+CHAPTERS = ctype.tex
 
 $(lpfx)ctype_.$(oext): ctype_.c ctype_iso.h ctype_cp.h

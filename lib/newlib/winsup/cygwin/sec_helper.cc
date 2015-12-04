@@ -112,7 +112,7 @@ cygpsid::get_id (BOOL search_grp, int *type, cyg_ldap *pldap)
       struct group *gr;
       if (cygheap->user.groups.pgsid == psid)
 	id = myself->gid;
-      else if (sid_id_auth (psid) == 22)
+      else if (sid_id_auth (psid) == 22 && cygheap->pg.nss_grp_db ())
 	{
 	  /* Samba UNIX group.  Try to map to Cygwin gid.  If there's no
 	     mapping in the cache, try to fetch it from the configured
@@ -144,7 +144,7 @@ cygpsid::get_id (BOOL search_grp, int *type, cyg_ldap *pldap)
       struct passwd *pw;
       if (*this == cygheap->user.sid ())
 	id = myself->uid;
-      else if (sid_id_auth (psid) == 22)
+      else if (sid_id_auth (psid) == 22 && cygheap->pg.nss_pwd_db ())
 	{
 	  /* Samba UNIX user.  See comment above. */
 	  uid_t uid = sid_sub_auth_rid (psid);
@@ -218,7 +218,10 @@ cygsid::get_sid (DWORD s, DWORD cnt, DWORD *r, bool well_known)
   SID_IDENTIFIER_AUTHORITY sid_auth = { SECURITY_NULL_SID_AUTHORITY };
 # define SECURITY_NT_AUTH 5
 
-  if (s > 255 || cnt < 1 || cnt > SID_MAX_SUB_AUTHORITIES)
+  /* 2015-10-22: Note that we let slip SIDs with a subauthority count of 0.
+     There are systems, which generate the SID S-1-0 as group ownership SID,
+     see https://cygwin.com/ml/cygwin/2015-10/msg00141.html. */
+  if (s > 255 || cnt > SID_MAX_SUB_AUTHORITIES)
     {
       psid = NO_SID;
       return NULL;
@@ -616,21 +619,22 @@ _recycler_sd (void *buf, bool users, bool dir)
      pre-Vista permissions the same way as on Vista and later. */
   RtlCreateAcl (dacl, MAX_DACL_LEN (3), ACL_REVISION);
   RtlAddAccessAllowedAceEx (dacl, ACL_REVISION,
-			    dir ? SUB_CONTAINERS_AND_OBJECTS_INHERIT
+			    dir ? CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE
 				: NO_INHERITANCE,
 			    FILE_ALL_ACCESS, well_known_admins_sid);
   RtlAddAccessAllowedAceEx (dacl, ACL_REVISION,
-			    dir ? SUB_CONTAINERS_AND_OBJECTS_INHERIT
+			    dir ? CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE
 				: NO_INHERITANCE,
 			    FILE_ALL_ACCESS, well_known_system_sid);
   if (users)
-    RtlAddAccessAllowedAceEx (dacl, ACL_REVISION, INHERIT_NO_PROPAGATE,
+    RtlAddAccessAllowedAceEx (dacl, ACL_REVISION, NO_PROPAGATE_INHERIT_ACE,
 			      FILE_GENERIC_READ | FILE_GENERIC_EXECUTE
 			      | FILE_APPEND_DATA | FILE_WRITE_ATTRIBUTES,
 			      well_known_users_sid);
   else
     RtlAddAccessAllowedAceEx (dacl, ACL_REVISION,
-			      dir ? SUB_CONTAINERS_AND_OBJECTS_INHERIT
+			      dir ? CONTAINER_INHERIT_ACE
+				    | OBJECT_INHERIT_ACE
 				  : NO_INHERITANCE,
 			      FILE_ALL_ACCESS, cygheap->user.sid ());
   LPVOID ace;

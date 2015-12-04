@@ -1,7 +1,7 @@
 /* mmap.cc
 
    Copyright 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008, 2009, 2010, 2011, 2012, 2013 Red Hat, Inc.
+   2008, 2009, 2010, 2011, 2012, 2013, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -712,7 +712,7 @@ is_mmapped_region (caddr_t start_addr, caddr_t end_address)
    Check if the address range is all within noreserve mmap regions.  If so,
    call VirtualAlloc to commit the pages and return MMAP_NORESERVE_COMMITED
    on success.  If the page has __PROT_ATTACH (SUSv3 memory protection
-   extension), or if VirutalAlloc fails, return MMAP_RAISE_SIGBUS.
+   extension), or if VirtualAlloc fails, return MMAP_RAISE_SIGBUS.
    Otherwise, return MMAP_NONE if the address range is not covered by an
    attached or noreserve map.
 
@@ -1262,8 +1262,7 @@ munmap (void *addr, size_t len)
 
   LIST_LOCK ();
 
-  /* Iterate through the map, unmap pages between addr and addr+len
-     in all maps. */
+  /* Iterate over maps, unmap pages between addr and addr+len in all maps. */
   mmap_list *map_list, *next_map_list;
   LIST_FOREACH_SAFE (map_list, &mmapped_areas.lists, ml_next, next_map_list)
     {
@@ -1327,8 +1326,7 @@ msync (void *addr, size_t len, int flags)
   len = roundup2 (len, wincap.allocation_granularity ());
 #endif
 
-  /* Iterate through the map, looking for the mmapped area.
-     Error if not found. */
+  /* Iterate over maps, looking for the mmapped area.  Error if not found. */
   LIST_FOREACH (map_list, &mmapped_areas.lists, ml_next)
     {
       mmap_record *rec;
@@ -1385,8 +1383,7 @@ mprotect (void *addr, size_t len, int prot)
 
   LIST_LOCK ();
 
-  /* Iterate through the map, protect pages between addr and addr+len
-     in all maps. */
+  /* Iterate over maps, protect pages between addr and addr+len in all maps. */
   mmap_list *map_list;
   LIST_FOREACH (map_list, &mmapped_areas.lists, ml_next)
     {
@@ -1534,35 +1531,111 @@ munlock (const void *addr, size_t len)
   return ret;
 }
 
+/* This is required until Mingw-w64 catches up with newer functions. */
+extern "C" WINAPI DWORD DiscardVirtualMemory (PVOID, SIZE_T);
+
 extern "C" int
 posix_madvise (void *addr, size_t len, int advice)
 {
-  int ret;
+  int ret = 0;
   /* Check parameters. */
   if (advice < POSIX_MADV_NORMAL || advice > POSIX_MADV_DONTNEED
       || !len)
-    ret = EINVAL;
-  else
     {
-      /* Check requested memory area. */
-      MEMORY_BASIC_INFORMATION m;
-      char *p = (char *) addr;
-      char *endp = p + len;
-      while (p < endp)
-	{
-	  if (!VirtualQuery (p, &m, sizeof m) || m.State == MEM_FREE)
-	    {
-	      ret = ENOMEM;
-	      break;
-	    }
-	  p = (char *) m.BaseAddress + m.RegionSize;
-	}
-      ret = 0;
+      ret = EINVAL;
+      goto out;
     }
 
+  /* Check requested memory area. */
+  MEMORY_BASIC_INFORMATION m;
+  char *p, *endp;
+
+  for (p = (char *) addr, endp = p + len;
+       p < endp;
+       p = (char *) m.BaseAddress + m.RegionSize)
+    {
+      if (!VirtualQuery (p, &m, sizeof m) || m.State == MEM_FREE)
+	{
+	  ret = ENOMEM;
+	  break;
+	}
+    }
+  if (ret)
+    goto out;
+  switch (advice)
+    {
+    case POSIX_MADV_WILLNEED:
+      {
+	/* Align address and length values to page size. */
+	size_t pagesize = wincap.allocation_granularity ();
+	PVOID base = (PVOID) rounddown ((uintptr_t) addr, pagesize);
+	SIZE_T size = roundup2 (((uintptr_t) addr - (uintptr_t) base)
+				+ len, pagesize);
+	WIN32_MEMORY_RANGE_ENTRY me = { base, size };
+	if (!PrefetchVirtualMemory (GetCurrentProcess (), 1, &me, 0)
+	    && GetLastError () != ERROR_PROC_NOT_FOUND)
+	  {
+	    /* FIXME 2015-08-27: On W10 build 10240 under WOW64,
+	       PrefetchVirtualMemory always returns ERROR_INVALID_PARAMETER
+	       for some reason.  If we're running on W10 WOW64, ignore this
+	       error for now.  There's an open case at Microsoft for this. */
+	    if (!wincap.has_broken_prefetchvm ()
+		|| GetLastError () != ERROR_INVALID_PARAMETER)
+	      ret = EINVAL;
+	  }
+      }
+      break;
+    case POSIX_MADV_DONTNEED:
+      {
+	/* Align address and length values to page size. */
+	size_t pagesize = wincap.allocation_granularity ();
+	PVOID base = (PVOID) rounddown ((uintptr_t) addr, pagesize);
+	SIZE_T size = roundup2 (((uintptr_t) addr - (uintptr_t) base)
+				+ len, pagesize);
+	DWORD err = DiscardVirtualMemory (base, size);
+	/* DiscardVirtualMemory is unfortunately pretty crippled:
+	   On copy-on-write pages it returns ERROR_INVALID_PARAMETER, on
+	   any file-backed memory map it returns ERROR_USER_MAPPED_FILE.
+	   Since POSIX_MADV_DONTNEED is advisory only anyway, let them
+	   slip through. */
+	switch (err)
+	  {
+	  case ERROR_PROC_NOT_FOUND:
+	  case ERROR_USER_MAPPED_FILE:
+	  case 0:
+	    break;
+	  case ERROR_INVALID_PARAMETER:
+	    {
+	      ret = EINVAL;
+	      /* Check if the region contains copy-on-write pages.*/
+	      for (p = (char *) addr, endp = p + len;
+		   p < endp;
+		   p = (char *) m.BaseAddress + m.RegionSize)
+		{
+		  if (VirtualQuery (p, &m, sizeof m)
+		      && m.State == MEM_COMMIT
+		      && m.Protect
+			 & (PAGE_EXECUTE_WRITECOPY | PAGE_WRITECOPY))
+		    {
+		      /* Yes, let this slip. */
+		      ret = 0;
+		      break;
+		    }
+		}
+	    }
+	    break;
+	  default:
+	    ret = geterrno_from_win_error (err);
+	    break;
+	  }
+      }
+      break;
+    default:
+      break;
+    }
+out:
   syscall_printf ("%d = posix_madvise(%p, %lu, %d)", ret, addr, len, advice);
-  /* Eventually do nothing. */
-  return 0;
+  return ret;
 }
 
 /*
@@ -1820,7 +1893,7 @@ fhandler_disk_file::fixup_mmap_after_fork (HANDLE h, int prot, int flags,
 int __stdcall
 fixup_mmaps_after_fork (HANDLE parent)
 {
-  /* Iterate through the map */
+  /* Iterate over maps */
   mmap_list *map_list;
   LIST_FOREACH (map_list, &mmapped_areas.lists, ml_next)
     {

@@ -1,3 +1,153 @@
+2015-11-12  Anton Kolesov  <Anton.Kolesov@synopsys.com>
+
+	* configure: Add ARC support.
+	* configure.in: Likewise.
+	* arc/Makefile.in: Likewise.
+	* arc/aclocal.m4: Likewise.
+	* arc/configure: Likewise.
+	* arc/configure.in: Likewise.
+	* arc/crt0.S: Likewise.
+	* arc/libcfunc.c: Likewise.
+	* arc/nsim-syscall.h: Likewise.
+	* arc/nsim-syscalls.c: Likewise.
+	* arc/nsim.specs: Likewise.
+	* arc/sbrk.c: Likewise.
+
+2015-10-20  Kaushik Phatak <kaushik.phatak@kpit.com>
+
+        * rl78/crt0.S (_start): Fixed code that clears .bss
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* msp430/msp430-sim.ld: Add .persistent section.
+	Tidy up section layout.
+	Start RAM above hardware multiply registers.
+	* msp430/msp430xl-sim.ld: Likewise.
+
+2015-09-04  James Bowman  <james.bowman@ftdichip.com>
+
+	* configure.in: Add ft32 support.
+	* ft32/sbrk.c: New file.
+	* ft32/sim-close.S: Ditto.
+	* ft32/sim-exit.S: Ditto.
+	* ft32/sim-inbyte.c: Ditto.
+	* ft32/sim.ld: Ditto.
+	* ft32/sim-lseek.c: Ditto.
+	* ft32/sim-lseek.S: Ditto.
+	* ft32/sim-open.S: Ditto.
+	* ft32/sim-read.S: Ditto.
+	* ft32/sim-time.c: Ditto.
+	* ft32/sim-unlink.S: Ditto.
+	* ft32/sim-write.S: Ditto.
+	* ft32/stat.c: Ditto.
+	* ft32/configure.in: Ditto.
+	* ft32/crt0.S: Ditto.
+	* ft32/fstat.c: Ditto.
+	* ft32/getpid.c: Ditto.
+	* ft32/isatty.c: Ditto.
+	* ft32/kill.c: Ditto.
+	* ft32/Makefile.in: Ditto.
+
+2015-08-20  Nick Clifton  <nickc@redhat.com>
+
+	PR libgloss/18786
+	* msp430/crt0.S: Remove watchdog disabling code.
+
+2015-08-07 Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+
+	* or1k/boards/optimsoc.S: Fix symbol name
+	* or1k/crt0.S: Remove paranthesis
+
+2015-08-07 Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+
+	* or1k/crt0.S: Add exception nesting
+	* or1k/exceptions-asm.S: ditto
+	* or1k/util.c: ditto
+
+2015-08-07 Stefan Wallentowitz <stefan.wallentowitz@tum.de>
+
+	* or1k/sbrk.c: Make heap end globally visible
+
+2015-08-04  Nick Clifton  <nickc@redhat.com>
+
+	* rl78/rl78-sim.ld: Provide a value for __rl78_abs__.
+	* rl78/rl78.ld: Likewise.
+
+2015-07-14  Andre Vieira  <andre.simoesdiasvieira@arm.com\>
+
+	* arm/elf-nano.specs: Added option to search for system headers in
+	newlib-nano directory.
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/impure.c: Fix initialization of impure ptr
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/boards/optimsoc.S: Heap for gzll kernel
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/sbrk.c: Allow for different heap start
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/or1k_uart.c: Fix interrupts
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/timer.c: Properly set interrupt flags
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/exception-asm.S: Store missing state
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/crt0.S: Fix exception stack frame
+	* or1k/exception-asm.S: ditto
+
+2015-05-26  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* or1k/interruts-asm.S: Change registers to callee-saved.
+
+2015-05-18  Nick Clifton  <nickc@redhat.com>
+
+	* msp430/msp430-sim.ld (.stack): Add an assertion to make sure
+	that the data area does not overrun the stack.  PROVIDE a new
+	symbol __stack_size to allow the user to set the limit.
+	* msp430/msp430xl-sim.ld (.stack): Likewise.
+	* rl78/rl78-sim.ld (.stack): Likewise.
+	* rl78/rl78.ld (.stack): Likewise.
+	* rx/rx-sim.ld (.stack): Likewise.
+	* rx/rx.ld (.stack): Likewise.
+
+2015-05-05  Nick Clifton  <nickc@redhat.com>
+
+	* msp430/msp430.ld: Delete.
+	* msp430/msp430F5438A-l.ld: Delete.
+	* msp430/msp430F5438A-s.ld: Delete.
+	* msp430/crt_movedata.S: Delete.
+
+	* msp430/Makefile.in (SCRIPTS): Remove msp430.ld.
+	(CRT_OBJS): Add crt_move_highdata.o.
+	* msp430/memmodel.h (START_CRT_FUNC): New macro.
+	(END_CRT_FUNC): New macro.
+	(WEAK_DEF): New macro.
+	* msp430/crt0.S: Use new macros.
+	(move_highdata): New code to initialise the .data section if it is
+	held in high memory.
+
+	* msp430/msp430-sim.ld (.data): Add .either.data.
+	(.rodata2): Move some read-only data sections here.
+	(.text): Add .either.text.
+	(.rodata): Add .either.rodata.
+	(.bss): Add .either.bss.
+	* msp430/msp430xl-sim.ld (MEMORY): Add HIROM.
+	(.rodata2): Move some read-only data sections here.
+	(.upper.data): New section.  Include notes about how to initialise
+	it.
+
 2015-04-21  Mike Frysinger  <vapier@gentoo.org>
 
 	* mcore/syscall.h: New header.

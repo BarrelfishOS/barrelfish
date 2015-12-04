@@ -24,9 +24,10 @@
                                                                               */
 /* -------------------------------------------------------------------------- */
 // Warning - this must be the same as specified in crt0.S
-#define EXCEPTION_STACK_SIZE 128+128
+#define EXCEPTION_STACK_SIZE 136
 
 	.extern _or1k_exception_handler_table
+	.extern _or1k_exception_level
 
 /* -------------------------------------------------------------------------- */
 /*!Function to call appropriate exception handler
@@ -73,6 +74,10 @@ _or1k_exception_handler:
 	l.sw	GPR_BUF_OFFSET(29)(r1),r29
 	l.sw	GPR_BUF_OFFSET(30)(r1),r30
 	l.sw	GPR_BUF_OFFSET(31)(r1),r31
+	l.mfspr r14,r0,OR1K_SPR_SYS_EPCR_BASE
+	l.sw	0x80(r1),r14
+	l.mfspr r14,r0,OR1K_SPR_SYS_ESR_BASE
+	l.sw	0x84(r1),r14
 
 	/* Replace impure pointer for exception */
 	l.movhi	r20,hi(_or1k_exception_impure_ptr)
@@ -155,7 +160,31 @@ _or1k_exception_handler:
 #endif
 	l.sw	0(r21),r20
 
+	/* Decrement the exception nesting level */
+	// Load the exception level entry
+	l.movhi	r2,hi(_or1k_exception_level)
+	l.ori	r2,r2,lo(_or1k_exception_level)
+#ifdef __OR1K_MULTICORE__
+	// In multicore this is the pointer to an array
+	// Load pointer value
+	l.lwz	r2,0(r2)
+	// Add word offset of this core's nesting level
+	l.add	r2,r2,r22
+#endif
+	// Load the nesting level entry
+	l.lwz	r3,0(r2)
+	// Decrement nesting level
+	l.addi	r3,r3,-1
+	// Store back the nesting level
+	l.sw	0(r2),r3
+
 	/* Restore state */
+	l.lwz   r2,0x80(r1)
+	l.mtspr r0,r2,OR1K_SPR_SYS_EPCR_BASE
+
+	l.lwz   r2,0x84(r1)
+	l.mtspr r0,r2,OR1K_SPR_SYS_ESR_BASE
+
 	l.lwz	r2,GPR_BUF_OFFSET(2)(r1)
 	l.lwz	r3,GPR_BUF_OFFSET(3)(r1)
 	l.lwz	r4,GPR_BUF_OFFSET(4)(r1)

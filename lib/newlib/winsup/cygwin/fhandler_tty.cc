@@ -12,7 +12,6 @@ details. */
 #include "winsup.h"
 #include <stdlib.h>
 #include <sys/param.h>
-#include <sys/acl.h>
 #include <cygwin/kd.h>
 #include "cygerrno.h"
 #include "security.h"
@@ -389,8 +388,9 @@ fhandler_pty_slave::open (int flags, mode_t)
     sd.malloc (sizeof (SECURITY_DESCRIPTOR));
     RtlCreateSecurityDescriptor (sd, SECURITY_DESCRIPTOR_REVISION);
     SECURITY_ATTRIBUTES sa = { sizeof (SECURITY_ATTRIBUTES), NULL, TRUE };
-    if (!create_object_sd_from_attribute (myself->uid, myself->gid,
-					  S_IRUSR | S_IWUSR | S_IWGRP, sd))
+    if (!create_object_sd_from_attribute (NULL, myself->uid, myself->gid,
+					  S_IFCHR | S_IRUSR | S_IWUSR | S_IWGRP,
+					  sd))
       sa.lpSecurityDescriptor = (PSECURITY_DESCRIPTOR) sd;
     acquire_output_mutex (INFINITE);
     inuse = get_ttyp ()->create_inuse (&sa);
@@ -552,7 +552,10 @@ fhandler_pty_slave::close ()
 	get_output_handle_cyg ());
   if ((unsigned) myself->ctty == FHDEV (DEV_PTYS_MAJOR, get_minor ()))
     fhandler_console::free_console ();	/* assumes that we are the last pty closer */
-  return fhandler_pty_common::close ();
+  fhandler_pty_common::close ();
+  if (!ForceCloseHandle (output_mutex))
+    termios_printf ("CloseHandle (output_mutex<%p>), %E", output_mutex);
+  return 0;
 }
 
 int
@@ -619,7 +622,6 @@ fhandler_pty_slave::write (const void *ptr, size_t len)
 	default:
 	  __seterrno_from_win_error (err);
 	}
-      raise (SIGHUP);		/* FIXME: Should this be SIGTTOU? */
       towrite = -1;
     }
   return towrite;
@@ -746,7 +748,12 @@ fhandler_pty_slave::read (void *ptr, size_t& len)
 	  goto out;
 	}
       if (!bytes_available (bytes_in_pipe))
-	raise (SIGHUP);
+	{
+	  ReleaseMutex (input_mutex);
+	  set_errno (EIO);
+	  totalread = -1;
+	  goto out;
+	}
 
       /* On first peek determine no. of bytes to flush. */
       if (!ptr && len == UINT_MAX)
@@ -776,9 +783,10 @@ fhandler_pty_slave::read (void *ptr, size_t& len)
 	  if (!ReadFile (get_handle (), buf, readlen, &n, NULL))
 	    {
 	      termios_printf ("read failed, %E");
-	      raise (SIGHUP);
-	      bytes_in_pipe = 0;
-	      ptr = NULL;
+	      ReleaseMutex (input_mutex);
+	      set_errno (EIO);
+	      totalread = -1;
+	      goto out;
 	    }
 	  else
 	    {
@@ -787,7 +795,12 @@ fhandler_pty_slave::read (void *ptr, size_t& len)
 		 change after successful read. So we have to peek into the pipe
 		 again to see if input is still available */
 	      if (!bytes_available (bytes_in_pipe))
-		raise (SIGHUP);
+		{
+		  ReleaseMutex (input_mutex);
+		  set_errno (EIO);
+		  totalread = -1;
+		  goto out;
+		}
 	      if (n)
 		{
 		  len -= n;
@@ -1036,62 +1049,6 @@ fhandler_pty_slave::fstat (struct stat *st)
   return 0;
 }
 
-int __reg3
-fhandler_pty_slave::facl (int cmd, int nentries, aclent_t *aclbufp)
-{
-  int res = -1;
-  bool to_close = false;
-  security_descriptor sd;
-  mode_t attr = S_IFCHR;
-
-  switch (cmd)
-    {
-      case SETACL:
-	if (!aclsort32 (nentries, 0, aclbufp))
-	  set_errno (ENOTSUP);
-	break;
-      case GETACL:
-	if (!aclbufp)
-	  {
-	    set_errno (EFAULT);
-	    break;
-	  }
-	/*FALLTHRU*/
-      case GETACLCNT:
-	if (!input_available_event)
-	  {
-	    char buf[MAX_PATH];
-	    shared_name (buf, INPUT_AVAILABLE_EVENT, get_minor ());
-	    input_available_event = OpenEvent (READ_CONTROL, TRUE, buf);
-	    if (input_available_event)
-	      to_close = true;
-	  }
-	if (!input_available_event
-	    || get_object_sd (input_available_event, sd))
-	  {
-	    res = get_posix_access (NULL, &attr, NULL, NULL, aclbufp, nentries);
-	    if (aclbufp && res == MIN_ACL_ENTRIES)
-	      {
-		aclbufp[0].a_perm = S_IROTH | S_IWOTH;
-		aclbufp[0].a_id = 18;
-		aclbufp[1].a_id = 544;
-	      }
-	    break;
-	  }
-	if (cmd == GETACL)
-	  res = get_posix_access (sd, &attr, NULL, NULL, aclbufp, nentries);
-	else
-	  res = get_posix_access (sd, &attr, NULL, NULL, NULL, 0);
-	break;
-      default:
-	set_errno (EINVAL);
-	break;
-    }
-  if (to_close)
-    CloseHandle (input_available_event);
-  return res;
-}
-
 /* Helper function for fchmod and fchown, which just opens all handles
    and signals success via bool return. */
 bool
@@ -1164,7 +1121,7 @@ fhandler_pty_slave::fchmod (mode_t mode)
   sd.malloc (sizeof (SECURITY_DESCRIPTOR));
   RtlCreateSecurityDescriptor (sd, SECURITY_DESCRIPTOR_REVISION);
   if (!get_object_attribute (input_available_event, &uid, &gid, NULL)
-      && !create_object_sd_from_attribute (uid, gid, mode, sd))
+      && !create_object_sd_from_attribute (NULL, uid, gid, S_IFCHR | mode, sd))
     ret = fch_set_sd (sd, false);
 errout:
   if (to_close)
@@ -1194,13 +1151,11 @@ fhandler_pty_slave::fchown (uid_t uid, gid_t gid)
   RtlCreateSecurityDescriptor (sd, SECURITY_DESCRIPTOR_REVISION);
   if (!get_object_attribute (input_available_event, &o_uid, &o_gid, &mode))
     {
-      if (uid == ILLEGAL_UID)
-	uid = o_uid;
-      if (gid == ILLEGAL_GID)
-	gid = o_gid;
-      if (uid == o_uid && gid == o_gid)
+      if ((uid == ILLEGAL_UID || uid == o_uid)
+	  && (gid == ILLEGAL_GID || gid == o_gid))
 	ret = 0;
-      else if (!create_object_sd_from_attribute (uid, gid, mode, sd))
+      else if (!create_object_sd_from_attribute (input_available_event,
+						 uid, gid, S_IFCHR | mode, sd))
 	ret = fch_set_sd (sd, true);
     }
 errout:
@@ -1259,8 +1214,6 @@ fhandler_pty_common::close ()
   termios_printf ("pty%d <%p,%p> closing", get_minor (), get_handle (), get_output_handle ());
   if (!ForceCloseHandle (input_mutex))
     termios_printf ("CloseHandle (input_mutex<%p>), %E", input_mutex);
-  if (!ForceCloseHandle (output_mutex))
-    termios_printf ("CloseHandle (output_mutex<%p>), %E", output_mutex);
   if (!ForceCloseHandle1 (get_handle (), from_pty))
     termios_printf ("CloseHandle (get_handle ()<%p>), %E", get_handle ());
   if (!ForceCloseHandle1 (get_output_handle (), to_pty))
@@ -1281,6 +1234,9 @@ fhandler_pty_master::cleanup ()
 int
 fhandler_pty_master::close ()
 {
+  OBJECT_BASIC_INFORMATION obi;
+  NTSTATUS status;
+
   termios_printf ("closing from_master(%p)/to_master(%p)/to_master_cyg(%p) since we own them(%u)",
 		  from_master, to_master, to_master_cyg, dwProcessId);
   if (cygwin_finished_initializing)
@@ -1309,13 +1265,24 @@ fhandler_pty_master::close ()
 	}
     }
 
-  fhandler_pty_common::close ();
-
   /* Check if the last master handle has been closed.  If so, set
      input_available_event to wake up potentially waiting slaves. */
-  if (!PeekNamedPipe (from_master, NULL, 0, NULL, NULL, NULL)
-      && GetLastError () == ERROR_BROKEN_PIPE) 
-    SetEvent (input_available_event);
+  acquire_output_mutex (INFINITE);
+  status = NtQueryObject (get_output_handle (), ObjectBasicInformation,
+			  &obi, sizeof obi, NULL);
+  fhandler_pty_common::close ();
+  release_output_mutex ();
+  if (!ForceCloseHandle (output_mutex))
+    termios_printf ("CloseHandle (output_mutex<%p>), %E", output_mutex);
+  if (!NT_SUCCESS (status))
+    debug_printf ("NtQueryObject: %y", status);
+  else if (obi.HandleCount == 1)
+    {
+      termios_printf("Closing last master of pty%d", get_minor ());
+      if (get_ttyp ()->getsid () > 0)
+	kill (get_ttyp ()->getsid (), SIGHUP);
+      SetEvent (input_available_event);
+    }
 
   if (!ForceCloseHandle (from_master))
     termios_printf ("error closing from_master %p, %E", from_master);
@@ -1728,8 +1695,9 @@ fhandler_pty_master::setup ()
   /* Create security attribute.  Default permissions are 0620. */
   sd.malloc (sizeof (SECURITY_DESCRIPTOR));
   RtlCreateSecurityDescriptor (sd, SECURITY_DESCRIPTOR_REVISION);
-  if (!create_object_sd_from_attribute (myself->uid, myself->gid,
-					S_IRUSR | S_IWUSR | S_IWGRP, sd))
+  if (!create_object_sd_from_attribute (NULL, myself->uid, myself->gid,
+					S_IFCHR | S_IRUSR | S_IWUSR | S_IWGRP,
+					sd))
     sa.lpSecurityDescriptor = (PSECURITY_DESCRIPTOR) sd;
 
   /* Carefully check that the input_available_event didn't already exist.

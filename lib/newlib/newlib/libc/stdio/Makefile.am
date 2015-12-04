@@ -391,7 +391,6 @@ CHEWOUT_FILES = \
 	getline.def		\
 	gets.def		\
 	getw.def		\
-	getwc.def		\
 	getwchar.def		\
 	mktemp.def		\
 	open_memstream.def	\
@@ -402,7 +401,6 @@ CHEWOUT_FILES = \
 	putchar_u.def		\
 	puts.def		\
 	putw.def		\
-	putwc.def		\
 	putwchar.def		\
 	remove.def		\
 	rename.def		\
@@ -423,20 +421,7 @@ CHEWOUT_FILES = \
 	vfwprintf.def		\
 	vfwscanf.def
 
-SUFFIXES = .def
-
-CHEW = ../../doc/makedoc -f $(srcdir)/../../doc/doc.str
-
-.c.def:
-	$(CHEW) < $< > $*.def 2> $*.ref
-	touch stmp-def
-
-TARGETDOC = ../tmp.texi
-
-doc: $(CHEWOUT_FILES)
-	cat $(srcdir)/stdio.tex >> $(TARGETDOC)
-
-CLEANFILES = $(CHEWOUT_FILES) *.ref
+CHAPTERS = stdio.tex
 
 $(lpfx)clearerr.$(oext): local.h
 $(lpfx)clearerr_u.$(oext): local.h

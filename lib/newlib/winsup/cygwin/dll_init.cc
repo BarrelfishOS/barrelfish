@@ -1,7 +1,7 @@
 /* dll_init.cc
 
    Copyright 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011, 2012, 2013, 2014 Red Hat, Inc.
+   2009, 2010, 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
 This software is a copyrighted work licensed under the terms of the
 Cygwin license.  Please consult the file "CYGWIN_LICENSE" for
@@ -25,6 +25,7 @@ details. */
 #include <wchar.h>
 #include <sys/reent.h>
 #include <assert.h>
+#include <tls_pbuf.h>
 
 extern void __stdcall check_sanity_and_sync (per_process *);
 
@@ -178,7 +179,9 @@ dll_list::find_by_modname (const PWCHAR modname)
 dll *
 dll_list::alloc (HINSTANCE h, per_process *p, dll_type type)
 {
-  WCHAR buf[NT_MAX_PATH];
+  /* Called under loader lock conditions so this function can't be called
+     multiple times in parallel.  A static buffer is safe. */
+  static WCHAR buf[NT_MAX_PATH];
   GetModuleFileNameW (h, buf, NT_MAX_PATH);
   PWCHAR name = buf;
   if (!wcsncmp (name, L"\\\\?\\", 4))
@@ -264,7 +267,9 @@ dll_list::append (dll* d)
 
 void dll_list::populate_deps (dll* d)
 {
-  WCHAR wmodname[NT_MAX_PATH];
+  tmp_pathbuf tp;
+
+  PWCHAR wmodname = tp.w_get ();
   pefile* pef = (pefile*) d->handle;
   PIMAGE_DATA_DIRECTORY dd = pef->idata_dir (IMAGE_DIRECTORY_ENTRY_IMPORT);
   /* Annoyance: calling crealloc with a NULL pointer will use the

@@ -1,7 +1,7 @@
 /* init.cc
 
    Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012, 2013 Red Hat, Inc.
+   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -25,8 +25,10 @@ static bool dll_finished_loading;
 static void WINAPI
 threadfunc_fe (VOID *arg)
 {
+#ifndef __x86_64__
   (void)__builtin_return_address(1);
   asm volatile ("andl $-16,%%esp" ::: "%esp");
+#endif
   _cygtls::call ((DWORD (*)  (void *, void *)) TlsGetValue (_my_oldfunc), arg);
 }
 
@@ -53,12 +55,22 @@ munge_threadfunc ()
 
   if (threadfunc_ix[0])
     {
-      char *threadfunc = ebp[threadfunc_ix[0]];
+      char *threadfunc = NULL;
+
+      /* This call to NtQueryInformationThread crashes under WOW64 on
+         64 bit XP and Server 2003. */
+      if (wincap.wow64_has_secondary_stack ())
+	threadfunc = ebp[threadfunc_ix[0]];
+      else
+	NtQueryInformationThread (NtCurrentThread (),
+				  ThreadQuerySetWin32StartAddress,
+				  &threadfunc, sizeof threadfunc, NULL);
       if (!search_for || threadfunc == search_for)
 	{
 	  search_for = NULL;
 	  for (i = 0; threadfunc_ix[i]; i++)
-	    ebp[threadfunc_ix[i]] = (char *) threadfunc_fe;
+	    if (!threadfunc || ebp[threadfunc_ix[i]] == threadfunc)
+	       ebp[threadfunc_ix[i]] = (char *) threadfunc_fe;
 	  TlsSetValue (_my_oldfunc, threadfunc);
 	}
     }

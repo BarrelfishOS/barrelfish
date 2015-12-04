@@ -1,7 +1,7 @@
 /* fork.cc
 
    Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012 Red Hat, Inc.
+   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -307,27 +307,30 @@ frok::parent (volatile char * volatile stack_here)
 
   ch.forker_finished = forker_finished;
 
-  PTEB teb = NtCurrentTeb ();
   ch.stackbottom = _tlsbase;
-  ch.stacktop = (void *) _tlstop;
-  ch.stackaddr = teb->DeallocationStack;
-  ch.guardsize = 0;
-  if (&_my_tls != _main_tls)
+  ch.stackaddr = NtCurrentTeb ()->DeallocationStack;
+  if (!ch.stackaddr)
     {
-      /* We have not been started from the main thread.  Fetch the
-	 information required to set up the thread stack identically
-	 in the child. */
-      if (!ch.stackaddr)
-	{
-	  /* Pthread with application-provided stack.  Don't set up a
-	     PAGE_GUARD page.  guardsize == -1 is used in alloc_stack_hard_way
-	     to recognize this type of stack. */
-	  ch.stackaddr = _my_tls.tid->attr.stackaddr;
-	  ch.guardsize = (size_t) -1;
-	}
-      else if (_my_tls.tid)
-	/* If it's a pthread, fetch guardsize from thread attributes. */
-	ch.guardsize = _my_tls.tid->attr.guardsize;
+      /* If DeallocationStack is NULL, we're running on an application-provided
+	 stack.  If so, the entire stack is committed anyway and StackLimit
+	 points to the allocation address of the stack.  Mark in guardsize that
+	 we must not set up guard pages. */
+      ch.stackaddr = ch.stacktop = _tlstop;
+      ch.guardsize = (size_t) -1;
+    }
+  else
+    {
+      /* Otherwise we're running on a system-allocated stack.  Since stack_here
+	 is the address of the stack pointer we start the child with anyway, we
+	 can set ch.stacktop to this value rounded down to page size.  The
+	 child will not need the rest of the stack anyway.  Guardsize depends
+	 on whether we're running on a pthread or not.  If pthread, we fetch
+	 the guardpage size from the pthread attribs, otherwise we use the
+	 system default. */
+      ch.stacktop = (void *) ((uintptr_t) stack_here & ~wincap.page_size ());
+      ch.guardsize = (&_my_tls != _main_tls && _my_tls.tid)
+		     ? _my_tls.tid->attr.guardsize
+		     : wincap.def_guard_page_size ();
     }
   debug_printf ("stack - bottom %p, top %p, addr %p, guardsize %ly",
 		ch.stackbottom, ch.stacktop, ch.stackaddr, ch.guardsize);

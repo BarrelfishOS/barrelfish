@@ -254,11 +254,13 @@ noload:									\n\
 	addl	%eax,%esp	# Pop off bytes				\n\
 	andl	$0xffff0000,%eax# upper word				\n\
 	subl	%eax,%esp	# adjust for possible return value	\n\
-	pushl	%eax		# Save for later			\n\
+	pushl	%eax		# Save return value for later		\n\
+	pushl	%edx		# Save return address for later		\n\
 	movl	$127,%eax	# ERROR_PROC_NOT_FOUND			\n\
 	pushl	%eax		# First argument			\n\
 	call	_SetLastError@4	# Set it				\n\
-	popl	%eax		# Get back argument			\n\
+	popl	%edx		# Get back return address		\n\
+	popl	%eax		# Get back return value			\n\
 	sarl	$16,%eax	# return value in high order word	\n\
 	jmp	*%edx		# Return				\n\
 1:									\n\
@@ -418,18 +420,15 @@ std_dll_init ()
     {
       fenv_t fpuenv;
       fegetenv (&fpuenv);
-      WCHAR dll_path[MAX_PATH];
       DWORD err = ERROR_SUCCESS;
       int i;
-      /* http://www.microsoft.com/technet/security/advisory/2269637.mspx */
-      wcpcpy (wcpcpy (dll_path, windows_system_directory), dll->name);
       /* MSDN seems to imply that LoadLibrary can fail mysteriously, so,
 	 since there have been reports of this in the mailing list, retry
 	 several times before giving up. */
       for (i = 1; i <= RETRY_COUNT; i++)
 	{
 	  /* If loading the library succeeds, just leave the loop. */
-	  if (dll_load (dll->handle, dll_path))
+	  if (dll_load (dll->handle, dll->name))
 	    break;
 	  /* Otherwise check error code returned by LoadLibrary.  If the
 	     error code is neither NOACCESS nor DLL_INIT_FAILED, break out
@@ -442,15 +441,10 @@ std_dll_init ()
 	}
       if ((uintptr_t) dll->handle <= 1)
 	{
-	  /* If LoadLibrary with full path returns one of the weird errors
-	     reported on the Cygwin mailing list, retry with only the DLL
-	     name.  Only do this when the above retry loop has been exhausted. */
-	  if (i > RETRY_COUNT && dll_load (dll->handle, dll->name))
-	    /* got it with the fallback */;
-	  else if ((func->decoration & 1))
+	  if ((func->decoration & 1))
 	    dll->handle = INVALID_HANDLE_VALUE;
 	  else
-	    api_fatal ("unable to load %W, %E", dll_path);
+	    api_fatal ("unable to load %W, %E", dll->name);
 	}
       fesetenv (&fpuenv);
     }
@@ -576,11 +570,16 @@ LoadDLLfunc (GetUdpTable, 12, iphlpapi)
 
 LoadDLLfuncEx (CancelSynchronousIo, 4, kernel32, 1)
 LoadDLLfunc (CreateSymbolicLinkW, 12, kernel32)
+LoadDLLfuncEx2 (DiscardVirtualMemory, 8, kernel32, 1, 127)
+LoadDLLfuncEx (GetLogicalProcessorInformationEx, 12, kernel32, 1)
 LoadDLLfuncEx (GetNamedPipeClientProcessId, 8, kernel32, 1)
 LoadDLLfunc (GetSystemTimePreciseAsFileTime, 4, kernel32)
 LoadDLLfuncEx (IdnToAscii, 20, kernel32, 1)
 LoadDLLfuncEx (IdnToUnicode, 20, kernel32, 1)
 LoadDLLfunc (LocaleNameToLCID, 8, kernel32)
+LoadDLLfuncEx (PrefetchVirtualMemory, 16, kernel32, 1)
+LoadDLLfunc (SetThreadGroupAffinity, 12, kernel32)
+LoadDLLfunc (SetThreadStackGuarantee, 4, kernel32)
 
 /* ldap functions are cdecl! */
 #pragma push_macro ("mangle")

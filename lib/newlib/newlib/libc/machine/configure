@@ -786,6 +786,7 @@ CPPFLAGS
 CPP'
 ac_subdirs_all='a29k
 aarch64
+arc
 arm
 bfin
 cr16
@@ -796,6 +797,7 @@ d30v
 epiphany
 fr30
 frv
+ft32
 h8300
 h8500
 hppa
@@ -11480,7 +11482,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11483 "configure"
+#line 11484 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11586,7 +11588,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11589 "configure"
+#line 11590 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11833,6 +11835,8 @@ subdirs="$subdirs a29k"
  ;;
 	aarch64) subdirs="$subdirs aarch64"
  ;;
+	arc) subdirs="$subdirs arc"
+ ;;
 	arm) subdirs="$subdirs arm"
  ;;
 	bfin) subdirs="$subdirs bfin"
@@ -11852,6 +11856,8 @@ subdirs="$subdirs a29k"
 	fr30) subdirs="$subdirs fr30"
  ;;
 	frv) subdirs="$subdirs frv"
+ ;;
+	ft32) subdirs="$subdirs ft32"
  ;;
 	h8300) subdirs="$subdirs h8300"
  ;;

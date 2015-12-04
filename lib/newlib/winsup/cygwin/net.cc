@@ -18,7 +18,8 @@ details. */
 	  if_indextoname functions in iphlpapi.h since Vista.
    TODO:  Convert if_nametoindex to cygwin_if_nametoindex and call
 	  system functions on Vista and later. */
-#define _INC_NETIOAPI
+#define _INC_NETIOAPI	/* w32api < 4.0 */
+#define _NETIOAPI_H_
 #include "winsup.h"
 #ifdef __x86_64__
 /* 2014-04-24: Current Mingw headers define sockaddr_in6 using u_long (8 byte)
@@ -168,6 +169,9 @@ struct tl
 };
 
 static const struct tl errmap[] = {
+  {WSA_INVALID_HANDLE, "WSA_INVALID_HANDLE", EBADF},
+  {WSA_NOT_ENOUGH_MEMORY, "WSA_NOT_ENOUGH_MEMORY", ENOMEM},
+  {WSA_INVALID_PARAMETER, "WSA_INVALID_PARAMETER", EINVAL},
   {WSAEINTR, "WSAEINTR", EINTR},
   {WSAEWOULDBLOCK, "WSAEWOULDBLOCK", EWOULDBLOCK},
   {WSAEINPROGRESS, "WSAEINPROGRESS", EINPROGRESS},
@@ -1089,6 +1093,20 @@ cygwin_gethostname (char *name, size_t len)
   __except (EFAULT) {}
   __endtry
   return res;
+}
+
+extern "C" int
+sethostname (const char *name, size_t len)
+{
+  WCHAR wname[MAX_COMPUTERNAME_LENGTH + 1];
+
+  sys_mbstowcs (wname, MAX_COMPUTERNAME_LENGTH + 1, name, len);
+  if (!SetComputerNameExW (ComputerNamePhysicalDnsHostname, wname))
+    {
+      __seterrno ();
+      return -1;
+    }
+  return 0;
 }
 
 /* exported as gethostbyname: standards? */
@@ -2089,7 +2107,7 @@ get_friendlyname (struct ifall *ifp, PIP_ADAPTER_ADDRESSES pap)
 				 &ifp->ifa_frndlyname;
   iff->ifrf_len = sys_wcstombs (iff->ifrf_friendlyname,
 				IFRF_FRIENDLYNAMESIZ,
-				pap->FriendlyName);
+				pap->FriendlyName) + 1;
 }
 
 static void

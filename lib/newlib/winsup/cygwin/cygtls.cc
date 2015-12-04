@@ -125,6 +125,7 @@ _cygtls::init_thread (void *x, DWORD (*func) (void *, void *))
       memset (this, 0, sizeof (*this));
       _REENT_INIT_PTR (&local_clib);
       stackptr = stack;
+      altstack.ss_flags = SS_DISABLE;
       if (_GLOBAL_REENT)
 	{
 	  local_clib._stdin = _GLOBAL_REENT->_stdin;
@@ -186,6 +187,7 @@ _cygtls::remove (DWORD wait)
   /* FIXME: Need some sort of atthreadexit function to allow things like
      select to control this themselves. */
 
+  remove_pending_sigs ();
   if (signal_arrived)
     {
       HANDLE h = signal_arrived;
@@ -223,5 +225,6 @@ void san::leave ()
 {
   /* Restore tls_pathbuf counters in case of error. */
   _my_tls.locals.pathbufs._counters = _cnt;
+  _my_tls.andreas = _clemente;
 }
 #endif

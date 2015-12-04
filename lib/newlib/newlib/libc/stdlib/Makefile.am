@@ -13,6 +13,7 @@ GENERAL_SOURCES = \
 	_Exit.c		\
 	abort.c  	\
 	abs.c 		\
+	aligned_alloc.c	\
 	assert.c  	\
 	atexit.c	\
 	atof.c 		\
@@ -45,6 +46,7 @@ GENERAL_SOURCES = \
 	mlock.c		\
 	mprec.c		\
 	mstats.c	\
+	quick_exit.c	\
 	rand.c		\
 	rand_r.c	\
 	realloc.c	\
@@ -265,7 +267,6 @@ CHEWOUT_FILES= \
 	llabs.def	\
 	lldiv.def	\
 	malloc.def	\
-	$(MALLOCR).def	\
 	mblen.def	\
 	mbsnrtowcs.def	\
 	mbstowcs.def	\
@@ -291,20 +292,7 @@ CHEWOUT_FILES= \
 	wcstombs.def	\
 	wctomb.def	
 
-SUFFIXES = .def
-
-CHEW = ../../doc/makedoc -f $(srcdir)/../../doc/doc.str
-
-.c.def:
-	$(CHEW) < $< > $*.def 2> $*.ref
-	touch stmp-def
-
-TARGETDOC = ../tmp.texi
-
-doc: $(CHEWOUT_FILES)
-	cat $(srcdir)/stdlib.tex >> $(TARGETDOC)
-
-CLEANFILES = $(CHEWOUT_FILES) *.ref
+CHAPTERS = stdlib.tex
 
 $(lpfx)dtoa.$(oext): dtoa.c mprec.h
 $(lpfx)ldtoa.$(oext): ldtoa.c mprec.h
