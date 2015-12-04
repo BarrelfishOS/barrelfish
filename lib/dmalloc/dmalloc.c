@@ -1754,13 +1754,12 @@ static void *bf_dmalloc_morecore(intptr_t nb)
     static void *end_brk = NULL;
 
     if (nb > 0) {
-        intptr_t orignb = nb;  // FIXME: hack to avoid the warning of unused variable orignb
         size_t snb = (size_t)nb;
         // Allocate requested number of pages
         assert(sys_morecore_alloc);
         void *up = sys_morecore_alloc(snb, &snb);
         if (up == NULL) {
-            DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "sys_morecore_alloc(%d, %d) returned NULL\n", orignb, snb);
+            DEBUG_ERR(LIB_ERR_MALLOC_FAIL, "sys_morecore_alloc(%d, %d) returned NULL\n", nb, snb);
             return (void*)-1;
         } else {
             end_brk = up + snb;
