@@ -19,6 +19,47 @@
 \usepackage{multirow}
 \usepackage{listings}
 \usepackage{todonotes}
+\usepackage[framemethod=default]{mdframed}
+\usepackage[shortlabels]{enumitem}
+\usepackage{parskip}
+\usepackage{xparse}
+
+\mdfdefinestyle{mdsyscall}{
+rightline=true,
+innerleftmargin=10,
+innerrightmargin=10,
+frametitlerulewidth=2pt,
+frametitlefont={\color{white}\varname},
+skipbelow=1em,
+skipabove=1em,
+}
+
+\DeclareDocumentEnvironment{arguments}{}
+{
+\newcommand{\argument}[2]{ \item[\varname{##1}] ##2 }
+\textbf{Arguments}\parskip
+\begin{description}[leftmargin=!,labelwidth=\widthof{count},labelindent=1em]
+}
+{
+\end{description}
+}
+
+\DeclareDocumentEnvironment{api}{o O {stable}}
+{
+\definecolor{unused}{RGB}{215,25,28}
+\definecolor{unstable}{RGB}{253,174,97}
+\definecolor{todo}{RGB}{255,255,191}
+\definecolor{lightblue}{RGB}{171,217,233}
+\definecolor{stable}{RGB}{44,123,182}
+\newcommand{\brief}[1]{##1\\}
+\newcommand{\note}[1]{\\\textbf{Note}\\##1\parskip}
+
+\begin{mdframed}[style=mdsyscall,frametitle=#1,frametitlebackgroundcolor=#2]
+}
+{
+\end{mdframed}
+}
+
 
 \title{CPU drivers in Barrelfish}
 \author{Barrelfish project}
@@ -94,46 +135,49 @@ architecture.
 or other APP cores and not the initial boot-loader or firmware.
 
 \section{General design decisions}
-... that need to be taken into account when writing a new CPU driver,
-like no preemption, no dynamic memory allocation etc.
+\begin{itemize}
+\item No dynamic memory allocation
+\item No preemption
+\item ...
+\end{itemize}
 
 \section{Code file structure and layout}
-Naming, Where goes architecture, Where is platform specific stuff.
-What libraries we use, where is the code shared between libbarrelfish
-and cpudriver.
-
-\section{Minimal hardware requirements for a CPU driver}
-Do we need an MMU etc.
+TODO: Should explain things such as naming, where goes architecture dependent, platform specific code?
+What libraries we use in the kernel? Where is the shared code between libbarrelfish and a cpudriver?
 
 \section{Scheduler}
 Round-robin, RBED, gang-scheduler
 
 \section{Architecture generic API (syscall) interface}
-Describe the common syscall API that is provided, including
-the higher level interface based on capabilities.
 
-\begin{itemize}
-\item[0] SYSCALL\_INVOKE: Invoke a cap
-\item[1] SYSCALL\_YIELD: Yield the CPU
-\item[2] SYSCALL\_LRPC: Fast LRPC
-\item[3] SYSCALL\_DEBUG: Benchmarking and debug syscalls
-\item[4] SYSCALL\_REBOOT: Reboot the machine
-\item[5] SYSCALL\_NOP: No operation
-\item[6] SYSCALL\_PRINT: Write to console
-\item[9] SYSCALL\_SUSPEND: Suspend the CPU
-\item[10] SYSCALL\_GET\_ABS\_TIME: Get time elapsed since boot
+The section describes the common system call API that is provided by the
+Barrelfish CPU driver.
 
-%#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
-%#define SYSCALL_RESUME_CONTEXT      7
-%///< Resume a context that the dispatcher can't
-\end{itemize}
+\begin{tabular}{|p{5cm}|>{\raggedright\arraybackslash}p{7cm}|}
+\hline
 
-\subsection{Capability invocation interface}
+SYSCALL\_INVOKE & Invoke a capability. \\
+SYSCALL\_YIELD & Yield the CPU. \\
+SYSCALL\_LRPC & Fast LRPC. \\
+SYSCALL\_DEBUG & Benchmarking and debug syscalls. \\
+SYSCALL\_REBOOT & Reboot the machine. \\
+SYSCALL\_NOP & No operation. \\
+SYSCALL\_PRINT & Write to console. \\
+SYSCALL\_SUSPEND & Suspend the CPU. \\
+SYSCALL\_GET\_ABS\_TIME & Get time elapsed since boot. \\
 
-This is handled using the SYSCALL\_INVOKE system call but it deserves
-it's own section:
+\hline
+\end{tabular}
 
-CNode Command:
+\subsection{SYSCALL\_INVOKE -- Capability Invocation Interface}
+
+The invoke call acts as a generic system call to apply operation on various
+OS objects (also known as capabilities). Most of the operations we execute in
+Barrelfish are, or should be invocations on capabilities. For any given
+object, a distinct set of operations are applicable depending on the
+capability type.
+
+CNode Capability Commands:
 \begin{itemize}
 \item CNodeCmd\_Copy: Copy capability
 \item CNodeCmd\_Mint: Mint capability
@@ -144,14 +188,14 @@ CNode Command:
 \item CNodeCmd\_GetState: Get dist cap state for capability
 \end{itemize}
 
-VNode Command:
+VNode Capability Commands:
 \begin{itemize}
 \item VNodeCmd\_Map:
 \item VNodeCmd\_Unmap:
 \item VNodeCmd\_Identify: the physical address of the VNode
 \end{itemize}
 
-Kernel Command:
+Kernel Capability Commands:
 \begin{itemize}
 \item KernelCmd\_Spawn\_core: Spawn a new kernel
 \item KernelCmd\_Identify\_cap: Return the meta data of a capability
@@ -187,7 +231,7 @@ Kernel Command:
 \item KernelCmd\_Suspend\_kcb\_sched: suspend/resume kcb scheduler
 \end{itemize}
 
-Dispatcher:
+Dispatcher Capability Commands:
 \begin{itemize}
 \item DispatcherCmd\_Setup: Set dispatcher parameters
 \item DispatcherCmd\_Properties: Set dispatcher properties
@@ -201,20 +245,20 @@ Dispatcher:
 \item DispatcherCmd\_Vmclear: Make VMCS current and active
 \end{itemize}
 
-Frames:
+Frame Capability Commands:
 \begin{itemize}
 \item FrameCmd\_Identify: Return physical address of frame
 \item FrameCmd\_ModifyFlags: Modify flags for (part of) the mapped region of frame
 \end{itemize}
 
-IRQ Table:
+IRQ Table Capability Command:
 \begin{itemize}
 \item IRQTableCmd\_Alloc: Allocate new vector (XXX: HACK: this is x86 specific)
-\item IRQTableCmd\_Set: Set endpoint for IRQ# notifications
-\item IRQTableCmd\_Delete: Remove notification endpoint for IRQ#
+\item IRQTableCmd\_Set: Set endpoint for IRQ notifications
+\item IRQTableCmd\_Delete: Remove notification endpoint for IRQ
 \end{itemize}
 
-IO Ports:
+IO Port Capability Command:
 \begin{itemize}
 \item IOCmd\_Outb: Output byte to port
 \item IOCmd\_Outw: Output word to port
@@ -224,24 +268,24 @@ IO Ports:
 \item IOCmd\_Ind: Input double word from port
 \end{itemize}
 
-Notify Command:
+Notify Capability Command:
 \begin{itemize}
 \item NotifyCmd\_Send
 \end{itemize}
 
-Perfomance Monitor:
+Performance Monitor Capability:
 \begin{itemize}
 \item PerfmonCmd\_Activate: Activate performance counters
 \item PerfmonCmd\_Deactivate: Deactivate performance counters
 \item PerfmonCmd\_Write: Read current performance counter values
 \end{itemize}
 
-ID Caps:
+ID Cap Capability Command:
 \begin{itemize}
 \item IDCmd\_Identify: Return system-wide unique ID
 \end{itemize}
 
-IPIs:
+IPI Capability Command:
 \begin{itemize}
 \item IPICmd\_Send\_Start: Send Startup IPI to a destination core
 \item IPICmd\_Send\_Init: Send Init IPI to a destination core
@@ -249,29 +293,108 @@ IPIs:
 
 \subsection{Debug system call}
 
-The debug system call (SYSCALL\_DEBUG) de-multiplexes using a second system
-call and deserves its own subsection.
+The debug system call (SYSCALL\_DEBUG) de-multiplexes using the second system
+call argument and is defined for the following operations:
 
-\begin{itemize}
-\item DEBUG\_CONTEXT\_COUNTER\_RESET
-\item DEBUG\_CONTEXT\_COUNTER\_READ
-\item DEBUG\_TIMESLICE\_COUNTER\_READ
-\item DEBUG\_FLUSH\_CACHE
-\item DEBUG\_SEND\_IPI
-\item DEBUG\_SET\_BREAKPOINT
-\item DEBUG\_SEND\_NOTIFY
-\item DEBUG\_SLEEP
-\item DEBUG\_HARDWARE\_TIMER\_READ
-\item DEBUG\_HARDWARE\_TIMER\_HERTZ\_READ
-\item DEBUG\_HARDWARE\_GLOBAL\_TIMER\_LOW
-\item DEBUG\_HARDWARE\_GLOBAL\_TIMER\_HIGH
-\item DEBUG\_GET\_TSC\_PER\_MS
-\item DEBUG\_GET\_APIC\_TIMER
-\item DEBUG\_GET\_APIC\_TICKS\_PER\_SEC
-\item DEBUG\_FEIGN\_FRAME\_CAP
-\item DEBUG\_TRACE\_PMEM\_CTRL
-\item DEBUG\_GET\_APIC\_ID
-\end{itemize}
+\begin{api}[DEBUG\_CONTEXT\_COUNTER\_RESET]
+\brief{Sets the \varname{context\_switch\_counter} to 0.}
+\end{api}
+
+\begin{api}[DEBUG\_CONTEXT\_COUNTER\_READ]
+\brief{Returns \varname{context\_switch\_counter}.}
+\end{api}
+
+\begin{api}[DEBUG\_TIMESLICE\_COUNTER\_READ]
+\brief{Returns \varname{kernel\_now}.}
+\end{api}
+
+\begin{api}[DEBUG\_FLUSH\_CACHE]
+\brief{Executes \fnname{wbinvd} on x86-64.}
+\end{api}
+
+\begin{api}[DEBUG\_SEND\_IPI][unstable]
+\brief{Sends an interrupt to a remote core.}
+\begin{arguments}
+\argument{destination}{Target core.}
+\argument{shorthand}{?}
+\argument{vector}{IRQ number.}
+\end{arguments}
+\note{Is this needed with the IPI capability?}
+\end{api}
+
+\begin{api}[DEBUG\_SET\_BREAKPOINT]
+\brief{Sets a hardware breakpoint at an address.}
+\begin{arguments}
+\argument{addr}{Where to break.}
+\argument{mode}{?}
+\argument{length}{?}
+\end{arguments}
+\note{Use dr7 and dr0 on x86-64.}
+\end{api}
+
+\begin{api}[DEBUG\_SEND\_NOTIFY][unused]
+\brief{Does only exist as a definition?}
+\end{api}
+
+\begin{api}[DEBUG\_SLEEP][unused]
+\brief{Does only exist as a definition?}
+\end{api}
+
+\begin{api}[DEBUG\_HARDWARE\_TIMER\_READ][unstable]
+\brief{Returns \fnname{tsc\_read}.}
+\note{Exists only for ARM.}
+\end{api}
+
+\begin{api}[DEBUG\_HARDWARE\_TIMER\_HERTZ\_READ][unstable]
+\brief{Returns \fnname{tsc\_get\_hz}.}
+\note{Exists only on ARM.}
+\end{api}
+
+\begin{api}[DEBUG\_HARDWARE\_GLOBAL\_TIMER\_LOW][unstable]
+\brief{Returns \fnname{gt\_read\_low}. The lower 32 bits of the timer.}
+\note{Exists only in OMAP, and returns 0 on GEM 5.}
+\end{api}
+
+\begin{api}[DEBUG\_HARDWARE\_GLOBAL\_TIMER\_HIGH][unstable]
+\brief{Returns global timer \fnname{gt\_read\_high}. The higher 32 bits of the timer.}
+\note{Exists only in OMAP, and returns 0 on GEM 5.}
+\end{api}
+
+\begin{api}[DEBUG\_GET\_TSC\_PER\_MS][unstable]
+\brief{Returns TSC (\fnname{rdtsc}) clock rate in ticks per ms.}
+\note{Implemention for x86 only.}
+\end{api}
+
+\begin{api}[DEBUG\_GET\_APIC\_TIMER][unstable]
+\brief{Returns the XAPIC timer counter.}
+\note{Implemention for x86-64 only.}
+\end{api}
+
+\begin{api}[DEBUG\_GET\_APIC\_TICKS\_PER\_SEC][unstable]
+\brief{Returns ticks per seconds of the APIC timer.}
+\note{Calibrated against RTC clock. Implemention for x86-64 only.}
+\end{api}
+
+\begin{api}[DEBUG\_FEIGN\_FRAME\_CAP][unused]
+\brief{Fabricates an arbitrary DevFrame cap.}
+\note{Implemention for x86-32 bit only. Not used?}
+\end{api}
+
+\begin{api}[DEBUG\_TRACE\_PMEM\_CTRL]
+\brief{Enables tracing for capabilities.}
+\begin{arguments}
+\argument{types}{?}
+\argument{start}{?}
+\argument{size}{?}
+\end{arguments}
+\note{Implemention for x86-64 and aarch64 only.}
+\end{api}
+
+\begin{api}[DEBUG\_GET\_APIC\_ID]
+\brief{Returns the xAPIC ID.}
+\note{Implemention for x86-64 only.}
+\end{api}
+
 
 \section{Up-call interface}
 Mechanisms, What are the common structure definitions agreed upon between
@@ -346,7 +469,7 @@ The GDT table is loaded by the \fnname{gdt\_reset} function during start-up and 
 
 The table contains the following entries:
 
-\begin{tabular}{M|l}
+\begin{tabular}{c|l}
     Index & Description \\ \hline
     0 & NULL segment  \\
     1 & Kernel code segment  \\
@@ -365,7 +488,7 @@ The initial IDT is set-up by \fnname{setup\_default\_idt} in
 \pathname{irq.c}. The number of entries in the IDT is set to 256 entries which
 are initialized in the following way:
 
-\begin{tabular}{M|l}
+\begin{tabular}{c|l}
     Index & Description \\ \hline
     0  &  Divide Error \\
     1  &  Debug \\
@@ -468,8 +591,8 @@ Notable settings for the serial driver are:
 \end{itemize}
 
 The serial device is later re-initialized into a different state once the
-serial driver takes over the device. For example, interrupts will be enabled
-hand handled by the driver.
+serial driver takes over the device. For example, interrupts will then be
+enabled and handled by the driver.
 
 
 \subsection{Interrupt controllers}
