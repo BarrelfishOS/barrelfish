@@ -297,7 +297,16 @@ char *ptsname(int fd);
 
 /*
  * If we're in a mode greater than C99, expose C11 functions.
+ *
+ * XXX:
+ * don't do this for Barrelfish right now: our libc include paths are a
+ * mess directly from the 9th level of hell. In particular, we do not get
+ * newlib's cdefs.h which means that here __alloc_align() is not defined.
+ * Rather than poking include/sys/cdefs.h until this works, we just do not
+ * expose C11 features even if C11 or C++11 is requested. Cf. Phabricator
+ * Ticket T190. -SG, 2015-12-04.
  */
+#ifndef BARRELFISH
 #if __ISO_C_VISIBLE >= 2011 || __cplusplus >= 201103L
 void *	aligned_alloc(size_t, size_t) __malloc_like __alloc_align(1)
 	    __alloc_size(2);
@@ -305,6 +314,7 @@ int	at_quick_exit(void (*)(void));
 _Noreturn void
 	quick_exit(int);
 #endif /* __ISO_C_VISIBLE >= 2011 */
+#endif /* !BARRELFISH */
 
 _END_STD_C
 
