@@ -113,15 +113,15 @@ Describe the common syscall API that is provided, including
 the higher level interface based on capabilities.
 
 \begin{itemize}
-\item[0] SYSCALL_INVOKE: Invoke a cap
-\item[1] SYSCALL_YIELD: Yield the CPU
-\item[2] SYSCALL_LRPC: Fast LRPC
-\item[3] SYSCALL_DEBUG: Benchmarking and debug syscalls
-\item[4] SYSCALL_REBOOT: Reboot the machine
-\item[5] SYSCALL_NOP: No operation
-\item[6] SYSCALL_PRINT: Write to console
-\item[9] #define SYSCALL_SUSPEND: Suspend the CPU
-\item[10] SYSCALL_GET_ABS_TIME: Get time elapsed since boot
+\item[0] SYSCALL\_INVOKE: Invoke a cap
+\item[1] SYSCALL\_YIELD: Yield the CPU
+\item[2] SYSCALL\_LRPC: Fast LRPC
+\item[3] SYSCALL\_DEBUG: Benchmarking and debug syscalls
+\item[4] SYSCALL\_REBOOT: Reboot the machine
+\item[5] SYSCALL\_NOP: No operation
+\item[6] SYSCALL\_PRINT: Write to console
+\item[9] SYSCALL\_SUSPEND: Suspend the CPU
+\item[10] SYSCALL\_GET\_ABS\_TIME: Get time elapsed since boot
 
 %#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
 %#define SYSCALL_RESUME_CONTEXT      7     
@@ -350,8 +350,8 @@ This section describe the architectural system calls that are not
 common with other architectures.
 
 \begin{itemize}
-\item[7] SYSCALL_X86_FPU_TRAP_ON: Turn FPU trap on (x86)
-\item[8] SYSCALL_X86_RELOAD_LDT: Reload the LDT register (x86_64)
+\item[7] SYSCALL\_X86\_FPU\_TRAP\_ON: Turn FPU trap on (x86)
+\item[8] SYSCALL\_X86\_RELOAD\_LDT: Reload the LDT register (x86_64)
 \end{itemize}
 
 
