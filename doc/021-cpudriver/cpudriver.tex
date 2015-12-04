@@ -128,7 +128,7 @@ the higher level interface based on capabilities.
 %///< Resume a context that the dispatcher can't
 \end{itemize}
 
-\section{Capability invocation interface}
+\subsection{Capability invocation interface}
 
 This is handled using the SYSCALL\_INVOKE system call but it deserves
 it's own section:
@@ -141,7 +141,7 @@ CNode Command:
 \item CNodeCmd\_Delete: Delete capability
 \item CNodeCmd\_Revoke: Revoke capability
 \item CNodeCmd\_Create: Create capability
-\item CNodeCmd\_GetState: Get distcap state for capability
+\item CNodeCmd\_GetState: Get dist cap state for capability
 \end{itemize}
 
 VNode Command:
@@ -245,6 +245,32 @@ IPIs:
 \begin{itemize}
 \item IPICmd\_Send\_Start: Send Startup IPI to a destination core
 \item IPICmd\_Send\_Init: Send Init IPI to a destination core
+\end{itemize}
+
+\subsection{Debug system call}
+
+The debug system call (SYSCALL\_DEBUG) de-multiplexes using a second system
+call and deserves its own subsection.
+
+\begin{itemize}
+\item DEBUG\_CONTEXT\_COUNTER\_RESET
+\item DEBUG\_CONTEXT\_COUNTER\_READ
+\item DEBUG\_TIMESLICE\_COUNTER\_READ
+\item DEBUG\_FLUSH\_CACHE
+\item DEBUG\_SEND\_IPI
+\item DEBUG\_SET\_BREAKPOINT
+\item DEBUG\_SEND\_NOTIFY
+\item DEBUG\_SLEEP
+\item DEBUG\_HARDWARE\_TIMER\_READ
+\item DEBUG\_HARDWARE\_TIMER\_HERTZ\_READ
+\item DEBUG\_HARDWARE\_GLOBAL\_TIMER\_LOW
+\item DEBUG\_HARDWARE\_GLOBAL\_TIMER\_HIGH
+\item DEBUG\_GET\_TSC\_PER\_MS
+\item DEBUG\_GET\_APIC\_TIMER
+\item DEBUG\_GET\_APIC\_TICKS\_PER\_SEC
+\item DEBUG\_FEIGN\_FRAME\_CAP
+\item DEBUG\_TRACE\_PMEM\_CTRL
+\item DEBUG\_GET\_APIC\_ID
 \end{itemize}
 
 \section{Up-call interface}
