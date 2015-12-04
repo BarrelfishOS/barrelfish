@@ -67,7 +67,7 @@
 This document describes the CPU driver, the part of Barrelfish that typically
 runs in privileged mode (also known as kernel) on our supported architectures.
 
-Barrelfish currently supports the following CPU drivers for 
+Barrelfish currently supports the following CPU drivers for
 different CPU architectures and platforms:
 \begin{itemize}
     \item x86-32
@@ -124,16 +124,132 @@ the higher level interface based on capabilities.
 \item[10] SYSCALL\_GET\_ABS\_TIME: Get time elapsed since boot
 
 %#ifdef __ARM_ARCH_7M__  //cortex-m3 on pandaboard
-%#define SYSCALL_RESUME_CONTEXT      7     
+%#define SYSCALL_RESUME_CONTEXT      7
 %///< Resume a context that the dispatcher can't
 \end{itemize}
 
+\section{Capability invocation interface}
+
+This is handled using the SYSCALL\_INVOKE system call but it deserves
+it's own section:
+
+CNode Command:
+\begin{itemize}
+\item CNodeCmd\_Copy: Copy capability
+\item CNodeCmd\_Mint: Mint capability
+\item CNodeCmd\_Retype: Retype capability
+\item CNodeCmd\_Delete: Delete capability
+\item CNodeCmd\_Revoke: Revoke capability
+\item CNodeCmd\_Create: Create capability
+\item CNodeCmd\_GetState: Get distcap state for capability
+\end{itemize}
+
+VNode Command:
+\begin{itemize}
+\item VNodeCmd\_Map:
+\item VNodeCmd\_Unmap:
+\item VNodeCmd\_Identify: the physical address of the VNode
+\end{itemize}
+
+Kernel Command:
+\begin{itemize}
+\item KernelCmd\_Spawn\_core: Spawn a new kernel
+\item KernelCmd\_Identify\_cap: Return the meta data of a capability
+\item KernelCmd\_Identify\_domains\_cap: Return the meta data of another domain's capability
+\item KernelCmd\_Remote\_relations: Set capability as being remote
+\item KernelCmd\_Cap\_has\_relations: Return presence of local relations
+\item KernelCmd\_Create\_cap: Create a new capability
+\item KernelCmd\_Copy\_existing:
+\item KernelCmd\_Get\_core\_id: Returns the id of the core the domain is on
+\item KernelCmd\_Get\_arch\_id: Returns arch id of caller's core
+\item KernelCmd\_Nullify\_cap: Set the capability to NULL allowed it to be reused
+\item KernelCmd\_Setup\_trace: Set up trace buffer
+\item KernelCmd\_Register: Register monitor notify endpoint
+\item KernelCmd\_Domain\_Id: Set domain ID of dispatcher
+\item KernelCmd\_Get\_cap\_owner
+\item KernelCmd\_Set\_cap\_owner
+\item KernelCmd\_Lock\_cap
+\item KernelCmd\_Unlock\_cap
+\item KernelCmd\_Delete\_last
+\item KernelCmd\_Delete\_foreigns
+\item KernelCmd\_Revoke\_mark\_target
+\item KernelCmd\_Revoke\_mark\_relations
+\item KernelCmd\_Delete\_step
+\item KernelCmd\_Clear\_step
+\item KernelCmd\_Retype
+\item KernelCmd\_Has\_descendants
+\item KernelCmd\_Sync\_timer
+\item KernelCmd\_IPI\_Register
+\item KernelCmd\_IPI\_Delete
+\item KernelCmd\_GetGlobalPhys
+\item KernelCmd\_Add\_kcb: add extra kcb to be scheduled
+\item KernelCmd\_Remove\_kcb: Remove kcb from scheduling ring
+\item KernelCmd\_Suspend\_kcb\_sched: suspend/resume kcb scheduler
+\end{itemize}
+
+Dispatcher:
+\begin{itemize}
+\item DispatcherCmd\_Setup: Set dispatcher parameters
+\item DispatcherCmd\_Properties: Set dispatcher properties
+\item DispatcherCmd\_PerfMon: Performance monitoring
+\item DispatcherCmd\_SetupGuest: Set up the DCB of a guest domain
+\item DispatcherCmd\_DumpPTables: Dump hw page tables of dispatcher
+\item DispatcherCmd\_DumpCapabilities: Dump capabilities of dispatcher
+\item DispatcherCmd\_Vmread: Execute vmread on the current and active VMCS
+\item DispatcherCmd\_Vmwrite: Execute vmwrite on the current and active VMCS
+\item DispatcherCmd\_Vmptrld: Make VMCS clear and inactive
+\item DispatcherCmd\_Vmclear: Make VMCS current and active
+\end{itemize}
+
+Frames:
+\begin{itemize}
+\item FrameCmd\_Identify: Return physical address of frame
+\item FrameCmd\_ModifyFlags: Modify flags for (part of) the mapped region of frame
+\end{itemize}
+
+IRQ Table:
+\begin{itemize}
+\item IRQTableCmd\_Alloc: Allocate new vector (XXX: HACK: this is x86 specific)
+\item IRQTableCmd\_Set: Set endpoint for IRQ# notifications
+\item IRQTableCmd\_Delete: Remove notification endpoint for IRQ#
+\end{itemize}
+
+IO Ports:
+\begin{itemize}
+\item IOCmd\_Outb: Output byte to port
+\item IOCmd\_Outw: Output word to port
+\item IOCmd\_Outd: Output double word to port
+\item IOCmd\_Inb: Input byte from port
+\item IOCmd\_Inw: Input word from port
+\item IOCmd\_Ind: Input double word from port
+\end{itemize}
+
+Notify Command:
+\begin{itemize}
+\item NotifyCmd\_Send
+\end{itemize}
+
+Perfomance Monitor:
+\begin{itemize}
+\item PerfmonCmd\_Activate: Activate performance counters
+\item PerfmonCmd\_Deactivate: Deactivate performance counters
+\item PerfmonCmd\_Write: Read current performance counter values
+\end{itemize}
+
+ID Caps:
+\begin{itemize}
+\item IDCmd\_Identify: Return system-wide unique ID
+\end{itemize}
+
+IPIs:
+\begin{itemize}
+\item IPICmd\_Send\_Start: Send Startup IPI to a destination core
+\item IPICmd\_Send\_Init: Send Init IPI to a destination core
+\end{itemize}
 
 \section{Up-call interface}
 Mechanisms, What are the common structure definitions agreed upon between
 libbarrelfish and the cpudriver.
-
-
 
 \chapter{x86-64 / AMD64}
 \label{chap:x86}
@@ -153,11 +269,11 @@ load the initial kernel on the BSP core. In our current set-up we use GRUB as
 our boot-loader which contains an implementation of the multiboot standard.
 
 On start-up, GRUB will search the supplied kernel module (on x86-64 this is the
-binary called elver in \pathname{tools/elver/}) for a magic byte sequence 
+binary called elver in \pathname{tools/elver/}) for a magic byte sequence
 (defined by multiboot) and begin execution just after that sequence appeared
 (see \pathname{tools/elver/boot.S}).
 
-\pathname{boot.S} in elver will set-up an preliminary GDT, an IA32-e page-table, 
+\pathname{boot.S} in elver will set-up an preliminary GDT, an IA32-e page-table,
 and stack for execution. \pathname{elver.c} will then search for a
 binary called \keywname{kernel} or \keywname{cpu} in all the multiboot
 modules, relocate that module and then jump to the relocated kernel module. At
@@ -169,7 +285,7 @@ ELF64 images (or setting up long-mode). If we use a bootloader that supports
 loading relocatable ELF64 images into 64-bit mode, elver would be redundant.
 
 After \keywname{elver} is done, execution in the proper BSP kernel program
-begins in \pathname{kernel/arch/x86\_64/boot.S} which then calls 
+begins in \pathname{kernel/arch/x86\_64/boot.S} which then calls
 \fnname{arch\_init}, the first kernel C entry point.
 
 \subsubsection{APP Core}
@@ -193,7 +309,7 @@ in order to send the necessary IPIs to bootstrap the new processor.
 \section{Hardware state}
 
 In this section, we describe the hardware state of a core after the CPU driver
-has completed its initialization and started to dispatch the first 
+has completed its initialization and started to dispatch the first
 user-space program.
 
 \subsection{Descriptor Tables}
@@ -346,12 +462,12 @@ Not yet supported.
 
 
 \section{System call API}
-This section describe the architectural system calls that are not 
+This section describe the architectural system calls that are not
 common with other architectures.
 
 \begin{itemize}
 \item[7] SYSCALL\_X86\_FPU\_TRAP\_ON: Turn FPU trap on (x86)
-\item[8] SYSCALL\_X86\_RELOAD\_LDT: Reload the LDT register (x86_64)
+\item[8] SYSCALL\_X86\_RELOAD\_LDT: Reload the LDT register (x86\_64)
 \end{itemize}
 
 
