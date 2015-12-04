@@ -14,9 +14,9 @@ details. */
 #include "miscfuncs.h"
 #include <imagehlp.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <syslog.h>
 #include <wchar.h>
-#include <ucontext.h>
 
 #include "cygtls.h"
 #include "pinfo.h"
@@ -45,7 +45,7 @@ details. */
 #define CALL_HANDLER_RETRY_OUTER 10
 #define CALL_HANDLER_RETRY_INNER 10
 
-char debugger_command[2 * NT_MAX_PATH + 20];
+PWCHAR debugger_command;
 extern u_char _sigbe;
 extern u_char _sigdelayed_end;
 
@@ -111,18 +111,19 @@ extern "C" void
 error_start_init (const char *buf)
 {
   if (!buf || !*buf)
-    {
-      debugger_command[0] = '\0';
-      return;
-    }
+    return;
+  if (!debugger_command &&
+      !(debugger_command = (PWCHAR) malloc ((2 * NT_MAX_PATH + 20)
+					    * sizeof (WCHAR))))
+    return;
 
-  char pgm[NT_MAX_PATH];
-  if (!GetModuleFileName (NULL, pgm, NT_MAX_PATH))
-    strcpy (pgm, "cygwin1.dll");
-  for (char *p = strchr (pgm, '\\'); p; p = strchr (p, '\\'))
-    *p = '/';
-
-  __small_sprintf (debugger_command, "%s \"%s\"", buf, pgm);
+  PWCHAR cp = debugger_command
+	      + sys_mbstowcs (debugger_command, NT_MAX_PATH, buf) - 1;
+  cp = wcpcpy (cp, L" \"");
+  wcpcpy (cp, global_progname);
+  for (PWCHAR p = wcschr (cp, L'\\'); p; p = wcschr (p, L'\\'))
+    *p = L'/';
+  wcscat (cp, L"\"");
 }
 
 void
@@ -194,10 +195,14 @@ cygwin_exception::dump_exception ()
     small_printf ("Exception: %s at rip=%011X\r\n", exception_name, ctx->Rip);
   else
     small_printf ("Signal %d at rip=%011X\r\n", e->ExceptionCode, ctx->Rip);
-  small_printf ("rax=%016X rbx=%016X rcx=%016X\r\n", ctx->Rax, ctx->Rbx, ctx->Rcx);
-  small_printf ("rdx=%016X rsi=%016X rdi=%016X\r\n", ctx->Rdx, ctx->Rsi, ctx->Rdi);
-  small_printf ("r8 =%016X r9 =%016X r10=%016X\r\n", ctx->R8, ctx->R9, ctx->R10);
-  small_printf ("r11=%016X r12=%016X r13=%016X\r\n", ctx->R11, ctx->R12, ctx->R13);
+  small_printf ("rax=%016X rbx=%016X rcx=%016X\r\n",
+		ctx->Rax, ctx->Rbx, ctx->Rcx);
+  small_printf ("rdx=%016X rsi=%016X rdi=%016X\r\n",
+		ctx->Rdx, ctx->Rsi, ctx->Rdi);
+  small_printf ("r8 =%016X r9 =%016X r10=%016X\r\n",
+		ctx->R8, ctx->R9, ctx->R10);
+  small_printf ("r11=%016X r12=%016X r13=%016X\r\n",
+		ctx->R11, ctx->R12, ctx->R13);
   small_printf ("r14=%016X r15=%016X\r\n", ctx->R14, ctx->R15);
   small_printf ("rbp=%016X rsp=%016X\r\n", ctx->Rbp, ctx->Rsp);
   small_printf ("program=%W, pid %u, thread %s\r\n",
@@ -214,7 +219,8 @@ cygwin_exception::dump_exception ()
 		cygthread::name ());
 #endif
   small_printf ("cs=%04x ds=%04x es=%04x fs=%04x gs=%04x ss=%04x\r\n",
-		ctx->SegCs, ctx->SegDs, ctx->SegEs, ctx->SegFs, ctx->SegGs, ctx->SegSs);
+		ctx->SegCs, ctx->SegDs, ctx->SegEs, ctx->SegFs,
+		ctx->SegGs, ctx->SegSs);
 }
 
 /* A class for manipulating the stack. */
@@ -227,7 +233,7 @@ class stack_info
 #ifdef __x86_64__
   CONTEXT c;
   UNWIND_HISTORY_TABLE hist;
-  __stack_t *sigstackptr;
+  __tlsstack_t *sigstackptr;
 #endif
 public:
   STACKFRAME sf;		 /* For storing the stack information */
@@ -274,17 +280,38 @@ stack_info::init (PUINT_PTR framep, bool wantargs, PCONTEXT ctx)
 
 extern "C" void _cygwin_exit_return ();
 
-/* Walk the stack by looking at successive stored 'bp' frames.
+#ifdef __x86_64__
+static inline void
+__unwind_single_frame (PCONTEXT ctx)
+{
+  PRUNTIME_FUNCTION f;
+  ULONG64 imagebase;
+  UNWIND_HISTORY_TABLE hist;
+  DWORD64 establisher;
+  PVOID hdl;
+
+  f = RtlLookupFunctionEntry (ctx->Rip, &imagebase, &hist);
+  if (f)
+    RtlVirtualUnwind (0, imagebase, ctx->Rip, f, ctx, &hdl, &establisher,
+		      NULL);
+  else
+    {
+      ctx->Rip = *(ULONG_PTR *) ctx->Rsp;
+      ctx->Rsp += 8;
+    }
+}
+#else
+#define __unwind_single_frame(ctx)
+#endif
+
+/* Walk the stack.
+
+   On 32 bit we're doing this by looking at successive stored 'ebp' frames.
    This is not foolproof. */
 int
 stack_info::walk ()
 {
 #ifdef __x86_64__
-  PRUNTIME_FUNCTION f;
-  ULONG64 imagebase;
-  DWORD64 establisher;
-  PVOID hdl;
-
   if (!c.Rip)
     return 0;
 
@@ -300,15 +327,7 @@ stack_info::walk ()
       sigstackptr--;
       return 1;
     }
-
-  f = RtlLookupFunctionEntry (c.Rip, &imagebase, &hist);
-  if (f)
-    RtlVirtualUnwind (0, imagebase, c.Rip, f, &c, &hdl, &establisher, NULL);
-  else
-    {
-      c.Rip = *(ULONG_PTR *) c.Rsp;
-      c.Rsp += 8;
-    }
+  __unwind_single_frame (&c);
   if (needargs && c.Rip)
     {
       PULONG_PTR p = (PULONG_PTR) c.Rsp;
@@ -417,7 +436,8 @@ _cygtls::inside_kernel (CONTEXT *cx)
 					   can hang */
   else if (h == user_data->hmodule)
     res = false;
-  else if (!GetModuleFileNameW (h, checkdir, windows_system_directory_length + 6))
+  else if (!GetModuleFileNameW (h, checkdir,
+				windows_system_directory_length + 6))
     res = false;
   else
     {
@@ -454,9 +474,9 @@ cygwin_stackdump ()
 extern "C" int
 try_to_debug (bool waitloop)
 {
-  debug_printf ("debugger_command '%s'", debugger_command);
-  if (*debugger_command == '\0')
+  if (!debugger_command)
     return 0;
+  debug_printf ("debugger_command '%W'", debugger_command);
   if (being_debugged ())
     {
       extern void break_here ();
@@ -464,13 +484,15 @@ try_to_debug (bool waitloop)
       return 0;
     }
 
-  __small_sprintf (strchr (debugger_command, '\0'), " %u", GetCurrentProcessId ());
+  PWCHAR dbg_end = wcschr (debugger_command, L'\0');
+  __small_swprintf (dbg_end, L" %u", GetCurrentProcessId ());
 
   LONG prio = GetThreadPriority (GetCurrentThread ());
   SetThreadPriority (GetCurrentThread (), THREAD_PRIORITY_HIGHEST);
   PROCESS_INFORMATION pi = {NULL, 0, 0, 0};
 
-  STARTUPINFOW si = {0, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL};
+  STARTUPINFOW si = {0, NULL, NULL, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		     NULL, NULL, NULL, NULL};
   si.lpReserved = NULL;
   si.lpDesktop = NULL;
   si.dwFlags = 0;
@@ -507,10 +529,8 @@ try_to_debug (bool waitloop)
   console_printf ("*** starting debugger for pid %u, tid %u\n",
 		  cygwin_pid (GetCurrentProcessId ()), GetCurrentThreadId ());
   BOOL dbg;
-  WCHAR dbg_cmd[strlen(debugger_command) + 1];
-  sys_mbstowcs (dbg_cmd, strlen(debugger_command) + 1, debugger_command);
   dbg = CreateProcessW (NULL,
-			dbg_cmd,
+			debugger_command,
 			NULL,
 			NULL,
 			FALSE,
@@ -520,6 +540,7 @@ try_to_debug (bool waitloop)
 			&si,
 			&pi);
 
+  *dbg_end = L'\0';
   if (!dbg)
     system_printf ("Failed to start debugger, %E");
   else
@@ -544,7 +565,9 @@ try_to_debug (bool waitloop)
    exception handler. */
 #define rtl_unwind(el,er)
 #else
-static void __reg3 rtl_unwind (exception_list *, PEXCEPTION_RECORD) __attribute__ ((noinline, regparm (3)));
+static void __reg3 rtl_unwind (exception_list *, PEXCEPTION_RECORD)
+		   __attribute__ ((noinline, regparm (3)));
+
 void __reg3
 rtl_unwind (exception_list *frame, PEXCEPTION_RECORD e)
 {
@@ -578,6 +601,35 @@ exception::myfault (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
   /* NOTREACHED, make gcc happy. */
   return ExceptionContinueSearch;
 }
+
+/* If another exception occurs while running a signal handler on an alternate
+   signal stack, the normal SEH handlers are skipped, because the OS exception
+   handling considers the current (alternate) stack "broken".  However, it
+   still calls vectored exception handlers.
+
+   TODO: What we do here is to handle only __try/__except blocks in Cygwin.
+         "Normal" exceptions will simply exit the process.  Still, better
+	 than nothing... */
+LONG WINAPI
+myfault_altstack_handler (EXCEPTION_POINTERS *exc)
+{
+  _cygtls& me = _my_tls;
+
+  if (me.andreas)
+    {
+      CONTEXT *c = exc->ContextRecord;
+
+      /* Unwind the stack manually and call RtlRestoreContext.  This
+	 is necessary because RtlUnwindEx checks the stack for validity,
+	 which, as outlined above, fails for the alternate stack. */
+      while (c->Rsp < me.andreas->frame)
+	__unwind_single_frame (c);
+      c->Rip = me.andreas->ret;
+      RtlRestoreContext (c, NULL);
+    }
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+
 #endif
 
 /* Main exception handler. */
@@ -686,11 +738,17 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
 	}
       break;
 
+    case STATUS_STACK_OVERFLOW:
+      /* If we encounter a stack overflow, and if the thread has no alternate
+         stack, don't even try to call a signal handler.  This is in line with
+	 Linux behaviour and also makes a lot of sense on Windows. */
+      if (me.altstack.ss_flags)
+	global_sigs[SIGSEGV].sa_handler = SIG_DFL;
+      /*FALLTHRU*/
     case STATUS_ARRAY_BOUNDS_EXCEEDED:
     case STATUS_IN_PAGE_ERROR:
     case STATUS_NO_MEMORY:
     case STATUS_INVALID_DISPOSITION:
-    case STATUS_STACK_OVERFLOW:
       si.si_signo = SIGSEGV;
       si.si_code = SEGV_MAPERR;
       break;
@@ -714,8 +772,10 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
       return ExceptionContinueSearch;
     }
 
-  debug_printf ("In cygwin_except_handler exception %y at %p sp %p", e->ExceptionCode, in->_GR(ip), in->_GR(sp));
-  debug_printf ("In cygwin_except_handler signal %d at %p", si.si_signo, in->_GR(ip));
+  debug_printf ("In cygwin_except_handler exception %y at %p sp %p",
+		e->ExceptionCode, in->_GR(ip), in->_GR(sp));
+  debug_printf ("In cygwin_except_handler signal %d at %p",
+		si.si_signo, in->_GR(ip));
 
 #ifdef __x86_64__
   PUINT_PTR framep = (PUINT_PTR) in->Rbp;
@@ -726,7 +786,9 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
     framep = (PUINT_PTR) in->Rsp;
 #else
   PUINT_PTR framep = (PUINT_PTR) in->_GR(sp);
-  for (PUINT_PTR bpend = (PUINT_PTR) __builtin_frame_address (0); framep > bpend; framep--)
+  for (PUINT_PTR bpend = (PUINT_PTR) __builtin_frame_address (0);
+       framep > bpend;
+       framep--)
     if (*framep == in->SegCs && framep[-1] == in->_GR(ip))
       {
 	framep -= 2;
@@ -766,9 +828,9 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
 #else
 	    "%s[%d]: segfault at %08x rip %08x rsp %08x error %d",
 #endif
-		      __progname, myself->pid,
-		      e->ExceptionInformation[1], in->_GR(ip), in->_GR(sp),
-		      error_code);
+	    __progname, myself->pid,
+	    e->ExceptionInformation[1], in->_GR(ip), in->_GR(sp),
+	    error_code);
     }
   cygwin_exception exc (framep, in, e);
   si.si_cyg = (void *) &exc;
@@ -780,6 +842,19 @@ exception::handle (EXCEPTION_RECORD *e, exception_list *frame, CONTEXT *in,
 	       ? (void *) e->ExceptionInformation[1] : (void *) in->_GR(ip);
   me.incyg++;
   sig_send (NULL, si, &me);	/* Signal myself */
+  if ((NTSTATUS) e->ExceptionCode == STATUS_STACK_OVERFLOW)
+    {
+      /* If we catched a stack overflow, and if the signal handler didn't exit
+	 or longjmp, we're back here and about to continue, supposed to run the
+	 offending instruction again.  That works on Linux, but not on Windows.
+	 In case of a stack overflow we're not immediately returning to the
+	 system exception handler, but to NTDLL::__stkchk.  __stkchk will then
+	 terminate the applicaton.  So what we do here is to signal our current
+	 process again, but this time with SIG_DFL action.  This creates a
+	 stackdump and then exits through our own means. */
+      global_sigs[SIGSEGV].sa_handler = SIG_DFL;
+      sig_send (NULL, si, &me);
+    }
   me.incyg--;
   e->ExceptionFlags = 0;
   return ExceptionContinueExecution;
@@ -880,7 +955,7 @@ _cygtls::interrupt_now (CONTEXT *cx, siginfo_t& si, void *handler,
 void __reg3
 _cygtls::interrupt_setup (siginfo_t& si, void *handler, struct sigaction& siga)
 {
-  push ((__stack_t) sigdelayed);
+  push ((__tlsstack_t) sigdelayed);
   deltamask = siga.sa_mask & ~SIG_NONMASKABLE;
   sa_flags = siga.sa_flags;
   func = (void (*) (int, siginfo_t *, void *)) handler;
@@ -894,14 +969,15 @@ _cygtls::interrupt_setup (siginfo_t& si, void *handler, struct sigaction& siga)
     }
 
   infodata = si;
-  this->sig = si.si_signo;		// Should always be last thing set to avoid a race
+  this->sig = si.si_signo; /* Should always be last thing set to avoid race */
 
   if (incyg)
     SetEvent (get_signal_arrived (false));
 
   if (!have_execed)
     proc_subproc (PROC_CLEARWAIT, 1);
-  sigproc_printf ("armed signal_arrived %p, signal %d", signal_arrived, si.si_signo);
+  sigproc_printf ("armed signal_arrived %p, signal %d",
+		  signal_arrived, si.si_signo);
 }
 
 extern "C" void __stdcall
@@ -931,7 +1007,8 @@ sigpacket::setup_handler (void *handler, struct sigaction& siga, _cygtls *tls)
 	  tls->lock ();
 	  if (tls->incyg)
 	    {
-	      sigproc_printf ("controlled interrupt. stackptr %p, stack %p, stackptr[-1] %p",
+	      sigproc_printf ("controlled interrupt. stackptr %p, stack %p, "
+			      "stackptr[-1] %p",
 			      tls->stackptr, tls->stack, tls->stackptr[-1]);
 	      tls->interrupt_setup (si, handler, siga);
 	      interrupted = true;
@@ -950,10 +1027,11 @@ sigpacket::setup_handler (void *handler, struct sigaction& siga, _cygtls *tls)
 	    {
 	      /* Suspend the thread which will receive the signal.
 		 If one of these conditions is not true we loop.
-		 If the thread is already suspended (which can occur when a program
-		 has called SuspendThread on itself) then just queue the signal. */
-
-	      sigproc_printf ("suspending thread, tls %p, _main_tls %p", tls, _main_tls);
+		 If the thread is already suspended (which can occur when a
+		 program has called SuspendThread on itself) then just queue
+		 the signal. */
+	      sigproc_printf ("suspending thread, tls %p, _main_tls %p",
+			      tls, _main_tls);
 	      res = SuspendThread (hth);
 	      /* Just set pending if thread is already suspended */
 	      if (res)
@@ -983,7 +1061,8 @@ sigpacket::setup_handler (void *handler, struct sigaction& siga, _cygtls *tls)
     }
 
 out:
-  sigproc_printf ("signal %d %sdelivered", si.si_signo, interrupted ? "" : "not ");
+  sigproc_printf ("signal %d %sdelivered", si.si_signo,
+		  interrupted ? "" : "not ");
   return interrupted;
 }
 
@@ -1076,14 +1155,14 @@ ctrl_c_handler (DWORD type)
     return TRUE;
 
   tty_min *t = cygwin_shared->tty.get_cttyp ();
-  /* Ignore this if we're not the process group leader since it should be handled
-     *by* the process group leader. */
+  /* Ignore this if we're not the process group leader since it should be
+     handled *by* the process group leader. */
   if (t && (!have_execed || have_execed_cygwin)
       && t->getpgid () == myself->pid &&
       (GetTickCount () - t->last_ctrl_c) >= MIN_CTRL_C_SLOP)
-    /* Otherwise we just send a SIGINT to the process group and return TRUE (to indicate
-       that we have handled the signal).  At this point, type should be
-       a CTRL_C_EVENT or CTRL_BREAK_EVENT. */
+    /* Otherwise we just send a SIGINT to the process group and return TRUE
+       (to indicate that we have handled the signal).  At this point, type
+       should be a CTRL_C_EVENT or CTRL_BREAK_EVENT. */
     {
       int sig = SIGINT;
       /* If intr and quit are both mapped to ^C, send SIGQUIT on ^BREAK */
@@ -1213,10 +1292,20 @@ set_signal_mask (sigset_t& setmask, sigset_t newmask)
     sig_dispatch_pending (true);
 }
 
+
+DWORD WINAPI
+dumpstack_overflow_wrapper (PVOID arg)
+{
+  cygwin_exception *exc = (cygwin_exception *) arg;
+
+  exc->dumpstack ();
+  return 0;
+}
+
 /* Exit due to a signal.  Should only be called from the signal thread.  */
 extern "C" {
 static void
-signal_exit (int sig, siginfo_t *si)
+signal_exit (int sig, siginfo_t *si, void *)
 {
   debug_printf ("exiting due to signal %d", sig);
   exit_state = ES_SIGNAL_EXIT;
@@ -1238,7 +1327,27 @@ signal_exit (int sig, siginfo_t *si)
 	if (try_to_debug ())
 	  break;
 	if (si->si_code != SI_USER && si->si_cyg)
-	  ((cygwin_exception *) si->si_cyg)->dumpstack ();
+	  {
+	    cygwin_exception *exc = (cygwin_exception *) si->si_cyg;
+	    if ((NTSTATUS) exc->exception_record ()->ExceptionCode
+		== STATUS_STACK_OVERFLOW)
+	      {
+		/* We're handling a stack overflow so we're running low
+		   on stack (surprise!)  The dumpstack method needs lots
+		   of stack for buffers.  So what we do here is to run
+		   dumpstack in another thread with its own stack. */
+		HANDLE thread = CreateThread (&sec_none_nih, 0,
+					      dumpstack_overflow_wrapper,
+					      exc, 0, NULL);
+		if (thread)
+		  {
+		    WaitForSingleObject (thread, INFINITE);
+		    CloseHandle (thread);
+		  }
+	      }
+	    else
+	      ((cygwin_exception *) si->si_cyg)->dumpstack ();
+	  }
 	else
 	  {
 	    CONTEXT c;
@@ -1366,10 +1475,7 @@ sigpacket::process ()
 	  else if (!sigismember (&tls->sigmask, si.si_signo))
 	    issig_wait = false;
 	  else
-	    {
-	      cygheap->unlock_tls (tl_entry);
-	      tls = NULL;
-	    }
+	    tls = NULL;
 	}
     }
       
@@ -1446,6 +1552,8 @@ stop:
 exit_sig:
   handler = (void *) signal_exit;
   thissig.sa_flags |= SA_SIGINFO;
+  /* Don't run signal_exit on alternate stack. */
+  thissig.sa_flags &= ~SA_ONSTACK;
 
 dosig:
   if (have_execed)
@@ -1464,6 +1572,58 @@ done:
 
 }
 
+static void
+altstack_wrapper (int sig, siginfo_t *siginfo, ucontext_t *sigctx,
+		  void (*handler) (int, siginfo_t *, void *))
+{
+  siginfo_t si = *siginfo;
+  ULONG guard_size = 0;
+  DWORD old_prot = (DWORD) -1;
+  PTEB teb = NtCurrentTeb ();
+  PVOID old_limit = NULL;
+
+  /* Check if we're just handling a stack overflow.  If so... */
+  if (sig == SIGSEGV && si.si_cyg
+      && ((cygwin_exception *) si.si_cyg)->exception_record ()->ExceptionCode
+	  == (DWORD) STATUS_STACK_OVERFLOW)
+    {
+      /* ...restore guard pages in original stack as if MSVCRT::_resetstkovlw
+	 has been called.
+
+	 Compute size of guard pages.  If SetThreadStackGuarantee isn't
+	 supported, or if it returns 0, use the default guard page size. */
+      if (wincap.has_set_thread_stack_guarantee ())
+	SetThreadStackGuarantee (&guard_size);
+      if (!guard_size)
+	guard_size = wincap.def_guard_page_size ();
+      else
+	guard_size += wincap.page_size ();
+      old_limit = teb->Tib.StackLimit;
+      /* Amazing but true: This VirtualProtect call automatically fixes the
+	 value of teb->Tib.StackLimit on some systems.*/
+      if (VirtualProtect (teb->Tib.StackLimit, guard_size,
+			  PAGE_READWRITE | PAGE_GUARD, &old_prot)
+	  && old_limit == teb->Tib.StackLimit)
+	teb->Tib.StackLimit = (caddr_t) old_limit + guard_size;
+    }
+  handler (sig, &si, sigctx);
+  if (old_prot != (DWORD) -1)
+    {
+      /* Typically the handler would exit or at least perform a siglongjmp
+	 trying to overcome a SEGV condition.  However, if we return from a
+	 segv handler after a stack overflow, we're dead.  While on Linux the
+	 process returns to the offending code and thus the handler is called
+	 ad infinitum, on Windows the NTDLL::__stkchk function will simply kill
+	 the process.  So what we do here is to remove the guard pages again so
+	 we can return to exception::handle.  exception::handle will then call
+	 sig_send again, this time with SIG_DFL action, so at least we get a
+	 stackdump. */
+      if (VirtualProtect ((caddr_t) teb->Tib.StackLimit - guard_size,
+			  guard_size, old_prot, &old_prot))
+	teb->Tib.StackLimit = old_limit;
+    }
+}
+
 int
 _cygtls::call_signal_handler ()
 {
@@ -1479,7 +1639,7 @@ _cygtls::call_signal_handler ()
 
       /* Pop the stack if the next "return address" is sigdelayed, since
 	 this function is doing what sigdelayed would have done anyway. */
-      if (retaddr () == (__stack_t) sigdelayed)
+      if (retaddr () == (__tlsstack_t) sigdelayed)
 	pop ();
 
       debug_only_printf ("dealing with signal %d", sig);
@@ -1492,7 +1652,6 @@ _cygtls::call_signal_handler ()
       siginfo_t thissi = infodata;
       void (*thisfunc) (int, siginfo_t *, void *) = func;
 
-      ucontext_t context;
       ucontext_t *thiscontext = NULL;
 
       /* Only make a context for SA_SIGINFO handlers */
@@ -1501,24 +1660,47 @@ _cygtls::call_signal_handler ()
 	  context.uc_link = 0;
 	  context.uc_flags = 0;
 	  if (thissi.si_cyg)
-	    memcpy (&context.uc_mcontext, ((cygwin_exception *)thissi.si_cyg)->context(), sizeof(CONTEXT));
+	    memcpy (&context.uc_mcontext,
+		    ((cygwin_exception *) thissi.si_cyg)->context (),
+		    sizeof (CONTEXT));
 	  else
 	    {
-	      /* FIXME: Really this should be the context which the signal interrupted? */
-	      memset(&context.uc_mcontext, 0, sizeof(struct __mcontext));
+	      /* Software-generated signal.  We're fetching the current
+		 context, unwind to the caller and in case we're called
+		 from sigdelayed, fix rip/eip accordingly. */
 	      context.uc_mcontext.ctxflags = CONTEXT_FULL;
-	      RtlCaptureContext ((CONTEXT *)&context.uc_mcontext);
+	      RtlCaptureContext ((PCONTEXT) &context.uc_mcontext);
+	      __unwind_single_frame ((PCONTEXT) &context.uc_mcontext);
+	      if (stackptr > stack)
+		{
+#ifdef __x86_64__
+		  context.uc_mcontext.rip = retaddr ();
+#else
+		  context.uc_mcontext.eip = retaddr ();
+#endif
+		}
 	    }
 
-	  /* FIXME: If/when sigaltstack is implemented, this will need to do
-	     something more complicated */
-	  context.uc_stack.ss_sp = NtCurrentTeb ()->Tib.StackBase;
-	  context.uc_stack.ss_flags = 0;
-	  if (!NtCurrentTeb ()->DeallocationStack)
-	    context.uc_stack.ss_size = (uintptr_t)NtCurrentTeb ()->Tib.StackLimit - (uintptr_t)NtCurrentTeb ()->Tib.StackBase;
+	  if (this_sa_flags & SA_ONSTACK
+	      && !_my_tls.altstack.ss_flags
+	      && _my_tls.altstack.ss_sp)
+	    {
+	      context.uc_stack = _my_tls.altstack;
+	      context.uc_stack.ss_flags = SS_ONSTACK;
+	    }
 	  else
-	    context.uc_stack.ss_size = (uintptr_t)NtCurrentTeb ()->DeallocationStack - (uintptr_t)NtCurrentTeb ()->Tib.StackBase;
-
+	    {
+	      context.uc_stack.ss_sp = NtCurrentTeb ()->Tib.StackBase;
+	      context.uc_stack.ss_flags = 0;
+	      if (!NtCurrentTeb ()->DeallocationStack)
+		context.uc_stack.ss_size
+		  = (uintptr_t) NtCurrentTeb ()->Tib.StackLimit
+		    - (uintptr_t) NtCurrentTeb ()->Tib.StackBase;
+	      else
+		context.uc_stack.ss_size
+		  = (uintptr_t) NtCurrentTeb ()->DeallocationStack
+		    - (uintptr_t) NtCurrentTeb ()->Tib.StackBase;
+	    }
 	  context.uc_sigmask = context.uc_mcontext.oldmask = this_oldmask;
 
 	  context.uc_mcontext.cr2 = (thissi.si_signo == SIGSEGV
@@ -1534,7 +1716,113 @@ _cygtls::call_signal_handler ()
       sig = 0;		/* Flag that we can accept another signal */
       unlock ();	/* unlock signal stack */
 
-      thisfunc (thissig, &thissi, thiscontext);
+      /* Alternate signal stack requested for this signal and alternate signal
+	 stack set up for this thread? */
+      if (this_sa_flags & SA_ONSTACK
+	  && !_my_tls.altstack.ss_flags
+	  && _my_tls.altstack.ss_sp)
+	{
+	  /* Yes, use alternate signal stack.
+
+	    NOTE:
+
+	    We DO NOT change the TEB's stack addresses and we DO NOT move the
+	    _cygtls area to the alternate stack.  This seems to work fine on
+	    32 and 64 bit, but there may be Windows functions not working
+	    correctly under these circumstances.  Especially 32 bit exception
+	    handling may be broken.
+
+	    On the other hand, if a Windows function crashed and we're handling
+	    this here, moving the TEB stack addresses may be fatal.
+
+	    If the current code does not work as expected in the "usual"
+	    POSIX circumstances, this problem must be revisited. */
+
+	  /* Compute new stackbase.  We start from the high address, aligned
+	     to 16 byte. */
+	  uintptr_t new_sp = ((uintptr_t) _my_tls.altstack.ss_sp
+			      + _my_tls.altstack.ss_size) & ~0xf;
+	  /* In assembler: Save regs on new stack, move to alternate stack,
+	     call thisfunc, revert stack regs. */
+#ifdef __x86_64__
+	  /* Clobbered regs: rcx, rdx, r8, r9, r10, r11, rbp, rsp */
+	  __asm__ ("\n\
+		   movq  %[NEW_SP], %%rax  # Load alt stack into rax	\n\
+		   subq  $0x60, %%rax      # Make room on alt stack	\n\
+					   # for clobbered regs and	\n\
+					   # required shadow space	\n\
+		   movq  %%rcx, 0x20(%%rax)# Save clobbered regs	\n\
+		   movq  %%rdx, 0x28(%%rax)				\n\
+		   movq  %%r8,  0x30(%%rax)				\n\
+		   movq  %%r9,  0x38(%%rax)				\n\
+		   movq  %%r10, 0x40(%%rax)				\n\
+		   movq  %%r11, 0x48(%%rax)				\n\
+		   movq  %%rbp, 0x50(%%rax)				\n\
+		   movq  %%rsp, 0x58(%%rax)				\n\
+		   movl  %[SIG], %%ecx     # thissig to 1st arg reg	\n\
+		   leaq  %[SI], %%rdx      # &thissi to 2nd arg reg	\n\
+		   movq  %[CTX], %%r8      # thiscontext to 3rd arg reg	\n\
+		   movq  %[FUNC], %%r9     # thisfunc to r9		\n\
+		   leaq  %[WRAPPER], %%r10 # wrapper address to r10	\n\
+		   movq  %%rax, %%rsp      # Move alt stack into rsp	\n\
+		   call  *%%r10            # Call wrapper		\n\
+		   movq  %%rsp, %%rax      # Restore clobbered regs	\n\
+		   movq  0x58(%%rax), %%rsp				\n\
+		   movq  0x50(%%rax), %%rbp				\n\
+		   movq  0x48(%%rax), %%r11				\n\
+		   movq  0x40(%%rax), %%r10				\n\
+		   movq  0x38(%%rax), %%r9				\n\
+		   movq  0x30(%%rax), %%r8				\n\
+		   movq  0x28(%%rax), %%rdx				\n\
+		   movq  0x20(%%rax), %%rcx				\n"
+		   : : [NEW_SP]	"o" (new_sp),
+		       [SIG]	"o" (thissig),
+		       [SI]	"o" (thissi),
+		       [CTX]	"o" (thiscontext),
+		       [FUNC]	"o" (thisfunc),
+		       [WRAPPER] "o" (altstack_wrapper)
+		   : "memory");
+#else
+	  /* Clobbered regs: ecx, edx, ebp, esp */
+	  __asm__ ("\n\
+		   movl  %[NEW_SP], %%eax  # Load alt stack into eax	\n\
+		   subl  $32, %%eax        # Make room on alt stack for	\n\
+					   # clobbered regs and args to \n\
+					   # signal handler             \n\
+		   movl  %%ecx, 16(%%eax)  # Save clobbered regs	\n\
+		   movl  %%edx, 20(%%eax)				\n\
+		   movl  %%ebp, 24(%%eax)				\n\
+		   movl  %%esp, 28(%%eax)				\n\
+		   movl  %[SIG], %%ecx     # thissig to 1st arg slot	\n\
+		   movl  %%ecx, (%%eax)					\n\
+		   leal  %[SI], %%ecx      # &thissi to 2nd arg slot	\n\
+		   movl  %%ecx, 4(%%eax)				\n\
+		   movl  %[CTX], %%ecx     # thiscontext to 3rd arg slot\n\
+		   movl  %%ecx, 8(%%eax)				\n\
+		   movl  %[FUNC], %%ecx    # thisfunc to 4th arg slot	\n\
+		   movl  %%ecx, 12(%%eax)				\n\
+		   leal  %[WRAPPER], %%ecx # thisfunc to ecx		\n\
+		   movl  %%eax, %%esp      # Move alt stack into esp	\n\
+		   call  *%%ecx            # Call thisfunc		\n\
+		   movl	 %%esp, %%eax      # Restore clobbered regs	\n\
+		   movl  28(%%eax), %%esp				\n\
+		   movl	 24(%%eax), %%ebp				\n\
+		   movl	 20(%%eax), %%edx				\n\
+		   movl	 16(%%eax), %%eax				\n"
+		   : : [NEW_SP]	"o" (new_sp),
+		       [SIG]	"o" (thissig),
+		       [SI]	"o" (thissi),
+		       [CTX]	"o" (thiscontext),
+		       [FUNC]	"o" (thisfunc),
+		       [WRAPPER] "o" (altstack_wrapper)
+		   : "memory");
+#endif
+	}
+      else
+	/* No alternate signal stack requested or available, just call
+	   signal handler. */
+	thisfunc (thissig, &thissi, thiscontext);
+
       incyg = true;
 
       set_signal_mask (_my_tls.sigmask, this_oldmask);
@@ -1542,7 +1830,12 @@ _cygtls::call_signal_handler ()
 	set_errno (this_errno);
     }
 
-  return this_sa_flags & SA_RESTART || (this != _main_tls);
+  /* FIXME: Since 2011 this return statement always returned 1 (meaning
+     SA_RESTART is effective) if the thread we're running in is not the
+     main thread.  We're disabling this check to enable EINTR behaviour
+     on system calls not running in the main thread.  It's not quite clear
+     if that has undesired side-effects, therefore this comment. */
+  return this_sa_flags & SA_RESTART;
 }
 
 void
@@ -1563,13 +1856,246 @@ _cygtls::signal_debugger (siginfo_t& si)
 #else
 	    c.Eip = retaddr ();
 #endif
-	  memcpy (&thread_context, &c, sizeof (CONTEXT));
+	  memcpy (&context.uc_mcontext, &c, sizeof (CONTEXT));
 	  /* Enough space for 32/64 bit addresses */
-	  char sigmsg[2 * sizeof (_CYGWIN_SIGNAL_STRING " ffffffff ffffffffffffffff")];
-	  __small_sprintf (sigmsg, _CYGWIN_SIGNAL_STRING " %d %y %p", si.si_signo,
-			   thread_id, &thread_context);
+	  char sigmsg[2 * sizeof (_CYGWIN_SIGNAL_STRING
+				  " ffffffff ffffffffffffffff")];
+	  __small_sprintf (sigmsg, _CYGWIN_SIGNAL_STRING " %d %y %p",
+			   si.si_signo, thread_id, &context.uc_mcontext);
 	  OutputDebugString (sigmsg);
 	}
       ResumeThread (th);
     }
+}
+
+extern "C" int
+setcontext (const ucontext_t *ucp)
+{
+  PCONTEXT ctx = (PCONTEXT) &ucp->uc_mcontext;
+  _my_tls.sigmask = ucp->uc_sigmask;
+#ifdef __x86_64__
+  /* Apparently a call to NtContinue works on 64 bit as well, but using
+     RtlRestoreContext is the blessed way. */
+  RtlRestoreContext (ctx, NULL);
+#else
+  NtContinue (ctx, FALSE);
+#endif
+  /* If we got here, something was wrong. */
+  set_errno (EINVAL);
+  return -1;
+}
+
+#ifdef __x86_64__
+
+extern "C" int
+getcontext (ucontext_t *ucp)
+{
+  PCONTEXT ctx = (PCONTEXT) &ucp->uc_mcontext;
+  ctx->ContextFlags = CONTEXT_FULL;
+  RtlCaptureContext (ctx);
+  __unwind_single_frame (ctx);
+  /* Successful getcontext is supposed to return 0.  If we don't set rax to 0
+     here, there's a chance that code like this:
+
+       if (getcontext (&ctx) != 0)
+
+     assumes that getcontext failed after calling setcontext (&ctx).
+     Same goes for eax on 32 bit, see assembler implementation below. */
+  ucp->uc_mcontext.rax = 0;
+  ucp->uc_sigmask = ucp->uc_mcontext.oldmask = _my_tls.sigmask;
+  /* Do not touch any other member of ucontext_t. */
+  return 0;
+}
+
+extern "C" int
+swapcontext (ucontext_t *oucp, const ucontext_t *ucp)
+{
+  PCONTEXT ctx = (PCONTEXT) &oucp->uc_mcontext;
+  ctx->ContextFlags = CONTEXT_FULL;
+  RtlCaptureContext (ctx);
+  __unwind_single_frame (ctx);
+  /* See comment in getcontext. */
+  oucp->uc_mcontext.rax = 0;
+  oucp->uc_sigmask = oucp->uc_mcontext.oldmask = _my_tls.sigmask;
+  return setcontext (ucp);
+}
+
+/* Trampoline function to set the context to uc_link.  The pointer to the
+   address of uc_link is stored in the callee-saved register $rbx.  If uc_link
+   is NULL, call exit. */
+__asm__ ("				\n\
+	.global	__cont_link_context	\n\
+	.seh_proc __cont_link_context	\n\
+__cont_link_context:			\n\
+	.seh_endprologue		\n\
+	movq	%rbx, %rsp		\n\
+	movq	(%rsp), %rcx		\n\
+	# align stack and subtract shadow space	\n\
+	andq	$~0xf, %rsp		\n\
+	subq	$0x20, %rsp		\n\
+	testq	%rcx, %rcx		\n\
+	je	1f			\n\
+	call	setcontext		\n\
+	movq	$0xff, %rcx		\n\
+1:					\n\
+	call	cygwin_exit		\n\
+	nop				\n\
+	.seh_endproc			\n\
+	");
+
+#else
+
+/* On 32 bit it's crucial to call RtlCaptureContext in a way which makes sure
+   the callee-saved registers, especially $ebx, are not changed by the calling
+   function.  If so, makecontext/__cont_link_context would be broken.
+
+   Amazing, but true:  While on 64 bit RtlCaptureContext returns the exact
+   context of its own caller, as expected, on 32 bit RtlCaptureContext returns
+   the context of the callers caller.  So while we have to unwind another frame
+   on 64 bit, we can skip this step on 32 bit.
+
+   Both functions are split into the first half in assembler, and the second
+   half in C to allow easy access to _my_tls. */
+
+extern "C" int
+__getcontext (ucontext_t *ucp)
+{
+  ucp->uc_mcontext.eax = 0;
+  ucp->uc_sigmask = ucp->uc_mcontext.oldmask = _my_tls.sigmask;
+  return 0;
+}
+
+__asm__ ("				\n\
+	.global	_getcontext		\n\
+_getcontext:				\n\
+	pushl	%ebp			\n\
+	movl	%esp, %ebp		\n\
+	movl	8(%esp), %eax		\n\
+	pushl	%eax			\n\
+	call	_RtlCaptureContext@4	\n\
+	popl	%ebp			\n\
+	jmp	___getcontext		\n\
+	nop				\n\
+	");
+
+extern "C" int
+__swapcontext (ucontext_t *oucp, const ucontext_t *ucp)
+{
+  oucp->uc_mcontext.eax = 0;
+  oucp->uc_sigmask = oucp->uc_mcontext.oldmask = _my_tls.sigmask;
+  return setcontext (ucp);
+}
+
+__asm__ ("				\n\
+	.global	_swapcontext		\n\
+_swapcontext:				\n\
+	pushl	%ebp			\n\
+	movl	%esp, %ebp		\n\
+	movl	8(%esp), %eax		\n\
+	pushl	%eax			\n\
+	call	_RtlCaptureContext@4	\n\
+	popl	%ebp			\n\
+	jmp	___swapcontext		\n\
+	nop				\n\
+	");
+
+/* Trampoline function to set the context to uc_link.  The pointer to the
+   address of uc_link is stored in the callee-saved register $ebx.  If uc_link
+   is NULL, call exit. */
+__asm__ ("				\n\
+	.global	___cont_link_context	\n\
+___cont_link_context:			\n\
+	movl	%ebx, %esp		\n\
+	movl	(%esp), %eax		\n\
+	testl	%eax, %eax		\n\
+	je	1f			\n\
+	call	_setcontext		\n\
+	movl	$0xff, (%esp)		\n\
+1:					\n\
+	call	_cygwin_exit		\n\
+	nop				\n\
+	");
+#endif
+
+/* makecontext is modelled after GLibc's makecontext.  The stack from uc_stack
+   is prepared so that it starts with a pointer to the linked context uc_link,
+   followed by the arguments to func, and finally at the bottom the "return"
+   address set to __cont_link_context.  In the ucp context, rbx/ebx is set to
+   point to the stack address where the pointer to uc_link is stored.  The
+   requirement to make this work is that rbx/ebx are callee-saved registers
+   per the ABI.  If any function is called which doesn't follow the ABI
+   conventions, e.g. assembler code, this method will break.  But that's ok. */
+extern "C" void
+makecontext (ucontext_t *ucp, void (*func) (void), int argc, ...)
+{
+  extern void __cont_link_context (void);
+  uintptr_t *sp;
+  va_list ap;
+
+  /* Initialize sp to the top of the stack. */
+  sp = (uintptr_t *) ((uintptr_t) ucp->uc_stack.ss_sp + ucp->uc_stack.ss_size);
+  /* Subtract slots required for arguments and the pointer to uc_link. */
+  sp -= (argc + 1);
+  /* Align. */
+  sp = (uintptr_t *) ((uintptr_t) sp & ~0xf);
+  /* Subtract one slot for setting the return address. */
+  --sp;
+  /* Set return address to the trampolin function __cont_link_context. */
+  sp[0] = (uintptr_t) __cont_link_context;
+  /* Fetch arguments and store them on the stack.
+
+     x86_64 only:
+
+     - Store first four args in the AMD64 ABI arg registers.
+
+     - Note that the stack is not short by these four register args.  The
+       reason is the shadow space for these regs required by the AMD64 ABI.
+
+     - The definition of makecontext only allows for "int" sized arguments to
+       func, 32 bit, likely for historical reasons.  However, the argument
+       slots on x86_64 are 64 bit anyway, so we can fetch and store the args
+       as 64 bit values, and func can request 64 bit args without violating
+       the definition.  This potentially allows porting 32 bit applications
+       providing pointer values to func without additional porting effort. */
+  va_start (ap, argc);
+  for (int i = 0; i < argc; ++i)
+#ifdef __x86_64__
+    switch (i)
+      {
+      case 0:
+	ucp->uc_mcontext.rcx = va_arg (ap, uintptr_t);
+	break;
+      case 1:
+	ucp->uc_mcontext.rdx = va_arg (ap, uintptr_t);
+	break;
+      case 2:
+	ucp->uc_mcontext.r8 = va_arg (ap, uintptr_t);
+	break;
+      case 3:
+	ucp->uc_mcontext.r9 = va_arg (ap, uintptr_t);
+	break;
+      default:
+	sp[i + 1] = va_arg (ap, uintptr_t);
+	break;
+      }
+#else
+    sp[i + 1] = va_arg (ap, uintptr_t);
+#endif
+  va_end (ap);
+  /* Store pointer to uc_link at the top of the stack. */
+  sp[argc + 1] = (uintptr_t) ucp->uc_link;
+  /* Last but not least set the register in the context at ucp so that a
+     subsequent setcontext or swapcontext picks up the right values:
+     - Set rip/eip to the target function.
+     - Set rsp/esp to the just computed stack pointer value.
+     - Set rbx/ebx to the address of the pointer to uc_link. */
+#ifdef __x86_64__
+  ucp->uc_mcontext.rip = (uint64_t) func;
+  ucp->uc_mcontext.rsp = (uint64_t) sp;
+  ucp->uc_mcontext.rbx = (uint64_t) (sp + argc + 1);
+#else
+  ucp->uc_mcontext.eip = (uint32_t) func;
+  ucp->uc_mcontext.esp = (uint32_t) sp;
+  ucp->uc_mcontext.ebx = (uint32_t) (sp + argc + 1);
+#endif
 }

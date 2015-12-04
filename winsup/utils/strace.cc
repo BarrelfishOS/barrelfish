@@ -1,7 +1,7 @@
 /* strace.cc
 
    Copyright 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010, 2011, 2012, 2013 Red Hat Inc.
+   2009, 2010, 2011, 2012, 2013, 2015 Red Hat Inc.
 
    Written by Chris Faylor <cgf@redhat.com>
 
@@ -26,6 +26,7 @@ details. */
 #include "../cygwin/include/sys/strace.h"
 #include "../cygwin/include/sys/cygwin.h"
 #include "../cygwin/include/cygwin/version.h"
+#include "../cygwin/cygtls_padsize.h"
 #include "path.h"
 #undef cygwin_internal
 #include "loadlib.h"
@@ -40,6 +41,7 @@ static int forkdebug = 1;
 static int numerror = 1;
 static int show_usecs = 1;
 static int delta = 1;
+static int events = 1;
 static int hhmmss;
 static int bufsize;
 static int new_window;
@@ -53,6 +55,8 @@ static int processes;
 static BOOL close_handle (HANDLE h, DWORD ok);
 
 #define CloseHandle(h) close_handle(h, 0)
+
+static void *drive_map;
 
 struct child_list
 {
@@ -637,6 +641,30 @@ handle_output_debug_string (DWORD id, LPVOID p, unsigned mask, FILE *ofile)
     fflush (ofile);
 }
 
+static BOOL
+GetFileNameFromHandle(HANDLE hFile, WCHAR pszFilename[MAX_PATH+1])
+{
+  BOOL result = FALSE;
+  ULONG len = 0;
+  OBJECT_NAME_INFORMATION *ntfn = (OBJECT_NAME_INFORMATION *) alloca (65536);
+  NTSTATUS status = NtQueryObject (hFile, ObjectNameInformation,
+				   ntfn, 65536, &len);
+  if (NT_SUCCESS (status))
+    {
+      PWCHAR win32path = ntfn->Name.Buffer;
+      win32path[ntfn->Name.Length / sizeof (WCHAR)] = L'\0';
+
+      /* NtQueryObject returns a native NT path.  (Try to) convert to Win32. */
+      if (drive_map)
+	win32path = (PWCHAR) cygwin_internal (CW_MAP_DRIVE_MAP, drive_map,
+					      win32path);
+      pszFilename[0] = L'\0';
+      wcsncat (pszFilename, win32path, MAX_PATH);
+      result = TRUE;
+    }
+  return result;
+}
+
 static DWORD
 proc_child (unsigned mask, FILE *ofile, pid_t pid)
 {
@@ -670,17 +698,40 @@ proc_child (unsigned mask, FILE *ofile, pid_t pid)
       switch (ev.dwDebugEventCode)
 	{
 	case CREATE_PROCESS_DEBUG_EVENT:
+	  if (events)
+	    fprintf (ofile, "--- Process %lu created\n", ev.dwProcessId);
 	  if (ev.u.CreateProcessInfo.hFile)
 	    CloseHandle (ev.u.CreateProcessInfo.hFile);
 	  add_child (ev.dwProcessId, ev.u.CreateProcessInfo.hProcess);
 	  break;
 
 	case CREATE_THREAD_DEBUG_EVENT:
+	  if (events)
+	    fprintf (ofile, "--- Process %lu thread %lu created\n",
+		     ev.dwProcessId, ev.dwThreadId);
 	  break;
 
 	case LOAD_DLL_DEBUG_EVENT:
+	  if (events)
+	    {
+	      // lpImageName is not always populated, so find the filename for
+	      // hFile instead
+	      WCHAR dllname[MAX_PATH+1];
+	      if (!GetFileNameFromHandle(ev.u.LoadDll.hFile, dllname))
+		wcscpy(dllname, L"(unknown)");
+
+	      fprintf (ofile, "--- Process %lu loaded %ls at %p\n",
+		       ev.dwProcessId, dllname, ev.u.LoadDll.lpBaseOfDll);
+	    }
+
 	  if (ev.u.LoadDll.hFile)
 	    CloseHandle (ev.u.LoadDll.hFile);
+	  break;
+
+	case UNLOAD_DLL_DEBUG_EVENT:
+	  if (events)
+	    fprintf (ofile, "--- Process %lu unloaded DLL at %p\n",
+		     ev.dwProcessId, ev.u.UnloadDll.lpBaseOfDll);
 	  break;
 
 	case OUTPUT_DEBUG_STRING_EVENT:
@@ -690,9 +741,19 @@ proc_child (unsigned mask, FILE *ofile, pid_t pid)
 	  break;
 
 	case EXIT_PROCESS_DEBUG_EVENT:
+	  if (events)
+	    fprintf (ofile, "--- Process %lu exited with status 0x%lx\n",
+		     ev.dwProcessId, ev.u.ExitProcess.dwExitCode);
 	  res = ev.u.ExitProcess.dwExitCode;
 	  remove_child (ev.dwProcessId);
 	  break;
+
+	case EXIT_THREAD_DEBUG_EVENT:
+	  if (events)
+	    fprintf (ofile, "--- Process %lu thread %lu exited with status 0x%lx\n",
+		     ev.dwProcessId, ev.dwThreadId, ev.u.ExitThread.dwExitCode);
+	  break;
+
 	case EXCEPTION_DEBUG_EVENT:
 	  if (ev.u.Exception.ExceptionRecord.ExceptionCode
 	      != (DWORD) STATUS_BREAKPOINT)
@@ -873,6 +934,7 @@ Trace system calls and signals\n\
 \n\
   -b, --buffer-size=SIZE       set size of output file buffer\n\
   -d, --no-delta               don't display the delta-t microsecond timestamp\n\
+  -e, --events                 log all Windows DEBUG_EVENTS (toggle - default true)\n\
   -f, --trace-children         trace child processes (toggle - default true)\n\
   -h, --help                   output usage information and exit\n\
   -m, --mask=MASK              set message filter mask\n\
@@ -928,6 +990,7 @@ Trace system calls and signals\n\
 
 struct option longopts[] = {
   {"buffer-size", required_argument, NULL, 'b'},
+  {"events", no_argument, NULL, 'e'},
   {"help", no_argument, NULL, 'h'},
   {"flush-period", required_argument, NULL, 'S'},
   {"hex", no_argument, NULL, 'H'},
@@ -946,7 +1009,7 @@ struct option longopts[] = {
   {NULL, 0, NULL, 0}
 };
 
-static const char *const opts = "+b:dhHfm:no:p:qS:tTuVw";
+static const char *const opts = "+b:dehHfm:no:p:qS:tTuVw";
 
 static void
 print_version ()
@@ -963,7 +1026,7 @@ print_version ()
 }
 
 int
-main (int argc, char **argv)
+main2 (int argc, char **argv)
 {
   unsigned mask = 0;
   FILE *ofile = NULL;
@@ -971,6 +1034,7 @@ main (int argc, char **argv)
   int opt;
   int toggle = 0;
   int sawquiet = -1;
+  DWORD ret = 0;
 
   if (load_cygwin ())
     {
@@ -993,6 +1057,9 @@ main (int argc, char **argv)
 	break;
       case 'd':
 	delta ^= 1;
+	break;
+      case 'e':
+	events ^= 1;
 	break;
       case 'f':
 	forkdebug ^= 1;
@@ -1081,17 +1148,37 @@ character #%d.\n", optarg, (int) (endptr - optarg), endptr);
   if (!mask)
     mask = _STRACE_ALL;
 
-  if (bufsize)
-    setvbuf (ofile, (char *) alloca (bufsize), _IOFBF, bufsize);
-
   if (!ofile)
     ofile = stdout;
+
+  if (bufsize)
+    setvbuf (ofile, (char *) alloca (bufsize), _IOFBF, bufsize);
 
   if (toggle)
     dotoggle (pid);
   else
-    ExitProcess (dostrace (mask, ofile, pid, argv + optind));
-  return 0;
+    {
+      drive_map = (void *) cygwin_internal (CW_ALLOC_DRIVE_MAP);
+      ret = dostrace (mask, ofile, pid, argv + optind);
+      if (drive_map)
+	cygwin_internal (CW_FREE_DRIVE_MAP, drive_map);
+    }
+  if (ofile && ofile != stdout)
+    fclose (ofile);
+  ExitProcess (ret);
+}
+
+int
+main (int argc, char **argv)
+{
+  /* Make sure to have room for the _cygtls area *and* to initialize it.
+     This is required to make sure cygwin_internal calls into Cygwin work
+     reliably.  This problem has been noticed under AllocationPreference
+     registry setting to 0x100000 (TOP_DOWN). */
+  char buf[CYGTLS_PADSIZE];
+
+  memset (buf, 0, sizeof (buf));
+  exit (main2 (argc, argv));
 }
 
 #undef CloseHandle

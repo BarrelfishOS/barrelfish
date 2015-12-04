@@ -16,6 +16,10 @@ prefix:=@prefix@
 datarootdir:=@datarootdir@
 docdir = @docdir@
 htmldir = @htmldir@
+mandir = @mandir@
+man1dir = $(mandir)/man1
+man3dir = $(mandir)/man3
+infodir:=@infodir@
 
 override INSTALL:=@INSTALL@
 override INSTALL_DATA:=@INSTALL_DATA@
@@ -26,17 +30,18 @@ CC:=@CC@
 CC_FOR_TARGET:=@CC@
 
 XMLTO:=xmlto --skip-validation --with-dblatex
+DOCBOOK2XTEXI:=@DOCBOOK2XTEXI@ --xinclude --info --utf8trans-map=charmap
 
 include $(srcdir)/../Makefile.common
-
-FAQ_SOURCES:= $(wildcard $(srcdir)/faq*.xml)
+-include Makefile.dep
 
 .SUFFIXES: .html .body
 
 .html.body:
 	$(srcdir)/bodysnatcher.pl $<
 
-.PHONY: all clean install install-all install-pdf install-html tarball
+.PHONY: all clean install install-all install-pdf install-html install-man \
+	info install-info
 
 all: Makefile Makefile.dep \
 	cygwin-ug-net/cygwin-ug-net.html \
@@ -44,7 +49,11 @@ all: Makefile Makefile.dep \
 	cygwin-api/cygwin-api.html \
 	faq/faq.body faq/faq.html \
 	cygwin-ug-net/cygwin-ug-net.pdf \
-	cygwin-api/cygwin-api.pdf
+	cygwin-api/cygwin-api.pdf \
+	utils2man.stamp \
+	api2man.stamp \
+	intro2man.stamp \
+	cygwin-ug-net.info cygwin-api.info
 
 Makefile: $(srcdir)/Makefile.in
 	/bin/sh ./config.status
@@ -53,15 +62,18 @@ clean:
 	rm -f Makefile.dep
 	rm -f *.html *.html.gz
 	rm -Rf cygwin-api cygwin-ug cygwin-ug-net faq
+	rm -f *.1 utils2man.stamp
+	rm -f *.3 api2man.stamp
+	rm -f *.info* charmap
 
 install: install-all
 
-install-all: install-pdf install-html
+install-all: install-pdf install-html install-man install-info
 
 install-pdf: cygwin-ug-net/cygwin-ug-net.pdf cygwin-api/cygwin-api.pdf
 	@$(MKDIRP) $(DESTDIR)$(docdir)
 	$(INSTALL_DATA) $^ $(DESTDIR)$(docdir)
-	
+
 install-html: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html
 	@$(MKDIRP) $(DESTDIR)$(htmldir)/cygwin-ug-net
 	$(INSTALL_DATA) cygwin-ug-net/*.html $(DESTDIR)$(htmldir)/cygwin-ug-net
@@ -70,40 +82,62 @@ install-html: cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html
 	$(INSTALL_DATA) cygwin-api/*.html $(DESTDIR)$(htmldir)/cygwin-api
 	$(INSTALL_DATA) cygwin-api/cygwin-api.html $(DESTDIR)$(htmldir)/cygwin-api/index.html
 
-cygwin-ug-net/cygwin-ug-net-nochunks.html.gz : cygwin-ug-net.xml
-	-$(XMLTO) html-nochunks -m $(srcdir)/cygwin.xsl $<
+install-man: utils2man.stamp api2man.stamp intro2man.stamp
+	@$(MKDIRP) $(DESTDIR)$(man1dir)
+	$(INSTALL_DATA) *.1 $(DESTDIR)$(man1dir)
+	@$(MKDIRP) $(DESTDIR)$(man3dir)
+	$(INSTALL_DATA) *.3 $(DESTDIR)$(man3dir)
+
+install-info: cygwin-ug-net.info cygwin-api.info
+	$(MKDIRP) $(DESTDIR)$(infodir)
+	$(INSTALL_DATA) *.info* $(DESTDIR)$(infodir)
+
+cygwin-ug-net/cygwin-ug-net-nochunks.html.gz : $(cygwin-ug-net_SOURCES) html.xsl
+	-$(XMLTO) html-nochunks -m $(srcdir)/html.xsl $<
+	-@$(MKDIRP) cygwin-ug-net
 	-cp cygwin-ug-net.html cygwin-ug-net/cygwin-ug-net-nochunks.html
 	-rm -f cygwin-ug-net/cygwin-ug-net-nochunks.html.gz
 	-gzip cygwin-ug-net/cygwin-ug-net-nochunks.html
 
-cygwin-ug-net/cygwin-ug-net.html : cygwin-ug-net.xml cygwin.xsl
-	-$(XMLTO) html -o cygwin-ug-net/ -m $(srcdir)/cygwin.xsl $<
+cygwin-ug-net/cygwin-ug-net.html : $(cygwin-ug-net_SOURCES) html.xsl
+	-$(XMLTO) html -o cygwin-ug-net/ -m $(srcdir)/html.xsl $<
 
-cygwin-ug-net/cygwin-ug-net.pdf : cygwin-ug-net.xml fo.xsl
-	-$(XMLTO) pdf -o cygwin-ug-net/ $<
+cygwin-ug-net/cygwin-ug-net.pdf : $(cygwin-ug-net_SOURCES) fo.xsl
+	-$(XMLTO) pdf -o cygwin-ug-net/ -m $(srcdir)/fo.xsl $<
 
-cygwin-api/cygwin-api.html : cygwin-api.xml cygwin.xsl
-	-$(XMLTO) html -o cygwin-api/ -m $(srcdir)/cygwin.xsl $<
+utils2man.stamp: $(cygwin-ug-net_SOURCES) man.xsl
+	$(XMLTO) man -m ${srcdir}/man.xsl $<
+	@touch $@
 
-cygwin-api/cygwin-api.pdf : cygwin-api.xml fo.xsl
-	-$(XMLTO) pdf -o cygwin-api/ $<
+cygwin-ug-net.info: $(cygwin-ug-net_SOURCES) charmap
+	-$(DOCBOOK2XTEXI) $(srcdir)/cygwin-ug-net.xml --string-param output-file=cygwin-ug-net
 
-faq/faq.html : $(FAQ_SOURCES)
-	-$(XMLTO) html -o faq -m $(srcdir)/cygwin.xsl $(srcdir)/faq.xml
+cygwin-api/cygwin-api.html : $(cygwin-api_SOURCES) html.xsl
+	-$(XMLTO) html -o cygwin-api/ -m $(srcdir)/html.xsl $<
+
+cygwin-api/cygwin-api.pdf : $(cygwin-api_SOURCES) fo.xsl
+	-$(XMLTO) pdf -o cygwin-api/ -m $(srcdir)/fo.xsl $<
+
+api2man.stamp: $(cygwin-api_SOURCES) man.xsl
+	$(XMLTO) man -m ${srcdir}/man.xsl $<
+	@touch $@
+
+cygwin-api.info: $(cygwin-api_SOURCES) charmap
+	-$(DOCBOOK2XTEXI) $(srcdir)/cygwin-api.xml --string-param output-file=cygwin-api
+
+# this generates a custom charmap for docbook2x-texi which has a mapping for &reg;
+charmap:
+	cp /usr/share/docbook2X/charmaps/texi.charmap charmap
+	echo "ae (R)" >>charmap
+
+intro2man.stamp: intro.xml man.xsl
+	-$(XMLTO) man -m ${srcdir}/man.xsl $<
+	@echo ".so intro.1" >cygwin.1
+	@touch $@
+
+faq/faq.html : $(faq_SOURCES)
+	-$(XMLTO) html -o faq -m $(srcdir)/html.xsl $(srcdir)/faq.xml
 	-sed -i 's;<a name="id[mp][0-9]*"></a>;;g' faq/faq.html
 
-TBFILES = cygwin-ug-net.dvi cygwin-ug-net.rtf cygwin-ug-net.ps \
-	  cygwin-ug-net.pdf cygwin-ug-net.xml \
-	  cygwin-api.dvi cygwin-api.rtf cygwin-api.ps \
-	  cygwin-api.pdf cygwin-api.xml
-TBDIRS = cygwin-ug-net cygwin-api
-TBDEPS = cygwin-ug-net/cygwin-ug-net.html cygwin-api/cygwin-api.html
-
-tarball : cygwin-docs.tar.bz2
-cygwin-docs.tar.bz2 : $(TBFILES) $(TBDEPS)
-	find $(TBFILES) $(TBDIRS) \! -type d | sort | tar -T - -cf -  | bzip2 > cygwin-docs.tar.bz2
-
-Makefile.dep: cygwin-ug-net.xml cygwin-api.xml
+Makefile.dep: cygwin-ug-net.xml cygwin-api.xml faq.xml
 	cd $(srcdir) && ./xidepend $^ > "${CURDIR}/$@"
-
--include Makefile.dep

@@ -1,7 +1,7 @@
 /* pinfo.cc: process table support
 
    Copyright 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008, 2009, 2010, 2011, 2012, 2013, 2014 Red Hat, Inc.
+   2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -38,7 +38,9 @@ public:
 pinfo_basic::pinfo_basic ()
 {
   pid = dwProcessId = GetCurrentProcessId ();
-  GetModuleFileNameW (NULL, progname, sizeof (progname) / sizeof (WCHAR));
+  PWCHAR pend = wcpncpy (progname, global_progname,
+			 sizeof (progname) / sizeof (WCHAR) - 1);
+  *pend = L'\0';
   /* Default uid/gid are needed very early to initialize shared user info. */
   uid = ILLEGAL_UID;
   gid = ILLEGAL_GID;
@@ -120,20 +122,18 @@ pinfo::status_exit (DWORD x)
     {
     case STATUS_DLL_NOT_FOUND:
       {
-	char posix_prog[NT_MAX_PATH];
 	path_conv pc;
 	if (!procinfo)
-	   pc.check ("/dev/null");
+	   pc.check ("/dev/null", PC_NOWARN | PC_POSIX);
 	else
 	  {
 	    UNICODE_STRING uc;
 	    RtlInitUnicodeString(&uc, procinfo->progname);
-	    pc.check (&uc, PC_NOWARN);
+	    pc.check (&uc, PC_NOWARN | PC_POSIX);
 	  }
-	mount_table->conv_to_posix_path (pc.get_win32 (), posix_prog, 1);
 	small_printf ("%s: error while loading shared libraries: %s: cannot "
 		      "open shared object file: No such file or directory\n",
-		      posix_prog, find_first_notloaded_dll (pc));
+		      pc.get_posix (), find_first_notloaded_dll (pc));
 	x = 127 << 8;
       }
       break;
@@ -690,6 +690,11 @@ _pinfo::commune_request (__uint32_t code, ...)
       set_errno (ESRCH);
       goto err;
     }
+  if (ISSTATE (this, PID_NOTCYGWIN))
+    {
+      set_errno (ENOTSUP);
+      goto err;
+    }
 
   va_start (args, code);
   si._si_commune._si_code = code;
@@ -845,7 +850,7 @@ _pinfo::root (size_t& n)
   char *s;
   if (!this || !pid)
     return NULL;
-  if (pid != myself->pid)
+  if (pid != myself->pid && !ISSTATE (this, PID_NOTCYGWIN))
     {
       commune_result cr = commune_request (PICOM_ROOT);
       s = cr.s;
@@ -862,13 +867,60 @@ _pinfo::root (size_t& n)
   return s;
 }
 
+static HANDLE
+open_commune_proc_parms (DWORD pid, PRTL_USER_PROCESS_PARAMETERS prupp)
+{
+  HANDLE proc;
+  NTSTATUS status;
+  PROCESS_BASIC_INFORMATION pbi;
+  PEB lpeb;
+
+  proc = OpenProcess (PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+  if (!proc)
+    return NULL;
+  status = NtQueryInformationProcess (proc, ProcessBasicInformation,
+				      &pbi, sizeof pbi, NULL);
+  if (NT_SUCCESS (status)
+      && ReadProcessMemory (proc, pbi.PebBaseAddress, &lpeb, sizeof lpeb, NULL)
+      && ReadProcessMemory (proc, lpeb.ProcessParameters, prupp, sizeof *prupp,
+			    NULL))
+	return proc;
+  NtClose (proc);
+  return NULL;
+}
+
 char *
 _pinfo::cwd (size_t& n)
 {
-  char *s;
+  char *s = NULL;
   if (!this || !pid)
     return NULL;
-  if (pid != myself->pid)
+  if (ISSTATE (this, PID_NOTCYGWIN))
+    {
+      RTL_USER_PROCESS_PARAMETERS rupp;
+      HANDLE proc = open_commune_proc_parms (dwProcessId, &rupp);
+
+      n = 0;
+      if (!proc)
+	return NULL;
+
+      tmp_pathbuf tp;
+      PWCHAR cwd = tp.w_get ();
+
+      if (ReadProcessMemory (proc, rupp.CurrentDirectoryName.Buffer,
+			     cwd, rupp.CurrentDirectoryName.Length,
+			     NULL))
+	{
+	  /* Drop trailing backslash, add trailing \0 in passing. */
+	  cwd[rupp.CurrentDirectoryName.Length / sizeof (WCHAR) - 1]
+	  = L'\0';
+	  s = (char *) cmalloc_abort (HEAP_COMMUNE, NT_MAX_PATH);
+	  mount_table->conv_to_posix_path (cwd, s, 0);
+	  n = strlen (s) + 1;
+	}
+      NtClose (proc);
+    }
+  else if (pid != myself->pid)
     {
       commune_result cr = commune_request (PICOM_CWD);
       s = cr.s;
@@ -886,10 +938,41 @@ _pinfo::cwd (size_t& n)
 char *
 _pinfo::cmdline (size_t& n)
 {
-  char *s;
+  char *s = NULL;
   if (!this || !pid)
     return NULL;
-  if (pid != myself->pid)
+  if (ISSTATE (this, PID_NOTCYGWIN))
+    {
+      RTL_USER_PROCESS_PARAMETERS rupp;
+      HANDLE proc = open_commune_proc_parms (dwProcessId, &rupp);
+
+      n = 0;
+      if (!proc)
+	return NULL;
+
+      tmp_pathbuf tp;
+      PWCHAR cmdline = tp.w_get ();
+
+      if (ReadProcessMemory (proc, rupp.CommandLine.Buffer, cmdline,
+			     rupp.CommandLine.Length, NULL))
+	{
+	  /* Add trailing \0. */
+	  cmdline[rupp.CommandLine.Length / sizeof (WCHAR)]
+	  = L'\0';
+	  n = sys_wcstombs_alloc (&s, HEAP_COMMUNE, cmdline,
+				  rupp.CommandLine.Length
+				  / sizeof (WCHAR));
+	  /* Quotes & Spaces post-processing. */
+	  bool in_quote = false;
+	  for (char *c = s; *c; ++c)
+	    if (*c == '"')
+	      in_quote = !in_quote;
+	    else if (*c == ' ' && !in_quote)
+	     *c = '\0';
+	}
+      NtClose (proc);
+    }
+  else if (pid != myself->pid)
     {
       commune_result cr = commune_request (PICOM_CMDLINE);
       s = cr.s;

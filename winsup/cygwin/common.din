@@ -130,6 +130,7 @@ acosf NOSIGFE
 acosh NOSIGFE
 acoshf NOSIGFE
 alarm SIGFE
+aligned_alloc SIGFE
 alphasort NOSIGFE
 arc4random NOSIGFE
 arc4random_addrandom NOSIGFE
@@ -168,6 +169,7 @@ atoff SIGFE
 atoi NOSIGFE
 atol NOSIGFE
 atoll NOSIGFE
+at_quick_exit SIGFE
 basename NOSIGFE
 bcmp NOSIGFE
 bcopy NOSIGFE
@@ -503,6 +505,7 @@ getc SIGFE
 getc_unlocked SIGFE
 getchar SIGFE
 getchar_unlocked SIGFE
+getcontext NOSIGFE
 getcwd SIGFE
 getdelim = __getdelim SIGFE
 getdomainname SIGFE
@@ -717,6 +720,7 @@ lsetxattr SIGFE
 lstat SIGFE
 lutimes SIGFE
 madvise = posix_madvise SIGFE
+makecontext NOSIGFE
 mallinfo SIGFE
 malloc SIGFE
 malloc_stats SIGFE
@@ -955,6 +959,7 @@ putwc_unlocked SIGFE
 putwchar SIGFE
 putwchar_unlocked SIGFE
 pwrite SIGFE
+quick_exit SIGFE
 qsort NOSIGFE
 qsort_r NOSIGFE
 quotactl SIGFE
@@ -1054,6 +1059,8 @@ sendmsg = cygwin_sendmsg SIGFE
 sendto = cygwin_sendto SIGFE
 setbuf SIGFE
 setbuffer SIGFE
+setcontext NOSIGFE
+sethostname SIGFE
 setdtablesize SIGFE
 setegid SIGFE
 setenv SIGFE
@@ -1098,6 +1105,7 @@ shmget SIGFE
 shutdown = cygwin_shutdown SIGFE
 sigaction SIGFE
 sigaddset SIGFE
+sigaltstack SIGFE
 sigdelset SIGFE
 sigemptyset NOSIGFE
 sigfillset NOSIGFE
@@ -1105,6 +1113,7 @@ sighold SIGFE
 sigignore SIGFE
 siginterrupt SIGFE
 sigismember SIGFE
+siglongjmp NOSIGFE
 signal SIGFE
 significand NOSIGFE
 significandf NOSIGFE
@@ -1114,6 +1123,7 @@ sigprocmask SIGFE
 sigqueue SIGFE
 sigrelse SIGFE
 sigset SIGFE
+sigsetjmp NOSIGFE
 sigsuspend SIGFE
 sigwait SIGFE
 sigwaitinfo SIGFE
@@ -1197,6 +1207,7 @@ strtoumax = strtoull NOSIGFE
 strupr NOSIGFE
 strxfrm NOSIGFE
 swab NOSIGFE
+swapcontext NOSIGFE
 swprintf SIGFE
 swscanf SIGFE
 symlink SIGFE

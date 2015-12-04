@@ -568,9 +568,9 @@ format_process_winexename (void *data, char *&destbuf)
   _pinfo *p = (_pinfo *) data;
   size_t len = sys_wcstombs (NULL, 0, p->progname);
   destbuf = (char *) crealloc_abort (destbuf, len + 1);
-  sys_wcstombs (destbuf, len, p->progname);
-  destbuf[len] = '\n';
-  return len + 1;
+  /* With trailing \0 for backward compat reasons. */
+  sys_wcstombs (destbuf, len + 1, p->progname);
+  return len;
 }
 
 struct heap_info
@@ -592,7 +592,11 @@ struct heap_info
     NTSTATUS status;
     PDEBUG_HEAP_ARRAY harray;
 
-    buf = RtlCreateQueryDebugBuffer (0, FALSE);
+    /* FIXME?  RtlQueryProcessDebugInformation/CreateToolhelp32Snapshot both
+       crash the target process on 64 bit XP/2003 in native 64 bit mode. */
+    if (wincap.has_broken_rtl_query_process_debug_information ())
+      return;
+    buf = RtlCreateQueryDebugBuffer (16 * 65536, FALSE);
     if (!buf)
       return;
     status = RtlQueryProcessDebugInformation (pid, PDI_HEAPS | PDI_HEAP_BLOCKS,

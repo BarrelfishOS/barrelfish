@@ -1,37 +1,67 @@
+2015-10-22  Yaakov Selkowitz  <yselkowi@redhat.com>
+
+	* getconf.c (conf_table): Add LEVEL*_CACHE_* variables.
+
+2015-08-30  Corinna Vinschen  <corinna@vinschen.de>
+
+	* cygcheck.cc (dump_sysinfo): Fix missing commas in products array.
+
+2015-08-30  Corinna Vinschen  <corinna@vinschen.de>
+
+	* cygcheck.cc (load_cygwin): Only unload cygwin DLL if not running
+	under a debugger.  Explain why.
+
+2015-08-30  Corinna Vinschen  <corinna@vinschen.de>
+
+	* cygcheck.cc (dump_sysinfo): Correctly handle Windows 10/Server 2016.
+	Add missing product types.
+
+2015-08-30  Corinna Vinschen  <corinna@vinschen.de>
+
+	* cygcheck.cc (track_down): Skip error output for "api-ms-win-"
+	downlevel DLLs.
+
+2015-08-03  Corinna Vinschen  <corinna@vinschen.de>
+
+	* strace.cc (main2): Don't call setvbuf on NULL descriptor.
+	Explicitely fclose ofile.
+
+2015-07-29  Corinna Vinschen  <corinna@vinschen.de>
+
+	* strace.cc (main2): Rename from main.
+	(main): Make room for _cygtls area on stack and just call main2.  Add
+	comment to explain why.
+
+2015-07-20  Corinna Vinschen  <corinna@vinschen.de>
+
+	* ldd.cc (STATUS_DLL_NOT_FOUND): Drop definition.
+	(report): Handle STATUS_ENTRYPOINT_NOT_FOUND exception.  Explain why.
+
+2015-07-08  Corinna Vinschen  <corinna@vinschen.de>
+
+	* tzset.c (main): Check timezone and country case-insensitive.
+
+2015-06-07  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* strace.cc (proc_child): Log process and thread create and exit,
+	and DLL load and unload.
+	(GetFileNameFromHandle): New function.
+
+2015-06-10  Corinna Vinschen  <corinna@vinschen.de>
+
+	* ps.cc (main): Widen UID field in long format to accommodate longer
+	UIDs since Cygwin 1.7.34.  Remove Windows 2000 considerations.  Fix
+	comments accordingly.
+
+2015-06-08  Corinna Vinschen  <corinna@vinschen.de>
+
+	* path.cc (from_fstab_line): Don't convert slashes to backslashes for
+	bind mounts.  Explain why.
+
 2015-04-21  Corinna Vinschen  <corinna@vinschen.de>
 
 	* tzmap-from-unicode.org: Convert Calcutta to Kolkata.
 	* tzmap.h: Regenerate.
-
-2015-04-20  Corinna Vinschen  <corinna@vinschen.de>
-
-	* getfacl.c (main): Special-case SYSTEM and Admins group.  Add comments.
-
-2015-04-16  Corinna Vinschen  <corinna@vinschen.de>
-
-	* setfacl.c: Align more to Linux tool.
-	(delacl): New function to delete acl entries only.
-	(modacl): Drop delete functionality.  Add handling of recomputing the
-	mask and default mask values.
-	(delallacl): Rename from delacl.
-	(setfacl): Call delacl in Delete case.  Call delallacl in DeleteAll
-	and DeleteDef case.
-	(usage): Accommodate new options.  Rearrange and rephrase slightly.
-	(longopts): Emit 'x' in --delete case.  Add --no-mask and --mask
-	options.
-	(opts): Add -x and -n options.
-	(main): Handle -d and -x the same.  Handle -n and --mask options.
-	Drop handling for -r option.
-
-2015-04-16  Corinna Vinschen  <corinna@vinschen.de>
-
-	* getfacl.c (usage): Align more closely to Linux version.  Add new
-	options -c, -e, -E.  Change formatting to accommodate longer options.
-	(longopts): Rename --noname to --numeric.  Keep --noname for backward
-	compatibility.  Add --omit-header, --all-effective and --no-effective
-	options.
-	(opts): Add -c, -e and -E option.
-	(main): Handle new -c, -e, and -E options.
 
 2015-02-28  Corinna Vinschen  <corinna@vinschen.de>
 

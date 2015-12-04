@@ -17,6 +17,7 @@ details. */
 #include <mntent.h>
 #undef _NOMNTENT_FUNCS
 #include <setjmp.h>
+#include <ucontext.h>
 
 #define CYGTLS_INITIALIZED 0xc763173f
 
@@ -167,7 +168,7 @@ extern "C" int __ljfault (jmp_buf, int);
 
 /*gentls_offsets*/
 
-typedef uintptr_t __stack_t;
+typedef uintptr_t __tlsstack_t;
 
 class _cygtls
 {
@@ -188,10 +189,12 @@ public:
   int *errno_addr;
   sigset_t sigmask;
   sigset_t sigwait_mask;
+  stack_t altstack;
   siginfo_t *sigwait_info;
   HANDLE signal_arrived;
   bool will_wait_for_signal;
-  CONTEXT thread_context;
+  long __align;			/* Needed to align context to 16 byte. */
+  ucontext_t context;
   DWORD thread_id;
   siginfo_t infodata;
   struct pthread *tid;
@@ -202,17 +205,17 @@ public:
   unsigned incyg;
   unsigned spinning;
   unsigned stacklock;
-  __stack_t *stackptr;
-  __stack_t stack[TLS_STACK_SIZE];
+  __tlsstack_t *stackptr;
+  __tlsstack_t stack[TLS_STACK_SIZE];
   unsigned initialized;
 
   /*gentls_offsets*/
   void init_thread (void *, DWORD (*) (void *, void *));
   static void call (DWORD (*) (void *, void *), void *);
   void remove (DWORD);
-  void push (__stack_t addr) {*stackptr++ = (__stack_t) addr;}
-  __stack_t __reg1 pop ();
-  __stack_t retaddr () {return stackptr[-1];}
+  void push (__tlsstack_t addr) {*stackptr++ = (__tlsstack_t) addr;}
+  __tlsstack_t __reg1 pop ();
+  __tlsstack_t retaddr () {return stackptr[-1];}
   bool isinitialized () const
   {
     return initialized == CYGTLS_INITIALIZED;
@@ -264,16 +267,12 @@ public:
   void handle_SIGCONT ();
 private:
   void __reg3 call2 (DWORD (*) (void *, void *), void *, void *);
+  void remove_pending_sigs ();
   /*gentls_offsets*/
 };
 #pragma pack(pop)
 
-/* FIXME: Find some way to autogenerate this value */
-#ifdef __x86_64__
-const int CYGTLS_PADSIZE = 12800;	/* Must be 16-byte aligned */
-#else
-const int CYGTLS_PADSIZE = 12700;
-#endif
+#include "cygtls_padsize.h"
 
 /*gentls_offsets*/
 
@@ -298,11 +297,26 @@ extern _cygtls *_sig_tls;
 #ifdef __x86_64__
 class san
 {
+  san *_clemente;
   uint64_t _cnt;
 public:
-  san () __attribute__ ((always_inline))
+  DWORD64 ret;
+  DWORD64 frame;
+
+  san (PVOID _ret) __attribute__ ((always_inline))
   {
+    _clemente = _my_tls.andreas;
+    _my_tls.andreas = this;
     _cnt = _my_tls.locals.pathbufs._counters;
+    /* myfault_altstack_handler needs the current stack pointer and the
+       address of the _except block to restore the context correctly.
+       See comment preceeding myfault_altstack_handler in exception.cc. */
+    ret = (DWORD64) _ret;
+    __asm__ volatile ("movq %%rsp,%0": "=o" (frame));
+  }
+  ~san () __attribute__ ((always_inline))
+  {
+    _my_tls.andreas = _clemente;
   }
   /* This is the first thing called in the __except handler.  The attribute
      "returns_twice" makes sure that GCC disregards any register value set
@@ -360,7 +374,7 @@ public:
   { \
     __label__ __l_try, __l_except, __l_endtry; \
     __mem_barrier; \
-    san __sebastian; \
+    san __sebastian (&&__l_except); \
     __asm__ goto ("\n" \
       "  .seh_handler _ZN9exception7myfaultEP17_EXCEPTION_RECORDPvP8_CONTEXTP19_DISPATCHER_CONTEXT, @except						\n" \
       "  .seh_handlerdata						\n" \

@@ -763,6 +763,7 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     shutdown
     sigaction
     sigaddset
+    sigaltstack
     sigdelset
     sigemptyset
     sigfillset
@@ -1091,6 +1092,7 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     sbrk
     setbuffer
     setgroups
+    sethostname
     setlinebuf
     setpassent
     setprogname
@@ -1304,9 +1306,19 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     xdrstdio_create		(available in external "libtirpc" library)
 </screen>
 
+<sect1 id="std-iso"><title>System interfaces not in POSIX but compatible with ISO C requirements:</title>
+
+<screen>
+    aligned_alloc		(ISO C11)
+    at_quick_exit		(ISO C11)
+    quick_exit			(ISO C11)
+</screen>
+
 </sect1>
 
-<sect1 id="std-deprec"><title>Other UNIX system interfaces, deprecated or not in POSIX.1-2008:</title>
+</sect1>
+
+<sect1 id="std-deprec"><title>Other UNIX system interfaces, not in POSIX.1-2008 or deprecated:</title>
 
 <screen>
     bcmp			(POSIX.1-2001, SUSv3)
@@ -1320,6 +1332,7 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     fcvt			(SUSv3)
     ftime			(SUSv3)
     gcvt			(SUSv3)
+    getcontext			(SUSv3)
     gethostbyaddr		(SUSv3)
     gethostbyname		(SUSv3)
     gethostbyname2		(first defined in BIND 4.9.4)
@@ -1331,6 +1344,7 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     getwd			(SUSv3)
     h_errno			(SUSv3)
     index			(SUSv3)
+    makecontext			(SUSv3)
     mallinfo			(SVID)
     mallopt			(SVID)
     mktemp			(SUSv3)
@@ -1345,8 +1359,10 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     putw			(SVID)
     rindex			(SUSv3)
     scalb			(SUSv3)
+    setcontext			(SUSv3)
     setutent			(XPG2)
     stime			(SVID)
+    swapcontext			(SUSv3)
     sys_errlist			(BSD)
     sys_nerr			(BSD)
     sys_siglist			(BSD)
@@ -1489,7 +1505,6 @@ also IEEE Std 1003.1-2008 (POSIX.1-2008).</para>
     scalblnl
     scalbnl
     setnetent
-    sigaltstack
     sigtimedwait
     sinhl
     sinl

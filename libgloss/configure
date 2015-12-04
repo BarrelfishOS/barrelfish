@@ -666,6 +666,7 @@ CCAS
 CCASFLAGS'
 ac_subdirs_all='doc
 aarch64
+arc
 epiphany
 i386
 m32r
@@ -688,6 +689,7 @@ crx
 d30v
 fr30
 frv
+ft32
 lm32
 mcore
 mep
@@ -2401,6 +2403,10 @@ case "${target}" in
 
 	config_testsuite=true
 	;;
+  arc*-*-*)
+	subdirs="$subdirs arc"
+
+	;;
   epiphany-*-*)
 	subdirs="$subdirs epiphany"
 
@@ -2488,6 +2494,10 @@ case "${target}" in
 	;;
   frv*-*-*)
 	subdirs="$subdirs frv"
+
+	;;
+  ft32*-*-*)
+	subdirs="$subdirs ft32"
 
 	;;
   lm32*-*-*)

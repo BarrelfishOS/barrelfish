@@ -1,7 +1,7 @@
 /* globals.cc - Define global variables here.
 
    Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 Red Hat, Inc.
+   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -31,6 +31,7 @@ UINT windows_system_directory_length;
 WCHAR system_wow64_directory[MAX_PATH];
 UINT system_wow64_directory_length;
 #endif /* !__x86_64__ */
+WCHAR global_progname[NT_MAX_PATH];
 
 /* program exit the program */
 
@@ -137,6 +138,9 @@ extern "C" {
   extern UNICODE_STRING _RDATA ro_u_mvfs = _ROU (L"MVFS");
   extern UNICODE_STRING _RDATA ro_u_nfs = _ROU (L"NFS");
   extern UNICODE_STRING _RDATA ro_u_ntfs = _ROU (L"NTFS");
+  /* No typo!  It's actually "SF", not "FS", and the trailing NUL is counted
+     in the reply from the filesystem. */
+  extern UNICODE_STRING _RDATA ro_u_prlfs = _ROU (L"PrlSF\0");
   extern UNICODE_STRING _RDATA ro_u_refs = _ROU (L"ReFS");
   extern UNICODE_STRING _RDATA ro_u_sunwnfs = _ROU (L"SUNWNFS");
   extern UNICODE_STRING _RDATA ro_u_udf = _ROU (L"UDF");

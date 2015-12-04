@@ -1,7 +1,7 @@
 /* mount.cc: mount handling.
 
    Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 Red Hat, Inc.
+   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -182,8 +182,7 @@ fs_info::update (PUNICODE_STRING upath, HANDLE in_vol)
 
   clear ();
   /* Always caseinsensitive.  We really just need access to the drive. */
-  InitializeObjectAttributes (&attr, upath, OBJ_CASE_INSENSITIVE, NULL,
-			      NULL);
+  InitializeObjectAttributes (&attr, upath, OBJ_CASE_INSENSITIVE, NULL, NULL);
   if (in_vol)
     vol = in_vol;
   else
@@ -232,6 +231,33 @@ fs_info::update (PUNICODE_STRING upath, HANDLE in_vol)
   uint32_t hash = 0;
   if (NT_SUCCESS (status))
     {
+      /* If the FS doesn't return a valid serial number (PrlSF is a candidate),
+	 create reproducible serial number from path.  We need this to create
+	 a unique per-drive/share hash. */
+      if (ffvi_buf.ffvi.VolumeSerialNumber == 0)
+	{
+	  UNICODE_STRING path_prefix;
+	  WCHAR *p;
+
+	  if (upath->Buffer[5] == L':' && upath->Buffer[6] == L'\\')
+	    p = upath->Buffer + 6;
+	  else
+	    {
+	      /* We're expecting an UNC path.  Move p to the backslash after
+	         "\??\UNC\server\share" or the trailing NUL. */
+	      p = upath->Buffer + 7;  /* Skip "\??\UNC" */
+	      int bs_cnt = 0;
+
+	      while (*++p)
+		if (*p == L'\\')
+		    if (++bs_cnt > 1)
+		      break;
+	    }
+	  RtlInitCountedUnicodeString (&path_prefix, upath->Buffer,
+				       (p - upath->Buffer) * sizeof (WCHAR));
+	  ffvi_buf.ffvi.VolumeSerialNumber = hash_path_name ((ino_t) 0,
+							     &path_prefix);
+	}
       fs_info *fsi = fsi_cache.search (&ffvi_buf.ffvi, hash);
       if (fsi)
 	{
@@ -370,7 +396,10 @@ fs_info::update (PUNICODE_STRING upath, HANDLE in_vol)
 	  && !is_unixfs (RtlEqualUnicodeString (&fsname, &ro_u_unixfs, FALSE))
 	  /* AFSRDRFsd == Andrew File System.  Doesn't support DOS attributes.
 	     Only native symlinks are supported. */
-	  && !is_afs (RtlEqualUnicodeString (&fsname, &ro_u_afs, FALSE)))
+	  && !is_afs (RtlEqualUnicodeString (&fsname, &ro_u_afs, FALSE))
+	  /* PrlSF == Parallels Desktop File System.  Has a bug in
+	     FileNetworkOpenInformation, see below. */
+	  && !is_prlfs (RtlEqualUnicodeString (&fsname, &ro_u_prlfs, FALSE)))
 	{
 	  /* Known remote file system with buggy open calls.  Further
 	     explanation in fhandler.cc (fhandler_disk_file::open_fs). */
@@ -402,6 +431,10 @@ fs_info::update (PUNICODE_STRING upath, HANDLE in_vol)
 	     only support this if the filename is non-null and the handle is
 	     the handle to a directory. NcFsd IR10 is supposed to be ok. */
 	  has_buggy_reopen (is_netapp () || is_nwfs ());
+	  /* Netapp and Parallels Desktop FS have problems with the
+	     FileNetworkOpenInformation info class.  Netapp doesn't
+	     implement it at all, Parallels always returns a size of 0. */
+	  has_broken_fnoi (is_netapp () || is_prlfs ());
 	}
     }
   if (!got_fs ()
@@ -1527,6 +1560,7 @@ fs_names_t fs_names[] = {
     { "nwfs", false },
     { "ncfsd", false },
     { "afs", false },
+    { "prlfs", false },
     { NULL, false }
 };
 

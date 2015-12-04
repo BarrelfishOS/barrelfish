@@ -1,7 +1,7 @@
 /* signal.cc
 
    Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014 Red Hat, Inc.
+   2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015 Red Hat, Inc.
 
    Written by Steve Chamberlain of Cygnus Support, sac@cygnus.com
    Significant changes by Sergey Okhapkin <sos@prospect.com.ru>
@@ -557,10 +557,16 @@ siginterrupt (int sig, int flag)
 extern "C" int
 sigwait (const sigset_t *set, int *sig_ptr)
 {
-  int sig = sigwaitinfo (set, NULL);
+  int sig;
+
+  do
+    {
+      sig = sigwaitinfo (set, NULL);
+    }
+  while (sig == -1 && get_errno () == EINTR);
   if (sig > 0)
     *sig_ptr = sig;
-  return sig > 0 ? 0 : -1;
+  return sig > 0 ? 0 : get_errno ();
 }
 
 extern "C" int
@@ -587,7 +593,7 @@ sigwaitinfo (const sigset_t *set, siginfo_t *info)
 		*info = _my_tls.infodata;
 	      res = _my_tls.infodata.si_signo;
 	      _my_tls.sig = 0;
-	      if (_my_tls.retaddr () == (__stack_t) sigdelayed)
+	      if (_my_tls.retaddr () == (__tlsstack_t) sigdelayed)
 		_my_tls.pop ();
 	      _my_tls.unlock ();
 	    }
@@ -623,4 +629,70 @@ sigqueue (pid_t pid, int sig, const union sigval value)
   si.si_code = SI_QUEUE;
   si.si_value = value;
   return sig_send (dest, si);
+}
+
+extern "C" int
+sigaltstack (const stack_t *ss, stack_t *oss)
+{
+  _cygtls& me = _my_tls;
+
+  __try
+    {
+      if (ss)
+	{
+	  if (me.altstack.ss_flags == SS_ONSTACK)
+	    {
+	      /* An attempt was made to modify an active stack. */
+	      set_errno (EPERM);
+	      return -1;
+	    }
+	  if (ss->ss_flags == SS_DISABLE)
+	    {
+	      me.altstack.ss_sp = NULL;
+	      me.altstack.ss_flags = 0;
+	      me.altstack.ss_size = 0;
+	    }
+	  else
+	    {
+	      if (ss->ss_flags)
+		{
+		  /* The ss argument is not a null pointer, and the ss_flags
+		     member pointed to by ss contains flags other than
+		     SS_DISABLE. */
+		  set_errno (EINVAL);
+		  return -1;
+		}
+	      if (ss->ss_size < MINSIGSTKSZ)
+		{
+		  /* The size of the alternate stack area is less than
+		     MINSIGSTKSZ. */
+		  set_errno (ENOMEM);
+		  return -1;
+		}
+	      memcpy (&me.altstack, ss, sizeof *ss);
+	    }
+	}
+      if (oss)
+	{
+	  char stack_marker;
+	  memcpy (oss, &me.altstack, sizeof *oss);
+	  /* Check if the current stack is the alternate signal stack.  If so,
+	     set ss_flags accordingly.  We do this here rather than setting
+	     ss_flags in _cygtls::call_signal_handler since the signal handler
+	     calls longjmp, so we never return to reset the flag. */
+	  if (!me.altstack.ss_flags && me.altstack.ss_sp)
+	    {
+	      if (&stack_marker >= (char *) me.altstack.ss_sp
+		  && &stack_marker < (char *) me.altstack.ss_sp
+				     + me.altstack.ss_size)
+		oss->ss_flags = SS_ONSTACK;
+	    }
+	}
+    }
+  __except (EFAULT)
+    {
+      return EFAULT;
+    }
+  __endtry
+  return 0;
 }

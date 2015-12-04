@@ -1,3 +1,592 @@
+2015-11-13  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/strlen-stub.c: Move T1 -O2 implementation to...
+	* libc/machine/arm/strlen-thumb1-Os.S: New file.
+	* libc/machine/arm/strlen.S: Include strlen-thumb1-Os.S.
+
+2015-11-13  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/Makefile.am: Adding strlen.S.
+	* libc/machine/arm/Makefile.in: Regenerate.
+	* libc/machine/arm/strlen.S: New.
+	* libc/machine/arm/strlen-stub.c: Rewrite #if condition.
+	* libc/machine/arm/strlen-armv7.S: Remove surrounding #if.
+
+2015-11-13  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/Makefile.am: Rename strlen.c to strlen-stub.c
+	* libc/machine/arm/Makefile.in: Regenerate.
+	* libc/machine/arm/strlen.c: Rename to...
+	* libc/machine/arm/strlen-stub.c: ... this.
+
+2015-11-13  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/Makefile.am: Drop STRLEN_SRC and STRLEN_OBJ.
+	Adding strlen.c.
+	* libc/machine/arm/configure.in (HAVE_THUMB1, OPT_SIZE): Remove.
+	* libc/machine/arm/strlen.c: Include ../../string/strlen.c.
+	* libc/machine/arm/configure: Regenerate.
+	* libc/machine/arm/Makefile.in: Regenerate.
+
+2015-11-13  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/strlen.c: Refactor nested #if.
+
+2015-11-12  Anton Kolesov  <Anton.Kolesov@synopsys.com>
+
+	* configure.host: Add ARC support.
+	* libc/include/machine/setjmp.h: Likewise.
+	* libc/machine/configure: Likewise.
+	* libc/machine/configure.in: Likewise.
+	* libc/machine/arc/Makefile.am: Likewise.
+	* libc/machine/arc/Makefile.in: Likewise.
+	* libc/machine/arc/aclocal.m4: Likewise.
+	* libc/machine/arc/asm.h: Likewise.
+	* libc/machine/arc/configure: Likewise.
+	* libc/machine/arc/configure.in: Likewise.
+	* libc/machine/arc/memcmp-bs-norm.S: Likewise.
+	* libc/machine/arc/memcmp-stub.c: Likewise.
+	* libc/machine/arc/memcmp.S: Likewise.
+	* libc/machine/arc/memcpy-archs.S: Likewise.
+	* libc/machine/arc/memcpy-bs.S: Likewise.
+	* libc/machine/arc/memcpy-stub.c: Likewise.
+	* libc/machine/arc/memcpy.S: Likewise.
+	* libc/machine/arc/memset-archs.S: Likewise.
+	* libc/machine/arc/memset-bs.S: Likewise.
+	* libc/machine/arc/memset-stub.c: Likewise.
+	* libc/machine/arc/memset.S: Likewise.
+	* libc/machine/arc/setjmp.S: Likewise.
+	* libc/machine/arc/strchr-bs-norm.S: Likewise.
+	* libc/machine/arc/strchr-bs.S: Likewise.
+	* libc/machine/arc/strchr-stub.c: Likewise.
+	* libc/machine/arc/strchr.S: Likewise.
+	* libc/machine/arc/strcmp-archs.S: Likewise.
+	* libc/machine/arc/strcmp-stub.c: Likewise.
+	* libc/machine/arc/strcmp.S: Likewise.
+	* libc/machine/arc/strcpy-bs-arc600.S: Likewise.
+	* libc/machine/arc/strcpy-bs.S: Likewise.
+	* libc/machine/arc/strcpy-stub.c: Likewise.
+	* libc/machine/arc/strcpy.S: Likewise.
+	* libc/machine/arc/strlen-bs-norm.S: Likewise.
+	* libc/machine/arc/strlen-bs.S: Likewise.
+	* libc/machine/arc/strlen-stub.c: Likewise.
+	* libc/machine/arc/strlen.S: Likewise.
+	* libc/machine/arc/strncpy-bs.S: Likewise.
+	* libc/machine/arc/strncpy-stub.c: Likewise.
+	* libc/machine/arc/strncpy.S: Likewise.
+
+2015-11-12  Anton Kolesov  <Anton.Kolesov@synopsys.com>
+
+	* configure.host: Remove ARC system.
+	* libc/sys/configure: Likewise.
+	* libc/sys/configure.in: Likewise.
+	* libc/sys/arc/Makefile.am: Likewise.
+	* libc/sys/arc/Makefile.in: Likewise.
+	* libc/sys/arc/aclocal.m4: Likewise.
+	* libc/sys/arc/configure: Likewise.
+	* libc/sys/arc/configure.in: Likewise.
+	* libc/sys/arc/crt0.S: Likewise.
+	* libc/sys/arc/dummy.S: Likewise.
+	* libc/sys/arc/isatty.c: Likewise.
+	* libc/sys/arc/mem-layout.c: Likewise.
+	* libc/sys/arc/sbrk.c: Likewise.
+	* libc/sys/arc/sys/syscall.h: Likewise.
+	* libc/sys/arc/syscalls.c: Likewise.
+
+2015-11-12  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* testsuite/lib/flags.exp (libgloss_link_flags): Drop multilibtop
+	from target_build_path.
+
+2015-11-06  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* doc/makedoc.c (iscommand): Only allow commands to have trailing
+	spaces, not space separated words.
+
+2015-11-06  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libm/mathfp/s_acos.c: Fix QUICKREF.
+	* libm/mathfp/e_acosh.c: Ditto.
+	* libm/math/w_asin.c: Ditto.
+	* libm/mathfp/e_acosh.c: Ditto.
+	* libm/mathfp/s_acos.c: Ditto.
+
+2015-11-06  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* doc/doc.str: Fix INTERNAL_DEFINITION, INTERNAL_FUNCTION and
+	INTERNAL.
+
+2015-11-12  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* newlib/libc/machine/aarch64/memcpy.S (memcpy): Further tuning for
+	performance.
+
+2015-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* libc/machine/arm/strcmp-arm-tiny.S: Use .cfi_sections
+	.debug_frame.
+	* libc/machine/arm/strcmp-armv4.S: Likewise.
+	* libc/machine/arm/strcmp-armv4t.S: Likewise.
+	* libc/machine/arm/strcmp-armv6.S: Likewise.
+	* libc/machine/arm/strcmp-armv6m.S: Likewise.
+	* libc/machine/arm/strcmp-armv7.S: Likewise.
+	* libc/machine/arm/strcmp-armv7m.S: Likewise.
+
+2015-11-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/Makefile.am: Drop MEMCHR_SRC and MEMCHR_OBJ.
+	* libc/machine/arm/Makefile.in: Regenerate.
+	* libc/machine/arm/memchr-stub.c: New.
+	* libc/machine/arm/memchr.S: Adjust comments.  Include memchr.c and
+	acle-compat.h.  Make .arch directive architecture dependent.
+	* libc/machine/arm/configure.in (HAVE_ARMV7): Remove.
+	* libc/machine/arm/configure: Regenerate.
+
+2015-11-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/Makefile.am: Drop MEMCPY_SRC and MEMCPY_OBJ.
+	* libc/machine/arm/Makefile.in: Regenerate.
+	* libc/machine/arm/configure.in: Remove HAVE_ARMV8A, HAVE_ARMV7A and
+	HAVE_ARM7M.
+	* libc/machine/arm/configure: Regenerate.
+	* libc/machine/arm/memcpy-stub.c: New.
+	* libc/machine/arm/memcpy.c: Adjust copyright year.  Adjust comments.
+	Include acle-compat.h.
+
+2015-11-06  Olivier Martin  <olivier@labapart.com>
+
+	* libc/include/stdlib.h (mktemp): Change attribute to deprecated.
+	(_mktemp_r): Ditto.
+
+2015-11-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* libc/machine/arm/configure.in: Check for __ARM_ARCH_8A__.
+	* libc/machine/arm/memcpy.S: Handle __ARM_ARCH_8A__.
+	* libc/machine/arm/Makefile.am: Consider HAVE_ARMV8A in memcpy
+	selection.
+	* libc/machine/arm/Makefile.in: Regenerate.
+	* libc/machine/arm/configure: Regenerate.
+
+2015-11-02  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* HOWTO: Update.
+	* Makefile.shared: Move documentation rules to here...
+	* libc/argz/Makefile.am: ... from here ...
+	* libc/ctype/Makefile.am: ... and here.
+	* libc/errno/Makefile.am: Ditto.
+	* libc/iconv/Makefile.am: Ditto.
+	* libc/iconv/ccs/Makefile.am : Ditto.
+	* libc/iconv/ces/Makefile.am: Ditto.
+	* libc/iconv/lib/Makefile.am: Ditto.
+	* libc/locale/Makefile.am: Ditto.
+	* libc/misc/Makefile.am: Ditto.
+	* libc/posix/Makefile.am: Ditto.
+	* libc/reent/Makefile.am: Ditto.
+	* libc/search/Makefile.am: Ditto.
+	* libc/stdio/Makefile.am: Ditto.
+	* libc/stdio64/Makefile.am: Ditto.
+	* libc/stdlib/Makefile.am : Ditto.
+	* libc/string/Makefile.am: Ditto.
+	* libc/syscalls/Makefile.am: Ditto.
+	* libc/time/Makefile.am : Ditto.
+	* libc/unix/Makefile.am: Ditto.
+	* libc/xdr/Makefile.am: Ditto.
+	* libm/common/Makefile.am: Ditto.
+	* libm/complex/Makefile.am: Ditto.
+	* libm/math/Makefile.am: Ditto.
+	* libm/mathfp/Makefile.am: Ditto.
+
+2015-11-02  Jon Turney  <jon.turney@dronecode.org.uk>
+
+        * libc/time/wcsftime.c: Consistently use an em-dash in FUNCTION
+summary.
+        * libm/common/isgreater.c: Ditto.
+        * libm/common/s_fdim.c: Ditto.
+        * libm/common/s_fma.c: Ditto.
+        * libm/common/s_fmax.c: Ditto.
+        * libm/common/s_fmin.c: Ditto.
+        * libm/common/s_infinity.c: Ditto.
+        * libm/common/s_isnan.c: Ditto.
+        * libm/common/s_log2.c: Ditto.
+        * libm/common/s_logb.c: Ditto.
+        * libm/common/s_lrint.c: Ditto.
+        * libm/common/s_lround.c: Ditto.
+        * libm/common/s_nearbyint.c: Ditto.
+        * libm/common/s_remquo.c: Ditto.
+        * libm/common/s_rint.c: Ditto.
+        * libm/common/s_round.c: Ditto.
+        * libm/common/s_scalbn.c: Ditto.
+        * libm/common/s_signbit.c: Ditto.
+        * libm/common/s_trunc.c: Ditto.
+        * libm/math/w_exp2.c: Ditto.
+        * libm/math/w_gamma.c: Ditto.
+
+2015-11-02  Jon Turney  <jon.turney@dronecode.org.uk>
+
+        * libc/stdio/fseek.c: Add missing semicolons to prototypes in
+        SYNOPSIS.
+        * libc/stdio/fwide.c: Ditto.
+        * libc/stdio64/fseeko64.c: Ditto.
+        * libc/string/strtok.c: Ditto.
+        * libc/string/wcstok.c: Ditto.
+        * libm/math/w_cosh.c: Ditto.
+        * libm/math/w_fmod.c:  Ditto.
+        * libm/mathfp/s_cosh.c: Ditto.
+        * libm/mathfp/s_fmod.c: Ditto.
+
+2015-11-02  Steve Ellcey  <sellcey@imgtec.com>
+
+	* libc/machine/mips/memcpy.S (memcpy): Add word copies for small
+	aligned data.
+
+2015-10-30  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/pthread.h: Include <sched.h> instead of <sys/sched.h>.
+
+2015-10-26  Brian Inglis  <Brian.Inglis@SystematicSw.ab.ca>
+
+	* libc/time/strftime.c (__strftime): add support for %s (seconds from
+	Unix epoch).  Fix whitespaces.
+
+2015-10-19  Nick Clifton  <nickc@redhat.com>
+
+	* libc/include/sys/_intsup.h: Add support for 16-bit and 20-bit
+	pointers.
+
+2015-10-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/stdlib/Makefile.am (GENERAL_SOURCES): Add alloc_aligned.c.c.
+	* libc/stdlib/Makefile.in: Regenerate.
+	* libc/stdlib/aligned_alloc.c: New.
+
+2015-10-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/stdlib.h (alloc_aligned): Declare.
+
+2015-10-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/stdlib.h (at_quick_exit): Declare.
+	(quick_exit): Likewise.
+	* libc/stdlib/Makefile.am (GENERAL_SOURCES): Add
+	quick_exit.c.
+	* libc/stdlib/Makefile.in: Regenerate.
+	* libc/stdlib/quick_exit.c: New.
+
+2015-10-13  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/threads.h: New.
+	* libc/sys/rtems/include/machine/_threads.h: Likewise.
+
+2015-10-13  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/sys/cdefs.h: Synchronize with latest FreeBSD
+	version.
+
+2015-10-13  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/include/sys/cdefs.h: Add style changes of latest FreeBSD
+	version.
+
+2015-10-08  Nick Clifton  <nickc@redhat.com>
+
+	* libc/include/machine/setjmp.h (_JBLEN): Define for IA64.
+
+2015-09-22  James Bowman  <james.bowman@ftdichip.com>
+
+	* configure.host (ft32): minimise newlib code size
+
+2015-09-04  James Bowman  <james.bowman@ftdichip.com>
+
+	* configure.host: Add ft32 support.
+	* libc/include/machine/ieeefp.h: Ditto.
+	* libc/include/machine/setjmp.h: Ditto.
+	* libc/machine/configure.in: Ditto.
+	* libc/machine/configure: Ditto.
+	* libc/machine/ft32/Makefile.am: New file.
+	* libc/machine/ft32/Makefile.in: Ditto.
+	* libc/machine/ft32/aclocal.m4: Ditto.
+	* libc/machine/ft32/configure.in: Ditto.
+	* libc/machine/ft32/configure: Ditto.
+	* libc/machine/ft32/memcpy.S: Ditto.
+	* libc/machine/ft32/memset.S: Ditto.
+	* libc/machine/ft32/setjmp.S: Ditto.
+	* libc/machine/ft32/stpcmp.S: Ditto.
+	* libc/machine/ft32/strcmp.S: Ditto.
+	* libc/machine/ft32/strcpy.S: Ditto.
+	* libc/machine/ft32/strlen.S: Ditto.
+
+2015-09-03  Hans-Peter Nilsson  <hp@axis.com>
+
+	* libc/machine/cris/sys/signal.h (kill): Declare.
+
+2015-08-29  Corinna Vinschen  <corinna@vinschen.de>
+
+	* include/sys/unistd.h (_SC_LEVEL*): Add cache-related variables as
+	on Linux.
+
+2015-08-27  Markus Eisenmann  <meisenmann.lba@fh-salzburg.ac.at>
+
+	* libc/machine/arm/strlen-armv7.S: Fix prepocessor check to avoid
+	double definition of strlen.
+
+2015-08-27  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* libc/include/sys/_intsup.h: Defined new __INTxx, __FASTxx and
+	__LEASTxx macro's to hold information regarding the respective types
+	print and scan formats.
+	* libc/include/inttypes.h: Defined LEAST and FAST specific PRI and SCN
+	macro's as these are not always the same as the INT variants. Used the
+	new __INTxx, __FASTxx and __LEASTxx macro's in their corresponding PRI
+	and SCN macros.
+
+2015-08-07  Stefan Wallentowitz  <stefan.wallentowitz@tum.de>
+
+	* libc/sys/or1k/mlock.c: Fix exception enable saving
+
+2015-08-03  Shoichi Sakon  <s-sakon@ap.jp.nec.com>
+
+	* libc/stdio/vfwscanf.c (__SVFWSCANF_R): Convert wrong usage of va_arg
+	to GET_ARG in %lc, %ls nad %l[] cases.  Fix unterminated string in %l[]
+	case.
+
+2015-07-30  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/sys/rtems/include/sys/lock.h (__LOCK_INIT_RECURSIVE): Use
+	proper type.
+
+2015-07-30  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* libc/machine/aarch64/memset.S (memset): Rewrite.
+
+2015-07-28  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	libc/sys/rtems/machine/_types.h: Move to ...
+	libc/sys/rtems/include/machine/_types.h: ... here.
+	libc/sys/rtems/machine/limits.h: Move to ...
+	libc/sys/rtems/include/machine/limits.h: ... here.
+	libc/sys/rtems/machine/param.h: Move to ...
+	libc/sys/rtems/include/machine/param.h: ... here.
+	libc/sys/rtems/sys/cpuset.h: Move to ...
+	libc/sys/rtems/include/sys/cpuset.h: ... here.
+	libc/sys/rtems/sys/dirent.h: Move to ...
+	libc/sys/rtems/include/sys/dirent.h: ... here.
+	libc/sys/rtems/sys/param.h: Move to ...
+	libc/sys/rtems/include/sys/param.h: ... here.
+	libc/sys/rtems/sys/syslimits.h: Move to ...
+	libc/sys/rtems/include/sys/syslimits.h: ... here.
+	libc/sys/rtems/sys/utime.h: Move to ...
+	libc/sys/rtems/include/sys/utime.h: ... here.
+
+2015-07-28  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/sys/rtems/include/sys/lock.h: New.
+
+2015-07-21  Corinna Vinschen  <corinna@vinschen.de>
+
+	* libc/include/machine/setjmp.h (siglongjmp): Declare as function on
+	Cygwin.
+	(sigsetjmp): Ditto.
+	(_longjmp): Mark as noreturn function on Cygwin.
+
+2015-07-15  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* libc/machine/aarch64/memset.S (memset):
+	Revert: Rewrite of optimized memset.
+
+2015-07-13  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* libc/machine/aarch64/memset.S (memset):
+	Rewrite of optimized memset.
+
+2015-07-13  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* libc/machine/aarch64/memcpy.S (memcpy):
+	Rewrite of optimized memcpy.
+
+2015-07-13  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* libc/machine/aarch64/memove.S (memmove):
+	Rewrite of optimized memmove.
+
+2015-07-06  Yaakov Selkowitz  <yselkowi@redhat.com>
+
+	* libc/include/libgen.h (basename): Define as __xpg_basename
+	for source compatibility with glibc.
+	Declare with __ASMNAME("basename") for ABI compatibility.
+	* libc/include/string.h (basename): Define as basename for
+	source compatibility with glibc.
+	Declare with __ASMNAME("__gnu_basename") for ABI compatibility.
+
+2015-07-06  Corinna Vinschen  <corinna@vinschen.de>
+
+	* libc/include/sys/time.h: Explicitely include sys/cdefs.h.
+	* libc/include/sys/types.h: Ditto.  Guard BSD convenience base types
+	with __BSD_VISIBLE rather than !_POSIX_SOURCE.
+
+2015-07-01  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* libc/stdio/fputs.c (_puts_r): Add missing CHECK_INIT().
+	* libc/stdio/gets.c (_gets_r): Add missing _REENT_SMALL_CHECK_INIT() and
+	CHECK_INIT().  Use _stdin_r() to get the file pointer instead of stdin.
+
+2015-06-29  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/ctype/Makefile.in: Regenerate.
+	* libc/posix/Makefile.in: Ditto.
+	* libc/stdio/Makefile.in: Ditto.
+	* libc/stdio64/Makefile.in: Ditto.
+	* libc/stdlib/Makefile.in: Ditto.
+	* libc/string/Makefile.in: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/ctype/Makefile.am (CHEWOUT_FILES): Add isblank.def.
+	* libc/ctype/ctype.tex: Include isblank and add to menu.
+	* libc/posix/Makefile.am (CHEWOUT_FILES): Add posix_spawn.def.
+	* libc/posix/posix.tex: Include posix_spawn and add to menu.
+	* libc/stdio64/Makefile.am (CHEWOUT_FILES): Add fdopen.def.
+	* libc/stdio64/stdio64.tex: Include fdopen64 and add to menu.
+	* libc/stdio64/fdopen64.c: Improve one-line description.
+	* libc/string/Makefile.am (CHEWOUT_FILES): Add strchrnul.def.
+	* libc/string/strings.tex: Include strchrnul and add to menu.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdlib/stdlib.tex: Include itoa and utoa, and add to menu.
+	* libc/string/strings.tex: Include memrchr and rawmemchr, and add
+	to menu.
+	* libm/math/math.tex: Include exp10 and pow10, and add to menu.
+	* libm/common/s_exp10.c: Improve one-line description.
+	* libm/common/s_exp10.c: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdlib/Makefile.am (CHEWOUT_FILES): Remove $(MALLOCR).def.
+	* libc/stdio/Makefile.am (CHEWOUT_FILES): Remove getwc.def and
+	putwc.def.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/locale/locale.c: Fix mismatched parentheses in
+	documentation.
+	* libc/locale/locale.tex: Ditto.
+	* libc/stdio/fgetwc.c: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdlib/efgcvt.c: Fix typo-ed function names in
+	documentation.
+	* libc/stdlib/stdlib.tex: Fix function name in menu to match.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdio/fread.c: Fix inconsistent use of '.' to separate
+	function names in FUNCTION mark up.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdlib/llabs.c: Mark up parameter name in ANSI_SYNOPSIS.
+	* libc/time/tzset.c: Add and mark up parameter in SYNOPSIS.
+	* libm/common/s_nan.c: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdio/getchar_u.c: Fix a non-ANSI prototype in SYNOPSIS.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/string/wcscpy.c: Remove stray ',' from prototype in
+	ANSI_SYNOPSIS.
+	* libc/string/wcpcpy.c: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/stdlib/itoa.c: Fix makedoc markup.
+	* libc/stdlib/wcsnrtombs.c: Ditto.
+
+2015-06-23  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* libc/signal/signal.tex: Use texinfo not makedoc markup.
+	* libc/stdio/stdio.tex: Ditto.
+
+2015-06-22  Corinna Vinschen  <corinna@vinschen.de>
+
+	* libc/include/sys/signal.h: Include forgotten sys/cdefs.h.
+
+2015-06-20  Corinna Vinschen  <corinna@vinschen.de>
+
+	* libc/include/sys/signal.h: Move altstack macros completely
+	outside of rtems block.
+
+2015-06-19  Corinna Vinschen  <corinna@vinschen.de>
+
+	* libc/include/sys/signal.h: Define SS_ONSTACK and SS_DISABLE
+	unconditionally.
+	(sigaltstack): Enable prototype on Cygwin.
+
+2015-06-15  Freddie Chopin  <freddie_chopin@op.pl>
+
+	* libc/time/gmtime_r.c (gmtime_r): use faster algorithm from
+	civil_from_days() by Howard Hinnant
+
+2015-06-01  Hale Wang  <hale.wang@arm.com>
+
+	* libc/machine/arm/aeabi_memmove-arm.S (__aeabi_memmove): Update the
+	assembler implementation.
+	* libc/machine/arm/aeabi_memmove-thumb.S (__aeabi_memmove): Ditto.
+	* libc/machine/arm/aeabi_memmove-thumb2.S (__aeabi_memmove): Ditto.
+	* libc/machine/arm/aeabi_memset-arm.S (__aeabi_memset): Ditto.
+	* libc/machine/arm/aeabi_memset-thumb.S (__aeabi_memset): Ditto.
+	* libc/machine/arm/aeabi_memset-thumb2.S (__aeabi_memset): Ditto.
+
+2015-06-01  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* libm/machine/aarch64/e_sqrt.c: New file.
+	* libm/machine/aarch64/ef_sqrt.c: New file.
+	* libm/machine/aarch64/s_fabs.c: New file.
+	* libm/machine/aarch64/sf_fabs.c: New file.
+	* libm/machine/aarch64/Makefile.in: Add new source files.
+	* libm/machine/aarch64/Makefile.am: Regenerate.
+
+2015-05-31  David Stacey  <drstacey@tiscali.co.uk>
+
+	* libc/argz/argz_replace.c (argz_replace): Correct behaviour when memory
+	is exhausted.
+
+2015-05-28  Corinna Vinschen  <vinschen@redhat.com>
+
+	* libc/include/sys/wait.h: Fix comment.
+
+2015-05-27  David Stacey  <drstacey@tiscali.co.uk>
+
+	* libc/argz/argz_replace.c: Fix potential memory leak.
+
+2015-05-26  DJ Delorie  <dj@redhat.com>
+
+	* libm/math/e_sqrt.c (__ieee754_sqrt): Don't truncate constant to
+	"int".
+
+2015-05-13  Nick Clifton  <nickc@redhat.com>
+
+	* libm/common/s_signbit.c (__signbitf): Fix for 16-bit targets.
+	(__signbitd): Likewise.
+
+2015-05-02  Corinna Vinschen  <vinschen@redhat.com>
+
+	* libc/include/sys/time.h: Include sys/select.h on Cygwin.  Explain why.
+
+2015-04-29  Corinna Vinschen  <vinschen@redhat.com>
+
+	* libc/include/sys/config.h: Move evaluation of _UINTPTR_EQ_ULONG and
+	_UINTPTR_EQ_ULONGLONG from here...
+	* libc/include/sys/_intsup.h: ...to here.  Rename to _INTPTR_EQ_LONG
+	and _INTPTR_EQ_LONGLONG to refer to signed base type.  Add test for
+	base type of int32_t and set _INT32_EQ_LONG accordingly.
+	* libc/include/stdint.h: Change checks for __have_long32 to checks
+	for _INT32_EQ_LONG.
+	* libc/include/inttypes.h: Ditto.  Accommodate aforementioned name
+	change.
+
 2015-04-22  Corinna Vinschen  <vinschen@redhat.com>
 
 	* libc/include/libgen.h (basename): Drop defining _BASENAME_DEFINED.

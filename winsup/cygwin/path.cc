@@ -48,7 +48,12 @@
      c: means c:\.
   */
 
-#define _BASENAME_DEFINED
+/* This file includes both the XPG and GNU basename functions, with the
+   former exported as "basename" for ABI compatibility but the latter
+   declared as such for source compatibility with glibc.  This tells
+   <string.h> not to declare the GNU variant in order to prevent a conflicting
+   declaration error with the XPG variant implemented herein. */
+#define basename basename
 #include "winsup.h"
 #include "miscfuncs.h"
 #include <ctype.h>
@@ -70,6 +75,7 @@
 #include <ntdll.h>
 #include <wchar.h>
 #include <wctype.h>
+#undef basename
 
 suffix_info stat_suffixes[] =
 {
@@ -2049,9 +2055,10 @@ symlink_worker (const char *oldpath, const char *newpath, bool isdevice)
 	  __seterrno_from_nt_status (status);
 	  __leave;
 	}
-      if (io.Information == FILE_CREATED && win32_newpath.has_acls ())
-	set_created_file_access (fh, win32_newpath,
-				 S_IFLNK | STD_RBITS | STD_WBITS);
+      if (win32_newpath.has_acls ())
+	set_file_attribute (fh, win32_newpath, ILLEGAL_UID, ILLEGAL_GID,
+			    (io.Information == FILE_CREATED ? S_JUSTCREATED : 0)
+			    | S_IFLNK | STD_RBITS | STD_WBITS);
       status = NtWriteFile (fh, NULL, NULL, NULL, &io, buf, cp - buf,
 			    NULL, NULL);
       if (NT_SUCCESS (status) && io.Information == (ULONG) (cp - buf))
@@ -2160,7 +2167,7 @@ symlink_info::check_shortcut (HANDLE h)
 	{
 	  char *tmpbuf = tp.c_get ();
 	  if (sys_wcstombs (tmpbuf, NT_MAX_PATH, (PWCHAR) (cp + 2))
-	      > SYMLINK_MAX + 1)
+	      > SYMLINK_MAX)
 	    return 0;
 	  res = posixify (tmpbuf);
 	}
@@ -2241,7 +2248,7 @@ symlink_info::check_sysfile (HANDLE h)
 	    srcbuf += 2;
 	  char *tmpbuf = tp.c_get ();
 	  if (sys_wcstombs (tmpbuf, NT_MAX_PATH, (PWCHAR) srcbuf)
-	      > SYMLINK_MAX + 1)
+	      > SYMLINK_MAX)
 	    debug_printf ("symlink string too long");
 	  else
 	    res = posixify (tmpbuf);
@@ -2282,7 +2289,13 @@ symlink_info::check_reparse_point (HANDLE h, bool remote)
     {
       debug_printf ("NtFsControlFile(FSCTL_GET_REPARSE_POINT) failed, %y",
 		    status);
-      set_error (EIO);
+      /* When accessing the root dir of some remote drives (observed with
+	 OS X shares), the FILE_ATTRIBUTE_REPARSE_POINT flag is set, but
+	 the followup call to NtFsControlFile(FSCTL_GET_REPARSE_POINT)
+	 returns with STATUS_NOT_A_REPARSE_POINT.  That's quite buggy, but
+	 we cope here with this scenario by not setting an error code. */
+      if (status != STATUS_NOT_A_REPARSE_POINT)
+	set_error (EIO);
       return 0;
     }
   if (rp->ReparseTag == IO_REPARSE_TAG_SYMLINK)
@@ -2355,7 +2368,7 @@ symlink_info::check_nfs_symlink (HANDLE h)
       PWCHAR spath = (PWCHAR)
 		     (pffei->EaName + pffei->EaNameLength + 1);
       res = sys_wcstombs (contents, SYMLINK_MAX + 1,
-			  spath, pffei->EaValueLength) - 1;
+			  spath, pffei->EaValueLength);
       pflags |= PATH_SYMLINK;
     }
   return res;
@@ -2815,7 +2828,8 @@ restart:
 	    }
 	  else
 	    {
-	      status = file_get_fnoi (h, fs.is_netapp (), conv_hdl.fnoi ());
+	      status = file_get_fnoi (h, fs.has_broken_fnoi (),
+				      conv_hdl.fnoi ());
 	      if (NT_SUCCESS (status))
 		fileattr = conv_hdl.fnoi ()->FileAttributes;
 	    }
@@ -4737,8 +4751,6 @@ out:
   MALLOC_CHECK;
   return buf;
 }
-
-#undef basename
 
 /* No need to be reentrant or thread-safe according to SUSv3.
    / and \\ are treated equally.  Leading drive specifiers are

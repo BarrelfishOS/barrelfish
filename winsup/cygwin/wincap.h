@@ -1,7 +1,7 @@
 /* wincap.h: Header for OS capability class.
 
    Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012, 2013, 2014 Red Hat, Inc.
+   2012, 2013, 2014, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -14,6 +14,7 @@ details. */
 
 struct wincaps
 {
+  DWORD    def_guard_pages;
   DWORD    max_sys_priv;
   unsigned is_server                                    : 1;
   unsigned has_mandatory_integrity_control		: 1;
@@ -39,6 +40,10 @@ struct wincaps
   unsigned terminate_thread_frees_stack			: 1;
   unsigned has_precise_system_time			: 1;
   unsigned has_microsoft_accounts			: 1;
+  unsigned has_set_thread_stack_guarantee		: 1;
+  unsigned has_broken_rtl_query_process_debug_information : 1;
+  unsigned has_processor_groups				: 1;
+  unsigned has_broken_prefetchvm			: 1;
 };
 
 class wincapc
@@ -64,6 +69,10 @@ public:
 
 #define IMPLEMENT(cap) cap() const { return ((wincaps *) this->caps)->cap; }
 
+  DWORD def_guard_page_size () const
+  {
+    return ((wincaps *) this->caps)->def_guard_pages * page_size ();
+  }
   DWORD IMPLEMENT (max_sys_priv)
   bool  IMPLEMENT (is_server)
   bool	IMPLEMENT (has_mandatory_integrity_control)
@@ -89,6 +98,10 @@ public:
   bool	IMPLEMENT (terminate_thread_frees_stack)
   bool	IMPLEMENT (has_precise_system_time)
   bool	IMPLEMENT (has_microsoft_accounts)
+  bool	IMPLEMENT (has_set_thread_stack_guarantee)
+  bool	IMPLEMENT (has_broken_rtl_query_process_debug_information)
+  bool	IMPLEMENT (has_processor_groups)
+  bool	IMPLEMENT (has_broken_prefetchvm)
 
 #undef IMPLEMENT
 };

@@ -1,10 +1,193 @@
-2015-04-16  Corinna Vinschen  <corinna@vinschen.de>
+2015-11-02  Corinna Vinschen  <corinna@vinschen.de>
 
-	* utils.xml (setfacl): Show new option output.
+	* new-features.xml (ov-new2.3): Document Parallels Desktop FS support.
 
-2015-04-16  Corinna Vinschen  <corinna@vinschen.de>
+2015-10-27  Corinna Vinschen  <corinna@vinschen.de>
 
-	* utils.xml (getfacl): Show new option output.
+	* new-features.xml (ov-new2.3): Document strftime %s addition.
+
+2015-10-22  Corinna Vinschen  <corinna@vinschen.de>
+
+	* posix.xml (std-iso): New section.
+	(std-deprec): Rearrange title text.
+	* new-features.xml (ov-new2.3): Document aligned_alloc, at_quick_exit,
+	quick_exit.
+
+2015-10-06  Ken Brown  <kbrown@cornell.edu>
+
+	* faq-using.xml (faq.using.same-with-permissions): New entry.
+
+2015-09-07  Brian Inglis  <Brian.Inglis@SystematicSw.ab.ca>
+
+	* faq-using.xml (faq.using.man): Replace makewhatis with mandb.
+
+2015-08-29  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new2.3): Document sysconf cache addition.
+
+2015-08-27  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new2.3): New section, document posix_madvise
+	POSIX_MADV_WILLNEED/POSIX_MADV_DONTNEED change.
+
+2015-08-18  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* faq-using.xml (faq.using.bloda): Add Lavasoft Web Companion to
+	BLODA list.
+
+2015-08-03  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* faq-programming.xml: Improve debugging-cygwin answer.
+
+2015-07-21  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new2.2): Document sigsetjmp, siglongjmp.
+
+2015-07-17  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new2.2): Add new section.  Document getcontext,
+	setcontext, makecontext, swapcontext.
+	* posix.xml (std-deprec): Add getcontext, setcontext, makecontext,
+	swapcontext.
+
+2015-07-05  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* configure.ac: Add check for DOCBOOK2XTEXI
+	* configure: Regenerate.
+	* Makefile.in (DOCBOOK2XTEXI): Use.
+
+2015-06-22  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* README: Update.
+
+2015-06-22  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (FAQ_SOURCES): Remove and generate with xidepend.
+
+2015-06-22  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* utils.xml: Remove 'Usage' prefix from synopses.
+
+2015-06-22  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (intro2man.stamp): Add.
+	* intro.xml: New file.
+
+2015-06-22  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (install-info, cygwin-ug-net.info)
+	(cygwin-api.info): Add.
+	* cygwin-ug-net.xml: Add texinfo-node.
+	* cygwin-api.xml: Ditto.
+	* ntsec.xml (db_home): Add texinfo-node for titles containing a
+	':' which are the targets of an xref.
+
+2015-06-20  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new2.1): Add alterante signal stack info.
+	* posix.xml (std-susv4): Move sigaltstack here.
+
+2015-06-19  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (install-man): Fix command to create man3 install
+	directory.
+
+2015-06-17  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* man.xsl: New file.
+	* Makefile.in (utils2man.stamp, api2man.stamp): Use it.
+
+2015-06-17  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (api2man.stamp): Add rules to build and install
+	manpages for cygwin-api.
+
+2015-06-17  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* cygwin-api.xml: Move introductory paragraph here.
+	* logon-funcs.xml: Convert from using a sect2 element to using a
+	refentry element for each function.
+	* misc-funcs.xml: Ditto.
+	* path.xml: Ditto.
+
+2015-06-17  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* fo.xsl: Render funcsynopsis elements as ANSI style function
+	prototypes.
+	* html.xsl: Ditto.
+
+2015-06-17  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* html.xsl: Renamed from cygwin.xsl.
+
+2015-06-17  Corinna Vinschen  <corinna@vinschen.de>
+
+	* posix.xml (std-bsd): Add sethostname.
+
+2015-06-17  Corinna Vinschen  <corinna@vinschen.de>
+
+	* new-features.xml (ov-new): Rename from ov-new1.7.
+	(ov-new2.1): Add new section.  Document sethostname.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (install-man, utils2man.stamp): Add rules to build
+	and install manpages for utils.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* utils.xml : Convert from using a sect2 element to using a
+	refentry element for each utility program.
+	* cygwin.xsl: Customize autotoc to include refentries.
+	* fo.xsl: Ditto.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (cygwin-ug-net/cygwin-ug-net-nochunks.html.gz):
+	Ensure cygwin-ug-net directory exists.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* xidepend: Write a Makefile fragment defining variables
+	containing all the XIncluded sources, rather than a dependency on
+	those sources.
+	* Makefile.in: Use that variable to express the dependency.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (cygwin-ug-net/cygwin-ug-net.pdf)
+	(cygwin-api/cygwin-api.pdf): Use fo.xsl to customized DocBook
+	XML->PDF conversion.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* cygwin-ug-net.xml: Remove incorrect unused date.
+	* utils.xml : Remove .exe suffix inconsistently added in a few
+	places.  Tidy up some trailing whitespace.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* xidepend: Fix to handle relative pathnames.
+
+2015-06-12  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in (.PHONY): Remove tarball target.
+
+2015-06-04  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* Makefile.in: Remove ancient unused rules to make a documentation
+	tarball.
+
+2015-06-01  Jon Turney  <jon.turney@dronecode.org.uk>
+
+	* ov-ex-unix.xml: Remove unhelpful mention of and inaccurate size
+	estimate for installing everything.
+	* ov-ex-win.xml: Ditto.
+
+2015-04-27  Mike DePaulo  <mikedep333@gmail.com>
+
+	* cygserver.xml (install-cygserver): Add new section. How to install
+	Cygserver.
 
 2015-04-10  Corinna Vinschen  <corinna@vinschen.de>
 

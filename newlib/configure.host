@@ -100,8 +100,8 @@ case "${host_cpu}" in
 	machine_dir=aarch64
 	libm_machine_dir=aarch64
 	;;
-  arc)
-	machine_dir=
+  arc*)
+	machine_dir=arc
 	;;
   arm*)
 	machine_dir=arm
@@ -140,6 +140,10 @@ case "${host_cpu}" in
 	;;
   frv)
 	machine_dir=frv
+        ;;
+  ft32*)
+        machine_dir=ft32
+        newlib_cflags="${newlib_cflags} -DPREFER_SIZE_OVER_SPEED"
         ;;
   h8300)
 	machine_dir=h8300
@@ -394,9 +398,6 @@ case "${host}" in
 	sys_dir=a29khif
 	signal_dir=
 	;;
-  arc-*-*)
-	sys_dir=arc
-	;;
   arm*-*-*)
 	sys_dir=arm
 	if [ "x${newlib_may_supply_syscalls}" = "xno" ] ; then
@@ -424,6 +425,9 @@ case "${host}" in
 	have_crt0="no"
 	;;
   frv*)
+        sys_dir=
+        ;;
+  ft32*)
         sys_dir=
         ;;
   h8300-*-hms*)
@@ -607,8 +611,9 @@ case "${host}" in
 	default_newlib_io_long_long="yes"
 	syscall_dir=syscalls
 	;;
-  arc-*-*)
+  arc*-*-*)
 	syscall_dir=syscalls
+	default_newlib_io_long_long="yes"
 	;;
   arm*-*-pe)
 	syscall_dir=syscalls
@@ -626,9 +631,6 @@ case "${host}" in
 #         newlib_cflags="${newlib_cflags} -DARM_RDP_MONITOR"
 	  newlib_cflags="${newlib_cflags} -DARM_RDI_MONITOR"
 	fi
-	;;
-  arc*)
-	newlib_cflags="${newlib_cflags} -DREENTRANT_SYSCALLS_PROVIDED"
 	;;
   avr*)
 	newlib_cflags="${newlib_cflags} -DNO_EXEC -DSMALL_MEMORY -DMISSING_SYSCALL_NAMES"
@@ -670,6 +672,9 @@ case "${host}" in
   frv-*-*)
         syscall_dir=syscalls
 	default_newlib_io_long_long="yes"
+        ;;
+  ft32*-*-*)
+        syscall_dir=syscalls
         ;;
   h8300*-*-*)
 	syscall_dir=syscalls	

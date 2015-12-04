@@ -1,6 +1,6 @@
 /* wow64.cc
 
-   Copyright 2011, 2012 Red Hat, Inc.
+   Copyright 2011, 2012, 2015 Red Hat, Inc.
 
 This file is part of Cygwin.
 
@@ -192,19 +192,17 @@ wow64_revert_to_original_stack (PVOID &allocationbase)
 void
 wow64_respawn_process ()
 {
-  WCHAR path[PATH_MAX];
   PROCESS_INFORMATION pi;
   STARTUPINFOW si;
   DWORD ret = 0;
 
-  GetModuleFileNameW (NULL, path, PATH_MAX);
   GetStartupInfoW (&si);
-  if (!CreateProcessW (path, GetCommandLineW (), NULL, NULL, TRUE,
+  if (!CreateProcessW (global_progname, GetCommandLineW (), NULL, NULL, TRUE,
 		       CREATE_DEFAULT_ERROR_MODE
 		       | GetPriorityClass (GetCurrentProcess ()),
 		       NULL, NULL, &si, &pi))
     api_fatal ("Failed to create process <%W> <%W>, %E",
-	       path, GetCommandLineW ());
+	       global_progname, GetCommandLineW ());
   CloseHandle (pi.hThread);
   if (WaitForSingleObject (pi.hProcess, INFINITE) == WAIT_FAILED)
     api_fatal ("Waiting for process %u failed, %E", pi.dwProcessId);

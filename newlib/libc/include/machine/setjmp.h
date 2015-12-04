@@ -250,12 +250,20 @@ _BEGIN_STD_C
 #define _JBLEN 10
 #endif
 
+#ifdef  __FT32__
+#define _JBLEN 27
+#endif
+
 #ifdef __iq2000__
 #define _JBLEN 32
 #endif
 
 #ifdef __mcore__
 #define _JBLEN 16
+#endif
+
+#ifdef __arc__
+#define _JBLEN 25 /* r13-r30,blink,lp_count,lp_start,lp_end,mlo,mhi,status32 */
 #endif
 
 #ifdef __MMIX__
@@ -285,6 +293,10 @@ _BEGIN_STD_C
 
 #ifdef __CRIS__
 #define _JBLEN 18
+#endif
+
+#ifdef __ia64
+#define _JBLEN 64
 #endif
 
 #ifdef __lm32__
@@ -381,6 +393,13 @@ typedef int sigjmp_buf[_JBLEN+1+(sizeof (sigset_t)/sizeof (int))];
 #define __SIGMASK_FUNC sigprocmask
 #endif
 
+#ifdef __CYGWIN__
+/* Per POSIX, siglongjmp has to be implemented as function.  Cygwin
+   provides functions for both, siglongjmp and sigsetjmp since 2.2.0. */
+extern void siglongjmp (sigjmp_buf, int) __attribute__ ((__noreturn__));
+extern int sigsetjmp (sigjmp_buf, int);
+#endif
+
 #if defined(__GNUC__)
 
 #define sigsetjmp(env, savemask) \
@@ -418,8 +437,8 @@ typedef int sigjmp_buf[_JBLEN+1+(sizeof (sigset_t)/sizeof (int))];
    are equivalent to sigsetjmp/siglongjmp when not saving the signal mask.
    New applications should use sigsetjmp/siglongjmp instead. */
 #ifdef __CYGWIN__
-extern void _longjmp(jmp_buf, int);
-extern int _setjmp(jmp_buf);
+extern void _longjmp (jmp_buf, int) __attribute__ ((__noreturn__));
+extern int _setjmp (jmp_buf);
 #else
 #define _setjmp(env)		sigsetjmp ((env), 0)
 #define _longjmp(env, val)	siglongjmp ((env), (val))
