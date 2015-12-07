@@ -1,15 +1,15 @@
-{- 
+{-
    Glossary: a simple glossary generator for Barrelfish
-   
+
   Copyright (c) 2010, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 -}
-  
-module Main where 
+
+module Main where
 
 import System.Exit
 import System.IO
@@ -24,13 +24,13 @@ data Entry = Entry {
 } deriving (Show,Eq)
 
 
-glossary :: [ Entry ] 
-glossary = [ Entry "dispatcher control block" [ "DCB" ] 
-             
+glossary :: [ Entry ]
+glossary = [ Entry "dispatcher control block" [ "DCB" ]
+
              "Data structure representing the dispatcher.  DCBs are \
              \referred to by specially typed capabilities.",
 
-             Entry "CPU driver" [] 
+             Entry "CPU driver" []
 
              "The code running on a core which executes in kernel or \
              \privileged mode.  CPU drivers are the Barrelfish \
@@ -39,8 +39,8 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \drivers are typically non-preemptible, \
              \single-threaded, and mostly stateless.",
 
-             Entry "Mackerel" [] 
-             
+             Entry "Mackerel" []
+
              "The Domain Specific Language used in Barrelfish to specify \
              \device hardware registers and hardware-defined in-memory \
              \data structures.  The Mackerel compiler takes such a \
@@ -89,7 +89,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \Haskell and generates code in C or THC.  Flounder \
              \generates specialized code for each Interconnect Driver \
              \in a system.",
-             
+
              Entry "Hake" [ "Hakefile" ]
 
              "The build system for Barrelfish.  The Barrelfish source \
@@ -107,14 +107,14 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \constructs can be used to specify how to build files for \
              \different targets.",
 
-             Entry "Elver" [] 
+             Entry "Elver" []
 
              "An intermediate boot loader for booting 64-bit \
              \ELF images on Intel-architecture machines where the main \
              \boot loader (such as Grub) does not support entering a \
              \kernel in long mode.  Elver is specified as the first \
              \module of the multiboot image, and puts the boot \
-             \processor into long mode before jumping to the CPU \ 
+             \processor into long mode before jumping to the CPU \
              \driver, which is assumed to be in the second multiboot \
              \module.",
 
@@ -135,7 +135,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \Filet-o-Fish) to express error conditions and messages \
              \for Barrelfish.  Fugu offloads the problem of tracking \
              \error messages and code, and also implements a short \
-             \error ``stack'' in machine word to provide more detailed \ 
+             \error ``stack'' in machine word to provide more detailed \
              \error information.  Fugu generates the \\texttt{errno.h} \
              \file.",
 
@@ -157,7 +157,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \intra-machine multicast. The SKB runs as a system service \
              \accessed by message passing.",
 
-             Entry "Octopus" [] 
+             Entry "Octopus" []
 
              "A service built on (and colocated with) the SKB which \
              \provides locking functionality inspired by Chubby and \
@@ -183,13 +183,13 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \variable number of bits of this address at each level. \
              \This means that capabilities used frequently should be \
              \stored near the top of the tree, preferably in the root \
-             \CNode.  Some CPU drivers allow a fast path where the \ 
+             \CNode.  Some CPU drivers allow a fast path where the \
              \32-bit address is implicitly assumed to simply an offset \
              \in the root CNode.  The capability for the root CNode can \
              \be efficiently found from the DCB; note that, unlike the \
              \vspace, the cspace is purely local to a core and cannot \
              \be shared between dispatchers on difference cores.",
-             
+
              Entry "vspace" []
 
              "An object representing a virtual address space.  Unlike \
@@ -201,7 +201,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \created in a vspace by specifying capabilities to regions \
              \of memory that are mappable (such as frame \
              \capabilities).",
-             
+
              Entry "Aquarium" []
 
              "A visualization tool for Barrelfish trace data. Aquarium \
@@ -221,7 +221,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \CPU drivers, among other things. \
              \Surprisingly, Hamlet is a type of fish.",
 
-             Entry "Local Message Passing" [ "LMP" ] 
+             Entry "Local Message Passing" [ "LMP" ]
 
              "Each Barrelfish CPU driver includes a special \
              \Interconnect Driver for passing messages between \
@@ -242,7 +242,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \The term is from K42.",
 
              Entry "monitor" []
-                   
+
              "A privileged process running on a core which handles \
              \most core OS functionality not provided by the CPU \
              \driver.  Since CPU drivers do not directly communicate \
@@ -290,14 +290,14 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \of capability types understood by Barrelfish is defined \
              \using the Hamlet language.",
 
-             Entry "physical address capability" [] 
+             Entry "physical address capability" []
 
              "A capability referring to a raw region of physical \
              \address space.  This is the most basic type of \
              \capability; all other capability types which refer to \
              \memory are ultimately subtypes of this.",
 
-             Entry "RAM capability" [] 
+             Entry "RAM capability" []
 
              "A capability type which refers to a region of Random \
              \Access Memory.  A direct subtype of a Physical Address \
@@ -309,7 +309,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \address space containing memory-mapped I/O registers. A \
              \direct subtype of a Physical Address capability.",
 
-                                
+
              Entry "CNode capability" []
 
              "A capability type referring to a CNode.",
@@ -335,7 +335,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \endpoint.  Posession of such a capability enables the \
              \holder to send a message to endpoint.",
 
-             Entry "frame capability" [] 
+             Entry "frame capability" []
 
              "A capability refering to a \
              \set of page frames which can be mapped into a \
@@ -343,7 +343,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \subtype of RAM capabilities; the latter cannot be \
              \mapped.",
 
-             Entry "kernel capability" [] 
+             Entry "kernel capability" []
 
              "A capability enabling the holder to manipulate CPU \
              \driver data structures (in particular, the capability \
@@ -364,7 +364,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \operations on Intel architecture machines.  Each IO \
              \capability grants access to a range of IO space addresses \
              \on a specific core.",
-             
+
              Entry "capability node" [ "cnode" ]
 
              "A region of RAM containing capabilities.  A CNode cannot \
@@ -387,7 +387,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "A tool used to build a boot image in the proprietary Intel \
              \``32.obj'' format, for booting on the Single-chip Cloud \
              \Computer.",
- 
+
              Entry "Pleco" []
 
              "The Domain Specific Language used in Barrelfish to specify \
@@ -411,7 +411,19 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \(loads and stores became RPCs to the memory system). \
              \Barrelfish was ported to the Beehive processor but \
              \support for the architecture was eventually dropped \
-             \after the Beehive project completed.", 
+             \after the Beehive project completed.",
+
+
+             Entry "BSP Core" []
+
+             "Refers to the bootstrap processor, meaning the first \
+             \processor that is usually booted by the boot-loader or firmware on a hardware \
+             \architecture.",
+
+             Entry "APP Core" []
+             "Application processor, processors booted either by the BSP \
+             \or other APP cores and not the initial boot-loader or firmware.",
+
 
              Entry "ZZZ terms yet to be added" []
 
@@ -421,27 +433,27 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
 
 
 compare_entry :: Entry -> Entry -> Ordering
-compare_entry (Entry k1 _ _) (Entry k2 _ _) = 
+compare_entry (Entry k1 _ _) (Entry k2 _ _) =
     compare (map Data.Char.toLower k1) (map Data.Char.toLower k2)
 
 format_glossary :: [Entry] -> String
-format_glossary gl = 
+format_glossary gl =
     let full_gl = gl ++ (expand_aliases gl)
         sort_gl = sortBy compare_entry full_gl
     in unlines [ format_entry e | e <- sort_gl ]
 
 format_entry :: Entry -> String
-format_entry (Entry title aliases description) = 
+format_entry (Entry title aliases description) =
     printf "\\item[%s:] %s\n" (format_aliases title aliases) description
 
 format_aliases :: String -> [String] -> String
 format_aliases t [] = t
-format_aliases t al = 
+format_aliases t al =
     printf "%s \\textrm{\\textit{(%s)}}" t (concat $ intersperse ", " al)
 
 expand_aliases :: [Entry] -> [Entry]
-expand_aliases el = 
-    let expand_alias (Entry name alist _) = 
+expand_aliases el =
+    let expand_alias (Entry name alist _) =
             [ Entry a [] ("See \\textit{" ++ name ++ "}.") | a <- alist ]
     in nub $ concat [ expand_alias e | e <- el ]
 
