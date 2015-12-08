@@ -26,9 +26,12 @@ data Entry = Entry {
 
 glossary :: [ Entry ]
 glossary = [ Entry "dispatcher control block" [ "DCB" ]
-
-             "Data structure representing the dispatcher.  DCBs are \
+             "The kernel object representing the dispatcher.  DCBs are \
              \referred to by specially typed capabilities.",
+
+             Entry "kernel control block" ["KCB"]
+             "The kernel object representing all per-core state. KCBs are \
+             \referred to by special capability types.",
 
              Entry "CPU driver" []
 
@@ -239,7 +242,8 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \application can be viewed as a collection of dispatchers \
              \spread across the set of cores on which the application \
              \might run, together with associated other resources. \
-             \The term is from K42.",
+             \The term is from K42. Multiple dispatchers may share a vspace\
+             \or cspace.",
 
              Entry "monitor" []
 
@@ -424,6 +428,40 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "Application processor, processors booted either by the BSP \
              \or other APP cores and not the initial boot-loader or firmware.",
 
+             Entry "Domain" []
+             
+             "The word domain is used to refer to the user-level\
+             \code sharing a protection domain and (usually) an address space.\
+             \A domain consists of one or more dispatchers.",
+
+             Entry "Channel" []
+
+             "A uni-directional kernel-mediated communication path\
+             \between dispatchers. All messages travel over channels. Holding a\
+             \capability for a channel guarantees the right to send a message to it\
+             \(although the message may not be sent for reasons other than\
+             \protection).",
+
+             Entry "Mapping Database" []
+
+             "The mapping database is used to facilitate retype and revoke operations.\
+             \A capability that is not of type dispatcher, can only be retyped once.\
+             \The mapping database facilitates this check.\
+             \When a capability is revoked, all its descendants and copies are deleted.\
+             \The mapping database keeps track of descendants and copies of a capability\
+             \allowing for proper execution of a revoke operation.\
+             \Each core has a single private mapping database.\
+             \All capabilities on the core must be included in the database.",
+
+             Entry "Descendant" []
+             "A capability X is a descendant of a capability A if:\
+             \X was retyped from A,\
+             \or X is a descendant of A1 and A1 is a copy of A,\
+             \or X is a descendant of B and B is a descendant of A,\
+             \or X is a copy of X1 and X1 is a descendant of A.",
+
+             Entry "Ancestor" []
+             "A capability A is an ancestor of a capability X if X is a descendant of A.",
 
              Entry "ZZZ terms yet to be added" []
 

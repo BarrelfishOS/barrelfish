@@ -72,6 +72,15 @@ skipabove=1em,
 \end{mdframed}
 }
 
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\sockeye}{\lstinline[language=sockeye]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
 % Default language for code listings is C
 \lstset{
   language=C,
@@ -175,7 +184,7 @@ interpreted based on the type of this first capability.
 Other than yielding, all kernel operations including IDC are (or should be)
 provided by capability invocation, and make use of this call. The
 possible invocations for every capability type are described in
-the capability management document.
+the capability management document (TN-013).
 
 This system call may only be used while the caller is
 \emph{enabled}. The reason is that the caller must be prepared to
@@ -495,93 +504,6 @@ omitted for brevity.
 \label{fig:dispstates}
 \end{figure}
 
-\section{Inter-Dispatcher Communication}\label{sec:IDC}
-
-Inter-dispatcher communication (IDC) is a kernel-supported mechanism
-to allow dispatchers to communicate by sending messages. IDC is
-executed by invoking an IDC endpoint capability referring to a
-receiving dispatcher.
-
-\subsection{Endpoints}
-
-IDC communication takes place between dispatchers via endpoints.
-An endpoint is created by retyping a dispatcher capability
-into an IDC endpoint capability. It refers to exactly one dispatcher, and
-to one endpoint buffer structure within that dispatcher.
-An endpoint buffer is a kernel-specified data structure located within the
-dispatcher frame, where the kernel delivers IDC messages.
-
-The kernel guarantees messages to either be delivered to the
-receiving dispatcher or to return to the sender with an error status
-code in the event that the receiver is unable to receive the message.
-This implies that messages are never dropped silently by the kernel but does
-not guarantee that messages are never dropped on the whole communication path,
-which involves the receiving dispatcher.
-
-It should be noted that endpoint capabilities may be freely copied, and do not
-uniquely identify a sender. An endpoint capability can be
-transferred to several dispatchers, all of whom may use the same
-endpoint and thus the same buffer when sending messages.
-
-\subsection{Message Transfer}
-
-To send IDC, a dispatcher invokes an endpoint capability to the
-receiving dispatcher. The message it wishes to send is provided as
-argument to the invocation, as well as flags to specify additional
-parameters influencing the message transfer.
-
-An IDC message is delivered by the kernel allocating space in the receiver's
-endpoint buffer, and writing the message contents. The receiver must poll its
-endpoints to detect incoming messages, and consume them in order to free space
-in the endpoint buffer for new messages. \todo{detail!}
-
-A dispatcher that executes an IDC invocation is considered to have
-yielded the CPU while enabled. Therefore, the next time it is
-entered may be either at the \textbf{Run} or \textbf{LRPC} entry
-points.
-
-\subsection{Capability transfer}
-
-IDC can also be used to transfer capabilities from the sending dispatcher's
-domain to a receiving dispatcher's domain.\todo{document cap transfer!}
-
-\subsubsection{Flags}
-
-If the ``sync'' flag is set and the message transfer succeeds, the kernel
-will immediately dispatch the receiver. Effectively, the sender yields to the
-receiver.
-
-If the ``yield'' flag is set, and the message fails for one of the following reasons:
-\begin{itemize}
-\item the receiver's message buffer is full
-\item the sender specified a capability, but it cannot be delivered because the
- receiver's capability receive slot is non-empty
-\end{itemize}
-\ldots then the kernel will also immediately dispatch the receiver (without
-performing a message transfer). Again, in this case the sender effectively yields
-to the receiver.
-
-\subsubsection{LRPC}
-
-\todo{document!}
-
-In this mode of IDC, the kernel performs a controlled
-context switch from the sending to the receiving dispatcher,
-preserving the capability invocation register state which is used to
-deliver the message. The sender dispatcher is not blocked, however
-it implicitly donates the remainder of its timeslice to the
-receiver.
-
-If the receiving dispatcher is disabled, and the ``yield'' flag was set,
-the kernel sets the return
-register in the sending dispatcher's \lstinline+enabled_save_area+
-to \lstinline+SYS_ERR_TARGET_DISABLED+. The kernel then switches to
-and resumes the target dispatcher. In effect, an LRPC
-operation when the target is disabled becomes a directed yield of
-the CPU to the target dispatcher. If the ``yield'' flag was not set,
-the kernel simply returns the same error code to the sender and runs the
-sender.
-
 \subsection{Interrupt delivery}\label{sec:interrupts}
 
 Hardware interrupts are delivered by the kernel as asynchronous IDC
@@ -596,143 +518,22 @@ delivery to the registered endpoint. Asynchronous
 IDC is used as it does not cause priority inversion by directly
 dispatching the target dispatcher.
 
-Refer to \autoref{apx:arch_specific} for more information about
-valid hardware interrupts for an architecture-specific
-implementation of Barrelfish.
-
 \subsection{Exception delivery}
 
 When a CPU exception happens in user-space, it is reflected to the
 dispatcher on which it appeared. Page
-faults are dispatched to the pagefault entry point of the
+faults are dispatched to the page-fault entry point of the
 dispatcher. All other exceptions are dispatched to the trap entry
 point of the dispatcher. The disabled flag of the dispatcher is
 ignored in all cases and state is saved to the trap save area.
-
-\section{Virtual Memory}
-
-\todo{Our memory model is based on capabilities and is quite similar to seL4.}
-
-\section{Initial Address Space}
-
-Our address space initialization is similar to the one of seL4, but
-we do not follow their boot protocol to the word. Here is our
-version:
-
-We have a special program called \lstinline+init+ that is run by the kernel
-after bootup as an ELF64 executable. In order to function, it has to
-receive some information by the kernel. We show first how it
-receives this information from its (\lstinline+init+'s) own perspective and
-then how the kernel gathers and transmits this information to
-\lstinline+init+.
-
-\subsection{User-Space Perspective}
-
-\lstinline+init+'s virtual address space size at startup is at most 4 MBytes
-(the amount of pagetable kernel memory left for it), mapped as 4K
-pages, starting from \lstinline+0x200000+ (2 Meg). \lstinline+init+'s text/data segments
-should be aligned consecutively and start at \lstinline+0x400000+ (4 Meg),
-leaving it 2 MBytes for its text and data.
-
-We have a \lstinline+bootinfo+ structure, shown in \autoref{lst:bootinfo}.
-
-\begin{lstlisting}[float,caption={\lstinline+bootinfo+ structure},
-label=lst:bootinfo]
-struct bootinfo {
-// Base address of small memory caps region
-capaddr_t             small_untyped_base;
-// Number of small memory caps
-size_t              small_untyped_count;
-// Base address of large memory caps region
-capaddr_t             large_untyped_base;
-// Number of large memory caps
-size_t              large_untyped_count;
-// Number of entries in regions array
-size_t              regions_length;
-// Memory regions array
-struct mem_region   regions[MAX_MEM_REGIONS];
-};
-\end{lstlisting}
-
-This structure is mapped into \lstinline+init+'s virtual memory at
-address \lstinline+0x200000+ (2 Meg) and is at most a 4K page in
-size. \lstinline+small_untyped_base+ points to the capability to the
-CNode, holding a number (given by \lstinline+small_untyped_count+) of
-small untyped capabilities. These can be used for easy setup of
-init's own address space. \lstinline+large_untyped_base+ and
-\lstinline+large_untyped_count+ is similar for (much) larger untyped
-capabilities. Their sizes can be found in the \lstinline+regions+ array,
-of size \lstinline+regions_length+ entries. An entry is defined by a
-\lstinline+mem_region+ struct, shown in \autoref{lst:mem_region}.
-
-\begin{lstlisting}[float,caption={\lstinline+mem_region+ structure},
-label=lst:mem_region]
-struct mem_region {
-paddr_t             base;   // Address of the start of the region
-size_t              size;   // Size of region in bytes
-enum region_type    type;   // Type of region
-uint64_t            data;   // Additional data, based on region type
-};
-\end{lstlisting}
-
-Its fields should be self-explanatory. The possible region types are
-defined by \lstinline+enum region_type+, shown in \autoref{lst:region_type}.
-
-\begin{lstlisting}[float,caption={\lstinline+region_type+ enumeration},
-label=lst:region_type]
-enum region_type {
-RegionType_Empty,           // Empty memory
-RegionType_InitCaps,        // init's caps mapped here
-RegionType_RootTask,        // Code/Data of init itself
-RegionType_Device,          // Memory-mapped device
-RegionType_CapsOnly         // Kernel-reserved memory
-};
-\end{lstlisting}
-
-These are the same as those in seL4.
-
-\subsubsection{Initial Capability Address Space}
-
-\lstinline+init+'s initial CSpace is shown in \autoref{fig:init_cspace}.
-
-\begin{figure}
-\centering
-\includegraphics[width=\textwidth]{init_cspace}
-\caption{\texttt{init}'s initial capability space layout}
-\label{fig:init_cspace}
-\end{figure}
-
-\subsection{Kernel Perspective}
-
-In the following, 'cn' will be short for CNode, \lstinline+init_dcb+ is short
-for \lstinline+init+'s DCB, \lstinline+replyep+ is short for \lstinline+init+'s system call reply
-endpoint. The kernel sets up \lstinline+init+'s domain as follows:
-
-\begin{itemize}
-\item It allocates physical pages for: rootcn, taskcn, smallcn,
-supercn, \lstinline+init_dcb+, replyep.
-\item Map bootinfo, \lstinline+init_dcb+, replyep, rootcn, pml4, pdpt, pdir and
-ptables in that order.
-\item Allocate 64 physical pages and put untyped caps to them into
-smallcn.
-\item Map taskcn, smallcn, supercn, in that order.
-\item Setup \lstinline+init+'s DCB.
-\item Load \lstinline+init+ ELF64 binary into memory, map memory and allocate
-caps.
-\item Add all remaining memory as untyped caps to power of two large
-regions into supercn. They may not be more than 64.
-\item Fill \lstinline+bootinfo+ struct.
-\item \lstinline+schedule()+ init.
-\end{itemize}
 
 \section{Scheduling}
 
 Upon reception of a timer interrupt, the kernel calls `schedule()`,
 which selects the next dispatcher to run. At the moment, a simple
-round-robin scheduler is implemented that walks a circual
+round-robin scheduler is implemented that walks a circular
 singly-linked list forever.
 \todo{RBED, gang-scheduling}
-
 
 \section{TODO}
 \begin{itemize}
@@ -746,60 +547,7 @@ singly-linked list forever.
 \chapter{Barrelfish Library API}
 \todo{Documentation of libbarrelfish}
 
-\section{Capabilities}
-
-\subsection{Data types}
-
-cap\_info
-cnode\_info
-
-get\_cap\_valid\_bits
-get\_cap\_addr
-get\_cnode\_valid\_bits
-get\_cnode\_addr
-build\_cnode\_info ?
-
-\subsection{Functions}
-
-cap\_copy
-cap\_mint
-cap\_retype
-cnode\_create
-cnode\_create\_raw ?
-
-ram\_alloc
-
-async\_endpoint\_create
-local\_endpoint\_create
-
-\subsection{Invocations}
-invoke\_*
-
-\subsection{Syscalls}
-
-syscall
-sys\_yield
-cap\_invoke
-cap\_invoke\_wait
-
-
-\section{VSpace management}
-
-struct vnode
-struct vlist
-
-vspace\_alloc
-vspace\_map
-vspace\_map\_raw ?
-vspace\_free
-vspace\_alloc\_map
-vspace\_map\_attr
-vspace\_map\_attr\_raw ?
-
-\section{Dispatch and threading}
-
-\section{Spawning domains}
-\subsection{Initial capability space}
+\subsection{Initial Capability Space}
 
 The initial capability space of other domains is similar, but lacks the other
 cnodes in the root cnode, as illustrated in \autoref{fig:app_cspace}.
@@ -811,251 +559,6 @@ cnodes in the root cnode, as illustrated in \autoref{fig:app_cspace}.
 \label{fig:app_cspace}
 \end{figure}
 
-
-\appendix
-\chapter{Glossary}
-
-\begin{description}
-\item[Capability] Every kernel object is represented by a capability,
-allowing the user who holds that capability to manipulate it. We use
-partitioned capabilities: capabilities are stored in memory accessible only
-to the kernel, and are manipulated or invoked through the use of addresses
-in the CSpace.
-
-\item[CSpace] The capability address space, in which all capabilities reside,
-is constructed and managed by user-space code through a hierarchy of page
-table-like structures, called CNodes. The protection domain of user code
-is determined by the capabilities existing in its CSpace.
-
-\item[VSpace] The virtual address space
-
-\item[Dispatcher] Kernel-scheduled entity, responsible for
-scheduling/managing the execution of user code. Dispatchers are identified
-by DCB capabilities. Every dispatcher has a CSpace and VSpace pointer,
-which determine its protection domain and virtual address space. Multiple
-dispatchers may share a CSpace or VSpace.
-
-\item[Domain] Although not directly part of the Barrelfish kernel API, the
-word domain is used to refer to the user-level code sharing a protection
-domain and (usually) an address space. A domain consists of one or more
-dispatchers.
-
-\item[DCB] Dispatcher control block, the kernel object associated with
-a dispatcher, and therefore also one of the system's capability types.
-\todo{I'd prefer to avoid this term, as it can be confusing. -AB}
-
-\item[IDC] Inter-dispatcher communication, the kernel-mediated message-passing
-primitive. There are two types of IDC: the general case of
-\emph{asynchronous IDC}, and an optimised \emph{local IDC} variant possible
-only when both the sender and receiver execute on the same core.
-
-\item[Endpoint] A type of capability that, when invoked, performs an IDC.
-There are two endpoint types (asynchronous and local) to match the two
-types of IDC.
-
-\item[Channel] A uni-directional kernel-mediated communication path
-between dispatchers. All messages travel over channels. Holding a
-capability for a channel guarantees the right to send a message to it
-(although the message may not be sent for reasons other than
-protection).
-
-\item[Mapping Database] The mapping database is used to facilitate
-  retype and revoke operations.
-
-  A capability that is not of type dispatcher, can only be retyped once.
-  The mapping database facilitates this check.
-
-  When a capability is revoked, all its descendants and copies are deleted.
-  The mapping database keeps track of descendants and copies of a capability
-  allowing for proper execution of a revoke operation.
-
-  Each core has a single private mapping database.
-  All capabilities on the core must be included in the database.
-
-\item[Descendant] A capability X is a descendant of a capability A if:
-
-\begin{itemize}
-  \item X was retyped from A,
-  \item or X is a descendant of A1 and A1 is a copy of A,
-  \item or X is a descendant of B and B is a descendant of A,
-  \item or X is a copy of X1 and X1 is a descendant of A.
-\end{itemize}
-
-\item[Ancestor] A capability A is an ancestory of a capability X
-if X is a descendant of A.
-\end{description}
-
-\chapter{Implementation}
-
-This chapter covers the implementation and algorithm of some subsystems.
-
-\section{Mapping Database}
-
-This section describes the mapping database is more detail.
-It covers the algorithms including implementation details
-and invariants on the database.
-
-\subsection{Implementation details}
-
-The database implements the following functions:
-\begin{itemize}
-\item \emph{is copy} Checks if two capabilities are copies of each other.
-  Two capabilities are copies if they are of the same type
-  and they refer to same kernel object.
-  PhysAddr, RAM, Frame, DevFrame, CNode, Dispatcher, Kernel, EndPoint
-  Capability types explicitly reference kernel objects
-  so capabilities of such types can be tested simply.
-  We cannot handle other capability types yet,
-  comparing two VNode, we always return false
-  and comparing two IO or IRQTable, we always return true.
-
-\item \emph{is ancestor} Checks if one capability is a parent of another.
-  In our current implementation, some capability types cannot have descendants
-  and some capability types cannot have ancestors.
-  For the rest, we check if the parent child relationship is possible
-  based on the retyping type allowed
-  and check if the kernel object the child refers is inclusive
-  in the range of kernel objects the parent refers to.
-
-\item \emph{has descendants} Checks if a capability has any descendants
-  Walks the entire database checking if the capability has any descendants.
-  The function returns true when the first descendant is found
-  and if a capability other than a copy is found, it returns false.
-
-\item \emph{has copies} Checks if a capability has any copies
-  Walks the entire database checking if the capability has any copies.
-  The function returns true when the first copy is found
-  and if a capability other than a descendant is found, it returns false.
-
-\item \emph{insert after} Inserts a set of contiguous capabilities
-  after the given capability
-
-\item \emph{insert before} Inserts a set of contiguous capabilities
-  before the given capability
-
-\item \emph{set init mapping} Inserts a capability into the database
-  in the appropriate location.
-  If any copies or ancestors of the capability exist,
-  the capability is inserted after a copy or after the closest ancestor.
-  If no relatives exist in the database,
-  the capability is inserted at the top of the database.
-
-\item \emph{remove mapping} Removes the capability from the database
-\end{itemize}
-
-\subsection{Invariants}
-
-Some invariants on the database that must be true at all times.
-\begin{enumerate}
-\item The next and prev pointers on a capability are never NULL.
-\item There is only one database per core.
-Any capability on a core can be reach from another on the core.
-\item Two separate databases do not share any capabilities.
-The set of next and prev pointers on one database
-is disjoint from the set of next and prev pointers on another.
-\item Each capability on a core is on the database of the core.
-A capability will eventually be visited by starting at any other capability
-and walking the database.
-\item The database is circular.
-Walking in either direction from any capability,
-the same capability will eventually be reached again.
-\item The head of the database cannot have any ancestors.
-\end{enumerate}
-
-\subsection{Current Limitations}
-
-The database has the following limitations.
-\begin{enumerate}
-\item It does not handle VNode capabilities and other types.
-Other types are not as crucial, but VNode will become a priority shortly.
-
-\item No indexing for quickly inserting brand new capabilities.
-The implementation starts at the head of the database
-and traverses the entire database till an appropriate location is found.
-
-\item Not necessarily a limitation but an important note.
-The current implementation can report certain capabilities as descendants
-when one could have been created by copying another
-and report a descendant as a copy when it was created by retyping the ancestor.
-This requires the implementation of some functions to test for relationships
-in the correct order.
-This may lead to some unforeseen issues later
-\end{enumerate}
-
-\chapter{Architecture-Specific Features}\label{apx:arch_specific}
-
-This chapter covers features specific to one implementation of
-Barrelfish on a specific hardware architecture.
-
-\section{x86-64}
-
-The x86-64 implementation of Barrelfish is specific to the AMD64
-and Intel 64 architectures. This text will refer to features of
-those architectures. Those and further features can be found in
-\cite{intelsa} and \cite{amdsa} for the Intel 64 and AMD64
-architectures, respectively.
-
-\subsection{VSpace}
-
-The page table is constructed by copying VNode capabilities into VNodes to
-link intermediate page tables, and minting Frame / DeviceFrame capabilities
-into leaf VNodes to perform mappings.
-
-When minting a frame capability to a
-VNode, the frame must be at least as large as the smallest page size. The
-type-specific parameters are:
-
-\begin{enumerate}
-  \item \textbf{Access flags:}
-    The permissible set of flags is PTABLE\_GLOBAL\_PAGE
-    | PTABLE\_ATTR\_INDEX | PTABLE\_CACHE\_DISABLED |
-    PTABLE\_WRITE\_THROUGH. Access flags are set from frame capability
-    access flags. All other flags are not settable from user-space (like
-    PRESENT and SUPERVISOR).
-
-  \item \textbf{Number of base-page-sized pages to map:} If non-zero, this
-    parameter allows the caller to prevent the entire frame capability from
-    being mapped, by specifying the number of base-page-sized pages
-    of the region (starting from offset zero) to map.
-\end{enumerate}
-
-\subsection{IO capabilities}
-
-IO capabilities provide kernel-mediated access to the legacy IO space of
-the processor. Each IO capability allows access only to a specific range of
-ports.
-
-The Mint invocation (see \autoref{sec:mint}) allows the permissible
-port range to be reduced (with the lower limit in the first
-type-specific parameter, and the upper limit in the second type-specific
-parameter).
-
-At boot, an IO capability for the entire port space is passed to the
-initial user domain. Aside from being copied or minted, IO capabilities may not
-be created.
-
-\subsection{Interrupts and Exceptions}
-
-\subsubsection{Interrupts}
-
-The lower 32 interrupts are reserved as CPU exceptions. Thus, there
-are 224 hardware interrupts, ranging from IRQ number 32 to 255.
-
-The kernel delivers an interrupt that is not an exception and not
-the local APIC timer interrupt to user-space. The local APIC timer
-interrupt is used by the kernel for preemptive scheduling and not
-delivered to user-space.
-
-\subsubsection{Exceptions}
-
-The lower 32 interrupts are reserved as CPU exceptions. Except for a
-double fault exception, which is always handled by the kernel
-directly, an exception is forwarded to the dispatcher handling the
-domain on the CPU on which it appeared.
-
-Page faults (interrupt 14) are dispatched to the `pagefault` entry
-point of the dispatcher. All other exceptions are dispatched to the
-`trap` entry point of the dispatcher.
 
 \chapter*{Acknowledgements}
 Paul, Rebecca, Tim, et al.

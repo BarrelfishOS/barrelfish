@@ -31,6 +31,7 @@
          "TN-017-ARM.pdf",
          "TN-018-PracticalGuide.pdf",
          "TN-019-DeviceDriver.pdf",
-         "TN-020-Sockeye.pdf" ]]
+         "TN-020-Sockeye.pdf",
+         "TN-021-CPUDriver.pdf" ]]
     "Documentation for Barrelfish"
 ]

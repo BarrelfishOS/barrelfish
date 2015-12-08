@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "cpudriver.tex" "TN-021-CPUDriver.pdf" True False [] ]
+[ buildTechNote "cpudriver.tex" "TN-021-CPUDriver.pdf" False False [] ]

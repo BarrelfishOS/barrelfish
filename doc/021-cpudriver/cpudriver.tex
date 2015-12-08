@@ -18,55 +18,17 @@
 \usepackage{amsmath}
 \usepackage{multirow}
 \usepackage{listings}
-\usepackage{todonotes}
 \usepackage[framemethod=default]{mdframed}
 \usepackage[shortlabels]{enumitem}
 \usepackage{parskip}
 \usepackage{xparse}
 
-\mdfdefinestyle{mdsyscall}{
-rightline=true,
-innerleftmargin=10,
-innerrightmargin=10,
-frametitlerulewidth=2pt,
-frametitlefont={\color{white}\varname},
-skipbelow=1em,
-skipabove=1em,
-}
-
-\DeclareDocumentEnvironment{arguments}{}
-{
-\newcommand{\argument}[2]{ \item[\varname{##1}] ##2 }
-\textbf{Arguments}\parskip
-\begin{description}[leftmargin=!,labelwidth=\widthof{count},labelindent=1em]
-}
-{
-\end{description}
-}
-
-\DeclareDocumentEnvironment{api}{o O {stable}}
-{
-\definecolor{unused}{RGB}{215,25,28}
-\definecolor{unstable}{RGB}{253,174,97}
-\definecolor{todo}{RGB}{255,255,191}
-\definecolor{lightblue}{RGB}{171,217,233}
-\definecolor{stable}{RGB}{44,123,182}
-\newcommand{\brief}[1]{##1\\}
-\newcommand{\note}[1]{\\\textbf{Note}\\##1\parskip}
-
-\begin{mdframed}[style=mdsyscall,frametitle=#1,frametitlebackgroundcolor=#2]
-}
-{
-\end{mdframed}
-}
-
+\newcommand{\todo}[1]{[\textcolor{red}{\emph{#1}}]}
 
 \title{CPU drivers in Barrelfish}
 \author{Barrelfish project}
 \tnnumber{21}
 \tnkey{CPU drivers}
-
-\presetkeys{todonotes}{inline}{}
 
 \begin{document}
 \maketitle			% Uncomment for final draft
@@ -119,21 +81,6 @@ different CPU architectures and platforms:
     \item ARMv8
 \end{itemize}
 
-
-\chapter{General}
-
-This chapter describes the architecture agnostic parts in the CPU driver.
-It should include at least the following:
-
-\section{Terminology}
-
-\texttt{BSP Core}: Refers to the bootstrap processor, meaning the first
-processor that is usually booted by the boot-loader or firmware on a hardware
-architecture.
-
-\texttt{APP Core}: Application processor, processors booted either by the BSP
-or other APP cores and not the initial boot-loader or firmware.
-
 \section{General design decisions}
 \begin{itemize}
 \item No dynamic memory allocation
@@ -145,273 +92,20 @@ or other APP cores and not the initial boot-loader or firmware.
 TODO: Should explain things such as naming, where goes architecture dependent, platform specific code?
 What libraries we use in the kernel? Where is the shared code between libbarrelfish and a cpudriver?
 
-\section{Scheduler}
-Round-robin, RBED, gang-scheduler
+\chapter{x86-64}
 
-\section{Architecture generic API (syscall) interface}
-
-The section should eventually become a specification of the common system call
-API that is provided by a Barrelfish CPU driver.
-
-\begin{tabular}{|p{5cm}|>{\raggedright\arraybackslash}p{7cm}|}
-\hline
-
-SYSCALL\_INVOKE & Invoke a capability. \\
-SYSCALL\_YIELD & Yield the CPU. \\
-SYSCALL\_LRPC & Fast LRPC. \\
-SYSCALL\_DEBUG & Benchmarking and debug syscalls. \\
-SYSCALL\_REBOOT & Reboot the machine. \\
-SYSCALL\_NOP & No operation. \\
-SYSCALL\_PRINT & Write to console. \\
-SYSCALL\_SUSPEND & Suspend the CPU. \\
-SYSCALL\_GET\_ABS\_TIME & Get time elapsed since boot. \\
-
-\hline
-\end{tabular}
-
-\subsection{SYSCALL\_INVOKE -- Capability Invocation Interface}
-
-The invoke call acts as a generic system call to apply operation on various
-OS objects (also known as capabilities). Most of the operations we execute in
-Barrelfish are, or should be invocations on capabilities. For any given
-object, a distinct set of operations are applicable depending on the
-capability type.
-
-CNode Capability Commands:
-\begin{itemize}
-\item CNodeCmd\_Copy: Copy capability
-\item CNodeCmd\_Mint: Mint capability
-\item CNodeCmd\_Retype: Retype capability
-\item CNodeCmd\_Delete: Delete capability
-\item CNodeCmd\_Revoke: Revoke capability
-\item CNodeCmd\_Create: Create capability
-\item CNodeCmd\_GetState: Get dist cap state for capability
-\end{itemize}
-
-VNode Capability Commands:
-\begin{itemize}
-\item VNodeCmd\_Map:
-\item VNodeCmd\_Unmap:
-\item VNodeCmd\_Identify: the physical address of the VNode
-\end{itemize}
-
-Kernel Capability Commands:
-\begin{itemize}
-\item KernelCmd\_Spawn\_core: Spawn a new kernel
-\item KernelCmd\_Identify\_cap: Return the meta data of a capability
-\item KernelCmd\_Identify\_domains\_cap: Return the meta data of another domain's capability
-\item KernelCmd\_Remote\_relations: Set capability as being remote
-\item KernelCmd\_Cap\_has\_relations: Return presence of local relations
-\item KernelCmd\_Create\_cap: Create a new capability
-\item KernelCmd\_Copy\_existing:
-\item KernelCmd\_Get\_core\_id: Returns the id of the core the domain is on
-\item KernelCmd\_Get\_arch\_id: Returns arch id of caller's core
-\item KernelCmd\_Nullify\_cap: Set the capability to NULL allowed it to be reused
-\item KernelCmd\_Setup\_trace: Set up trace buffer
-\item KernelCmd\_Register: Register monitor notify endpoint
-\item KernelCmd\_Domain\_Id: Set domain ID of dispatcher
-\item KernelCmd\_Get\_cap\_owner
-\item KernelCmd\_Set\_cap\_owner
-\item KernelCmd\_Lock\_cap
-\item KernelCmd\_Unlock\_cap
-\item KernelCmd\_Delete\_last
-\item KernelCmd\_Delete\_foreigns
-\item KernelCmd\_Revoke\_mark\_target
-\item KernelCmd\_Revoke\_mark\_relations
-\item KernelCmd\_Delete\_step
-\item KernelCmd\_Clear\_step
-\item KernelCmd\_Retype
-\item KernelCmd\_Has\_descendants
-\item KernelCmd\_Sync\_timer
-\item KernelCmd\_IPI\_Register
-\item KernelCmd\_IPI\_Delete
-\item KernelCmd\_GetGlobalPhys
-\item KernelCmd\_Add\_kcb: add extra kcb to be scheduled
-\item KernelCmd\_Remove\_kcb: Remove kcb from scheduling ring
-\item KernelCmd\_Suspend\_kcb\_sched: suspend/resume kcb scheduler
-\end{itemize}
-
-Dispatcher Capability Commands:
-\begin{itemize}
-\item DispatcherCmd\_Setup: Set dispatcher parameters
-\item DispatcherCmd\_Properties: Set dispatcher properties
-\item DispatcherCmd\_PerfMon: Performance monitoring
-\item DispatcherCmd\_SetupGuest: Set up the DCB of a guest domain
-\item DispatcherCmd\_DumpPTables: Dump hw page tables of dispatcher
-\item DispatcherCmd\_DumpCapabilities: Dump capabilities of dispatcher
-\item DispatcherCmd\_Vmread: Execute vmread on the current and active VMCS
-\item DispatcherCmd\_Vmwrite: Execute vmwrite on the current and active VMCS
-\item DispatcherCmd\_Vmptrld: Make VMCS clear and inactive
-\item DispatcherCmd\_Vmclear: Make VMCS current and active
-\end{itemize}
-
-Frame Capability Commands:
-\begin{itemize}
-\item FrameCmd\_Identify: Return physical address of frame
-\item FrameCmd\_ModifyFlags: Modify flags for (part of) the mapped region of frame
-\end{itemize}
-
-IRQ Table Capability Command:
-\begin{itemize}
-\item IRQTableCmd\_Alloc: Allocate new vector (XXX: HACK: this is x86 specific)
-\item IRQTableCmd\_Set: Set endpoint for IRQ notifications
-\item IRQTableCmd\_Delete: Remove notification endpoint for IRQ
-\end{itemize}
-
-IO Port Capability Command:
-\begin{itemize}
-\item IOCmd\_Outb: Output byte to port
-\item IOCmd\_Outw: Output word to port
-\item IOCmd\_Outd: Output double word to port
-\item IOCmd\_Inb: Input byte from port
-\item IOCmd\_Inw: Input word from port
-\item IOCmd\_Ind: Input double word from port
-\end{itemize}
-
-Notify Capability Command:
-\begin{itemize}
-\item NotifyCmd\_Send
-\end{itemize}
-
-Performance Monitor Capability:
-\begin{itemize}
-\item PerfmonCmd\_Activate: Activate performance counters
-\item PerfmonCmd\_Deactivate: Deactivate performance counters
-\item PerfmonCmd\_Write: Read current performance counter values
-\end{itemize}
-
-ID Cap Capability Command:
-\begin{itemize}
-\item IDCmd\_Identify: Return system-wide unique ID
-\end{itemize}
-
-IPI Capability Command:
-\begin{itemize}
-\item IPICmd\_Send\_Start: Send Startup IPI to a destination core
-\item IPICmd\_Send\_Init: Send Init IPI to a destination core
-\end{itemize}
-
-\subsection{Debug system call}
-
-The debug system call (SYSCALL\_DEBUG) de-multiplexes using the second system
-call argument and is defined for the following operations:
-
-\begin{api}[DEBUG\_CONTEXT\_COUNTER\_RESET]
-\brief{Sets the \varname{context\_switch\_counter} to 0.}
-\end{api}
-
-\begin{api}[DEBUG\_CONTEXT\_COUNTER\_READ]
-\brief{Returns \varname{context\_switch\_counter}.}
-\end{api}
-
-\begin{api}[DEBUG\_TIMESLICE\_COUNTER\_READ]
-\brief{Returns \varname{kernel\_now}.}
-\end{api}
-
-\begin{api}[DEBUG\_FLUSH\_CACHE]
-\brief{Executes \fnname{wbinvd} on x86-64.}
-\end{api}
-
-\begin{api}[DEBUG\_SEND\_IPI][unstable]
-\brief{Sends an interrupt to a remote core.}
-\begin{arguments}
-\argument{destination}{Target core.}
-\argument{shorthand}{?}
-\argument{vector}{IRQ number.}
-\end{arguments}
-\note{Is this needed with the IPI capability?}
-\end{api}
-
-\begin{api}[DEBUG\_SET\_BREAKPOINT]
-\brief{Sets a hardware breakpoint at an address.}
-\begin{arguments}
-\argument{addr}{Where to break.}
-\argument{mode}{?}
-\argument{length}{?}
-\end{arguments}
-\note{Use dr7 and dr0 on x86-64.}
-\end{api}
-
-\begin{api}[DEBUG\_SEND\_NOTIFY][unused]
-\brief{Does only exist as a definition?}
-\end{api}
-
-\begin{api}[DEBUG\_SLEEP][unused]
-\brief{Does only exist as a definition?}
-\end{api}
-
-\begin{api}[DEBUG\_HARDWARE\_TIMER\_READ][unstable]
-\brief{Returns \fnname{tsc\_read}.}
-\note{Exists only for ARM.}
-\end{api}
-
-\begin{api}[DEBUG\_HARDWARE\_TIMER\_HERTZ\_READ][unstable]
-\brief{Returns \fnname{tsc\_get\_hz}.}
-\note{Exists only on ARM.}
-\end{api}
-
-\begin{api}[DEBUG\_HARDWARE\_GLOBAL\_TIMER\_LOW][unstable]
-\brief{Returns \fnname{gt\_read\_low}. The lower 32 bits of the timer.}
-\note{Exists only in OMAP, and returns 0 on GEM 5.}
-\end{api}
-
-\begin{api}[DEBUG\_HARDWARE\_GLOBAL\_TIMER\_HIGH][unstable]
-\brief{Returns global timer \fnname{gt\_read\_high}. The higher 32 bits of the timer.}
-\note{Exists only in OMAP, and returns 0 on GEM 5.}
-\end{api}
-
-\begin{api}[DEBUG\_GET\_TSC\_PER\_MS][unstable]
-\brief{Returns TSC (\fnname{rdtsc}) clock rate in ticks per ms.}
-\note{Implemention for x86 only.}
-\end{api}
-
-\begin{api}[DEBUG\_GET\_APIC\_TIMER][unstable]
-\brief{Returns the XAPIC timer counter.}
-\note{Implemention for x86-64 only.}
-\end{api}
-
-\begin{api}[DEBUG\_GET\_APIC\_TICKS\_PER\_SEC][unstable]
-\brief{Returns ticks per seconds of the APIC timer.}
-\note{Calibrated against RTC clock. Implemention for x86-64 only.}
-\end{api}
-
-\begin{api}[DEBUG\_FEIGN\_FRAME\_CAP][unused]
-\brief{Fabricates an arbitrary DevFrame cap.}
-\note{Implemention for x86-32 bit only. Not used?}
-\end{api}
-
-\begin{api}[DEBUG\_TRACE\_PMEM\_CTRL]
-\brief{Enables tracing for capabilities.}
-\begin{arguments}
-\argument{types}{?}
-\argument{start}{?}
-\argument{size}{?}
-\end{arguments}
-\note{Implemention for x86-64 and aarch64 only.}
-\end{api}
-
-\begin{api}[DEBUG\_GET\_APIC\_ID]
-\brief{Returns the xAPIC ID.}
-\note{Implemention for x86-64 only.}
-\end{api}
-
-
-\section{Up-call interface}
-Mechanisms, What are the common structure definitions agreed upon between
-libbarrelfish and the cpudriver.
-
-\chapter{x86-64 / AMD64}
-\label{chap:x86}
-
-In this chapter, we describe the CPU driver for the x86-64 also known as AMD64
-architecture.
+The x86-64 implementation of Barrelfish is specific to the AMD64
+and Intel 64 architectures. This text will refer to features of
+those architectures. Those and further features can be found in
+\cite{intelsa} and \cite{amdsa} for the Intel 64 and AMD64
+architectures, respectively.
 
 \section{Boot process}
 
 We first describe the boot process for the initial BSP core, followed by
 the boot process of an APP core.
 
-\subsubsection{BSP Core}
+\subsection{BSP Core}
 
 Barrelfish relies on a multiboot v1~\cite{multiboot1} compliant boot-loader to
 load the initial kernel on the BSP core. In our current set-up we use GRUB as
@@ -437,7 +131,7 @@ After \keywname{elver} is done, execution in the proper BSP kernel program
 begins in \pathname{kernel/arch/x86\_64/boot.S} which then calls
 \fnname{arch\_init}, the first kernel C entry point.
 
-\subsubsection{APP Core}
+\subsection{APP Core}
 
 APP cores are booted using the coreboot infrastructure in Barrelfish. The
 logic that boots APP cores resides in \pathname{usr/drivers/cpuboot}.
@@ -455,15 +149,47 @@ mapping is initiated, the entry point address for the new APP kernel will be
 written into this memory region. Finally, a set of system calls are invoked
 in order to send the necessary IPIs to bootstrap the new processor.
 
-\section{Hardware state}
+\section{Virtual Address Space}
 
-In this section, we describe the hardware state of a core after the CPU driver
-has completed its initialization and started to dispatch the first
-user-space program.
+The page table is constructed by copying VNode capabilities into VNodes to
+link intermediate page tables, and minting Frame / DeviceFrame capabilities
+into leaf VNodes to perform mappings.
 
-\subsection{Descriptor Tables}
+When minting a frame capability to a VNode, the frame must be at least as
+large as the smallest page size. The type-specific parameters are:
 
-\subsubsection{Global Descriptor Table (GDT)}
+\begin{enumerate}
+  \item \textbf{Access flags:}
+    The permissible set of flags is PTABLE\_GLOBAL\_PAGE
+    | PTABLE\_ATTR\_INDEX | PTABLE\_CACHE\_DISABLED |
+    PTABLE\_WRITE\_THROUGH. Access flags are set from frame capability
+    access flags. All other flags are not settable from user-space (like
+    PRESENT and SUPERVISOR).
+
+  \item \textbf{Number of base-page-sized pages to map:} If non-zero, this
+    parameter allows the caller to prevent the entire frame capability from
+    being mapped, by specifying the number of base-page-sized pages
+    of the region (starting from offset zero) to map.
+\end{enumerate}
+
+\todo{address space layout after initialization is done}
+
+\section{IO capabilities}
+
+IO capabilities provide kernel-mediated access to the legacy IO space of
+the processor. Each IO capability allows access only to a specific range of
+ports.
+
+The Mint invocation (see \autoref{sec:mint}) allows the permissible
+port range to be reduced (with the lower limit in the first
+type-specific parameter, and the upper limit in the second type-specific
+parameter).
+
+At boot, an IO capability for the entire port space is passed to the
+initial user domain. Aside from being copied or minted, IO capabilities may not
+be created.
+
+\section{Global Descriptor Table (GDT)}
 
 The GDT table is loaded by the \fnname{gdt\_reset} function during start-up and statically defined.
 
@@ -482,11 +208,11 @@ The table contains the following entries:
     8 & Local descriptor table (cont.) \\
 \end{tabular}
 
-\subsubsection{Interrupt Descriptor Table (IDT)}
+\section{Interrupts and Exceptions}
 
-The initial IDT is set-up by \fnname{setup\_default\_idt} in
-\pathname{irq.c}. The number of entries in the IDT is set to 256 entries which
-are initialized in the following way:
+The initial (Interrupt Descriptor Table) IDT is set-up by
+\fnname{setup\_default\_idt} in \pathname{irq.c}. The number of entries in the
+IDT is set to  256 entries which are initialized in the following way:
 
 \begin{tabular}{c|l}
     Index & Description \\ \hline
@@ -536,10 +262,25 @@ are initialized in the following way:
     255 & Unused \\
 \end{tabular}
 
+The lower 32 interrupts are reserved as CPU exceptions. Except for a
+double fault exception, which is always handled by the kernel
+directly, an exception is forwarded to the dispatcher handling the
+domain on the CPU on which it appeared.
+
+Page faults (interrupt 14) are dispatched to the `pagefault` entry
+point of the dispatcher. All other exceptions are dispatched to the
+`trap` entry point of the dispatcher.
+
+There are 224 hardware interrupts, ranging from IRQ number 32 to 255.
+The kernel delivers an interrupt that is not an exception and not
+the local APIC timer interrupt to user-space. The local APIC timer
+interrupt is used by the kernel for preemptive scheduling and not
+delivered to user-space.
+
 Unused entries will be initialized by a special handler function. The slots
 reserved for generic interrupts can be allocated by user-space applications.
 
-\subsubsection{Local Descriptor Table (LDT)}
+\section{Local Descriptor Table (LDT)}
 
 The local descriptor table segment in the GDT will
 initially point to NULL as no LDT is installed.
@@ -548,9 +289,10 @@ User-space applications can install their own LDT table
 which is loaded on context-switching using the
 \fnname{maybe\_reload\_ldt} function.
 
-\subsection{Registers}
 
-\subsubsection{Segment registers}
+\section{Registers}
+
+\paragraph{Segment registers}
 
 Segment registers are initialized by the \fnname{gdt\_reset} function during start-up and each of them points to a GDT entry (index of the GDT table slot for each segment is given in brackets).
 
@@ -566,13 +308,16 @@ Segment registers are initialized by the \fnname{gdt\_reset} function during sta
 We also note that the \keywname{fs} and \keywname{gs} segment registers are
 preserved and restored across context switches.
 
-\subsubsection{General purpose}
+\paragraph{General purpose registers}
+\begin{itemize}
+\item \keywname{rcx} contains the start address when running a dispatcher
+for the first time.
+\end{itemize}
 
-\subsubsection{Floating point / SIMD}
+\todo{Floating point / SIMD}
+\todo{Machine specific registers (MSR)}
 
-\subsubsection{Machine specific registers (MSR)}
-
-\subsection{Address space layout}
+\section{Hardware devices}
 
 \subsection{Serial port}
 On x86, the serial device (a PC16550 compatible controller) is initialized for the first time by the BSP core on boot-up.
@@ -594,23 +339,13 @@ The serial device is later re-initialized into a different state once the
 serial driver takes over the device. For example, interrupts will then be
 enabled and handled by the driver.
 
+\subsection{PIC -- Programmable Interrupt Controller}
+\todo{describe}
 
-\subsection{Interrupt controllers}
+\subsection{xAPIC -- Advanced Programmable Interrupt Controller}
+\todo{describe}
 
-\subsubsection{PIC}
-We have to use that before the BSP core has spawned the ACPI server.
-
-\subsubsection{APIC}
-We don't use that anymore.
-
-\subsubsection{xAPIC}
-We use that.
-
-\subsubsection{x2APIC}
-Not yet supported.
-
-
-\section{System call API}
+\subsection{System call API}
 This section describe the architectural system calls that are not
 common with other architectures.
 
