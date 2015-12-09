@@ -46,6 +46,10 @@ Foreign-call to libarrelfish |mem_to_phys|:
 
 >     | MemToPhys (Maybe String) PureExpr (PureExpr -> a)
 
+Foreign-call to Hamlet |get_address|:
+
+>     | GetAddress (Maybe String) PureExpr (PureExpr -> a)
+
 Support for Union:
 
 >     | NewUnion (Maybe String) AllocUnion String [(String,TypeExpr)] (String, Data) (Loc -> a)
@@ -150,6 +154,7 @@ functor is defined as follow.
 >     fmap f (Printf a b c) = Printf a b (f c)
 >     fmap f (HasDescendants a b c) = HasDescendants a b (f . c)
 >     fmap f (MemToPhys a b c) = MemToPhys a b (f . c)
+>     fmap f (GetAddress a b c) = GetAddress a b (f . c)
 >     fmap f (NewUnion a b c d e g) = NewUnion a b c d e (f . g)
 >     fmap f (ReadUnion a b c) = ReadUnion a b (f . c)
 >     fmap f (WriteUnion a b c d) = WriteUnion a b c (f d)

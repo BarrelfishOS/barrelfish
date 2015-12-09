@@ -1,10 +1,10 @@
 /**
  * \file
- * \brief vspace debug 
+ * \brief Kernel memory test declarations
  */
 
 /*
- * Copyright (c) 2012, 2015, ETH Zurich.
+ * Copyright (c) 2015, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,9 +12,11 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef _VSPACE_DUMP_H
-#define _VSPACE_DUMP_H
+#ifndef NKM_TESTS_H
+#define NKM_TESTS_H
 
-void dump_pmap(struct pmap *pmap);
+int map_unmap(void);
+int modify_flags(void);
+int invalid_mappings(void);
 
-#endif //_VSPACE_DUMP_H
+#endif //NKM_TESTS_H

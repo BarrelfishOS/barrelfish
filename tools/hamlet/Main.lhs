@@ -55,8 +55,10 @@
 >                    hPutStrLn fileDefs "#ifndef CAPBITS_H"
 >                    hPutStrLn fileDefs "#define CAPBITS_H"
 >                    hPutStrLn fileDefs "#include <barrelfish_kpi/capabilities.h>"
+>                    hPutStrLn fileDefs "#pragma pack(1)"
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractM $ types compiledCode
 >                    hPutStrLn fileDefs $! show $ vcat' $ extractL $ declarations compiledCode
+>                    hPutStrLn fileDefs "#pragma pack(0)"
 >                    hPutStrLn fileDefs "#endif // CAPBITS_H"
 >                    hClose fileDefs
 >

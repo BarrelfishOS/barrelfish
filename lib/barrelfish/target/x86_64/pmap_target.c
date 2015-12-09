@@ -131,7 +131,7 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
         err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
                             X86_64_PDPT_BASE(base), pdir);
         if (err_is_fail(err)) {
-            printf("failure mapping pdpt\n");
+            DEBUG_ERR(err, "alloc_vnode for pdpt");
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
     }
@@ -274,9 +274,14 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     // do map
     err = vnode_map(ptable->u.vnode.cap, frame, table_base,
-                    pmap_flags, offset, pte_count);
+                    pmap_flags, offset, pte_count, page->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -389,17 +394,6 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             temp_end = vaddr + X86_64_PTABLE_SIZE * page_size;
             offset += c * page_size;
             c = X86_64_PTABLE_SIZE;
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            frame = next;
 
             // do mapping
             if (debug_out) {
@@ -421,22 +415,11 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             get_addr_prefix(temp_end, map_bits-X86_64_PTABLE_BITS);
 
         if (c) {
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-
             // do mapping
             if (debug_out) {
                 debug_printf("do_map: slow path: last leaf %"PRIu32"\n", c);
             }
-            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            err = do_single_map(pmap, temp_end, vend, frame, offset, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
@@ -671,7 +654,7 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
 }
 
 static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
-                                size_t pte_count, bool delete_cap)
+                                size_t pte_count)
 {
     errval_t err;
     struct vnode *pt = NULL, *page = NULL;
@@ -682,22 +665,23 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
     assert(pt && pt->is_vnode && page && !page->is_vnode);
 
     if (page->u.frame.pte_count == pte_count) {
-        err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry,
-                page->u.frame.pte_count);
+        err = vnode_unmap(pt->u.vnode.cap, page->mapping);
         if (err_is_fail(err)) {
             printf("vnode_unmap returned error: %s (%d)\n",
                     err_getstring(err), err_no(err));
             return err_push(err, LIB_ERR_VNODE_UNMAP);
         }
 
-        // Free up the resources
-        if (delete_cap) {
-            err = cap_destroy(page->u.frame.cap);
-            if (err_is_fail(err)) {
-                printf("delete_cap\n");
-                return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
-            }
+        // delete&free page->mapping after doing vnode_unmap()
+        err = cap_delete(page->mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CAP_DELETE);
         }
+        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_FREE);
+        }
+        // Free up the resources
         remove_vnode(pt, page);
         slab_free(&pmap->slab, page);
     }
@@ -768,7 +752,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         (is_same_pml4(vaddr, vend) && is_huge_page(page)))
     {
         // fast path
-        err = do_single_unmap(x86, vaddr, size / page_size, false);
+        err = do_single_unmap(x86, vaddr, size / page_size);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error fast path\n");
             return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -778,7 +762,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         // unmap first leaf
         uint32_t c = X86_64_PTABLE_SIZE - table_base;
 
-        err = do_single_unmap(x86, vaddr, c, false);
+        err = do_single_unmap(x86, vaddr, c);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error first leaf\n");
             return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -788,7 +772,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         vaddr += c * page_size;
         while (get_addr_prefix(vaddr, map_bits) < get_addr_prefix(vend, map_bits)) {
             c = X86_64_PTABLE_SIZE;
-            err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE, true);
+            err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE);
             if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error while loop\n");
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -803,7 +787,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             get_addr_prefix(vaddr, map_bits-X86_64_PTABLE_BITS);
         assert(c < X86_64_PTABLE_SIZE);
         if (c) {
-            err = do_single_unmap(x86, vaddr, c, true);
+            err = do_single_unmap(x86, vaddr, c);
             if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error remaining part\n");
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
@@ -857,8 +841,8 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
             // do assisted selective flush for single page
             va_hint = vaddr & ~X86_64_BASE_PAGE_MASK;
         }
-        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages,
-                                        pmap_flags, va_hint);
+        err = invoke_mapping_modify_flags(page->mapping, off, pages,
+                                          pmap_flags, va_hint);
         return err;
     } else {
         // overlaps some region border

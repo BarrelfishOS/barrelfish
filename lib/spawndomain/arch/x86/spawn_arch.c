@@ -67,6 +67,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
     size = ROUND_UP(size, BASE_PAGE_SIZE);
 
     cslot_t vspace_slot = si->elfload_slot;
+    cslot_t spawn_vspace_slot = si->elfload_slot;
 
     // Allocate the frames
     size_t sz = 0;
@@ -79,27 +80,6 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
         err = frame_create(frame, sz, NULL);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_FRAME_CREATE);
-        }
-    }
-
-    cslot_t spawn_vspace_slot = si->elfload_slot;
-    cslot_t new_slot_count = si->elfload_slot - vspace_slot;
-
-    // create copies of the frame capabilities for spawn vspace
-    for (int copy_idx = 0; copy_idx < new_slot_count; copy_idx++) {
-        struct capref frame = {
-            .cnode = si->segcn,
-            .slot = vspace_slot + copy_idx,
-        };
-        struct capref spawn_frame = {
-            .cnode = si->segcn,
-            .slot = si->elfload_slot++,
-        };
-        err = cap_copy(spawn_frame, frame);
-        if (err_is_fail(err)) {
-            // TODO: make debug printf
-            printf("cap_copy failed for src_slot = %"PRIuCSLOT", dest_slot = %"PRIuCSLOT"\n", frame.slot, spawn_frame.slot);
-            return err_push(err, LIB_ERR_CAP_COPY);
         }
     }
 
@@ -151,12 +131,12 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
     }
     for (lvaddr_t offset = 0; offset < size; offset += sz) {
         sz = 1UL << log2floor(size - offset);
-        struct capref spawn_frame = {
+        struct capref frame = {
             .cnode = si->segcn,
             .slot = spawn_vspace_slot++,
         };
         genvaddr_t genvaddr = vspace_lvaddr_to_genvaddr(offset);
-        err = memobj->f.fill(spawn_memobj, genvaddr, spawn_frame, sz);
+        err = memobj->f.fill(spawn_memobj, genvaddr, frame, sz);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }

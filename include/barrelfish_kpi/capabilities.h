@@ -19,7 +19,7 @@
 /* FIXME: OBJBITS defines must match sizes in Hamlet's capabilities/caps.hl */
 
 // Size of CNode entry
-#define OBJBITS_CTE             7
+#define OBJBITS_CTE             6
 
 // Size of dispatcher
 #define OBJBITS_DISPATCHER     10
@@ -55,7 +55,7 @@ struct dcb;
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
@@ -82,7 +82,7 @@ static inline bool type_is_vnode(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -120,7 +120,7 @@ static inline size_t vnode_objbits(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(30 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(44 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
@@ -171,6 +171,71 @@ static inline size_t vnode_entry_bits(enum objtype type) {
     return 0;
 }
 
+static inline enum objtype get_mapping_type(enum objtype captype)
+{
+    STATIC_ASSERT(44 == ObjType_Num, "Knowledge of all mapping types");
+
+    switch (captype) {
+        case ObjType_Frame:
+            return ObjType_Frame_Mapping;
+        case ObjType_DevFrame:
+            return ObjType_DevFrame_Mapping;
+        case ObjType_VNode_x86_64_pml4:
+            return ObjType_VNode_x86_64_pml4_Mapping;
+        case ObjType_VNode_x86_64_pdpt:
+            return ObjType_VNode_x86_64_pdpt_Mapping;
+        case ObjType_VNode_x86_64_pdir:
+            return ObjType_VNode_x86_64_pdir_Mapping;
+        case ObjType_VNode_x86_64_ptable:
+            return ObjType_VNode_x86_64_ptable_Mapping;
+        case ObjType_VNode_x86_32_pdpt:
+            return ObjType_VNode_x86_32_pdpt_Mapping;
+        case ObjType_VNode_x86_32_pdir:
+            return ObjType_VNode_x86_32_pdir_Mapping;
+        case ObjType_VNode_x86_32_ptable:
+            return ObjType_VNode_x86_32_ptable_Mapping;
+        case ObjType_VNode_ARM_l1:
+            return ObjType_VNode_ARM_l1_Mapping;
+        case ObjType_VNode_ARM_l2:
+            return ObjType_VNode_ARM_l2_Mapping;
+        case ObjType_VNode_AARCH64_l1:
+            return ObjType_VNode_AARCH64_l1_Mapping;
+        case ObjType_VNode_AARCH64_l2:
+            return ObjType_VNode_AARCH64_l2_Mapping;
+        case ObjType_VNode_AARCH64_l3:
+            return ObjType_VNode_AARCH64_l3_Mapping;
+        /* all other types are not mappable */
+        default:
+            return ObjType_Null;
+    }
+}
+
+static inline bool type_is_mapping(enum objtype type)
+{
+    STATIC_ASSERT(44 == ObjType_Num, "Knowledge of all mapping types");
+
+    switch (type) {
+        case ObjType_Frame_Mapping:
+        case ObjType_DevFrame_Mapping:
+        case ObjType_VNode_x86_64_pml4_Mapping:
+        case ObjType_VNode_x86_64_pdpt_Mapping:
+        case ObjType_VNode_x86_64_pdir_Mapping:
+        case ObjType_VNode_x86_64_ptable_Mapping:
+        case ObjType_VNode_x86_32_pdpt_Mapping:
+        case ObjType_VNode_x86_32_pdir_Mapping:
+        case ObjType_VNode_x86_32_ptable_Mapping:
+        case ObjType_VNode_ARM_l1_Mapping:
+        case ObjType_VNode_ARM_l2_Mapping:
+        case ObjType_VNode_AARCH64_l1_Mapping:
+        case ObjType_VNode_AARCH64_l2_Mapping:
+        case ObjType_VNode_AARCH64_l3_Mapping:
+            return true;
+
+        /* all other types are not mapping types */
+        default:
+            return false;
+    }
+}
 
 /**
  * CNode capability commands.
@@ -189,6 +254,14 @@ enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
     VNodeCmd_Identify,   ///< Return the physical address of the VNode
+};
+
+/**
+ * Mapping commands
+ */
+enum mapping_cmd {
+    MappingCmd_Modify,
+    MappingCmd_Destroy,
 };
 
 /**
@@ -253,7 +326,6 @@ enum dispatcher_cmd {
  */
 enum frame_cmd {
     FrameCmd_Identify,      ///< Return physical address of frame
-    FrameCmd_ModifyFlags,   ///< Modify flags for (part of) the mapped region of frame
 };
 
 /**

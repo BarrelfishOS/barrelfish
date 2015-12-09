@@ -349,7 +349,8 @@ static inline errval_t
 #endif
 invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
                  int frombits, uintptr_t flags, uintptr_t offset,
-                 uintptr_t pte_count)
+                 uintptr_t pte_count, capaddr_t mcn_addr, int mcn_vbits,
+                 cslot_t mapping_slot)
 {
     uint8_t invoke_bits = get_cap_valid_bits(ptable);
     capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
@@ -358,9 +359,10 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
     assert(frombits <= 0xff);
 
     // XXX: needs check of flags, offset, and pte_count sizes
-    return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, from, (slot << 16) | frombits,
-                    flags, offset, pte_count).error;
+    return syscall10((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
+                     invoke_cptr, from, (slot << 16) | frombits,
+                     flags, offset, pte_count, mcn_addr, mcn_vbits,
+                     mapping_slot).error;
 }
 
 //XXX: workaround for inline bug of arm-gcc 4.6.1 and lower
@@ -370,22 +372,15 @@ static __attribute__((noinline, unused)) errval_t
 #else
 static inline errval_t
 #endif
-invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits,
-                   size_t entry, size_t pte_count)
+invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
-    pte_count -= 1;
-
-    assert(entry < 4096);
-    assert(pte_count < 4096);
     assert(mapping_bits <= 0xff);
 
     return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, mapping_cptr,
-                    ((mapping_bits & 0xff)<<24) | ((pte_count & 0xfff)<<12) |
-                     (entry & 0xfff)).error;
+                    invoke_cptr, mapping_cptr, mapping_bits).error;
 }
 
 /**
@@ -444,14 +439,14 @@ static __attribute__((noinline, unused)) errval_t
 #else
 static inline errval_t
 #endif
-invoke_frame_modify_flags (struct capref frame, uintptr_t offset,
+invoke_mapping_modify_flags (struct capref mapping, uintptr_t offset,
 		uintptr_t pages, uintptr_t flags)
 {
-    uint8_t invoke_bits = get_cap_valid_bits(frame);
-    capaddr_t invoke_cptr = get_cap_addr(frame) >> (CPTR_BITS - invoke_bits);
+    uint8_t invoke_bits = get_cap_valid_bits(mapping);
+    capaddr_t invoke_cptr = get_cap_addr(mapping) >> (CPTR_BITS - invoke_bits);
 
     uintptr_t arg1 = ((uintptr_t)invoke_bits) << 16;
-    arg1 |= ((uintptr_t)FrameCmd_ModifyFlags<<8);
+    arg1 |= ((uintptr_t)MappingCmd_Modify<<8);
     arg1 |= (uintptr_t)SYSCALL_INVOKE;
 
     return syscall5(arg1, invoke_cptr, offset, pages, flags).error;

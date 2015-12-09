@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
     struct capref ram;
     struct capref pagetable;
     struct capref frame;
+    struct capref mapping;
     err = ram_alloc(&ram, pt_bits);
     assert(err_is_ok(err));
     err = slot_alloc(&pagetable);
@@ -47,6 +48,8 @@ int main(int argc, char *argv[])
     err = cap_retype(pagetable, ram, ObjType_VNode_x86_64_ptable, pt_bits);
     assert(err_is_ok(err));
     err = frame_alloc(&frame, FRAME_SIZE, &ret_bytes);
+    assert(err_is_ok(err));
+    err = slot_alloc(&mapping);
     assert(err_is_ok(err));
 
     // map and unmap one frame 100 times in a row
@@ -60,7 +63,7 @@ int main(int argc, char *argv[])
 
     for (uint64_t i = 0; i < RUN_COUNT; i++) {
         start = bench_tsc();
-        err = vnode_map(pagetable,frame,(cslot_t)(i%512),flags,0,1);
+        err = vnode_map(pagetable,frame,(cslot_t)(i%512),flags,0,1, mapping);
         assert(err_is_ok(err));
         end = bench_tsc();
 #ifndef LOADGEN
@@ -69,7 +72,9 @@ int main(int argc, char *argv[])
             runs[i] = BENCH_IGNORE_WATERMARK;
         }
 #endif
-        err = vnode_unmap(pagetable,frame,(cslot_t)(i%512),1);
+        err = vnode_unmap(pagetable,mapping);
+        assert(err_is_ok(err));
+        err = cap_delete(mapping);
         assert(err_is_ok(err));
     }
 

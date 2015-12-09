@@ -348,14 +348,16 @@ sys_copy_or_mint(struct capability *root, capaddr_t destcn_cptr, cslot_t dest_sl
 struct sysret
 sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
         int source_vbits, uintptr_t flags, uintptr_t offset,
-        uintptr_t pte_count)
+        uintptr_t pte_count, capaddr_t mapping_cnptr, int mapping_cnvbits,
+        cslot_t mapping_slot)
 {
     assert (type_is_vnode(ptable->type));
 
     errval_t err;
 
-    /* Lookup source cap */
     struct capability *root = &dcb_current->cspace.cap;
+
+    /* Lookup source cap */
     struct cte *src_cte;
     err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
                            CAPRIGHTS_READ);
@@ -363,11 +365,29 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
     }
 
+    /* Lookup mapping slot */
+    struct cte *mapping_cnode_cte;
+    err = caps_lookup_slot(root, mapping_cnptr, mapping_cnvbits,
+                           &mapping_cnode_cte, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+
+    if (mapping_cnode_cte->cap.type != ObjType_CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+
+    struct cte *mapping_cte = caps_locate_slot(get_address(&mapping_cnode_cte->cap),
+                                               mapping_slot);
+    if (mapping_cte->cap.type != ObjType_Null) {
+        return SYSRET(SYS_ERR_SLOT_IN_USE);
+    }
+
     /* Perform map */
     // XXX: this does not check if we do have CAPRIGHTS_READ_WRITE on
     // the destination cap (the page table we're inserting into)
     return SYSRET(caps_copy_to_vnode(cte_for_cap(ptable), slot, src_cte, flags,
-                                     offset, pte_count));
+                                     offset, pte_count, mapping_cte));
 }
 
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t bits)

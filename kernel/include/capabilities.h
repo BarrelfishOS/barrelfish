@@ -31,10 +31,17 @@ struct delete_list {
     char padding[DELETE_LIST_SIZE - sizeof(struct cte*)];
 };
 
-STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
-               + sizeof(struct delete_list) + sizeof(struct mapping_info))
+#ifndef ROUND_UP
+#define ROUND_UP(n, size)           ((((n) + (size) - 1)) & (~((size) - 1)))
+#endif
+
+STATIC_ASSERT((ROUND_UP(sizeof(struct capability), 8)
+               + ROUND_UP(sizeof(struct mdbnode), 8)
+               + sizeof(struct delete_list))
                <= (1UL << OBJBITS_CTE),
               "cap+mdbnode fit in cte");
+
+STATIC_ASSERT(sizeof(enum objtype) == 1, "short enums work");
 
 /**
  * \brief A CTE (Capability Table Entry).
@@ -45,14 +52,16 @@ STATIC_ASSERT((sizeof(struct capability) + sizeof(struct mdbnode)
  */
 struct cte {
     struct capability   cap;            ///< The capability
+    char padding0[ROUND_UP(sizeof(struct capability), 8)- sizeof(struct capability)];
     struct mdbnode      mdbnode;        ///< MDB "root" node for the cap
+    char padding1[ROUND_UP(sizeof(struct mdbnode), 8) - sizeof(struct mdbnode)];
     struct delete_list  delete_node;    ///< State for in-progress delete cascades
-    struct mapping_info mapping_info;   ///< Mapping info for mapped pmem capabilities
 
     /// Padding to fill the struct out to the size required by OBJBITS_CTE
     char padding[(1UL << OBJBITS_CTE)
-                 - sizeof(struct capability) - sizeof(struct mdbnode)
-                 - sizeof(struct delete_list) - sizeof(struct mapping_info)];
+                 - sizeof(struct delete_list)
+                 - ROUND_UP(sizeof(struct capability), 8)
+                 - ROUND_UP(sizeof(struct mdbnode), 8)];
 };
 
 STATIC_ASSERT_SIZEOF(struct cte, (1UL << OBJBITS_CTE));
@@ -82,10 +91,10 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2);
 errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
-                            uintptr_t offset, uintptr_t pte_count);
+                            uintptr_t offset, uintptr_t pte_count,
+                            struct cte *mapping_cte);
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages);
-errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping,
-                             size_t entry, size_t num_pages);
+errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping);
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags,
                                     genvaddr_t va_hint);
@@ -124,42 +133,60 @@ errval_t caps_revoke(struct cte *cte);
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(ObjType_Num == 30, "knowledge of all cap types");
+STATIC_ASSERT(44 == ObjType_Num, "knowledge of all cap types");
+STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
+#define MAPPING_TYPES \
+    ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_pdpt_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_pdir_Mapping) | \
+     (1ull<<ObjType_VNode_x86_64_ptable_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_pdpt_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_pdir_Mapping) | \
+     (1ull<<ObjType_VNode_x86_32_ptable_Mapping) | \
+     (1ull<<ObjType_VNode_ARM_l1_Mapping) | \
+     (1ull<<ObjType_VNode_ARM_l2_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l1_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l2_Mapping) | \
+     (1ull<<ObjType_VNode_AARCH64_l3_Mapping) | \
+     (1ull<<ObjType_Frame_Mapping) | \
+     (1ull<<ObjType_DevFrame_Mapping))
+
 #define ALL_PMEM_TYPES \
-    ((1ul<<ObjType_RAM) | \
-     (1ul<<ObjType_Frame) | \
-     (1ul<<ObjType_DevFrame) | \
-     (1ul<<ObjType_CNode) | \
-     (1ul<<ObjType_FCNode) | \
-     (1ul<<ObjType_VNode_x86_64_pml4) | \
-     (1ul<<ObjType_VNode_x86_64_pdpt) | \
-     (1ul<<ObjType_VNode_x86_64_pdir) | \
-     (1ul<<ObjType_VNode_x86_64_ptable) | \
-     (1ul<<ObjType_VNode_x86_32_pdpt) | \
-     (1ul<<ObjType_VNode_x86_32_pdir) | \
-     (1ul<<ObjType_VNode_x86_32_ptable) | \
-     (1ul<<ObjType_VNode_ARM_l1) | \
-     (1ul<<ObjType_VNode_ARM_l2) | \
-     (1ul<<ObjType_VNode_AARCH64_l1) | \
-     (1ul<<ObjType_VNode_AARCH64_l2) | \
-     (1ul<<ObjType_VNode_AARCH64_l3) | \
-     (1ul<<ObjType_PhysAddr) | \
-     (1ul<<ObjType_KernelControlBlock))
+    ((1ull<<ObjType_RAM) | \
+     (1ull<<ObjType_Frame) | \
+     (1ull<<ObjType_DevFrame) | \
+     (1ull<<ObjType_CNode) | \
+     (1ull<<ObjType_FCNode) | \
+     (1ull<<ObjType_VNode_x86_64_pml4) | \
+     (1ull<<ObjType_VNode_x86_64_pdpt) | \
+     (1ull<<ObjType_VNode_x86_64_pdir) | \
+     (1ull<<ObjType_VNode_x86_64_ptable) | \
+     (1ull<<ObjType_VNode_x86_32_pdpt) | \
+     (1ull<<ObjType_VNode_x86_32_pdir) | \
+     (1ull<<ObjType_VNode_x86_32_ptable) | \
+     (1ull<<ObjType_VNode_ARM_l1) | \
+     (1ull<<ObjType_VNode_ARM_l2) | \
+     (1ull<<ObjType_VNode_AARCH64_l1) | \
+     (1ull<<ObjType_VNode_AARCH64_l2) | \
+     (1ull<<ObjType_VNode_AARCH64_l3) | \
+     (1ull<<ObjType_PhysAddr) | \
+     (1ull<<ObjType_KernelControlBlock) | \
+     MAPPING_TYPES)
 
 #define TRACE_TYPES_ENABLED_INITIAL 0x0
 #define TRACE_PMEM_BEGIN_INITIAL    0x0
 #define TRACE_PMEM_SIZE_INITIAL     (~(uint32_t)0)
 
-extern uintptr_t trace_types_enabled;
+extern uint64_t trace_types_enabled;
 extern genpaddr_t TRACE_PMEM_BEGIN;
 extern gensize_t TRACE_PMEM_SIZE;
-void caps_trace_ctrl(uintptr_t types, genpaddr_t start, gensize_t size);
+void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size);
 static inline bool caps_should_trace(struct capability *cap)
 {
-    if (!(trace_types_enabled & (1ul<<cap->type))) {
+    if (!(trace_types_enabled & (1ull<<cap->type))) {
         return false;
     }
-    if (!(ALL_PMEM_TYPES & (1ul<<cap->type))) {
+    if (!(ALL_PMEM_TYPES & (1ull<<cap->type))) {
         return true;
     }
     genpaddr_t begin = get_address(cap);
@@ -168,6 +195,14 @@ static inline bool caps_should_trace(struct capability *cap)
     return (begin < TRACE_PMEM_BEGIN && end > TRACE_PMEM_BEGIN)
         || (begin >= TRACE_PMEM_BEGIN && begin < (TRACE_PMEM_BEGIN+TRACE_PMEM_SIZE));
 }
+#define TRACE_CAP_MSGF(trace_cte, msgfmt, ...) do { \
+    struct cte *__tmp_cte = (trace_cte); \
+    if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
+        char __tmp_msg_buf[256]; \
+        snprintf(__tmp_msg_buf, 256, msgfmt, __VA_ARGS__); \
+        caps_trace(__func__, __LINE__, __tmp_cte, (__tmp_msg_buf)); \
+    } \
+} while (0)
 #define TRACE_CAP_MSG(msg, trace_cte) do { \
     struct cte *__tmp_cte = (trace_cte); \
     if (__tmp_cte && caps_should_trace(&__tmp_cte->cap)) { \
@@ -176,6 +211,7 @@ static inline bool caps_should_trace(struct capability *cap)
 } while (0)
 #define TRACE_CAP(trace_cte) TRACE_CAP_MSG(NULL, trace_cte)
 #else
+#define TRACE_CAP_MSGF(trace_cte, msgfmt, ...) ((void)0)
 #define TRACE_CAP_MSG(msg, trace_cte) ((void)0)
 #define TRACE_CAP(trace_cte) ((void)0)
 #endif

@@ -60,7 +60,7 @@ static void test_region(uint32_t *buf, size_t size)
 
 int main(void)
 {
-    struct capref frame, smallframe, vnodes[4];
+    struct capref frame, smallframe, vnodes[4], mappings[4];
     size_t bytes = DEFAULT_SIZE;
     size_t bits = 4*1024;
     errval_t err;
@@ -86,12 +86,15 @@ int main(void)
     for (int i = 1; i < sizeof(type) / sizeof(type[0]); i++) {
         err = slot_alloc(&vnodes[i]);
         assert(err_is_ok(err));
+        err = slot_alloc(&mappings[i]);
+        assert(err_is_ok(err));
         printf("creating vnode for level %d, type %d\n", i, type[i]);
         err = vnode_create(vnodes[i], type[i]);
         assert(err_is_ok(err));
         uint32_t slot = (SAFE_VADDR >> offsets[i-1]) & 0x1f;
         printf("mapping into slot %d on level %d\n", slot, i-1);
-        err = vnode_map(vnodes[i-1], vnodes[i], slot, PTABLE_ACCESS_DEFAULT, 0, 1);
+        err = vnode_map(vnodes[i-1], vnodes[i], slot, PTABLE_ACCESS_DEFAULT,
+                        0, 1, mappings[i]);
         if (err_is_fail(err)) {
             // this means we already have a page table for this level
             // XXX: right now we've chosen the SAFE_VADDR such that we don't have
@@ -106,9 +109,11 @@ int main(void)
 // map as 4k and 2m frames with vnode_map
 // used to test the kernel code
 #if 1
+    err = slot_alloc(&mappings[0]);
+    assert(err_is_ok(err));
     //printf("start 4k vnode map");
     err = vnode_map(vnodes[3], smallframe, (SAFE_VADDR>>offsets[3])&0x1f,
-            PAGE_DEFAULT_ACCESS, 0, 4*1024 / X86_64_BASE_PAGE_SIZE);
+            PAGE_DEFAULT_ACCESS, 0, 4*1024 / X86_64_BASE_PAGE_SIZE, mappings[0]);
 #endif
 #if 0
     if (err_is_fail(err)) {

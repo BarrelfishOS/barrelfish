@@ -126,33 +126,6 @@ handle_frame_identify(
 }
 
 static struct sysret
-handle_frame_modify_flags(
-        struct capability *to,
-        arch_registers_state_t *context,
-        int argc
-        )
-{
-    // Modify flags of (part of) mapped region of frame
-    assert (5 == argc);
-
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-
-    // unpack arguments
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-    size_t offset = sa->arg2; // in pages; of first page to modify from first
-                              // page in mapped region
-    size_t pages  = sa->arg3; // #pages to modify
-    size_t flags  = sa->arg4; // new flags
-
-    paging_modify_flags(to, offset, pages, flags);
-
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = 0,
-    };
-}
-
-static struct sysret
 handle_mint(
     struct capability* root,
     arch_registers_state_t* context,
@@ -314,21 +287,27 @@ handle_map(
     int argc
     )
 {
-    assert(7 == argc);
+    assert(8 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     /* Retrieve arguments */
-    capaddr_t  source_cptr   = (capaddr_t)sa->arg2;
-    capaddr_t dest_slot      = ((capaddr_t)sa->arg3) >> 16;
-    int      source_vbits  = ((int)sa->arg3) & 0xff;
-    uintptr_t flags, offset,pte_count;
-    flags = (uintptr_t)sa->arg4;
-    offset = (uintptr_t)sa->arg5;
-    pte_count = (uintptr_t)sa->arg6;
+    capaddr_t source_cptr   = (capaddr_t)sa->arg2;
+    capaddr_t dest_slot     = ((capaddr_t)sa->arg3) >> 16;
+    int       source_vbits  = ((int)sa->arg3) & 0xff;
+    uintptr_t flags         = (uintptr_t)sa->arg4;
+    uintptr_t offset        = (uintptr_t)sa->arg5;
+    uintptr_t pte_count     = (uintptr_t)sa->arg6;
+    uintptr_t *extra        = (uintptr_t*)sa->arg7;
+    capaddr_t mcn_addr      = extra[0];
+    int       mcn_vbits     = (int)extra[1];
+    cslot_t   mapping_slot  = (cslot_t)extra[2];
+
+
 
     return sys_map(ptable, dest_slot, source_cptr, source_vbits,
-                   flags, offset, pte_count);
+                   flags, offset, pte_count, mcn_addr, mcn_vbits,
+                   mapping_slot);
 }
 
 static struct sysret
@@ -344,10 +323,7 @@ handle_unmap(
 
     /* Retrieve arguments */
     capaddr_t  mapping_cptr  = (capaddr_t)sa->arg2;
-    int mapping_bits         = (((int)sa->arg3) >> 20) & 0xff;
-    size_t pte_count         = (((size_t)sa->arg3) >> 10) & 0x3ff;
-    pte_count               += 1;
-    size_t entry             = ((size_t)sa->arg3) & 0x3ff;
+    int mapping_bits         = (int)sa->arg3 & 0xff;
 
     errval_t err;
     struct cte *mapping = NULL;
@@ -357,8 +333,45 @@ handle_unmap(
         return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
     }
 
-    err = page_mappings_unmap(ptable, mapping, entry, pte_count);
+    err = page_mappings_unmap(ptable, mapping);
     return SYSRET(err);
+}
+
+static struct sysret
+handle_mapping_destroy(
+        struct capability *to,
+        arch_registers_state_t *context,
+        int argc)
+{
+    panic("NYI!");
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret
+handle_mapping_modify(
+        struct capability *to,
+        arch_registers_state_t *context,
+        int argc
+        )
+{
+    assert(5 == argc);
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+
+    // Modify flags of (part of) mapped region of frame
+    assert(type_is_mapping(to->type));
+
+    // unpack arguments
+    size_t offset = sa->arg2; // in pages; of first page to modify from first
+                             // page in mapped region
+    size_t pages  = sa->arg3; // #pages to modify
+    size_t flags  = sa->arg4; // new flags
+
+    errval_t err = paging_modify_flags(to, offset, pages, flags);
+
+    return (struct sysret) {
+        .error = err,
+        .value = 0,
+    };
 }
 
 /// Different handler for cap operations performed by the monitor
@@ -793,11 +806,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
@@ -819,6 +830,26 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_VNode_AARCH64_l3] = {
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_Frame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l1_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l2_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_AARCH64_l3_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_IRQTable] = {
             [IRQTableCmd_Set] = handle_irq_table_set,

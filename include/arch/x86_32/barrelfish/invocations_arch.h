@@ -278,36 +278,45 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
 #else
 static inline errval_t invoke_vnode_map(struct capref ptable, capaddr_t slot,
                                         capaddr_t from, int frombits, uintptr_t flags,
-                                        uintptr_t offset, uintptr_t pte_count)
+                                        uintptr_t offset, uintptr_t pte_count,
+                                        capaddr_t mcn_addr, int mcn_vbits,
+                                        int mapping_slot)
 #endif
 {
     uint8_t invoke_bits = get_cap_valid_bits(ptable);
     capaddr_t invoke_cptr = get_cap_addr(ptable) >> (CPTR_BITS - invoke_bits);
 
     assert(slot <= 0xffff);
+    assert(pte_count <= 0xffff);
     assert(frombits <= 0xff);
+    assert(mcn_vbits <= 0xff);
+    assert(mapping_slot <= 0xffff);
+
+    uintptr_t invocation = (invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE;
+    uintptr_t mapping_slot_and_bits = (mapping_slot << 16) | (mcn_vbits << 8) | frombits;
+    uintptr_t pte_slot_and_count = (slot << 16) | pte_count;
+
+    uint64_t overflow[] = { offset, flags };
+
 
     // XXX: needs check of flags, offset, and pte_count sizes
     // XXX: flag transfer breaks for PAE (flags are 64 bits for PAE)
-    return syscall7((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, from, (slot << 16) | frombits,
-                    flags, offset, pte_count).error;
+    return syscall7(invocation, invoke_cptr, from,
+                    mapping_slot_and_bits, mcn_addr,
+                    pte_slot_and_count, (uintptr_t)overflow).error;
 }
 
 
-static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr, int mapping_bits, size_t entry, size_t pte_count)
+static inline errval_t invoke_vnode_unmap(struct capref cap, capaddr_t mapping_cptr,
+                                          int mapping_bits)
 {
     uint8_t invoke_bits = get_cap_valid_bits(cap);
     capaddr_t invoke_cptr = get_cap_addr(cap) >> (CPTR_BITS - invoke_bits);
 
-    pte_count -= 1;
-
-    assert(entry < 1024);
-    assert(pte_count < 1024);
     assert(mapping_bits <= 0xff);
 
     return syscall4((invoke_bits << 16) | (VNodeCmd_Unmap << 8) | SYSCALL_INVOKE,
-                    invoke_cptr, mapping_cptr, ((mapping_bits & 0xff)<<20) | ((pte_count & 0x3ff)<<10) | (entry & 0x3ff)).error;
+                    invoke_cptr, mapping_cptr, mapping_bits).error;
 }
 
 /**
@@ -364,13 +373,13 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
  *
  * \return Error code
  */
-static inline errval_t invoke_frame_modify_flags(struct capref frame,
-                                                 size_t offset,
-                                                 size_t pages,
-                                                 size_t flags,
-                                                 genvaddr_t va_hint)
+static inline errval_t invoke_mapping_modify_flags(struct capref mapping,
+                                                   size_t offset,
+                                                   size_t pages,
+                                                   size_t flags,
+                                                   genvaddr_t va_hint)
 {
-    return cap_invoke5(frame, FrameCmd_ModifyFlags, offset,
+    return cap_invoke5(mapping, MappingCmd_Modify, offset,
                        pages, flags, va_hint).error;
 }
 

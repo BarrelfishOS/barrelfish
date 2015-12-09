@@ -202,9 +202,14 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
+    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     // do map
     err = vnode_map(ptable->u.vnode.cap, frame, base,
-                    pmap_flags, offset, pte_count);
+                    pmap_flags, offset, pte_count, page->mapping);
     if (err_is_fail(err)) {
         printf("error in do_single_map: vnode_map failed\n");
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -259,17 +264,6 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             temp_end = vaddr + X86_32_PTABLE_SIZE * page_size;
             offset += c * page_size;
             c = X86_32_PTABLE_SIZE;
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            frame = next;
 
             // do mapping
             err = do_single_map(pmap, vaddr, temp_end, frame, offset,
@@ -289,19 +283,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(temp_end);
         }
         if (c) {
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-
             // do mapping
-            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            err = do_single_map(pmap, temp_end, vend, frame, offset, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
@@ -511,7 +494,7 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
 }
 
 static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
-                                size_t pte_count, bool delete_cap)
+                                size_t pte_count)
 {
     errval_t err;
     struct vnode *pt = NULL, *page = NULL;
@@ -520,20 +503,21 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     if (pt) {
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap, page->entry,
-                              page->u.frame.pte_count);
+            err = vnode_unmap(pt->u.vnode.cap, page->mapping);
             if (err_is_fail(err)) {
                 printf("vnode_unmap returned error: %s (%d)\n",
                         err_getstring(err), err_no(err));
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
             }
 
-            // Free up the resources
-            if (delete_cap) {
-                err = cap_destroy(page->u.frame.cap);
-                if (err_is_fail(err)) {
-                    return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
-                }
+            // delete&free page->mapping after doing vnode_unmap()
+            err = cap_delete(page->mapping);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_CAP_DELETE);
+            }
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->mapping);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_SLOT_FREE);
             }
             remove_vnode(pt, page);
             slab_free(&pmap->slab, page);
@@ -592,7 +576,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     if (is_same_pdir(vaddr, vend) ||
         (is_same_pdpt(vaddr, vend) && is_large_page(page))) {
         // fast path
-        err = do_single_unmap(x86, vaddr, size / page_size, false);
+        err = do_single_unmap(x86, vaddr, size / page_size);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -600,7 +584,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     else { // slow path
         // unmap first leaf
         uint32_t c = X86_32_PTABLE_SIZE - X86_32_PTABLE_BASE(vaddr);
-        err = do_single_unmap(x86, vaddr, c, false);
+        err = do_single_unmap(x86, vaddr, c);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -609,7 +593,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         vaddr += c * page_size;
         while (get_addr_prefix(vaddr) < get_addr_prefix(vend)) {
             c = X86_32_PTABLE_SIZE;
-            err = do_single_unmap(x86, vaddr, X86_32_PTABLE_SIZE, true);
+            err = do_single_unmap(x86, vaddr, X86_32_PTABLE_SIZE);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -619,7 +603,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         // unmap remaining part
         c = X86_32_PTABLE_BASE(vend) - X86_32_PTABLE_BASE(vaddr);
         if (c) {
-            err = do_single_unmap(x86, vaddr, c, true);
+            err = do_single_unmap(x86, vaddr, c);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -677,7 +661,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
             // do assisted selective flush for single page
             va_hint = vaddr & ~X86_32_BASE_PAGE_MASK;
         }
-        err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags, va_hint);
+        err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags, va_hint);
         printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                 err_getstring(err), err);
         return err;

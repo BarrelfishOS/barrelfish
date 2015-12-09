@@ -153,16 +153,20 @@ static struct sysret handle_map(struct capability *ptable,
                                 int cmd, uintptr_t *args)
 {
     /* Retrieve arguments */
-    uint64_t  slot          = args[0];
-    capaddr_t source_cptr   = args[1];
-    int       source_vbits  = args[2];
-    uint64_t  flags         = args[3];
-    uint64_t  offset        = args[4];
-    uint64_t  pte_count     = args[5];
+    uint64_t  slot            = args[0];
+    capaddr_t source_cptr     = args[1];
+    int       source_vbits    = args[2];
+    uint64_t  flags           = args[3];
+    uint64_t  offset          = args[4];
+    uint64_t  pte_count       = args[5];
+    capaddr_t mapping_cnptr   = args[6];
+    int       mapping_cnvbits = args[7];
+    cslot_t   mapping_slot    = args[8];
 
     TRACE(KERNEL, SC_MAP, 0);
-    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags, offset,
-                   	           pte_count);
+    struct sysret sr = sys_map(ptable, slot, source_cptr, source_vbits, flags,
+                               offset, pte_count, mapping_cnptr, mapping_cnvbits,
+                               mapping_slot);
     TRACE(KERNEL, SC_MAP, 1);
     return sr;
 }
@@ -208,8 +212,6 @@ static struct sysret handle_unmap(struct capability *pgtable,
 {
     capaddr_t cptr = args[0];
     int bits       = args[1];
-    size_t entry   = args[2];
-    size_t pages   = args[3];
 
     errval_t err;
     struct cte *mapping;
@@ -220,9 +222,37 @@ static struct sysret handle_unmap(struct capability *pgtable,
     }
 
     TRACE(KERNEL, SC_UNMAP, 0);
-    err = page_mappings_unmap(pgtable, mapping, entry, pages);
+    err = page_mappings_unmap(pgtable, mapping);
     TRACE(KERNEL, SC_UNMAP, 1);
     return SYSRET(err);
+}
+
+static struct sysret handle_mapping_destroy(struct capability *mapping,
+                                            int cmd, uintptr_t *args)
+{
+    panic("NYI!");
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret handle_mapping_modify(struct capability *mapping,
+                                           int cmd, uintptr_t *args)
+{
+    // Modify flags of (part of) mapped region of frame
+    assert(type_is_mapping(mapping->type));
+
+    // unpack arguments
+    size_t offset = args[0]; // in pages; of first page to modify from first
+                             // page in mapped region
+    size_t pages  = args[1]; // #pages to modify
+    size_t flags  = args[2]; // new flags
+    genvaddr_t va = args[3]; // virtual addr hint
+
+    errval_t err = page_mappings_modify_flags(mapping, offset, pages, flags, va);
+
+    return (struct sysret) {
+        .error = err,
+        .value = 0,
+    };
 }
 
 /// Different handler for cap operations performed by the monitor
@@ -411,7 +441,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
 {
     /* XXX: Get the raw metadata of the capability to create */
     struct capability *src = (struct capability *)args;
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
     /* Cannot create null caps */
     if (src->type == ObjType_Null) {
@@ -432,6 +462,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     capaddr_t cnode_cptr = args[pos];
     int cnode_vbits      = args[pos + 1];
     size_t slot          = args[pos + 2];
+    assert(cnode_vbits < CPTR_BITS);
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_vbits,
@@ -443,7 +474,7 @@ static struct sysret monitor_copy_existing(struct capability *kernel_cap,
 {
     /* XXX: Get the raw metadata of the capability to create */
     struct capability *src = (struct capability *)args;
-    int pos = sizeof(struct capability) / sizeof(uint64_t);
+    int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
     capaddr_t cnode_cptr = args[pos];
     int cnode_vbits    = args[pos + 1];
@@ -513,27 +544,6 @@ static struct sysret handle_vnode_identify(struct capability *to,
     return (struct sysret) {
         .error = SYS_ERR_OK,
         .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
-    };
-}
-
-static struct sysret handle_frame_modify_flags(struct capability *to,
-                                               int cmd, uintptr_t *args)
-{
-    // Modify flags of (part of) mapped region of frame
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-
-    // unpack arguments
-    size_t offset = args[0]; // in pages; of first page to modify from first
-                             // page in mapped region
-    size_t pages  = args[1]; // #pages to modify
-    size_t flags  = args[2]; // new flags
-    genvaddr_t va = args[3]; // virtual addr hint
-
-    errval_t err = page_mappings_modify_flags(to, offset, pages, flags, va);
-
-    return (struct sysret) {
-        .error = err,
-        .value = 0,
     };
 }
 
@@ -1045,11 +1055,9 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_DevFrame] = {
         [FrameCmd_Identify] = handle_frame_identify,
-        [FrameCmd_ModifyFlags] = handle_frame_modify_flags,
     },
     [ObjType_CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1079,6 +1087,30 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_Frame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pml4_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pdpt_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pdir_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_ptable_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id]  = monitor_get_core_id,

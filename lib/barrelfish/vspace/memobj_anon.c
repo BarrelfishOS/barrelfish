@@ -152,7 +152,7 @@ static errval_t protect(struct memobj *memobj, struct vregion *vregion,
 
     //printf("(%s:%d) protect(0x%"PRIxGENVADDR", memobj->size = %zd) vregion size = %zd offset=%zd range=%zd\n", __FILE__, __LINE__, vregion_base + vregion_off, memobj->size, vregion_size, offset, range);
 
-    if (offset + range >= vregion_end) {
+    if (offset + range > vregion_end) {
         return LIB_ERR_MEMOBJ_WRONG_OFFSET;
     }
 

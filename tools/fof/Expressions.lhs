@@ -34,6 +34,7 @@
 
 > import Libbarrelfish.HasDescendants(compileHasDescendants, runHasDescendants)
 > import Libbarrelfish.MemToPhys(compileMemToPhys, runMemToPhys)
+> import Libbarrelfish.GetAddress(compileGetAddress, runGetAddress)
 
 %endif
 
@@ -112,6 +113,7 @@ interpreter.
 > runAlgebra x@(Printf _ _ _) = runPrintf x
 > runAlgebra x@(HasDescendants _ _ _) = runHasDescendants x
 > runAlgebra x@(MemToPhys _ _ _) = runMemToPhys x
+> runAlgebra x@(GetAddress _ _ _) = runGetAddress x
 
 
 \subsection{Gluing the Compiler}
@@ -166,3 +168,4 @@ binding.
 > compileAlgebra x@(Printf _ _ _) = compilePrintf x
 > compileAlgebra x@(HasDescendants _ _ _) = compileHasDescendants x
 > compileAlgebra x@(MemToPhys _ _ _) = compileMemToPhys x
+> compileAlgebra x@(GetAddress _ _ _) = compileGetAddress x

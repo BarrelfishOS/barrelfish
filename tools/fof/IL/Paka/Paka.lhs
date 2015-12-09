@@ -624,6 +624,15 @@ generator. This is just like writing C code, so don't be shy.
 >             text "mem_to_local_phys" <> parens (toC param) <> semi)
 >           [pakaValName $ param]
 
+> compileFFI nameCall [varName, param] | nameCall == "get_address" =
+>   localVar (show $ toC varName)
+>              (toC uint64T <+> toC varName <> semi)
+>   # assgn (pakaValName $ varName)
+>           (\[_,e] ->
+>             toC varName <+> char '=' <+>
+>             text "get_address" <> parens (toC param) <> semi)
+>           [pakaValName $ param]
+
 
 
 \subsubsection{Declaring types}

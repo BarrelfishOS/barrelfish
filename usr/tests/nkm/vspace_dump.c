@@ -1,3 +1,17 @@
+/**
+ * \file
+ * \brief Print pmap helper
+ */
+
+/*
+ * Copyright (c) 2012, 2015, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/vregion.h>
@@ -5,19 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
-void dump_my_vregions(void)
-{
-    struct vspace *vspace = get_current_vspace();
-    struct vregion *walk = vspace->head;
-
-    while (walk != NULL) {
-        genvaddr_t base = vregion_get_base_addr(walk);
-        genvaddr_t size = vregion_get_size(walk);
-        printf("vregion at %"PRIxGENVADDR", size = %"PRIxGENVADDR"\n", base, size);
-        walk = walk->next;
-    }
-}
-
+#ifdef TARGET_X86_64_BARRELFISH_PMAP_H
 static int cmp_dump_info(const void *arg1, const void *arg2)
 {
     struct pmap_dump_info *info1, *info2;
@@ -53,12 +55,48 @@ static int cmp_dump_info(const void *arg1, const void *arg2)
     // pt indices equal
     return 0;
 }
-
-#define BUFSIZE 1024
-static struct pmap_dump_info buf[BUFSIZE*sizeof(struct pmap_dump_info)];
-static void dump_pmap(struct pmap *pmap)
+#elif defined(TARGET_X86_32_BARRELFISH_PMAP_H)
+static int cmp_dump_info(const void *arg1, const void *arg2)
 {
-    memset(buf, 0, BUFSIZE*sizeof(struct pmap_dump_info));
+    struct pmap_dump_info *info1, *info2;
+    info1 = (struct pmap_dump_info *)arg1;
+    info2 = (struct pmap_dump_info *)arg2;
+
+#if CONFIG_PAE
+    if (info1->pdpt_index < info2->pdpt_index)
+        return -1;
+    if (info1->pdpt_index > info2->pdpt_index)
+        return 1;
+
+    // pdpt indices equal
+#endif
+
+    if (info1->pdir_index < info2->pdir_index)
+        return -1;
+    if (info1->pdir_index > info2->pdir_index)
+        return 1;
+
+    // pdir indices equal
+
+    if (info1->pt_index < info2->pt_index)
+        return -1;
+    if (info1->pt_index > info2->pt_index)
+        return 1;
+
+    // pt indices equal
+    return 0;
+}
+#else
+static int cmp_dump_info(const void *arg1, const void *arg2)
+{
+	return 0;
+}
+#endif
+
+#define BUFSIZE 8192
+void dump_pmap(struct pmap *pmap)
+{
+    struct pmap_dump_info *buf = calloc(BUFSIZE, sizeof(struct pmap_dump_info));
     size_t items_written;
 
     pmap->f.dump(pmap, buf, BUFSIZE, &items_written);
@@ -77,12 +115,4 @@ static void dump_pmap(struct pmap *pmap)
     }
     printf("\n");
 
-    //puts(buf);
-}
-
-void dump_page_tables(void)
-{
-    struct pmap *pmap = get_current_pmap();
-
-    dump_pmap(pmap);
 }

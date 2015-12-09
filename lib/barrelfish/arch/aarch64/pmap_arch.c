@@ -203,8 +203,15 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
+    // The slot for the mapping capability
+    err = slot_alloc(&newvnode->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1);
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1,
+                    newvnode->mapping);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -305,9 +312,14 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     page->u.frame.cap = frame;
     page->u.frame.pte_count = pte_count;
 
+    err = slot_alloc(&page->mapping);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
     // Map entry into the page table
     err = vnode_map(ptable->u.vnode.cap, frame, idx,
-                    pmap_flags, offset, pte_count);
+                    pmap_flags, offset, pte_count, page->mapping);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -348,17 +360,6 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
             temp_end = vaddr + PTABLE_NUM_ENTRIES * BASE_PAGE_SIZE;
             offset += c * BASE_PAGE_SIZE;
             c = PTABLE_NUM_ENTRIES;
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            frame = next;
 
             // do mapping
             err = do_single_map(pmap, vaddr, temp_end, frame, offset,
@@ -372,19 +373,8 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
         offset += c * BASE_PAGE_SIZE;
         c = ARMv8_L3_OFFSET(vend) - ARMv8_L3_OFFSET(temp_end);
         if (c) {
-            // copy cap
-            struct capref next;
-            err = slot_alloc(&next);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-            err = cap_copy(next, frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_PMAP_DO_MAP);
-            }
-
             // do mapping
-            err = do_single_map(pmap, temp_end, vend, next, offset, c, flags);
+            err = do_single_map(pmap, temp_end, vend, frame, offset, c, flags);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
@@ -556,27 +546,26 @@ map(struct pmap     *pmap,
 }
 
 static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
-                                size_t pte_count, bool delete_cap)
+                                size_t pte_count)
 {
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
-        // analog to do_single_map we use 10 bits for tracking pages in user space -SG
         struct vnode *page = find_vnode(pt, ARMv8_L3_OFFSET(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap,
-                              page->entry, page->u.frame.pte_count);
+            err = vnode_unmap(pt->u.vnode.cap, page->mapping);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "vnode_unmap");
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
             }
 
-            // Free up the resources
-            if (delete_cap) {
-                err = cap_destroy(page->u.frame.cap);
-                if (err_is_fail(err)) {
-                    return err_push(err, LIB_ERR_PMAP_DO_SINGLE_UNMAP);
-                }
+            err = cap_delete(page->mapping);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_CAP_DELETE);
+            }
+            err = slot_free(page->mapping);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_CAP_DELETE);
             }
             remove_vnode(pt, page);
             slab_free(&pmap->slab, page);
@@ -611,14 +600,14 @@ unmap(struct pmap *pmap,
 
     if (ARMv8_L2_OFFSET(vaddr) == ARMv8_L2_OFFSET(vend-1)) {
         // fast path
-        err = do_single_unmap(pmap_aarch64, vaddr, pte_count, false);
+        err = do_single_unmap(pmap_aarch64, vaddr, pte_count);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
     } else { // slow path
         // unmap first leaf
         uint32_t c = PTABLE_NUM_ENTRIES - ARMv8_L3_OFFSET(vaddr);
-        err = do_single_unmap(pmap_aarch64, vaddr, c, false);
+        err = do_single_unmap(pmap_aarch64, vaddr, c);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
@@ -627,7 +616,7 @@ unmap(struct pmap *pmap,
         vaddr += c * BASE_PAGE_SIZE;
         while (ARMv8_L2_OFFSET(vaddr) < ARMv8_L2_OFFSET(vend)) {
             c = PTABLE_NUM_ENTRIES;
-            err = do_single_unmap(pmap_aarch64, vaddr, c, true);
+            err = do_single_unmap(pmap_aarch64, vaddr, c);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -637,7 +626,7 @@ unmap(struct pmap *pmap,
         // unmap remaining part
         c = ARMv8_L3_OFFSET(vend) - ARMv8_L3_OFFSET(vaddr);
         if (c) {
-            err = do_single_unmap(pmap_aarch64, vaddr, c, true);
+            err = do_single_unmap(pmap_aarch64, vaddr, c);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
@@ -706,7 +695,7 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
                 // new set of flags with cap permissions.
                 size_t off = ptentry - page->entry;
                 uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
-                err = invoke_frame_modify_flags(page->u.frame.cap, off, pages, pmap_flags);
+                err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags);
                 printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
                 return err;

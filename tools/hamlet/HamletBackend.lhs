@@ -44,6 +44,7 @@
 
 > import Libbarrelfish.HasDescendants
 > import Libbarrelfish.MemToPhys
+> import qualified Libbarrelfish.GetAddress as H (get_address)
 
 > import HamletAst
 
@@ -112,9 +113,9 @@
 
 > mkCapsStruct :: Capabilities -> TFieldList
 > mkCapsStruct caps = strict
->     [("type", objtypeT),
->      ("rights", capRightsT),
->      ("u", capUnionT)]
+>     [("u", capUnionT),
+>      ("type", objtypeT),
+>      ("rights", capRightsT)]
 >     where capUnionT = unionST "capability_u" ((map (\cap -> (lower $ capNameOf cap, mkCapStructT cap))
 >                                                  (capabilities caps)) )
 >                      -- XXX: Why do I need to define types here when they are already
@@ -184,6 +185,10 @@ Generate code to calculate the "address" property of a cap.
 >     do
 >       lval <- exprCode defs cap capType expr
 >       mem_to_phys $ cast lvaddrT lval
+> addressExprCode defs cap capType (GetAddrOp expr) =
+>     do
+>       lval <- exprCode defs cap capType expr
+>       H.get_address $ lval
 > addressExprCode defs cap capType (AddressExpr expr) =
 >       exprCode defs cap capType expr
 
@@ -585,7 +590,7 @@ count).
 
 > backend :: Capabilities -> FoFCode PureExpr
 > backend caps =
->     do dummy <- newEnum "objtype" enums "ObjType_Num"
+>     do dummy <- newEnum "__attribute__((__packed__)) objtype" enums "ObjType_Num"
 >        getAddress <- get_address caps
 >        getSize <- get_size caps
 >        getTypeRoot <- get_type_root caps

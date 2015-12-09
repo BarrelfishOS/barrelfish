@@ -96,20 +96,25 @@ cap_mint(struct capref dest, struct capref src, uint64_t param1,
  */
 static inline errval_t
 vnode_map(struct capref dest, struct capref src, capaddr_t slot,
-          uint64_t attr, uint64_t off, uint64_t pte_count)
+          uint64_t attr, uint64_t off, uint64_t pte_count,
+          struct capref mapping)
 {
     uint8_t svbits = get_cap_valid_bits(src);
     capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
 
-    return invoke_vnode_map(dest, slot, saddr, svbits, attr, off, pte_count);
+    uint8_t mcn_vbits = get_cnode_valid_bits(mapping);
+    capaddr_t mcn_addr = get_cnode_addr(mapping);
+
+    return invoke_vnode_map(dest, slot, saddr, svbits, attr, off, pte_count,
+                            mcn_addr, mcn_vbits, mapping.slot);
 }
 
-static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping, size_t entry, size_t num_pages)
+static inline errval_t vnode_unmap(struct capref pgtl, struct capref mapping)
 {
     uint8_t bits = get_cap_valid_bits(mapping);
     capaddr_t mapping_addr = get_cap_addr(mapping) >> (CPTR_BITS - bits);
 
-    return invoke_vnode_unmap(pgtl, mapping_addr, bits, entry, num_pages);
+    return invoke_vnode_unmap(pgtl, mapping_addr, bits);
 }
 
 /**

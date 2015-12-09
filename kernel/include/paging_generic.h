@@ -25,6 +25,9 @@ struct mapping_info {
 };
 
 struct cte;
+struct capability;
+void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
+                        lvaddr_t pte, size_t pte_count);
 errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr);
 errval_t unmap_capability(struct cte *mem);
 errval_t lookup_cap_for_mapping(genpaddr_t paddr, lvaddr_t pte, struct cte **retcte);
