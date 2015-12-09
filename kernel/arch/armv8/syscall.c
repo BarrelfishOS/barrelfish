@@ -284,7 +284,7 @@ handle_map(
     int argc
     )
 {
-    assert(10 == argc);
+    assert(8 == argc);
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
@@ -295,9 +295,10 @@ handle_map(
     uintptr_t flags         = (uintptr_t)sa->arg4;
     uintptr_t offset        = (uintptr_t)sa->arg5;
     uintptr_t pte_count     = (uintptr_t)sa->arg6;
-    capaddr_t mcn_addr      = (capaddr_t)sa->arg7;
-    int       mcn_vbits     = (int)sa->arg8;
-    cslot_t   mapping_slot  = (cslot_t)sa->arg9;
+    uintptr_t *extra        = (uintptr_t*)sa->arg7;
+    capaddr_t mcn_addr      = extra[0];
+    int       mcn_vbits     = (int)extra[1];
+    cslot_t   mapping_slot  = (cslot_t)extra[2];
 
 
 

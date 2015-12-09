@@ -359,11 +359,12 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot, capaddr_t from,
     assert(slot <= 0xffff);
     assert(frombits <= 0xff);
 
+    uintptr_t extra[3] = { mcn_addr, mcn_vbits, mapping_slot };
     // XXX: needs check of flags, offset, and pte_count sizes
-    return syscall10((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
-                     invoke_cptr, from, (slot << 16) | frombits,
-                     flags, offset, pte_count, mcn_addr, mcn_vbits,
-                     mapping_slot).error;
+    // XXX: why can't we use more regs for syscalls/invocations?
+    return syscall8((invoke_bits << 16) | (VNodeCmd_Map << 8) | SYSCALL_INVOKE,
+                    invoke_cptr, from, (slot << 16) | frombits,
+                    flags, offset, pte_count, (uintptr_t)extra).error;
 }
 
 //XXX: workaround for inline bug of arm-gcc 4.6.1 and lower

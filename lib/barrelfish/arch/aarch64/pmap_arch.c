@@ -553,7 +553,7 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     if (pt) {
         struct vnode *page = find_vnode(pt, ARMv8_L3_OFFSET(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->u.frame.cap);
+            err = vnode_unmap(pt->u.vnode.cap, page->mapping);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "vnode_unmap");
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
