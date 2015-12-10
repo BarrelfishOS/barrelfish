@@ -103,7 +103,6 @@ errval_t initialize_monitor(struct spawninfo *si)
         return err_push(err, INIT_ERR_COPY_PACN_CAP);
     }
 
-#if __x86_64__ || __i386__ || __k1om__
     /* Give monitor IRQ */
     dest.cnode = si->taskcn;
     dest.slot  = TASKCN_SLOT_IRQ;
@@ -123,7 +122,6 @@ errval_t initialize_monitor(struct spawninfo *si)
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_IO_CAP);
     }
-#endif // __x86_64__ || __i386__
 
 #ifdef __k1om__
     /* Give monitor system memory cap */
@@ -144,27 +142,6 @@ errval_t initialize_monitor(struct spawninfo *si)
     if (err_is_fail(err)) {
         return err_push(err, INIT_ERR_COPY_IO_CAP);
     }
-#endif
-
-#if __arm__ || __aarch64__
-    /* Give monitor IO */
-       dest.cnode = si->taskcn;
-       dest.slot  = TASKCN_SLOT_IO;
-       src.cnode = cnode_task;
-       src.slot  = TASKCN_SLOT_IO;
-       err = cap_copy(dest, src);
-       if (err_is_fail(err)) {
-           return err_push(err, INIT_ERR_COPY_IO_CAP);
-       }
-       /* Give monitor IRQ */
-       dest.cnode = si->taskcn;
-       dest.slot  = TASKCN_SLOT_IRQ;
-       src.cnode = cnode_task;
-       src.slot  = TASKCN_SLOT_IRQ;
-       err = cap_copy(dest, src);
-       if (err_is_fail(err)) {
-           return err_push(err, INIT_ERR_COPY_IRQ_CAP);
-       }
 #endif
 
     return SYS_ERR_OK;
