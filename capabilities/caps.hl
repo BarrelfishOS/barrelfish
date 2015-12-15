@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2012, ETH Zurich.
+ * Copyright (c) 2009, 2010, 2012, 2015, ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -57,6 +57,7 @@ cap PhysAddr from_self {
     **/
 
     address genpaddr base;  /* Base address of untyped region */
+    uint32 pasid;           /* Physical Address Space ID */
     size_bits uint8 bits;   /* Address bits that untyped region bears */
 
 };
@@ -67,7 +68,8 @@ cap RAM from PhysAddr from_self {
     /* RAM memory object */
 
     address genpaddr base;  /* Base address of untyped region */
-    size_bits uint8 bits; /* Address bits that untyped region bears */
+    uint32 pasid;           /* Physical Address Space ID */
+    size_bits uint8 bits;   /* Address bits that untyped region bears */
 
 };
 
@@ -155,7 +157,8 @@ cap Frame from RAM from_self {
     /* Mappable memory frame */
 
     address genpaddr base;  /* Physical base address of frame */
-    size_bits uint8 bits;      /* Address bits this frame bears */
+    uint32 pasid;           /* Physical Address Space ID */
+    size_bits uint8 bits;   /* Address bits this frame bears */
 };
 
 cap Frame_Mapping from Frame {
@@ -170,7 +173,8 @@ cap DevFrame from PhysAddr from_self {
     /* Mappable device frame */
 
     address genpaddr base;  /* Physical base address of frame */
-    size_bits uint8 bits;      /* Address bits this frame bears */
+    uint32 pasid;           /* Physical Address Space ID */
+    size_bits uint8 bits;   /* Address bits this frame bears */
 };
 
 cap DevFrame_Mapping from DevFrame {
