@@ -397,7 +397,7 @@ static void intermon_bind_ump_request(struct intermon_binding *ib,
         .rights = CAPRIGHTS_READ_WRITE, // XXX
         .u.frame = {
             .base = framebase,
-            .bits = framebits
+            .bytes = 1UL << framebits
         }
     };
 

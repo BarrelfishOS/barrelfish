@@ -74,13 +74,13 @@ send_new_ram_cap(struct capref cap)
     if (!b) {
         DEBUG_CAPOPS("%s: forwarding to monitor.0\n", __FUNCTION__);
         // we're not on core 0, so forward free_monitor msg to monitor.0
-        err = mon_ram_free(&cap_data, ram.base, ram.bits);
+        err = mon_ram_free(&cap_data, ram.base, log2ceil(ram.bytes));
         assert(err_is_ok(err));
     } else {
         DEBUG_CAPOPS("%s: we are monitor.0\n", __FUNCTION__);
         // XXX: This should not be an RPC! It could stall the monitor, but
         // we trust mem_serv for the moment.
-        err = b->vtbl.free_monitor(b, cap, ram.base, ram.bits, &result);
+        err = b->vtbl.free_monitor(b, cap, ram.base, log2ceil(ram.bytes), &result);
         assert(err_is_ok(err));
         assert(err_is_ok(result));
     }

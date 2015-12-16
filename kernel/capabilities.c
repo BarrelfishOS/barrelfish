@@ -58,12 +58,12 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     switch (cap->type) {
     case ObjType_PhysAddr:
         return snprintf(buf, len,
-                        "physical address range cap (0x%" PRIxGENPADDR ":%u)",
-                        cap->u.physaddr.base, cap->u.physaddr.bits);
+                        "physical address range cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        cap->u.physaddr.base, cap->u.physaddr.bytes);
 
     case ObjType_RAM:
-        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":%u)",
-                        cap->u.ram.base, cap->u.ram.bits);
+        return snprintf(buf, len, "RAM cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        cap->u.ram.base, cap->u.ram.bytes);
 
     case ObjType_CNode: {
         int ret = snprintf(buf, len, "CNode cap "
@@ -80,12 +80,12 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "Dispatcher cap %p", cap->u.dispatcher.dcb);
 
     case ObjType_Frame:
-        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":%u)",
-                        cap->u.frame.base, cap->u.frame.bits);
+        return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        cap->u.frame.base, cap->u.frame.bytes);
 
     case ObjType_DevFrame:
-        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%u)",
-                        cap->u.frame.base, cap->u.devframe.bits);
+        return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%zx)",
+                        cap->u.frame.base, cap->u.devframe.bytes);
 
     case ObjType_VNode_ARM_l1:
         return snprintf(buf, len, "ARM L1 table at 0x%" PRIxGENPADDR,
@@ -563,7 +563,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.frame.base = genpaddr + dest_i * ((genpaddr_t)1 << objbits);
-            src_cap.u.frame.bits = objbits;
+            src_cap.u.frame.bytes = 1UL << objbits;
+            assert((get_size(&src_cap) & BASE_PAGE_MASK) == 0);
             // Insert the capabilities
             err = set_cap(&dest_caps[dest_i].cap, &src_cap);
             if (err_is_fail(err)) {
@@ -576,7 +577,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.physaddr.base = genpaddr + dest_i * ((genpaddr_t)1 << objbits);
-            src_cap.u.physaddr.bits = objbits;
+            src_cap.u.physaddr.bytes = 1UL << objbits;
             // Insert the capabilities
             err = set_cap(&dest_caps[dest_i].cap, &src_cap);
             if (err_is_fail(err)) {
@@ -589,7 +590,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.ram.base = genpaddr + dest_i * ((genpaddr_t)1 << objbits);
-            src_cap.u.ram.bits = objbits;
+            src_cap.u.ram.bytes = 1UL << objbits;
             // Insert the capabilities
             err = set_cap(&dest_caps[dest_i].cap, &src_cap);
             if (err_is_fail(err)) {
@@ -602,7 +603,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
         for(dest_i = 0; dest_i < numobjs; dest_i++) {
             // Initialize type specific fields
             src_cap.u.devframe.base = genpaddr + dest_i * ((genpaddr_t)1 << objbits);
-            src_cap.u.devframe.bits = objbits;
+            src_cap.u.devframe.bytes = 1UL << objbits;
             // Insert the capabilities
             err = set_cap(&dest_caps[dest_i].cap, &src_cap);
             if (err_is_fail(err)) {
@@ -1303,12 +1304,12 @@ errval_t caps_retype(enum objtype type, size_t objbits,
     /* Create Destination caps as per source and destination type */
     switch(src_cap->type) {
     case ObjType_PhysAddr:
-        bits = src_cap->u.physaddr.bits;
+        bits = log2cl(src_cap->u.physaddr.bytes);
         base = src_cap->u.physaddr.base;
         break;
 
     case ObjType_RAM:
-        bits = src_cap->u.ram.bits;
+        bits = log2cl(src_cap->u.ram.bytes);
         base = src_cap->u.ram.base;
         break;
 
@@ -1317,12 +1318,12 @@ errval_t caps_retype(enum objtype type, size_t objbits,
         break;
 
     case ObjType_Frame:
-        bits = src_cap->u.frame.bits;
+        bits = log2cl(src_cap->u.frame.bytes);
         base = src_cap->u.frame.base;
         break;
 
     case ObjType_DevFrame:
-        bits = src_cap->u.devframe.bits;
+        bits = log2cl(src_cap->u.devframe.bytes);
         base = src_cap->u.devframe.base;
         break;
 

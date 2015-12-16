@@ -508,7 +508,7 @@ static struct sysret handle_frame_identify(struct capability *to,
     assert((to->u.frame.base & BASE_PAGE_MASK) == 0);
     return (struct sysret) {
         .error = SYS_ERR_OK,
-        .value = to->u.frame.base | to->u.frame.bits,
+        .value = to->u.frame.base | log2cl(to->u.frame.bytes),
     };
 }
 
@@ -676,7 +676,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
         return SYSRET(err);
     }
     if (vmcb_cte->cap.type != ObjType_Frame ||
-        vmcb_cte->cap.u.frame.bits < BASE_PAGE_BITS) {
+        vmcb_cte->cap.u.frame.bytes < BASE_PAGE_SIZE) {
         return SYSRET(SYS_ERR_VMKIT_VMCB_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.vmcb, vmcb_cte, false, 0, 0);
@@ -692,7 +692,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
         return SYSRET(err);
     }
     if (ctrl_cte->cap.type != ObjType_Frame ||
-        ctrl_cte->cap.u.frame.bits < BASE_PAGE_BITS) {
+        ctrl_cte->cap.u.frame.bytes < BASE_PAGE_SIZE) {
         return SYSRET(SYS_ERR_VMKIT_CTRL_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.ctrl, ctrl_cte, false, 0, 0);

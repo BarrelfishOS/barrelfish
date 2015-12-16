@@ -340,7 +340,7 @@ errval_t spawn_spawnd(struct intermon_binding *b)
         .rights = CAPRIGHTS_ALLRIGHTS,
         .u.frame = {
             .base = spawnd_image.base,
-            .bits = log2ceil(spawnd_image.bytes),
+            .bytes = ROUND_UP(spawnd_image.bytes, BASE_PAGE_SIZE),
         }
     };
     struct capref frame;

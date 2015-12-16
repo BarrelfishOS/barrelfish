@@ -63,8 +63,8 @@ reset_and_dump(char *base, size_t size, size_t runs, reset_fn reset, const char 
             struct cte *cte = &ctes[i];
             struct capability *curr = &cte->cap;
             assert(curr->type == ObjType_RAM);
-            printf("%s/%zu:dump:%zu: 0x%08"PRIxGENPADDR"/%"PRIu8" %c%c%c\n",
-                   name, num_caps, run, curr->u.ram.base, curr->u.ram.bits,
+            printf("%s/%zu:dump:%zu: 0x%08"PRIxGENPADDR"/0x%"PRIxGENSIZE" %c%c%c\n",
+                   name, num_caps, run, curr->u.ram.base, curr->u.ram.bytes,
                    (HASCOP(cte) ? 'c' : '.'), (HASANC(cte) ? 'a' : '.'),
                    (HASDESC(cte) ? 'd' : '.'));
         }

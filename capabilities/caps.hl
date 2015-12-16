@@ -27,7 +27,7 @@ define cte_size 6;
 /* Size of DCB: */
 define dispatcher_size 10;
 /* Size of (x86_64) VNode: */
-define vnode_size 12; /* BASE_PAGE_BITS */
+define vnode_size 4096; /* BASE_PAGE_SIZE */
 /* size of a kernel control block */
 define kcb_size 16; /* OBJBITS_KCB */
 
@@ -58,8 +58,7 @@ cap PhysAddr from_self {
 
     address genpaddr base;  /* Base address of untyped region */
     pasid pasid;            /* Physical Address Space ID */
-    size_bits uint8 bits;   /* Address bits that untyped region bears */
-
+    size gensize bytes;     /* size of region */
 };
 
 /** The following caps are similar to the previous one **/
@@ -69,8 +68,7 @@ cap RAM from PhysAddr from_self {
 
     address genpaddr base;  /* Base address of untyped region */
     pasid pasid;            /* Physical Address Space ID */
-    size_bits uint8 bits;   /* Address bits that untyped region bears */
-
+    size gensize bytes;     /* Size of region in bytes */
 };
 
 cap CNode from RAM {
@@ -158,7 +156,7 @@ cap Frame from RAM from_self {
 
     address genpaddr base;  /* Physical base address of frame */
     pasid pasid;            /* Physical Address Space ID */
-    size_bits uint8 bits;   /* Address bits this frame bears */
+    size gensize bytes;     /* Size of region in bytes */
 };
 
 cap Frame_Mapping from Frame {
@@ -174,7 +172,7 @@ cap DevFrame from PhysAddr from_self {
 
     address genpaddr base;  /* Physical base address of frame */
     pasid pasid;            /* Physical Address Space ID */
-    size_bits uint8 bits;   /* Address bits this frame bears */
+    size gensize bytes;     /* Size of region in bytes */
 };
 
 cap DevFrame_Mapping from DevFrame {
@@ -197,7 +195,7 @@ cap VNode_x86_64_pml4 from RAM {
     /* PML4 */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_64_pml4_Mapping from VNode_x86_64_pml4 {
@@ -213,7 +211,7 @@ cap VNode_x86_64_pdpt from RAM {
     /* PDPT */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_64_pdpt_Mapping from VNode_x86_64_pdpt {
@@ -228,7 +226,7 @@ cap VNode_x86_64_pdir from RAM {
     /* Page directory */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_64_pdir_Mapping from VNode_x86_64_pdir {
@@ -243,7 +241,7 @@ cap VNode_x86_64_ptable from RAM {
     /* Page table */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_64_ptable_Mapping from VNode_x86_64_ptable {
@@ -261,7 +259,7 @@ cap VNode_x86_32_pdpt from RAM {
     /* PDPT */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_32_pdpt_Mapping from VNode_x86_32_pdpt {
@@ -276,7 +274,7 @@ cap VNode_x86_32_pdir from RAM {
     /* Page directory */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_32_pdir_Mapping from VNode_x86_32_pdir {
@@ -291,7 +289,7 @@ cap VNode_x86_32_ptable from RAM {
     /* Page table */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_x86_32_ptable_Mapping from VNode_x86_32_ptable {
@@ -308,7 +306,7 @@ cap VNode_ARM_l1 from RAM {
     /* L1 Page Table */
 
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
@@ -322,7 +320,7 @@ cap VNode_ARM_l1_Mapping from VNode_ARM_l1 {
 cap VNode_ARM_l2 from RAM {
     /* L2 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {
@@ -338,7 +336,7 @@ cap VNode_ARM_l2_Mapping from VNode_ARM_l2 {
 cap VNode_AARCH64_l1 from RAM {
     /* L1 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_AARCH64_l1_Mapping from VNode_AARCH64_l1 {
@@ -352,7 +350,7 @@ cap VNode_AARCH64_l1_Mapping from VNode_AARCH64_l1 {
 cap VNode_AARCH64_l2 from RAM {
     /* L2 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_AARCH64_l2_Mapping from VNode_AARCH64_l2 {
@@ -366,7 +364,7 @@ cap VNode_AARCH64_l2_Mapping from VNode_AARCH64_l2 {
 cap VNode_AARCH64_l3 from RAM {
     /* L3 Page Table */
     address genpaddr base;  /* Base address of VNode */
-    size_bits { vnode_size };
+    size { vnode_size };
 };
 
 cap VNode_AARCH64_l3_Mapping from VNode_AARCH64_l3 {
