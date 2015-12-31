@@ -13,6 +13,7 @@
 [ build application { target = "datagatherer", 
                       cFiles = [ "datagatherer.c", "cpuid.c" ],
                       flounderDefs = [ "monitor" ],
-                      addLibraries = [ "skb", "cpuid", "machinemodel" ]
+                      addLibraries = [ "skb", "cpuid", "machinemodel" ],
+                      addGeneratedIncludes = [ "schema/cpuid.h" ]
                     }
 ]
