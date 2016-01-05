@@ -121,7 +121,7 @@ int pthread_create(pthread_t *pthread, const pthread_attr_t *attr,
 
     // Start the thread
     (*pthread)->core = disp_get_core_id();
-    if ((*attr)->affinity_set) {
+    if (attr && (*attr)->affinity_set) {
         // Simple allocation policy: Pick the first core that is in the set
         for (size_t i = 0; i < MAX_COREID; i++) {
             if (CPU_ISSET(i, &(*attr)->affinity)) {
