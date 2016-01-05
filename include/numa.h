@@ -22,6 +22,10 @@
 #ifndef __NUMA_H
 #define __NUMA_H 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 ///< the maximum number of nodes supported
 #define NUMA_MAX_NUMNODES 16
 
@@ -778,5 +782,9 @@ extern int numa_exit_on_warn;
  * \param where
  */
 void numa_warn(int number, char *where, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __NUMA_H */
