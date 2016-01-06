@@ -46,7 +46,7 @@ static errval_t unmap_region(struct memobj *memobj, struct vregion *vregion)
     struct memobj_one_frame_one_map *one_frame = (struct memobj_one_frame_one_map*)memobj;
 
     if (one_frame->vregion != vregion) {
-        return LIB_ERR_MEMOBJ_VREGION_ALREADY_MAPPED;
+        return LIB_ERR_VREGION_NOT_FOUND;
     }
 
     struct vspace *vspace = vregion_get_vspace(vregion);
