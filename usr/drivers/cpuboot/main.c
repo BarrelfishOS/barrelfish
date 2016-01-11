@@ -64,7 +64,7 @@ static void initialize(void)
     errval_t err;
 
     vfs_init();
-    bench_arch_init();
+    bench_init();
 
 #if defined(__x86__) && !defined(__k1om__)
     err = connect_to_acpi();
