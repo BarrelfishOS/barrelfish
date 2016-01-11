@@ -257,6 +257,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     // monitor channel; have user retry over monitor rpc interface
     if (ram.bits > 0 &&
         !ret_ram_cap &&
+        monitor_ep.type == ObjType_EndPoint &&
         err_is_fail(lmp_can_deliver_payload(&monitor_ep, len)))
     {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
