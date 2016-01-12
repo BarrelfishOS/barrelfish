@@ -101,7 +101,7 @@ errval_t get_architecture_config(enum cpu_type type,
     case CPU_X86_64:
     {
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
-        *monitor_binary = (cmd_kernel_binary == NULL) ?
+        *monitor_binary = (cmd_monitor_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_64/sbin/monitor" :
                         get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s", 
                                         cmd_monitor_binary);
@@ -115,7 +115,7 @@ errval_t get_architecture_config(enum cpu_type type,
     case CPU_X86_32:
     {
         *arch_page_size = X86_32_BASE_PAGE_SIZE;
-        *monitor_binary = (cmd_kernel_binary == NULL) ?
+        *monitor_binary = (cmd_monitor_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_32/sbin/monitor" :
                         get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s", 
                                         cmd_monitor_binary);
