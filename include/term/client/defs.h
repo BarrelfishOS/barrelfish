@@ -184,6 +184,11 @@ struct term_client {
      * Maximum trigger id ever assigned.
      */
     term_trigger_id_t max_trigger_id;
+
+    term_filter_id_t cr2lf_id;
+    term_filter_id_t lf2crlf_id;
+    term_filter_id_t ctrlhat_id;
+    term_trigger_id_t ctrlc_id;
 };
 
 #endif // LIBTERM_CLIENT_DEFS_H

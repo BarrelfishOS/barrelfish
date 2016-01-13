@@ -17,6 +17,19 @@
 #define BARRELFISH_TERMINAL_H
 
 #include <sys/cdefs.h>
+#include <term/client/defs.h>
+
+struct terminal_state {
+    /**
+     * Is domain part of a session or a daemon?
+     */
+    bool session_domain;
+
+    /**
+     * Terminal device used from stdin, stdout and stderr.
+     */
+    struct term_client client;
+};
 
 __BEGIN_DECLS
 

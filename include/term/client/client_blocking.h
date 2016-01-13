@@ -19,11 +19,18 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/types.h>
 #include <term/client/defs.h>
+#include <termios.h>
 
 /**
  * Character that is used by libterm_client to determine end of line.
  */
 #define TERM_CLIENT_EOL_CHAR '\n'
+
+enum TerminalConfig {
+    TerminalConfig_ECHO, //< Echo yes, no
+    TerminalConfig_ICRNL, //< CR to NL conversion
+    TerminalConfig_CTRLC //< Enable/Disable CTRLC exit handler
+};
 
 errval_t term_client_blocking_init(struct term_client *client,
                                    struct capref sessionid);
@@ -35,6 +42,11 @@ errval_t term_client_blocking_write(struct term_client *client,
                                     const char *data, size_t length,
                                     size_t *written);
 errval_t term_client_blocking_config(struct term_client *client,
-                                     terminal_config_option_t opt, char *arg);
+                                     enum TerminalConfig opt, size_t arg);
+
+errval_t term_client_blocking_tcgetattr(struct term_client *client, 
+                                        struct termios* t);
+errval_t term_client_blocking_tcsetattr(struct term_client *client, 
+                                        const struct termios* t);
 
 #endif // LIBTERM_CLIENT_CLIENT_BLOCKING_H

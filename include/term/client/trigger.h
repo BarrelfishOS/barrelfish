@@ -22,7 +22,7 @@
 #include <term/client/defs.h>
 
 /* ASCII C0 control characters */
-#define CTRL(x) ((x) - 'A' + 1)
+#include <sys/ttydefaults.h>
 
 struct term_trigger {
     struct event_closure closure;

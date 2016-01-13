@@ -77,10 +77,11 @@ errval_t term_client_remove_input_filter(struct term_client *client,
 
     removed = collections_list_remove_if(client->input_filters,
                                          filter_list_id_cmp, &id);
-
     if (removed == NULL) {
         err = TERM_ERR_FILTER_NOT_FOUND;
     }
+    free(removed);
+
     return err;
 }
 

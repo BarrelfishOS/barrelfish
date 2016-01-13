@@ -27,6 +27,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/terminal.h>
+#include <term/client/client_blocking.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <skb/skb.h>
@@ -38,6 +39,8 @@
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 #include <octopus/init.h> // oct_init
+
+#include <linenoise/linenoise.h>
 
 #include "fish.h"
 
@@ -1236,31 +1239,6 @@ static struct cmd commands[] = {
     {"dump_caps", dump_caps, "Display cspace debug information"},
 };
 
-static void getline(char *input, size_t size)
-{
-    int i = 0, in;
-
-    do {
-        in = getchar();
-        if (in == '\b' || in == 0x7f /* DEL */) {
-            if (i > 0) {
-                i--;
-                putchar('\b'); // FIXME: this kinda works on my terminal
-                putchar(' ');
-                putchar('\b');
-                //fputs("\033[1X", stdout); // XXX: suitable for xterm
-            }
-        } else if (in != '\n' && i < size - 1) {
-            input[i++] = in;
-        }
-        fflush(stdout);
-    } while (in != '\n');
-    assert(i < size);
-    input[i] = '\0';
-    putchar('\n');
-    fflush(stdout);
-}
-
 static struct cmd *find_command(const char *name)
 {
     for(int i = 0; i < ENTRIES(commands); i++) {
@@ -1367,7 +1345,6 @@ static void runbootscript(void)
 
 int main(int argc, const char *argv[])
 {
-    char        input[MAX_LINE];
     int         exitcode = 0;
     bool        is_bootscript = true;
     coreid_t my_core_id = disp_get_core_id();
@@ -1389,14 +1366,23 @@ int main(int argc, const char *argv[])
         runbootscript();
     }
 
+    struct terminal_state *ts = get_terminal_state();
+    term_client_blocking_config(&ts->client, TerminalConfig_CTRLC, false);
+    linenoiseHistorySetMaxLen(1024);
     for (;;) {
-        int             cmd_argc;
-        char            *cmd_argv[64];      // Support a max of 64 cmd args
-        struct cmd      *cmd;
 
-        printf("> ");
-        fflush(stdout);
-        getline(input, MAX_LINE);
+        char* input = NULL;
+        int cmd_argc;
+        char *cmd_argv[64]; // Support a max of 64 cmd args
+        struct cmd *cmd;
+
+        input = linenoise("> ");
+        if (input == NULL || input[0] == '\0') {
+            continue;
+        }
+
+        linenoiseHistoryAdd(input); /* Add to the history. */
+        linenoiseHistorySave("history.txt"); /* Save the history on disk. */
         cmd_argc = makeargs(input, cmd_argv);
 
         /* check for trailing '&' (== run in background) */
@@ -1432,5 +1418,7 @@ int main(int argc, const char *argv[])
                 assert(r == 0);
             }
         }
+
+        free(input);
     }
 }

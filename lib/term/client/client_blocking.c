@@ -319,11 +319,81 @@ errval_t term_client_blocking_write(struct term_client *client,
  * Dispatches the config waitset until configuration message is sent.
  */
 errval_t term_client_blocking_config(struct term_client *client,
-                                     terminal_config_option_t opt, char *arg)
+                                     enum TerminalConfig opt, size_t arg)
 {
-    assert(!"NYI");
-    return TERM_ERR_UNKNOWN_CONFIG_OPT;
+    switch(opt) {
+        case TerminalConfig_ECHO:
+            client->echo = arg > 0;
+            return SYS_ERR_OK;
+        break;
+
+        case TerminalConfig_ICRNL:
+        {
+            if (arg == false && client->cr2lf_id > 0) {
+                errval_t err = term_client_remove_input_filter(client, client->cr2lf_id);
+                if (err_is_ok(err)) {
+                    client->cr2lf_id = 0;
+                }
+                return err;
+            }
+            else if(arg == true && client->cr2lf_id == 0) {
+                term_filter_id_t id = term_client_add_input_filter(client, term_filter_cr2lf);
+                client->cr2lf_id = id;
+            }
+            
+            return SYS_ERR_OK;
+        }
+        break;
+
+        case TerminalConfig_CTRLC:
+        {
+            if (arg == false && client->ctrlc_id > 0) {
+                errval_t err = term_client_remove_trigger(client, client->ctrlc_id);
+                if (err_is_ok(err)) {
+                    client->ctrlc_id = 0;
+                }
+                return err;
+            }
+            else if(arg == true && client->ctrlc_id == 0) {
+                client->ctrlc_id = term_client_add_trigger_type(client, term_trigger_int,
+                                                                TERM_TRIGGER_TYPE_USER);
+            }
+            return SYS_ERR_OK;
+        }
+        break;
+
+
+        default:
+            return TERM_ERR_UNKNOWN_CONFIG_OPT;
+    }
+
+
 }
+
+errval_t term_client_blocking_tcgetattr(struct term_client *client, 
+                                        struct termios* t)
+{
+    if (client->cr2lf_id > 0) {
+        t->c_iflag = ICRNL;
+    }
+    if (client->echo) {
+        t->c_lflag = ECHO;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t term_client_blocking_tcsetattr(struct term_client *client, 
+                                        const struct termios* t)
+{
+    errval_t err = term_client_blocking_config(client, TerminalConfig_ECHO, (t->c_lflag & ECHO) > 0);
+    assert(err_is_ok(err));
+    err = term_client_blocking_config(client, TerminalConfig_ICRNL, (t->c_iflag & ICRNL) > 0);
+    assert(err_is_ok(err));
+
+    return err;
+}
+
 
 
 /**
@@ -375,20 +445,19 @@ static void struct_term_client_init(struct term_client *client)
     client->max_trigger_id = 0;
 
     /* add default input filters */
-    term_client_add_input_filter(client, term_filter_cr2lf);
+    client->cr2lf_id = term_client_add_input_filter(client, term_filter_cr2lf);
 
     /* add default output filters */
-    term_client_add_output_filter(client, term_filter_lf2crlf);
+    client->lf2crlf_id = term_client_add_output_filter(client, term_filter_lf2crlf);
 
     /* add default echo filters */
-    term_client_add_echo_filter(client, term_filter_ctrlhat);
+    client->ctrlhat_id = term_client_add_echo_filter(client, term_filter_ctrlhat);
 
     /* add default triggers */
-    /* The user can not remove the kill trigger. */
     term_client_add_trigger_type(client, term_trigger_kill,
                                  TERM_TRIGGER_TYPE_BUILT_IN);
-    term_client_add_trigger_type(client, term_trigger_int,
-                                 TERM_TRIGGER_TYPE_USER);
+    client->ctrlc_id = term_client_add_trigger_type(client, term_trigger_int,
+                                                    TERM_TRIGGER_TYPE_USER);
 }
 
 /**

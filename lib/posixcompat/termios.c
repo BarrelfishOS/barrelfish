@@ -38,6 +38,8 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/terminal.h>
+#include <term/client/client_blocking.h>
 #include <vfs/fdtab.h>
 
 #include "pty.h"
@@ -75,8 +77,9 @@ int tcgetattr(int fd, struct termios *t)
     case FDTAB_TYPE_STDOUT:
     case FDTAB_TYPE_STDERR:
         {
-            assert(!"NYI");
-            return -1;
+            struct terminal_state *ts = get_terminal_state();
+            term_client_blocking_tcgetattr(&ts->client, t);
+            return 0;
         }
 
     default:
@@ -121,8 +124,9 @@ int tcsetattr(int fd, int optional_actions, const struct termios *t)
     case FDTAB_TYPE_STDOUT:
     case FDTAB_TYPE_STDERR:
         {
-            assert(!"NYI");
-            return -1;
+            struct terminal_state *ts = get_terminal_state();
+            term_client_blocking_tcsetattr(&ts->client, t);
+            return 0;
         }
 
     default:

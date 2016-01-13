@@ -20,18 +20,6 @@
 #include <if/terminal_config_defs.h>
 #include <term/client/client_blocking.h>
 
-struct terminal_state {
-    /**
-     * Is domain part of a session or a daemon?
-     */
-    bool session_domain;
-
-    /**
-     * Terminal device used from stdin, stdout and stderr.
-     */
-    struct term_client client;
-};
-
 size_t terminal_write(const char *data, size_t length)
 {
     errval_t err;

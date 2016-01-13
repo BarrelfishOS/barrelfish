@@ -53,7 +53,7 @@ errval_t term_client_remove_trigger(struct term_client *client,
 
     removed = collections_list_remove_if(client->triggers, trigger_list_id_cmp,
                                          &id);
-
+    free(removed);
     if (removed == NULL) {
         err = TERM_ERR_TRIGGER_NOT_FOUND;
     }
