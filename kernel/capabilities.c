@@ -983,7 +983,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
 
     case ObjType_KernelControlBlock:
-        assert((1UL << OBJBITS_KCB) >= sizeof(struct dcb));
+        assert((1UL << OBJBITS_KCB) >= sizeof(struct kcb));
 
         for(size_t i = 0; i < count; i++) {
             // Initialize type specific fields
