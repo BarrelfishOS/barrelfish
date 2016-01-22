@@ -19,7 +19,6 @@
 #include <barrelfish/waitset.h>
 #include <collections/list.h>
 #include <errors/errno.h>
-#include <if/terminal_defs.h>
 #include <term/defs.h>
 
 #include <stdbool.h>

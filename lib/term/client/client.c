@@ -14,6 +14,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <if/terminal_defs.h>
 #include <if/terminal_config_defs.h>
 #include <term/client/client.h>
 
