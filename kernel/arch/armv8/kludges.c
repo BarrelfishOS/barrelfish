@@ -34,8 +34,7 @@ void gdb_arch_get_register(void) { dbg_break(); }
 extern void gdb_arch_read_byte(void);
 void gdb_arch_read_byte(void) { dbg_break(); }
 
-extern void gdb_arch_registers(void);
-void gdb_arch_registers(void) { dbg_break(); }
+uintptr_t gdb_arch_registers;
 
 extern void gdb_arch_set_register(void);
 void gdb_arch_set_register(void) { dbg_break(); }

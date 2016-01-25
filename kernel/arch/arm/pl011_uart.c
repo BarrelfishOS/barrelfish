@@ -20,11 +20,14 @@
 
 #define INTERRUPTS_MASK		0
 
-void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base)
-{
+void
+pl011_uart_init(pl011_uart_t *uart, lvaddr_t base) {
     pl011_uart_LCR_H_t lcr = {
         .brk = 0, .pen = 0, .eps  = 0, .stp2 = 0, .fen  = 1,
         .wlen = pl011_uart_bits8, .sps  = 0
+    };
+    pl011_uart_CR_t cr = {
+        .rxe = 1, .txe = 1, .uarten = 1
     };
 
     pl011_uart_initialize(uart, (mackerel_addr_t) base);
@@ -42,6 +45,8 @@ void pl011_uart_init(pl011_uart_t *uart, lvaddr_t base)
     pl011_uart_FBRD_wr_raw(uart, 0);
 
     pl011_uart_LCR_H_wr(uart, lcr);
+
+    pl011_uart_CR_wr(uart, cr);
 }
 
 /** \brief Prints a single character to the default serial port. */

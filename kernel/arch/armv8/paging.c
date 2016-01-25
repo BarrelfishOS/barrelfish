@@ -422,3 +422,20 @@ void paging_dump_tables(struct dcb *dispatcher)
         }
     }
 }
+
+/* XXX - rewrite this. */
+void paging_context_switch(lpaddr_t ttbr)
+{
+    assert(ttbr < MEMORY_OFFSET);
+    //assert((ttbr & 0x3fff) == 0);
+
+    lpaddr_t old_ttbr = sysreg_read_ttbr0_el1();
+    if (ttbr != old_ttbr)
+    {
+        sysreg_write_ttbr0_el1(ttbr);
+        sysreg_invalidate_tlb();
+        //this isn't necessary on gem5, since gem5 doesn't implement the cache
+        //maintenance instructions, but ensures coherency by itself
+        //sysreg_invalidate_i_and_d_caches();
+    }
+}

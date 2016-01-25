@@ -170,6 +170,8 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
         }
     }
 
+/* XXX - put this back. */
+#if 0
     if (pit_handle_irq(irq)) {
         // Timer interrupt, pit_handle_irq acks it at the timer.
         assert(kernel_ticks_enabled);
@@ -179,7 +181,9 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     }
     /* This is the (still) unacknowledged startup interrupt sent by the BSP.
      * We just acknowledge it here. */
-    else if(irq == 1)
+    else
+#endif
+if(irq == 1)
     {
     	gic_ack_irq(irq);
     	dispatch(schedule());

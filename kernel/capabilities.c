@@ -711,12 +711,6 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, uint8_t bits,
             src_cap.u.vnode_aarch64_l1.base =
                 genpaddr + dest_i * ((genpaddr_t)1 << objbits_vnode);
 
-#ifdef __aarch64__
-            // Insert kernel/mem mappings into new table.
-            lpaddr_t var = gen_phys_to_local_phys(src_cap.u.vnode_aarch64_l1.base);
-            paging_make_good(var);
-#endif
-
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &src_cap);
             if (err_is_fail(err)) {

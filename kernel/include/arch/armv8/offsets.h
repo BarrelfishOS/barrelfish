@@ -34,13 +34,10 @@
 #define PADDR_SPACE_SIZE        GEN_ADDR(48)
 
 /**
- * Start address of kernel image in physical memory. This is passed to
- * the linker also. This address is chosen to be the same as Linux on ARM
- * for GEM5 and/or bootloader compatibility.
- *
- * TODO: do we need this?
+ * Start address of kernel image in physical memory.  Most ARM platforms have
+ * the first physical window starting at 2GB.
  */
-#define START_KERNEL_PHYS       0x100000
+#define START_KERNEL_PHYS       0x80000000
 
 /**
  * Kernel offset - virtual base of the kernel's address space: the region
@@ -116,6 +113,8 @@
 #define KERNEL_STACK_ADDR       (lpaddr_t)kernel_stack
 
 #ifndef __ASSEMBLER__
+
+#include <assert.h>
 
 static inline lvaddr_t local_phys_to_mem(lpaddr_t addr)
 {

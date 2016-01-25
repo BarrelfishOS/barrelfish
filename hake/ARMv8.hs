@@ -114,7 +114,6 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-march=armv8-a",
                                 "-mabi=lp64",
                                 "-mstrict-align",
-                                "-fPIE",
                                 "-U__linux__",
                                 "-Wall",
                                 "-Wshadow",
@@ -140,7 +139,6 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
 kernelLdFlags = [ Str "-Wl,-N",
                   Str "-fno-builtin",
                   Str "-nostdlib",
-                  Str "-pie",
                   Str "-Wl,--fatal-warnings"
                 ]
 

@@ -297,6 +297,35 @@ let
   -- GEM5 Cortex-A series ARMv8 core
   --
   cpuDriver {
+    target = "foundation",
+    architectures = [ "armv8" ],
+    assemblyFiles = [ "arch/armv8/foundation/boot.S",
+                      "arch/armv8/foundation/semihost.S",
+                      "arch/armv8/sysreg.S",
+                      "arch/armv8/exceptions.S" ],
+    cFiles = [ "arch/armv8/foundation/platform.c",
+               "arch/armv8/foundation/shim.c",
+               "arch/armv8/foundation/serial.c",
+               "arch/armv8/dispatch.c",
+               "arch/armv8/exec.c",
+               "arch/armv8/exn.c",
+               "arch/armv8/kludges.c",
+               "arch/armv8/misc.c",
+               "arch/armv8/paging.c",
+               "arch/armv8/syscall.c",
+               "arch/arm/pl011_uart.c",
+               "arch/arm/gic.c",
+               "arch/arm/irq.c",
+               "arch/arm/kputchar.c" ],
+    mackerelDevices = [ "arm",
+                        "arm_icp_pit",
+                        "pl130_gic",
+                        "pl011_uart" ]
+    },
+  --
+  -- GEM5 Cortex-A series ARMv8 core
+  --
+  cpuDriver {
     target = "gem5",
     architectures = [ "armv8" ],
     assemblyFiles = [ "arch/armv8/gem5/boot.S",

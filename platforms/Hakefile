@@ -394,6 +394,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++ [ ("root", "/pandaboard_image") ])
     "Standard Pandaboard ES build image and modules",
+
+    platform "ARMv8-FM" [ "armv8" ]
+    [ ("armv8", "/sbin/cpu_foundation") ]
+    "GEM5 emulator for ARM Cortex-A series multicore processors",
     
     platform "ARMv8-GEM5" [ "armv8" ]
     ([ ("armv8", f) | f <- armv8_gem5Modules ] ++ [ ("root", "/armv8_gem5_image") ])
