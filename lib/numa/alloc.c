@@ -28,26 +28,48 @@ struct bitmap *numa_alloc_interleave_mask;
 ///< numa bind mask for allocations
 struct bitmap *numa_alloc_bind_mask;
 
-static void validate_page_size(size_t *pagesize, vregion_flags_t *flags)
+/**
+ * \brief validates the given page size and sets the flags
+ *
+ * \param pagesize  desired page size
+ * \param flags     returns the VREGION_FLAGS_*
+ *
+ * \returns activated page size
+ *
+ * if the page size is not known or not supported, BASE_PAGE_SIZE is returned
+ */
+static size_t validate_page_size(size_t pagesize, vregion_flags_t *flags)
 {
-// XXX - Something is seriously wrong here.
-#if 0 // !defined(__x86_64__)
-    if (*pagesize < LARGE_PAGE_SIZE) {
-        *pagesize = BASE_PAGE_SIZE;
-        *flags = VREGION_FLAGS_READ_WRITE;
-    } else if (*pagesize < HUGE_PAGE_SIZE) {
-        *pagesize = LARGE_PAGE_SIZE;
-        *flags = VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE;
-    } else {
-        *pagesize = HUGE_PAGE_SIZE;
-        *flags = VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_HUGE;
+#if defined(__x86_64__) || defined(__aarch64__)
+    /* use huge, large or base pages on 64 bits */
+    switch(pagesize) {
+        case LARGE_PAGE_SIZE:
+            *flags = VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE;
+            return LARGE_PAGE_SIZE;
+        case HUGE_PAGE_SIZE:
+            *flags = VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_HUGE;
+            return HUGE_PAGE_SIZE;
+        case BASE_PAGE_SIZE:
+        default:
+            *flags = VREGION_FLAGS_READ_WRITE;
+            return BASE_PAGE_SIZE;
+    }
+#elif defined(__x86_32__) || (defined(__arm__) && !defined(__aarch64__))
+    /* use base or large pages on 32bits */
+    switch(pagesize) {
+        case LARGE_PAGE_SIZE:
+            *flags = VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE;
+            return LARGE_PAGE_SIZE;
+        case BASE_PAGE_SIZE:
+        default:
+            *flags = VREGION_FLAGS_READ_WRITE;
+            return BASE_PAGE_SIZE;
     }
 #else
-    *pagesize = BASE_PAGE_SIZE;
+    /* falling back to base page sizes uf unknown architecture */
     *flags = VREGION_FLAGS_READ_WRITE;
+    return BASE_PAGE_SIZE;
 #endif
-
-
 }
 
 
@@ -213,7 +235,7 @@ void *numa_alloc_onnode(size_t size, nodeid_t node, size_t pagesize)
 
     /* validate page size and round up size */
     vregion_flags_t flags;
-    validate_page_size(&pagesize, &flags);
+    pagesize = validate_page_size(pagesize, &flags);
     size = (size + pagesize - 1) & ~(pagesize - 1);
 
     /* allocate frame */
@@ -314,7 +336,7 @@ void *numa_alloc_interleaved_subset(size_t size, size_t pagesize,
     assert(nodes <= numa_num_configured_nodes());
 
     vregion_flags_t flags;
-    validate_page_size(&pagesize, &flags);
+    pagesize = validate_page_size(pagesize, &flags);
     size_t stride = pagesize;
 
     size_t node_size = size / nodes;
