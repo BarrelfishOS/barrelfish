@@ -237,6 +237,8 @@ makeCxxDepend opts phase src obj depfile
         X86_64.makeCxxDepend opts phase src obj depfile
     | optArch opts == "k1om" =
         K1om.makeCxxDepend opts phase src obj depfile        
+    | optArch opts == "x86_32" =
+        X86_32.makeCxxDepend opts phase src obj depfile        
     | otherwise = [ ErrorMsg ("no C++ dependency generator for " ++ (optArch opts)) ]
 
 cToAssembler :: Options -> String -> String -> String -> String -> [ RuleToken ]
