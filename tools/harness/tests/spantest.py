@@ -9,6 +9,8 @@
 
 import re
 import tests
+import debug
+
 from common import TestCommon
 from results import PassFailResult
 
@@ -57,16 +59,16 @@ class SpanTestInterleaved(TestCommon):
     def get_modules(self, build, machine):
         modules = super(SpanTestInterleaved, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
-        modules.add_module("tests/span-interleaved", [ machine.get_ncores() ])
+        modules.add_module("$BUILD/tests/span-interleaved", [ machine.get_ncores() ])
         return modules
 
     def is_finished(self, line):
-        return re.match('span-interleaved.*SUCCESS.*', line)
+        return re.search('SPAN_TEST_SUCCESS.', line)
 
     def process_data(self, testdir, rawiter):
         result = False
         for line in rawiter:
-            if re.match('span-interleaved.*SUCCESS.*', line) :
+            if re.search('SPAN_TEST_SUCCESS.', line) :
                 result = True
         return PassFailResult(result)
 
@@ -74,7 +76,9 @@ class SpanTestInterleaved(TestCommon):
 class SpanTestExit(TestCommon):
     '''Span a program then exit and see if other dispatchers cleanup'''
     name = "spantest_exit"
-
+    
+    is_done = False
+    
     def setup(self, build, machine, testdir):
         super(SpanTestExit, self).setup(build, machine, testdir)
 
@@ -85,15 +89,50 @@ class SpanTestExit(TestCommon):
     def get_modules(self, build, machine):
         modules = super(SpanTestExit, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
-        modules.add_module("tests/span-exit", [ machine.get_ncores() ])
+        modules.add_module("$BUILD/tests/span-exit", [ machine.get_ncores() ])
         return modules
 
     def is_finished(self, line):
-        return re.match('span-exit.*DONE.*', line)
+        if re.search('SPAN_TEST_DONE.', line) :
+            self.is_done = True
+        return re.match('kernel [0-9]*: user page fault WHILE DISABLED', line) 
 
     def process_data(self, testdir, rawiter):
         result = True
         for line in rawiter:
-            if re.match("kernel *: user page fault*span-exit*", line):
+            if re.match('kernel [0-9]*: user page fault WHILE DISABLED', line):
                 result = False
         return PassFailResult(result)
+
+    def collect_data(self, machine):
+        fh = machine.get_output()
+        while True:
+            try:
+                line = self._readline(fh)
+            except TimeoutError as e:
+                if self.boot_phase:
+                    if self.boot_attempts < MAX_BOOT_ATTEMPTS:
+                        yield BOOT_TIMEOUT_LINE_RETRY
+                        self.reboot(machine)
+                        continue
+                    else:
+                        yield BOOT_TIMEOUT_LINE_FAIL
+                else:
+                    yield TEST_TIMEOUT_LINE
+                debug.verbose("timeout encountered in collect_data");
+                self.has_timeout = True
+                if self.is_done :
+                    break
+                raise e
+
+            yield line
+
+            if not self.boot_phase:
+                self.process_line(line)
+                if self.is_finished(line):
+                    debug.verbose("is_finished returned true for line %s" % line)
+                    break
+            elif self.is_booted(line):
+                self.boot_phase = False
+                self.set_timeout(self.test_timeout_delta)
+                self.process_line(line)
