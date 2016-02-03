@@ -17,5 +17,11 @@
                     },
   build application { target = "xcorejoin",
                       cFiles = [ "xcorejoin.c" ]
+                    },
+  build application { target = "tests/span-interleaved",
+                      cFiles = [ "interleaved.c" ]
+                    },
+  build application { target = "tests/span-exit",
+                      cFiles = [ "exit.c" ]
                     }
 ]
