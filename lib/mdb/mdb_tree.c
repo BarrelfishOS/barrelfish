@@ -1293,13 +1293,13 @@ bool mdb_reachable(struct cte *cte)
 }
 
 errval_t
-mdb_traverse(mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data)
+mdb_traverse(enum mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data)
 {
     return mdb_traverse_subtree(mdb_root, order, cb, data);
 }
 
 errval_t
-mdb_traverse_subtree(struct cte *cte, mdb_tree_traversal_order order,
+mdb_traverse_subtree(struct cte *cte, enum mdb_tree_traversal_order order,
         mdb_tree_traversal_fn cb, void *data)
 {
     struct mdbnode *node = N(cte);

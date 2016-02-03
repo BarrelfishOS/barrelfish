@@ -143,10 +143,10 @@ bool mdb_reachable(struct cte *cte);
  */
 typedef errval_t (*mdb_tree_traversal_fn)(struct cte *cte, void *data);
 
-typedef enum {
+enum mdb_tree_traversal_order {
     MDB_TRAVERSAL_ORDER_ASCENDING, ///< Traverse the tree in ascending order
     MDB_TRAVERSAL_ORDER_DESCENDING ///< Traverse the tree in descending order
-} mdb_tree_traversal_order;
+};
 
 /**
  * Traverse the mdb tree using some order with a call-back function and
@@ -155,7 +155,7 @@ typedef enum {
  * @param cb The call-back to execute for every node in the tree.
  * @parm data User-provided data pointer.
  */
-errval_t mdb_traverse(mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data);
+errval_t mdb_traverse(enum mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data);
 
 /**
  * Traverse an mdb sub tree using some order with a call-back function and
@@ -165,7 +165,7 @@ errval_t mdb_traverse(mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, 
  * @param cb The call-back to execute for every node in the tree.
  * @parm data User-provided data pointer.
  */
-errval_t mdb_traverse_subtree(struct cte *cte, mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data);
+errval_t mdb_traverse_subtree(struct cte *cte, enum mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data);
 
 __END_DECLS
 
