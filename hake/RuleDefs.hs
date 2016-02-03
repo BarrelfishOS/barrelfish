@@ -891,13 +891,16 @@ compileHaskellWithLibs prog main deps dirs =
 --
 -- Compile (and link) a C binary (for the host architecture)
 --
-compileNativeC :: String -> [String] -> [String] -> [String] -> HRule
-compileNativeC prog cfiles cflags ldflags =
+compileNativeC :: String -> [String] -> [String] -> [String] -> [String] ->
+                  [(String, String)] -> HRule
+compileNativeC prog cfiles cflags ldflags includes gen_includes =
     Rule ([ Str nativeCCompiler,
             Str "-o",
             Out "tools" ("/bin" </> prog),
             Str "$(CFLAGS)",
             Str "$(LDFLAGS)" ]
+          ++ concat [ [ Str "-I", NoDep SrcTree "src" i ] | i <- includes ]
+          ++ concat [ [ Str "-I", NoDep BuildTree a i ] | (a,i) <- gen_includes ]
           ++ [ (Str flag) | flag <- cflags ]
           ++ [ (Str flag) | flag <- ldflags ]
           ++ [ (In SrcTree "src" dep) | dep <- cfiles ])
