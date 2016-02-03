@@ -11,6 +11,7 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Universitatsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
+#include <stdio.h>
 #include <barrelfish/barrelfish.h>
 
 /**
@@ -60,5 +61,5 @@ int main(int argc, char **argv)
         assert(err_is_ok(err));
     }
 
-    debug_printf("SUCCESS.");
+    printf("\nSPAN_TEST_SUCCESS.\n");
 }
