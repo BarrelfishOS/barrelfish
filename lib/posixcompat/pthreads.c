@@ -195,6 +195,22 @@ int pthread_attr_init(pthread_attr_t *attr)
     return 0;
 }
 
+int pthread_attr_destroy(pthread_attr_t *attr)
+{
+    if (!attr) {
+        return EINVAL;
+    }
+
+    if (*attr == NULL) {
+        return EINVAL;
+    }
+    free(*attr);
+
+    (*attr) = NULL;
+
+    return 0;
+}
+
 static struct thread_mutex mutex_mutex = THREAD_MUTEX_INITIALIZER;
 
 int pthread_mutex_init(pthread_mutex_t *mutex,
