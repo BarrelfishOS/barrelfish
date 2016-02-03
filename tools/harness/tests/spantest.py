@@ -48,14 +48,14 @@ class SpanTestInterleaved(TestCommon):
     name = "spantest_interleaved"
 
     def setup(self, build, machine, testdir):
-        super(SpanTest, self).setup(build, machine, testdir)
+        super(SpanTestInterleaved, self).setup(build, machine, testdir)
 
         # XXX: track number of cores booted and seen for is_finished()
         self._ncores = machine.get_ncores()
         self._nseen = 0
 
     def get_modules(self, build, machine):
-        modules = super(SpanTest, self).get_modules(build, machine)
+        modules = super(SpanTestInterleaved, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
         modules.add_module("tests/span-interleaved", [ machine.get_ncores() ])
         return modules
@@ -76,14 +76,14 @@ class SpanTestExit(TestCommon):
     name = "spantest_exit"
 
     def setup(self, build, machine, testdir):
-        super(SpanTest, self).setup(build, machine, testdir)
+        super(SpanTestExit, self).setup(build, machine, testdir)
 
         # XXX: track number of cores booted and seen for is_finished()
         self._ncores = machine.get_ncores()
         self._nseen = 0
 
     def get_modules(self, build, machine):
-        modules = super(SpanTest, self).get_modules(build, machine)
+        modules = super(SpanTestExit, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
         modules.add_module("tests/span-exit", [ machine.get_ncores() ])
         return modules
