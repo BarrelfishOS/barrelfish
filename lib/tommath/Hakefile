@@ -137,12 +137,13 @@
         ]
     },
     build application {
-        target = "tommath_demo",
+        target = "tommath/mersenne",
         cFiles = [
-            "demo/demo.c"
+            "etc/mersenne.c"
         ],
         addLibraries = [
-            "tommath"
+            "tommath",
+            "compiler-rt"
         ],
         addCFlags = [
             "-Wno-unused-variable",

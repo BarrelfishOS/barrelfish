@@ -5,7 +5,7 @@
 #include <time.h>
 #include <tommath.h>
 
-int
+static int
 is_mersenne (long s, int *pp)
 {
   mp_int  n, u;
@@ -68,7 +68,7 @@ LBL_N:mp_clear (&n);
 }
 
 /* square root of a long < 65536 */
-long
+static long
 i_sqrt (long x)
 {
   long    x1, x2;
@@ -87,7 +87,7 @@ i_sqrt (long x)
 }
 
 /* is the long prime by brute force */
-int
+static int
 isprime (long k)
 {
   long    y, z;
@@ -125,7 +125,7 @@ main (void)
       tt = clock () - tt;
 
       /* display if prime */
-      printf ("2^%-5ld - 1 is prime, test took %ld ticks\n", k, tt);
+      printf ("2^%-5ld - 1 is prime, test took %d ticks\n", k, tt);
     }
 
     /* goto next odd exponent */
