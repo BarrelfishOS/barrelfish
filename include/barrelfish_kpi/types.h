@@ -67,6 +67,11 @@ typedef uint32_t capaddr_t;
 #define PRIuCADDR PRIu32
 #define PRIxCADDR PRIx32
 
+/* physical address space identifier */
+typedef uint32_t pasid_t;
+#define PRIuPASID PRIu32
+#define PRIxPASID PRIx32
+
 /// Number of bits in a cspace address
 #define CPTR_BITS       (sizeof(capaddr_t) * NBBY)
 

@@ -139,6 +139,7 @@
 >           toFofType (Pointer s) = typedef uint64T (s ++ "*")
 >           toFofType CapRights = capRightsT
 >           toFofType CoreId = typedef uint8T "coreid_t"
+>           toFofType PasId = typedef uint32T "pasid_t"
 
 > capsStructT :: Capabilities -> TypeExpr
 > capsStructT cap = structST  "capability" (mkCapsStruct cap)

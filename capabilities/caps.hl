@@ -57,7 +57,7 @@ cap PhysAddr from_self {
     **/
 
     address genpaddr base;  /* Base address of untyped region */
-    uint32 pasid;           /* Physical Address Space ID */
+    pasid pasid;            /* Physical Address Space ID */
     size_bits uint8 bits;   /* Address bits that untyped region bears */
 
 };
@@ -68,7 +68,7 @@ cap RAM from PhysAddr from_self {
     /* RAM memory object */
 
     address genpaddr base;  /* Base address of untyped region */
-    uint32 pasid;           /* Physical Address Space ID */
+    pasid pasid;            /* Physical Address Space ID */
     size_bits uint8 bits;   /* Address bits that untyped region bears */
 
 };
@@ -157,7 +157,7 @@ cap Frame from RAM from_self {
     /* Mappable memory frame */
 
     address genpaddr base;  /* Physical base address of frame */
-    uint32 pasid;           /* Physical Address Space ID */
+    pasid pasid;            /* Physical Address Space ID */
     size_bits uint8 bits;   /* Address bits this frame bears */
 };
 
@@ -173,7 +173,7 @@ cap DevFrame from PhysAddr from_self {
     /* Mappable device frame */
 
     address genpaddr base;  /* Physical base address of frame */
-    uint32 pasid;           /* Physical Address Space ID */
+    pasid pasid;            /* Physical Address Space ID */
     size_bits uint8 bits;   /* Address bits this frame bears */
 };
 

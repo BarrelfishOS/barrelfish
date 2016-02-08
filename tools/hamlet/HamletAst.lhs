@@ -116,6 +116,7 @@
 >           | Pointer String
 >           | CapRights
 >           | CoreId
+>           | PasId
 >             deriving Show
 
 > instance Read Type where
@@ -133,6 +134,7 @@
 >         | s == "caddr" = [(CAddr, "")]
 >         | s == "caprights" = [(CapRights, "")]
 >         | s == "coreid" = [(CoreId, "")]
+>         | s == "pasid" = [(PasId, "")]
 >         | otherwise = [(Pointer s, "")]
 
 > data AddressExpr = AddressExpr Expr | MemToPhysOp Expr | GetAddrOp Expr
