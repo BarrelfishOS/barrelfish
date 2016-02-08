@@ -26,7 +26,7 @@ skip_whitespace(const char *buf, size_t size, size_t start, int skip_newlines) {
     size_t i;
 
     for(i= start;
-        i < size && (isspace(buf[i]) && buf[i] != '\n' |
+        i < size && ((isspace(buf[i]) && buf[i] != '\n') ||
                      (skip_newlines && buf[i] == '\n'));
         i++);
 
@@ -116,7 +116,7 @@ parse_config(char *buf, size_t size) {
 
     cfg= calloc(1, sizeof(struct config));
     if(!cfg) {
-        fprintf(stderr, "calloc: %a\n", strerror(errno));
+        fprintf(stderr, "calloc: %s\n", strerror(errno));
         goto parse_fail;
     }
     cfg->buf= buf;
@@ -169,7 +169,7 @@ parse_config(char *buf, size_t size) {
 
                 cfg->kernel= calloc(1, sizeof(struct component_config));
                 if(!cfg->kernel) {
-                    fprintf(stderr, "calloc: %a\n", strerror(errno));
+                    fprintf(stderr, "calloc: %s\n", strerror(errno));
                     goto parse_fail;
                 }
 
@@ -185,7 +185,7 @@ parse_config(char *buf, size_t size) {
                 struct component_config *module=
                     calloc(1, sizeof(struct component_config));
                 if(!module) {
-                    fprintf(stderr, "calloc, %a\n", strerror(errno));
+                    fprintf(stderr, "calloc, %s\n", strerror(errno));
                     goto parse_fail;
                 }
 
@@ -210,8 +210,8 @@ parse_config(char *buf, size_t size) {
             }
             else {
                 fprintf(stderr,
-                           "Unrecognised entry \"%.*a\", skipping line.\n",
-                           tlen, buf + tstart);
+                           "Unrecognised entry \"%.*s\", skipping line.\n",
+                           (int)tlen, buf + tstart);
                 cursor= find_eol(buf, size, cursor);
             }
         }

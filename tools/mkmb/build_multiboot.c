@@ -9,13 +9,13 @@
 
 void *
 create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
-    size_t size, npages;
+    size_t size;
     struct component_config *cmp;
     void *cursor;
 
     size_t shnum;
     if(elf_getshdrnum(elf, &shnum)) {
-        fprintf(stderr, "elf_getshdrnum: %a\n",
+        fprintf(stderr, "elf_getshdrnum: %s\n",
                 elf_errmsg(elf_errno()));
         return NULL;
     }
@@ -29,13 +29,13 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
     /* ELF section headers */
     size+= sizeof(struct multiboot_tag_elf_sections)
          + shnum * sizeof(Elf64_Shdr);
-    /* Kernel module tag, including command line and ELF image */
+    /* Kernel module tag, including command line. */
     size+= sizeof(struct multiboot_tag_module_64)
-         + cfg->kernel->args_len+1 + cfg->kernel->image_size;
+         + cfg->kernel->args_len+1;
     /* All other modules */
     for(cmp= cfg->first_module; cmp; cmp= cmp->next) {
         size+= sizeof(struct multiboot_tag_module_64)
-             + cmp->args_len+1 + cmp->image_size;
+             + cmp->args_len+1;
     }
     /* EFI memory map */
     size+= sizeof(struct multiboot_tag_efi_mmap)
@@ -77,7 +77,7 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
 
         size_t shndx;
         if(elf_getshdrstrndx(elf, &shndx)) {
-            fprintf(stderr, "elf_getshdrstrndx: %a\n",
+            fprintf(stderr, "elf_getshdrstrndx: %s\n",
                     elf_errmsg(elf_errno()));
             return NULL;
         }
@@ -88,6 +88,8 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
         sections->num= shnum;
         sections->entsize= sizeof(Elf64_Shdr);
         sections->shndx= shndx;
+
+        /* XXX - I'm not initialising these! */
 
         cursor+= sizeof(struct multiboot_tag_elf_sections)
                + shnum * sizeof(Elf64_Shdr);
@@ -110,7 +112,7 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
                  cfg->kernel->args_len);
 
         cursor+= sizeof(struct multiboot_tag_module_64)
-               + cfg->kernel->args_len+1 + cfg->kernel->image_size;
+               + cfg->kernel->args_len+1;
     }
     /* Add the remaining modules */
     for(cmp= cfg->first_module; cmp; cmp= cmp->next) {
@@ -128,7 +130,7 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
         ntstring(module->cmdline, cfg->buf + cmp->args_start, cmp->args_len);
 
         cursor+= sizeof(struct multiboot_tag_module_64)
-               + cmp->args_len+1 + cmp->image_size;
+               + cmp->args_len+1;
     }
     /* Record the position of the memory map, to be filled in after we've
      * finished doing allocations. */

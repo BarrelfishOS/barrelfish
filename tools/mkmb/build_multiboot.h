@@ -4,7 +4,6 @@
 #include <libelf.h>
 #include "config.h"
 
-void *create_multiboot2_info(struct config *cfg, Elf *elf,
-                             size_t shnum, size_t mmap_size);
+void *create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size);
 
 #endif /* __BUILD_MULTIBOOT_H */

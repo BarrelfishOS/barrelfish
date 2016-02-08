@@ -12,7 +12,8 @@
 
 [ compileNativeC "mkmb"
                  [ "build_multiboot.c", "config.c", "main.c", "util.c" ]
-                 [ "-std=gnu99", "-g", "-I/usr/include/freebsd" ]
-                 [ "-lelf-freebsd" ]
+                 [ "-std=gnu99", "-g", "-I/usr/include/freebsd",
+                   "-Wall" ]
+                 [ "-lelf-freebsd", "-lfdt" ]
                  [ "/kernel/include" ]
                  [] ]
