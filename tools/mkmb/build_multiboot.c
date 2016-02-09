@@ -41,12 +41,14 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
     size+= sizeof(struct multiboot_tag_efi_mmap)
          + mmap_size;
 
-    cfg->multiboot= calloc(1,size);
+    cfg->multiboot_size= size;
+    cfg->multiboot_alloc= ROUNDUP(size, PAGE_4k);
+
+    cfg->multiboot= calloc(1, cfg->multiboot_alloc);
     if(!cfg->multiboot) {
         perror("calloc");
         return NULL;
     }
-    cfg->multiboot_size= size;
 
     cursor= cfg->multiboot;
     /* Write the fixed header. */
@@ -89,7 +91,24 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
         sections->entsize= sizeof(Elf64_Shdr);
         sections->shndx= shndx;
 
-        /* XXX - I'm not initialising these! */
+        Elf64_Shdr *shdrs= (Elf64_Shdr *)sections->sections;
+        for(size_t i= 0; i < shnum; i++) {
+            Elf_Scn *scn= elf_getscn(elf, i);
+            if(!scn) {
+                fprintf(stderr, "elf_getscn: %s\n",
+                        elf_errmsg(elf_errno()));
+                return NULL;
+            }
+
+            Elf64_Shdr *shdr= elf64_getshdr(scn);
+            if(!shdr) {
+                fprintf(stderr, "elf64_getshdr: %s\n",
+                        elf_errmsg(elf_errno()));
+                return NULL;
+            }
+
+            memcpy(&shdrs[i], shdr, sizeof(Elf64_Shdr));
+        }
 
         cursor+= sizeof(struct multiboot_tag_elf_sections)
                + shnum * sizeof(Elf64_Shdr);
@@ -102,14 +121,13 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
         kernel->type= MULTIBOOT_TAG_TYPE_MODULE_64;
         kernel->size= sizeof(struct multiboot_tag_module_64)
                     + cfg->kernel->args_len+1;
-        kernel->mod_start=
-            (multiboot_uint64_t)cfg->kernel->image_address;
-        kernel->mod_end=
-            (multiboot_uint64_t)(cfg->kernel->image_address +
-                                 (cfg->kernel->image_size - 1));
+        /* Leave the addresses uninitialised until we've finished allocation,
+         * which needs the multboot image constructed first. */
         ntstring(kernel->cmdline,
                  cfg->buf + cfg->kernel->args_start,
                  cfg->kernel->args_len);
+
+        cfg->kernel->tag= kernel;
 
         cursor+= sizeof(struct multiboot_tag_module_64)
                + cfg->kernel->args_len+1;
@@ -122,12 +140,9 @@ create_multiboot2_info(struct config *cfg, Elf *elf, size_t mmap_size) {
         module->type= MULTIBOOT_TAG_TYPE_MODULE_64;
         module->size= sizeof(struct multiboot_tag_module_64)
                     + cmp->args_len+1;
-        module->mod_start=
-            (multiboot_uint64_t)cmp->image_address;
-        module->mod_end=
-            (multiboot_uint64_t)(cmp->image_address +
-                                 (cmp->image_size - 1));
         ntstring(module->cmdline, cfg->buf + cmp->args_start, cmp->args_len);
+
+        cmp->tag= module;
 
         cursor+= sizeof(struct multiboot_tag_module_64)
                + cmp->args_len+1;

@@ -56,4 +56,6 @@ typedef struct {
   uint64_t Attribute;
 } efi_memory_descriptor;
 
+void print_mmap(efi_memory_descriptor *mmap, size_t mmap_len);
+
 #endif /* __EFI_H */

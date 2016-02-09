@@ -39,21 +39,24 @@ void fdt_fail(char *name, int fdt_err) {
 
 /* Read the complete contents of a file. */
 void *
-load_file(const char *path, size_t *length) {
+load_file(const char *path, size_t *length, size_t *alloc) {
     FILE *file= fopen(path, "r");
     if(!file) fail("fopen");
 
     struct stat stat;
     if(fstat(fileno(file), &stat) < 0) fail("stat");
 
-    char *buf= malloc(stat.st_size);
-    if(!buf) fail("malloc");
+    /* Allocate a page-sized zero-initialised buffer. */
+    size_t alloc_size= ROUNDUP(stat.st_size, PAGE_4k);
+    char *buf= calloc(alloc_size, 1);
+    if(!buf) fail("calloc");
 
     if(fread(buf, 1, stat.st_size, file) != stat.st_size) fail("fread");
 
     if(fclose(file) != 0) fail("fclose");
 
     *length= stat.st_size;
+    *alloc= alloc_size;
     return buf;
 }
 
@@ -77,72 +80,37 @@ load_component(char *basepath, size_t bplen, struct component_config *comp,
 
     /* Load the ELF */
     printf("Loading component %s\n", path);
-    comp->image= load_file(path, &comp->image_size);
+    comp->image= load_file(path, &comp->image_size, &comp->alloc_size);
 
     return 0;
 }
 
-void
-print_mmap(efi_memory_descriptor *mmap, size_t mmap_len) {
-    size_t i;
-
-    printf("EFI Memory Map:\n");
-    for(i= 0; i < mmap_len; i++) {
-        printf("%016lx-%016lx    ",
-               mmap[i].PhysicalStart,
-               mmap[i].PhysicalStart + (mmap[i].NumberOfPages * PAGE_4k) - 1);
-        switch(mmap[i].Type) {
-            case EfiConventionalMemory:
-                printf("EfiConventionalMemory");
-                break;
-            case EfiBarrelfishCPUDriver:
-                printf("EfiBarrelfishCPUDriver");
-                break;
-            case EfiBarrelfishCPUDriverStack:
-                printf("EfiBarrelfishCPUDriverStack");
-                break;
-            case EfiBarrelfishMultibootData:
-                printf("EfiBarrelfishMultibootData");
-                break;
-            case EfiBarrelfishELFData:
-                printf("EfiBarrelfishELFData");
-                break;
-            case EfiBarrelfishBootPageTable:
-                printf("EfiBarrelfishBootPageTable");
-                break;
-            default:
-                printf("Unrecognised");
-        }
-        printf(" (%lukB)\n", mmap[i].NumberOfPages * 4);
-    }
-}
-
-/* Build an EFI memory map from the list of memory regions given in an FDT
- * blob. */
-efi_memory_descriptor *
-build_efi_mmap(void *fdt, size_t *len, size_t freespace) {
+fdt32_t *
+fdt_regions(void *fdt, uint32_t *n_addr_cells,
+            uint32_t *n_size_cells, size_t *mmap_len,
+            size_t freespace) {
     int fdt_err;
 
     /* Get the size of addresses (in 32-bit cells) from the root node. */
     fdt32_t *p_addr_cells=(fdt32_t *)
         fdt_getprop(fdt, 0, "#address-cells", &fdt_err);
     if(!p_addr_cells) fdt_fail("fdt_getprop", fdt_err);
-    uint32_t n_addr_cells= fdt32_to_cpu(*p_addr_cells);
+    *n_addr_cells= fdt32_to_cpu(*p_addr_cells);
 
-    if(n_addr_cells != 1 && n_addr_cells != 2) {
+    if(*n_addr_cells != 1 && *n_addr_cells != 2) {
         fprintf(stderr, "Don't know how to deal with %dB values\n",
-                        n_addr_cells * 4);
+                        *n_addr_cells * 4);
         exit(EXIT_FAILURE);
     }
 
     fdt32_t *p_size_cells=(fdt32_t *)
         fdt_getprop(fdt, 0, "#size-cells", &fdt_err);
     if(!p_size_cells) fdt_fail("fdt_getprop", fdt_err);
-    uint32_t n_size_cells= fdt32_to_cpu(*p_size_cells);
+    *n_size_cells= fdt32_to_cpu(*p_size_cells);
 
-    if(n_size_cells != 1 && n_size_cells != 2) {
+    if(*n_size_cells != 1 && *n_size_cells != 2) {
         fprintf(stderr, "Don't know how to deal with %dB values\n",
-                        n_size_cells * 4);
+                        *n_size_cells * 4);
         exit(EXIT_FAILURE);
     }
 
@@ -156,14 +124,13 @@ build_efi_mmap(void *fdt, size_t *len, size_t freespace) {
         fdt_get_property(fdt, mem_off, "reg", &lenp);
     if(!p_mem_reg) fdt_fail("fdt_get_property", lenp);
     
-    size_t entry_size= n_addr_cells + n_size_cells;
+    size_t entry_size= *n_addr_cells + *n_size_cells;
 
     /* How many entries are there? */
-    size_t mmap_len=
-        fdt32_to_cpu(p_mem_reg->len) / (entry_size * sizeof(fdt32_t));
+    *mmap_len= fdt32_to_cpu(p_mem_reg->len) / (entry_size * sizeof(fdt32_t));
 
     /* Sanity check. */
-    if(mmap_len * (entry_size * sizeof(fdt32_t))
+    if(*mmap_len * (entry_size * sizeof(fdt32_t))
        != fdt32_to_cpu(p_mem_reg->len)) {
         fprintf(stderr, "len(/memory/reg) wasn't a multiple of %lu\n", 
                 (entry_size * sizeof(fdt32_t)));
@@ -172,17 +139,28 @@ build_efi_mmap(void *fdt, size_t *len, size_t freespace) {
 
     /* Allocate 'freespace' entries at the beginning, to be filled with
      * BF-specific entries later. */
-    mmap_len+= freespace;
+    *mmap_len+= freespace;
 
-    /* Allocate the memory map. */
+    return (fdt32_t *)p_mem_reg->data;
+}
+
+/* Fill the preallocated EFI memory map in, using the given list of cells. */
+efi_memory_descriptor *
+build_efi_mmap(struct config *config, fdt32_t *cells,
+               uint32_t n_addr_cells, uint32_t n_size_cells,
+               size_t mmap_len, size_t freespace) {
     efi_memory_descriptor *mmap=
-        calloc(mmap_len, sizeof(efi_memory_descriptor));
-    if(!mmap) fail("calloc");
+        (efi_memory_descriptor *)config->mmap_start;
+
+    /* Write the tag. */
+    config->mmap_tag->type= MULTIBOOT_TAG_TYPE_EFI_MMAP;
+    config->mmap_tag->size= sizeof(struct multiboot_tag_efi_mmap) +
+                            mmap_len * sizeof(efi_memory_descriptor);
+    config->mmap_tag->descr_size= sizeof(efi_memory_descriptor);
+    config->mmap_tag->descr_vers= 1;
 
     /* Parse the FDT region list and construct EFI entries. */
-    fdt32_t *cells= (fdt32_t *)p_mem_reg->data;
-    size_t i;
-    for(i= freespace; i < mmap_len; i++) {
+    for(size_t i= freespace; i < mmap_len; i++) {
         uint64_t base, size;
 
         /* Read the base address' first cell. */
@@ -219,7 +197,6 @@ build_efi_mmap(void *fdt, size_t *len, size_t freespace) {
         mmap[i].Attribute=     0; /* XXX - this should change. */
     }
 
-    *len= mmap_len;
     return mmap;
 }
 
@@ -246,8 +223,9 @@ main(int argc, char *argv[]) {
                *out_path=    argv[4];
 
     /* Load the configuration. */
-    size_t config_size;
-    char *config_raw= (char *)load_file(config_path, &config_size);
+    size_t config_size, config_alloc;
+    char *config_raw=
+        (char *)load_file(config_path, &config_size, &config_alloc);
 
     /* Parse the configuration. */
     struct config *config= parse_config(config_raw, config_size);
@@ -285,25 +263,27 @@ main(int argc, char *argv[]) {
     }
 
     /* Load the FDT blob. */
-    size_t fdt_size;
-    void *fdt= load_file(fdt_path, &fdt_size);
+    size_t fdt_size, fdt_alloc;
+    void *fdt= load_file(fdt_path, &fdt_size, &fdt_alloc);
 
     /* Sanity check. */
     int fdt_err= fdt_check_header(fdt);
     if(fdt_err != 0) fdt_fail("fdt_check_header", fdt_err);
 
-    /* Build the EFI memory map from FDT information.  We leave uninitialised
-     * entries at the beginning for the kernel, all modules, the CPU driver's
-     * loadable segment & stack, the MB header, and the boot page table. */
+    /* Parse the FDT until we know how many regions we have, but put off
+     * building the EFI mmap until we've build the MB image. */
     size_t mmap_len, pr1= n_modules + 5;
-    efi_memory_descriptor *mmap= build_efi_mmap(fdt, &mmap_len, pr1);
+    uint32_t n_addr_cells, n_size_cells;
+    fdt32_t *region_cells=
+        fdt_regions(fdt, &n_addr_cells, &n_size_cells, &mmap_len, pr1);
 
     if(mmap_len < 1) {
         fprintf(stderr, "No memory regions defined.\n");
         exit(EXIT_FAILURE);
     }
 
-    /* Create the multiboot header. */
+    /* Create the multiboot header, now that we know how big the memory map
+     * needs to be.  */
     void *mb_header=
         create_multiboot2_info(config, kernel_elf,
                                mmap_len * sizeof(efi_memory_descriptor));
@@ -311,6 +291,13 @@ main(int argc, char *argv[]) {
         fprintf(stderr, "Couldn't build the multiboot header.\n");
         exit(EXIT_FAILURE);
     }
+
+    /* Build the EFI memory map from FDT information.  We leave uninitialised
+     * entries at the beginning for the kernel, all modules, the CPU driver's
+     * loadable segment & stack, the MB header, and the boot page table. */
+    efi_memory_descriptor *mmap=
+        build_efi_mmap(config, region_cells, n_addr_cells,
+                       n_size_cells, mmap_len, pr1);
 
     /* Find the CPU driver's loadable segment. */
     size_t phnum;
@@ -385,6 +372,13 @@ main(int argc, char *argv[]) {
     mmap[4].NumberOfPages= roundpage(config->kernel->image_size);
     mmap[4].Attribute= 0; /* XXX */
 
+    /* Update the multiboot tag. */
+    config->kernel->tag->mod_start=
+        (multiboot_uint64_t)config->kernel->image_address;
+    config->kernel->tag->mod_end=
+        (multiboot_uint64_t)(config->kernel->image_address +
+                             (config->kernel->image_size - 1));
+
     printf("ELF %.*s %luB @ 0x%lx\n",
            (int)config->kernel->path_len,
            config_raw + config->kernel->path_start,
@@ -404,6 +398,13 @@ main(int argc, char *argv[]) {
         mmap[i_mmap].VirtualStart= m->image_address;
         mmap[i_mmap].NumberOfPages= roundpage(m->image_size);
         mmap[i_mmap].Attribute= 0; /* XXX */
+
+        /* Update the multiboot tag. */
+        m->tag->mod_start=
+            (multiboot_uint64_t)m->image_address;
+        m->tag->mod_end=
+            (multiboot_uint64_t)(m->image_address +
+                                 (m->image_size - 1));
 
         printf("ELF %.*s %luB @ 0x%lx\n",
                (int)m->path_len,
@@ -434,25 +435,25 @@ main(int argc, char *argv[]) {
     size_t image_size= 0;
 
     /* Write the multiboot header (including the memory map). */
-    if(fwrite(config->multiboot, 1, config->multiboot_size, outfile)
-            != config->multiboot_size) {
+    if(fwrite(config->multiboot, 1, config->multiboot_alloc, outfile)
+            != config->multiboot_alloc) {
         fail("fwrite");
     }
     image_size+= config->multiboot_size;
 
     /* Write the kernel ELF. */
-    if(fwrite(config->kernel->image, 1, config->kernel->image_size, outfile)
-            != config->kernel->image_size) {
+    if(fwrite(config->kernel->image, 1, config->kernel->alloc_size, outfile)
+            != config->kernel->alloc_size) {
         fail("fwrite");
     }
-    image_size+= config->kernel->image_size;
+    image_size+= config->kernel->alloc_size;
 
     /* Write all module ELFs. */
     for(m= config->first_module; m; m= m->next) {
-        if(fwrite(m->image, 1, m->image_size, outfile) != m->image_size) {
+        if(fwrite(m->image, 1, m->alloc_size, outfile) != m->alloc_size) {
             fail("fwrite");
         }
-        image_size+= m->image_size;
+        image_size+= m->alloc_size;
     }
 
     printf("Image size (bytes): %lu\n", image_size);

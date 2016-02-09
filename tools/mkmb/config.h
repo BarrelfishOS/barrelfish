@@ -15,8 +15,11 @@ struct component_config {
     size_t args_start, args_len;
 
     /* The size and target address of the ELF image. */
-    size_t image_size;
+    size_t image_size, alloc_size;
     uint64_t image_address;
+
+    /* A pointer to the module tag in the multiboot info image. */
+    struct multiboot_tag_module_64 *tag;
 
     /* A pointer to the loaded image. */
     void *image;
@@ -30,7 +33,7 @@ struct config {
 
     /* The multiboot information structure. */
     void *multiboot;
-    size_t multiboot_size;
+    size_t multiboot_size, multiboot_alloc;
 
     /* Pointers (within the multiboot structure), to the memory map that needs
      * to be filled in after all allocation is finished. */
