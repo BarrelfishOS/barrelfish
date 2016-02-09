@@ -39,6 +39,15 @@ arm_system _
         toolPrefix = "arm-linux-gnueabi-"
       }
 
+-- Linaro 2015.08 (GCC 5.1)
+arm_netos_linaro_2015_08 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-5.1-2015.08-x86_64_arm-eabi" </>
+                   "bin",
+        toolPrefix = "arm-eabi-"
+      }
+
 -- Linaro 2015.06 (GCC 4.8)
 arm_netos_linaro_2015_06 root
     = ToolDetails {
@@ -79,13 +88,13 @@ arm_netos_linaro_2014_11 root
 -- ARM AArch64 toolchains
 --
 
--- Linaro 2014.11 (GCC 4.9)
-arm_netos_linaro_aarch64_2014_11 root
+-- Linaro 2015.08 (GCC 5.1)
+arm_netos_linaro_aarch64_2015_08 root
     = ToolDetails {
         toolPath = mkRoot root </> "linaro" </>
-                   "gcc-linaro-4.9-2014.11-x86_64_aarch64-elf" </>
+                   "gcc-linaro-5.1-2015.08-x86_64_aarch64-elf" </>
                    "bin",
-        toolPrefix = "aarch64-none-elf-"
+        toolPrefix = "aarch64-elf-"
       }
 
 -- Linaro 2015.02 (GCC 4.9)
@@ -95,6 +104,15 @@ arm_netos_linaro_aarch64_2015_02 root
                    "gcc-linaro-4.9-2015.02-3-x86_64_aarch64-elf" </>
                    "bin",
         toolPrefix = "aarch64-elf-"
+      }
+
+-- Linaro 2014.11 (GCC 4.9)
+arm_netos_linaro_aarch64_2014_11 root
+    = ToolDetails {
+        toolPath = mkRoot root </> "linaro" </>
+                   "gcc-linaro-4.9-2014.11-x86_64_aarch64-elf" </>
+                   "bin",
+        toolPrefix = "aarch64-none-elf-"
       }
 
 --
