@@ -1,18 +1,22 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2015, ETH Zurich.
+-- Copyright (c) 2016, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Universitaetstrasse 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/machinemodel
+-- Hakefile for /lib/compiler-rt
 --
 --------------------------------------------------------------------------
 
 [
     build library {
         target = "compiler-rt",
+        addCFlags = [
+            "-Wno-missing-prototypes",
+            "-Wno-missing-declarations"
+        ],
         cFiles = [
             "lib/builtins/divti3.c",
             "lib/builtins/udivmodti4.c",
