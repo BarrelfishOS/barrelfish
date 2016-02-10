@@ -151,5 +151,19 @@
             "-Wno-unused-variable",
             "-Wno-missing-prototypes"
         ]
+    },
+    build application {
+        target = "tommath/mont",
+        cFiles = [
+            "etc/mont.c"
+        ],
+        addLibraries = [
+            "tommath",
+            "compiler-rt"
+        ],
+        addCFlags = [
+            "-Wno-unused-variable",
+            "-Wno-missing-prototypes"
+        ]
     }
 ]
